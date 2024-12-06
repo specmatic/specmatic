@@ -806,7 +806,7 @@ data class Scenario(
             is JSONArrayPattern -> bodyPattern.calculatePath(httpRequest.body, this.resolver)
             else -> emptySet()
         }
-        
+
         // For top-level AnyPattern that returns scalar type names, wrap them in braces
         return if (bodyPattern is AnyPattern) {
             paths.map { path ->
@@ -899,7 +899,7 @@ data class Scenario(
         response: HttpResponse,
         data: JSONObjectValue
     ): HttpResponse {
-        val substitution = httpRequestPattern.getSubstitution(request, originalRequest, resolver, data)
+        val substitution = httpRequestPattern.getSubstitution(request, originalRequest, resolver.copy(mockMode = true), data)
         return httpResponsePattern.resolveSubstitutions(substitution, response)
     }
 

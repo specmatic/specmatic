@@ -297,7 +297,7 @@ data class Feature(
                 scenario.httpRequestPattern.matches(httpRequest, resolver) is Success
             }
         }
-        
+
         return matchingScenario?.calculatePath(httpRequest) ?: emptySet()
     }
 
@@ -1601,8 +1601,26 @@ data class Feature(
     private fun isJSONPayload(type: Pattern) =
         type is TabularPattern || type is JSONObjectPattern || type is JSONArrayPattern || type is ListPattern
 
-    private fun toOpenApiSchema(pattern: Pattern): Schema<Any> {
+    @Suppress("MemberVisibilityCanBePrivate")
+    fun toOpenApiSchema(pattern: Pattern): Schema<Any> {
         val schema = when {
+            pattern is EmailPattern -> EmailSchema()
+            pattern is NumberPattern -> {
+                val schema = if (pattern.isDoubleFormat) NumberSchema() else IntegerSchema()
+                schema.apply {
+                    minimum = pattern.minimum;
+                    maximum = pattern.maximum;
+                    exclusiveMinimum = pattern.exclusiveMinimum.takeIf { it };
+                    exclusiveMaximum = pattern.exclusiveMaximum.takeIf { it }
+                }
+            }
+            pattern is StringPattern -> {
+                StringSchema().apply {
+                    minLength = pattern.minLength;
+                    maxLength = pattern.maxLength;
+                    this.pattern = pattern.regex
+                }
+            }
             pattern is DictionaryPattern -> {
                 ObjectSchema().apply {
                     additionalProperties = Schema<Any>().apply {
@@ -1692,7 +1710,9 @@ data class Feature(
                 format = null
             }
             pattern is BooleanPattern || (pattern is DeferredPattern && pattern.pattern == "(boolean)") -> BooleanSchema()
-            pattern is DateTimePattern || (pattern is DeferredPattern && pattern.pattern == "(datetime)") -> StringSchema()
+            pattern is DateTimePattern || (pattern is DeferredPattern && pattern.pattern == "(datetime)") -> DateTimeSchema()
+            pattern is DatePattern || (pattern is DeferredPattern && pattern.pattern == "(date)") -> DateSchema()
+            pattern is UUIDPattern || (pattern is DeferredPattern && pattern.pattern == "(uuid)") -> UUIDSchema()
             pattern is StringPattern || pattern is EmptyStringPattern || (pattern is DeferredPattern && pattern.pattern == "(string)") || (pattern is DeferredPattern && pattern.pattern == "(emptystring)") -> StringSchema()
             pattern is NullPattern || (pattern is DeferredPattern && pattern.pattern == "(null)") -> Schema<Any>().apply {
                 this.nullable = true
@@ -1731,8 +1751,8 @@ data class Feature(
             pattern is QueryParameterScalarPattern -> {
                 toOpenApiSchema(pattern.pattern)
             }
-            else ->
-                TODO("Not supported: ${pattern.typeAlias ?: pattern.typeName}, ${pattern.javaClass.name}")
+            pattern is EnumPattern -> toOpenApiSchema(pattern.pattern)
+            else -> TODO("Not supported: ${pattern.typeAlias ?: pattern.typeName}, ${pattern.javaClass.name}")
         }
 
         return schema as Schema<Any>
