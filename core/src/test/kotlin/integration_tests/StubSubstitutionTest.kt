@@ -1081,4 +1081,71 @@ class StubSubstitutionTest {
             """.trimIndent())
         }
     }
+
+    @Test
+    fun `should lookup wildcard value in-case no keys match the substitution key`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Sample API
+              version: 0.1.9
+            paths:
+              /data/{id}:
+                get:
+                  summary: Get data
+                  parameters:
+                    - in: path
+                      name: id
+                      schema:
+                        type: string
+                      required: true
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                              - names
+                            properties:
+                              id:
+                                type: string
+                              names:
+                                type: array
+                                items:
+                                  type: string
+        """.trimIndent()
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+
+        val exampleRequest = HttpRequest(method = "GET", path = "/data/(ID:string)")
+        val exampleResponse = HttpResponse(200, body = JSONObjectValue(mapOf(
+            "id" to StringValue("$(ID)"),
+            "names" to StringValue("$(lookup.data[ID].names)")
+        )))
+        val dataLookup = parsedJSONObject("""
+        {
+            "lookup": {
+                "data": {
+                    "*": {
+                        "names": ["John", "Jane"]
+                    }
+                }
+            }
+        }
+        """.trimIndent())
+        val scenarioStub = ScenarioStub(request = exampleRequest, response = exampleResponse, data = dataLookup)
+
+        HttpStub(feature, listOf(scenarioStub)).use { stub ->
+            val request = HttpRequest("GET", "/data/123")
+            val response = stub.client.execute(request)
+            val responseBody = response.body as JSONObjectValue
+
+            assertThat(response.status).isEqualTo(200)
+            assertThat(responseBody.findFirstChildByPath("id")).isEqualTo(StringValue("123"))
+            assertThat(responseBody.findFirstChildByPath("names.[0]")).isEqualTo(StringValue("John"))
+            assertThat(responseBody.findFirstChildByPath("names.[1]")).isEqualTo(StringValue("Jane"))
+        }
+    }
 }
