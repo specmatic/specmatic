@@ -69,7 +69,8 @@ interface Pattern {
     }
 
     fun resolveSubstitutions(substitution: Substitution, value: Value, resolver: Resolver, key: String? = null): ReturnValue<Value> {
-        return substitution.substitute(value, this, key)
+        val resolvedValue = runCatching { substitution.resolveIfLookup(value, this) }.getOrElse { e -> return HasException(e) }
+        return substitution.substitute(resolvedValue, this, key)
     }
 
     fun getTemplateTypes(key: String, value: Value, resolver: Resolver): ReturnValue<Map<String, Pattern>> {

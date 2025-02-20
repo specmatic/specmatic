@@ -5,6 +5,7 @@ import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.SPECMATIC_STUB_DICTIONARY
 import io.specmatic.core.pattern.parsedJSONObject
+import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
@@ -743,6 +744,341 @@ class StubSubstitutionTest {
             assertThat(output).contains(osAgnosticPath(brokenDictionaryPath))
         } finally {
             System.clearProperty(SPECMATIC_STUB_DICTIONARY)
+        }
+    }
+
+    @Test
+    fun `should be able to dereference lookup from the example lookup dictionary for composite values`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Sample API
+              version: 0.1.9
+            paths:
+              /data/{id}:
+                get:
+                  summary: Get data
+                  parameters:
+                    - in: path
+                      name: id
+                      schema:
+                        type: string
+                      required: true
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                              - names
+                            properties:
+                              id:
+                                type: string
+                              names:
+                                type: array
+                                items:
+                                  type: string
+        """.trimIndent()
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+
+        val exampleRequest = HttpRequest(method = "GET", path = "/data/(ID:string)")
+        val exampleResponse = HttpResponse(200, body = JSONObjectValue(mapOf(
+            "id" to StringValue("$(ID)"),
+            "names" to StringValue("$(lookup.data[ID].names)")
+        )))
+        val dataLookup = parsedJSONObject("""
+        {
+            "lookup": {
+                "data": {
+                    "123": {
+                        "names": ["John", "Jane"]
+                    }
+                }
+            }
+        }
+        """.trimIndent())
+        val scenarioStub = ScenarioStub(request = exampleRequest, response = exampleResponse, data = dataLookup)
+
+        HttpStub(feature, listOf(scenarioStub)).use { stub ->
+            val request = HttpRequest("GET", "/data/123")
+            val response = stub.client.execute(request)
+            val responseBody = response.body as JSONObjectValue
+
+            assertThat(response.status).isEqualTo(200)
+            assertThat(responseBody.findFirstChildByPath("id")).isEqualTo(StringValue("123"))
+            assertThat(responseBody.findFirstChildByPath("names.[0]")).isEqualTo(StringValue("John"))
+            assertThat(responseBody.findFirstChildByPath("names.[1]")).isEqualTo(StringValue("Jane"))
+        }
+    }
+
+    @Test
+    fun `should generate a random value using the pattern when the directive is any-value`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Sample API
+              version: 0.1.9
+            paths:
+              /data/{id}:
+                get:
+                  summary: Get data
+                  parameters:
+                    - in: path
+                      name: id
+                      schema:
+                        type: string
+                      required: true
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                              - names
+                            properties:
+                              id:
+                                type: string
+                              names:
+                                type: array
+                                items:
+                                  type: string
+        """.trimIndent()
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+
+        val exampleRequest = HttpRequest(method = "GET", path = "/data/(ID:string)")
+        val exampleResponse = HttpResponse(200, body = JSONObjectValue(mapOf(
+            "id" to StringValue("$(ID)"),
+            "names" to StringValue("$(lookup.data[ID].names)")
+        )))
+        val dataLookup = parsedJSONObject("""
+        {
+            "lookup": {
+                "data": {
+                    "123": {
+                        "names": "(anyvalue)"
+                    }
+                }
+            }
+        }
+        """.trimIndent())
+        val scenarioStub = ScenarioStub(request = exampleRequest, response = exampleResponse, data = dataLookup)
+
+        HttpStub(feature, listOf(scenarioStub)).use { stub ->
+            val request = HttpRequest("GET", "/data/123")
+            val response = stub.client.execute(request)
+            val responseBody = response.body as JSONObjectValue
+
+            assertThat(response.status).isEqualTo(200)
+            assertThat(responseBody.findFirstChildByPath("id")).isEqualTo(StringValue("123"))
+            assertThat(responseBody.findFirstChildByPath("names")).isInstanceOf(JSONArrayValue::class.java)
+            assertThat(responseBody.findFirstChildByPath("names.[0]")).isInstanceOf(StringValue::class.java)
+        }
+    }
+
+    @Test
+    fun `should drop the key when the directive is drop`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Sample API
+              version: 0.1.9
+            paths:
+              /data/{id}:
+                get:
+                  summary: Get data
+                  parameters:
+                    - in: path
+                      name: id
+                      schema:
+                        type: string
+                      required: true
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: string
+                              names:
+                                type: array
+                                items:
+                                  type: string
+        """.trimIndent()
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+
+        val exampleRequest = HttpRequest(method = "GET", path = "/data/(ID:string)")
+        val exampleResponse = HttpResponse(200, body = JSONObjectValue(mapOf(
+            "id" to StringValue("$(ID)"),
+            "names" to StringValue("$(lookup.data[ID].names)")
+        )))
+        val dataLookup = parsedJSONObject("""
+        {
+            "lookup": {
+                "data": {
+                    "123": {
+                        "names": "(drop)"
+                    }
+                }
+            }
+        }
+        """.trimIndent())
+        val scenarioStub = ScenarioStub(request = exampleRequest, response = exampleResponse, data = dataLookup)
+
+        HttpStub(feature, listOf(scenarioStub)).use { stub ->
+            val request = HttpRequest("GET", "/data/123")
+            val response = stub.client.execute(request)
+            val responseBody = response.body as JSONObjectValue
+
+            assertThat(response.status).isEqualTo(200)
+            assertThat(responseBody.findFirstChildByPath("id")).isEqualTo(StringValue("123"))
+            assertThat(responseBody.findFirstChildByPath("names")).isNull()
+        }
+    }
+
+    @Test
+    fun `should return failure if drop directive is used on mandatory key`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Sample API
+              version: 0.1.9
+            paths:
+              /data/{id}:
+                get:
+                  summary: Get data
+                  parameters:
+                    - in: path
+                      name: id
+                      schema:
+                        type: string
+                      required: true
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                              - names
+                            properties:
+                              id:
+                                type: string
+                              names:
+                                type: array
+                                items:
+                                  type: string
+        """.trimIndent()
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+
+        val exampleRequest = HttpRequest(method = "GET", path = "/data/(ID:string)")
+        val exampleResponse = HttpResponse(200, body = JSONObjectValue(mapOf(
+            "id" to StringValue("$(ID)"),
+            "names" to StringValue("$(lookup.data[ID].names)")
+        )))
+        val dataLookup = parsedJSONObject("""
+        {
+            "lookup": {
+                "data": {
+                    "123": {
+                        "names": "(drop)"
+                    }
+                }
+            }
+        }
+        """.trimIndent())
+        val scenarioStub = ScenarioStub(request = exampleRequest, response = exampleResponse, data = dataLookup)
+
+        HttpStub(feature, listOf(scenarioStub)).use { stub ->
+            val request = HttpRequest("GET", "/data/123")
+            val response = stub.client.execute(request)
+
+            assertThat(response.status).isEqualTo(400)
+            assertThat(response.body.toStringLiteral()).isEqualToNormalizingWhitespace("""
+            >> RESPONSE.BODY.names
+            Cannot drop mandatory key named "names"
+            """.trimIndent())
+        }
+    }
+
+    @Test
+    fun `should not allow pattern token directive to generate mismatch values for the pattern`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Sample API
+              version: 0.1.9
+            paths:
+              /data/{id}:
+                get:
+                  summary: Get data
+                  parameters:
+                    - in: path
+                      name: id
+                      schema:
+                        type: string
+                      required: true
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                              - names
+                            properties:
+                              id:
+                                type: string
+                              names:
+                                type: array
+                                items:
+                                  type: string
+        """.trimIndent()
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+
+        val exampleRequest = HttpRequest(method = "GET", path = "/data/(ID:string)")
+        val exampleResponse = HttpResponse(200, body = JSONObjectValue(mapOf(
+            "id" to StringValue("$(ID)"),
+            "names" to JSONArrayValue(listOf(
+                StringValue("$(lookup.data[ID].name)")
+            ))
+        )))
+        val dataLookup = parsedJSONObject("""
+        {
+            "lookup": {
+                "data": {
+                    "123": {
+                        "name": "(number)"
+                    }
+                }
+            }
+        }
+        """.trimIndent())
+        val scenarioStub = ScenarioStub(request = exampleRequest, response = exampleResponse, data = dataLookup)
+
+        HttpStub(feature, listOf(scenarioStub)).use { stub ->
+            val request = HttpRequest("GET", "/data/123")
+            val response = stub.client.execute(request)
+
+            assertThat(response.status).isEqualTo(400)
+            assertThat(response.body.toStringLiteral()).isEqualToNormalizingWhitespace("""
+             >> RESPONSE.BODY.names[0]
+            Cannot resolve substitutions, expected string but got number
+            """.trimIndent())
         }
     }
 }

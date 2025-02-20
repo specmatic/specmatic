@@ -179,10 +179,9 @@ class Substitution(
         val dictionary: JSONObjectValue = dictionaryValue as? JSONObjectValue
             ?: throw ContractException("Dictionary $lookupStoreName.$dictionaryName should be an object")
 
-        val dictionaryLookupValue = variableValues[dictionaryLookupVariableName]
-            ?: throw MissingDataException("Cannot resolve lookup expression $value because variable $dictionaryLookupVariableName does not exist")
+        val dictionaryLookupValue = variableValues[dictionaryLookupVariableName] ?: "*"
 
-        val finalObject = dictionary.findFirstChildByPath(dictionaryLookupValue)
+        val finalObject = dictionary.findFirstChildByPath(dictionaryLookupValue) ?: dictionary.findFirstChildByPath("*")
             ?: throw MissingDataException("Could not resolve lookup expression $value because variable $lookupStoreName.$dictionaryName[$dictionaryLookupVariableName] does not exist")
 
         val finalObjectDictionary = finalObject as? JSONObjectValue
@@ -221,6 +220,30 @@ class Substitution(
         } catch(e: Throwable) {
             HasException(e)
         }
+    }
+
+    fun resolveIfLookup(value: Value, pattern: Pattern): Value {
+        val strValue = (value as? StringValue)?.nativeValue ?: return value
+        if (!isDataLookup(strValue)) return value
+
+        val resolvedValue = runCatching { substituteDataLookupExpression(strValue) }.getOrElse { return value }
+        val patternFromValue = resolver.patternFromTokenBased(StringValue(resolvedValue)) ?: return pattern.parse(resolvedValue, resolver)
+
+        return when {
+            patternFromValue is AnyValuePattern -> pattern.generate(resolver)
+            pattern.encompasses(patternFromValue, resolver, resolver).isSuccess() -> patternFromValue.generate(resolver)
+            else -> throw ContractException("""
+            Cannot resolve substitutions, expected ${pattern.typeAlias ?: pattern.typeName} but got ${patternFromValue.typeAlias ?: patternFromValue.typeName}
+            """.trimIndent()
+            )
+        }
+    }
+
+    fun isDropDirective(value: Value): Boolean {
+        val strValue = (value as? StringValue)?.nativeValue ?: return false
+        if (!isDataLookup(strValue)) return false
+        val resolvedValue = runCatching { substituteDataLookupExpression(strValue) }.getOrElse { return false }
+        return resolvedValue == "(drop)"
     }
 
     private fun hasTemplate(string: String): Boolean {

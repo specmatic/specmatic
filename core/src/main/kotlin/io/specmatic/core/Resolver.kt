@@ -121,7 +121,7 @@ data class Resolver(
         }
     }
 
-    private fun patternFromTokenBased(sampleValue: Value): Pattern? {
+    fun patternFromTokenBased(sampleValue: Value): Pattern? {
         if (sampleValue !is StringValue || !isPatternToken(sampleValue.string)) return null
         return getPattern(sampleValue.string).let {
             if (it is LookupRowPattern) resolvedHop(
