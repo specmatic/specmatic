@@ -338,18 +338,21 @@ data class HttpRequestPattern(
                 requestPattern.copy(httpPathPattern = HttpPathPattern(pathTypes, path), httpQueryParamPattern = HttpQueryParamPattern(queryParamTypes))
             }
 
-            requestPattern = attempt(breadCrumb = BreadCrumb.PARAM_HEADER.value) {
+            requestPattern = attempt(breadCrumb = "HEADERS") {
+                val headersWithRelevantFields = securitySchemes.fold(request) { request, securityScheme ->
+                    securityScheme.removeParam(request)
+                }.headers.filterKeys { !it.equals(CONTENT_TYPE, ignoreCase = true) }
+
                 val headersFromRequest = toTypeMap(
-                    toLowerCaseKeys(request.headers),
+                    toLowerCaseKeys(headersWithRelevantFields),
                     toLowerCaseKeys(headersPattern.pattern),
                     resolver
                 )
 
-                requestPattern.copy(
-                    headersPattern = headersPattern.copy(
-                        pattern = headersFromRequest, ancestorHeaders = this.headersPattern.pattern
-                    )
-                )
+                requestPattern.copy(headersPattern = headersPattern.copy(
+                    pattern = headersFromRequest,
+                    ancestorHeaders = headersPattern.pattern.mergeIgnoringCaseAndOptionals(headersFromRequest)
+                ))
             }
 
             requestPattern = attempt(breadCrumb = "BODY") {
@@ -391,14 +394,11 @@ data class HttpRequestPattern(
         types: Map<String, Pattern>,
         resolver: Resolver
     ): Map<String, Pattern> {
-        return types.filterKeys { withoutOptionality(it) in values }.mapValues {
-            val key = withoutOptionality(it.key)
-            val type = it.value
-
-            attempt(breadCrumb = key) {
-                val valueString = values.getValue(key)
-                encompassedType(valueString, key, type, resolver)
-            }
+        val withoutOptionality = types.mapKeys { withoutOptionality(it.key) }
+        return values.mapValues { (key, value) ->
+            withoutOptionality[key]?.let { type ->
+                attempt(breadCrumb = key) { encompassedType(value, key, type, resolver) }
+            } ?: parsedPattern(value)
         }
     }
 
@@ -986,5 +986,12 @@ fun multiPartListCombinations(values: List<Sequence<MultiPartFormDataPattern?>>)
                 else -> list.plus(type)
             }
         }
+    }
+}
+
+private fun Map<String, Pattern>.mergeIgnoringCaseAndOptionals(other: Map<String, Pattern>): Map<String, Pattern> {
+    return buildMap {
+        putAll(this@mergeIgnoringCaseAndOptionals.mapKeys { withoutOptionality(it.key).toLowerCasePreservingASCIIRules() })
+        putAll(other.mapKeys { withoutOptionality(it.key).toLowerCasePreservingASCIIRules() })
     }
 }
