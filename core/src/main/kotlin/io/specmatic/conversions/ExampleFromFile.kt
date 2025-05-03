@@ -27,7 +27,10 @@ class ExampleFromFile(private val scenarioStub: ScenarioStub, val json: JSONObje
         }
     }
 
-    constructor(file: File): this(json = readValueAs<JSONObjectValue>(file), file = file)
+    constructor(file: File): this(
+        scenarioStub = ScenarioStub.readFromFile(file),
+        json = readValueAs<JSONObjectValue>(file), file = file
+    )
 
     constructor(json: JSONObjectValue, file: File): this(
         scenarioStub = ScenarioStub.parse(json),
