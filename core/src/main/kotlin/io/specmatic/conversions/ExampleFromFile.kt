@@ -7,18 +7,13 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.examples.server.SchemaExample
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.*
-import io.specmatic.core.pattern.HasFailure
-import io.specmatic.core.pattern.HasValue
-import io.specmatic.core.pattern.ResponseExample
-import io.specmatic.core.pattern.ResponseValueExample
-import io.specmatic.core.pattern.ReturnValue
-import io.specmatic.core.pattern.Row
 import io.specmatic.core.value.EmptyString
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.test.ExampleProcessor
 import java.io.File
+import java.net.URI
 
 class ExampleFromFile(private val scenarioStub: ScenarioStub, val json: JSONObjectValue, val file: File) {
 
@@ -28,14 +23,11 @@ class ExampleFromFile(private val scenarioStub: ScenarioStub, val json: JSONObje
                 return HasFailure("Skipping file ${file.canonicalPath}, because it contains schema-based example")
             }
 
-            return runCatching { ExampleFromFile(file) }.map(::HasValue).getOrElse(::HasException)
+            return HasValue(ExampleFromFile(file))
         }
     }
 
-    constructor(file: File): this(
-        scenarioStub = ScenarioStub.readFromFile(file),
-        json = readValueAs<JSONObjectValue>(file), file = file
-    )
+    constructor(file: File): this(json = readValueAs<JSONObjectValue>(file), file = file)
 
     constructor(json: JSONObjectValue, file: File): this(
         scenarioStub = ScenarioStub.parse(json),
