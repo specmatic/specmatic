@@ -5,7 +5,7 @@ import io.specmatic.core.NoBodyValue
 import io.specmatic.core.Resolver
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.pattern.ContractException
-import io.specmatic.core.pattern.HasFailure
+import io.specmatic.core.pattern.HasException
 import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.value.StringValue
@@ -13,7 +13,6 @@ import org.assertj.core.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.io.File
 import java.nio.file.Files
-import java.nio.file.Path
 
 class ExampleFromFileTest {
     private fun createTempFile(content: String): File {
@@ -64,7 +63,7 @@ class ExampleFromFileTest {
         assertThat(exampleFromFile.requestContentType).isEqualTo("application/json")
         assertThat(exampleFromFile.responseContentType).isEqualTo("application/json")
         assertThat(exampleFromFile.queryParams).containsExactlyEntriesOf(mapOf("id" to "123"))
-        assertThat(exampleFromFile.headers).containsExactlyEntriesOf(mapOf("Content-Type" to "application/json"))
+        assertThat(exampleFromFile.request.headers).containsExactlyEntriesOf(mapOf("Content-Type" to "application/json"))
         assertThat(exampleFromFile.isPartial()).isFalse()
         assertThat(exampleFromFile.isInvalid()).isFalse()
     }
@@ -78,6 +77,9 @@ class ExampleFromFileTest {
                     "http-request": {
                         "method": "GET",
                         "path": "/api/users"
+                    },
+                    "http-response": {
+                        "status": 200
                     }
                 }
             }
@@ -110,13 +112,12 @@ class ExampleFromFileTest {
         val file = createTempFile(jsonContent)
         val example = ExampleFromFile.fromFile(file)
 
-        assertThat(example).isInstanceOf(HasValue::class.java)
-        val exampleFromFile = (example as HasValue).value
-
-        assertThat(exampleFromFile.isInvalid()).isTrue()
-        assertThat(exampleFromFile.requestMethod).isNull()
-        assertThat(exampleFromFile.requestPath).isNull()
-        assertThat(exampleFromFile.responseStatus).isNull()
+        assertThat(example).isInstanceOf(HasException::class.java); example as HasException
+        assertThat(example.toFailure().reportString()).isEqualToNormalizingWhitespace("""
+        >> ${file.canonicalPath}
+        Error loading example due to invalid format. Please correct the format to proceed
+        Example should contain http-response/mock-http-response as a top level key.
+        """.trimIndent())
     }
 
     @Test
@@ -144,37 +145,6 @@ class ExampleFromFileTest {
         assertThat(response.status).isEqualTo(204)
         assertThat(response.body).isInstanceOf(NoBodyValue::class.java)
         assertThat(response.headers).isEmpty()
-    }
-
-    @Test
-    fun `should handle complex headers`() {
-        val jsonContent = """
-            {
-                "name": "complex-headers",
-                "http-request": {
-                    "method": "POST",
-                    "path": "/api/users",
-                    "headers": {
-                        "Content-Type": "application/json",
-                        "Authorization": "Bearer token123",
-                        "X-Custom-Header": "value"
-                    }
-                }
-            }
-        """.trimIndent()
-
-        val file = createTempFile(jsonContent)
-        val example = ExampleFromFile.fromFile(file)
-
-        assertThat(example).isInstanceOf(HasValue::class.java)
-        val exampleFromFile = (example as HasValue).value
-
-        val expectedHeaders = mapOf(
-            "Content-Type" to "application/json",
-            "Authorization" to "Bearer token123",
-            "X-Custom-Header" to "value"
-        )
-        assertThat(exampleFromFile.headers).containsExactlyEntriesOf(expectedHeaders)
     }
 
     @Test
@@ -499,7 +469,7 @@ class ExampleFromFileTest {
             ExampleFromFile(parsedJSONObject(it), File("./data.json"))
         }
 
-        assertThat(example.headers).isEmpty()
+        assertThat(example.request.headers).isEmpty()
     }
 
     @Test
@@ -579,7 +549,7 @@ class ExampleFromFileTest {
             ExampleFromFile(parsedJSONObject(it), File("./data.json"))
         }
 
-        assertThat(example.headers).containsExactlyEntriesOf(mapOf(
+        assertThat(example.request.headers).containsExactlyEntriesOf(mapOf(
             "Authorization" to "Bearer token123",
             "Accept" to "application/json"
         ))
@@ -610,7 +580,7 @@ class ExampleFromFileTest {
             ExampleFromFile(parsedJSONObject(it), File("./data.json"))
         }
 
-        assertThat(example.headers).isEmpty()
+        assertThat(example.request.headers).isEmpty()
         val response = example.response
         assertThat(response.headers).isEmpty()
     }
