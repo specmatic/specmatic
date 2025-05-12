@@ -23,7 +23,7 @@ class ExampleFromFile(private val scenarioStub: ScenarioStub, val json: JSONObje
                 return HasFailure("Skipping file ${file.canonicalPath}, because it contains schema-based example")
             }
 
-            return HasValue(ExampleFromFile(file))
+            return runCatching { ExampleFromFile(file) }.map(::HasValue).getOrElse(::HasException)
         }
     }
 
