@@ -227,7 +227,7 @@ class ExampleFromFileTest {
         val file = createTempFile(jsonContent)
 
         assertThatThrownBy {
-            ExampleFromFile.fromFile(file)
+            ExampleFromFile(file)
         }.satisfies({
             assertThat(it).isInstanceOf(ContractException::class.java)
         })

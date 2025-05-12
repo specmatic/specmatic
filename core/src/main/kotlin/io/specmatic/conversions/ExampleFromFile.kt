@@ -87,6 +87,6 @@ class ExampleFromFile(private val scenarioStub: ScenarioStub, val json: JSONObje
     fun isPartial(): Boolean = scenarioStub.isPartial()
     fun isInvalid(): Boolean = scenarioStub.isInvalid()
     private fun <T> Map<String, T>.getCaseInsensitive(key: String): T? {
-        return this.asSequence().find { it.key.lowercase() == key.lowercase() }?.value
+        return this.asSequence().find { it.key.equals(key, ignoreCase = true) }?.value
     }
 }
