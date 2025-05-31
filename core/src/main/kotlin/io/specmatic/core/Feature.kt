@@ -2228,7 +2228,7 @@ private fun lexScenario(
         scenarioInfoWithExamples(matchingScenario, backgroundScenarioInfo, examplesList, ignoreFailure)
     }
 
-    return scenarioInfo.copy(isGherkinScenario = true)
+    return scenarioInfo.copy(isGherkinScenario = true, specification = scenarioInfo.specification ?: filePath)
 }
 
 private fun listOfDatatableRows(it: Step): MutableList<TableRow> = it.dataTable.getOrNull()?.rows.orEmpty().toMutableList()
@@ -2408,22 +2408,7 @@ internal fun lex(gherkinDocument: GherkinDocument, filePath: String = ""): Pair<
 }
 
 internal fun lex(featureChildren: List<FeatureChild>, filePath: String): List<Scenario> {
-    return scenarioInfos(featureChildren, filePath)
-        .map { scenarioInfo ->
-            Scenario(
-                scenarioInfo.scenarioName,
-                scenarioInfo.httpRequestPattern,
-                scenarioInfo.httpResponsePattern,
-                scenarioInfo.expectedServerState,
-                scenarioInfo.examples,
-                scenarioInfo.patterns,
-                scenarioInfo.fixtures,
-                scenarioInfo.ignoreFailure,
-                scenarioInfo.references,
-                scenarioInfo.bindings,
-                scenarioInfo.isGherkinScenario
-            )
-        }
+    return scenarioInfos(featureChildren, filePath).map { scenarioInfo -> Scenario(scenarioInfo) }
 }
 
 fun scenarioInfos(

@@ -1,0 +1,18 @@
+{
+  "http-request": {
+    "method": "POST",
+    "path": "/",
+    "headers": {
+      "SOAPAction": "\"/orders/findAvailableProducts\"",
+      "Content-Type": "text/xml"
+    },
+    "body": "<S:Envelope xmlns:S=\"http://schemas.xmlsoap.org/soap/envelope/\"><S:Body><ns0:FindAvailableProducts xmlns:ns0=\"http://www.example.com/orders\"><type>Gadget</type></ns0:FindAvailableProducts></S:Body></S:Envelope>"
+  },
+  "http-response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/xml"
+    },
+    "body": "<SOAP-ENV:Envelope xmlns:SOAP-ENV=\"http://schemas.xmlsoap.org/soap/envelope/\"><SOAP-ENV:Body><FindAvailableProductsResponse><products><name>Phone</name><type>Gadget</type><inventory>123</inventory><id>123</id></products><products><name>Tablet</name><type>Gadget</type><inventory>50</inventory><id>456</id></products></FindAvailableProductsResponse></SOAP-ENV:Body></SOAP-ENV:Envelope>"
+  }
+}

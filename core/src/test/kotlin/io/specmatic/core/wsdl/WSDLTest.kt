@@ -7,9 +7,10 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import io.specmatic.core.value.toXMLNode
 import io.specmatic.core.wsdl.parser.WSDL
+import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpStub
 import io.specmatic.test.TestExecutor
-import org.junit.jupiter.api.Disabled
+import org.junit.jupiter.api.assertDoesNotThrow
 import java.io.File
 
 class WSDLTest {
@@ -58,24 +59,26 @@ class WSDLTest {
     }
 
     @Test
-    @Disabled
     fun `when a WSDL with an example is run as a test against a stub of itself the tests should pass`() {
         val wsdlFile = File("src/test/resources/wsdl/with_examples/order_api.wsdl")
-        val feature = wsdlContentToFeature(checkExists(wsdlFile).readText(), wsdlFile.canonicalPath)
+        val examplesFolder = wsdlFile.resolveSibling("order_api_examples")
 
-        val result = HttpStub(feature).use { stub ->
+        val feature = wsdlContentToFeature(checkExists(wsdlFile).readText(), wsdlFile.canonicalPath).loadExternalisedExamples()
+        val scenarioStubs = examplesFolder.listFiles()?.map(ScenarioStub::readFromFile).orEmpty()
+        assertDoesNotThrow { feature.validateExamplesOrException() }
+
+        val result = HttpStub(feature, scenarioStubs).use { stub ->
             feature.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
-                    return stub.client.execute(request)
+                    val response = stub.client.execute(request)
+                    assertThat(response.headers["X-Specmatic-Type"]).isNotEqualTo("random")
+                    return response
                 }
             })
         }
 
-        println(result.report())
-
-        assertThat(result.report()).contains("<productid>123</productid>")
-        assertThat(result.success()).isTrue()
-        assertThat(result.successCount).isGreaterThan(0)
+        assertThat(result.success()).withFailMessage(result.report()).isTrue()
+        assertThat(result.successCount).isEqualTo(4)
     }
 
     private fun readContracts(filename: String): Pair<String, String> {

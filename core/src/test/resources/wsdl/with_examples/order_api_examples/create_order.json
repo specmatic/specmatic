@@ -6,13 +6,13 @@
       "SOAPAction": "\"/orders/createOrder\"",
       "Content-Type": "text/xml"
     },
-    "body": "<S:Envelope xmlns:S=\"http://schemas.xmlsoap.org/soap/envelope/\"><S:Body><ns0:CreateOrder xmlns:ns0=\"http://www.example.com/orders\"><productid>123</productid><count>1</count></ns0:CreateOrder></S:Body></S:Envelope>"
+    "body": "<S:Envelope xmlns:S=\"http://schemas.xmlsoap.org/soap/envelope/\"><S:Body><ns0:CreateOrder xmlns:ns0=\"http://www.example.com/orders\"><productid>123</productid><count>123</count></ns0:CreateOrder></S:Body></S:Envelope>"
   },
   "http-response": {
     "status": 200,
     "headers": {
       "Content-Type": "text/xml"
     },
-    "body": "<SOAP-ENV:Envelope xmlns:SOAP-ENV=\"http://schemas.xmlsoap.org/soap/envelope/\"><SOAP-ENV:Header/><SOAP-ENV:Body><OrderId><id>10</id></OrderId></SOAP-ENV:Body></SOAP-ENV:Envelope>"
+    "body": "<SOAP-ENV:Envelope xmlns:SOAP-ENV=\"http://schemas.xmlsoap.org/soap/envelope/\"><SOAP-ENV:Header/><SOAP-ENV:Body><OrderId><id>123</id></OrderId></SOAP-ENV:Body></SOAP-ENV:Envelope>"
   }
 }

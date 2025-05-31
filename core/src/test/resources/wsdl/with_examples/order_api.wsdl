@@ -20,6 +20,17 @@
             <!-- Define the Product element -->
             <xsd:element name="Product" type="tns:Product"/>
 
+            <!-- Define the CreateProductRequest complex type -->
+            <xsd:complexType name="CreateProduct">
+                <xsd:sequence>
+                    <xsd:element name="name" type="xsd:string"/>
+                    <xsd:element name="type" type="xsd:string"/>
+                    <xsd:element name="inventory" type="xsd:int"/>
+                </xsd:sequence>
+            </xsd:complexType>
+
+            <xsd:element name="CreateProduct" type="tns:CreateProduct"/>
+
             <!-- Define the Id complex type -->
             <xsd:complexType name="Id">
                 <xsd:sequence>
@@ -114,6 +125,10 @@
         <part name="parameters" element="tns:Product"/>
     </message>
 
+    <message name="CreateProductMessage">
+        <part name="parameters" element="tns:CreateProduct"/>
+    </message>
+
     <message name="ProductIdMessage">
         <part name="parameters" element="tns:Id"/>
     </message>
@@ -154,7 +169,7 @@
     <portType name="OrderAPIPortType">
         <!-- Product Operations -->
         <operation name="createProduct">
-            <input message="tns:ProductMessage"/>
+            <input message="tns:CreateProductMessage"/>
             <output message="tns:CreatedProductIdMessage"/>
         </operation>
         <operation name="getProduct">
