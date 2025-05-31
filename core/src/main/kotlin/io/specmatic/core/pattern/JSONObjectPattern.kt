@@ -505,6 +505,16 @@ data class JSONObjectPattern(
         }
     }
     
+    /**
+     * Checks if a path needs to be wrapped in braces.
+     * Returns true for simple identifiers (like typeAlias names or scalar type names).
+     * Simple identifiers are strings that start with a letter and contain only letters and numbers.
+     * This includes scalar type names like "string", "number", and "boolean".
+     */
+    private fun needsBraces(path: String): Boolean {
+        return path.isNotEmpty() && path.all { it.isLetterOrDigit() } && path.first().isLetter()
+    }
+    
     private fun calculatePathForAnyPattern(key: String, childValue: Value, anyPattern: AnyPattern, resolver: Resolver): List<String> {
         val anyPatternPaths = anyPattern.calculatePath(childValue, resolver)
         val pathPrefix = if (typeAlias != null && typeAlias.isNotBlank()) {
@@ -517,14 +527,15 @@ data class JSONObjectPattern(
         return if (anyPatternPaths.isNotEmpty()) {
             anyPatternPaths.map { anyPatternInfo ->
                 val formattedInfo = when {
-                    // Simple identifier (typeAlias) - needs braces
-                    anyPatternInfo.matches("^[a-zA-Z][a-zA-Z0-9]*$".toRegex()) -> "{$anyPatternInfo}"
-                    // Scalar type name - needs braces  
-                    anyPatternInfo in setOf("string", "number", "boolean") -> "{$anyPatternInfo}"
-                    // Complex path or already formatted - use as-is
+                    needsBraces(anyPatternInfo) -> "{$anyPatternInfo}"
                     else -> anyPatternInfo
                 }
-                "$pathPrefix$formattedInfo"
+                // Use same logic as calculatePathForJSONObjectPattern - check if formattedInfo starts with {
+                if (formattedInfo.startsWith("{")) {
+                    "$pathPrefix$formattedInfo"
+                } else {
+                    "$pathPrefix.$formattedInfo"
+                }
             }
         } else {
             listOf(pathPrefix)
@@ -582,23 +593,27 @@ data class JSONObjectPattern(
         
         return if (anyPatternPaths.isNotEmpty()) {
             anyPatternPaths.map { anyPath ->
-                // Format the anyPath similar to calculatePathForAnyPattern
-                val formattedPath = if (anyPath.matches("^[a-zA-Z][a-zA-Z0-9]*$".toRegex())) {
-                    // It's a typeAlias, wrap in braces
-                    "{$anyPath}"
-                } else if (anyPath in setOf("string", "number", "boolean")) {
-                    // It's a scalar type, wrap in braces
+                // Format the anyPath using the same logic as calculatePathForAnyPattern
+                val formattedPath = if (needsBraces(anyPath)) {
                     "{$anyPath}"
                 } else {
-                    // It's already formatted or an index, use as-is
                     anyPath
                 }
                 
                 if (typeAlias != null && typeAlias.isNotBlank()) {
                     val cleanTypeAlias = withoutPatternDelimiters(typeAlias)
-                    "{$cleanTypeAlias}.$key[$index]$formattedPath"
+                    // Use same logic as calculatePathForArrayJSONObjectPattern - check if formattedPath starts with {
+                    if (formattedPath.startsWith("{")) {
+                        "{$cleanTypeAlias}.$key[$index]$formattedPath"
+                    } else {
+                        "{$cleanTypeAlias}.$key[$index].$formattedPath"
+                    }
                 } else {
-                    "$key[$index]$formattedPath"
+                    if (formattedPath.startsWith("{")) {
+                        "$key[$index]$formattedPath"
+                    } else {
+                        "$key[$index].$formattedPath"
+                    }
                 }
             }
         } else {
