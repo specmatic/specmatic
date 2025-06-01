@@ -10,7 +10,7 @@ dependencies {
     implementation("com.ezylang:EvalEx:3.5.0")
     implementation(project(":specmatic-core"))
     implementation("org.junit.jupiter:junit-jupiter-engine:5.11.4")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
     implementation("org.assertj:assertj-core:3.27.3")
     implementation("org.junit.jupiter:junit-jupiter-api:5.11.4")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.19.0")
