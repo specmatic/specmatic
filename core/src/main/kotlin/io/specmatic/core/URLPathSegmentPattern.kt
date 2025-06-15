@@ -10,10 +10,11 @@ import io.specmatic.core.value.Value
 data class URLPathSegmentPattern(override val pattern: Pattern, override val key: String? = null, override val typeAlias: String? = null, val conflicts: Set<String> = emptySet()) : Pattern, Keyed {
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         val result = resolver.matchesPattern(key, pattern, sampleData ?: NullValue)
-        if (result.isSuccess() && sampleData?.toStringLiteral() in conflicts) {
+        if (sampleData?.toStringLiteral() in conflicts) {
             return Result.Failure(
-                "Value ${sampleData?.displayableValue()} conflicts with an existing path using the same prefix",
-                failureReason = FailureReason.URLPathParamMatchButConflict
+                message = "Value ${sampleData?.displayableValue()} conflicts with an existing path using the same value",
+                cause = result as? Result.Failure,
+                failureReason = if (result.isSuccess()) FailureReason.URLPathParamMatchButConflict else FailureReason.URLPathParamMismatchAndConflict
             )
         }
 
