@@ -362,7 +362,7 @@ class FeatureKtTest {
                 - id
                 properties:
                   id:
-                    type: number
+                    type: integer
                   addresses:
                     type: array
                     items:
@@ -421,7 +421,7 @@ class FeatureKtTest {
                     - id
                     properties:
                       id:
-                        type: number
+                        type: integer
                       addresses:
                         type: array
                         items:
