@@ -244,7 +244,7 @@ fun parsedPattern(rawContent: String, key: String? = null, typeAlias: String? = 
 
                 isRestPattern(it) -> RestPattern(parsedPattern(withoutRestToken(it), typeAlias = typeAlias))
                 isRepeatingPattern(it) -> ListPattern(parsedPattern(withoutListToken(it), typeAlias = typeAlias))
-                it == "(number)" -> DeferredPattern(it, null)
+                it == "(number)" || it == "(integer)" -> DeferredPattern(it, null)
                 isBuiltInPattern(it) -> getBuiltInPattern(it)
                 else -> DeferredPattern(it, key)
             }
