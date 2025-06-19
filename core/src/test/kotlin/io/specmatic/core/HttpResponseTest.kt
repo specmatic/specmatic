@@ -62,7 +62,7 @@ internal class HttpResponseTest {
         assertThat(clauses.first.first().content).isEqualTo("status 200")
 
         assertThat(clauses.first[1].section).isEqualTo(Then)
-        assertThat(clauses.first[1].content).isEqualTo("response-header X-Value (number)")
+        assertThat(clauses.first[1].content).isEqualTo("response-header X-Value (integer)")
     }
 
     @Test
@@ -86,7 +86,7 @@ internal class HttpResponseTest {
         assertThat(clauses.first.first().content).isEqualTo("status 200")
 
         assertThat(clauses.first[1].section).isEqualTo(Then)
-        assertThat(clauses.first[1].content).isEqualTo("response-body (number)")
+        assertThat(clauses.first[1].content).isEqualTo("response-body (integer)")
     }
 
     @Test

@@ -468,7 +468,7 @@ class PostmanKtTests {
     Then status 200
     And response-header Connection (string)
     And response-header Content-Type text/plain
-    And response-body (number)
+    And response-body (integer)
   
   Scenario: With JSON body
     Given type RequestBody
@@ -478,18 +478,18 @@ class PostmanKtTests {
     Then status 200
     And response-header Connection (string)
     And response-header Content-Type text/plain
-    And response-body (number)
+    And response-body (integer)
   
     Examples:
     | data |
     | value |
   
   Scenario: With query
-    When GET /stuff?one=(number)
+    When GET /stuff?one=(integer)
     Then status 200
     And response-header Connection (string)
     And response-header Content-Type text/plain
-    And response-body (number)
+    And response-body (integer)
   
     Examples:
     | one |
@@ -497,11 +497,11 @@ class PostmanKtTests {
   
   Scenario: Square Of A Number 2
     When POST /square
-    And request-body (RequestBody: number)
+    And request-body (RequestBody: integer)
     Then status 200
-    And response-header Connection (number)
+    And response-header Connection (integer)
     And response-header Content-Type text/plain
-    And response-body (number)
+    And response-body (integer)
   
     Examples:
     | RequestBody |
@@ -509,11 +509,11 @@ class PostmanKtTests {
   
   Scenario: With form fields
     When POST /stuff
-    And form-field field1 (number)
+    And form-field field1 (integer)
     Then status 200
     And response-header Connection (string)
     And response-header Content-Type text/plain
-    And response-body (number)
+    And response-body (integer)
   
     Examples:
     | field1 |
@@ -521,11 +521,11 @@ class PostmanKtTests {
   
   Scenario: With form data
     When POST /stuff
-    And request-part part1 (number)
+    And request-part part1 (integer)
     Then status 200
     And response-header Connection (string)
     And response-header Content-Type text/plain
-    And response-body (number)
+    And response-body (integer)
   
     Examples:
     | part1 |

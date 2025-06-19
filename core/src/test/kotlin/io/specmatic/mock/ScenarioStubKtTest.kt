@@ -211,7 +211,7 @@ internal class ScenarioStubKtTest {
       | name | (string) |
       | address | (Address) |
     And type ResponseBody
-      | id | (number) |
+      | id | (integer) |
     When POST /customer
     And request-body (RequestBody)
     Then status 200
@@ -236,7 +236,7 @@ internal class ScenarioStubKtTest {
       | name | (string) |
       | address | (Address) |
     And type ResponseBody
-      | id | (number) |
+      | id | (integer) |
     When POST /customer
     And request-header X-Header1 (string)
     And request-header X-Header2 (string)
@@ -259,7 +259,7 @@ internal class ScenarioStubKtTest {
         validateStubAndSpec(request, response, """Feature: New Feature
   Scenario: New scenario
     Given type ResponseBody
-      | id | (number) |
+      | id | (integer) |
     When POST /customer
     And form-field X-FormData1 (string)
     Then status 200
@@ -278,7 +278,7 @@ internal class ScenarioStubKtTest {
         validateStubAndSpec(request, response, """Feature: New Feature
   Scenario: New scenario
     Given type ResponseBody
-      | id | (number) |
+      | id | (integer) |
     When POST /customer
     And request-part name (string)
     Then status 200
@@ -297,7 +297,7 @@ internal class ScenarioStubKtTest {
         validateStubAndSpec(request, response, """Feature: New Feature
   Scenario: New scenario
     Given type ResponseBody
-      | id | (number) |
+      | id | (integer) |
     When POST /customer
     And request-part customer_csv @(string) text/csv identity
     Then status 200
@@ -338,7 +338,7 @@ internal class ScenarioStubKtTest {
     When POST /square
     And request-part employees @(string) text/csv gzip
     Then status 200
-    And response-body (number)
+    And response-body (integer)
   
     Examples:
     | employees_filename |
@@ -369,7 +369,7 @@ internal class ScenarioStubKtTest {
     When POST /square
     And request-body (string*)
     Then status 200
-    And response-body (number)""")
+    And response-body (integer)""")
     }
 
     @Test
@@ -404,7 +404,7 @@ internal class ScenarioStubKtTest {
     When POST /square
     And request-body (RequestBody*)
     Then status 200
-    And response-body (number)
+    And response-body (integer)
   
     Examples:
     | name |
@@ -445,7 +445,7 @@ internal class ScenarioStubKtTest {
     When POST /square
     And request-body (RequestBody*)
     Then status 200
-    And response-body (number)
+    And response-body (integer)
   
     Examples:
     | name | address |
@@ -486,7 +486,7 @@ internal class ScenarioStubKtTest {
     When POST /square
     And request-body (RequestBody*)
     Then status 200
-    And response-body (number)
+    And response-body (integer)
   
     Examples:
     | name |
@@ -527,7 +527,7 @@ internal class ScenarioStubKtTest {
     When POST /square
     And request-body (RequestBody*)
     Then status 200
-    And response-body (number)
+    And response-body (integer)
   
     Examples:
     | name | address |
@@ -572,7 +572,7 @@ internal class ScenarioStubKtTest {
     When POST /square
     And request-body (RequestBody*)
     Then status 200
-    And response-body (number)
+    And response-body (integer)
   
     Examples:
     | name |
@@ -617,7 +617,7 @@ internal class ScenarioStubKtTest {
     When POST /square
     And request-body (RequestBody*)
     Then status 200
-    And response-body (number)
+    And response-body (integer)
   
     Examples:
     | name |
@@ -658,7 +658,7 @@ internal class ScenarioStubKtTest {
     When POST /square
     And request-body (RequestBody*)
     Then status 200
-    And response-body (number)
+    And response-body (integer)
   
     Examples:
     | name |
@@ -699,7 +699,7 @@ internal class ScenarioStubKtTest {
     When POST /square
     And request-body (RequestBody*)
     Then status 200
-    And response-body (number)
+    And response-body (integer)
   
     Examples:
     | name |
@@ -729,7 +729,7 @@ internal class ScenarioStubKtTest {
     When POST /square
     And request-body []
     Then status 200
-    And response-body (number)""")
+    And response-body (integer)""")
     }
 
     @Test

@@ -37,6 +37,7 @@ internal fun containsKey(jsonObject: Map<String, Any?>, key: String) =
 
 internal val builtInPatterns = mapOf(
     "(number)" to NumberPattern(),
+    "(integer)" to NumberPattern(),
     "(string)" to StringPattern(),
     "(email)" to EmailPattern(),
     "(boolean)" to BooleanPattern(),
