@@ -6,7 +6,7 @@ import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import java.util.*
 
-private const val EMAIL_REGEX = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}\$"
+private const val EMAIL_REGEX = "^[a-zA-Z0-9](?:[\\w.-]{0,62}[a-zA-Z0-9])?@[a-zA-Z0-9](?:[a-zA-Z0-9.-]{0,253}[a-zA-Z0-9])?\\.[a-zA-Z]{2,}\$"
 
 class EmailPattern (private val stringPatternDelegate: StringPattern) :
     Pattern by stringPatternDelegate, ScalarType {
