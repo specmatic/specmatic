@@ -557,6 +557,30 @@ class LoadTestsFromExternalisedFiles {
     }
 
     @Test
+    fun `should be able to load and run tests with serialized json-value in of the fields`() {
+        val apiFile = File("src/test/resources/openapi/has_serialized_json_field/api.yaml")
+        val feature = OpenApiSpecification.fromFile(apiFile.canonicalPath).toFeature().loadExternalisedExamples()
+        assertDoesNotThrow { feature.validateExamplesOrException() }
+
+        val results = feature.executeTests(object: TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                val body = request.body as JSONObjectValue
+                val value = body.jsonObject.getValue("json") as ScalarValue
+                assertThat(value.nativeValue).isEqualTo("{\"value\": [\"string\", 1, false, null], \"location\": \"request\"}")
+
+                println(request.toLogString())
+                return HttpResponse(
+                    status = 200,
+                    body = body.addEntry("json", "{\"value\": [\"string\", 1, false, null], \"location\": \"response\"}")
+                )
+            }
+        })
+
+        assertThat(results.results).hasSize(2)
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+    }
+
+    @Test
     fun `should complain when examples have invalid security-scheme values or unexpected keys in header and query`() {
         val openApiFile = File("src/test/resources/openapi/has_composite_security/api.yaml")
         val examplesDir = openApiFile.resolveSibling("invalid_examples")

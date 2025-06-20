@@ -1,0 +1,39 @@
+openapi: 3.0.3
+info:
+  title: Serialized JSON field API
+  version: 1.0.0
+paths:
+  /example:
+    post:
+      summary: Accepts and returns a json value as a string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                json:
+                  type: string
+              required:
+                - json
+            examples:
+              EXAMPLE:
+                value:
+                  json: '{"value": ["string", 1, false, null], "location": "request"}'
+      responses:
+        '200':
+          description: Successful response with the same json value as a string
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  json:
+                    type: string
+                required:
+                  - json
+              examples:
+                EXAMPLE:
+                  value:
+                    json: '{"value": ["string", 1, false, null], "location": "response"}'
