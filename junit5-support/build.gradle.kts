@@ -16,8 +16,8 @@ dependencies {
     implementation("com.fasterxml.jackson.core:jackson-databind:2.19.0")
     implementation("org.thymeleaf:thymeleaf:3.1.3.RELEASE")
 
-    implementation("io.ktor:ktor-client-core-jvm:2.3.13")
-    implementation("io.ktor:ktor-client-cio:2.3.13")
+    implementation("io.ktor:ktor-client-core-jvm:3.2.0")
+    implementation("io.ktor:ktor-client-cio:3.2.0")
 
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.11.4")
     implementation("org.junit.platform:junit-platform-launcher:1.11.4")
