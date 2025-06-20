@@ -3,7 +3,6 @@ package io.specmatic.test
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.*
-import io.specmatic.core.SpecmaticConfig.Companion.getSecurityConfiguration
 import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.filters.ScenarioMetadataFilter.Companion.filterUsing
 import io.specmatic.core.log.LogMessage
@@ -286,7 +285,7 @@ open class SpecmaticJUnitSupport {
                             it.repository,
                             it.branch,
                             it.specificationPath,
-                            getSecurityConfiguration(specmaticConfig),
+                            specmaticConfig?.getSecurityConfiguration(),
                             filterName,
                             filterNotName,
                             specmaticConfig = specmaticConfig,
