@@ -3,7 +3,7 @@ package integration_tests
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
-import io.specmatic.core.SPECMATIC_STUB_DICTIONARY
+import io.specmatic.core.SPECMATIC_DICTIONARY
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
@@ -659,7 +659,7 @@ class StubSubstitutionTest {
         val specWithSubstitution = osAgnosticPath("src/test/resources/openapi/substitutions/spec_with_no_substitutions.yaml")
 
         try {
-            System.setProperty(SPECMATIC_STUB_DICTIONARY, "src/test/resources/openapi/substitutions/dictionary.json")
+            System.setProperty(SPECMATIC_DICTIONARY, "src/test/resources/openapi/substitutions/dictionary.json")
 
             createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0).use { stub ->
                 val request = HttpRequest("POST", "/person", body = parsedJSONObject("""{"name": "Charles"}"""))
@@ -674,7 +674,7 @@ class StubSubstitutionTest {
                 assertThat(responseBody.findFirstChildByPath("name")).isEqualTo(StringValue("George"))
             }
         } finally {
-            System.clearProperty(SPECMATIC_STUB_DICTIONARY)
+            System.clearProperty(SPECMATIC_DICTIONARY)
         }
     }
 
@@ -683,7 +683,7 @@ class StubSubstitutionTest {
         val specWithSubstitution = osAgnosticPath("src/test/resources/openapi/substitutions/dictionary_value_at_second_level.yaml")
 
         try {
-            System.setProperty(SPECMATIC_STUB_DICTIONARY, "src/test/resources/openapi/substitutions/dictionary.json")
+            System.setProperty(SPECMATIC_DICTIONARY, "src/test/resources/openapi/substitutions/dictionary.json")
 
             createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0).use { stub ->
                 val request = HttpRequest("POST", "/person", body = parsedJSONObject("""{"name": "Charles"}"""))
@@ -696,7 +696,7 @@ class StubSubstitutionTest {
                 assertThat(responseBody.findFirstChildByPath("address.street")).isEqualTo(StringValue("Baker Street"))
             }
         } finally {
-            System.clearProperty(SPECMATIC_STUB_DICTIONARY)
+            System.clearProperty(SPECMATIC_DICTIONARY)
         }
     }
 
@@ -705,7 +705,7 @@ class StubSubstitutionTest {
         val specWithSubstitution = osAgnosticPath("src/test/resources/openapi/substitutions/dictionary_value_at_second_level_with_array.yaml")
 
         try {
-            System.setProperty(SPECMATIC_STUB_DICTIONARY, "src/test/resources/openapi/substitutions/dictionary.json")
+            System.setProperty(SPECMATIC_DICTIONARY, "src/test/resources/openapi/substitutions/dictionary.json")
 
             createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0).use { stub ->
                 val request = HttpRequest("POST", "/person", body = parsedJSONObject("""{"name": "Charles"}"""))
@@ -718,7 +718,7 @@ class StubSubstitutionTest {
                 assertThat(responseBody.findFirstChildByPath("addresses.[0].street")).isEqualTo(StringValue("Baker Street"))
             }
         } finally {
-            System.clearProperty(SPECMATIC_STUB_DICTIONARY)
+            System.clearProperty(SPECMATIC_DICTIONARY)
         }
     }
 
@@ -727,7 +727,7 @@ class StubSubstitutionTest {
         try {
             val specWithSubstitution = osAgnosticPath("src/test/resources/openapi/substitutions/dictionary_value_at_second_level.yaml")
             val brokenDictionaryPath = "src/test/resources/openapi/substitutions/broken-dictionary.json"
-            System.setProperty(SPECMATIC_STUB_DICTIONARY, brokenDictionaryPath)
+            System.setProperty(SPECMATIC_DICTIONARY, brokenDictionaryPath)
 
             val (output, _) = captureStandardOutput {
                 try {
@@ -742,7 +742,7 @@ class StubSubstitutionTest {
 
             assertThat(output).contains(osAgnosticPath(brokenDictionaryPath))
         } finally {
-            System.clearProperty(SPECMATIC_STUB_DICTIONARY)
+            System.clearProperty(SPECMATIC_DICTIONARY)
         }
     }
 }

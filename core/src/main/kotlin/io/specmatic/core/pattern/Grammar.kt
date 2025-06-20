@@ -399,7 +399,8 @@ private fun processContent(content: String?, extension: String): Value {
             else -> parsedScalarValue(trimmedContent)
         }
     }.getOrElse { e ->
-        logger.debug(e)
+        logger.log(e)
+        logger.log("Failed to parse value, trying to parse as string..")
         StringValue(trimmedContent)
     }
 }
