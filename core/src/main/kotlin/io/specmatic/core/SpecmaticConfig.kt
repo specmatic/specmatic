@@ -204,7 +204,7 @@ data class SpecmaticConfig(
     private val auth: Auth? = null,
     private val pipeline: Pipeline? = null,
     private val environments: Map<String, Environment>? = null,
-    private val hooks: Map<String, String> = emptyMap(),
+    private val hooks: Map<String, String>? = null,
     private val repository: RepositoryInfo? = null,
     private val report: ReportConfigurationDetails? = null,
     private val security: SecurityConfiguration? = null,
@@ -282,6 +282,10 @@ data class SpecmaticConfig(
 
         fun getEnvironments(specmaticConfig: SpecmaticConfig): Map<String, Environment>? {
             return specmaticConfig.environments
+        }
+
+        fun getHooks(specmaticConfig: SpecmaticConfig): Map<String, String>? {
+            return specmaticConfig.hooks
         }
     }
 
@@ -481,7 +485,7 @@ data class SpecmaticConfig(
 
     @JsonIgnore
     fun getHooks(): Map<String, String> {
-        return hooks
+        return hooks ?: emptyMap()
     }
 
     @JsonIgnore
