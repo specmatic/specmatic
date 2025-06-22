@@ -2,8 +2,26 @@ package io.specmatic.core.log
 
 import java.io.File
 
-class LogDirectory(directory: File, prefix: String, tag: String, extension: String): LogFile {
-    constructor(directory: String, prefix: String, tag: String, extension: String): this(File(directory), prefix, tag, extension)
+class LogDirectory(
+    directory: File,
+    prefix: String,
+    tag: String,
+    extension: String,
+    includeDateInFileName: Boolean = true
+): LogFile {
+    constructor(
+        directory: String,
+        prefix: String,
+        tag: String,
+        extension: String,
+        includeDateInFileName: Boolean = true
+    ) : this(
+        File(directory),
+        prefix,
+        tag,
+        extension,
+        includeDateInFileName
+    )
 
     val file: File
 
@@ -13,7 +31,10 @@ class LogDirectory(directory: File, prefix: String, tag: String, extension: Stri
 
         val currentDate = CurrentDate()
 
-        val name = "$prefix-${currentDate.toFileNameString()}${logFileNameSuffix(tag, extension)}"
+        val name = when {
+            includeDateInFileName -> "$prefix-${currentDate.toFileNameString()}${logFileNameSuffix(tag, extension)}"
+            else -> "$prefix${logFileNameSuffix(tag, extension)}"
+        }
 
         file = directory.resolve(name)
         if(!file.exists()) {
