@@ -1,7 +1,8 @@
 package io.specmatic.core.log
 
 var logger: LogStrategy = newLogger()
-fun newLogger(): LogStrategy = ThreadSafeLog(NonVerbose(CompositePrinter()))
+fun newLogger(printers: List<LogPrinter> = listOf(ConsolePrinter)): LogStrategy =
+    ThreadSafeLog(NonVerbose(CompositePrinter(printers)))
 fun resetLogger() {
     logger = NonVerbose(CompositePrinter())
 }
