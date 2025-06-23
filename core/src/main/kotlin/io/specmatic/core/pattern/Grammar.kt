@@ -353,19 +353,55 @@ fun parsedJSONArray(content: String, mismatchMessages: MismatchMessages = Defaul
     }
 }
 
-fun parsedValue(content: String?): Value {
+fun parsedValue(content: String?, contentType: String? = null): Value {
     return content?.trim()?.removePrefix(UTF_BYTE_ORDER_MARK)?.let {
-        try {
-            when {
-                it.startsWith("{") -> JSONObjectValue(jsonStringToValueMap(it))
-                it.startsWith("[") -> JSONArrayValue(jsonStringToValueArray(it))
-                it.startsWith("<") -> toXMLNode(it)
-                else -> StringValue(it)
+        when {
+            contentType != null -> parseWithContentTypeHint(it, contentType)
+            else -> try {
+                when {
+                    it.startsWith("{") -> JSONObjectValue(jsonStringToValueMap(it))
+                    it.startsWith("[") -> JSONArrayValue(jsonStringToValueArray(it))
+                    it.startsWith("<") -> toXMLNode(it)
+                    else -> StringValue(it)
+                }
+            } catch (e: Throwable) {
+                StringValue(it)
             }
-        } catch (e: Throwable) {
-            StringValue(it)
         }
     } ?: EmptyString
+}
+
+private fun parseWithContentTypeHint(content: String, contentType: String): Value {
+    val normalizedContentType = contentType.lowercase().split(";")[0].trim()
+    
+    return when {
+        normalizedContentType == "application/json" -> {
+            when {
+                content.startsWith("{") -> JSONObjectValue(jsonStringToValueMap(content))
+                content.startsWith("[") -> JSONArrayValue(jsonStringToValueArray(content))
+                else -> throw ContractException("Expected JSON content but content does not start with '{' or '['")
+            }
+        }
+        normalizedContentType == "application/xml" || normalizedContentType == "text/xml" -> {
+            toXMLNode(content)
+        }
+        normalizedContentType.startsWith("text/") || normalizedContentType == "text/plain" -> {
+            StringValue(content)
+        }
+        else -> {
+            // For unrecognized content types, fall back to guessing behavior
+            try {
+                when {
+                    content.startsWith("{") -> JSONObjectValue(jsonStringToValueMap(content))
+                    content.startsWith("[") -> JSONArrayValue(jsonStringToValueArray(content))
+                    content.startsWith("<") -> toXMLNode(content)
+                    else -> StringValue(content)
+                }
+            } catch (e: Throwable) {
+                StringValue(content)
+            }
+        }
+    }
 }
 
 fun parsedScalarValue(content: String?): Value {
