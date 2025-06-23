@@ -250,6 +250,33 @@ internal class GrammarKtTest {
     }
 
     @Test
+    fun `parsedValue with JSON subtype content types should parse as JSON`() {
+        val content = """{"data": "test"}"""
+        
+        // Test various JSON subtypes that should be parsed as JSON
+        val mergePatchResult = parsedValue(content, "application/merge-patch+json")
+        val jsonPatchResult = parsedValue(content, "application/json-patch+json")
+        val customJsonResult = parsedValue(content, "application/vnd.api+json")
+        
+        assertThat(mergePatchResult).isInstanceOf(JSONObjectValue::class.java)
+        assertThat(jsonPatchResult).isInstanceOf(JSONObjectValue::class.java)
+        assertThat(customJsonResult).isInstanceOf(JSONObjectValue::class.java)
+        
+        // Verify the content is correctly parsed
+        assertThat((mergePatchResult as JSONObjectValue).jsonObject["data"]?.toStringLiteral()).isEqualTo("test")
+    }
+
+    @Test
+    fun `parsedValue with JSON subtype content types handles charset correctly`() {
+        val content = """{"message": "hello"}"""
+        
+        val result = parsedValue(content, "application/merge-patch+json; charset=utf-8")
+        
+        assertThat(result).isInstanceOf(JSONObjectValue::class.java)
+        assertThat((result as JSONObjectValue).jsonObject["message"]?.toStringLiteral()).isEqualTo("hello")
+    }
+
+    @Test
     fun `parsedValue with contentType containing charset should work correctly`() {
         val jsonContent = """{"hello": "world"}"""
         
