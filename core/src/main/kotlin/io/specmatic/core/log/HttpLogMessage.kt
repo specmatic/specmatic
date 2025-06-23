@@ -133,4 +133,15 @@ data class HttpLogMessage(
         val scenario = this.scenario ?: return "Unknown Request"
         return scenario.copy(exampleName = this.examplePath?.let(::File)?.name).testDescription()
     }
+
+    fun toRequestResponseLogString(): String = buildString {
+        val target = targetServer.takeIf { it.isNotBlank() }?.let { "to $it " } ?: ""
+
+        appendLine("--------------------")
+        appendLine("  Request ${target}at $requestTime")
+        appendLine(request.toLogString("    "))
+        appendLine()
+        appendLine("  Response at $responseTime")
+        appendLine(response?.toLogString("    "))
+    }
 }
