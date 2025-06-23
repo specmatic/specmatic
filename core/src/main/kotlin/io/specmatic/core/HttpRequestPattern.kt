@@ -338,7 +338,7 @@ data class HttpRequestPattern(
                 requestPattern.copy(httpPathPattern = HttpPathPattern(pathTypes, path), httpQueryParamPattern = HttpQueryParamPattern(queryParamTypes))
             }
 
-            requestPattern = attempt(breadCrumb = "HEADERS") {
+            requestPattern = attempt(breadCrumb = BreadCrumb.PARAM_HEADER.value) {
                 val headersWithRelevantFields = securitySchemes.fold(request) { request, securityScheme ->
                     securityScheme.removeParam(request)
                 }.headers.filterKeys { !it.equals(CONTENT_TYPE, ignoreCase = true) }

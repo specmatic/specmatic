@@ -1254,9 +1254,9 @@ paths:
     }
 
     @Test
-    fun `should accept extra headers in the request and respond with an matching example if exists`() {
-        val feature: Feature = OpenApiSpecification.fromYAML(
-            """
+    fun `should accept extra headers in the request and respond with an matching example if exists with extensible schema`() {
+        val feature: Feature = Flags.using(Flags.EXTENSIBLE_SCHEMA to "true") {
+            OpenApiSpecification.fromYAML("""
             openapi: 3.0.3
             info:
               title: Simple API
@@ -1284,7 +1284,8 @@ paths:
                             required:
                               - id
             """.trimIndent(), ""
-        ).toFeature()
+            ).toFeature()
+        }
 
         val headerKeys = listOf("HeaderKey", "X-Extra")
         val combinedKeys = headerKeys.joinToString("-")
@@ -1317,9 +1318,9 @@ paths:
     }
 
     @Test
-    fun `should complain when mandatory headers are missing from the request`() {
-        val feature: Feature = OpenApiSpecification.fromYAML(
-            """
+    fun `should complain when mandatory headers are missing from the request with extensible schema`() {
+        val feature: Feature = Flags.using(Flags.EXTENSIBLE_SCHEMA to "true") {
+            OpenApiSpecification.fromYAML("""
             openapi: 3.0.3
             info:
               title: Simple API
@@ -1352,7 +1353,8 @@ paths:
                             required:
                               - id
             """.trimIndent(), ""
-        ).toFeature()
+            ).toFeature()
+        }
 
         val example = ScenarioStub(
             request = HttpRequest("GET", "/", headers = mapOf("X-Extra" to "Value", "Mandatory" to "Value")),
@@ -1367,7 +1369,7 @@ paths:
             assertThat(response.body.toStringLiteral()).isEqualToNormalizingWhitespace("""
             In scenario "Simple GET endpoint. Response: OK"
             API: GET / -> 200
-            >> REQUEST.HEADERS.Mandatory
+            >> REQUEST.PARAMETERS.HEADER.Mandatory
             Header named Mandatory in the contract was not found in the request
             """.trimIndent())
         }

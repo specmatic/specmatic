@@ -50,7 +50,8 @@ data class HttpStubData(
     ): Result {
         return requestType.matches(
             httpRequest,
-            resolver.copy(mismatchMessages = mismatchMessages),
+            resolver.disableOverrideUnexpectedKeycheck()
+                .copy(mismatchMessages = mismatchMessages),
             requestBodyReqex = requestBodyRegex
         )
     }

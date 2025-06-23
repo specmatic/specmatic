@@ -704,7 +704,7 @@ data class Scenario(
                 IgnoreFacts(),
                 true,
                 patterns,
-                findKeyErrorCheck = keyCheck,
+                findKeyErrorCheck = keyCheck.disableOverrideUnexpectedKeycheck(),
                 mismatchMessages = updatedMismatchMessages
             )
 
