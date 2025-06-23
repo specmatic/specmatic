@@ -196,9 +196,7 @@ data class JSONObjectPattern(
         val resolved = runCatching { substitution.resolveIfLookup(value, this) }.getOrElse { e -> return HasException(e) }
         val resolvedValue = resolved as? JSONObjectValue ?: return HasFailure(Result.Failure("Cannot resolve substitutions, expected object but got ${value.displayableType()}"))
 
-        if(pattern.isEmpty())
-            return HasValue(value)
-
+        if(pattern.isEmpty()) return HasValue(value)
         val updatedMap = resolvedValue.jsonObject.mapNotNull { (key, value) ->
             val pattern = attempt("Could not find key in json object", key) { pattern[key] ?: pattern["$key?"] ?: throw MissingDataException("Could not find key $key") }
             if (substitution.isDropDirective(value)) {

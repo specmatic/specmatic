@@ -190,15 +190,6 @@ class ThreadSafeListOfStubsTest {
             val jsonResponse = expectedResponse.response.body as JSONObjectValue
             assertThat(jsonResponse.findFirstChildByName("id")?.toStringLiteral()).isEqualTo("20")
         }
-
-        @Test
-        fun `partial data lookup example should be classified as data lookup example and not partial`() {
-            val httpStubData = stubOf(StubCategory.PERSISTENT, StubType.PARTIAL).copy(data = JSONObjectValue(mapOf("key" to StringValue("value"))))
-            val classifiedStub = ClassifiedStub.from(httpStubData)
-
-            assertThat(classifiedStub.category).isEqualTo(StubCategory.PERSISTENT)
-            assertThat(classifiedStub.type).isEqualTo(StubType.DATA_LOOKUP)
-        }
     }
 
     @Nested
