@@ -196,11 +196,11 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     }
 
     private fun configureJSONLogPrinter(): List<LogPrinter> = jsonLog?.let {
-        listOf(JSONFilePrinter(LogDirectory(it, logPrefix, "json", "log")))
+        listOf(JSONFilePrinter(LogDirectory(it, logPrefix, "-json.log")))
     } ?: emptyList()
 
     private fun configureTextLogPrinter(): List<LogPrinter> = textLog?.let {
-        listOf(TextFilePrinter(LogDirectory(it, logPrefix, "", "log")))
+        listOf(TextFilePrinter(LogDirectory(it, logPrefix, ".log")))
     } ?: emptyList()
 
 

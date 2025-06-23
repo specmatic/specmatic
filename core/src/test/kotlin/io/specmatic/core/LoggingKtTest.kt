@@ -9,14 +9,6 @@ import org.junit.jupiter.api.Test
 
 internal class LoggingKtTest {
     @Test
-    fun `log filename suffix generation`() {
-        assertThat(logFileNameSuffix("json", "log")).isEqualTo("-json.log")
-        assertThat(logFileNameSuffix("", "log")).isEqualTo(".log")
-        assertThat(logFileNameSuffix("json", "")).isEqualTo("-json")
-        assertThat(logFileNameSuffix("", "")).isEqualTo("")
-    }
-
-    @Test
     fun `log with no indentation`() {
         val (output, _) = captureStandardOutput(trim = false) {
             InfoLogger.log("Hello")

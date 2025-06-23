@@ -1,7 +1,11 @@
 package io.specmatic.core.log
 
 var logger: LogStrategy = newLogger()
-fun newLogger(): LogStrategy = ThreadSafeLog(NonVerbose(CompositePrinter()))
+
+fun newLogger(): LogStrategy = newLogger(listOf(ConsolePrinter))
+
+fun newLogger(printers: List<LogPrinter>): LogStrategy = ThreadSafeLog(NonVerbose(CompositePrinter(printers)))
+
 fun resetLogger() {
     logger = NonVerbose(CompositePrinter())
 }
@@ -13,7 +17,10 @@ val DebugLogger = ThreadSafeLog(Verbose(CompositePrinter()))
 val InfoLogger = ThreadSafeLog(NonVerbose(CompositePrinter()))
 
 @Suppress("unused")
-fun <T> withLogger(logStrategy: LogStrategy, fn: () -> T): T {
+fun <T> withLogger(
+    logStrategy: LogStrategy,
+    fn: () -> T,
+): T {
     val oldLogger = logger
     logger = logStrategy
     try {
@@ -23,15 +30,14 @@ fun <T> withLogger(logStrategy: LogStrategy, fn: () -> T): T {
     }
 }
 
-fun logException(fn: ()-> Unit): Int {
-    return try {
+fun logException(fn: () -> Unit): Int =
+    try {
         fn()
         0
-    } catch(e: Throwable) {
+    } catch (e: Throwable) {
         logger.log(e)
         1
     }
-}
 
 fun consoleLog(event: String) {
     consoleLog(StringLog(event))
@@ -47,7 +53,10 @@ fun consoleLog(e: Throwable) {
     logger.log(e)
 }
 
-fun consoleLog(e: Throwable, msg: String) {
+fun consoleLog(
+    e: Throwable,
+    msg: String,
+) {
     LogTail.append(logger.ofTheException(e, msg))
     logger.log(e, msg)
 }
@@ -66,7 +75,10 @@ fun consoleDebug(e: Throwable) {
     logger.debug(e)
 }
 
-fun consoleDebug(e: Throwable, msg: String) {
+fun consoleDebug(
+    e: Throwable,
+    msg: String,
+) {
     LogTail.append(logger.ofTheException(e, msg))
     logger.debug(e, msg)
 }
