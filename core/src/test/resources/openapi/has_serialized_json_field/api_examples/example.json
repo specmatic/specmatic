@@ -1,0 +1,22 @@
+{
+    "http-request": {
+        "path": "/example",
+        "method": "POST",
+        "headers": {
+            "Content-Type": "application/json"
+        },
+        "body": {
+            "json": "{\"value\": [\"string\", 1, false, null], \"location\": \"request\"}"
+        }
+    },
+    "http-response": {
+        "status": 200,
+        "body": {
+            "json": "{\"value\": [\"string\", 1, false, null], \"location\": \"response\"}"
+        },
+        "status-text": "OK",
+        "headers": {
+            "Content-Type": "application/json"
+        }
+    }
+}
