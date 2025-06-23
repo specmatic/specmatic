@@ -1,9 +1,13 @@
 package io.specmatic.test
 
+import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
 import io.specmatic.core.pattern.*
+import io.specmatic.core.utilities.Flags
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
+import java.io.File
 
 class ExamplePostValidatorTest {
 
@@ -12,7 +16,7 @@ class ExamplePostValidatorTest {
         val scenario = scenarioFrom(HttpResponse(body = parsedJSONObject("""{"data": "${"$"}eq(REQUEST.BODY.data)"}""")))
         val request = HttpRequest(body = parsedJSONObject("""{"data": "hello"}"""), method = "POST")
         val response = HttpResponse(body = parsedJSONObject("""{"data": "bye"}"""))
-        val result = ExamplePostValidator.postValidate(scenario, request, response)
+        val result = ExamplePostValidator.postValidate(scenario, scenario, request, response)
 
         assertThat(result).isInstanceOf(Result.Failure::class.java); result as Result.Failure
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
@@ -28,7 +32,7 @@ class ExamplePostValidatorTest {
         ).copy(isNegative = true)
         val request = HttpRequest(body = parsedJSONObject("""{"data": "hello"}"""))
         val response = HttpResponse(body = parsedJSONObject("""{"data": "bye"}"""))
-        val result = ExamplePostValidator.postValidate(scenario, request, response)
+        val result = ExamplePostValidator.postValidate(scenario, scenario, request, response)
 
         assertThat(result).isNull()
     }
@@ -38,7 +42,7 @@ class ExamplePostValidatorTest {
         val scenario = scenarioFrom(HttpResponse(body = parsedJSONObject("""{"data": "${"$"}eq(REQUEST.BODY.data)"}""")))
         val request = HttpRequest(body = parsedJSONObject("""{"data": "hello"}"""), method = "POST")
         val response = HttpResponse(body = parsedJSONObject("""{"data": "hello"}"""))
-        val result = ExamplePostValidator.postValidate(scenario, request, response)
+        val result = ExamplePostValidator.postValidate(scenario, scenario, request, response)
 
         assertThat(result).isNull()
     }
@@ -86,7 +90,7 @@ class ExamplePostValidatorTest {
           }
         ]
         """.trimIndent())
-        val result = ExamplePostValidator.postValidate(scenario, request, response)
+        val result = ExamplePostValidator.postValidate(scenario, scenario, request, response)
 
         assertThat(result).isNull()
     }
@@ -134,7 +138,7 @@ class ExamplePostValidatorTest {
           }
         ]
         """.trimIndent())
-        val result = ExamplePostValidator.postValidate(scenario, request, response)
+        val result = ExamplePostValidator.postValidate(scenario, scenario, request, response)
 
         assertThat(result).isInstanceOf(Result.Failure::class.java); result as Result.Failure
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
@@ -162,7 +166,7 @@ class ExamplePostValidatorTest {
         val scenario = scenarioFrom(HttpResponse(body = parsedJSONObject("""{"data": "${"$"}eq(REQUEST.BODY.data)"}""")))
         val request = HttpRequest(body = parsedJSONObject("""{"data": "hello"}"""), method = "POST")
         val response = HttpResponse(body = parsedJSONObject("""{}"""))
-        val result = ExamplePostValidator.postValidate(scenario, request, response)
+        val result = ExamplePostValidator.postValidate(scenario, scenario, request, response)
 
         assertThat(result).isInstanceOf(Result.Failure::class.java); result as Result.Failure
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
@@ -195,10 +199,10 @@ class ExamplePostValidatorTest {
         }
         """.trimIndent())
 
-        val arrayItemsResult = ExamplePostValidator.postValidate(arrayItemsAssert, request, response)
+        val arrayItemsResult = ExamplePostValidator.postValidate(arrayItemsAssert, arrayItemsAssert, request, response)
         assertThat(arrayItemsResult).isNull()
 
-        val arrayAssertResult = ExamplePostValidator.postValidate(arrayAssert, request, response)
+        val arrayAssertResult = ExamplePostValidator.postValidate(arrayAssert, arrayAssert, request, response)
         assertThat(arrayAssertResult).isNull()
     }
 
@@ -219,7 +223,7 @@ class ExamplePostValidatorTest {
 
         assertThat(failingBodyValuesToErrorMessage).allSatisfy {
             val response = HttpResponse(body = parsedValue(it.first))
-            val result = ExamplePostValidator.postValidate(arrayAssert, request, response)
+            val result = ExamplePostValidator.postValidate(arrayAssert, arrayAssert, request, response)
 
             assertThat(result).isInstanceOf(Result.Failure::class.java); result as Result.Failure
             assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
@@ -247,7 +251,7 @@ class ExamplePostValidatorTest {
 
         assertThat(failingBodyValuesToErrorMessage).allSatisfy {
             val response = HttpResponse(body = parsedValue(it.first))
-            val result = ExamplePostValidator.postValidate(arrayItemsAssert, request, response)
+            val result = ExamplePostValidator.postValidate(arrayItemsAssert, arrayItemsAssert, request, response)
 
             assertThat(result).isInstanceOf(Result.Failure::class.java); result as Result.Failure
             println(result.reportString())
@@ -286,7 +290,7 @@ class ExamplePostValidatorTest {
           }
         ]
         """.trimIndent())
-        val result = ExamplePostValidator.postValidate(scenario, request, response)
+        val result = ExamplePostValidator.postValidate(scenario, scenario, request, response)
 
         assertThat(result).isInstanceOf(Result.Failure::class.java); result as Result.Failure
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
@@ -302,18 +306,90 @@ class ExamplePostValidatorTest {
     @Test
     fun `should be able to assert on request path parameters`() {
         val scenario = scenarioFrom(
-            responseExampleForAssertion = HttpResponse(body = parsedValue("""{"id": "${"$"}eq(REQUEST.PATH-PARAMS.id)"}""".trimIndent())),
+            responseExampleForAssertion = HttpResponse(
+                body = parsedValue("""{"id": "${"$"}eq(REQUEST.PARAMETERS.PATH.id)"}""".trimIndent())
+            ),
             httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/users/(id:number)"), method = "GET")
         )
         val request = HttpRequest(method = "GET", path = "/users/123")
         val response = HttpResponse(body = parsedValue("""{"id": 456}"""))
-        val result = ExamplePostValidator.postValidate(scenario, request, response)
+        val result = ExamplePostValidator.postValidate(scenario, scenario, request, response)
 
         assertThat(result).isInstanceOf(Result.Failure::class.java); result as Result.Failure
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
         >> RESPONSE.BODY.id
-        Expected 456 to equal "123"
+        Expected 456 to equal 123
         """.trimIndent())
+    }
+
+    @Test
+    fun `should be able to assert on request query parameter`() {
+        val scenario = scenarioFrom(
+            responseExampleForAssertion = HttpResponse(
+                body = parsedValue("""{"id": "${"$"}eq(REQUEST.PARAMETERS.QUERY.id)"}""".trimIndent())
+            ),
+            httpRequestPattern = HttpRequestPattern(
+                httpPathPattern = buildHttpPathPattern("/users"), method = "GET",
+                httpQueryParamPattern = HttpQueryParamPattern(mapOf("id" to QueryParameterScalarPattern(NumberPattern())))
+            )
+        )
+        val request = HttpRequest(method = "GET", queryParams = QueryParameters(mapOf("id" to "123")))
+        val response = HttpResponse(body = parsedValue("""{"id": 456}"""))
+        val result = ExamplePostValidator.postValidate(scenario, scenario, request, response)
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java); result as Result.Failure
+        assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
+        >> RESPONSE.BODY.id
+        Expected 456 to equal 123
+        """.trimIndent())
+    }
+
+    @Test
+    fun `should be able to assert on request headers`() {
+        val scenario = scenarioFrom(
+            responseExampleForAssertion = HttpResponse(
+                body = parsedValue("""{"id": "${"$"}eq(REQUEST.PARAMETERS.HEADER.id)"}""".trimIndent())
+            ),
+            httpRequestPattern = HttpRequestPattern(
+                httpPathPattern = buildHttpPathPattern("/users"), method = "GET",
+                headersPattern = HttpHeadersPattern(mapOf("id" to NumberPattern()))
+            )
+        )
+        val request = HttpRequest(method = "GET", headers = mapOf("id" to "123"))
+        val response = HttpResponse(body = parsedValue("""{"id": 456}"""))
+        val result = ExamplePostValidator.postValidate(scenario, scenario, request, response)
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java); result as Result.Failure
+        assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
+        >> RESPONSE.BODY.id
+        Expected 456 to equal 123
+        """.trimIndent())
+    }
+
+    @Test
+    fun `should work e2e for request parameters assertions using external examples`() {
+        val specFile = File("src/test/resources/openapi/partial_example_tests/simple.yaml")
+        val examplesDir = specFile.parentFile.resolve("assert_example")
+        val feature = Flags.using(Flags.EXAMPLE_DIRECTORIES to examplesDir.canonicalPath) {
+            OpenApiSpecification.fromFile(specFile.path).toFeature().loadExternalisedExamples()
+        }
+
+        assertDoesNotThrow { feature.validateExamplesOrException() }
+        val result = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                return HttpResponse(
+                    status = 201,
+                    body = parsedJSONObject("""{
+                    "id": ${request.path!!.substringAfter("creators/").substringBefore("/pets").toInt()},
+                    "traceId": "TRACE-123",
+                    "creatorId": ${request.headers["CREATOR-ID"]!!.toInt()},
+                    "petId": ${request.queryParams.asValueMap()["petId"]}
+                    }""".trimIndent())
+                )
+            }
+        })
+
+        assertThat(result.success()).withFailMessage(result.report()).isTrue()
     }
 
     companion object {

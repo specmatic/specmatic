@@ -10,11 +10,13 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtensionContext
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.*
 import picocli.CommandLine
 import java.io.File
+import java.util.stream.Stream
 
 class ExamplesCommandTest {
 
@@ -484,15 +486,7 @@ paths:
 
     @Nested
     inner class ValidateLifeCycleTests {
-        private val hook = AfterLoadingStaticExamples { examplesUsedFor, examples ->
-            logger.log("life cycle hook called for '$examplesUsedFor'")
-            examples.forEach { (feature, stubs) ->
-                logger.log("spec: '${File(feature.path).name}'")
-                logger.log("implicit example: '${feature.stubsFromExamples.map { (k, _) -> k }.sorted().joinToString(",")}'")
-                logger.log("external stub: '${stubs.map { File(it.filePath!!).name }.sorted().joinToString(",") }'")
-            }
-            Result.Success()
-        }
+        private val hook = getHook(Result.Success())
 
         @BeforeEach
         fun setupHook() {
@@ -542,10 +536,9 @@ paths:
         @Test
         fun `should call the life cycle hook for validate if both spec file and examples dir is provided`() {
             val (stdOut, exitCode) = captureStandardOutput {
-                val non_implicit_examples_dir = "src/test/resources/examples/only_examples/persons/persons_examples"
                 cli.execute(
                     "--spec-file", "src/test/resources/examples/only_specs/persons/persons.yaml",
-                    "--examples-dir", non_implicit_examples_dir
+                    "--examples-dir", "src/test/resources/examples/only_examples/persons/persons_examples"
                 )
             }
 
@@ -602,4 +595,118 @@ paths:
             """.trimIndent())
         }
     }
+
+    @Nested
+    inner class ValidateLifeCycleExitStatusTests {
+        private val cli = CommandLine(ExamplesCommand.Validate(), CommandLine.defaultFactory())
+
+        @ParameterizedTest
+        @ArgumentsSource(HooksProvider::class)
+        fun `should factor in the life cycle hook for validate when only spec file is provided`(
+            hook: AfterLoadingStaticExamples, expectedExitCode: Int
+        ) {
+            try {
+                LifecycleHooks.afterLoadingStaticExamples.register(hook)
+                val (_, exitCode) = captureStandardOutput {
+                    cli.execute("--spec-file", "src/test/resources/examples/single/persons.yaml")
+                }
+                assertThat(exitCode).isEqualTo(expectedExitCode)
+            } finally {
+                LifecycleHooks.afterLoadingStaticExamples.remove(hook)
+            }
+        }
+
+        @ParameterizedTest
+        @ArgumentsSource(HooksProvider::class)
+        fun `should factor in the life cycle hook for validate when spec file and example file is provided`(
+            hook: AfterLoadingStaticExamples, expectedExitCode: Int
+        ) {
+            try {
+                LifecycleHooks.afterLoadingStaticExamples.register(hook)
+                val (_, exitCode) = captureStandardOutput {
+                    cli.execute(
+                        "--spec-file", "src/test/resources/examples/only_specs/persons/persons.yaml",
+                        "--example-file", "src/test/resources/examples/only_examples/persons/persons_examples/create_person-01.json"
+                    )
+                }
+                assertThat(exitCode).isEqualTo(expectedExitCode)
+
+            } finally {
+                LifecycleHooks.afterLoadingStaticExamples.remove(hook)
+            }
+        }
+
+        @ParameterizedTest
+        @ArgumentsSource(HooksProvider::class)
+        fun `should factor in the life cycle hook for validate when spec file and examples dir is provided`(
+            hook: AfterLoadingStaticExamples, expectedExitCode: Int
+        ) {
+            try {
+                LifecycleHooks.afterLoadingStaticExamples.register(hook)
+                val (_, exitCode) = captureStandardOutput {
+                    cli.execute(
+                        "--spec-file", "src/test/resources/examples/only_specs/persons/persons.yaml",
+                        "--examples-dir", "src/test/resources/examples/only_examples/persons/persons_examples"
+                    )
+                }
+                assertThat(exitCode).isEqualTo(expectedExitCode)
+            } finally {
+                LifecycleHooks.afterLoadingStaticExamples.remove(hook)
+            }
+        }
+
+        @ParameterizedTest
+        @ArgumentsSource(HooksProvider::class)
+        fun `should factor in the life cycle hook for validate when only specs dir is provided`(
+            hook: AfterLoadingStaticExamples, expectedExitCode: Int
+        ) {
+            try {
+                LifecycleHooks.afterLoadingStaticExamples.register(hook)
+                val (_, exitCode) = captureStandardOutput {
+                    cli.execute("--specs-dir", "src/test/resources/examples/multiple")
+                }
+                assertThat(exitCode).isEqualTo(expectedExitCode)
+            } finally {
+                LifecycleHooks.afterLoadingStaticExamples.remove(hook)
+            }
+        }
+
+        @ParameterizedTest
+        @ArgumentsSource(HooksProvider::class)
+        fun `should factor in the life cycle hook for validate when specs dir and examples dir is provided`(
+            hook: AfterLoadingStaticExamples, expectedExitCode: Int
+        ) {
+            try {
+                LifecycleHooks.afterLoadingStaticExamples.register(hook)
+                val (_, exitCode) = captureStandardOutput {
+                    cli.execute(
+                        "--specs-dir", "src/test/resources/examples/only_specs",
+                        "--examples-base-dir", "src/test/resources/examples/only_examples"
+                    )
+                }
+                assertThat(exitCode).isEqualTo(expectedExitCode)
+            } finally {
+                LifecycleHooks.afterLoadingStaticExamples.remove(hook)
+            }
+        }
+    }
+}
+
+internal class HooksProvider : ArgumentsProvider {
+    override fun provideArguments(context: ExtensionContext): Stream<out Arguments> {
+        return Stream.of(
+            Arguments.of(getHook(Result.Success()), 0),
+            Arguments.of(getHook(Result.Failure("TestError")), 1),
+        )
+    }
+}
+
+internal fun getHook(result: Result) = AfterLoadingStaticExamples { examplesUsedFor, examples ->
+    logger.log("life cycle hook called for '$examplesUsedFor'")
+    examples.forEach { (feature, stubs) ->
+        logger.log("spec: '${File(feature.path).name}'")
+        logger.log("implicit example: '${feature.stubsFromExamples.map { (k, _) -> k }.sorted().joinToString(",")}'")
+        logger.log("external stub: '${stubs.map { File(it.filePath!!).name }.sorted().joinToString(",")}'")
+    }
+    result
 }

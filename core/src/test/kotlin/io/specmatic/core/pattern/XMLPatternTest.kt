@@ -529,7 +529,7 @@ internal class XMLPatternTest {
             val pattern = XMLPattern("<data><empty/><value>10</value></data>")
             val value = pattern.generate(Resolver())
 
-            assertThat(value.toStringLiteral()).isEqualTo("<data><empty/><value>10</value></data>")
+            assertThat(value.toStringLiteral()).isEqualToIgnoringWhitespace("<data><empty/><value>10</value></data>")
         }
 
         @Test
@@ -540,7 +540,7 @@ internal class XMLPatternTest {
             val newTypes = xmlType.newBasedOn(example, Resolver()).map { it.value as XMLPattern }.toList()
 
             val xmlNode = newTypes[0].generate(Resolver())
-            assertThat(xmlNode.toStringLiteral()).isEqualTo("<data><name>John Doe</name><age>10</age></data>")
+            assertThat(xmlNode.toStringLiteral()).isEqualToIgnoringWhitespace("<data><name>John Doe</name><age>10</age></data>")
         }
 
         @Test
@@ -643,7 +643,7 @@ internal class XMLPatternTest {
             val newTypes = xmlType.newBasedOn(example, Resolver()).map { it.value as XMLPattern }.toList()
 
             val xmlNode = newTypes[0].generate(Resolver())
-            assertThat(xmlNode.toStringLiteral()).isEqualTo("<data><name>John Doe</name><age>10</age></data>")
+            assertThat(xmlNode.toStringLiteral()).isEqualToIgnoringWhitespace("<data><name>John Doe</name><age>10</age></data>")
         }
 
         @Test
@@ -817,8 +817,11 @@ internal class XMLPatternTest {
             val resolver = Resolver(newPatterns = mapOf("(Nameid)" to nameIdType))
             val row = Row(listOf("nameid"), listOf("10"))
             val newValues =
-                nameType.newBasedOn(row, resolver).map { it.value as XMLPattern }.map { it.generate(resolver) }
-                    .toList()
+                nameType.newBasedOn(row, resolver).map {
+                    it.value as XMLPattern
+                }.map {
+                    it.generate(resolver)
+                }.toList()
 
             assertThat(newValues.isNotEmpty())
 

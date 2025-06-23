@@ -22,14 +22,6 @@ typealias GroupedScenarioData = Map<String, Map<String, Map<String, Map<String, 
 class CoverageReportHtmlRenderer : ReportRenderer<OpenAPICoverageConsoleReport> {
 
     companion object {
-        private val tableConfig = HtmlTableConfig(
-            firstGroupName = "Path",
-            firstGroupColSpan = 2,
-            secondGroupName = "Method",
-            secondGroupColSpan = 1,
-            thirdGroupName = "Response",
-            thirdGroupColSpan = 1
-        )
         val actuatorEnabled = SpecmaticJUnitSupport.openApiCoverageReportInput.endpointsAPISet
     }
 
@@ -48,11 +40,23 @@ class CoverageReportHtmlRenderer : ReportRenderer<OpenAPICoverageConsoleReport> 
         val htmlReportInformation = HtmlReportInformation(
             reportFormat = htmlReportConfiguration, successCriteria = openApiSuccessCriteria,
             specmaticImplementation = "OpenAPI", specmaticVersion = getSpecmaticVersion(),
-            tableConfig = tableConfig, reportData = reportData, specmaticConfig = specmaticConfig
+            tableConfig = createTableConfig(report), reportData = reportData, specmaticConfig = specmaticConfig,
+            isGherkinReport = report.isGherkinReport
         )
 
         HtmlReport(htmlReportInformation).generate()
         return "Successfully generated HTML report in ${htmlReportConfiguration.getOutputDirectoryOrDefault()}"
+    }
+
+    private fun createTableConfig(report: OpenAPICoverageConsoleReport): HtmlTableConfig {
+        return HtmlTableConfig(
+            firstGroupName = "Path",
+            firstGroupColSpan = 2,
+            secondGroupName = if (report.isGherkinReport) "SoapAction" else "Method",
+            secondGroupColSpan = if (report.isGherkinReport) 2 else 1,
+            thirdGroupName = "Response",
+            thirdGroupColSpan = 1
+        )
     }
 
     private fun getSpecmaticVersion(): String {

@@ -1,6 +1,8 @@
 {
-  "HEADERS": {
-    "X-LoginID": "abc123"
+  "PARAMETERS": {
+    "HEADER": {
+      "X-LoginID": "abc123"
+    }
   },
   "OutputData": {
     "data": "output123"

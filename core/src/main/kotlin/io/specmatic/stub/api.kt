@@ -27,6 +27,7 @@ import io.specmatic.core.utilities.ContractPathData
 import io.specmatic.core.utilities.ContractPathData.Companion.specToBaseUrlMap
 import io.specmatic.core.utilities.contractStubPaths
 import io.specmatic.core.utilities.examplesDirFor
+import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.utilities.exitWithMessage
 import io.specmatic.core.utilities.runWithTimeout
 import io.specmatic.mock.NoMatchingScenario
@@ -822,16 +823,17 @@ fun implicitContractDataDir(contractPath: String, customBase: String? = null): F
 }
 
 fun loadIfOpenAPISpecification(contractPathData: ContractPathData, specmaticConfig: SpecmaticConfig): Pair<String, Feature>? {
-    if(hasOpenApiFileExtension(contractPathData.path).not()) {
-        logger.log("Ignoring ${contractPathData.path} as it does not have a recognized specification extension")
-        return null
-    }
-    if(isOpenAPI(contractPathData.path).not()) {
-        logger.log("Ignoring ${contractPathData.path} as it is not a valid OpenAPI specification")
+    if(!File(contractPathData.path).exists()) {
+        logger.log("Skipping the file '${contractPathData.path}' as it does not exist")
         return null
     }
 
-    return Pair(contractPathData.path, parseContractFileToFeature(contractPathData.path, CommandHook(HookName.stub_load_contract), contractPathData.provider, contractPathData.repository, contractPathData.branch, contractPathData.specificationPath).copy(specmaticConfig = specmaticConfig))
+    return try {
+        Pair(contractPathData.path, parseContractFileToFeature(contractPathData.path, CommandHook(HookName.stub_load_contract), contractPathData.provider, contractPathData.repository, contractPathData.branch, contractPathData.specificationPath).copy(specmaticConfig = specmaticConfig))
+    } catch (e: Throwable) {
+        logger.log(exceptionCauseMessage(e))
+        null
+    }
 }
 
 fun isInvalidOpenAPISpecification(specPath: String): Boolean {

@@ -3,16 +3,26 @@ package application
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 
-fun <ReturnType> captureStandardOutput(fn: () -> ReturnType): Pair<String, ReturnType> {
+fun <ReturnType> captureStandardOutput(redirectStdErrToStdout: Boolean = false, fn: () -> ReturnType): Pair<String, ReturnType> {
+    val originalErr = System.err
     val originalOut = System.out
 
-    val byteArrayOutputStream = ByteArrayOutputStream()
-    val newOut = PrintStream(byteArrayOutputStream)
+    val byteArrayOutputStreamOut = ByteArrayOutputStream()
+    val newOut = PrintStream(byteArrayOutputStreamOut)
     System.setOut(newOut)
 
-    val result = fn()
+    if (redirectStdErrToStdout) {
+        System.setErr(newOut)
+    }
 
-    System.out.flush()
-    System.setOut(originalOut) // So you can print again
-    return Pair(String(byteArrayOutputStream.toByteArray()).trim(), result)
+    val result = try {
+        fn()
+    } finally {
+        newOut.flush()
+
+        System.setOut(originalOut)
+        System.setErr(originalErr)
+    }
+
+    return Pair(String(byteArrayOutputStreamOut.toByteArray()).trim(), result)
 }

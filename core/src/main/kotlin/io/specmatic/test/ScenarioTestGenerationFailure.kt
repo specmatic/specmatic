@@ -39,7 +39,9 @@ class ScenarioTestGenerationFailure(
             specification = scenario.specification,
             serviceType = scenario.serviceType,
             actualResponseStatus = 0,
-            scenarioResult = result
+            scenarioResult = result,
+            soapAction = scenario.httpRequestPattern.getSOAPAction().takeIf { scenario.isGherkinScenario },
+            isGherkin = scenario.isGherkinScenario
         )
     }
 

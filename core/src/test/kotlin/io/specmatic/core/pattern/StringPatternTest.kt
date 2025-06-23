@@ -174,7 +174,8 @@ internal class StringPatternTest {
                 listOf(
                     ExactValuePattern(StringValue("01")),
                     ExactValuePattern(StringValue("02"))
-                )
+                ),
+                extensions = emptyMap()
             ), Resolver(), Resolver()
         )
 
@@ -187,7 +188,8 @@ internal class StringPatternTest {
             listOf(
                 ExactValuePattern(StringValue("01")),
                 ExactValuePattern(StringValue("02"))
-            )
+            ),
+            extensions = emptyMap()
         ).encompasses(
             StringPattern(), Resolver(), Resolver()
         )

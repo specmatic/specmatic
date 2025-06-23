@@ -44,4 +44,8 @@ interface GitCommand {
         return ""
     }
 
+    fun getUntrackedFiles(): List<String> {
+        return emptyList()
+    }
+
 }

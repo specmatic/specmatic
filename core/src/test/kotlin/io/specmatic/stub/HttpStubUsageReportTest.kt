@@ -107,8 +107,8 @@ paths:
 
     @Test
     fun `should generate stub usage report when stub is stopped`() {
-        val stubContract1 = OpenApiSpecification.fromYAML(helloAndDataSpec, "", sourceProvider = "git", sourceRepository = "https://github.com/znsio/specmatic-order-contracts.git", sourceRepositoryBranch = "main", specificationPath = "in/specmatic/examples/store/helloAndDataSpec.yaml").toFeature()
-        val stubContract2 = OpenApiSpecification.fromYAML(hello2AndData2Spec, "", sourceProvider = "git", sourceRepository = "https://github.com/znsio/specmatic-order-contracts.git", sourceRepositoryBranch = "main", specificationPath = "in/specmatic/examples/store/hello2AndData2Spec.yaml").toFeature()
+        val stubContract1 = OpenApiSpecification.fromYAML(helloAndDataSpec, "", sourceProvider = "git", sourceRepository = "https://github.com/specmatic/specmatic-order-contracts.git", sourceRepositoryBranch = "main", specificationPath = "in/specmatic/examples/store/helloAndDataSpec.yaml").toFeature()
+        val stubContract2 = OpenApiSpecification.fromYAML(hello2AndData2Spec, "", sourceProvider = "git", sourceRepository = "https://github.com/specmatic/specmatic-order-contracts.git", sourceRepositoryBranch = "main", specificationPath = "in/specmatic/examples/store/hello2AndData2Spec.yaml").toFeature()
 
         HttpStub(listOf(stubContract1, stubContract2), specmaticConfigPath = "./specmatic.json").use { stub ->
             stub.client.execute(HttpRequest("GET", "/data"))
@@ -129,7 +129,7 @@ paths:
             StubUsageReportTest.CONFIG_FILE_PATH, listOf(
                 StubUsageReportRow(
                     "git",
-                    "https://github.com/znsio/specmatic-order-contracts.git",
+                    "https://github.com/specmatic/specmatic-order-contracts.git",
                     "main",
                     "in/specmatic/examples/store/helloAndDataSpec.yaml",
                     "HTTP",
@@ -140,7 +140,7 @@ paths:
                 ),
                 StubUsageReportRow(
                     "git",
-                    "https://github.com/znsio/specmatic-order-contracts.git",
+                    "https://github.com/specmatic/specmatic-order-contracts.git",
                     "main",
                     "in/specmatic/examples/store/hello2AndData2Spec.yaml",
                     "HTTP",

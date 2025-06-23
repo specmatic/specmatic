@@ -9,7 +9,8 @@ import io.specmatic.core.value.Value
 
 data class DeferredPattern(
     override val pattern: String,
-    val key: String? = null
+    val key: String? = null,
+    override val extensions: Map<String, Any> = emptyMap()
 ) : Pattern, PossibleJsonObjectPatternContainer {
 
     override fun fixValue(value: Value, resolver: Resolver): Value {

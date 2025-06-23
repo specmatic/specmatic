@@ -5,6 +5,7 @@ const extractValuesFromTableRow = (tableRow) => {
   let exercised;
 
   const values = [...tableRow.children].map((child) => child.textContent);
+  const isGherkinReport = document.querySelector("body").getAttribute("is-gherkin-report");
 
   if (values.length === 6) {
     firstGroup = values[1].trim();
@@ -28,6 +29,7 @@ const extractValuesFromTableRow = (tableRow) => {
       result: tableRow.getAttribute("data-result"),
       color: tableRow.getAttribute("data-color"),
       type: tableRow.getAttribute("data-type"),
+      isGherkinReport: isGherkinReport === "true"
   };
 };
 

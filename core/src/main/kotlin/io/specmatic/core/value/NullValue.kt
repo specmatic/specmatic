@@ -27,5 +27,7 @@ object NullValue : Value, ScalarValue {
     override val nativeValue: Any?
         get() = null
 
+    override fun specificity(): Int = 1
+
     override fun toString() = ""
 }

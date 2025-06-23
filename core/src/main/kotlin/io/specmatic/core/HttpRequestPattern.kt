@@ -71,7 +71,7 @@ data class HttpRequestPattern(
         }
     }
 
-    private fun matchesPathAndMethod(
+    fun matchesPathAndMethod(
         incomingHttpRequest: HttpRequest,
         resolver: Resolver
     ): Result {
@@ -98,7 +98,7 @@ data class HttpRequestPattern(
     fun matchesPathStructureMethodAndContentType(incomingHttpRequest: HttpRequest, resolver: Resolver): Result {
         val contentTypeMatches = headersPattern.matchContentType(incomingHttpRequest.headers to resolver)
         if (contentTypeMatches is MatchFailure<*>) {
-            return contentTypeMatches.error.breadCrumb("REQUEST.HEADERS")
+            return contentTypeMatches.error.breadCrumb(BreadCrumb.REQUEST.plus(BreadCrumb.PARAM_HEADER).value)
         }
 
         val pathAndMethodMatch = matchesPathAndMethod(incomingHttpRequest, resolver)
@@ -119,7 +119,7 @@ data class HttpRequestPattern(
                         securityScheme.isInRequest(httpRequest, complete = false) -> SchemePresence.PARTIAL
                         else -> SchemePresence.ABSENT
                     },
-                    result = securityScheme.matches(httpRequest, resolver)
+                    result = securityScheme.matches(httpRequest, resolver).breadCrumb(BreadCrumb.PARAMETERS.value)
                 )
             )
         }
@@ -225,17 +225,16 @@ data class HttpRequestPattern(
 
     private fun matchHeaders(parameters: HeaderMatchParams): MatchingResult<Triple<HttpRequest, Resolver, List<Failure>>> {
         val (httpRequest, headersResolver, defaultResolver, failures) = parameters
-        val headers = httpRequest.headers
-        return when (val result = this.headersPattern.matches(headers, headersResolver ?: defaultResolver)) {
+        return when (val result = this.headersPattern.matches(httpRequest.headers, headersResolver ?: defaultResolver)) {
             is Failure -> {
                 val failureReason = result.traverseFailureReason()
-                if(failureReason == FailureReason.ContentTypeMismatch)
-                    MatchFailure(result)
+                val breadCrumbResult = result.breadCrumb(BreadCrumb.PARAMETERS.value)
+                if (failureReason == FailureReason.ContentTypeMismatch)
+                    MatchFailure(breadCrumbResult)
                 else
-                    MatchSuccess(Triple(httpRequest, defaultResolver, failures.plus(result)))
+                    MatchSuccess(Triple(httpRequest, defaultResolver, failures.plus(breadCrumbResult)))
             }
-            else ->
-                MatchSuccess(Triple(httpRequest, defaultResolver, failures))
+            else -> MatchSuccess(Triple(httpRequest, defaultResolver, failures))
         }
     }
 
@@ -339,7 +338,7 @@ data class HttpRequestPattern(
                 requestPattern.copy(httpPathPattern = HttpPathPattern(pathTypes, path), httpQueryParamPattern = HttpQueryParamPattern(queryParamTypes))
             }
 
-            requestPattern = attempt(breadCrumb = "HEADERS") {
+            requestPattern = attempt(breadCrumb = BreadCrumb.PARAM_HEADER.value) {
                 val headersFromRequest = toTypeMap(
                     toLowerCaseKeys(request.headers),
                     toLowerCaseKeys(headersPattern.pattern),
@@ -555,7 +554,13 @@ data class HttpRequestPattern(
     }
 
     private fun HttpRequest.generateAndUpdateHeaders(resolver: Resolver): HttpRequest {
-        return this.copy(headers = headersPattern.generate(resolver))
+        return attempt(breadCrumb = BreadCrumb.PARAMETERS.value) {
+            this.copy(
+                headers = headersPattern.generate(
+                    resolver.updateLookupPath(BreadCrumb.PARAMETERS.value)
+                )
+            )
+        }
     }
 
     private fun HttpRequest.generateAndUpdateFormFieldsValues(resolver: Resolver): HttpRequest {
@@ -577,7 +582,7 @@ data class HttpRequestPattern(
 
     private fun HttpRequest.generateAndUpdateSecuritySchemes(resolver: Resolver): HttpRequest {
         return securitySchemes.fold(this) { request, securityScheme ->
-            securityScheme.addTo(request, resolver)
+            securityScheme.addTo(request, resolver.updateLookupPath(BreadCrumb.PARAMETERS.value))
         }
     }
 
@@ -608,7 +613,7 @@ data class HttpRequestPattern(
                 newURLPathSegmentPatternsList.map { HttpPathPattern(it, httpPathPattern.path) }.map { HasValue(it) }
             } ?: sequenceOf(HasValue(null))
 
-            val newQueryParamsPatterns: Sequence<ReturnValue<HttpQueryParamPattern>> = returnValue(breadCrumb = QUERY_PARAMS_BREADCRUMB) {
+            val newQueryParamsPatterns: Sequence<ReturnValue<HttpQueryParamPattern>> = returnValue(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
                 if (status.toString().startsWith("2")) {
                     httpQueryParamPattern.addComplimentaryPatterns(
                         httpQueryParamPattern.newBasedOn(row, resolver),
@@ -626,18 +631,20 @@ data class HttpRequestPattern(
                 }
             }
 
-            val newHeadersPattern: Sequence<ReturnValue<HttpHeadersPattern>> = returnValue(breadCrumb = "HEADERS") {
+            val newHeadersPattern: Sequence<ReturnValue<HttpHeadersPattern>> = returnValue(breadCrumb = BreadCrumb.PARAM_HEADER.value) {
                 if (status.toString().startsWith("2")) {
                     headersPattern.addComplimentaryPatterns(
                         headersPattern.newBasedOn(row, resolver),
                         row,
-                        resolver
+                        resolver,
+                        BreadCrumb.PARAM_HEADER.value
                     )
                 } else {
                     headersPattern.readFrom(
                         row,
                         resolver,
-                        shouldGenerateMandatoryEntryIfMissing(resolver, status)
+                        shouldGenerateMandatoryEntryIfMissing(resolver, status),
+                        BreadCrumb.PARAM_HEADER.value
                     )
                 }
             }
@@ -665,10 +672,10 @@ data class HttpRequestPattern(
             val newFormDataPartLists: Sequence<ReturnValue<List<MultiPartFormDataPattern>>> =
                 newMultiPartBasedOn(multiPartFormDataPattern, row, resolver).map { HasValue(it) }
 
-            newHttpPathPatterns.flatMap("PATH") { newPathParamPattern ->
-                newQueryParamsPatterns.flatMap("QUERY") { newQueryParamPattern ->
+            newHttpPathPatterns.flatMap(BreadCrumb.PARAM_PATH.value) { newPathParamPattern ->
+                newQueryParamsPatterns.flatMap(BreadCrumb.PARAM_QUERY.value) { newQueryParamPattern ->
                     newBodies.flatMap("BODY") { newBody ->
-                        newHeadersPattern.flatMap("HEADERS") { newHeadersPattern ->
+                        newHeadersPattern.flatMap(BreadCrumb.PARAM_HEADER.value) { newHeadersPattern ->
                             newFormFieldsPatterns.flatMap("FORM-FIELDS") { newFormFieldsPattern ->
                                 newFormDataPartLists.flatMap("FORM-DATA") { newFormDataPartList ->
                                     val newRequestPattern = HttpRequestPattern(
@@ -800,7 +807,7 @@ data class HttpRequestPattern(
                 this.body.negativeBasedOn(row.noteRequestBody(), resolver)
             }
 
-            val newHeadersPattern = headersPattern.negativeBasedOn(row, resolver)
+            val newHeadersPattern = headersPattern.negativeBasedOn(row, resolver, BreadCrumb.PARAM_HEADER.value)
             val newFormFieldsPatterns = newMapBasedOn(formFieldsPattern, row, resolver).map { it.value }
             val newFormDataPartLists = newMultiPartBasedOn(multiPartFormDataPattern, row, resolver)
 
@@ -893,16 +900,25 @@ data class HttpRequestPattern(
             method = method,
             path = httpPathPattern?.fixValue(request.path, resolver),
             queryParams = httpQueryParamPattern.fixValue(request.queryParams, resolver),
-            headers = headersPattern.fixValue(request.headers, resolver),
+            headers = headersPattern.fixValue(request.headers, resolver.updateLookupPath(BreadCrumb.PARAMETERS.value)),
             body = body.fixValue(request.body, resolver)
         )
     }
 
     fun fillInTheBlanks(request: HttpRequest, resolver: Resolver): HttpRequest {
         val sanitizedRequest = withoutSecuritySchemes(request)
-        val path = httpPathPattern?.fillInTheBlanks(sanitizedRequest.path, resolver)?.breadCrumb("PATH-PARAMS") ?: HasValue(null)
-        val queryParams = httpQueryParamPattern.fillInTheBlanks(sanitizedRequest.queryParams, resolver).breadCrumb("QUERY-PARAMS")
-        val headers = headersPattern.fillInTheBlanks(sanitizedRequest.headers, resolver).breadCrumb("HEADERS")
+        val path = httpPathPattern?.fillInTheBlanks(
+            path = sanitizedRequest.path, resolver = resolver
+        )?.breadCrumb(BreadCrumb.PARAM_PATH.value) ?: HasValue(null)
+
+        val queryParams = httpQueryParamPattern.fillInTheBlanks(
+            queryParams = sanitizedRequest.queryParams, resolver = resolver
+        ).breadCrumb(BreadCrumb.PARAM_QUERY.value)
+
+        val headers = headersPattern.fillInTheBlanks(
+            headers = sanitizedRequest.headers, resolver = resolver.updateLookupPath(BreadCrumb.PARAMETERS.value)
+        ).breadCrumb(BreadCrumb.PARAM_HEADER.value)
+
         val body = body.fillInTheBlanks(sanitizedRequest.body, resolver).breadCrumb("BODY")
 
         return HasValue(request)
@@ -924,6 +940,13 @@ data class HttpRequestPattern(
     private fun withoutSecuritySchemes(request: HttpRequest): HttpRequest {
         return securitySchemes.fold(request) { req, securityScheme ->
             securityScheme.removeParam(req)
+        }
+    }
+
+    fun getSOAPAction(): String? {
+        return when(val soapActionPattern = headersPattern.getSOAPActionPattern()) {
+            is ExactValuePattern -> soapActionPattern.pattern.toStringLiteral()
+            else -> null
         }
     }
 }

@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="assets/styles.css">
 </head>
 
-<body class="flex flex-col min-h-screen gap-3 p-4 pb-0 font-mono">
+<body class="flex flex-col min-h-screen gap-3 p-4 pb-0 font-mono" th:attr="is-gherkin-report=${isGherkinReport}">
     <header class="border-2 shadow-md print:shadow-none">
         <div class="flex items-center justify-between p-4" id="banner">
             <img th:attr="src=${logo},alt=${logoAltText}" class="w-64 h-14">
@@ -87,7 +87,7 @@
                     <td th:if="${lite == false}">Coverage</td>
                     <td th:attr="colspan=${tableConfig.firstGroupColSpan}" th:text="${tableConfig.firstGroupName}"></td>
                     <td th:attr="colspan=${tableConfig.secondGroupColSpan}" th:text="${tableConfig.secondGroupName}"></td>
-                    <td th:attr="colspan=${tableConfig.thirdGroupColSpan}" th:text="${tableConfig.thirdGroupName}"></td>
+                    <td th:class="${isGherkinReport ? 'hidden' : ''}" th:attr="colspan=${tableConfig.thirdGroupColSpan}" th:text="${tableConfig.thirdGroupName}"></td>
                     <td>Exercised</td>
                     <td th:if="${lite == false}">Result</td>
                 </tr>
@@ -103,7 +103,7 @@
                     <td th:classappend="${row.showSecondGroup ? '' : 'hidden'}" th:attr="rowspan=${row.secondGroupRowSpan}, data-main=${row.showSecondGroup}, colspan=${tableConfig.secondGroupColSpan}">
                         [[${row.secondGroupValue}]]
                     </td>
-                    <td th:attr="colspan=${tableConfig.thirdGroupColSpan}">
+                    <td th:class="${isGherkinReport ? 'hidden' : ''}" th:attr="colspan=${tableConfig.thirdGroupColSpan}">
                         <p>[[${row.response}]]</p>
                         <span class="text-xs">[[${row.requestContentType}]]</span>
                     </td>

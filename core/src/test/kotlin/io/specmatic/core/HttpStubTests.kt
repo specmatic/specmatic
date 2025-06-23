@@ -687,7 +687,7 @@ Scenario: JSON API to get account details with fact check
             assertThat(secureResponse.body.toStringLiteral()).isEqualToNormalizingWhitespace("""
             In scenario "Secure endpoint requiring Bearer token and query API key. Response: Success"
             API: POST /secure -> 200
-            >> REQUEST.QUERY-PARAMS.apiKey
+            >> REQUEST.PARAMETERS.QUERY.apiKey
             Api-key named apiKey in the contract was not found in the request
             """.trimIndent())
 
@@ -698,9 +698,9 @@ Scenario: JSON API to get account details with fact check
             assertThat(partialResponse.body.toStringLiteral()).isEqualToNormalizingWhitespace("""
             In scenario "Partially secure endpoint requiring either Bearer token or query API key. Response: Success"
             API: POST /partial -> 200
-            >> REQUEST.HEADERS.Authorization
+            >> REQUEST.PARAMETERS.HEADER.Authorization
             Header named Authorization in the contract was not found in the request
-            >> REQUEST.QUERY-PARAMS.apiKey
+            >> REQUEST.PARAMETERS.QUERY.apiKey
             Api-key named apiKey in the contract was not found in the request
             """.trimIndent())
 
@@ -711,11 +711,11 @@ Scenario: JSON API to get account details with fact check
             assertThat(overlapResponse.body.toStringLiteral()).isEqualToNormalizingWhitespace("""
             In scenario "overlap endpoint requiring either Bearer token and query API key or Bearer token only. Response: Success"
             API: POST /overlap -> 200
-            >> REQUEST.HEADERS.Authorization
+            >> REQUEST.PARAMETERS.HEADER.Authorization
             Header named Authorization in the contract was not found in the request
-            >> REQUEST.QUERY-PARAMS.apiKey
+            >> REQUEST.PARAMETERS.QUERY.apiKey
             Api-key named apiKey in the contract was not found in the request
-            >> REQUEST.HEADERS.Authorization
+            >> REQUEST.PARAMETERS.HEADER.Authorization
             Header named Authorization in the contract was not found in the request
             """.trimIndent())
 

@@ -52,4 +52,8 @@ data class StringValue(val string: String = "") : Value, ScalarValue, XMLValue {
     override fun generality(): Int {
         return if(isPatternToken(string)) 1 else 0
     }
+
+    override fun specificity(): Int {
+        return if(!isPatternToken(string)) 1 else 0
+    }
 }

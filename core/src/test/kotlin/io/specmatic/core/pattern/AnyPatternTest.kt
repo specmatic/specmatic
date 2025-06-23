@@ -75,7 +75,7 @@ internal class AnyPatternTest {
 
     @Test
     fun `should match multiple patterns`() {
-        val pattern = AnyPattern(listOf(NumberPattern(), StringPattern()))
+        val pattern = AnyPattern(listOf(NumberPattern(), StringPattern()), extensions = emptyMap())
         val string = StringValue("hello")
         val number = NumberValue(10)
 
@@ -95,7 +95,7 @@ internal class AnyPatternTest {
         }
         """.trimIndent())
         val listPattern = ListPattern(objectPattern)
-        val pattern = AnyPattern(listOf(objectPattern, listPattern))
+        val pattern = AnyPattern(listOf(objectPattern, listPattern), extensions = emptyMap())
 
         val objectValue = parsedValue("""{
             "topLevelMandatoryKey": 10,
@@ -123,8 +123,8 @@ internal class AnyPatternTest {
 
     @Test
     fun `error message when a json object does not match nullable primitive such as string in the contract`() {
-        val pattern1 = AnyPattern(listOf(NullPattern, StringPattern()))
-        val pattern2 = AnyPattern(listOf(DeferredPattern("(empty)"), StringPattern()))
+        val pattern1 = AnyPattern(listOf(NullPattern, StringPattern()), extensions = emptyMap())
+        val pattern2 = AnyPattern(listOf(DeferredPattern("(empty)"), StringPattern()), extensions = emptyMap())
 
         val value = parsedValue("""{"firstname": "Jane", "lastname": "Doe"}""")
 
@@ -154,7 +154,7 @@ internal class AnyPatternTest {
                 "lastname" to NumberPattern()
             )
         )
-        val pattern = AnyPattern(listOf(NullPattern, DeferredPattern(pattern = "(Person)")))
+        val pattern = AnyPattern(listOf(NullPattern, DeferredPattern(pattern = "(Person)")), extensions = emptyMap())
         val value = parsedValue("""{"firstname": "Jane", "lastname": "Doe"}""")
         val resolver = withNullPattern(Resolver(
             newPatterns = mapOf("(Person)" to jsonPattern)
@@ -167,8 +167,8 @@ internal class AnyPatternTest {
 
     @Test
     fun `typename of a nullable type`() {
-        val pattern1 = AnyPattern(listOf(NullPattern, StringPattern()))
-        val pattern2 = AnyPattern(listOf(DeferredPattern("(empty)"), StringPattern()))
+        val pattern1 = AnyPattern(listOf(NullPattern, StringPattern()), extensions = emptyMap())
+        val pattern2 = AnyPattern(listOf(DeferredPattern("(empty)"), StringPattern()), extensions = emptyMap())
 
         assertThat(pattern1.typeName).isEqualTo("(string?)")
         assertThat(pattern2.typeName).isEqualTo("(string?)")
@@ -181,7 +181,8 @@ internal class AnyPatternTest {
             listOf(
                 NumberPattern(),
                 EnumPattern(listOf(StringValue("one"), StringValue("two")))
-            )
+            ),
+            extensions = emptyMap()
         ).newBasedOn(Row(), Resolver()).map { it.value }.toList().let { patterns ->
             patterns.map { it.typeName } shouldContainInAnyOrder listOf("number", "\"one\"", "\"two\"")
         }
@@ -190,7 +191,7 @@ internal class AnyPatternTest {
     @Test
     @Tag(GENERATION)
     fun `should create a new pattern based on the given row`() {
-        val pattern = AnyPattern(listOf(parsedPattern("""{"id": "(number)"}""")))
+        val pattern = AnyPattern(listOf(parsedPattern("""{"id": "(number)"}""")), extensions = emptyMap())
         val row = Row(listOf("id"), listOf("10"))
 
         val value = pattern.newBasedOn(row, Resolver()).map { it.value }.first().generate(Resolver())
@@ -207,7 +208,7 @@ internal class AnyPatternTest {
     @Test
     @Tag(GENERATION)
     fun `should create new patterns when the row has no values`() {
-        val pattern = AnyPattern(listOf(parsedPattern("""{"id": "(number)"}""")))
+        val pattern = AnyPattern(listOf(parsedPattern("""{"id": "(number)"}""")), extensions = emptyMap())
         val value = pattern.newBasedOn(Row(), Resolver()).map { it.value }.first().generate(Resolver())
 
         value as JSONObjectValue
@@ -219,13 +220,20 @@ internal class AnyPatternTest {
 
     @Test
     fun `should generate a value based on the pattern given`() {
-        NumberValue(10) shouldMatch AnyPattern(listOf(parsedPattern("(number)")))
+        NumberValue(10) shouldMatch AnyPattern(listOf(parsedPattern("(number)")), extensions = emptyMap())
     }
 
     @Test
     fun `AnyPattern of null and string patterns should encompass null pattern`() {
-        assertThat(AnyPattern(listOf(NullPattern, StringPattern())).encompasses(NullPattern, Resolver(), Resolver())).isInstanceOf(
-            Result.Success::class.java)
+        assertThat(
+            AnyPattern(listOf(NullPattern, StringPattern()), extensions = emptyMap()).encompasses(
+                NullPattern,
+                Resolver(),
+                Resolver()
+            )
+        ).isInstanceOf(
+            Result.Success::class.java
+        )
     }
 
     @Test
@@ -247,7 +255,7 @@ internal class AnyPatternTest {
     @Test
     fun `should encompass another any with fewer types`() {
         val bigger = parsedPattern("""(string?)""")
-        val anyOfString = AnyPattern(listOf(StringPattern()))
+        val anyOfString = AnyPattern(listOf(StringPattern()), extensions = emptyMap())
 
         assertThat(bigger.encompasses(anyOfString, Resolver(), Resolver())).isInstanceOf(Result.Success::class.java)
     }
@@ -274,12 +282,12 @@ internal class AnyPatternTest {
 
     @Test
     fun `typeName should show nullable when one of the types is null`() {
-        val type = AnyPattern(listOf(NullPattern, NumberPattern()))
+        val type = AnyPattern(pattern = listOf(NullPattern, NumberPattern()), extensions = emptyMap())
         assertThat(type.typeName).isEqualTo("(number?)")
     }
 
     private fun toEnum(items: List<Value>): AnyPattern {
-        return AnyPattern(items.map { ExactValuePattern(it) })
+        return AnyPattern(items.map { ExactValuePattern(it) }, extensions = emptyMap())
     }
 
     private fun toStringEnum(vararg items: String): AnyPattern {
@@ -311,7 +319,8 @@ internal class AnyPatternTest {
                 listOf(
                     ExactValuePattern(StringValue("01")),
                     ExactValuePattern(StringValue("02"))
-                )
+                ),
+                extensions = emptyMap()
             ).encompasses(
                 StringPattern(), Resolver(), Resolver()
             )
@@ -327,7 +336,7 @@ internal class AnyPatternTest {
 
     @Test
     fun `parse operation of Nullable type implemented with AnyPattern should return a string`() {
-        val type = AnyPattern(listOf(NullPattern, StringPattern()))
+        val type = AnyPattern(listOf(NullPattern, StringPattern()), extensions = emptyMap())
         val parsedValue = type.parse("22B Baker Street", Resolver(isNegative = true))
         assertThat(parsedValue.toStringLiteral()).isEqualTo("22B Baker Street")
     }
@@ -336,7 +345,7 @@ internal class AnyPatternTest {
     @Tag(GENERATION)
     fun `values for negative tests`() {
         val negativeTypes =
-            AnyPattern(listOf(NullPattern, StringPattern())).negativeBasedOn(Row(), Resolver()).map { it.value }
+            AnyPattern(listOf(NullPattern, StringPattern()), extensions = emptyMap()).negativeBasedOn(Row(), Resolver()).map { it.value }
                 .toList()
 
         assertThat(negativeTypes).containsExactlyInAnyOrder(
@@ -349,7 +358,7 @@ internal class AnyPatternTest {
     fun `we should get deep errors errors with breadcrumbs for each possible type in a oneOf list`() {
         val customerType = JSONObjectPattern(mapOf("name" to StringPattern()), typeAlias = "(Customer)")
         val employeeType = JSONObjectPattern(mapOf("name" to StringPattern(), "manager" to StringPattern()), typeAlias = "(Employee)")
-        val oneOfCustomerOrEmployeeType = AnyPattern(listOf(customerType, employeeType))
+        val oneOfCustomerOrEmployeeType = AnyPattern(listOf(customerType, employeeType), extensions = emptyMap())
 
         val personType = JSONObjectPattern(mapOf("personInfo" to oneOfCustomerOrEmployeeType))
 
@@ -374,7 +383,7 @@ internal class AnyPatternTest {
 
     @Test
     fun `should wrap values in the relevant list type`() {
-        val type = AnyPattern(listOf(NullPattern, StringPattern()))
+        val type = AnyPattern(listOf(NullPattern, StringPattern()), extensions = emptyMap())
         val wrappedList = type.listOf(listOf(StringValue("It's me"), StringValue("Hi"), StringValue("I'm the problem it's me")), Resolver()) as JSONArrayValue
 
         val wrappedValues = wrappedList.list.map { it.toStringLiteral() }
@@ -385,8 +394,14 @@ internal class AnyPatternTest {
 
     @Test
     fun `should wrap values in the relevant list type when the AnyPattern object represents an enum with 3 options`() {
-        val type = AnyPattern(listOf(
-            ExactValuePattern(StringValue("one")), ExactValuePattern(StringValue("two")), ExactValuePattern(StringValue("three"))))
+        val type = AnyPattern(
+            listOf(
+                ExactValuePattern(StringValue("one")),
+                ExactValuePattern(StringValue("two")),
+                ExactValuePattern(StringValue("three"))
+            ),
+            extensions = emptyMap()
+        )
         val listOf = type.listOf(listOf(StringValue("one"), StringValue("two"), StringValue("three")), Resolver())
 
         assertEquals(3, (listOf as JSONArrayValue).list.size)
@@ -459,9 +474,9 @@ internal class AnyPatternTest {
     @Test
     fun `should prioritise non-null pattern generation when its a nullable pattern`() {
         val nullableScalarPatterns = listOf(
-            AnyPattern(listOf(NullPattern, StringPattern(), NullPattern)),
-            AnyPattern(listOf(StringPattern(), NullPattern)),
-            AnyPattern(listOf(NullPattern, StringPattern()))
+            AnyPattern(listOf(NullPattern, StringPattern(), NullPattern), extensions = emptyMap()),
+            AnyPattern(listOf(StringPattern(), NullPattern), extensions = emptyMap()),
+            AnyPattern(listOf(NullPattern, StringPattern()), extensions = emptyMap())
         )
 
         assertThat(nullableScalarPatterns).allSatisfy {
@@ -473,8 +488,8 @@ internal class AnyPatternTest {
     @Test
     fun `should be able to determine if pattern is scalar based correctly`() {
         val scalarBasedPatterns = listOf(
-            AnyPattern(listOf(StringPattern(), NullPattern)),
-            AnyPattern(listOf(NullPattern, StringPattern()))
+            AnyPattern(listOf(StringPattern(), NullPattern), extensions = emptyMap()),
+            AnyPattern(listOf(NullPattern, StringPattern()), extensions = emptyMap())
         )
 
         assertThat(scalarBasedPatterns).allSatisfy {
@@ -869,7 +884,7 @@ internal class AnyPatternTest {
 
         @Test
         fun `should work when pattern is scalar based of nullable type`() {
-            val pattern = AnyPattern(listOf(NullPattern, StringPattern()))
+            val pattern = AnyPattern(listOf(NullPattern, StringPattern()), extensions = emptyMap())
             val dictionary = "(string): TODO".let(Dictionary::fromYaml)
             val resolver = Resolver(dictionary = dictionary)
             val invalidValue = NumberValue(999)
@@ -881,7 +896,7 @@ internal class AnyPatternTest {
 
         @Test
         fun `scalar value should be picked from dictionary when pattern has typeAlias and matching key in dictionary`() {
-            val pattern = AnyPattern(listOf(NullPattern, StringPattern()), typeAlias = "(StringOrEmpty)")
+            val pattern = AnyPattern(listOf(NullPattern, StringPattern()), typeAlias = "(StringOrEmpty)", extensions = emptyMap())
             val dictionary = "StringOrEmpty: TODO".let(Dictionary::fromYaml)
             val resolver = Resolver(dictionary = dictionary)
             val invalidValue = NumberValue(999)
@@ -893,7 +908,7 @@ internal class AnyPatternTest {
 
         @Test
         fun `nullable pattern dictionary lookup should not throw an exception`() {
-            val pattern = AnyPattern(listOf(NullPattern, NumberPattern()))
+            val pattern = AnyPattern(listOf(NullPattern, NumberPattern()), extensions = emptyMap())
             val jsonObjPattern = JSONObjectPattern(mapOf("id" to pattern), typeAlias = "(Test)")
 
             val dictionary = "Test: { id: 999 }".let(Dictionary::fromYaml)
@@ -1062,6 +1077,156 @@ internal class AnyPatternTest {
             val filledInValue = pattern.fillInTheBlanks(partialValue, resolver).value
 
             assertThat(filledInValue).isInstanceOf(BooleanValue::class.java)
+        }
+    }
+
+    @Nested
+    inner class CalculatePathTests {
+        @Test
+        fun `calculatePath should return empty set when pattern list is empty`() {
+            val pattern = AnyPattern(emptyList(), extensions = emptyMap())
+            val value = StringValue("test")
+            val resolver = Resolver()
+
+            val paths = pattern.calculatePath(value, resolver)
+
+            assertThat(paths).isEmpty()
+        }
+
+        @Test
+        fun `calculatePath should return empty set when no patterns match`() {
+            val pattern = AnyPattern(listOf(NumberPattern()), extensions = emptyMap())
+            val value = StringValue("test")
+            val resolver = Resolver()
+
+            val paths = pattern.calculatePath(value, resolver)
+
+            assertThat(paths).isEmpty()
+        }
+
+        @Test
+        fun `calculatePath should return scalar type name for matching scalar pattern`() {
+            val pattern = AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())
+            val value = StringValue("test")
+            val resolver = Resolver()
+
+            val paths = pattern.calculatePath(value, resolver)
+
+            assertThat(paths).containsExactly("string")
+        }
+
+        @Test
+        fun `calculatePath should return number type name for matching number pattern`() {
+            val pattern = AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())
+            val value = NumberValue(42)
+            val resolver = Resolver()
+
+            val paths = pattern.calculatePath(value, resolver)
+
+            assertThat(paths).containsExactly("number")
+        }
+
+        @Test
+        fun `calculatePath should return boolean type name for matching boolean pattern`() {
+            val pattern = AnyPattern(listOf(StringPattern(), BooleanPattern()), extensions = emptyMap())
+            val value = BooleanValue(true)
+            val resolver = Resolver()
+
+            val paths = pattern.calculatePath(value, resolver)
+
+            assertThat(paths).containsExactly("boolean")
+        }
+
+        @Test
+        fun `calculatePath should extract typeAlias from DeferredPattern`() {
+            val pattern = AnyPattern(listOf(DeferredPattern("(TestType)")), extensions = emptyMap())
+            val deferredResolver = Resolver(newPatterns = mapOf("(TestType)" to StringPattern()))
+            val value = StringValue("test")
+
+            val paths = pattern.calculatePath(value, deferredResolver)
+
+            assertThat(paths).containsExactly("{TestType}")
+        }
+
+        @Test
+        fun `calculatePath should use typeAlias from pattern when available`() {
+            val patternWithAlias = StringPattern(typeAlias = "(CustomString)")
+            val pattern = AnyPattern(listOf(patternWithAlias), extensions = emptyMap())
+            val value = StringValue("test")
+            val resolver = Resolver()
+
+            val paths = pattern.calculatePath(value, resolver)
+
+            assertThat(paths).containsExactly("{CustomString}")
+        }
+
+        @Test
+        fun `calculatePath should recurse into JSONObjectPattern with nested AnyPatterns`() {
+            val nestedPattern = JSONObjectPattern(
+                pattern = mapOf("nested" to AnyPattern(listOf(StringPattern()), extensions = emptyMap())),
+                typeAlias = "(NestedObject)"
+            )
+            val pattern = AnyPattern(listOf(nestedPattern), extensions = emptyMap())
+            val value = JSONObjectValue(mapOf("nested" to StringValue("test")))
+            val resolver = Resolver()
+
+            val paths = pattern.calculatePath(value, resolver)
+
+            assertThat(paths).containsExactly("{NestedObject}.nested{string}")
+        }
+
+        @Test
+        fun `calculatePath should return typeAlias for JSONObjectPattern without nested AnyPatterns`() {
+            val nestedPattern = JSONObjectPattern(
+                pattern = mapOf("field" to StringPattern()),
+                typeAlias = "(SimpleObject)"
+            )
+            val pattern = AnyPattern(listOf(nestedPattern), extensions = emptyMap())
+            val value = JSONObjectValue(mapOf("field" to StringValue("test")))
+            val resolver = Resolver()
+
+            val paths = pattern.calculatePath(value, resolver)
+
+            assertThat(paths).containsExactly("{SimpleObject}")
+        }
+
+        @Test
+        fun `calculatePath should return index notation for patterns without typeAlias`() {
+            val patternWithoutAlias = JSONObjectPattern(pattern = mapOf("field" to StringPattern()))
+            val pattern = AnyPattern(listOf(StringPattern(), patternWithoutAlias), extensions = emptyMap())
+            val value = JSONObjectValue(mapOf("field" to StringValue("test")))
+            val resolver = Resolver()
+
+            val paths = pattern.calculatePath(value, resolver)
+
+            assertThat(paths).containsExactly("{[1]}")
+        }
+
+        @Test
+        fun `calculatePath should handle pattern with discriminator`() {
+            val discriminator = Discriminator(
+                property = "type",
+                values = setOf("string_type"),
+                mapping = mapOf("string_type" to "#/components/schemas/StringType")
+            )
+            val pattern = AnyPattern(
+                listOf(
+                    JSONObjectPattern(
+                        mapOf("type" to ExactValuePattern(StringValue("string_type")), "value" to StringPattern()),
+                        typeAlias = "(StringType)"
+                    )
+                ),
+                discriminator = discriminator
+            )
+            val value = JSONObjectValue(mapOf(
+                "type" to StringValue("string_type"),
+                "value" to StringValue("test")
+            ))
+            val resolver = Resolver()
+
+            val paths = pattern.calculatePath(value, resolver)
+
+            assertThat(paths).containsExactly("{StringType}")
         }
     }
 

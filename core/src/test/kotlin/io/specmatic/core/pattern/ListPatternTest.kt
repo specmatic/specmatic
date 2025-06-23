@@ -95,7 +95,7 @@ internal class ListPatternTest {
 
     @Test
     fun `a list should encompass a json array with items matching the list`() {
-        val bigger = ListPattern(AnyPattern(listOf(NumberPattern(), NullPattern)))
+        val bigger = ListPattern(AnyPattern(listOf(NumberPattern(), NullPattern), extensions = emptyMap()))
         val smaller1Element = parsedPattern("""["(number)"]""")
         val smaller1ElementAndRest = parsedPattern("""["(number)", "(number...)"]""")
 
@@ -805,6 +805,138 @@ Feature: Recursive test
                 assertThat(result).isInstanceOf(HasValue::class.java); result as HasValue
                 println(result.value)
             }
+        }
+    }
+
+    @Nested
+    inner class CalculatePathTests {
+        @Test
+        fun `calculatePath should return empty set for non-JSONArrayValue input`() {
+            val pattern = ListPattern(StringPattern())
+            val value = StringValue("not an array")
+            val resolver = Resolver()
+
+            val paths = pattern.calculatePath(value, resolver)
+
+            assertThat(paths).isEmpty()
+        }
+
+        @Test
+        fun `calculatePath should return empty set for empty array`() {
+            val pattern = ListPattern(AnyPattern(listOf(StringPattern()), extensions = emptyMap()))
+            val value = JSONArrayValue(emptyList())
+            val resolver = Resolver()
+
+            val paths = pattern.calculatePath(value, resolver)
+
+            assertThat(paths).isEmpty()
+        }
+
+        @Test
+        fun `calculatePath should handle AnyPattern elements`() {
+            val pattern = ListPattern(AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap()))
+            val value = JSONArrayValue(listOf(StringValue("test"), NumberValue(42), StringValue("test2")))
+            val resolver = Resolver()
+
+            val paths = pattern.calculatePath(value, resolver)
+
+            assertThat(paths).containsExactlyInAnyOrder("{[0]}{string}", "{[1]}{number}", "{[2]}{string}")
+        }
+
+        @Test
+        fun `calculatePath should handle JSONObjectPattern elements`() {
+            val objectPattern = JSONObjectPattern(
+                mapOf("data" to AnyPattern(listOf(StringPattern()), extensions = emptyMap())),
+                typeAlias = "(ListItem)"
+            )
+            val pattern = ListPattern(objectPattern)
+            val value = JSONArrayValue(listOf(
+                JSONObjectValue(mapOf("data" to StringValue("item1"))),
+                JSONObjectValue(mapOf("data" to StringValue("item2")))
+            ))
+            val resolver = Resolver()
+
+            val paths = pattern.calculatePath(value, resolver)
+
+            assertThat(paths).containsExactlyInAnyOrder(
+                "{[0]}{ListItem}.data{string}",
+                "{[1]}{ListItem}.data{string}"
+            )
+        }
+
+        @Test
+        fun `calculatePath should handle nested AnyPatterns in objects`() {
+            val nestedObjectPattern = JSONObjectPattern(
+                mapOf(
+                    "id" to StringPattern(),
+                    "value" to AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())
+                ),
+                typeAlias = "(NestedListItem)"
+            )
+            val pattern = ListPattern(nestedObjectPattern)
+            val value = JSONArrayValue(listOf(
+                JSONObjectValue(mapOf("id" to StringValue("1"), "value" to StringValue("text"))),
+                JSONObjectValue(mapOf("id" to StringValue("2"), "value" to NumberValue(123)))
+            ))
+            val resolver = Resolver()
+
+            val paths = pattern.calculatePath(value, resolver)
+
+            assertThat(paths).containsExactlyInAnyOrder(
+                "{[0]}{NestedListItem}.value{string}",
+                "{[1]}{NestedListItem}.value{number}"
+            )
+        }
+
+        @Test
+        fun `calculatePath should handle patterns without typeAlias`() {
+            val objectPattern =
+                JSONObjectPattern(mapOf("data" to AnyPattern(listOf(StringPattern()), extensions = emptyMap())))
+            val pattern = ListPattern(objectPattern)
+            val value = JSONArrayValue(listOf(
+                JSONObjectValue(mapOf("data" to StringValue("item1")))
+            ))
+            val resolver = Resolver()
+
+            val paths = pattern.calculatePath(value, resolver)
+
+            assertThat(paths).containsExactly("{[0]}.data{string}")
+        }
+
+        @Test
+        fun `calculatePath should handle scalar patterns without AnyPattern`() {
+            val pattern = ListPattern(StringPattern())
+            val value = JSONArrayValue(listOf(StringValue("item1"), StringValue("item2")))
+            val resolver = Resolver()
+
+            val paths = pattern.calculatePath(value, resolver)
+
+            assertThat(paths).isEmpty()
+        }
+
+        @Test
+        fun `calculatePath should handle DeferredPattern in AnyPattern`() {
+            val pattern = ListPattern(
+                AnyPattern(listOf(DeferredPattern("(TestType)")), extensions = emptyMap())
+            )
+            val resolver = Resolver(newPatterns = mapOf("(TestType)" to StringPattern()))
+            val value = JSONArrayValue(listOf(StringValue("test")))
+
+            val paths = pattern.calculatePath(value, resolver)
+
+            assertThat(paths).containsExactly("{[0]}{TestType}")
+        }
+
+        @Test
+        fun `calculatePath should handle large arrays efficiently`() {
+            val pattern = ListPattern(AnyPattern(listOf(StringPattern()), extensions = emptyMap()))
+            val largeArray = JSONArrayValue((1..100).map { StringValue("item$it") })
+            val resolver = Resolver()
+
+            val paths = pattern.calculatePath(largeArray, resolver)
+
+            assertThat(paths).hasSize(100)
+            assertThat(paths).allMatch { it.matches(Regex("\\{\\[\\d+]\\}\\{string\\}")) }
         }
     }
 }

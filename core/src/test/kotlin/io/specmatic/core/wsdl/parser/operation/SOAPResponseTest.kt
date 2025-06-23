@@ -13,9 +13,14 @@ internal class SOAPResponseTest {
         val statements = soapResponse.statements()
         assertThat(statements).hasSize(2)
         assertThat(statements).contains("Then status 200")
-        assertThat(statements).contains("And request-body\n" +
-                "\"\"\"\n" +
-                "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"><soapenv:Header $OCCURS_ATTRIBUTE_NAME=\"optional\"/><soapenv:Body/></soapenv:Envelope>\n" +
-                "\"\"\"")
+        assertThat(statements.last()).isEqualToIgnoringNewLines("""
+        And request-body
+        ""${'"'}
+        <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+          <soapenv:Header $OCCURS_ATTRIBUTE_NAME="optional"/>
+          <soapenv:Body/>
+        </soapenv:Envelope>
+        ""${'"'}
+        """.trimIndent())
     }
 }

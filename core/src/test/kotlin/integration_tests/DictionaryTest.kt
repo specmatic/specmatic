@@ -479,7 +479,7 @@ class DictionaryTest {
 
         @Test
         fun `negative based path parameters should still be generated when dictionary contains substitutions`() {
-            val dictionary = mapOf("PATH-PARAMS.id" to NumberValue(123)).let(Dictionary::from)
+            val dictionary = "PARAMETERS: { PATH: { id: 123 } }".let(Dictionary::fromYaml)
             val scenario = Scenario(ScenarioInfo(
                 httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/orders/(id:number)"), method = "GET"),
                 httpResponsePattern = HttpResponsePattern(status = 200)
@@ -502,11 +502,12 @@ class DictionaryTest {
             })
 
             assertThat(result.results).hasSize(3)
+            assertThat(result.successCount).isEqualTo(1)
         }
 
         @Test
         fun `negative based query parameters should still be generated when dictionary contains substitutions`() {
-            val dictionary = mapOf("QUERY-PARAMS.id" to NumberValue(123)).let(Dictionary::from)
+            val dictionary = "PARAMETERS: { QUERY: { id: 123 } }".let(Dictionary::fromYaml)
             val scenario = Scenario(ScenarioInfo(
                 httpRequestPattern = HttpRequestPattern(
                     httpPathPattern = buildHttpPathPattern("/orders"), method = "GET",
@@ -534,11 +535,12 @@ class DictionaryTest {
             })
 
             assertThat(result.results).hasSize(4)
+            assertThat(result.successCount).isEqualTo(1)
         }
 
         @Test
         fun `negative based headers should still be generated when dictionary contains substitutions`() {
-            val dictionary = mapOf("HEADERS.ID" to NumberValue(123)).let(Dictionary::from)
+            val dictionary = "PARAMETERS: { HEADER: { ID: 123 } }".let(Dictionary::fromYaml)
             val scenario = Scenario(ScenarioInfo(
                 httpRequestPattern = HttpRequestPattern(
                     httpPathPattern = buildHttpPathPattern("/orders"), method = "GET",
@@ -566,6 +568,7 @@ class DictionaryTest {
             })
 
             assertThat(result.results).hasSize(4)
+            assertThat(result.successCount).isEqualTo(1)
         }
 
         @Test

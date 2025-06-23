@@ -5,12 +5,17 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.AnyPattern
 import io.specmatic.core.pattern.Pattern
+import io.specmatic.core.pattern.extractCombinedExtensions
 import io.specmatic.core.value.Value
 
 data class OptionalBodyPattern(override val pattern: AnyPattern, private val bodyPattern: Pattern) : Pattern by pattern {
     companion object {
         fun fromPattern(bodyPattern: Pattern): OptionalBodyPattern {
-            return OptionalBodyPattern(AnyPattern(listOf(bodyPattern, NoBodyPattern)), bodyPattern)
+            val anyPatternPatterns = listOf(bodyPattern, NoBodyPattern)
+            return OptionalBodyPattern(
+                AnyPattern(anyPatternPatterns, extensions = anyPatternPatterns.extractCombinedExtensions()),
+                bodyPattern
+            )
         }
     }
 

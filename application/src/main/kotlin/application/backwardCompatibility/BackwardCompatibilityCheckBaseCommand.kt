@@ -11,6 +11,7 @@ import java.io.File
 import java.nio.file.Paths
 import java.util.concurrent.Callable
 import java.util.regex.Pattern
+import kotlin.io.path.Path
 import kotlin.io.path.absolutePathString
 
 abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
@@ -77,8 +78,19 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
 
     private fun getChangedSpecs(): Set<String> {
         val filesChangedInCurrentBranch = getChangedSpecsInCurrentBranch().filter {
-            it.contains(targetPath)
+            it.contains(Path(targetPath).toString())
         }.toSet()
+
+        val untrackedFiles = gitCommand.getUntrackedFiles().filter {
+            it.contains(Path(targetPath).toString())
+            && File(it).isValidSpec()
+            && getSpecsReferringTo(setOf(it)).isEmpty()
+        }.toSet()
+
+        if (filesChangedInCurrentBranch.isEmpty() && untrackedFiles.isEmpty()) {
+            logger.log("$newLine No specs were changed, skipping the check.$newLine")
+            SystemExit.exitWith(0)
+        }
 
         val filesReferringToChangedSchemaFiles = getSpecsReferringTo(filesChangedInCurrentBranch)
 
@@ -88,7 +100,8 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
         logFilesToBeCheckedForBackwardCompatibility(
             filesChangedInCurrentBranch,
             filesReferringToChangedSchemaFiles,
-            specificationsOfChangedExternalisedExamples
+            specificationsOfChangedExternalisedExamples,
+            untrackedFiles
         )
 
         val collectedFiles = filesChangedInCurrentBranch +
@@ -103,12 +116,7 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
             baseBranch()
         ).filter {
             File(it).exists() && File(it).isValidFileFormat()
-        }.toSet().also {
-            if (it.isEmpty()) {
-                logger.log("$newLine No specs were changed, skipping the check.$newLine")
-                SystemExit.exitWith(0)
-            }
-        }
+        }.toSet()
     }
 
     open fun getSpecsReferringTo(specFilePaths: Set<String>): Set<String> {
@@ -153,13 +161,15 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
     private fun logFilesToBeCheckedForBackwardCompatibility(
         changedFiles: Set<String>,
         filesReferringToChangedFiles: Set<String>,
-        specificationsOfChangedExternalisedExamples: Set<String>
+        specificationsOfChangedExternalisedExamples: Set<String>,
+        untrackedFiles: Set<String>
     ) {
         logger.log("Checking backward compatibility of the following specs:$newLine")
         changedFiles.printSummaryOfChangedSpecs("Specs that have changed")
         filesReferringToChangedFiles.printSummaryOfChangedSpecs("Specs referring to the changed specs")
         specificationsOfChangedExternalisedExamples
             .printSummaryOfChangedSpecs("Specs whose externalised examples were changed")
+        untrackedFiles.printSummaryOfChangedSpecs("Specs that will be skipped (untracked specs, or schema files that are not referred to in other specs)")
         logger.log("-".repeat(20))
         logger.log(newLine)
     }

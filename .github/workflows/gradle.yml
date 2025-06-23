@@ -8,22 +8,27 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, windows-latest, macos-latest ]
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: write # This is required so that the dependency check can push dependency graph to the github repository
     steps:
-      - uses: znsio/specmatic-github-workflows/action-build-gradle@main
+      - uses: specmatic/specmatic-github-workflows/action-build-gradle@main
         with:
-          gradle-extra-args: -Pgithub.actor=${{ secrets.SPECMATIC_GITHUB_USER }} -Pgithub.token=${{ secrets.SPECMATIC_GITHUB_TOKEN }}
+          gradle-extra-args: -Preposilite.user=${{ vars.SPECMATIC_REPOSILITE_USERNAME }} -Preposilite.token=${{ secrets.SPECMATIC_REPOSILITE_TOKEN }}
 
       - name: Publish Snapshot
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/main')
-        run: ./gradlew publishAllPublicationsToSpecmaticPrivateRepository publishAllPublicationsToMavenCentralRepository
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/main') && matrix.os == 'ubuntu-latest'
+        run: ./gradlew publishAllPublicationsToMavenCentralRepository publishAllPublicationsToSpecmaticPrivateRepository publishAllPublicationsToSpecmaticSnapshotsRepository
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: "${{ secrets.SPECMATIC_MAVEN_CENTRAL_USERNAME }}"
           ORG_GRADLE_PROJECT_mavenCentralPassword: "${{ secrets.SPECMATIC_MAVEN_CENTRAL_PASSWORD }}"
           ORG_GRADLE_PROJECT_signingInMemoryKey: "${{ secrets.SPECMATIC_GPG_PRIVATE_KEY }}"
           ORG_GRADLE_PROJECT_signingInMemoryKeyId: "${{ secrets.SPECMATIC_GPG_KEY_ID }}"
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: "${{ secrets.SPECMATIC_GPG_PRIVATE_KEY_PASSPHRASE }}"
-          ORG_GRADLE_PROJECT_specmaticPrivateUsername: "${{ secrets.SPECMATIC_GITHUB_USER }}"
-          ORG_GRADLE_PROJECT_specmaticPrivatePassword: "${{ secrets.SPECMATIC_GITHUB_TOKEN }}"
+          ORG_GRADLE_PROJECT_specmaticSnapshotsUsername: "${{ vars.SPECMATIC_REPOSILITE_USERNAME }}"
+          ORG_GRADLE_PROJECT_specmaticSnapshotsPassword: "${{ secrets.SPECMATIC_REPOSILITE_TOKEN }}"
+          ORG_GRADLE_PROJECT_specmaticPrivateUsername: "${{ vars.SPECMATIC_REPOSILITE_USERNAME }}"
+          ORG_GRADLE_PROJECT_specmaticPrivatePassword: "${{ secrets.SPECMATIC_REPOSILITE_TOKEN }}"

@@ -97,7 +97,9 @@ internal class HttpHeadersPatternTest {
         headers["key"] = "abc"
         httpHeaders.matches(headers, Resolver()).let {
             assertThat(it is Result.Failure).isTrue()
-            assertThat((it as Result.Failure).toMatchFailureDetails()).isEqualTo(MatchFailureDetails(listOf("HEADERS", "key"), listOf("Expected number, actual was \"abc\"")))
+            assertThat((it as Result.Failure).toMatchFailureDetails()).isEqualTo(MatchFailureDetails(
+                listOf("HEADER", "key"), listOf("Expected number, actual was \"abc\""))
+            )
         }
     }
 
@@ -108,8 +110,9 @@ internal class HttpHeadersPatternTest {
         headers["anotherKey"] = "123"
         httpHeaders.matches(headers, Resolver()).let {
             assertThat(it is Result.Failure).isTrue()
-            assertThat((it as Result.Failure).toMatchFailureDetails())
-                    .isEqualTo(MatchFailureDetails(listOf("HEADERS", "key"), listOf("Expected header named \"key\" was missing")))
+            assertThat((it as Result.Failure).toMatchFailureDetails()).isEqualTo(MatchFailureDetails(
+                listOf("HEADER", "key"), listOf("Expected header named \"key\" was missing"))
+            )
         }
     }
 
@@ -225,7 +228,7 @@ internal class HttpHeadersPatternTest {
     @Test
     fun `should generate negative values for a string`() {
         val headers = HttpHeadersPattern(mapOf("X-TraceID" to StringPattern()))
-        val newHeaders = headers.negativeBasedOn(Row(), Resolver()).map { it.value }.toList()
+        val newHeaders = headers.negativeBasedOn(Row(), Resolver(), BreadCrumb.PARAM_HEADER.value).map { it.value }.toList()
 
         assertThat(newHeaders).containsExactlyInAnyOrder(
             HttpHeadersPattern(mapOf())
@@ -236,7 +239,7 @@ internal class HttpHeadersPatternTest {
     @Test
     fun `should generate negative values for a number`() {
         val headers = HttpHeadersPattern(mapOf("X-TraceID" to NumberPattern()))
-        val newHeaders = headers.negativeBasedOn(Row(), Resolver()).map { it.value }.toList()
+        val newHeaders = headers.negativeBasedOn(Row(), Resolver(), BreadCrumb.PARAM_HEADER.value).map { it.value }.toList()
 
         assertThat(newHeaders).containsExactlyInAnyOrder(
             HttpHeadersPattern(mapOf("X-TraceID" to StringPattern())),
@@ -355,8 +358,8 @@ internal class HttpHeadersPatternTest {
         fun `errors should mention the name of header`() {
             result as Result.Failure
 
-            assertThat(result.toFailureReport().toText()).contains(">> HEADERS.X-Data")
-            assertThat(result.toFailureReport().toText()).contains(">> HEADERS.Y-Data")
+            assertThat(result.toFailureReport().toText()).contains(">> HEADER.X-Data")
+            assertThat(result.toFailureReport().toText()).contains(">> HEADER.Y-Data")
 
             println(result.toFailureReport().toText())
         }
@@ -367,7 +370,7 @@ internal class HttpHeadersPatternTest {
 
             val resultText = result.toFailureReport().toText()
 
-            assertThat(resultText.indexOf(">> HEADERS.X-Data")).isLessThan(resultText.indexOf(">> HEADERS.Y-Data"))
+            assertThat(resultText.indexOf(">> HEADER.X-Data")).isLessThan(resultText.indexOf(">> HEADER.Y-Data"))
 
             println(result.toFailureReport().toText())
         }
@@ -587,8 +590,10 @@ internal class HttpHeadersPatternTest {
             ))
             val invalidValue = mapOf("key" to "value", "type" to  "Invalid", "age" to "invalid")
 
-            val dictionary = "HEADERS: { age: 999 }".let(Dictionary::fromYaml)
-            val fixedValue = httpHeaders.fixValue(invalidValue, Resolver(dictionary = dictionary))
+            val dictionary = "PARAMETERS: { HEADER: { age: 999 } }".let(Dictionary::fromYaml)
+            val fixedValue = httpHeaders.fixValue(
+                invalidValue, Resolver(dictionary = dictionary).updateLookupPath(BreadCrumb.PARAMETERS.value)
+            )
             println(fixedValue)
 
             assertThat(fixedValue).isNotEmpty
@@ -800,8 +805,10 @@ internal class HttpHeadersPatternTest {
         fun `should generate values for missing mandatory keys and pattern tokens`() {
             val httpHeaders = HttpHeadersPattern(mapOf("number" to NumberPattern(), "boolean" to BooleanPattern()))
             val headers = mapOf("number" to "(number)")
-            val dictionary = "HEADERS: { number: 999, boolean: true }".let(Dictionary::fromYaml)
-            val filledHeaders = httpHeaders.fillInTheBlanks(headers, Resolver(dictionary = dictionary)).value
+            val dictionary = "PARAMETERS: { HEADER: { number: 999, boolean: true } }".let(Dictionary::fromYaml)
+            val filledHeaders = httpHeaders.fillInTheBlanks(
+                headers, Resolver(dictionary = dictionary).updateLookupPath(BreadCrumb.PARAMETERS.value)
+            ).value
 
             assertThat(filledHeaders).isEqualTo(mapOf("number" to "999", "boolean" to "true"))
         }
@@ -810,8 +817,7 @@ internal class HttpHeadersPatternTest {
         fun `should not generate missing optional keys`() {
             val httpHeaders = HttpHeadersPattern(mapOf("number" to NumberPattern(), "boolean?" to BooleanPattern()))
             val headers = mapOf("number" to "999")
-            val dictionary = mapOf("HEADERS.boolean" to BooleanValue(true)).let(Dictionary::from)
-            val filledHeaders = httpHeaders.fillInTheBlanks(headers, Resolver(dictionary = dictionary)).value
+            val filledHeaders = httpHeaders.fillInTheBlanks(headers, Resolver()).value
 
             assertThat(filledHeaders).isEqualTo(mapOf("number" to "999"))
         }
@@ -820,8 +826,10 @@ internal class HttpHeadersPatternTest {
         fun `should handle any-value pattern token as a special case`() {
             val httpHeaders = HttpHeadersPattern(mapOf("number" to NumberPattern(), "boolean" to BooleanPattern()))
             val headers = mapOf("number" to "(anyvalue)")
-            val dictionary = "HEADERS: { number: 999, boolean: true }".let(Dictionary::fromYaml)
-            val filledHeaders = httpHeaders.fillInTheBlanks(headers, Resolver(dictionary = dictionary)).value
+            val dictionary = "RESPONSE: { HEADER: { number: 999, boolean: true } }".let(Dictionary::fromYaml)
+            val filledHeaders = httpHeaders.fillInTheBlanks(
+                headers, Resolver(dictionary = dictionary).updateLookupPath(BreadCrumb.RESPONSE.value)
+            ).value
 
             assertThat(filledHeaders).isEqualTo(mapOf("number" to "999", "boolean" to "true"))
         }
@@ -843,10 +851,10 @@ internal class HttpHeadersPatternTest {
         @Test
         fun `should generate missing optional keys when allPatternsMandatory is set`() {
             val httpHeaders = HttpHeadersPattern(mapOf("number" to NumberPattern(), "boolean?" to BooleanPattern()))
-            val dictionary = "HEADERS: { boolean: true }".let(Dictionary::fromYaml)
+            val dictionary = "RESPONSE: { HEADER: { boolean: true } }".let(Dictionary::fromYaml)
             val headers = mapOf("number" to "999")
             val filledHeaders = httpHeaders.fillInTheBlanks(
-                headers, Resolver(dictionary = dictionary).withAllPatternsAsMandatory()
+                headers, Resolver(dictionary = dictionary).withAllPatternsAsMandatory().updateLookupPath(BreadCrumb.RESPONSE.value)
             ).value
 
             assertThat(filledHeaders).isEqualTo(mapOf("number" to "999", "boolean" to "true"))
@@ -866,13 +874,13 @@ internal class HttpHeadersPatternTest {
             val httpHeaders = HttpHeadersPattern(mapOf("number" to NumberPattern()))
             val headers = mapOf("number" to "(number)", "extraKey" to "(string)")
             val dictionary = """
-            HEADERS: { number: 999 }
+            PARAMETERS: { HEADER: { number: 999 } }
             (string): ExtraValue
             """.trimIndent().let(Dictionary::fromYaml)
             val resolvers = listOf(
                 Resolver(dictionary = dictionary, isNegative = true),
                 Resolver(dictionary = dictionary).withUnexpectedKeyCheck(IgnoreUnexpectedKeys)
-            )
+            ).map { it.updateLookupPath(BreadCrumb.PARAMETERS.value) }
 
             assertThat(resolvers).allSatisfy {
                 val filledJsonObject = httpHeaders.fillInTheBlanks(headers, it).value

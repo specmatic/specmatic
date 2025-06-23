@@ -1,5 +1,7 @@
 {
-  "HEADERS": {
-    "X-Trace-ID": "trace123"
+  "RESPONSE": {
+    "HEADER": {
+      "X-Trace-ID": "trace123"
+    }
   }
 }

@@ -35,7 +35,10 @@ object Utils {
         ).readText()
 }
 
-fun optionalPattern(pattern: Pattern): AnyPattern = AnyPattern(listOf(DeferredPattern("(empty)"), pattern))
+fun optionalPattern(pattern: Pattern): AnyPattern {
+    val patterns = listOf(DeferredPattern("(empty)"), pattern)
+    return AnyPattern(patterns, extensions = patterns.extractCombinedExtensions())
+}
 
 infix fun Value.shouldMatch(pattern: Pattern) {
     val result = pattern.matches(this, Resolver())

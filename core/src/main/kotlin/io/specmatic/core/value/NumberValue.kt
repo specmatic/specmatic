@@ -14,18 +14,40 @@ data class NumberValue(val number: Number) : Value, ScalarValue {
     override fun exactMatchElseType(): Pattern = ExactValuePattern(this)
     override fun type(): Pattern = NumberPattern()
 
-    override fun typeDeclarationWithKey(key: String, types: Map<String, Pattern>, exampleDeclarations: ExampleDeclarations): Pair<TypeDeclaration, ExampleDeclarations> =
-            primitiveTypeDeclarationWithKey(key, types, exampleDeclarations, displayableType(), number.toString())
+    override fun typeDeclarationWithKey(key: String, types: Map<String, Pattern>, exampleDeclarations: ExampleDeclarations): Pair<TypeDeclaration, ExampleDeclarations> {
+        val displayableType = if(number is Int || number is Long) {
+            "integer"
+        } else {
+            displayableType()
+        }
+        
+        return primitiveTypeDeclarationWithKey(key, types, exampleDeclarations, displayableType, number.toString())
+    }
 
     override fun listOf(valueList: List<Value>): Value {
         return JSONArrayValue(valueList)
     }
 
-    override fun typeDeclarationWithoutKey(exampleKey: String, types: Map<String, Pattern>, exampleDeclarations: ExampleDeclarations): Pair<TypeDeclaration, ExampleDeclarations> =
-            primitiveTypeDeclarationWithoutKey(exampleKey, types, exampleDeclarations, displayableType(), number.toString())
+    override fun typeDeclarationWithoutKey(exampleKey: String, types: Map<String, Pattern>, exampleDeclarations: ExampleDeclarations): Pair<TypeDeclaration, ExampleDeclarations> {
+        val displayableType = if(number is Int || number is Long) {
+            "integer"
+        } else {
+            displayableType()
+        }
+
+        return primitiveTypeDeclarationWithoutKey(
+            exampleKey,
+            types,
+            exampleDeclarations,
+            displayableType,
+            number.toString(),
+        )
+    }
 
     override val nativeValue: Number
         get() = number
+
+    override fun specificity(): Int = 1
 
     override fun toString() = number.toString()
 }

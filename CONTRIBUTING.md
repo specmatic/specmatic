@@ -18,7 +18,7 @@ _Optional:_ Set up [jenv](https://www.jenv.be/) or the equivalent tools to quick
 > pull requests from branches on your fork. To do this, run:
 >
 > ```
-> git remote add upstream https://github.com/znsio/specmatic.git
+> git remote add upstream https://github.com/specmatic/specmatic.git
 > git fetch upstream
 > git branch --set-upstream-to=upstream/main main
 > ```
@@ -49,20 +49,20 @@ To build the docker image, run the following command to create fat jar.
 
 Create docker image with appropriate tag. Please keep version consistent with the version.properties file.
 
-```docker build --no-cache -t znsio/specmatic:<version> .```
+```docker build --no-cache -t specmatic/specmatic:<version> .```
 
 Docker push is handled by Github workflow `./github/workflows/docker.yml`.
 
 In order to push manually to Docker (should not be necessary, adding this for completeness of documentation), login to docker hub and push the image.
-You may need to be added to the znsio organization in Docker Hub in order to do this.
+You may need to be added to the specmatic organization in Docker Hub in order to do this.
 
 ```docker login -u <username>```
 
-```docker push znsio/specmatic:<version>```
+```docker push specmatic/specmatic:<version>```
 
 ## Help needed
 
-Please checkout the [the open issues](https://github.com/znsio/specmatic/issues?q=is%3Aopen+is%3Aissue)
+Please checkout the [the open issues](https://github.com/specmatic/specmatic/issues?q=is%3Aopen+is%3Aissue)
 
 Also, please watch the repo and respond to questions/bug reports/feature
 requests! Thanks!
@@ -72,7 +72,7 @@ requests! Thanks!
 This is an optional section and required for advanced scenarios to debug memory and performance related issues.
 
 1.  Run specmacticJMS.sh. This file runs specmatic with Prometheus Java Agent and publishes metrics on localhost:8089/metrics
-2.  To monitor the above metrics in Grafana setup [Perfiz](https://github.com/znsio/perfiz#detailed-tutorial) (Steps 1 and 2)
+2.  To monitor the above metrics in Grafana setup [Perfiz](https://github.com/specmatic/perfiz#detailed-tutorial) (Steps 1 and 2)
 3.  Run ```$PERFIZ_HOME/perfiz.sh start``` and navigate to localhost:3000 to view Grafana Dashboard
 4.  Run ```$PERFIZ_HOME/perfiz.sh stop``` to stop Grafana and other Docker Containers
 

@@ -25,31 +25,39 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Docker Login
-        run: echo ${{ secrets.SPECMATIC_DOCKER_HUB_TOKEN }} | docker login -u ${{ secrets.SPECMATIC_DOCKER_HUB_USERNAME }} --password-stdin
+        run: echo ${{ secrets.SPECMATIC_DOCKER_HUB_TOKEN }} | docker login -u ${{ vars.SPECMATIC_DOCKER_HUB_USERNAME }} --password-stdin
 
       - name: 'Build/test'
-        uses: znsio/specmatic-github-workflows/action-build-gradle@main
+        uses: specmatic/specmatic-github-workflows/action-build-gradle@main
         with:
-          gradle-extra-args: -Pgithub.actor=${{ secrets.SPECMATIC_GITHUB_USER }} -Pgithub.token=${{ secrets.SPECMATIC_GITHUB_TOKEN }}
+          gradle-extra-args: -Preposilite.user=${{ vars.SPECMATIC_REPOSILITE_USERNAME }} -Preposilite.token=${{ secrets.SPECMATIC_REPOSILITE_TOKEN }}
 
       - name: 'Release'
         run: |
           RELEASE_VERSION=$(semver get release $(/usr/bin/grep -E '^\s*version\s*=' gradle.properties | /usr/bin/sed -E -e 's/^\s*version\s*=//g'))
           NEXT_VERSION=$(semver bump ${{ github.event.inputs.bump_type }} $(/usr/bin/grep -E '^\s*version\s*=' gradle.properties | /usr/bin/sed -E -e 's/^\s*version\s*=//g'))-SNAPSHOT
           echo "Making a release with version $RELEASE_VERSION and next version $NEXT_VERSION..."
+          
           git clean -fd
-
+          git remote set-url origin "https://x-access-token:${{ secrets.SPECMATIC_GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          
           ./gradlew --stacktrace \
             release \
             -Prelease.releaseVersion=${RELEASE_VERSION} \
             -Prelease.newVersion=${NEXT_VERSION}
         env:
-          ORG_GRADLE_PROJECT_mavenCentralUsername: '{{ secrets.SPECMATIC_MAVEN_CENTRAL_USERNAME }}'
+          ORG_GRADLE_PROJECT_mavenCentralUsername: '${{ secrets.SPECMATIC_MAVEN_CENTRAL_USERNAME }}'
           ORG_GRADLE_PROJECT_mavenCentralPassword: '${{ secrets.SPECMATIC_MAVEN_CENTRAL_PASSWORD }}'
-          ORG_GRADLE_PROJECT_signingInMemoryKey: '${{ secrets.SPECMATIC_GPG_PRIVATE_KEY }}'
-          ORG_GRADLE_PROJECT_signingInMemoryKeyId: '${{ secrets.SPECMATIC_GPG_KEY_ID }}'
-          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: '${{ secrets.SPECMATIC_GPG_PRIVATE_KEY_PASSPHRASE }}'
-          ORG_GRADLE_PROJECT_specmaticPrivateUsername: '${{ secrets.SPECMATIC_GITHUB_USER }}'
-          ORG_GRADLE_PROJECT_specmaticPrivatePassword: '${{ secrets.SPECMATIC_GITHUB_TOKEN }}'
-          SPECMATIC_GITHUB_USER: '${{ secrets.SPECMATIC_GITHUB_USER }}'
-          SPECMATIC_GITHUB_TOKEN: '${{ secrets.SPECMATIC_GITHUB_TOKEN }}'
+          ORG_GRADLE_PROJECT_signingInMemoryKey: "${{ secrets.SPECMATIC_GPG_PRIVATE_KEY }}"
+          ORG_GRADLE_PROJECT_signingInMemoryKeyId: "${{ secrets.SPECMATIC_GPG_KEY_ID }}"
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: "${{ secrets.SPECMATIC_GPG_PRIVATE_KEY_PASSPHRASE }}"
+          ORG_GRADLE_PROJECT_specmaticSnapshotsUsername: "${{ vars.SPECMATIC_REPOSILITE_USERNAME }}"
+          ORG_GRADLE_PROJECT_specmaticSnapshotsPassword: "${{ secrets.SPECMATIC_REPOSILITE_TOKEN }}"
+          ORG_GRADLE_PROJECT_specmaticReleasesUsername: "${{ vars.SPECMATIC_REPOSILITE_USERNAME }}"
+          ORG_GRADLE_PROJECT_specmaticReleasesPassword: "${{ secrets.SPECMATIC_REPOSILITE_TOKEN }}"
+          ORG_GRADLE_PROJECT_specmaticPrivateUsername: "${{ vars.SPECMATIC_REPOSILITE_USERNAME }}"
+          ORG_GRADLE_PROJECT_specmaticPrivatePassword: "${{ secrets.SPECMATIC_REPOSILITE_TOKEN }}"
+          SPECMATIC_GITHUB_USER: "${{ vars.SPECMATIC_GITHUB_USER }}"
+          SPECMATIC_GITHUB_TOKEN: "${{ secrets.SPECMATIC_GITHUB_TOKEN }}"
+          SPECMATIC_DOCKER_HUB_TOKEN: '${{ secrets.SPECMATIC_DOCKER_HUB_TOKEN }}'
+          SPECMATIC_DOCKER_HUB_USERNAME: '${{ vars.SPECMATIC_DOCKER_HUB_USERNAME }}'

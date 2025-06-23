@@ -45,7 +45,7 @@ data class HttpResponsePattern(
 
     fun generateResponseWithAll(resolver: Resolver): HttpResponse {
         return attempt(breadCrumb = "RESPONSE") {
-            val value = softCastValueToXML(body.generateWithAll(resolver))
+            val value = attempt(breadCrumb = "BODY") { softCastValueToXML(body.generateWithAll(resolver)) }
             val headers = headersPattern.generateWithAll(resolver).plus(SPECMATIC_RESULT_HEADER to "success").let { headers ->
                 when {
                     !headers.containsKey("Content-Type") -> headers.plus("Content-Type" to value.httpContentType)
@@ -126,7 +126,7 @@ data class HttpResponsePattern(
         }
 
         val result = resolver.matchesPattern(null, body, parsedValue).breadCrumb("BODY")
-        if(result is Result.Failure)
+        if(result is Result.Failure) {
             return MatchSuccess(
                 Triple(
                     response,
@@ -134,6 +134,7 @@ data class HttpResponsePattern(
                     failures.plus(result.breadCrumb("RESPONSE"))
                 )
             )
+        }
 
         return MatchSuccess(parameters)
     }
@@ -185,17 +186,19 @@ data class HttpResponsePattern(
     }
 
     fun resolveSubstitutions(substitution: Substitution, response: HttpResponse): HttpResponse {
-        val substitutedHeaders = substitution.resolveHeaderSubstitutions(response.headers, headersPattern.pattern).breadCrumb("RESPONSE.HEADERS").value
-        val substitutedBody = body.resolveSubstitutions(substitution, response.body, substitution.resolver).breadCrumb("RESPONSE.BODY").value
+        val substitutedHeaders = substitution.resolveHeaderSubstitutions(response.headers, headersPattern.pattern).breadCrumb(BreadCrumb.HEADER.value)
+        val substitutedBody = body.resolveSubstitutions(substitution, response.body, substitution.resolver).breadCrumb("BODY")
 
-        return response.copy(
-            headers = substitutedHeaders,
-            body = substitutedBody
-        )
+        return substitutedHeaders.combine(substitutedBody) { fullHeaders, fullBody ->
+            response.copy(headers = fullHeaders, body = fullBody)
+        }.breadCrumb("RESPONSE").value
     }
 
     fun fillInTheBlanks(partial: HttpResponse, resolver: Resolver): HttpResponse {
-        val headers = headersPattern.fillInTheBlanks(partial.headers, resolver).breadCrumb("HEADERS")
+        val headers = headersPattern.fillInTheBlanks(
+            headers = partial.headers, resolver = resolver.updateLookupPath(BreadCrumb.RESPONSE.value)
+        ).breadCrumb(BreadCrumb.HEADER.value)
+
         val body: ReturnValue<Value> = body.fillInTheBlanks(partial.body, resolver).breadCrumb("BODY")
 
         return headers.combine(body) { fullHeaders, fullBody ->
@@ -209,7 +212,9 @@ data class HttpResponsePattern(
     private fun generateResponseWith(value: Value, resolver: Resolver): HttpResponse {
         return attempt(breadCrumb = "RESPONSE") {
             val generatedBody = softCastValueToXML(value)
-            val headers = headersPattern.generate(resolver).plus(SPECMATIC_RESULT_HEADER to "success").let { headers ->
+            val headers = headersPattern.generate(
+                resolver = resolver.updateLookupPath(BreadCrumb.RESPONSE.value)
+            ).plus(SPECMATIC_RESULT_HEADER to "success").let { headers ->
                 if ((headers.containsKey("Content-Type").not() && generatedBody.httpContentType.isBlank().not()))
                     headers.plus("Content-Type" to generatedBody.httpContentType)
                 else headers
@@ -227,7 +232,9 @@ data class HttpResponsePattern(
     fun fixResponse(response: HttpResponse, resolver: Resolver): HttpResponse {
         return response.copy(
             status = status,
-            headers = headersPattern.fixValue(response.headers, resolver),
+            headers = headersPattern.fixValue(
+                response.headers, resolver.updateLookupPath(BreadCrumb.RESPONSE.value)
+            ),
             body = body.fixValue(response.body, resolver)
         )
     }

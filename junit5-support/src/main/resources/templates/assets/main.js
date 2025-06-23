@@ -121,6 +121,7 @@ function createResponseSummaryDetails(response) {
         keySpan.textContent = `${secondGroupTh.textContent}: `;
         break;
       case "thirdGroup":
+        if (response.isGherkinReport) continue;
         keySpan.textContent = `${thirdGroupTh.textContent}: `;
         break;
       case "result":
@@ -130,6 +131,7 @@ function createResponseSummaryDetails(response) {
       case "exercised":
       case "color":
       case "type":
+      case "isGherkinReport":
         continue;
     }
 

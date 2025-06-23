@@ -98,4 +98,8 @@ data class JSONArrayValue(override val list: List<Value>) : Value, ListValue, JS
     override fun generality(): Int {
         return list.sumOf { it.generality() }
     }
+
+    override fun specificity(): Int {
+        return list.sumOf { it.specificity() }
+    }
 }

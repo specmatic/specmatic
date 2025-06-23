@@ -5,7 +5,7 @@ plugins {
 }
 
 dependencies {
-    implementation("io.netty:netty-codec-http:4.1.118.Final")
+    implementation("io.netty:netty-codec-http:4.2.2.Final")
     implementation("joda-time:joda-time:2.14.0")
     implementation("net.minidev:json-smart:2.5.2")
 
@@ -26,8 +26,8 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.6.3")
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.9.25")
-    implementation("org.eclipse.jgit:org.eclipse.jgit:7.0.0.202409031743-r")
-    implementation("org.eclipse.jgit:org.eclipse.jgit.ssh.apache:7.0.0.202409031743-r")
+    implementation("org.eclipse.jgit:org.eclipse.jgit:7.3.0.202506031305-r")
+    implementation("org.eclipse.jgit:org.eclipse.jgit.ssh.apache:7.3.0.202506031305-r")
     implementation("com.fasterxml.jackson.core:jackson-core:2.19.0")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.19.0")
 
@@ -35,7 +35,7 @@ dependencies {
 
     implementation("com.fasterxml.jackson.core:jackson-databind:2.19.0")
 
-    implementation("io.swagger.parser.v3:swagger-parser:2.1.27")
+    implementation("io.swagger.parser.v3:swagger-parser:2.1.29")
 
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.11.4")
     implementation("com.github.mifmif:generex:1.0.2")
@@ -44,12 +44,13 @@ dependencies {
     testImplementation("org.assertj:assertj-core:3.27.3")
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.11.4")
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.11.4")
-    testImplementation("org.json:json:20250107")
-    testImplementation("org.springframework:spring-web:6.1.12")
+    testImplementation("org.json:json:20250517")
+    testImplementation("org.springframework:spring-web:6.1.14")
     testImplementation("io.mockk:mockk:1.13.11")
     testImplementation("org.assertj:assertj-core:3.27.3")
     testImplementation("io.ktor:ktor-client-mock-jvm:2.3.13")
     implementation("org.thymeleaf:thymeleaf:3.1.3.RELEASE")
+    testImplementation(kotlin("test"))
 }
 
 configurations.implementation.configure {

@@ -1,12 +1,12 @@
 package io.specmatic.core.log
 
-import io.specmatic.core.HttpRequest
-import io.specmatic.core.HttpResponse
-import io.specmatic.core.Scenario
+import io.specmatic.core.*
+import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.specmatic.stub.HttpStubResponse
+import java.io.File
 
 data class HttpLogMessage(
     var requestTime: CurrentDate = CurrentDate(),
@@ -20,12 +20,13 @@ data class HttpLogMessage(
     var scenario: Scenario? = null,
     var exception: Exception? = null
 ) : LogMessage {
-    fun addRequest(httpRequest: HttpRequest) {
+
+    fun addRequestWithCurrentTime(httpRequest: HttpRequest) {
         requestTime = CurrentDate()
         this.request = httpRequest
     }
 
-    fun addResponse(httpResponse: HttpResponse) {
+    fun addResponseWithCurrentTime(httpResponse: HttpResponse) {
         responseTime = CurrentDate()
         this.response = httpResponse
     }
@@ -97,9 +98,10 @@ data class HttpLogMessage(
     }
 
     fun addResponse(stubResponse: HttpStubResponse) {
-        addResponse(stubResponse.response)
+        addResponseWithCurrentTime(stubResponse.response)
         contractPath = stubResponse.contractPath
         examplePath = stubResponse.examplePath
+        scenario = stubResponse.scenario
     }
 
     fun logStartRequestTime() {
@@ -108,5 +110,27 @@ data class HttpLogMessage(
 
     fun isTestLog(): Boolean {
         return  scenario != null
+    }
+
+    fun toResult(): TestResult {
+        return when {
+            this.examplePath != null || this.scenario != null && response?.status !in invalidRequestStatuses -> TestResult.Success
+            scenario == null -> TestResult.MissingInSpec
+            else -> TestResult.Failed
+        }
+    }
+
+    fun toDetails(): String {
+        return when {
+            this.examplePath != null -> "Request Matched Example: ${this.examplePath}"
+            this.scenario != null && response?.status !in invalidRequestStatuses -> "Request Matched Contract ${scenario?.apiDescription}"
+            this.exception != null -> "Invalid Request\n${exception?.let(::exceptionCauseMessage)}"
+            else -> response?.body?.toStringLiteral() ?: "Request Didn't Match Contract"
+        }
+    }
+
+    fun toName(): String {
+        val scenario = this.scenario ?: return "Unknown Request"
+        return scenario.copy(exampleName = this.examplePath?.let(::File)?.name).testDescription()
     }
 }

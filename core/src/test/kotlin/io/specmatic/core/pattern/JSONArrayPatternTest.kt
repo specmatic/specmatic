@@ -2,15 +2,14 @@ package io.specmatic.core.pattern
 
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
-import io.specmatic.core.value.JSONArrayValue
-import io.specmatic.core.value.NullValue
-import io.specmatic.core.value.StringValue
+import io.specmatic.core.value.*
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.shouldMatch
 import io.specmatic.shouldNotMatch
 import io.specmatic.stub.HttpStub
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
 internal class JSONArrayPatternTest {
@@ -365,6 +364,163 @@ paths:
                 assertThat(response.status).isEqualTo(400)
             }
 
+        }
+    }
+
+    @Nested
+    inner class CalculatePathTests {
+        @Test
+        fun `calculatePath should return empty set for non-JSONArrayValue input`() {
+            val pattern = JSONArrayPattern(listOf(StringPattern()))
+            val value = StringValue("not an array")
+            val resolver = Resolver()
+
+            val paths = pattern.calculatePath(value, resolver)
+
+            assertThat(paths).isEmpty()
+        }
+
+        @Test
+        fun `calculatePath should return empty set for empty array`() {
+            val pattern = JSONArrayPattern(listOf(AnyPattern(listOf(StringPattern()), extensions = emptyMap())))
+            val value = JSONArrayValue(emptyList())
+            val resolver = Resolver()
+
+            val paths = pattern.calculatePath(value, resolver)
+
+            assertThat(paths).isEmpty()
+        }
+
+        @Test
+        fun `calculatePath should handle single pattern with AnyPattern`() {
+            val pattern = JSONArrayPattern(listOf(AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())))
+            val value = JSONArrayValue(listOf(StringValue("test"), NumberValue(42)))
+            val resolver = Resolver()
+
+            val paths = pattern.calculatePath(value, resolver)
+
+            assertThat(paths).containsExactlyInAnyOrder("{[0]}{string}", "{[1]}{number}")
+        }
+
+        @Test
+        fun `calculatePath should handle single pattern with JSONObjectPattern`() {
+            val objectPattern = JSONObjectPattern(
+                mapOf("data" to AnyPattern(listOf(StringPattern()), extensions = emptyMap())),
+                typeAlias = "(Item)"
+            )
+            val pattern = JSONArrayPattern(listOf(objectPattern))
+            val value = JSONArrayValue(listOf(
+                JSONObjectValue(mapOf("data" to StringValue("item1"))),
+                JSONObjectValue(mapOf("data" to StringValue("item2")))
+            ))
+            val resolver = Resolver()
+
+            val paths = pattern.calculatePath(value, resolver)
+
+            assertThat(paths).containsExactlyInAnyOrder(
+                "{[0]}{Item}.data{string}",
+                "{[1]}{Item}.data{string}"
+            )
+        }
+
+        @Test
+        fun `calculatePath should handle multiple patterns with different types`() {
+            val pattern = JSONArrayPattern(listOf(
+                AnyPattern(listOf(StringPattern()), extensions = emptyMap()),
+                AnyPattern(listOf(NumberPattern()), extensions = emptyMap()),
+                AnyPattern(listOf(BooleanPattern()), extensions = emptyMap())
+            ))
+            val value = JSONArrayValue(listOf(
+                StringValue("test"),
+                NumberValue(42),
+                BooleanValue(true)
+            ))
+            val resolver = Resolver()
+
+            val paths = pattern.calculatePath(value, resolver)
+
+            assertThat(paths).containsExactlyInAnyOrder("{[0]}{string}", "{[1]}{number}", "{[2]}{boolean}")
+        }
+
+        @Test
+        fun `calculatePath should handle array with more elements than patterns`() {
+            val pattern = JSONArrayPattern(listOf(AnyPattern(listOf(StringPattern()), extensions = emptyMap())))
+            val value = JSONArrayValue(listOf(
+                StringValue("item1"),
+                StringValue("item2"),
+                StringValue("item3")
+            ))
+            val resolver = Resolver()
+
+            val paths = pattern.calculatePath(value, resolver)
+
+            assertThat(paths).containsExactlyInAnyOrder("{[0]}{string}", "{[1]}{string}", "{[2]}{string}")
+        }
+
+        @Test
+        fun `calculatePath should handle multiple patterns with some elements missing`() {
+            val pattern = JSONArrayPattern(listOf(
+                AnyPattern(listOf(StringPattern()), extensions = emptyMap()),
+                AnyPattern(listOf(NumberPattern()), extensions = emptyMap()),
+                AnyPattern(listOf(BooleanPattern()), extensions = emptyMap())
+            ))
+            val value = JSONArrayValue(listOf(
+                StringValue("test"),
+                NumberValue(42)
+                // Missing third element
+            ))
+            val resolver = Resolver()
+
+            val paths = pattern.calculatePath(value, resolver)
+
+            assertThat(paths).containsExactlyInAnyOrder("{[0]}{string}", "{[1]}{number}")
+        }
+
+        @Test
+        fun `calculatePath should handle nested JSONObjectPattern in array`() {
+            val nestedObjectPattern = JSONObjectPattern(
+                mapOf(
+                    "id" to StringPattern(),
+                    "value" to AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())
+                ),
+                typeAlias = "(NestedItem)"
+            )
+            val pattern = JSONArrayPattern(listOf(nestedObjectPattern))
+            val value = JSONArrayValue(listOf(
+                JSONObjectValue(mapOf("id" to StringValue("1"), "value" to StringValue("text"))),
+                JSONObjectValue(mapOf("id" to StringValue("2"), "value" to NumberValue(123)))
+            ))
+            val resolver = Resolver()
+
+            val paths = pattern.calculatePath(value, resolver)
+
+            assertThat(paths).containsExactlyInAnyOrder(
+                "{[0]}{NestedItem}.value{string}",
+                "{[1]}{NestedItem}.value{number}"
+            )
+        }
+
+        @Test
+        fun `calculatePath should wrap scalar types in braces`() {
+            val pattern =
+                JSONArrayPattern(listOf(AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())))
+            val value = JSONArrayValue(listOf(StringValue("test")))
+            val resolver = Resolver()
+
+            val paths = pattern.calculatePath(value, resolver)
+
+            assertThat(paths).containsExactly("{[0]}{string}")
+        }
+
+        @Test
+        fun `calculatePath should handle array with no matching patterns`() {
+            val pattern = JSONArrayPattern(listOf(NumberPattern()))
+            val value = JSONArrayValue(listOf(StringValue("test")))
+            val resolver = Resolver()
+
+            val paths = pattern.calculatePath(value, resolver)
+
+            assertThat(paths).isEmpty()
         }
     }
 }

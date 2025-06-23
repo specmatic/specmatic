@@ -89,7 +89,7 @@ class WSDLConversionTests {
 
         val actualGherkin = wsdl.convertToGherkin()
 
-        assertThat(actualGherkin).isEqualTo(expectedGherkin)
+        assertThat(actualGherkin).isEqualToIgnoringWhitespace(expectedGherkin)
     }
 
     @Test
@@ -173,7 +173,7 @@ class WSDLConversionTests {
 
         val actualGherkin = wsdl.convertToGherkin()
 
-        assertThat(actualGherkin).isEqualTo(expectedGherkin)
+        assertThat(actualGherkin).isEqualToIgnoringWhitespace(expectedGherkin)
     }
 
     @Test
@@ -271,7 +271,7 @@ class WSDLConversionTests {
 
         val actualGherkin = wsdl.convertToGherkin()
 
-        assertThat(actualGherkin).isEqualTo(expectedGherkin)
+        assertThat(actualGherkin).isEqualToIgnoringWhitespace(expectedGherkin)
     }
 
     @Test
@@ -368,7 +368,7 @@ class WSDLConversionTests {
 
         val actualGherkin = wsdl.convertToGherkin()
 
-        assertThat(actualGherkin).isEqualTo(expectedGherkin)
+        assertThat(actualGherkin).isEqualToIgnoringWhitespace(expectedGherkin)
     }
 
     @Test
@@ -470,7 +470,7 @@ class WSDLConversionTests {
 
         val actualGherkin = wsdl.convertToGherkin()
 
-        assertThat(actualGherkin).isEqualTo(expectedGherkin)
+        assertThat(actualGherkin).isEqualToIgnoringWhitespace(expectedGherkin)
     }
 
     @Test
@@ -571,7 +571,7 @@ class WSDLConversionTests {
 
         val actualGherkin = wsdl.convertToGherkin()
 
-        assertThat(actualGherkin).isEqualTo(expectedGherkin)
+        assertThat(actualGherkin).isEqualToIgnoringWhitespace(expectedGherkin)
     }
 
     @Test
@@ -672,7 +672,7 @@ class WSDLConversionTests {
 
         val actualGherkin = wsdl.convertToGherkin()
 
-        assertThat(actualGherkin).isEqualTo(expectedGherkin)
+        assertThat(actualGherkin).isEqualToIgnoringWhitespace(expectedGherkin)
     }
 
     @Nested
@@ -773,7 +773,7 @@ class WSDLConversionTests {
             ).let { wsdl ->
                 val actualGherkin = wsdl.convertToGherkin()
 
-                assertThat(actualGherkin).isEqualTo(expectedGherkin)
+                assertThat(actualGherkin).isEqualToIgnoringWhitespace(expectedGherkin)
             }
         }
 
@@ -816,7 +816,7 @@ class WSDLConversionTests {
             ).let { wsdl ->
                 val actualGherkin = wsdl.convertToGherkin().trim()
 
-                assertThat(actualGherkin).isEqualTo(expectedGherkin)
+                assertThat(actualGherkin).isEqualToIgnoringWhitespace(expectedGherkin)
             }
         }
     }
@@ -931,7 +931,7 @@ class WSDLConversionTests {
             ).let { wsdl ->
                 val actualGherkin = wsdl.convertToGherkin().trim()
 
-                assertThat(actualGherkin).isEqualTo(expectedGherkin)
+                assertThat(actualGherkin).isEqualToIgnoringWhitespace(expectedGherkin)
             }
         }
 
@@ -980,7 +980,7 @@ class WSDLConversionTests {
             ).let { wsdl ->
                 val actualGherkin = wsdl.convertToGherkin().trim()
 
-                assertThat(actualGherkin).isEqualTo(expectedGherkin)
+                assertThat(actualGherkin).isEqualToIgnoringWhitespace(expectedGherkin)
             }
         }
     }
@@ -1055,7 +1055,7 @@ class WSDLConversionTests {
 
         val actualGherkin = wsdl.convertToGherkin()
 
-        assertThat(actualGherkin).isEqualTo(expectedGherkin)
+        assertThat(actualGherkin).isEqualToIgnoringWhitespace(expectedGherkin)
     }
 
     @Test
@@ -1130,7 +1130,7 @@ class WSDLConversionTests {
         """.trimIndent().trim()
 
         val actualGherkin = wsdl.convertToGherkin()
-        assertThat(actualGherkin).isEqualTo(expectedGherkin)
+        assertThat(actualGherkin).isEqualToIgnoringWhitespace(expectedGherkin)
     }
 
     @Test
@@ -1229,7 +1229,7 @@ class WSDLConversionTests {
 
         val actualGherkin = wsdl.convertToGherkin()
 
-        assertThat(actualGherkin).isEqualTo(expectedGherkin)
+        assertThat(actualGherkin).isEqualToIgnoringWhitespace(expectedGherkin)
     }
 
     @Test
@@ -1342,7 +1342,7 @@ class WSDLConversionTests {
 
         val actualGherkin = wsdl.convertToGherkin()
 
-        assertThat(actualGherkin).isEqualTo(expectedGherkin)
+        assertThat(actualGherkin).isEqualToIgnoringWhitespace(expectedGherkin)
     }
 
     companion object {
@@ -1443,7 +1443,7 @@ class WSDLConversionTests {
         """.trimIndent().trim()
 
         val actualGherkin = wsdl.convertToGherkin()
-        assertThat(actualGherkin).isEqualTo(expectedGherkin)
+        assertThat(actualGherkin).isEqualToIgnoringWhitespace(expectedGherkin)
     }
 
     @ParameterizedTest
@@ -1523,6 +1523,6 @@ class WSDLConversionTests {
 
         val actualGherkin = wsdl.convertToGherkin()
 
-        assertThat(actualGherkin).isEqualTo(expectedGherkin)
+        assertThat(actualGherkin).isEqualToIgnoringWhitespace(expectedGherkin)
     }
 }

@@ -1,0 +1,6 @@
+version: 2
+contracts:
+- consumes:
+    - core/src/test/resources/wsdl/with_examples/order_api.wsdl
+  provides:
+    - core/src/test/resources/wsdl/with_examples/order_api.wsdl

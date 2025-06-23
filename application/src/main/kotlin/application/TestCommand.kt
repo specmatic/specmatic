@@ -83,21 +83,15 @@ class TestCommand(private val junitLauncher: Launcher = LauncherFactory.create()
     @Option(
         names= ["--filter"],
         description = [
-           """
-Filter tests matching the specified filtering criteria
+            """Filter tests matching the specified filtering criteria
 
 You can filter tests based on the following keys:
 - `METHOD`: HTTP methods (e.g., GET, POST)
 - `PATH`: Request paths (e.g., /users, /product)
 - `STATUS`: HTTP response status codes (e.g., 200, 400)
-- `HEADERS`: Request headers (e.g., Accept, X-Request-ID)
-- `QUERY`: Query parameters name (e.g., status, productId)
-- `EXAMPLE_NAME`: Example name (e.g., create-product, active-status)
 
-To specify multiple values for the same filter, separate them with commas. 
-For example, to filter by HTTP methods: 
---filter="METHOD='GET,POST'"
-           """
+You can find all available filters and their usage at:
+https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--operators"""
         ],
         required = false
     )

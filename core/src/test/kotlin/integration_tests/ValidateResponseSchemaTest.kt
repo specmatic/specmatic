@@ -367,7 +367,7 @@ paths:
         println(results.report())
 
         assertThat(results.report())
-            .contains("RESPONSE.HEADERS.X-Rate-Limit-Remaining")
+            .contains("RESPONSE.HEADER.X-Rate-Limit-Remaining")
             .contains("Expected \"100\", got value \"200\"")
     }
 }

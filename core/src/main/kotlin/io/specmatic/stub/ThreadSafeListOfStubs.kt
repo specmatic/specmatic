@@ -112,9 +112,7 @@ class ThreadSafeListOfStubs(
             )
 
             try {
-                val originalRequest =
-                    if (stubData.partial != null) stubData.partial.request
-                    else stubData.originalRequest
+                val originalRequest = stubData.resolveOriginalRequest()
 
                 stubResponse.resolveSubstitutions(
                     httpRequest,
@@ -135,16 +133,16 @@ class ThreadSafeListOfStubs(
         }
 
         val exactMatch = grouped[StubType.Exact].orEmpty().sortedBy {
-            it.second.originalRequest?.generality ?: Int.MAX_VALUE
+            it.second.resolveOriginalRequest()?.generality ?: Int.MAX_VALUE
         }.find { (result, _) -> result is Result.Success }
 
         if(exactMatch != null)
             return Pair(exactMatch.second, listMatchResults)
 
-        val partialMatch = grouped[StubType.Partial].orEmpty().find { (result, _) -> result is Result.Success }
+        val partialMatch = ThreadSafeListOfStubs.getPartialBySpecificityAndGenerality(grouped[StubType.Partial].orEmpty().map { it.second })
 
         if(partialMatch != null)
-            return Pair(partialMatch.second, listMatchResults)
+            return Pair(partialMatch, listMatchResults)
 
         return Pair(null, listMatchResults)
     }
@@ -175,9 +173,7 @@ class ThreadSafeListOfStubs(
             )
 
             try {
-                val originalRequest =
-                    if (stubData.partial != null) stubData.partial.request
-                    else stubData.originalRequest
+                val originalRequest = stubData.resolveOriginalRequest()
 
                 stubResponse.resolveSubstitutions(
                     httpRequest,
@@ -232,6 +228,33 @@ class ThreadSafeListOfStubs(
 
     private fun emptyStubs(): ThreadSafeListOfStubs {
         return ThreadSafeListOfStubs(mutableListOf(), specToBaseUrlMap)
+    }
+
+    companion object {
+        internal fun getPartialBySpecificityAndGenerality(partials: List<HttpStubData>): HttpStubData? {
+            if (partials.isEmpty()) return null
+            
+            // Group by specificity (highest first)
+            val groupedBySpecificity = partials.groupBy { stubData ->
+                stubData.resolveOriginalRequest()?.specificity ?: 0
+            }.toSortedMap(reverseOrder())
+            
+            // Get the group with highest specificity
+            val highestSpecificityGroup = groupedBySpecificity.entries.first().value
+            
+            // If only one partial in the highest specificity group, use it
+            if (highestSpecificityGroup.size == 1) {
+                return highestSpecificityGroup.single()
+            }
+            
+            // Multiple partials in highest specificity group - group by generality (lowest first)
+            val groupedByGenerality = highestSpecificityGroup.groupBy { stubData ->
+                stubData.resolveOriginalRequest()?.generality ?: 0
+            }.toSortedMap()
+            
+            // Get the group with lowest generality and pick the first one
+            return groupedByGenerality.entries.first().value.first()
+        }
     }
 }
 

@@ -30,6 +30,8 @@ data class BinaryValue(val byteArray: ByteArray = ByteArray(0)) : Value, ScalarV
         return JSONArrayValue(valueList)
     }
 
+    override fun specificity(): Int = 1
+
     override fun type(): Pattern = StringPattern()
 
     override fun typeDeclarationWithKey(

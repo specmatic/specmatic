@@ -26,6 +26,6 @@ internal class SOAPOperationTypeInfoTest {
               ""${'"'}
         """.trimIndent().trim()
 
-        assertThat(info.toGherkinScenario()).isEqualTo(expectedSOAPPayload)
+        assertThat(info.toGherkinScenario()).isEqualToIgnoringWhitespace(expectedSOAPPayload)
     }
 }

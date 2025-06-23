@@ -22,7 +22,9 @@ internal class HttpRequestPatternTest {
         val httpRequest = HttpRequest().updateWith(URI("/unmatched_path"))
         httpRequestPattern.matches(httpRequest, Resolver()).let {
             assertThat(it).isInstanceOf(Failure::class.java)
-            assertThat((it as Failure).toMatchFailureDetails()).isEqualTo(MatchFailureDetails(listOf("REQUEST", "PATH (/unmatched_path)"), listOf("""Expected "matching_path", actual was "unmatched_path"""")))
+            assertThat((it as Failure).toMatchFailureDetails()).isEqualTo(MatchFailureDetails(
+                listOf("REQUEST", "PARAMETERS.PATH (/unmatched_path)"), listOf("""Expected "matching_path", actual was "unmatched_path""""))
+            )
         }
     }
 
@@ -460,7 +462,7 @@ internal class HttpRequestPatternTest {
 
         val result = type.matches(request, Resolver())
         val reportText = result.reportString()
-        assertThat(reportText).contains(">> REQUEST.HEADERS.X-Data")
+        assertThat(reportText).contains(">> REQUEST.PARAMETERS.HEADER.X-Data")
         assertThat(reportText).contains(">> REQUEST.BODY.id")
     }
 
@@ -647,7 +649,7 @@ internal class HttpRequestPatternTest {
 
         val testDescriptions = negativeTestScenarios.map { it.second }.filterIsInstance<HasValue<*>>().map { it.value as Scenario }.map { it.testDescription() }
 
-        assertThat(testDescriptions.count { it.matches(Regex("^.*QUERY-PARAM.*enum.*$")) }).isEqualTo(4)
+        assertThat(testDescriptions.count { it.matches(Regex("^.*PARAMETERS.QUERY.*enum.*$")) }).isEqualTo(4)
     }
 
     @Test

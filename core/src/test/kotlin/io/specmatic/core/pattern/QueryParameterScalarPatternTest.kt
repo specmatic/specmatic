@@ -11,7 +11,7 @@ class QueryParameterScalarPatternTest {
     @Test
     fun `should be able to fix invalid values`() {
         val pattern = HttpQueryParamPattern(mapOf("email" to QueryParameterScalarPattern(EmailPattern())))
-        val dictionary = "QUERY-PARAMS: { email: SomeDude@example.com }".let(Dictionary::fromYaml)
+        val dictionary = "PARAMETERS: { QUERY: { email: SomeDude@example.com } }".let(Dictionary::fromYaml)
         val resolver = Resolver(dictionary = dictionary)
         val invalidValues = listOf(
             "Unknown",

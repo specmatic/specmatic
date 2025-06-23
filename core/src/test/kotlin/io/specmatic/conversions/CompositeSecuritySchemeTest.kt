@@ -37,9 +37,9 @@ class CompositeSecuritySchemeTest {
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> HEADERS.$AUTHORIZATION
+        >> HEADER.$AUTHORIZATION
         Expected header named "$AUTHORIZATION" was missing
-        >> QUERY-PARAMS.apiKey
+        >> QUERY.apiKey
         Expected api-key named "apiKey" was missing
         """.trimIndent())
     }

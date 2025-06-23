@@ -171,7 +171,7 @@ data class XMLNode(val name: String, val realName: String, val attributes: Map<S
 
     override fun displayableValue(): String = toStringLiteral()
 
-    override fun toStringLiteral(): String = this.nodeToString("", "")
+    override fun toStringLiteral(): String = toPrettyStringValue()
 
     fun toPrettyStringValue(): String {
         return this.nodeToString("  ", System.lineSeparator())
@@ -317,6 +317,10 @@ data class XMLNode(val name: String, val realName: String, val attributes: Map<S
         return this.childNodes.filterIsInstance<XMLNode>().find {
             it.attributes["name"]?.toStringLiteral() == valueOfNameAttribute
         } ?: throw ContractException("Couldn't find name attribute")
+    }
+
+    override fun specificity(): Int {
+        TODO("Not yet implemented")
     }
 }
 

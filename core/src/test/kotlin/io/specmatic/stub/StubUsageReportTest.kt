@@ -13,19 +13,19 @@ class StubUsageReportTest {
     @Test
     fun `test generates stub usage report based on stub request logs`() {
         val allEndpoints = mutableListOf(
-            StubEndpoint("/route1", "GET", 200, "git", "https://github.com/znsio/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route1.yaml", "HTTP"),
-            StubEndpoint("/route1", "POST", 200, "git", "https://github.com/znsio/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route1.yaml", "HTTP"),
-            StubEndpoint("/route2", "GET", 200, "git", "https://github.com/znsio/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route2.yaml", "HTTP"),
-            StubEndpoint("/route2", "POST", 200, "git", "https://github.com/znsio/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route2.yaml", "HTTP"),
+            StubEndpoint("/route1", "GET", 200, "git", "https://github.com/specmatic/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route1.yaml", "HTTP"),
+            StubEndpoint("/route1", "POST", 200, "git", "https://github.com/specmatic/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route1.yaml", "HTTP"),
+            StubEndpoint("/route2", "GET", 200, "git", "https://github.com/specmatic/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route2.yaml", "HTTP"),
+            StubEndpoint("/route2", "POST", 200, "git", "https://github.com/specmatic/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route2.yaml", "HTTP"),
         )
 
         val stubLogs = mutableListOf(
-            StubEndpoint("/route1", "GET", 200, "git", "https://github.com/znsio/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route1.yaml", "HTTP"),
-            StubEndpoint("/route1", "GET", 200, "git", "https://github.com/znsio/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route1.yaml", "HTTP"),
-            StubEndpoint("/route1", "POST", 200, "git", "https://github.com/znsio/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route1.yaml", "HTTP"),
-            StubEndpoint("/route1", "POST", 200, "git", "https://github.com/znsio/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route1.yaml", "HTTP"),
-            StubEndpoint("/route2", "GET", 200, "git", "https://github.com/znsio/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route2.yaml", "HTTP"),
-            StubEndpoint("/route2", "GET", 200, "git", "https://github.com/znsio/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route2.yaml", "HTTP"),
+            StubEndpoint("/route1", "GET", 200, "git", "https://github.com/specmatic/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route1.yaml", "HTTP"),
+            StubEndpoint("/route1", "GET", 200, "git", "https://github.com/specmatic/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route1.yaml", "HTTP"),
+            StubEndpoint("/route1", "POST", 200, "git", "https://github.com/specmatic/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route1.yaml", "HTTP"),
+            StubEndpoint("/route1", "POST", 200, "git", "https://github.com/specmatic/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route1.yaml", "HTTP"),
+            StubEndpoint("/route2", "GET", 200, "git", "https://github.com/specmatic/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route2.yaml", "HTTP"),
+            StubEndpoint("/route2", "GET", 200, "git", "https://github.com/specmatic/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route2.yaml", "HTTP"),
         )
 
         val stubUsageJsonReport = StubUsageReport(CONFIG_FILE_PATH, allEndpoints, stubLogs).generate()
@@ -34,7 +34,7 @@ class StubUsageReportTest {
                 CONFIG_FILE_PATH, listOf(
                     StubUsageReportRow(
                         "git",
-                        "https://github.com/znsio/specmatic-order-contracts.git",
+                        "https://github.com/specmatic/specmatic-order-contracts.git",
                         "main",
                         "in/specmatic/examples/store/route1.yaml",
                         "HTTP",
@@ -45,7 +45,7 @@ class StubUsageReportTest {
                     ),
                     StubUsageReportRow(
                         "git",
-                        "https://github.com/znsio/specmatic-order-contracts.git",
+                        "https://github.com/specmatic/specmatic-order-contracts.git",
                         "main",
                         "in/specmatic/examples/store/route2.yaml",
                         "HTTP",

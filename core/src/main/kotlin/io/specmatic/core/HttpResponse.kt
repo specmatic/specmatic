@@ -3,6 +3,7 @@ package io.specmatic.core
 import io.ktor.http.*
 import io.specmatic.conversions.guessType
 import io.specmatic.core.GherkinSection.Then
+import io.specmatic.core.filters.caseInsensitiveContains
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.isPatternToken
@@ -37,6 +38,16 @@ data class HttpResponse(
                 0 -> ""
                 else -> HttpStatusCode.fromValue(status).description
             }
+
+    fun containsHeader(key: String): Boolean {
+        return headers.keys.any { it.equals(key, ignoreCase = true) }
+    }
+
+    fun getHeader(key: String): String? {
+        return headers.filter { it.key.equals(key, ignoreCase = true) }
+            .values
+            .firstOrNull()
+    }
 
     fun withoutSpecmaticTypeHeader(): HttpResponse {
         return this.copy(headers = this.headers.filterKeys { it != "X-Specmatic-Type" })

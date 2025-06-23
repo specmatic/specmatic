@@ -1,12 +1,7 @@
 package io.specmatic.test
 
-import com.ezylang.evalex.Expression
 import io.specmatic.core.Result
 import io.specmatic.core.TestResult
-import io.specmatic.core.filters.FilterableExpression
-import io.specmatic.core.filters.HasScenarioMetadata
-import io.specmatic.core.filters.ScenarioFilterTags
-import io.specmatic.core.filters.ScenarioMetadata
 
 data class TestResultRecord(
     val path: String,
@@ -22,15 +17,13 @@ data class TestResultRecord(
     val scenarioResult: Result? = null,
     val isValid: Boolean = true,
     val isWip: Boolean = false,
-    val requestContentType: String? = null
-) : HasScenarioMetadata
-{
+    val requestContentType: String? = null,
+    val soapAction: String? = null,
+    val isGherkin: Boolean = false
+) {
     val isExercised = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
     val isCovered = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
 
     fun isConnectionRefused() = actualResponseStatus == 0
 
-    override fun toScenarioMetadata(): ScenarioMetadata {
-        return ScenarioMetadata(method, path, responseStatus, emptySet(), emptySet(), "")
-    }
 }

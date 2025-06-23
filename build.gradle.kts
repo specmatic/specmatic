@@ -1,3 +1,5 @@
+import io.specmatic.gradle.extensions.RepoType
+
 plugins {
     id("io.specmatic.gradle")
     id("base")
@@ -13,11 +15,16 @@ allprojects {
 specmatic {
     publishToMavenCentral()
     releasePublishTasks = listOf(
+        "dockerBuildxPublish",
         "publishAllPublicationsToMavenCentralRepository",
         "publishAllPublicationsToSpecmaticPrivateRepository",
-        "dockerBuildxPublish"
+        "publishAllPublicationsToSpecmaticReleasesRepository",
     )
-    publishTo("specmaticPrivate", "https://maven.pkg.github.com/znsio/specmatic-private-maven-repo")
+
+    publishTo("specmaticPrivate", "https://repo.specmatic.io/private", RepoType.PUBLISH_ALL)
+    publishTo("specmaticSnapshots", "https://repo.specmatic.io/snapshots", RepoType.PUBLISH_ALL)
+    publishTo("specmaticReleases", "https://repo.specmatic.io/releases", RepoType.PUBLISH_ALL)
+
     withOSSLibrary(project(":specmatic-core")) {
         githubRelease()
         publish {
@@ -29,7 +36,7 @@ specmatic {
                 licenses {
                     license {
                         name = "MIT"
-                        url = "https://github.com/znsio/specmatic/blob/main/License.md"
+                        url = "https://github.com/specmatic/specmatic/blob/main/License.md"
                     }
                 }
                 developers {
@@ -40,7 +47,7 @@ specmatic {
                     }
                 }
                 scm {
-                    connection = "https://github.com/znsio/specmatic"
+                    connection = "https://github.com/specmatic/specmatic"
                     url = "https://specmatic.io/"
                 }
             }
@@ -56,7 +63,7 @@ specmatic {
                 licenses {
                     license {
                         name = "MIT"
-                        url = "https://github.com/znsio/specmatic/blob/main/License.md"
+                        url = "https://github.com/specmatic/specmatic/blob/main/License.md"
                     }
                 }
                 developers {
@@ -67,7 +74,7 @@ specmatic {
                     }
                 }
                 scm {
-                    connection = "https://github.com/znsio/specmatic"
+                    connection = "https://github.com/specmatic/specmatic"
                     url = "https://specmatic.io/"
                 }
             }
@@ -78,7 +85,9 @@ specmatic {
         githubRelease {
             addFile("unobfuscatedShadowJar", "specmatic.jar")
         }
-        dockerBuild(imageName = "specmatic")
+        dockerBuild {
+            imageName = "specmatic"
+        }
         publish {
             pom {
                 name = "Specmatic Executable"
@@ -87,7 +96,7 @@ specmatic {
                 licenses {
                     license {
                         name = "MIT"
-                        url = "https://github.com/znsio/specmatic/blob/main/License.md"
+                        url = "https://github.com/specmatic/specmatic/blob/main/License.md"
                     }
                 }
                 developers {
@@ -98,7 +107,7 @@ specmatic {
                     }
                 }
                 scm {
-                    connection = "https://github.com/znsio/specmatic"
+                    connection = "https://github.com/specmatic/specmatic"
                     url = "https://specmatic.io/"
                 }
             }

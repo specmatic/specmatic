@@ -10,17 +10,16 @@ import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.StringValue
 import java.net.URI
 
-const val QUERY_PARAMS_BREADCRUMB = "QUERY-PARAMS"
-
 data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val additionalProperties: Pattern? = null) {
 
     val queryKeyNames = queryPatterns.keys
 
     fun generate(resolver: Resolver): List<Pair<String, String>> {
-        return attempt(breadCrumb = "QUERY-PARAMS") {
+        val updatedResolver = resolver.updateLookupPath(BreadCrumb.PARAMETERS.value).updateLookupForParam(BreadCrumb.QUERY.value)
+        return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
             queryPatterns.map { it.key.removeSuffix("?") to it.value }.flatMap { (parameterName, pattern) ->
                 attempt(breadCrumb = parameterName) {
-                    val generatedValue =  resolver.withCyclePrevention(pattern) { it.generate("QUERY-PARAMS", parameterName, pattern) }
+                    val generatedValue =  updatedResolver.withCyclePrevention(pattern) { it.generate(null, parameterName, pattern) }
                     if(generatedValue is JSONArrayValue) {
                         generatedValue.list.map { parameterName to it.toString() }
                     }
@@ -38,7 +37,7 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
     }
 
     fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<HttpQueryParamPattern>> {
-        return attempt(breadCrumb = QUERY_PARAMS_BREADCRUMB) {
+        return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
             val queryParams = queryPatterns.let {
                 if(additionalProperties != null)
                     it.plus(randomString(5) to additionalProperties)
@@ -63,7 +62,8 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
             queryPatterns,
             additionalProperties,
             row,
-            resolver
+            resolver,
+            breadCrumb = BreadCrumb.PARAM_QUERY.value
         ).map { it: ReturnValue<Map<String, Pattern>> ->
             it.ifValue {
                 HttpQueryParamPattern(it.mapKeys { entry -> withoutOptionality(entry.key) })
@@ -121,13 +121,13 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
         val failures = keyErrorList.plus(results).filterIsInstance<Result.Failure>()
 
         return if (failures.isNotEmpty())
-            Result.Failure.fromFailures(failures).breadCrumb(QUERY_PARAMS_BREADCRUMB)
+            Result.Failure.fromFailures(failures).breadCrumb(BreadCrumb.PARAM_QUERY.value)
         else
             Result.Success()
     }
 
     fun newBasedOn(resolver: Resolver): Sequence<HttpQueryParamPattern> {
-        return attempt(breadCrumb = QUERY_PARAMS_BREADCRUMB) {
+        return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
             val queryParams = queryPatterns.let {
                 if(additionalProperties != null)
                     it.plus(randomString(5) to additionalProperties)
@@ -156,8 +156,8 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
     }
 
     fun negativeBasedOn(row: Row, resolver: Resolver, config: NegativePatternConfiguration = NegativePatternConfiguration()): Sequence<ReturnValue<HttpQueryParamPattern>> {
-        return returnValue(breadCrumb = "QUERY-PARAM") {
-            attempt(breadCrumb = QUERY_PARAMS_BREADCRUMB) {
+        return returnValue(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
+            attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
                 val queryParams: Map<String, Pattern> = queryPatterns.let {
                     if (additionalProperties != null)
                         it.plus(randomString(5) to additionalProperties)
@@ -189,7 +189,7 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
         resolver: Resolver,
         generateMandatoryEntryIfMissing: Boolean
     ): Sequence<ReturnValue<Map<String, Pattern>>> {
-        return attempt(breadCrumb = QUERY_PARAMS_BREADCRUMB) {
+        return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
             readFrom(queryPatterns, row, resolver, generateMandatoryEntryIfMissing).map { HasValue(it) }
         }
     }
@@ -210,8 +210,8 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
 
         val fixedQueryParams = fix(
             jsonPatternMap = queryPatterns, jsonValueMap = adjustedQueryParams.asValueMap(),
-            resolver = updatedResolver.withoutAllPatternsAsMandatory(),
-            jsonPattern = JSONObjectPattern(queryPatterns, typeAlias = "($QUERY_PARAMS_BREADCRUMB)")
+            resolver = updatedResolver.updateLookupPath(BreadCrumb.PARAMETERS.value).updateLookupForParam(BreadCrumb.QUERY.value).withoutAllPatternsAsMandatory(),
+            jsonPattern = JSONObjectPattern(queryPatterns, typeAlias = null)
         )
 
         return QueryParameters(fixedQueryParams.mapValues { it.value.toStringLiteral() })
@@ -235,7 +235,8 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
 
         return fill(
             jsonPatternMap = queryPatterns, jsonValueMap = parsedQueryParams,
-            resolver = updatedResolver, typeAlias = "($QUERY_PARAMS_BREADCRUMB)"
+            resolver = updatedResolver.updateLookupPath(BreadCrumb.PARAMETERS.value).updateLookupForParam(BreadCrumb.QUERY.value),
+            typeAlias = null
         ).realise(
             hasValue = { valuesMap, _ -> HasValue(QueryParameters(valuesMap.mapValues { it.value.toStringLiteral() })) },
             orException = { e -> e.cast() }, orFailure = { f -> f.cast() }
@@ -267,7 +268,8 @@ fun addComplimentaryPatterns(
     patterns: Map<String, Pattern>,
     additionalProperties: Pattern?,
     row: Row,
-    resolver: Resolver
+    resolver: Resolver,
+    breadCrumb: String
 ): Sequence<ReturnValue<Map<String, Pattern>>> {
     val generatedWithoutExamples: Sequence<ReturnValue<Map<String, Pattern>>> =
         resolver
@@ -277,7 +279,8 @@ fun addComplimentaryPatterns(
                 patterns,
                 additionalProperties,
                 row,
-                resolver
+                resolver,
+                breadCrumb
             )
             .map {
                 it.update { map -> map.mapKeys { withoutOptionality(it.key) } }

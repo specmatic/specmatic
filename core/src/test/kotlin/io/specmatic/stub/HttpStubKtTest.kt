@@ -459,7 +459,7 @@ Scenario: Square of a number
         val strictResponse = stubResponse(request, listOf(feature), listOf(stubData), true)
         assertResponseFailure(strictResponse, """STRICT MODE ON
 
->> REQUEST.QUERY-PARAMS.status
+>> REQUEST.PARAMETERS.QUERY.status
 
    ${StubAndRequestMismatchMessages.expectedKeyWasMissing("query param", "status")}""")
     }

@@ -71,7 +71,7 @@ val CONTRACT_EXTENSIONS = listOf(CONTRACT_EXTENSION, WSDL) + OPENAPI_FILE_EXTENS
 const val DATA_DIR_SUFFIX = "_data"
 const val TEST_DIR_SUFFIX = "_tests"
 const val EXAMPLES_DIR_SUFFIX = "_examples"
-const val SPECMATIC_GITHUB_ISSUES = "https://github.com/znsio/specmatic/issues"
+const val SPECMATIC_GITHUB_ISSUES = "https://github.com/specmatic/specmatic/issues"
 const val DEFAULT_WORKING_DIRECTORY = ".$APPLICATION_NAME_LOWER_CASE"
 
 const val SPECMATIC_STUB_DICTIONARY = "SPECMATIC_STUB_DICTIONARY"

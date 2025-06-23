@@ -4,7 +4,6 @@ import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.ReturnValue
 import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.withoutOptionality
-import io.specmatic.core.value.Value
 
 interface GenerationStrategies {
     fun generatedPatternsForGenerativeTests(resolver: Resolver, pattern: Pattern, key: String): Sequence<ReturnValue<Pattern>>
@@ -14,11 +13,12 @@ interface GenerationStrategies {
     fun generateKeySubLists(key: String, subList: List<String>): Sequence<List<String>>
 
     fun fillInTheMissingMapPatterns(
-        newQueryParamsList: Sequence<Map<String, Pattern>>,
-        queryPatterns: Map<String, Pattern>,
+        newParamsList: Sequence<Map<String, Pattern>>,
+        patterns: Map<String, Pattern>,
         additionalProperties: Pattern?,
         row: Row,
-        resolver: Resolver
+        resolver: Resolver,
+        breadCrumb: String
     ): Sequence<ReturnValue<Map<String, Pattern>>>
 }
 

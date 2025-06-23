@@ -17,8 +17,23 @@ internal class HttpResponsePatternTest {
 
     @Test
     fun `it should encompass another smaller response pattern`() {
-        val bigger = HttpResponsePattern(status = 200, headersPattern = HttpHeadersPattern(mapOf("X-Required" to StringPattern())), body = toTabularPattern(mapOf("data" to AnyPattern(listOf(StringPattern(), NullPattern)))))
-        val smaller = HttpResponsePattern(status = 200, headersPattern = HttpHeadersPattern(mapOf("X-Required" to StringPattern(), "X-Extra" to StringPattern())), body = toTabularPattern(mapOf("data" to StringPattern())))
+        val bigger = HttpResponsePattern(
+            status = 200,
+            headersPattern = HttpHeadersPattern(mapOf("X-Required" to StringPattern())),
+            body = toTabularPattern(
+                mapOf(
+                    "data" to AnyPattern(
+                        listOf(StringPattern(), NullPattern),
+                        extensions = emptyMap()
+                    )
+                )
+            )
+        )
+        val smaller = HttpResponsePattern(
+            status = 200,
+            headersPattern = HttpHeadersPattern(mapOf("X-Required" to StringPattern(), "X-Extra" to StringPattern())),
+            body = toTabularPattern(mapOf("data" to StringPattern()))
+        )
         assertThat(bigger.encompasses(smaller, Resolver(), Resolver())).isInstanceOf(Result.Success::class.java)
     }
 
@@ -44,7 +59,7 @@ internal class HttpResponsePatternTest {
         assertThat(result.toMatchFailureDetailList()).hasSize(2)
 
         val resultText = result.reportString()
-        assertThat(resultText).contains(">> RESPONSE.HEADERS.X-Data")
+        assertThat(resultText).contains(">> RESPONSE.HEADER.X-Data")
         assertThat(resultText).contains(">> RESPONSE.BODY")
     }
 

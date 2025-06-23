@@ -2,11 +2,20 @@ package io.specmatic.core.filters
 
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatCode
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 
 class ExpressionStandardizerTest {
+
+
+    @Test
+    fun `filterToEvalx should return empty string for empty filter`() {
+        assertThat(ExpressionStandardizer.filterToEvalEx("").evaluate().booleanValue).isTrue
+        assertThat(ExpressionStandardizer.filterToEvalEx("\t").evaluate().booleanValue).isTrue
+        assertThat(ExpressionStandardizer.filterToEvalEx(" \r\n   \t").evaluate().booleanValue).isTrue
+    }
 
     @ParameterizedTest
     @MethodSource("validExpressionsProvider")
@@ -24,6 +33,7 @@ class ExpressionStandardizerTest {
         @JvmStatic
         private fun validExpressionsProvider(): List<Arguments> {
             return listOf(
+                Arguments.of("", ""),
                 Arguments.of("FOO='bar'", "includes('FOO', 'bar')"),
                 Arguments.of("FOO = 'one,two'", "includes('FOO', 'one', 'two')"),
                 Arguments.of("FOO = 'one, two, three'", "includes('FOO', 'one', 'two', 'three')"),

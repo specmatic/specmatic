@@ -13,6 +13,7 @@ import io.specmatic.core.pattern.*
 import io.specmatic.core.pattern.Examples.Companion.examplesFrom
 import io.specmatic.core.utilities.*
 import io.specmatic.core.value.*
+import io.specmatic.core.Result.Success
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpStubData
@@ -285,6 +286,19 @@ data class Feature(
         } finally {
             serverState = emptyMap()
         }
+    }
+
+    fun calculatePath(httpRequest: HttpRequest, responseStatus: Int): Set<String> {
+        val matchingScenario = scenarios.firstOrNull { scenario ->
+            val resolver = scenario.resolver
+            if (responseStatus == 400) {
+                scenario.httpRequestPattern.matchesPathStructureMethodAndContentType(httpRequest, resolver) is Success
+            } else {
+                scenario.httpRequestPattern.matches(httpRequest, resolver) is Success
+            }
+        }
+        
+        return matchingScenario?.calculatePath(httpRequest) ?: emptySet()
     }
 
     private fun matchingScenarioToResultList(
@@ -862,6 +876,12 @@ data class Feature(
             it.method == method && it.status == responseStatusCode && it.path == path
                     && (contentType == null || it.requestContentType == null || it.requestContentType == contentType)
         }
+    }
+
+    fun identifierMatchingScenario(httpRequest: HttpRequest): Scenario? {
+        return scenarios.asSequence().filter {
+            it.httpRequestPattern.matchesPathStructureMethodAndContentType(httpRequest, it.resolver).isSuccess()
+        }.firstOrNull()
     }
 
     private fun getScenarioWithDescription(scenarioResult: ReturnValue<Scenario>): ReturnValue<Scenario> {
@@ -1528,10 +1548,11 @@ data class Feature(
                         val descriptor = if (isEmptyOrNull(type1)) type2Descriptor else type1Descriptor
                         val withoutBrackets = withoutPatternDelimiters(descriptor)
                         val newPattern = withoutBrackets.removeSuffix("?").let { "($it)" }
-
-                        AnyPattern(listOf(NullPattern, type.copy(pattern = newPattern)))
+                        val patterns = listOf(NullPattern, type.copy(pattern = newPattern))
+                        AnyPattern(patterns, extensions = patterns.extractCombinedExtensions())
                     } else {
-                        AnyPattern(listOf(NullPattern, type))
+                        val patterns = listOf(NullPattern, type)
+                        AnyPattern(patterns, extensions = patterns.extractCombinedExtensions())
                     }
                 } else if (cleanedUpDescriptors.first() == cleanedUpDescriptors.second()) {
                     entry.value
@@ -1584,7 +1605,7 @@ data class Feature(
     private fun isObjectType(type: Pattern): Boolean = type is TabularPattern || type is JSONObjectPattern
 
     private fun isJSONPayload(type: Pattern) =
-        type is TabularPattern || type is JSONObjectPattern || type is JSONArrayPattern
+        type is TabularPattern || type is JSONObjectPattern || type is JSONArrayPattern || type is ListPattern
 
     private fun toOpenApiSchema(pattern: Pattern): Schema<Any> {
         val schema = when {
@@ -1673,6 +1694,9 @@ data class Feature(
                 }
             }
             pattern is NumberPattern || (pattern is DeferredPattern && pattern.pattern == "(number)") -> NumberSchema()
+            pattern is NumberPattern || (pattern is DeferredPattern && pattern.pattern == "(integer)") -> IntegerSchema().apply {
+                format = null
+            }
             pattern is BooleanPattern || (pattern is DeferredPattern && pattern.pattern == "(boolean)") -> BooleanSchema()
             pattern is DateTimePattern || (pattern is DeferredPattern && pattern.pattern == "(datetime)") -> StringSchema()
             pattern is StringPattern || pattern is EmptyStringPattern || (pattern is DeferredPattern && pattern.pattern == "(string)") || (pattern is DeferredPattern && pattern.pattern == "(emptystring)") -> StringSchema()
@@ -2214,7 +2238,7 @@ private fun lexScenario(
         scenarioInfoWithExamples(matchingScenario, backgroundScenarioInfo, examplesList, ignoreFailure)
     }
 
-    return scenarioInfo.copy(isGherkinScenario = true)
+    return scenarioInfo.copy(isGherkinScenario = true, specification = scenarioInfo.specification ?: filePath)
 }
 
 private fun listOfDatatableRows(it: Step): MutableList<TableRow> = it.dataTable.getOrNull()?.rows.orEmpty().toMutableList()
@@ -2243,7 +2267,10 @@ fun parseEnum(step: StepInfo): Pair<String, Pattern> {
             }
         )
     }
-    return Pair("($enumName)", AnyPattern(exactValuePatterns))
+    return Pair(
+        "($enumName)",
+        AnyPattern(exactValuePatterns, extensions = exactValuePatterns.extractCombinedExtensions())
+    )
 }
 
 private fun scenarioInfoWithExamples(
@@ -2394,22 +2421,7 @@ internal fun lex(gherkinDocument: GherkinDocument, filePath: String = ""): Pair<
 }
 
 internal fun lex(featureChildren: List<FeatureChild>, filePath: String): List<Scenario> {
-    return scenarioInfos(featureChildren, filePath)
-        .map { scenarioInfo ->
-            Scenario(
-                scenarioInfo.scenarioName,
-                scenarioInfo.httpRequestPattern,
-                scenarioInfo.httpResponsePattern,
-                scenarioInfo.expectedServerState,
-                scenarioInfo.examples,
-                scenarioInfo.patterns,
-                scenarioInfo.fixtures,
-                scenarioInfo.ignoreFailure,
-                scenarioInfo.references,
-                scenarioInfo.bindings,
-                scenarioInfo.isGherkinScenario
-            )
-        }
+    return scenarioInfos(featureChildren, filePath).map { scenarioInfo -> Scenario(scenarioInfo) }
 }
 
 fun scenarioInfos(

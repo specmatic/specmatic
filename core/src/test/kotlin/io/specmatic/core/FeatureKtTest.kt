@@ -362,7 +362,7 @@ class FeatureKtTest {
                 - id
                 properties:
                   id:
-                    type: number
+                    type: integer
                   addresses:
                     type: array
                     items:
@@ -397,7 +397,7 @@ class FeatureKtTest {
                     - name: id
                       in: query
                       schema:
-                        type: number
+                        type: integer
                     requestBody:
                       content:
                         application/json:
@@ -421,7 +421,7 @@ class FeatureKtTest {
                     - id
                     properties:
                       id:
-                        type: number
+                        type: integer
                       addresses:
                         type: array
                         items:
@@ -470,7 +470,7 @@ class FeatureKtTest {
     Given type Entries
       | name | (string) |
     And type Entries_
-      | id | (number) |
+      | id | (integer) |
     And type Data
       | entries | (Entries_*) |
     And type ResponseBody
@@ -520,14 +520,14 @@ class FeatureKtTest {
     Given type Entries
       | name | (string) |
     And type Entries_
-      | id | (number) |
+      | id | (integer) |
     And type Data
       | entries | (Entries_*) |
     And type RequestBody
       | entries | (Entries*) |
       | data | (Data) |
     And type ResponseBody
-      | operationId | (number) |
+      | operationId | (integer) |
     When POST /data
     And request-body (RequestBody)
     Then status 200

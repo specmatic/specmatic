@@ -110,18 +110,27 @@ class ExpressionStandardizer {
 
     companion object {
         fun filterToEvalEx(filterExpression: String): Expression {
+            if (filterExpression.isBlank()) {
+                return Expression("true", expressionConfiguration())
+            }
             val expressionStandardizer = ExpressionStandardizer()
             val evalExExpression = expressionStandardizer.tokenizeExpression(filterExpression)
+
+            return Expression(evalExExpression, expressionConfiguration())
+        }
+
+        private fun expressionConfiguration(): ExpressionConfiguration? {
             val functions = mapOf(
-                ENHANCED_FUNC_NAME to EnhancedRHSValueEvalFunction(),
+                ENHANCED_FUNC_NAME to NumericComparisonOperatorFunction(),
                 INCLUDES_FUNC_NAME to IncludesFunction()
             )
 
             val configuration = ExpressionConfiguration.builder()
-                .singleQuoteStringLiteralsAllowed(true).build()
+                .binaryAllowed(true)
+                .singleQuoteStringLiteralsAllowed(true)
+                .build()
                 .withAdditionalFunctions(*functions.map { entry(it.key, it.value) }.toTypedArray())
-
-            return Expression(evalExExpression, configuration)
+            return configuration
         }
     }
 }

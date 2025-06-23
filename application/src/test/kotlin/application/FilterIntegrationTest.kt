@@ -32,19 +32,18 @@ class FilterIntegrationTest {
         @JvmStatic
         fun filterProvider(): Stream<Arguments> {
             return Stream.of(
-//                TODO: Need to fix all the commented out test cases
-//                Arguments.of("EXAMPLE_NAME='SUCCESS'", 4),
-                Arguments.of("EXAMPLE_NAME!='SUCCESS'", 1),
-//                Arguments.of("EXAMPLE_NAME='SUCCESS,TIMEOUT'", 5),
-                Arguments.of("EXAMPLE_NAME!='SUCCESS,TIMEOUT'", 0),
-                Arguments.of("QUERY='type'", 2),
-                Arguments.of("QUERY!='type'", 3),
-                Arguments.of("QUERY='type,sortBy'", 2),
-                Arguments.of("QUERY!='type,sortBy'", 3),
-                Arguments.of("HEADERS='request-id'", 2),
-                Arguments.of("HEADERS!='request-id'", 3),
-                Arguments.of("HEADERS='request-id,pageSize'", 2),
-                Arguments.of("HEADERS!='request-id,pageSize'", 3),
+                Arguments.of("EXAMPLE-NAME='SUCCESS'", 4),
+                Arguments.of("EXAMPLE-NAME!='SUCCESS'", 1),
+                Arguments.of("EXAMPLE-NAME='SUCCESS,TIMEOUT'", 5),
+                Arguments.of("EXAMPLE-NAME!='SUCCESS,TIMEOUT'", 0),
+                Arguments.of("PARAMETERS.QUERY='type'", 2),
+                Arguments.of("PARAMETERS.QUERY!='type'", 3),
+                Arguments.of("PARAMETERS.QUERY='type,sortBy'", 2),
+                Arguments.of("PARAMETERS.QUERY!='type,sortBy'", 3),
+                Arguments.of("PARAMETERS.HEADER='request-id'", 2),
+                Arguments.of("PARAMETERS.HEADER!='request-id'", 3),
+                Arguments.of("PARAMETERS.HEADER='request-id,pageSize'", 2),
+                Arguments.of("PARAMETERS.HEADER!='request-id,pageSize'", 3),
                 Arguments.of("PATH='/findAvailableProducts' && METHOD='GET' && STATUS<'400'", 1),
                 Arguments.of("PATH='/orders' && STATUS<'400'", 2),
                 Arguments.of("PATH='/findAvailableProducts' && STATUS>='200' && STATUS <='299'", 1),
@@ -55,17 +54,17 @@ class FilterIntegrationTest {
                 Arguments.of("STATUS>='200' && STATUS <='299' && METHOD='GET'", 2),
                 Arguments.of("STATUS>'199' && STATUS<'300' && METHOD='GET'", 2),
                 Arguments.of("STATUS>='200' && STATUS<='300' && METHOD='GET'", 2),
-                Arguments.of("PATH='/findAvailableProducts' && QUERY='type' && STATUS='200'", 1),
-                Arguments.of("PATH='/findAvailableProducts' && QUERY!='type' && STATUS='200'", 0),
-                Arguments.of("PATH='/findAvailableProducts' && EXAMPLE_NAME!='TIMEOUT' && STATUS='200'", 1),
-//                Arguments.of("PATH='/findAvailableProducts' && EXAMPLE_NAME='SUCCESS' && STATUS='2xx'", 1),
+                Arguments.of("PATH='/findAvailableProducts' && PARAMETERS.QUERY='type' && STATUS='200'", 1),
+                Arguments.of("PATH='/findAvailableProducts' && PARAMETERS.QUERY!='type' && STATUS='200'", 0),
+                Arguments.of("PATH='/findAvailableProducts' && EXAMPLE-NAME!='TIMEOUT' && STATUS='200'", 1),
+                Arguments.of("PATH='/findAvailableProducts' && EXAMPLE-NAME='SUCCESS' && STATUS>='200' && STATUS<'300'", 1),
                 Arguments.of("PATH='/orders,/products' && STATUS<'400'", 3),
                 Arguments.of("PATH='/orders' && STATUS<'400'", 2),
                 Arguments.of("PATH='/findAvailableProducts' && METHOD='GET' && STATUS<'400'", 1),
-                Arguments.of("PATH='/orders,/products' && STATUS<'400' && QUERY='orderId'", 1),
-                Arguments.of("PATH='/orders' && STATUS<'400' && QUERY!='orderId'", 1),
-                Arguments.of("PATH='/findAvailableProducts' && HEADERS='request-id' && STATUS<'400'", 1),
-                Arguments.of("PATH='/findAvailableProducts' && HEADERS!='request-id' && STATUS<'400'", 0),
+                Arguments.of("PATH='/orders,/products' && STATUS<'400' && PARAMETERS.QUERY='orderId'", 1),
+                Arguments.of("PATH='/orders' && STATUS<'400' && PARAMETERS.QUERY!='orderId'", 1),
+                Arguments.of("PATH='/findAvailableProducts' && PARAMETERS.HEADER='request-id' && STATUS<'400'", 1),
+                Arguments.of("PATH='/findAvailableProducts' && PARAMETERS.HEADER!='request-id' && STATUS<'400'", 0),
             )
         }
 
@@ -74,11 +73,13 @@ class FilterIntegrationTest {
         @JvmStatic
         @BeforeAll
         fun setUp() {
-            System.setProperty("testBaseURL", "http://localhost:9000")
+            val port = findRandomFreePort()
+            System.setProperty("testBaseURL", "http://localhost:$port")
             System.setProperty(Flags.CONFIG_FILE_PATH, "src/test/resources/filter_test/specmatic_filter.yaml")
 
+
             // Start Specmatic Http Stub
-            httpStub = createStub()
+            httpStub = createStub(port = port)
         }
 
         @JvmStatic

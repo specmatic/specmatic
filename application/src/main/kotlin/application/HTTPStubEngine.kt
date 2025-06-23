@@ -2,13 +2,12 @@ package application
 
 import io.specmatic.core.Feature
 import io.specmatic.core.WorkingDirectory
-import io.specmatic.core.log.NewLineLogMessage
-import io.specmatic.core.log.StringLog
 import io.specmatic.core.log.consoleLog
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpClientFactory
 import io.specmatic.stub.HttpStub
 import io.specmatic.stub.contractInfoToHttpExpectations
+import io.specmatic.stub.listener.MockEventListener
 
 class HTTPStubEngine {
     fun runHTTPStub(
@@ -22,7 +21,8 @@ class HTTPStubEngine {
         httpClientFactory: HttpClientFactory,
         workingDirectory: WorkingDirectory,
         gracefulRestartTimeoutInMs: Long,
-        specToBaseUrlMap: Map<String, String?>
+        specToBaseUrlMap: Map<String, String?>,
+        listeners: List<MockEventListener> = emptyList()
     ): HttpStub {
         val keyData = certInfo.getHttpsCert()
 
@@ -39,7 +39,8 @@ class HTTPStubEngine {
             workingDirectory = workingDirectory,
             specmaticConfigPath = specmaticConfigPath,
             timeoutMillis = gracefulRestartTimeoutInMs,
-            specToStubBaseUrlMap = specToBaseUrlMap
+            specToStubBaseUrlMap = specToBaseUrlMap,
+            listeners = listeners
         ).also {
             it.printStartupMessage()
         }

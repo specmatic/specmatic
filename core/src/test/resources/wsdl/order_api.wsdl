@@ -1,0 +1,71 @@
+<definitions name="OrderAPI"
+             targetNamespace="http://www.example.com/orders"
+             xmlns:tns="http://www.example.com/orders"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns="http://schemas.xmlsoap.org/wsdl/">
+
+    <types>
+        <xsd:schema targetNamespace="http://www.example.com/orders">
+            <!-- Define the Id complex type -->
+            <xsd:complexType name="Id">
+                <xsd:sequence>
+                    <xsd:element name="id" type="xsd:int"/>
+                </xsd:sequence>
+            </xsd:complexType>
+
+            <!-- Define the Id element -->
+            <xsd:element name="OrderId" type="tns:Id"/>
+
+            <!-- Define the CreateOrder complex type -->
+            <xsd:complexType name="CreateOrder">
+                <xsd:sequence>
+                    <xsd:element name="productid" type="xsd:int"/>
+                </xsd:sequence>
+            </xsd:complexType>
+
+            <!-- Define the CreateOrder element -->
+            <xsd:element name="CreateOrder" type="tns:CreateOrder"/>
+        </xsd:schema>
+    </types>
+
+    <!-- Message Definitions -->
+    <message name="CreatedOrderIdMessage">
+        <part name="OrderId" element="tns:OrderId"/>
+    </message>
+
+    <message name="CreateOrderMessage">
+        <part name="parameters" element="tns:CreateOrder"/>
+    </message>
+
+    <!-- PortType Definition -->
+    <portType name="OrderAPIPortType">
+        <!-- Order Operations -->
+        <operation name="createOrder">
+            <input message="tns:CreateOrderMessage"/>
+            <output message="tns:CreatedOrderIdMessage"/>
+        </operation>
+    </portType>
+
+    <!-- Binding Definition -->
+    <binding name="OrderAPIBinding" type="tns:OrderAPIPortType">
+        <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+        <!-- Order Operations -->
+        <operation name="createOrder">
+            <soap:operation soapAction="/orders/createOrder"/>
+            <input>
+                <soap:body use="literal"/>
+            </input>
+            <output>
+                <soap:body use="literal"/>
+            </output>
+        </operation>
+    </binding>
+
+    <!-- Service Definition -->
+    <service name="OrderAPIService">
+        <port name="OrderAPIPort" binding="tns:OrderAPIBinding">
+            <soap:address location="http://localhost:8090/"/>
+        </port>
+    </service>
+</definitions>

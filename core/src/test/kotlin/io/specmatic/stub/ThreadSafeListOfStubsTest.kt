@@ -6,8 +6,10 @@ import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.HttpResponsePattern
 import io.specmatic.core.Resolver
+import io.specmatic.core.Result
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.value.JSONObjectValue
+import io.specmatic.mock.ScenarioStub
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Nested
@@ -187,6 +189,75 @@ class ThreadSafeListOfStubsTest {
 
             val jsonResponse = expectedResponse.response.body as JSONObjectValue
             assertThat(jsonResponse.findFirstChildByName("id")?.toStringLiteral()).isEqualTo("20")
+        }
+    }
+
+    @Nested
+    inner class PartialStubPrioritization {
+        @Test
+        fun `getPartialBySpecificityAndGenerality should select highest specificity`() {
+            // Create mock partial matches with different specificity values
+            val lowSpecificityRequest = HttpRequest("POST", "/products", body = parsedJSONObject("""{"name": "(string)"}"""))
+            val highSpecificityRequest = HttpRequest("POST", "/products", body = parsedJSONObject("""{"name": "Laptop"}"""))
+            
+            val lowSpecificityStub = HttpStubData(
+                requestType = lowSpecificityRequest.toPattern(),
+                response = HttpResponse.ok(""),
+                responsePattern = HttpResponsePattern(HttpResponse.OK),
+                resolver = Resolver(),
+                partial = ScenarioStub(request = lowSpecificityRequest, response = HttpResponse.ok(parsedJSONObject("{\"id\": 1}")))
+            )
+            
+            val highSpecificityStub = HttpStubData(
+                requestType = highSpecificityRequest.toPattern(),
+                response = HttpResponse.ok(""),
+                responsePattern = HttpResponsePattern(HttpResponse.OK),
+                resolver = Resolver(),
+                partial = ScenarioStub(request = highSpecificityRequest, response = HttpResponse.ok(parsedJSONObject("{\"id\": 2}")))
+            )
+            
+            val partials = listOf(
+                lowSpecificityStub,
+                highSpecificityStub
+            )
+            
+            val result = ThreadSafeListOfStubs.getPartialBySpecificityAndGenerality(partials)
+            
+            assertNotNull(result)
+            assertEquals(highSpecificityStub, result)
+        }
+        
+        @Test
+        fun `getPartialBySpecificityAndGenerality should select lowest generality when specificity is equal`() {
+            // Create mock partial matches with same specificity but different generality
+            val lowGeneralityRequest = HttpRequest("POST", "/products", body = parsedJSONObject("""{"name": "Laptop"}"""))
+            val highGeneralityRequest = HttpRequest("POST", "/products", body = parsedJSONObject("""{"name": "(string)"}"""))
+            
+            val lowGeneralityStub = HttpStubData(
+                requestType = lowGeneralityRequest.toPattern(),
+                response = HttpResponse.ok(""),
+                responsePattern = HttpResponsePattern(HttpResponse.OK),
+                resolver = Resolver(),
+                partial = ScenarioStub(request = lowGeneralityRequest, response = HttpResponse.ok(parsedJSONObject("{\"id\": 1}")))
+            )
+            
+            val highGeneralityStub = HttpStubData(
+                requestType = highGeneralityRequest.toPattern(),
+                response = HttpResponse.ok(""),
+                responsePattern = HttpResponsePattern(HttpResponse.OK),
+                resolver = Resolver(),
+                partial = ScenarioStub(request = highGeneralityRequest, response = HttpResponse.ok(parsedJSONObject("{\"id\": 2}")))
+            )
+            
+            val partials = listOf(
+                highGeneralityStub,
+                lowGeneralityStub
+            )
+            
+            val result = ThreadSafeListOfStubs.getPartialBySpecificityAndGenerality(partials)
+            
+            assertNotNull(result)
+            assertEquals(lowGeneralityStub, result)
         }
     }
 

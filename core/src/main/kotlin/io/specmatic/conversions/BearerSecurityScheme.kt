@@ -12,14 +12,14 @@ data class BearerSecurityScheme(private val configuredToken: String? = null) : O
         } ?: return when(resolver.mockMode) {
             true -> Result.Success()
             else -> Result.Failure(
-                breadCrumb = "HEADERS.$AUTHORIZATION",
+                breadCrumb = BreadCrumb.HEADER.with(AUTHORIZATION),
                 message = resolver.mismatchMessages.expectedKeyWasMissing("Header", AUTHORIZATION)
             )
         }
 
         if (!authHeaderValue.value.lowercase().startsWith("bearer")) {
             return Result.Failure(
-                breadCrumb = "HEADERS.$AUTHORIZATION",
+                breadCrumb = BreadCrumb.HEADER.with(AUTHORIZATION),
                 message = "$AUTHORIZATION header must be prefixed with \"Bearer\""
             )
         }
@@ -49,7 +49,8 @@ data class BearerSecurityScheme(private val configuredToken: String? = null) : O
     }
 
     private fun getAuthorizationHeaderValue(resolver: Resolver): String {
-        return "Bearer " + (configuredToken ?: resolver.generate("HEADERS", AUTHORIZATION, StringPattern()).toStringLiteral())
+        val updatedResolver = resolver.updateLookupForParam(BreadCrumb.HEADER.value)
+        return "Bearer " + (configuredToken ?: updatedResolver.generate(null, AUTHORIZATION, StringPattern()).toStringLiteral())
     }
 
     override fun copyFromTo(originalRequest: HttpRequest, newHttpRequest: HttpRequest): HttpRequest {

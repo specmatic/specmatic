@@ -3,15 +3,21 @@ package io.specmatic.stub
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import io.specmatic.core.*
-import io.specmatic.core.log.DebugLogger
-import io.specmatic.core.log.withLogger
 import io.specmatic.core.pattern.parsedValue
+import io.specmatic.core.utilities.ContractPathData
 import io.specmatic.core.value.*
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.trimmedLinesList
+import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.io.PrintStream
+import java.nio.file.Files
+import java.nio.file.Path
+import kotlin.io.path.createFile
 
 internal class ApiKtTest {
     @Test
@@ -571,6 +577,27 @@ Feature: Math API
               No matching REST stub or contract found for method POST and path /test
 """.trimIndent())
         println(errorMessage)
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "Filename, Should Create, Expected output",
+        "missing_file.yaml, false, Skipping the file",
+        "invalid_spec.yaml, true, Could not parse contract",
+        "not_a_spec.txt, true, Could not parse contract",
+        useHeadersInDisplayName = true
+    )
+    fun `loadIfOpenAPISpecification should handle invalid files gracefully by catching exceptions`(fileName: String, shouldCreate: Boolean, expectedOutput: String, @TempDir tempDir: File) {
+        val file = tempDir.resolve("invalid.yaml")
+
+        if(shouldCreate) {
+            file.createNewFile()
+        }
+
+        val contractPathData = ContractPathData("", file.path)
+        val (output, result) = captureStandardOutput {  loadIfOpenAPISpecification(contractPathData, SpecmaticConfig()) }
+        assertThat(result).isNull()
+        assertThat(output).contains(expectedOutput)
     }
 }
 

@@ -64,7 +64,8 @@ interface Pattern {
     fun listOf(valueList: List<Value>, resolver: Resolver): Value
 
     fun toNullable(defaultValue: String?): Pattern {
-        return AnyPattern(listOf(NullPattern, this), example = defaultValue)
+        val patterns = listOf(NullPattern, this)
+        return AnyPattern(patterns, example = defaultValue, extensions = patterns.extractCombinedExtensions())
     }
 
     fun resolveSubstitutions(substitution: Substitution, value: Value, resolver: Resolver, key: String? = null): ReturnValue<Value> {

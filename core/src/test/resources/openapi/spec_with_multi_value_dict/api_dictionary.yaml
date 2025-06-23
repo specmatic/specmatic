@@ -1,26 +1,27 @@
-PATH-PARAMS:
-  creatorId:
-    - 123
-    - 456
-  petId:
-    - 123
-    - 456
+PARAMETERS:
+  PATH:
+    creatorId:
+      - 123
+      - 456
+    petId:
+      - 123
+      - 456
 
-HEADERS:
-  CREATOR-ID:
-    - 123
-    - 456
-  PET-ID:
-    - 123
-    - 456
+  HEADER:
+    CREATOR-ID:
+      - 123
+      - 456
+    PET-ID:
+      - 123
+      - 456
 
-QUERY-PARAMS:
-  creatorId:
-    - 123
-    - 456
-  petId:
-    - 123
-    - 456
+  QUERY:
+    creatorId:
+      - 123
+      - 456
+    petId:
+      - 123
+      - 456
 
 NewPet:
   creatorId:

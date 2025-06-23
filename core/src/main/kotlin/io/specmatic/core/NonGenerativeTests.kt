@@ -1,7 +1,6 @@
 package io.specmatic.core
 
 import io.specmatic.core.pattern.*
-import io.specmatic.core.value.Value
 
 object NonGenerativeTests : GenerationStrategies {
 
@@ -41,10 +40,11 @@ object NonGenerativeTests : GenerationStrategies {
     }
 
     override fun fillInTheMissingMapPatterns(
-        newQueryParamsList: Sequence<Map<String, Pattern>>,
-        queryPatterns: Map<String, Pattern>,
+        newParamsList: Sequence<Map<String, Pattern>>,
+        patterns: Map<String, Pattern>,
         additionalProperties: Pattern?,
         row: Row,
-        resolver: Resolver
+        resolver: Resolver,
+        breadCrumb: String
     ): Sequence<ReturnValue<Map<String, Pattern>>> = emptySequence()
 }

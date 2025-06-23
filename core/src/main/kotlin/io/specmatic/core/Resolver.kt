@@ -280,6 +280,17 @@ data class Resolver(
         )
     }
 
+    fun updateLookupForParam(paramName: String): Resolver {
+        val lookupPath = lookupPath(null, paramName).takeIf(String::isNotBlank) ?: return this
+        val paramFocused = dictionary.focusIntoProperty(AnyValuePattern, paramName, this)
+
+        return copy(
+            dictionaryLookupPath = lookupPath,
+            lookupPathsSeenSoFar = lookupPathsSeenSoFar.plus(lookupPath),
+            dictionary = paramFocused
+        )
+    }
+
     private fun lookupPath(typeAlias: String?, lookupKey: String): String {
         val base = typeAlias?.trim()?.let(::withoutPatternDelimiters)?.takeIf(String::isNotBlank) ?: dictionaryLookupPath
         return when (lookupKey) {

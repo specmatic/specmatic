@@ -8,7 +8,7 @@ data class APIKeyInHeaderSecurityScheme(val name: String, private val apiKey:Str
     override fun matches(httpRequest: HttpRequest, resolver: Resolver): Result {
         return if (httpRequest.headers.containsKey(name) || resolver.mockMode) Result.Success()
         else Result.Failure(
-            breadCrumb = "HEADERS.$name",
+            breadCrumb = BreadCrumb.HEADER.with(name),
             message = resolver.mismatchMessages.expectedKeyWasMissing("API-Key", name)
         )
     }
@@ -18,7 +18,8 @@ data class APIKeyInHeaderSecurityScheme(val name: String, private val apiKey:Str
     }
 
     override fun addTo(httpRequest: HttpRequest, resolver: Resolver): HttpRequest {
-        val headerValue = apiKey ?: resolver.generate("HEADERS", name, StringPattern()).toStringLiteral()
+        val updatedResolver = resolver.updateLookupForParam(BreadCrumb.HEADER.value)
+        val headerValue = apiKey ?: updatedResolver.generate(null, name, StringPattern()).toStringLiteral()
         return httpRequest.addSecurityHeader(name, headerValue)
     }
 

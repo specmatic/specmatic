@@ -4,6 +4,7 @@ import io.specmatic.Utils.readTextResource
 import io.specmatic.core.*
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedValue
+import io.specmatic.core.utilities.Flags
 import io.specmatic.core.value.*
 import io.specmatic.core.wsdl.parser.WSDL
 import io.specmatic.mock.ScenarioStub
@@ -368,7 +369,7 @@ Scenario: test spec with mandatory attributes with examples
             }
         )
         assertTrue(results.success(), results.report())
-        assertThat(countOfTestsWithAgeAttributeSetFromExamples).isEqualTo(2)
+        assertThat(countOfTestsWithAgeAttributeSetFromExamples).isEqualTo(1)
     }
 
     @Test
@@ -404,7 +405,7 @@ Scenario: test spec with mandatory attributes without examples
             }
         )
         assertTrue(results.success(), results.report())
-        assertThat(countOfTestsWithAgeAttributeSetToRandomValue).isEqualTo(4)
+        assertThat(countOfTestsWithAgeAttributeSetToRandomValue).isEqualTo(2)
     }
 
     @Test
@@ -444,7 +445,7 @@ Scenario: test spec with optional attributes without examples
             }
         )
         assertTrue(results.success(), results.report())
-        assertThat(countOfTestsWithAgeAttributeSetFromExamples).isEqualTo(2)
+        assertThat(countOfTestsWithAgeAttributeSetFromExamples).isEqualTo(1)
     }
 
     @Test
@@ -483,7 +484,7 @@ Scenario: test spec with optional attributes without examples
             }
         )
         assertTrue(results.success(), results.report())
-        assertThat(countOfTestsWithoutTheAgeAttribute).isEqualTo(2)
+        assertThat(countOfTestsWithoutTheAgeAttribute).isEqualTo(1)
     }
 
     @Test
@@ -519,7 +520,7 @@ Scenario: test request returns test response
             }
         )
         assertTrue(results.success(), results.report())
-        assertThat(countOfTestsWithAgeAttributeSetToRandomValue).isGreaterThanOrEqualTo(4)
+        assertThat(countOfTestsWithAgeAttributeSetToRandomValue).isGreaterThanOrEqualTo(2)
     }
 
 
@@ -688,6 +689,39 @@ Scenario: request not matching wsdl
         val wsdl = WSDL(wsdlXML, "src/test/resources/wsdl/parent.wsdl")
 
         println(wsdl)
+    }
+
+    @Test
+    fun `should use escaped soap-action if specified by system property`() {
+        val wsdlSpec = """
+Feature: WSDL Attribute Test
+
+Background:
+  Given wsdl test_with_mandatory_attributes.wsdl           
+  
+Scenario: test spec with mandatory attributes without examples
+  When POST /SOAPService/SimpleSOAP
+  And request-header SOAPAction "http://specmatic.io/SOAPService/SimpleOperation"
+  And request-body <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person age="11"><qr:Id>1</qr:Id><qr:Name>James Smith</qr:Name></qr:Person></soapenv:Body></soapenv:Envelope>
+  Then status 200
+  And response-body <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleResponse>test response</SimpleResponse></soapenv:Body></soapenv:Envelope>
+        """.trimIndent()
+        val wsdlFeature = parseGherkinStringToFeature(wsdlSpec)
+        var countWithEscapedAction = 0
+
+        val results = Flags.using(Flags.SPECMATIC_ESCAPE_SOAP_ACTION to "true") {
+            wsdlFeature.executeTests(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    logRequestCharacteristics(request, countWithEscapedAction)
+                    val responseBody = """<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleResponse>WSDL</SimpleResponse></soapenv:Body></soapenv:Envelope>"""
+                    if (request.headers["SOAPAction"]?.startsWith("\"") == true) countWithEscapedAction++
+                    return HttpResponse(200, responseBody)
+                }
+            })
+        }
+
+        assertTrue(results.success(), results.report())
+        assertThat(countWithEscapedAction).isEqualTo(2)
     }
 
     @AfterEach

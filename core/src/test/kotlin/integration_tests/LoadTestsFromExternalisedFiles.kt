@@ -453,9 +453,9 @@ class LoadTestsFromExternalisedFiles {
 
             assertThat(exception.report()).isEqualToNormalizingWhitespace("""
             Error loading example for GET /hello/(id:number) -> 200 from ${examplesDir.resolve("extra_header.json").canonicalPath}
-            >> REQUEST.HEADERS.X-Extra-Header  
+            >> REQUEST.PARAMETERS.HEADER.X-Extra-Header  
             The header X-Extra-Header was found in the example extra_header but was not in the specification.
-            >> RESPONSE.HEADERS.X-Extra-Header
+            >> RESPONSE.HEADER.X-Extra-Header
             The header X-Extra-Header was found in the example extra_header but was not in the specification.
             """.trimIndent())
         }
@@ -591,21 +591,21 @@ class LoadTestsFromExternalisedFiles {
 
         assertThat(exception.report()).isEqualToNormalizingWhitespace("""
         Error loading example for POST /secure -> 200 from ${examplesDir.resolve("secure.json").canonicalPath} 
-        >> REQUEST.HEADERS.Authorization
+        >> REQUEST.PARAMETERS.HEADER.Authorization
         Authorization header must be prefixed with "Bearer"
 
         Error loading example for POST /partial -> 200 from ${examplesDir.resolve("partial.json").canonicalPath} 
-        >> REQUEST.HEADERS.Authorization
+        >> REQUEST.PARAMETERS.HEADER.Authorization
         Authorization header must be prefixed with "Bearer"
         
         Error loading example for POST /overlap -> 200 from ${examplesDir.resolve("overlap.json").canonicalPath}
-        >> REQUEST.HEADERS.Authorization
+        >> REQUEST.PARAMETERS.HEADER.Authorization
         Authorization header must be prefixed with "Bearer"
 
         Error loading example for POST /insecure -> 200 from ${examplesDir.resolve("insecure.json").canonicalPath} 
-        >> REQUEST.QUERY-PARAMS.apiKey
+        >> REQUEST.PARAMETERS.QUERY.apiKey
         The query param apiKey was found in the example insecure but was not in the specification. 
-        >> REQUEST.HEADERS.Authorization
+        >> REQUEST.PARAMETERS.HEADER.Authorization
         The header Authorization was found in the example insecure but was not in the specification.
         """.trimIndent())
     }
@@ -1125,19 +1125,19 @@ class LoadTestsFromExternalisedFiles {
             assertThat(exception.report()).isEqualToNormalizingWhitespace("""
             Error loading example for PATCH /creators/(creatorId:number)/pets/(petId:number) -> 201 from ${invalidExamplesDir.resolve("pets_post.json").canonicalPath}
 
-            >> REQUEST.PATH.creatorId  
+            >> REQUEST.PARAMETERS.PATH.creatorId  
             Expected number as per the specification, but the example pets_post had "abc".
-            >> REQUEST.PATH.petId  
+            >> REQUEST.PARAMETERS.PATH.petId  
             Expected number as per the specification, but the example pets_post had string.
             
-            >> REQUEST.QUERY-PARAMS.creatorId
+            >> REQUEST.PARAMETERS.QUERY.creatorId
             Expected number as per the specification, but the example pets_post had "abc".
-            >> REQUEST.QUERY-PARAMS.petId
+            >> REQUEST.PARAMETERS.QUERY.petId
             Expected number as per the specification, but the example pets_post had string.
 
-            >> REQUEST.HEADERS.CREATOR-ID
+            >> REQUEST.PARAMETERS.HEADER.CREATOR-ID
             Expected number as per the specification, but the example pets_post had "abc".
-            >> REQUEST.HEADERS.PET-ID  
+            >> REQUEST.PARAMETERS.HEADER.PET-ID  
             Expected number as per the specification, but the example pets_post had string.
 
             >> REQUEST.BODY.creatorId  

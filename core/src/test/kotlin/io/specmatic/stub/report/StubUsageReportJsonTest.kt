@@ -252,7 +252,7 @@ class StubUsageReportJsonTest {
     ): StubUsageReportRow {
         return StubUsageReportRow(
             type = "git",
-            repository = "https://github.com/znsio/specmatic-order-contracts.git",
+            repository = "https://github.com/specmatic/specmatic-order-contracts.git",
             branch = "main",
             specification = specification,
             serviceType = "HTTP",

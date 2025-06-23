@@ -7057,9 +7057,9 @@ components:
 
         val testDescriptionList = tests.map { it.testDescription() }
         assertThat(testDescriptionList).containsExactlyInAnyOrder(
-            " Scenario: GET /items -> 200 [REQUEST.HEADERS.X-region selected FIRST from enum]",
-            " Scenario: GET /items -> 200 [REQUEST.HEADERS.X-region selected SECOND from enum]",
-            " Scenario: GET /items -> 200 [REQUEST.HEADERS.X-region selected THIRD from enum]"
+            " Scenario: GET /items -> 200 [REQUEST.PARAMETERS.HEADER.X-region selected FIRST from enum]",
+            " Scenario: GET /items -> 200 [REQUEST.PARAMETERS.HEADER.X-region selected SECOND from enum]",
+            " Scenario: GET /items -> 200 [REQUEST.PARAMETERS.HEADER.X-region selected THIRD from enum]"
         )
     }
 
@@ -8782,8 +8782,8 @@ paths:
                 }
             })
 
-            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.QUERY-PARAM.id mandatory query param not sent]")
-            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.QUERY-PARAM.age mandatory query param not sent]")
+            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.PARAMETERS.QUERY.id mandatory query param not sent]")
+            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.PARAMETERS.QUERY.age mandatory query param not sent]")
         }
 
         @Test
@@ -8837,7 +8837,7 @@ paths:
                 }
             })
 
-            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /items -> 4xx [REQUEST.QUERY-PARAM.ids mandatory query param not sent]")
+            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /items -> 4xx [REQUEST.PARAMETERS.QUERY.ids mandatory query param not sent]")
         }
 
         @Test
@@ -8920,8 +8920,8 @@ paths:
                 }
             })
 
-            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.QUERY-PARAM.id mandatory query param not sent] | EX:EXAMPLE")
-            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.QUERY-PARAM.age mandatory query param not sent] | EX:EXAMPLE")
+            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.PARAMETERS.QUERY.id mandatory query param not sent] | EX:EXAMPLE")
+            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.PARAMETERS.QUERY.age mandatory query param not sent] | EX:EXAMPLE")
         }
 
     }
@@ -9001,8 +9001,8 @@ paths:
                 }
             })
 
-            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.HEADER.X-Required-Header mandatory header not sent]")
-            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.HEADER.X-Another-Required-Header mandatory header not sent]")
+            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.PARAMETERS.HEADER.X-Required-Header mandatory header not sent]")
+            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.PARAMETERS.HEADER.X-Another-Required-Header mandatory header not sent]")
         }
 
         @Test
@@ -9091,8 +9091,8 @@ paths:
                     return HttpResponse.OK
                 }
             })
-            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.HEADER.X-Required-Header mandatory header not sent]")
-            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.HEADER.X-Another-Required-Header mandatory header not sent]")
+            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.PARAMETERS.HEADER.X-Required-Header mandatory header not sent]")
+            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.PARAMETERS.HEADER.X-Another-Required-Header mandatory header not sent]")
         }
     }
 
@@ -10049,12 +10049,16 @@ paths:
         val additionalProperties = responseBodyPattern.additionalProperties
         assertThat(additionalProperties).isInstanceOf(AdditionalProperties.PatternConstrained::class.java)
         additionalProperties as AdditionalProperties.PatternConstrained
-        assertThat(resolvedHop(additionalProperties.pattern, scenario.resolver)).isEqualTo(AnyPattern(
-            pattern = listOf(
-                parsedPattern("{ \"property1?\": \"(string)\" }"),
-                parsedPattern("{ \"property2?\": \"(string)\" }")
-            ), typeAlias = "(ComplexSchema)"
-        ))
+
+        val patterns = listOf(
+            parsedPattern("{ \"property1?\": \"(string)\" }"),
+            parsedPattern("{ \"property2?\": \"(string)\" }")
+        )
+        assertThat(resolvedHop(additionalProperties.pattern, scenario.resolver)).isEqualTo(
+            AnyPattern(
+                pattern = patterns, typeAlias = "(ComplexSchema)", extensions = patterns.extractCombinedExtensions()
+            )
+        )
     }
 
     @Test
@@ -10797,6 +10801,147 @@ paths:
         assertThat(insecure.httpRequestPattern.securitySchemes).isEqualTo(listOf(
             NoSecurityScheme()
         ))
+    }
+
+    @Test
+    fun `should pass checkSpecValidity with valid openapi file`() {
+        assertThatCode {
+            OpenApiSpecification.checkSpecValidity("openApiTest.yaml")
+        }.doesNotThrowAnyException()
+    }
+
+    @Test
+    fun `checkSpecValidity should throw ContractException with invalid openapi file`(@TempDir tempDir: File) {
+        val invalidOpenApiContent = """
+            invalid yaml content
+            this is not valid yaml: [
+        """.trimIndent()
+        
+        val invalidOpenApiFile = tempDir.resolve(File("invalidOpenApi.yaml"))
+        invalidOpenApiFile.createNewFile()
+        invalidOpenApiFile.writeText(invalidOpenApiContent)
+        
+        try {
+            assertThatThrownBy {
+                OpenApiSpecification.checkSpecValidity(invalidOpenApiFile.canonicalPath)
+            }.isInstanceOf(ContractException::class.java)
+                .hasMessageContaining("Could not parse contract")
+                .hasMessageContainingAll("Could not parse contract", invalidOpenApiFile.name)
+        } finally {
+            invalidOpenApiFile.delete()
+        }
+    }
+
+    @Test
+    fun `checkSpecValidity should throw ContractException when a valid openapi file gets parsed with issues`(@TempDir tempDir: File) {
+        val invalidOpenApiContent = """
+            openapi: 3.0.1
+            servers:
+              - url: "http://localhost:3000"
+            paths:
+              "/products/{id}":
+                get:
+                  summary: Get a product by ID
+                  parameters:
+                    - name: id
+                      in: path
+                      required: true
+                      schema:
+                        type: integer
+                  responses:
+                    '200':
+                      description: Successful response
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            properties:
+                              id:
+                                type: integer
+                              name:
+                                type: string
+        """.trimIndent()
+
+        val invalidOpenApiFile = tempDir.resolve(File("invalidOpenApi.yaml"))
+        invalidOpenApiFile.createNewFile()
+        invalidOpenApiFile.writeText(invalidOpenApiContent)
+
+        try {
+            assertThatThrownBy {
+                OpenApiSpecification.checkSpecValidity(invalidOpenApiFile.canonicalPath)
+            }.isInstanceOf(ContractException::class.java)
+                .hasMessageContaining("attribute info is missing")
+        } finally {
+            invalidOpenApiFile.delete()
+        }
+    }
+
+    @Test
+    fun `getImplicitOverlayContent should return empty string when OpenAPI file does not exist`(@TempDir tempDir: File) {
+        val nonExistentOpenApiFile = tempDir.resolve("non_existent_api.yaml")
+        
+        val result = OpenApiSpecification.getImplicitOverlayContent(nonExistentOpenApiFile.canonicalPath)
+        
+        assertThat(result).isEmpty()
+    }
+
+    @Test
+    fun `getImplicitOverlayContent should return empty string when OpenAPI file exists but overlay file does not exist`(@TempDir tempDir: File) {
+        val openApiContent = """
+            openapi: 3.0.0
+            info:
+              title: Test API
+              version: 1.0.0
+            paths:
+              /test:
+                get:
+                  responses:
+                    '200':
+                      description: Success
+        """.trimIndent()
+        
+        val openApiFile = tempDir.resolve("test_api.yaml")
+        openApiFile.writeText(openApiContent)
+        
+        val result = OpenApiSpecification.getImplicitOverlayContent(openApiFile.canonicalPath)
+        
+        assertThat(result).isEmpty()
+    }
+
+    @Test
+    fun `getImplicitOverlayContent should return overlay content when both OpenAPI file and overlay file exist`(@TempDir tempDir: File) {
+        val openApiContent = """
+            openapi: 3.0.0
+            info:
+              title: Test API
+              version: 1.0.0
+            paths:
+              /test:
+                get:
+                  responses:
+                    '200':
+                      description: Success
+        """.trimIndent()
+        
+        val overlayContent = """
+            overlay: 1.0.0
+            info:
+              title: Test API with Overlay
+              version: 1.0.1
+            actions:
+              - target: $.info.description
+                update: "API with overlay applied"
+        """.trimIndent()
+        
+        val openApiFile = tempDir.resolve("test_api.yaml")
+        openApiFile.writeText(openApiContent)
+        
+        val overlayFile = tempDir.resolve("test_api_overlay.yaml")
+        overlayFile.writeText(overlayContent)
+        
+        val result = OpenApiSpecification.getImplicitOverlayContent(openApiFile.canonicalPath)
+        
+        assertThat(result).isEqualTo(overlayContent)
     }
 
     private fun ignoreButLogException(function: () -> OpenApiSpecification) {

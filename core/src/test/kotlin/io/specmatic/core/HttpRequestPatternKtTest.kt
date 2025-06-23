@@ -13,7 +13,7 @@ internal class HttpRequestPatternKtTest {
     fun `when generating new content part types with two value options there should be two types generated`() {
         val multiPartTypes = listOf(MultiPartContentPattern(
             "data",
-            AnyPattern(listOf(StringPattern(), NumberPattern())),
+            AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap()),
         ))
 
         val newTypes = newMultiPartBasedOn(multiPartTypes, Row(), Resolver()).toList()
@@ -48,12 +48,12 @@ internal class HttpRequestPatternKtTest {
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         when(securitySchema) {
-            is APIKeyInHeaderSecurityScheme -> assertThat(report).containsOnlyOnce(">> REQUEST.HEADERS.API-KEY")
-            is APIKeyInQueryParamSecurityScheme -> assertThat(report).containsOnlyOnce(">> REQUEST.QUERY-PARAMS.API-KEY")
-            is BasicAuthSecurityScheme, is BearerSecurityScheme -> assertThat(report).containsOnlyOnce(">> REQUEST.HEADERS.Authorization")
+            is APIKeyInHeaderSecurityScheme -> assertThat(report).containsOnlyOnce(">> REQUEST.PARAMETERS.HEADER.API-KEY")
+            is APIKeyInQueryParamSecurityScheme -> assertThat(report).containsOnlyOnce(">> REQUEST.PARAMETERS.QUERY.API-KEY")
+            is BasicAuthSecurityScheme, is BearerSecurityScheme -> assertThat(report).containsOnlyOnce(">> REQUEST.PARAMETERS.HEADER.Authorization")
             is CompositeSecurityScheme -> assertThat(report).satisfies(
-                { assertThat(it).containsOnlyOnce(">> REQUEST.HEADERS.Authorization") },
-                { assertThat(it).containsOnlyOnce(">> REQUEST.QUERY-PARAMS.API-KEY") },
+                { assertThat(it).containsOnlyOnce(">> REQUEST.PARAMETERS.HEADER.Authorization") },
+                { assertThat(it).containsOnlyOnce(">> REQUEST.PARAMETERS.QUERY.API-KEY") },
             )
             else -> throw RuntimeException("Unknown security scheme ${securitySchema::javaClass.name}")
         }

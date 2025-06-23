@@ -1,0 +1,72 @@
+<definitions name="OrderAPI" 
+             targetNamespace="http://www.example.com/orders"
+             xmlns:tns="http://www.example.com/orders"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns="http://schemas.xmlsoap.org/wsdl/">
+
+    <types>
+        <xsd:schema targetNamespace="http://www.example.com/orders">
+            <!-- Simplified CreateProduct complex type -->
+            <xsd:complexType name="CreateProduct">
+                <xsd:sequence>
+                    <xsd:element name="name" type="xsd:string"/>
+                    <xsd:element name="type" type="xsd:string"/>
+                </xsd:sequence>
+            </xsd:complexType>
+
+            <!-- Define the CreateProduct element -->
+            <xsd:element name="CreateProduct" type="tns:CreateProduct"/>
+
+            <!-- Define the Id complex type for response -->
+            <xsd:complexType name="Id">
+                <xsd:sequence>
+                    <xsd:element name="id" type="xsd:int" minOccurs="1" maxOccurs="1"/>
+                </xsd:sequence>
+            </xsd:complexType>
+
+            <!-- Define the Id element -->
+            <xsd:element name="Id" type="tns:Id"/>
+        </xsd:schema>
+    </types>
+
+    <!-- Message Definitions -->
+    <message name="CreateProductMessage">
+        <part name="parameters" element="tns:CreateProduct"/>
+    </message>
+
+    <message name="CreatedProductIdMessage">
+        <part name="parameters" element="tns:Id"/>
+    </message>
+
+    <!-- PortType Definition -->
+    <portType name="OrderAPIPortType">
+        <!-- Product Operations -->
+        <operation name="createProduct">
+            <input message="tns:CreateProductMessage"/>
+            <output message="tns:CreatedProductIdMessage"/>
+        </operation>
+    </portType>
+
+    <!-- Binding Definition -->
+    <binding name="OrderAPIBinding" type="tns:OrderAPIPortType">
+        <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+        <!-- Product Operations -->
+        <operation name="createProduct">
+            <soap:operation soapAction="/orders/createProduct"/>
+            <input>
+                <soap:body use="literal"/>
+            </input>
+            <output>
+                <soap:body use="literal"/>
+            </output>
+        </operation>
+    </binding>
+
+    <!-- Service Definition -->
+    <service name="OrderAPIService">
+        <port name="OrderAPIPort" binding="tns:OrderAPIBinding">
+            <soap:address location="http://localhost:8090/"/>
+        </port>
+    </service>
+</definitions>

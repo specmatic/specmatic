@@ -105,6 +105,11 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if (sampleData !is XMLNode)
             return Failure("Expected xml, got ${sampleData?.displayableType()}").breadCrumb(pattern.name)
+            
+        return matchesXMLNode(sampleData, resolver)
+    }
+    
+    private fun matchesXMLNode(sampleData: XMLNode, resolver: Resolver): Result {
 
         if(pattern.isNillable()) {
             if(sampleData.childNodes.isEmpty())
@@ -175,7 +180,7 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
                 is ListPattern -> ConsumeResult(
                     resolvedType.matches(
                         this.listOf(
-                            consumeResult.remainder.subList(index, pattern.nodes.indices.last),
+                            consumeResult.remainder,
                             resolver
                         ), resolver
                     ),
@@ -303,7 +308,12 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
     override fun generate(resolver: Resolver): XMLNode {
         val name = pattern.name
 
-        val nonSpecmaticAttributes = pattern.attributes.filterNot { it.key.startsWith(SPECMATIC_XML_ATTRIBUTE_PREFIX) }
+        val resolvedPattern = dereferenceType(resolver)
+
+        val nonSpecmaticAttributes =
+            resolvedPattern.pattern.attributes.filterNot {
+                it.key.startsWith(SPECMATIC_XML_ATTRIBUTE_PREFIX)
+            }
 
         val newAttributes = nonSpecmaticAttributes.mapKeys { entry ->
             withoutOptionality(entry.key)
@@ -317,7 +327,7 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
             StringValue(it.value.toStringLiteral())
         }
 
-        val nodes = pattern.nodes.asSequence().map {
+        val nodes = resolvedPattern.pattern.nodes.asSequence().map {
             resolvedHop(it, resolver)
         }.map { pattern ->
             attempt(breadCrumb = name) {
@@ -461,7 +471,7 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
     }
 
     private fun dereferenceType(resolver: Resolver): XMLPattern {
-        if (!hasType()) {
+        if (pattern.isConcrete()) {
             return this
         }
 
@@ -471,12 +481,10 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
                 pattern = resolved.pattern.copy(
                         name = this.pattern.name,
                         realName = this.pattern.realName,
-                        attributes = resolved.pattern.attributes.plus(this.pattern.attributes)
+                        attributes = resolved.pattern.attributes.plus(this.pattern.attributes),
                 )
         )
     }
-
-    private fun hasType(): Boolean = pattern.attributes.containsKey(TYPE_ATTRIBUTE_NAME)
 
     fun occurMultipleTimes(): Boolean = pattern.getNodeOccurrence() == NodeOccurrence.Multiple
 

@@ -40,6 +40,8 @@ interface Value {
     fun generality(): Int {
         return 0
     }
+
+    fun specificity(): Int
 }
 
 fun Value.mergeWith(other: Value): Value {

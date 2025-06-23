@@ -11,7 +11,7 @@ internal class SimpleTypedSOAPPayloadTest {
     fun `statement generation`() {
         val payload = SimpleTypedSOAPPayload(SOAPMessageType.Input, toXMLNode("<person/>"), emptyMap())
         val statement = payload.specmaticStatement().first().trim()
-        assertThat(statement).isEqualTo("""And request-body
+        assertThat(statement).isEqualToIgnoringWhitespace("""And request-body
 ""${'"'}
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header $OCCURS_ATTRIBUTE_NAME="optional"/><soapenv:Body><person/></soapenv:Body></soapenv:Envelope>
 ""${'"'}""")

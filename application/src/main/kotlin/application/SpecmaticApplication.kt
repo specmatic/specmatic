@@ -1,29 +1,42 @@
 package application
 
+import io.specmatic.core.utilities.Flags
+import io.specmatic.core.utilities.SystemExit
 import io.specmatic.core.utilities.UncaughtExceptionHandler
 import io.specmatic.specmatic.executable.JULForwarder
 import picocli.CommandLine
-import kotlin.system.exitProcess
 
 open class SpecmaticApplication {
     companion object {
+        private const val SPECMATIC_DEBUG_MODE = "SPECMATIC_DEBUG_MODE"
+
         @JvmStatic
         fun main(args: Array<String>) {
+            setupPicoCli()
             setupLogging()
 
-            Thread.setDefaultUncaughtExceptionHandler(UncaughtExceptionHandler())
+            if (Flags.getBooleanValue(SPECMATIC_DEBUG_MODE)) {
+                Thread.setDefaultUncaughtExceptionHandler(UncaughtExceptionHandler())
+            }
 
-            if (args.isEmpty() || args[0] !in listOf("--version", "-V")) {
-                println("Specmatic Version: ${VersionProvider().getVersion()[0]}" + System.lineSeparator())
+            val commandLine = CommandLine(SpecmaticCommand())
+            if (args.none { it == "-V" || it == "--version" }) {
+                print("Specmatic Version: ")
+                commandLine.printVersionHelp(System.out)
+                println()
             }
 
             when {
-                args.isEmpty() -> CommandLine(SpecmaticCommand()).usage(System.out)
+                args.isEmpty() -> commandLine.usage(System.out)
                 else -> {
-                    val exitCode = CommandLine(SpecmaticCommand()).execute(*args)
-                    exitProcess(exitCode)
+                    val exitCode = commandLine.execute(*args)
+                    SystemExit.exitWith(exitCode)
                 }
             }
+        }
+
+        private fun setupPicoCli() {
+            System.setProperty("picocli.usage.width", "auto")
         }
 
         private fun setupLogging() {

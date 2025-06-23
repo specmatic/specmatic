@@ -1,6 +1,8 @@
 {
-  "QUERY-PARAMS": {
-    "name": "input123"
+  "PARAMETERS": {
+    "QUERY": {
+      "name": "input123"
+    }
   },
   "OutputData": {
     "data": "output123"

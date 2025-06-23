@@ -61,7 +61,9 @@ class HttpQueryParamPatternTest {
 
         urlPattern.matches(URI("/pets"), queryParameters, Resolver()).let {
             assertThat(it is Failure).isTrue()
-            assertThat((it as Failure).toMatchFailureDetails()).isEqualTo(MatchFailureDetails(listOf(QUERY_PARAMS_BREADCRUMB, "petid"), listOf("""Expected number, actual was "text"""")))
+            assertThat((it as Failure).toMatchFailureDetails()).isEqualTo(
+                MatchFailureDetails(listOf(BreadCrumb.PARAM_QUERY.value, "petid"), listOf("""Expected number, actual was "text""""))
+            )
         }
     }
 
@@ -93,6 +95,12 @@ class HttpQueryParamPatternTest {
     fun `should generate query`() {
         val urlPattern = buildQueryPattern(URI("/pets?petid=(number)&owner=(string)"))
         val resolver = mockk<Resolver>().also {
+            every {
+                it.updateLookupPath(any(), any())
+            } returns it
+            every {
+                it.updateLookupForParam("QUERY")
+            } returns it
             every {
                 it.withCyclePrevention<StringValue>(
                     QueryParameterScalarPattern(ExactValuePattern(StringValue("pets"))),
@@ -144,7 +152,6 @@ class HttpQueryParamPatternTest {
             HttpQueryParamPattern(queryPatterns = mapOf("name" to StringPattern(), "string" to StringPattern()))
 
         val result = matcher.matches(HttpRequest(queryParametersMap = mapOf("name" to "Archie")), Resolver())
-            .breadCrumb(QUERY_PARAMS_BREADCRUMB)
         assertThat(result.isSuccess()).isFalse()
     }
 
@@ -212,13 +219,13 @@ class HttpQueryParamPatternTest {
 
         @Test
         fun `keys with errors should be present in the error list`() {
-            assertThat(resultText).contains(">> QUERY-PARAMS.hello")
-            assertThat(resultText).contains(">> QUERY-PARAMS.hi")
+            assertThat(resultText).contains(">> PARAMETERS.QUERY.hello")
+            assertThat(resultText).contains(">> PARAMETERS.QUERY.hi")
         }
 
         @Test
         fun `key presence errors should appear before value errors`() {
-            assertThat(resultText.indexOf(">> QUERY-PARAMS.hi")).isLessThan(resultText.indexOf(">> QUERY-PARAMS.hello"))
+            assertThat(resultText.indexOf(">> PARAMETERS.QUERY.hi")).isLessThan(resultText.indexOf(">> PARAMETERS.QUERY.hello"))
         }
     }
 
@@ -246,11 +253,11 @@ class HttpQueryParamPatternTest {
             val result = unStubbedArrayQueryParameterPattern.matches(HttpRequest("GET", "/", queryParams = QueryParameters(paramPairs = listOf("brand_ids" to "abc", "brand_ids" to "def"))),  Resolver())
             assertThat(result is Failure).isTrue
             assertThat(result.reportString().trimmedLinesList()).isEqualTo("""
-                >> QUERY-PARAMS.brand_ids
+                >> PARAMETERS.QUERY.brand_ids
 
                    Expected number, actual was "abc"
                 
-                >> QUERY-PARAMS.brand_ids
+                >> PARAMETERS.QUERY.brand_ids
                 
                    Expected number, actual was "def"
             """.trimIndent().trimmedLinesList())
@@ -261,7 +268,7 @@ class HttpQueryParamPatternTest {
             val result = unStubbedArrayQueryParameterPattern.matches(HttpRequest("GET", "/", emptyMap()),  Resolver())
             assertThat(result is Failure).isTrue
             assertThat(result.reportString().trimmedLinesList()).isEqualTo("""
-                >> QUERY-PARAMS.brand_ids
+                >> PARAMETERS.QUERY.brand_ids
 
                    Expected query param named "brand_ids" was missing
             """.trimIndent().trimmedLinesList())
@@ -272,7 +279,7 @@ class HttpQueryParamPatternTest {
             val result = unStubbedArrayQueryParameterPattern.matches(HttpRequest("GET", "/", queryParams = QueryParameters(paramPairs = listOf("brand_ids" to "1", "brand_ids" to "2", "product_id" to "1"))),  Resolver())
             assertThat(result is Failure).isTrue
             assertThat(result.reportString().trimmedLinesList()).isEqualTo("""
-                >> QUERY-PARAMS.product_id
+                >> PARAMETERS.QUERY.product_id
 
                    Query param named "product_id" was unexpected
             """.trimIndent().trimmedLinesList())
@@ -307,7 +314,7 @@ class HttpQueryParamPatternTest {
             val result = stubbedArrayQueryParameterPattern.matches(HttpRequest("GET", "/", queryParams = QueryParameters(paramPairs = listOf("brand_ids" to "1"))),  Resolver())
             assertThat(result is Failure).isTrue
             assertThat(result.reportString().trimmedLinesList()).isEqualTo("""
-                >> QUERY-PARAMS.brand_ids
+                >> PARAMETERS.QUERY.brand_ids
 
                    Expected 2 (number), actual was 1 (number)
             """.trimIndent().trimmedLinesList())
@@ -318,15 +325,15 @@ class HttpQueryParamPatternTest {
             val result = stubbedArrayQueryParameterPattern.matches(HttpRequest("GET", "/", queryParams = QueryParameters(paramPairs = listOf("brand_ids" to "1", "brand_ids" to "3"))),  Resolver())
             assertThat(result is Failure).isTrue
             assertThat(result.reportString().trimmedLinesList()).isEqualTo("""
-                >> QUERY-PARAMS.brand_ids
+                >> PARAMETERS.QUERY.brand_ids
 
                    Expected 2 (number), actual was 1 (number)
                 
-                >> QUERY-PARAMS.brand_ids
+                >> PARAMETERS.QUERY.brand_ids
                 
                    Expected 2 (number), actual was 3 (number)
                 
-                >> QUERY-PARAMS.brand_ids
+                >> PARAMETERS.QUERY.brand_ids
                 
                    Expected 1 (number), actual was 3 (number)
             """.trimIndent().trimmedLinesList())
@@ -337,11 +344,11 @@ class HttpQueryParamPatternTest {
             val result = stubbedArrayQueryParameterPattern.matches(HttpRequest("GET", "/", queryParams = QueryParameters(paramPairs = listOf("brand_ids" to "1", "brand_ids" to "2", "brand_ids" to "3"))),  Resolver())
             assertThat(result is Failure).isTrue
             assertThat(result.reportString().trimmedLinesList()).isEqualTo("""
-                >> QUERY-PARAMS.brand_ids
+                >> PARAMETERS.QUERY.brand_ids
 
                    Expected 2 (number), actual was 3 (number)
                 
-                >> QUERY-PARAMS.brand_ids
+                >> PARAMETERS.QUERY.brand_ids
                 
                    Expected 1 (number), actual was 3 (number)
             """.trimIndent().trimmedLinesList())
@@ -352,7 +359,7 @@ class HttpQueryParamPatternTest {
             val result = stubbedArrayQueryParameterPattern.matches(HttpRequest("GET", "/", emptyMap()),  Resolver())
             assertThat(result is Failure).isTrue
             assertThat(result.reportString().trimmedLinesList()).isEqualTo("""
-                >> QUERY-PARAMS.brand_ids
+                >> PARAMETERS.QUERY.brand_ids
 
                    Expected query param named "brand_ids" was missing
             """.trimIndent().trimmedLinesList())
@@ -363,7 +370,7 @@ class HttpQueryParamPatternTest {
             val result = stubbedArrayQueryParameterPattern.matches(HttpRequest("GET", "/", queryParams = QueryParameters(paramPairs = listOf("brand_ids" to "1", "brand_ids" to "2", "product_id" to "1"))),  Resolver())
             assertThat(result is Failure).isTrue
             assertThat(result.reportString().trimmedLinesList()).isEqualTo("""
-                >> QUERY-PARAMS.product_id
+                >> PARAMETERS.QUERY.product_id
 
                    Query param named "product_id" was unexpected
             """.trimIndent().trimmedLinesList())
@@ -392,7 +399,7 @@ class HttpQueryParamPatternTest {
             val result = unStubbedScalarQueryParameterPattern.matches(HttpRequest("GET", "/", queryParams = QueryParameters(paramPairs = listOf("product_id" to "abc"))),  Resolver())
             assertThat(result is Failure).isTrue
             assertThat(result.reportString().trimmedLinesList()).isEqualTo("""
-                >> QUERY-PARAMS.product_id
+                >> PARAMETERS.QUERY.product_id
 
                    Expected number, actual was "abc"
             """.trimIndent().trimmedLinesList())
@@ -403,7 +410,7 @@ class HttpQueryParamPatternTest {
             val result = unStubbedScalarQueryParameterPattern.matches(HttpRequest("GET", "/", emptyMap()),  Resolver())
             assertThat(result is Failure).isTrue
             assertThat(result.reportString().trimmedLinesList()).isEqualTo("""
-                >> QUERY-PARAMS.product_id
+                >> PARAMETERS.QUERY.product_id
 
                    Expected query param named "product_id" was missing
             """.trimIndent().trimmedLinesList())
@@ -414,7 +421,7 @@ class HttpQueryParamPatternTest {
             val result = unStubbedScalarQueryParameterPattern.matches(HttpRequest("GET", "/", queryParams = QueryParameters(paramPairs = listOf("brand_ids" to "1", "product_id" to "1"))),  Resolver())
             assertThat(result is Failure).isTrue
             assertThat(result.reportString().trimmedLinesList()).isEqualTo("""
-                >> QUERY-PARAMS.brand_ids
+                >> PARAMETERS.QUERY.brand_ids
 
                    Query param named "brand_ids" was unexpected
             """.trimIndent().trimmedLinesList())
@@ -437,7 +444,7 @@ class HttpQueryParamPatternTest {
             val result = stubbedNumericScalarQueryParameterPattern.matches(HttpRequest("GET", "/", queryParams = QueryParameters(paramPairs = listOf("product_id" to "abc"))),  Resolver())
             assertThat(result is Failure).isTrue
             assertThat(result.reportString().trimmedLinesList()).isEqualTo("""
-                >> QUERY-PARAMS.product_id
+                >> PARAMETERS.QUERY.product_id
 
                    Expected 1 (number), actual was "abc"
             """.trimIndent().trimmedLinesList())
@@ -448,7 +455,7 @@ class HttpQueryParamPatternTest {
             val result = stubbedScalarQueryParameterPattern.matches(HttpRequest("GET", "/", emptyMap()),  Resolver())
             assertThat(result is Failure).isTrue
             assertThat(result.reportString().trimmedLinesList()).isEqualTo("""
-                >> QUERY-PARAMS.status
+                >> PARAMETERS.QUERY.status
 
                    Expected query param named "status" was missing
             """.trimIndent().trimmedLinesList())
@@ -459,7 +466,7 @@ class HttpQueryParamPatternTest {
             val result = stubbedScalarQueryParameterPattern.matches(HttpRequest("GET", "/", queryParams = QueryParameters(paramPairs = listOf("brand_ids" to "1", "status" to "pending"))),  Resolver())
             assertThat(result is Failure).isTrue
             assertThat(result.reportString().trimmedLinesList()).isEqualTo("""
-                >> QUERY-PARAMS.brand_ids
+                >> PARAMETERS.QUERY.brand_ids
 
                    Query param named "brand_ids" was unexpected
             """.trimIndent().trimmedLinesList())
@@ -526,7 +533,7 @@ class HttpQueryParamPatternTest {
             val queryPattern = HttpQueryParamPattern(mapOf("petId" to NumberPattern(), "owner" to StringPattern()))
             val invalidValue = QueryParameters(listOf("petId" to "123"))
 
-            val dictionary = "QUERY-PARAMS: { owner: TODO }".let(Dictionary::fromYaml)
+            val dictionary = "PARAMETERS: { QUERY: { owner: TODO } }".let(Dictionary::fromYaml)
             val fixedValue = queryPattern.fixValue(invalidValue, Resolver(dictionary = dictionary))
             println(fixedValue)
 
@@ -554,7 +561,7 @@ class HttpQueryParamPatternTest {
             val queryPattern = HttpQueryParamPattern(mapOf("petId" to NumberPattern(), "owner" to StringPattern()))
             val invalidValue = QueryParameters(listOf("petId" to "TODO", "owner" to "999"))
 
-            val dictionary = "QUERY-PARAMS: { petId: 123, owner: TODO }".let(Dictionary::fromYaml)
+            val dictionary = "PARAMETERS: { QUERY: { petId: 123, owner: TODO } }".let(Dictionary::fromYaml)
             val fixedValue = queryPattern.fixValue(invalidValue, Resolver(dictionary = dictionary))
             println(fixedValue)
 
@@ -677,7 +684,7 @@ class HttpQueryParamPatternTest {
         fun `should generate values for missing mandatory keys and pattern tokens`() {
             val queryParams = HttpQueryParamPattern(mapOf("number" to NumberPattern(), "boolean" to BooleanPattern()))
             val params = QueryParameters(mapOf("number" to "(number)"))
-            val dictionary = "QUERY-PARAMS: { number: 999, boolean: true }".let(Dictionary::fromYaml)
+            val dictionary = "PARAMETERS: { QUERY: { number: 999, boolean: true } }".let(Dictionary::fromYaml)
             val filledParams = queryParams.fillInTheBlanks(params, Resolver(dictionary = dictionary)).value
 
             assertThat(filledParams.asMap()).isEqualTo(mapOf("number" to "999", "boolean" to "true"))
@@ -687,8 +694,7 @@ class HttpQueryParamPatternTest {
         fun `should not generate missing optional keys`() {
             val queryParams = HttpQueryParamPattern(mapOf("number" to NumberPattern(), "boolean?" to BooleanPattern()))
             val params = QueryParameters(mapOf("number" to "999"))
-            val dictionary = mapOf("QUERY-PARAMS.boolean" to BooleanValue(true)).let(Dictionary::from)
-            val filledParams = queryParams.fillInTheBlanks(params, Resolver(dictionary = dictionary)).value
+            val filledParams = queryParams.fillInTheBlanks(params, Resolver()).value
 
             assertThat(filledParams.asMap()).isEqualTo(mapOf("number" to "999"))
         }
@@ -697,7 +703,7 @@ class HttpQueryParamPatternTest {
         fun `should handle any-value pattern token as a special case`() {
             val queryParams = HttpQueryParamPattern(mapOf("number" to NumberPattern(), "boolean" to BooleanPattern()))
             val params = QueryParameters(mapOf("number" to "(anyvalue)"))
-            val dictionary = "QUERY-PARAMS: { number: 999, boolean: true }".let(Dictionary::fromYaml)
+            val dictionary = "PARAMETERS: { QUERY: { number: 999, boolean: true } }".let(Dictionary::fromYaml)
             val filledParams = queryParams.fillInTheBlanks(params, Resolver(dictionary = dictionary)).value
 
             assertThat(filledParams.asMap()).isEqualTo(mapOf("number" to "999", "boolean" to "true"))
@@ -719,7 +725,7 @@ class HttpQueryParamPatternTest {
         fun `should generate missing optional keys when allPatternsMandatory is set`() {
             val queryParams = HttpQueryParamPattern(mapOf("number" to NumberPattern(), "boolean?" to BooleanPattern()))
             val params = QueryParameters(mapOf("number" to "999"))
-            val dictionary = "QUERY-PARAMS: { boolean: true }".let(Dictionary::fromYaml)
+            val dictionary = "PARAMETERS: { QUERY: { boolean: true } }".let(Dictionary::fromYaml)
             val filledParams = queryParams.fillInTheBlanks(
                 params, Resolver(dictionary = dictionary).withAllPatternsAsMandatory()
             ).value
@@ -740,7 +746,7 @@ class HttpQueryParamPatternTest {
         fun `should allow extra keys when extensible-query-params or resolver is negative`() {
             val queryParamsPattern = HttpQueryParamPattern(mapOf("number" to NumberPattern()))
             val queryParameters = mapOf("number" to "(number)", "extraKey" to "(string)")
-            val dictionary = "QUERY-PARAMS: { number: 999, extraKey: ExtraValue }".let(Dictionary::fromYaml)
+            val dictionary = "PARAMETERS: { QUERY: { number: 999, extraKey: ExtraValue } }".let(Dictionary::fromYaml)
 
             val negativeResolver = Resolver(dictionary = dictionary, isNegative = true)
             val negativeFilledParams = queryParamsPattern.fillInTheBlanks(QueryParameters(queryParameters), negativeResolver).value

@@ -93,10 +93,10 @@ class SystemGit(override val workingDirectory: String = ".", private val prefix:
     }
 
     override fun getFilesChangedInCurrentBranch(baseBranch: String): List<String> {
-        val committedLocalChanges = execute(Configuration.gitCommand, "diff", baseBranch, "HEAD", "--name-status")
-            .split("\n")
-        val uncommittedChanges = execute(Configuration.gitCommand, "diff", "HEAD", "--name-status")
-            .split("\n")
+        val committedLocalChanges =
+            execute(Configuration.gitCommand, "diff", baseBranch, "HEAD", "--name-status").trim().lines()
+        val uncommittedChanges =
+            execute(Configuration.gitCommand, "diff", "HEAD", "--name-status").trim().lines()
 
         return (committedLocalChanges + uncommittedChanges).map {
             it.split("\t").last()
@@ -198,6 +198,13 @@ class SystemGit(override val workingDirectory: String = ".", private val prefix:
     override fun detachedHEAD(): String {
         val result = execute(Configuration.gitCommand, "show", "-s", "--pretty=%D", "HEAD")
         return result.trim().split(",")[1].trim()
+    }
+
+    override fun getUntrackedFiles(): List<String> {
+        val result = execute(Configuration.gitCommand, "ls-files", "--others", "--exclude-standard")
+        return result.trim().lines()
+            .filter { it.isNotBlank() }
+            .map { Paths.get("$workingDirectory${File.separator}$it").absolutePathString() }
     }
 }
 

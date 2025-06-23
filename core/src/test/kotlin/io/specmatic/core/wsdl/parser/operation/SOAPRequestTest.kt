@@ -17,11 +17,15 @@ internal class SOAPRequestTest {
         assertThat(statements).contains("When POST /customer")
         assertThat(statements).contains("And enum SoapAction (string) values \"/add\",/add")
         assertThat(statements).contains("And request-header SOAPAction (SoapAction)")
-        assertThat(statements).contains("And request-body\n" +
-                "\"\"\"\n" +
-                "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"><soapenv:Header $OCCURS_ATTRIBUTE_NAME=\"optional\"/><soapenv:Body/></soapenv:Envelope>\n" +
-                "\"\"\"")
-
+        assertThat(statements.last()).isEqualToIgnoringNewLines("""
+        And request-body
+        ""${'"'}
+        <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+          <soapenv:Header $OCCURS_ATTRIBUTE_NAME="optional"/>
+          <soapenv:Body/>
+        </soapenv:Envelope>
+        ""${'"'}
+        """.trimIndent())
     }
 
     @Test
@@ -32,10 +36,14 @@ internal class SOAPRequestTest {
         assertThat(statements).hasSize(2)
 
         assertThat(statements).contains("When POST /customer")
-        assertThat(statements).contains("And request-body\n" +
-                "\"\"\"\n" +
-                "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"><soapenv:Header $OCCURS_ATTRIBUTE_NAME=\"optional\"/><soapenv:Body/></soapenv:Envelope>\n" +
-                "\"\"\"")
-
+        assertThat(statements.last()).isEqualToIgnoringNewLines("""
+        And request-body
+        ""${'"'}
+        <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+          <soapenv:Header $OCCURS_ATTRIBUTE_NAME="optional"/>
+          <soapenv:Body/>
+        </soapenv:Envelope>
+        ""${'"'}
+        """.trimIndent())
     }
 }

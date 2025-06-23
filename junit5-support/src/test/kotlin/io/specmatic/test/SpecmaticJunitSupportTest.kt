@@ -41,7 +41,7 @@ class SpecmaticJunitSupportTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = ["http://test.com", "https://my-json-server.typicode.com/znsio/specmatic-documentation"])
+    @ValueSource(strings = ["http://test.com", "https://my-json-server.typicode.com/specmatic/specmatic-documentation"])
     fun `should pick up and use valid testBaseURL system property when set`(validURL: String) {
         System.setProperty(TEST_BASE_URL, validURL)
         lateinit var url: String

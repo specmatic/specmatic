@@ -45,6 +45,25 @@ class ProxyCommand : Callable<Unit> {
     @Option(names = ["--httpsPassword"], description = ["Key password if any"])
     var keyPassword = "forgotten"
 
+    @Option(
+        names= ["--filter"],
+        hidden = true,
+        description = [
+            """Filter tests matching the specified filtering criteria
+
+You can filter tests based on the following keys:
+- `METHOD`: HTTP methods (e.g., GET, POST)
+- `PATH`: Request paths (e.g., /users, /product)
+- `STATUS`: HTTP response status codes (e.g., 200, 400)
+
+You can find all available filters and their usage at:
+https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--operators"""
+        ],
+        required = false
+    )
+    var filter: String = ""
+
+
     @Option(names = ["--debug"], description = ["Write verbose logs to console for debugging"])
     var debugLog = false
 
@@ -62,7 +81,7 @@ class ProxyCommand : Callable<Unit> {
         val certInfo = CertInfo(keyStoreFile, keyStoreDir, keyStorePassword, keyStoreAlias, keyPassword)
         val keyStoreData = certInfo.getHttpsCert()
 
-        proxy = Proxy(host, port, targetBaseURL, proxySpecmaticDataDir, keyStoreData, timeoutInMs)
+        proxy = Proxy(host, port, targetBaseURL, proxySpecmaticDataDir, keyStoreData, timeoutInMs, filter)
         addShutdownHook()
 
         consoleLog(StringLog("Proxy server is running on ${consolePrintableURL(host, port, keyStoreData)}. Ctrl + C to stop."))

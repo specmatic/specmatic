@@ -3,7 +3,6 @@ package io.specmatic.core
 import io.specmatic.core.pattern.*
 import io.specmatic.core.pattern.isOptional
 import io.specmatic.core.pattern.withoutOptionality
-import io.specmatic.core.value.Value
 
 data class GenerativeTestsEnabled(private val positiveOnly: Boolean) : GenerationStrategies {
 
@@ -93,21 +92,22 @@ data class GenerativeTestsEnabled(private val positiveOnly: Boolean) : Generatio
     }
 
     override fun fillInTheMissingMapPatterns(
-        newQueryParamsList: Sequence<Map<String, Pattern>>,
-        queryPatterns: Map<String, Pattern>,
+        newParamsList: Sequence<Map<String, Pattern>>,
+        patterns: Map<String, Pattern>,
         additionalProperties: Pattern?,
         row: Row,
-        resolver: Resolver
+        resolver: Resolver,
+        breadCrumb: String
     ): Sequence<ReturnValue<Map<String, Pattern>>> {
-        val additionalPatterns = attempt(breadCrumb = QUERY_PARAMS_BREADCRUMB) {
-            val queryParams = queryPatterns.let {
+        val additionalPatterns = attempt(breadCrumb = breadCrumb) {
+            val mapPattern = patterns.let {
                 if (additionalProperties != null)
                     it.plus(randomString(5) to additionalProperties)
                 else
                     it
             }
 
-            forEachKeyCombinationIn(queryParams, Row()) { entry: Map<String, Pattern> ->
+            forEachKeyCombinationIn(mapPattern, Row()) { entry: Map<String, Pattern> ->
                 newMapBasedOn(entry, row, resolver)
             }.map { newPattern ->
                 newPattern.update { map ->
@@ -117,7 +117,7 @@ data class GenerativeTestsEnabled(private val positiveOnly: Boolean) : Generatio
         }
 
         return additionalPatterns.mapNotNull { pattern ->
-            val overlapResult = noOverlapBetween(pattern.value, newQueryParamsList, resolver) ?: return@mapNotNull null
+            val overlapResult = noOverlapBetween(pattern.value, newParamsList, resolver) ?: return@mapNotNull null
             pattern.update { overlapResult }
         }
     }

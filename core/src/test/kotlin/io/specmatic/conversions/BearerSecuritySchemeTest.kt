@@ -36,7 +36,7 @@ class BearerSecuritySchemeTest {
         with(scheme.matches(requestWithoutHeader, Resolver())) {
             assertThat(isSuccess()).isFalse
             assertThat(this.reportString())
-                .contains(">> HEADERS.Authorization")
+                .contains(">> HEADER.Authorization")
                 .contains("Expected header named \"Authorization\" was missing")
         }
     }

@@ -1,9 +1,8 @@
 package io.specmatic.conversions
 
 import io.specmatic.core.*
-import io.specmatic.core.pattern.ContractException
-import io.specmatic.core.pattern.Row
-import io.specmatic.core.pattern.randomString
+import io.specmatic.core.pattern.*
+import io.specmatic.core.value.StringValue
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import java.util.Base64
 
@@ -12,14 +11,14 @@ data class BasicAuthSecurityScheme(private val token: String? = null) : OpenAPIS
         val authHeaderValue: String = httpRequest.headers[AUTHORIZATION] ?: return when(resolver.mockMode) {
             true -> Result.Success()
             else -> Result.Failure(
-                breadCrumb = "HEADERS.$AUTHORIZATION",
+                breadCrumb = BreadCrumb.HEADER.with(AUTHORIZATION),
                 message = resolver.mismatchMessages.expectedKeyWasMissing("Header", AUTHORIZATION)
             )
         }
 
         if (!authHeaderValue.lowercase().startsWith("basic")) {
             return Result.Failure(
-                breadCrumb = "HEADERS.$AUTHORIZATION",
+                breadCrumb = BreadCrumb.HEADER.with(AUTHORIZATION),
                 message = "$AUTHORIZATION header must be prefixed with \"Basic\""
             )
         }
@@ -33,10 +32,15 @@ data class BasicAuthSecurityScheme(private val token: String? = null) : OpenAPIS
             val decodedBytes = Base64.getDecoder().decode(base64Credentials)
             val credentials = String(decodedBytes)
 
-            if (!credentials.contains(":"))
-                return Result.Failure("Base64-encoded credentials in $AUTHORIZATION header is not in the form username:password")
+            if (!credentials.contains(":")) return Result.Failure(
+                breadCrumb = BreadCrumb.HEADER.with(AUTHORIZATION),
+                message = "Base64-encoded credentials in $AUTHORIZATION header is not in the form username:password"
+            )
         } catch (e: IllegalArgumentException) {
-            return Result.Failure("Invalid base64 encoding in $AUTHORIZATION header")
+            return Result.Failure(
+                breadCrumb = BreadCrumb.HEADER.with(AUTHORIZATION),
+                message = "Invalid base64 encoding in $AUTHORIZATION header"
+            )
         }
 
         return Result.Success()
@@ -66,12 +70,14 @@ data class BasicAuthSecurityScheme(private val token: String? = null) : OpenAPIS
     }
 
     private fun getAuthorizationHeaderValue(resolver: Resolver): String {
+        val tokenFromDictionary = getTokenFromDictionary(resolver)
+
         val validToken = when {
             token != null -> {
                 validatedToken(token)
             }
-            dictionaryHasValidToken(resolver) -> {
-                resolver.getDictionaryToken(AUTHORIZATION).toStringLiteral()
+            tokenFromDictionary != null -> {
+                return tokenFromDictionary.unwrapOrContractException()
             }
             else -> {
                 randomBasicAuthCredentials()
@@ -81,11 +87,27 @@ data class BasicAuthSecurityScheme(private val token: String? = null) : OpenAPIS
         return "Basic $validToken"
     }
 
-    private fun dictionaryHasValidToken(resolver: Resolver) =
-        resolver.hasDictionaryToken(AUTHORIZATION) && resolver.getDictionaryToken(AUTHORIZATION).toStringLiteral().let {
-            it.lowercase()
-                .startsWith("basic ") && validateBase64EncodedCredentials(it.substringAfter(" ")) is Result.Success
+    private fun getTokenFromDictionary(resolver: Resolver): ReturnValue<String>? {
+        val updatedResolver = resolver.updateLookupForParam(BreadCrumb.HEADER.value)
+        val dictionaryValue = updatedResolver.dictionary.getValueFor(AUTHORIZATION, StringPattern(), updatedResolver)
+        val authHeader = dictionaryValue?.unwrapOrContractException() ?: return null
+
+        if (authHeader !is StringValue) return HasFailure(Result.Failure(
+            breadCrumb = BreadCrumb.HEADER.with(AUTHORIZATION),
+            message = "Header $AUTHORIZATION must be a string."
+        ))
+
+        val headerValue = authHeader.nativeValue
+        if (!headerValue.lowercase().startsWith("basic ")) {
+            return HasFailure(Result.Failure(
+                breadCrumb = BreadCrumb.HEADER.with(AUTHORIZATION),
+                message = "$AUTHORIZATION header must be prefixed with \"Basic\""
+            ))
         }
+
+        val base64Credentials = headerValue.substringAfter(" ").trim()
+        return validateBase64EncodedCredentials(base64Credentials).toReturnValue(headerValue)
+    }
 
     private fun validatedToken(token: String): String {
         val result = validateBase64EncodedCredentials(token)

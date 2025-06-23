@@ -21,10 +21,14 @@ data class HttpStubData(
     val requestBodyRegex: Regex? = null,
     val feature: Feature? = null,
     val scenario: Scenario? = null,
-    val originalRequest: HttpRequest? = null,
+    private val originalRequest: HttpRequest? = null,
     val data: JSONObjectValue = JSONObjectValue(),
     val partial: ScenarioStub? = null
 ) {
+    fun resolveOriginalRequest(): HttpRequest? {
+        return partial?.request ?: originalRequest
+    }
+
     val stubType: StubType get () {
         if(partial != null) {
             return StubType.Partial

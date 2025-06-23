@@ -37,7 +37,7 @@ data class OpenApiCoverageConsoleRow(
             val value = when (column.name) {
                 "coverage" -> formattedCoveragePercentage
                 "path" -> formattedPathName
-                "method" -> formattedMethodName
+                "method", "soapAction" -> formattedMethodName
                 "response" -> responseStatus
                 "#exercised" -> count
                 "result" -> remarks.toString()

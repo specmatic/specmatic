@@ -1,15 +1,20 @@
 package io.specmatic.core
 
 import io.specmatic.conversions.OpenApiSpecification
+import io.specmatic.conversions.OperationMetadata
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.filters.HasScenarioMetadata
-import io.specmatic.core.filters.ScenarioMetadata
+import io.specmatic.core.filters.ExpressionContextPopulator
+import io.specmatic.core.filters.ScenarioFilterVariablePopulator
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.utilities.mapZip
 import io.specmatic.core.utilities.nullOrExceptionString
-import io.specmatic.core.value.*
+import io.specmatic.core.value.JSONObjectValue
+import io.specmatic.core.value.StringValue
+import io.specmatic.core.value.True
+import io.specmatic.core.value.Value
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.RequestContext
 import io.specmatic.test.ExampleProcessor
@@ -84,24 +89,27 @@ data class Scenario(
     val descriptionFromPlugin: String? = null,
     val dictionary: Dictionary = Dictionary.empty(),
     val attributeSelectionPattern: AttributeSelectionPatternDetails = AttributeSelectionPatternDetails.default,
-    val exampleRow: Row? = null
+    val exampleRow: Row? = null,
+    val operationMetadata: OperationMetadata? = null
 ): ScenarioDetailsForResult, HasScenarioMetadata {
     constructor(scenarioInfo: ScenarioInfo) : this(
-        scenarioInfo.scenarioName,
-        scenarioInfo.httpRequestPattern,
-        scenarioInfo.httpResponsePattern,
-        scenarioInfo.expectedServerState,
-        scenarioInfo.examples,
-        scenarioInfo.patterns,
-        scenarioInfo.fixtures,
-        scenarioInfo.ignoreFailure,
-        scenarioInfo.references,
-        scenarioInfo.bindings,
+        name = scenarioInfo.scenarioName,
+        httpRequestPattern = scenarioInfo.httpRequestPattern,
+        httpResponsePattern = scenarioInfo.httpResponsePattern,
+        expectedFacts = scenarioInfo.expectedServerState,
+        patterns = scenarioInfo.patterns,
+        fixtures = scenarioInfo.fixtures,
+        examples = scenarioInfo.examples,
+        ignoreFailure = scenarioInfo.ignoreFailure,
+        references = scenarioInfo.references,
+        bindings = scenarioInfo.bindings,
+        isGherkinScenario = scenarioInfo.isGherkinScenario,
         sourceProvider = scenarioInfo.sourceProvider,
         sourceRepository = scenarioInfo.sourceRepository,
         sourceRepositoryBranch = scenarioInfo.sourceRepositoryBranch,
         specification = scenarioInfo.specification,
-        serviceType = scenarioInfo.serviceType
+        serviceType = scenarioInfo.serviceType,
+        operationMetadata = scenarioInfo.operationMetadata
     )
 
     val apiIdentifier: String
@@ -115,6 +123,11 @@ data class Scenario(
     override val path: String
         get() {
             return httpRequestPattern.httpPathPattern?.path ?: ""
+        }
+
+    val rawPath: String
+        get() {
+            return httpRequestPattern.httpPathPattern?.toRawPath() ?: ""
         }
 
     override val status: Int
@@ -475,7 +488,7 @@ data class Scenario(
     }
 
     private fun fillInTheBlanksAndResolvePatterns(row: Row, resolver: Resolver): ReturnValue<Row> {
-        if (row.requestExample == null) return HasValue(row)
+        if (row.requestExample == null || this.isGherkinScenario) return HasValue(row)
 
         return runCatching {
             fillInTheBlanksAndResolvePatterns(row.requestExample, resolver)
@@ -734,7 +747,15 @@ data class Scenario(
             }
         }
 
-    val apiDescription: String = "$method $path ${disambiguate()}-> $statusInDescription"
+    val apiDescription: String
+        get() {
+            val soapActionInfo = httpRequestPattern.getSOAPAction()
+            return if (soapActionInfo != null) {
+                "$method $path SOAPAction $soapActionInfo ${disambiguate()}-> $statusInDescription"
+            } else {
+                "$method $path ${disambiguate()}-> $statusInDescription"
+            }
+        }
 
     override fun testDescription(): String {
         val exampleIdentifier = if(exampleName.isNullOrBlank()) "" else { " | EX:${exampleName.trim()}" }
@@ -776,6 +797,31 @@ data class Scenario(
 
     fun isA4xxScenario(): Boolean = this.httpResponsePattern.status in 400..499
 
+    fun calculatePath(httpRequest: HttpRequest): Set<String> {
+        val bodyPattern = resolvedHop(this.httpRequestPattern.body, this.resolver)
+        val paths = when (bodyPattern) {
+            is JSONObjectPattern -> bodyPattern.calculatePath(httpRequest.body, this.resolver)
+            is AnyPattern -> bodyPattern.calculatePath(httpRequest.body, this.resolver)
+            is ListPattern -> bodyPattern.calculatePath(httpRequest.body, this.resolver)
+            is JSONArrayPattern -> bodyPattern.calculatePath(httpRequest.body, this.resolver)
+            else -> emptySet()
+        }
+        
+        // For top-level AnyPattern that returns scalar type names, wrap them in braces
+        return if (bodyPattern is AnyPattern) {
+            paths.map { path ->
+                // If it's a simple scalar type name (string, number, boolean), wrap in braces
+                if (path in setOf("string", "number", "boolean")) {
+                    "{$path}"
+                } else {
+                    path
+                }
+            }.toSet()
+        } else {
+            paths
+        }
+    }
+
     fun negativeBasedOn(badRequestOrDefault: BadRequestOrDefault?): Scenario {
         return this.copy(
             isNegative = true,
@@ -805,7 +851,7 @@ data class Scenario(
     private fun matchingRows(externalisedJSONExamples: Map<OpenApiSpecification.OperationIdentifier, List<Row>>): Map<OpenApiSpecification.OperationIdentifier, List<Row>> {
         val patternMatchingResolver = resolver.copy(mockMode = true)
 
-        return externalisedJSONExamples.filter { (operationId, rows) ->
+        val examplesWithMatchingIdentifiers = externalisedJSONExamples.filter { (operationId, _) ->
             operationId.requestMethod.equals(method, ignoreCase = true)
                     && operationId.responseStatus == status
                     && httpRequestPattern.matchesPath(operationId.requestPath, patternMatchingResolver).let {
@@ -814,7 +860,24 @@ data class Scenario(
                     && matchesRequestContentType(operationId)
                     && matchesResponseContentType(operationId)
         }
+
+        return examplesWithMatchingIdentifiers.mapValues { (_, rows) -> rows.filter(this::matchesOperationIfWsdl) }
     }
+
+    private fun matchesOperationIfWsdl(row: Row): Boolean {
+        if (!this.isGherkinScenario) return true
+
+        val soapActionPattern = this.httpRequestPattern.headersPattern.getSOAPActionPattern()
+        val hasSoapActionField = row.containsField(BreadCrumb.SOAP_ACTION.value)
+        if (soapActionPattern == null) return !hasSoapActionField
+        if (!hasSoapActionField) return false
+
+        return runCatching {
+            val soapAction = soapActionPattern.parse(row.getField(BreadCrumb.SOAP_ACTION.value), resolver)
+            soapActionPattern.matches(soapAction, resolver).isSuccess()
+        }.getOrDefault(false)
+    }
+
 
     private fun matchesResponseContentType(operationId: OpenApiSpecification.OperationIdentifier): Boolean {
         val exampleResponseContentType = operationId.responseContentType ?: return true
@@ -867,15 +930,8 @@ data class Scenario(
         }
     }
 
-    override fun toScenarioMetadata(): ScenarioMetadata {
-        return ScenarioMetadata(
-            method = this.method,
-            path = this.path,
-            statusCode = this.status,
-            header = this.httpRequestPattern.getHeaderKeys(),
-            query = this.httpRequestPattern.getQueryParamKeys(),
-            exampleName = this.exampleName.orEmpty()
-        )
+    override fun toScenarioMetadata(): ExpressionContextPopulator {
+        return ScenarioFilterVariablePopulator(this)
     }
 
     fun fieldsToBeMadeMandatoryBasedOnAttributeSelection(queryParams: QueryParameters?): Set<String> {

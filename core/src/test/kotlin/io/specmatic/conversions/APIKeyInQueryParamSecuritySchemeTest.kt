@@ -16,7 +16,7 @@ class APIKeyInQueryParamSecuritySchemeTest {
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> QUERY-PARAMS.API-KEY
+        >> QUERY.API-KEY
         Expected api-key named "API-KEY" was missing
         """.trimIndent())
     }

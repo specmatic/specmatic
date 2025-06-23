@@ -382,7 +382,7 @@ paths:
                 return HttpResponse(200, "Product added successfully")
             }
         }).let { results ->
-            assertThat(results.report()).contains(">> RESPONSE.HEADERS.Header1")
+            assertThat(results.report()).contains(">> RESPONSE.HEADER.Header1")
         }
     }
 }

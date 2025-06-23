@@ -68,6 +68,7 @@ class HtmlReport(private val htmlReportInformation: HtmlReportInformation) {
             "specmaticImplementation" to htmlReportInformation.specmaticImplementation,
             "specmaticVersion" to htmlReportInformation.specmaticVersion,
             "generatedOn" to generatedOnTimestamp(),
+            "isGherkinReport" to htmlReportInformation.isGherkinReport,
             "jsonTestData" to dumpTestData(updatedScenarios)
         )
 
@@ -200,7 +201,8 @@ data class HtmlReportInformation(
     val specmaticImplementation: String,
     val specmaticVersion: String,
     val tableConfig: HtmlTableConfig,
-    val reportData: HtmlReportData
+    val reportData: HtmlReportData,
+    val isGherkinReport: Boolean
 )
 
 data class HtmlReportData(

@@ -11,13 +11,22 @@ import java.util.Optional
 fun toJSONObjectPattern(jsonContent: String, typeAlias: String?): JSONObjectPattern =
     toJSONObjectPattern(stringToPatternMap(jsonContent), typeAlias)
 
-fun toJSONObjectPattern(map: Map<String, Pattern>, typeAlias: String? = null): JSONObjectPattern {
+fun toJSONObjectPattern(
+    map: Map<String, Pattern>,
+    typeAlias: String? = null,
+    extensions: Map<String, Any> = emptyMap()
+): JSONObjectPattern {
     val missingKeyStrategy: UnexpectedKeyCheck = when ("...") {
         in map -> IgnoreUnexpectedKeys
         else -> ValidateUnexpectedKeys
     }
 
-    return JSONObjectPattern(map.minus("..."), missingKeyStrategy, typeAlias)
+    return JSONObjectPattern(
+        pattern = map.minus("..."),
+        unexpectedKeyCheck = missingKeyStrategy,
+        typeAlias = typeAlias,
+        extensions = extensions
+    )
 }
 
 sealed interface AdditionalProperties {
@@ -83,7 +92,8 @@ data class JSONObjectPattern(
     override val typeAlias: String? = null,
     val minProperties: Int? = null,
     val maxProperties: Int? = null,
-    val additionalProperties: AdditionalProperties = AdditionalProperties.NoAdditionalProperties
+    val additionalProperties: AdditionalProperties = AdditionalProperties.NoAdditionalProperties,
+    override val extensions: Map<String, Any> = emptyMap()
 ) : Pattern, PossibleJsonObjectPatternContainer {
 
     override fun fixValue(value: Value, resolver: Resolver): Value {
@@ -144,8 +154,12 @@ data class JSONObjectPattern(
             else -> return HasFailure("Can't generate object value from type ${value.displayableType()}")
         }
 
+        val adjustedPattern = patternToConsider.additionalProperties.updatePatternMap(
+            patternMap = patternToConsider.pattern, valueMap = valueToConsider
+        )
+
         return fill(
-            jsonPatternMap = patternToConsider.pattern, jsonValueMap = valueToConsider,
+            jsonPatternMap = adjustedPattern, jsonValueMap = valueToConsider,
             typeAlias = patternToConsider.typeAlias, resolver = resolver,
             removeExtraKeys = removeExtraKeys
         ).realise(
@@ -163,7 +177,7 @@ data class JSONObjectPattern(
         })
     }
 
-    override fun jsonObjectPattern(resolver: Resolver): JSONObjectPattern? {
+    override fun jsonObjectPattern(resolver: Resolver): JSONObjectPattern {
         return this
     }
 
@@ -279,15 +293,13 @@ data class JSONObjectPattern(
     }
 
     override fun generateWithAll(resolver: Resolver): Value {
-        return attempt(breadCrumb = "HEADERS") {
-            JSONObjectValue(pattern.filterNot { it.key == "..." }.mapKeys {
-                attempt(breadCrumb = it.key) {
-                    withoutOptionality(it.key)
-                }
-            }.mapValues {
-                it.value.generateWithAll(resolver)
-            })
-        }
+        return JSONObjectValue(pattern.filterNot { it.key == "..." }.mapKeys {
+            attempt(breadCrumb = it.key) {
+                withoutOptionality(it.key)
+            }
+        }.mapValues {
+            it.value.generateWithAll(resolver)
+        })
     }
 
     override fun listOf(valueList: List<Value>, resolver: Resolver): Value {
@@ -481,6 +493,151 @@ data class JSONObjectPattern(
     fun patternForKey(key: String): Pattern? {
         return pattern[withoutOptionality(key)] ?: pattern[withOptionality(key)]
     }
+
+    fun calculatePath(value: Value, resolver: Resolver): Set<String> {
+        if (value !is JSONObjectValue) return emptySet()
+        
+        return value.jsonObject.flatMap { (key, childValue) ->
+            calculatePathForKey(key, childValue, resolver)
+        }.toSet()
+    }
+    
+    private fun calculatePathForKey(key: String, childValue: Value, resolver: Resolver): List<String> {
+        val childPattern = patternForKey(key) ?: return emptyList()
+        val resolvedPattern = resolvedHop(childPattern, resolver)
+        
+        return when (resolvedPattern) {
+            is AnyPattern -> calculatePathForAnyPattern(key, childValue, resolvedPattern, resolver)
+            is JSONObjectPattern -> calculatePathForJSONObjectPattern(key, childValue, resolvedPattern, resolver)
+            is JSONArrayPattern, is ListPattern -> calculatePathForArrayPattern(key, childValue, resolvedPattern, resolver)
+            else -> emptyList()
+        }
+    }
+    
+
+    private fun calculatePathForAnyPattern(key: String, childValue: Value, anyPattern: AnyPattern, resolver: Resolver): List<String> {
+        val anyPatternPaths = anyPattern.calculatePath(childValue, resolver)
+        val pathPrefix = if (!typeAlias.isNullOrBlank()) {
+            val cleanTypeAlias = withoutPatternDelimiters(typeAlias)
+            "{$cleanTypeAlias}.$key"
+        } else {
+            key
+        }
+        
+        return if (anyPatternPaths.isNotEmpty()) {
+            anyPatternPaths.map { anyPatternInfo ->
+                if (anyPatternInfo.startsWith("{")) {
+                    "$pathPrefix$anyPatternInfo"
+                } else if (anyPatternInfo in setOf("string", "number", "boolean")) {
+                    "$pathPrefix{$anyPatternInfo}"
+                } else {
+                    "$pathPrefix.$anyPatternInfo"
+                }
+            }
+        } else {
+            listOf(pathPrefix)
+        }
+    }
+    
+    private fun calculatePathForJSONObjectPattern(key: String, childValue: Value, objectPattern: JSONObjectPattern, resolver: Resolver): List<String> {
+        val nestedPaths = objectPattern.calculatePath(childValue, resolver)
+        return nestedPaths.map { nestedPath ->
+            if (!typeAlias.isNullOrBlank()) {
+                val cleanTypeAlias = withoutPatternDelimiters(typeAlias)
+
+                if (nestedPath.startsWith("{")) {
+                    "{$cleanTypeAlias}.$key$nestedPath"
+                } else {
+                    "{$cleanTypeAlias}.$key.$nestedPath"
+                }
+            } else {
+                if (nestedPath.startsWith("{")) {
+                    "$key$nestedPath"
+                } else {
+                    "$key.$nestedPath"
+                }
+            }
+        }
+    }
+    
+    private fun calculatePathForArrayPattern(key: String, childValue: Value, arrayPattern: Pattern, resolver: Resolver): List<String> {
+        if (childValue !is JSONArrayValue) return emptyList()
+        
+        return childValue.list.flatMapIndexed { index, arrayItem ->
+            calculatePathForArrayItem(key, index, arrayItem, arrayPattern, resolver)
+        }
+    }
+    
+    private fun calculatePathForArrayItem(key: String, index: Int, arrayItem: Value, arrayPattern: Pattern, resolver: Resolver): List<String> {
+        val elementPattern = when (arrayPattern) {
+            is JSONArrayPattern -> arrayPattern.pattern.firstOrNull()
+            is ListPattern -> arrayPattern.pattern
+            else -> null
+        } ?: return emptyList()
+        
+        val resolvedElementPattern = resolvedHop(elementPattern, resolver)
+        
+        return when (resolvedElementPattern) {
+            is AnyPattern -> calculatePathForArrayAnyPattern(key, index, arrayItem, resolvedElementPattern, resolver)
+            is JSONObjectPattern -> calculatePathForArrayJSONObjectPattern(key, index, arrayItem, resolvedElementPattern, resolver)
+            else -> emptyList()
+        }
+    }
+    
+    private fun calculatePathForArrayAnyPattern(key: String, index: Int, arrayItem: Value, anyPattern: AnyPattern, resolver: Resolver): List<String> {
+        val anyPatternPaths = anyPattern.calculatePath(arrayItem, resolver)
+        
+        return if (anyPatternPaths.isNotEmpty()) {
+            anyPatternPaths.map { anyPath ->
+                if (!typeAlias.isNullOrBlank()) {
+                    val cleanTypeAlias = withoutPatternDelimiters(typeAlias)
+                    if (anyPath.startsWith("{")) {
+                        "{$cleanTypeAlias}.$key[$index]$anyPath"
+                    } else if (anyPath in setOf("string", "number", "boolean")) {
+                        "{$cleanTypeAlias}.$key[$index]{$anyPath}"
+                    } else {
+                        "{$cleanTypeAlias}.$key[$index].$anyPath"
+                    }
+                } else {
+                    if (anyPath.startsWith("{")) {
+                        "$key[$index]$anyPath"
+                    } else if (anyPath in setOf("string", "number", "boolean")) {
+                        "$key[$index]{$anyPath}"
+                    } else {
+                        "$key[$index].$anyPath"
+                    }
+                }
+            }
+        } else {
+            val pathPrefix = if (!typeAlias.isNullOrBlank()) {
+                val cleanTypeAlias = withoutPatternDelimiters(typeAlias)
+                "{$cleanTypeAlias}.$key[$index]"
+            } else {
+                "$key[$index]"
+            }
+            listOf(pathPrefix)
+        }
+    }
+    
+    private fun calculatePathForArrayJSONObjectPattern(key: String, index: Int, arrayItem: Value, objectPattern: JSONObjectPattern, resolver: Resolver): List<String> {
+        val nestedPaths = objectPattern.calculatePath(arrayItem, resolver)
+        return nestedPaths.map { nestedPath ->
+            if (!typeAlias.isNullOrBlank()) {
+                val cleanTypeAlias = withoutPatternDelimiters(typeAlias)
+                if (nestedPath.startsWith("{")) {
+                    "{$cleanTypeAlias}.$key[$index]$nestedPath"
+                } else {
+                    "{$cleanTypeAlias}.$key[$index].$nestedPath"
+                }
+            } else {
+                if (nestedPath.startsWith("{")) {
+                    "$key[$index]$nestedPath"
+                } else {
+                    "$key[$index].$nestedPath"
+                }
+            }
+        }
+    }
 }
 
 fun generate(jsonPatternMap: Map<String, Pattern>, resolver: Resolver, jsonPattern: JSONObjectPattern): Map<String, Value> {
@@ -492,7 +649,6 @@ fun generate(jsonPatternMap: Map<String, Pattern>, resolver: Resolver, jsonPatte
         .mapKeys { entry -> withoutOptionality(entry.key) }
         .mapValues { (key, pattern) ->
             attempt(breadCrumb = key) {
-                // Handle cycle (represented by null value) by marking this property as removable
                 val canBeOmitted = optionalProps.contains(key)
 
                 val value = Optional.ofNullable(

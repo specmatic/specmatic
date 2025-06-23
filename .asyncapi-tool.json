@@ -4,7 +4,7 @@
   "links": {
     "websiteUrl": "https://specmatic.io",
     "docsUrl": "https://specmatic.io/documentation/",
-    "repoUrl": "https://github.com/znsio/specmatic"
+    "repoUrl": "https://github.com/specmatic/specmatic"
   },
   "filters": {
     "language": "kotlin",

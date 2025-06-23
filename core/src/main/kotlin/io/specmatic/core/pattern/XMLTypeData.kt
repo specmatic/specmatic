@@ -5,6 +5,13 @@ import io.specmatic.core.value.XMLNode
 import io.specmatic.core.wsdl.parser.message.*
 
 data class XMLTypeData(val name: String = "", val realName: String, val attributes: Map<String, Pattern> = emptyMap(), val nodes: List<Pattern> = emptyList()) {
+    fun hasType(): Boolean = attributes.containsKey(TYPE_ATTRIBUTE_NAME)
+    fun hasBeenDereferenced(): Boolean = hasType() && nodes.isNotEmpty()
+
+    fun isConcrete(): Boolean {
+        return !hasType() || hasBeenDereferenced()
+    }
+
     fun getAttributeValue(name: String): String? =
         (attributes[name] as ExactValuePattern?)?.pattern?.toStringLiteral()
 

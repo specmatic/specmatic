@@ -382,7 +382,7 @@ class StubSubstitutionTest {
             val response = stub.client.execute(exampleRequest)
 
             assertThat(response.status).isEqualTo(400)
-            assertThat(response.body.toStringLiteral()).contains("RESPONSE.HEADERS.X-Id")
+            assertThat(response.body.toStringLiteral()).contains("RESPONSE.HEADER.X-Id")
         }
     }
 

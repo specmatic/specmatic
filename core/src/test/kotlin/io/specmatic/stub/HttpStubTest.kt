@@ -746,7 +746,7 @@ components:
             }
         }
 
-        assertThat(output).contains(">> REQUEST.PATH.userId")
+        assertThat(output).contains(">> REQUEST.PARAMETERS.PATH.userId")
     }
 
     @Test

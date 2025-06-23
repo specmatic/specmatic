@@ -1,14 +1,16 @@
 package io.specmatic.conversions
 
-import io.specmatic.core.HttpRequest
-import io.specmatic.core.Resolver
-import io.specmatic.core.Result
+import io.specmatic.core.*
+import io.specmatic.core.Dictionary
 import io.specmatic.core.Result.*
+import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Row
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import java.util.*
 
 class BasicAuthSecuritySchemeTest {
@@ -112,5 +114,31 @@ class BasicAuthSecuritySchemeTest {
         val result = basicAuthSecurityScheme.matches(httpRequest, resolver)
 
         assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `should use the value from dictionary if exists`() {
+        val httpRequest = HttpRequest(headers = emptyMap())
+        val dictionary = "PARAMETERS: { HEADER: { $AUTHORIZATION: Basic dXNlcjpwYXNzd29yZA== } }".let(Dictionary::fromYaml)
+        val resolver = Resolver(dictionary = dictionary).updateLookupPath(BreadCrumb.PARAMETERS.value)
+        val result = basicAuthSecurityScheme.addTo(httpRequest, resolver)
+
+        assertThat(result.headers[AUTHORIZATION]).isEqualTo("Basic dXNlcjpwYXNzd29yZA==")
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["Basic 123", "dXNlcjpwYXNzd29yZA=="])
+    fun `should complain if the dictionary value is invalid or not prefixed with basic`(invalidValue: String) {
+        val httpRequest = HttpRequest(headers = emptyMap())
+        val dictionary = "PARAMETERS: { HEADER: { $AUTHORIZATION: $invalidValue } }".let(Dictionary::fromYaml)
+        val resolver = Resolver(dictionary = dictionary).updateLookupPath(BreadCrumb.PARAMETERS.value)
+        val exception = org.junit.jupiter.api.assertThrows<ContractException> {
+            basicAuthSecurityScheme.addTo(httpRequest, resolver)
+        }
+
+        assertThat(exception.report()).contains(">> HEADER.Authorization").satisfiesAnyOf(
+            { assertThat(it).contains("Authorization header must be prefixed with \"Basic\"") },
+            { assertThat(it).contains("Base64-encoded credentials in Authorization header is not in the form username:password")}
+        )
     }
 }

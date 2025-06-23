@@ -48,14 +48,18 @@ class CoverageReportTextRenderer: ReportRenderer<OpenAPICoverageConsoleReport> {
         val maxExercisedLength = "#exercised".length
         val maxRemarkLength = report.coverageRows.maxOf { it.remarks.toString().length }
 
-        return listOf(
-            ReportColumn("coverage", maxCoveragePercentageLength),
-            ReportColumn("path", maxPathLength),
-            ReportColumn("method", maxMethodLength),
-            ReportColumn("response", maxStatusLength),
-            ReportColumn("#exercised", maxExercisedLength),
-            ReportColumn("result", maxRemarkLength)
-        )
+        return buildList {
+            add(ReportColumn("coverage", maxCoveragePercentageLength))
+            add(ReportColumn("path", maxPathLength))
+            if (report.isGherkinReport) {
+                add(ReportColumn("soapAction", maxMethodLength))
+            } else {
+                add(ReportColumn("method", maxMethodLength))
+                add(ReportColumn("response", maxStatusLength))
+            }
+            add(ReportColumn("#exercised", maxExercisedLength))
+            add(ReportColumn("result", maxRemarkLength))
+        }
     }
 
     private fun makeFooter(report: OpenAPICoverageConsoleReport): String {

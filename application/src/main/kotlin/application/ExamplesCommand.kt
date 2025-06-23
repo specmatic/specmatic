@@ -1,5 +1,6 @@
 package application
 
+import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
 import io.specmatic.core.examples.module.*
 import io.specmatic.core.examples.server.ScenarioFilter
@@ -15,7 +16,6 @@ import picocli.CommandLine.*
 import java.io.File
 import java.util.concurrent.Callable
 import java.util.concurrent.atomic.AtomicInteger
-import kotlin.system.exitProcess
 
 private const val SUCCESS_EXIT_CODE = 0
 private const val FAILURE_EXIT_CODE = 1
@@ -42,21 +42,15 @@ class ExamplesCommand : Callable<Int> {
         @Option(
             names= ["--filter"],
             description = [
-                """
-Filter tests matching the specified filtering criteria
+                """Filter tests matching the specified filtering criteria
 
 You can filter tests based on the following keys:
 - `METHOD`: HTTP methods (e.g., GET, POST)
 - `PATH`: Request paths (e.g., /users, /product)
 - `STATUS`: HTTP response status codes (e.g., 200, 400)
-- `HEADERS`: Request headers (e.g., Accept, X-Request-ID)
-- `QUERY`: Query parameters (e.g., status, productId)
-- `EXAMPLE_NAME`: Example name (e.g., create-product, active-status)
 
-To specify multiple values for the same filter, separate them with commas. 
-For example, to filter by HTTP methods: 
---filter="METHOD=GET,POST"
-           """
+You can find all available filters and their usage at:
+https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--operators"""
             ],
             required = false
         )
@@ -121,16 +115,18 @@ For example, to filter by HTTP methods:
         override fun call(): Int {
             configureLogger(this.verbose)
 
-            if (contractFile != null && exampleFile != null) return validateExampleFile(contractFile!!, exampleFile)
+            if(contractFile != null) {
+                OpenApiSpecification.checkSpecValidity(contractFile!!.canonicalPath)
 
-            if (contractFile != null && examplesDir != null) {
-                val (exitCode, validationResults) = validateExamplesDir(contractFile!!, examplesDir)
+                if(exampleFile != null) return validateExampleFile(contractFile!!, exampleFile)
+                if(examplesDir != null) {
+                    val (exitCode, validationResults) = validateExamplesDir(contractFile!!, examplesDir)
 
-                printValidationResult(validationResults.exampleValidationResults, "Example directory")
-                return exitCode
+                    printValidationResult(validationResults.exampleValidationResults, "Example directory")
+                    return if (exitCode == FAILURE_EXIT_CODE) FAILURE_EXIT_CODE else validationResults.exitCode
+                }
+                return validateImplicitExamplesFrom(contractFile!!)
             }
-
-            if (contractFile != null) return validateImplicitExamplesFrom(contractFile!!)
 
             if (specsDir != null && examplesBaseDir != null) {
                 logger.log("- Validating associated examples in the directory: ${examplesBaseDir.path}")
@@ -198,7 +194,9 @@ For example, to filter by HTTP methods:
 
         private fun validateAllExamplesAssociatedToEachSpecIn(specsDir: File, examplesBaseDir: File): List<ValidationResults> {
             val ordinal = AtomicInteger(1)
-            val allSpecFiles = specsDir.walk().filter(File::isFile).filter { isOpenAPI(it.canonicalPath) }
+            val allSpecFiles = specsDir.walk().filter(File::isFile).filter { isOpenAPI(it.canonicalPath) }.onEach {
+                OpenApiSpecification.checkSpecValidity(it.canonicalPath)
+            }
 
             val validationResults = allSpecFiles.map { specFile ->
                 val relativeSpecPath = specsDir.toPath().relativize(specFile.toPath()).toString()
@@ -243,7 +241,7 @@ For example, to filter by HTTP methods:
                 else {
                     val (exitCode, validationResults)
                             = validateExamplesDir(feature, ExampleModule().defaultExternalExampleDirFrom(contractFile))
-                    if(exitCode == 1) exitProcess(exitCode)
+                    if(exitCode == 1) return exitCode
                     validationResults
                 }
 

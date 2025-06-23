@@ -12,7 +12,6 @@ import io.ktor.http.content.*
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_PRETTY_PRINT
 import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
 import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
-import io.specmatic.stub.stateful.ACCEPTED_STATUS_CODE
 import org.apache.http.client.utils.URLEncodedUtils
 import org.apache.http.message.BasicNameValuePair
 import java.io.File
@@ -82,7 +81,7 @@ data class HttpRequest(
     }
 
     fun isRequestExpectingAcceptedResponse(): Boolean {
-        return headers[SPECMATIC_RESPONSE_CODE_HEADER] == ACCEPTED_STATUS_CODE.toString()
+        return headers[SPECMATIC_RESPONSE_CODE_HEADER] == HttpStatusCode.Accepted.value.toString()
     }
 
     fun updateQueryParams(otherQueryParams: Map<String, String>): HttpRequest =
@@ -410,7 +409,13 @@ data class HttpRequest(
     }
 
     fun hasHeader(name: String): Boolean {
-        return headers.containsKey(name)
+        return headers.keys.any { it.equals(name, ignoreCase = true) }
+    }
+
+    fun getHeader(key: String): String? {
+        return headers.filter { it.key.equals(key, ignoreCase = true) }
+            .values
+            .firstOrNull()
     }
 
     fun hasQueryParam(name: String): Boolean {
@@ -425,6 +430,19 @@ data class HttpRequest(
 
         pathScore + headerScore + queryScore + bodyScore
     }
+
+    val specificity: Int by lazy {
+        pathSpecificity() + headerSpecificity() + queryParamsSpecificity() + bodySpecificity()
+    }
+
+    internal fun bodySpecificity(): Int = body.specificity()
+
+    internal fun queryParamsSpecificity(): Int = queryParams.paramPairs.count { !isPatternToken(it.second) }
+
+    internal fun headerSpecificity(): Int = headers.values.count { !isPatternToken(it)}
+
+    internal fun pathSpecificity(): Int = (if (path == "/") "" else path)
+        ?.split(URL_PATH_DELIMITER)?.count { !StringValue(it).isPatternToken() } ?: 0
 }
 
 private fun setIfNotEmpty(dest: MutableMap<String, Value>, key: String, data: Map<String, Any>) {

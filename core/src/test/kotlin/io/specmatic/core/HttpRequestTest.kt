@@ -192,35 +192,6 @@ internal class HttpRequestTest {
         }
     }
 
-    companion object {
-        @JvmStatic
-        fun urlFragments(): Stream<Arguments> =
-            listOf(
-                Arguments.of("http://localhost/", "/test"),
-                Arguments.of("http://localhost", "test"),
-                Arguments.of("http://localhost/", "test"),
-                Arguments.of("http://localhost", "/test"),
-                Arguments.of("", "http://localhost/test"),
-                Arguments.of("http://localhost/test", ""),
-                Arguments.of(null, "http://localhost/test"),
-            ).stream()
-
-        @JvmStatic
-        fun urlPathToExpectedPathGenerality(): List<Pair<String?, Int>> =
-            listOf(
-                Pair(null, 0),
-                Pair("", 0),
-                Pair("/", 0),
-                Pair("/persons", 0),
-                Pair("/persons/1", 0),
-                Pair("/(string)", 1),
-                Pair("/persons/(string)", 1),
-                Pair("/persons/(string)/1", 1),
-                Pair("/persons/(string)/1/(string)", 2),
-                Pair("/persons/group/(string)/1/(string)", 2),
-            )
-    }
-
     @ParameterizedTest
     @MethodSource("urlFragments")
     fun `it should handle an extra slash between base and path gracefully`(baseUrl: String?, path: String) {
@@ -412,8 +383,192 @@ internal class HttpRequestTest {
 
     @ParameterizedTest
     @MethodSource("urlPathToExpectedPathGenerality")
-    fun `should include path params to calculate generality`(pathToExpectedGenerality: Pair<String?, Int>) {
-        val request = HttpRequest(path = pathToExpectedGenerality.first)
-        assertThat(request.generality).isEqualTo(pathToExpectedGenerality.second)
+    fun `should include path params to calculate generality`(path: String?, expectedGenerality: Int) {
+        val request = HttpRequest(path = path)
+        assertThat(request.generality).isEqualTo(expectedGenerality)
+    }
+
+    @ParameterizedTest
+    @MethodSource("bodyToExpectedSpecificity")
+    fun `should calculate specificity score based on the body value`(body: Value, expectedSpecificity: Int) {
+        val request = HttpRequest(body = body)
+        assertThat(request.bodySpecificity()).isEqualTo(expectedSpecificity)
+    }
+
+    @ParameterizedTest
+    @MethodSource("urlPathToExpectedPathSpecificity")
+    fun `should include path params to calculate specificity`(path: String?, expectedSpecificity: Int) {
+        val request = HttpRequest(path = path)
+        assertThat(request.pathSpecificity()).isEqualTo(expectedSpecificity)
+    }
+
+    @ParameterizedTest
+    @MethodSource("queryParamsToExpectedSpecificity")
+    fun `should calculate specificity based on query params`(queryParams: Map<String, String>, expectedSpecificity: Int) {
+        val request = HttpRequest(queryParametersMap = queryParams)
+        assertThat(request.queryParamsSpecificity()).isEqualTo(expectedSpecificity)
+    }
+
+    @ParameterizedTest
+    @MethodSource("headersToExpectedSpecificity")
+    fun `should calculate specificity based on headers`(headers: Map<String, String>, expectedSpecificity: Int) {
+        val request = HttpRequest(headers = headers)
+        assertThat(request.headerSpecificity()).isEqualTo(expectedSpecificity)
+    }
+
+    @ParameterizedTest
+    @MethodSource("httpRequestToExpectedCombinedSpecificity")
+    fun `should calculate combined specificity of HttpRequest`(
+        path: String?, 
+        headers: Map<String, String>, 
+        queryParams: Map<String, String>, 
+        body: Value, 
+        expectedSpecificity: Int
+    ) {
+        val request = HttpRequest(
+            path = path,
+            headers = headers,
+            queryParametersMap = queryParams,
+            body = body
+        )
+        assertThat(request.specificity).isEqualTo(expectedSpecificity)
+    }
+
+
+    companion object {
+        @JvmStatic
+        fun urlFragments(): Stream<Arguments> =
+            listOf(
+                Arguments.of("http://localhost/", "/test"),
+                Arguments.of("http://localhost", "test"),
+                Arguments.of("http://localhost/", "test"),
+                Arguments.of("http://localhost", "/test"),
+                Arguments.of("", "http://localhost/test"),
+                Arguments.of("http://localhost/test", ""),
+                Arguments.of(null, "http://localhost/test"),
+            ).stream()
+
+        @JvmStatic
+        fun urlPathToExpectedPathGenerality(): Stream<Arguments> = Stream.of(
+            Arguments.of(null, 0),
+            Arguments.of("", 0),
+            Arguments.of("/", 0),
+            Arguments.of("/persons", 0),
+            Arguments.of("/(string)", 1),
+            Arguments.of("/persons/1", 0),
+            Arguments.of("/persons/(string)", 1),
+            Arguments.of("/persons/group/1", 0),
+            Arguments.of("/persons/(string)/1", 1),
+            Arguments.of("/persons/(string)/1/(string)", 2),
+            Arguments.of("/persons/group/(string)/1/(string)", 2),
+        )
+
+        @JvmStatic
+        fun urlPathToExpectedPathSpecificity(): Stream<Arguments> = Stream.of(
+            Arguments.of(null, 0),
+            Arguments.of("", 1),
+            Arguments.of("/", 1),
+            Arguments.of("/persons", 2),
+            Arguments.of("/(string)", 1),
+            Arguments.of("/persons/1", 3),
+            Arguments.of("/persons/(string)", 2),
+            Arguments.of("/persons/group/1", 4),
+            Arguments.of("/persons/(string)/1", 3),
+            Arguments.of("/persons/(string)/1/(string)", 3),
+            Arguments.of("/persons/group/(string)/1/(string)", 4),
+        )
+
+        @JvmStatic
+        fun queryParamsToExpectedSpecificity(): Stream<Arguments> = Stream.of(
+            Arguments.of(mapOf("param1" to "value1"), 1),
+            Arguments.of(mapOf("param1" to "(string)"), 0),
+            Arguments.of(mapOf("param2" to "123"), 1),
+            Arguments.of(mapOf("param2" to "(number)"), 0),
+            Arguments.of(mapOf("param1" to "value1", "param2" to "value2"), 2),
+            Arguments.of(mapOf("param1" to "(string)", "param2" to "value2"), 1),
+            Arguments.of(mapOf("param1" to "value1", "param2" to "(string)"), 1),
+            Arguments.of(mapOf("param1" to "(string)", "param2" to "(number)"), 0)
+        )
+
+        @JvmStatic
+        fun headersToExpectedSpecificity(): Stream<Arguments> = Stream.of(
+            Arguments.of(mapOf("Content-Type" to "application/json"), 1),
+            Arguments.of(mapOf("Content-Type" to "(string)"), 0),
+            Arguments.of(mapOf("Authorization" to "Bearer token123"), 1),
+            Arguments.of(mapOf("Content-Type" to "application/json", "Accept" to "application/json"), 2),
+            Arguments.of(mapOf("Content-Type" to "(string)", "Accept" to "application/json"), 1),
+            Arguments.of(mapOf("Content-Type" to "application/json", "Accept" to "(string)"), 1),
+            Arguments.of(mapOf("Content-Type" to "(string)", "Accept" to "(string)"), 0)
+        )
+
+        @JvmStatic
+        fun bodyToExpectedSpecificity(): Stream<Arguments> = Stream.of(
+            Arguments.of(parsedJSONObject("""{"id": "10", "count": "10"}"""), 2),
+            Arguments.of(parsedJSONObject("""{"id": "(string)", "count": "10"}"""), 1),
+            Arguments.of(parsedJSONObject("""{"id": "10", "count": "(string)"}"""), 1),
+            Arguments.of(parsedJSONObject("""{"id": "(string)", "count": "(string)"}"""), 0),
+
+            Arguments.of(StringValue("regular string"), 1),
+            Arguments.of(StringValue("(string)"), 0),
+
+            Arguments.of(NumberValue(42), 1),
+            Arguments.of(BooleanValue(true), 1),
+            Arguments.of(BinaryValue("testData".toByteArray()), 1),
+            Arguments.of(NullValue, 1),
+            Arguments.of(JSONObjectValue(emptyMap()), 0),
+            Arguments.of(JSONArrayValue(emptyList()), 0),
+            Arguments.of(NoBodyValue, 0),
+
+            Arguments.of(parsedJSONArray("""["10", "20"]"""), 2),
+            Arguments.of(parsedJSONArray("""["(string)", "20"]"""), 1),
+            Arguments.of(parsedJSONArray("""["10", "(string)"]"""), 1),
+            Arguments.of(parsedJSONArray("""["(string)", "(string)"]"""), 0),
+
+            Arguments.of(parsedJSONObject("""{"data": {"id": "10", "count": "10"}}"""), 2),
+            Arguments.of(parsedJSONObject("""{"data": ["10", "20"]}"""), 2)
+        )
+
+        @JvmStatic
+        fun httpRequestToExpectedCombinedSpecificity(): Stream<Arguments> = Stream.of(
+            Arguments.of(
+                "/persons/123", 
+                mapOf("Content-Type" to "application/json"), 
+                mapOf("param1" to "value1"), 
+                StringValue("test"), 
+                6
+            ),
+
+            Arguments.of(
+                "/(string)", 
+                mapOf("Content-Type" to "(string)"), 
+                mapOf("param1" to "(string)"), 
+                StringValue("(string)"), 
+                1
+            ),
+
+            Arguments.of(
+                "/persons/(string)", 
+                mapOf("Content-Type" to "application/json", "Accept" to "(string)"), 
+                mapOf("param1" to "value1", "param2" to "(string)"), 
+                parsedJSONObject("""{"id": "10", "count": "(string)"}"""), 
+                5
+            ),
+
+            Arguments.of(
+                null, 
+                emptyMap<String, String>(), 
+                emptyMap<String, String>(), 
+                EmptyString, 
+                1
+            ),
+
+            Arguments.of(
+                "/", 
+                mapOf("Content-Type" to "application/json"), 
+                emptyMap<String, String>(), 
+                parsedJSONObject("""{"data": {"id": "10", "count": "10"}}"""), 
+                4
+            )
+        )
     }
 }

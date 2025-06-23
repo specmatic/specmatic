@@ -1,0 +1,32 @@
+{
+  "http-request": {
+    "path": "/creators/123/pets/456",
+    "method": "PATCH",
+    "query": {
+      "creatorId": "123",
+      "petId": "456"
+    },
+    "headers": {
+      "CREATOR-ID": "123",
+      "PET-ID": "456",
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "creatorId": 123,
+      "petId": 456
+    }
+  },
+  "http-response": {
+    "status": 201,
+    "body": {
+      "id": "$eq(REQUEST.PARAMETERS.PATH.creatorId)",
+      "traceId": "(string)",
+      "creatorId": "$eq(REQUEST.PARAMETERS.HEADER.CREATOR-ID)",
+      "petId": "$eq(REQUEST.PARAMETERS.QUERY.petId)"
+    },
+    "status-text": "Created",
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

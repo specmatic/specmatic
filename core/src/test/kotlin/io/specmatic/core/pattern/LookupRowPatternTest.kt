@@ -48,7 +48,7 @@ internal class LookupRowPatternTest {
 
     @Test
     fun `should be encompassed by wider non lookup type`() {
-        val anyType = AnyPattern(listOf(StringPattern(), NumberPattern()))
+        val anyType = AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())
         val lookupRowType = LookupRowPattern(StringPattern(), "name")
         assertThat(anyType.encompasses(lookupRowType, Resolver(), Resolver())).isInstanceOf(Result.Success::class.java)
     }

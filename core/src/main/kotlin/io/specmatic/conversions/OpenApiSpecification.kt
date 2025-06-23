@@ -60,6 +60,13 @@ internal fun missingResponseExampleErrorMessageForTest(exampleName: String): Str
 
 private const val SPECMATIC_TEST_WITH_NO_REQ_EX = "SPECMATIC-TEST-WITH-NO-REQ-EX"
 
+data class OperationMetadata(
+    val tags: List<String> = emptyList<String>(),
+    val summary: String = "",
+    val description: String = "",
+    val operationId: String = ""
+)
+
 class OpenApiSpecification(
     private val openApiFilePath: String,
     private val parsedOpenApi: OpenAPI,
@@ -108,13 +115,36 @@ class OpenApiSpecification(
 
         fun getImplicitOverlayContent(openApiFilePath: String): String {
             return File(openApiFilePath).let { openApiFile ->
-                if(!openApiFile.isFile)
+                if (!openApiFile.isFile) {
                     return@let ""
+                }
 
                 val overlayFile = openApiFile.canonicalFile.parentFile.resolve(openApiFile.nameWithoutExtension + "_overlay.yaml")
                 if(overlayFile.isFile) return@let overlayFile.readText()
 
                 return@let ""
+            }
+        }
+
+        fun checkSpecValidity(openApiFilePath: String) {
+            val parseResult: SwaggerParseResult =
+                OpenAPIV3Parser().readContents(
+                    checkExists(File(openApiFilePath)).readText(),
+                    null,
+                    resolveExternalReferences(),
+                    openApiFilePath,
+                )
+            if (parseResult.openAPI == null) {
+                throw ContractException("Could not parse contract $openApiFilePath, please validate the syntax using https://editor.swagger.io")
+            }
+            if (parseResult.messages?.isNotEmpty() == true) {
+                throw ContractException(
+                    "The OpenAPI file $openApiFilePath was read successfully but with some issues: ${
+                        parseResult.messages.joinToString(
+                            "\n",
+                        )
+                    }",
+                )
             }
         }
 
@@ -461,6 +491,13 @@ class OpenApiSpecification(
 
                         val rowsToBeUsed: List<Row> = specmaticExampleRows
 
+                        val operationMetadata = OperationMetadata(
+                            tags = operation.tags.orEmpty(),
+                            summary = operation.summary.orEmpty(),
+                            description = operation.description.orEmpty(),
+                            operationId = operation.operationId.orEmpty()
+                        )
+
                         ScenarioInfo(
                             scenarioName = scenarioName,
                             patterns = patterns.toMap(),
@@ -472,7 +509,8 @@ class OpenApiSpecification(
                             sourceRepository = sourceRepository,
                             sourceRepositoryBranch = sourceRepositoryBranch,
                             specification = specificationPath,
-                            serviceType = SERVICE_TYPE_HTTP
+                            serviceType = SERVICE_TYPE_HTTP,
+                            operationMetadata = operationMetadata
                         )
                     }
 
@@ -1426,9 +1464,22 @@ class OpenApiSpecification(
 
                         val schemaProperties = (deepListOfAllOfs + schemasFromDiscriminator).map { schemaToProcess ->
                             val requiredFields = topLevelRequired.plus(schemaToProcess.required.orEmpty())
-                            toSchemaProperties(schemaToProcess, requiredFields.distinct(), patternName, typeStack, discriminator)
-                        }.fold(emptyMap<String, Pattern>()) { propertiesAcc, propertiesEntry ->
-                            combine(propertiesEntry, propertiesAcc)
+                            SchemaProperty(
+                                extensions = schemaToProcess.extensions.orEmpty(),
+                                properties = toSchemaProperties(
+                                    schemaToProcess,
+                                    requiredFields.distinct(),
+                                    patternName,
+                                    typeStack,
+                                    discriminator
+                                )
+                            )
+                        }.fold(SchemaProperty(extensions = emptyMap(), properties = emptyMap())) { propertiesAcc, propertiesEntry ->
+                            val (extensions, properties) = propertiesEntry
+                            propertiesAcc.copy(
+                                extensions = propertiesAcc.extensions.plus(extensions),
+                                properties = combine(properties, propertiesAcc.properties)
+                            )
                         }
 
                         schemaProperties
@@ -1446,32 +1497,48 @@ class OpenApiSpecification(
                                 "" to it
                             }
                             val requiredFields = schemaToProcess.required.orEmpty()
-                            componentName to toSchemaProperties(
+                            componentName to SchemaProperty(schemaToProcess.extensions.orEmpty(), toSchemaProperties(
                                 schemaToProcess,
                                 requiredFields,
                                 componentName,
                                 typeStack
-                            )
-                        }.flatMap { (componentName, properties) ->
+                            ))
+                        }.flatMap { (componentName, schemaProperty) ->
                             schemaProperties.map {
-                                componentName to combine(it, properties)
+                                componentName to SchemaProperty(
+                                    extensions = it.extensions.plus(schemaProperty.extensions),
+                                    properties = combine(it.properties, schemaProperty.properties)
+                                )
                             }
                         }
 
                         result
-                    }.flatten().map { (componentName, properties) ->
-                        toJSONObjectPattern(properties, "(${componentName})")
+                    }.flatten().map { (componentName, schemaProperty) ->
+                        toJSONObjectPattern(
+                            schemaProperty.properties,
+                            "(${componentName})",
+                            schemaProperty.extensions
+                        )
                     }
 
                     val pattern = if (oneOfs.size == 1)
                         oneOfs.single()
                     else if (oneOfs.size > 1)
-                        AnyPattern(oneOfs, typeAlias = "(${patternName})")
+                        AnyPattern(
+                            oneOfs,
+                            typeAlias = "(${patternName})",
+                            extensions = emptyMap()
+                        )
                     else if(allDiscriminators.isNotEmpty())
                         AnyPattern(
-                            pattern = schemaProperties.zip(allDiscriminators.schemaNames).map { (properties, schemaName) ->
-                                toJSONObjectPattern(properties, "(${schemaName})")
-                            },
+                            pattern = schemaProperties.zip(allDiscriminators.schemaNames)
+                                .map { (schemaProperty, schemaName) ->
+                                    toJSONObjectPattern(
+                                        schemaProperty.properties,
+                                        "(${schemaName})",
+                                        schemaProperty.extensions
+                                    )
+                                },
                             discriminator = Discriminator.create(
                                 allDiscriminators.key,
                                 allDiscriminators.values.toSet(),
@@ -1479,10 +1546,23 @@ class OpenApiSpecification(
                             ),
                             typeAlias = "(${patternName})"
                         )
-                    else if(schemaProperties.size > 1)
-                        AnyPattern(schemaProperties.map { toJSONObjectPattern(it, "(${patternName})") })
-                    else
-                        toJSONObjectPattern(schemaProperties.single(), "(${patternName})")
+                    else if(schemaProperties.size > 1) {
+                        val pattern = schemaProperties.map {
+                            toJSONObjectPattern(it.properties, "(${patternName})", it.extensions)
+                        }
+                        AnyPattern(
+                            pattern,
+                            extensions = emptyMap()
+                        )
+                    }
+                    else {
+                        val schemaProperty = schemaProperties.single()
+                        toJSONObjectPattern(
+                            schemaProperty.properties,
+                            "(${patternName})",
+                            schemaProperty.extensions
+                        )
+                    }
 
                     cacheComponentPattern(patternName, pattern)
 
@@ -1525,7 +1605,7 @@ class OpenApiSpecification(
                     val schemaFragment = if(patternName.isNotBlank()) " in schema $patternName" else " in the schema"
 
                     if(schema.javaClass.simpleName != "Schema")
-                        throw ContractException("${schemaFragment.capitalizeFirstChar()} is not yet supported, please raise an issue on https://github.com/znsio/specmatic/issues")
+                        throw ContractException("${schemaFragment.capitalizeFirstChar()} is not yet supported, please raise an issue on https://github.com/specmatic/specmatic/issues")
                     else
                         AnyNonNullJSONValue()
                 }
@@ -1800,7 +1880,8 @@ class OpenApiSpecification(
         val jsonObjectPattern = toJSONObjectPattern(schemaProperties, if(patternName.isNotBlank()) "(${patternName})" else null).copy(
             minProperties = minProperties,
             maxProperties = maxProperties,
-            additionalProperties = additionalPropertiesFrom(schema, patternName, typeStack)
+            additionalProperties = additionalPropertiesFrom(schema, patternName, typeStack),
+            extensions = schema.extensions.orEmpty()
         )
         return cacheComponentPattern(patternName, jsonObjectPattern)
     }

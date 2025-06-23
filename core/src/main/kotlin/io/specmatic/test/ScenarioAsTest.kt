@@ -48,7 +48,9 @@ data class ScenarioAsTest(
             specification = specification,
             serviceType = serviceType,
             actualResponseStatus = response?.status ?: 0,
-            scenarioResult = result
+            scenarioResult = result,
+            soapAction = scenario.httpRequestPattern.getSOAPAction().takeIf { scenario.isGherkinScenario },
+            isGherkin = scenario.isGherkinScenario
         )
     }
 
@@ -142,7 +144,7 @@ data class ScenarioAsTest(
             }
 
             val result = validators.asSequence().mapNotNull {
-                it.postValidate(testScenario, request, responseToCheckAndStore)
+                it.postValidate(testScenario, originalScenario, request, responseToCheckAndStore)
             }.firstOrNull() ?: Result.Success()
 
             testScenario.exampleRow?.let { ExampleProcessor.store(it, request, responseToCheckAndStore) }

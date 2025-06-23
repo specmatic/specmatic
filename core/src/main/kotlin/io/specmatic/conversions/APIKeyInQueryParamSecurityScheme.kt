@@ -1,9 +1,6 @@
 package io.specmatic.conversions
 
-import io.specmatic.core.HttpRequest
-import io.specmatic.core.HttpRequestPattern
-import io.specmatic.core.Resolver
-import io.specmatic.core.Result
+import io.specmatic.core.*
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.StringValue
 
@@ -11,7 +8,7 @@ data class APIKeyInQueryParamSecurityScheme(val name: String, private val apiKey
     override fun matches(httpRequest: HttpRequest, resolver: Resolver): Result {
         return if (httpRequest.queryParams.containsKey(name) || resolver.mockMode) Result.Success()
         else Result.Failure(
-            breadCrumb = "QUERY-PARAMS.$name",
+            breadCrumb = BreadCrumb.QUERY.with(name),
             message = resolver.mismatchMessages.expectedKeyWasMissing("API-Key", name)
         )
     }
@@ -21,7 +18,9 @@ data class APIKeyInQueryParamSecurityScheme(val name: String, private val apiKey
     }
 
     override fun addTo(httpRequest: HttpRequest, resolver: Resolver): HttpRequest {
-        return httpRequest.copy(queryParams = httpRequest.queryParams.plus(name to (apiKey ?: resolver.generate("QUERY-PARAMS", name, StringPattern()).toStringLiteral())))
+        val updatedResolver = resolver.updateLookupForParam(BreadCrumb.QUERY.value)
+        val apiKeyValue = apiKey ?: updatedResolver.generate(null, name, StringPattern()).toStringLiteral()
+        return httpRequest.copy(queryParams = httpRequest.queryParams.plus(name to apiKeyValue))
     }
 
     override fun addTo(requestPattern: HttpRequestPattern, row: Row): HttpRequestPattern {

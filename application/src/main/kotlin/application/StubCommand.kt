@@ -3,6 +3,9 @@ package application
 import io.specmatic.core.*
 import io.specmatic.core.Configuration.Companion.DEFAULT_HTTP_STUB_HOST
 import io.specmatic.core.Configuration.Companion.DEFAULT_HTTP_STUB_PORT
+import io.specmatic.core.filters.ExpressionStandardizer
+import io.specmatic.core.filters.HttpStubFilterContext
+import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.log.*
 import io.specmatic.core.utilities.ContractPathData
 import io.specmatic.core.utilities.ContractPathData.Companion.specToBaseUrlMap
@@ -14,6 +17,7 @@ import io.specmatic.core.utilities.exitWithMessage
 import io.specmatic.stub.ContractStub
 import io.specmatic.stub.HttpClientFactory
 import io.specmatic.stub.endPointFromHostAndPort
+import io.specmatic.stub.listener.MockEventListener
 import picocli.CommandLine.*
 import java.io.File
 import java.util.concurrent.Callable
@@ -67,6 +71,24 @@ class StubCommand(
     @Option(names = ["--httpsPassword"], description = ["Key password if any"])
     var keyPassword = "forgotten"
 
+
+    @Option(
+        names= ["--filter"],
+        description = [
+            """Filter tests matching the specified filtering criteria
+
+You can filter tests based on the following keys:
+- `METHOD`: HTTP methods (e.g., GET, POST)
+- `PATH`: Request paths (e.g., /users, /product)
+- `STATUS`: HTTP response status codes (e.g., 200, 400)
+
+You can find all available filters and their usage at:
+https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--operators"""
+        ],
+        required = false
+    )
+    var filter: String = ""
+
     @Option(names = ["--debug"], description = ["Debug logs"])
     var verbose = false
 
@@ -97,6 +119,8 @@ class StubCommand(
     private var contractSources:List<ContractPathData> = emptyList()
 
     var specmaticConfigPath: String? = null
+
+    var listeners : List<MockEventListener> = emptyList()
 
     override fun call() {
         if (delayInMilliseconds > 0) {
@@ -172,18 +196,43 @@ class StubCommand(
     }
 
     private fun configureJSONLogPrinter(): List<LogPrinter> = jsonLog?.let {
-        listOf(JSONFilePrinter(LogDirectory(it, logPrefix, "json", "log")))
+        listOf(JSONFilePrinter(LogDirectory(it, logPrefix, "-json.log")))
     } ?: emptyList()
 
     private fun configureTextLogPrinter(): List<LogPrinter> = textLog?.let {
-        listOf(TextFilePrinter(LogDirectory(it, logPrefix, "", "log")))
+        listOf(TextFilePrinter(LogDirectory(it, logPrefix, ".log")))
     } ?: emptyList()
 
 
     private fun startServer() {
         val workingDirectory = WorkingDirectory()
         if(strictMode) throwExceptionIfDirectoriesAreInvalid(exampleDirs, "example directories")
-        val stubData = stubLoaderEngine.loadStubs(contractSources, exampleDirs, specmaticConfigPath, strictMode)
+        val stubData = stubLoaderEngine.loadStubs(
+            contractPathDataList = contractSources,
+            dataDirs = exampleDirs,
+            specmaticConfigPath = specmaticConfigPath,
+            strictMode = strictMode
+        ).mapNotNull { (feature, scenarioStubs) ->
+            val metadataFilter = ScenarioMetadataFilter.from(filter)
+            val filteredScenarios = ScenarioMetadataFilter.filterUsing(
+                feature.scenarios.asSequence(),
+                metadataFilter
+            ).toList()
+            val stubFilterExpression = ExpressionStandardizer.filterToEvalEx(filter)
+            val filteredStubScenario = scenarioStubs.filter { it ->
+                stubFilterExpression.with("context", HttpStubFilterContext(it)).evaluate().booleanValue
+            }
+            if (filteredScenarios.isNotEmpty()) {
+                val updatedFeature = feature.copy(scenarios = filteredScenarios)
+                updatedFeature to filteredStubScenario
+            } else null
+        }
+
+        if (filter != "" && stubData.isEmpty()) {
+            consoleLog(StringLog("FATAL: No stubs found for the given filter: $filter"))
+            return
+        }
+
         val certInfo = CertInfo(keyStoreFile, keyStoreDir, keyStorePassword, keyStoreAlias, keyPassword)
 
         httpStub = httpStubEngine.runHTTPStub(
@@ -197,7 +246,8 @@ class StubCommand(
             httpClientFactory = httpClientFactory,
             workingDirectory = workingDirectory,
             gracefulRestartTimeoutInMs = gracefulRestartTimeoutInMs,
-            specToBaseUrlMap = contractSources.specToBaseUrlMap()
+            specToBaseUrlMap = contractSources.specToBaseUrlMap(),
+            listeners = listeners
         )
 
         LogTail.storeSnapshot()

@@ -9,7 +9,14 @@ import io.specmatic.core.value.Value
 
 private fun validEnumValues(values: List<Value>, key: String?, typeAlias: String?, example: String?, nullable: Boolean): AnyPattern {
     assertThatAllValuesHaveTheSameType(values, nullable)
-    return AnyPattern(values.map { ExactValuePattern(it) }, key, typeAlias, example)
+    val patterns = values.map { ExactValuePattern(it) }
+    return AnyPattern(
+        patterns,
+        key,
+        typeAlias,
+        example,
+        extensions = patterns.extractCombinedExtensions()
+    )
 }
 
 fun not(boolean: Boolean) = !boolean

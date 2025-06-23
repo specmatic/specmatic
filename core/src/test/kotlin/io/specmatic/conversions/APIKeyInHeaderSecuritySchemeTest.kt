@@ -15,7 +15,7 @@ class APIKeyInHeaderSecuritySchemeTest {
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> HEADERS.API-KEY
+        >> HEADER.API-KEY
         Expected api-key named "API-KEY" was missing
         """.trimIndent())
     }

@@ -5,14 +5,13 @@ import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
 import io.specmatic.core.Scenario
 import io.specmatic.core.filters.HasScenarioMetadata
-import io.specmatic.core.filters.ScenarioMetadata
 
 interface ResponseValidator {
     fun validate(scenario: Scenario, httpResponse: HttpResponse): Result? {
         return null
     }
 
-    fun postValidate(scenario: Scenario, httpRequest: HttpRequest, httpResponse: HttpResponse): Result? {
+    fun postValidate(scenario: Scenario, originalScenario: Scenario, httpRequest: HttpRequest, httpResponse: HttpResponse): Result? {
         return null
     }
 }

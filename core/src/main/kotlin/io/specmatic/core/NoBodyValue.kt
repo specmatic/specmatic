@@ -47,6 +47,8 @@ object NoBodyValue : Value {
         return JSONArrayValue(valueList)
     }
 
+    override fun specificity(): Int = 0
+
     override fun toString(): String = toStringValue().string
 
     override fun toStringValue(): StringValue {

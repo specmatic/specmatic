@@ -81,7 +81,7 @@ class ResponseMonitorTest {
         assertThat(result.failure.reportString()).isEqualToNormalizingWhitespace("""
         In scenario ""
         API: POST / -> 202
-        >> RESPONSE.HEADERS.Link
+        >> RESPONSE.HEADER.Link
         Expected header named "Link" was missing
         """.trimIndent())
     }

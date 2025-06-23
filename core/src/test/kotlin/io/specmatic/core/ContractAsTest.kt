@@ -87,7 +87,7 @@ class ContractAsTest {
             In scenario "Get balance"
             API: GET /balance -> 200
             
-              >> RESPONSE.HEADERS.length
+              >> RESPONSE.HEADER.length
               
                  ${ContractAndResponseMismatch.mismatchMessage("number", "\"abc\"")}
             """.trimIndent().trimmedLinesString()
