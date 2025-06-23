@@ -491,29 +491,34 @@ private fun parseOrString(pattern: Pattern, sampleValue: String, resolver: Resol
     }
 
 fun Map<String, String>.withoutTransportHeaders(): Map<String, String> =
-    this.filterKeys { key -> key.lowercase() !in HTTP_TRANSPORT_HEADERS.map { it.lowercase() } }
+    this.filterKeys { key -> key.lowercase() !in HTTP_TRANSPORT_HEADERS }
 
-val HTTP_TRANSPORT_HEADERS = listOf(
-    HttpHeaders.Authorization,
-    HttpHeaders.UserAgent,
-    HttpHeaders.Cookie,
-    HttpHeaders.Referrer,
-    HttpHeaders.AcceptLanguage,
-    HttpHeaders.Host,
-    HttpHeaders.IfModifiedSince,
-    HttpHeaders.IfNoneMatch,
-    HttpHeaders.CacheControl,
-    HttpHeaders.ContentLength,
-    HttpHeaders.Range,
-    HttpHeaders.XForwardedFor,
-    HttpHeaders.Date,
-    HttpHeaders.Server,
-    HttpHeaders.Expires,
-    HttpHeaders.LastModified,
-    HttpHeaders.ETag,
-    HttpHeaders.Vary,
-    HttpHeaders.AccessControlAllowCredentials,
-    HttpHeaders.AccessControlMaxAge,
-    HttpHeaders.AccessControlRequestHeaders,
-    HttpHeaders.AccessControlRequestMethod
-).plus(listOfExcludedHeaders().map { headerName -> headerName }).distinct()
+val HTTP_TRANSPORT_HEADERS: Set<String> =
+    listOf(
+        HttpHeaders.Authorization,
+        HttpHeaders.UserAgent,
+        HttpHeaders.Cookie,
+        HttpHeaders.Referrer,
+        HttpHeaders.AcceptLanguage,
+        HttpHeaders.Host,
+        HttpHeaders.IfModifiedSince,
+        HttpHeaders.IfNoneMatch,
+        HttpHeaders.CacheControl,
+        HttpHeaders.ContentLength,
+        HttpHeaders.Range,
+        HttpHeaders.XForwardedFor,
+        HttpHeaders.Date,
+        HttpHeaders.Server,
+        HttpHeaders.Expires,
+        HttpHeaders.LastModified,
+        HttpHeaders.ETag,
+        HttpHeaders.Vary,
+        HttpHeaders.AccessControlAllowCredentials,
+        HttpHeaders.AccessControlMaxAge,
+        HttpHeaders.AccessControlRequestHeaders,
+        HttpHeaders.AccessControlRequestMethod,
+    ).map {
+        it.lowercase()
+    }.plus(listOfExcludedHeaders())
+        .toSet()
+        .minus(HttpHeaders.ContentType.lowercase())
