@@ -176,7 +176,7 @@ data class HttpResponse(
         }
     }
 
-    fun withoutDynamicHeaders(): HttpResponse = copy(headers = headers.withoutDynamicHeaders())
+    fun withoutServerControlledHeaders(): HttpResponse = copy(headers = headers.withoutServerControlledHeaders())
 
     fun isNotEmpty(): Boolean {
         val bodyIsEmpty = body == NoBodyValue

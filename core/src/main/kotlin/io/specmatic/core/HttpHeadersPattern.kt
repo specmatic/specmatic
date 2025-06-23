@@ -490,10 +490,10 @@ private fun parseOrString(pattern: Pattern, sampleValue: String, resolver: Resol
         StringValue(sampleValue)
     }
 
-fun Map<String, String>.withoutDynamicHeaders(): Map<String, String> =
-    this.filterKeys { key -> key.lowercase() !in DYNAMIC_HTTP_HEADERS.map { it.lowercase() } }
+fun Map<String, String>.withoutServerControlledHeaders(): Map<String, String> =
+    this.filterKeys { key -> key.lowercase() !in SERVER_CONTROLLED_HEADERS.map { it.lowercase() } }
 
-val DYNAMIC_HTTP_HEADERS = listOf(
+val SERVER_CONTROLLED_HEADERS = listOf(
     HttpHeaders.Authorization,
     HttpHeaders.UserAgent,
     HttpHeaders.Cookie,
@@ -516,4 +516,4 @@ val DYNAMIC_HTTP_HEADERS = listOf(
     HttpHeaders.AccessControlMaxAge,
     HttpHeaders.AccessControlRequestHeaders,
     HttpHeaders.AccessControlRequestMethod
-)
+).plus(listOfExcludedHeaders().map { headerName -> headerName }).distinct()

@@ -187,7 +187,7 @@ internal class HttpRequestTest {
             "POST",
             path = "/",
             headers = mapOf("Authorization" to "Bearer DummyToken")
-        ).withoutDynamicHeaders().headers.let {
+        ).withoutServerControlledHeaders().headers.let {
             assertThat(it).isEmpty()
         }
     }
