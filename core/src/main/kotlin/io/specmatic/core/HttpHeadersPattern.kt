@@ -490,10 +490,10 @@ private fun parseOrString(pattern: Pattern, sampleValue: String, resolver: Resol
         StringValue(sampleValue)
     }
 
-fun Map<String, String>.withoutServerControlledHeaders(): Map<String, String> =
-    this.filterKeys { key -> key.lowercase() !in SERVER_CONTROLLED_HEADERS.map { it.lowercase() } }
+fun Map<String, String>.withoutTransportHeaders(): Map<String, String> =
+    this.filterKeys { key -> key.lowercase() !in HTTP_TRANSPORT_HEADERS.map { it.lowercase() } }
 
-val SERVER_CONTROLLED_HEADERS = listOf(
+val HTTP_TRANSPORT_HEADERS = listOf(
     HttpHeaders.Authorization,
     HttpHeaders.UserAgent,
     HttpHeaders.Cookie,

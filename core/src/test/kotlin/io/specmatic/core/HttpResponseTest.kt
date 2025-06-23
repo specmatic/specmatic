@@ -150,7 +150,7 @@ internal class HttpResponseTest {
 
     @Test
     fun `should exclude dynamic headers`() {
-        HttpResponse.OK.copy(headers = mapOf("Content-Length" to "10").withoutServerControlledHeaders()).let {
+        HttpResponse.OK.copy(headers = mapOf("Content-Length" to "10").withoutTransportHeaders()).let {
             assertThat(it.headers).isEmpty()
         }
     }
