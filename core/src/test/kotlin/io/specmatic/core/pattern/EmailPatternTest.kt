@@ -3,6 +3,7 @@ package io.specmatic.core.pattern
 import io.specmatic.GENERATION
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
+import io.specmatic.core.pattern.*
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpStub
 import io.specmatic.core.value.*
@@ -137,5 +138,69 @@ class EmailPatternTest {
         assertThat(newBased.toList()).allSatisfy {
             assertThat(it.pattern.getValue("email")).isInstanceOf(EmailPattern::class.java)
         }
+    }
+
+    @Test
+    fun `resolveSubstitutions should return value when no substitution needed`() {
+        val pattern = EmailPattern()
+        val resolver = Resolver()
+        val substitution = Substitution(
+            HttpRequest("GET", "/", mapOf(), EmptyString),
+            HttpRequest("GET", "/", mapOf(), EmptyString),
+            HttpPathPattern(emptyList(), ""),
+            HttpHeadersPattern(mapOf()),
+            EmptyStringPattern,
+            resolver,
+            JSONObjectValue(mapOf())
+        )
+        val emailValue = StringValue("test@example.com")
+
+        val result = pattern.resolveSubstitutions(substitution, emailValue, resolver, "email")
+
+        assertThat(result).isInstanceOf(HasValue::class.java)
+        assertThat((result as HasValue).value).isEqualTo(emailValue)
+    }
+
+    @Test
+    fun `resolveSubstitutions should handle variable substitution`() {
+        val pattern = EmailPattern()
+        val originalRequest = HttpRequest("GET", "/", mapOf("email" to "admin@example.com"), EmptyString)
+        val runningRequest = HttpRequest("GET", "/", mapOf("email" to "admin@example.com"), EmptyString)
+        val resolver = Resolver()
+        val substitution = Substitution(
+            runningRequest,
+            originalRequest,
+            HttpPathPattern(emptyList(), ""),
+            HttpHeadersPattern(mapOf()),
+            EmptyStringPattern,
+            resolver,
+            JSONObjectValue(mapOf())
+        )
+        val emailValue = StringValue("admin@example.com")
+
+        val result = pattern.resolveSubstitutions(substitution, emailValue, resolver, "email")
+
+        assertThat(result).isInstanceOf(HasValue::class.java)
+        assertThat((result as HasValue).value).isEqualTo(emailValue)
+    }
+
+    @Test
+    fun `resolveSubstitutions should fail when substituted value doesn't match email pattern`() {
+        val pattern = EmailPattern()
+        val resolver = Resolver()
+        val substitution = Substitution(
+            HttpRequest("GET", "/", mapOf(), EmptyString),
+            HttpRequest("GET", "/", mapOf(), EmptyString),
+            HttpPathPattern(emptyList(), ""),
+            HttpHeadersPattern(mapOf()),
+            EmptyStringPattern,
+            resolver,
+            JSONObjectValue(mapOf())
+        )
+        val invalidEmailValue = StringValue("invalid-email")
+
+        val result = pattern.resolveSubstitutions(substitution, invalidEmailValue, resolver, "email")
+
+        assertThat(result).isInstanceOf(HasFailure::class.java)
     }
 }

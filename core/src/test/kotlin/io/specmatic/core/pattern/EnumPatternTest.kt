@@ -1,10 +1,8 @@
 package io.specmatic.core.pattern
 
 import io.specmatic.GENERATION
-import io.specmatic.core.Dictionary
-import io.specmatic.core.Resolver
-import io.specmatic.core.Result
-import io.specmatic.core.UseDefaultExample
+import io.specmatic.core.*
+import io.specmatic.core.pattern.*
 import io.specmatic.core.value.*
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.assertDoesNotThrow
@@ -213,5 +211,72 @@ class EnumPatternTest {
             fixedValue as JSONObjectValue
             assertThat(fixedValue.jsonObject["type"]).isIn(enumValues)
         }
+    }
+
+    @Test
+    fun `resolveSubstitutions should return value when no substitution needed`() {
+        val enumValues = listOf(StringValue("active"), StringValue("inactive"))
+        val pattern = EnumPattern(enumValues)
+        val resolver = Resolver()
+        val substitution = Substitution(
+            HttpRequest("GET", "/", mapOf(), EmptyString),
+            HttpRequest("GET", "/", mapOf(), EmptyString),
+            HttpPathPattern(emptyList(), ""),
+            HttpHeadersPattern(mapOf()),
+            EmptyStringPattern,
+            resolver,
+            JSONObjectValue(mapOf())
+        )
+        val validValue = StringValue("active")
+
+        val result = pattern.resolveSubstitutions(substitution, validValue, resolver, "status")
+
+        assertThat(result).isInstanceOf(HasValue::class.java)
+        assertThat((result as HasValue).value).isEqualTo(validValue)
+    }
+
+    @Test
+    fun `resolveSubstitutions should handle variable substitution`() {
+        val enumValues = listOf(StringValue("active"), StringValue("inactive"))
+        val pattern = EnumPattern(enumValues)
+        val originalRequest = HttpRequest("GET", "/", mapOf("status" to "inactive"), EmptyString)
+        val runningRequest = HttpRequest("GET", "/", mapOf("status" to "inactive"), EmptyString)
+        val resolver = Resolver()
+        val substitution = Substitution(
+            runningRequest,
+            originalRequest,
+            HttpPathPattern(emptyList(), ""),
+            HttpHeadersPattern(mapOf()),
+            EmptyStringPattern,
+            resolver,
+            JSONObjectValue(mapOf())
+        )
+        val enumValue = StringValue("inactive")
+
+        val result = pattern.resolveSubstitutions(substitution, enumValue, resolver, "status")
+
+        assertThat(result).isInstanceOf(HasValue::class.java)
+        assertThat((result as HasValue).value).isEqualTo(enumValue)
+    }
+
+    @Test
+    fun `resolveSubstitutions should fail when substituted value not in enum`() {
+        val enumValues = listOf(StringValue("active"), StringValue("inactive"))
+        val pattern = EnumPattern(enumValues)
+        val resolver = Resolver()
+        val substitution = Substitution(
+            HttpRequest("GET", "/", mapOf(), EmptyString),
+            HttpRequest("GET", "/", mapOf(), EmptyString),
+            HttpPathPattern(emptyList(), ""),
+            HttpHeadersPattern(mapOf()),
+            EmptyStringPattern,
+            resolver,
+            JSONObjectValue(mapOf())
+        )
+        val invalidValue = StringValue("suspended")
+
+        val result = pattern.resolveSubstitutions(substitution, invalidValue, resolver, "status")
+
+        assertThat(result).isInstanceOf(HasFailure::class.java)
     }
 }
