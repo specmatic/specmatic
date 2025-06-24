@@ -1,5 +1,6 @@
 package io.specmatic.core
 
+import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
@@ -226,7 +227,12 @@ class Substitution(
         val strValue = (value as? StringValue)?.nativeValue ?: return value
         if (!isDataLookup(strValue)) return value
 
-        val resolvedValue = runCatching { substituteDataLookupExpression(strValue) }.getOrElse { return value }
+        val resolvedValue =
+            runCatching { substituteDataLookupExpression(strValue) }.getOrElse { e ->
+                logger.debug(e, "Error resolving data lookup expression ${value.string}, using original value")
+                return value
+            }
+
         val patternFromValue = resolver.patternFromTokenBased(StringValue(resolvedValue)) ?: return pattern.parse(resolvedValue, resolver)
 
         return when {
@@ -246,18 +252,6 @@ class Substitution(
         return resolvedValue == "(drop)"
     }
 
-    private fun hasTemplate(string: String): Boolean {
-        return string.startsWith("{{") && string.endsWith("}}")
-    }
-
-    fun substitute(string: String, pattern: Pattern): ReturnValue<Value> {
-        return try {
-            val updatedString = substituteSimpleVariableLookup(string)
-            HasValue(pattern.parse(updatedString, resolver))
-        } catch(e: Throwable) {
-            HasException(e)
-        }
-    }
 }
 
 class MissingDataException(override val message: String) : Throwable(message)
