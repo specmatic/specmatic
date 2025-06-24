@@ -31,6 +31,21 @@ data class JSONObjectValue(val jsonObject: Map<String, Value> = emptyMap()) : Va
         })
     }
 
+    fun patchValuesIfCompatibleFrom(
+        patchSource: JSONObjectValue,
+        nonPatchableKeys: Set<String> = emptySet()
+    ): Map<String, Value> {
+        return this.jsonObject.mapValues { (key, value) ->
+            if (key in nonPatchableKeys) return@mapValues value
+
+            val patchValueFromRequest = patchSource.jsonObject[key] ?: return@mapValues value
+            when (patchValueFromRequest::class.java) {
+                value::class.java -> patchValueFromRequest
+                else -> value
+            }
+        }
+    }
+
     override fun checkIfAllRootLevelKeysAreAttributeSelected(
         attributeSelectedFields: Set<String>,
         resolver: Resolver

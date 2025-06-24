@@ -2,6 +2,8 @@ package io.specmatic.core.value
 
 import io.specmatic.core.Resolver
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
 internal class JSONObjectValueKtTest {
@@ -56,5 +58,88 @@ internal class JSONObjectValueKtTest {
         )
 
         assertThat(result.isSuccess()).isTrue()
+    }
+
+    @Nested
+    inner class PatchValuesIfCompatibleFromTest {
+        @Test
+        fun `should patch values when types are compatible`() {
+            val source = JSONObjectValue(mapOf("key1" to StringValue("newValue1"), "key2" to NumberValue(42)))
+            val target = JSONObjectValue(mapOf("key1" to StringValue("oldValue1"), "key2" to NumberValue(10)))
+            val result = target.patchValuesIfCompatibleFrom(source)
+
+            assertEquals(StringValue("newValue1"), result["key1"])
+            assertEquals(NumberValue(42), result["key2"])
+        }
+
+        @Test
+        fun `should not patch values when types are incompatible`() {
+            val source = JSONObjectValue(mapOf("key1" to NumberValue(42), "key2" to StringValue("newValue2")))
+            val target = JSONObjectValue(mapOf("key1" to StringValue("oldValue1"), "key2" to NumberValue(10)))
+            val result = target.patchValuesIfCompatibleFrom(source)
+
+            assertEquals(StringValue("oldValue1"), result["key1"])
+            assertEquals(NumberValue(10), result["key2"])
+        }
+
+        @Test
+        fun `should not patch values for missing keys in target`() {
+            val source = JSONObjectValue(mapOf("key1" to StringValue("newValue1"), "key3" to NumberValue(42)))
+            val target = JSONObjectValue(mapOf("key1" to StringValue("oldValue1"), "key2" to NumberValue(10)))
+            val result = target.patchValuesIfCompatibleFrom(source)
+
+            assertEquals(StringValue("newValue1"), result["key1"])
+            assertEquals(NumberValue(10), result["key2"])
+            assertFalse(result.containsKey("key3"))
+        }
+
+        @Test
+        fun `should not patch values for non-patchable keys`() {
+            val source = JSONObjectValue(mapOf("key1" to StringValue("newValue1"), "key2" to NumberValue(42)))
+            val target = JSONObjectValue(mapOf("key1" to StringValue("oldValue1"), "key2" to NumberValue(10)))
+            val nonPatchableKeys = setOf("key1")
+            val result = target.patchValuesIfCompatibleFrom(source, nonPatchableKeys)
+
+            assertEquals(StringValue("oldValue1"), result["key1"])
+            assertEquals(NumberValue(42), result["key2"])
+        }
+
+        @Test
+        fun `should not patch values when source is empty`() {
+            val source = JSONObjectValue(emptyMap())
+            val target = JSONObjectValue(mapOf("key1" to StringValue("oldValue1"), "key2" to NumberValue(10)))
+            val result = target.patchValuesIfCompatibleFrom(source)
+
+            assertEquals(StringValue("oldValue1"), result["key1"])
+            assertEquals(NumberValue(10), result["key2"])
+        }
+
+        @Test
+        fun `should return empty map when target is empty`() {
+            val source = JSONObjectValue(mapOf("key1" to StringValue("newValue1"), "key2" to NumberValue(42)))
+            val target = JSONObjectValue(emptyMap())
+            val result = target.patchValuesIfCompatibleFrom(source)
+
+            assertTrue(result.isEmpty())
+        }
+
+        @Test
+        fun `should return empty map when both source and target are empty`() {
+            val source = JSONObjectValue(emptyMap())
+            val target = JSONObjectValue(emptyMap())
+            val result = target.patchValuesIfCompatibleFrom(source)
+
+            assertTrue(result.isEmpty())
+        }
+
+        @Test
+        fun `should patch all values when nonPatchableKeys is empty`() {
+            val source = JSONObjectValue(mapOf("key1" to StringValue("newValue1"), "key2" to NumberValue(42)))
+            val target = JSONObjectValue(mapOf("key1" to StringValue("oldValue1"), "key2" to NumberValue(10)))
+            val result = target.patchValuesIfCompatibleFrom(source)
+
+            assertEquals(StringValue("newValue1"), result["key1"])
+            assertEquals(NumberValue(42), result["key2"])
+        }
     }
 }
