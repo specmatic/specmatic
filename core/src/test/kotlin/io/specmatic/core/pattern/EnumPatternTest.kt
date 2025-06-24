@@ -236,46 +236,69 @@ class EnumPatternTest {
     }
 
     @Test
-    fun `resolveSubstitutions should handle variable substitution`() {
-        val enumValues = listOf(StringValue("active"), StringValue("inactive"))
+    fun `resolveSubstitutions should handle data lookup substitution with valid enum value`() {
+        val enumValues = listOf(StringValue("active"), StringValue("inactive"), StringValue("pending"))
         val pattern = EnumPattern(enumValues)
-        val originalRequest = HttpRequest("GET", "/", mapOf("status" to "inactive"), EmptyString)
-        val runningRequest = HttpRequest("GET", "/", mapOf("status" to "inactive"), EmptyString)
+        val originalRequest = HttpRequest("POST", "/person", body = JSONObjectValue(mapOf("department" to StringValue("(DEPARTMENT:string)"))))
+        val runningRequest = HttpRequest("POST", "/person", body = JSONObjectValue(mapOf("department" to StringValue("engineering"))))
         val resolver = Resolver()
+        val dataLookup = JSONObjectValue(mapOf(
+            "dataLookup" to JSONObjectValue(mapOf(
+                "dept" to JSONObjectValue(mapOf(
+                    "engineering" to JSONObjectValue(mapOf(
+                        "status" to StringValue("active")
+                    )),
+                    "sales" to JSONObjectValue(mapOf(
+                        "status" to StringValue("pending")
+                    ))
+                ))
+            ))
+        ))
         val substitution = Substitution(
             runningRequest,
             originalRequest,
             HttpPathPattern(emptyList(), ""),
             HttpHeadersPattern(mapOf()),
-            EmptyStringPattern,
+            JSONObjectPattern(mapOf("department" to StringPattern())),
             resolver,
-            JSONObjectValue(mapOf())
+            dataLookup
         )
-        val enumValue = StringValue("inactive")
+        val valueExpression = StringValue("$(dataLookup.dept[DEPARTMENT].status)")
 
-        val result = pattern.resolveSubstitutions(substitution, enumValue, resolver, "status")
+        val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, "status")
 
         assertThat(result).isInstanceOf(HasValue::class.java)
-        assertThat((result as HasValue).value).isEqualTo(enumValue)
+        assertThat((result as HasValue).value).isEqualTo(StringValue("active"))
     }
 
     @Test
     fun `resolveSubstitutions should fail when substituted value not in enum`() {
         val enumValues = listOf(StringValue("active"), StringValue("inactive"))
         val pattern = EnumPattern(enumValues)
+        val originalRequest = HttpRequest("POST", "/person", body = JSONObjectValue(mapOf("department" to StringValue("(DEPARTMENT:string)"))))
+        val runningRequest = HttpRequest("POST", "/person", body = JSONObjectValue(mapOf("department" to StringValue("engineering"))))
         val resolver = Resolver()
+        val dataLookup = JSONObjectValue(mapOf(
+            "dataLookup" to JSONObjectValue(mapOf(
+                "dept" to JSONObjectValue(mapOf(
+                    "engineering" to JSONObjectValue(mapOf(
+                        "status" to StringValue("suspended")
+                    ))
+                ))
+            ))
+        ))
         val substitution = Substitution(
-            HttpRequest("GET", "/", mapOf(), EmptyString),
-            HttpRequest("GET", "/", mapOf(), EmptyString),
+            runningRequest,
+            originalRequest,
             HttpPathPattern(emptyList(), ""),
             HttpHeadersPattern(mapOf()),
-            EmptyStringPattern,
+            JSONObjectPattern(mapOf("department" to StringPattern())),
             resolver,
-            JSONObjectValue(mapOf())
+            dataLookup
         )
-        val invalidValue = StringValue("suspended")
+        val valueExpression = StringValue("$(dataLookup.dept[DEPARTMENT].status)")
 
-        val result = pattern.resolveSubstitutions(substitution, invalidValue, resolver, "status")
+        val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, "status")
 
         assertThat(result).isInstanceOf(HasFailure::class.java)
     }

@@ -56,26 +56,39 @@ class AnyNonNullJSONValueTest {
     }
 
     @Test
-    fun `resolveSubstitutions should handle variable substitution for non-null values`() {
+    fun `resolveSubstitutions should handle data lookup substitution for non-null values`() {
         val pattern = AnyNonNullJSONValue()
-        val originalRequest = HttpRequest("GET", "/", mapOf("data" to "test_value"), EmptyString)
-        val runningRequest = HttpRequest("GET", "/", mapOf("data" to "test_value"), EmptyString)
+        val originalRequest = HttpRequest("POST", "/person", body = JSONObjectValue(mapOf("department" to StringValue("(DEPARTMENT:string)"))))
+        val runningRequest = HttpRequest("POST", "/person", body = JSONObjectValue(mapOf("department" to StringValue("engineering"))))
         val resolver = Resolver()
+        val dataLookup = JSONObjectValue(mapOf(
+            "dataLookup" to JSONObjectValue(mapOf(
+                "dept" to JSONObjectValue(mapOf(
+                    "engineering" to JSONObjectValue(mapOf(
+                        "info" to StringValue("Engineering Department Info")
+                    )),
+                    "sales" to JSONObjectValue(mapOf(
+                        "info" to StringValue("Sales Department Info")
+                    ))
+                ))
+            ))
+        ))
         val substitution = Substitution(
             runningRequest,
             originalRequest,
             HttpPathPattern(emptyList(), ""),
             HttpHeadersPattern(mapOf()),
-            EmptyStringPattern,
+            JSONObjectPattern(mapOf("department" to StringPattern())),
             resolver,
-            JSONObjectValue(mapOf())
+            dataLookup
         )
-        val nonNullValue = NumberValue(100)
+        val valueExpression = StringValue("$(dataLookup.dept[DEPARTMENT].info)")
 
-        val result = pattern.resolveSubstitutions(substitution, nonNullValue, resolver, "data")
+        val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, "data")
 
         assertThat(result).isInstanceOf(HasValue::class.java)
-        assertThat((result as HasValue).value).isEqualTo(nonNullValue)
+        val resolvedValue = (result as HasValue).value
+        assertThat(resolvedValue).isEqualTo(StringValue("Engineering Department Info"))
     }
 
     @Test

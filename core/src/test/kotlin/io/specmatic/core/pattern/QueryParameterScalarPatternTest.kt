@@ -46,27 +46,39 @@ class QueryParameterScalarPatternTest {
     }
 
     @Test
-    fun `resolveSubstitutions should handle variable substitution`() {
+    fun `resolveSubstitutions should handle data lookup substitution with valid value`() {
         val innerPattern = StringPattern()
         val pattern = QueryParameterScalarPattern(innerPattern)
-        val originalRequest = HttpRequest("GET", "/", mapOf("name" to "test"), EmptyString)
-        val runningRequest = HttpRequest("GET", "/", mapOf("name" to "test"), EmptyString)
+        val originalRequest = HttpRequest("POST", "/person", body = JSONObjectValue(mapOf("department" to StringValue("(DEPARTMENT:string)"))))
+        val runningRequest = HttpRequest("POST", "/person", body = JSONObjectValue(mapOf("department" to StringValue("engineering"))))
         val resolver = Resolver()
+        val dataLookup = JSONObjectValue(mapOf(
+            "dataLookup" to JSONObjectValue(mapOf(
+                "dept" to JSONObjectValue(mapOf(
+                    "engineering" to JSONObjectValue(mapOf(
+                        "project" to StringValue("web-app")
+                    )),
+                    "sales" to JSONObjectValue(mapOf(
+                        "project" to StringValue("crm")
+                    ))
+                ))
+            ))
+        ))
         val substitution = Substitution(
             runningRequest,
             originalRequest,
             HttpPathPattern(emptyList(), ""),
             HttpHeadersPattern(mapOf()),
-            EmptyStringPattern,
+            JSONObjectPattern(mapOf("department" to StringPattern())),
             resolver,
-            JSONObjectValue(mapOf())
+            dataLookup
         )
-        val stringValue = StringValue("test")
+        val valueExpression = StringValue("$(dataLookup.dept[DEPARTMENT].project)")
 
-        val result = pattern.resolveSubstitutions(substitution, stringValue, resolver, "name")
+        val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, "project")
 
         assertThat(result).isInstanceOf(HasValue::class.java)
-        assertThat((result as HasValue).value).isEqualTo(stringValue)
+        assertThat((result as HasValue).value).isEqualTo(StringValue("web-app"))
     }
 
     @Test

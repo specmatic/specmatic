@@ -39,46 +39,69 @@ class OptionalBodyPatternTest {
     }
 
     @Test
-    fun `resolveSubstitutions should handle variable substitution`() {
+    fun `resolveSubstitutions should handle data lookup substitution with valid value`() {
         val bodyPattern = StringPattern()
         val pattern = OptionalBodyPattern.fromPattern(bodyPattern)
-        val originalRequest = HttpRequest("GET", "/", mapOf(), StringValue("test body"))
-        val runningRequest = HttpRequest("GET", "/", mapOf(), StringValue("test body"))
+        val originalRequest = HttpRequest("POST", "/person", body = JSONObjectValue(mapOf("department" to StringValue("(DEPARTMENT:string)"))))
+        val runningRequest = HttpRequest("POST", "/person", body = JSONObjectValue(mapOf("department" to StringValue("engineering"))))
         val resolver = Resolver()
+        val dataLookup = JSONObjectValue(mapOf(
+            "dataLookup" to JSONObjectValue(mapOf(
+                "dept" to JSONObjectValue(mapOf(
+                    "engineering" to JSONObjectValue(mapOf(
+                        "message" to StringValue("Welcome to Engineering")
+                    )),
+                    "sales" to JSONObjectValue(mapOf(
+                        "message" to StringValue("Welcome to Sales")
+                    ))
+                ))
+            ))
+        ))
         val substitution = Substitution(
             runningRequest,
             originalRequest,
             HttpPathPattern(emptyList(), ""),
             HttpHeadersPattern(mapOf()),
-            EmptyStringPattern,
+            JSONObjectPattern(mapOf("department" to StringPattern())),
             resolver,
-            JSONObjectValue(mapOf())
+            dataLookup
         )
-        val stringValue = StringValue("test body")
+        val valueExpression = StringValue("$(dataLookup.dept[DEPARTMENT].message)")
 
-        val result = pattern.resolveSubstitutions(substitution, stringValue, resolver, "body")
+        val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, "body")
 
         assertThat(result).isInstanceOf(HasValue::class.java)
-        assertThat((result as HasValue).value).isEqualTo(stringValue)
+        assertThat((result as HasValue).value).isEqualTo(StringValue("Welcome to Engineering"))
     }
 
     @Test
     fun `resolveSubstitutions should fail when substituted value doesn't match body pattern`() {
         val bodyPattern = NumberPattern()
         val pattern = OptionalBodyPattern.fromPattern(bodyPattern)
+        val originalRequest = HttpRequest("POST", "/person", body = JSONObjectValue(mapOf("department" to StringValue("(DEPARTMENT:string)"))))
+        val runningRequest = HttpRequest("POST", "/person", body = JSONObjectValue(mapOf("department" to StringValue("engineering"))))
         val resolver = Resolver()
+        val dataLookup = JSONObjectValue(mapOf(
+            "dataLookup" to JSONObjectValue(mapOf(
+                "dept" to JSONObjectValue(mapOf(
+                    "engineering" to JSONObjectValue(mapOf(
+                        "count" to StringValue("not_a_number")
+                    ))
+                ))
+            ))
+        ))
         val substitution = Substitution(
-            HttpRequest("GET", "/", mapOf(), EmptyString),
-            HttpRequest("GET", "/", mapOf(), EmptyString),
+            runningRequest,
+            originalRequest,
             HttpPathPattern(emptyList(), ""),
             HttpHeadersPattern(mapOf()),
-            EmptyStringPattern,
+            JSONObjectPattern(mapOf("department" to StringPattern())),
             resolver,
-            JSONObjectValue(mapOf())
+            dataLookup
         )
-        val invalidValue = StringValue("not_a_number")
+        val valueExpression = StringValue("$(dataLookup.dept[DEPARTMENT].count)")
 
-        val result = pattern.resolveSubstitutions(substitution, invalidValue, resolver, "body")
+        val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, "body")
 
         assertThat(result).isInstanceOf(HasFailure::class.java)
     }
