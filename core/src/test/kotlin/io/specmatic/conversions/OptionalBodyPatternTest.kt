@@ -1,9 +1,11 @@
 package io.specmatic.conversions
 
-import io.specmatic.conversions.OptionalBodyPattern
 import io.specmatic.core.*
 import io.specmatic.core.pattern.*
-import io.specmatic.core.value.*
+import io.specmatic.core.value.EmptyString
+import io.specmatic.core.value.JSONObjectValue
+import io.specmatic.core.value.NumberValue
+import io.specmatic.core.value.StringValue
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -32,7 +34,7 @@ class OptionalBodyPatternTest {
         )
         val numericValue = NumberValue(123)
 
-        val result = pattern.resolveSubstitutions(substitution, numericValue, resolver, "body")
+        val result = pattern.resolveSubstitutions(substitution, numericValue, resolver, null)
 
         assertThat(result).isInstanceOf(HasValue::class.java)
         assertThat((result as HasValue).value).isEqualTo(numericValue)
@@ -68,7 +70,7 @@ class OptionalBodyPatternTest {
         )
         val valueExpression = StringValue("$(dataLookup.dept[DEPARTMENT].message)")
 
-        val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, "body")
+        val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, null)
 
         assertThat(result).isInstanceOf(HasValue::class.java)
         assertThat((result as HasValue).value).isEqualTo(StringValue("Welcome to Engineering"))
@@ -101,7 +103,7 @@ class OptionalBodyPatternTest {
         )
         val valueExpression = StringValue("$(dataLookup.dept[DEPARTMENT].count)")
 
-        val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, "body")
+        val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, null)
 
         assertThat(result).isInstanceOf(HasFailure::class.java)
     }

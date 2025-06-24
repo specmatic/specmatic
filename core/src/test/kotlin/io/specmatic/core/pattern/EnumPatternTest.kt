@@ -229,7 +229,7 @@ class EnumPatternTest {
         )
         val validValue = StringValue("active")
 
-        val result = pattern.resolveSubstitutions(substitution, validValue, resolver, "status")
+        val result = pattern.resolveSubstitutions(substitution, validValue, resolver, null)
 
         assertThat(result).isInstanceOf(HasValue::class.java)
         assertThat((result as HasValue).value).isEqualTo(validValue)
@@ -265,7 +265,7 @@ class EnumPatternTest {
         )
         val valueExpression = StringValue("$(dataLookup.dept[DEPARTMENT].status)")
 
-        val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, "status")
+        val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, null)
 
         assertThat(result).isInstanceOf(HasValue::class.java)
         assertThat((result as HasValue).value).isEqualTo(StringValue("active"))
@@ -298,7 +298,7 @@ class EnumPatternTest {
         )
         val valueExpression = StringValue("$(dataLookup.dept[DEPARTMENT].status)")
 
-        val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, "status")
+        val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, null)
 
         assertThat(result).isInstanceOf(HasFailure::class.java)
     }

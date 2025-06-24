@@ -39,7 +39,7 @@ class QueryParameterScalarPatternTest {
         )
         val numericValue = NumberValue(42)
 
-        val result = pattern.resolveSubstitutions(substitution, numericValue, resolver, "count")
+        val result = pattern.resolveSubstitutions(substitution, numericValue, resolver, null)
 
         assertThat(result).isInstanceOf(HasValue::class.java)
         assertThat((result as HasValue).value).isEqualTo(numericValue)
@@ -75,7 +75,7 @@ class QueryParameterScalarPatternTest {
         )
         val valueExpression = StringValue("$(dataLookup.dept[DEPARTMENT].project)")
 
-        val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, "project")
+        val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, null)
 
         assertThat(result).isInstanceOf(HasValue::class.java)
         assertThat((result as HasValue).value).isEqualTo(StringValue("web-app"))
@@ -97,7 +97,7 @@ class QueryParameterScalarPatternTest {
         )
         val invalidValue = StringValue("not_a_number")
 
-        val result = pattern.resolveSubstitutions(substitution, invalidValue, resolver, "count")
+        val result = pattern.resolveSubstitutions(substitution, invalidValue, resolver, null)
 
         assertThat(result).isInstanceOf(HasFailure::class.java)
     }

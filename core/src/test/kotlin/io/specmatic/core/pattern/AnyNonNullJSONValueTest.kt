@@ -49,7 +49,7 @@ class AnyNonNullJSONValueTest {
         )
         val validValue = StringValue("test")
 
-        val result = pattern.resolveSubstitutions(substitution, validValue, resolver, "field")
+        val result = pattern.resolveSubstitutions(substitution, validValue, resolver, null)
 
         assertThat(result).isInstanceOf(HasValue::class.java)
         assertThat((result as HasValue).value).isEqualTo(validValue)
@@ -84,7 +84,7 @@ class AnyNonNullJSONValueTest {
         )
         val valueExpression = StringValue("$(dataLookup.dept[DEPARTMENT].info)")
 
-        val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, "data")
+        val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, null)
 
         assertThat(result).isInstanceOf(HasValue::class.java)
         val resolvedValue = (result as HasValue).value
@@ -106,7 +106,7 @@ class AnyNonNullJSONValueTest {
         )
         val nullValue = NullValue
 
-        val result = pattern.resolveSubstitutions(substitution, nullValue, resolver, "field")
+        val result = pattern.resolveSubstitutions(substitution, nullValue, resolver, null)
 
         assertThat(result).isInstanceOf(HasFailure::class.java)
     }

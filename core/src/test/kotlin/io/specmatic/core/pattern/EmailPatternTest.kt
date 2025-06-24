@@ -155,7 +155,7 @@ class EmailPatternTest {
         )
         val emailValue = StringValue("test@example.com")
 
-        val result = pattern.resolveSubstitutions(substitution, emailValue, resolver, "email")
+        val result = pattern.resolveSubstitutions(substitution, emailValue, resolver, null)
 
         assertThat(result).isInstanceOf(HasValue::class.java)
         assertThat((result as HasValue).value).isEqualTo(emailValue)
@@ -190,7 +190,7 @@ class EmailPatternTest {
         )
         val valueExpression = StringValue("$(dataLookup.dept[DEPARTMENT].contact)")
 
-        val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, "email")
+        val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, null)
 
         assertThat(result).isInstanceOf(HasValue::class.java)
         assertThat((result as HasValue).value).isEqualTo(StringValue("support@engineering.example.com"))
@@ -222,7 +222,7 @@ class EmailPatternTest {
         )
         val valueExpression = StringValue("$(dataLookup.dept[DEPARTMENT].contact)")
 
-        val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, "email")
+        val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, null)
 
         assertThat(result).isInstanceOf(HasFailure::class.java)
     }
