@@ -341,18 +341,22 @@ data class HttpRequestPattern(
             requestPattern = attempt(breadCrumb = BreadCrumb.PARAM_HEADER.value) {
                 val headersWithRelevantFields = securitySchemes.fold(request) { request, securityScheme ->
                     securityScheme.removeParam(request)
-                }.headers.filterKeys { !it.equals(CONTENT_TYPE, ignoreCase = true) }
+                }.headers
+                    .let { headersPattern.removeContentType(it) }
 
                 val headersFromRequest = toTypeMap(
                     toLowerCaseKeys(headersWithRelevantFields),
                     toLowerCaseKeys(headersPattern.pattern),
-                    resolver
+                    resolver,
                 )
 
-                requestPattern.copy(headersPattern = headersPattern.copy(
-                    pattern = headersFromRequest,
-                    ancestorHeaders = headersFromRequest.mergeIgnoringCaseAndOptionalsWith(headersPattern.pattern)
-                ))
+                requestPattern.copy(
+                    headersPattern =
+                        headersPattern.copy(
+                            pattern = headersFromRequest,
+                            ancestorHeaders = headersFromRequest.mergeIgnoringCaseAndOptionalsWith(headersPattern.pattern),
+                        ),
+                )
             }
 
             requestPattern = attempt(breadCrumb = "BODY") {
