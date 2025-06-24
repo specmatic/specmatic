@@ -748,6 +748,133 @@ class StubSubstitutionTest {
     }
 
     @Test
+    fun `should validate scalar values substituted in the dictionary at run-time`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Sample API
+              version: 0.1.9
+            paths:
+              /data/{id}:
+                get:
+                  summary: Get data
+                  parameters:
+                    - in: path
+                      name: id
+                      schema:
+                        type: string
+                      required: true
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                              - names
+                            properties:
+                              id:
+                                type: string
+                              email:
+                                type: string
+                                format: email
+        """.trimIndent()
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+
+        val exampleRequest = HttpRequest(method = "GET", path = "/data/(ID:string)")
+        val exampleResponse = HttpResponse(200, body = JSONObjectValue(mapOf(
+            "id" to StringValue("$(ID)"),
+            "email" to StringValue("$(lookup.data[ID].email)")
+        )))
+        val dataLookup = parsedJSONObject("""
+        {
+            "lookup": {
+                "data": {
+                    "123": {
+                        "email": "not-an-email"
+                    }
+                }
+            }
+        }
+        """.trimIndent())
+        val scenarioStub = ScenarioStub(request = exampleRequest, response = exampleResponse, data = dataLookup)
+
+        HttpStub(feature, listOf(scenarioStub)).use { stub ->
+            val request = HttpRequest("GET", "/data/123")
+            val response = stub.client.execute(request)
+
+            assertThat(response.status).isEqualTo(400)
+            assertThat(response.body.toStringLiteral()).contains("email")
+        }
+    }
+
+    @Test
+    fun `should validate complex values substituted in the dictionary at run-time`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Sample API
+              version: 0.1.9
+            paths:
+              /data/{id}:
+                get:
+                  summary: Get data
+                  parameters:
+                    - in: path
+                      name: id
+                      schema:
+                        type: string
+                      required: true
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                              - names
+                            properties:
+                              id:
+                                type: string
+                              names:
+                                type: array
+                                items:
+                                  type: string
+        """.trimIndent()
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+
+        val exampleRequest = HttpRequest(method = "GET", path = "/data/(ID:string)")
+        val exampleResponse = HttpResponse(200, body = JSONObjectValue(mapOf(
+            "id" to StringValue("$(ID)"),
+            "names" to StringValue("$(lookup.data[ID].names)")
+        )))
+        val dataLookup = parsedJSONObject("""
+        {
+            "lookup": {
+                "data": {
+                    "123": {
+                        "names": [{"name": "John"}]
+                    }
+                }
+            }
+        }
+        """.trimIndent())
+        val scenarioStub = ScenarioStub(request = exampleRequest, response = exampleResponse, data = dataLookup)
+
+        HttpStub(feature, listOf(scenarioStub)).use { stub ->
+            val request = HttpRequest("GET", "/data/123")
+            val response = stub.client.execute(request)
+
+            assertThat(response.status).isEqualTo(400)
+            assertThat(response.body.toStringLiteral()).contains("RESPONSE.BODY.names[0]")
+        }
+    }
+
+    @Test
     fun `should be able to dereference lookup from the example lookup dictionary for composite values`() {
         val spec = """
             openapi: 3.0.0
