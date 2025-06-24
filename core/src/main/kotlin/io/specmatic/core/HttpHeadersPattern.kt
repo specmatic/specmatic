@@ -1,6 +1,7 @@
 package io.specmatic.core
 
 import io.ktor.http.*
+import io.specmatic.core.filters.caseInsensitiveContains
 import io.specmatic.core.pattern.*
 import io.specmatic.core.pattern.isOptional
 import io.specmatic.core.utilities.Flags
@@ -52,7 +53,6 @@ data class HttpHeadersPattern(
     }
 
     fun matchContentType(parameters: Pair<Map<String, String>, Resolver>):  MatchingResult<Pair<Map<String, String>, Resolver>> {
-
         val (headers, resolver) = parameters
 
         val contentTypeHeaderValueFromRequest = headers[CONTENT_TYPE]
@@ -478,12 +478,14 @@ data class HttpHeadersPattern(
     }
 
     fun removeContentType(headers: Map<String, String>): Map<String, String> {
-        return if (!headers.keys.map(String::lowercase).contains(CONTENT_TYPE.lowercase())) {
+        return if (!contentTypeHeaderPatternExists()) {
             headers.filterKeys { !it.equals(CONTENT_TYPE, ignoreCase = true) }
         } else {
             headers
         }
     }
+
+    private fun contentTypeHeaderPatternExists() = pattern.keys.caseInsensitiveContains(CONTENT_TYPE)
 }
 
 private fun parseOrString(pattern: Pattern, sampleValue: String, resolver: Resolver) =

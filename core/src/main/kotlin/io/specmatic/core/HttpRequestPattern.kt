@@ -342,7 +342,9 @@ data class HttpRequestPattern(
                 val headersWithRelevantFields = securitySchemes.fold(request) { request, securityScheme ->
                     securityScheme.removeParam(request)
                 }.headers
-                    .let { headersPattern.removeContentType(it) }
+                    .let {
+                        headersPattern.removeContentType(it)
+                    }
 
                 val headersFromRequest = toTypeMap(
                     toLowerCaseKeys(headersWithRelevantFields),
