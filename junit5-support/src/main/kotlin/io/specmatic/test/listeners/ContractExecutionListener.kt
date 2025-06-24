@@ -34,7 +34,8 @@ class ContractExecutionListener : TestExecutionListener {
         private val printer: ContractExecutionPrinter = getContractExecutionPrinter()
 
         fun exitProcess() {
-            val exitStatus = when (failure != 0 || couldNotStart) {
+            val totalTests = success + failure + aborted
+            val exitStatus = when (failure != 0 || couldNotStart || totalTests == 0) {
                 true -> 1
                 false -> 0
             }
