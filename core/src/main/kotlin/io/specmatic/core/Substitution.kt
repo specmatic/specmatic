@@ -238,10 +238,12 @@ class Substitution(
         return when {
             patternFromValue is AnyValuePattern -> pattern.generate(resolver)
             pattern.encompasses(patternFromValue, resolver, resolver).isSuccess() -> patternFromValue.generate(resolver)
-            else -> throw ContractException("""
-            Cannot resolve substitutions, expected ${pattern.typeAlias ?: pattern.typeName} but got ${patternFromValue.typeAlias ?: patternFromValue.typeName}
-            """.trimIndent()
-            )
+            else -> {
+                val expectedPattern = pattern.typeAlias ?: pattern.typeName
+                val actualValuePattern = patternFromValue.typeAlias ?: patternFromValue.typeName
+
+                throw ContractException("Cannot resolve substitutions, expected $expectedPattern but got $actualValuePattern")
+            }
         }
     }
 
