@@ -3,6 +3,7 @@ package io.specmatic.core.pattern
 import io.specmatic.GENERATION
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
+import io.specmatic.core.pattern.*
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpStub
 import io.specmatic.core.value.*
@@ -137,5 +138,92 @@ class EmailPatternTest {
         assertThat(newBased.toList()).allSatisfy {
             assertThat(it.pattern.getValue("email")).isInstanceOf(EmailPattern::class.java)
         }
+    }
+
+    @Test
+    fun `resolveSubstitutions should return value when no substitution needed`() {
+        val pattern = EmailPattern()
+        val resolver = Resolver()
+        val substitution = Substitution(
+            HttpRequest("GET", "/", mapOf(), EmptyString),
+            HttpRequest("GET", "/", mapOf(), EmptyString),
+            HttpPathPattern(emptyList(), ""),
+            HttpHeadersPattern(mapOf()),
+            EmptyStringPattern,
+            resolver,
+            JSONObjectValue(mapOf())
+        )
+        val emailValue = StringValue("test@example.com")
+
+        val result = pattern.resolveSubstitutions(substitution, emailValue, resolver, null)
+
+        assertThat(result).isInstanceOf(HasValue::class.java)
+        assertThat((result as HasValue).value).isEqualTo(emailValue)
+    }
+
+    @Test
+    fun `resolveSubstitutions should handle data lookup substitution with valid email`() {
+        val pattern = EmailPattern()
+        val originalRequest = HttpRequest("POST", "/person", body = JSONObjectValue(mapOf("department" to StringValue("(DEPARTMENT:string)"))))
+        val runningRequest = HttpRequest("POST", "/person", body = JSONObjectValue(mapOf("department" to StringValue("engineering"))))
+        val resolver = Resolver()
+        val dataLookup = JSONObjectValue(mapOf(
+            "dataLookup" to JSONObjectValue(mapOf(
+                "dept" to JSONObjectValue(mapOf(
+                    "engineering" to JSONObjectValue(mapOf(
+                        "contact" to StringValue("support@engineering.example.com")
+                    )),
+                    "sales" to JSONObjectValue(mapOf(
+                        "contact" to StringValue("sales@example.com")
+                    ))
+                ))
+            ))
+        ))
+        val substitution = Substitution(
+            runningRequest,
+            originalRequest,
+            HttpPathPattern(emptyList(), ""),
+            HttpHeadersPattern(mapOf()),
+            JSONObjectPattern(mapOf("department" to StringPattern())),
+            resolver,
+            dataLookup
+        )
+        val valueExpression = StringValue("$(dataLookup.dept[DEPARTMENT].contact)")
+
+        val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, null)
+
+        assertThat(result).isInstanceOf(HasValue::class.java)
+        assertThat((result as HasValue).value).isEqualTo(StringValue("support@engineering.example.com"))
+    }
+
+    @Test
+    fun `resolveSubstitutions should fail when substituted value doesn't match email pattern`() {
+        val pattern = EmailPattern()
+        val originalRequest = HttpRequest("POST", "/person", body = JSONObjectValue(mapOf("department" to StringValue("(DEPARTMENT:string)"))))
+        val runningRequest = HttpRequest("POST", "/person", body = JSONObjectValue(mapOf("department" to StringValue("engineering"))))
+        val resolver = Resolver()
+        val dataLookup = JSONObjectValue(mapOf(
+            "dataLookup" to JSONObjectValue(mapOf(
+                "dept" to JSONObjectValue(mapOf(
+                    "engineering" to JSONObjectValue(mapOf(
+                        "contact" to StringValue("invalid-email-format")
+                    ))
+                ))
+            ))
+        ))
+        val substitution = Substitution(
+            runningRequest,
+            originalRequest,
+            HttpPathPattern(emptyList(), ""),
+            HttpHeadersPattern(mapOf()),
+            JSONObjectPattern(mapOf("department" to StringPattern())),
+            resolver,
+            dataLookup
+        )
+        val valueExpression = StringValue("$(dataLookup.dept[DEPARTMENT].contact)")
+
+        val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, null)
+
+        assertThat(result).isInstanceOf(HasFailure::class.java)
     }
 }

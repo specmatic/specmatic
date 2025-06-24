@@ -1,10 +1,8 @@
 package io.specmatic.core.pattern
 
 import io.specmatic.GENERATION
-import io.specmatic.core.Dictionary
-import io.specmatic.core.Resolver
-import io.specmatic.core.Result
-import io.specmatic.core.UseDefaultExample
+import io.specmatic.core.*
+import io.specmatic.core.pattern.*
 import io.specmatic.core.value.*
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.assertDoesNotThrow
@@ -213,5 +211,95 @@ class EnumPatternTest {
             fixedValue as JSONObjectValue
             assertThat(fixedValue.jsonObject["type"]).isIn(enumValues)
         }
+    }
+
+    @Test
+    fun `resolveSubstitutions should return value when no substitution needed`() {
+        val enumValues = listOf(StringValue("active"), StringValue("inactive"))
+        val pattern = EnumPattern(enumValues)
+        val resolver = Resolver()
+        val substitution = Substitution(
+            HttpRequest("GET", "/", mapOf(), EmptyString),
+            HttpRequest("GET", "/", mapOf(), EmptyString),
+            HttpPathPattern(emptyList(), ""),
+            HttpHeadersPattern(mapOf()),
+            EmptyStringPattern,
+            resolver,
+            JSONObjectValue(mapOf())
+        )
+        val validValue = StringValue("active")
+
+        val result = pattern.resolveSubstitutions(substitution, validValue, resolver, null)
+
+        assertThat(result).isInstanceOf(HasValue::class.java)
+        assertThat((result as HasValue).value).isEqualTo(validValue)
+    }
+
+    @Test
+    fun `resolveSubstitutions should handle data lookup substitution with valid enum value`() {
+        val enumValues = listOf(StringValue("active"), StringValue("inactive"), StringValue("pending"))
+        val pattern = EnumPattern(enumValues)
+        val originalRequest = HttpRequest("POST", "/person", body = JSONObjectValue(mapOf("department" to StringValue("(DEPARTMENT:string)"))))
+        val runningRequest = HttpRequest("POST", "/person", body = JSONObjectValue(mapOf("department" to StringValue("engineering"))))
+        val resolver = Resolver()
+        val dataLookup = JSONObjectValue(mapOf(
+            "dataLookup" to JSONObjectValue(mapOf(
+                "dept" to JSONObjectValue(mapOf(
+                    "engineering" to JSONObjectValue(mapOf(
+                        "status" to StringValue("active")
+                    )),
+                    "sales" to JSONObjectValue(mapOf(
+                        "status" to StringValue("pending")
+                    ))
+                ))
+            ))
+        ))
+        val substitution = Substitution(
+            runningRequest,
+            originalRequest,
+            HttpPathPattern(emptyList(), ""),
+            HttpHeadersPattern(mapOf()),
+            JSONObjectPattern(mapOf("department" to StringPattern())),
+            resolver,
+            dataLookup
+        )
+        val valueExpression = StringValue("$(dataLookup.dept[DEPARTMENT].status)")
+
+        val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, null)
+
+        assertThat(result).isInstanceOf(HasValue::class.java)
+        assertThat((result as HasValue).value).isEqualTo(StringValue("active"))
+    }
+
+    @Test
+    fun `resolveSubstitutions should fail when substituted value not in enum`() {
+        val enumValues = listOf(StringValue("active"), StringValue("inactive"))
+        val pattern = EnumPattern(enumValues)
+        val originalRequest = HttpRequest("POST", "/person", body = JSONObjectValue(mapOf("department" to StringValue("(DEPARTMENT:string)"))))
+        val runningRequest = HttpRequest("POST", "/person", body = JSONObjectValue(mapOf("department" to StringValue("engineering"))))
+        val resolver = Resolver()
+        val dataLookup = JSONObjectValue(mapOf(
+            "dataLookup" to JSONObjectValue(mapOf(
+                "dept" to JSONObjectValue(mapOf(
+                    "engineering" to JSONObjectValue(mapOf(
+                        "status" to StringValue("suspended")
+                    ))
+                ))
+            ))
+        ))
+        val substitution = Substitution(
+            runningRequest,
+            originalRequest,
+            HttpPathPattern(emptyList(), ""),
+            HttpHeadersPattern(mapOf()),
+            JSONObjectPattern(mapOf("department" to StringPattern())),
+            resolver,
+            dataLookup
+        )
+        val valueExpression = StringValue("$(dataLookup.dept[DEPARTMENT].status)")
+
+        val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, null)
+
+        assertThat(result).isInstanceOf(HasFailure::class.java)
     }
 }
