@@ -2,6 +2,7 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
+import io.specmatic.core.Substitution
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.Value
 
@@ -11,6 +12,15 @@ data class AnyNonNullJSONValue(override val pattern: Pattern = AnythingPattern):
             return resolver.mismatchMessages.valueMismatchFailure("non-null value", sampleData)
 
         return Result.Success()
+    }
+
+    override fun resolveSubstitutions(
+        substitution: Substitution,
+        value: Value,
+        resolver: Resolver,
+        key: String?
+    ): ReturnValue<Value> {
+        return scalarResolveSubstitutions(substitution, value, key, this, resolver)
     }
 
     override fun encompasses(

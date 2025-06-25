@@ -1,5 +1,6 @@
 package io.specmatic.core
 
+import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
@@ -179,10 +180,9 @@ class Substitution(
         val dictionary: JSONObjectValue = dictionaryValue as? JSONObjectValue
             ?: throw ContractException("Dictionary $lookupStoreName.$dictionaryName should be an object")
 
-        val dictionaryLookupValue = variableValues[dictionaryLookupVariableName]
-            ?: throw MissingDataException("Cannot resolve lookup expression $value because variable $dictionaryLookupVariableName does not exist")
+        val dictionaryLookupValue = variableValues[dictionaryLookupVariableName] ?: "*"
 
-        val finalObject = dictionary.findFirstChildByPath(dictionaryLookupValue)
+        val finalObject = dictionary.findFirstChildByPath(dictionaryLookupValue) ?: dictionary.findFirstChildByPath("*")
             ?: throw MissingDataException("Could not resolve lookup expression $value because variable $lookupStoreName.$dictionaryName[$dictionaryLookupVariableName] does not exist")
 
         val finalObjectDictionary = finalObject as? JSONObjectValue
@@ -223,18 +223,37 @@ class Substitution(
         }
     }
 
-    private fun hasTemplate(string: String): Boolean {
-        return string.startsWith("{{") && string.endsWith("}}")
-    }
+    fun resolveIfLookup(value: Value, pattern: Pattern): Value {
+        val strValue = (value as? StringValue)?.nativeValue ?: return value
+        if (!isDataLookup(strValue)) return value
 
-    fun substitute(string: String, pattern: Pattern): ReturnValue<Value> {
-        return try {
-            val updatedString = substituteSimpleVariableLookup(string)
-            HasValue(pattern.parse(updatedString, resolver))
-        } catch(e: Throwable) {
-            HasException(e)
+        val resolvedValue =
+            runCatching { substituteDataLookupExpression(strValue) }.getOrElse { e ->
+                logger.debug(e, "Error resolving data lookup expression ${value.string}, using original value")
+                return value
+            }
+
+        val patternFromValue = resolver.patternFromTokenBased(StringValue(resolvedValue)) ?: return pattern.parse(resolvedValue, resolver)
+
+        return when {
+            patternFromValue is AnyValuePattern -> pattern.generate(resolver)
+            pattern.encompasses(patternFromValue, resolver, resolver).isSuccess() -> patternFromValue.generate(resolver)
+            else -> {
+                val expectedPattern = pattern.typeAlias ?: pattern.typeName
+                val actualValuePattern = patternFromValue.typeAlias ?: patternFromValue.typeName
+
+                throw ContractException("Cannot resolve substitutions, expected $expectedPattern but got $actualValuePattern")
+            }
         }
     }
+
+    fun isDropDirective(value: Value): Boolean {
+        val strValue = (value as? StringValue)?.nativeValue ?: return false
+        if (!isDataLookup(strValue)) return false
+        val resolvedValue = runCatching { substituteDataLookupExpression(strValue) }.getOrElse { return false }
+        return resolvedValue == "(drop)"
+    }
+
 }
 
 class MissingDataException(override val message: String) : Throwable(message)

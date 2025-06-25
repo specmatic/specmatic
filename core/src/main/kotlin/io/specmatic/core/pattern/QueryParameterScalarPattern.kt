@@ -2,10 +2,20 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
+import io.specmatic.core.Substitution
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.*
 
 data class QueryParameterScalarPattern(override val pattern: Pattern): Pattern by pattern {
+    override fun resolveSubstitutions(
+        substitution: Substitution,
+        value: Value,
+        resolver: Resolver,
+        key: String?
+    ): ReturnValue<Value> {
+        return scalarResolveSubstitutions(substitution, value, key, this, resolver)
+    }
+
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if(sampleData == null){
             return Result.Failure("Null found, expected a scalar value")

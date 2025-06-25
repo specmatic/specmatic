@@ -650,6 +650,28 @@ Scenario: JSON API to get account details with fact check
     }
 
     @Test
+    fun `should retain serialized JSON values as strings in response when responding to requests`() {
+        val apiFile = File("src/test/resources/openapi/has_serialized_json_field/api.yaml")
+        val feature = OpenApiSpecification.fromFile(apiFile.canonicalPath).toFeature()
+        val examplesDir = apiFile.resolveSibling("api_examples")
+        val examples = examplesDir.listFiles()?.map(ScenarioStub::readFromFile).orEmpty()
+
+        HttpStub(feature, examples).use {
+            val request = HttpRequest(
+                "POST", "/example",
+                body = JSONObjectValue(mapOf(
+                    "json" to StringValue("{\"value\": [\"string\", 1, false, null], \"location\": \"request\"}")
+                )),
+            )
+            val response = it.client.execute(request)
+            val returnedValue = (response.body as JSONObjectValue).jsonObject["json"] as StringValue
+
+            assertThat(response.status).isEqualTo(200)
+            assertThat(returnedValue.nativeValue).isEqualTo("{\"value\": [\"string\", 1, false, null], \"location\": \"response\"}")
+        }
+    }
+
+    @Test
     fun `should respond with 4xx if request does not match the security scheme defined in the contract`() {
         val openApiFile = File("src/test/resources/openapi/has_composite_security/api.yaml")
         val feature = OpenApiSpecification.fromFile(openApiFile.canonicalPath).toFeature()
