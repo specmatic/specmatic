@@ -116,8 +116,8 @@ class Proxy(
                                     name,
                                     uniqueNameForApiOperation(httpRequest, baseURL, httpResponse.status),
                                     ScenarioStub(
-                                        httpRequest.withoutDynamicHeaders(),
-                                        httpResponse.withoutDynamicHeaders()
+                                        httpRequest.withoutTransportHeaders(),
+                                        httpResponse.withoutTransportHeaders()
                                     )
                                 )
                             )
