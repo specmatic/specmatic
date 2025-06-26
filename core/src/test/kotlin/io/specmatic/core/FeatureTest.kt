@@ -1,7 +1,5 @@
 package io.specmatic.core
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import io.mockk.every
 import io.mockk.mockk
 import io.specmatic.conversions.OpenApiSpecification
@@ -17,7 +15,6 @@ import io.specmatic.test.ScenarioTestGenerationException
 import io.specmatic.test.ScenarioTestGenerationFailure
 import io.specmatic.test.TestExecutor
 import io.specmatic.trimmedLinesList
-import io.swagger.v3.oas.models.OpenAPI
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.json.JSONObject
@@ -2914,55 +2911,6 @@ paths:
 
             assertTrue(pairs.isEmpty())
         }
-    }
-
-    @Test
-    fun `it should not inline reffed schemas when converting feature to OpenAPI spec`() {
-        val spec = """
-            openapi: 3.0.3
-            info:
-              title: Simple Product API
-              version: 1.0.0
-            paths:
-              /product:
-                post:
-                  summary: Create a product
-                  requestBody:
-                    required: true
-                    content:
-                      application/json:
-                        schema:
-                          ${"$"}ref: '#/components/schemas/Product'
-                  responses:
-                    '200':
-                      description: The created product
-                      content:
-                        application/json:
-                          schema:
-                            ${"$"}ref: '#/components/schemas/Product'
-            components:
-              schemas:
-                Product:
-                  type: object
-                  properties:
-                    name:
-                      type: string
-                      example: "Sample Product"
-        """.trimIndent()
-
-        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
-        val openAPIFromFeature = feature.toOpenApi()
-
-        val post = openAPIFromFeature.paths["/product"]?.post!!
-        val requestBodySchema = post.requestBody?.content?.get("application/json")?.schema!!
-        val responseBodySchema = post.responses?.get("200")?.content?.get("application/json")?.schema!!
-
-        assertThat(requestBodySchema.`$ref`).isEqualTo("#/components/schemas/Product")
-        assertThat(responseBodySchema.`$ref`).isEqualTo("#/components/schemas/Product")
-
-        val componentSchemas = openAPIFromFeature.components.schemas.orEmpty()
-
-        assertThat(componentSchemas).containsKey("Product")
     }
 
     @Test

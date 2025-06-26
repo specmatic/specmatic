@@ -760,7 +760,7 @@ Scenario: JSON API to get account details with fact check
     }
 
     @Test
-    fun `should be able to response with matching data substitution based partial example`() {
+    fun `should be able to respond with matching data substitution based partial example`() {
         val openApiFile = File("src/test/resources/openapi/partial_example_tests/simple.yaml")
         val examplesDir = openApiFile.resolveSibling("partial_substitution")
         val feature = OpenApiSpecification.fromFile(openApiFile.canonicalPath).toFeature()
