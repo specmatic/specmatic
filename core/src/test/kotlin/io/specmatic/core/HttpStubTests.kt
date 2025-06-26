@@ -5,6 +5,8 @@ import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.pattern.parsedValue
+import io.specmatic.core.utilities.Flags
+import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.parseXML
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NullValue
@@ -754,6 +756,26 @@ Scenario: JSON API to get account details with fact check
                 val response = it.client.execute(request)
                 assertThat(response.status).isEqualTo(200)
             }
+        }
+    }
+
+    @Test
+    fun `should be able to respond with matching data substitution based partial example`() {
+        val openApiFile = File("src/test/resources/openapi/partial_example_tests/simple.yaml")
+        val examplesDir = openApiFile.resolveSibling("partial_substitution")
+        val feature = OpenApiSpecification.fromFile(openApiFile.canonicalPath).toFeature()
+        val stubs = examplesDir.listFiles().orEmpty().map(ScenarioStub::readFromFile)
+        
+        HttpStub(feature, stubs).use { stub ->
+            val request = feature.scenarios.first().generateHttpRequest()
+            val requestBody = request.body as JSONObjectValue
+
+            val response = stub.client.execute(request)
+            val responseBody = response.body as JSONObjectValue
+
+            assertThat(response.status).isEqualTo(201)
+            assertThat(responseBody.jsonObject["creatorId"]).isEqualTo(requestBody.jsonObject["creatorId"])
+            assertThat(responseBody.jsonObject["petId"]).isEqualTo(requestBody.jsonObject["petId"])
         }
     }
 }

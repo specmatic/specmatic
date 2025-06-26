@@ -96,35 +96,7 @@ class ThreadSafeListOfStubs(
 
         val mocks = listMatchResults.map { (result, stubData) ->
             if (result !is Result.Success) return@map Pair(result, stubData)
-
-            val response =
-                if (stubData.partial == null)
-                    stubData.response
-                else
-                    stubData.responsePattern.fillInTheBlanks(stubData.partial.response, stubData.resolver)
-
-            val stubResponse = HttpStubResponse(
-                response,
-                stubData.delayInMilliseconds,
-                stubData.contractPath,
-                feature = stubData.feature,
-                scenario = stubData.scenario
-            )
-
-            try {
-                val originalRequest = stubData.resolveOriginalRequest()
-
-                stubResponse.resolveSubstitutions(
-                    httpRequest,
-                    originalRequest ?: httpRequest,
-                    stubData.data
-                )
-
-                result to stubData.copy(response = response)
-            } catch (e: ContractException) {
-                if (isMissingData(e)) Pair(e.failure(), stubData)
-                else throw e
-            }
+            substituteThenFillIn(httpRequest, stubData)
         }
 
         val successfulMatches = mocks.filter { (result, _) -> result is Result.Success }
@@ -158,35 +130,12 @@ class ThreadSafeListOfStubs(
              }.plus(partialMatchResults(httpStubData, httpRequest))
         }
 
-        val mock = listMatchResults.map { (result, stubData) ->
+        val mocks = listMatchResults.map { (result, stubData) ->
             if (result !is Result.Success) return@map Pair(result, stubData)
+            substituteThenFillIn(httpRequest, stubData)
+        }
 
-            val response = if (stubData.partial == null) stubData.response
-            else stubData.responsePattern.fillInTheBlanks(stubData.partial.response, stubData.resolver)
-
-            val stubResponse = HttpStubResponse(
-                response,
-                stubData.delayInMilliseconds,
-                stubData.contractPath,
-                feature = stubData.feature,
-                scenario = stubData.scenario
-            )
-
-            try {
-                val originalRequest = stubData.resolveOriginalRequest()
-
-                stubResponse.resolveSubstitutions(
-                    httpRequest,
-                    originalRequest ?: httpRequest,
-                    stubData.data
-                )
-
-                result to stubData.copy(response = response)
-            } catch (e: ContractException) {
-                if (isMissingData(e)) Pair(e.failure(), stubData)
-                else throw e
-            }
-        }.find { (result, _) -> result is Result.Success }
+        val mock = mocks.find { (result, _) -> result is Result.Success }
 
         return Pair(mock?.second, listMatchResults)
     }
@@ -197,6 +146,29 @@ class ThreadSafeListOfStubs(
                 specToBaseUrlMap[it.contractPath] ?: defaultBaseUrl
             }.mapValues { (_, stubs) ->
                 ThreadSafeListOfStubs(stubs as MutableList<HttpStubData>, specToBaseUrlMap)
+            }
+        }
+    }
+
+    private fun substituteThenFillIn(httpRequest: HttpRequest, stubData: HttpStubData): Pair<Result, HttpStubData> {
+        val originalRequest = stubData.resolveOriginalRequest()
+        val stubResponse = HttpStubResponse(
+            stubData.partial?.response ?: stubData.response,
+            stubData.delayInMilliseconds,
+            stubData.contractPath,
+            feature = stubData.feature,
+            scenario = stubData.scenario
+        )
+
+        return runCatching {
+            val substituted = stubResponse.resolveSubstitutions(httpRequest, originalRequest ?: httpRequest, stubData.data)
+            val substitutedResponse = stubData.copy(response = substituted.response)
+            if (stubData.partial == null) return@runCatching substitutedResponse
+            stubData.copy(response = stubData.responsePattern.fillInTheBlanks(substitutedResponse.response, stubData.resolver))
+        }.map { Result.Success() to it }.getOrElse { e ->
+            when {
+                e is ContractException && isMissingData(e) -> Pair(e.failure(), stubData)
+                else -> throw e
             }
         }
     }

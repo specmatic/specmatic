@@ -137,17 +137,10 @@ fun fixValue(value: Value, pattern: Pattern, resolver: Resolver): Value {
     return value.takeIf { resolver.matchesPattern(null, pattern, value).isSuccess() } ?: resolver.generate(pattern)
 }
 
-fun scalarResolveSubstitutions(
-    substitution: Substitution,
-    value: Value,
-    key: String?,
-    pattern: Pattern,
-    resolver: Resolver
-): ReturnValue<Value> {
-    val resolvedValue =
-        runCatching { substitution.resolveIfLookup(value, pattern) }.getOrElse { e -> return HasException(e) }
+fun scalarResolveSubstitutions(substitution: Substitution, value: Value, key: String?, pattern: Pattern, resolver: Resolver): ReturnValue<Value> {
+    val resolvedValue = runCatching { substitution.resolveIfLookup(value, pattern) }.getOrElse { e -> return HasException(e) }
     return substitution.substitute(resolvedValue, pattern, key).ifHasValue { returnValue: HasValue<Value> ->
         val substitutedValue = returnValue.value
-        pattern.matches(substitutedValue, resolver).toReturnValue(substitutedValue)
+        resolver.matchesPattern(null, pattern, substitutedValue).toReturnValue(substitutedValue)
     }
 }

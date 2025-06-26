@@ -1,0 +1,25 @@
+{
+  "partial": {
+    "http-request": {
+      "path": "/creators/(CREATOR-ID:number)/pets/(PET-ID:number)",
+      "method": "PATCH",
+      "body": {
+        "creatorId": "(CREATOR_ID:number)",
+        "petId": "(PET_ID:number)"
+      }
+    },
+    "http-response": {
+      "status": 201,
+      "body": {
+        "id": "(number)",
+        "traceId": "(string)",
+        "creatorId": "$(CREATOR_ID)",
+        "petId": "$(PET_ID)"
+      },
+      "status-text": "Created",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  }
+}
