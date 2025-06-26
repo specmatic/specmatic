@@ -893,7 +893,7 @@ data class Scenario(
         return exampleRequestContentType == patternRequestContentType
     }
 
-    fun resolveSubtitutions(
+    fun resolveSubstitutions(
         request: HttpRequest,
         originalRequest: HttpRequest,
         response: HttpResponse,
