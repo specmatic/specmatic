@@ -4,6 +4,7 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.mismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.resolveExample
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
@@ -81,7 +82,7 @@ data class StringPattern (
     }
 
     override fun generate(resolver: Resolver): Value {
-        val defaultExample = resolver.resolveExample(example, this)
+        val defaultExample = resolveExample(example, this, resolver)
 
         defaultExample?.let {
             val result = matches(it, resolver)

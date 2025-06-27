@@ -370,18 +370,6 @@ data class Resolver(
         return generation.generatedPatternsForGenerativeTests(this, pattern, key)
     }
 
-    fun resolveExample(example: String?, pattern: Pattern): Value? {
-        return resolveExample(example, pattern, this)
-    }
-
-    fun resolveExample(example: String?, pattern: List<Pattern>): Value? {
-        return resolveExample(example, pattern, this)
-    }
-
-    fun resolveExample(example: List<String?>?, pattern: Pattern): JSONArrayValue? {
-        return resolveExample(example, pattern, this)
-    }
-
     fun generateHttpRequestBodies(body: Pattern, row: Row, requestBodyAsIs: Pattern): Sequence<ReturnValue<Pattern>> {
         return generation.generateHttpRequestBodies(this, body, row, requestBodyAsIs)
     }
@@ -398,14 +386,6 @@ data class Resolver(
         return generation.generateKeySubLists(key, subList)
     }
 
-    fun hasDictionaryToken(key: String): Boolean {
-        return dictionary.containsKey(key)
-    }
-
-    fun getDictionaryToken(key: String): Value {
-        return dictionary.getRawValue(key)
-    }
-
     fun hasSeenPattern(pattern: Pattern): Boolean {
         return patternsSeenSoFar.contains(pattern.typeAlias)
     }
@@ -418,7 +398,7 @@ data class Resolver(
 
     fun addPatternAsSeen(pattern: Pattern): Resolver {
         return this.copy(
-            patternsSeenSoFar = pattern.typeAlias?.let { patternsSeenSoFar.plus(it) } ?: patternsSeenSoFar
+            patternsSeenSoFar = pattern.typeAlias?.let { patternsSeenSoFar.plus(it) } ?: patternsSeenSoFar,
         )
     }
 
