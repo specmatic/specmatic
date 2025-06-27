@@ -20,12 +20,28 @@ class FilterIntegrationTest {
     fun contractTestWithDifferentFilters(filter: String, expectedSuccessfulTestCount: Int) {
         System.setProperty("filter", filter)
 
-        SpecmaticJUnitSupport().contractTest().forEach { it.executable.execute() }
+        if (expectedSuccessfulTestCount == 0) {
+            // When no tests are expected, the new behavior should generate a failing test
+            // instead of allowing 0 tests to succeed
+            var failureOccurred = false
+            try {
+                SpecmaticJUnitSupport().contractTest().forEach { it.executable.execute() }
+            } catch (e: AssertionError) {
+                failureOccurred = true
+                // Verify that the error message indicates no tests were found
+                assert(e.message?.contains("No tests found to run") == true) {
+                    "Expected 'No tests found to run' error but got: ${e.message}"
+                }
+            }
+            assert(failureOccurred) { "Expected a failure when no tests match the filter, but no exception was thrown" }
+        } else {
+            SpecmaticJUnitSupport().contractTest().forEach { it.executable.execute() }
 
-        val count = SpecmaticJUnitSupport.openApiCoverageReportInput.generate().testResultRecords.count {
-            it.result == TestResult.Success
+            val count = SpecmaticJUnitSupport.openApiCoverageReportInput.generate().testResultRecords.count {
+                it.result == TestResult.Success
+            }
+            assertEquals(expectedSuccessfulTestCount, count)
         }
-        assertEquals(expectedSuccessfulTestCount, count)
     }
 
     companion object {
