@@ -178,7 +178,7 @@ Feature: Recursive test
     @Tag(GENERATION)
     @Test
     fun `should use the inline example for generation of values`() {
-        val value = ListPattern(NumberPattern(), example = listOf("1", "2", "3")).generate(Resolver(defaultExampleResolver = UseDefaultExample))
+        val value = ListPattern(NumberPattern(), example = listOf("1", "2", "3")).generate(Resolver())
         assertThat(value).isEqualTo(JSONArrayValue(listOf(NumberValue(1), NumberValue(2), NumberValue(3))))
     }
 

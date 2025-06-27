@@ -138,7 +138,6 @@ infix fun <E> List<E>.shouldContainInAnyOrder(elementList: List<E>) {
 }
 
 val DefaultStrategies = FlagsBased (
-    UseDefaultExample,
     NonGenerativeTests,
     null,
     "",

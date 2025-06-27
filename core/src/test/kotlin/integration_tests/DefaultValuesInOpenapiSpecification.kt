@@ -71,7 +71,7 @@ class DefaultValuesInOpenapiSpecification {
         """.trimIndent(), ""
         ).toFeature()
 
-        val withGenerativeTestsEnabled = specification.enableGenerativeTesting().enableSchemaExampleDefault()
+        val withGenerativeTestsEnabled = specification.enableGenerativeTesting()
 
         val testTypes = mutableListOf<String>()
 
@@ -240,7 +240,7 @@ class DefaultValuesInOpenapiSpecification {
         """.trimIndent(), ""
         ).toFeature()
 
-        val withGenerativeTestsEnabled = specification.enableGenerativeTesting().enableSchemaExampleDefault()
+        val withGenerativeTestsEnabled = specification.enableGenerativeTesting()
 
         val testTypes = mutableListOf<String>()
 

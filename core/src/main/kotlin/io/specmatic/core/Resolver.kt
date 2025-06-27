@@ -41,7 +41,6 @@ data class Resolver(
     val patternMatchStrategy: (resolver: Resolver, factKey: String?, pattern: Pattern, sampleValue: Value) -> Result = actualMatch,
     val parseStrategy: (resolver: Resolver, pattern: Pattern, rowValue: String) -> Value = actualParse,
     val cyclePreventionStack: List<Pattern> = listOf(),
-    val defaultExampleResolver: DefaultExampleResolver = UseDefaultExample,
     val generation: GenerationStrategies = NonGenerativeTests,
     val dictionary: Dictionary = Dictionary.empty(),
     val dictionaryLookupPath: String = "",
@@ -372,15 +371,15 @@ data class Resolver(
     }
 
     fun resolveExample(example: String?, pattern: Pattern): Value? {
-        return defaultExampleResolver.resolveExample(example, pattern, this)
+        return resolveExample(example, pattern, this)
     }
 
     fun resolveExample(example: String?, pattern: List<Pattern>): Value? {
-        return defaultExampleResolver.resolveExample(example, pattern, this)
+        return resolveExample(example, pattern, this)
     }
 
     fun resolveExample(example: List<String?>?, pattern: Pattern): JSONArrayValue? {
-        return defaultExampleResolver.resolveExample(example, pattern, this)
+        return resolveExample(example, pattern, this)
     }
 
     fun generateHttpRequestBodies(body: Pattern, row: Row, requestBodyAsIs: Pattern): Sequence<ReturnValue<Pattern>> {
