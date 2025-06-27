@@ -1428,11 +1428,11 @@ class OpenApiSpecification(
                 }.withExample(schema.example?.toString())
             }
 
-            is BinarySchema -> BinaryPattern()
+            is BinarySchema -> BinaryPattern(example = schema.example?.toString())
             is NumberSchema -> numberPattern(schema, true)
-            is UUIDSchema -> UUIDPattern
-            is DateTimeSchema -> DateTimePattern
-            is DateSchema -> DatePattern
+            is UUIDSchema -> UUIDPattern(example = schema.example?.toString())
+            is DateTimeSchema -> DateTimePattern(example = schema.example?.toString())
+            is DateSchema -> DatePattern(example = schema.example?.toString())
             is BooleanSchema -> BooleanPattern(example = schema.example?.toString())
             is ObjectSchema, is MapSchema -> {
                 if (schema.xml?.name != null) {
@@ -1441,7 +1441,7 @@ class OpenApiSpecification(
                     toJsonObjectPattern(schema, patternName, typeStack)
                 }
             }
-            is ByteArraySchema -> Base64StringPattern()
+            is ByteArraySchema -> Base64StringPattern(example = schema.example?.toString())
 
             is ArraySchema -> {
                 if (schema.xml?.name != null) {
@@ -1584,7 +1584,7 @@ class OpenApiSpecification(
                     }
 
                     val nullable =
-                        if (schema.oneOf.any { nullableEmptyObject(it) }) listOf(NullPattern) else emptyList()
+                        if (schema.oneOf.any { nullableEmptyObject(it) }) listOf(NullPattern(example = schema.example?.toString())) else emptyList()
 
                     val impliedDiscriminatorMappings = schema.oneOf.impliedDiscriminatorMappings()
                     val finalDiscriminatorMappings = schema.discriminator?.mapping.orEmpty().plus(impliedDiscriminatorMappings).distinctByValue()
@@ -1603,7 +1603,7 @@ class OpenApiSpecification(
 
             else -> {
                 if (schema.nullable == true && schema.additionalProperties == null && schema.`$ref` == null) {
-                    NullPattern
+                    NullPattern(example = schema.example?.toString())
                 } else if (schema.additionalProperties is Schema<*> || schema.additionalProperties == true || schema.properties != null) {
                     toJsonObjectPattern(schema, patternName, typeStack)
                 } else {

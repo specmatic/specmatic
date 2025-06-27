@@ -139,7 +139,7 @@ data class NumberPattern(
 
         return sequence {
             if (config.withDataTypeNegatives) {
-                yieldAll(scalarAnnotation(current, sequenceOf(NullPattern, BooleanPattern(), StringPattern())))
+                yieldAll(scalarAnnotation(current, sequenceOf(NullPattern(), BooleanPattern(), StringPattern())))
             }
             val negativeForMinimumValue: Sequence<ReturnValue<Pattern>> =
                 negativeRangeValues(minValueIsSet(), effectiveMin - smallInc, "value lesser than minimum value '$effectiveMin'")

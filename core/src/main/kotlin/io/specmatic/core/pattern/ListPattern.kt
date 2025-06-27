@@ -283,7 +283,7 @@ private fun withEmptyType(pattern: Pattern, resolver: Resolver): Resolver {
 
     val hasXML = patternSet.any { resolvedHop(it, resolver) is XMLPattern }
 
-    val emptyType = if(hasXML) EmptyStringPattern else NullPattern
+    val emptyType = if(hasXML) EmptyStringPattern else NullPattern()
 
     return resolver.copy(newPatterns = resolver.newPatterns.plus("(empty)" to emptyType))
 }

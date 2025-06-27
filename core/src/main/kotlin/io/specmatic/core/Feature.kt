@@ -1542,10 +1542,10 @@ data class Feature(
                         val descriptor = if (isEmptyOrNull(type1)) type2Descriptor else type1Descriptor
                         val withoutBrackets = withoutPatternDelimiters(descriptor)
                         val newPattern = withoutBrackets.removeSuffix("?").let { "($it)" }
-                        val patterns = listOf(NullPattern, type.copy(pattern = newPattern))
+                        val patterns = listOf(NullPattern(), type.copy(pattern = newPattern))
                         AnyPattern(patterns, extensions = patterns.extractCombinedExtensions())
                     } else {
-                        val patterns = listOf(NullPattern, type)
+                        val patterns = listOf(NullPattern(), type)
                         AnyPattern(patterns, extensions = patterns.extractCombinedExtensions())
                     }
                 } else if (cleanedUpDescriptors.first() == cleanedUpDescriptors.second()) {
@@ -1807,7 +1807,7 @@ data class Feature(
         return when (pattern) {
             is DeferredPattern -> pattern.typeAlias in listOf("(empty)", "(null)")
             is LookupRowPattern -> isEmptyOrNull(pattern.pattern)
-            else -> pattern in listOf(EmptyStringPattern, NullPattern)
+            else -> pattern in listOf(EmptyStringPattern, NullPattern())
         }
     }
 
