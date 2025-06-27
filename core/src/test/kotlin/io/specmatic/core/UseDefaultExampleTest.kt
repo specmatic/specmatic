@@ -2,8 +2,10 @@ package io.specmatic.core
 
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.NumberPattern
+import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.value.JSONArrayValue
+import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -85,5 +87,23 @@ class UseDefaultExampleTest {
     fun `resolve array example with non-null example`() {
         val value = UseDefaultExample.resolveExample(listOf("example"), StringPattern(), Resolver())
         assertThat(value).isEqualTo(JSONArrayValue(listOf(StringValue("example"))))
+    }
+
+    @Test
+    fun `should not resolve example when pattern has been mutated to generate negative tests`() {
+        val patterns = NumberPattern(example = "10").negativeBasedOn(Row(), Resolver())
+        assertThat(patterns.toList()).allSatisfy { pattern ->
+            val value = pattern.value.generate(Resolver())
+            assertThat(value).isNotEqualTo(NumberValue(10))
+        }
+    }
+
+    @Test
+    fun `should prefer value from dictionary before resolving example when generating via resolver`() {
+        val dictionary = Dictionary.fromYaml("(number): 123")
+        val pattern = NumberPattern(example = "456")
+        val generatedValue = Resolver(dictionary = dictionary).generate(pattern)
+
+        assertThat(generatedValue).isEqualTo(NumberValue(123))
     }
 }
