@@ -41,7 +41,7 @@ data class Resolver(
     val patternMatchStrategy: (resolver: Resolver, factKey: String?, pattern: Pattern, sampleValue: Value) -> Result = actualMatch,
     val parseStrategy: (resolver: Resolver, pattern: Pattern, rowValue: String) -> Value = actualParse,
     val cyclePreventionStack: List<Pattern> = listOf(),
-    val defaultExampleResolver: DefaultExampleResolver = DoNotUseDefaultExample,
+    val defaultExampleResolver: DefaultExampleResolver = UseDefaultExample,
     val generation: GenerationStrategies = NonGenerativeTests,
     val dictionary: Dictionary = Dictionary.empty(),
     val dictionaryLookupPath: String = "",

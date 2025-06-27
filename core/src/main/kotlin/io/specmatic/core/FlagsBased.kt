@@ -2,8 +2,6 @@ package io.specmatic.core
 
 import io.specmatic.core.pattern.IgnoreUnexpectedKeys
 import io.specmatic.core.utilities.Flags
-import io.specmatic.core.utilities.Flags.Companion.SCHEMA_EXAMPLE_DEFAULT
-import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
 
 const val POSITIVE_TEST_DESCRIPTION_PREFIX = "+ve "
 const val NEGATIVE_TEST_DESCRIPTION_PREFIX = "-ve "
@@ -43,7 +41,7 @@ fun strategiesFromFlags(specmaticConfig: SpecmaticConfig): FlagsBased {
             Pair("", "")
 
     return FlagsBased(
-        defaultExampleResolver = if (getBooleanValue(SCHEMA_EXAMPLE_DEFAULT)) UseDefaultExample else DoNotUseDefaultExample,
+        defaultExampleResolver = UseDefaultExample,
         generation = when {
             specmaticConfig.isResiliencyTestingEnabled() -> GenerativeTestsEnabled(positiveOnly = specmaticConfig.isOnlyPositiveTestingEnabled())
             else -> NonGenerativeTests
@@ -56,7 +54,7 @@ fun strategiesFromFlags(specmaticConfig: SpecmaticConfig): FlagsBased {
 }
 
 val DefaultStrategies = FlagsBased (
-    DoNotUseDefaultExample,
+    UseDefaultExample,
     NonGenerativeTests,
     null,
     "",
