@@ -203,6 +203,12 @@ open class SpecmaticJUnitSupport {
         }).asStream()
     }
 
+    private fun noTestsFoundError(reason: String): Stream<DynamicTest> {
+        return sequenceOf(DynamicTest.dynamicTest("No Tests Found") {
+            ResultAssert.assertThat(Result.Failure("No tests found to run. $reason")).isSuccess()
+        }).asStream()
+    }
+
     @TestFactory
     fun contractTest(): Stream<DynamicTest> {
         val statistics = ContractTestStatistics()
@@ -314,6 +320,27 @@ open class SpecmaticJUnitSupport {
             return loadExceptionAsTestError(e)
         } catch (e: Throwable) {
             return loadExceptionAsTestError(e)
+        }
+
+        // Check if no tests remain after filtering
+        if (!testScenarios.iterator().hasNext()) {
+            val filterDetails = buildString {
+                if (!filterName.isNullOrBlank()) append("name filter: '$filterName'")
+                if (!filterNotName.isNullOrBlank()) {
+                    if (isNotEmpty()) append(", ")
+                    append("exclude filter: '$filterNotName'")
+                }
+                if (testFilter.expression != null) {
+                    if (isNotEmpty()) append(", ")
+                    append("expression filter: '${System.getProperty(FILTER, "")}'")
+                }
+            }
+            val reason = if (filterDetails.isNotEmpty()) {
+                "Applied filters ($filterDetails) matched no test scenarios."
+            } else {
+                "No test scenarios found."
+            }
+            return noTestsFoundError(reason)
         }
 
         val testBaseURL = try {
