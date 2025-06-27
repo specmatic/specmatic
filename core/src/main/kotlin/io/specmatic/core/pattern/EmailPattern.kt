@@ -11,6 +11,8 @@ private const val EMAIL_REGEX = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,
 class EmailPattern (private val stringPatternDelegate: StringPattern) :
     Pattern by stringPatternDelegate, ScalarType {
 
+    override val example: Any? get() = stringPatternDelegate.example
+
     constructor(
         typeAlias: String? = null,
         minLength: Int? = null,

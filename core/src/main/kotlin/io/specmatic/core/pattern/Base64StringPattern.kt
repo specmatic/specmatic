@@ -10,7 +10,10 @@ import io.specmatic.core.value.Value
 import org.apache.commons.codec.binary.Base64
 import java.util.*
 
-data class Base64StringPattern(override val typeAlias: String? = null) : Pattern, ScalarType {
+data class Base64StringPattern(
+    override val typeAlias: String? = null,
+    override val example: Any? = null
+) : Pattern, ScalarType {
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if (sampleData?.hasTemplate() == true)
             return Result.Success()
@@ -40,6 +43,9 @@ data class Base64StringPattern(override val typeAlias: String? = null) : Pattern
     private val randomStringLength: Int = 5
 
     override fun generate(resolver: Resolver): Value {
+        val exampleValue = resolver.resolveExample(example as? String, this)
+        if (exampleValue != null) return exampleValue
+        
         return StringValue(randomBase64String(randomStringLength))
     }
 
@@ -48,7 +54,7 @@ data class Base64StringPattern(override val typeAlias: String? = null) : Pattern
     override fun negativeBasedOn(row: Row, resolver: Resolver, config: NegativePatternConfiguration): Sequence<ReturnValue<Pattern>> {
         // TODO ideally StringPattern should be in this list. However need to better understand how to generate
         //      strings that are not valid base64 strings (e.g. send an exact "]" which is not a base64 encoded value)
-        return scalarAnnotation(this, sequenceOf(NullPattern, NumberPattern(), BooleanPattern()))
+        return scalarAnnotation(this, sequenceOf(NullPattern(), NumberPattern(), BooleanPattern()))
     }
 
 

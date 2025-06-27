@@ -11,7 +11,9 @@ import io.specmatic.core.value.Value
 
 const val NULL_TYPE = "(null)"
 
-object NullPattern : Pattern, ScalarType {
+data class NullPattern(
+    override val example: Any? = null
+) : Pattern, ScalarType {
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if (sampleData?.hasTemplate() == true)
             return Result.Success()
@@ -23,7 +25,8 @@ object NullPattern : Pattern, ScalarType {
         }
     }
 
-    override fun generate(resolver: Resolver): Value = NullValue
+    override fun generate(resolver: Resolver): Value = 
+        resolver.resolveExample(example as? String, this) ?: NullValue
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> = sequenceOf(HasValue(this))
     override fun newBasedOn(resolver: Resolver): Sequence<Pattern> = sequenceOf(this)

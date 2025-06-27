@@ -115,7 +115,7 @@ data class StringPattern (
 
         return sequence {
             if (config.withDataTypeNegatives) {
-                yieldAll(scalarAnnotation(current, sequenceOf(NullPattern, NumberPattern(), BooleanPattern())))
+                yieldAll(scalarAnnotation(current, sequenceOf(NullPattern(), NumberPattern(), BooleanPattern())))
             }
 
             if (maxLength != null) {

@@ -6,7 +6,10 @@ import io.specmatic.core.Substitution
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.*
 
-data class QueryParameterScalarPattern(override val pattern: Pattern): Pattern by pattern {
+data class QueryParameterScalarPattern(
+    override val pattern: Pattern,
+    override val example: Any? = null
+): Pattern by pattern, ScalarType {
     override fun resolveSubstitutions(
         substitution: Substitution,
         value: Value,

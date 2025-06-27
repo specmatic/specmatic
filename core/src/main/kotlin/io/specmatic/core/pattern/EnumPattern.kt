@@ -42,6 +42,8 @@ data class EnumPattern(
     override val pattern: AnyPattern,
     val nullable: Boolean
 ) : Pattern by pattern, ScalarType {
+
+    override val example: Any? get() = pattern.example
     constructor(values: List<Value>,
                 key: String? = null,
                 typeAlias: String? = null,

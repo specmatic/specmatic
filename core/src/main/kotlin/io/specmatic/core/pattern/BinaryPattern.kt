@@ -12,6 +12,7 @@ import java.security.SecureRandom
 
 data class BinaryPattern(
     override val typeAlias: String? = null,
+    override val example: Any? = null,
 ) : Pattern, ScalarType {
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
@@ -38,6 +39,9 @@ data class BinaryPattern(
     }
 
     override fun generate(resolver: Resolver): Value {
+        val exampleValue = resolver.resolveExample(example as? String, this)
+        if (exampleValue != null) return exampleValue
+        
         val secureRandom = SecureRandom()
         val bytes = ByteArray(20)
         secureRandom.nextBytes(bytes)
@@ -48,7 +52,7 @@ data class BinaryPattern(
     override fun newBasedOn(resolver: Resolver): Sequence<Pattern> = sequenceOf(this)
 
     override fun negativeBasedOn(row: Row, resolver: Resolver, config: NegativePatternConfiguration): Sequence<ReturnValue<Pattern>> {
-        return scalarAnnotation(this, sequenceOf(NullPattern, NumberPattern(), BooleanPattern()))
+        return scalarAnnotation(this, sequenceOf(NullPattern(), NumberPattern(), BooleanPattern()))
     }
 
     override fun parse(value: String, resolver: Resolver): Value = StringValue(value)
