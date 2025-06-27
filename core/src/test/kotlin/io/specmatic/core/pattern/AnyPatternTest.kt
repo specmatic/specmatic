@@ -123,7 +123,7 @@ internal class AnyPatternTest {
 
     @Test
     fun `error message when a json object does not match nullable primitive such as string in the contract`() {
-        val pattern1 = AnyPattern(listOf(NullPattern, StringPattern()), extensions = emptyMap())
+        val pattern1 = AnyPattern(listOf(NullPattern(), StringPattern()), extensions = emptyMap())
         val pattern2 = AnyPattern(listOf(DeferredPattern("(empty)"), StringPattern()), extensions = emptyMap())
 
         val value = parsedValue("""{"firstname": "Jane", "lastname": "Doe"}""")
@@ -154,7 +154,7 @@ internal class AnyPatternTest {
                 "lastname" to NumberPattern()
             )
         )
-        val pattern = AnyPattern(listOf(NullPattern, DeferredPattern(pattern = "(Person)")), extensions = emptyMap())
+        val pattern = AnyPattern(listOf(NullPattern(), DeferredPattern(pattern = "(Person)")), extensions = emptyMap())
         val value = parsedValue("""{"firstname": "Jane", "lastname": "Doe"}""")
         val resolver = withNullPattern(Resolver(
             newPatterns = mapOf("(Person)" to jsonPattern)
@@ -167,7 +167,7 @@ internal class AnyPatternTest {
 
     @Test
     fun `typename of a nullable type`() {
-        val pattern1 = AnyPattern(listOf(NullPattern, StringPattern()), extensions = emptyMap())
+        val pattern1 = AnyPattern(listOf(NullPattern(), StringPattern()), extensions = emptyMap())
         val pattern2 = AnyPattern(listOf(DeferredPattern("(empty)"), StringPattern()), extensions = emptyMap())
 
         assertThat(pattern1.typeName).isEqualTo("(string?)")
@@ -226,8 +226,8 @@ internal class AnyPatternTest {
     @Test
     fun `AnyPattern of null and string patterns should encompass null pattern`() {
         assertThat(
-            AnyPattern(listOf(NullPattern, StringPattern()), extensions = emptyMap()).encompasses(
-                NullPattern,
+            AnyPattern(listOf(NullPattern(), StringPattern()), extensions = emptyMap()).encompasses(
+                NullPattern(),
                 Resolver(),
                 Resolver()
             )
@@ -282,7 +282,7 @@ internal class AnyPatternTest {
 
     @Test
     fun `typeName should show nullable when one of the types is null`() {
-        val type = AnyPattern(pattern = listOf(NullPattern, NumberPattern()), extensions = emptyMap())
+        val type = AnyPattern(pattern = listOf(NullPattern(), NumberPattern()), extensions = emptyMap())
         assertThat(type.typeName).isEqualTo("(number?)")
     }
 
@@ -336,7 +336,7 @@ internal class AnyPatternTest {
 
     @Test
     fun `parse operation of Nullable type implemented with AnyPattern should return a string`() {
-        val type = AnyPattern(listOf(NullPattern, StringPattern()), extensions = emptyMap())
+        val type = AnyPattern(listOf(NullPattern(), StringPattern()), extensions = emptyMap())
         val parsedValue = type.parse("22B Baker Street", Resolver(isNegative = true))
         assertThat(parsedValue.toStringLiteral()).isEqualTo("22B Baker Street")
     }
@@ -345,7 +345,7 @@ internal class AnyPatternTest {
     @Tag(GENERATION)
     fun `values for negative tests`() {
         val negativeTypes =
-            AnyPattern(listOf(NullPattern, StringPattern()), extensions = emptyMap()).negativeBasedOn(Row(), Resolver()).map { it.value }
+            AnyPattern(listOf(NullPattern(), StringPattern()), extensions = emptyMap()).negativeBasedOn(Row(), Resolver()).map { it.value }
                 .toList()
 
         assertThat(negativeTypes).containsExactlyInAnyOrder(
@@ -383,7 +383,7 @@ internal class AnyPatternTest {
 
     @Test
     fun `should wrap values in the relevant list type`() {
-        val type = AnyPattern(listOf(NullPattern, StringPattern()), extensions = emptyMap())
+        val type = AnyPattern(listOf(NullPattern(), StringPattern()), extensions = emptyMap())
         val wrappedList = type.listOf(listOf(StringValue("It's me"), StringValue("Hi"), StringValue("I'm the problem it's me")), Resolver()) as JSONArrayValue
 
         val wrappedValues = wrappedList.list.map { it.toStringLiteral() }
@@ -474,9 +474,9 @@ internal class AnyPatternTest {
     @Test
     fun `should prioritise non-null pattern generation when its a nullable pattern`() {
         val nullableScalarPatterns = listOf(
-            AnyPattern(listOf(NullPattern, StringPattern(), NullPattern), extensions = emptyMap()),
+            AnyPattern(listOf(NullPattern(), StringPattern(), NullPattern), extensions = emptyMap()),
             AnyPattern(listOf(StringPattern(), NullPattern), extensions = emptyMap()),
-            AnyPattern(listOf(NullPattern, StringPattern()), extensions = emptyMap())
+            AnyPattern(listOf(NullPattern(), StringPattern()), extensions = emptyMap())
         )
 
         assertThat(nullableScalarPatterns).allSatisfy {
@@ -489,7 +489,7 @@ internal class AnyPatternTest {
     fun `should be able to determine if pattern is scalar based correctly`() {
         val scalarBasedPatterns = listOf(
             AnyPattern(listOf(StringPattern(), NullPattern), extensions = emptyMap()),
-            AnyPattern(listOf(NullPattern, StringPattern()), extensions = emptyMap())
+            AnyPattern(listOf(NullPattern(), StringPattern()), extensions = emptyMap())
         )
 
         assertThat(scalarBasedPatterns).allSatisfy {
@@ -884,7 +884,7 @@ internal class AnyPatternTest {
 
         @Test
         fun `should work when pattern is scalar based of nullable type`() {
-            val pattern = AnyPattern(listOf(NullPattern, StringPattern()), extensions = emptyMap())
+            val pattern = AnyPattern(listOf(NullPattern(), StringPattern()), extensions = emptyMap())
             val dictionary = "(string): TODO".let(Dictionary::fromYaml)
             val resolver = Resolver(dictionary = dictionary)
             val invalidValue = NumberValue(999)
@@ -896,7 +896,7 @@ internal class AnyPatternTest {
 
         @Test
         fun `scalar value should be picked from dictionary when pattern has typeAlias and matching key in dictionary`() {
-            val pattern = AnyPattern(listOf(NullPattern, StringPattern()), typeAlias = "(StringOrEmpty)", extensions = emptyMap())
+            val pattern = AnyPattern(listOf(NullPattern(), StringPattern()), typeAlias = "(StringOrEmpty)", extensions = emptyMap())
             val dictionary = "StringOrEmpty: TODO".let(Dictionary::fromYaml)
             val resolver = Resolver(dictionary = dictionary)
             val invalidValue = NumberValue(999)
@@ -908,7 +908,7 @@ internal class AnyPatternTest {
 
         @Test
         fun `nullable pattern dictionary lookup should not throw an exception`() {
-            val pattern = AnyPattern(listOf(NullPattern, NumberPattern()), extensions = emptyMap())
+            val pattern = AnyPattern(listOf(NullPattern(), NumberPattern()), extensions = emptyMap())
             val jsonObjPattern = JSONObjectPattern(mapOf("id" to pattern), typeAlias = "(Test)")
 
             val dictionary = "Test: { id: 999 }".let(Dictionary::fromYaml)

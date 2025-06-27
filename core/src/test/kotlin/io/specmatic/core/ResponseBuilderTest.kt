@@ -28,11 +28,11 @@ class ResponseBuilderTest {
                 TODO("Not yet implemented")
             }
 
-            override fun newBasedOn(resolver: Resolver): Sequence<Pattern> {
+            override fun UUIDPattern().newBasedOn(resolver: Resolver): Sequence<Pattern> {
                 TODO("Not yet implemented")
             }
 
-            override fun negativeBasedOn(row: Row, resolver: Resolver, config: NegativePatternConfiguration): Sequence<ReturnValue<Pattern>> {
+            override fun UUIDPattern().negativeBasedOn(row: Row, resolver: Resolver, config: NegativePatternConfiguration): Sequence<ReturnValue<Pattern>> {
                 TODO("Not yet implemented")
             }
 

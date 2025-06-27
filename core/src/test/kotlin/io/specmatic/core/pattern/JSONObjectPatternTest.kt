@@ -708,9 +708,9 @@ internal class JSONObjectPatternTest {
             val row = Row()
             val config = NegativePatternConfiguration()
             val methodToPatterns = mapOf(
-                "newBasedOn(resolver)" to pattern.newBasedOn(resolver).map { HasValue(it as Pattern) },
-                "newBasedOn(row, resolver)" to pattern.newBasedOn(row, resolver),
-                "negativeBasedOn(row, resolver, config)" to pattern.negativeBasedOn(row, resolver, config)
+                "UUIDPattern().newBasedOn(resolver)" to pattern.newBasedOn(resolver).map { HasValue(it as Pattern) },
+                "UUIDPattern().newBasedOn(row, resolver)" to pattern.newBasedOn(row, resolver),
+                "UUIDPattern().negativeBasedOn(row, resolver, config)" to pattern.negativeBasedOn(row, resolver, config)
             )
 
             assertThat(methodToPatterns).allSatisfy { method, patternSequence->

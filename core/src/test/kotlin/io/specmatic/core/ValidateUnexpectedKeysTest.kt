@@ -21,7 +21,7 @@ internal class ValidateUnexpectedKeysTest {
     @Test
     fun `flags unexpected keys and leaves expxected alone`() {
         val expected = mapOf("hello" to NullPattern)
-        val actual = mapOf("hello" to NullPattern, "world" to NullPattern)
+        val actual = mapOf("hello" to NullPattern(), "world" to NullPattern)
 
         val error = ValidateUnexpectedKeys.validate(expected, actual)
         assertThat(error?.name).isEqualTo("world")
@@ -40,7 +40,7 @@ internal class ValidateUnexpectedKeysTest {
     @Nested
     inner class AllUnexpectedErrors {
         private val expected = mapOf("hello" to NullPattern)
-        private val actual = mapOf("hello_there" to NullPattern, "hello_world" to NullPattern)
+        private val actual = mapOf("hello_there" to NullPattern(), "hello_world" to NullPattern)
         private val errorList: List<UnexpectedKeyError> = ValidateUnexpectedKeys.validateList(expected, actual)
 
         @Test

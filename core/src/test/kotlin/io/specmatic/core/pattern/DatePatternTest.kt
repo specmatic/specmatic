@@ -3,7 +3,7 @@ package io.specmatic.core.pattern
 import io.specmatic.GENERATION
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
-import io.specmatic.core.pattern.DatePattern.newBasedOn
+import io.specmatic.core.pattern.DatePattern
 import io.specmatic.core.value.StringValue
 import io.specmatic.shouldMatch
 import io.specmatic.shouldNotMatch
@@ -16,22 +16,22 @@ internal class DatePatternTest {
     @Test
     fun `should parse a valid date value`() {
         val dateString = LocalDate.now().format(RFC3339.dateFormatter)
-        val dateValue = DatePattern.parse(dateString, Resolver())
+        val dateValue = DatePattern().parse(dateString, Resolver())
 
         assertThat(dateValue.string).isEqualTo(dateString)
     }
 
     @Test
     fun `should generate a date value which can be parsed`() {
-        val valueGenerated = DatePattern.generate(Resolver())
-        val valueParsed = DatePattern.parse(valueGenerated.string, Resolver())
+        val valueGenerated = DatePattern().generate(Resolver())
+        val valueParsed = DatePattern().parse(valueGenerated.string, Resolver())
 
         assertThat(valueParsed).isEqualTo(valueGenerated)
     }
 
     @Test
     fun `should match a valid date value`() {
-        val valueGenerated = DatePattern.generate(Resolver())
+        val valueGenerated = DatePattern().generate(Resolver())
         valueGenerated shouldMatch DatePattern
     }
 
@@ -43,7 +43,7 @@ internal class DatePatternTest {
 
     @Test
     fun `should return itself when generating a new pattern based on a row`() {
-        val datePatterns = newBasedOn(Row(), Resolver()).map { it.value as DatePattern }.toList()
+        val datePatterns = UUIDPattern().newBasedOn(Row(), Resolver()).map { it.value as DatePattern() }.toList()
         assertThat(datePatterns.size).isEqualTo(1)
         assertThat(datePatterns.first()).isEqualTo(DatePattern)
     }
@@ -53,8 +53,8 @@ internal class DatePatternTest {
         val date1 = StringValue("2020-04-12")
         val date2 = StringValue("2020-04-22")
 
-        assertThat(DatePattern.matches(date1, Resolver())).isInstanceOf(Result.Success::class.java)
-        assertThat(DatePattern.matches(date2, Resolver())).isInstanceOf(Result.Success::class.java)
+        assertThat(DatePattern().matches(date1, Resolver())).isInstanceOf(Result.Success::class.java)
+        assertThat(DatePattern().matches(date2, Resolver())).isInstanceOf(Result.Success::class.java)
     }
 
 

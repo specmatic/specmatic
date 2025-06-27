@@ -157,7 +157,7 @@ class HttpQueryParamPatternTest {
 
     @Test
     fun `should stringify date time query param to date time pattern`() {
-        val httpQueryParamPattern = HttpQueryParamPattern(mapOf("before" to DateTimePattern))
+        val httpQueryParamPattern = HttpQueryParamPattern(mapOf("before" to DateTimePattern()))
         assertThat(httpQueryParamPattern.toString()).isEqualTo("?before=(datetime)")
     }
 
@@ -769,7 +769,7 @@ class HttpQueryParamPatternTest {
             val invalidPatterns = listOf(
                 ListPattern(StringPattern()),
                 BooleanPattern(),
-                NullPattern,
+                NullPattern(),
             )
 
 

@@ -2,7 +2,7 @@ package io.specmatic.core.pattern
 
 import org.junit.jupiter.api.Test
 import io.specmatic.core.Resolver
-import io.specmatic.core.pattern.NullPattern.newBasedOn
+import io.specmatic.core.pattern.NullPattern
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.shouldMatch
@@ -27,11 +27,11 @@ internal class NullPatternTest {
 
     @Test
     fun `should generate null value`() {
-        assertEquals(NullValue,  NullPattern.generate(Resolver()))
+        assertEquals(NullValue,  NullPattern().generate(Resolver()))
     }
 
     @Test
     fun `should create a new array of patterns containing itself`() {
-        assertEquals(listOf(NullPattern), newBasedOn(Row(), Resolver()).map { it.value }.toList())
+        assertEquals(listOf(NullPattern), UUIDPattern().newBasedOn(Row(), Resolver()).map { it.value }.toList())
     }
 }

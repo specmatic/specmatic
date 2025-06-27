@@ -18,7 +18,7 @@ internal class AnythingPatternTest {
     fun `it should match anything`() {
         matches(NumberValue(10))
         matches(StringValue("ten"))
-        matches(BooleanValue(true))
+        UUIDPattern().matches(BooleanValue(true))
     }
 
     @Test

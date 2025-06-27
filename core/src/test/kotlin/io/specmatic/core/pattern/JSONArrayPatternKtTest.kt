@@ -14,8 +14,8 @@ internal class JSONArrayPatternKtTest {
 
         val patterns = arrayType.newBasedOn(Row(), Resolver()).toList().map { it.value as JSONArrayPattern }
         assertThat(patterns).hasSize(2)
-        assertThat(patterns).contains(JSONArrayPattern(listOf<Pattern>(NullPattern, NumberPattern())))
-        assertThat(patterns).contains(JSONArrayPattern(listOf<Pattern>(NullPattern, NumberPattern())))
+        assertThat(patterns).contains(JSONArrayPattern(listOf<Pattern>(NullPattern(), NumberPattern())))
+        assertThat(patterns).contains(JSONArrayPattern(listOf<Pattern>(NullPattern(), NumberPattern())))
 
         println(patterns.size)
         for (json in patterns) println(json)
