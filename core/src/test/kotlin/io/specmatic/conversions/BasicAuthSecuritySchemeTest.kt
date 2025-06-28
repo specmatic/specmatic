@@ -141,4 +141,14 @@ class BasicAuthSecuritySchemeTest {
             { assertThat(it).contains("Base64-encoded credentials in Authorization header is not in the form username:password")}
         )
     }
+
+    @Test
+    fun `should be able to fix invalid value in the request`() {
+        val httpRequest = HttpRequest(headers = mapOf(AUTHORIZATION to "Invalid-Value"))
+        val dictionary = "PARAMETERS: { HEADER: { $AUTHORIZATION: Basic dXNlcjpwYXNzd29yZA== } }".let(Dictionary::fromYaml)
+        val resolver = Resolver(dictionary = dictionary).updateLookupPath(BreadCrumb.PARAMETERS.value)
+        val result = basicAuthSecurityScheme.fix(httpRequest, resolver)
+
+        assertThat(result.headers[AUTHORIZATION]).isEqualTo("Basic dXNlcjpwYXNzd29yZA==")
+    }
 }

@@ -1,8 +1,6 @@
 package io.specmatic.conversions
 
-import io.specmatic.core.HttpRequest
-import io.specmatic.core.Resolver
-import io.specmatic.core.Result
+import io.specmatic.core.*
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -78,5 +76,15 @@ class BearerSecuritySchemeTest {
         val result = BearerSecurityScheme("abcd1234").matches(httpRequest, resolver)
 
         assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `should be able to fix invalid value in the request`() {
+        val httpRequest = HttpRequest(headers = mapOf(AUTHORIZATION to "Invalid-Value"))
+        val dictionary = "PARAMETERS: { HEADER: { $AUTHORIZATION: API-TOKEN } }".let(Dictionary::fromYaml)
+        val resolver = Resolver(dictionary = dictionary).updateLookupPath(BreadCrumb.PARAMETERS.value)
+        val result = BearerSecurityScheme().fix(httpRequest, resolver)
+
+        assertThat(result.headers[AUTHORIZATION]).isEqualTo("Bearer API-TOKEN")
     }
 }
