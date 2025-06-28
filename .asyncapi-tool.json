@@ -1,6 +1,6 @@
 {
   "title": "Specmatic",
-  "description": "An API contract testing tool that helps ensure the correctness APIs by automatically generating test cases and verifying them against the API spec. It simplifies the process of testing APIs and reduces the likelihood of bugs and compatibility issues.",
+  "description": "Transform your API Specs into Executable Contracts with #NoCode in Seconds. Experience the power of Contract-Driven Development to confidently develop and independently deploy your Microservices and Microfrontends faster",
   "links": {
     "websiteUrl": "https://specmatic.io",
     "docsUrl": "https://specmatic.io/documentation/",
@@ -8,8 +8,8 @@
   },
   "filters": {
     "language": "kotlin",
-    "technology": ["maven"],
-    "categories": ["mocking-and-testing"],
-    "hasCommercial": false
+    "technology": ["Docker", "maven"],
+    "categories": ["mocking-and-testing", "CLIs"],
+    "hasCommercial": true
   }
 }
