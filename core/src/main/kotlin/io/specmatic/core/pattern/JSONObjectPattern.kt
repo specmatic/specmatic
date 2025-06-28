@@ -16,7 +16,8 @@ fun toJSONObjectPattern(jsonContent: String, typeAlias: String?): JSONObjectPatt
 fun toJSONObjectPattern(
     map: Map<String, Pattern>,
     typeAlias: String? = null,
-    extensions: Map<String, Any> = emptyMap()
+    extensions: Map<String, Any> = emptyMap(),
+    example: Any? = null
 ): JSONObjectPattern {
     val missingKeyStrategy: UnexpectedKeyCheck = when ("...") {
         in map -> IgnoreUnexpectedKeys
@@ -27,7 +28,8 @@ fun toJSONObjectPattern(
         pattern = map.minus("..."),
         unexpectedKeyCheck = missingKeyStrategy,
         typeAlias = typeAlias,
-        extensions = extensions
+        extensions = extensions,
+        example = example
     )
 }
 
@@ -401,11 +403,20 @@ data class JSONObjectPattern(
     }
 
     private fun resolveJSONObjectExample(example: Any?, pattern: JSONObjectPattern, resolver: Resolver): JSONObjectValue? {
-        if (example == null) return null
+        System.err.println("DEBUG: resolveJSONObjectExample called with example: $example")
+        if (example == null) {
+            System.err.println("DEBUG: example is null, returning null")
+            return null
+        }
 
+        System.err.println("DEBUG: example type: ${example::class.simpleName}")
         val value = when (example) {
-            is String -> pattern.parse(example, resolver)
+            is String -> {
+                System.err.println("DEBUG: parsing string example: $example")
+                pattern.parse(example, resolver)
+            }
             is Map<*, *> -> {
+                System.err.println("DEBUG: converting map example: $example")
                 val valueMap = example.mapKeys { it.key.toString() }.mapValues { entry ->
                     when (val v = entry.value) {
                         is String -> StringValue(v)
@@ -419,23 +430,31 @@ data class JSONObjectPattern(
                 JSONObjectValue(valueMap)
             }
             else -> {
+                System.err.println("DEBUG: parsing as string: ${example.toString()}")
                 try {
                     pattern.parse(example.toString(), resolver)
                 } catch (e: Throwable) {
+                    System.err.println("DEBUG: parse error: ${e.message}")
                     throw ContractException("Example \"$example\" could not be parsed as JSON object: ${e.message}")
                 }
             }
         }
 
+        System.err.println("DEBUG: parsed value: $value")
         val exampleMatchResult = pattern.matches(value, Resolver())
+        System.err.println("DEBUG: match result: $exampleMatchResult")
         if (exampleMatchResult.isSuccess()) return value as JSONObjectValue
         throw ContractException("Example \"$example\" does not match ${pattern.typeName} type")
     }
 
     override fun generate(resolver: Resolver): JSONObjectValue {
+        System.err.println("DEBUG: generate() called on pattern [${System.identityHashCode(this)}] with allowOnlyMandatoryKeysInJsonObject = ${resolver.allowOnlyMandatoryKeysInJsonObject}")
+        System.err.println("DEBUG: example = $example")
+        
         // Use example only when allowOnlyMandatoryKeysInJsonObject is false
         if (!resolver.allowOnlyMandatoryKeysInJsonObject) {
             val exampleValue = resolveJSONObjectExample(example, this, resolver)
+            System.err.println("DEBUG: resolveJSONObjectExample returned: $exampleValue")
             if (exampleValue != null) return exampleValue
         }
 
