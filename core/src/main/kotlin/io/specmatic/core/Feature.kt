@@ -1195,11 +1195,11 @@ data class Feature(
 
             var scenario = rawScenario
 
-            if (scenario.httpRequestPattern.body.let {
-                    it is DeferredPattern && it.pattern == "(RequestBody)" && isJSONPayload(
-                        it.resolvePattern(scenario.resolver)
-                    )
-                }) {
+            if (
+                scenario.httpRequestPattern.body.let {
+                    it is DeferredPattern && it.pattern == "(RequestBody)" && isJSONPayload(it.resolvePattern(scenario.resolver))
+                }
+            ) {
                 val requestBody = scenario.httpRequestPattern.body as DeferredPattern
                 val oldTypeName = requestBody.pattern
                 val newTypeName = "(${prefix}_${withoutPatternDelimiters(oldTypeName)})"
@@ -1217,11 +1217,11 @@ data class Feature(
                 )
             }
 
-            if (scenario.httpResponsePattern.body.let {
-                    it is DeferredPattern && it.pattern == "(ResponseBody)" && isJSONPayload(
-                        it.resolvePattern(scenario.resolver)
-                    )
-                }) {
+            if (
+                scenario.httpResponsePattern.body.let {
+                    it is DeferredPattern && it.pattern == "(ResponseBody)" && isJSONPayload(it.resolvePattern(scenario.resolver))
+                }
+            ) {
                 val responseBody = scenario.httpResponsePattern.body as DeferredPattern
                 val oldTypeName = responseBody.pattern
                 val newTypeName = "(${prefix}_${withoutPatternDelimiters(oldTypeName)})"
@@ -1239,25 +1239,7 @@ data class Feature(
                 )
             }
 
-            val (contentTypePattern, rawResponseHeadersWithoutContentType) = scenario.httpResponsePattern.headersPattern.pattern.entries.find {
-                it.key.equals(CONTENT_TYPE, ignoreCase = true)
-            }?.let {
-                it.value to scenario.httpResponsePattern.headersPattern.pattern.minus(it.key)
-            } ?: (null to scenario.httpResponsePattern.headersPattern.pattern)
-
-            val responseContentType: String? = if(contentTypePattern is ExactValuePattern)
-                contentTypePattern.pattern.toStringLiteral()
-            else null
-
-            val updatedResponseHeaders = HttpHeadersPattern(rawResponseHeadersWithoutContentType, contentType = responseContentType)
-
-            scenario = scenario.copy(
-                httpResponsePattern = scenario.httpResponsePattern.copy(
-                    headersPattern = updatedResponseHeaders
-                )
-            )
-
-            scenario
+            updateScenarioContentTypeFromPattern(scenario)
         }
 
         val rawCombinedScenarios = payloadAdjustedScenarios.fold(emptyList<Scenario>()) { acc, payloadAdjustedScenario ->
@@ -1421,6 +1403,27 @@ data class Feature(
         }
 
         return openAPI
+    }
+
+    private fun updateScenarioContentTypeFromPattern(scenario: Scenario): Scenario {
+        val (reqContentTypeEntry, otherReqHeaders) = partitionOnContentType(scenario.httpRequestPattern.headersPattern.pattern)
+        val requestContentType = (reqContentTypeEntry?.value as? ExactValuePattern)?.pattern?.toStringLiteral()
+
+        val (resContentTypeEntry, otherResHeaders) = partitionOnContentType(scenario.httpResponsePattern.headersPattern.pattern)
+        val responseContentType = (resContentTypeEntry?.value as? ExactValuePattern)?.pattern?.toStringLiteral()
+
+        return scenario.copy(
+            httpRequestPattern = scenario.httpRequestPattern.copy(
+                headersPattern = scenario.httpRequestPattern.headersPattern.copy(
+                    pattern = otherReqHeaders, contentType = requestContentType
+                )
+            ),
+            httpResponsePattern = scenario.httpResponsePattern.copy(
+                headersPattern = scenario.httpResponsePattern.headersPattern.copy(
+                    pattern = otherResHeaders, contentType = responseContentType
+                )
+            )
+        )
     }
 
     private fun withoutQueryParams(name: String): String {
@@ -2564,15 +2567,20 @@ private fun scenarios(featureChildren: List<FeatureChild>) = featureChildren.fil
 fun toGherkinFeature(stub: NamedStub): String = toGherkinFeature("New Feature", listOf(stub))
 
 private fun stubToClauses(namedStub: NamedStub): Pair<List<GherkinClause>, ExampleDeclarations> {
-        val (requestClauses, typesFromRequest, examples) = toGherkinClauses(namedStub.stub.request)
+    val (requestClauses, typesFromRequest, examples) = toGherkinClauses(
+        namedStub.stub.request.copy(headers = dropConversionExcludedHeaders(namedStub.stub.request.headers))
+    )
 
-        for (message in examples.messages) {
-            logger.log(message)
-        }
+    for (message in examples.messages) {
+        logger.log(message)
+    }
 
-        val (responseClauses, allTypes, _) = toGherkinClauses(namedStub.stub.response, typesFromRequest)
-        val typeClauses = toGherkinClauses(allTypes)
-        return Pair(typeClauses.plus(requestClauses).plus(responseClauses), examples)
+    val (responseClauses, allTypes, _) = toGherkinClauses(
+        namedStub.stub.response.copy(headers = dropConversionExcludedHeaders(namedStub.stub.response.headers)),
+        typesFromRequest
+    )
+    val typeClauses = toGherkinClauses(allTypes)
+    return Pair(typeClauses.plus(requestClauses).plus(responseClauses), examples)
 }
 
 data class GherkinScenario(val scenarioName: String, val clauses: List<GherkinClause>)

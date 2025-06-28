@@ -622,7 +622,14 @@ class PostmanKtTests {
 
     private fun validate(gherkinString: String, stubs: List<NamedStub>, additionalHeaders: Map<String, String> = emptyMap()) {
         val behaviour = parseGherkinStringToFeature(gherkinString)
-        val cleanedUpStubs = stubs.map { it.stub }.map { it.copy(response = dropContentAndCORSResponseHeaders(it.response).let { it.copy(headers = it.headers + additionalHeaders)} ) }
+        val cleanedUpStubs = stubs.map { it.stub }.map {
+            it.copy(
+                response = it.response.copy(
+                    headers = dropConversionExcludedHeaders(it.response.headers) + additionalHeaders
+                )
+            )
+        }
+
         for(stub in cleanedUpStubs) {
             behaviour.matchingStub(stub)
         }
@@ -858,7 +865,7 @@ class PostmanKtTests {
         val stub2 = postmanCollection.stubs[1]
         assertThat(stub2.second.name).isEqualTo("Square Of A Number 2")
         assertThat(stub2.second.stub.request.method).isEqualTo("POST")
-        assertThat(stub2.second.stub.response.headers).hasSize(5)
+        assertThat(stub2.second.stub.response.headers).hasSize(2)
     }
 
     companion object {
