@@ -718,6 +718,29 @@ internal class HttpHeadersPatternTest {
 
             assertThat(fixedValue).isEqualTo(mapOf("number" to "999"))
         }
+
+        @Test
+        fun `should not override contentType fixed by contentType pattern with mediaType`() {
+            val headersPattern = HttpHeadersPattern(
+                pattern = mapOf(CONTENT_TYPE to ExactValuePattern(StringValue("application/xml"))),
+                contentType = "application/json"
+            )
+            val headers = mapOf(CONTENT_TYPE to "Invalid-Value")
+            val fixedHeaders = headersPattern.fixValue(headers, Resolver())
+
+            assertThat(fixedHeaders.keys).containsExactly(CONTENT_TYPE)
+            assertThat(fixedHeaders[CONTENT_TYPE]).isEqualTo("application/xml")
+        }
+
+        @Test
+        fun `should not override contentType in headers if it matches simplified mediaType`() {
+            val headersPattern = HttpHeadersPattern(contentType = "application/json")
+            val headers = mapOf(CONTENT_TYPE to "application/json; charset=UTF-8")
+            val fixedHeaders = headersPattern.fixValue(headers, Resolver())
+
+            assertThat(fixedHeaders.keys).containsExactly(CONTENT_TYPE)
+            assertThat(fixedHeaders[CONTENT_TYPE]).isEqualTo("application/json; charset=UTF-8")
+        }
     }
 
     @ParameterizedTest
@@ -882,6 +905,41 @@ internal class HttpHeadersPatternTest {
                 assertThat(result).isInstanceOf(HasValue::class.java); result as HasValue
                 println(result.value)
             }
+        }
+
+        @Test
+        fun `should not add contentType if pattern exists and is optional even if mediaType is set`() {
+            val headersPattern = HttpHeadersPattern(
+                pattern = mapOf("${CONTENT_TYPE}?" to ExactValuePattern(StringValue("application/json; charset=UTF-8"))),
+                contentType = "application/json"
+            )
+            val headers = emptyMap<String, String>()
+            val filledInHeaders = headersPattern.fillInTheBlanks(headers, Resolver()).value
+
+            assertThat(filledInHeaders).isEmpty()
+        }
+
+        @Test
+        fun `should complain if contentType does not match mediaType`() {
+            val headersPattern = HttpHeadersPattern(contentType = "application/json")
+            val headers = mapOf(CONTENT_TYPE to "application/xml")
+            val fillInValue = headersPattern.fillInTheBlanks(headers, Resolver())
+
+            assertThat(fillInValue).isInstanceOf(HasFailure::class.java); fillInValue as HasFailure
+            assertThat(fillInValue.toFailure().reportString()).isEqualToNormalizingWhitespace("""
+            >> Content-Type
+            Expected application/json, actual was application/xml
+            """.trimIndent())
+        }
+
+        @Test
+        fun `should not complain if contentType matches mediaType when simplified`() {
+            val headersPattern = HttpHeadersPattern(contentType = "application/json")
+            val headers = mapOf(CONTENT_TYPE to "application/json; charset=utf-8")
+            val fillInValue = headersPattern.fillInTheBlanks(headers, Resolver()).value
+
+            assertThat(fillInValue.keys).containsExactly(CONTENT_TYPE)
+            assertThat(fillInValue[CONTENT_TYPE]).isEqualTo("application/json; charset=utf-8")
         }
     }
 }

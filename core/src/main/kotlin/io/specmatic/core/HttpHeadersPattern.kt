@@ -75,23 +75,28 @@ data class HttpHeadersPattern(
                 return MatchFailure(matchFailure)
             }
         } else if (contentType != null && contentTypeHeaderValueFromRequest != null) {
-            val parsedContentType = simplifiedContentType(contentType.lowercase())
-            val parsedContentTypeHeaderValue = simplifiedContentType(contentTypeHeaderValueFromRequest.lowercase())
-
-            if (parsedContentType != parsedContentTypeHeaderValue) {
-                return MatchFailure(
-                    Result.Failure(
-                        resolver.mismatchMessages.mismatchMessage(contentType, contentTypeHeaderValueFromRequest),
-                        breadCrumb = CONTENT_TYPE,
-                        failureReason = FailureReason.ContentTypeMismatch
-                    )
-                )
-            }
+            val result = matchesMediaType(contentTypeHeaderValueFromRequest, resolver)
+            if (result is Result.Failure) return MatchFailure(result)
         }
 
         return MatchSuccess(parameters)
     }
 
+    private fun matchesMediaType(value: String?, resolver: Resolver): Result {
+        if (contentType == null || value == null) return Result.Success()
+        val simplifiedContentType = simplifiedContentType(contentType.lowercase())
+        val simplifiedValue = simplifiedContentType(value.lowercase())
+
+        if (simplifiedValue != simplifiedContentType) {
+            return Result.Failure(
+                resolver.mismatchMessages.mismatchMessage(contentType, value),
+                breadCrumb = CONTENT_TYPE,
+                failureReason = FailureReason.ContentTypeMismatch
+            )
+        }
+
+        return Result.Success()
+    }
 
     private fun matchEach(parameters: Pair<Map<String, String>, Resolver>): MatchingResult<Pair<Map<String, String>, Resolver>> {
         val (headers, resolver) = parameters
@@ -416,10 +421,9 @@ data class HttpHeadersPattern(
             orException = { e -> e.cast() }, orFailure = { f -> f.cast() }
         )
 
-        return filledInHeaders.ifValue { headersMap ->
-            headersMap.addIfAbsent(
-                key = contentTypeEntry?.key ?: CONTENT_TYPE, value = contentTypeEntry?.value ?: contentType
-            )
+        return filledInHeaders.ifHasValue { rHeaders ->
+            val headersWithMediaType = contentTypeEntry?.let { rHeaders.value.addIfAbsent(it.key, it.value) } ?: rHeaders.value
+            matchesMediaType(contentTypeEntry?.value, resolver).toReturnValue(headersWithMediaType)
         }
     }
 
@@ -437,7 +441,10 @@ data class HttpHeadersPattern(
         )
 
         val convertedHeaders = fixedHeaders.mapValues { it.value.toStringLiteral() }
-        return convertedHeaders.addIfAbsent(key = contentTypeEntry?.key ?: CONTENT_TYPE, value = contentType)
+        return convertedHeaders.addIfAbsent(
+            key = contentTypeEntry?.key ?: CONTENT_TYPE,
+            value = contentTypeEntry?.value?.takeIf { matchesMediaType(it, resolver).isSuccess() } ?: contentType
+        )
     }
 
     private fun withModifiedSoapActionIfNotInRow(row: Row?, resolver: Resolver): HttpHeadersPattern {
