@@ -2721,4 +2721,84 @@ components:
             assertThat(paths).isEmpty()
         }
     }
+
+    @Nested
+    inner class HasDefaultExampleTests {
+
+        @Test
+        fun `should implement HasDefaultExample interface`() {
+            val pattern = JSONObjectPattern()
+            assertThat(pattern).isInstanceOf(HasDefaultExample::class.java)
+        }
+
+        @Test
+        fun `should have null example by default`() {
+            val pattern = JSONObjectPattern()
+            assertThat(pattern.example).isNull()
+        }
+
+        @Test
+        fun `should support string example`() {
+            val example = """{"id": 123, "name": "John"}"""
+            val pattern = JSONObjectPattern(example = example)
+            assertThat(pattern.example).isEqualTo(example)
+        }
+
+        @Test
+        fun `should support map example`() {
+            val example = mapOf("id" to 123, "name" to "John")
+            val pattern = JSONObjectPattern(example = example)
+            assertThat(pattern.example).isEqualTo(example)
+        }
+
+        @Test
+        fun `should work with utility function hasExample when example is null`() {
+            val pattern = JSONObjectPattern()
+            assertThat(hasExample(pattern)).isFalse()
+        }
+
+        @Test
+        fun `should work with utility function hasExample when example is provided`() {
+            val pattern = JSONObjectPattern(example = """{"id": 123}""")
+            assertThat(hasExample(pattern)).isTrue()
+        }
+
+        @Test
+        fun `should work with utility function theDefaultExampleForThisKeyIsNotOmit when example is null`() {
+            val pattern = JSONObjectPattern()
+            assertThat(theDefaultExampleForThisKeyIsNotOmit(pattern)).isTrue()
+        }
+
+        @Test
+        fun `should work with utility function theDefaultExampleForThisKeyIsNotOmit when example is provided`() {
+            val pattern = JSONObjectPattern(example = """{"id": 123}""")
+            assertThat(theDefaultExampleForThisKeyIsNotOmit(pattern)).isTrue()
+        }
+
+        @Test
+        fun `should work with utility function theDefaultExampleForThisKeyIsNotOmit when example is omit`() {
+            val pattern = JSONObjectPattern(example = "(omit)")
+            assertThat(theDefaultExampleForThisKeyIsNotOmit(pattern)).isFalse()
+        }
+
+        @Test
+        fun `should maintain backward compatibility with existing constructors`() {
+            // Test various existing constructor patterns to ensure backward compatibility
+            val pattern1 = JSONObjectPattern(mapOf("id" to NumberPattern()))
+            assertThat(pattern1.example).isNull()
+
+            val pattern2 = JSONObjectPattern(
+                pattern = mapOf("name" to StringPattern()),
+                typeAlias = "Test"
+            )
+            assertThat(pattern2.example).isNull()
+
+            val pattern3 = JSONObjectPattern(
+                pattern = mapOf("id" to NumberPattern()),
+                minProperties = 1,
+                maxProperties = 5
+            )
+            assertThat(pattern3.example).isNull()
+        }
+    }
 }

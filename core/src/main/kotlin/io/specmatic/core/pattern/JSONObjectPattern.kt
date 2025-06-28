@@ -94,8 +94,9 @@ data class JSONObjectPattern(
     val minProperties: Int? = null,
     val maxProperties: Int? = null,
     val additionalProperties: AdditionalProperties = AdditionalProperties.NoAdditionalProperties,
-    override val extensions: Map<String, Any> = emptyMap()
-) : Pattern, PossibleJsonObjectPatternContainer {
+    override val extensions: Map<String, Any> = emptyMap(),
+    override val example: Any? = null
+) : Pattern, PossibleJsonObjectPatternContainer, HasDefaultExample {
 
     override fun fixValue(value: Value, resolver: Resolver): Value {
         if (resolver.matchesPattern(null, this, value).isSuccess()) return value
