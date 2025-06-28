@@ -2768,7 +2768,7 @@ Scenario: Get product by id
             ).isTrue
 
             assertThat(
-                matches(
+                this.matches(
                     HttpRequest(
                         "POST",
                         "/data"

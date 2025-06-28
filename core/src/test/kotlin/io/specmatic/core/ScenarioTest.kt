@@ -394,11 +394,11 @@ class ScenarioTest {
             name = "SIMPLE POST",
             httpRequestPattern = HttpRequestPattern(
                 httpPathPattern = buildHttpPathPattern("/"), method = "POST",
-                headersPattern = HttpHeadersPattern(mapOf("USER-ID" to UUIDPattern))
+                headersPattern = HttpHeadersPattern(mapOf("USER-ID" to UUIDPattern()))
             ),
             httpResponsePattern = HttpResponsePattern(
                 status = 200,
-                headersPattern = HttpHeadersPattern(mapOf("TICKET-ID" to UUIDPattern))
+                headersPattern = HttpHeadersPattern(mapOf("TICKET-ID" to UUIDPattern()))
             ),
             examples = listOf(
                 Examples(
@@ -444,11 +444,11 @@ class ScenarioTest {
             name = "SIMPLE POST",
             httpRequestPattern = HttpRequestPattern(
                 httpPathPattern = buildHttpPathPattern("/"), method = "POST",
-                headersPattern = HttpHeadersPattern(mapOf("USER-ID" to UUIDPattern))
+                headersPattern = HttpHeadersPattern(mapOf("USER-ID" to UUIDPattern()))
             ),
             httpResponsePattern = HttpResponsePattern(
                 status = 200,
-                headersPattern = HttpHeadersPattern(mapOf("TICKET-ID" to UUIDPattern))
+                headersPattern = HttpHeadersPattern(mapOf("TICKET-ID" to UUIDPattern()))
             ),
             examples = listOf(
                 Examples(
@@ -495,11 +495,11 @@ class ScenarioTest {
             name = "SIMPLE POST",
             httpRequestPattern = HttpRequestPattern(
                 httpPathPattern = buildHttpPathPattern("/"), method = "POST",
-                headersPattern = HttpHeadersPattern(mapOf("USER-ID" to UUIDPattern))
+                headersPattern = HttpHeadersPattern(mapOf("USER-ID" to UUIDPattern()))
             ),
             httpResponsePattern = HttpResponsePattern(
                 status = 200,
-                headersPattern = HttpHeadersPattern(mapOf("TICKET-ID" to UUIDPattern))
+                headersPattern = HttpHeadersPattern(mapOf("TICKET-ID" to UUIDPattern()))
             ),
             examples = listOf(
                 Examples(

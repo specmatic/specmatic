@@ -4,6 +4,7 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.Substitution
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.resolveExample
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
@@ -42,6 +43,8 @@ data class EnumPattern(
     override val pattern: AnyPattern,
     val nullable: Boolean
 ) : Pattern by pattern, ScalarType {
+
+    override val example: String? get() = pattern.example
     constructor(values: List<Value>,
                 key: String? = null,
                 typeAlias: String? = null,
@@ -99,6 +102,12 @@ data class EnumPattern(
 
     override fun fixValue(value: Value, resolver: Resolver): Value {
         return fixValue(value, this, resolver)
+    }
+
+    override fun generate(resolver: Resolver): Value {
+        val exampleValue = resolveExample(example, this, resolver)
+        if (exampleValue != null) return exampleValue
+        return pattern.generate(resolver)
     }
 
     override fun equals(other: Any?): Boolean = other is EnumPattern && other.pattern == this.pattern

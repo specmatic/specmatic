@@ -3,11 +3,14 @@ package io.specmatic.core.pattern
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.resolveExample
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
-object TimePattern : Pattern, ScalarType {
+data class TimePattern(
+    override val example: String? = null
+) : Pattern, ScalarType {
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if (sampleData?.hasTemplate() == true)
             return Result.Success()
@@ -22,7 +25,8 @@ object TimePattern : Pattern, ScalarType {
         }
     }
 
-    override fun generate(resolver: Resolver): StringValue = StringValue(ISO8601.currentTime)
+    override fun generate(resolver: Resolver): StringValue = 
+        resolveExample(example, this, resolver) as? StringValue ?: StringValue(ISO8601.currentTime)
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> = sequenceOf(HasValue(this))
 

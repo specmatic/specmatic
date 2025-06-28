@@ -12,6 +12,8 @@ import io.specmatic.core.value.Value
 const val NULL_TYPE = "(null)"
 
 object NullPattern : Pattern, ScalarType {
+    override val example: String?
+        get() = null
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if (sampleData?.hasTemplate() == true)
             return Result.Success()

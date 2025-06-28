@@ -50,7 +50,7 @@ internal class JSONArrayPatternKtTest {
                 sequenceOf(StringPattern(), null),
                 sequenceOf(NumberPattern()),
                 sequenceOf(BooleanPattern(), null),
-                sequenceOf(DateTimePattern)
+                sequenceOf(DateTimePattern())
             )
         ).toList()
 
@@ -61,12 +61,12 @@ internal class JSONArrayPatternKtTest {
 
         @Test
         fun `one result should have only the required types with order preserved`() {
-            assertThat(combinations).contains(listOf(NumberPattern(), DateTimePattern))
+            assertThat(combinations).contains(listOf(NumberPattern(), DateTimePattern()))
         }
 
         @Test
         fun `the other result should have all the types with order preserved`() {
-            assertThat(combinations).contains(listOf(StringPattern(), NumberPattern(), BooleanPattern(), DateTimePattern))
+            assertThat(combinations).contains(listOf(StringPattern(), NumberPattern(), BooleanPattern(), DateTimePattern()))
         }
     }
 
