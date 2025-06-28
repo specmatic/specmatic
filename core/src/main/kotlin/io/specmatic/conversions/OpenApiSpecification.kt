@@ -1882,13 +1882,46 @@ class OpenApiSpecification(
         val schemaProperties = toSchemaProperties(schema, requiredFields, patternName, typeStack)
         val minProperties: Int? = schema.minProperties
         val maxProperties: Int? = schema.maxProperties
+        
+        // Extract example from schema.examples if available
+        val schemaExample = extractFirstSchemaExample(schema)
+        
         val jsonObjectPattern = toJSONObjectPattern(schemaProperties, if(patternName.isNotBlank()) "(${patternName})" else null).copy(
             minProperties = minProperties,
             maxProperties = maxProperties,
             additionalProperties = additionalPropertiesFrom(schema, patternName, typeStack),
-            extensions = schema.extensions.orEmpty()
+            extensions = schema.extensions.orEmpty(),
+            example = schemaExample
         )
         return cacheComponentPattern(patternName, jsonObjectPattern)
+    }
+
+    private fun extractFirstSchemaExample(schema: Schema<*>): Any? {
+        // Extract the first example from schema.examples if available
+        // In OpenAPI 3.x, schema examples can be:
+        // 1. schema.example (single example)
+        // 2. schema.examples (named examples - but this might not exist in all implementations)
+        
+        // First try schema.example (most common)
+        schema.example?.let { return it }
+        
+        // Schema-level named examples handling - this might not be available
+        // depending on the OpenAPI parser version
+        try {
+            val extensions = schema.extensions
+            val examples = extensions?.get("examples") as? Map<*, *>
+            examples?.values?.firstOrNull()?.let { exampleDef ->
+                // If it's a map with "value" key, extract the value
+                if (exampleDef is Map<*, *>) {
+                    return exampleDef["value"]
+                }
+                return exampleDef
+            }
+        } catch (e: Exception) {
+            // Ignore exceptions for extensions parsing
+        }
+        
+        return null
     }
 
     private fun additionalPropertiesFrom(

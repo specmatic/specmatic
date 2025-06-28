@@ -43,12 +43,12 @@ class JSONObjectPatternExampleIntegrationTest {
                                   type: string
                                 age:
                                   type: integer
-                            examples:
-                              CREATE_USER:
-                                value:
-                                  name: "John Doe"
-                                  email: "john@example.com"
-                                  age: 30
+                              examples:
+                                CREATE_USER:
+                                  value:
+                                    name: "John Doe"
+                                    email: "john@example.com"
+                                    age: 30
                       responses:
                         '201':
                           description: User created
@@ -61,11 +61,11 @@ class JSONObjectPatternExampleIntegrationTest {
                                     type: integer
                                   message:
                                     type: string
-                              examples:
-                                CREATE_USER:
-                                  value:
-                                    id: 123
-                                    message: "User created successfully"
+                                examples:
+                                  CREATE_USER:
+                                    value:
+                                      id: 123
+                                      message: "User created successfully"
                 """.trimIndent(), ""
             ).toFeature()
 
@@ -137,17 +137,17 @@ class JSONObjectPatternExampleIntegrationTest {
                                         type: integer
                                       quantity:
                                         type: integer
-                            examples:
-                              CREATE_ORDER:
-                                value:
-                                  customer:
-                                    name: "Alice Smith"
-                                    id: 456
-                                  items:
-                                    - productId: 101
-                                      quantity: 2
-                                    - productId: 102
-                                      quantity: 1
+                              examples:
+                                CREATE_ORDER:
+                                  value:
+                                    customer:
+                                      name: "Alice Smith"
+                                      id: 456
+                                    items:
+                                      - productId: 101
+                                        quantity: 2
+                                      - productId: 102
+                                        quantity: 1
                       responses:
                         '201':
                           description: Order created
@@ -158,10 +158,10 @@ class JSONObjectPatternExampleIntegrationTest {
                                 properties:
                                   orderId:
                                     type: integer
-                              examples:
-                                CREATE_ORDER:
-                                  value:
-                                    orderId: 789
+                                examples:
+                                  CREATE_ORDER:
+                                    value:
+                                      orderId: 789
                 """.trimIndent(), ""
             ).toFeature()
 
@@ -248,16 +248,16 @@ class JSONObjectPatternExampleIntegrationTest {
                                         type: integer
                                       name:
                                         type: string
-                              examples:
-                                GET_PRODUCT:
-                                  value:
-                                    id: 42
-                                    name: "Premium Laptop"
-                                    price: 1299.99
-                                    description: "High-performance laptop for professionals"
-                                    category:
-                                      id: 5
-                                      name: "Electronics"
+                                examples:
+                                  GET_PRODUCT:
+                                    value:
+                                      id: 42
+                                      name: "Premium Laptop"
+                                      price: 1299.99
+                                      description: "High-performance laptop for professionals"
+                                      category:
+                                        id: 5
+                                        name: "Electronics"
                 """.trimIndent(), ""
             ).toFeature()
 
@@ -329,21 +329,21 @@ class JSONObjectPatternExampleIntegrationTest {
                                           type: string
                                         email:
                                           type: string
-                              examples:
-                                LIST_ENGINEERING_USERS:
-                                  value:
-                                    - id: 1
-                                      username: "john_doe"
-                                      profile:
-                                        firstName: "John"
-                                        lastName: "Doe"
-                                        email: "john@example.com"
-                                    - id: 2
-                                      username: "jane_smith"
-                                      profile:
-                                        firstName: "Jane"
-                                        lastName: "Smith"
-                                        email: "jane@example.com"
+                                examples:
+                                  LIST_ENGINEERING_USERS:
+                                    value:
+                                      - id: 1
+                                        username: "john_doe"
+                                        profile:
+                                          firstName: "John"
+                                          lastName: "Doe"
+                                          email: "john@example.com"
+                                      - id: 2
+                                        username: "jane_smith"
+                                        profile:
+                                          firstName: "Jane"
+                                          lastName: "Smith"
+                                          email: "jane@example.com"
                 """.trimIndent(), ""
             ).toFeature()
 
@@ -397,12 +397,12 @@ class JSONObjectPatternExampleIntegrationTest {
                                   type: string
                                 description:
                                   type: string
-                            examples:
-                              CREATE_ITEM:
-                                value:
-                                  name: "Test Item"
-                                  type: "widget"
-                                  description: "This is a test item"
+                              examples:
+                                CREATE_ITEM:
+                                  value:
+                                    name: "Test Item"
+                                    type: "widget"
+                                    description: "This is a test item"
                       responses:
                         '201':
                           description: Item created
@@ -423,13 +423,13 @@ class JSONObjectPatternExampleIntegrationTest {
                                     properties:
                                       createdAt:
                                         type: string
-                              examples:
-                                CREATE_ITEM:
-                                  value:
-                                    id: 456
-                                    status: "created"
-                                    metadata:
-                                      createdAt: "2023-12-01T10:00:00Z"
+                                examples:
+                                  CREATE_ITEM:
+                                    value:
+                                      id: 456
+                                      status: "created"
+                                      metadata:
+                                        createdAt: "2023-12-01T10:00:00Z"
                 """.trimIndent(), ""
             ).toFeature()
 
