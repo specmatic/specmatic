@@ -4,6 +4,7 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.pattern.parsedJSONObject
+import io.specmatic.core.utilities.Flags
 import io.specmatic.test.TestExecutor
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.*
@@ -12,8 +13,11 @@ import org.junit.jupiter.api.Test
 class ExtensibleHeadersTest {
 
     @Test
-    fun `should assert that additional 'X-Custom-Header' (not in spec) is present in the request`() {
-        val feature = OpenApiSpecification.fromFile("src/test/resources/openapi/specs_for_additional_headers_in_examples/additional_headers_test.yaml").toFeature().loadExternalisedExamples()
+    fun `should assert that additional 'X-Custom-Header' (not in spec) is present in the request when extensible-schema is enabled`() {
+        val feature = Flags.using(Flags.EXTENSIBLE_SCHEMA to "true") {
+            OpenApiSpecification.fromFile("src/test/resources/openapi/specs_for_additional_headers_in_examples/additional_headers_test.yaml").toFeature().loadExternalisedExamples()
+        }
+        feature.validateExamplesOrException()
 
         var customHeaderValue: String? = null
 

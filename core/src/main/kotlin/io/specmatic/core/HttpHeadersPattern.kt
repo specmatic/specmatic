@@ -401,44 +401,43 @@ data class HttpHeadersPattern(
     }
 
     fun fillInTheBlanks(headers: Map<String, String>, resolver: Resolver): ReturnValue<Map<String, String>> {
-        val headersWithContentType = if (contentType != null && CONTENT_TYPE !in headers) {
-            headers.plus(CONTENT_TYPE to contentType)
-        } else headers
-
-        if (headersWithContentType.isEmpty() && pattern.isEmpty()) return HasValue(emptyMap())
-        val headersValue = headersWithContentType.mapValues { (key, value) ->
+        val (contentTypeEntry, otherHeaders) = partitionOnContentTypeIfNotInPattern(headers)
+        val headersValue = otherHeaders.mapValues { (key, value) ->
             val pattern = pattern[key] ?: pattern["$key?"] ?: return@mapValues StringValue(value)
             runCatching { pattern.parse(value, resolver) }.getOrDefault(StringValue(value))
         }
 
-        return fill(
+        val filledInHeaders = fill(
             jsonPatternMap = pattern, jsonValueMap = headersValue,
-            resolver = resolver.updateLookupForParam(BreadCrumb.HEADER.value).withUnexpectedKeyCheck(IgnoreUnexpectedKeys),
+            resolver = resolver.updateLookupForParam(BreadCrumb.HEADER.value),
             typeAlias = null
         ).realise(
             hasValue = { valuesMap, _ -> HasValue(valuesMap.mapValues { it.value.toStringLiteral() }) },
             orException = { e -> e.cast() }, orFailure = { f -> f.cast() }
         )
+
+        return filledInHeaders.ifValue { headersMap ->
+            headersMap.addIfAbsent(
+                key = contentTypeEntry?.key ?: CONTENT_TYPE, value = contentTypeEntry?.value ?: contentType
+            )
+        }
     }
 
     fun fixValue(headers: Map<String, String>, resolver: Resolver): Map<String, String> {
-        val headersWithContentType = if (contentType != null) {
-            headers.plus(CONTENT_TYPE to contentType)
-        } else headers
-
-        if (headersWithContentType.isEmpty() && pattern.isEmpty()) return emptyMap()
-        val headersValue = headersWithContentType.mapValues { (key, value) ->
+        val (contentTypeEntry, otherHeaders) = partitionOnContentTypeIfNotInPattern(headers)
+        val headersValue = otherHeaders.mapValues { (key, value) ->
             val pattern = pattern[key] ?: pattern["$key?"] ?: return@mapValues StringValue(value)
-            try { pattern.parse(value, resolver) } catch(e: Exception) { StringValue(value) }
+            runCatching { pattern.parse(value, resolver) }.getOrDefault(StringValue(value))
         }
 
         val fixedHeaders = fix(
             jsonPatternMap = pattern, jsonValueMap = headersValue,
-            resolver = resolver.updateLookupForParam(BreadCrumb.HEADER.value).withUnexpectedKeyCheck(IgnoreUnexpectedKeys).withoutAllPatternsAsMandatory(),
+            resolver = resolver.updateLookupForParam(BreadCrumb.HEADER.value),
             jsonPattern = JSONObjectPattern(pattern, typeAlias = null)
         )
 
-        return fixedHeaders.mapValues { it.value.toStringLiteral() }
+        val convertedHeaders = fixedHeaders.mapValues { it.value.toStringLiteral() }
+        return convertedHeaders.addIfAbsent(key = contentTypeEntry?.key ?: CONTENT_TYPE, value = contentType)
     }
 
     private fun withModifiedSoapActionIfNotInRow(row: Row?, resolver: Resolver): HttpHeadersPattern {
@@ -485,7 +484,21 @@ data class HttpHeadersPattern(
         }
     }
 
+    private fun partitionOnContentTypeIfNotInPattern(headers: Map<String, String>): Pair<Map.Entry<String, String>?, Map<String, String>> {
+        if (contentTypeHeaderPatternExists()) return null to headers
+        val contentTypeEntry = headers.entries.find { it.key.equals(CONTENT_TYPE, ignoreCase = true) }
+        return if (contentTypeEntry != null) {
+            contentTypeEntry to headers.minus(contentTypeEntry.key)
+        } else {
+            null to headers
+        }
+    }
+
     private fun contentTypeHeaderPatternExists() = pattern.keys.caseInsensitiveContains(CONTENT_TYPE)
+}
+
+private fun <T,U>  Map<T, U>.addIfAbsent(key: T, value: U?): Map<T, U> {
+    return if (key !in this && value != null) this.plus(key to value) else this
 }
 
 private fun parseOrString(pattern: Pattern, sampleValue: String, resolver: Resolver) =

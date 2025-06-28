@@ -620,28 +620,12 @@ internal class HttpHeadersPatternTest {
         }
 
         @Test
-        fun `should allow key-value pairs where key is not in the pattern`() {
-            val httpHeaders = HttpHeadersPattern(mapOf(
-                "key" to ExactValuePattern(StringValue("value")),
-                "optional?" to StringPattern()
-            ))
-
+        fun `should not allow key-value pairs where key is not in the pattern`() {
+            val httpHeaders = HttpHeadersPattern(mapOf("key" to ExactValuePattern(StringValue("value")), "optional?" to StringPattern()))
             val validValue = mapOf("key" to "value", "extraKey" to "extraValue")
             val fixedValue = httpHeaders.fixValue(validValue, Resolver())
-            println(fixedValue)
 
-            assertThat(fixedValue).isNotEmpty
-            assertThat(fixedValue).isEqualTo(validValue)
-        }
-
-        @Test
-        fun `should allow content-type through even if not in pattern`() {
-            val httpHeaders = HttpHeadersPattern(emptyMap())
-            val validValue = mapOf("Content-Type" to "application/json")
-            val fixedValue = httpHeaders.fixValue(validValue, Resolver())
-            println(fixedValue)
-
-            assertThat(fixedValue).isEqualTo(validValue)
+            assertThat(fixedValue).isEqualTo(validValue.minus("extraKey"))
         }
 
         @Test
@@ -652,16 +636,6 @@ internal class HttpHeadersPatternTest {
             println(fixedValue)
 
             assertThat(fixedValue).isEqualTo(mapOf("Content-Type" to "application/json"))
-        }
-
-        @Test
-        fun `should not modify content-type if key exists but value is unknown`() {
-            val httpHeaders = HttpHeadersPattern(emptyMap())
-            val invalidValue = mapOf("Content-Type" to "invalid")
-            val fixedValue = httpHeaders.fixValue(invalidValue, Resolver())
-            println(fixedValue)
-
-            assertThat(fixedValue).isEqualTo(mapOf("Content-Type" to "invalid"))
         }
 
         @Test

@@ -109,34 +109,7 @@ data class HttpRequestPattern(
 
     private fun matchSecurityScheme(parameters: Triple<HttpRequest, Resolver, List<Failure>>): MatchingResult<Triple<HttpRequest, Resolver, List<Failure>>> {
         val (httpRequest, resolver, failures) = parameters
-        val (modifiedHttpRequest, results) = securitySchemes.fold(
-            initial = Pair(httpRequest, emptyList<SecurityMatch>())
-        ) { (request, results), securityScheme ->
-            securityScheme.removeParam(request) to results.plus(
-                SecurityMatch(
-                    presence = when {
-                        securityScheme.isInRequest(httpRequest, complete = true) -> SchemePresence.FULL
-                        securityScheme.isInRequest(httpRequest, complete = false) -> SchemePresence.PARTIAL
-                        else -> SchemePresence.ABSENT
-                    },
-                    result = securityScheme.matches(httpRequest, resolver).breadCrumb(BreadCrumb.PARAMETERS.value)
-                )
-            )
-        }
-
-        SchemePresence.entries.forEach { presence ->
-            val presenceResults = results.filter { it.presence == presence }.map { it.result }
-            val presencesSuccess = presenceResults.filterIsInstance<Success>()
-            val presenceFailures = presenceResults.filterIsInstance<Failure>()
-
-            if (presencesSuccess.isNotEmpty()) {
-                return MatchSuccess(Triple(modifiedHttpRequest, resolver, failures.plus(presenceFailures)))
-            }
-
-            if (presenceFailures.isNotEmpty()) {
-                return MatchSuccess(Triple(modifiedHttpRequest, resolver, failures.plus(presenceFailures)))
-            }
-        }
+        val (modifiedHttpRequest, results) = findNearestSecuritySchemaAndSanitizeRequest(httpRequest, resolver)
 
         val newFailures = results.map { it.result }.filterIsInstance<Failure>()
         return MatchSuccess(Triple(modifiedHttpRequest, resolver, failures.plus(newFailures)))
@@ -902,13 +875,16 @@ data class HttpRequestPattern(
     }
 
     fun fixRequest(request: HttpRequest, resolver: Resolver): HttpRequest {
-        return request.copy(
+        val (modifiedRequest, securityFixedRequest) = fixSecuritySchemes(request, resolver)
+        val fixedRequest = request.copy(
             method = method,
-            path = httpPathPattern?.fixValue(request.path, resolver),
-            queryParams = httpQueryParamPattern.fixValue(request.queryParams, resolver),
-            headers = headersPattern.fixValue(request.headers, resolver.updateLookupPath(BreadCrumb.PARAMETERS.value)),
-            body = body.fixValue(request.body, resolver)
+            path = httpPathPattern?.fixValue(modifiedRequest.path, resolver),
+            queryParams = httpQueryParamPattern.fixValue(modifiedRequest.queryParams, resolver),
+            headers = headersPattern.fixValue(modifiedRequest.headers, resolver.updateLookupPath(BreadCrumb.PARAMETERS.value)),
+            body = body.fixValue(modifiedRequest.body, resolver)
         )
+
+        return copySecuritySchemes(securityFixedRequest, fixedRequest)
     }
 
     fun fillInTheBlanks(request: HttpRequest, resolver: Resolver): HttpRequest {
@@ -949,6 +925,36 @@ data class HttpRequestPattern(
         }
     }
 
+    private fun fixSecuritySchemes(request: HttpRequest, resolver: Resolver): Pair<HttpRequest, HttpRequest> {
+        val (modifiedHttpRequest, results) = findNearestSecuritySchemaAndSanitizeRequest(request, resolver)
+        val nearestMatchingResult = results.firstOrNull() ?: return modifiedHttpRequest to modifiedHttpRequest
+        return modifiedHttpRequest to nearestMatchingResult.schema.fix(request, resolver)
+    }
+
+    private fun findNearestSecuritySchemaAndSanitizeRequest(request: HttpRequest, resolver: Resolver): Pair<HttpRequest, List<SecurityMatch>> {
+        val initial = Pair(request, emptyList<SecurityMatch>())
+        val (modifiedHttpRequest, results) = securitySchemes.fold(initial) { (modifiedRequest, results), scheme ->
+            scheme.removeParam(modifiedRequest) to results.plus(
+                SecurityMatch(
+                    schema = scheme,
+                    presence = when {
+                        scheme.isInRequest(request, complete = true) -> SchemePresence.FULL
+                        scheme.isInRequest(request, complete = false) -> SchemePresence.PARTIAL
+                        else -> SchemePresence.ABSENT
+                    },
+                    result = scheme.matches(request, resolver).breadCrumb(BreadCrumb.PARAMETERS.value)
+                )
+            )
+        }
+
+        SchemePresence.entries.forEach { presence ->
+            val presenceResults = results.filter { it.presence == presence }
+            if (presenceResults.isNotEmpty()) return modifiedHttpRequest to presenceResults
+        }
+
+        return modifiedHttpRequest to results
+    }
+
     fun getSOAPAction(): String? {
         return when(val soapActionPattern = headersPattern.getSOAPActionPattern()) {
             is ExactValuePattern -> soapActionPattern.pattern.toStringLiteral()
@@ -958,7 +964,7 @@ data class HttpRequestPattern(
 }
 
 private enum class SchemePresence { FULL, PARTIAL, ABSENT }
-private data class SecurityMatch(val presence: SchemePresence, val result: Result)
+private data class SecurityMatch(val schema: OpenAPISecurityScheme, val presence: SchemePresence, val result: Result)
 
 fun missingParam(missingValue: String): ContractException {
     return ContractException("$missingValue is missing. Can't generate the contract test.")
