@@ -1451,7 +1451,8 @@ class OpenApiSpecification(
                     ListPattern(
                         toSpecmaticPattern(
                             schema.items, typeStack
-                        )
+                        ),
+                        example = toListExample(schema.example)
                     )
                 }
             }
