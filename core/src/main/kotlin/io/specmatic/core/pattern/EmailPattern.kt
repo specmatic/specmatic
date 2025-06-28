@@ -55,7 +55,7 @@ class EmailPattern (private val stringPatternDelegate: StringPattern) :
     }
 
     override fun generate(resolver: Resolver): Value {
-        val exampleValue = resolver.resolveExample(example, this)
+        val exampleValue = resolveExample(example, this, resolver)
         if (exampleValue != null) return exampleValue
         
         val localPart = randomString(5).lowercase(Locale.getDefault())

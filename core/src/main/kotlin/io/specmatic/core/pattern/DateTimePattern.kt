@@ -3,6 +3,7 @@ package io.specmatic.core.pattern
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.resolveExample
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
@@ -26,7 +27,7 @@ data class DateTimePattern(
     }
 
     override fun generate(resolver: Resolver): StringValue = 
-        resolver.resolveExample(example, this) as? StringValue ?: StringValue(RFC3339.currentDateTime())
+        resolveExample(example, this, resolver) as? StringValue ?: StringValue(RFC3339.currentDateTime())
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> = sequenceOf(HasValue(this))
 

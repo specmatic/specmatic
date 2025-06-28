@@ -33,20 +33,20 @@ internal class DateTimePatternTest {
     @Test
     fun `should match a valid datetime value`() {
         val valueGenerated = DateTimePattern().generate(Resolver())
-        valueGenerated shouldMatch DateTimePattern
+        valueGenerated shouldMatch DateTimePattern()
     }
 
     @Test
     fun `should fail to match an invalid datetime value`() {
         val valueGenerated = StringValue("this is not a datetime value")
-        valueGenerated shouldNotMatch DateTimePattern
+        valueGenerated shouldNotMatch DateTimePattern()
     }
 
     @Test
     fun `should return itself when generating a new pattern based on a row`() {
-        val datePatterns = UUIDPattern().newBasedOn(Row(), Resolver()).map { it.value as DateTimePattern() }.toList()
+        val datePatterns = UUIDPattern().newBasedOn(Row(), Resolver()).map { it.value as DateTimePattern }.toList()
         assertThat(datePatterns.size).isEqualTo(1)
-        assertThat(datePatterns.first()).isEqualTo(DateTimePattern)
+        assertThat(datePatterns.first()).isEqualTo(DateTimePattern())
     }
 
     @ParameterizedTest

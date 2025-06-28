@@ -4,6 +4,7 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.Substitution
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.resolveExample
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
@@ -104,7 +105,7 @@ data class EnumPattern(
     }
 
     override fun generate(resolver: Resolver): Value {
-        val exampleValue = resolver.resolveExample(example, this)
+        val exampleValue = resolveExample(example, this, resolver)
         if (exampleValue != null) return exampleValue
         return pattern.generate(resolver)
     }

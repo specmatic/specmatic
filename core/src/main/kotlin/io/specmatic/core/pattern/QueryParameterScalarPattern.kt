@@ -3,6 +3,7 @@ package io.specmatic.core.pattern
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.Substitution
+import io.specmatic.core.resolveExample
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.*
 
@@ -40,7 +41,7 @@ data class QueryParameterScalarPattern(
     }
 
     override fun generate(resolver: Resolver): Value {
-        return resolver.resolveExample(example, this) ?: pattern.generate(resolver)
+        return resolveExample(example, this, resolver) ?: pattern.generate(resolver)
     }
 
     override fun parse(value: String, resolver: Resolver): Value {

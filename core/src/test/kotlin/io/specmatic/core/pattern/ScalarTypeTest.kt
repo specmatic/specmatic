@@ -14,7 +14,7 @@ class ScalarTypeTest {
         val datePattern = DatePattern(example = "2023-01-01")
         val timePattern = TimePattern(example = "12:30:00")
         val dateTimePattern = DateTimePattern(example = "2023-01-01T12:30:00Z")
-        val nullPattern = NullPattern(example = null)
+        val nullPattern = NullPattern
         val binaryPattern = BinaryPattern(example = "SGVsbG8gV29ybGQ=")
         val base64Pattern = Base64StringPattern(example = "SGVsbG8gV29ybGQ=")
 
