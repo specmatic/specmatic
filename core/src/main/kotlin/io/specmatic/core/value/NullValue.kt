@@ -12,8 +12,8 @@ object NullValue : Value, ScalarValue {
     override fun displayableValue(): String = "null"
     override fun toStringLiteral() = ""
     override fun displayableType(): String = "null"
-    override fun exactMatchElseType(): Pattern = NullPattern()
-    override fun type(): Pattern = NullPattern()
+    override fun exactMatchElseType(): Pattern = NullPattern
+    override fun type(): Pattern = NullPattern
     override fun typeDeclarationWithKey(key: String, types: Map<String, Pattern>, exampleDeclarations: ExampleDeclarations): Pair<TypeDeclaration, ExampleDeclarations> =
             primitiveTypeDeclarationWithKey(key, types, exampleDeclarations, displayableType(), "(null)")
 

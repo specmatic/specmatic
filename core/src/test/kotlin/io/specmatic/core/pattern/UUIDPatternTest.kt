@@ -33,7 +33,7 @@ internal class UUIDPatternTest {
     @Test
     fun `should match a valid UUIDvalue`() {
         val valueGenerated = UUIDPattern().generate(Resolver())
-        valueGenerated shouldMatch UUIDPattern
+        valueGenerated shouldMatch UUIDPattern()
     }
 
     @Test

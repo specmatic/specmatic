@@ -307,7 +307,7 @@ Pet:
     fun `should not resolve non ref nested types to Deferred Pattern`(openApiFile: String) {
         val openApiSpecification = OpenApiSpecification.fromFile(openApiFile)
         val (scenarioInfoData, _) = openApiSpecification.toScenarioInfos()
-        val nestedTypeWithoutRef = scenarioInfoData.first().patterns.getOrDefault("(NestedTypeWithoutRef)", NullPattern())
+        val nestedTypeWithoutRef = scenarioInfoData.first().patterns.getOrDefault("(NestedTypeWithoutRef)", NullPattern)
         assertThat(containsDeferredPattern(nestedTypeWithoutRef)).isFalse
     }
 
@@ -6348,7 +6348,7 @@ paths:
         val addressType = requestBodyType.pattern["address"] as AnyPattern
 
         assertThat(addressType.pattern).hasSize(2)
-        assertThat(NullPattern()).isIn(addressType.pattern)
+        assertThat(NullPattern).isIn(addressType.pattern)
         assertThat(StringPattern()).isIn(addressType.pattern)
     }
 

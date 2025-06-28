@@ -12,7 +12,7 @@ import java.util.*
 
 data class Base64StringPattern(
     override val typeAlias: String? = null,
-    override val example: Any? = null
+    override val example: String? = null
 ) : Pattern, ScalarType {
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if (sampleData?.hasTemplate() == true)
@@ -43,7 +43,7 @@ data class Base64StringPattern(
     private val randomStringLength: Int = 5
 
     override fun generate(resolver: Resolver): Value {
-        val exampleValue = resolver.resolveExample(example as? String, this)
+        val exampleValue = resolver.resolveExample(example, this)
         if (exampleValue != null) return exampleValue
         
         return StringValue(randomBase64String(randomStringLength))
@@ -54,7 +54,7 @@ data class Base64StringPattern(
     override fun negativeBasedOn(row: Row, resolver: Resolver, config: NegativePatternConfiguration): Sequence<ReturnValue<Pattern>> {
         // TODO ideally StringPattern should be in this list. However need to better understand how to generate
         //      strings that are not valid base64 strings (e.g. send an exact "]" which is not a base64 encoded value)
-        return scalarAnnotation(this, sequenceOf(NullPattern(), NumberPattern(), BooleanPattern()))
+        return scalarAnnotation(this, sequenceOf(NullPattern, NumberPattern(), BooleanPattern()))
     }
 
 

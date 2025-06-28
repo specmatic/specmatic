@@ -53,7 +53,7 @@ fun convertToMapPattern(data: Map<String, JsonElement>): Map<String, Pattern> =
 
 fun toPattern(jsonElement: JsonElement): Pattern {
     return when (jsonElement) {
-        is JsonNull -> NullPattern()
+        is JsonNull -> NullPattern
         is JsonObject -> toJSONObjectPattern(jsonElement.toMap().mapValues { toPattern(it.value) })
         is JsonArray -> JSONArrayPattern(jsonElement.toList().map { toPattern(it) })
         is JsonPrimitive -> toLiteralPattern(jsonElement)

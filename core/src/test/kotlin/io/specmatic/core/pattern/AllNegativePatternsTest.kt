@@ -33,7 +33,7 @@ class AllNegativePatternsTest {
         assertThat(negativePatterns).containsExactlyInAnyOrder(
             mapOf("key1" to BooleanPattern(), "key2" to StringPattern()),
             mapOf("key1" to StringPattern(), "key2" to StringPattern()),
-            mapOf("key1" to NullPattern(), "key2" to StringPattern()),
+            mapOf("key1" to NullPattern, "key2" to StringPattern()),
             mapOf("key1" to NumberPattern(), "key2" to BooleanPattern()),
             mapOf("key1" to NumberPattern(), "key2" to NumberPattern()),
             mapOf("key1" to NumberPattern(), "key2" to NullPattern),

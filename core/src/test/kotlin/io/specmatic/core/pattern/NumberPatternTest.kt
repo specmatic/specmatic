@@ -361,7 +361,7 @@ internal class NumberPatternTest {
         val result = pattern.negativeBasedOn(Row(), Resolver()).map { it.value }.toList()
 
         assertThat(result).containsExactlyInAnyOrder(
-            NullPattern(),
+            NullPattern,
             StringPattern(),
             BooleanPattern(),
             ExactValuePattern(NumberValue(minimum - smallInc)),
@@ -409,7 +409,7 @@ internal class NumberPatternTest {
         val result = pattern.negativeBasedOn(Row(), Resolver()).map { it.value }.toList()
 
         assertThat(result).containsExactlyInAnyOrder(
-            NullPattern(),
+            NullPattern,
             StringPattern(),
             BooleanPattern(),
             ExactValuePattern(NumberValue(minimum)),

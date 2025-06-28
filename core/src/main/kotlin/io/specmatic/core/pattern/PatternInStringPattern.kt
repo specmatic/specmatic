@@ -36,7 +36,7 @@ data class PatternInStringPattern(override val pattern: Pattern = StringPattern(
         }
 
     override fun negativeBasedOn(row: Row, resolver: Resolver, config: NegativePatternConfiguration): Sequence<ReturnValue<Pattern>> {
-        return sequenceOf(HasValue(NullPattern()))
+        return sequenceOf(HasValue(NullPattern))
     }
 
     override fun parse(value: String, resolver: Resolver): Value = StringValue(pattern.parse(value, resolver).toStringLiteral())

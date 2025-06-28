@@ -20,7 +20,7 @@ class NegativeNonStringlyPatternsTest {
     }
 
     @Test
-    fun `negative patterns for non-strings should not include NullPattern()`() {
+    fun `negative patterns for non-strings should not include NullPattern`() {
         val patternMap = mapOf("key" to NumberPattern())
         val resolver = Resolver()
         val row = Row()
@@ -35,7 +35,7 @@ class NegativeNonStringlyPatternsTest {
     }
 
     @Test
-    fun `negative patterns for enum should have the negatives of the pattern of the enum value excluding NullPattern()`() {
+    fun `negative patterns for enum should have the negatives of the pattern of the enum value excluding NullPattern`() {
         val patternMap = mapOf("key" to EnumPattern(listOf(StringValue("one"))))
         val resolver = Resolver()
         val row = Row()

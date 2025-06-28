@@ -769,7 +769,7 @@ class HttpQueryParamPatternTest {
             val invalidPatterns = listOf(
                 ListPattern(StringPattern()),
                 BooleanPattern(),
-                NullPattern(),
+                NullPattern,
             )
 
 

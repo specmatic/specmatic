@@ -287,7 +287,7 @@ internal class StringPatternTest {
 
 
         assertThat(
-            result.filterIsInstance<NullPattern()>()
+            result.filterIsInstance<NullPattern>()
                     + result.filterIsInstance<NumberPattern>()
                     + result.filterIsInstance<BooleanPattern>()
         ).hasSize(0)

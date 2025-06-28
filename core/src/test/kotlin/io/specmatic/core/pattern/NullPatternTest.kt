@@ -27,7 +27,7 @@ internal class NullPatternTest {
 
     @Test
     fun `should generate null value`() {
-        assertEquals(NullValue,  NullPattern().generate(Resolver()))
+        assertEquals(NullValue,  NullPattern.generate(Resolver()))
     }
 
     @Test

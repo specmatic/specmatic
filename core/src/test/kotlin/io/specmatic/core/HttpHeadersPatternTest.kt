@@ -896,7 +896,7 @@ internal class HttpHeadersPatternTest {
             val invalidPatterns = listOf(
                 ListPattern(StringPattern()),
                 BooleanPattern(),
-                NullPattern(),
+                NullPattern,
             )
 
 

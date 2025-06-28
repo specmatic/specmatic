@@ -9,7 +9,7 @@ import io.specmatic.core.value.Value
 import java.util.*
 
 data class UUIDPattern(
-    override val example: Any? = null
+    override val example: String? = null
 ) : Pattern, ScalarType {
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if (sampleData?.hasTemplate() == true)
@@ -26,14 +26,14 @@ data class UUIDPattern(
     }
 
     override fun generate(resolver: Resolver): StringValue = 
-        resolver.resolveExample(example as? String, this) as? StringValue ?: StringValue(UUID.randomUUID().toString())
+        resolver.resolveExample(example, this) as? StringValue ?: StringValue(UUID.randomUUID().toString())
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> = sequenceOf(HasValue(this))
 
     override fun newBasedOn(resolver: Resolver): Sequence<UUIDPattern> = sequenceOf(this)
 
     override fun negativeBasedOn(row: Row, resolver: Resolver, config: NegativePatternConfiguration): Sequence<ReturnValue<Pattern>> {
-        return scalarAnnotation(this, sequenceOf(NullPattern()))
+        return scalarAnnotation(this, sequenceOf(NullPattern))
     }
 
     override fun parse(value: String, resolver: Resolver): StringValue =

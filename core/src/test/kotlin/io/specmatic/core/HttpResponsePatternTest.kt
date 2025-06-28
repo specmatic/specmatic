@@ -23,7 +23,7 @@ internal class HttpResponsePatternTest {
             body = toTabularPattern(
                 mapOf(
                     "data" to AnyPattern(
-                        listOf(StringPattern(), NullPattern()),
+                        listOf(StringPattern(), NullPattern),
                         extensions = emptyMap()
                     )
                 )

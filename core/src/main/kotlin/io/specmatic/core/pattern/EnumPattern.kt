@@ -43,7 +43,7 @@ data class EnumPattern(
     val nullable: Boolean
 ) : Pattern by pattern, ScalarType {
 
-    override val example: Any? get() = pattern.example
+    override val example: String? get() = pattern.example
     constructor(values: List<Value>,
                 key: String? = null,
                 typeAlias: String? = null,
@@ -101,6 +101,12 @@ data class EnumPattern(
 
     override fun fixValue(value: Value, resolver: Resolver): Value {
         return fixValue(value, this, resolver)
+    }
+
+    override fun generate(resolver: Resolver): Value {
+        val exampleValue = resolver.resolveExample(example, this)
+        if (exampleValue != null) return exampleValue
+        return pattern.generate(resolver)
     }
 
     override fun equals(other: Any?): Boolean = other is EnumPattern && other.pattern == this.pattern

@@ -1451,8 +1451,7 @@ class OpenApiSpecification(
                     ListPattern(
                         toSpecmaticPattern(
                             schema.items, typeStack
-                        ),
-                        example = toListExample(schema.example)
+                        )
                     )
                 }
             }
@@ -1584,7 +1583,7 @@ class OpenApiSpecification(
                     }
 
                     val nullable =
-                        if (schema.oneOf.any { nullableEmptyObject(it) }) listOf(NullPattern(example = schema.example?.toString())) else emptyList()
+                        if (schema.oneOf.any { nullableEmptyObject(it) }) listOf(NullPattern) else emptyList()
 
                     val impliedDiscriminatorMappings = schema.oneOf.impliedDiscriminatorMappings()
                     val finalDiscriminatorMappings = schema.discriminator?.mapping.orEmpty().plus(impliedDiscriminatorMappings).distinctByValue()
@@ -1603,7 +1602,7 @@ class OpenApiSpecification(
 
             else -> {
                 if (schema.nullable == true && schema.additionalProperties == null && schema.`$ref` == null) {
-                    NullPattern(example = schema.example?.toString())
+                    NullPattern
                 } else if (schema.additionalProperties is Schema<*> || schema.additionalProperties == true || schema.properties != null) {
                     toJsonObjectPattern(schema, patternName, typeStack)
                 } else {

@@ -41,7 +41,7 @@ internal val builtInPatterns = mapOf(
     "(string)" to StringPattern(),
     "(email)" to EmailPattern(),
     "(boolean)" to BooleanPattern(),
-    "(null)" to NullPattern(),
+    "(null)" to NullPattern,
     "(empty)" to EmptyStringPattern,
     "(date)" to DatePattern(),
     "(datetime)" to DateTimePattern(),

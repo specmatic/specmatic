@@ -336,7 +336,7 @@ class UncaughtExceptionHandler: Thread.UncaughtExceptionHandler {
 }
 
 internal fun withNullPattern(resolver: Resolver): Resolver {
-    return resolver.copy(newPatterns = resolver.newPatterns.plus("(empty)" to NullPattern()))
+    return resolver.copy(newPatterns = resolver.newPatterns.plus("(empty)" to NullPattern))
 }
 
 internal fun withNumberType(resolver: Resolver) =

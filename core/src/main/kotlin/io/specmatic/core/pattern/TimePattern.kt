@@ -8,7 +8,7 @@ import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
 data class TimePattern(
-    override val example: Any? = null
+    override val example: String? = null
 ) : Pattern, ScalarType {
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if (sampleData?.hasTemplate() == true)
@@ -25,7 +25,7 @@ data class TimePattern(
     }
 
     override fun generate(resolver: Resolver): StringValue = 
-        resolver.resolveExample(example as? String, this) as? StringValue ?: StringValue(ISO8601.currentTime)
+        resolver.resolveExample(example, this) as? StringValue ?: StringValue(ISO8601.currentTime)
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> = sequenceOf(HasValue(this))
 
@@ -36,7 +36,7 @@ data class TimePattern(
         resolver: Resolver,
         config: NegativePatternConfiguration
     ): Sequence<ReturnValue<Pattern>> {
-        return scalarAnnotation(this, sequenceOf(NullPattern()))
+        return scalarAnnotation(this, sequenceOf(NullPattern))
     }
 
     override fun parse(value: String, resolver: Resolver): StringValue {
