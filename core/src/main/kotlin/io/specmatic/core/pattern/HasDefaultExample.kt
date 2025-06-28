@@ -1,5 +1,5 @@
 package io.specmatic.core.pattern
 
 interface HasDefaultExample {
-    val example: String?
+    val example: Any?
 }

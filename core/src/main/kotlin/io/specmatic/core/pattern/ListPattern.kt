@@ -9,7 +9,7 @@ const val LIST_BREAD_CRUMB = "[]"
 data class ListPattern(
     override val pattern: Pattern,
     override val typeAlias: String? = null,
-    override val example: String? = null,
+    override val example: List<String?>? = null,
     override val extensions: Map<String, Any>  = emptyMap()
 ) : Pattern, SequenceType, HasDefaultExample, PossibleJsonObjectPatternContainer {
     override val memberList: MemberList

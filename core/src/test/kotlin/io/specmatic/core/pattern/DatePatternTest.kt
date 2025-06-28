@@ -43,7 +43,7 @@ internal class DatePatternTest {
 
     @Test
     fun `should return itself when generating a new pattern based on a row`() {
-        val datePatterns = UUIDPattern().newBasedOn(Row(), Resolver()).map { it.value as DatePattern }.toList()
+        val datePatterns = DatePattern().newBasedOn(Row(), Resolver()).map { it.value as DatePattern }.toList()
         assertThat(datePatterns.size).isEqualTo(1)
         assertThat(datePatterns.first()).isEqualTo(DatePattern())
     }
