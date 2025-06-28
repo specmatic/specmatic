@@ -2868,4 +2868,47 @@ components:
             assertThat(generated.findFirstChildByPath("id")).isInstanceOf(NumberValue::class.java)
         }
     }
+
+    @Nested
+    inner class ToJSONObjectPatternFunctionTests {
+        @Test
+        fun `toJSONObjectPattern should work with examples`() {
+            val pattern = toJSONObjectPattern(
+                map = mapOf(
+                    "name" to StringPattern(),
+                    "age" to NumberPattern()
+                ),
+                example = mapOf("name" to "John Doe", "age" to 30)
+            )
+            
+            assertThat(pattern.example).isNotNull()
+            
+            val resolver = Resolver()
+            val generated = pattern.generate(resolver)
+            
+            // Should use the example
+            assertThat(generated.findFirstChildByPath("name")?.toStringLiteral()).isEqualTo("John Doe")
+            assertThat(generated.findFirstChildByPath("age")?.toStringLiteral()).isEqualTo("30")
+        }
+        
+        @Test
+        fun `toJSONObjectPattern should handle JSON string examples`() {
+            val pattern = toJSONObjectPattern(
+                map = mapOf(
+                    "name" to StringPattern(),
+                    "age" to NumberPattern()
+                ),
+                example = """{"name": "Jane Doe", "age": 25}"""
+            )
+            
+            assertThat(pattern.example).isNotNull()
+            
+            val resolver = Resolver()
+            val generated = pattern.generate(resolver)
+            
+            // Should use the example
+            assertThat(generated.findFirstChildByPath("name")?.toStringLiteral()).isEqualTo("Jane Doe")
+            assertThat(generated.findFirstChildByPath("age")?.toStringLiteral()).isEqualTo("25")
+        }
+    }
 }

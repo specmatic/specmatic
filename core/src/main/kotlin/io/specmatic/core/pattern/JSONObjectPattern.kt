@@ -17,7 +17,10 @@ fun toJSONObjectPattern(
     map: Map<String, Pattern>,
     typeAlias: String? = null,
     extensions: Map<String, Any> = emptyMap(),
-    example: Any? = null
+    example: Any? = null,
+    minProperties: Int? = null,
+    maxProperties: Int? = null,
+    additionalProperties: AdditionalProperties = AdditionalProperties.NoAdditionalProperties
 ): JSONObjectPattern {
     val missingKeyStrategy: UnexpectedKeyCheck = when ("...") {
         in map -> IgnoreUnexpectedKeys
@@ -29,7 +32,10 @@ fun toJSONObjectPattern(
         unexpectedKeyCheck = missingKeyStrategy,
         typeAlias = typeAlias,
         extensions = extensions,
-        example = example
+        example = example,
+        minProperties = minProperties,
+        maxProperties = maxProperties,
+        additionalProperties = additionalProperties
     )
 }
 

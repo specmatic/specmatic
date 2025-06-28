@@ -1886,20 +1886,14 @@ class OpenApiSpecification(
         // Extract example from schema.examples if available
         val schemaExample = extractFirstSchemaExample(schema)
         
-        val missingKeyStrategy: UnexpectedKeyCheck = when ("...") {
-            in schemaProperties -> IgnoreUnexpectedKeys
-            else -> ValidateUnexpectedKeys
-        }
-
-        val jsonObjectPattern = JSONObjectPattern(
-            pattern = schemaProperties.minus("..."),
-            unexpectedKeyCheck = missingKeyStrategy,
+        val jsonObjectPattern = toJSONObjectPattern(
+            map = schemaProperties,
             typeAlias = if(patternName.isNotBlank()) "(${patternName})" else null,
+            extensions = schema.extensions.orEmpty(),
+            example = schemaExample,
             minProperties = minProperties,
             maxProperties = maxProperties,
-            additionalProperties = additionalPropertiesFrom(schema, patternName, typeStack),
-            extensions = schema.extensions.orEmpty(),
-            example = schemaExample
+            additionalProperties = additionalPropertiesFrom(schema, patternName, typeStack)
         )
         return cacheComponentPattern(patternName, jsonObjectPattern)
     }
