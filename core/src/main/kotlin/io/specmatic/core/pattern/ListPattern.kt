@@ -130,7 +130,7 @@ data class ListPattern(
 
     override fun generate(resolver: Resolver): Value {
         val resolverWithEmptyType = withEmptyType(pattern, resolver)
-        return resolver.resolveExample(example, pattern) ?: dictionaryLookup(resolverWithEmptyType)
+        return resolveExample(example, pattern, resolver) ?: dictionaryLookup(resolverWithEmptyType)
     }
 
     private fun dictionaryLookup(resolver: Resolver): Value {

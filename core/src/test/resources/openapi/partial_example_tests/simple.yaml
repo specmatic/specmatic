@@ -10,31 +10,37 @@ paths:
           in: path
           schema:
             type: number
+            example: 123
           required: true
         - name: petId
           in: path
           schema:
             type: number
+            example: 456
           required: true
         - name: creatorId
           in: query
           schema:
             type: number
+            example: 123
           required: true
         - name: petId
           in: query
           schema:
             type: number
+            example: 456
           required: true
         - name: CREATOR-ID
           in: header
           schema:
             type: number
+            example: 123
           required: true
         - name: PET-ID
           in: header
           schema:
             type: number
+            example: 456
           required: true
       description: Creates a new pet in the store. Duplicates are allowed
       requestBody:
@@ -69,12 +75,16 @@ components:
       properties:
         id:
           type: number
+          example: 999
         traceId:
           type: string
+          example: TRACE-999-999-999
         creatorId:
           type: number
+          example: 999
         petId:
           type: number
+          example: 999
     NewPet:
       type: object
       required:
@@ -83,8 +93,10 @@ components:
       properties:
         creatorId:
           type: number
+          example: 999
         petId:
           type: number
+          example: 999
     Error:
       type: object
       required:
@@ -93,5 +105,7 @@ components:
       properties:
         code:
           type: number
+          example: 402
         message:
           type: string
+          example: Unprocessable Entity

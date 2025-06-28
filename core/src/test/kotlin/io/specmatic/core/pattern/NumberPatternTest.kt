@@ -2,7 +2,6 @@ package io.specmatic.core.pattern
 
 import io.specmatic.GENERATION
 import io.specmatic.core.Resolver
-import io.specmatic.core.UseDefaultExample
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.NumberValue
@@ -275,7 +274,7 @@ internal class NumberPatternTest {
 
     @Test
     fun `it should use the example if provided when generating`() {
-        val generated = NumberPattern(example = "10").generate(Resolver(defaultExampleResolver = UseDefaultExample))
+        val generated = NumberPattern(example = "10").generate(Resolver())
         assertThat(generated).isEqualTo(NumberValue(10))
     }
 
