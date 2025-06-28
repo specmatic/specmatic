@@ -5,14 +5,18 @@ import io.specmatic.core.utilities.Flags
 import io.specmatic.stub.ContractStub
 import io.specmatic.stub.createStub
 import io.specmatic.test.SpecmaticJUnitSupport
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.fail
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import java.util.stream.Stream
+
+private const val MESSAGE_FRAGMENT_WHEN_NO_TESTS_WERE_FOUND = "No tests found to run"
 
 class FilterIntegrationTest {
 
@@ -21,7 +25,13 @@ class FilterIntegrationTest {
     fun contractTestWithDifferentFilters(filter: String, expectedSuccessfulTestCount: Int) {
         System.setProperty("filter", filter)
 
-        SpecmaticJUnitSupport().contractTest().forEach { it.executable.execute() }
+        SpecmaticJUnitSupport().contractTest().forEach {
+            try {
+                it.executable.execute()
+            } catch(e: Throwable) {
+                println(e)
+            }
+        }
 
         val count = SpecmaticJUnitSupport.openApiCoverageReportInput.generate().testResultRecords.count {
             it.result == TestResult.Success
@@ -31,61 +41,37 @@ class FilterIntegrationTest {
 
     @Test
     fun shouldThrowExceptionWhenNoTestsFoundDueToFiltering() {
-        // Use a filter that will match no tests
         System.setProperty("filter", "METHOD='NONEXISTENT'")
 
-        var exceptionThrown = false
+        val tests = SpecmaticJUnitSupport().contractTest().toList()
+
+        assertThat(tests.count()).isOne()
+
         try {
-            val tests = SpecmaticJUnitSupport().contractTest()
-            
-            // If we get here, an exception should have been thrown in contractTest()
-            // because no tests were found, resulting in a failing dynamic test
-            tests.forEach { 
-                try {
-                    it.executable.execute()
-                } catch (e: AssertionError) {
-                    exceptionThrown = true
-                    assert(e.message?.contains("No tests found to run") == true) {
-                        "Expected 'No tests found to run' error but got: ${e.message}"
-                    }
-                }
-            }
-            
+            tests.single().executable.execute()
+            fail("Expected exception when no tests are found, but none was thrown")
         } catch (e: AssertionError) {
-            exceptionThrown = true
-            assert(e.message?.contains("No tests found to run") == true) {
-                "Expected 'No tests found to run' error but got: ${e.message}"
+            assert(e.message?.contains(MESSAGE_FRAGMENT_WHEN_NO_TESTS_WERE_FOUND) == true) {
+                "Expected '$MESSAGE_FRAGMENT_WHEN_NO_TESTS_WERE_FOUND' error but got: ${e.message}"
             }
         }
-        
-        assert(exceptionThrown) { "Expected exception when no tests are found, but none was thrown" }
     }
 
     @Test 
     fun shouldNotThrowExceptionWhenTestsRunButNoneSucceed() {
-        // Use a filter that should match some tests
-        // Let's use a filter that finds tests with SUCCESS examples
         System.setProperty("filter", "EXAMPLE-NAME='SUCCESS'")
 
-        // This should not throw a "no tests found" exception
-        // because tests are found and run
-        val tests = SpecmaticJUnitSupport().contractTest()
-        val testList = tests.toList()
+        val tests = SpecmaticJUnitSupport().contractTest().toList()
+
+        assert(tests.isNotEmpty()) { "Expected to find tests with SUCCESS examples, but found ${tests.size} tests" }
         
-        // Should have found some tests  
-        assert(testList.isNotEmpty()) { "Expected to find tests with SUCCESS examples, but found ${testList.size} tests" }
-        
-        // Execute the tests - they should run (not throw "no tests found")
-        // We don't care if they pass or fail, just that they don't throw "no tests found"
-        testList.forEach { test ->
+        tests.forEach { test ->
             try {
                 test.executable.execute()
             } catch (e: AssertionError) {
-                // Test failures are allowed, but NOT "no tests found" errors
-                if (e.message?.contains("No tests found to run") == true) {
-                    throw AssertionError("Got unexpected 'No tests found to run' error when tests should have been found and run: ${e.message}")
+                if (e.message?.contains(MESSAGE_FRAGMENT_WHEN_NO_TESTS_WERE_FOUND) == true) {
+                    throw AssertionError("Got unexpected '$MESSAGE_FRAGMENT_WHEN_NO_TESTS_WERE_FOUND' error when tests should have been found and run: ${e.message}")
                 }
-                // Other assertion errors are fine - tests can fail
             }
         }
     }
