@@ -40,7 +40,7 @@ data class QueryParameterScalarPattern(
     }
 
     override fun generate(resolver: Resolver): Value {
-        return pattern.generate(resolver)
+        return resolver.resolveExample(example, this) ?: pattern.generate(resolver)
     }
 
     override fun parse(value: String, resolver: Resolver): Value {
