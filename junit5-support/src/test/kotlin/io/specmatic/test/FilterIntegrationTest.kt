@@ -39,44 +39,44 @@ class FilterIntegrationTest {
         }
         assertEquals(expectedSuccessfulTestCount, count)
     }
-//
-//    @Test
-//    fun shouldThrowExceptionWhenNoTestsFoundDueToFiltering() {
-//        System.setProperty("filter", "METHOD='NONEXISTENT'")
-//
-//        val tests = SpecmaticJUnitSupport().contractTest().toList()
-//
-//        assertThat(tests.count()).isOne()
-//
-//        try {
-//            tests.single().executable.execute()
-//            fail("Expected exception when no tests are found, but none was thrown")
-//        } catch (e: AssertionError) {
-//            assert(e.message?.contains(MESSAGE_FRAGMENT_WHEN_NO_TESTS_WERE_FOUND) == true) {
-//                "Expected '$MESSAGE_FRAGMENT_WHEN_NO_TESTS_WERE_FOUND' error but got: ${e.message}"
-//            }
-//        }
-//    }
-//
-//    @Test
-//    fun shouldNotThrowExceptionWhenTestsRunButNoneSucceed() {
-//        System.setProperty("filter", "EXAMPLE-NAME='SUCCESS'")
-//
-//        val tests = SpecmaticJUnitSupport().contractTest().toList()
-//
-//        assert(tests.isNotEmpty()) { "Expected to find tests with SUCCESS examples, but found ${tests.size} tests" }
-//
-//        tests.forEach { test ->
-//            try {
-//                test.executable.execute()
-//            } catch (e: AssertionError) {
-//                if (e.message?.contains(MESSAGE_FRAGMENT_WHEN_NO_TESTS_WERE_FOUND) == true) {
-//                    throw AssertionError("Got unexpected '$MESSAGE_FRAGMENT_WHEN_NO_TESTS_WERE_FOUND' error when tests should have been found and run: ${e.message}")
-//                }
-//            }
-//        }
-//    }
-//
+
+    @Test
+    fun shouldThrowExceptionWhenNoTestsFoundDueToFiltering() {
+        System.setProperty("filter", "METHOD='NONEXISTENT'")
+
+        val tests = SpecmaticJUnitSupport().contractTest().toList()
+
+        assertThat(tests.count()).isOne()
+
+        try {
+            tests.single().executable.execute()
+            fail("Expected exception when no tests are found, but none was thrown")
+        } catch (e: AssertionError) {
+            assert(e.message?.contains(MESSAGE_FRAGMENT_WHEN_NO_TESTS_WERE_FOUND) == true) {
+                "Expected '$MESSAGE_FRAGMENT_WHEN_NO_TESTS_WERE_FOUND' error but got: ${e.message}"
+            }
+        }
+    }
+
+    @Test
+    fun shouldNotThrowExceptionWhenTestsRunButNoneSucceed() {
+        System.setProperty("filter", "EXAMPLE-NAME='SUCCESS'")
+
+        val tests = SpecmaticJUnitSupport().contractTest().toList()
+
+        assert(tests.isNotEmpty()) { "Expected to find tests with SUCCESS examples, but found ${tests.size} tests" }
+
+        tests.forEach { test ->
+            try {
+                test.executable.execute()
+            } catch (e: AssertionError) {
+                if (e.message?.contains(MESSAGE_FRAGMENT_WHEN_NO_TESTS_WERE_FOUND) == true) {
+                    throw AssertionError("Got unexpected '$MESSAGE_FRAGMENT_WHEN_NO_TESTS_WERE_FOUND' error when tests should have been found and run: ${e.message}")
+                }
+            }
+        }
+    }
+
     companion object {
         @JvmStatic
         fun filterProvider(): Stream<Arguments> {
@@ -126,19 +126,18 @@ class FilterIntegrationTest {
             System.setProperty("testBaseURL", "http://localhost:$port")
             System.setProperty(Flags.CONFIG_FILE_PATH, "src/test/resources/filter_test/specmatic_filter.yaml")
 
-
-            // Start Specmatic Http Stub
             httpStub = createStub(port = port)
         }
 
         @JvmStatic
         @AfterAll
         fun tearDown() {
-            // Shutdown Specmatic Http Stub
+            System.clearProperty("testBaseURL")
+            System.clearProperty(Flags.CONFIG_FILE_PATH)
             httpStub.close()
         }
 
-        fun findRandomFreePort(): Int {
+        private fun findRandomFreePort(): Int {
             logger.log("Checking for a free port")
 
             val port = ServerSocket(0).use { it.localPort }
@@ -149,6 +148,5 @@ class FilterIntegrationTest {
             }
             throw RuntimeException("Could not find a free port")
         }
-
     }
 }
