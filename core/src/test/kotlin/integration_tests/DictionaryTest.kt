@@ -770,6 +770,48 @@ class DictionaryTest {
         }
     }
 
+    @Nested
+    inner class SchemaExampleTests {
+
+        @Test
+        fun `dictionary values should be preferred before resolving to pattern examples`() {
+            val basePattern = JSONObjectPattern(mapOf(
+                "numberKey" to NumberPattern(example = "123"),
+                "stringKey" to StringPattern(example = "SchemaExample")
+            ))
+            val listPattern = ListPattern(basePattern.copy(typeAlias = "(ListInner)"), typeAlias = "(List)")
+            val nestedPattern = basePattern.copy(typeAlias = "(NestedBase)")
+            val pattern = basePattern.copy(
+                pattern = basePattern.pattern.plus("nestedObj" to nestedPattern).plus("array" to listPattern),
+                typeAlias = "(Main)"
+            )
+
+            val dictionary = Dictionary.fromYaml("""
+            Main:
+                numberKey: 999
+            NestedBase:
+                stringKey: CustomValue
+            ListInner:
+                numberKey: 999
+                stringKey: CustomValue
+            """.trimIndent())
+            val resolver = Resolver(dictionary = dictionary)
+            val generatedValue = pattern.generate(resolver)
+            val nestedObjValue = generatedValue.jsonObject["nestedObj"] as JSONObjectValue
+            val arrayValue = generatedValue.jsonObject["array"] as JSONArrayValue
+
+            assertThat(generatedValue.jsonObject["numberKey"]).isEqualTo(NumberValue(999))
+            assertThat(generatedValue.jsonObject["stringKey"]).isEqualTo(StringValue("SchemaExample"))
+            assertThat(nestedObjValue.jsonObject["numberKey"]).isEqualTo(NumberValue(123))
+            assertThat(nestedObjValue.jsonObject["stringKey"]).isEqualTo(StringValue("CustomValue"))
+            assertThat(arrayValue.list).allSatisfy { value ->
+                value as JSONObjectValue
+                assertThat(value.jsonObject["numberKey"]).isEqualTo(NumberValue(999))
+                assertThat(value.jsonObject["stringKey"]).isEqualTo(StringValue("CustomValue"))
+            }
+        }
+    }
+
     companion object {
         @JvmStatic
         fun listPatternToSingleValueProvider(): Stream<Arguments> {

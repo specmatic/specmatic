@@ -3,7 +3,6 @@ package io.specmatic.core.pattern
 import io.specmatic.GENERATION
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
-import io.specmatic.core.UseDefaultExample
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.StringValue
@@ -200,7 +199,7 @@ internal class StringPatternTest {
 
     @Test
     fun `it should use the example if provided when generating`() {
-        val generated = StringPattern(example = "sample data").generate(Resolver(defaultExampleResolver = UseDefaultExample))
+        val generated = StringPattern(example = "sample data").generate(Resolver())
         assertThat(generated).isEqualTo(StringValue("sample data"))
     }
 

@@ -259,7 +259,7 @@ data class HttpHeadersPattern(
 
     fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<HttpHeadersPattern>> {
         val withoutEscapedSoapAction = withModifiedSoapActionIfNotInRow(row, resolver).pattern
-        val filteredPattern = row.withoutOmittedKeys(withoutEscapedSoapAction, resolver.defaultExampleResolver)
+        val filteredPattern = row.withoutOmittedKeys(withoutEscapedSoapAction)
         val additionalHeadersPattern = extractFromExampleHeadersNotInSpec(filteredPattern, row)
         val patternMap = filteredPattern + additionalHeadersPattern
 

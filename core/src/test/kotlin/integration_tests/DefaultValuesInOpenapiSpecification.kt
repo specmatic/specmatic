@@ -3,29 +3,12 @@ package integration_tests
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
-import io.specmatic.core.utilities.Flags.Companion.SCHEMA_EXAMPLE_DEFAULT
 import io.specmatic.core.value.*
 import io.specmatic.test.TestExecutor
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 
 class DefaultValuesInOpenapiSpecification {
-    companion object {
-        @BeforeAll
-        @JvmStatic
-        fun setup() {
-            System.setProperty("SCHEMA_EXAMPLE_DEFAULT", "true")
-        }
-
-        @AfterAll
-        @JvmStatic
-        fun tearDown() {
-            System.setProperty("SCHEMA_EXAMPLE_DEFAULT", "false")
-        }
-    }
-
     @Test
     fun `schema examples should be used as default values`() {
         val specification = OpenApiSpecification.fromYAML(
@@ -88,7 +71,7 @@ class DefaultValuesInOpenapiSpecification {
         """.trimIndent(), ""
         ).toFeature()
 
-        val withGenerativeTestsEnabled = specification.enableGenerativeTesting().enableSchemaExampleDefault()
+        val withGenerativeTestsEnabled = specification.enableGenerativeTesting()
 
         val testTypes = mutableListOf<String>()
 
@@ -257,7 +240,7 @@ class DefaultValuesInOpenapiSpecification {
         """.trimIndent(), ""
         ).toFeature()
 
-        val withGenerativeTestsEnabled = specification.enableGenerativeTesting().enableSchemaExampleDefault()
+        val withGenerativeTestsEnabled = specification.enableGenerativeTesting()
 
         val testTypes = mutableListOf<String>()
 
@@ -323,12 +306,8 @@ class DefaultValuesInOpenapiSpecification {
     }
 
     @Test
-    fun `SCHEMA_EXAMPLE_DEFAULT should switch on the schema example default feature`() {
-        System.setProperty(SCHEMA_EXAMPLE_DEFAULT, "true")
-
-        try {
-            val feature = OpenApiSpecification.fromYAML(
-                """
+    fun `should use the schema example feature by default`() {
+        val feature = OpenApiSpecification.fromYAML("""
             openapi: 3.0.0
             info:
               version: 1.0.0
@@ -369,25 +348,22 @@ class DefaultValuesInOpenapiSpecification {
                       description: The price of the product
                       example: 10
                 """, "",
-            ).toFeature()
+        ).toFeature()
 
-            val results = feature.executeTests(object : TestExecutor {
-                override fun execute(request: HttpRequest): HttpResponse {
-                    val body = request.body as JSONObjectValue
-                    assertThat(body.jsonObject["name"]).isEqualTo(StringValue("Soap"))
-                    assertThat(body.jsonObject["price"]).isEqualTo(NumberValue(10))
-                    return HttpResponse.OK
-                }
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                val body = request.body as JSONObjectValue
+                assertThat(body.jsonObject["name"]).isEqualTo(StringValue("Soap"))
+                assertThat(body.jsonObject["price"]).isEqualTo(NumberValue(10))
+                return HttpResponse.OK
+            }
 
-                override fun setServerState(serverState: Map<String, Value>) {
+            override fun setServerState(serverState: Map<String, Value>) {
 
-                }
-            })
+            }
+        })
 
-            assertThat(results.successCount).isEqualTo(1)
-            assertThat(results.failureCount).isEqualTo(0)
-        } finally {
-            System.clearProperty(SCHEMA_EXAMPLE_DEFAULT)
-        }
+        assertThat(results.successCount).isEqualTo(1)
+        assertThat(results.failureCount).isEqualTo(0)
     }
 }
