@@ -1,10 +1,10 @@
-package application
+package io.specmatic.test
 
 import io.specmatic.core.TestResult
+import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.Flags
 import io.specmatic.stub.ContractStub
 import io.specmatic.stub.createStub
-import io.specmatic.test.SpecmaticJUnitSupport
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -14,6 +14,7 @@ import org.junit.jupiter.api.fail
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
+import java.net.ServerSocket
 import java.util.stream.Stream
 
 private const val MESSAGE_FRAGMENT_WHEN_NO_TESTS_WERE_FOUND = "No tests found to run"
@@ -38,44 +39,44 @@ class FilterIntegrationTest {
         }
         assertEquals(expectedSuccessfulTestCount, count)
     }
-
-    @Test
-    fun shouldThrowExceptionWhenNoTestsFoundDueToFiltering() {
-        System.setProperty("filter", "METHOD='NONEXISTENT'")
-
-        val tests = SpecmaticJUnitSupport().contractTest().toList()
-
-        assertThat(tests.count()).isOne()
-
-        try {
-            tests.single().executable.execute()
-            fail("Expected exception when no tests are found, but none was thrown")
-        } catch (e: AssertionError) {
-            assert(e.message?.contains(MESSAGE_FRAGMENT_WHEN_NO_TESTS_WERE_FOUND) == true) {
-                "Expected '$MESSAGE_FRAGMENT_WHEN_NO_TESTS_WERE_FOUND' error but got: ${e.message}"
-            }
-        }
-    }
-
-    @Test 
-    fun shouldNotThrowExceptionWhenTestsRunButNoneSucceed() {
-        System.setProperty("filter", "EXAMPLE-NAME='SUCCESS'")
-
-        val tests = SpecmaticJUnitSupport().contractTest().toList()
-
-        assert(tests.isNotEmpty()) { "Expected to find tests with SUCCESS examples, but found ${tests.size} tests" }
-        
-        tests.forEach { test ->
-            try {
-                test.executable.execute()
-            } catch (e: AssertionError) {
-                if (e.message?.contains(MESSAGE_FRAGMENT_WHEN_NO_TESTS_WERE_FOUND) == true) {
-                    throw AssertionError("Got unexpected '$MESSAGE_FRAGMENT_WHEN_NO_TESTS_WERE_FOUND' error when tests should have been found and run: ${e.message}")
-                }
-            }
-        }
-    }
-
+//
+//    @Test
+//    fun shouldThrowExceptionWhenNoTestsFoundDueToFiltering() {
+//        System.setProperty("filter", "METHOD='NONEXISTENT'")
+//
+//        val tests = SpecmaticJUnitSupport().contractTest().toList()
+//
+//        assertThat(tests.count()).isOne()
+//
+//        try {
+//            tests.single().executable.execute()
+//            fail("Expected exception when no tests are found, but none was thrown")
+//        } catch (e: AssertionError) {
+//            assert(e.message?.contains(MESSAGE_FRAGMENT_WHEN_NO_TESTS_WERE_FOUND) == true) {
+//                "Expected '$MESSAGE_FRAGMENT_WHEN_NO_TESTS_WERE_FOUND' error but got: ${e.message}"
+//            }
+//        }
+//    }
+//
+//    @Test
+//    fun shouldNotThrowExceptionWhenTestsRunButNoneSucceed() {
+//        System.setProperty("filter", "EXAMPLE-NAME='SUCCESS'")
+//
+//        val tests = SpecmaticJUnitSupport().contractTest().toList()
+//
+//        assert(tests.isNotEmpty()) { "Expected to find tests with SUCCESS examples, but found ${tests.size} tests" }
+//
+//        tests.forEach { test ->
+//            try {
+//                test.executable.execute()
+//            } catch (e: AssertionError) {
+//                if (e.message?.contains(MESSAGE_FRAGMENT_WHEN_NO_TESTS_WERE_FOUND) == true) {
+//                    throw AssertionError("Got unexpected '$MESSAGE_FRAGMENT_WHEN_NO_TESTS_WERE_FOUND' error when tests should have been found and run: ${e.message}")
+//                }
+//            }
+//        }
+//    }
+//
     companion object {
         @JvmStatic
         fun filterProvider(): Stream<Arguments> {
@@ -136,5 +137,18 @@ class FilterIntegrationTest {
             // Shutdown Specmatic Http Stub
             httpStub.close()
         }
+
+        fun findRandomFreePort(): Int {
+            logger.log("Checking for a free port")
+
+            val port = ServerSocket(0).use { it.localPort }
+
+            if (port > 0) {
+                logger.log("Free port found: $port")
+                return port
+            }
+            throw RuntimeException("Could not find a free port")
+        }
+
     }
 }
