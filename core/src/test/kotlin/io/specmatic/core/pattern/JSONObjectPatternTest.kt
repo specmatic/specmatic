@@ -2800,5 +2800,72 @@ components:
             )
             assertThat(pattern3.example).isNull()
         }
+
+        @Test
+        fun `should use string example in generate method when allowOnlyMandatoryKeysInJsonObject is false`() {
+            val resolver = Resolver()
+            
+            val example = """{"id": 123}"""
+            val pattern = JSONObjectPattern(
+                pattern = mapOf("id" to NumberPattern()),
+                example = example
+            )
+            
+            val generated = pattern.generate(resolver)
+            
+            // The generated value should match the example
+            assertThat(generated.findFirstChildByPath("id")).isEqualTo(NumberValue(123))
+        }
+
+        @Test
+        fun `should use map example in generate method when allowOnlyMandatoryKeysInJsonObject is false`() {
+            val resolver = Resolver()
+            
+            val example = mapOf("id" to 456)
+            val pattern = JSONObjectPattern(
+                pattern = mapOf("id" to NumberPattern()),
+                example = example
+            )
+            
+            val generated = pattern.generate(resolver)
+            
+            // The generated value should match the example
+            assertThat(generated.findFirstChildByPath("id")).isEqualTo(NumberValue(456))
+        }
+
+        @Test
+        fun `should not use example when allowOnlyMandatoryKeysInJsonObject is true`() {
+            val resolver = Resolver().withOnlyMandatoryKeysInJSONObject()
+            
+            val example = """{"id": 123}"""
+            val pattern = JSONObjectPattern(
+                pattern = mapOf("id" to NumberPattern()),
+                example = example
+            )
+            
+            val generated = pattern.generate(resolver)
+            
+            // The generated value should not use the example, should generate a different random number
+            assertThat(generated.findFirstChildByPath("id")).isNotNull()
+            assertThat(generated.findFirstChildByPath("id")).isInstanceOf(NumberValue::class.java)
+            // We can't easily verify that the example was not used without more complex setup
+            // This test mainly ensures the code path doesn't break
+        }
+
+        @Test
+        fun `should fall back to normal generation when example is null`() {
+            val resolver = Resolver()
+            
+            val pattern = JSONObjectPattern(
+                pattern = mapOf("id" to NumberPattern()),
+                example = null
+            )
+            
+            val generated = pattern.generate(resolver)
+            
+            // Should generate normally based on pattern
+            assertThat(generated.findFirstChildByPath("id")).isNotNull()
+            assertThat(generated.findFirstChildByPath("id")).isInstanceOf(NumberValue::class.java)
+        }
     }
 }

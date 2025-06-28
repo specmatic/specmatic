@@ -3,6 +3,7 @@ package io.specmatic.core.pattern
 import io.ktor.http.*
 import io.specmatic.core.*
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.resolveExample
 import io.specmatic.core.utilities.mapZip
 import io.specmatic.core.utilities.stringToPatternMap
 import io.specmatic.core.utilities.withNullPattern
@@ -399,7 +400,45 @@ data class JSONObjectPattern(
         }
     }
 
+    private fun resolveJSONObjectExample(example: Any?, pattern: JSONObjectPattern, resolver: Resolver): JSONObjectValue? {
+        if (example == null) return null
+
+        val value = when (example) {
+            is String -> pattern.parse(example, resolver)
+            is Map<*, *> -> {
+                val valueMap = example.mapKeys { it.key.toString() }.mapValues { entry ->
+                    when (val v = entry.value) {
+                        is String -> StringValue(v)
+                        is Number -> NumberValue(v)
+                        is Boolean -> BooleanValue(v)
+                        is Map<*, *> -> JSONObjectValue(v.mapKeys { it.key.toString() }.mapValues { StringValue(it.value.toString()) })
+                        is List<*> -> JSONArrayValue(v.map { StringValue(it.toString()) })
+                        else -> StringValue(v.toString())
+                    }
+                }
+                JSONObjectValue(valueMap)
+            }
+            else -> {
+                try {
+                    pattern.parse(example.toString(), resolver)
+                } catch (e: Throwable) {
+                    throw ContractException("Example \"$example\" could not be parsed as JSON object: ${e.message}")
+                }
+            }
+        }
+
+        val exampleMatchResult = pattern.matches(value, Resolver())
+        if (exampleMatchResult.isSuccess()) return value as JSONObjectValue
+        throw ContractException("Example \"$example\" does not match ${pattern.typeName} type")
+    }
+
     override fun generate(resolver: Resolver): JSONObjectValue {
+        // Use example only when allowOnlyMandatoryKeysInJsonObject is false
+        if (!resolver.allowOnlyMandatoryKeysInJsonObject) {
+            val exampleValue = resolveJSONObjectExample(example, this, resolver)
+            if (exampleValue != null) return exampleValue
+        }
+
         val pattern = if (resolver.allowOnlyMandatoryKeysInJsonObject) {
             getPatternWithOmittedOptionalFields(this.pattern, resolver)
         } else {
