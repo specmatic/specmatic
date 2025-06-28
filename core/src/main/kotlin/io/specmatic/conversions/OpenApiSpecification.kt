@@ -1706,7 +1706,6 @@ class OpenApiSpecification(
     }
 
     private fun <T : Pattern> cacheComponentPattern(componentName: String, pattern: T): T {
-        System.err.println("DEBUG: cacheComponentPattern called with componentName='$componentName', pattern=$pattern")
         if (componentName.isNotBlank() && pattern !is DeferredPattern) {
             val typeName = "(${componentName})"
             val prev = patterns[typeName]
@@ -1715,12 +1714,7 @@ class OpenApiSpecification(
                     logger.debug("Replacing cached component pattern. name=$componentName, prev=$prev, new=$pattern")
                 }
                 patterns[typeName] = pattern
-                System.err.println("DEBUG: Cached pattern with typeName='$typeName'")
-            } else {
-                System.err.println("DEBUG: Pattern already cached for typeName='$typeName'")
             }
-        } else {
-            System.err.println("DEBUG: Not caching - componentName blank or pattern is DeferredPattern")
         }
         return pattern
     }
@@ -1884,8 +1878,6 @@ class OpenApiSpecification(
     private fun toJsonObjectPattern(
         schema: Schema<*>, patternName: String, typeStack: List<String>
     ): JSONObjectPattern {
-        System.err.println("DEBUG: toJsonObjectPattern called for schema type: ${schema::class.simpleName}, patternName: $patternName")
-        
         val requiredFields = schema.required.orEmpty()
         val schemaProperties = toSchemaProperties(schema, requiredFields, patternName, typeStack)
         val minProperties: Int? = schema.minProperties
@@ -1893,7 +1885,6 @@ class OpenApiSpecification(
         
         // Extract example from schema.examples if available
         val schemaExample = extractFirstSchemaExample(schema)
-        System.err.println("DEBUG: Extracted schema example: $schemaExample")
         
         val missingKeyStrategy: UnexpectedKeyCheck = when ("...") {
             in schemaProperties -> IgnoreUnexpectedKeys
@@ -1910,14 +1901,10 @@ class OpenApiSpecification(
             extensions = schema.extensions.orEmpty(),
             example = schemaExample
         )
-        System.err.println("DEBUG: Created JSONObjectPattern with example: ${jsonObjectPattern.example} [${System.identityHashCode(jsonObjectPattern)}]")
         return cacheComponentPattern(patternName, jsonObjectPattern)
     }
 
     private fun extractFirstSchemaExample(schema: Schema<*>): Any? {
-        System.err.println("DEBUG: extractFirstSchemaExample called for schema: ${schema::class.simpleName}")
-        System.err.println("DEBUG: schema.example = ${schema.example}")
-        
         // For OpenAPI 3.x, schema.example is the standard way to provide examples at schema level
         return schema.example
     }
