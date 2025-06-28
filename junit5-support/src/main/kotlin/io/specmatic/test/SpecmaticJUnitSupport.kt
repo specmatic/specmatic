@@ -332,7 +332,7 @@ open class SpecmaticJUnitSupport {
                 }
                 if (testFilter.expression != null) {
                     if (isNotEmpty()) append(", ")
-                    append("expression filter: '${System.getProperty(FILTER, "")}'")
+                    append("expression filter: \"${System.getProperty(FILTER, "")}\"")
                 }
             }
             val reason = if (filterDetails.isNotEmpty()) {
