@@ -20,7 +20,7 @@ data class SpecmaticConfigV1 (
 	val report: ReportConfigurationDetails? = null,
 	val security: SecurityConfiguration? = null,
 	val test: TestConfiguration? = TestConfiguration(),
-	val stub: StubConfiguration = StubConfiguration(),
+	val stub: StubConfiguration? = null,
 	@field:JsonAlias("virtual_service")
 	val virtualService: VirtualServiceConfiguration = VirtualServiceConfiguration(),
 	val examples: List<String> = getStringValue(EXAMPLE_DIRECTORIES)?.split(",") ?: emptyList(),
