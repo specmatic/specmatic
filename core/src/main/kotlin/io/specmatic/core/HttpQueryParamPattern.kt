@@ -44,7 +44,7 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
                 else
                     it
             }
-            val patternMap = row.withoutOmittedKeys(queryParams)
+            val patternMap = row.withoutOmittedKeys(queryParams, resolver.defaultExampleResolver)
 
             allOrNothingCombinationIn(patternMap, resolver.resolveRow(row)) { pattern ->
                 newMapBasedOn(pattern,row,withNullPattern(resolver))

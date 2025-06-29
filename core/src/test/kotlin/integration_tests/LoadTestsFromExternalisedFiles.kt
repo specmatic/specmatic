@@ -10,7 +10,6 @@ import io.specmatic.core.log.*
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSONArray
 import io.specmatic.core.pattern.parsedJSONObject
-import io.specmatic.core.pattern.readValueAs
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.ADDITIONAL_EXAMPLE_PARAMS_FILE
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
@@ -21,7 +20,6 @@ import io.specmatic.test.ExampleProcessor
 import io.specmatic.test.TestExecutor
 import org.assertj.core.api.Assertions.*
 import org.junit.jupiter.api.*
-import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
 class LoadTestsFromExternalisedFiles {
@@ -686,45 +684,6 @@ class LoadTestsFromExternalisedFiles {
         assertThat(results.testCount).isEqualTo(6)
     }
 
-    @Test
-    fun `should use example values from schemas overriding them with dictionary values if entry exists`(@TempDir tempDir: File) {
-        val openApiFile = File("src/test/resources/openapi/partial_example_tests/simple.yaml")
-        val originalDictionaryFile = openApiFile.resolveSibling("${openApiFile.nameWithoutExtension}_dictionary.json")
-        val originalDictionary = readValueAs<JSONObjectValue>(originalDictionaryFile)
-
-        val tempDictionary = tempDir.resolve("dictionary.json").apply {
-            val dictionaryWithoutParams = originalDictionary.copy(jsonObject = originalDictionary.jsonObject.minus("PARAMETERS"))
-            writeText(dictionaryWithoutParams.toStringLiteral())
-        }
-        val feature = Flags.using(SPECMATIC_STUB_DICTIONARY to tempDictionary.canonicalPath) {
-            OpenApiSpecification.fromFile(openApiFile.canonicalPath).toFeature()
-        }
-
-        val results = feature.executeTests(object: TestExecutor {
-            override fun execute(request: HttpRequest): HttpResponse {
-                assertThat(request.path).isEqualTo("/creators/123/pets/456")
-                assertThat(request.headers["CREATOR-ID"]).isEqualTo("123")
-                assertThat(request.headers["PET-ID"]).isEqualTo("456")
-                assertThat(request.queryParams.getOrElse("creatorId") { "MISSING" }).isEqualTo("123")
-                assertThat(request.queryParams.getOrElse("petId") { "MISSING" }).isEqualTo("456")
-
-                val requestBody = request.body as JSONObjectValue
-                assertThat(requestBody.jsonObject["creatorId"]).isEqualTo(NumberValue(123))
-                assertThat(requestBody.jsonObject["petId"]).isEqualTo(NumberValue(456))
-
-                return HttpResponse(
-                    status = 201,
-                    body = requestBody.copy(jsonObject = requestBody.jsonObject
-                        .plus("id" to NumberValue(1))
-                        .plus("traceId" to StringValue("TRACE"))
-                    )
-                )
-            }
-        })
-
-        assertThat(results.success()).withFailMessage(results.report()).isTrue()
-    }
-
     @Nested
     inner class AttributeSelection {
         @BeforeEach
@@ -1222,11 +1181,11 @@ class LoadTestsFromExternalisedFiles {
                 feature.validateExamplesOrException()
 
                 val expectedGoodRequest = HttpRequest(
-                    path = "/creators/123/pets/456",
+                    path = "/creators/123/pets/999",
                     method = "PATCH",
-                    queryParams = QueryParameters(mapOf("creatorId" to "123", "petId" to "456")),
-                    headers = mapOf("Content-Type" to "application/json", "CREATOR-ID" to "123", "PET-ID" to "456", "Specmatic-Response-Code" to "201"),
-                    body = JSONObjectValue(mapOf("creatorId" to NumberValue(123), "petId" to NumberValue(456))),
+                    queryParams = QueryParameters(mapOf("creatorId" to "123", "petId" to "999")),
+                    headers = mapOf("Content-Type" to "application/json", "CREATOR-ID" to "123", "PET-ID" to "999", "Specmatic-Response-Code" to "201"),
+                    body = JSONObjectValue(mapOf("creatorId" to NumberValue(123), "petId" to NumberValue(999))),
                 )
 
                 val results = feature.enableGenerativeTesting().executeTests(object: TestExecutor {
@@ -1257,18 +1216,18 @@ class LoadTestsFromExternalisedFiles {
                 feature.validateExamplesOrException()
 
                 val expectedGoodRequest = HttpRequest(
-                    path = "/creators/123/pets/456",
+                    path = "/creators/123/pets/999",
                     method = "PATCH",
-                    queryParams = QueryParameters(mapOf("creatorId" to "123", "petId" to "456")),
-                    headers = mapOf("Content-Type" to "application/json", "CREATOR-ID" to "123", "PET-ID" to "456", "Specmatic-Response-Code" to "201"),
-                    body = JSONObjectValue(mapOf("creatorId" to NumberValue(123), "petId" to NumberValue(456))),
+                    queryParams = QueryParameters(mapOf("creatorId" to "123", "petId" to "999")),
+                    headers = mapOf("Content-Type" to "application/json", "CREATOR-ID" to "123", "PET-ID" to "999", "Specmatic-Response-Code" to "201"),
+                    body = JSONObjectValue(mapOf("creatorId" to NumberValue(123), "petId" to NumberValue(999))),
                 )
 
                 val results = feature.executeTests(object: TestExecutor {
                     override fun execute(request: HttpRequest): HttpResponse {
                         return if (request.headers["Specmatic-Response-Code"] == "400") {
                             assertThat(request.body).isEqualTo(
-                                JSONObjectValue(mapOf("creatorId" to StringValue("JohnDoe"), "petId" to NumberValue(456)))
+                                JSONObjectValue(mapOf("creatorId" to StringValue("JohnDoe"), "petId" to NumberValue(999)))
                             )
                             HttpResponse(status = 400, body = parsedJSONObject("""{"code": 400, "message": "BadRequest"}"""))
                         } else {

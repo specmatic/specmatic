@@ -1142,7 +1142,7 @@ class GenerativeTests {
 
         val seenRequestBodies = mutableListOf<Value>()
 
-        val updatedFeature = feature.enableGenerativeTesting()
+        val updatedFeature = feature.enableGenerativeTesting().enableSchemaExampleDefault()
 
         val results = updatedFeature.executeTests(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
