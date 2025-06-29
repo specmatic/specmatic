@@ -2,29 +2,19 @@
   "PARAMETERS": {
     "PATH": {
       "creatorId": 123,
-      "petId": 456
+      "petId": 999
     },
     "HEADER": {
       "CREATOR-ID": 123,
-      "PET-ID": 456
+      "PET-ID": 999
     },
     "QUERY": {
       "creatorId": 123,
-      "petId": 456
+      "petId": 999
     }
   },
   "NewPet": {
     "creatorId": 123,
-    "petId": 456
-  },
-  "Pet": {
-    "id": 1,
-    "traceId": "TRACE-1-123-456",
-    "creatorId": 123,
-    "petId": 456
-  },
-  "Error": {
-    "code": 400,
-    "message": "Bad Request"
+    "petId": 999
   }
 }

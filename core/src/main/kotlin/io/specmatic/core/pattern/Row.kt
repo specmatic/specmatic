@@ -77,19 +77,19 @@ data class Row(
 
     fun containsField(key: String): Boolean = requestBodyJSONExample?.hasScalarValueForKey(key) ?: cells.containsKey(key)
 
-    fun withoutOmittedKeys(keys: Map<String, Pattern>): Map<String, Pattern> {
+    fun withoutOmittedKeys(keys: Map<String, Pattern>, defaultExampleResolver: DefaultExampleResolver): Map<String, Pattern> {
         if(this.hasNoRequestExamples() && this.fileSource == null)
             return keys
 
         return keys.filter { (key, pattern) ->
-            keyIsMandatory(key) || keyHasExample(withoutOptionality(key), pattern)
+            keyIsMandatory(key) || keyHasExample(withoutOptionality(key), pattern, defaultExampleResolver)
         }
     }
 
     private fun hasNoRequestExamples() = columnNames.isEmpty() && requestBodyJSONExample == null
 
-    private fun keyHasExample(key: String, pattern: Pattern): Boolean {
-        return this.containsField(key) || hasExample(pattern)
+    private fun keyHasExample(key: String, pattern: Pattern, defaultExampleResolver: DefaultExampleResolver): Boolean {
+        return this.containsField(key) ||  defaultExampleResolver.hasExample(pattern)
     }
 
     private fun keyIsMandatory(key: String): Boolean {

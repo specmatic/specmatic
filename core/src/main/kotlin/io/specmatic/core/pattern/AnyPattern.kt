@@ -224,7 +224,7 @@ data class AnyPattern(
     }
 
     override fun generate(resolver: Resolver): Value {
-        return resolveExample(example, pattern, resolver)
+        return resolver.resolveExample(example, pattern)
             ?: generateValue(resolver)
     }
 
@@ -247,7 +247,7 @@ data class AnyPattern(
             }
         } ?: pattern
 
-        resolveExample(example, updatedPatterns, resolver)?.let {
+        resolver.resolveExample(example, updatedPatterns)?.let {
             return sequenceOf(HasValue(ExactValuePattern(it)))
         }
 

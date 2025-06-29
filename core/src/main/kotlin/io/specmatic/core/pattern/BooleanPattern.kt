@@ -4,7 +4,6 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.mismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
-import io.specmatic.core.resolveExample
 import io.specmatic.core.value.BooleanValue
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.Value
@@ -22,7 +21,7 @@ data class BooleanPattern(override val example: String? = null) : Pattern, Scala
     }
 
     override fun generate(resolver: Resolver): Value =
-        resolveExample(example, this, resolver) ?: randomBoolean()
+        resolver.resolveExample(example, this) ?: randomBoolean()
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> = sequenceOf(HasValue(this))
     override fun newBasedOn(resolver: Resolver): Sequence<Pattern> = sequenceOf(this)

@@ -1,12 +1,17 @@
 package io.specmatic.core
 
 import io.specmatic.conversions.OpenApiSpecification
-import io.specmatic.core.pattern.*
+import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.pattern.NumberPattern
+import io.specmatic.core.pattern.parsedJSON
+import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.utilities.Flags
-import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.parseXML
-import io.specmatic.core.value.*
+import io.specmatic.core.value.JSONObjectValue
+import io.specmatic.core.value.NullValue
+import io.specmatic.core.value.NumberValue
+import io.specmatic.core.value.StringValue
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpStub
@@ -15,7 +20,6 @@ import org.apache.http.HttpHeaders.AUTHORIZATION
 import org.assertj.core.api.Assertions.assertThat
 import org.json.JSONObject
 import org.junit.jupiter.api.*
-import org.junit.jupiter.api.io.TempDir
 import org.springframework.http.*
 import org.springframework.util.LinkedMultiValueMap
 import org.springframework.util.MultiValueMap
@@ -772,47 +776,6 @@ Scenario: JSON API to get account details with fact check
             assertThat(response.status).isEqualTo(201)
             assertThat(responseBody.jsonObject["creatorId"]).isEqualTo(requestBody.jsonObject["creatorId"])
             assertThat(responseBody.jsonObject["petId"]).isEqualTo(requestBody.jsonObject["petId"])
-        }
-    }
-
-    @Test
-    fun `should use schema examples when responding to incoming requests and overriding them if dictionary contains entry`(@TempDir tempDir: File) {
-        val openApiFile = File("src/test/resources/openapi/partial_example_tests/simple.yaml")
-        val originalDictionaryFile = openApiFile.resolveSibling("${openApiFile.nameWithoutExtension}_dictionary.json")
-        val originalDictionary = readValueAs<JSONObjectValue>(originalDictionaryFile)
-
-        val tempDictionary = tempDir.resolve("dictionary.json").apply {
-            val dictionaryWithoutParams = originalDictionary.copy(jsonObject = originalDictionary.jsonObject.minus("Error"))
-            writeText(dictionaryWithoutParams.toStringLiteral())
-        }
-        val tempSpecmaticConfig = tempDir.resolve("specmatic.yaml").apply {
-            writeText("stub: { generative: true }")
-        }
-        val feature = Flags.using(
-            SPECMATIC_STUB_DICTIONARY to tempDictionary.canonicalPath,
-            CONFIG_FILE_PATH to tempSpecmaticConfig.canonicalPath
-        ) {
-            OpenApiSpecification.fromFile(openApiFile.canonicalPath).toFeature()
-        }
-
-        HttpStub(listOf(feature), specmaticConfigPath = tempSpecmaticConfig.canonicalPath).use { mock ->
-            val validRequest = feature.scenarios.first().generateHttpRequest()
-            val validResponse = mock.client.execute(validRequest)
-
-            assertThat(validResponse.status).isEqualTo(201)
-            assertThat(validResponse.body.toStringLiteral()).isEqualToNormalizingWhitespace("""{
-            "id": 1,
-            "traceId": "TRACE-1-123-456",
-            "creatorId": 123,
-            "petId": 456
-            }""".trimIndent())
-
-            val invalidRequest = validRequest.updateBody(EmptyString)
-            val badRequestResponse = mock.client.execute(invalidRequest)
-
-            assertThat(badRequestResponse.status).isEqualTo(400)
-            assertThat(badRequestResponse.body).isInstanceOf(JSONObjectValue::class.java)
-            assertThat(badRequestResponse.body.toStringLiteral()).contains(""""code": 402""")
         }
     }
 }

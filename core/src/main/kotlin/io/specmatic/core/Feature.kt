@@ -148,6 +148,10 @@ data class Feature(
         )
     }
 
+    fun enableSchemaExampleDefault(): Feature {
+        return this.copy(flagsBased = this.flagsBased.copy(defaultExampleResolver = UseDefaultExample))
+    }
+
     fun lookupResponse(httpRequest: HttpRequest): HttpResponse {
         try {
             val resultList = lookupScenario(httpRequest, scenarios)
