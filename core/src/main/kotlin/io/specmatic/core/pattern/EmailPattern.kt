@@ -11,8 +11,6 @@ private const val EMAIL_REGEX = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,
 class EmailPattern (private val stringPatternDelegate: StringPattern) :
     Pattern by stringPatternDelegate, ScalarType {
 
-    override val example: String? get() = stringPatternDelegate.example
-
     constructor(
         typeAlias: String? = null,
         minLength: Int? = null,
@@ -55,9 +53,6 @@ class EmailPattern (private val stringPatternDelegate: StringPattern) :
     }
 
     override fun generate(resolver: Resolver): Value {
-        val exampleValue = resolveExample(example, this, resolver)
-        if (exampleValue != null) return exampleValue
-        
         val localPart = randomString(5).lowercase(Locale.getDefault())
         val domain = randomString(5).lowercase(Locale.getDefault())
         return StringValue("$localPart@$domain.com")
