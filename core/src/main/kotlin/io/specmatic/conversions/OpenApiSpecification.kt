@@ -1883,14 +1883,11 @@ class OpenApiSpecification(
         val minProperties: Int? = schema.minProperties
         val maxProperties: Int? = schema.maxProperties
         
-        // Extract example from schema.examples if available
-        val schemaExample = extractFirstSchemaExample(schema)
-        
         val jsonObjectPattern = toJSONObjectPattern(
             map = schemaProperties,
             typeAlias = if(patternName.isNotBlank()) "(${patternName})" else null,
             extensions = schema.extensions.orEmpty(),
-            example = schemaExample,
+            example = convertSchemaExampleToMap(schema.example),
             minProperties = minProperties,
             maxProperties = maxProperties,
             additionalProperties = additionalPropertiesFrom(schema, patternName, typeStack)
@@ -1898,10 +1895,30 @@ class OpenApiSpecification(
         return cacheComponentPattern(patternName, jsonObjectPattern)
     }
 
-    private fun extractFirstSchemaExample(schema: Schema<*>): Any? {
-        // For OpenAPI 3.x, schema.example is the standard way to provide examples at schema level
-        return schema.example
+    private fun convertSchemaExampleToMap(example: Any?): Map<*, *>? {
+        if (example == null) return null
+        
+        return when (example) {
+            is Map<*, *> -> example
+            is String -> {
+                try {
+                    // Try to parse as JSON
+                    val jsonPattern = JSONObjectPattern()
+                    val parsedValue = jsonPattern.parse(example, Resolver()) as? JSONObjectValue
+                    parsedValue?.jsonObject
+                } catch (e: Exception) {
+                    // If it's not valid JSON, return null
+                    null
+                }
+            }
+            is Number -> mapOf("value" to example)
+            is Boolean -> mapOf("value" to example)
+            is List<*> -> mapOf("value" to example)
+            else -> mapOf("value" to example.toString())
+        }
     }
+
+
 
     private fun additionalPropertiesFrom(
         schema: Schema<*>, patternName: String, typeStack: List<String>

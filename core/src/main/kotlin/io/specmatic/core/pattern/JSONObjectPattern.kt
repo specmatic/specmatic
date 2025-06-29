@@ -411,32 +411,44 @@ data class JSONObjectPattern(
     private fun resolveJSONObjectExample(example: Any?, pattern: JSONObjectPattern, resolver: Resolver): JSONObjectValue? {
         if (example == null) return null
 
-        val value = when (example) {
-            is String -> pattern.parse(example, resolver)
-            is Map<*, *> -> {
-                val valueMap = example.mapKeys { it.key.toString() }.mapValues { entry ->
-                    when (val v = entry.value) {
-                        is String -> StringValue(v)
-                        is Number -> NumberValue(v)
-                        is Boolean -> BooleanValue(v)
-                        is Map<*, *> -> JSONObjectValue(v.mapKeys { it.key.toString() }.mapValues { StringValue(it.value.toString()) })
-                        is List<*> -> JSONArrayValue(v.map { StringValue(it.toString()) })
-                        else -> StringValue(v.toString())
+        // Convert different types to Map for JSONObjectValue
+        val valueMap = when (example) {
+            is Map<*, *> -> example
+            is String -> {
+                // If it's a JSON string, try to parse it, otherwise treat as single value
+                if (example.trim().startsWith("{") && example.trim().endsWith("}")) {
+                    try {
+                        val jsonPattern = JSONObjectPattern()
+                        val parsed = jsonPattern.parse(example, resolver) as? JSONObjectValue
+                        parsed?.jsonObject ?: mapOf("value" to example)
+                    } catch (e: Exception) {
+                        mapOf("value" to example)
                     }
-                }
-                JSONObjectValue(valueMap)
-            }
-            else -> {
-                try {
-                    pattern.parse(example.toString(), resolver)
-                } catch (e: Throwable) {
-                    throw ContractException("Example \"$example\" could not be parsed as JSON object: ${e.message}")
+                } else {
+                    mapOf("value" to example)
                 }
             }
+            is Number -> mapOf("value" to example)
+            is Boolean -> mapOf("value" to example)
+            is List<*> -> mapOf("value" to example)
+            else -> mapOf("value" to example.toString())
         }
 
-        val exampleMatchResult = pattern.matches(value, Resolver())
-        if (exampleMatchResult.isSuccess()) return value as JSONObjectValue
+        val convertedValueMap = valueMap.mapKeys { it.key.toString() }.mapValues { entry ->
+            when (val v = entry.value) {
+                is String -> StringValue(v)
+                is Number -> NumberValue(v)
+                is Boolean -> BooleanValue(v)
+                is Map<*, *> -> JSONObjectValue(v.mapKeys { it.key.toString() }.mapValues { StringValue(it.value.toString()) })
+                is List<*> -> JSONArrayValue(v.map { StringValue(it.toString()) })
+                null -> NullValue
+                else -> StringValue(v.toString())
+            }
+        }
+        
+        val exampleValue = JSONObjectValue(convertedValueMap)
+        val exampleMatchResult = pattern.matches(exampleValue, Resolver())
+        if (exampleMatchResult.isSuccess()) return exampleValue
         throw ContractException("Example \"$example\" does not match ${pattern.typeName} type")
     }
 
