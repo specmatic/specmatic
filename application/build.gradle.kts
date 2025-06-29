@@ -43,7 +43,7 @@ dependencies {
 
     implementation("org.jetbrains.kotlin:kotlin-reflect")
 
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.11.4")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.13.2")
 
     testImplementation("io.mockk:mockk:1.13.11")
     testImplementation("org.assertj:assertj-core:3.27.3")
