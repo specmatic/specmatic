@@ -4,17 +4,13 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.mismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
-import io.specmatic.core.resolveExample
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import org.apache.commons.codec.binary.Base64
 import java.util.*
 
-data class Base64StringPattern(
-    override val typeAlias: String? = null,
-    override val example: String? = null
-) : Pattern, ScalarType {
+data class Base64StringPattern(override val typeAlias: String? = null) : Pattern, ScalarType {
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if (sampleData?.hasTemplate() == true)
             return Result.Success()
@@ -44,9 +40,6 @@ data class Base64StringPattern(
     private val randomStringLength: Int = 5
 
     override fun generate(resolver: Resolver): Value {
-        val exampleValue = resolveExample(example, this, resolver)
-        if (exampleValue != null) return exampleValue
-        
         return StringValue(randomBase64String(randomStringLength))
     }
 

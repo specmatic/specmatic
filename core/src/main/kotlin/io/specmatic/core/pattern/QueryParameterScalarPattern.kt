@@ -3,14 +3,10 @@ package io.specmatic.core.pattern
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.Substitution
-import io.specmatic.core.resolveExample
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.*
 
-data class QueryParameterScalarPattern(
-    override val pattern: Pattern,
-    override val example: String? = null
-): Pattern by pattern, ScalarType {
+data class QueryParameterScalarPattern(override val pattern: Pattern): Pattern by pattern {
     override fun resolveSubstitutions(
         substitution: Substitution,
         value: Value,
@@ -41,7 +37,7 @@ data class QueryParameterScalarPattern(
     }
 
     override fun generate(resolver: Resolver): Value {
-        return resolveExample(example, this, resolver) ?: pattern.generate(resolver)
+        return pattern.generate(resolver)
     }
 
     override fun parse(value: String, resolver: Resolver): Value {

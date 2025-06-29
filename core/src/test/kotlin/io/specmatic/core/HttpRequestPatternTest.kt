@@ -852,8 +852,8 @@ internal class HttpRequestPatternTest {
         val httpRequestPattern = HttpRequestPattern(
             method = "GET",
             httpPathPattern = buildHttpPathPattern(URI("/(id:uuid)")),
-            headersPattern = HttpHeadersPattern(mapOf("key" to DatePattern())),
-            httpQueryParamPattern = HttpQueryParamPattern(mapOf("key" to QueryParameterScalarPattern(DateTimePattern()))),
+            headersPattern = HttpHeadersPattern(mapOf("key" to DatePattern)),
+            httpQueryParamPattern = HttpQueryParamPattern(mapOf("key" to QueryParameterScalarPattern(DateTimePattern))),
             body = JSONObjectPattern(mapOf("key" to EmailPattern()))
         )
         val httpRequest = HttpRequest(
