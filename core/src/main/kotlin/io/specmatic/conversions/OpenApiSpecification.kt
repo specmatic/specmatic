@@ -1887,7 +1887,7 @@ class OpenApiSpecification(
             map = schemaProperties,
             typeAlias = if(patternName.isNotBlank()) "(${patternName})" else null,
             extensions = schema.extensions.orEmpty(),
-            example = convertSchemaExampleToMap(schema.example),
+            example = ObjectMapper().convertValue(schema.example, Map::class.java),
             minProperties = minProperties,
             maxProperties = maxProperties,
             additionalProperties = additionalPropertiesFrom(schema, patternName, typeStack)

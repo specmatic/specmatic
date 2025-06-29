@@ -290,8 +290,7 @@ class JSONObjectPatternExampleIntegrationTest {
                           required: true
                           schema:
                             type: string
-                          examples:
-                            LIST_ENGINEERING_USERS:
+                            example:
                               value: "engineering"
                       responses:
                         '200':
