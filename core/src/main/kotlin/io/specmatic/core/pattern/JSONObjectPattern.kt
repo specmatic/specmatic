@@ -17,7 +17,7 @@ fun toJSONObjectPattern(
     map: Map<String, Pattern>,
     typeAlias: String? = null,
     extensions: Map<String, Any> = emptyMap(),
-    example: Any? = null,
+    example: Map<*, *>? = null,
     minProperties: Int? = null,
     maxProperties: Int? = null,
     additionalProperties: AdditionalProperties = AdditionalProperties.NoAdditionalProperties
@@ -104,7 +104,7 @@ data class JSONObjectPattern(
     val maxProperties: Int? = null,
     val additionalProperties: AdditionalProperties = AdditionalProperties.NoAdditionalProperties,
     override val extensions: Map<String, Any> = emptyMap(),
-    override val example: Any? = null
+    override val example: Map<*, *>? = null
 ) : Pattern, PossibleJsonObjectPatternContainer, HasDefaultExample {
 
     override fun fixValue(value: Value, resolver: Resolver): Value {
@@ -408,33 +408,11 @@ data class JSONObjectPattern(
         }
     }
 
-    private fun resolveJSONObjectExample(example: Any?, pattern: JSONObjectPattern, resolver: Resolver): JSONObjectValue? {
+    private fun resolveJSONObjectExample(example: Map<*, *>?, pattern: JSONObjectPattern, resolver: Resolver): JSONObjectValue? {
         if (example == null) return null
 
-        // Convert different types to Map for JSONObjectValue
-        val valueMap = when (example) {
-            is Map<*, *> -> example
-            is String -> {
-                // If it's a JSON string, try to parse it, otherwise treat as single value
-                if (example.trim().startsWith("{") && example.trim().endsWith("}")) {
-                    try {
-                        val jsonPattern = JSONObjectPattern()
-                        val parsed = jsonPattern.parse(example, resolver) as? JSONObjectValue
-                        parsed?.jsonObject ?: mapOf("value" to example)
-                    } catch (e: Exception) {
-                        mapOf("value" to example)
-                    }
-                } else {
-                    mapOf("value" to example)
-                }
-            }
-            is Number -> mapOf("value" to example)
-            is Boolean -> mapOf("value" to example)
-            is List<*> -> mapOf("value" to example)
-            else -> mapOf("value" to example.toString())
-        }
-
-        val convertedValueMap = valueMap.mapKeys { it.key.toString() }.mapValues { entry ->
+        // Convert Map to JSONObjectValue
+        val convertedValueMap = example.mapKeys { it.key.toString() }.mapValues { entry ->
             when (val v = entry.value) {
                 is String -> StringValue(v)
                 is Number -> NumberValue(v)

@@ -2738,13 +2738,6 @@ components:
         }
 
         @Test
-        fun `should support string example`() {
-            val example = """{"id": 123, "name": "John"}"""
-            val pattern = JSONObjectPattern(example = example)
-            assertThat(pattern.example).isEqualTo(example)
-        }
-
-        @Test
         fun `should support map example`() {
             val example = mapOf("id" to 123, "name" to "John")
             val pattern = JSONObjectPattern(example = example)
@@ -2759,7 +2752,7 @@ components:
 
         @Test
         fun `should work with utility function hasExample when example is provided`() {
-            val pattern = JSONObjectPattern(example = """{"id": 123}""")
+            val pattern = JSONObjectPattern(example = mapOf("id" to 123))
             assertThat(hasExample(pattern)).isTrue()
         }
 
@@ -2771,14 +2764,15 @@ components:
 
         @Test
         fun `should work with utility function theDefaultExampleForThisKeyIsNotOmit when example is provided`() {
-            val pattern = JSONObjectPattern(example = """{"id": 123}""")
+            val pattern = JSONObjectPattern(example = mapOf("id" to 123))
             assertThat(theDefaultExampleForThisKeyIsNotOmit(pattern)).isTrue()
         }
 
         @Test
-        fun `should work with utility function theDefaultExampleForThisKeyIsNotOmit when example is omit`() {
-            val pattern = JSONObjectPattern(example = "(omit)")
-            assertThat(theDefaultExampleForThisKeyIsNotOmit(pattern)).isFalse()
+        fun `should work with utility function theDefaultExampleForThisKeyIsNotOmit when example is a map`() {
+            val pattern = JSONObjectPattern(example = mapOf("id" to 123))
+            // Map examples are never considered as omit, so this should always return true
+            assertThat(theDefaultExampleForThisKeyIsNotOmit(pattern)).isTrue()
         }
 
         @Test
@@ -2802,10 +2796,10 @@ components:
         }
 
         @Test
-        fun `should use string example in generate method when allowOnlyMandatoryKeysInJsonObject is false`() {
+        fun `should use map example in generate method when allowOnlyMandatoryKeysInJsonObject is false`() {
             val resolver = Resolver()
             
-            val example = """{"id": 123}"""
+            val example = mapOf("id" to 123)
             val pattern = JSONObjectPattern(
                 pattern = mapOf("id" to NumberPattern()),
                 example = example
@@ -2818,7 +2812,7 @@ components:
         }
 
         @Test
-        fun `should use map example in generate method when allowOnlyMandatoryKeysInJsonObject is false`() {
+        fun `should use different map example in generate method when allowOnlyMandatoryKeysInJsonObject is false`() {
             val resolver = Resolver()
             
             val example = mapOf("id" to 456)
@@ -2837,7 +2831,7 @@ components:
         fun `should not use example when allowOnlyMandatoryKeysInJsonObject is true`() {
             val resolver = Resolver().withOnlyMandatoryKeysInJSONObject()
             
-            val example = """{"id": 123}"""
+            val example = mapOf("id" to 123)
             val pattern = JSONObjectPattern(
                 pattern = mapOf("id" to NumberPattern()),
                 example = example
@@ -2898,7 +2892,7 @@ components:
                     "name" to StringPattern(),
                     "age" to NumberPattern()
                 ),
-                example = """{"name": "Jane Doe", "age": 25}"""
+                example = mapOf("name" to "Jane Doe", "age" to 25)
             )
             
             assertThat(pattern.example).isNotNull()
