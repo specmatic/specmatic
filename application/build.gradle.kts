@@ -17,9 +17,9 @@ dependencies {
     implementation("org.junit.jupiter:junit-jupiter-api:5.11.4")
 
     implementation("info.picocli:picocli:4.7.7")
-    implementation("io.ktor:ktor-client-core-jvm:2.3.13")
-    implementation("io.ktor:ktor-network-tls:2.3.13")
-    implementation("io.ktor:ktor-network-tls-certificates:2.3.13")
+    implementation("io.ktor:ktor-client-core-jvm:3.2.0")
+    implementation("io.ktor:ktor-network-tls:3.2.0")
+    implementation("io.ktor:ktor-network-tls-certificates:3.2.0")
 
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.19.0")
 
@@ -34,7 +34,7 @@ dependencies {
     implementation(project(":specmatic-core"))
     implementation(project(":junit5-support"))
 
-    implementation("io.ktor:ktor-client-cio:2.3.13")
+    implementation("io.ktor:ktor-client-cio:3.2.0")
     implementation("io.swagger.parser.v3:swagger-parser:2.1.29") {
         exclude(group = "org.mozilla", module = "rhino")
     }
