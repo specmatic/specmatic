@@ -20,7 +20,7 @@ dependencies {
     implementation("io.ktor:ktor-client-cio:2.3.13")
 
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.11.4")
-    implementation("org.junit.platform:junit-platform-launcher:1.11.4")
+    implementation("org.junit.platform:junit-platform-launcher:1.13.2")
     implementation("org.junit.platform:junit-platform-reporting:1.11.4")
     implementation("org.fusesource.jansi:jansi:2.4.2")
 }
