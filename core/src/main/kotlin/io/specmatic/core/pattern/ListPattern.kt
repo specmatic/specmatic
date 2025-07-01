@@ -77,7 +77,7 @@ data class ListPattern(
         key: String?
     ): ReturnValue<Value> {
         val resolved = runCatching { substitution.resolveIfLookup(value, this) }.getOrElse { e -> return HasException(e) }
-        val resolvedValue = resolved as? JSONArrayValue ?: return HasFailure(Result.Failure("Cannot resolve substitutions, expected list but got ${value.displayableType()}"))
+        val resolvedValue = resolved as? JSONArrayValue ?: return HasValue(resolved)
 
         val updatedList = resolvedValue.list.mapIndexed { index, listItem ->
             pattern.resolveSubstitutions(substitution, listItem, resolver).breadCrumb("[$index]")

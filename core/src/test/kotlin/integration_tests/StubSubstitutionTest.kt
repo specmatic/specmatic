@@ -1204,7 +1204,7 @@ class StubSubstitutionTest {
             assertThat(response.status).isEqualTo(400)
             assertThat(response.body.toStringLiteral()).isEqualToNormalizingWhitespace("""
              >> RESPONSE.BODY.names[0]
-            Cannot resolve substitutions, expected string but got number
+            Expected string, actual was number
             """.trimIndent())
         }
     }
