@@ -1,0 +1,29 @@
+{
+  "partial": {
+    "http-request": {
+      "path": "/creators/(creatorId:number)/pets/(petId:number)",
+      "method": "PATCH",
+      "body": {
+        "creatorId": "(CREATOR_ID:number)",
+        "petId": "(PET_ID:number)"
+      }
+    },
+    "http-response": {
+      "status": 201,
+      "body": {
+        "id": "$(dataLookup.CREATOR_ID[CREATOR_ID].id)"
+      },
+      "status-text": "Created",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  },
+  "dataLookup": {
+    "CREATOR_ID": {
+      "*": {
+        "id": 123
+      }
+    }
+  }
+}
