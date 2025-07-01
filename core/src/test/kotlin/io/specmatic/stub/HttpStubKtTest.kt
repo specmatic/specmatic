@@ -38,6 +38,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.DisabledOnOs
 import org.junit.jupiter.api.condition.OS
 import org.junit.jupiter.api.fail
+import java.io.File
 import java.security.KeyStore
 import java.util.*
 import java.util.function.Consumer
@@ -954,6 +955,28 @@ paths:
                     assertThat(this.body.toStringLiteral()).isEqualTo("success $ctr")
                 }
             }
+        }
+    }
+
+    @Test
+    fun `should be able to respond with substitution based example containing pattern token inplace of complex values`() {
+        val openApiFile = File("src/test/resources/openapi/partial_example_tests/simple.yaml")
+        val examples = openApiFile.resolveSibling("substitute_examples").listFiles().orEmpty().map(ScenarioStub::readFromFile)
+        val feature = OpenApiSpecification.fromFile(openApiFile.canonicalPath).toFeature()
+        val genericRequest = feature.scenarios.first().generateHttpRequest()
+
+        HttpStub(feature, examples).use { stub ->
+            val patternTokenRequest = genericRequest.copy(path = "/creators/123/pets/123")
+            val response = stub.client.execute(patternTokenRequest)
+
+            assertThat(response.status).isEqualTo(201)
+            assertThat(response.body).isInstanceOf(JSONObjectValue::class.java)
+
+            val substitutedResponse = stub.client.execute(genericRequest)
+            val responseBody = substitutedResponse.body as JSONObjectValue
+
+            assertThat(substitutedResponse.status).isEqualTo(201)
+            assertThat(responseBody.jsonObject["id"]).isEqualTo(NumberValue(123))
         }
     }
 

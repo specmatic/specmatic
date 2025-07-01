@@ -30,7 +30,7 @@ data class DictionaryPattern(val keyPattern: Pattern, val valuePattern: Pattern,
         key: String?
     ): ReturnValue<Value> {
         val resolved = runCatching { substitution.resolveIfLookup(value, this) }.getOrElse { e -> return HasException(e) }
-        val resolvedValue = resolved as? JSONObjectValue ?: return HasFailure(Result.Failure("Cannot resolve substitutions, expected object but got ${value.displayableType()}"))
+        val resolvedValue = resolved as? JSONObjectValue ?: return HasValue(resolved)
 
         val updatedMap = resolvedValue.jsonObject.mapValues { (key, value) ->
             valuePattern.resolveSubstitutions(substitution, value, resolver, key)
