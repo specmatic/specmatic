@@ -227,24 +227,12 @@ class Substitution(
         val strValue = (value as? StringValue)?.nativeValue ?: return value
         if (!isDataLookup(strValue)) return value
 
-        val resolvedValue =
-            runCatching { substituteDataLookupExpression(strValue) }.getOrElse { e ->
-                logger.debug(e, "Error resolving data lookup expression ${value.string}, using original value")
-                return value
-            }
-
-        val patternFromValue = resolver.patternFromTokenBased(StringValue(resolvedValue)) ?: return pattern.parse(resolvedValue, resolver)
-
-        return when {
-            patternFromValue is AnyValuePattern -> pattern.generate(resolver)
-            pattern.encompasses(patternFromValue, resolver, resolver).isSuccess() -> patternFromValue.generate(resolver)
-            else -> {
-                val expectedPattern = pattern.typeAlias ?: pattern.typeName
-                val actualValuePattern = patternFromValue.typeAlias ?: patternFromValue.typeName
-
-                throw ContractException("Cannot resolve substitutions, expected $expectedPattern but got $actualValuePattern")
-            }
+        val resolvedValue = runCatching { substituteDataLookupExpression(strValue) }.getOrElse { e ->
+            logger.debug(e, "Error resolving data lookup expression ${value.string}, using original value")
+            return value
         }
+
+        return runCatching { pattern.parse(resolvedValue, resolver) }.getOrDefault(StringValue(resolvedValue))
     }
 
     fun isDropDirective(value: Value): Boolean {
@@ -253,7 +241,6 @@ class Substitution(
         val resolvedValue = runCatching { substituteDataLookupExpression(strValue) }.getOrElse { return false }
         return resolvedValue == "(drop)"
     }
-
 }
 
 class MissingDataException(override val message: String) : Throwable(message)

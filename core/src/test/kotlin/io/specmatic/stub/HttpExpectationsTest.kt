@@ -17,7 +17,7 @@ class HttpExpectationsTest {
     private val staticStubData = HttpStubData(
         requestType = request.toPattern(),
         response = HttpResponse.ok(parsedJSONObject("{\"id\": 10}")),
-        responsePattern = HttpResponsePattern(HttpResponse.OK),
+        responsePattern = HttpResponsePattern(HttpResponse.ok(parsedJSONObject("{\"id\": 10}"))),
         resolver = Resolver(),
         contractPath = "test.yaml",
         originalRequest = request
@@ -44,7 +44,7 @@ class HttpExpectationsTest {
         val dynamicStubData = HttpStubData(
             requestType = request.toPattern(),
             response = response,
-            responsePattern = HttpResponsePattern(HttpResponse.OK),
+            responsePattern = HttpResponsePattern(response),
             resolver = Resolver(),
             originalRequest = request
         )
@@ -69,7 +69,7 @@ class HttpExpectationsTest {
         val dynamicStubData = HttpStubData(
             requestType = request.toPattern(),
             response = dynamicStubResponse,
-            responsePattern = HttpResponsePattern(HttpResponse.OK),
+            responsePattern = HttpResponsePattern(dynamicStubResponse),
             resolver = Resolver(),
             originalRequest = request
         )
@@ -85,7 +85,7 @@ class HttpExpectationsTest {
         val transientStubData = HttpStubData(
             requestType = request.toPattern(),
             response = transientStubResponse,
-            responsePattern = HttpResponsePattern(HttpResponse.OK),
+            responsePattern = HttpResponsePattern(transientStubResponse),
             resolver = Resolver(),
             originalRequest = request
         )
