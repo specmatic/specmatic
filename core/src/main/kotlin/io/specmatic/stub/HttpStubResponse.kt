@@ -22,7 +22,7 @@ data class HttpStubResponse(
         if(scenario == null)
             return this
 
-        val updatedResponse = scenario.resolveSubtitutions(request, originalRequest, response, data)
+        val updatedResponse = scenario.resolveSubstitutions(request, originalRequest, response, data)
 
         return this.copy(response = updatedResponse)
     }

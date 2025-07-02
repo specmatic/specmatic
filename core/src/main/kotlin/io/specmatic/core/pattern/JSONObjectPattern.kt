@@ -1,5 +1,6 @@
 package io.specmatic.core.pattern
 
+import io.ktor.http.*
 import io.specmatic.core.*
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.utilities.mapZip
@@ -192,18 +193,20 @@ data class JSONObjectPattern(
         resolver: Resolver,
         key: String?
     ): ReturnValue<Value> {
-        if(value !is JSONObjectValue)
-            return HasFailure(Result.Failure("Cannot resolve substitutions, expected object but got ${value.displayableType()}"))
+        val resolved = runCatching { substitution.resolveIfLookup(value, this) }.getOrElse { e -> return HasException(e) }
+        val resolvedValue = resolved as? JSONObjectValue ?: return HasValue(resolved)
 
-        if(pattern.isEmpty())
-            return HasValue(value)
-
-        val updatedMap = value.jsonObject.mapValues { (key, value) ->
+        if(pattern.isEmpty()) return HasValue(value)
+        val updatedMap = resolvedValue.jsonObject.mapNotNull { (key, value) ->
             val pattern = attempt("Could not find key in json object", key) { pattern[key] ?: pattern["$key?"] ?: throw MissingDataException("Could not find key $key") }
-            pattern.resolveSubstitutions(substitution, value, resolver, key).breadCrumb(key)
-        }
+            if (substitution.isDropDirective(value)) {
+                if (this.pattern[key] != null) return HasFailure(Result.Failure(breadCrumb = key, message = "Cannot drop mandatory key named ${key.quote()}"))
+                else return@mapNotNull null
+            }
+            key to pattern.resolveSubstitutions(substitution, value, resolver, key).breadCrumb(key)
+        }.toMap()
 
-        return updatedMap.mapFoldException().ifValue { value.copy(it) }
+        return updatedMap.mapFoldException().ifValue(resolvedValue::copy)
     }
 
     override fun getTemplateTypes(key: String, value: Value, resolver: Resolver): ReturnValue<Map<String, Pattern>> {

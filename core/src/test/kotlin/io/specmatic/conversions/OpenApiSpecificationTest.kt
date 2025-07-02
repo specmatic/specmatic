@@ -6015,7 +6015,8 @@ paths:
                     in: path
                     required: true
                     schema:
-                      type: number
+                      type: integer
+                      format: int32
                   requestBody:
                     content:
                       application/json:
@@ -6083,7 +6084,8 @@ paths:
                     in: path
                     required: true
                     schema:
-                      type: number
+                      type: integer
+                      format: int32
                   requestBody:
                     content:
                       application/json:
@@ -10944,6 +10946,68 @@ paths:
         assertThat(result).isEqualTo(overlayContent)
     }
 
+    @Test
+    fun `getServers should return the list of servers from the OpenAPI spec`() {
+        val openApiContent = """
+            openapi: 3.0.3
+            info:
+              title: Test API
+              version: 1.0.0
+            servers:
+              - url: https://api.example.com/v1
+                description: Production server
+              - url: https://staging.example.com/v1
+                description: Staging server
+            paths: {}
+        """.trimIndent()
+
+        val spec = OpenApiSpecification.fromYAML(openApiContent, "")
+        val servers = spec.getServers()
+
+        assertThat(servers).hasSize(2)
+        assertThat(servers[0].url).isEqualTo("https://api.example.com/v1")
+        assertThat(servers[0].description).isEqualTo("Production server")
+        assertThat(servers[1].url).isEqualTo("https://staging.example.com/v1")
+        assertThat(servers[1].description).isEqualTo("Staging server")
+    }
+
+    @Test
+    fun `parseUnreferencedSchemas should return schemas not referenced in any API`() {
+        val specContent = """
+            openapi: 3.0.3
+            info:
+              title: Test API
+              version: 1.0.0
+            paths:
+              /test:
+                get:
+                  responses:
+                    '200':
+                      description: Success
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            properties:
+                              id:
+                                type: string
+            components:
+              schemas:
+                UnreferencedSchema:
+                  type: object
+                  properties:
+                    value:
+                      type: string
+                AnotherUnreferenced:
+                  type: string
+        """.trimIndent()
+
+        val spec = OpenApiSpecification.fromYAML(specContent, "")
+        val unreferenced = spec.parseUnreferencedSchemas()
+
+        assertThat(unreferenced.keys).containsExactlyInAnyOrder("(UnreferencedSchema)", "(AnotherUnreferenced)")
+    }
+    
     private fun ignoreButLogException(function: () -> OpenApiSpecification) {
         try {
             function()

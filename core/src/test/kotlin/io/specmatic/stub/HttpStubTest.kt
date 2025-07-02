@@ -1253,6 +1253,128 @@ paths:
         }
     }
 
+    @Test
+    fun `should accept extra headers in the request and respond with an matching example if exists with extensible schema`() {
+        val feature: Feature = Flags.using(Flags.EXTENSIBLE_SCHEMA to "true") {
+            OpenApiSpecification.fromYAML("""
+            openapi: 3.0.3
+            info:
+              title: Simple API
+              version: 1.0.0
+            paths:
+              /:
+                get:
+                  summary: Simple GET endpoint
+                  parameters:
+                    - name: HeaderKey
+                      in: header
+                      required: false
+                      schema:
+                        type: string
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            properties:
+                              id:
+                                type: string
+                            required:
+                              - id
+            """.trimIndent(), ""
+            ).toFeature()
+        }
+
+        val headerKeys = listOf("HeaderKey", "X-Extra")
+        val combinedKeys = headerKeys.joinToString("-")
+        val stubScenarioFrom: (Map<String, String>, String) -> ScenarioStub = { headers, id ->
+            ScenarioStub(
+                request = HttpRequest("GET", "/", headers),
+                response = HttpResponse(200, body = parsedJSONObject("""{"id": "$id"}"""))
+            )
+        }
+
+        val separate = headerKeys.map { stubScenarioFrom(mapOf(it to it), it) }
+        val combined = stubScenarioFrom(headerKeys.associateWith { combinedKeys }, combinedKeys)
+        val examples = separate.plus(combined)
+
+        HttpStub(feature, examples).use { stub ->
+            headerKeys.forEach {
+                val request = HttpRequest("GET", "/", headers = mapOf(it to it))
+                val response = stub.client.execute(request)
+
+                assertThat(response.status).withFailMessage(response.body.toStringLiteral()).isEqualTo(200)
+                assertThat((response.body as JSONObjectValue).findFirstChildByPath("id")?.toStringLiteral()).isEqualTo(it)
+            }
+
+            val request = HttpRequest("GET", "/", headers = headerKeys.associateWith { combinedKeys })
+            val response = stub.client.execute(request)
+
+            assertThat(response.status).withFailMessage(response.body.toStringLiteral()).isEqualTo(200)
+            assertThat((response.body as JSONObjectValue).findFirstChildByPath("id")?.toStringLiteral()).isEqualTo(combinedKeys)
+        }
+    }
+
+    @Test
+    fun `should complain when mandatory headers are missing from the request with extensible schema`() {
+        val feature: Feature = Flags.using(Flags.EXTENSIBLE_SCHEMA to "true") {
+            OpenApiSpecification.fromYAML("""
+            openapi: 3.0.3
+            info:
+              title: Simple API
+              version: 1.0.0
+            paths:
+              /:
+                get:
+                  summary: Simple GET endpoint
+                  parameters:
+                    - name: Mandatory
+                      in: header
+                      required: true
+                      schema:
+                        type: string
+                    - name: Optional
+                      in: header
+                      required: false
+                      schema:
+                        type: string
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            properties:
+                              id:
+                                type: string
+                            required:
+                              - id
+            """.trimIndent(), ""
+            ).toFeature()
+        }
+
+        val example = ScenarioStub(
+            request = HttpRequest("GET", "/", headers = mapOf("X-Extra" to "Value", "Mandatory" to "Value")),
+            response = HttpResponse(status = 200, body = parsedJSONObject("""{"id": "123"}"""))
+        )
+
+        HttpStub(feature, listOf(example)).use { stub ->
+            val badRequest = HttpRequest("GET", "/", headers = mapOf("X-Extra" to "Value"))
+            val response = stub.client.execute(badRequest)
+
+            assertThat(response.status).isNotEqualTo(200)
+            assertThat(response.body.toStringLiteral()).isEqualToNormalizingWhitespace("""
+            In scenario "Simple GET endpoint. Response: OK"
+            API: GET / -> 200
+            >> REQUEST.PARAMETERS.HEADER.Mandatory
+            Header named Mandatory in the contract was not found in the request
+            """.trimIndent())
+        }
+    }
+
     @Nested
     inner class GenerativeStubTest {
         @Test

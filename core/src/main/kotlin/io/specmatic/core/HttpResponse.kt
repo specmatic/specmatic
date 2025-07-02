@@ -3,7 +3,6 @@ package io.specmatic.core
 import io.ktor.http.*
 import io.specmatic.conversions.guessType
 import io.specmatic.core.GherkinSection.Then
-import io.specmatic.core.filters.caseInsensitiveContains
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.isPatternToken
@@ -176,7 +175,7 @@ data class HttpResponse(
         }
     }
 
-    fun withoutDynamicHeaders(): HttpResponse = copy(headers = headers.withoutDynamicHeaders())
+    fun withoutTransportHeaders(): HttpResponse = copy(headers = headers.withoutTransportHeaders())
 
     fun isNotEmpty(): Boolean {
         val bodyIsEmpty = body == NoBodyValue

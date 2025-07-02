@@ -386,7 +386,7 @@ data class HttpRequest(
         return requestNotRecognized(StrictRequestNotRecognizedMessages())
     }
 
-    fun withoutDynamicHeaders(): HttpRequest = copy(headers = headers.withoutDynamicHeaders())
+    fun withoutTransportHeaders(): HttpRequest = copy(headers = headers.withoutTransportHeaders())
 
     fun addSecurityHeader(headerName: String, headerValue: String): HttpRequest {
         val updatedMetadata = metadata.copy(securityHeaderNames = metadata.securityHeaderNames.plus(headerName))

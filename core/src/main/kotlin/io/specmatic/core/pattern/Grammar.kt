@@ -26,7 +26,7 @@ internal fun withOptionality(key: String): String {
     }
 }
 
-internal fun isOptional(key: String): Boolean =
+fun isOptional(key: String): Boolean =
     key.endsWith(DEFAULT_OPTIONAL_SUFFIX) || key.endsWith(XML_ATTR_OPTIONAL_SUFFIX)
 
 internal fun containsKey(jsonObject: Map<String, Any?>, key: String) =
@@ -37,6 +37,7 @@ internal fun containsKey(jsonObject: Map<String, Any?>, key: String) =
 
 internal val builtInPatterns = mapOf(
     "(number)" to NumberPattern(),
+    "(integer)" to NumberPattern(),
     "(string)" to StringPattern(),
     "(email)" to EmailPattern(),
     "(boolean)" to BooleanPattern(),
@@ -243,7 +244,7 @@ fun parsedPattern(rawContent: String, key: String? = null, typeAlias: String? = 
 
                 isRestPattern(it) -> RestPattern(parsedPattern(withoutRestToken(it), typeAlias = typeAlias))
                 isRepeatingPattern(it) -> ListPattern(parsedPattern(withoutListToken(it), typeAlias = typeAlias))
-                it == "(number)" -> DeferredPattern(it, null)
+                it == "(number)" || it == "(integer)" -> DeferredPattern(it, null)
                 isBuiltInPattern(it) -> getBuiltInPattern(it)
                 else -> DeferredPattern(it, key)
             }

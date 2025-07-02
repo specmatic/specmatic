@@ -349,7 +349,7 @@ internal class ProxyTest {
                     "status": 200,
                     "body": "100"
                 },
-                "$DELAY_IN_MILLISECONDS": 200
+                "$DELAY_IN_MILLISECONDS": 5000
             }""".trimIndent()
 
             val stubResponse =  RestTemplate().postForEntity<String>(fake.endPoint + "/_specmatic/expectations", expectation)

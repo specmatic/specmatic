@@ -339,16 +339,25 @@ data class HttpRequestPattern(
             }
 
             requestPattern = attempt(breadCrumb = BreadCrumb.PARAM_HEADER.value) {
+                val headersWithRelevantFields = securitySchemes.fold(request) { request, securityScheme ->
+                    securityScheme.removeParam(request)
+                }.headers
+                    .let {
+                        headersPattern.removeContentType(it)
+                    }
+
                 val headersFromRequest = toTypeMap(
-                    toLowerCaseKeys(request.headers),
+                    toLowerCaseKeys(headersWithRelevantFields),
                     toLowerCaseKeys(headersPattern.pattern),
-                    resolver
+                    resolver,
                 )
 
                 requestPattern.copy(
-                    headersPattern = headersPattern.copy(
-                        pattern = headersFromRequest, ancestorHeaders = this.headersPattern.pattern
-                    )
+                    headersPattern =
+                        headersPattern.copy(
+                            pattern = headersFromRequest,
+                            ancestorHeaders = headersFromRequest.mergeIgnoringCaseAndOptionalsWith(headersPattern.pattern),
+                        ),
                 )
             }
 
@@ -391,14 +400,11 @@ data class HttpRequestPattern(
         types: Map<String, Pattern>,
         resolver: Resolver
     ): Map<String, Pattern> {
-        return types.filterKeys { withoutOptionality(it) in values }.mapValues {
-            val key = withoutOptionality(it.key)
-            val type = it.value
-
-            attempt(breadCrumb = key) {
-                val valueString = values.getValue(key)
-                encompassedType(valueString, key, type, resolver)
-            }
+        val withoutOptionality = types.mapKeys { withoutOptionality(it.key) }
+        return values.mapValues { (key, value) ->
+            withoutOptionality[key]?.let { type ->
+                attempt(breadCrumb = key) { encompassedType(value, key, type, resolver) }
+            } ?: parsedPattern(value)
         }
     }
 
@@ -986,5 +992,13 @@ fun multiPartListCombinations(values: List<Sequence<MultiPartFormDataPattern?>>)
                 else -> list.plus(type)
             }
         }
+    }
+}
+
+private fun Map<String, Pattern>.mergeIgnoringCaseAndOptionalsWith(other: Map<String, Pattern>): Map<String, Pattern> {
+    val thisNormalizedKeys = this.keys.map(::withoutOptionality).map(String::toLowerCasePreservingASCIIRules).toSet()
+    return buildMap {
+        putAll(this@mergeIgnoringCaseAndOptionalsWith)
+        putAll(other.filterKeys { withoutOptionality(it).toLowerCasePreservingASCIIRules() !in thisNormalizedKeys })
     }
 }
