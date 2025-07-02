@@ -496,13 +496,13 @@ internal class JSONObjectPatternTest {
             val patterns =
                 parsedPattern("""{"id?": "(number)"}""", null).newBasedOn(Row(), Resolver()).map { it.value }
 
-            assertNotNull(patterns.find { pattern ->
+            assertThat(patterns.find { pattern ->
                 val result = pattern.matches(JSONObjectValue(mapOf("id" to StringValue("abc"))), Resolver())
                 result is Result.Failure && result.toMatchFailureDetails() == MatchFailureDetails(
                     listOf("id"),
                     listOf("""Expected number, actual was "abc"""")
                 )
-            })
+            }).isNotNull()
         }
 
         @Test
