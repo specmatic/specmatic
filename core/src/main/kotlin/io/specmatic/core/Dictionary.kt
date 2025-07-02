@@ -45,9 +45,10 @@ data class Dictionary(private val data: Map<String, Value>, private val focusedD
     }
 
     fun getDefaultValueFor(pattern: Pattern, resolver: Resolver): Value? {
-        val lookupKey = withPatternDelimiters(pattern.typeName)
+        val resolved = resolvedHop(pattern, resolver)
+        val lookupKey = withPatternDelimiters(resolved.typeName)
         val defaultValue = defaultData[lookupKey] ?: return null
-        return getReturnValueFor(lookupKey, defaultValue, pattern, resolver)?.withDefault(null) { it }
+        return getReturnValueFor(lookupKey, defaultValue, resolved, resolver)?.withDefault(null) { it }
     }
 
     fun getValueFor(lookup: String, pattern: Pattern, resolver: Resolver): ReturnValue<Value>? {

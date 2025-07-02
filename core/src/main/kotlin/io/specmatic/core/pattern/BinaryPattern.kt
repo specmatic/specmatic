@@ -4,7 +4,6 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.mismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
-import io.specmatic.core.resolveExample
 import io.specmatic.core.value.BinaryValue
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.StringValue
@@ -13,7 +12,6 @@ import java.security.SecureRandom
 
 data class BinaryPattern(
     override val typeAlias: String? = null,
-    override val example: String? = null,
 ) : Pattern, ScalarType {
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
@@ -40,9 +38,6 @@ data class BinaryPattern(
     }
 
     override fun generate(resolver: Resolver): Value {
-        val exampleValue = resolveExample(example, this, resolver)
-        if (exampleValue != null) return exampleValue
-        
         val secureRandom = SecureRandom()
         val bytes = ByteArray(20)
         secureRandom.nextBytes(bytes)

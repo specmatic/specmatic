@@ -12,23 +12,23 @@ import org.junit.jupiter.params.provider.CsvSource
 class TimePatternTest {
     @Test
     fun `should be able to generate a time`() {
-        val generated = TimePattern().generate(Resolver())
+        val generated = TimePattern.generate(Resolver())
         println(generated)
-        val result = TimePattern().matches(generated, Resolver())
+        val result = TimePattern.matches(generated, Resolver())
         assertTrue(result is Result.Success)
     }
 
     @Test
     fun `should generate new time values for test`() {
         val row = Row()
-        val patterns = TimePattern().newBasedOn(row, Resolver()).map { it.value }.toList()
+        val patterns = TimePattern.newBasedOn(row, Resolver()).map { it.value }.toList()
 
         assertEquals(1, patterns.size)
-        assertEquals(TimePattern(), patterns.first())
+        assertEquals(TimePattern, patterns.first())
 
         assertThat(patterns).allSatisfy {
             val time = it.generate(Resolver())
-            val match = TimePattern().matches(time, Resolver())
+            val match = TimePattern.matches(time, Resolver())
             assertThat(match).isInstanceOf(Result.Success::class.java)
         }
     }
@@ -47,7 +47,7 @@ class TimePatternTest {
         "aa:bb:cc, invalid"
     )
     fun `RFC 6801 regex should validate time`(time: String, validity: String) {
-        val result = TimePattern().matches(StringValue(time), Resolver())
+        val result = TimePattern.matches(StringValue(time), Resolver())
 
         val isValid = when(validity) {
             "valid" -> true

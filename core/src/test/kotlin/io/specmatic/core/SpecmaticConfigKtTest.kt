@@ -11,6 +11,7 @@ import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_SCHEMA
 import io.specmatic.core.utilities.Flags.Companion.MAX_TEST_REQUEST_COMBINATIONS
 import io.specmatic.core.utilities.Flags.Companion.ONLY_POSITIVE
+import io.specmatic.core.utilities.Flags.Companion.SCHEMA_EXAMPLE_DEFAULT
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_GENERATIVE_TESTS
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_STUB_DELAY
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_TIMEOUT
@@ -199,6 +200,7 @@ internal class SpecmaticConfigKtTest {
             ONLY_POSITIVE to "false",
             VALIDATE_RESPONSE_VALUE to "true",
             EXTENSIBLE_SCHEMA to "false",
+            SCHEMA_EXAMPLE_DEFAULT to "true",
             MAX_TEST_REQUEST_COMBINATIONS to "50",
             EXAMPLE_DIRECTORIES to "folder1/examples,folder2/examples",
             SPECMATIC_STUB_DELAY to "1000",

@@ -163,7 +163,6 @@ class ThreadSafeListOfStubs(
         return runCatching {
             val substituted = stubResponse.resolveSubstitutions(httpRequest, originalRequest ?: httpRequest, stubData.data)
             val substitutedResponse = stubData.copy(response = substituted.response)
-            if (stubData.partial == null) return@runCatching substitutedResponse
             stubData.copy(response = stubData.responsePattern.fillInTheBlanks(substitutedResponse.response, stubData.resolver))
         }.map { Result.Success() to it }.getOrElse { e ->
             when {

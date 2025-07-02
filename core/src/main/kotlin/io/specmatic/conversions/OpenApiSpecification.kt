@@ -1428,11 +1428,11 @@ class OpenApiSpecification(
                 }.withExample(schema.example?.toString())
             }
 
-            is BinarySchema -> BinaryPattern(example = schema.example?.toString())
+            is BinarySchema -> BinaryPattern()
             is NumberSchema -> numberPattern(schema, true)
-            is UUIDSchema -> UUIDPattern(example = schema.example?.toString())
-            is DateTimeSchema -> DateTimePattern(example = schema.example?.toString())
-            is DateSchema -> DatePattern(example = schema.example?.toString())
+            is UUIDSchema -> UUIDPattern
+            is DateTimeSchema -> DateTimePattern
+            is DateSchema -> DatePattern
             is BooleanSchema -> BooleanPattern(example = schema.example?.toString())
             is ObjectSchema, is MapSchema -> {
                 if (schema.xml?.name != null) {
@@ -1441,7 +1441,7 @@ class OpenApiSpecification(
                     toJsonObjectPattern(schema, patternName, typeStack)
                 }
             }
-            is ByteArraySchema -> Base64StringPattern(example = schema.example?.toString())
+            is ByteArraySchema -> Base64StringPattern()
 
             is ArraySchema -> {
                 if (schema.xml?.name != null) {
