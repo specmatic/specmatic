@@ -35,7 +35,7 @@ dependencies {
 
     implementation("com.fasterxml.jackson.core:jackson-databind:2.19.0")
 
-    implementation("io.swagger.parser.v3:swagger-parser:2.1.29")
+    implementation("io.swagger.parser.v3:swagger-parser:2.1.30")
 
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.13.2")
     implementation("com.github.mifmif:generex:1.0.2")
