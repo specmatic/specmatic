@@ -1,6 +1,10 @@
 package io.specmatic.conversions
 
+import io.specmatic.core.log.LogMessage
+import io.specmatic.core.log.consoleLog
 import io.specmatic.core.pattern.parsedJSONObject
+import io.specmatic.stub.HttpStub
+import io.specmatic.stub.captureStandardOutput
 import io.swagger.v3.oas.models.*
 import io.swagger.v3.oas.models.info.Info
 import io.swagger.v3.oas.models.media.Schema
@@ -132,5 +136,92 @@ class OpenApiSpecificationInfoTest {
         val actualEntry = dictionary.getRawValue("Schema")
 
         assertThat(actualEntry).isEqualTo(expectedSchemaEntry)
+    }
+
+    @Test
+    fun `validateSecuritySchemeParameterDuplication should log warning when header parameter duplicates security scheme`() {
+        val spec = """
+            openapi: 3.0.3
+            info:
+              title: Greeting API with Authentication
+              version: 1.0.0
+            paths:
+              /greet:
+                get:
+                  summary: Get a default greeting
+                  security:
+                    - bearerAuth: []
+                  parameters:
+                    - name: Authorization
+                      in: header
+                      required: true
+                      schema:
+                        type: string
+                  responses:
+                    200:
+                      description: Default greeting retrieved successfully
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - greeting
+                            properties:
+                              greeting:
+                                type: string
+            components:
+              securitySchemes:
+                bearerAuth:
+                  type: http
+                  scheme: bearer
+        """.trimIndent()
+
+        val (output, _) = captureStandardOutput { OpenApiSpecification.fromYAML(spec, "").toFeature()  }
+        assertThat(output).contains("Warning: Security scheme Bearer Authorization is defined in the OpenAPI specification, but conflicting header parameter(s) have been defined in the GET operation for path '/greet'. This may lead to confusion or conflicts.")
+    }
+
+    @Test
+    fun `validateSecuritySchemeParameterDuplication should log warning when header parameter duplicates security scheme with ref`() {
+        val spec = """
+            openapi: 3.0.3
+            info:
+              title: Greeting API with Authentication
+              version: 1.0.0
+            paths:
+              /greet:
+                get:
+                  summary: Get a default greeting
+                  security:
+                    - bearerAuth: []
+                  parameters:
+                    - ${"$"}ref: '#/components/parameters/AuthorizationHeader'
+                  responses:
+                    200:
+                      description: Default greeting retrieved successfully
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - greeting
+                            properties:
+                              greeting:
+                                type: string
+            components:
+              securitySchemes:
+                bearerAuth:
+                  type: http
+                  scheme: bearer
+              parameters:
+                AuthorizationHeader:
+                  name: Authorization
+                  in: header
+                  required: true
+                  schema:
+                    type: string
+        """.trimIndent()
+
+        val (output, _) = captureStandardOutput { OpenApiSpecification.fromYAML(spec, "").toFeature()  }
+        assertThat(output).contains("Warning: Security scheme Bearer Authorization is defined in the OpenAPI specification, but conflicting header parameter(s) have been defined in the GET operation for path '/greet'. This may lead to confusion or conflicts.")
     }
 }
