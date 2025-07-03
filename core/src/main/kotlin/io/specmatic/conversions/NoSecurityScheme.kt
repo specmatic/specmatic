@@ -5,6 +5,7 @@ import io.specmatic.core.HttpRequestPattern
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.Row
+import io.swagger.v3.oas.models.parameters.Parameter
 
 class NoSecurityScheme : OpenAPISecurityScheme {
     override fun matches(httpRequest: HttpRequest, resolver: Resolver): Result {
@@ -41,5 +42,9 @@ class NoSecurityScheme : OpenAPISecurityScheme {
 
     override fun isInRequest(request: HttpRequest, complete: Boolean): Boolean {
         return false
+    }
+
+    override fun warnIfExistsInParameters(parameters: List<Parameter>, method: String, path: String) {
+        return
     }
 }

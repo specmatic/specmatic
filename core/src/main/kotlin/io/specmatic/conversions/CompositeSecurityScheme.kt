@@ -5,6 +5,7 @@ import io.specmatic.core.HttpRequestPattern
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.Row
+import io.swagger.v3.oas.models.parameters.Parameter
 
 data class CompositeSecurityScheme(val schemes: List<OpenAPISecurityScheme>): OpenAPISecurityScheme {
     override fun matches(httpRequest: HttpRequest, resolver: Resolver): Result {
@@ -43,5 +44,11 @@ data class CompositeSecurityScheme(val schemes: List<OpenAPISecurityScheme>): Op
     override fun isInRequest(request: HttpRequest, complete: Boolean): Boolean {
         return if (!complete) schemes.any { it.isInRequest(request, false) }
         else schemes.all { it.isInRequest(request, true) }
+    }
+
+    override fun warnIfExistsInParameters(parameters: List<Parameter>, method: String, path: String) {
+        schemes.forEach { securityScheme ->
+            securityScheme.warnIfExistsInParameters(parameters, method, path)
+        }
     }
 }
