@@ -39,33 +39,6 @@ fun addToHeaderType(
     )
 }
 
-internal fun headerPatternFromRequest(
-    request: HttpRequest,
-    headerName: String
-): Map<String, Pattern> {
-    val headerValue = request.headers[headerName]
-
-    if (headerValue != null) {
-        return mapOf(headerName to ExactValuePattern(StringValue(headerValue)))
-    }
-
-    return emptyMap()
-}
-
-internal fun queryPatternFromRequest(
-    request: HttpRequest,
-    queryParamName: String
-): Map<String, Pattern> {
-    val queryParamValue = request.queryParams.getValues(queryParamName)
-
-    if(queryParamValue.isEmpty())
-        return emptyMap()
-
-    return mapOf(
-        queryParamName to ExactValuePattern(StringValue(queryParamValue.first()))
-    )
-}
-
 internal fun printWarningsForOverriddenSecurityParameters(
     matchingParameters: List<Parameter>,
     securitySchemeDescription: String,
