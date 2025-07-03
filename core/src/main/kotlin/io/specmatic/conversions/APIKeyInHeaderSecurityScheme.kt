@@ -4,12 +4,13 @@ import io.specmatic.core.*
 import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.StringPattern
 
+
 data class APIKeyInHeaderSecurityScheme(val name: String, private val apiKey:String?) : OpenAPISecurityScheme {
     override fun matches(httpRequest: HttpRequest, resolver: Resolver): Result {
         return if (httpRequest.headers.containsKey(name) || resolver.mockMode) Result.Success()
         else Result.Failure(
             breadCrumb = BreadCrumb.HEADER.with(name),
-            message = resolver.mismatchMessages.expectedKeyWasMissing("API-Key", name)
+            message = resolver.mismatchMessages.expectedKeyWasMissing(apiKeyParamName, name)
         )
     }
 
@@ -36,5 +37,9 @@ data class APIKeyInHeaderSecurityScheme(val name: String, private val apiKey:Str
 
     override fun isInRequest(request: HttpRequest, complete: Boolean): Boolean {
         return request.hasHeader(name)
+    }
+
+    override fun getHeaderKey(): String? {
+        return apiKeyParamName
     }
 }

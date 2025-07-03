@@ -124,4 +124,8 @@ data class BasicAuthSecurityScheme(private val token: String? = null) : OpenAPIS
 
         return Base64.getEncoder().encodeToString("$randomUsername:$randomPassword".toByteArray())
     }
+
+    override fun getHeaderKey(): String? {
+        return AUTHORIZATION
+    }
 }

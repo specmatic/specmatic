@@ -57,4 +57,8 @@ data class BearerSecurityScheme(private val configuredToken: String? = null) : O
         if (!originalRequest.headers.containsKey(AUTHORIZATION)) return newHttpRequest
         return newHttpRequest.addSecurityHeader(AUTHORIZATION, originalRequest.headers.getValue(AUTHORIZATION))
     }
+
+    override fun getHeaderKey(): String? {
+        return AUTHORIZATION
+    }
 }

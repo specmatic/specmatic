@@ -15,6 +15,7 @@ interface OpenAPISecurityScheme {
     fun copyFromTo(originalRequest: HttpRequest, newHttpRequest: HttpRequest): HttpRequest
     fun isInRow(row: Row): Boolean
     fun isInRequest(request: HttpRequest, complete: Boolean): Boolean
+    fun getHeaderKey(): String? = null
 }
 
 fun addToHeaderType(

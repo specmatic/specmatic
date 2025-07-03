@@ -4,12 +4,14 @@ import io.specmatic.core.*
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.StringValue
 
+const val apiKeyParamName = "API-Key"
+
 data class APIKeyInQueryParamSecurityScheme(val name: String, private val apiKey:String?) : OpenAPISecurityScheme {
     override fun matches(httpRequest: HttpRequest, resolver: Resolver): Result {
         return if (httpRequest.queryParams.containsKey(name) || resolver.mockMode) Result.Success()
         else Result.Failure(
             breadCrumb = BreadCrumb.QUERY.with(name),
-            message = resolver.mismatchMessages.expectedKeyWasMissing("API-Key", name)
+            message = resolver.mismatchMessages.expectedKeyWasMissing(apiKeyParamName, name)
         )
     }
 
@@ -48,5 +50,9 @@ data class APIKeyInQueryParamSecurityScheme(val name: String, private val apiKey
 
     override fun isInRequest(request: HttpRequest, complete: Boolean): Boolean {
         return request.hasQueryParam(name)
+    }
+
+    override fun getHeaderKey(): String? {
+        return apiKeyParamName
     }
 }

@@ -1029,6 +1029,16 @@ class OpenApiSpecification(
 
         val parameters = operation.parameters
 
+        operation.responses?.forEach { (status, _) ->
+            validateSecuritySchemeParameterDuplication(
+                securitySchemesForRequestPattern,
+                parameters,
+                httpMethod,
+                httpPathPattern.path,
+                status
+            )
+        }
+
         val headersMap = parameters.orEmpty().filterIsInstance<HeaderParameter>().associate {
             logger.debug("Processing request header ${it.name}")
 
@@ -2099,5 +2109,35 @@ class OpenApiSpecification(
             "PUT" to pathItem.put,
             "DELETE" to pathItem.delete
         ).filter { (_, value) -> value != null }.map { (key, value) -> key to OpenApiOperation(value!!) }.toMap()
+    }
+
+    private fun validateSecuritySchemeParameterDuplication(
+        securitySchemes: List<OpenAPISecurityScheme>,
+        parameters: List<Parameter>?,
+        method: String,
+        path: String,
+        status: String
+    ) {
+        val securityHeaderNames = securitySchemes.mapNotNull { it.getHeaderKey() }.toSet()
+
+        val headerParamNames = parameters.orEmpty()
+            .filterIsInstance<HeaderParameter>()
+            .map { it.name }
+            .toSet()
+
+        val duplicateHeaders = securityHeaderNames.intersect(headerParamNames)
+        if (duplicateHeaders.isNotEmpty()) {
+            logger.log("WARNING: $method $path - $status: Duplicate header definition found. Header(s) ${duplicateHeaders.joinToString()} is/are already defined in security scheme")
+        }
+
+        val queryParamNames = parameters.orEmpty()
+            .filterIsInstance<QueryParameter>()
+            .map { it.name }
+            .toSet()
+
+        val duplicateQueryParams = securityHeaderNames.intersect(queryParamNames)
+        if (duplicateQueryParams.isNotEmpty()) {
+            logger.log("WARNING: $method $path - $status: Duplicate query parameter definition found. Parameter(s) ${duplicateQueryParams.joinToString()} is/are already defined in security scheme")
+        }
     }
 }
