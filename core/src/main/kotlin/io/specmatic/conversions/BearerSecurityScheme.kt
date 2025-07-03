@@ -3,6 +3,8 @@ package io.specmatic.conversions
 import io.specmatic.core.*
 import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.StringPattern
+import io.swagger.v3.oas.models.parameters.HeaderParameter
+import io.swagger.v3.oas.models.parameters.Parameter
 import org.apache.http.HttpHeaders.AUTHORIZATION
 
 data class BearerSecurityScheme(private val configuredToken: String? = null) : OpenAPISecurityScheme {
@@ -60,5 +62,22 @@ data class BearerSecurityScheme(private val configuredToken: String? = null) : O
 
     override fun getHeaderKey(): String? {
         return AUTHORIZATION
+    }
+
+    override fun warnIfExistsInParameters(parameters: List<Parameter>, method: String, path: String) {
+        val matchingHeaders = parameters.filterIsInstance<HeaderParameter>().filter {
+            it.name.equals(AUTHORIZATION, ignoreCase = true)
+        }
+
+        if(matchingHeaders.isNotEmpty()) {
+            printWarningsForOverriddenSecurityParameters(
+                matchingParameters = matchingHeaders,
+                securitySchemeDescription = "Bearer Authorization",
+                httpParameterType = "header",
+                method = method,
+                path = path
+            )
+
+        }
     }
 }

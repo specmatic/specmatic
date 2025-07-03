@@ -3,6 +3,9 @@ package io.specmatic.conversions
 import io.specmatic.core.*
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.StringValue
+import io.swagger.v3.oas.models.parameters.Parameter
+import io.swagger.v3.oas.models.parameters.QueryParameter
+import org.apache.http.HttpHeaders.AUTHORIZATION
 
 const val apiKeyParamName = "API-Key"
 
@@ -54,5 +57,21 @@ data class APIKeyInQueryParamSecurityScheme(val name: String, private val apiKey
 
     override fun getHeaderKey(): String? {
         return apiKeyParamName
+    }
+
+    override fun warnIfExistsInParameters(parameters: List<Parameter>, method: String, path: String) {
+        val matchingQueryParams = parameters.filterIsInstance<QueryParameter>().filter {
+            it.name.equals(name, ignoreCase = true)
+        }
+
+        if(matchingQueryParams.isNotEmpty()) {
+            printWarningsForOverriddenSecurityParameters(
+                matchingParameters = matchingQueryParams,
+                securitySchemeDescription = "API key with query parameter $name",
+                httpParameterType = "query",
+                method = method,
+                path = path
+            )
+        }
     }
 }
