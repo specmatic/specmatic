@@ -951,7 +951,7 @@ class OpenApiSpecification(
                 status = if (status == "default") 1000 else status.toInt(),
                 body = when (contentType) {
                     "application/xml" -> toXMLPattern(mediaType)
-                    else -> toSpecmaticPattern(mediaType, "response", breadCrumb = "$method $path $status ($contentType)")
+                    else -> toSpecmaticPattern(mediaType, "response", breadCrumb = "$method $path -> $status ($contentType)")
                 }
             )
 
@@ -1150,7 +1150,7 @@ class OpenApiSpecification(
 
                     val bodyIsRequired: Boolean = requestBody.required ?: true
 
-                    val body = toSpecmaticPattern(mediaType, "request", breadCrumb = "$httpMethod ${httpPathPattern.path}").let {
+                    val body = toSpecmaticPattern(mediaType, "request", breadCrumb = "$httpMethod ${httpPathPattern.path} ($contentType)").let {
                         if (bodyIsRequired)
                             it
                         else
@@ -1465,7 +1465,7 @@ class OpenApiSpecification(
 
                     ListPattern(
                         toSpecmaticPattern(
-                            schema.items, typeStack
+                            schema.items, typeStack, breadCrumb = "$breadCrumb[]"
                         ),
                         example = toListExample(schema.example)
                     )
@@ -1936,6 +1936,8 @@ class OpenApiSpecification(
     private fun toSchemaProperties(
         schema: Schema<*>, requiredFields: List<String>, patternName: String, typeStack: List<String>, discriminatorDetails: DiscriminatorDetails = DiscriminatorDetails(), breadCrumb: String = ""
     ): Map<String, Pattern> {
+        val updatedBreadCrumb = if(patternName.isNotBlank()) patternName else breadCrumb
+
         val patternMap = schema.properties.orEmpty().map { (propertyName, propertyType) ->
             if (schema.discriminator?.propertyName == propertyName)
                 propertyName to ExactValuePattern(StringValue(patternName), discriminator = true)
@@ -1946,7 +1948,7 @@ class OpenApiSpecification(
                 toSpecmaticParamName(optional, propertyName) to attempt(breadCrumb = propertyName) {
                     toSpecmaticPattern(
                         propertyType,
-                        typeStack, breadCrumb = "$breadCrumb.$propertyName"
+                        typeStack, breadCrumb = "$updatedBreadCrumb.$propertyName"
                     ) }
             }
         }.toMap()
