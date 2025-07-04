@@ -3,6 +3,8 @@ package io.specmatic.conversions
 import io.specmatic.core.*
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.StringValue
+import io.swagger.v3.oas.models.parameters.HeaderParameter
+import io.swagger.v3.oas.models.parameters.Parameter
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import java.util.Base64
 
@@ -123,5 +125,26 @@ data class BasicAuthSecurityScheme(private val token: String? = null) : OpenAPIS
         val randomPassword = randomString()
 
         return Base64.getEncoder().encodeToString("$randomUsername:$randomPassword".toByteArray())
+    }
+
+    override fun getHeaderKey(): String? {
+        return AUTHORIZATION
+    }
+
+    override fun warnIfExistsInParameters(parameters: List<Parameter>, method: String, path: String) {
+        val matchingHeaders = parameters.filterIsInstance<HeaderParameter>().filter {
+            it.name.equals(AUTHORIZATION, ignoreCase = true)
+        }
+
+        if(matchingHeaders.isNotEmpty()) {
+            printWarningsForOverriddenSecurityParameters(
+                matchingParameters = matchingHeaders,
+                securitySchemeDescription = "Basic Auth",
+                httpParameterType = "header",
+                method = method,
+                path = path
+            )
+
+        }
     }
 }

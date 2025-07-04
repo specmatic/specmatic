@@ -6,6 +6,7 @@ import io.cucumber.messages.types.Step
 import io.ktor.util.reflect.*
 import io.specmatic.core.*
 import io.specmatic.core.Result.Failure
+import io.specmatic.core.filters.caseInsensitiveContains
 import io.specmatic.core.log.LogStrategy
 import io.specmatic.core.log.logger
 import io.specmatic.core.overlay.OverlayMerger
@@ -1028,6 +1029,13 @@ class OpenApiSpecification(
         val securitySchemesForRequestPattern = parseOperationSecuritySchemas(operation, httpMethod, httpPathPattern.path, securitySchemeComponents)
 
         val parameters = operation.parameters
+
+        validateSecuritySchemeParameterDuplication(
+            securitySchemesForRequestPattern,
+            parameters,
+            httpMethod,
+            httpPathPattern.path,
+        )
 
         val headersMap = parameters.orEmpty().filterIsInstance<HeaderParameter>().associate {
             logger.debug("Processing request header ${it.name}")
@@ -2099,5 +2107,16 @@ class OpenApiSpecification(
             "PUT" to pathItem.put,
             "DELETE" to pathItem.delete
         ).filter { (_, value) -> value != null }.map { (key, value) -> key to OpenApiOperation(value!!) }.toMap()
+    }
+}
+
+internal fun validateSecuritySchemeParameterDuplication(
+    securitySchemes: List<OpenAPISecurityScheme>,
+    parameters: List<Parameter>?,
+    method: String,
+    path: String,
+) {
+    securitySchemes.forEach { securityScheme ->
+        securityScheme.warnIfExistsInParameters(parameters.orEmpty(), method, path)
     }
 }
