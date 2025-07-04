@@ -1052,6 +1052,7 @@ Feature: Authenticated
         }
     }
 
+    @ParameterizedTest
     @CsvSource(
         value = [
         """pass | [1,2]""",
