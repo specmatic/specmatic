@@ -321,11 +321,16 @@ data class Resolver(
             return valueFromDict.unwrapOrContractException()
         }
 
-        return this.updateLookupPath(pattern, pattern.pattern).generateRandomList(pattern.pattern)
+        return this.updateLookupPath(pattern, pattern.pattern).generateRandomList(pattern.pattern, pattern.minItems, pattern.maxItems)
     }
 
-    private fun generateRandomList(pattern: Pattern): Value {
-        return pattern.listOf(0.until(randomNumber(3)).mapIndexed{ index, _ ->
+    private fun generateRandomList(pattern: Pattern, minItems: Int?, maxItems: Int?): Value {
+        val min = minItems ?: if (maxItems != null && maxItems == 0) 0 else 1
+        val max = maxItems ?: (min + 3)
+        val upper = if (max < min) min else max
+        val length = if (upper == min) min else (min..upper).random()
+
+        return pattern.listOf(0.until(length).mapIndexed{ index, _ ->
             attempt(breadCrumb = "[$index (random)]") { generate(pattern) }
         }, this)
     }

@@ -1460,7 +1460,9 @@ class OpenApiSpecification(
                         toSpecmaticPattern(
                             schema.items, typeStack
                         ),
-                        example = toListExample(schema.example)
+                        example = toListExample(schema.example),
+                        minItems = schema.minItems,
+                        maxItems = schema.maxItems
                     )
                 }
             }
