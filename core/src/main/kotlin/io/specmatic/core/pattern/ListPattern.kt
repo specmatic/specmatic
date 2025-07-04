@@ -161,34 +161,40 @@ data class ListPattern(
         val resolverWithEmptyType = withEmptyType(pattern, resolver)
         return attempt(breadCrumb = LIST_BREAD_CRUMB) {
             resolverWithEmptyType.withCyclePrevention(pattern, true) { cyclePreventedResolver ->
-                val patterns = pattern.newBasedOn(row.stepDownIntoList(), cyclePreventedResolver)
+                val newPatterns = pattern.newBasedOn(row.stepDownIntoList(), cyclePreventedResolver)
                 try {
-                    patterns.firstOrNull()?.value
-                    patterns.flatMap { patternReturn ->
-                        when(patternReturn) {
-                            is HasValue -> {
-                                val inner = patternReturn.value
-                                if (minItems != null || maxItems != null) {
-                                    sequence {
-                                        minItems?.let { len ->
-                                            yield(HasValue(JSONArrayPattern(List(len) { inner })))
-                                        }
-                                        if (maxItems != null && maxItems != minItems) {
-                                            yield(HasValue(JSONArrayPattern(List(maxItems!!) { inner })))
-                                        }
+                    newPatterns.firstOrNull()?.value
+                    newPatterns.flatMap { newPattern ->
+                        if (newPattern !is HasValue) {
+                            return@flatMap sequenceOf(newPattern)
+                        }
+
+                        sequence {
+                            yield(newPattern.ifValue { ListPattern(it) })
+
+                            if (minItems != null) {
+                                val minLengthPattern: ReturnValue<Pattern> =
+                                    newPattern.ifHasValue { returnValue ->
+                                        HasValue(JSONArrayPattern(List(minItems) { returnValue.value }))
                                     }
-                                } else {
-                                    sequenceOf<ReturnValue<Pattern>>(patternReturn.ifValue { ListPattern(it, minItems = this.minItems, maxItems = this.maxItems) })
-                                }
+                                yield(minLengthPattern)
                             }
-                            else -> sequenceOf(patternReturn)
+
+                            if (maxItems != null && maxItems != minItems) {
+                                val maxLengthPattern: ReturnValue<Pattern> =
+                                    newPattern.ifHasValue { returnValue ->
+                                        HasValue(JSONArrayPattern(List(maxItems) { returnValue.value }))
+                                    }
+                                yield(maxLengthPattern)
+                            }
                         }
                     }
-                } catch(e: ContractException) {
-                    if(e.isCycle)
+                } catch (e: ContractException) {
+                    if (e.isCycle) {
                         null
-                    else
+                    } else {
                         throw e
+                    }
                 }
             } ?: sequenceOf(HasValue(ExactValuePattern(JSONArrayValue(emptyList()))))
         }

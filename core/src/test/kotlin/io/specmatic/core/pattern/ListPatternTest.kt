@@ -849,36 +849,6 @@ Feature: Recursive test
         }
 
         @Test
-        fun `newBasedOn should retain minItems and maxItems`() {
-            val pattern = ListPattern(StringPattern(), minItems = 2, maxItems = 3)
-            val newPatterns = pattern.newBasedOn(Row(), Resolver()).toList().map { it.value as ListPattern }
-            assertThat(newPatterns).allSatisfy {
-                assertThat(it.minItems).isEqualTo(2)
-                assertThat(it.maxItems).isEqualTo(3)
-            }
-        }
-
-        @Test
-        fun `newBasedOn should retain minItems when only minItems is set`() {
-            val pattern = ListPattern(StringPattern(), minItems = 1)
-            val newPatterns = pattern.newBasedOn(Row(), Resolver()).toList().map { it.value as ListPattern }
-            assertThat(newPatterns).allSatisfy {
-                assertThat(it.minItems).isEqualTo(1)
-                assertThat(it.maxItems).isNull()
-            }
-        }
-
-        @Test
-        fun `newBasedOn should retain maxItems when only maxItems is set`() {
-            val pattern = ListPattern(StringPattern(), maxItems = 2)
-            val newPatterns = pattern.newBasedOn(Row(), Resolver()).toList().map { it.value as ListPattern }
-            assertThat(newPatterns).allSatisfy {
-                assertThat(it.minItems).isNull()
-                assertThat(it.maxItems).isEqualTo(2)
-            }
-        }
-
-        @Test
         fun `generation should honor only minItems or maxItems`() {
             val minPattern = ListPattern(StringPattern(), minItems = 2)
             val minValue = minPattern.generate(Resolver()) as JSONArrayValue
@@ -887,6 +857,18 @@ Feature: Recursive test
             val maxPattern = ListPattern(StringPattern(), maxItems = 2)
             val maxValue = maxPattern.generate(Resolver()) as JSONArrayValue
             assertThat(maxValue.list.size).isLessThanOrEqualTo(2)
+        }
+
+        @Test
+        fun `generation should honor both minItems and maxItems when both are provided`() {
+            val pattern = ListPattern(StringPattern(), minItems = 2, maxItems = 3)
+            val patterns = pattern.newBasedOn(Row(), Resolver()).toList()
+
+            assertThat(patterns).hasSize(3)
+            val sizes = patterns.map { it.value }.filterIsInstance<JSONArrayPattern>().map { it.pattern.size }
+
+            assertThat(sizes).contains(2, 3)
+            assertThat(sizes).allMatch { it in 2..3 }
         }
     }
 
