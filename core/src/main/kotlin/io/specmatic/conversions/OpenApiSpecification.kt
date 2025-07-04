@@ -1402,11 +1402,11 @@ class OpenApiSpecification(
             val cyclicReference = typeStack.contains(componentName)
             if(schema.type != null){
                 val schemaDescriptor = if(patternName.isNotEmpty()) {
-                    "Schema ${withoutPatternDelimiters(patternName)}"
+                    withoutPatternDelimiters(patternName)
                 } else {
                     breadCrumb
                 }
-                logger.log("WARNING: $schemaDescriptor contains \$ref: ${schema.`$ref`} exists side-by-side with a neighboring ${schema.type}. As per the OpenAPI specification format, when both are present, only \$ref will be used when generating tests, mock responses, etc, and the neighboring type will be ignored.")
+                logger.log("WARNING: Schema at $schemaDescriptor has both \$ref: (${schema.`$ref`}) and a type ${schema.type} defined. As per the OpenAPI specification format, when both are present, only \$ref will be used when generating tests, mock responses, etc, and the neighboring type will be ignored.")
             }
             if (!cyclicReference) {
                 val componentPattern = toSpecmaticPattern(
