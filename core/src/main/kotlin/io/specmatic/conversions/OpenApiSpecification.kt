@@ -6,7 +6,6 @@ import io.cucumber.messages.types.Step
 import io.ktor.util.reflect.*
 import io.specmatic.core.*
 import io.specmatic.core.Result.Failure
-import io.specmatic.core.filters.caseInsensitiveContains
 import io.specmatic.core.log.LogStrategy
 import io.specmatic.core.log.logger
 import io.specmatic.core.overlay.OverlayMerger
@@ -1393,14 +1392,17 @@ class OpenApiSpecification(
         if(patternName.isNotBlank()) logger.debug("Processing schema $patternName")
 
         val preExistingResult = patterns["($patternName)"]
-        val pattern = if (preExistingResult != null && patternName.isNotBlank())
+        val pattern = if (preExistingResult != null && patternName.isNotBlank()) {
             preExistingResult
-        else if (typeStack.filter { it == patternName }.size > 1) {
+        } else if (typeStack.filter { it == patternName }.size > 1) {
             DeferredPattern("($patternName)")
         } else if (schema.`$ref` != null) {
             val component: String = schema.`$ref`
             val (componentName, referredSchema) = resolveReferenceToSchema(component)
             val cyclicReference = typeStack.contains(componentName)
+            if(schema.type != null){
+                logger.log("WARNING: Schema: $componentName with \$ref: ${schema.`$ref`} exists side-by-side with a neighboring ${schema.type}. As per the OpenAPI specification format, when both are present, only \$ref will be used when generating tests, mock responses, etc, and the neighboring type will be ignored.")
+            }
             if (!cyclicReference) {
                 val componentPattern = toSpecmaticPattern(
                     referredSchema,
