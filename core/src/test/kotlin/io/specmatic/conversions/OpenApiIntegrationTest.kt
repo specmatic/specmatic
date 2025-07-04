@@ -1147,4 +1147,44 @@ Feature: Authenticated
 
         assertThat(lengths).contains(1, 2)
     }
+
+    @Test
+    fun `generative tests should handle maxItems zero`() {
+        val yamlContent = """
+            openapi: 3.0.1
+            info:
+              title: API
+              version: 1
+            paths:
+              /none:
+                post:
+                  requestBody:
+                    content:
+                      application/json:
+                        schema:
+                          type: array
+                          items:
+                            type: integer
+                          maxItems: 0
+                  responses:
+                    '200':
+                      description: ok
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(yamlContent, "").toFeature()
+
+        val lengths = mutableListOf<Int>()
+
+        Flags.using(Flags.SPECMATIC_GENERATIVE_TESTS to "true") {
+            feature.enableGenerativeTesting().executeTests(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    val array = request.body as JSONArrayValue
+                    lengths.add(array.list.size)
+                    return HttpResponse.ok("done")
+                }
+            })
+        }
+
+        assertThat(lengths).containsOnly(0)
+    }
 }

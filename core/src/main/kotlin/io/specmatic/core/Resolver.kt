@@ -1,6 +1,7 @@
 package io.specmatic.core
 
 import io.specmatic.core.pattern.*
+import io.specmatic.core.pattern.randomListLength
 import io.specmatic.core.value.*
 import io.specmatic.test.ExampleProcessor
 import io.specmatic.test.asserts.WILDCARD_INDEX
@@ -325,12 +326,9 @@ data class Resolver(
     }
 
     private fun generateRandomList(pattern: Pattern, minItems: Int?, maxItems: Int?): Value {
-        val min = minItems ?: if (maxItems != null && maxItems == 0) 0 else 1
-        val max = maxItems ?: (min + 3)
-        val upper = if (max < min) min else max
-        val length = if (upper == min) min else (min..upper).random()
+        val length = randomListLength(minItems, maxItems)
 
-        return pattern.listOf(0.until(length).mapIndexed{ index, _ ->
+        return pattern.listOf(0.until(length).mapIndexed { index, _ ->
             attempt(breadCrumb = "[$index (random)]") { generate(pattern) }
         }, this)
     }

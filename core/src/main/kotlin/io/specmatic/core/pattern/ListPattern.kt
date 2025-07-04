@@ -298,12 +298,15 @@ data class ListPattern(
     }
 }
 
-private fun ListPattern.randomListLength(): Int {
-    val min = this.minItems ?: if (this.maxItems != null && this.maxItems == 0) 0 else 1
-    val max = this.maxItems ?: (min + 3)
+internal fun randomListLength(minItems: Int?, maxItems: Int?): Int {
+    val min = minItems ?: if (maxItems != null && maxItems == 0) 0 else 1
+    val max = maxItems ?: (min + 3)
     val upper = if (max < min) min else max
     return if (upper == min) min else (min..upper).random()
 }
+
+private fun ListPattern.randomListLength(): Int =
+    randomListLength(this.minItems, this.maxItems)
 
 private fun withEmptyType(pattern: Pattern, resolver: Resolver): Resolver {
     val patternSet = pattern.patternSet(resolver)
