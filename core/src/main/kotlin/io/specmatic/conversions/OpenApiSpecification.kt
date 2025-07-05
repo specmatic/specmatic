@@ -1469,8 +1469,29 @@ class OpenApiSpecification(
                 if (schema.allOf != null) {
                     val (deepListOfAllOfs, allDiscriminators) = resolveDeepAllOfs(schema, DiscriminatorDetails(), emptySet(), topLevel = true)
 
-                    val explodedDiscriminators = allDiscriminators.explode()
-                    val topLevelRequired = schema.required.orEmpty()
+                    // Use AllOfPattern for simple cases without discriminators or complex schema combinations
+                    if (!allDiscriminators.isNotEmpty() && schema.discriminator == null && deepListOfAllOfs.all { it.oneOf == null }) {
+                        val candidatePatterns = schema.allOf.map { componentSchema ->
+                            val (componentName, schemaToProcess) =
+                                if (componentSchema.`$ref` != null)
+                                    resolveReferenceToSchema(componentSchema.`$ref`)
+                                else
+                                    "" to componentSchema
+
+                            toSpecmaticPattern(schemaToProcess, typeStack.plus(componentName), componentName)
+                        }
+
+                        val pattern = AllOfPattern(
+                            candidatePatterns,
+                            typeAlias = "(${patternName})"
+                        )
+
+                        cacheComponentPattern(patternName, pattern)
+                        pattern
+                    } else {
+                        // Use existing complex logic for discriminator cases
+                        val explodedDiscriminators = allDiscriminators.explode()
+                        val topLevelRequired = schema.required.orEmpty()
 
                     val schemaProperties = explodedDiscriminators.map { discriminator ->
                         val schemasFromDiscriminator = discriminator.schemas
@@ -1580,6 +1601,7 @@ class OpenApiSpecification(
                     cacheComponentPattern(patternName, pattern)
 
                     pattern
+                    }
                 } else if (schema.oneOf != null) {
                     val candidatePatterns = schema.oneOf.filterNot { nullableEmptyObject(it) }.map { componentSchema ->
                         val (componentName, schemaToProcess) =
