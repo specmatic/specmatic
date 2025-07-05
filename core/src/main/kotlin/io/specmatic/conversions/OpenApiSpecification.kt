@@ -6,6 +6,7 @@ import io.cucumber.messages.types.Step
 import io.ktor.util.reflect.*
 import io.specmatic.core.*
 import io.specmatic.core.Result.Failure
+import io.specmatic.core.filters.HTTPFilterKeys
 import io.specmatic.core.log.LogStrategy
 import io.specmatic.core.log.logger
 import io.specmatic.core.overlay.OverlayMerger
@@ -433,8 +434,8 @@ class OpenApiSpecification(
 
                     val operation = openApiOperation.operation
 
-                    val specmaticPathParam = toSpecmaticPathParam(openApiPath, operation)
-                    val specmaticQueryParam = toSpecmaticQueryParam(operation, schemaLocationDescription = "$httpMethod $openApiPath.QUERY")
+                    val specmaticPathParam = toSpecmaticPathParam(openApiPath, operation, schemaLocationDescription = "$httpMethod $openApiPath.${HTTPFilterKeys.PARAMETERS_PATH.key}")
+                    val specmaticQueryParam = toSpecmaticQueryParam(operation, schemaLocationDescription = "$httpMethod $openApiPath.${HTTPFilterKeys.PARAMETERS_QUERY.key}")
 
                     val httpResponsePatterns: List<ResponsePatternData> =
                         attempt(breadCrumb = "$httpMethod $openApiPath -> RESPONSE") {
@@ -1039,7 +1040,7 @@ class OpenApiSpecification(
         val headersMap = parameters.orEmpty().filterIsInstance<HeaderParameter>().associate {
             logger.debug("Processing request header ${it.name}")
 
-            toSpecmaticParamName(it.required != true, it.name) to toSpecmaticPattern(it.schema, emptyList())
+            toSpecmaticParamName(it.required != true, it.name) to toSpecmaticPattern(it.schema, emptyList(), breadCrumb = "${httpMethod} ${httpPathPattern.path}.${HTTPFilterKeys.PARAMETERS_HEADER.key}.${it.name}")
         }
 
         val contentTypeHeaderPattern = headersMap.entries.find { it.key.lowercase() in listOf("content-type", "content-type?") }?.value
@@ -2061,7 +2062,7 @@ class OpenApiSpecification(
         return null
     }
 
-    private fun toSpecmaticPathParam(openApiPath: String, operation: Operation): HttpPathPattern {
+    private fun toSpecmaticPathParam(openApiPath: String, operation: Operation, schemaLocationDescription: String): HttpPathPattern {
         val parameters = operation.parameters ?: emptyList()
 
         val pathSegments: List<String> = openApiPath.removePrefix("/").removeSuffix("/").let {
@@ -2088,7 +2089,7 @@ class OpenApiSpecification(
             val pathSoFar = pathSegments.take(index + 1).joinToString(separator = "/")
             val conflicts = pathTree.conflictsFor(pathSoFar)
             URLPathSegmentPattern(
-                pattern = toSpecmaticPattern(param.schema, emptyList()),
+                pattern = toSpecmaticPattern(param.schema, emptyList(), "$schemaLocationDescription.$paramName"),
                 key = paramName,
                 conflicts = conflicts
             )
