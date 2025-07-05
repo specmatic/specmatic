@@ -311,4 +311,51 @@ class WarningsForRefWithSiblings {
 
         assertThat(stdout).contains("POST /test (application/json).address.building")
     }
+
+    @Test
+    fun `should warn about refs in query params`() {
+        val spec = """
+            openapi: 3.0.3
+            info:
+              description: A simple API with 401 response
+              title: Simple API
+              version: 1.0.0
+            servers:
+            - url: /
+            paths:
+              /test:
+                parameters:
+                  - name: cityType
+                    in: query
+                    required: true
+                    schema:
+                      type: string
+                      enum: [metropolitan, urban, rural]
+                      ${"$"}ref: '#/components/schemas/CityType'
+                get:
+                  description: Test endpoint
+                  operationId: test
+                  responses:
+                    "200":
+                      description: City details
+                      content:
+                        application/json:
+                          schema:
+                            type: array
+                            items:
+                              type: string
+                              
+            components:
+              schemas:
+                CityType:
+                  type: string
+                  enum: [metropolitan, urban, rural]
+        """.trimIndent()
+
+        val (stdout, _) = captureStandardOutput {
+            OpenApiSpecification.fromYAML(spec, "").toFeature()
+        }
+
+        assertThat(stdout).contains("GET /test.QUERY.cityType")
+    }
 }

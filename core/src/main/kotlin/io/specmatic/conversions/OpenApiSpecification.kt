@@ -434,7 +434,7 @@ class OpenApiSpecification(
                     val operation = openApiOperation.operation
 
                     val specmaticPathParam = toSpecmaticPathParam(openApiPath, operation)
-                    val specmaticQueryParam = toSpecmaticQueryParam(operation)
+                    val specmaticQueryParam = toSpecmaticQueryParam(operation, schemaLocationDescription = "$httpMethod $openApiPath.QUERY")
 
                     val httpResponsePatterns: List<ResponsePatternData> =
                         attempt(breadCrumb = "$httpMethod $openApiPath -> RESPONSE") {
@@ -2016,17 +2016,21 @@ class OpenApiSpecification(
 
     private fun componentNameFromReference(component: String) = component.substringAfterLast("/")
 
-    private fun toSpecmaticQueryParam(operation: Operation): HttpQueryParamPattern {
+    private fun toSpecmaticQueryParam(operation: Operation, schemaLocationDescription: String): HttpQueryParamPattern {
         val parameters = operation.parameters ?: return HttpQueryParamPattern(emptyMap())
 
         val queryPattern: Map<String, Pattern> = parameters.filterIsInstance<QueryParameter>().associate {
             logger.debug("Processing query parameter ${it.name}")
 
+            val breadCrumb = "$schemaLocationDescription.${it.name}"
+
             val specmaticPattern: Pattern? = if (it.schema.type == "array") {
-                QueryParameterArrayPattern(listOf(toSpecmaticPattern(schema = it.schema.items, typeStack = emptyList())), it.name)
+                QueryParameterArrayPattern(listOf(toSpecmaticPattern(schema = it.schema.items, typeStack = emptyList(), breadCrumb = breadCrumb)), it.name)
             } else if (it.schema.type != "object") {
-                QueryParameterScalarPattern(toSpecmaticPattern(schema = it.schema, typeStack = emptyList(), patternName = it.name))
-            } else null
+                QueryParameterScalarPattern(toSpecmaticPattern(schema = it.schema, typeStack = emptyList(), breadCrumb = breadCrumb))
+            } else {
+                null
+            }
 
             val queryParamKey = if(it.required == true)
                 it.name
