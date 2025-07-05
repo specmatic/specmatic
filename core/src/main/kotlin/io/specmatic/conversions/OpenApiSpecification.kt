@@ -1603,7 +1603,23 @@ class OpenApiSpecification(
                         discriminator = Discriminator.create(schema.discriminator?.propertyName, finalDiscriminatorMappings.keys.toSet(), finalDiscriminatorMappings)
                     )
                 } else if (schema.anyOf != null) {
-                    throw UnsupportedOperationException("Specmatic does not support anyOf")
+                    val candidatePatterns = schema.anyOf.filterNot { nullableEmptyObject(it) }.map { componentSchema ->
+                        val (componentName, schemaToProcess) =
+                            if (componentSchema.`$ref` != null)
+                                resolveReferenceToSchema(componentSchema.`$ref`)
+                            else
+                                "" to componentSchema
+
+                        toSpecmaticPattern(schemaToProcess, typeStack.plus(componentName), componentName)
+                    }
+
+                    val nullable =
+                        if (schema.anyOf.any { nullableEmptyObject(it) }) listOf(NullPattern) else emptyList()
+
+                    AnyOfPattern(
+                        candidatePatterns.plus(nullable),
+                        typeAlias = "(${patternName})"
+                    )
                 } else {
                     throw UnsupportedOperationException("Unsupported composed schema: $schema")
                 }
