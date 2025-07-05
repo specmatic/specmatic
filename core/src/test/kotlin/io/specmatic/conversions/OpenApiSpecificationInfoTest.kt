@@ -1,10 +1,6 @@
 package io.specmatic.conversions
 
-import io.specmatic.core.log.LogMessage
-import io.specmatic.core.log.consoleLog
 import io.specmatic.core.pattern.parsedJSONObject
-import io.specmatic.stub.HttpStub
-import io.specmatic.stub.captureStandardOutput
 import io.swagger.v3.oas.models.*
 import io.swagger.v3.oas.models.info.Info
 import io.swagger.v3.oas.models.media.Schema
@@ -13,6 +9,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
+import io.specmatic.stub.captureStandardOutput
 
 class OpenApiSpecificationInfoTest {
     @Test
