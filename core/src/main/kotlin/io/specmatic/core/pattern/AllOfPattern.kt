@@ -43,53 +43,17 @@ data class AllOfPattern(
     }
 
     private fun generateValue(resolver: Resolver): Value {
-        // For AllOf, we need to generate a value that satisfies all patterns
-        // Start with the first pattern's generated value and ensure it matches all others
-        val baseValue = pattern.first().generate(resolver)
-        
-        // Check if the base value satisfies all patterns
-        val allMatch = pattern.all { subPattern ->
-            subPattern.matches(baseValue, resolver) is Result.Success
+        // For AllOf, start with a simple approach: use the first pattern as base
+        if (pattern.isEmpty()) {
+            return EmptyString
         }
         
-        if (allMatch) {
-            return baseValue
-        }
-        
-        // If not all match, try to find a value that works for all
-        // This is a simplified approach - in practice, this might need more sophisticated logic
-        for (subPattern in pattern) {
-            val candidateValue = subPattern.generate(resolver)
-            val allMatch = pattern.all { otherPattern ->
-                otherPattern.matches(candidateValue, resolver) is Result.Success
-            }
-            if (allMatch) {
-                return candidateValue
-            }
-        }
-        
-        // Fallback to the base value if no better option is found
-        return baseValue
+        // Try the first pattern first
+        return pattern.first().generate(resolver)
     }
 
     override fun fixValue(value: Value, resolver: Resolver): Value {
-        if (resolver.matchesPattern(null, this, value).isSuccess()) {
-            return value
-        }
-
-        // Try to fix the value against all patterns and return the first successful fix
-        for (subPattern in pattern) {
-            try {
-                val fixedValue = subPattern.fixValue(value, resolver)
-                if (matches(fixedValue, resolver) is Result.Success) {
-                    return fixedValue
-                }
-            } catch (e: Exception) {
-                // Continue to next pattern
-            }
-        }
-
-        // If no pattern can fix it, return the original value
+        // Simple approach: return the value as-is for AllOf
         return value
     }
 

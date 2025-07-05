@@ -1392,6 +1392,11 @@ class OpenApiSpecification(
     ): Pattern {
         if(patternName.isNotBlank()) logger.debug("Processing schema $patternName")
 
+        // Debug logging for allOf
+        if (schema.allOf != null) {
+            println("DEBUG: Found allOf schema, type: ${schema::class.simpleName}")
+        }
+
         val preExistingResult = patterns["($patternName)"]
         val pattern = if (preExistingResult != null && patternName.isNotBlank())
             preExistingResult
@@ -1470,7 +1475,16 @@ class OpenApiSpecification(
                     val (deepListOfAllOfs, allDiscriminators) = resolveDeepAllOfs(schema, DiscriminatorDetails(), emptySet(), topLevel = true)
 
                     // Use AllOfPattern for simple cases without discriminators or complex schema combinations
-                    if (!allDiscriminators.isNotEmpty() && schema.discriminator == null && deepListOfAllOfs.all { it.oneOf == null }) {
+                    val useSimpleAllOfPattern = !allDiscriminators.isNotEmpty() && schema.discriminator == null && deepListOfAllOfs.all { it.oneOf == null }
+                    
+                    // Debug logging
+                    println("AllOf analysis:")
+                    println("  discriminators empty: ${!allDiscriminators.isNotEmpty()}")
+                    println("  schema discriminator: ${schema.discriminator}")
+                    println("  deepListOfAllOfs oneOf check: ${deepListOfAllOfs.all { it.oneOf == null }}")
+                    println("  useSimpleAllOfPattern: $useSimpleAllOfPattern")
+                    
+                    if (useSimpleAllOfPattern) {
                         val candidatePatterns = schema.allOf.map { componentSchema ->
                             val (componentName, schemaToProcess) =
                                 if (componentSchema.`$ref` != null)
