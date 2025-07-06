@@ -14,7 +14,7 @@ dependencies {
     testImplementation("com.arakelian:java-jq:2.0.0")
 
     implementation("org.assertj:assertj-core:3.27.3")
-    implementation("org.junit.jupiter:junit-jupiter-api:5.13.2")
+    implementation("org.junit.jupiter:junit-jupiter-api:5.13.3")
 
     implementation("info.picocli:picocli:4.7.7")
     implementation("io.ktor:ktor-client-core-jvm:2.3.13")
@@ -48,7 +48,7 @@ dependencies {
     testImplementation("io.mockk:mockk:1.13.11")
     testImplementation("org.assertj:assertj-core:3.27.3")
     testImplementation("com.ginsberg:junit5-system-exit:2.0.2")
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.13.2")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.13.3")
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.13.2")
     testImplementation("io.kotest:kotest-assertions-core-jvm:5.9.1")
 
