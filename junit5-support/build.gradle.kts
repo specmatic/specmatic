@@ -18,8 +18,8 @@ dependencies {
 
     implementation("org.thymeleaf:thymeleaf:3.1.3.RELEASE")
 
-    implementation("io.ktor:ktor-client-core-jvm:2.3.13")
-    implementation("io.ktor:ktor-client-cio:2.3.13")
+    implementation("io.ktor:ktor-client-core-jvm:3.2.1")
+    implementation("io.ktor:ktor-client-cio:3.2.1")
 
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.13.2")
     implementation("org.junit.platform:junit-platform-launcher:1.13.2")
