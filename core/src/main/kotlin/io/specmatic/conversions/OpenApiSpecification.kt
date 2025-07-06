@@ -434,8 +434,8 @@ class OpenApiSpecification(
 
                     val operation = openApiOperation.operation
 
-                    val specmaticPathParam = toSpecmaticPathParam(openApiPath, operation, schemaLocationDescription = "$httpMethod $openApiPath.${HTTPFilterKeys.PARAMETERS_PATH.key}")
-                    val specmaticQueryParam = toSpecmaticQueryParam(operation, schemaLocationDescription = "$httpMethod $openApiPath.${HTTPFilterKeys.PARAMETERS_QUERY.key}")
+                    val specmaticPathParam = toSpecmaticPathParam(openApiPath, operation, schemaLocationDescription = "$httpMethod $openApiPath.REQUEST.${HTTPFilterKeys.PARAMETERS_PATH.key}")
+                    val specmaticQueryParam = toSpecmaticQueryParam(operation, schemaLocationDescription = "$httpMethod $openApiPath.REQUEST.${HTTPFilterKeys.PARAMETERS_QUERY.key}")
 
                     val httpResponsePatterns: List<ResponsePatternData> =
                         attempt(breadCrumb = "$httpMethod $openApiPath -> RESPONSE") {
@@ -956,7 +956,7 @@ class OpenApiSpecification(
                 status = if (status == "default") 1000 else status.toInt(),
                 body = when (contentType) {
                     "application/xml" -> toXMLPattern(mediaType)
-                    else -> toSpecmaticPattern(mediaType, "response", breadCrumb = "$method $path -> $status ($contentType)")
+                    else -> toSpecmaticPattern(mediaType, "response", breadCrumb = "$method $path -> $status ($contentType).RESPONSE.BODY")
                 }
             )
 
@@ -1044,7 +1044,7 @@ class OpenApiSpecification(
         val headersMap = parameters.orEmpty().filterIsInstance<HeaderParameter>().associate {
             logger.debug("Processing request header ${it.name}")
 
-            toSpecmaticParamName(it.required != true, it.name) to toSpecmaticPattern(it.schema, emptyList(), breadCrumb = "${httpMethod} ${httpPathPattern.path}.${HTTPFilterKeys.PARAMETERS_HEADER.key}.${it.name}")
+            toSpecmaticParamName(it.required != true, it.name) to toSpecmaticPattern(it.schema, emptyList(), breadCrumb = "${httpMethod} ${httpPathPattern.path}.REQUEST.${HTTPFilterKeys.PARAMETERS_HEADER.key}.${it.name}")
         }
 
         val contentTypeHeaderPattern = headersMap.entries.find { it.key.lowercase() in listOf("content-type", "content-type?") }?.value
@@ -1155,7 +1155,7 @@ class OpenApiSpecification(
 
                     val bodyIsRequired: Boolean = requestBody.required ?: true
 
-                    val body = toSpecmaticPattern(mediaType, "request", breadCrumb = "$httpMethod ${httpPathPattern.path} ($contentType)").let {
+                    val body = toSpecmaticPattern(mediaType, "request", breadCrumb = "$httpMethod ${httpPathPattern.path} ($contentType).REQUEST.BODY").let {
                         if (bodyIsRequired)
                             it
                         else

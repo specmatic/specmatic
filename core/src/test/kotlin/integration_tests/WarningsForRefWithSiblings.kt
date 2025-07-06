@@ -243,7 +243,7 @@ class WarningsForRefWithSiblings {
             OpenApiSpecification.fromYAML(spec, "").toFeature()
         }
 
-        assertThat(stdout).contains("GET /test -> 200 (application/json).address.building")
+        assertThat(stdout).contains("GET /test -> 200 (application/json).RESPONSE.BODY.address.building")
     }
 
     @Test
@@ -309,7 +309,7 @@ class WarningsForRefWithSiblings {
             OpenApiSpecification.fromYAML(spec, "").toFeature()
         }
 
-        assertThat(stdout).contains("POST /test (application/json).address.building")
+        assertThat(stdout).contains("POST /test (application/json).REQUEST.BODY.address.building")
     }
 
     @Test
@@ -356,7 +356,7 @@ class WarningsForRefWithSiblings {
             OpenApiSpecification.fromYAML(spec, "").toFeature()
         }
 
-        assertThat(stdout).contains("GET /test.PARAMETERS.QUERY.cityType")
+        assertThat(stdout).contains("GET /test.REQUEST.PARAMETERS.QUERY.cityType")
     }
 
     @Test
@@ -403,7 +403,7 @@ class WarningsForRefWithSiblings {
             OpenApiSpecification.fromYAML(spec, "").toFeature()
         }
 
-        assertThat(stdout).contains("GET /test/{cityType}.PARAMETERS.PATH.cityType")
+        assertThat(stdout).contains("GET /test/{cityType}.REQUEST.PARAMETERS.PATH.cityType")
     }
 
     @Test
@@ -450,7 +450,7 @@ class WarningsForRefWithSiblings {
             OpenApiSpecification.fromYAML(spec, "").toFeature()
         }
 
-        assertThat(stdout).contains("GET /test.PARAMETERS.HEADER.cityType")
+        assertThat(stdout).contains("GET /test.REQUEST.PARAMETERS.HEADER.cityType")
     }
 
     @Test
