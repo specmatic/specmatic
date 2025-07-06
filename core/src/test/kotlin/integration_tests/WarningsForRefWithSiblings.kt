@@ -407,7 +407,7 @@ class WarningsForRefWithSiblings {
     }
 
     @Test
-    fun `should warn about refs in header params`() {
+    fun `should warn about refs in request header params`() {
         val spec = """
             openapi: 3.0.3
             info:
@@ -444,6 +444,50 @@ class WarningsForRefWithSiblings {
                 CityType:
                   type: string
                   enum: [metropolitan, urban, rural]
+        """.trimIndent()
+
+        val (stdout, _) = captureStandardOutput {
+            OpenApiSpecification.fromYAML(spec, "").toFeature()
+        }
+
+        assertThat(stdout).contains("GET /test.PARAMETERS.HEADER.cityType")
+    }
+
+    @Test
+    fun `should warn about refs in response headers`() {
+        val spec = """
+            openapi: 3.0.3
+            info:
+              description: A simple API with 401 response
+              title: Simple API
+              version: 1.0.0
+            servers:
+            - url: /
+            paths:
+              /test:
+                get:
+                  description: Test endpoint
+                  operationId: test
+                  responses:
+                    "200":
+                      description: City details
+                      headers:
+                        X-Unique-ID:
+                          description: Type of the city
+                          schema:
+                            type: string
+                            ${"$"}ref: "#/components/schemas/UniqueIDType"
+                      content:
+                        application/json:
+                          schema:
+                            type: array
+                            items:
+                              type: string
+            components:
+              schemas:
+                UniqueIDType:
+                  type: string
+                  description: Unique identifier for the city
         """.trimIndent()
 
         val (stdout, _) = captureStandardOutput {

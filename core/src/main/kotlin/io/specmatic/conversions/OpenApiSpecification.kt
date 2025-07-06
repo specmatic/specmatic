@@ -439,7 +439,7 @@ class OpenApiSpecification(
 
                     val httpResponsePatterns: List<ResponsePatternData> =
                         attempt(breadCrumb = "$httpMethod $openApiPath -> RESPONSE") {
-                            toHttpResponsePatterns(operation.responses, httpMethod, openApiPath, parsedOpenApi.components?.schemas.orEmpty())
+                            toHttpResponsePatterns(operation.responses, httpMethod, openApiPath, parsedOpenApi.components?.schemas.orEmpty(), breadCrumb = "$httpMethod $openApiPath")
                         }
 
                     val first2xxResponseStatus =
@@ -858,12 +858,14 @@ class OpenApiSpecification(
         responses: ApiResponses?,
         method: String,
         path: String,
-        schemas: Map<String, Schema<Any>>
+        schemas: Map<String, Schema<Any>>,
+        breadCrumb: String
     ): List<ResponsePatternData> {
         return responses.orEmpty().map { (status, response) ->
+            val updatedBreadCrumb = "$breadCrumb -> $status"
             logger.debug("Processing response payload with status $status")
 
-            val headersMap = openAPIHeadersToSpecmatic(response)
+            val headersMap = openAPIHeadersToSpecmatic(response, updatedBreadCrumb)
             if(!isNumber(status) && status != "default")
                 throw ContractException("Response status codes are expected to be numbers, but \"$status\" was found")
 
@@ -873,7 +875,7 @@ class OpenApiSpecification(
         }.flatten()
     }
 
-    private fun openAPIHeadersToSpecmatic(response: ApiResponse) =
+    private fun openAPIHeadersToSpecmatic(response: ApiResponse, breadCrumb: String) =
         response.headers.orEmpty().map { (headerName, header) ->
             logger.debug("Processing response header $headerName")
 
@@ -883,7 +885,9 @@ class OpenApiSpecification(
                         headerName,
                         response
                     )
-                ), emptyList()
+                ),
+                emptyList(),
+                breadCrumb = "$breadCrumb.RESPONSE.HEADER.$headerName"
             )
         }.toMap()
 
