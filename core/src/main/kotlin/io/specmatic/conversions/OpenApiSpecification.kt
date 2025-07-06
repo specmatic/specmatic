@@ -1411,7 +1411,12 @@ class OpenApiSpecification(
                 } else {
                     breadCrumb
                 }
-                logger.log("WARNING: Schema at $schemaDescriptor has both \$ref: (${schema.`$ref`}) and a type ${schema.type} defined. As per the OpenAPI specification format, when both are present, only \$ref will be used when generating tests, mock responses, etc, and the neighboring type will be ignored.")
+
+                if(schemaDescriptor.isEmpty()) {
+                    logger.debug("WARNING: Schema (location of which has not been tracked correctly) has a \$ref: (${schema.`$ref`}) but no type defined. This is not an error, but it is unusual. Specmatic will generate tests, mock responses, etc, based on the \$ref.")
+                } else {
+                    logger.log("WARNING: Schema at $schemaDescriptor has both \$ref: (${schema.`$ref`}) and a type ${schema.type} defined. As per the OpenAPI specification format, when both are present, only \$ref will be used when generating tests, mock responses, etc, and the neighboring type will be ignored.")
+                }
             }
             if (!cyclicReference) {
                 val componentPattern = toSpecmaticPattern(
