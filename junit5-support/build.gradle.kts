@@ -14,7 +14,7 @@ dependencies {
     implementation("org.assertj:assertj-core:3.27.3")
 
     implementation("com.fasterxml.jackson.core:jackson-databind:2.19.1")
-    implementation("org.junit.jupiter:junit-jupiter-api:5.13.2")
+    implementation("org.junit.jupiter:junit-jupiter-api:5.13.3")
 
     implementation("org.thymeleaf:thymeleaf:3.1.3.RELEASE")
 
