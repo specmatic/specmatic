@@ -494,6 +494,6 @@ class WarningsForRefWithSiblings {
             OpenApiSpecification.fromYAML(spec, "").toFeature()
         }
 
-        assertThat(stdout).contains("GET /test.PARAMETERS.HEADER.cityType")
+        assertThat(stdout).contains("GET /test -> 200.RESPONSE.HEADER.X-Unique-ID")
     }
 }
