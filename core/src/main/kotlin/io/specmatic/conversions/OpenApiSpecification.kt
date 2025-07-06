@@ -1604,13 +1604,7 @@ class OpenApiSpecification(
                     )
                 } else if (schema.anyOf != null) {
                     val candidatePatterns = schema.anyOf.filterNot { nullableEmptyObject(it) }.map { componentSchema ->
-                        val (componentName, schemaToProcess) =
-                            if (componentSchema.`$ref` != null)
-                                resolveReferenceToSchema(componentSchema.`$ref`)
-                            else
-                                "" to componentSchema
-
-                        toSpecmaticPattern(schemaToProcess, typeStack.plus(componentName), componentName)
+                        toSpecmaticPattern(componentSchema, typeStack, "")
                     }
 
                     val nullable =

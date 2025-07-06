@@ -121,9 +121,14 @@ data class AnyOfPattern(
     }
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
+        if (pattern.isEmpty()) {
+            return Failure("No patterns available to match against")
+        }
+        
+        val resolverWithIgnoreUnexpectedKeys = resolver.withUnexpectedKeyCheck(IgnoreUnexpectedKeys)
         val matchResults: List<AnyOfPatternMatch> =
             pattern.map {
-                AnyOfPatternMatch(it, resolver.matchesPattern(key, it, sampleData ?: EmptyString))
+                AnyOfPatternMatch(it, resolverWithIgnoreUnexpectedKeys.matchesPattern(key, it, sampleData ?: EmptyString))
             }
 
         val matchResult = matchResults.find { it.result is Result.Success }
@@ -131,37 +136,7 @@ data class AnyOfPattern(
         if(matchResult != null)
             return matchResult.result
 
-        val failures = matchResults.map { it.result }.filterIsInstance<Failure>()
-
-        if(failures.any { it.reasonIs { it.objectMatchOccurred } }) {
-            val failureMatchResults = matchResults.filter {
-                it.result is Failure && it.result.reasonIs { it.objectMatchOccurred }
-            }
-
-            val objectTypeMatchedButHadSomeOtherMismatch = addTypeInfoBreadCrumbs(failureMatchResults)
-
-            return Failure.fromFailures(objectTypeMatchedButHadSomeOtherMismatch).removeReasonsFromCauses()
-        }
-
-        val resolvedPatterns = pattern.map { resolvedHop(it, resolver) }
-
-        if(resolvedPatterns.any { it is NullPattern } || resolvedPatterns.all { it is ExactValuePattern })
-            return when {
-                sampleData is ScalarValue && anyPatternIsEnum() -> {
-                    FailedToFindAnyOfUsingTypeValueDescription(sampleData)
-                }
-                else -> {
-                    FailedToFindAnyOfUsingValue(sampleData)
-                }
-            }.failedToFindAnyOf(typeName, getResult(matchResults.map { it.result as Failure }), resolver.mismatchMessages)
-
-        val failuresWithUpdatedBreadcrumbs = addTypeInfoBreadCrumbs(matchResults)
-
-        return Result.fromFailures(failuresWithUpdatedBreadcrumbs)
-    }
-
-    private fun anyPatternIsEnum(): Boolean {
-        return pattern.all { it is ExactValuePattern && it.pattern is ScalarValue }
+        return Result.fromFailures(matchResults.map { it.result }.filterIsInstance<Failure>())
     }
 
     override fun generate(resolver: Resolver): Value {
@@ -356,72 +331,7 @@ data class AnyOfPattern(
         return this.pattern.count { it !is NullPattern } == 1
     }
 
-    private fun addTypeInfoBreadCrumbs(matchResults: List<AnyOfPatternMatch>): List<Failure> {
-        if(this.hasNoAmbiguousPatterns()) {
-            return matchResults.map { it.result as Failure }
-        }
-
-        val failuresWithUpdatedBreadcrumbs = matchResults.map {
-            Pair(it.pattern, it.result as Failure)
-        }.mapIndexed { index, (pattern, failure) ->
-            val ordinal = index + 1
-
-            pattern.typeAlias?.let {
-                if (it.isBlank() || it == "()")
-                    failure.breadCrumb("(~~~object $ordinal)")
-                else
-                    failure.breadCrumb("(~~~${withoutPatternDelimiters(it)} object)")
-            } ?: failure
-        }
-        return failuresWithUpdatedBreadcrumbs
-    }
-
-    private fun getResult(failures: List<Failure>): List<Failure> = when {
-        isNullablePattern() -> {
-            val index = pattern.indexOfFirst { !isEmpty(it) }
-            listOf(failures[index])
-        }
-        else -> failures
-    }
-
     private fun isNullablePattern() = pattern.size == 2 && pattern.any { isEmpty(it) }
 
     private fun isEmpty(it: Pattern) = it.typeAlias == "(empty)" || it is NullPattern
-}
-
-private interface FailedToFindAnyOf {
-    fun failedToFindAnyOf(expected: String, results: List<Failure>, mismatchMessages: MismatchMessages): Failure
-}
-
-private class FailedToFindAnyOfUsingTypeValueDescription <V> (val actual: V) : FailedToFindAnyOf where V : Value, V : ScalarValue {
-    override fun failedToFindAnyOf(
-        expected: String,
-        results: List<Failure>,
-        mismatchMessages: MismatchMessages
-    ): Failure {
-        val displayableValueOfActual = actual.displayableValue()
-
-        val description: String = when(actual) {
-            is StringValue -> displayableValueOfActual
-            else -> "$displayableValueOfActual (${actual.type().typeName})"
-        }
-
-        return mismatchResult(expected, description, mismatchMessages)
-    }
-
-}
-
-private class FailedToFindAnyOfUsingValue(val actual: Value?) : FailedToFindAnyOf {
-    override fun failedToFindAnyOf(
-        expected: String,
-        results: List<Failure>,
-        mismatchMessages: MismatchMessages
-    ): Failure {
-        return when (results.size) {
-            1 -> results[0]
-            else -> {
-                mismatchResult(expected, actual, mismatchMessages)
-            }
-        }
-    }
 }
