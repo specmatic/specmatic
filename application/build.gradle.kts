@@ -23,7 +23,8 @@ dependencies {
 
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.19.1")
 
-    implementation("org.junit.platform:junit-platform-launcher:1.13.2")
+
+    implementation("org.junit.platform:junit-platform-launcher:1.13.3")
     implementation("org.junit.platform:junit-platform-reporting:1.13.3")
 
     implementation("org.eclipse.jgit:org.eclipse.jgit:7.3.0.202506031305-r")
