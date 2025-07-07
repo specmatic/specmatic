@@ -1,6 +1,7 @@
 package integration_tests
 
 import io.specmatic.conversions.OpenApiSpecification
+import io.specmatic.conversions.createWarningForRefAndSchemaSiblings
 import io.specmatic.stub.captureStandardOutput
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -495,5 +496,11 @@ class WarningsForRefWithSiblings {
         }
 
         assertThat(stdout).contains("GET /test -> 200.RESPONSE.HEADER.X-Unique-ID")
+    }
+
+    @Test
+    fun `warning message should be correctly constructed`() {
+        val warning = createWarningForRefAndSchemaSiblings("some location", "ref/to/schema", "object")
+        assertThat(warning.toLogString()).isEqualTo("WARNING: Schema at some location has both \$ref (ref/to/schema) and a type object defined. As per the OpenAPI specification format (https://spec.openapis.org/oas/v3.0.4.html#fixed-fields-19), when both are present, only \$ref will be used when generating tests, mock responses, etc, and the neighboring type will be ignored. ")
     }
 }

@@ -31,11 +31,7 @@ import io.swagger.v3.oas.models.PathItem
 import io.swagger.v3.oas.models.examples.Example
 import io.swagger.v3.oas.models.headers.Header
 import io.swagger.v3.oas.models.media.*
-import io.swagger.v3.oas.models.parameters.HeaderParameter
-import io.swagger.v3.oas.models.parameters.Parameter
-import io.swagger.v3.oas.models.parameters.PathParameter
-import io.swagger.v3.oas.models.parameters.QueryParameter
-import io.swagger.v3.oas.models.parameters.RequestBody
+import io.swagger.v3.oas.models.parameters.*
 import io.swagger.v3.oas.models.responses.ApiResponse
 import io.swagger.v3.oas.models.responses.ApiResponses
 import io.swagger.v3.oas.models.security.SecurityScheme
@@ -1412,11 +1408,9 @@ class OpenApiSpecification(
                     breadCrumb
                 }
 
-                if(schemaDescriptor.isEmpty()) {
-                    logger.debug("WARNING: Schema (location of which has not been tracked correctly) has a \$ref: (${schema.`$ref`}) but no type defined. This is not an error, but it is unusual. Specmatic will generate tests, mock responses, etc, based on the \$ref.")
-                } else {
-                    logger.log("WARNING: Schema at $schemaDescriptor has both \$ref: (${schema.`$ref`}) and a type ${schema.type} defined. As per the OpenAPI specification format, when both are present, only \$ref will be used when generating tests, mock responses, etc, and the neighboring type will be ignored.")
-                }
+                val warning = createWarningForRefAndSchemaSiblings(schemaDescriptor, schema.`$ref`, schema.type)
+
+                logger.log(warning)
             }
             if (!cyclicReference) {
                 val componentPattern = toSpecmaticPattern(
@@ -2143,4 +2137,23 @@ internal fun validateSecuritySchemeParameterDuplication(
     securitySchemes.forEach { securityScheme ->
         securityScheme.warnIfExistsInParameters(parameters.orEmpty(), method, path)
     }
+}
+
+internal fun createWarningForRefAndSchemaSiblings(
+    schemaDescriptor: String,
+    ref: String,
+    type: String,
+): Warning {
+    val openApiLink = "https://spec.openapis.org/oas/v3.0.4.html#fixed-fields-19"
+
+    return Warning(
+        problem =
+            if (schemaDescriptor.isEmpty()) {
+                "A schema has both \$ref ($ref) and a type $type defined."
+            } else {
+                "Schema at $schemaDescriptor has both \$ref ($ref) and a type $type defined."
+            },
+        reason = "As per the OpenAPI specification format ($openApiLink), when both are present, only \$ref will be used when generating tests, mock responses, etc, and the neighboring type will be ignored.",
+        resolution = "",
+    )
 }
