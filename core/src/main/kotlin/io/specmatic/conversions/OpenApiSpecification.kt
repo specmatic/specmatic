@@ -1411,6 +1411,7 @@ class OpenApiSpecification(
                 val warning = createWarningForRefAndSchemaSiblings(schemaDescriptor, schema.`$ref`, schema.type)
 
                 logger.log(warning)
+                logger.boundary()
             }
             if (!cyclicReference) {
                 val componentPattern = toSpecmaticPattern(
@@ -2154,6 +2155,6 @@ internal fun createWarningForRefAndSchemaSiblings(
                 "Schema at $schemaDescriptor has both \$ref ($ref) and a type $type defined."
             },
         reason = "As per the OpenAPI specification format ($openApiLink), when both are present, only \$ref will be used when generating tests, mock responses, etc, and the neighboring type will be ignored.",
-        resolution = "",
+        resolution = "To resolve this, remove either the $ref or the $type type.",
     )
 }
