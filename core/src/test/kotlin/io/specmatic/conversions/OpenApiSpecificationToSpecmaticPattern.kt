@@ -65,7 +65,7 @@ class OpenApiSpecificationToSpecmaticPattern {
         """.trimIndent()
 
         val (output, _) = captureStandardOutput { OpenApiSpecification.fromYAML(spec, "").toFeature()  }
-        assertThat(output).contains("WARNING: Schema at POST /employees (application/json) has both \$ref: (#/components/schemas/Employee) and a type object defined. As per the OpenAPI specification format, when both are present, only \$ref will be used when generating tests, mock responses, etc, and the neighboring type will be ignored.")
+        assertThat(output).contains("WARNING: Schema at POST /employees (application/json).REQUEST.BODY has both \$ref: (#/components/schemas/Employee) and a type object defined. As per the OpenAPI specification format, when both are present, only \$ref will be used when generating tests, mock responses, etc, and the neighboring type will be ignored.")
     }
 
     @Test
