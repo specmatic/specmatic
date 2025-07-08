@@ -59,7 +59,7 @@ internal class AnyOfPatternTest {
     @Test
     fun `should have correct nullable type name`() {
         val pattern = AnyOfPattern(listOf(NumberPattern(), NullPattern), extensions = emptyMap())
-        assertThat(pattern.typeName).isEqualTo("(number?)")
+        assertThat(pattern.typeName).isEqualTo("(number anyOf \"null\")")
     }
 
     @Test

@@ -1603,15 +1603,12 @@ class OpenApiSpecification(
                         discriminator = Discriminator.create(schema.discriminator?.propertyName, finalDiscriminatorMappings.keys.toSet(), finalDiscriminatorMappings)
                     )
                 } else if (schema.anyOf != null) {
-                    val candidatePatterns = schema.anyOf.filterNot { nullableEmptyObject(it) }.map { componentSchema ->
+                    val candidatePatterns = schema.anyOf.map { componentSchema ->
                         toSpecmaticPattern(componentSchema, typeStack, "")
                     }
 
-                    val nullable =
-                        if (schema.anyOf.any { nullableEmptyObject(it) }) listOf(NullPattern) else emptyList()
-
                     AnyOfPattern(
-                        candidatePatterns.plus(nullable),
+                        candidatePatterns,
                         typeAlias = "(${patternName})"
                     )
                 } else {

@@ -51,10 +51,6 @@ data class AnyOfPattern(
         return matchingPattern.eliminateOptionalKey(value, resolver)
     }
 
-    override fun equals(other: Any?): Boolean = other is AnyOfPattern && other.pattern == this.pattern
-
-    override fun hashCode(): Int = pattern.hashCode()
-
     override fun addTypeAliasesToConcretePattern(concretePattern: Pattern, resolver: Resolver, typeAlias: String?): Pattern {
         val matchingPattern = pattern.find { it.matches(concretePattern.generate(resolver), resolver) is Result.Success } ?: return concretePattern
 
@@ -69,6 +65,26 @@ data class AnyOfPattern(
         if (isPatternToken(value) && patternToConsider == this) return HasValue(resolver.generate(this))
 
         val updatedResolver = resolver.updateLookupPath(this.typeAlias)
+
+        // Handle removeExtraKeys for JSONObjectPattern
+        if (removeExtraKeys && value is JSONObjectValue) {
+            val jsonObjectPatterns = pattern.mapNotNull { resolvedHop(it, updatedResolver) }
+                .filterIsInstance<JSONObjectPattern>()
+            
+            if (jsonObjectPatterns.isNotEmpty()) {
+                val allKeys = jsonObjectPatterns.flatMap { it.pattern.keys.map { key -> withoutOptionality(key) } }.toSet()
+                val filteredJsonObject = value.jsonObject.filterKeys { it in allKeys }
+                val filteredValue = JSONObjectValue(filteredJsonObject)
+                
+                val results = pattern.asSequence().map { it.fillInTheBlanks(filteredValue, updatedResolver, removeExtraKeys) }
+                val successfulGeneration = results.firstOrNull { it is HasValue }
+                if(successfulGeneration != null) return successfulGeneration
+                
+                val resultList = results.toList()
+                val failures = resultList.filterIsInstance<ReturnFailure>().map { it.toFailure() }
+                return HasFailure(Failure.fromFailures(failures))
+            }
+        }
 
         val results = pattern.asSequence().map { it.fillInTheBlanks(value, updatedResolver, removeExtraKeys) }
         val successfulGeneration = results.firstOrNull { it is HasValue }
@@ -156,12 +172,11 @@ data class AnyOfPattern(
             return sequenceOf(HasValue(ExactValuePattern(it)))
         }
 
-        val isNullable = pattern.any { it is NullPattern }
         val patternResults: Sequence<Pair<Sequence<ReturnValue<Pattern>>?, Throwable?>> =
-            pattern.asSequence().sortedBy { it is NullPattern }.map { innerPattern ->
+            pattern.asSequence().map { innerPattern ->
                 try {
                     val patterns =
-                        resolver.withCyclePrevention(innerPattern, isNullable) { cyclePreventedResolver ->
+                        resolver.withCyclePrevention(innerPattern, false) { cyclePreventedResolver ->
                             innerPattern.newBasedOn(row, cyclePreventedResolver).map { it.value }
                         } ?: sequenceOf()
                     Pair(patterns.map { HasValue(it) }, null)
@@ -174,17 +189,14 @@ data class AnyOfPattern(
     }
 
     override fun newBasedOn(resolver: Resolver): Sequence<Pattern> {
-        val isNullable = pattern.any {it is NullPattern}
         return pattern.asSequence().flatMap { innerPattern ->
-            resolver.withCyclePrevention(innerPattern, isNullable) { cyclePreventedResolver ->
+            resolver.withCyclePrevention(innerPattern, false) { cyclePreventedResolver ->
                 innerPattern.newBasedOn(cyclePreventedResolver)
             }?: emptySequence()  // Terminates cycle gracefully. Only happens if isNullable=true so that it is contract-valid.
         }
     }
 
     override fun negativeBasedOn(row: Row, resolver: Resolver, config: NegativePatternConfiguration): Sequence<ReturnValue<Pattern>> {
-        val nullable = pattern.any { it is NullPattern }
-
         val negativeTypeResults = pattern.asSequence().map {
             try {
                 val patterns: Sequence<ReturnValue<Pattern>> =
@@ -198,12 +210,7 @@ data class AnyOfPattern(
         val negativeTypes = newTypesOrExceptionIfNone(
             negativeTypeResults,
             "Could not get negative tests"
-        ).let { patterns: Sequence<ReturnValue<Pattern>> ->
-            if (nullable)
-                patterns.filterValueIsNot { it is NullPattern }
-            else
-                patterns
-        }
+        )
 
         return negativeTypes.distinctBy {
             it.withDefault(randomString(10)) {
@@ -214,9 +221,8 @@ data class AnyOfPattern(
 
     override fun parse(value: String, resolver: Resolver): Value {
         val resolvedTypes = pattern.map { resolvedHop(it, resolver) }
-        val nonNullTypesFirst = resolvedTypes.filterNot { it is NullPattern }.plus(resolvedTypes.filterIsInstance<NullPattern>())
 
-        return nonNullTypesFirst.asSequence().map {
+        return resolvedTypes.asSequence().map {
             try {
                 it.parse(value, resolver)
             } catch (e: Throwable) {
@@ -257,13 +263,7 @@ data class AnyOfPattern(
 
     override val typeName: String
         get() {
-            return if (pattern.size == 2 && isNullablePattern()) {
-                val concreteTypeName =
-                    withoutPatternDelimiters(pattern.filterNot { it is NullPattern || it.typeAlias == "(empty)" }
-                        .first().typeName)
-                "($concreteTypeName?)"
-            } else
-                "(${pattern.joinToString(" anyOf ") { inner -> withoutPatternDelimiters(inner.typeName).let { if(it == "null") "\"null\"" else it}  }})"
+            return "(${pattern.joinToString(" anyOf ") { inner -> withoutPatternDelimiters(inner.typeName).let { if(it == "null") "\"null\"" else it}  }})"
         }
 
     override fun toNullable(defaultValue: String?): Pattern {
@@ -275,7 +275,7 @@ data class AnyOfPattern(
             val isCycle = exception is ContractException && exception.isCycle
         }
 
-        val generationResults = pattern.sortedBy { it is NullPattern }.asSequence().map { chosenPattern ->
+        val generationResults = pattern.asSequence().map { chosenPattern ->
             try {
                 GenerationResult(value = generate(resolver, chosenPattern))
             } catch (e: Throwable) {
@@ -296,8 +296,7 @@ data class AnyOfPattern(
         resolver: Resolver,
         chosenPattern: Pattern
     ): Value {
-        val isNullable = pattern.any { it is NullPattern }
-        return resolver.withCyclePrevention(chosenPattern, isNullable) { cyclePreventedResolver ->
+        return resolver.withCyclePrevention(chosenPattern, false) { cyclePreventedResolver ->
             when (key) {
                 null -> chosenPattern.generate(cyclePreventedResolver)
                 else -> cyclePreventedResolver.generate(key, chosenPattern)
@@ -333,8 +332,4 @@ data class AnyOfPattern(
     }
 
     private fun allValuesAreScalar() = pattern.all { it is ExactValuePattern && it.pattern is ScalarValue }
-
-    private fun isNullablePattern() = pattern.size == 2 && pattern.any { isEmpty(it) }
-
-    private fun isEmpty(it: Pattern) = it.typeAlias == "(empty)" || it is NullPattern
 }
