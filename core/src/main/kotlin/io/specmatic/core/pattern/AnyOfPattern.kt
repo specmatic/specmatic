@@ -67,8 +67,7 @@ data class AnyOfPattern(
         }
         if (isPatternToken(value) && patternToConsider == this) return HasValue(resolver.generate(this))
 
-        val newPatterns = pattern.filter { it.typeAlias != null }.associateBy { it.typeAlias.orEmpty() }
-        val updatedResolver = resolver.copy(newPatterns = resolver.newPatterns.plus(newPatterns) ).updateLookupPath(this.typeAlias)
+        val updatedResolver = resolver.updateLookupPath(this.typeAlias)
 
         val results = pattern.asSequence().map { it.fillInTheBlanks(value, updatedResolver, removeExtraKeys) }
         val successfulGeneration = results.firstOrNull { it is HasValue }
