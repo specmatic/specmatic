@@ -66,29 +66,32 @@ data class AnyOfPattern(
 
         val updatedResolver = resolver.updateLookupPath(this.typeAlias)
 
-        // Handle removeExtraKeys for JSONObjectPattern
         if (removeExtraKeys && value is JSONObjectValue) {
-            val jsonObjectPatterns = pattern.mapNotNull { resolvedHop(it, updatedResolver) }
-                .filterIsInstance<JSONObjectPattern>()
-            
+            val jsonObjectPatterns =
+                pattern
+                    .map { resolvedHop(it, updatedResolver) }
+                    .filterIsInstance<JSONObjectPattern>()
+
             if (jsonObjectPatterns.isNotEmpty()) {
                 val allKeys = jsonObjectPatterns.flatMap { it.pattern.keys.map { key -> withoutOptionality(key) } }.toSet()
                 val filteredJsonObject = value.jsonObject.filterKeys { it in allKeys }
                 val filteredValue = JSONObjectValue(filteredJsonObject)
-                
-                val results = pattern.asSequence().map { it.fillInTheBlanks(filteredValue, updatedResolver, removeExtraKeys) }
-                val successfulGeneration = results.firstOrNull { it is HasValue }
-                if(successfulGeneration != null) return successfulGeneration
-                
-                val resultList = results.toList()
-                val failures = resultList.filterIsInstance<ReturnFailure>().map { it.toFailure() }
-                return HasFailure(Failure.fromFailures(failures))
+
+                return fillInTheBlanks(filteredValue, updatedResolver, removeExtraKeys)
             }
         }
 
-        val results = pattern.asSequence().map { it.fillInTheBlanks(value, updatedResolver, removeExtraKeys) }
+        return fillInTheBlanks(value, updatedResolver, removeExtraKeys)
+    }
+
+    private fun fillInTheBlanks(
+        filteredValue: JSONObjectValue,
+        updatedResolver: Resolver,
+        removeExtraKeys: Boolean,
+    ): ReturnValue<Value> {
+        val results = pattern.asSequence().map { it.fillInTheBlanks(filteredValue, updatedResolver, removeExtraKeys) }
         val successfulGeneration = results.firstOrNull { it is HasValue }
-        if(successfulGeneration != null) return successfulGeneration
+        if (successfulGeneration != null) return successfulGeneration
 
         val resultList = results.toList()
         val failures = resultList.filterIsInstance<ReturnFailure>().map { it.toFailure() }
