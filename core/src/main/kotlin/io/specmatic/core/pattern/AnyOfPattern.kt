@@ -1,7 +1,10 @@
 package io.specmatic.core.pattern
 
-import io.specmatic.core.*
+import io.specmatic.core.Resolver
+import io.specmatic.core.Result
 import io.specmatic.core.Result.Failure
+import io.specmatic.core.Substitution
+import io.specmatic.core.mismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.*
 
@@ -37,8 +40,6 @@ data class AnyOfPattern(
     }
 
     override fun jsonObjectPattern(resolver: Resolver): JSONObjectPattern? {
-        if (this.hasNoAmbiguousPatterns().not()) return null
-
         val pattern = this.pattern.first { it !is NullPattern }
         if (pattern is JSONObjectPattern) return pattern
         if (pattern is PossibleJsonObjectPatternContainer) return pattern.jsonObjectPattern(resolver)
@@ -92,10 +93,17 @@ data class AnyOfPattern(
             }
         }
 
-        val hasValue = options.find { it is HasValue }
+        if (options.any { it is HasValue }) {
+            val combinedValue = options.filterIsInstance<HasValue<Value>>().map { it.value }.reduce { val1, val2 ->
+                if (val1 is JSONObjectValue && val2 is JSONObjectValue) {
+                    JSONObjectValue(val1.jsonObject + val2.jsonObject)
+                } else {
+                    val2
+                }
+            }
 
-        if(hasValue != null)
-            return hasValue
+            return HasValue(combinedValue)
+        }
 
         val failures = options.map {
             it.realise(
@@ -325,10 +333,6 @@ data class AnyOfPattern(
     }
 
     private fun allValuesAreScalar() = pattern.all { it is ExactValuePattern && it.pattern is ScalarValue }
-
-    private fun hasNoAmbiguousPatterns(): Boolean {
-        return this.pattern.count { it !is NullPattern } == 1
-    }
 
     private fun isNullablePattern() = pattern.size == 2 && pattern.any { isEmpty(it) }
 
