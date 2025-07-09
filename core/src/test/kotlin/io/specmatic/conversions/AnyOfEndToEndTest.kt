@@ -45,6 +45,61 @@ class AnyOfEndToEndTest {
                           - type: number
     """.trimIndent()
 
+    private val objectOnlySpec = """
+        openapi: 3.0.0
+        info:
+          title: AnyOf Object Test API
+          version: 1.0.0
+        paths:
+          /data:
+            post:
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      anyOf:
+                        - type: object
+                          properties:
+                            name:
+                              type: string
+                            age:
+                              type: number
+                          required:
+                            - name
+                        - type: object
+                          properties:
+                            id:
+                              type: string
+                            score:
+                              type: number
+                          required:
+                            - id
+              responses:
+                200:
+                  description: Success
+                  content:
+                    application/json:
+                      schema:
+                        anyOf:
+                          - type: object
+                            properties:
+                              name:
+                                type: string
+                              age:
+                                type: number
+                            required:
+                              - name
+                          - type: object
+                            properties:
+                              id:
+                                type: string
+                              score:
+                                type: number
+                            required:
+                              - id
+    """.trimIndent()
+
     @Test
     fun `anyOf should work end-to-end for string input`() {
         val feature = OpenApiSpecification.fromYAML(openApiSpec, "").toFeature()
@@ -84,11 +139,11 @@ class AnyOfEndToEndTest {
 
     @Test
     fun `anyOf should work end-to-end for object input`() {
-        val feature = OpenApiSpecification.fromYAML(openApiSpec, "").toFeature()
+        val feature = OpenApiSpecification.fromYAML(objectOnlySpec, "").toFeature()
         val scenario = feature.scenarios.first()
         
-        // Test with object input
-        val objectRequest = HttpRequest(
+        // Test with first object type
+        val objectRequest1 = HttpRequest(
             method = "POST",
             path = "/data",
             headers = mapOf("Content-Type" to "application/json"),
@@ -98,13 +153,27 @@ class AnyOfEndToEndTest {
             ))
         )
         
-        val matchResult = scenario.httpRequestPattern.matches(objectRequest, scenario.resolver)
-        assertThat(matchResult).isInstanceOf(Success::class.java)
+        val matchResult1 = scenario.httpRequestPattern.matches(objectRequest1, scenario.resolver)
+        assertThat(matchResult1).isInstanceOf(Success::class.java)
+        
+        // Test with second object type
+        val objectRequest2 = HttpRequest(
+            method = "POST",
+            path = "/data",
+            headers = mapOf("Content-Type" to "application/json"),
+            body = JSONObjectValue(mapOf(
+                "id" to StringValue("123"),
+                "score" to NumberValue(95)
+            ))
+        )
+        
+        val matchResult2 = scenario.httpRequestPattern.matches(objectRequest2, scenario.resolver)
+        assertThat(matchResult2).isInstanceOf(Success::class.java)
     }
 
     @Test
     fun `anyOf response should be generated correctly`() {
-        val feature = OpenApiSpecification.fromYAML(openApiSpec, "").toFeature()
+        val feature = OpenApiSpecification.fromYAML(objectOnlySpec, "").toFeature()
         val scenario = feature.scenarios.first()
         
         // Verify the response body pattern is AnyOfPattern
@@ -114,7 +183,7 @@ class AnyOfEndToEndTest {
         val response = scenario.generateHttpResponse(emptyMap())
         assertThat(response.status).isEqualTo(200)
         
-        // The response body should be either a string or number
+        // The response body should be one of the object types
         val generatedValue = response.body
         val matchResult = scenario.httpResponsePattern.body.matches(generatedValue, scenario.resolver)
         assertThat(matchResult).isInstanceOf(Success::class.java)

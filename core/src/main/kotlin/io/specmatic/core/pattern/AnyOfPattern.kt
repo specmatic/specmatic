@@ -266,7 +266,7 @@ data class AnyOfPattern(
 
     override val typeName: String
         get() {
-            return "(${pattern.joinToString(" anyOf ") { inner -> withoutPatternDelimiters(inner.typeName).let { if(it == "null") "\"null\"" else it}  }})"
+            return "(anyOf ${pattern.joinToString(" ") { inner -> withoutPatternDelimiters(inner.typeName).let { if(it == "null") "\"null\"" else it}  }})"
         }
 
     override fun toNullable(defaultValue: String?): Pattern {

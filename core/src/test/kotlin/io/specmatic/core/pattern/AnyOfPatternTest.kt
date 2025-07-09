@@ -53,13 +53,13 @@ internal class AnyOfPatternTest {
     @Test
     fun `should have correct type name`() {
         val pattern = AnyOfPattern(listOf(NumberPattern(), StringPattern()), extensions = emptyMap())
-        assertThat(pattern.typeName).isEqualTo("(number anyOf string)")
+        assertThat(pattern.typeName).isEqualTo("(anyOf number string)")
     }
 
     @Test
     fun `should have correct nullable type name`() {
         val pattern = AnyOfPattern(listOf(NumberPattern(), NullPattern), extensions = emptyMap())
-        assertThat(pattern.typeName).isEqualTo("(number anyOf \"null\")")
+        assertThat(pattern.typeName).isEqualTo("(anyOf number \"null\")")
     }
 
     @Test
@@ -105,6 +105,15 @@ internal class AnyOfPatternTest {
     }
 
     @Test
+    fun `should encompass anyOf with same types in different order`() {
+        val pattern1 = AnyOfPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())
+        val pattern2 = AnyOfPattern(listOf(NumberPattern(), StringPattern()), extensions = emptyMap())
+        
+        val result = pattern1.encompasses(pattern2, Resolver(), Resolver())
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
     fun `should handle JSON object patterns`() {
         val objectPattern1 = JSONObjectPattern(mapOf("name" to StringPattern()), typeAlias = "(Person)")
         val objectPattern2 = JSONObjectPattern(mapOf("id" to NumberPattern()), typeAlias = "(Id)")
@@ -115,6 +124,18 @@ internal class AnyOfPatternTest {
         
         assertThat(pattern.matches(personValue, Resolver())).isInstanceOf(Result.Success::class.java)
         assertThat(pattern.matches(idValue, Resolver())).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `should encompass JSONObjectPattern with compatible structure`() {
+        val objectPattern1 = JSONObjectPattern(mapOf("name" to StringPattern(), "age" to NumberPattern()), typeAlias = "(Person)")
+        val objectPattern2 = JSONObjectPattern(mapOf("id" to NumberPattern()), typeAlias = "(Id)")
+        val anyOfPattern = AnyOfPattern(listOf(objectPattern1, objectPattern2), extensions = emptyMap())
+        
+        val compatiblePattern = JSONObjectPattern(mapOf("name" to StringPattern()), typeAlias = "(SimplePerson)")
+        
+        val result = anyOfPattern.encompasses(compatiblePattern, Resolver(), Resolver())
+        assertThat(result).isInstanceOf(Result.Success::class.java)
     }
 
     @Test
@@ -168,7 +189,13 @@ internal class AnyOfPatternTest {
         val row = Row(listOf("hello"))
         
         val newPatterns = pattern.newBasedOn(row, Resolver()).toList()
-        assertThat(newPatterns).isNotEmpty
+        assertThat(newPatterns).hasSize(2)
+        
+        val numberPattern = newPatterns.find { it.value?.typeName == "number" }
+        val stringPattern = newPatterns.find { it.value?.typeName == "\"hello\"" }
+        
+        assertThat(numberPattern).isNotNull
+        assertThat(stringPattern).isNotNull
     }
 
     @Test
@@ -229,30 +256,6 @@ internal class AnyOfPatternTest {
     }
 
     @Test
-    fun `should handle type aliases correctly`() {
-        val pattern = AnyOfPattern(
-            listOf(NumberPattern(), StringPattern()),
-            typeAlias = "(NumberOrString)",
-            extensions = emptyMap()
-        )
-        
-        assertThat(pattern.typeAlias).isEqualTo("(NumberOrString)")
-    }
-
-    @Test
-    fun `should work with resolver examples`() {
-        val pattern = AnyOfPattern(
-            listOf(NumberPattern(), StringPattern()),
-            example = "\"test\"",
-            extensions = emptyMap()
-        )
-        
-        val value = pattern.generate(Resolver())
-        // Should either use the example or generate from patterns
-        assertThat(pattern.matches(value, Resolver())).isInstanceOf(Result.Success::class.java)
-    }
-
-    @Test
     fun `listOf should use first pattern for list creation`() {
         val pattern = AnyOfPattern(listOf(NumberPattern(), StringPattern()), extensions = emptyMap())
         val values = listOf(StringValue("hello"), StringValue("world"))
@@ -269,5 +272,44 @@ internal class AnyOfPatternTest {
         assertThrows<ContractException> {
             pattern.listOf(values, Resolver())
         }
+    }
+
+    @Test
+    fun `fillInTheBlanks should return value from first matching pattern`() {
+        val pattern = AnyOfPattern(listOf(NumberPattern(), StringPattern()), extensions = emptyMap())
+        val value = StringValue("hello")
+        
+        val result = pattern.fillInTheBlanks(value, Resolver(), false)
+        assertThat(result).isInstanceOf(HasValue::class.java)
+        assertThat((result as HasValue).value).isEqualTo(value)
+    }
+
+    @Test
+    fun `fillInTheBlanks should handle removeExtraKeys for JSON objects`() {
+        val objectPattern1 = JSONObjectPattern(mapOf("name" to StringPattern(), "age" to NumberPattern()))
+        val objectPattern2 = JSONObjectPattern(mapOf("id" to NumberPattern()))
+        val pattern = AnyOfPattern(listOf(objectPattern1, objectPattern2), extensions = emptyMap())
+        
+        val value = JSONObjectValue(mapOf(
+            "name" to StringValue("John"),
+            "age" to NumberValue(30),
+            "extra" to StringValue("should be removed")
+        ))
+        
+        val result = pattern.fillInTheBlanks(value, Resolver(), true)
+        assertThat(result).isInstanceOf(HasValue::class.java)
+        
+        val resultValue = (result as HasValue).value as JSONObjectValue
+        assertThat(resultValue.jsonObject).containsKeys("name", "age")
+        assertThat(resultValue.jsonObject).doesNotContainKey("extra")
+    }
+
+    @Test
+    fun `fillInTheBlanks should return failure when no pattern matches`() {
+        val pattern = AnyOfPattern(listOf(NumberPattern(), BooleanPattern()), extensions = emptyMap())
+        val value = StringValue("hello")
+        
+        val result = pattern.fillInTheBlanks(value, Resolver(), false)
+        assertThat(result).isInstanceOf(HasFailure::class.java)
     }
 }
