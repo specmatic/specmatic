@@ -952,7 +952,11 @@ class OpenApiSpecification(
                 status = if (status == "default") 1000 else status.toInt(),
                 body = when (contentType) {
                     "application/xml" -> toXMLPattern(mediaType)
-                    else -> toSpecmaticPattern(mediaType, "response", breadCrumb = "$method $path -> $status ($contentType).RESPONSE.BODY")
+                    else -> toSpecmaticPattern(
+                        mediaType,
+                        breadCrumb = "$method $path -> $status ($contentType).RESPONSE.BODY",
+                        contentType = contentType
+                    )
                 }
             )
 
@@ -1151,7 +1155,7 @@ class OpenApiSpecification(
 
                     val bodyIsRequired: Boolean = requestBody.required ?: true
 
-                    val body = toSpecmaticPattern(mediaType, "request", breadCrumb = "$httpMethod ${httpPathPattern.path} ($contentType).REQUEST.BODY").let {
+                    val body = toSpecmaticPattern(mediaType, breadCrumb = "$httpMethod ${httpPathPattern.path} ($contentType).REQUEST.BODY").let {
                         if (bodyIsRequired)
                             it
                         else
@@ -1314,8 +1318,28 @@ class OpenApiSpecification(
         return this.entries.distinctBy { it.value }.associate { it.key to it.value }
     }
 
-    private fun toSpecmaticPattern(mediaType: MediaType, section: String, jsonInFormData: Boolean = false, breadCrumb: String = ""): Pattern =
-        toSpecmaticPattern(mediaType.schema ?: throw ContractException("${section.capitalizeFirstChar()} body definition is missing"), emptyList(), jsonInFormData = jsonInFormData, breadCrumb = breadCrumb)
+    private fun toSpecmaticPattern(mediaType: MediaType, jsonInFormData: Boolean = false, breadCrumb: String = "", contentType: String = ""): Pattern {
+        if(mediaType.schema != null)
+            return toSpecmaticPattern(mediaType.schema, emptyList(), jsonInFormData = jsonInFormData, breadCrumb = breadCrumb)
+
+        val (valueType, patternType) = if (contentType.contains("json", ignoreCase = true) || contentType.contains("form-data", ignoreCase = true)) {
+            val freeFormJSONObject = JSONObjectPattern(
+                pattern = emptyMap(),
+                additionalProperties = AdditionalProperties.FreeForm,
+            )
+
+            "free form JSON object" to freeFormJSONObject
+        } else if (contentType.contains("text", ignoreCase = true) || contentType.contains("xml", ignoreCase = true)) {
+            "text" to StringPattern()
+        } else {
+            "binary data" to BinaryPattern()
+        }
+
+        logger.log(getEmptySchemaWarning(breadCrumb, valueType))
+        logger.boundary()
+
+        return patternType
+    }
 
     private fun resolveDeepAllOfs(schema: Schema<Any>, discriminatorDetails: DiscriminatorDetails, typeStack: Set<String>, topLevel: Boolean): Pair<List<Schema<Any>>, DiscriminatorDetails> {
         if (schema.allOf == null)
@@ -2129,6 +2153,14 @@ class OpenApiSpecification(
     }
 }
 
+internal fun getEmptySchemaWarning(breadCrumb: String, valueType: String): Warning {
+    return Warning(
+        problem = "The specification contains an empty media type definition for $breadCrumb.",
+        implications = "It will be treated as a $valueType when generating tests, in mocks, etc. Thus, any $valueType will satisfy the requirements of this schema, and you will lose feedback about broken consumer expectations.",
+        resolution = "Please provide a media type with a schema.",
+    )
+}
+
 internal fun validateSecuritySchemeParameterDuplication(
     securitySchemes: List<OpenAPISecurityScheme>,
     parameters: List<Parameter>?,
@@ -2154,7 +2186,7 @@ internal fun createWarningForRefAndSchemaSiblings(
             } else {
                 "Schema at $schemaDescriptor has both \$ref ($ref) and a type $type defined."
             },
-        reason = "As per the OpenAPI specification format ($openApiLink), when both are present, only \$ref will be used when generating tests, mock responses, etc, and the neighboring type will be ignored.",
+        implications = "As per the OpenAPI specification format ($openApiLink), when both are present, only \$ref will be used when generating tests, mock responses, etc, and the neighboring type will be ignored.",
         resolution = "To resolve this, remove either the $ref or the $type type.",
     )
 }
