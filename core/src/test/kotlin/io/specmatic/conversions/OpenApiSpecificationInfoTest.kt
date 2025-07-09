@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import io.specmatic.stub.captureStandardOutput
+import io.swagger.v3.oas.models.parameters.Parameter
 
 class OpenApiSpecificationInfoTest {
     @Test
@@ -174,7 +175,16 @@ class OpenApiSpecificationInfoTest {
         """.trimIndent()
 
         val (output, _) = captureStandardOutput { OpenApiSpecification.fromYAML(spec, "").toFeature()  }
-        assertThat(output).contains("Warning: Security scheme Bearer Authorization is defined in the OpenAPI specification, but conflicting header parameter(s) have been defined in the GET operation for path '/greet'. This may lead to confusion or conflicts.")
+
+        val warningMsg = printWarningsForOverriddenSecurityParameters(
+            matchingParameters = "Authorization",
+            securitySchemeDescription = "Bearer Authorization",
+            httpParameterType = "header",
+            method= "GET",
+            path = "/greet"
+        ).toLogString()
+
+        assertThat(output).contains(warningMsg)
     }
 
     @Test
@@ -219,6 +229,14 @@ class OpenApiSpecificationInfoTest {
         """.trimIndent()
 
         val (output, _) = captureStandardOutput { OpenApiSpecification.fromYAML(spec, "").toFeature()  }
-        assertThat(output).contains("Warning: Security scheme Bearer Authorization is defined in the OpenAPI specification, but conflicting header parameter(s) have been defined in the GET operation for path '/greet'. This may lead to confusion or conflicts.")
+        val warningMsg = printWarningsForOverriddenSecurityParameters(
+            matchingParameters = "Authorization",
+            securitySchemeDescription = "Bearer Authorization",
+            httpParameterType = "header",
+            method= "GET",
+            path = "/greet"
+        ).toLogString()
+
+        assertThat(output).contains(warningMsg)
     }
 }
