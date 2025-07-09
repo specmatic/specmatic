@@ -952,7 +952,12 @@ class OpenApiSpecification(
                 status = if (status == "default") 1000 else status.toInt(),
                 body = when (contentType) {
                     "application/xml" -> toXMLPattern(mediaType)
-                    else -> toSpecmaticPattern(mediaType, "response", breadCrumb = "$method $path -> $status ($contentType).RESPONSE.BODY")
+                    else -> toSpecmaticPattern(
+                        mediaType,
+                        "response",
+                        breadCrumb = "$method $path -> $status ($contentType).RESPONSE.BODY",
+                        contentType = contentType
+                    )
                 }
             )
 
@@ -1314,8 +1319,30 @@ class OpenApiSpecification(
         return this.entries.distinctBy { it.value }.associate { it.key to it.value }
     }
 
-    private fun toSpecmaticPattern(mediaType: MediaType, section: String, jsonInFormData: Boolean = false, breadCrumb: String = ""): Pattern =
-        toSpecmaticPattern(mediaType.schema ?: throw ContractException("${section.capitalizeFirstChar()} body definition is missing"), emptyList(), jsonInFormData = jsonInFormData, breadCrumb = breadCrumb)
+    private fun toSpecmaticPattern(mediaType: MediaType, section: String, jsonInFormData: Boolean = false, breadCrumb: String = "", contentType: String = ""): Pattern {
+        if (mediaType.schema == null) {
+            return if (contentType.contains("json", ignoreCase = true)) {
+
+                logger.log(
+                    Warning(
+                        problem ="The specification contains an empty media type definition for $breadCrumb.",
+                        reason = "It will be treated as a free form JSON object.",
+                        resolution = "Any JSON object will satisfy the requirements of this schema."
+                    )
+                )
+                logger.boundary()
+
+                JSONObjectPattern(
+                    pattern = emptyMap(),
+                    additionalProperties = AdditionalProperties.FreeForm
+                )
+            } else {
+                throw ContractException("${section.capitalizeFirstChar()} body definition is missing")
+            }
+        }
+
+        return toSpecmaticPattern(mediaType.schema, emptyList(), jsonInFormData = jsonInFormData, breadCrumb = breadCrumb)
+    }
 
     private fun resolveDeepAllOfs(schema: Schema<Any>, discriminatorDetails: DiscriminatorDetails, typeStack: Set<String>, topLevel: Boolean): Pair<List<Schema<Any>>, DiscriminatorDetails> {
         if (schema.allOf == null)
