@@ -1325,9 +1325,9 @@ class OpenApiSpecification(
         return if (contentType.contains("json", ignoreCase = true)) {
             logger.log(
                 Warning(
-                    problem ="The specification contains an empty media type definition for $breadCrumb.",
-                    reason = "It will be treated as a free form JSON object.",
-                    resolution = "Any JSON object will satisfy the requirements of this schema.",
+                    problem = "The specification contains an empty media type definition for $breadCrumb.",
+                    implications = "It will be treated as a free form JSON object when generating tests, in mocks, etc. Thus, any JSON object will satisfy the requirements of this schema, and you will lose feedback about broken consumer expectations.",
+                    resolution = "Please provide a media type with a schema.",
                 ),
             )
             logger.boundary()
@@ -2184,7 +2184,7 @@ internal fun createWarningForRefAndSchemaSiblings(
             } else {
                 "Schema at $schemaDescriptor has both \$ref ($ref) and a type $type defined."
             },
-        reason = "As per the OpenAPI specification format ($openApiLink), when both are present, only \$ref will be used when generating tests, mock responses, etc, and the neighboring type will be ignored.",
+        implications = "As per the OpenAPI specification format ($openApiLink), when both are present, only \$ref will be used when generating tests, mock responses, etc, and the neighboring type will be ignored.",
         resolution = "To resolve this, remove either the $ref or the $type type.",
     )
 }
