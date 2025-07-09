@@ -174,7 +174,16 @@ class OpenApiSpecificationInfoTest {
         """.trimIndent()
 
         val (output, _) = captureStandardOutput { OpenApiSpecification.fromYAML(spec, "").toFeature()  }
-        assertThat(output).contains("Warning: Security scheme Bearer Authorization is defined in the OpenAPI specification, but conflicting header parameter(s) have been defined in the GET operation for path '/greet'. This may lead to confusion or conflicts.")
+
+        val warningMsg = warningsForOverriddenSecurityParameters(
+            matchingParameters = "Authorization",
+            securitySchemeDescription = "Bearer Authorization",
+            httpParameterType = "header",
+            method= "GET",
+            path = "/greet"
+        ).toLogString()
+
+        assertThat(output).contains(warningMsg)
     }
 
     @Test
@@ -219,6 +228,35 @@ class OpenApiSpecificationInfoTest {
         """.trimIndent()
 
         val (output, _) = captureStandardOutput { OpenApiSpecification.fromYAML(spec, "").toFeature()  }
-        assertThat(output).contains("Warning: Security scheme Bearer Authorization is defined in the OpenAPI specification, but conflicting header parameter(s) have been defined in the GET operation for path '/greet'. This may lead to confusion or conflicts.")
+        val warningMsg = warningsForOverriddenSecurityParameters(
+            matchingParameters = "Authorization",
+            securitySchemeDescription = "Bearer Authorization",
+            httpParameterType = "header",
+            method= "GET",
+            path = "/greet"
+        ).toLogString()
+
+        assertThat(output).contains(warningMsg)
+    }
+
+    @Test
+    fun `should generate correct warning message for overridden security parameters`() {
+        val matchingParameters = "Authorization"
+        val securitySchemeDescription = "BearerAuth"
+        val httpParameterType = "header"
+        val method = "GET"
+        val path = "/greet"
+
+        val warning = warningsForOverriddenSecurityParameters(
+            matchingParameters = matchingParameters,
+            securitySchemeDescription = securitySchemeDescription,
+            httpParameterType = httpParameterType,
+            method = method,
+            path = path
+        )
+
+        val logString = warning.toLogString()
+
+        assertThat(logString).isEqualTo("WARNING: Security scheme BearerAuth is defined in the OpenAPI specification, but conflicting header parameter(s) Authorization have been defined in the GET operation for path '/greet'. This may lead to confusion or conflicts. Consider removing the conflicting header parameter(s) or updating the security scheme definition to avoid conflicts.")
     }
 }
