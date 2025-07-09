@@ -48,7 +48,7 @@ internal fun printWarningsForOverriddenSecurityParameters(
     path: String
 ) {
     val parameterNames = matchingParameters.joinToString(", ") { it.name }
-    val warningMsg = printWarningsForOverriddenSecurityParameters(
+    val warningMsg = warningsForOverriddenSecurityParameters(
         matchingParameters = parameterNames,
         securitySchemeDescription = securitySchemeDescription,
         httpParameterType = httpParameterType,
@@ -59,7 +59,7 @@ internal fun printWarningsForOverriddenSecurityParameters(
     logger.boundary()
 }
 
-internal fun printWarningsForOverriddenSecurityParameters(
+internal fun warningsForOverriddenSecurityParameters(
     matchingParameters: String,
     securitySchemeDescription: String,
     httpParameterType: String,
@@ -67,8 +67,8 @@ internal fun printWarningsForOverriddenSecurityParameters(
     path: String
 ): Warning {
     return Warning(
-        problem = "Security scheme $securitySchemeDescription is defined in the OpenAPI specification, but conflicting $httpParameterType parameter(s) have been defined in the $method operation for path '$path'.",
-        reason = "This may lead to confusion or conflicts.",
-        resolution = "Consider removing the conflicting $httpParameterType parameter(s): $matchingParameters or updating the security scheme definition to avoid conflicts."
+        problem = "Security scheme $securitySchemeDescription is defined in the OpenAPI specification, but conflicting $httpParameterType parameter(s) $matchingParameters have been defined in the $method operation for path '$path'.",
+        implications = "This may lead to confusion or conflicts.",
+        resolution = "Consider removing the conflicting $httpParameterType parameter(s) or updating the security scheme definition to avoid conflicts."
     )
 }
