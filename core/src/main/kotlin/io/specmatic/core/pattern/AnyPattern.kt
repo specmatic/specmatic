@@ -368,8 +368,6 @@ data class AnyPattern(
 
     fun isDiscriminatorPresent() = discriminator?.isNotEmpty() == true
 
-    fun hasMultipleDiscriminatorValues() = discriminator?.hasMultipleValues() == true
-
     fun generateForEveryDiscriminatorValue(resolver: Resolver): List<DiscriminatorBasedItem<Value>> {
         return discriminator?.values.orEmpty().map { discriminatorValue ->
             DiscriminatorBasedItem(
