@@ -36,8 +36,77 @@ class OpenApiSpecificationValidationWarnings {
         }
 
         assertThat(stdout).contains(
-            getEmptySchemaWarning(breadCrumb = "GET /test -> 200 (application/json).RESPONSE.BODY", valueType = "JSON object").toLogString()
+            getEmptySchemaWarning(breadCrumb = "GET /test -> 200 (application/json).RESPONSE.BODY", valueType = "free form JSON object").toLogString()
         )
+    }
+
+    @Test
+    fun `show an error when examples with no mediaType is found in the request`() {
+        val (output, _) = captureStandardOutput {
+            OpenApiSpecification.fromYAML(
+                """
+                openapi: 3.0.3
+                info:
+                  title: My service
+                  description: My service
+                  version: 1.0.0
+                servers:
+                  - url: 'https://localhost:8080'
+                paths:
+                  /api/nocontent:
+                    post:
+                      requestBody:
+                        content:
+                          application/json:
+                            example: test data
+                      responses:
+                        "204":
+                          description: No response
+                """.trimIndent(), ""
+            ).toFeature()
+        }
+
+        assertThat(output).contains(
+            getEmptySchemaWarning(breadCrumb="POST /api/nocontent (application/json).REQUEST.BODY", valueType="binary data").toLogString()
+        )
+    }
+
+    @Test
+    fun `show an error when examples with no mediaType is found in the response`() {
+        val (output, _) = captureStandardOutput {
+            OpenApiSpecification.fromYAML("""
+                openapi: 3.0.3
+                info:
+                  title: My service
+                  description: My service
+                  version: 1.0.0
+                servers:
+                  - url: 'https://localhost:8080'
+                paths:
+                  /api/nocontent:
+                    post:
+                      requestBody:
+                        content:
+                          application/json:
+                            schema:
+                              type: object
+                              properties:
+                                name:
+                                  description: The name of the entity
+                      responses:
+                        "200":
+                          description: Random
+                          content:
+                            text/plain:
+                              example: sample response
+                            """.trimIndent(), ""
+            ).toFeature()
+        }
+
+        assertThat(output).contains(
+            getEmptySchemaWarning(breadCrumb="POST /api/nocontent -> 200 (text/plain).RESPONSE.BODY", valueType="text").toLogString()
+        )
+
     }
 
     @Test
@@ -93,7 +162,7 @@ class OpenApiSpecificationValidationWarnings {
         }
 
         assertThat(stdout).doesNotContain(
-            getEmptySchemaWarning(breadCrumb = "GET /bar -> 200 (application/json).RESPONSE.BODY", valueType = "JSON object").toLogString()
+            getEmptySchemaWarning(breadCrumb = "GET /bar -> 200 (application/json).RESPONSE.BODY", valueType = "free form JSON object").toLogString()
         )
     }
 }

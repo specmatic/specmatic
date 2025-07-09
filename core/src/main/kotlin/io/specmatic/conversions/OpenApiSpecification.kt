@@ -1322,19 +1322,17 @@ class OpenApiSpecification(
         if(mediaType.schema != null)
             return toSpecmaticPattern(mediaType.schema, emptyList(), jsonInFormData = jsonInFormData, breadCrumb = breadCrumb)
 
-        var valueType = ""
-        val patternType = if (contentType.contains("json", ignoreCase = true) || contentType.contains("form-data", ignoreCase = true)) {
-            valueType = "JSON object"
-            JSONObjectPattern(
+        val (valueType, patternType) = if (contentType.contains("json", ignoreCase = true) || contentType.contains("form-data", ignoreCase = true)) {
+            val freeFormJSONObject = JSONObjectPattern(
                 pattern = emptyMap(),
                 additionalProperties = AdditionalProperties.FreeForm,
             )
+
+            "free form JSON object" to freeFormJSONObject
         } else if (contentType.contains("text", ignoreCase = true) || contentType.contains("xml", ignoreCase = true)) {
-            valueType = "text"
-            StringPattern()
+            "text" to StringPattern()
         } else {
-            valueType = "binary data"
-            BinaryPattern()
+            "binary data" to BinaryPattern()
         }
 
         logger.log(getEmptySchemaWarning(breadCrumb, valueType))
@@ -2158,7 +2156,7 @@ class OpenApiSpecification(
 internal fun getEmptySchemaWarning(breadCrumb: String, valueType: String): Warning {
     return Warning(
         problem = "The specification contains an empty media type definition for $breadCrumb.",
-        implications = "It will be treated as a free form $valueType when generating tests, in mocks, etc. Thus, any $valueType will satisfy the requirements of this schema, and you will lose feedback about broken consumer expectations.",
+        implications = "It will be treated as a $valueType when generating tests, in mocks, etc. Thus, any $valueType will satisfy the requirements of this schema, and you will lose feedback about broken consumer expectations.",
         resolution = "Please provide a media type with a schema.",
     )
 }
