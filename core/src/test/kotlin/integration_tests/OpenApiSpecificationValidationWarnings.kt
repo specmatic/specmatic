@@ -34,7 +34,7 @@ class OpenApiSpecificationValidationWarnings {
             OpenApiSpecification.fromYAML(spec, "").toFeature()
         }
 
-        assertThat(stdout).contains("WARNING: The specification contains an empty media type definition for GET /test -> 200 (application/json).RESPONSE.BODY. It will be treated as a free form JSON object. Any JSON object will satisfy the requirements of this schema.")
+        assertThat(stdout).contains("WARNING: The specification contains an empty media type definition for GET /test -> 200 (application/json).RESPONSE.BODY. It will be treated as a free form JSON object when generating tests, in mocks, etc. Thus, any JSON object will satisfy the requirements of this schema, and you will lose feedback about broken consumer expectations. Please provide a media type with a schema.")
     }
 
     @Test

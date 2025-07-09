@@ -1322,29 +1322,25 @@ class OpenApiSpecification(
         if(mediaType.schema != null)
             return toSpecmaticPattern(mediaType.schema, emptyList(), jsonInFormData = jsonInFormData, breadCrumb = breadCrumb)
 
-        return if (contentType.contains("json", ignoreCase = true)) {
-            logger.log(
-                Warning(
-                    problem = "The specification contains an empty media type definition for $breadCrumb.",
-                    implications = "It will be treated as a free form JSON object when generating tests, in mocks, etc. Thus, any JSON object will satisfy the requirements of this schema, and you will lose feedback about broken consumer expectations.",
-                    resolution = "Please provide a media type with a schema.",
-                ),
-            )
-            logger.boundary()
-
+        var valueType = ""
+        val patternType = if (contentType.contains("json", ignoreCase = true) || contentType.contains("form-data", ignoreCase = true)) {
+            valueType = "JSON object"
             JSONObjectPattern(
                 pattern = emptyMap(),
                 additionalProperties = AdditionalProperties.FreeForm,
             )
-        } else if(contentType.contains("text/plain", ignoreCase = true) || contentType.contains("xml", ignoreCase = true)) {
-            // WARNINGS
-
+        } else if (contentType.contains("text", ignoreCase = true) || contentType.contains("xml", ignoreCase = true)) {
+            valueType = "text"
             StringPattern()
         } else {
-            // WARNINGS
-
+            valueType = "binary data"
             BinaryPattern()
         }
+
+        logger.log(getEmptySchemaWarning(breadCrumb, valueType))
+        logger.boundary()
+
+        return patternType
     }
 
     private fun resolveDeepAllOfs(schema: Schema<Any>, discriminatorDetails: DiscriminatorDetails, typeStack: Set<String>, topLevel: Boolean): Pair<List<Schema<Any>>, DiscriminatorDetails> {
@@ -2157,6 +2153,14 @@ class OpenApiSpecification(
             "DELETE" to pathItem.delete
         ).filter { (_, value) -> value != null }.map { (key, value) -> key to OpenApiOperation(value!!) }.toMap()
     }
+}
+
+internal fun getEmptySchemaWarning(breadCrumb: String, valueType: String): Warning {
+    return Warning(
+        problem = "The specification contains an empty media type definition for $breadCrumb.",
+        implications = "It will be treated as a free form $valueType when generating tests, in mocks, etc. Thus, any $valueType will satisfy the requirements of this schema, and you will lose feedback about broken consumer expectations.",
+        resolution = "Please provide a media type with a schema.",
+    )
 }
 
 internal fun validateSecuritySchemeParameterDuplication(
