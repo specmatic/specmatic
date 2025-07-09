@@ -6,20 +6,20 @@ import io.specmatic.core.value.StringValue
 
 class Warning(
     private val problem: String,
-    private val reason: String,
+    private val implications: String,
     private val resolution: String,
 ) : LogMessage {
     override fun toJSONObject(): JSONObjectValue {
         return JSONObjectValue(
             mapOf(
                 "problem" to StringValue(problem),
-                "reason" to StringValue(reason),
+                "reason" to StringValue(implications),
                 "resolution" to StringValue(resolution),
             ),
         )
     }
 
     override fun toLogString(): String {
-        return "WARNING: $problem $reason $resolution"
+        return "WARNING: $problem $implications $resolution"
     }
 }
