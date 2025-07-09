@@ -1388,7 +1388,7 @@ class OpenApiSpecification(
     }
 
     private fun toSpecmaticPattern(
-        schema: Schema<*>, typeStack: List<String>, patternName: String = "", jsonInFormData: Boolean = false
+        schema: Schema<*>, typeStack: List<String>, patternName: String = "", jsonInFormData: Boolean = false, defaultAdditionalPropertiesToFreeForm: Boolean = false
     ): Pattern {
         if(patternName.isNotBlank()) logger.debug("Processing schema $patternName")
 
@@ -1404,7 +1404,7 @@ class OpenApiSpecification(
             if (!cyclicReference) {
                 val componentPattern = toSpecmaticPattern(
                     referredSchema,
-                    typeStack.plus(componentName), componentName
+                    typeStack.plus(componentName), componentName, jsonInFormData, defaultAdditionalPropertiesToFreeForm
                 )
                 cacheComponentPattern(componentName, componentPattern)
             }
@@ -1446,7 +1446,7 @@ class OpenApiSpecification(
                 if (schema.xml?.name != null) {
                     toXMLPattern(schema, typeStack = typeStack)
                 } else {
-                    toJsonObjectPattern(schema, patternName, typeStack)
+                    toJsonObjectPattern(schema, patternName, typeStack, defaultAdditionalPropertiesToFreeForm)
                 }
             }
             is ByteArraySchema -> Base64StringPattern()
@@ -1458,7 +1458,7 @@ class OpenApiSpecification(
 
                     ListPattern(
                         toSpecmaticPattern(
-                            schema.items, typeStack
+                            schema.items, typeStack, "", jsonInFormData, defaultAdditionalPropertiesToFreeForm
                         ),
                         example = toListExample(schema.example)
                     )
@@ -1484,7 +1484,8 @@ class OpenApiSpecification(
                                     requiredFields.distinct(),
                                     patternName,
                                     typeStack,
-                                    discriminator
+                                    discriminator,
+                                    defaultAdditionalPropertiesToFreeForm
                                 )
                             )
                         }.fold(SchemaProperty(extensions = emptyMap(), properties = emptyMap())) { propertiesAcc, propertiesEntry ->
@@ -1514,7 +1515,9 @@ class OpenApiSpecification(
                                 schemaToProcess,
                                 requiredFields,
                                 componentName,
-                                typeStack
+                                typeStack,
+                                DiscriminatorDetails(),
+                                defaultAdditionalPropertiesToFreeForm
                             ))
                         }.flatMap { (componentName, schemaProperty) ->
                             schemaProperties.map {
@@ -1588,7 +1591,7 @@ class OpenApiSpecification(
                             else
                                 "" to componentSchema
 
-                        toSpecmaticPattern(schemaToProcess, typeStack.plus(componentName), componentName)
+                        toSpecmaticPattern(schemaToProcess, typeStack.plus(componentName), componentName, jsonInFormData, defaultAdditionalPropertiesToFreeForm)
                     }
 
                     val nullable =
@@ -1604,7 +1607,7 @@ class OpenApiSpecification(
                     )
                 } else if (schema.anyOf != null) {
                     val candidatePatterns = schema.anyOf.map { componentSchema ->
-                        toSpecmaticPattern(componentSchema, typeStack, "")
+                        toSpecmaticPattern(componentSchema, typeStack, "", jsonInFormData, true)
                     }
 
                     AnyOfPattern(
@@ -1620,7 +1623,7 @@ class OpenApiSpecification(
                 if (schema.nullable == true && schema.additionalProperties == null && schema.`$ref` == null) {
                     NullPattern
                 } else if (schema.additionalProperties is Schema<*> || schema.additionalProperties == true || schema.properties != null) {
-                    toJsonObjectPattern(schema, patternName, typeStack)
+                    toJsonObjectPattern(schema, patternName, typeStack, defaultAdditionalPropertiesToFreeForm)
                 } else {
                     val schemaFragment = if(patternName.isNotBlank()) " in schema $patternName" else " in the schema"
 
@@ -1891,27 +1894,28 @@ class OpenApiSpecification(
         mapOf("string" to "(string)", "number" to "(number)", "integer" to "(number)", "boolean" to "(boolean)")
 
     private fun toJsonObjectPattern(
-        schema: Schema<*>, patternName: String, typeStack: List<String>
+        schema: Schema<*>, patternName: String, typeStack: List<String>, defaultAdditionalPropertiesToFreeForm: Boolean = false
     ): JSONObjectPattern {
         val requiredFields = schema.required.orEmpty()
-        val schemaProperties = toSchemaProperties(schema, requiredFields, patternName, typeStack)
+        val schemaProperties = toSchemaProperties(schema, requiredFields, patternName, typeStack, DiscriminatorDetails(), defaultAdditionalPropertiesToFreeForm)
         val minProperties: Int? = schema.minProperties
         val maxProperties: Int? = schema.maxProperties
         val jsonObjectPattern = toJSONObjectPattern(schemaProperties, if(patternName.isNotBlank()) "(${patternName})" else null).copy(
             minProperties = minProperties,
             maxProperties = maxProperties,
-            additionalProperties = additionalPropertiesFrom(schema, patternName, typeStack),
+            additionalProperties = additionalPropertiesFrom(schema, patternName, typeStack, defaultAdditionalPropertiesToFreeForm),
             extensions = schema.extensions.orEmpty()
         )
         return cacheComponentPattern(patternName, jsonObjectPattern)
     }
 
     private fun additionalPropertiesFrom(
-        schema: Schema<*>, patternName: String, typeStack: List<String>
+        schema: Schema<*>, patternName: String, typeStack: List<String>, defaultAdditionalPropertiesToFreeForm: Boolean = false
     ): AdditionalProperties {
         val schemaProperties = schema.properties.orEmpty()
 
         val additionalProperties = schema.additionalProperties ?: return when {
+            defaultAdditionalPropertiesToFreeForm -> AdditionalProperties.FreeForm
             schemaProperties.isEmpty() -> AdditionalProperties.FreeForm
             else -> AdditionalProperties.NoAdditionalProperties
         }
@@ -1919,7 +1923,7 @@ class OpenApiSpecification(
         return when (additionalProperties) {
             true -> AdditionalProperties.FreeForm
             false -> AdditionalProperties.NoAdditionalProperties
-            is Schema<*> -> processAdditionalPropertiesSchema(additionalProperties, patternName, typeStack)
+            is Schema<*> -> processAdditionalPropertiesSchema(additionalProperties, patternName, typeStack, defaultAdditionalPropertiesToFreeForm)
             else -> throw ContractException(
                 breadCrumb = "$patternName.additionalProperties",
                 errorMessage = "Unrecognized type for additionalProperties: expected a boolean or a schema"
@@ -1927,14 +1931,14 @@ class OpenApiSpecification(
         }
     }
 
-    private fun processAdditionalPropertiesSchema(schema: Schema<*>, patternName: String, typeStack: List<String>): AdditionalProperties {
-        val parsedPattern = toSpecmaticPattern(schema, typeStack, patternName)
+    private fun processAdditionalPropertiesSchema(schema: Schema<*>, patternName: String, typeStack: List<String>, defaultAdditionalPropertiesToFreeForm: Boolean = false): AdditionalProperties {
+        val parsedPattern = toSpecmaticPattern(schema, typeStack, patternName, false, defaultAdditionalPropertiesToFreeForm)
         return if (parsedPattern is AnyNonNullJSONValue) AdditionalProperties.FreeForm
         else AdditionalProperties.PatternConstrained(parsedPattern)
     }
 
     private fun toSchemaProperties(
-        schema: Schema<*>, requiredFields: List<String>, patternName: String, typeStack: List<String>, discriminatorDetails: DiscriminatorDetails = DiscriminatorDetails()
+        schema: Schema<*>, requiredFields: List<String>, patternName: String, typeStack: List<String>, discriminatorDetails: DiscriminatorDetails = DiscriminatorDetails(), defaultAdditionalPropertiesToFreeForm: Boolean = false
     ): Map<String, Pattern> {
         val patternMap = schema.properties.orEmpty().map { (propertyName, propertyType) ->
             if (schema.discriminator?.propertyName == propertyName)
@@ -1946,7 +1950,7 @@ class OpenApiSpecification(
                 toSpecmaticParamName(optional, propertyName) to attempt(breadCrumb = propertyName) {
                     toSpecmaticPattern(
                         propertyType,
-                        typeStack) }
+                        typeStack, "", false, defaultAdditionalPropertiesToFreeForm) }
             }
         }.toMap()
 
