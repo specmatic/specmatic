@@ -1,6 +1,7 @@
 package integration_tests
 
 import io.specmatic.conversions.OpenApiSpecification
+import io.specmatic.conversions.getEmptySchemaWarning
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.stub.captureStandardOutput
 import org.assertj.core.api.Assertions.assertThat
@@ -34,7 +35,9 @@ class OpenApiSpecificationValidationWarnings {
             OpenApiSpecification.fromYAML(spec, "").toFeature()
         }
 
-        assertThat(stdout).contains("WARNING: The specification contains an empty media type definition for GET /test -> 200 (application/json).RESPONSE.BODY. It will be treated as a free form JSON object when generating tests, in mocks, etc. Thus, any JSON object will satisfy the requirements of this schema, and you will lose feedback about broken consumer expectations. Please provide a media type with a schema.")
+        assertThat(stdout).contains(
+            getEmptySchemaWarning(breadCrumb = "GET /test -> 200 (application/json).RESPONSE.BODY", valueType = "JSON object").toLogString()
+        )
     }
 
     @Test
@@ -89,6 +92,8 @@ class OpenApiSpecificationValidationWarnings {
             OpenApiSpecification.fromYAML(spec, "").toFeature()
         }
 
-        assertThat(stdout).doesNotContain("WARNING: The specification contains an empty media type definition for GET /bar -> 200 (application/json).RESPONSE.BODY.")
+        assertThat(stdout).doesNotContain(
+            getEmptySchemaWarning(breadCrumb = "GET /bar -> 200 (application/json).RESPONSE.BODY", valueType = "JSON object").toLogString()
+        )
     }
 }
