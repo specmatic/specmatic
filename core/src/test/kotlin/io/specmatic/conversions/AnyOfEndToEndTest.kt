@@ -1,6 +1,5 @@
 package io.specmatic.conversions
 
-import io.specmatic.core.Feature
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result.Success
