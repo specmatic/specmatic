@@ -226,6 +226,28 @@ internal class AnyOfPatternTest {
     }
 
     @Test
+    @Tag(GENERATION)
+    fun `newBasedOn should work with two JSON object patterns and row example matching one pattern`() {
+        val objectPattern1 = JSONObjectPattern(mapOf("name" to StringPattern(), "age" to NumberPattern()))
+        val objectPattern2 = JSONObjectPattern(mapOf("id" to NumberPattern(), "type" to StringPattern()))
+        val pattern = AnyOfPattern(listOf(objectPattern1, objectPattern2), extensions = emptyMap())
+        
+        val row = Row(listOf("id", "type"), listOf("42", "admin"))
+        
+        val newPatterns = pattern.newBasedOn(row, Resolver()).toList()
+        assertThat(newPatterns.size).isGreaterThan(0)
+        
+        // Should find a pattern that can be used with the provided row data
+        val matchingPattern = newPatterns.find { 
+            val generated = it.value.generate(Resolver())
+            generated is JSONObjectValue && 
+            generated.jsonObject.containsKey("id") && 
+            generated.jsonObject.containsKey("type")
+        }
+        assertThat(matchingPattern).isNotNull
+    }
+
+    @Test
     fun `should handle empty pattern list gracefully`() {
         val pattern = AnyOfPattern(emptyList(), extensions = emptyMap())
         
@@ -338,5 +360,25 @@ internal class AnyOfPatternTest {
         
         val result = pattern.fillInTheBlanks(value, Resolver(), false)
         assertThat(result).isInstanceOf(HasFailure::class.java)
+    }
+
+    @Test
+    fun `fillInTheBlanks should work with two JSON object patterns`() {
+        val objectPattern1 = JSONObjectPattern(mapOf("name" to StringPattern(), "age" to NumberPattern()))
+        val objectPattern2 = JSONObjectPattern(mapOf("id" to NumberPattern(), "type" to StringPattern()))
+        val pattern = AnyOfPattern(listOf(objectPattern1, objectPattern2), extensions = emptyMap())
+        
+        val value = JSONObjectValue(mapOf(
+            "id" to NumberValue(123),
+            "type" to StringValue("user")
+        ))
+        
+        val result = pattern.fillInTheBlanks(value, Resolver(), false)
+        assertThat(result).isInstanceOf(HasValue::class.java)
+        
+        val resultValue = (result as HasValue).value as JSONObjectValue
+        assertThat(resultValue.jsonObject).containsKeys("id", "type")
+        assertThat(resultValue.jsonObject["id"]).isEqualTo(NumberValue(123))
+        assertThat(resultValue.jsonObject["type"]).isEqualTo(StringValue("user"))
     }
 }
