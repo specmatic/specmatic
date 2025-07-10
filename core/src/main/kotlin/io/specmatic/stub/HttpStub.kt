@@ -37,6 +37,7 @@ import io.specmatic.stub.listener.MockEventListener
 import io.specmatic.stub.report.StubEndpoint
 import io.specmatic.stub.report.StubUsageReport
 import io.specmatic.stub.report.StubUsageReportJson
+import io.specmatic.stub.reports.MockHooks
 import io.specmatic.test.LegacyHttpClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BroadcastChannel
@@ -322,7 +323,10 @@ class HttpStub(
                 }
 
                 log(httpLogMessage)
-                MockEvent(httpLogMessage).let { event -> listeners.forEach { it.onRespond(event) } }
+                MockEvent(httpLogMessage).let { event -> 
+                    listeners.forEach { it.onRespond(event) }
+                    MockHooks.onMockEvent(event)
+                }
             }
 
             configureHealthCheckModule()

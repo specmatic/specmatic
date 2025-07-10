@@ -89,4 +89,18 @@ class MockReportingSupportTest {
         assertThat(content).contains("POST")
         assertThat(content).contains("Integration Test")
     }
+    
+    @Test
+    fun `should setup mock reporting with hooks`(@TempDir tempDir: File) {
+        val baseUrl = "http://localhost:8080"
+        val outputPath = File(tempDir, "hooks_mock_report.json").absolutePath
+        
+        val reportListener = MockReportingSupport.setupMockReportingWithHooks(baseUrl, outputPath)
+        
+        assertThat(reportListener).isNotNull()
+        assertThat(reportListener.getInteractionCount()).isEqualTo(0)
+        
+        // Cleanup
+        MockReportingSupport.cleanupMockReportingHooks(reportListener, baseUrl)
+    }
 }
