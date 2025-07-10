@@ -199,6 +199,33 @@ internal class AnyOfPatternTest {
     }
 
     @Test
+    @Tag(GENERATION)
+    fun `should create ExactValuePattern when pattern has JSON example matching anyOf`() {
+        val objectPattern = JSONObjectPattern(mapOf("name" to StringPattern(), "age" to NumberPattern()))
+        val jsonValue = JSONObjectValue(mapOf("name" to StringValue("John"), "age" to NumberValue(30)))
+        val pattern = AnyOfPattern(
+            listOf(StringPattern(), objectPattern), 
+            extensions = emptyMap(),
+            example = jsonValue.toStringLiteral()
+        )
+        
+        val row = Row()
+        val newPatterns = pattern.newBasedOn(row, Resolver()).toList()
+        assertThat(newPatterns).hasSize(1)
+        
+        val resultPattern = newPatterns.first().value
+        assertThat(resultPattern).isInstanceOf(ExactValuePattern::class.java)
+        
+        val exactPattern = resultPattern as ExactValuePattern
+        val generatedValue = exactPattern.pattern
+        assertThat(generatedValue).isInstanceOf(JSONObjectValue::class.java)
+        
+        val jsonObject = generatedValue as JSONObjectValue
+        assertThat(jsonObject.findFirstChildByPath("name")).isEqualTo(StringValue("John"))
+        assertThat(jsonObject.findFirstChildByPath("age")).isEqualTo(NumberValue(30))
+    }
+
+    @Test
     fun `should handle empty pattern list gracefully`() {
         val pattern = AnyOfPattern(emptyList(), extensions = emptyMap())
         
