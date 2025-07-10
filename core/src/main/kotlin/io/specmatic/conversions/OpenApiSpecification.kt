@@ -1924,10 +1924,15 @@ class OpenApiSpecification(
             true -> AdditionalProperties.FreeForm
             false -> AdditionalProperties.NoAdditionalProperties
             is Schema<*> -> processAdditionalPropertiesSchema(additionalProperties, patternName, typeStack, defaultAdditionalPropertiesToFreeForm)
-            else -> throw ContractException(
-                breadCrumb = "$patternName.additionalProperties",
-                errorMessage = "Unrecognized type for additionalProperties: expected a boolean or a schema"
-            )
+            else ->
+                if (defaultAdditionalPropertiesToFreeForm) {
+                    AdditionalProperties.FreeForm
+                } else {
+                    throw ContractException(
+                        breadCrumb = "$patternName.additionalProperties",
+                        errorMessage = "Unrecognized type for additionalProperties: expected a boolean or a schema",
+                    )
+                }
         }
     }
 
