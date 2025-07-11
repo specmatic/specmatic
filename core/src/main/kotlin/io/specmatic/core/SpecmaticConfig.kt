@@ -208,7 +208,7 @@ data class SpecmaticConfig(
     private val repository: RepositoryInfo? = null,
     private val report: ReportConfigurationDetails? = null,
     private val security: SecurityConfiguration? = null,
-    private val test: TestConfiguration? = TestConfiguration(),
+    private val test: TestConfiguration? = null,
     private val stub: StubConfiguration = StubConfiguration(),
     private val virtualService: VirtualServiceConfiguration = VirtualServiceConfiguration(),
     private val examples: List<String>? = null,
@@ -435,13 +435,12 @@ data class SpecmaticConfig(
 
     @JsonIgnore
     fun copyResiliencyTestsConfig(onlyPositive: Boolean): SpecmaticConfig {
-        return this.copy(
-            test = test?.copy(
-                resiliencyTests = (test.resiliencyTests ?: ResiliencyTestsConfig.fromSystemProperties()).copy(
-                    enable = if (onlyPositive) ResiliencyTestSuite.positiveOnly else ResiliencyTestSuite.all
-                )
-            )
-        )
+        val enable = if (onlyPositive) ResiliencyTestSuite.positiveOnly else ResiliencyTestSuite.all
+        val updatedResiliencyTest = ResiliencyTestsConfig(enable = enable)
+        val updatedTestConfig = test?.copy(
+            resiliencyTests = test.resiliencyTests ?: updatedResiliencyTest
+        ) ?: TestConfiguration(resiliencyTests = updatedResiliencyTest)
+        return this.copy(test = updatedTestConfig)
     }
 
     @JsonIgnore
