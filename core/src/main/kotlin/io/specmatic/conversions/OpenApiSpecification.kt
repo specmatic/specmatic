@@ -1155,7 +1155,7 @@ class OpenApiSpecification(
 
                     val bodyIsRequired: Boolean = requestBody.required ?: true
 
-                    val body = toSpecmaticPattern(mediaType, breadCrumb = "$httpMethod ${httpPathPattern.path} ($contentType).REQUEST.BODY").let {
+                    val body = toSpecmaticPattern(mediaType, breadCrumb = "$httpMethod ${httpPathPattern.path} ($contentType).REQUEST.BODY", contentType = contentType).let {
                         if (bodyIsRequired)
                             it
                         else
@@ -1335,7 +1335,7 @@ class OpenApiSpecification(
             "binary data" to BinaryPattern()
         }
 
-        logger.log(getEmptySchemaWarning(breadCrumb, valueType))
+        logger.log(getEmptySchemaWarning(contentType, breadCrumb, valueType))
         logger.boundary()
 
         return patternType
@@ -2153,9 +2153,9 @@ class OpenApiSpecification(
     }
 }
 
-internal fun getEmptySchemaWarning(breadCrumb: String, valueType: String): Warning {
+internal fun getEmptySchemaWarning(contentType: String, breadCrumb: String, valueType: String): Warning {
     return Warning(
-        problem = "The specification contains an empty media type definition for $breadCrumb.",
+        problem = "The specification contains media type $contentType with no definition for $breadCrumb.",
         implications = "It will be treated as a $valueType when generating tests, in mocks, etc. Thus, any $valueType will satisfy the requirements of this schema, and you will lose feedback about broken consumer expectations.",
         resolution = "Please provide a media type with a schema.",
     )

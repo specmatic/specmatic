@@ -36,7 +36,7 @@ class OpenApiSpecificationValidationWarnings {
         }
 
         assertThat(stdout).contains(
-            getEmptySchemaWarning(breadCrumb = "GET /test -> 200 (application/json).RESPONSE.BODY", valueType = "free form JSON object").toLogString()
+            getEmptySchemaWarning("application/json", breadCrumb = "GET /test -> 200 (application/json).RESPONSE.BODY", valueType = "free form JSON object").toLogString()
         )
     }
 
@@ -67,7 +67,7 @@ class OpenApiSpecificationValidationWarnings {
         }
 
         assertThat(output).contains(
-            getEmptySchemaWarning(breadCrumb="POST /api/nocontent (application/json).REQUEST.BODY", valueType="binary data").toLogString()
+            getEmptySchemaWarning("application/json", breadCrumb="POST /api/nocontent (application/json).REQUEST.BODY", valueType="free form JSON object").toLogString()
         )
     }
 
@@ -104,7 +104,7 @@ class OpenApiSpecificationValidationWarnings {
         }
 
         assertThat(output).contains(
-            getEmptySchemaWarning(breadCrumb="POST /api/nocontent -> 200 (text/plain).RESPONSE.BODY", valueType="text").toLogString()
+            getEmptySchemaWarning("text/plain", breadCrumb="POST /api/nocontent -> 200 (text/plain).RESPONSE.BODY", valueType="text").toLogString()
         )
 
     }
@@ -162,7 +162,7 @@ class OpenApiSpecificationValidationWarnings {
         }
 
         assertThat(stdout).doesNotContain(
-            getEmptySchemaWarning(breadCrumb = "GET /bar -> 200 (application/json).RESPONSE.BODY", valueType = "free form JSON object").toLogString()
+            getEmptySchemaWarning("application/json", breadCrumb = "GET /bar -> 200 (application/json).RESPONSE.BODY", valueType = "free form JSON object").toLogString()
         )
     }
 
