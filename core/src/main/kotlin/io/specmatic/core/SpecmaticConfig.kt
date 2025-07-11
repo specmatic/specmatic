@@ -153,10 +153,10 @@ interface WorkflowDetails {
 }
 
 data class WorkflowConfiguration(
-    private val ids: Map<String, WorkflowIDOperation> = emptyMap()
+    val ids: Map<String, WorkflowIDOperation>? = null
 ) : WorkflowDetails {
     private fun getOperation(operationId: String): WorkflowIDOperation? {
-        return ids[operationId]
+        return ids?.get(operationId)
     }
 
     override fun getExtractForAPI(apiDescription: String): String? {
