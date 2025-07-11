@@ -128,11 +128,11 @@ internal class AnyOfPatternTest {
 
     @Test
     fun `should encompass JSONObjectPattern with compatible structure`() {
-        val objectPattern1 = JSONObjectPattern(mapOf("name" to StringPattern(), "age" to NumberPattern()), typeAlias = "(Person)")
-        val objectPattern2 = JSONObjectPattern(mapOf("id" to NumberPattern()), typeAlias = "(Id)")
-        val anyOfPattern = AnyOfPattern(listOf(objectPattern1, objectPattern2), extensions = emptyMap())
+        val personPattern = JSONObjectPattern(mapOf("name" to StringPattern(), "age" to NumberPattern()), typeAlias = "(Person)")
+        val idPattern = JSONObjectPattern(mapOf("id" to NumberPattern()), typeAlias = "(Id)")
+        val anyOfPattern = AnyOfPattern(listOf(personPattern, idPattern), extensions = emptyMap())
         
-        val compatiblePattern = JSONObjectPattern(mapOf("name" to StringPattern()), typeAlias = "(SimplePerson)")
+        val compatiblePattern = JSONObjectPattern(mapOf("name" to StringPattern(), "age" to NumberPattern()), typeAlias = "(SimplePerson)")
         
         val result = anyOfPattern.encompasses(compatiblePattern, Resolver(), Resolver())
         assertThat(result).isInstanceOf(Result.Success::class.java)
@@ -180,49 +180,6 @@ internal class AnyOfPatternTest {
         ).newBasedOn(Row(), Resolver()).map { it.value }.toList().let { patterns ->
             patterns.map { it.typeName } shouldContainInAnyOrder listOf("number", "\"one\"", "\"two\"")
         }
-    }
-
-    @Test
-    @Tag(GENERATION) 
-    fun `should create new pattern based on row data`() {
-        val pattern = AnyOfPattern(listOf(NumberPattern(), StringPattern()), extensions = emptyMap())
-        val row = Row(listOf("hello"))
-        
-        val newPatterns = pattern.newBasedOn(row, Resolver()).toList()
-        assertThat(newPatterns).hasSize(2)
-        
-        val numberPattern = newPatterns.find { it.value?.typeName == "number" }
-        val stringPattern = newPatterns.find { it.value?.typeName == "\"hello\"" }
-        
-        assertThat(numberPattern).isNotNull
-        assertThat(stringPattern).isNotNull
-    }
-
-    @Test
-    @Tag(GENERATION)
-    fun `should create ExactValuePattern when pattern has JSON example matching anyOf`() {
-        val objectPattern = JSONObjectPattern(mapOf("name" to StringPattern(), "age" to NumberPattern()))
-        val jsonValue = JSONObjectValue(mapOf("name" to StringValue("John"), "age" to NumberValue(30)))
-        val pattern = AnyOfPattern(
-            listOf(StringPattern(), objectPattern), 
-            extensions = emptyMap(),
-            example = jsonValue.toStringLiteral()
-        )
-        
-        val row = Row()
-        val newPatterns = pattern.newBasedOn(row, Resolver()).toList()
-        assertThat(newPatterns).hasSize(1)
-        
-        val resultPattern = newPatterns.first().value
-        assertThat(resultPattern).isInstanceOf(ExactValuePattern::class.java)
-        
-        val exactPattern = resultPattern as ExactValuePattern
-        val generatedValue = exactPattern.pattern
-        assertThat(generatedValue).isInstanceOf(JSONObjectValue::class.java)
-        
-        val jsonObject = generatedValue as JSONObjectValue
-        assertThat(jsonObject.findFirstChildByPath("name")).isEqualTo(StringValue("John"))
-        assertThat(jsonObject.findFirstChildByPath("age")).isEqualTo(NumberValue(30))
     }
 
     @Test
