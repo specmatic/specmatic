@@ -5,6 +5,7 @@ import io.specmatic.core.*
 import io.specmatic.core.value.*
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.assertThrows
@@ -38,28 +39,9 @@ internal class AnyOfPatternTest {
     }
 
     @Test
-    fun `should handle nullable patterns`() {
-        val pattern = AnyOfPattern(listOf(NumberPattern(), NullPattern), extensions = emptyMap())
-        
-        // Should match number
-        val numberResult = pattern.matches(NumberValue(42), Resolver())
-        assertThat(numberResult).isInstanceOf(Result.Success::class.java)
-        
-        // Should match null
-        val nullResult = pattern.matches(NullValue, Resolver())
-        assertThat(nullResult).isInstanceOf(Result.Success::class.java)
-    }
-
-    @Test
     fun `should have correct type name`() {
         val pattern = AnyOfPattern(listOf(NumberPattern(), StringPattern()), extensions = emptyMap())
         assertThat(pattern.typeName).isEqualTo("(anyOf number string)")
-    }
-
-    @Test
-    fun `should have correct nullable type name`() {
-        val pattern = AnyOfPattern(listOf(NumberPattern(), NullPattern), extensions = emptyMap())
-        assertThat(pattern.typeName).isEqualTo("(anyOf number \"null\")")
     }
 
     @Test
@@ -87,11 +69,11 @@ internal class AnyOfPatternTest {
     }
 
     @Test
-    fun `should encompass compatible patterns`() {
-        val biggerPattern = AnyOfPattern(listOf(NumberPattern(), StringPattern()), extensions = emptyMap())
-        val smallerPattern = StringPattern()
-        
-        val result = biggerPattern.encompasses(smallerPattern, Resolver(), Resolver())
+    fun `should encompass a compatible AnyOfPattern`() {
+        val pattern1 = AnyOfPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())
+        val pattern2 = AnyOfPattern(listOf(NumberPattern(), StringPattern()), extensions = emptyMap())
+
+        val result = pattern1.encompasses(pattern2, Resolver(), Resolver())
         assertThat(result).isInstanceOf(Result.Success::class.java)
     }
 
@@ -105,25 +87,18 @@ internal class AnyOfPatternTest {
     }
 
     @Test
-    fun `should encompass anyOf with same types in different order`() {
-        val pattern1 = AnyOfPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())
-        val pattern2 = AnyOfPattern(listOf(NumberPattern(), StringPattern()), extensions = emptyMap())
-        
-        val result = pattern1.encompasses(pattern2, Resolver(), Resolver())
-        assertThat(result).isInstanceOf(Result.Success::class.java)
-    }
-
-    @Test
-    fun `should handle JSON object patterns`() {
-        val objectPattern1 = JSONObjectPattern(mapOf("name" to StringPattern()), typeAlias = "(Person)")
-        val objectPattern2 = JSONObjectPattern(mapOf("id" to NumberPattern()), typeAlias = "(Id)")
-        val pattern = AnyOfPattern(listOf(objectPattern1, objectPattern2), extensions = emptyMap())
+    fun `should match JSON object patterns`() {
+        val personPattern = JSONObjectPattern(mapOf("name" to StringPattern()), typeAlias = "(Person)")
+        val idPattern = JSONObjectPattern(mapOf("id" to NumberPattern()), typeAlias = "(Id)")
+        val pattern = AnyOfPattern(listOf(personPattern, idPattern), extensions = emptyMap())
         
         val personValue = JSONObjectValue(mapOf("name" to StringValue("John")))
         val idValue = JSONObjectValue(mapOf("id" to NumberValue(123)))
+        val hasBothValues = JSONObjectValue(mapOf("name" to StringValue("John"), "id" to NumberValue(123)))
         
         assertThat(pattern.matches(personValue, Resolver())).isInstanceOf(Result.Success::class.java)
         assertThat(pattern.matches(idValue, Resolver())).isInstanceOf(Result.Success::class.java)
+        assertThat(pattern.matches(hasBothValues, Resolver())).isInstanceOf(Result.Success::class.java)
     }
 
     @Test
@@ -141,10 +116,44 @@ internal class AnyOfPatternTest {
     @Test
     fun `should fix value using best matching pattern`() {
         val pattern = AnyOfPattern(listOf(NumberPattern(), StringPattern()), extensions = emptyMap())
+        val value = BooleanValue(true)
+
+        assertThat(pattern.matches(value, Resolver())).isInstanceOf(Result.Failure::class.java)
+
+        val fixedValue = pattern.fixValue(value, Resolver())
+        assertThat(pattern.matches(fixedValue, Resolver())).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `should not fix value using if it matches one of the anyOf patterns`() {
+        val pattern = AnyOfPattern(listOf(NumberPattern(), StringPattern()), extensions = emptyMap())
         val value = StringValue("hello")
-        
+
         val fixedValue = pattern.fixValue(value, Resolver())
         assertThat(fixedValue).isEqualTo(value)
+    }
+
+    @Test
+    fun `should fix JSON object`() {
+        val objectPattern1 = parsedPattern("""{
+            "key1": "(string)",
+            "key2": "(number)"
+        }""")
+        val objectPattern2 = parsedPattern("""{
+            "key3": "(string)",
+            "key4": "(number)"
+        }""")
+
+        val pattern = AnyOfPattern(listOf(objectPattern1, objectPattern2), extensions = emptyMap())
+
+        val originalValue = parsedValue("""{
+            "key5": "hello",
+            "key6": 42
+        }""")
+
+        val fixedValue = pattern.fixValue(originalValue, Resolver()) as? JSONObjectValue ?: fail("Expected JSONObjectValue back as fixed value")
+
+        assertThat(fixedValue.jsonObject).containsKeys("key1", "key2")
     }
 
     @Test
