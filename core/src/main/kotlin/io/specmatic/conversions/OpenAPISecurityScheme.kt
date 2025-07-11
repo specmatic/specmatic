@@ -4,6 +4,7 @@ import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpRequestPattern
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
+import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.StringValue
 import io.swagger.v3.oas.models.parameters.Parameter
@@ -47,8 +48,27 @@ internal fun printWarningsForOverriddenSecurityParameters(
     path: String
 ) {
     val parameterNames = matchingParameters.joinToString(", ") { it.name }
-    val message =
-        "Security scheme $securitySchemeDescription is defined in the OpenAPI specification, but conflicting $httpParameterType parameter(s) have been defined in the $method operation for path '$path'. This may lead to confusion or conflicts."
-    println("Warning: $message")
-    println("Conflicting $httpParameterType parameter(s): $parameterNames")
+    val warningMsg = warningsForOverriddenSecurityParameters(
+        matchingParameters = parameterNames,
+        securitySchemeDescription = securitySchemeDescription,
+        httpParameterType = httpParameterType,
+        method = method,
+        path = path
+    )
+    logger.log(warningMsg)
+    logger.boundary()
+}
+
+internal fun warningsForOverriddenSecurityParameters(
+    matchingParameters: String,
+    securitySchemeDescription: String,
+    httpParameterType: String,
+    method: String,
+    path: String
+): Warning {
+    return Warning(
+        problem = "Security scheme $securitySchemeDescription is defined in the OpenAPI specification, but conflicting $httpParameterType parameter(s) $matchingParameters have been defined in the $method operation for path '$path'.",
+        implications = "This may lead to confusion or conflicts.",
+        resolution = "Consider removing the conflicting $httpParameterType parameter(s) or updating the security scheme definition to avoid conflicts."
+    )
 }
