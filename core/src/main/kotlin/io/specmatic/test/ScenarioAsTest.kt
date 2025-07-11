@@ -163,17 +163,13 @@ data class ScenarioAsTest(
         testScenario: Scenario,
         flagsBased: FlagsBased
     ): Result {
-        val result = when {
-            response.specmaticResultHeaderValue() == "failure" -> Result.Failure(response.body.toStringLiteral())
-                .updateScenario(testScenario)
-
-            else -> testScenario.matchesResponse(
+        val result =
+            testScenario.matchesResponse(
                 request,
                 response,
                 ContractAndResponseMismatch,
-                flagsBased.unexpectedKeyCheck ?: ValidateUnexpectedKeys
+                flagsBased.unexpectedKeyCheck ?: ValidateUnexpectedKeys,
             )
-        }
 
         if (result is Result.Success && result.isPartialSuccess()) {
             logger.log("    PARTIAL SUCCESS: ${result.partialSuccessMessage}")

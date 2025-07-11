@@ -1,31 +1,55 @@
 package io.specmatic.core.utilities
 
-import io.specmatic.core.log.consoleLog
 import io.specmatic.core.CONTRACT_EXTENSIONS
 import io.specmatic.core.DATA_DIR_SUFFIX
 import io.specmatic.core.log.StringLog
+import io.specmatic.core.log.consoleLog
+import io.specmatic.core.log.logger
 import java.io.File
 import java.nio.file.FileSystems
 import java.nio.file.Path
-import java.nio.file.StandardWatchEventKinds
-import java.nio.file.WatchKey
+import java.nio.file.StandardWatchEventKinds.*
+import java.nio.file.WatchService
 
-class StubServerWatcher(private val contractPaths: List<String>) {
-    fun watchForChanges(restartServer: () -> Unit) {
-        FileSystems.getDefault().newWatchService().use { watchService ->
-            val paths: List<Path> = getPaths(contractPaths).toSet().toList().sorted().map { File(it).toPath() }
-
-            paths.forEach { contractPath ->
-                contractPath.register(watchService, StandardWatchEventKinds.ENTRY_MODIFY, StandardWatchEventKinds.ENTRY_CREATE, StandardWatchEventKinds.ENTRY_DELETE)
+class StubServerWatcher(
+    private val contractPaths: List<String>
+) {
+    fun watchForChanges(onChange: () -> Unit) {
+        getFileSystemChanges().forEach { change ->
+            if (change.hasNoEvents) {
+                logger.debug("Uninteresting file system event, skipping restart")
+                return@forEach
             }
 
-            var key: WatchKey
-            while (watchService.take().also { key = it } != null) {
-                key.reset()
+            if (change.interestingEvents.isEmpty()) {
+                logger.debug("Uninteresting file system events for ${change.filesWithEvents}, skipping restart")
+                return@forEach
+            }
 
-                val events = key.pollEvents().joinToString(", ") { it.context().toString() }
-                consoleLog(StringLog("""Detected event(s) for $events, restarting stub server."""))
-                restartServer()
+            logger.boundary()
+            consoleLog(StringLog("""Detected event(s) for ${change.filesWithEvents}, restarting stub server."""))
+
+            onChange()
+        }
+    }
+
+    private fun registerForFileSystemChanges(watchService: WatchService) {
+        val paths: List<Path> = getPaths(contractPaths).distinct().sorted().map { File(it).toPath() }
+
+        paths.forEach { contractPath ->
+            contractPath.register(watchService, ENTRY_MODIFY, ENTRY_CREATE, ENTRY_DELETE)
+        }
+    }
+
+    private fun getFileSystemChanges(): Sequence<FileSystemChanges> {
+        return generateSequence {
+            FileSystems.getDefault().newWatchService().use { watchService ->
+                registerForFileSystemChanges(watchService)
+
+                watchService.take()?.let { key ->
+                    key.reset()
+                    FileSystemChanges(key)
+                }
             }
         }
     }

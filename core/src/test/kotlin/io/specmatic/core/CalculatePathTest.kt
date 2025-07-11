@@ -16,7 +16,7 @@ internal class CalculatePathTest {
         val pattern = JSONObjectPattern(
             pattern = mapOf(
                 "id" to StringPattern(),
-                "data" to AnyPattern(listOf(StringPattern(), NumberPattern()))
+                "data" to AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())
             ),
             typeAlias = "(User)"
         )
@@ -37,7 +37,7 @@ internal class CalculatePathTest {
         val pattern = JSONObjectPattern(
             pattern = mapOf(
                 "id" to StringPattern(),
-                "value" to AnyPattern(listOf(StringPattern(), NumberPattern()))
+                "value" to AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())
             )
         )
 
@@ -55,7 +55,7 @@ internal class CalculatePathTest {
     fun `calculatePath should find AnyPattern at top level`() {
         // For this test, create a scenario and test through Scenario.calculatePath
         val httpRequestPattern = HttpRequestPattern(
-            body = AnyPattern(listOf(StringPattern(), NumberPattern()))
+            body = AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())
         )
         val httpResponsePattern = HttpResponsePattern(
             headersPattern = HttpHeadersPattern(),
@@ -89,7 +89,7 @@ internal class CalculatePathTest {
             name = "test",
             httpRequestPattern = HttpRequestPattern(
                 body = ListPattern(
-                    pattern = AnyPattern(listOf(StringPattern(), NumberPattern()))
+                    pattern = AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())
                 )
             ),
             httpResponsePattern = HttpResponsePattern(
@@ -136,7 +136,7 @@ internal class CalculatePathTest {
     fun `calculatePath should handle non-JSON object value`() {
         val pattern = JSONObjectPattern(
             pattern = mapOf(
-                "data" to AnyPattern(listOf(StringPattern(), NumberPattern()))
+                "data" to AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())
             )
         )
 
@@ -149,7 +149,7 @@ internal class CalculatePathTest {
     fun `calculatePath should find nested AnyPatterns`() {
         val nestedPattern = JSONObjectPattern(
             pattern = mapOf(
-                "nestedData" to AnyPattern(listOf(StringPattern(), NumberPattern()))
+                "nestedData" to AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())
             ),
             typeAlias = "(NestedObject)"
         )
@@ -178,8 +178,8 @@ internal class CalculatePathTest {
     fun `calculatePath should handle multiple AnyPatterns in same object`() {
         val pattern = JSONObjectPattern(
             pattern = mapOf(
-                "data1" to AnyPattern(listOf(StringPattern(), NumberPattern())),
-                "data2" to AnyPattern(listOf(StringPattern(), NumberPattern())),
+                "data1" to AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap()),
+                "data2" to AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap()),
                 "regularField" to StringPattern()
             ),
             typeAlias = "(MultiAnyObject)"
@@ -203,7 +203,7 @@ internal class CalculatePathTest {
             httpPathPattern = buildHttpPathPattern("/test"),
             body = JSONObjectPattern(
                 pattern = mapOf(
-                    "field1" to AnyPattern(listOf(StringPattern(), NumberPattern()))
+                    "field1" to AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())
                 ),
                 typeAlias = "(Request1)"
             )
@@ -225,7 +225,7 @@ internal class CalculatePathTest {
             httpPathPattern = buildHttpPathPattern("/test"),
             body = JSONObjectPattern(
                 pattern = mapOf(
-                    "field2" to AnyPattern(listOf(StringPattern(), NumberPattern()))
+                    "field2" to AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())
                 ),
                 typeAlias = "(Request2)"
             )
@@ -265,7 +265,7 @@ internal class CalculatePathTest {
         val pattern = JSONObjectPattern(
             pattern = mapOf(
                 "items" to ListPattern(
-                    pattern = AnyPattern(listOf(StringPattern(), NumberPattern()))
+                    pattern = AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())
                 )
             ),
             typeAlias = "(ArrayContainer)"
@@ -292,7 +292,7 @@ internal class CalculatePathTest {
     fun `calculatePath should find nested AnyPatterns in array objects`() {
         val arrayItemPattern = JSONObjectPattern(
             pattern = mapOf(
-                "data" to AnyPattern(listOf(StringPattern(), NumberPattern()))
+                "data" to AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())
             ),
             typeAlias = "(ArrayItem)"
         )
@@ -326,7 +326,7 @@ internal class CalculatePathTest {
         val pattern = JSONObjectPattern(
             pattern = mapOf(
                 "items" to ListPattern(
-                    pattern = AnyPattern(listOf(StringPattern(), NumberPattern()))
+                    pattern = AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())
                 )
             ),
             typeAlias = "(ListContainer)"
@@ -352,7 +352,7 @@ internal class CalculatePathTest {
         val pattern = JSONObjectPattern(
             pattern = mapOf(
                 "items" to ListPattern(
-                    pattern = AnyPattern(listOf(StringPattern(), NumberPattern()))
+                    pattern = AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())
                 )
             ),
             typeAlias = "(EmptyArrayContainer)"
@@ -372,7 +372,7 @@ internal class CalculatePathTest {
         val pattern = JSONObjectPattern(
             pattern = mapOf(
                 "requiredField" to StringPattern(),
-                "optionalField?" to AnyPattern(listOf(StringPattern(), NumberPattern()))
+                "optionalField?" to AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())
             ),
             typeAlias = "(OptionalFieldObject)"
         )
@@ -406,7 +406,8 @@ internal class CalculatePathTest {
                         DeferredPattern(pattern = "(Address)"),
                         DeferredPattern(pattern = "(AddressRef)")
                     ),
-                    typeAlias = "(AddressOrRef)"
+                    typeAlias = "(AddressOrRef)",
+                    extensions = emptyMap()
                 )
             ),
             httpResponsePattern = HttpResponsePattern(
@@ -446,7 +447,8 @@ internal class CalculatePathTest {
                     pattern = listOf(
                         DeferredPattern(pattern = "(Address)"),
                         DeferredPattern(pattern = "(AddressRef)")
-                    )
+                    ),
+                    extensions = emptyMap()
                     // No typeAlias for the AnyPattern itself
                 )
             ),
@@ -484,7 +486,8 @@ internal class CalculatePathTest {
                     pattern = listOf(
                         DeferredPattern(pattern = "(Address)"),
                         JSONObjectPattern(pattern = mapOf("address_id" to NumberPattern()))
-                    )
+                    ),
+                    extensions = emptyMap()
                 )
             ),
             httpResponsePattern = HttpResponsePattern(
@@ -528,7 +531,8 @@ internal class CalculatePathTest {
                                 pattern = listOf(
                                     DeferredPattern(pattern = "(Address)"),
                                     DeferredPattern(pattern = "(AddressRef)")
-                                )
+                                ),
+                                extensions = emptyMap()
                             )
                         )
                     ),
@@ -579,7 +583,8 @@ internal class CalculatePathTest {
                         pattern = listOf(
                             DeferredPattern(pattern = "(Address)"),
                             DeferredPattern(pattern = "(AddressRef)")
-                        )
+                        ),
+                        extensions = emptyMap()
                     ),
                     typeAlias = "(AddressList)"
                 )
@@ -635,7 +640,8 @@ internal class CalculatePathTest {
                                 pattern = listOf(
                                     DeferredPattern("(Address)"),
                                     DeferredPattern("(AddressRef)")
-                                )
+                                ),
+                                extensions = emptyMap()
                             )
                         )
                     ),
@@ -687,7 +693,8 @@ internal class CalculatePathTest {
                 pattern = listOf(
                     DeferredPattern("(Address)"),
                     DeferredPattern("(AddressRef)")
-                )
+                ),
+                extensions = emptyMap()
             )
         )
         
@@ -731,7 +738,7 @@ internal class CalculatePathTest {
         // Test case 1: Nested structure with typeAlias at multiple levels
         val level3Pattern = JSONObjectPattern(
             pattern = mapOf(
-                "data" to AnyPattern(listOf(StringPattern(), NumberPattern()))
+                "data" to AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())
             ),
             typeAlias = "(Level3Object)"
         )
@@ -768,7 +775,7 @@ internal class CalculatePathTest {
         // Test case 1: Nested structure with typeAlias at multiple levels
         val level3Pattern = JSONObjectPattern(
             pattern = mapOf(
-                "keyAppears" to AnyPattern(listOf(StringPattern(), NumberPattern())),
+                "keyAppears" to AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap()),
                 "keyDoesNotAppear" to StringPattern()
             ),
             typeAlias = "(Level3Object)"
@@ -819,10 +826,12 @@ internal class CalculatePathTest {
         
         val pattern = JSONObjectPattern(
             pattern = mapOf(
-                "field" to AnyPattern(listOf(
-                    innerObjectPattern,
-                    StringPattern()
-                ))
+                "field" to AnyPattern(
+                    listOf(
+                        innerObjectPattern,
+                        StringPattern()
+                    ), extensions = emptyMap()
+                )
             ),
             typeAlias = "(OuterObject)"
         )
@@ -853,10 +862,12 @@ internal class CalculatePathTest {
             pattern = mapOf(
                 "level1" to JSONObjectPattern(
                     pattern = mapOf(
-                        "level2" to AnyPattern(listOf(
-                            DeferredPattern("(NestedData)"),
-                            NumberPattern()
-                        ))
+                        "level2" to AnyPattern(
+                            listOf(
+                                DeferredPattern("(NestedData)"),
+                                NumberPattern()
+                            ), extensions = emptyMap()
+                        )
                     ),
                     typeAlias = "(MiddleLevel)"
                 )
@@ -886,7 +897,10 @@ internal class CalculatePathTest {
                     pattern = mapOf(
                         "level2" to JSONObjectPattern(
                             pattern = mapOf(
-                                "level3" to AnyPattern(listOf(StringPattern(), NumberPattern()))
+                                "level3" to AnyPattern(
+                                    listOf(StringPattern(), NumberPattern()),
+                                    extensions = emptyMap()
+                                )
                             )
                         )
                     )
@@ -913,17 +927,19 @@ internal class CalculatePathTest {
         // This tests whether we can properly find nested AnyPatterns inside matched JSONObjectPatterns
         val nestedObjectWithAnyPattern = JSONObjectPattern(
             pattern = mapOf(
-                "nestedField" to AnyPattern(listOf(StringPattern(), NumberPattern()))
+                "nestedField" to AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())
             ),
             typeAlias = "(NestedObjectWithAny)"
         )
         
         val pattern = JSONObjectPattern(
             pattern = mapOf(
-                "container" to AnyPattern(listOf(
-                    nestedObjectWithAnyPattern,
-                    StringPattern()
-                ))
+                "container" to AnyPattern(
+                    listOf(
+                        nestedObjectWithAnyPattern,
+                        StringPattern()
+                    ), extensions = emptyMap()
+                )
             ),
             typeAlias = "(Container)"
         )
@@ -950,7 +966,10 @@ internal class CalculatePathTest {
                     pattern = mapOf(
                         "level2" to JSONObjectPattern(
                             pattern = mapOf(
-                                "level3" to AnyPattern(listOf(StringPattern(), NumberPattern()))
+                                "level3" to AnyPattern(
+                                    listOf(StringPattern(), NumberPattern()),
+                                    extensions = emptyMap()
+                                )
                             )
                         )
                     )

@@ -461,7 +461,7 @@ internal class JSONObjectPatternTest {
                 newPatterns = (1..6).associate { paramIndex ->
                     "(enum${paramIndex})" to AnyPattern((0..9).map { possibleValueIndex ->
                         ExactValuePattern(StringValue("${paramIndex}${possibleValueIndex}"))
-                    }.toList())
+                    }.toList(), extensions = emptyMap())
                 }
             )
 
@@ -496,13 +496,13 @@ internal class JSONObjectPatternTest {
             val patterns =
                 parsedPattern("""{"id?": "(number)"}""", null).newBasedOn(Row(), Resolver()).map { it.value }
 
-            assertNotNull(patterns.find { pattern ->
+            assertThat(patterns.find { pattern ->
                 val result = pattern.matches(JSONObjectValue(mapOf("id" to StringValue("abc"))), Resolver())
                 result is Result.Failure && result.toMatchFailureDetails() == MatchFailureDetails(
                     listOf("id"),
                     listOf("""Expected number, actual was "abc"""")
                 )
-            })
+            }).isNotNull()
         }
 
         @Test
@@ -1780,10 +1780,12 @@ components:
         @Test
         fun `should validate against pattern when additionalProperties is PatternConstrained with complex`() {
             val additionalProperties = AdditionalProperties.PatternConstrained(
-                AnyPattern(pattern = listOf(
-                    JSONObjectPattern(mapOf("values" to StringPattern())),
-                    ListPattern(StringPattern())
-                ))
+                AnyPattern(
+                    pattern = listOf(
+                        JSONObjectPattern(mapOf("values" to StringPattern())),
+                        ListPattern(StringPattern())
+                    ), extensions = emptyMap()
+                )
             )
             val pattern = JSONObjectPattern(mapOf("name" to StringPattern()), additionalProperties = additionalProperties)
             val validValues = listOf(
@@ -2293,7 +2295,8 @@ components:
                 AnyPattern(pattern = listOf(
                     JSONObjectPattern(mapOf("values" to NumberPattern())),
                     ListPattern(NumberPattern())
-                ))
+                ), extensions = emptyMap()
+                )
             )
             val pattern = JSONObjectPattern(
                 mapOf("name" to StringPattern(), "age" to NumberPattern()),
@@ -2573,7 +2576,7 @@ components:
         @Test
         fun `calculatePath should find AnyPattern in object field`() {
             val pattern = JSONObjectPattern(
-                mapOf("data" to AnyPattern(listOf(StringPattern()))),
+                mapOf("data" to AnyPattern(listOf(StringPattern()), extensions = emptyMap())),
                 typeAlias = "(TestObject)"
             )
             val value = JSONObjectValue(mapOf("data" to StringValue("test")))
@@ -2587,7 +2590,7 @@ components:
         @Test
         fun `calculatePath should handle nested JSONObjectPattern`() {
             val nestedPattern = JSONObjectPattern(
-                mapOf("nested" to AnyPattern(listOf(NumberPattern()))),
+                mapOf("nested" to AnyPattern(listOf(NumberPattern()), extensions = emptyMap())),
                 typeAlias = "(NestedObject)"
             )
             val pattern = JSONObjectPattern(
@@ -2607,7 +2610,7 @@ components:
         @Test
         fun `calculatePath should handle array patterns`() {
             val pattern = JSONObjectPattern(
-                mapOf("items" to ListPattern(AnyPattern(listOf(StringPattern())))),
+                mapOf("items" to ListPattern(AnyPattern(listOf(StringPattern()), extensions = emptyMap()))),
                 typeAlias = "(ArrayContainer)"
             )
             val value = JSONObjectValue(mapOf(
@@ -2626,7 +2629,7 @@ components:
         @Test
         fun `calculatePath should handle JSONArrayPattern`() {
             val pattern = JSONObjectPattern(
-                mapOf("array" to JSONArrayPattern(listOf(AnyPattern(listOf(NumberPattern()))))),
+                mapOf("array" to JSONArrayPattern(listOf(AnyPattern(listOf(NumberPattern()), extensions = emptyMap())))),
                 typeAlias = "(JsonArrayContainer)"
             )
             val value = JSONObjectValue(mapOf(
@@ -2644,7 +2647,7 @@ components:
 
         @Test
         fun `calculatePath should handle object without typeAlias`() {
-            val pattern = JSONObjectPattern(mapOf("data" to AnyPattern(listOf(StringPattern()))))
+            val pattern = JSONObjectPattern(mapOf("data" to AnyPattern(listOf(StringPattern()), extensions = emptyMap())))
             val value = JSONObjectValue(mapOf("data" to StringValue("test")))
             val resolver = Resolver()
 
@@ -2657,8 +2660,8 @@ components:
         fun `calculatePath should handle multiple AnyPattern fields`() {
             val pattern = JSONObjectPattern(
                 mapOf(
-                    "field1" to AnyPattern(listOf(StringPattern())),
-                    "field2" to AnyPattern(listOf(NumberPattern())),
+                    "field1" to AnyPattern(listOf(StringPattern()), extensions = emptyMap()),
+                    "field2" to AnyPattern(listOf(NumberPattern()), extensions = emptyMap()),
                     "field3" to StringPattern()
                 ),
                 typeAlias = "(MultiFieldObject)"
@@ -2681,7 +2684,7 @@ components:
         @Test
         fun `calculatePath should handle deeply nested structures`() {
             val level3Pattern = JSONObjectPattern(
-                mapOf("level3" to AnyPattern(listOf(BooleanPattern()))),
+                mapOf("level3" to AnyPattern(listOf(BooleanPattern()), extensions = emptyMap())),
                 typeAlias = "(Level3)"
             )
             val level2Pattern = JSONObjectPattern(
@@ -2708,7 +2711,8 @@ components:
 
         @Test
         fun `calculatePath should handle empty object`() {
-            val pattern = JSONObjectPattern(mapOf("data" to AnyPattern(listOf(StringPattern()))))
+            val pattern =
+                JSONObjectPattern(mapOf("data" to AnyPattern(listOf(StringPattern()), extensions = emptyMap())))
             val value = JSONObjectValue(emptyMap())
             val resolver = Resolver()
 

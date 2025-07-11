@@ -8,12 +8,20 @@ import io.specmatic.core.discriminator.DiscriminatorMetadata
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.*
 
+fun List<Pattern>.extractCombinedExtensions(): Map<String, Any> {
+    return this.flatMap {
+        if (it is PossibleJsonObjectPatternContainer) it.extensions.entries
+        else emptyList()
+    }.associate { it.toPair() }
+}
+
 data class AnyPattern(
     override val pattern: List<Pattern>,
     val key: String? = null,
     override val typeAlias: String? = null,
     override val example: String? = null,
-    val discriminator: Discriminator? = null
+    val discriminator: Discriminator? = null,
+    override val extensions: Map<String, Any> = pattern.extractCombinedExtensions()
 ) : Pattern, HasDefaultExample, PossibleJsonObjectPatternContainer {
     constructor(
         pattern: List<Pattern>,
@@ -26,7 +34,7 @@ data class AnyPattern(
         discriminatorProperty,
         discriminatorValues,
         emptyMap()
-    ))
+    ), pattern.extractCombinedExtensions())
 
     data class AnyPatternMatch(val pattern: Pattern, val result: Result)
 

@@ -1,0 +1,17 @@
+{
+  "partial": {
+    "http-request": {
+      "path": "/creators/123/pets/123",
+      "method": "PATCH",
+      "body": {}
+    },
+    "http-response": {
+      "status": 201,
+      "body": "(anyvalue)",
+      "status-text": "Created",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  }
+}

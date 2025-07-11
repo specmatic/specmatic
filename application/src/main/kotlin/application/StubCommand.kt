@@ -17,6 +17,7 @@ import io.specmatic.core.utilities.exitWithMessage
 import io.specmatic.stub.ContractStub
 import io.specmatic.stub.HttpClientFactory
 import io.specmatic.stub.endPointFromHostAndPort
+import io.specmatic.stub.listener.MockEventListener
 import picocli.CommandLine.*
 import java.io.File
 import java.util.concurrent.Callable
@@ -119,6 +120,8 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 
     var specmaticConfigPath: String? = null
 
+    var listeners : List<MockEventListener> = emptyList()
+
     override fun call() {
         if (delayInMilliseconds > 0) {
             System.setProperty(SPECMATIC_STUB_DELAY, delayInMilliseconds.toString())
@@ -193,11 +196,11 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     }
 
     private fun configureJSONLogPrinter(): List<LogPrinter> = jsonLog?.let {
-        listOf(JSONFilePrinter(LogDirectory(it, logPrefix, "json", "log")))
+        listOf(JSONFilePrinter(LogDirectory(it, logPrefix, "-json.log")))
     } ?: emptyList()
 
     private fun configureTextLogPrinter(): List<LogPrinter> = textLog?.let {
-        listOf(TextFilePrinter(LogDirectory(it, logPrefix, "", "log")))
+        listOf(TextFilePrinter(LogDirectory(it, logPrefix, ".log")))
     } ?: emptyList()
 
 
@@ -243,7 +246,8 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             httpClientFactory = httpClientFactory,
             workingDirectory = workingDirectory,
             gracefulRestartTimeoutInMs = gracefulRestartTimeoutInMs,
-            specToBaseUrlMap = contractSources.specToBaseUrlMap()
+            specToBaseUrlMap = contractSources.specToBaseUrlMap(),
+            listeners = listeners
         )
 
         LogTail.storeSnapshot()

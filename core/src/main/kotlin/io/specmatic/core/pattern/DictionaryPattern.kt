@@ -29,14 +29,14 @@ data class DictionaryPattern(val keyPattern: Pattern, val valuePattern: Pattern,
         resolver: Resolver,
         key: String?
     ): ReturnValue<Value> {
-        if(value !is JSONObjectValue)
-            return HasFailure(Result.Failure("Cannot resolve substitutions, expected object but got ${value.displayableType()}"))
+        val resolved = runCatching { substitution.resolveIfLookup(value, this) }.getOrElse { e -> return HasException(e) }
+        val resolvedValue = resolved as? JSONObjectValue ?: return HasValue(resolved)
 
-        val updatedMap = value.jsonObject.mapValues { (key, value) ->
+        val updatedMap = resolvedValue.jsonObject.mapValues { (key, value) ->
             valuePattern.resolveSubstitutions(substitution, value, resolver, key)
         }
 
-        return updatedMap.mapFoldException().ifValue { value.copy(it) }
+        return updatedMap.mapFoldException().ifValue(resolvedValue::copy)
     }
 
     override fun getTemplateTypes(key: String, value: Value, resolver: Resolver): ReturnValue<Map<String, Pattern>> {

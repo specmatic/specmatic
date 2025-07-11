@@ -22,6 +22,15 @@ class EmailPattern (private val stringPatternDelegate: StringPattern) :
         val emailRegex = Regex(EMAIL_REGEX)
     }
 
+    override fun resolveSubstitutions(
+        substitution: Substitution,
+        value: Value,
+        resolver: Resolver,
+        key: String?
+    ): ReturnValue<Value> {
+        return scalarResolveSubstitutions(substitution, value, key, this, resolver)
+    }
+
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if (sampleData?.hasTemplate() == true)
             return Result.Success()

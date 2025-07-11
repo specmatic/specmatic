@@ -382,7 +382,7 @@ paths:
 
         @Test
         fun `calculatePath should return empty set for empty array`() {
-            val pattern = JSONArrayPattern(listOf(AnyPattern(listOf(StringPattern()))))
+            val pattern = JSONArrayPattern(listOf(AnyPattern(listOf(StringPattern()), extensions = emptyMap())))
             val value = JSONArrayValue(emptyList())
             val resolver = Resolver()
 
@@ -393,7 +393,7 @@ paths:
 
         @Test
         fun `calculatePath should handle single pattern with AnyPattern`() {
-            val pattern = JSONArrayPattern(listOf(AnyPattern(listOf(StringPattern(), NumberPattern()))))
+            val pattern = JSONArrayPattern(listOf(AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())))
             val value = JSONArrayValue(listOf(StringValue("test"), NumberValue(42)))
             val resolver = Resolver()
 
@@ -405,7 +405,7 @@ paths:
         @Test
         fun `calculatePath should handle single pattern with JSONObjectPattern`() {
             val objectPattern = JSONObjectPattern(
-                mapOf("data" to AnyPattern(listOf(StringPattern()))),
+                mapOf("data" to AnyPattern(listOf(StringPattern()), extensions = emptyMap())),
                 typeAlias = "(Item)"
             )
             val pattern = JSONArrayPattern(listOf(objectPattern))
@@ -426,9 +426,9 @@ paths:
         @Test
         fun `calculatePath should handle multiple patterns with different types`() {
             val pattern = JSONArrayPattern(listOf(
-                AnyPattern(listOf(StringPattern())),
-                AnyPattern(listOf(NumberPattern())),
-                AnyPattern(listOf(BooleanPattern()))
+                AnyPattern(listOf(StringPattern()), extensions = emptyMap()),
+                AnyPattern(listOf(NumberPattern()), extensions = emptyMap()),
+                AnyPattern(listOf(BooleanPattern()), extensions = emptyMap())
             ))
             val value = JSONArrayValue(listOf(
                 StringValue("test"),
@@ -444,7 +444,7 @@ paths:
 
         @Test
         fun `calculatePath should handle array with more elements than patterns`() {
-            val pattern = JSONArrayPattern(listOf(AnyPattern(listOf(StringPattern()))))
+            val pattern = JSONArrayPattern(listOf(AnyPattern(listOf(StringPattern()), extensions = emptyMap())))
             val value = JSONArrayValue(listOf(
                 StringValue("item1"),
                 StringValue("item2"),
@@ -460,9 +460,9 @@ paths:
         @Test
         fun `calculatePath should handle multiple patterns with some elements missing`() {
             val pattern = JSONArrayPattern(listOf(
-                AnyPattern(listOf(StringPattern())),
-                AnyPattern(listOf(NumberPattern())),
-                AnyPattern(listOf(BooleanPattern()))
+                AnyPattern(listOf(StringPattern()), extensions = emptyMap()),
+                AnyPattern(listOf(NumberPattern()), extensions = emptyMap()),
+                AnyPattern(listOf(BooleanPattern()), extensions = emptyMap())
             ))
             val value = JSONArrayValue(listOf(
                 StringValue("test"),
@@ -481,7 +481,7 @@ paths:
             val nestedObjectPattern = JSONObjectPattern(
                 mapOf(
                     "id" to StringPattern(),
-                    "value" to AnyPattern(listOf(StringPattern(), NumberPattern()))
+                    "value" to AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())
                 ),
                 typeAlias = "(NestedItem)"
             )
@@ -502,7 +502,8 @@ paths:
 
         @Test
         fun `calculatePath should wrap scalar types in braces`() {
-            val pattern = JSONArrayPattern(listOf(AnyPattern(listOf(StringPattern(), NumberPattern()))))
+            val pattern =
+                JSONArrayPattern(listOf(AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())))
             val value = JSONArrayValue(listOf(StringValue("test")))
             val resolver = Resolver()
 

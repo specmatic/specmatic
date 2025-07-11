@@ -14,19 +14,19 @@ dependencies {
     testImplementation("com.arakelian:java-jq:2.0.0")
 
     implementation("org.assertj:assertj-core:3.27.3")
-    implementation("org.junit.jupiter:junit-jupiter-api:5.11.4")
+    implementation("org.junit.jupiter:junit-jupiter-api:${project.ext["org.junit.jupiter.version"]}")
 
     implementation("info.picocli:picocli:4.7.7")
     implementation("io.ktor:ktor-client-core-jvm:2.3.13")
     implementation("io.ktor:ktor-network-tls:2.3.13")
     implementation("io.ktor:ktor-network-tls-certificates:2.3.13")
 
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.19.0")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.19.1")
 
-    implementation("org.junit.platform:junit-platform-launcher:1.11.4")
-    implementation("org.junit.platform:junit-platform-reporting:1.11.4")
+    implementation("org.junit.platform:junit-platform-launcher:${project.ext["org.junit.platform.version"]}")
+    implementation("org.junit.platform:junit-platform-reporting:${project.ext["org.junit.platform.version"]}")
 
-    implementation("org.eclipse.jgit:org.eclipse.jgit:7.2.1.202505142326-r")
+    implementation("org.eclipse.jgit:org.eclipse.jgit:7.3.0.202506031305-r")
     implementation("org.eclipse.jgit:org.eclipse.jgit.ssh.apache:7.3.0.202506031305-r")
 
     implementation("org.apache.ant:ant-junit:1.10.15")
@@ -35,7 +35,7 @@ dependencies {
     implementation(project(":junit5-support"))
 
     implementation("io.ktor:ktor-client-cio:2.3.13")
-    implementation("io.swagger.parser.v3:swagger-parser:2.1.29") {
+    implementation("io.swagger.parser.v3:swagger-parser:2.1.30") {
         exclude(group = "org.mozilla", module = "rhino")
     }
     implementation("org.mozilla:rhino:1.8.0")
@@ -43,13 +43,13 @@ dependencies {
 
     implementation("org.jetbrains.kotlin:kotlin-reflect")
 
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.11.4")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:${project.ext["org.junit.jupiter.version"]}")
 
     testImplementation("io.mockk:mockk:1.13.11")
     testImplementation("org.assertj:assertj-core:3.27.3")
     testImplementation("com.ginsberg:junit5-system-exit:2.0.2")
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.11.4")
-    testImplementation("org.junit.jupiter:junit-jupiter-params:5.11.4")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:${project.ext["org.junit.jupiter.version"]}")
+    testImplementation("org.junit.jupiter:junit-jupiter-params:${project.ext["org.junit.jupiter.version"]}")
     testImplementation("io.kotest:kotest-assertions-core-jvm:5.9.1")
 
 }

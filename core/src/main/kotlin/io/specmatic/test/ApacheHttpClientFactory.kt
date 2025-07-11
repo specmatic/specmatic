@@ -25,6 +25,7 @@ class ApacheHttpClientFactory(override val timeoutPolicy: TimeoutPolicy): HttpCl
                         .build()
                 )
                 setSSLHostnameVerifier(NoopHostnameVerifier())
+                useSystemProperties()
             }
         }
 

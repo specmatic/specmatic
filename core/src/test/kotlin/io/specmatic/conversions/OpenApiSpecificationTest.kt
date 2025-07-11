@@ -6015,7 +6015,8 @@ paths:
                     in: path
                     required: true
                     schema:
-                      type: number
+                      type: integer
+                      format: int32
                   requestBody:
                     content:
                       application/json:
@@ -6083,7 +6084,8 @@ paths:
                     in: path
                     required: true
                     schema:
-                      type: number
+                      type: integer
+                      format: int32
                   requestBody:
                     content:
                       application/json:
@@ -7077,77 +7079,6 @@ components:
             " Scenario: GET /items -> 200 [REQUEST.QUERY-PARAMS.region selected FIRST from enum]",
             " Scenario: GET /items -> 200 [REQUEST.QUERY-PARAMS.region selected SECOND from enum]",
             " Scenario: GET /items -> 200 [REQUEST.QUERY-PARAMS.region selected THIRD from enum]"
-        )
-    }
-
-    @Test
-    fun `show an error when examples with no mediaType is found in the request`() {
-        assertThatThrownBy {
-            OpenApiSpecification.fromYAML(
-                """
-openapi: 3.0.3
-info:
-  title: My service
-  description: My service
-  version: 1.0.0
-servers:
-  - url: 'https://localhost:8080'
-paths:
-  /api/nocontent:
-    post:
-      requestBody:
-        content:
-          application/json:
-            example: test data
-      responses:
-        "204":
-          description: No response
-""".trimIndent(), ""
-            ).toFeature()
-        }.satisfies(
-            {
-                println(exceptionCauseMessage(it))
-                assertThat(exceptionCauseMessage(it)).contains("""Request body definition is missing""")
-            }
-        )
-    }
-
-    @Test
-    fun `show an error when examples with no mediaType is found in the response`() {
-        assertThatThrownBy {
-            OpenApiSpecification.fromYAML(
-                """
-openapi: 3.0.3
-info:
-  title: My service
-  description: My service
-  version: 1.0.0
-servers:
-  - url: 'https://localhost:8080'
-paths:
-  /api/nocontent:
-    post:
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                name:
-                  description: The name of the entity
-      responses:
-        "200":
-          description: Random
-          content:
-            text/plain:
-              example: sample response
-            """.trimIndent(), ""
-            ).toFeature()
-        }.satisfies(
-            {
-                println(exceptionCauseMessage(it))
-                assertThat(exceptionCauseMessage(it)).contains("""Response body definition is missing""")
-            }
         )
     }
 
@@ -10049,12 +9980,16 @@ paths:
         val additionalProperties = responseBodyPattern.additionalProperties
         assertThat(additionalProperties).isInstanceOf(AdditionalProperties.PatternConstrained::class.java)
         additionalProperties as AdditionalProperties.PatternConstrained
-        assertThat(resolvedHop(additionalProperties.pattern, scenario.resolver)).isEqualTo(AnyPattern(
-            pattern = listOf(
-                parsedPattern("{ \"property1?\": \"(string)\" }"),
-                parsedPattern("{ \"property2?\": \"(string)\" }")
-            ), typeAlias = "(ComplexSchema)"
-        ))
+
+        val patterns = listOf(
+            parsedPattern("{ \"property1?\": \"(string)\" }"),
+            parsedPattern("{ \"property2?\": \"(string)\" }")
+        )
+        assertThat(resolvedHop(additionalProperties.pattern, scenario.resolver)).isEqualTo(
+            AnyPattern(
+                pattern = patterns, typeAlias = "(ComplexSchema)", extensions = patterns.extractCombinedExtensions()
+            )
+        )
     }
 
     @Test
@@ -10940,6 +10875,68 @@ paths:
         assertThat(result).isEqualTo(overlayContent)
     }
 
+    @Test
+    fun `getServers should return the list of servers from the OpenAPI spec`() {
+        val openApiContent = """
+            openapi: 3.0.3
+            info:
+              title: Test API
+              version: 1.0.0
+            servers:
+              - url: https://api.example.com/v1
+                description: Production server
+              - url: https://staging.example.com/v1
+                description: Staging server
+            paths: {}
+        """.trimIndent()
+
+        val spec = OpenApiSpecification.fromYAML(openApiContent, "")
+        val servers = spec.getServers()
+
+        assertThat(servers).hasSize(2)
+        assertThat(servers[0].url).isEqualTo("https://api.example.com/v1")
+        assertThat(servers[0].description).isEqualTo("Production server")
+        assertThat(servers[1].url).isEqualTo("https://staging.example.com/v1")
+        assertThat(servers[1].description).isEqualTo("Staging server")
+    }
+
+    @Test
+    fun `parseUnreferencedSchemas should return schemas not referenced in any API`() {
+        val specContent = """
+            openapi: 3.0.3
+            info:
+              title: Test API
+              version: 1.0.0
+            paths:
+              /test:
+                get:
+                  responses:
+                    '200':
+                      description: Success
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            properties:
+                              id:
+                                type: string
+            components:
+              schemas:
+                UnreferencedSchema:
+                  type: object
+                  properties:
+                    value:
+                      type: string
+                AnotherUnreferenced:
+                  type: string
+        """.trimIndent()
+
+        val spec = OpenApiSpecification.fromYAML(specContent, "")
+        val unreferenced = spec.parseUnreferencedSchemas()
+
+        assertThat(unreferenced.keys).containsExactlyInAnyOrder("(UnreferencedSchema)", "(AnotherUnreferenced)")
+    }
+    
     private fun ignoreButLogException(function: () -> OpenApiSpecification) {
         try {
             function()

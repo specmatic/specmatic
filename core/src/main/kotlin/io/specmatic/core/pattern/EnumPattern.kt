@@ -2,6 +2,7 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
+import io.specmatic.core.Substitution
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.StringValue
@@ -9,7 +10,14 @@ import io.specmatic.core.value.Value
 
 private fun validEnumValues(values: List<Value>, key: String?, typeAlias: String?, example: String?, nullable: Boolean): AnyPattern {
     assertThatAllValuesHaveTheSameType(values, nullable)
-    return AnyPattern(values.map { ExactValuePattern(it) }, key, typeAlias, example)
+    val patterns = values.map { ExactValuePattern(it) }
+    return AnyPattern(
+        patterns,
+        key,
+        typeAlias,
+        example,
+        extensions = patterns.extractCombinedExtensions()
+    )
 }
 
 fun not(boolean: Boolean) = !boolean
@@ -40,6 +48,15 @@ data class EnumPattern(
                 example: String? = null,
                 nullable: Boolean = false
     ) : this(validEnumValues(values, key, typeAlias, example, nullable), nullable)
+
+    override fun resolveSubstitutions(
+        substitution: Substitution,
+        value: Value,
+        resolver: Resolver,
+        key: String?
+    ): ReturnValue<Value> {
+        return scalarResolveSubstitutions(substitution, value, key, this, resolver)
+    }
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if(sampleData is StringValue && (sampleData.hasTemplate() || sampleData.hasDataTemplate())) {

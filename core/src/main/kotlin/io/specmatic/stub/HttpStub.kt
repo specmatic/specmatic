@@ -14,7 +14,6 @@ import io.ktor.server.response.*
 import io.ktor.util.*
 import io.ktor.util.pipeline.*
 import io.specmatic.core.*
-import io.specmatic.core.lifecycle.LifecycleHooks
 import io.specmatic.core.loadSpecmaticConfig
 import io.specmatic.core.log.*
 import io.specmatic.core.pattern.ContractException
@@ -33,6 +32,8 @@ import io.specmatic.mock.ScenarioStub
 import io.specmatic.mock.TRANSIENT_MOCK
 import io.specmatic.mock.mockFromJSON
 import io.specmatic.mock.validateMock
+import io.specmatic.stub.listener.MockEvent
+import io.specmatic.stub.listener.MockEventListener
 import io.specmatic.stub.report.StubEndpoint
 import io.specmatic.stub.report.StubUsageReport
 import io.specmatic.stub.report.StubUsageReportJson
@@ -76,7 +77,8 @@ class HttpStub(
     private val timeoutMillis: Long = 0,
     private val specToStubBaseUrlMap: Map<String, String?> = features.associate {
         it.path to endPointFromHostAndPort(host, port, keyData)
-    }
+    },
+    private val listeners: List<MockEventListener> = emptyList()
 ) : ContractStub {
     constructor(
         feature: Feature,
@@ -86,14 +88,16 @@ class HttpStub(
         log: (event: LogMessage) -> Unit = dontPrintToConsole,
         specToStubBaseUrlMap: Map<String, String> = mapOf(
             feature.path to endPointFromHostAndPort(host, port, null)
-        )
+        ),
+        listeners: List<MockEventListener> = emptyList()
     ) : this(
         listOf(feature),
         contractInfoToHttpExpectations(listOf(Pair(feature, scenarioStubs))),
         host,
         port,
         log,
-        specToStubBaseUrlMap = specToStubBaseUrlMap
+        specToStubBaseUrlMap = specToStubBaseUrlMap,
+        listeners = listeners
     )
 
     constructor(
@@ -262,7 +266,7 @@ class HttpStub(
 
                 try {
                     val rawHttpRequest = ktorHttpRequestToHttpRequest(call).also {
-                        httpLogMessage.addRequest(it)
+                        httpLogMessage.addRequestWithCurrentTime(it)
                         if (it.isHealthCheckRequest()) return@intercept
                     }
 
@@ -270,9 +274,7 @@ class HttpStub(
                         requestInterceptor.interceptRequest(request) ?: request
                     }
 
-                    val responseFromRequestHandler =
-                        requestHandlers.firstNotNullOfOrNull { it.handleRequest(httpRequest) }
-
+                    val responseFromRequestHandler = requestHandlers.firstNotNullOfOrNull { it.handleRequest(httpRequest) }
                     val httpStubResponse: HttpStubResponse = when {
                         isFetchLogRequest(httpRequest) -> handleFetchLogRequest()
                         isFetchLoadLogRequest(httpRequest) -> handleFetchLoadLogRequest()
@@ -293,37 +295,34 @@ class HttpStub(
                     val httpResponse = responseInterceptors.fold(httpStubResponse.response) { response, responseInterceptor ->
                         responseInterceptor.interceptResponse(httpRequest, response) ?: response
                     }
-
                     if (httpRequest.path!!.startsWith("""/features/default""")) {
                         handleSse(httpRequest, this@HttpStub, this)
                     } else {
-                        httpStubResponse.scenario?.let { matchingScenario ->
-                            LifecycleHooks.requestResponseMatchingScenarioHooks.call(httpRequest, httpResponse, matchingScenario)
-                        }
-
                         val updatedHttpStubResponse = httpStubResponse.copy(response = httpResponse)
                         respondToKtorHttpResponse(call, updatedHttpStubResponse.response, updatedHttpStubResponse.delayInMilliSeconds, specmaticConfig)
                         httpLogMessage.addResponse(updatedHttpStubResponse)
                     }
                 } catch (e: ContractException) {
                     val response = badRequest(e.report())
-                    httpLogMessage.addResponse(response)
+                    httpLogMessage.addResponseWithCurrentTime(response)
+                    httpLogMessage.scenario = e.scenario as? Scenario
+                    httpLogMessage.addException(e)
                     respondToKtorHttpResponse(call, response)
                 } catch (e: CouldNotParseRequest) {
-                    httpLogMessage.addRequest(defensivelyExtractedRequestForLogging(call))
-
+                    httpLogMessage.addRequestWithCurrentTime(defensivelyExtractedRequestForLogging(call))
                     val response = badRequest("Could not parse request")
-                    httpLogMessage.addResponse(response)
-
+                    httpLogMessage.addResponseWithCurrentTime(response)
+                    httpLogMessage.addException(e)
                     respondToKtorHttpResponse(call, response)
                 } catch (e: Throwable) {
                     val response = internalServerError(exceptionCauseMessage(e) + "\n\n" + e.stackTraceToString())
-                    httpLogMessage.addResponse(response)
-
+                    httpLogMessage.addResponseWithCurrentTime(response)
+                    httpLogMessage.addException(Exception(e))
                     respondToKtorHttpResponse(call, response)
                 }
 
                 log(httpLogMessage)
+                MockEvent(httpLogMessage).let { event -> listeners.forEach { it.onRespond(event) } }
             }
 
             configureHealthCheckModule()
@@ -960,7 +959,10 @@ fun getHttpResponse(
                 )
             )
         }
-        if(strictMode) return NotStubbed(HttpStubResponse(strictModeHttp400Response(httpRequest, matchResults)))
+        if (strictMode) return NotStubbed(HttpStubResponse(
+            response = strictModeHttp400Response(httpRequest, matchResults),
+            scenario = features.firstNotNullOfOrNull { it.identifierMatchingScenario(httpRequest) }
+        ))
 
         return fakeHttpResponse(features, httpRequest, specmaticConfig)
     } finally {
@@ -1089,8 +1091,8 @@ fun fakeHttpResponse(
                 )
             } else {
                 val httpFailureResponse = combinedFailureResult.generateErrorHttpResponse(httpRequest)
-
-                NotStubbed(HttpStubResponse(httpFailureResponse))
+                val nearestScenario = features.firstNotNullOfOrNull { it.identifierMatchingScenario(httpRequest) }
+                NotStubbed(HttpStubResponse(httpFailureResponse, scenario = nearestScenario))
             }
         }
 

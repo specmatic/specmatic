@@ -157,7 +157,7 @@ class ThreadSafeListOfStubsTest {
         private val specificExpectation = HttpStubData(
             requestType = specificRequest.toPattern(),
             response = HttpResponse.ok(parsedJSONObject("{\"id\": 10}")),
-            responsePattern = HttpResponsePattern(HttpResponse.OK),
+            responsePattern = HttpResponsePattern(HttpResponse.ok(parsedJSONObject("{\"id\": 10}"))),
             resolver = Resolver(),
             originalRequest = specificRequest
         )
@@ -165,7 +165,7 @@ class ThreadSafeListOfStubsTest {
         private val generalExpectation = HttpStubData(
             requestType = generalRequest.toPattern(),
             response = HttpResponse.ok(parsedJSONObject("{\"id\": 20}")),
-            responsePattern = HttpResponsePattern(HttpResponse.OK),
+            responsePattern = HttpResponsePattern(HttpResponse.ok(parsedJSONObject("{\"id\": 20}"))),
             resolver = Resolver(),
             originalRequest = generalRequest
         )

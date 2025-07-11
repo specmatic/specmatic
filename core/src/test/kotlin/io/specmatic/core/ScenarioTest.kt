@@ -671,7 +671,7 @@ class ScenarioTest {
                 name = "test",
                 httpRequestPattern = HttpRequestPattern(
                     body = JSONObjectPattern(
-                        mapOf("data" to AnyPattern(listOf(StringPattern()))),
+                        mapOf("data" to AnyPattern(listOf(StringPattern()), extensions = emptyMap())),
                         typeAlias = "(TestRequest)"
                     )
                 ),
@@ -697,7 +697,7 @@ class ScenarioTest {
             val scenario = Scenario(
                 name = "test",
                 httpRequestPattern = HttpRequestPattern(
-                    body = AnyPattern(listOf(StringPattern(), NumberPattern()))
+                    body = AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())
                 ),
                 httpResponsePattern = HttpResponsePattern(
                     headersPattern = HttpHeadersPattern(),
@@ -725,7 +725,7 @@ class ScenarioTest {
             val scenario = Scenario(
                 name = "test",
                 httpRequestPattern = HttpRequestPattern(
-                    body = AnyPattern(listOf(objectPattern))
+                    body = AnyPattern(listOf(objectPattern), extensions = emptyMap())
                 ),
                 httpResponsePattern = HttpResponsePattern(
                     headersPattern = HttpHeadersPattern(),
@@ -749,7 +749,7 @@ class ScenarioTest {
             val scenario = Scenario(
                 name = "test",
                 httpRequestPattern = HttpRequestPattern(
-                    body = ListPattern(AnyPattern(listOf(StringPattern(), NumberPattern())))
+                    body = ListPattern(AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap()))
                 ),
                 httpResponsePattern = HttpResponsePattern(
                     headersPattern = HttpHeadersPattern(),
@@ -773,7 +773,7 @@ class ScenarioTest {
             val scenario = Scenario(
                 name = "test",
                 httpRequestPattern = HttpRequestPattern(
-                    body = JSONArrayPattern(listOf(AnyPattern(listOf(StringPattern()))))
+                    body = JSONArrayPattern(listOf(AnyPattern(listOf(StringPattern()), extensions = emptyMap())))
                 ),
                 httpResponsePattern = HttpResponsePattern(
                     headersPattern = HttpHeadersPattern(),
@@ -824,7 +824,12 @@ class ScenarioTest {
                 mapOf(
                     "items" to ListPattern(
                         JSONObjectPattern(
-                            mapOf("value" to AnyPattern(listOf(StringPattern(), NumberPattern()))),
+                            mapOf(
+                                "value" to AnyPattern(
+                                    listOf(StringPattern(), NumberPattern()),
+                                    extensions = emptyMap()
+                                )
+                            ),
                             typeAlias = "(Item)"
                         )
                     )
@@ -863,7 +868,7 @@ class ScenarioTest {
         fun `calculatePath should handle DeferredPattern in resolver`() {
             val patterns = mapOf(
                 "(CustomType)" to JSONObjectPattern(
-                    mapOf("data" to AnyPattern(listOf(StringPattern()))),
+                    mapOf("data" to AnyPattern(listOf(StringPattern()), extensions = emptyMap())),
                     typeAlias = "(CustomType)"
                 )
             )

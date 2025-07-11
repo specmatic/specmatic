@@ -187,7 +187,15 @@ data class HttpResponsePattern(
 
     fun resolveSubstitutions(substitution: Substitution, response: HttpResponse): HttpResponse {
         val substitutedHeaders = substitution.resolveHeaderSubstitutions(response.headers, headersPattern.pattern).breadCrumb(BreadCrumb.HEADER.value)
-        val substitutedBody = body.resolveSubstitutions(substitution, response.body, substitution.resolver).breadCrumb("BODY")
+        val responseBody = response.body
+
+        val parsedResponseBody= if(responseBody is StringValue) {
+            runCatching { body.parse(responseBody.string, substitution.resolver) }.getOrElse { responseBody }
+        } else {
+            responseBody
+        }
+
+        val substitutedBody = body.resolveSubstitutions(substitution, parsedResponseBody, substitution.resolver).breadCrumb("BODY")
 
         return substitutedHeaders.combine(substitutedBody) { fullHeaders, fullBody ->
             response.copy(headers = fullHeaders, body = fullBody)

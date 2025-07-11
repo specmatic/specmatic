@@ -116,8 +116,8 @@ class Proxy(
                                     name,
                                     uniqueNameForApiOperation(httpRequest, baseURL, httpResponse.status),
                                     ScenarioStub(
-                                        httpRequest.withoutDynamicHeaders(),
-                                        httpResponse.withoutDynamicHeaders()
+                                        httpRequest.withoutTransportHeaders(),
+                                        httpResponse.withoutTransportHeaders()
                                     )
                                 )
                             )
@@ -220,10 +220,13 @@ class Proxy(
     }
 
     override fun close() {
-        runBlocking {
-            dumpSpecAndExamplesIntoOutputDir()
+        try {
+            runBlocking {
+                dumpSpecAndExamplesIntoOutputDir()
+            }
+        } finally {
+            server.stop(0, 0)
         }
-        server.stop(0, 0)
     }
 
     private fun filterHttpRequest(httpRequest: HttpRequest, filter: String?): Boolean {

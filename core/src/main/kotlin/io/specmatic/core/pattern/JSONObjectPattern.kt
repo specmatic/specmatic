@@ -1,5 +1,6 @@
 package io.specmatic.core.pattern
 
+import io.ktor.http.*
 import io.specmatic.core.*
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.utilities.mapZip
@@ -11,13 +12,22 @@ import java.util.Optional
 fun toJSONObjectPattern(jsonContent: String, typeAlias: String?): JSONObjectPattern =
     toJSONObjectPattern(stringToPatternMap(jsonContent), typeAlias)
 
-fun toJSONObjectPattern(map: Map<String, Pattern>, typeAlias: String? = null): JSONObjectPattern {
+fun toJSONObjectPattern(
+    map: Map<String, Pattern>,
+    typeAlias: String? = null,
+    extensions: Map<String, Any> = emptyMap()
+): JSONObjectPattern {
     val missingKeyStrategy: UnexpectedKeyCheck = when ("...") {
         in map -> IgnoreUnexpectedKeys
         else -> ValidateUnexpectedKeys
     }
 
-    return JSONObjectPattern(map.minus("..."), missingKeyStrategy, typeAlias)
+    return JSONObjectPattern(
+        pattern = map.minus("..."),
+        unexpectedKeyCheck = missingKeyStrategy,
+        typeAlias = typeAlias,
+        extensions = extensions
+    )
 }
 
 sealed interface AdditionalProperties {
@@ -83,7 +93,8 @@ data class JSONObjectPattern(
     override val typeAlias: String? = null,
     val minProperties: Int? = null,
     val maxProperties: Int? = null,
-    val additionalProperties: AdditionalProperties = AdditionalProperties.NoAdditionalProperties
+    val additionalProperties: AdditionalProperties = AdditionalProperties.NoAdditionalProperties,
+    override val extensions: Map<String, Any> = emptyMap()
 ) : Pattern, PossibleJsonObjectPatternContainer {
 
     override fun fixValue(value: Value, resolver: Resolver): Value {
@@ -182,18 +193,20 @@ data class JSONObjectPattern(
         resolver: Resolver,
         key: String?
     ): ReturnValue<Value> {
-        if(value !is JSONObjectValue)
-            return HasFailure(Result.Failure("Cannot resolve substitutions, expected object but got ${value.displayableType()}"))
+        val resolved = runCatching { substitution.resolveIfLookup(value, this) }.getOrElse { e -> return HasException(e) }
+        val resolvedValue = resolved as? JSONObjectValue ?: return HasValue(resolved)
 
-        if(pattern.isEmpty())
-            return HasValue(value)
-
-        val updatedMap = value.jsonObject.mapValues { (key, value) ->
+        if(pattern.isEmpty()) return HasValue(value)
+        val updatedMap = resolvedValue.jsonObject.mapNotNull { (key, value) ->
             val pattern = attempt("Could not find key in json object", key) { pattern[key] ?: pattern["$key?"] ?: throw MissingDataException("Could not find key $key") }
-            pattern.resolveSubstitutions(substitution, value, resolver, key).breadCrumb(key)
-        }
+            if (substitution.isDropDirective(value)) {
+                if (this.pattern[key] != null) return HasFailure(Result.Failure(breadCrumb = key, message = "Cannot drop mandatory key named ${key.quote()}"))
+                else return@mapNotNull null
+            }
+            key to pattern.resolveSubstitutions(substitution, value, resolver, key).breadCrumb(key)
+        }.toMap()
 
-        return updatedMap.mapFoldException().ifValue { value.copy(it) }
+        return updatedMap.mapFoldException().ifValue(resolvedValue::copy)
     }
 
     override fun getTemplateTypes(key: String, value: Value, resolver: Resolver): ReturnValue<Map<String, Pattern>> {

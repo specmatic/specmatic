@@ -5,6 +5,8 @@ import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.pattern.parsedValue
+import io.specmatic.core.utilities.Flags
+import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.parseXML
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NullValue
@@ -650,6 +652,28 @@ Scenario: JSON API to get account details with fact check
     }
 
     @Test
+    fun `should retain serialized JSON values as strings in response when responding to requests`() {
+        val apiFile = File("src/test/resources/openapi/has_serialized_json_field/api.yaml")
+        val feature = OpenApiSpecification.fromFile(apiFile.canonicalPath).toFeature()
+        val examplesDir = apiFile.resolveSibling("api_examples")
+        val examples = examplesDir.listFiles()?.map(ScenarioStub::readFromFile).orEmpty()
+
+        HttpStub(feature, examples).use {
+            val request = HttpRequest(
+                "POST", "/example",
+                body = JSONObjectValue(mapOf(
+                    "json" to StringValue("{\"value\": [\"string\", 1, false, null], \"location\": \"request\"}")
+                )),
+            )
+            val response = it.client.execute(request)
+            val returnedValue = (response.body as JSONObjectValue).jsonObject["json"] as StringValue
+
+            assertThat(response.status).isEqualTo(200)
+            assertThat(returnedValue.nativeValue).isEqualTo("{\"value\": [\"string\", 1, false, null], \"location\": \"response\"}")
+        }
+    }
+
+    @Test
     fun `should respond with 4xx if request does not match the security scheme defined in the contract`() {
         val openApiFile = File("src/test/resources/openapi/has_composite_security/api.yaml")
         val feature = OpenApiSpecification.fromFile(openApiFile.canonicalPath).toFeature()
@@ -732,6 +756,26 @@ Scenario: JSON API to get account details with fact check
                 val response = it.client.execute(request)
                 assertThat(response.status).isEqualTo(200)
             }
+        }
+    }
+
+    @Test
+    fun `should be able to respond with matching data substitution based partial example`() {
+        val openApiFile = File("src/test/resources/openapi/partial_example_tests/simple.yaml")
+        val examplesDir = openApiFile.resolveSibling("partial_substitution")
+        val feature = OpenApiSpecification.fromFile(openApiFile.canonicalPath).toFeature()
+        val stubs = examplesDir.listFiles().orEmpty().map(ScenarioStub::readFromFile)
+        
+        HttpStub(feature, stubs).use { stub ->
+            val request = feature.scenarios.first().generateHttpRequest()
+            val requestBody = request.body as JSONObjectValue
+
+            val response = stub.client.execute(request)
+            val responseBody = response.body as JSONObjectValue
+
+            assertThat(response.status).isEqualTo(201)
+            assertThat(responseBody.jsonObject["creatorId"]).isEqualTo(requestBody.jsonObject["creatorId"])
+            assertThat(responseBody.jsonObject["petId"]).isEqualTo(requestBody.jsonObject["petId"])
         }
     }
 }

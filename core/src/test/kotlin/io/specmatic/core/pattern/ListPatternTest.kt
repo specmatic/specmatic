@@ -95,7 +95,7 @@ internal class ListPatternTest {
 
     @Test
     fun `a list should encompass a json array with items matching the list`() {
-        val bigger = ListPattern(AnyPattern(listOf(NumberPattern(), NullPattern)))
+        val bigger = ListPattern(AnyPattern(listOf(NumberPattern(), NullPattern), extensions = emptyMap()))
         val smaller1Element = parsedPattern("""["(number)"]""")
         val smaller1ElementAndRest = parsedPattern("""["(number)", "(number...)"]""")
 
@@ -823,7 +823,7 @@ Feature: Recursive test
 
         @Test
         fun `calculatePath should return empty set for empty array`() {
-            val pattern = ListPattern(AnyPattern(listOf(StringPattern())))
+            val pattern = ListPattern(AnyPattern(listOf(StringPattern()), extensions = emptyMap()))
             val value = JSONArrayValue(emptyList())
             val resolver = Resolver()
 
@@ -834,7 +834,7 @@ Feature: Recursive test
 
         @Test
         fun `calculatePath should handle AnyPattern elements`() {
-            val pattern = ListPattern(AnyPattern(listOf(StringPattern(), NumberPattern())))
+            val pattern = ListPattern(AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap()))
             val value = JSONArrayValue(listOf(StringValue("test"), NumberValue(42), StringValue("test2")))
             val resolver = Resolver()
 
@@ -846,7 +846,7 @@ Feature: Recursive test
         @Test
         fun `calculatePath should handle JSONObjectPattern elements`() {
             val objectPattern = JSONObjectPattern(
-                mapOf("data" to AnyPattern(listOf(StringPattern()))),
+                mapOf("data" to AnyPattern(listOf(StringPattern()), extensions = emptyMap())),
                 typeAlias = "(ListItem)"
             )
             val pattern = ListPattern(objectPattern)
@@ -869,7 +869,7 @@ Feature: Recursive test
             val nestedObjectPattern = JSONObjectPattern(
                 mapOf(
                     "id" to StringPattern(),
-                    "value" to AnyPattern(listOf(StringPattern(), NumberPattern()))
+                    "value" to AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())
                 ),
                 typeAlias = "(NestedListItem)"
             )
@@ -890,7 +890,8 @@ Feature: Recursive test
 
         @Test
         fun `calculatePath should handle patterns without typeAlias`() {
-            val objectPattern = JSONObjectPattern(mapOf("data" to AnyPattern(listOf(StringPattern()))))
+            val objectPattern =
+                JSONObjectPattern(mapOf("data" to AnyPattern(listOf(StringPattern()), extensions = emptyMap())))
             val pattern = ListPattern(objectPattern)
             val value = JSONArrayValue(listOf(
                 JSONObjectValue(mapOf("data" to StringValue("item1")))
@@ -915,7 +916,9 @@ Feature: Recursive test
 
         @Test
         fun `calculatePath should handle DeferredPattern in AnyPattern`() {
-            val pattern = ListPattern(AnyPattern(listOf(DeferredPattern("(TestType)"))))
+            val pattern = ListPattern(
+                AnyPattern(listOf(DeferredPattern("(TestType)")), extensions = emptyMap())
+            )
             val resolver = Resolver(newPatterns = mapOf("(TestType)" to StringPattern()))
             val value = JSONArrayValue(listOf(StringValue("test")))
 
@@ -926,7 +929,7 @@ Feature: Recursive test
 
         @Test
         fun `calculatePath should handle large arrays efficiently`() {
-            val pattern = ListPattern(AnyPattern(listOf(StringPattern())))
+            val pattern = ListPattern(AnyPattern(listOf(StringPattern()), extensions = emptyMap()))
             val largeArray = JSONArrayValue((1..100).map { StringValue("item$it") })
             val resolver = Resolver()
 

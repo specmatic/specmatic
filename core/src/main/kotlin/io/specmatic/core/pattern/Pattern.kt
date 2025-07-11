@@ -64,11 +64,12 @@ interface Pattern {
     fun listOf(valueList: List<Value>, resolver: Resolver): Value
 
     fun toNullable(defaultValue: String?): Pattern {
-        return AnyPattern(listOf(NullPattern, this), example = defaultValue)
+        val patterns = listOf(NullPattern, this)
+        return AnyPattern(patterns, example = defaultValue, extensions = patterns.extractCombinedExtensions())
     }
 
     fun resolveSubstitutions(substitution: Substitution, value: Value, resolver: Resolver, key: String? = null): ReturnValue<Value> {
-        return substitution.substitute(value, this, key)
+        return scalarResolveSubstitutions(substitution, value, key, this, resolver)
     }
 
     fun getTemplateTypes(key: String, value: Value, resolver: Resolver): ReturnValue<Map<String, Pattern>> {
@@ -134,4 +135,12 @@ fun fillInIfPatternToken(value: Value, pattern: Pattern, resolver: Resolver): Re
 
 fun fixValue(value: Value, pattern: Pattern, resolver: Resolver): Value {
     return value.takeIf { resolver.matchesPattern(null, pattern, value).isSuccess() } ?: resolver.generate(pattern)
+}
+
+fun scalarResolveSubstitutions(substitution: Substitution, value: Value, key: String?, pattern: Pattern, resolver: Resolver): ReturnValue<Value> {
+    val resolvedValue = runCatching { substitution.resolveIfLookup(value, pattern) }.getOrElse { e -> return HasException(e) }
+    return substitution.substitute(resolvedValue, pattern, key).ifHasValue { returnValue: HasValue<Value> ->
+        val substitutedValue = returnValue.value
+        resolver.matchesPattern(null, pattern, substitutedValue).toReturnValue(substitutedValue)
+    }
 }

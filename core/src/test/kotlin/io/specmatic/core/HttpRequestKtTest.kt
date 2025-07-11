@@ -57,7 +57,7 @@ internal class HttpRequestKtTest {
         assertThat(clauses).hasSize(1)
 
         assertThat(clauses.first().section).isEqualTo(When)
-        assertThat(clauses.first().content).isEqualTo("GET /data?count=(number)")
+        assertThat(clauses.first().content).isEqualTo("GET /data?count=(integer)")
     }
 
     @Test
@@ -85,7 +85,7 @@ internal class HttpRequestKtTest {
         assertThat(clauses.first().content).isEqualTo("POST /data")
 
         assertThat(clauses[1].section).isEqualTo(When)
-        assertThat(clauses[1].content).isEqualTo("form-field field (number)")
+        assertThat(clauses[1].content).isEqualTo("form-field field (integer)")
     }
 
     @Test
@@ -99,7 +99,7 @@ internal class HttpRequestKtTest {
         assertThat(clauses.first().content).isEqualTo("POST /data")
 
         assertThat(clauses[1].section).isEqualTo(When)
-        assertThat(clauses[1].content).isEqualTo("request-part field (number)")
+        assertThat(clauses[1].content).isEqualTo("request-part field (integer)")
     }
 
     @Test

@@ -19,8 +19,8 @@ internal class TypeDeclarationKtTest {
         val convergedOneWay = convergeTypeDeclarations(emptyDeclaration, oneElementDeclaration)
         val convergedTheOtherWay = convergeTypeDeclarations(oneElementDeclaration, emptyDeclaration)
 
-        assertThat((convergedOneWay.types.getValue("List") as TabularPattern).pattern.getValue("list")).isEqualTo(DeferredPattern("(number*)"))
-        assertThat((convergedTheOtherWay.types.getValue("List") as TabularPattern).pattern.getValue("list")).isEqualTo(DeferredPattern("(number*)"))
+        assertThat((convergedOneWay.types.getValue("List") as TabularPattern).pattern.getValue("list")).isEqualTo(DeferredPattern("(integer*)"))
+        assertThat((convergedTheOtherWay.types.getValue("List") as TabularPattern).pattern.getValue("list")).isEqualTo(DeferredPattern("(integer*)"))
     }
 
     @Test

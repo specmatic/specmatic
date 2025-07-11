@@ -13,7 +13,7 @@ internal class HttpRequestPatternKtTest {
     fun `when generating new content part types with two value options there should be two types generated`() {
         val multiPartTypes = listOf(MultiPartContentPattern(
             "data",
-            AnyPattern(listOf(StringPattern(), NumberPattern())),
+            AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap()),
         ))
 
         val newTypes = newMultiPartBasedOn(multiPartTypes, Row(), Resolver()).toList()

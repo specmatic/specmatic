@@ -6,6 +6,7 @@ import io.cucumber.messages.types.Step
 import io.ktor.util.reflect.*
 import io.specmatic.core.*
 import io.specmatic.core.Result.Failure
+import io.specmatic.core.filters.HTTPFilterKeys
 import io.specmatic.core.log.LogStrategy
 import io.specmatic.core.log.logger
 import io.specmatic.core.overlay.OverlayMerger
@@ -30,14 +31,11 @@ import io.swagger.v3.oas.models.PathItem
 import io.swagger.v3.oas.models.examples.Example
 import io.swagger.v3.oas.models.headers.Header
 import io.swagger.v3.oas.models.media.*
-import io.swagger.v3.oas.models.parameters.HeaderParameter
-import io.swagger.v3.oas.models.parameters.Parameter
-import io.swagger.v3.oas.models.parameters.PathParameter
-import io.swagger.v3.oas.models.parameters.QueryParameter
-import io.swagger.v3.oas.models.parameters.RequestBody
+import io.swagger.v3.oas.models.parameters.*
 import io.swagger.v3.oas.models.responses.ApiResponse
 import io.swagger.v3.oas.models.responses.ApiResponses
 import io.swagger.v3.oas.models.security.SecurityScheme
+import io.swagger.v3.oas.models.servers.Server
 import io.swagger.v3.parser.OpenAPIV3Parser
 import io.swagger.v3.parser.core.models.ParseOptions
 import io.swagger.v3.parser.core.models.SwaggerParseResult
@@ -271,10 +269,14 @@ class OpenApiSpecification(
         )
     }
 
-    private fun parseUnreferencedSchemas(): Map<String, Pattern> {
+    fun parseUnreferencedSchemas(): Map<String, Pattern> {
         return openApiSchemas().filterNot { withPatternDelimiters(it.key) in patterns }.map {
             withPatternDelimiters(it.key) to toSpecmaticPattern(it.value, emptyList(), it.key)
         }.toMap()
+    }
+
+    fun getServers(): List<Server> {
+        return parsedOpenApi.servers.orEmpty()
     }
 
     override fun toScenarioInfos(): Pair<List<ScenarioInfo>, Map<String, List<Pair<HttpRequest, HttpResponse>>>> {
@@ -428,12 +430,12 @@ class OpenApiSpecification(
 
                     val operation = openApiOperation.operation
 
-                    val specmaticPathParam = toSpecmaticPathParam(openApiPath, operation)
-                    val specmaticQueryParam = toSpecmaticQueryParam(operation)
+                    val specmaticPathParam = toSpecmaticPathParam(openApiPath, operation, schemaLocationDescription = "$httpMethod $openApiPath.REQUEST.${HTTPFilterKeys.PARAMETERS_PATH.key}")
+                    val specmaticQueryParam = toSpecmaticQueryParam(operation, schemaLocationDescription = "$httpMethod $openApiPath.REQUEST.${HTTPFilterKeys.PARAMETERS_QUERY.key}")
 
                     val httpResponsePatterns: List<ResponsePatternData> =
                         attempt(breadCrumb = "$httpMethod $openApiPath -> RESPONSE") {
-                            toHttpResponsePatterns(operation.responses, httpMethod, openApiPath, parsedOpenApi.components?.schemas.orEmpty())
+                            toHttpResponsePatterns(operation.responses, httpMethod, openApiPath, parsedOpenApi.components?.schemas.orEmpty(), breadCrumb = "$httpMethod $openApiPath")
                         }
 
                     val first2xxResponseStatus =
@@ -852,12 +854,14 @@ class OpenApiSpecification(
         responses: ApiResponses?,
         method: String,
         path: String,
-        schemas: Map<String, Schema<Any>>
+        schemas: Map<String, Schema<Any>>,
+        breadCrumb: String
     ): List<ResponsePatternData> {
         return responses.orEmpty().map { (status, response) ->
+            val updatedBreadCrumb = "$breadCrumb -> $status"
             logger.debug("Processing response payload with status $status")
 
-            val headersMap = openAPIHeadersToSpecmatic(response)
+            val headersMap = openAPIHeadersToSpecmatic(response, updatedBreadCrumb)
             if(!isNumber(status) && status != "default")
                 throw ContractException("Response status codes are expected to be numbers, but \"$status\" was found")
 
@@ -867,7 +871,7 @@ class OpenApiSpecification(
         }.flatten()
     }
 
-    private fun openAPIHeadersToSpecmatic(response: ApiResponse) =
+    private fun openAPIHeadersToSpecmatic(response: ApiResponse, breadCrumb: String) =
         response.headers.orEmpty().map { (headerName, header) ->
             logger.debug("Processing response header $headerName")
 
@@ -877,7 +881,9 @@ class OpenApiSpecification(
                         headerName,
                         response
                     )
-                ), emptyList()
+                ),
+                emptyList(),
+                breadCrumb = "$breadCrumb.RESPONSE.HEADER.$headerName"
             )
         }.toMap()
 
@@ -946,7 +952,11 @@ class OpenApiSpecification(
                 status = if (status == "default") 1000 else status.toInt(),
                 body = when (contentType) {
                     "application/xml" -> toXMLPattern(mediaType)
-                    else -> toSpecmaticPattern(mediaType, "response")
+                    else -> toSpecmaticPattern(
+                        mediaType,
+                        breadCrumb = "$method $path -> $status ($contentType).RESPONSE.BODY",
+                        contentType = contentType
+                    )
                 }
             )
 
@@ -1024,10 +1034,17 @@ class OpenApiSpecification(
 
         val parameters = operation.parameters
 
+        validateSecuritySchemeParameterDuplication(
+            securitySchemesForRequestPattern,
+            parameters,
+            httpMethod,
+            httpPathPattern.path,
+        )
+
         val headersMap = parameters.orEmpty().filterIsInstance<HeaderParameter>().associate {
             logger.debug("Processing request header ${it.name}")
 
-            toSpecmaticParamName(it.required != true, it.name) to toSpecmaticPattern(it.schema, emptyList())
+            toSpecmaticParamName(it.required != true, it.name) to toSpecmaticPattern(it.schema, emptyList(), breadCrumb = "${httpMethod} ${httpPathPattern.path}.REQUEST.${HTTPFilterKeys.PARAMETERS_HEADER.key}.${it.name}")
         }
 
         val contentTypeHeaderPattern = headersMap.entries.find { it.key.lowercase() in listOf("content-type", "content-type?") }?.value
@@ -1138,7 +1155,7 @@ class OpenApiSpecification(
 
                     val bodyIsRequired: Boolean = requestBody.required ?: true
 
-                    val body = toSpecmaticPattern(mediaType, "request").let {
+                    val body = toSpecmaticPattern(mediaType, breadCrumb = "$httpMethod ${httpPathPattern.path} ($contentType).REQUEST.BODY").let {
                         if (bodyIsRequired)
                             it
                         else
@@ -1301,8 +1318,28 @@ class OpenApiSpecification(
         return this.entries.distinctBy { it.value }.associate { it.key to it.value }
     }
 
-    private fun toSpecmaticPattern(mediaType: MediaType, section: String, jsonInFormData: Boolean = false): Pattern =
-        toSpecmaticPattern(mediaType.schema ?: throw ContractException("${section.capitalizeFirstChar()} body definition is missing"), emptyList(), jsonInFormData = jsonInFormData)
+    private fun toSpecmaticPattern(mediaType: MediaType, jsonInFormData: Boolean = false, breadCrumb: String = "", contentType: String = ""): Pattern {
+        if(mediaType.schema != null)
+            return toSpecmaticPattern(mediaType.schema, emptyList(), jsonInFormData = jsonInFormData, breadCrumb = breadCrumb)
+
+        val (valueType, patternType) = if (contentType.contains("json", ignoreCase = true) || contentType.contains("form-data", ignoreCase = true)) {
+            val freeFormJSONObject = JSONObjectPattern(
+                pattern = emptyMap(),
+                additionalProperties = AdditionalProperties.FreeForm,
+            )
+
+            "free form JSON object" to freeFormJSONObject
+        } else if (contentType.contains("text", ignoreCase = true) || contentType.contains("xml", ignoreCase = true)) {
+            "text" to StringPattern()
+        } else {
+            "binary data" to BinaryPattern()
+        }
+
+        logger.log(getEmptySchemaWarning(breadCrumb, valueType))
+        logger.boundary()
+
+        return patternType
+    }
 
     private fun resolveDeepAllOfs(schema: Schema<Any>, discriminatorDetails: DiscriminatorDetails, typeStack: Set<String>, topLevel: Boolean): Pair<List<Schema<Any>>, DiscriminatorDetails> {
         if (schema.allOf == null)
@@ -1375,19 +1412,31 @@ class OpenApiSpecification(
     }
 
     private fun toSpecmaticPattern(
-        schema: Schema<*>, typeStack: List<String>, patternName: String = "", jsonInFormData: Boolean = false
+        schema: Schema<*>, typeStack: List<String>, patternName: String = "", jsonInFormData: Boolean = false, breadCrumb: String = ""
     ): Pattern {
         if(patternName.isNotBlank()) logger.debug("Processing schema $patternName")
 
         val preExistingResult = patterns["($patternName)"]
-        val pattern = if (preExistingResult != null && patternName.isNotBlank())
+        val pattern = if (preExistingResult != null && patternName.isNotBlank()) {
             preExistingResult
-        else if (typeStack.filter { it == patternName }.size > 1) {
+        } else if (typeStack.filter { it == patternName }.size > 1) {
             DeferredPattern("($patternName)")
         } else if (schema.`$ref` != null) {
             val component: String = schema.`$ref`
             val (componentName, referredSchema) = resolveReferenceToSchema(component)
             val cyclicReference = typeStack.contains(componentName)
+            if(schema.type != null){
+                val schemaDescriptor = if(patternName.isNotEmpty()) {
+                    withoutPatternDelimiters(patternName)
+                } else {
+                    breadCrumb
+                }
+
+                val warning = createWarningForRefAndSchemaSiblings(schemaDescriptor, schema.`$ref`, schema.type)
+
+                logger.log(warning)
+                logger.boundary()
+            }
             if (!cyclicReference) {
                 val componentPattern = toSpecmaticPattern(
                     referredSchema,
@@ -1433,7 +1482,7 @@ class OpenApiSpecification(
                 if (schema.xml?.name != null) {
                     toXMLPattern(schema, typeStack = typeStack)
                 } else {
-                    toJsonObjectPattern(schema, patternName, typeStack)
+                    toJsonObjectPattern(schema, patternName, typeStack, breadCrumb)
                 }
             }
             is ByteArraySchema -> Base64StringPattern()
@@ -1445,7 +1494,7 @@ class OpenApiSpecification(
 
                     ListPattern(
                         toSpecmaticPattern(
-                            schema.items, typeStack
+                            schema.items, typeStack, breadCrumb = "$breadCrumb[]"
                         ),
                         example = toListExample(schema.example)
                     )
@@ -1464,9 +1513,22 @@ class OpenApiSpecification(
 
                         val schemaProperties = (deepListOfAllOfs + schemasFromDiscriminator).map { schemaToProcess ->
                             val requiredFields = topLevelRequired.plus(schemaToProcess.required.orEmpty())
-                            toSchemaProperties(schemaToProcess, requiredFields.distinct(), patternName, typeStack, discriminator)
-                        }.fold(emptyMap<String, Pattern>()) { propertiesAcc, propertiesEntry ->
-                            combine(propertiesEntry, propertiesAcc)
+                            SchemaProperty(
+                                extensions = schemaToProcess.extensions.orEmpty(),
+                                properties = toSchemaProperties(
+                                    schemaToProcess,
+                                    requiredFields.distinct(),
+                                    patternName,
+                                    typeStack,
+                                    discriminator
+                                )
+                            )
+                        }.fold(SchemaProperty(extensions = emptyMap(), properties = emptyMap())) { propertiesAcc, propertiesEntry ->
+                            val (extensions, properties) = propertiesEntry
+                            propertiesAcc.copy(
+                                extensions = propertiesAcc.extensions.plus(extensions),
+                                properties = combine(properties, propertiesAcc.properties)
+                            )
                         }
 
                         schemaProperties
@@ -1484,32 +1546,48 @@ class OpenApiSpecification(
                                 "" to it
                             }
                             val requiredFields = schemaToProcess.required.orEmpty()
-                            componentName to toSchemaProperties(
+                            componentName to SchemaProperty(schemaToProcess.extensions.orEmpty(), toSchemaProperties(
                                 schemaToProcess,
                                 requiredFields,
                                 componentName,
                                 typeStack
-                            )
-                        }.flatMap { (componentName, properties) ->
+                            ))
+                        }.flatMap { (componentName, schemaProperty) ->
                             schemaProperties.map {
-                                componentName to combine(it, properties)
+                                componentName to SchemaProperty(
+                                    extensions = it.extensions.plus(schemaProperty.extensions),
+                                    properties = combine(it.properties, schemaProperty.properties)
+                                )
                             }
                         }
 
                         result
-                    }.flatten().map { (componentName, properties) ->
-                        toJSONObjectPattern(properties, "(${componentName})")
+                    }.flatten().map { (componentName, schemaProperty) ->
+                        toJSONObjectPattern(
+                            schemaProperty.properties,
+                            "(${componentName})",
+                            schemaProperty.extensions
+                        )
                     }
 
                     val pattern = if (oneOfs.size == 1)
                         oneOfs.single()
                     else if (oneOfs.size > 1)
-                        AnyPattern(oneOfs, typeAlias = "(${patternName})")
+                        AnyPattern(
+                            oneOfs,
+                            typeAlias = "(${patternName})",
+                            extensions = emptyMap()
+                        )
                     else if(allDiscriminators.isNotEmpty())
                         AnyPattern(
-                            pattern = schemaProperties.zip(allDiscriminators.schemaNames).map { (properties, schemaName) ->
-                                toJSONObjectPattern(properties, "(${schemaName})")
-                            },
+                            pattern = schemaProperties.zip(allDiscriminators.schemaNames)
+                                .map { (schemaProperty, schemaName) ->
+                                    toJSONObjectPattern(
+                                        schemaProperty.properties,
+                                        "(${schemaName})",
+                                        schemaProperty.extensions
+                                    )
+                                },
                             discriminator = Discriminator.create(
                                 allDiscriminators.key,
                                 allDiscriminators.values.toSet(),
@@ -1517,10 +1595,23 @@ class OpenApiSpecification(
                             ),
                             typeAlias = "(${patternName})"
                         )
-                    else if(schemaProperties.size > 1)
-                        AnyPattern(schemaProperties.map { toJSONObjectPattern(it, "(${patternName})") })
-                    else
-                        toJSONObjectPattern(schemaProperties.single(), "(${patternName})")
+                    else if(schemaProperties.size > 1) {
+                        val pattern = schemaProperties.map {
+                            toJSONObjectPattern(it.properties, "(${patternName})", it.extensions)
+                        }
+                        AnyPattern(
+                            pattern,
+                            extensions = emptyMap()
+                        )
+                    }
+                    else {
+                        val schemaProperty = schemaProperties.single()
+                        toJSONObjectPattern(
+                            schemaProperty.properties,
+                            "(${patternName})",
+                            schemaProperty.extensions
+                        )
+                    }
 
                     cacheComponentPattern(patternName, pattern)
 
@@ -1829,16 +1920,17 @@ class OpenApiSpecification(
         mapOf("string" to "(string)", "number" to "(number)", "integer" to "(number)", "boolean" to "(boolean)")
 
     private fun toJsonObjectPattern(
-        schema: Schema<*>, patternName: String, typeStack: List<String>
+        schema: Schema<*>, patternName: String, typeStack: List<String>, breadCrumb: String = ""
     ): JSONObjectPattern {
         val requiredFields = schema.required.orEmpty()
-        val schemaProperties = toSchemaProperties(schema, requiredFields, patternName, typeStack)
+        val schemaProperties = toSchemaProperties(schema, requiredFields, patternName, typeStack, breadCrumb = breadCrumb)
         val minProperties: Int? = schema.minProperties
         val maxProperties: Int? = schema.maxProperties
         val jsonObjectPattern = toJSONObjectPattern(schemaProperties, if(patternName.isNotBlank()) "(${patternName})" else null).copy(
             minProperties = minProperties,
             maxProperties = maxProperties,
-            additionalProperties = additionalPropertiesFrom(schema, patternName, typeStack)
+            additionalProperties = additionalPropertiesFrom(schema, patternName, typeStack),
+            extensions = schema.extensions.orEmpty()
         )
         return cacheComponentPattern(patternName, jsonObjectPattern)
     }
@@ -1871,8 +1963,10 @@ class OpenApiSpecification(
     }
 
     private fun toSchemaProperties(
-        schema: Schema<*>, requiredFields: List<String>, patternName: String, typeStack: List<String>, discriminatorDetails: DiscriminatorDetails = DiscriminatorDetails()
+        schema: Schema<*>, requiredFields: List<String>, patternName: String, typeStack: List<String>, discriminatorDetails: DiscriminatorDetails = DiscriminatorDetails(), breadCrumb: String = ""
     ): Map<String, Pattern> {
+        val updatedBreadCrumb = if(patternName.isNotBlank()) patternName else breadCrumb
+
         val patternMap = schema.properties.orEmpty().map { (propertyName, propertyType) ->
             if (schema.discriminator?.propertyName == propertyName)
                 propertyName to ExactValuePattern(StringValue(patternName), discriminator = true)
@@ -1883,7 +1977,8 @@ class OpenApiSpecification(
                 toSpecmaticParamName(optional, propertyName) to attempt(breadCrumb = propertyName) {
                     toSpecmaticPattern(
                         propertyType,
-                        typeStack) }
+                        typeStack, breadCrumb = "$updatedBreadCrumb.$propertyName"
+                    ) }
             }
         }.toMap()
 
@@ -1950,17 +2045,21 @@ class OpenApiSpecification(
 
     private fun componentNameFromReference(component: String) = component.substringAfterLast("/")
 
-    private fun toSpecmaticQueryParam(operation: Operation): HttpQueryParamPattern {
+    private fun toSpecmaticQueryParam(operation: Operation, schemaLocationDescription: String): HttpQueryParamPattern {
         val parameters = operation.parameters ?: return HttpQueryParamPattern(emptyMap())
 
         val queryPattern: Map<String, Pattern> = parameters.filterIsInstance<QueryParameter>().associate {
             logger.debug("Processing query parameter ${it.name}")
 
+            val breadCrumb = "$schemaLocationDescription.${it.name}"
+
             val specmaticPattern: Pattern? = if (it.schema.type == "array") {
-                QueryParameterArrayPattern(listOf(toSpecmaticPattern(schema = it.schema.items, typeStack = emptyList())), it.name)
+                QueryParameterArrayPattern(listOf(toSpecmaticPattern(schema = it.schema.items, typeStack = emptyList(), breadCrumb = breadCrumb)), it.name)
             } else if (it.schema.type != "object") {
-                QueryParameterScalarPattern(toSpecmaticPattern(schema = it.schema, typeStack = emptyList(), patternName = it.name))
-            } else null
+                QueryParameterScalarPattern(toSpecmaticPattern(schema = it.schema, typeStack = emptyList(), breadCrumb = breadCrumb))
+            } else {
+                null
+            }
 
             val queryParamKey = if(it.required == true)
                 it.name
@@ -1991,7 +2090,7 @@ class OpenApiSpecification(
         return null
     }
 
-    private fun toSpecmaticPathParam(openApiPath: String, operation: Operation): HttpPathPattern {
+    private fun toSpecmaticPathParam(openApiPath: String, operation: Operation, schemaLocationDescription: String): HttpPathPattern {
         val parameters = operation.parameters ?: emptyList()
 
         val pathSegments: List<String> = openApiPath.removePrefix("/").removeSuffix("/").let {
@@ -2018,7 +2117,7 @@ class OpenApiSpecification(
             val pathSoFar = pathSegments.take(index + 1).joinToString(separator = "/")
             val conflicts = pathTree.conflictsFor(pathSoFar)
             URLPathSegmentPattern(
-                pattern = toSpecmaticPattern(param.schema, emptyList()),
+                pattern = toSpecmaticPattern(param.schema, emptyList(), "$schemaLocationDescription.$paramName"),
                 key = paramName,
                 conflicts = conflicts
             )
@@ -2052,4 +2151,42 @@ class OpenApiSpecification(
             "DELETE" to pathItem.delete
         ).filter { (_, value) -> value != null }.map { (key, value) -> key to OpenApiOperation(value!!) }.toMap()
     }
+}
+
+internal fun getEmptySchemaWarning(breadCrumb: String, valueType: String): Warning {
+    return Warning(
+        problem = "The specification contains an empty media type definition for $breadCrumb.",
+        implications = "It will be treated as a $valueType when generating tests, in mocks, etc. Thus, any $valueType will satisfy the requirements of this schema, and you will lose feedback about broken consumer expectations.",
+        resolution = "Please provide a media type with a schema.",
+    )
+}
+
+internal fun validateSecuritySchemeParameterDuplication(
+    securitySchemes: List<OpenAPISecurityScheme>,
+    parameters: List<Parameter>?,
+    method: String,
+    path: String,
+) {
+    securitySchemes.forEach { securityScheme ->
+        securityScheme.warnIfExistsInParameters(parameters.orEmpty(), method, path)
+    }
+}
+
+internal fun createWarningForRefAndSchemaSiblings(
+    schemaDescriptor: String,
+    ref: String,
+    type: String,
+): Warning {
+    val openApiLink = "https://spec.openapis.org/oas/v3.0.4.html#fixed-fields-19"
+
+    return Warning(
+        problem =
+            if (schemaDescriptor.isEmpty()) {
+                "A schema has both \$ref ($ref) and a type $type defined."
+            } else {
+                "Schema at $schemaDescriptor has both \$ref ($ref) and a type $type defined."
+            },
+        implications = "As per the OpenAPI specification format ($openApiLink), when both are present, only \$ref will be used when generating tests, mock responses, etc, and the neighboring type will be ignored.",
+        resolution = "To resolve this, remove either the $ref or the $type type.",
+    )
 }

@@ -1,6 +1,6 @@
 package io.specmatic.core
 
-import io.specmatic.conversions.OpenApiSpecification
+import io.specmatic.conversions.*
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import io.specmatic.core.Result.Failure
@@ -10,9 +10,13 @@ import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
+import org.apache.http.HttpHeaders.AUTHORIZATION
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Nested
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.MethodSource
 import java.net.URI
+import java.util.stream.Stream
 
 internal class HttpRequestPatternTest {
     @Test
@@ -694,6 +698,61 @@ internal class HttpRequestPatternTest {
         assertThat(testDescriptions.count { it.matches(Regex("^.*HEADER.*enum.*$")) }).isEqualTo(4)
     }
 
+    @Test
+    fun `generating a request pattern from an http request should also convert in-spec and extra headers to patterns`() {
+        val originalRequestPattern = HttpRequestPattern(
+            httpPathPattern = buildHttpPathPattern("/"), method = "GET",
+            headersPattern = HttpHeadersPattern(pattern = mapOf("X-Test-Header" to StringPattern()), contentType = "application/json"),
+            body = JSONObjectPattern(mapOf("key" to StringPattern()))
+        )
+        val httpRequest = HttpRequest(
+            headers = mapOf("X-Test-Header" to "abc123", "X-Extra-Header" to "def456"),
+            body = JSONObjectValue(mapOf("key" to StringValue("value")))
+        )
+        val newRequestPattern = originalRequestPattern.generate(httpRequest, Resolver())
+        val requestBodyPattern = newRequestPattern.body as JSONObjectPattern
+
+        assertThat(newRequestPattern.headersPattern.pattern).isEqualTo(mapOf(
+            "x-test-header" to ExactValuePattern(StringValue("abc123")),
+            "x-extra-header" to ExactValuePattern(StringValue("def456"))
+        ))
+        assertThat(requestBodyPattern.patternForKey("key")).isEqualTo(ExactValuePattern(StringValue("value")))
+    }
+
+    @ParameterizedTest
+    @MethodSource("headersBasedSecuritySchemesProvider")
+    fun `security schema headers should be ignored when converting headers from http request to pattern`(securityScheme: OpenAPISecurityScheme) {
+        val originalRequestPattern = HttpRequestPattern(
+            httpPathPattern = buildHttpPathPattern("/"), method = "GET",
+            headersPattern = HttpHeadersPattern(pattern = mapOf("X-Test-Header" to StringPattern()), contentType = "application/json"),
+            securitySchemes = listOf(securityScheme)
+        )
+        val httpRequest = HttpRequest(
+            headers = mapOf("X-Test-Header" to "abc123", "X-Extra-Header" to "def456", AUTHORIZATION to "1234")
+        )
+        val newRequestPattern = originalRequestPattern.generate(httpRequest, Resolver())
+
+        assertThat(newRequestPattern.headersPattern.pattern).isEqualTo(mapOf(
+            "x-test-header" to ExactValuePattern(StringValue("abc123")),
+            "x-extra-header" to ExactValuePattern(StringValue("def456"))
+        ))
+    }
+
+    @Test
+    fun `should ignore content-type in headers when converting request to pattern`() {
+        val originalRequestPattern = HttpRequestPattern(
+            httpPathPattern = buildHttpPathPattern("/"), method = "GET",
+            headersPattern = HttpHeadersPattern(contentType = "application/json"),
+        )
+        val httpRequest = HttpRequest(headers = mapOf("Content-Type" to "application/json", "X-Extra-Header" to "def456"))
+        val newRequestPattern = originalRequestPattern.generate(httpRequest, Resolver())
+
+        assertThat(newRequestPattern.headersPattern.pattern).isEqualTo(mapOf(
+            "x-extra-header" to ExactValuePattern(StringValue("def456"))
+        ))
+        assertThat(newRequestPattern.headersPattern.contentType).isEqualTo("application/json")
+    }
+
     @Nested
     inner class GenerateV2Tests {
         @Test
@@ -828,4 +887,13 @@ internal class HttpRequestPatternTest {
     }
 
     private fun String.toExactValuePattern(): ExactValuePattern = ExactValuePattern(StringValue(this))
+
+    companion object {
+        @JvmStatic
+        fun headersBasedSecuritySchemesProvider(): Stream<OpenAPISecurityScheme> = Stream.of(
+            APIKeyInHeaderSecurityScheme(AUTHORIZATION, "1234"),
+            BasicAuthSecurityScheme("1234"),
+            BearerSecurityScheme("1234"),
+        )
+    }
 }

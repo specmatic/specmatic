@@ -1490,7 +1490,7 @@ paths:
             assertThat(it).contains("-> 4xx")
         }
 
-        negativeTestScenarios.zip((1..negativeTestScenarios.size).toList()).forEach { (scenario, index) ->
+        negativeTestScenarios.zip((1..negativeTestScenarios.size).toList()).forEach { (scenario, _) ->
             assertThat(scenario.testDescription()).contains("4xx [REQUEST.BODY.name string mutated to")
         }
     }
@@ -2999,7 +2999,7 @@ paths:
                     method = "POST",
                     httpPathPattern = buildHttpPathPattern("/test"),
                     body = JSONObjectPattern(
-                        mapOf("field1" to AnyPattern(listOf(StringPattern()))),
+                        mapOf("field1" to AnyPattern(listOf(StringPattern()), extensions = emptyMap())),
                         typeAlias = "(Request1)"
                     )
                 ),
@@ -3015,7 +3015,7 @@ paths:
                     method = "POST",
                     httpPathPattern = buildHttpPathPattern("/test"),
                     body = JSONObjectPattern(
-                        mapOf("field2" to AnyPattern(listOf(NumberPattern()))),
+                        mapOf("field2" to AnyPattern(listOf(NumberPattern()), extensions = emptyMap())),
                         typeAlias = "(Request2)"
                     )
                 ),
@@ -3045,7 +3045,7 @@ paths:
                     method = "POST",
                     httpPathPattern = buildHttpPathPattern("/test/(id:number)"),
                     body = JSONObjectPattern(
-                        mapOf("data" to AnyPattern(listOf(StringPattern()))),
+                        mapOf("data" to AnyPattern(listOf(StringPattern()), extensions = emptyMap())),
                         typeAlias = "(BadRequest)"
                     )
                 ),
@@ -3092,7 +3092,7 @@ paths:
                     body = JSONObjectPattern(
                         mapOf(
                             "type" to ExactValuePattern(StringValue("type2")),
-                            "data" to AnyPattern(listOf(StringPattern()))
+                            "data" to AnyPattern(listOf(StringPattern()), extensions = emptyMap())
                         ),
                         typeAlias = "(Type2Request)"
                     )
