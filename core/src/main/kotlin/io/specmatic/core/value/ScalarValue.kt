@@ -1,5 +1,5 @@
 package io.specmatic.core.value
 
-interface ScalarValue {
+interface ScalarValue: Value {
     val nativeValue: Any?
 }
