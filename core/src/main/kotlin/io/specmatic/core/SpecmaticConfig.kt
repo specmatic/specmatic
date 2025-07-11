@@ -525,22 +525,22 @@ data class SpecmaticConfig(
 
     @JsonIgnore
     fun getPipelineProvider(): PipelineProvider? {
-        return pipeline?.getProvider()
+        return pipeline?.let { it.provider ?: PipelineProvider.azure }
     }
 
     @JsonIgnore
     fun getPipelineDefinitionId(): Int? {
-        return pipeline?.getDefinitionId()
+        return pipeline?.let { it.definitionId ?: 0 }
     }
 
     @JsonIgnore
     fun getPipelineOrganization(): String? {
-        return pipeline?.getOrganization()
+        return pipeline?.let { it.organization ?: "" }
     }
 
     @JsonIgnore
     fun getPipelineProject(): String? {
-        return pipeline?.getProject()
+        return pipeline?.let { it.project ?: "" }
     }
 
     @JsonIgnore
@@ -634,27 +634,11 @@ data class Auth(
 enum class PipelineProvider { azure }
 
 data class Pipeline(
-    private val provider: PipelineProvider = PipelineProvider.azure,
-    private val organization: String = "",
-    private val project: String = "",
-    private val definitionId: Int = 0
-) {
-    fun getProvider(): PipelineProvider {
-        return provider
-    }
-
-    fun getOrganization(): String {
-        return organization
-    }
-
-    fun getProject(): String {
-        return project
-    }
-
-    fun getDefinitionId(): Int {
-        return definitionId
-    }
-}
+    val provider: PipelineProvider? = null,
+    val organization: String? = null,
+    val project: String? = null,
+    val definitionId: Int? = null
+)
 
 data class Environment(
     val baseurls: Map<String, String>? = null,
