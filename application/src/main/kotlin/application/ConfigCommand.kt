@@ -3,6 +3,7 @@ package application
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.SpecmaticConfigVersion.Companion.convertToLatestVersionedConfig
@@ -85,7 +86,10 @@ class ConfigCommand : Callable<Int> {
         }
 
         private fun getObjectMapper(): ObjectMapper {
-            val objectMapper = ObjectMapper(YAMLFactory()).apply {
+            val objectMapper = ObjectMapper(YAMLFactory().apply {
+                disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER)
+                enable(YAMLGenerator.Feature.MINIMIZE_QUOTES)
+            }).apply {
                 registerKotlinModule()
                 setDefaultPropertyInclusion(
                     JsonInclude.Value.construct(
