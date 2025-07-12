@@ -1,7 +1,10 @@
+@file:Suppress("ktlint:standard:no-wildcard-imports")
+
 package io.specmatic.core.pattern
 
 import io.specmatic.*
 import io.specmatic.core.*
+import io.specmatic.core.pattern.AdditionalProperties.FreeForm
 import io.specmatic.core.value.*
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -134,22 +137,23 @@ internal class AnyOfPatternTest {
     }
 
     @Test
-    fun `should fix JSON object`() {
+    fun `should fix completely non-matching JSON object to add all keys an the allOf options are freeform`() {
         val objectPattern1 =
-            parsedPattern(
-                """{
-            "key1": "(string)",
-            "key2": "(number)"
-        }""",
+            JSONObjectPattern(
+                mapOf(
+                    "key1" to StringPattern(),
+                    "key2" to NumberPattern(),
+                ),
+                additionalProperties = FreeForm,
             )
         val objectPattern2 =
-            parsedPattern(
-                """{
-            "key3": "(string)",
-            "key4": "(number)"
-        }""",
+            JSONObjectPattern(
+                mapOf(
+                    "key3" to StringPattern(),
+                    "key4" to NumberPattern(),
+                ),
+                additionalProperties = FreeForm,
             )
-
         val pattern = AnyOfPattern(listOf(objectPattern1, objectPattern2), extensions = emptyMap())
 
         val originalValue =
@@ -163,7 +167,7 @@ internal class AnyOfPatternTest {
         val fixedValue =
             pattern.fixValue(originalValue, Resolver()) as? JSONObjectValue ?: fail("Expected JSONObjectValue back as fixed value")
 
-        assertThat(fixedValue.jsonObject).containsKeys("key1", "key2")
+        assertThat(fixedValue.jsonObject).containsKeys("key1", "key2", "key3", "key4", "key5", "key6")
     }
 
     @Test
@@ -361,5 +365,38 @@ internal class AnyOfPatternTest {
         assertThat(resultValue.jsonObject).containsKeys("id", "type")
         assertThat(resultValue.jsonObject["id"]).isEqualTo(NumberValue(123))
         assertThat(resultValue.jsonObject["type"]).isInstanceOf(StringValue::class.java)
+    }
+
+    @Test
+    fun `fixValue should return the value unchanged if it matches any pattern`() {
+        val pattern = AnyOfPattern(listOf(NumberPattern(), StringPattern()), extensions = emptyMap())
+        val value = NumberValue(123)
+        val fixedValue = pattern.fixValue(value, Resolver())
+        assertThat(fixedValue).isEqualTo(value)
+    }
+
+    @Test
+    fun `fixValue should convert value to best matching pattern if none match`() {
+        val pattern = AnyOfPattern(listOf(NumberPattern(), StringPattern()), extensions = emptyMap())
+        val value = BooleanValue(false)
+        val fixedValue = pattern.fixValue(value, Resolver())
+
+        assertThat(pattern.matches(fixedValue, Resolver())).isInstanceOf(Result.Success::class.java)
+        assertThat(fixedValue).isNotInstanceOf(BooleanValue::class.java)
+    }
+
+    @Test
+    fun `fixValue should fix to the pattern with the least failures`() {
+        val pattern1 = JSONObjectPattern(mapOf("a" to NumberPattern()))
+        val pattern2 = JSONObjectPattern(mapOf("b" to StringPattern()))
+        val anyOfPattern = AnyOfPattern(listOf(pattern1, pattern2), extensions = emptyMap())
+
+        val value = JSONObjectValue(mapOf("b" to NumberValue(42)))
+
+        val fixedValue = anyOfPattern.fixValue(value, Resolver())
+        assertThat(fixedValue).isInstanceOf(JSONObjectValue::class.java)
+
+        val json = fixedValue as JSONObjectValue
+        assertThat(json.jsonObject["b"]).isInstanceOf(StringValue::class.java)
     }
 }
