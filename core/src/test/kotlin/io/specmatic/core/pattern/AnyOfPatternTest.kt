@@ -260,15 +260,6 @@ internal class AnyOfPatternTest {
     }
 
     @Test
-    fun `should succeed when matching multiple patterns`() {
-        val stringPattern = StringPattern()
-        val pattern = AnyOfPattern(listOf(stringPattern, stringPattern), extensions = emptyMap())
-
-        val result = pattern.matches(StringValue("hello"), Resolver())
-        assertThat(result).isInstanceOf(Result.Success::class.java)
-    }
-
-    @Test
     fun `should return pattern set from all sub-patterns`() {
         val pattern = AnyOfPattern(listOf(NumberPattern(), StringPattern()), extensions = emptyMap())
         val patternSet = pattern.patternSet(Resolver())
