@@ -79,8 +79,9 @@ data class ListPattern(
         val resolved = runCatching { substitution.resolveIfLookup(value, this) }.getOrElse { e -> return HasException(e) }
         val resolvedValue = resolved as? JSONArrayValue ?: return HasValue(resolved)
 
-        val updatedList = resolvedValue.list.mapIndexed { index, listItem ->
-            pattern.resolveSubstitutions(substitution, listItem, resolver).breadCrumb("[$index]")
+        val updatedList = resolvedValue.list.withIndex().mapNotNull { item ->
+            if (substitution.isDropDirective(item.value)) return@mapNotNull null
+            pattern.resolveSubstitutions(substitution, item.value, resolver).breadCrumb("[${item.index}]")
         }.listFoldException()
 
         return updatedList.ifValue(resolvedValue::copy)

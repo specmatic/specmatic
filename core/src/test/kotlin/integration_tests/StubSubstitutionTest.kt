@@ -1054,7 +1054,7 @@ class StubSubstitutionTest {
             "lookup": {
                 "data": {
                     "123": {
-                        "names": "(drop)"
+                        "names": "$(drop)"
                     }
                 }
             }
@@ -1120,7 +1120,7 @@ class StubSubstitutionTest {
             "lookup": {
                 "data": {
                     "123": {
-                        "names": "(drop)"
+                        "names": "$(drop)"
                     }
                 }
             }
