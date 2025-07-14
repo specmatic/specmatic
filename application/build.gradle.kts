@@ -35,7 +35,7 @@ dependencies {
     implementation(project(":junit5-support"))
 
     implementation("io.ktor:ktor-client-cio:2.3.13")
-    implementation("io.swagger.parser.v3:swagger-parser:2.1.30") {
+    implementation("io.swagger.parser.v3:swagger-parser:2.1.31") {
         exclude(group = "org.mozilla", module = "rhino")
     }
     implementation("org.mozilla:rhino:1.8.0")
