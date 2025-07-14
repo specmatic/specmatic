@@ -11,7 +11,7 @@ dependencies {
 
     implementation("com.ezylang:EvalEx:3.5.0")
     implementation("org.apache.commons:commons-lang3:3.18.0")
-    implementation("io.cucumber:gherkin:32.1.1")
+    implementation("io.cucumber:gherkin:33.0.0")
     implementation("io.ktor:ktor-server-netty:2.3.13")
     implementation("io.ktor:ktor-server-core:2.3.13")
     implementation("io.ktor:ktor-client-core-jvm:2.3.13")
@@ -35,7 +35,7 @@ dependencies {
 
     implementation("com.fasterxml.jackson.core:jackson-databind:2.19.1")
 
-    implementation("io.swagger.parser.v3:swagger-parser:2.1.30")
+    implementation("io.swagger.parser.v3:swagger-parser:2.1.31")
 
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.13.3")
     implementation("com.github.mifmif:generex:1.0.2")
