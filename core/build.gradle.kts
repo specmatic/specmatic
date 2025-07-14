@@ -10,7 +10,7 @@ dependencies {
     implementation("net.minidev:json-smart:2.5.2")
 
     implementation("com.ezylang:EvalEx:3.5.0")
-    implementation("org.apache.commons:commons-lang3:3.17.0")
+    implementation("org.apache.commons:commons-lang3:3.18.0")
     implementation("io.cucumber:gherkin:33.0.0")
     implementation("io.ktor:ktor-server-netty:2.3.13")
     implementation("io.ktor:ktor-server-core:2.3.13")
