@@ -7,6 +7,8 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
+const val DROP_DIRECTIVE = "$(drop)"
+
 class Substitution(
     runningRequest: HttpRequest,
     private val originalRequest: HttpRequest,
@@ -237,9 +239,13 @@ class Substitution(
 
     fun isDropDirective(value: Value): Boolean {
         val strValue = (value as? StringValue)?.nativeValue ?: return false
-        if (!isDataLookup(strValue)) return false
-        val resolvedValue = runCatching { substituteDataLookupExpression(strValue) }.getOrElse { return false }
-        return resolvedValue == "(drop)"
+        return try {
+            val resolved = if (!isDataLookup(strValue)) strValue else substituteDataLookupExpression(strValue)
+            resolved == DROP_DIRECTIVE
+        } catch (e: Throwable) {
+            logger.debug(e, "Failed to check for drop directive")
+            false
+        }
     }
 }
 
