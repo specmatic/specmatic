@@ -10,8 +10,8 @@ import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.Source
 import io.specmatic.core.SourceProvider.filesystem
 import io.specmatic.core.SourceProvider.git
-import io.specmatic.core.config.SpecmaticConfigVersion.Companion.convertToLatestVersionedConfig
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.config.SpecmaticConfigVersion.Companion.convertToLatestVersionedConfig
 import io.specmatic.core.config.v1.SpecmaticConfigV1
 import io.specmatic.core.config.v2.ContractConfig
 import io.specmatic.core.config.v2.ContractConfig.FileSystemContractSource
@@ -710,11 +710,11 @@ internal class SpecmaticConfigAllTest {
         val configFromV1 = objectMapper.readValue(configYaml, SpecmaticConfigV1::class.java).transform()
         val configV2 = SpecmaticConfigV2.loadFrom(configFromV1) as SpecmaticConfigV2
 
-        configV2.stub.apply {
-            assertThat(getGenerative()).isTrue()
-            assertThat(getDelayInMilliseconds()).isEqualTo(1000L)
-            assertThat(getDictionary()).isEqualTo("stubDictionary")
-            assertThat(getIncludeMandatoryAndRequestedKeysInResponse()).isTrue()
+        configV2.stub?.apply {
+            assertThat(generative).isTrue()
+            assertThat(delayInMilliseconds).isEqualTo(1000L)
+            assertThat(dictionary).isEqualTo("stubDictionary")
+            assertThat(includeMandatoryAndRequestedKeysInResponse).isTrue()
         }
     }
 
@@ -732,11 +732,11 @@ internal class SpecmaticConfigAllTest {
         val configFromV2 = objectMapper.readValue(configYaml, SpecmaticConfigV2::class.java).transform()
         val configV3 = SpecmaticConfigV2.loadFrom(configFromV2) as SpecmaticConfigV2
 
-        configV3.stub.apply {
-            assertThat(getGenerative()).isTrue()
-            assertThat(getDelayInMilliseconds()).isEqualTo(1000L)
-            assertThat(getDictionary()).isEqualTo("stubDictionary")
-            assertThat(getIncludeMandatoryAndRequestedKeysInResponse()).isTrue()
+        configV3.stub?.apply {
+            assertThat(generative).isTrue()
+            assertThat(delayInMilliseconds).isEqualTo(1000L)
+            assertThat(dictionary).isEqualTo("stubDictionary")
+            assertThat(includeMandatoryAndRequestedKeysInResponse).isTrue()
         }
     }
 
