@@ -352,17 +352,22 @@ open class SpecmaticJUnitSupport {
         }
 
         return try {
-            dynamicTestStream(testScenarios, testBaseURL, timeoutInMilliseconds)
+            dynamicTestStream(firstNScenarios(testScenarios), testBaseURL, timeoutInMilliseconds)
         } catch(e: Throwable) {
             logger.logError(e)
             loadExceptionAsTestError(e)
         }
     }
 
+    private fun firstNScenarios(testScenarios: Sequence<ContractTest>): Sequence<ContractTest> {
+        val maxTestCount = Flags.getIntValue(Flags.MAX_TEST_COUNT) ?: return testScenarios
+        return testScenarios.take(maxTestCount)
+    }
+
     private fun dynamicTestStream(
         testScenarios: Sequence<ContractTest>,
         testBaseURL: String,
-        timeoutInMilliseconds: Long
+        timeoutInMilliseconds: Long,
     ): Stream<DynamicTest> {
         try {
             if (queryActuator().failed && actuatorFromSwagger(testBaseURL).failed) {
