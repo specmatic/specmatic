@@ -26,11 +26,15 @@ class Flags {
         const val EXTENSIBLE_QUERY_PARAMS = "EXTENSIBLE_QUERY_PARAMS"
         const val ADDITIONAL_EXAMPLE_PARAMS_FILE = "ADDITIONAL_EXAMPLE_PARAMS_FILE"
 
+        const val MAX_TEST_COUNT = "MAX_TEST_COUNT"
+
         fun getStringValue(flagName: String): String? = System.getenv(flagName) ?: System.getProperty(flagName)
 
         fun getBooleanValue(flagName: String, default: Boolean = false) = getStringValue(flagName)?.toBoolean() ?: default
 
-        fun getLongValue(flagName: String): Long? = ( getStringValue(flagName))?.toLong()
+        fun getIntValue(maxTestCount: String): Int? = getStringValue(maxTestCount)?.toInt()
+
+        fun getLongValue(flagName: String): Long? = getStringValue(flagName)?.toLong()
 
         fun <T> using(vararg properties: Pair<String, String>, fn: () -> T): T {
             try {
