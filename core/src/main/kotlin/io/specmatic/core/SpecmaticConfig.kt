@@ -22,6 +22,7 @@ import io.specmatic.core.SourceProvider.web
 import io.specmatic.core.azure.AzureAPI
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.SpecmaticConfigVersion.VERSION_1
+import io.specmatic.core.config.Switch
 import io.specmatic.core.config.toSpecmaticConfig
 import io.specmatic.core.config.v3.Consumes
 import io.specmatic.core.config.v3.ConsumesDeserializer
@@ -107,7 +108,8 @@ data class StubConfiguration(
     private val delayInMilliseconds: Long? = null,
     private val dictionary: String? = null,
     private val includeMandatoryAndRequestedKeysInResponse: Boolean? = null,
-    private val startTimeoutInMilliseconds: Long? = null
+    private val startTimeoutInMilliseconds: Long? = null,
+    private val hotReload: Switch? = null
 ) {
     fun getGenerative(): Boolean? {
         return generative
@@ -127,6 +129,10 @@ data class StubConfiguration(
 
     fun getStartTimeoutInMilliseconds(): Long? {
         return startTimeoutInMilliseconds
+    }
+
+    fun getHotReload(): Switch? {
+        return hotReload
     }
 }
 
@@ -283,6 +289,11 @@ data class SpecmaticConfig(
         fun getEnvironments(specmaticConfig: SpecmaticConfig): Map<String, Environment>? {
             return specmaticConfig.environments
         }
+    }
+
+    @JsonIgnore
+    fun getHotReload(): Switch? {
+        return stub.getHotReload()
     }
 
     @JsonIgnore

@@ -3,6 +3,7 @@ package application
 import io.specmatic.core.*
 import io.specmatic.core.Configuration.Companion.DEFAULT_HTTP_STUB_HOST
 import io.specmatic.core.Configuration.Companion.DEFAULT_HTTP_STUB_PORT
+import io.specmatic.core.config.Switch
 import io.specmatic.core.filters.ExpressionStandardizer
 import io.specmatic.core.filters.HttpStubFilterContext
 import io.specmatic.core.filters.ScenarioMetadataFilter
@@ -12,8 +13,8 @@ import io.specmatic.core.utilities.ContractPathData.Companion.specToBaseUrlMap
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_BASE_URL
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_STUB_DELAY
 import io.specmatic.core.utilities.exitIfAnyDoNotExist
-import io.specmatic.core.utilities.throwExceptionIfDirectoriesAreInvalid
 import io.specmatic.core.utilities.exitWithMessage
+import io.specmatic.core.utilities.throwExceptionIfDirectoriesAreInvalid
 import io.specmatic.stub.ContractStub
 import io.specmatic.stub.HttpClientFactory
 import io.specmatic.stub.endPointFromHostAndPort
@@ -21,7 +22,6 @@ import io.specmatic.stub.listener.MockEventListener
 import picocli.CommandLine.*
 import java.io.File
 import java.util.concurrent.Callable
-
 
 @Command(
     name = "stub",
@@ -116,11 +116,14 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     @Option(names = ["--graceful-restart-timeout-in-ms"], description = ["Time to wait for the server to stop before starting it again"])
     var gracefulRestartTimeoutInMs: Long = 1000
 
-    private var contractSources:List<ContractPathData> = emptyList()
+    @Option(names = ["--hot-reload"], description = ["Time to wait for the server to stop before starting it again"])
+    var hotReload: Switch? = null
+
+    private var contractSources: List<ContractPathData> = emptyList()
 
     var specmaticConfigPath: String? = null
 
-    var listeners : List<MockEventListener> = emptyList()
+    var listeners: List<MockEventListener> = emptyList()
 
     override fun call() {
         if (delayInMilliseconds > 0) {
@@ -165,17 +168,32 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             validateContractFileExtensions(contractPaths)
             startServer()
 
-            if(httpStub != null) {
+            if (httpStub != null) {
                 addShutdownHook()
-                val watcher = watchMaker.make(contractPaths.plus(exampleDirs))
-                watcher.watchForChanges {
-                    restartServer()
+
+                val configuredHotReload = configuredHotReload()
+
+                when (configuredHotReload) {
+                    Switch.enabled -> {
+                        val watcher = watchMaker.make(contractPaths.plus(exampleDirs))
+                        watcher.watchForChanges {
+                            restartServer()
+                        }
+                    }
+                    Switch.disabled -> {
+                        Thread.currentThread().join()
+                    }
                 }
             }
         } catch (e: Throwable) {
             consoleLog(e)
         }
     }
+
+    private fun configuredHotReload(): Switch =
+        hotReload
+            ?: loadSpecmaticConfigOrDefault(specmaticConfigPath ?: getConfigFilePath()).getHotReload()
+            ?: Switch.enabled
 
     private fun configureLogPrinters(): List<LogPrinter> {
         val consoleLogPrinter = configureConsoleLogPrinter()
@@ -234,6 +252,14 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         }
 
         val certInfo = CertInfo(keyStoreFile, keyStoreDir, keyStorePassword, keyStoreAlias, keyPassword)
+
+        if (configuredHotReload() == Switch.disabled) {
+            val warningMessage =
+                "WARNING: Hot reload has been disabled. Specmatic will not restart the stub server automatically when the specifications or examples change."
+            logger.boundary()
+            logger.log(warningMessage)
+            logger.boundary()
+        }
 
         httpStub = httpStubEngine.runHTTPStub(
             stubs = stubData,
