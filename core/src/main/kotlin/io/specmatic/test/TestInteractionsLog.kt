@@ -2,7 +2,7 @@ package io.specmatic.test
 
 import io.specmatic.core.log.HttpLogMessage
 
-object TestInteractionsLog {
+class TestInteractionsLog {
 
     val testHttpLogMessages = mutableListOf<HttpLogMessage>()
     private val stubHttpLogMessages = mutableListOf<HttpLogMessage>()
