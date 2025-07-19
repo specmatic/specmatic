@@ -2,7 +2,7 @@ package integration_tests
 
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.HttpRequest
-import io.specmatic.core.SPECMATIC_STUB_DICTIONARY
+import io.specmatic.core.SPECMATIC_DICTIONARY
 import io.specmatic.core.log.DebugLogger
 import io.specmatic.core.log.withLogger
 import io.specmatic.core.pattern.parsedJSONObject
@@ -394,7 +394,7 @@ class PartialExampleTest {
     @Test
     fun `partial example using dictionary populates mandatory key and header but not non-mandatory missing ones`() {
         try {
-            System.setProperty(SPECMATIC_STUB_DICTIONARY, "src/test/resources/openapi/substitutions/dictionary.json")
+            System.setProperty(SPECMATIC_DICTIONARY, "src/test/resources/openapi/substitutions/dictionary.json")
 
             createStubFromContracts(
                 listOf("src/test/resources/openapi/substitutions/partial_using_dictionary.yaml"),
@@ -413,14 +413,14 @@ class PartialExampleTest {
                     }
             }
         } finally {
-            System.clearProperty(SPECMATIC_STUB_DICTIONARY)
+            System.clearProperty(SPECMATIC_DICTIONARY)
         }
     }
 
     @Test
     fun `partial example using dictionary populates missing mandatory key from the dictionary`() {
         try {
-            System.setProperty(SPECMATIC_STUB_DICTIONARY, "src/test/resources/openapi/substitutions/dictionary.json")
+            System.setProperty(SPECMATIC_DICTIONARY, "src/test/resources/openapi/substitutions/dictionary.json")
 
             createStubFromContracts(
                 listOf("src/test/resources/openapi/substitutions/partial_using_dictionary_testing_mandarory_key_generation.yaml"),
@@ -439,7 +439,7 @@ class PartialExampleTest {
                     }
             }
         } finally {
-            System.clearProperty(SPECMATIC_STUB_DICTIONARY)
+            System.clearProperty(SPECMATIC_DICTIONARY)
         }
     }
 
@@ -447,7 +447,7 @@ class PartialExampleTest {
     @Test
     fun `partial example using invalid dictionary should throw an error at runtime`() {
         try {
-            System.setProperty(SPECMATIC_STUB_DICTIONARY, "src/test/resources/openapi/substitutions/dictionary.json")
+            System.setProperty(SPECMATIC_DICTIONARY, "src/test/resources/openapi/substitutions/dictionary.json")
 
             createStubFromContracts(
                 listOf("src/test/resources/openapi/substitutions/partial_with_invalid_dictionary_value.yaml"),
@@ -465,7 +465,7 @@ class PartialExampleTest {
                 assertThat(response.body.toStringLiteral()).contains(">> RESPONSE.BODY.id")
             }
         } finally {
-            System.clearProperty(SPECMATIC_STUB_DICTIONARY)
+            System.clearProperty(SPECMATIC_DICTIONARY)
         }
     }
 
@@ -491,7 +491,7 @@ class PartialExampleTest {
         val specWithSubstitution = osAgnosticPath("src/test/resources/openapi/substitutions/dictionary_value_at_second_level.yaml")
 
         try {
-            System.setProperty(SPECMATIC_STUB_DICTIONARY, "src/test/resources/openapi/substitutions/dictionary.json")
+            System.setProperty(SPECMATIC_DICTIONARY, "src/test/resources/openapi/substitutions/dictionary.json")
 
             createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0).use { stub ->
                 val request = HttpRequest("POST", "/person", body = parsedJSONObject("""{"name": "Janet"}"""))
@@ -504,7 +504,7 @@ class PartialExampleTest {
                 assertThat(responseBody.findFirstChildByPath("address.street")).isEqualTo(StringValue("Baker Street"))
             }
         } finally {
-            System.clearProperty(SPECMATIC_STUB_DICTIONARY)
+            System.clearProperty(SPECMATIC_DICTIONARY)
         }
     }
 
@@ -513,7 +513,7 @@ class PartialExampleTest {
         val specWithSubstitution = osAgnosticPath("src/test/resources/openapi/substitutions/dictionary_value_at_second_level_with_array.yaml")
 
         try {
-            System.setProperty(SPECMATIC_STUB_DICTIONARY, "src/test/resources/openapi/substitutions/dictionary.json")
+            System.setProperty(SPECMATIC_DICTIONARY, "src/test/resources/openapi/substitutions/dictionary.json")
 
             createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0).use { stub ->
                 val request = HttpRequest("POST", "/person", body = parsedJSONObject("""{"name": "Janet"}"""))
@@ -526,7 +526,7 @@ class PartialExampleTest {
                 assertThat(responseBody.findFirstChildByPath("addresses.[0].street")).isEqualTo(StringValue("Baker Street"))
             }
         } finally {
-            System.clearProperty(SPECMATIC_STUB_DICTIONARY)
+            System.clearProperty(SPECMATIC_DICTIONARY)
         }
     }
 
@@ -535,7 +535,7 @@ class PartialExampleTest {
         val specWithSubstitution = osAgnosticPath("src/test/resources/openapi/substitutions/complicated_spec_with_dictionary_substitutions.yaml")
 
         try {
-            System.setProperty(SPECMATIC_STUB_DICTIONARY, "src/test/resources/openapi/substitutions/complicated_dictionary.json")
+            System.setProperty(SPECMATIC_DICTIONARY, "src/test/resources/openapi/substitutions/complicated_dictionary.json")
 
             createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0).use { stub ->
                 stub.client.execute(
@@ -553,7 +553,7 @@ class PartialExampleTest {
 
             }
         } finally {
-            System.clearProperty(SPECMATIC_STUB_DICTIONARY)
+            System.clearProperty(SPECMATIC_DICTIONARY)
         }
     }
 

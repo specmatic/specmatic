@@ -608,6 +608,36 @@ internal class SpecmaticConfigAllTest {
     }
 
     @Test
+    fun `should be able to load config V1 or V2 with dictionary field at top-level`() {
+        val configV1Yaml = """
+        dictionary: ./dictionary.json
+        """.trimIndent()
+
+        val configV1 = objectMapper.readValue(configV1Yaml, SpecmaticConfigV1::class.java).transform()
+        assertThat(configV1.getDictionary()).isEqualTo("./dictionary.json")
+
+        val configV2Yaml = """
+        version: 2
+        dictionary: ./dictionary.yaml
+        """.trimIndent()
+
+        val configV2 = objectMapper.readValue(configV2Yaml, SpecmaticConfigV2::class.java).transform()
+        assertThat(configV2.getDictionary()).isEqualTo("./dictionary.yaml")
+    }
+
+    @Test
+    fun `should be able to convert v1 config to v2 with dictionary field present`() {
+        val configV1Yaml = """
+        dictionary: ./dictionary.json
+        """.trimIndent()
+
+        val configV1 = objectMapper.readValue(configV1Yaml, SpecmaticConfigV1::class.java).transform()
+        val configV2 = SpecmaticConfigV2.loadFrom(configV1) as SpecmaticConfigV2
+
+        assertThat(configV2.dictionary).isEqualTo("./dictionary.json")
+    }
+
+    @Test
     fun `should deserialize test configuration in SpecmaticConfig successfully`(@TempDir tempDir: File) {
         val configFile = tempDir.resolve("specmatic.yaml")
         val configYaml = """
@@ -682,7 +712,6 @@ internal class SpecmaticConfigAllTest {
             stub:
                 generative: true
                 delayInMilliseconds: 1000
-                dictionary: stubDictionary
                 includeMandatoryAndRequestedKeysInResponse: true
         """.trimIndent()
         configFile.writeText(configYaml)
@@ -692,7 +721,6 @@ internal class SpecmaticConfigAllTest {
         specmaticConfig.apply {
             assertThat(getStubGenerative()).isTrue()
             assertThat(getStubDelayInMilliseconds()).isEqualTo(1000L)
-            assertThat(getStubDictionary()).isEqualTo("stubDictionary")
             assertThat(getStubIncludeMandatoryAndRequestedKeysInResponse()).isTrue()
         }
     }
@@ -703,7 +731,6 @@ internal class SpecmaticConfigAllTest {
             stub:
                 generative: true
                 delayInMilliseconds: 1000
-                dictionary: stubDictionary
                 includeMandatoryAndRequestedKeysInResponse: true
         """.trimIndent()
 
@@ -713,7 +740,6 @@ internal class SpecmaticConfigAllTest {
         configV2.stub.apply {
             assertThat(getGenerative()).isTrue()
             assertThat(getDelayInMilliseconds()).isEqualTo(1000L)
-            assertThat(getDictionary()).isEqualTo("stubDictionary")
             assertThat(getIncludeMandatoryAndRequestedKeysInResponse()).isTrue()
         }
     }
@@ -725,7 +751,6 @@ internal class SpecmaticConfigAllTest {
             stub:
                 generative: true
                 delayInMilliseconds: 1000
-                dictionary: stubDictionary
                 includeMandatoryAndRequestedKeysInResponse: true
         """.trimIndent()
 
@@ -735,7 +760,6 @@ internal class SpecmaticConfigAllTest {
         configV3.stub.apply {
             assertThat(getGenerative()).isTrue()
             assertThat(getDelayInMilliseconds()).isEqualTo(1000L)
-            assertThat(getDictionary()).isEqualTo("stubDictionary")
             assertThat(getIncludeMandatoryAndRequestedKeysInResponse()).isTrue()
         }
     }
