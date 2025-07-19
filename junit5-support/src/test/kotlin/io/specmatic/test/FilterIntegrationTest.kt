@@ -34,9 +34,9 @@ class FilterIntegrationTest {
             }
         }
 
-        val count = SpecmaticJUnitSupport.openApiCoverageReportInput.generate().testResultRecords.count {
+        val count = SpecmaticJUnitSupport.currentInstance?.openApiCoverageReportInput?.generate()?.testResultRecords?.count {
             it.result == TestResult.Success
-        }
+        } ?: 0
         assertEquals(expectedSuccessfulTestCount, count)
     }
 

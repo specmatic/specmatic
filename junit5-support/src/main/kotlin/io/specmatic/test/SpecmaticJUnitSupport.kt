@@ -56,9 +56,9 @@ open class SpecmaticJUnitSupport {
     private val testFilter by lazy { ScenarioMetadataFilter.from(readEnvVarOrProperty(FILTER, FILTER).orEmpty()) }
     
     // Instance properties (moved from companion object)
-    private val partialSuccesses: MutableList<Result.Success> = mutableListOf()
+    internal val partialSuccesses: MutableList<Result.Success> = mutableListOf()
     internal var openApiCoverageReportInput: OpenApiCoverageReportInput = OpenApiCoverageReportInput(getConfigFileWithAbsolutePath())
-    private val threads: Vector<String> = Vector<String>()
+    internal val threads: Vector<String> = Vector<String>()
     
     // Instance properties for collaborator objects
     internal val testInteractionsLog = TestInteractionsLog()
@@ -202,6 +202,8 @@ open class SpecmaticJUnitSupport {
 
         return ActuatorSetupResult.Success
     }
+
+    private fun getEnvConfig(envName: String?): JSONObjectValue {
         if(envName.isNullOrBlank())
             return JSONObjectValue()
 
@@ -249,9 +251,9 @@ open class SpecmaticJUnitSupport {
         val filterExpression = System.getProperty(FILTER, "")
         openApiCoverageReportInput = OpenApiCoverageReportInput(getConfigFileWithAbsolutePath(), filterExpression = filterExpression)
 
-        specmaticConfig = getSpecmaticConfig()
+        Companion.specmaticConfig = getSpecmaticConfig()
 
-        val timeoutInMilliseconds = specmaticConfig?.getTestTimeoutInMilliseconds() ?: try {
+        val timeoutInMilliseconds = Companion.specmaticConfig?.getTestTimeoutInMilliseconds() ?: try {
             getLongValue(SPECMATIC_TEST_TIMEOUT)
         } catch (e: NumberFormatException) {
             throw ContractException("$SPECMATIC_TEST_TIMEOUT should be a value of type long")
@@ -282,7 +284,7 @@ open class SpecmaticJUnitSupport {
                             specificationPath = it,
                             filterName = filterName,
                             filterNotName = filterNotName,
-                            specmaticConfig = specmaticConfig,
+                            specmaticConfig = Companion.specmaticConfig,
                             overlayContent = overlayContent
                         )
                     }
@@ -312,10 +314,10 @@ open class SpecmaticJUnitSupport {
                             it.repository,
                             it.branch,
                             it.specificationPath,
-                            getSecurityConfiguration(specmaticConfig),
+                            getSecurityConfiguration(Companion.specmaticConfig),
                             filterName,
                             filterNotName,
-                            specmaticConfig = specmaticConfig,
+                            specmaticConfig = Companion.specmaticConfig,
                             overlayContent = overlayContent
                         )
                     }

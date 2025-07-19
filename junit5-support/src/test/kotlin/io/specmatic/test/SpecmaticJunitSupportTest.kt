@@ -199,8 +199,8 @@ class SpecmaticJunitSupportTest {
             }
         })
 
-        assertThat(SpecmaticJUnitSupport.openApiCoverageReportInput.endpointsAPISet).isTrue()
-        assertThat(SpecmaticJUnitSupport.openApiCoverageReportInput.getApplicationAPIs()).isEqualTo(listOf(
+        assertThat(SpecmaticJUnitSupport.currentInstance?.openApiCoverageReportInput?.endpointsAPISet).isTrue()
+        assertThat(SpecmaticJUnitSupport.currentInstance?.openApiCoverageReportInput?.getApplicationAPIs()).isEqualTo(listOf(
             API("POST", "/orders"),
             API("POST", "/products"),
             API("GET", "/findAvailableProducts/{date_time}")
