@@ -10,8 +10,7 @@ import io.specmatic.test.SpecmaticJUnitSupport
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.HOST
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.PORT
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.TEST_BASE_URL
-import io.specmatic.test.TestInteractionsLog.displayName
-import io.specmatic.test.TestInteractionsLog.duration
+import io.specmatic.test.TestInteractionsLog
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
 import io.specmatic.test.reports.coverage.console.OpenApiCoverageConsoleRow
@@ -22,7 +21,7 @@ typealias GroupedScenarioData = Map<String, Map<String, Map<String, Map<String, 
 class CoverageReportHtmlRenderer : ReportRenderer<OpenAPICoverageConsoleReport> {
 
     companion object {
-        val actuatorEnabled = SpecmaticJUnitSupport.openApiCoverageReportInput.endpointsAPISet
+        val actuatorEnabled get() = SpecmaticJUnitSupport.currentInstance?.openApiCoverageReportInput?.endpointsAPISet ?: false
     }
 
     override fun render(report: OpenAPICoverageConsoleReport, specmaticConfig: SpecmaticConfig): String {
@@ -100,7 +99,7 @@ class CoverageReportHtmlRenderer : ReportRenderer<OpenAPICoverageConsoleReport> 
     }
 
     private fun getTotalDuration(report: OpenAPICoverageConsoleReport): Long {
-        return report.httpLogMessages.sumOf { it.duration() }
+        return report.httpLogMessages.sumOf { with(TestInteractionsLog()) { it.duration() } }
     }
 
     private fun makeScenarioData(report: OpenAPICoverageConsoleReport): GroupedScenarioData {
@@ -127,7 +126,7 @@ class CoverageReportHtmlRenderer : ReportRenderer<OpenAPICoverageConsoleReport> 
                                 ScenarioData(
                                     name = scenarioName,
                                     baseUrl = getBaseUrl(test, matchingLogMessage),
-                                    duration = matchingLogMessage?.duration() ?: 0,
+                                    duration = matchingLogMessage?.let { with(TestInteractionsLog()) { it.duration() } } ?: 0,
                                     testResult = test.result,
                                     valid = test.isValid,
                                     wip = test.isWip,
@@ -149,7 +148,7 @@ class CoverageReportHtmlRenderer : ReportRenderer<OpenAPICoverageConsoleReport> 
     }
 
     private fun getTestName(testResult: TestResultRecord, httpLogMessage: HttpLogMessage?): String {
-        return httpLogMessage?.displayName() ?: testResult.scenarioResult?.scenario?.testDescription() ?: "Scenario: ${testResult.path} -> ${testResult.responseStatus}"
+        return httpLogMessage?.let { with(TestInteractionsLog()) { it.displayName() } } ?: testResult.scenarioResult?.scenario?.testDescription() ?: "Scenario: ${testResult.path} -> ${testResult.responseStatus}"
     }
 
     private fun getBaseUrl(testResult: TestResultRecord, httpLogMessage: HttpLogMessage?): String {

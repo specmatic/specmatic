@@ -7,7 +7,6 @@ import io.specmatic.core.TestResult
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.test.API
 import io.specmatic.test.TestInteractionsLog
-import io.specmatic.test.TestInteractionsLog.displayName
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.reports.coverage.Endpoint
 
@@ -34,7 +33,7 @@ interface TestReportListener {
     fun onPathCoverageCalculated(path: String, pathCoverage: Int)
 }
 
-object TestReportHooks {
+class TestReportHooks {
     private val listeners: MutableList<TestReportListener> = mutableListOf()
 
     fun registerListener(listener: TestReportListener) {
@@ -49,8 +48,8 @@ object TestReportHooks {
         listeners.forEach(block)
     }
 
-    fun onTestResult(testResultRecord: TestResultRecord) {
-        val httpLogMessage = TestInteractionsLog.testHttpLogMessages.find { it.scenario == testResultRecord.scenarioResult?.scenario }
+    fun onTestResult(testResultRecord: TestResultRecord, testInteractionsLog: TestInteractionsLog) {
+        val httpLogMessage = testInteractionsLog.testHttpLogMessages.find { it.scenario == testResultRecord.scenarioResult?.scenario }
         if (httpLogMessage == null) return
         val testExecutionResult = TestExecutionResult(
             name = getTestName(testResultRecord, httpLogMessage),
@@ -69,6 +68,8 @@ object TestReportHooks {
     }
 
     private fun getTestName(testResult: TestResultRecord, httpLogMessage: HttpLogMessage?): String {
-        return httpLogMessage?.displayName() ?: testResult.scenarioResult?.scenario?.testDescription() ?: "Scenario: ${testResult.path} -> ${testResult.responseStatus}"
+        return httpLogMessage?.let { 
+            with(TestInteractionsLog()) { it.displayName() }
+        } ?: testResult.scenarioResult?.scenario?.testDescription() ?: "Scenario: ${testResult.path} -> ${testResult.responseStatus}"
     }
 }

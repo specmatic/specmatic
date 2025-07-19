@@ -107,12 +107,12 @@ class ContractExecutionListener : TestExecutionListener {
 
         println()
 
-        if(SpecmaticJUnitSupport.partialSuccesses.isNotEmpty()) {
+        if(SpecmaticJUnitSupport.currentInstance?.partialSuccesses?.isNotEmpty() == true) {
             println()
             printer.printFailureTitle("Partial Successes:")
             println()
 
-            SpecmaticJUnitSupport.partialSuccesses.filter { it.partialSuccessMessage != null} .forEach { result ->
+            SpecmaticJUnitSupport.currentInstance?.partialSuccesses?.filter { it.partialSuccessMessage != null }?.forEach { result ->
                 println("  " + (result.scenario?.testDescription() ?: "Unknown Scenario"))
                 println("    " + result.partialSuccessMessage!!)
                 println()
@@ -128,6 +128,6 @@ class ContractExecutionListener : TestExecutionListener {
             println()
         }
 
-        printer.printFinalSummary(TestSummary(success, SpecmaticJUnitSupport.partialSuccesses.size, aborted, failure))
+        printer.printFinalSummary(TestSummary(success, SpecmaticJUnitSupport.currentInstance?.partialSuccesses?.size ?: 0, aborted, failure))
     }
 }

@@ -5,6 +5,8 @@ import io.specmatic.core.TestResult
 import io.specmatic.core.filters.ExpressionStandardizer
 import io.specmatic.core.filters.TestRecordFilter
 import io.specmatic.test.API
+import io.specmatic.test.SpecmaticJUnitSupport
+import io.specmatic.test.TestInteractionsLog
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.reports.TestReportHooks
 import io.specmatic.test.reports.coverage.console.GroupedTestResultRecords
@@ -27,12 +29,12 @@ class OpenApiCoverageReportInput(
     private val filterExpression: String = ""
 ) {
     fun addTestReportRecords(testResultRecord: TestResultRecord) {
-        TestReportHooks.onTestResult(testResultRecord)
+        SpecmaticJUnitSupport.currentInstance?.testReportHooks?.onTestResult(testResultRecord, SpecmaticJUnitSupport.currentInstance?.testInteractionsLog ?: TestInteractionsLog())
         testResultRecords.add(testResultRecord)
     }
 
     fun addAPIs(apis: List<API>) {
-        TestReportHooks.onEachListener { onActuatorApis(apis) }
+        SpecmaticJUnitSupport.currentInstance?.testReportHooks?.onEachListener { onActuatorApis(apis) }
         applicationAPIs.addAll(apis)
     }
 
@@ -41,12 +43,12 @@ class OpenApiCoverageReportInput(
     }
 
     fun addEndpoints(endpoints: List<Endpoint>) {
-        TestReportHooks.onEachListener { onEndpointApis(endpoints) }
+        SpecmaticJUnitSupport.currentInstance?.testReportHooks?.onEachListener { onEndpointApis(endpoints) }
         allEndpoints.addAll(endpoints)
     }
 
     fun setEndpointsAPIFlag(isSet: Boolean) {
-        TestReportHooks.onEachListener { onActuator(isSet) }
+        SpecmaticJUnitSupport.currentInstance?.testReportHooks?.onEachListener { onActuator(isSet) }
         endpointsAPISet = isSet
     }
 
@@ -68,7 +70,7 @@ class OpenApiCoverageReportInput(
             val routeAPIRows: MutableList<OpenApiCoverageConsoleRow> = mutableListOf()
             val totalCoveragePercentage = calculateTotalCoveragePercentage(methodMap)
 
-            TestReportHooks.onEachListener { onPathCoverageCalculated(path, totalCoveragePercentage) }
+            SpecmaticJUnitSupport.currentInstance?.testReportHooks?.onEachListener { onPathCoverageCalculated(path, totalCoveragePercentage) }
 
             methodMap.forEach { (method, contentTypeMap) ->
                 contentTypeMap.forEach { (requestContentType, responseCodeMap) ->
