@@ -53,7 +53,7 @@ data class API(val method: String, val path: String)
 
 @Execution(ExecutionMode.CONCURRENT)
 open class SpecmaticJUnitSupport {
-    private val testFilter = ScenarioMetadataFilter.from(readEnvVarOrProperty(FILTER, FILTER).orEmpty())
+    private val testFilter by lazy { ScenarioMetadataFilter.from(readEnvVarOrProperty(FILTER, FILTER).orEmpty()) }
     
     // Instance properties (moved from companion object)
     private val partialSuccesses: MutableList<Result.Success> = mutableListOf()
@@ -156,8 +156,8 @@ open class SpecmaticJUnitSupport {
             API(method = scenario.method, path = convertPathParameterStyle(scenario.path))
         }
 
-        openApiCoverageReportInput.addAPIs(apis.distinct())
-        openApiCoverageReportInput.setEndpointsAPIFlag(true)
+        this.openApiCoverageReportInput.addAPIs(apis.distinct())
+        this.openApiCoverageReportInput.setEndpointsAPIFlag(true)
 
         return ActuatorSetupResult.Success
     }
@@ -173,7 +173,7 @@ open class SpecmaticJUnitSupport {
         }
 
         logger.debug(response.toLogString())
-        openApiCoverageReportInput.setEndpointsAPIFlag(true)
+        this.openApiCoverageReportInput.setEndpointsAPIFlag(true)
         val endpointData = response.body as JSONObjectValue
         val apis: List<API> = endpointData.getJSONObject("contexts").entries.flatMap { entry ->
             val mappings: JSONArrayValue =
@@ -198,7 +198,7 @@ open class SpecmaticJUnitSupport {
                 }
             }
         }
-        openApiCoverageReportInput.addAPIs(apis)
+        this.openApiCoverageReportInput.addAPIs(apis)
 
         return ActuatorSetupResult.Success
     }
@@ -390,7 +390,7 @@ open class SpecmaticJUnitSupport {
         timeoutInMilliseconds: Long,
     ): Stream<DynamicTest> {
         try {
-            if (queryActuator().failed && actuatorFromSwagger(testBaseURL).failed) {
+            if (queryActuatorImpl().failed && actuatorFromSwaggerImpl(testBaseURL).failed) {
                 openApiCoverageReportInput.setEndpointsAPIFlag(false)
                 logger.log("EndpointsAPI and SwaggerUI URL missing; cannot calculate actual coverage")
             }
@@ -405,11 +405,11 @@ open class SpecmaticJUnitSupport {
             logger.log(logMessage)
         }
 
-        val httpClient = HttpClient(testBaseURL, log = log, timeoutInMilliseconds = timeoutInMilliseconds, testInteractionsLog = testInteractionsLog)
+        val httpClient = HttpClient(testBaseURL, log = log, timeoutInMilliseconds = timeoutInMilliseconds, testInteractionsLog = this.testInteractionsLog)
 
         return testScenarios.map { contractTest ->
             DynamicTest.dynamicTest(contractTest.testDescription()) {
-                threads.add(Thread.currentThread().name)
+                this@SpecmaticJUnitSupport.threads.add(Thread.currentThread().name)
 
                 var testResult: Pair<Result, HttpResponse?>? = null
 
@@ -418,7 +418,7 @@ open class SpecmaticJUnitSupport {
                     val (result) = testResult
 
                     if (result is Result.Success && result.isPartialSuccess()) {
-                        partialSuccesses.add(result)
+                        this@SpecmaticJUnitSupport.partialSuccesses.add(result)
                     }
 
                     when {
@@ -438,7 +438,7 @@ open class SpecmaticJUnitSupport {
                 } finally {
                     if (testResult != null) {
                         val (result, response) = testResult
-                        contractTest.testResultRecord(result, response)?.let { testREsultRecord -> openApiCoverageReportInput.addTestReportRecords(testREsultRecord) }
+                        contractTest.testResultRecord(result, response)?.let { testREsultRecord -> this@SpecmaticJUnitSupport.openApiCoverageReportInput.addTestReportRecords(testREsultRecord) }
                     }
                 }
             }
