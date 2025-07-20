@@ -12,7 +12,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     implementation("org.assertj:assertj-core:3.27.3")
 
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.19.1")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.19.2")
 
     implementation("org.junit.jupiter:junit-jupiter-engine:5.13.3")
     implementation("org.junit.jupiter:junit-jupiter-api:5.13.3")
