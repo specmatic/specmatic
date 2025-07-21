@@ -1,14 +1,14 @@
 package io.specmatic.test
 
 import io.specmatic.core.log.HttpLogMessage
+import java.util.concurrent.ConcurrentLinkedDeque
 
 object TestInteractionsLog {
-
-    val testHttpLogMessages = mutableListOf<HttpLogMessage>()
-    private val stubHttpLogMessages = mutableListOf<HttpLogMessage>()
+    val testHttpLogMessages = ConcurrentLinkedDeque<HttpLogMessage>()
+    private val stubHttpLogMessages = ConcurrentLinkedDeque<HttpLogMessage>()
 
     fun addHttpLog(httpLogMessage: HttpLogMessage) {
-        if(httpLogMessage.isTestLog()) {
+        if (httpLogMessage.isTestLog()) {
             testHttpLogMessages.add(httpLogMessage)
             return
         }
