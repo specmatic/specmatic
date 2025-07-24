@@ -4,6 +4,7 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.SPECMATIC_STUB_DICTIONARY
+import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
@@ -12,11 +13,13 @@ import io.specmatic.core.value.StringValue
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.osAgnosticPath
 import io.specmatic.stub.HttpStub
+import io.specmatic.stub.HttpStubResponse
 import io.specmatic.stub.captureStandardOutput
 import io.specmatic.stub.createStubFromContracts
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 
@@ -1071,6 +1074,151 @@ class StubSubstitutionTest {
             assertThat(responseBody.findFirstChildByPath("id")).isEqualTo(StringValue("123"))
             assertThat(responseBody.findFirstChildByPath("names")).isNull()
         }
+    }
+
+    @Test
+    fun `should drop the key when there is a drop directive as direct value`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Sample API
+              version: 0.1.9
+            paths:
+              /data/{id}:
+                get:
+                  summary: Get data
+                  parameters:
+                    - in: path
+                      name: id
+                      schema:
+                        type: string
+                      required: true
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: string
+                              names:
+                                type: array
+                                items:
+                                  type: string
+        """.trimIndent()
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+
+        val exampleRequest = HttpRequest(method = "GET", path = "/data/(ID:string)")
+        val exampleResponse = HttpResponse(200, body = JSONObjectValue(mapOf(
+            "id" to StringValue("123"),
+            "names" to StringValue("$(drop)")
+        )))
+        val stubResponse = HttpStubResponse(exampleResponse, feature = feature, scenario = feature.scenarios.first())
+        val substitutedExample = stubResponse.resolveSubstitutions(exampleRequest, exampleRequest, JSONObjectValue())
+
+        assertThat((substitutedExample.responseBody as JSONObjectValue).keys()).containsOnly("id")
+        assertThat((substitutedExample.responseBody as JSONObjectValue).getString("id")).isEqualTo("123")
+    }
+
+    @Test
+    fun `should return empty array when only array values are drop directives`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Sample API
+              version: 0.1.9
+            paths:
+              /data/{id}:
+                get:
+                  summary: Get data
+                  parameters:
+                    - in: path
+                      name: id
+                      schema:
+                        type: string
+                      required: true
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: string
+                              names:
+                                type: array
+                                items:
+                                  type: string
+        """.trimIndent()
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+
+        val exampleRequest = HttpRequest(method = "GET", path = "/data/(ID:string)")
+        val exampleResponse = HttpResponse(200, body = JSONObjectValue(mapOf(
+            "id" to StringValue("123"),
+            "names" to JSONArrayValue(listOf(StringValue("$(drop)"), StringValue("$(drop)")))
+        )))
+        val stubResponse = HttpStubResponse(exampleResponse, feature = feature, scenario = feature.scenarios.first())
+        val substitutedExample = stubResponse.resolveSubstitutions(exampleRequest, exampleRequest, JSONObjectValue())
+
+        assertThat((substitutedExample.responseBody as JSONObjectValue).keys()).containsOnly("id", "names")
+        assertThat((substitutedExample.responseBody as JSONObjectValue).getJSONArray("names").size).isEqualTo(0)
+    }
+
+    @Test
+    fun `should complain when underlying schema is madnatory and value is a direct drop directive`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Sample API
+              version: 0.1.9
+            paths:
+              /data/{id}:
+                get:
+                  summary: Get data
+                  parameters:
+                    - in: path
+                      name: id
+                      schema:
+                        type: string
+                      required: true
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: string
+                              names:
+                                type: array
+                                items:
+                                  type: string
+        """.trimIndent()
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+
+        val exampleRequest = HttpRequest(method = "GET", path = "/data/(ID:string)")
+        val exampleResponse = HttpResponse(200, body = JSONObjectValue(mapOf("id" to StringValue("$(drop)"))))
+        val stubResponse = HttpStubResponse(exampleResponse, feature = feature, scenario = feature.scenarios.first())
+        val exception = assertThrows<ContractException> {
+            stubResponse.resolveSubstitutions(exampleRequest, exampleRequest, JSONObjectValue())
+        }
+
+        assertThat(exception.report()).isEqualToNormalizingWhitespace("""
+        >> RESPONSE.BODY.id
+        Cannot drop mandatory key named "id"
+        """.trimIndent())
     }
 
     @Test
