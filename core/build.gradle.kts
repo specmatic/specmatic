@@ -37,10 +37,10 @@ dependencies {
 
     implementation("io.swagger.parser.v3:swagger-parser:2.1.31")
 
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.13.3")
     implementation("com.github.mifmif:generex:1.0.2")
     implementation("dk.brics:automaton:1.12-4")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.13.3")
     testImplementation("org.assertj:assertj-core:3.27.3")
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.13.3")
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.13.3")
@@ -50,7 +50,8 @@ dependencies {
     testImplementation("org.assertj:assertj-core:3.27.3")
     testImplementation("io.ktor:ktor-client-mock-jvm:2.3.13")
     implementation("org.thymeleaf:thymeleaf:3.1.3.RELEASE")
-    testImplementation(kotlin("test"))
+
+    implementation("org.junit.platform:junit-platform-launcher:1.13.3")
 }
 
 configurations.implementation.configure {
