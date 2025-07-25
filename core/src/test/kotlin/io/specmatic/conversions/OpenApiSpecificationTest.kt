@@ -354,7 +354,7 @@ Pet:
         val specmaticConfig = mockk<SpecmaticConfig> {
             every { isResponseValueValidationEnabled() } returns true
             every { getIgnoreInlineExamples() } returns false
-            every { getStubDictionary() } returns null
+            every { getDictionary() } returns null
         }
         val openApiSpecification = OpenApiSpecification(
             openApiFilePath = openApiFile,

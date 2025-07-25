@@ -331,7 +331,7 @@ class DictionaryTest {
         println("Tests WITH the dictionary")
 
         val testCountWithDictionary = try {
-            System.setProperty(SPECMATIC_STUB_DICTIONARY, dictionaryPath)
+            System.setProperty(SPECMATIC_DICTIONARY, dictionaryPath)
 
             OpenApiSpecification
         .fromFile(openApiFilePath)
@@ -351,7 +351,7 @@ class DictionaryTest {
             })
         }.testCount
         } finally {
-            System.clearProperty(SPECMATIC_STUB_DICTIONARY)
+            System.clearProperty(SPECMATIC_DICTIONARY)
         }
 
         assertThat(testCountWithDictionary).isEqualTo(testCountWithoutDictionary)

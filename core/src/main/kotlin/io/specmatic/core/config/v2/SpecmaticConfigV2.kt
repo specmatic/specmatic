@@ -40,7 +40,8 @@ data class SpecmaticConfigV2(
     @field:JsonAlias("all_patterns_mandatory")
     val allPatternsMandatory: Boolean? = null,
     @field:JsonAlias("default_pattern_values")
-    val defaultPatternValues: Map<String, Any> = emptyMap()
+    val defaultPatternValues: Map<String, Any> = emptyMap(),
+    val dictionary: String? = null,
 ) : SpecmaticVersionedConfig {
     override fun transform(): SpecmaticConfig {
         return SpecmaticConfig(
@@ -62,7 +63,8 @@ data class SpecmaticConfigV2(
             additionalExampleParamsFilePath = this.additionalExampleParamsFilePath,
             attributeSelectionPattern = this.attributeSelectionPattern,
             allPatternsMandatory = this.allPatternsMandatory,
-            defaultPatternValues = this.defaultPatternValues
+            defaultPatternValues = this.defaultPatternValues,
+            dictionary = dictionary
         )
     }
 
@@ -91,7 +93,8 @@ data class SpecmaticConfigV2(
                 additionalExampleParamsFilePath = config.getAdditionalExampleParamsFilePath(),
                 attributeSelectionPattern = getAttributeSelectionPattern(config),
                 allPatternsMandatory = getAllPatternsMandatory(config),
-                defaultPatternValues = config.getDefaultPatternValues()
+                defaultPatternValues = config.getDefaultPatternValues(),
+                dictionary = config.getDictionary()
             )
         }
     }
