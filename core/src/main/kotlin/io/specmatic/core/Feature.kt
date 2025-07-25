@@ -527,7 +527,7 @@ data class Feature(
         if(deepErrors.isNotEmpty())
             return Results(deepErrors).distinct()
 
-        return Results(listOf(Result.Failure("No matching specification found for this example")))
+        return Results(listOf(Result.Failure("No matching specification found for this example", failureReason = FailureReason.IdentifierMismatch)))
     }
 
     fun matchResult(request: HttpRequest, response: HttpResponse): Result {
