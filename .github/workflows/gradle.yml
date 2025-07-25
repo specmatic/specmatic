@@ -18,6 +18,7 @@ jobs:
       - uses: specmatic/specmatic-github-workflows/action-build-gradle@main
         with:
           gradle-extra-args: -Preposilite.user=${{ vars.SPECMATIC_REPOSILITE_USERNAME }} -Preposilite.token=${{ secrets.SPECMATIC_REPOSILITE_TOKEN }}
+          github-token-for-pr-comment: ${{ secrets.SPECMATIC_GITHUB_TOKEN }}
 
       - name: Publish Snapshot
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/main') && matrix.os == 'ubuntu-latest'
