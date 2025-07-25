@@ -2,15 +2,15 @@ package io.specmatic.core.config.v2
 
 import com.fasterxml.jackson.annotation.JsonAlias
 import io.specmatic.core.*
-import io.specmatic.core.SpecmaticConfig.Companion.getAttributeSelectionPattern
 import io.specmatic.core.SpecmaticConfig.Companion.getAllPatternsMandatory
+import io.specmatic.core.SpecmaticConfig.Companion.getAttributeSelectionPattern
 import io.specmatic.core.SpecmaticConfig.Companion.getPipeline
 import io.specmatic.core.SpecmaticConfig.Companion.getRepository
 import io.specmatic.core.SpecmaticConfig.Companion.getSecurityConfiguration
-import io.specmatic.core.SpecmaticConfig.Companion.getWorkflowConfiguration
-import io.specmatic.core.SpecmaticConfig.Companion.getVirtualServiceConfiguration
-import io.specmatic.core.SpecmaticConfig.Companion.getTestConfiguration
 import io.specmatic.core.SpecmaticConfig.Companion.getStubConfiguration
+import io.specmatic.core.SpecmaticConfig.Companion.getTestConfiguration
+import io.specmatic.core.SpecmaticConfig.Companion.getVirtualServiceConfiguration
+import io.specmatic.core.SpecmaticConfig.Companion.getWorkflowConfiguration
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.SpecmaticVersionedConfig
 import io.specmatic.core.config.SpecmaticVersionedConfigLoader
@@ -40,7 +40,7 @@ data class SpecmaticConfigV2(
     @field:JsonAlias("all_patterns_mandatory")
     val allPatternsMandatory: Boolean? = null,
     @field:JsonAlias("default_pattern_values")
-    val defaultPatternValues: Map<String, Any> = emptyMap()
+    val defaultPatternValues: Map<String, Any>? = null
 ) : SpecmaticVersionedConfig {
     override fun transform(): SpecmaticConfig {
         return SpecmaticConfig(
