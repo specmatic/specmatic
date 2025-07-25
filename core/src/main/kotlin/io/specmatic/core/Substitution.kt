@@ -239,13 +239,20 @@ class Substitution(
 
     fun isDropDirective(value: Value): Boolean {
         val strValue = (value as? StringValue)?.nativeValue ?: return false
-        return try {
-            val resolved = if (!isDataLookup(strValue)) strValue else substituteDataLookupExpression(strValue)
-            resolved == DROP_DIRECTIVE
-        } catch (e: Throwable) {
-            logger.debug(e, "Failed to check for drop directive")
-            false
-        }
+
+        val resolved =
+            if (!isDataLookup(strValue)) {
+                strValue
+            } else {
+                try {
+                    substituteDataLookupExpression(strValue)
+                } catch (e: Throwable) {
+                    logger.debug(e, "Failed to check for drop directive")
+                    strValue
+                }
+            }
+
+        return resolved == DROP_DIRECTIVE
     }
 }
 
