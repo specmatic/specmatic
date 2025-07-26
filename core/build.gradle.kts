@@ -40,10 +40,10 @@ dependencies {
     implementation("com.github.mifmif:generex:1.0.2")
     implementation("dk.brics:automaton:1.12-4")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.13.3")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.13.4")
     testImplementation("org.assertj:assertj-core:3.27.3")
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.13.3")
-    testImplementation("org.junit.jupiter:junit-jupiter-params:5.13.3")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.13.4")
+    testImplementation("org.junit.jupiter:junit-jupiter-params:5.13.4")
     testImplementation("org.json:json:20250517")
     testImplementation("org.springframework:spring-web:6.1.21")
     testImplementation("io.mockk:mockk:1.13.11")
@@ -51,7 +51,7 @@ dependencies {
     testImplementation("io.ktor:ktor-client-mock-jvm:2.3.13")
     implementation("org.thymeleaf:thymeleaf:3.1.3.RELEASE")
 
-    implementation("org.junit.platform:junit-platform-launcher:1.13.3")
+    implementation("org.junit.platform:junit-platform-launcher:1.13.4")
 }
 
 configurations.implementation.configure {
