@@ -39,7 +39,7 @@ dependencies {
 
     implementation("com.github.mifmif:generex:1.0.2")
     implementation("dk.brics:automaton:1.12-4")
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:okhttp:5.1.0")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.13.4")
     testImplementation("org.assertj:assertj-core:3.27.3")
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.13.4")
