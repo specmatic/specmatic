@@ -155,7 +155,9 @@ class SpecmaticJunitSupportTest {
 
     @Test
     fun `should be able to get actuator endpoints from swaggerUI`() {
-        SpecmaticJUnitSupport.actuatorFromSwagger("", object: TestExecutor {
+        val contractTestHarness = SpecmaticJUnitSupport()
+
+        contractTestHarness.actuatorFromSwagger("", object: TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
                 return HttpResponse(
                     200,
@@ -199,8 +201,8 @@ class SpecmaticJunitSupportTest {
             }
         })
 
-        assertThat(SpecmaticJUnitSupport.openApiCoverageReportInput.endpointsAPISet).isTrue()
-        assertThat(SpecmaticJUnitSupport.openApiCoverageReportInput.getApplicationAPIs()).isEqualTo(listOf(
+        assertThat(contractTestHarness.openApiCoverageReportInput.endpointsAPISet).isTrue()
+        assertThat(contractTestHarness.openApiCoverageReportInput.getApplicationAPIs()).isEqualTo(listOf(
             API("POST", "/orders"),
             API("POST", "/products"),
             API("GET", "/findAvailableProducts/{date_time}")

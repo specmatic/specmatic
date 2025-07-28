@@ -43,7 +43,7 @@ class OpenApiCoverageReportProcessor (private val openApiCoverageReportInput: Op
         return reportConfiguration.mapRenderers { formatterType: ReportFormatterType ->
             when (formatterType) {
                 ReportFormatterType.TEXT -> CoverageReportTextRenderer()
-                ReportFormatterType.HTML -> CoverageReportHtmlRenderer()
+                ReportFormatterType.HTML -> CoverageReportHtmlRenderer(openApiCoverageReportInput)
                 else -> throw Exception("Report formatter type: $formatterType is not supported")
             }
         }
