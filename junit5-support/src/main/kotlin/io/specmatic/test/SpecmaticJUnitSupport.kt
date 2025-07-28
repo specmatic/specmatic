@@ -54,6 +54,7 @@ data class ContractTestSettings(
     val filter: String,
     val configFile: String,
     val specmaticConfig: SpecmaticConfig?,
+    val reportBaseDirectory: String?
 ) {
     internal constructor(contractTestSettings: ThreadLocal<ContractTestSettings?>) : this(
         testBaseURL = contractTestSettings.get()?.testBaseURL ?: System.getProperty(TEST_BASE_URL),
@@ -65,6 +66,7 @@ data class ContractTestSettings(
                 ?: contractTestSettings.get()?.configFile?.let {
                     loadSpecmaticConfigOrDefault(it)
                 } ?: loadSpecmaticConfigOrDefault(getConfigFilePath()),
+        reportBaseDirectory = contractTestSettings.get()?.reportBaseDirectory,
     )
 }
 
@@ -73,7 +75,7 @@ data class ContractTestSettings(
 open class SpecmaticJUnitSupport {
     private val settings = ContractTestSettings(settingsStaging)
 
-    private val specmaticConfig: SpecmaticConfig = loadSpecmaticConfigOrDefault(getConfigFilePath())
+    private val specmaticConfig: SpecmaticConfig? = loadSpecmaticConfigOrNull(getConfigFilePath())
     private val testFilter = ScenarioMetadataFilter.from(settings.filter)
 
     companion object {
@@ -190,7 +192,7 @@ open class SpecmaticJUnitSupport {
     @AfterAll
     fun report() {
         TestReportHooks.onEachListener { onTestsComplete() }
-        val reportProcessors = listOf(OpenApiCoverageReportProcessor(openApiCoverageReportInput))
+        val reportProcessors = listOf(OpenApiCoverageReportProcessor(openApiCoverageReportInput, settings.reportBaseDirectory ?: "."))
         val reportConfiguration = getReportConfiguration()
         val config = specmaticConfig?.updateReportConfiguration(reportConfiguration) ?: SpecmaticConfig().updateReportConfiguration(reportConfiguration)
 

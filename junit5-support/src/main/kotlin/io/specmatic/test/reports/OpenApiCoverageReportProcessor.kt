@@ -15,7 +15,7 @@ import kotlinx.serialization.json.Json
 import org.assertj.core.api.Assertions.assertThat
 import java.io.File
 
-class OpenApiCoverageReportProcessor (private val openApiCoverageReportInput: OpenApiCoverageReportInput ): ReportProcessor<OpenAPICoverageConsoleReport> {
+class OpenApiCoverageReportProcessor(private val openApiCoverageReportInput: OpenApiCoverageReportInput, private val reportBaseDirectory: String): ReportProcessor<OpenAPICoverageConsoleReport> {
     companion object {
         const val JSON_REPORT_PATH = "./build/reports/specmatic"
         const val JSON_REPORT_FILE_NAME = "coverage_report.json"
@@ -59,7 +59,7 @@ class OpenApiCoverageReportProcessor (private val openApiCoverageReportInput: Op
             encodeDefaults = false
         }
         val reportJson = json.encodeToString(openApiCoverageJsonReport)
-        val directory = File(JSON_REPORT_PATH)
+        val directory = File(reportBaseDirectory).resolve(JSON_REPORT_PATH)
         directory.mkdirs()
         val file = File(directory, JSON_REPORT_FILE_NAME)
         file.writeText(reportJson)
