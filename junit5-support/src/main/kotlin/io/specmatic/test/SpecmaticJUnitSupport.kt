@@ -21,6 +21,9 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 import io.specmatic.stub.hasOpenApiFileExtension
 import io.specmatic.stub.isOpenAPI
+import io.specmatic.test.SpecmaticJUnitSupport.Companion.CONTRACT_PATHS
+import io.specmatic.test.SpecmaticJUnitSupport.Companion.FILTER
+import io.specmatic.test.SpecmaticJUnitSupport.Companion.TEST_BASE_URL
 import io.specmatic.test.reports.OpenApiCoverageReportProcessor
 import io.specmatic.test.reports.TestReportHooks
 import io.specmatic.test.reports.coverage.Endpoint
@@ -40,18 +43,42 @@ import java.util.stream.Stream
 import kotlin.streams.asStream
 
 @Serializable
-data class API(val method: String, val path: String)
+data class API(
+    val method: String,
+    val path: String,
+)
+
+data class ContractTestSettings(
+    val testBaseURL: String?,
+    val contractPaths: String?,
+    val filter: String,
+    val configFile: String,
+    val specmaticConfig: SpecmaticConfig?,
+) {
+    internal constructor(contractTestSettings: ThreadLocal<ContractTestSettings?>) : this(
+        testBaseURL = contractTestSettings.get()?.testBaseURL ?: System.getProperty(TEST_BASE_URL),
+        contractPaths = contractTestSettings.get()?.contractPaths ?: System.getProperty(CONTRACT_PATHS),
+        filter = contractTestSettings.get()?.filter ?: readEnvVarOrProperty(FILTER, FILTER).orEmpty(),
+        configFile = contractTestSettings.get()?.configFile ?: getConfigFilePath(),
+        specmaticConfig =
+            contractTestSettings.get()?.specmaticConfig
+                ?: contractTestSettings.get()?.configFile?.let {
+                    loadSpecmaticConfigOrDefault(it)
+                } ?: loadSpecmaticConfigOrDefault(getConfigFilePath()),
+    )
+}
 
 @Execution(ExecutionMode.CONCURRENT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-open class SpecmaticJUnitSupport(
-    private val testBaseURL: String? = System.getProperty(TEST_BASE_URL),
-    private val contractPaths: String? = System.getProperty(CONTRACT_PATHS),
-    filter: String = readEnvVarOrProperty(FILTER, FILTER).orEmpty(),
-) {
-    private val testFilter = ScenarioMetadataFilter.from(filter)
+open class SpecmaticJUnitSupport {
+    private val settings = ContractTestSettings(settingsStaging)
+
+    private val specmaticConfig: SpecmaticConfig = loadSpecmaticConfigOrDefault(getConfigFilePath())
+    private val testFilter = ScenarioMetadataFilter.from(settings.filter)
 
     companion object {
+        val settingsStaging = ThreadLocal<ContractTestSettings?>()
+
         const val CONTRACT_PATHS = "contractPaths"
         const val WORKING_DIRECTORY = "workingDirectory"
         const val INLINE_SUGGESTIONS = "suggestions"
@@ -75,7 +102,6 @@ open class SpecmaticJUnitSupport(
         val partialSuccesses: MutableList<Result.Success> = mutableListOf()
     }
 
-    private var specmaticConfig: SpecmaticConfig? = null
     internal var openApiCoverageReportInput: OpenApiCoverageReportInput = OpenApiCoverageReportInput(getConfigFileWithAbsolutePath())
 
     private val threads: Vector<String> = Vector<String>()
@@ -159,9 +185,7 @@ open class SpecmaticJUnitSupport(
         return ActuatorSetupResult.Success
     }
 
-    val configFile get() = getConfigFilePath()
-
-    private fun getConfigFileWithAbsolutePath() = File(configFile).canonicalPath
+    private fun getConfigFileWithAbsolutePath() = File(settings.configFile).canonicalPath
 
     @AfterAll
     fun report() {
@@ -216,8 +240,6 @@ open class SpecmaticJUnitSupport(
         val filterExpression = System.getProperty(FILTER, "")
         openApiCoverageReportInput = OpenApiCoverageReportInput(getConfigFileWithAbsolutePath(), filterExpression = filterExpression)
 
-        specmaticConfig = getSpecmaticConfig()
-
         val timeoutInMilliseconds = specmaticConfig?.getTestTimeoutInMilliseconds() ?: try {
             getLongValue(SPECMATIC_TEST_TIMEOUT)
         } catch (e: NumberFormatException) {
@@ -237,8 +259,8 @@ open class SpecmaticJUnitSupport(
         }
         val testScenarios = try {
             val (testScenarios, allEndpoints) = when {
-                contractPaths != null -> {
-                    val testScenariosAndEndpointsPairList = contractPaths.split(",").filter {
+                settings.contractPaths != null -> {
+                    val testScenariosAndEndpointsPairList = settings.contractPaths.split(",").filter {
                         File(it).extension in CONTRACT_EXTENSIONS
                     }.map {
                         loadTestScenarios(
@@ -258,12 +280,11 @@ open class SpecmaticJUnitSupport(
                     Pair(tests, endpoints)
                 }
                 else -> {
-                    val configFile = configFile
-                    if(File(configFile).exists().not()) exitWithMessage(MISSING_CONFIG_FILE_MESSAGE)
+                    if(File(settings.configFile).exists().not()) exitWithMessage(MISSING_CONFIG_FILE_MESSAGE)
 
                     createIfDoesNotExist(workingDirectory.path)
 
-                    val contractFilePaths = contractTestPathsFrom(configFile, workingDirectory.path)
+                    val contractFilePaths = contractTestPathsFrom(settings.configFile, workingDirectory.path)
 
                     exitIfAnyDoNotExist("The following specifications do not exist", contractFilePaths.map { it.path })
 
@@ -413,9 +434,9 @@ open class SpecmaticJUnitSupport(
     }
 
     fun constructTestBaseURL(): String {
-        if (testBaseURL != null) {
-            when (val validationResult = validateTestOrStubUri(testBaseURL)) {
-                URIValidationResult.Success -> return testBaseURL
+        if (settings.testBaseURL != null) {
+            when (val validationResult = validateTestOrStubUri(settings.testBaseURL)) {
+                URIValidationResult.Success -> return settings.testBaseURL
                 else -> throw TestAbortedException("${validationResult.message} in $TEST_BASE_URL environment variable")
             }
         }
@@ -540,19 +561,6 @@ open class SpecmaticJUnitSupport(
             .generateContractTests(suggestions, originalScenarios = feature.scenarios)
 
         return Pair(tests, allEndpoints)
-    }
-
-    private fun getSpecmaticConfig(): SpecmaticConfig? {
-        return try {
-            loadSpecmaticConfig(configFile)
-        }
-        catch (e: ContractException) {
-            logger.log(exceptionCauseMessage(e))
-            null
-        }
-        catch (e: Throwable) {
-            exitWithMessage(exceptionCauseMessage(e))
-        }
     }
 
     private fun suggestionsFromFile(suggestionsPath: String): List<Scenario> {
