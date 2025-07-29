@@ -78,7 +78,8 @@ class HttpStub(
     private val specToStubBaseUrlMap: Map<String, String?> = features.associate {
         it.path to endPointFromHostAndPort(host, port, keyData)
     },
-    private val listeners: List<MockEventListener> = emptyList()
+    private val listeners: List<MockEventListener> = emptyList(),
+    private val reportsDirectoryPath: String = JSON_REPORT_PATH,
 ) : ContractStub {
     constructor(
         feature: Feature,
@@ -732,7 +733,7 @@ class HttpStub(
                 encodeDefaults = false
             }
             val generatedReport = stubUsageReport.generate()
-            val reportJson: String = File(workingDirectory?.path ?: ".").resolve(JSON_REPORT_PATH).resolve(JSON_REPORT_FILE_NAME).let { reportFile ->
+            val reportJson: String = File(reportsDirectoryPath).resolve(JSON_REPORT_FILE_NAME).let { reportFile ->
                 if (reportFile.exists()) {
                     try {
                         val existingReport = Json.decodeFromString<StubUsageReportJson>(reportFile.readText())
@@ -746,7 +747,7 @@ class HttpStub(
                 }
             }
 
-            saveJsonFile(reportJson, File(workingDirectory?.path ?: ".").resolve(JSON_REPORT_PATH).path, JSON_REPORT_FILE_NAME)
+            saveJsonFile(reportJson, reportsDirectoryPath, JSON_REPORT_FILE_NAME)
         }
     }
 
