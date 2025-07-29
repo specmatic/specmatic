@@ -598,6 +598,18 @@ data class SpecmaticConfig(
             throw ContractException("Error loading Specmatic configuration: ${e.message}")
         }
     }
+
+    fun enableResiliencyTests(): SpecmaticConfig {
+        return this.copy(
+            test =
+                (test ?: TestConfiguration()).copy(
+                    resiliencyTests =
+                        (test?.resiliencyTests ?: ResiliencyTestsConfig()).copy(
+                            enable = ResiliencyTestSuite.all,
+                        ),
+                ),
+        )
+    }
 }
 
 data class TestConfiguration(
@@ -974,14 +986,19 @@ data class APIKeySecuritySchemeConfiguration(
 ) : SecuritySchemeConfiguration()
 
 fun loadSpecmaticConfigOrDefault(configFileName: String? = null): SpecmaticConfig {
-    return if(configFileName == null)
+    return loadSpecmaticConfigOrNull(configFileName) ?: SpecmaticConfig()
+}
+
+fun loadSpecmaticConfigOrNull(configFileName: String? = null): SpecmaticConfig? {
+    return if (configFileName == null) {
         SpecmaticConfig()
-    else try {
-        loadSpecmaticConfig(configFileName)
-    }
-    catch (e: ContractException) {
-        logger.log(exceptionCauseMessage(e))
-        SpecmaticConfig()
+    } else {
+        try {
+            loadSpecmaticConfig(configFileName)
+        } catch (e: ContractException) {
+            logger.log(exceptionCauseMessage(e))
+            null
+        }
     }
 }
 

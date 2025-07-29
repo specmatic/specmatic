@@ -20,13 +20,14 @@ import java.util.stream.Stream
 private const val MESSAGE_FRAGMENT_WHEN_NO_TESTS_WERE_FOUND = "No tests found to run"
 
 class FilterIntegrationTest {
-
     @ParameterizedTest
     @MethodSource("filterProvider")
     fun contractTestWithDifferentFilters(filter: String, expectedSuccessfulTestCount: Int) {
         System.setProperty("filter", filter)
 
-        SpecmaticJUnitSupport().contractTest().forEach {
+        val contractTestHarness = SpecmaticJUnitSupport()
+
+        contractTestHarness.contractTest().forEach {
             try {
                 it.executable.execute()
             } catch(e: Throwable) {
@@ -34,7 +35,7 @@ class FilterIntegrationTest {
             }
         }
 
-        val count = SpecmaticJUnitSupport.openApiCoverageReportInput.generate().testResultRecords.count {
+        val count = contractTestHarness.openApiCoverageReportInput.generate().testResultRecords.count {
             it.result == TestResult.Success
         }
         assertEquals(expectedSuccessfulTestCount, count)

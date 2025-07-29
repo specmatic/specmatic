@@ -29,33 +29,36 @@ import kotlinx.serialization.Serializable
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.TestFactory
+import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.parallel.Execution
 import org.junit.jupiter.api.parallel.ExecutionMode
 import org.opentest4j.TestAbortedException
 import java.io.File
-import java.lang.management.ManagementFactory
 import java.net.URI
 import java.util.*
+import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.stream.Stream
-import javax.management.ObjectName
 import kotlin.streams.asStream
 
-interface ContractTestStatisticsMBean {
-    fun testsExecuted(): Int
-}
-
-class ContractTestStatistics : ContractTestStatisticsMBean {
-    override fun testsExecuted(): Int = SpecmaticJUnitSupport.openApiCoverageReportInput.testResultRecords.size
-}
-
 @Serializable
-data class API(val method: String, val path: String)
+data class API(
+    val method: String,
+    val path: String,
+)
 
 @Execution(ExecutionMode.CONCURRENT)
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 open class SpecmaticJUnitSupport {
-    private val testFilter = ScenarioMetadataFilter.from(readEnvVarOrProperty(FILTER, FILTER).orEmpty())
+    private val settings = ContractTestSettings(settingsStaging)
+
+    private val specmaticConfig: SpecmaticConfig? =
+        settings.adjust(loadSpecmaticConfigOrNull(getConfigFilePath()))
+
+    private val testFilter = ScenarioMetadataFilter.from(settings.filter)
 
     companion object {
+        val settingsStaging = ThreadLocal<ContractTestSettings?>()
+
         const val CONTRACT_PATHS = "contractPaths"
         const val WORKING_DIRECTORY = "workingDirectory"
         const val INLINE_SUGGESTIONS = "suggestions"
@@ -76,112 +79,109 @@ open class SpecmaticJUnitSupport {
         private const val ENDPOINTS_API = "endpointsAPI"
         private const val SWAGGER_UI_BASEURL = "swaggerUIBaseURL"
 
-        val partialSuccesses: MutableList<Result.Success> = mutableListOf()
-        private var specmaticConfig: SpecmaticConfig? = null
-        var openApiCoverageReportInput: OpenApiCoverageReportInput = OpenApiCoverageReportInput(getConfigFileWithAbsolutePath())
+        val partialSuccesses: ConcurrentLinkedDeque<Result.Success> = ConcurrentLinkedDeque()
+    }
 
-        private val threads: Vector<String> = Vector<String>()
+    internal var openApiCoverageReportInput: OpenApiCoverageReportInput = OpenApiCoverageReportInput(getConfigFileWithAbsolutePath())
 
-        @AfterAll
-        @JvmStatic
-        fun report() {
-            TestReportHooks.onEachListener { onTestsComplete() }
-            val reportProcessors = listOf(OpenApiCoverageReportProcessor(openApiCoverageReportInput))
-            val reportConfiguration = getReportConfiguration()
-            val config = specmaticConfig?.updateReportConfiguration(reportConfiguration) ?: SpecmaticConfig().updateReportConfiguration(reportConfiguration)
+    private val threads: Vector<String> = Vector<String>()
 
-            reportProcessors.forEach { it.process(config) }
+    private fun getReportConfiguration(): ReportConfiguration {
+        val reportConfiguration = specmaticConfig?.getReport()
 
-            threads.distinct().let {
-                if(it.size > 1) {
-                    logger.newLine()
-                    logger.log("Executed tests in ${it.size} threads")
-                }
-            }
+        if (reportConfiguration == null) {
+            logger.log("Could not load report configuration, coverage will be calculated but no coverage threshold will be enforced")
+            return ReportConfiguration.default
         }
 
-        private fun getReportConfiguration(): ReportConfiguration {
-            val reportConfiguration = specmaticConfig?.getReport()
+        return reportConfiguration.withDefaultFormattersIfMissing()
+    }
 
-            if (reportConfiguration == null) {
-                logger.log("Could not load report configuration, coverage will be calculated but no coverage threshold will be enforced")
-                return ReportConfiguration.default
-            }
+    enum class ActuatorSetupResult(val failed: Boolean) {
+        Success(false), Failure(true)
+    }
 
-            return reportConfiguration.withDefaultFormattersIfMissing()
+    fun actuatorFromSwagger(testBaseURL: String, client: TestExecutor? = null): ActuatorSetupResult {
+        val baseURL = Flags.getStringValue(SWAGGER_UI_BASEURL) ?: testBaseURL
+        val httpClient = client ?: LegacyHttpClient(baseURL, log = ignoreLog)
+
+        val request = HttpRequest(path = "/swagger/v1/swagger.yaml", method = "GET")
+        val response = httpClient.execute(request)
+
+        if (response.status != 200) {
+            logger.log("Failed to query swaggerUI, status code: ${response.status}")
+            return ActuatorSetupResult.Failure
         }
 
-        enum class ActuatorSetupResult(val failed: Boolean) {
-            Success(false), Failure(true)
+        val featureFromJson = OpenApiSpecification.fromYAML(response.body.toStringLiteral(), "").toFeature()
+        val apis = featureFromJson.scenarios.map { scenario ->
+            API(method = scenario.method, path = convertPathParameterStyle(scenario.path))
         }
 
-        fun actuatorFromSwagger(testBaseURL: String, client: TestExecutor? = null): ActuatorSetupResult {
-            val baseURL = Flags.getStringValue(SWAGGER_UI_BASEURL) ?: testBaseURL
-            val httpClient = client ?: LegacyHttpClient(baseURL, log = ignoreLog)
+        openApiCoverageReportInput.addAPIs(apis.distinct())
+        openApiCoverageReportInput.setEndpointsAPIFlag(true)
 
-            val request = HttpRequest(path = "/swagger/v1/swagger.yaml", method = "GET")
-            val response = httpClient.execute(request)
+        return ActuatorSetupResult.Success
+    }
 
-            if (response.status != 200) {
-                logger.log("Failed to query swaggerUI, status code: ${response.status}")
-                return ActuatorSetupResult.Failure
-            }
+    fun queryActuator(): ActuatorSetupResult {
+        val endpointsAPI: String = Flags.getStringValue(ENDPOINTS_API) ?: return ActuatorSetupResult.Failure
+        val request = HttpRequest("GET")
+        val response = LegacyHttpClient(endpointsAPI, log = ignoreLog).execute(request)
 
-            val featureFromJson = OpenApiSpecification.fromYAML(response.body.toStringLiteral(), "").toFeature()
-            val apis = featureFromJson.scenarios.map { scenario ->
-                API(method = scenario.method, path = convertPathParameterStyle(scenario.path))
-            }
-
-            openApiCoverageReportInput.addAPIs(apis.distinct())
-            openApiCoverageReportInput.setEndpointsAPIFlag(true)
-
-            return ActuatorSetupResult.Success
+        if (response.status != 200) {
+            logger.log("Failed to query actuator, status code: ${response.status}")
+            return ActuatorSetupResult.Failure
         }
 
-        fun queryActuator(): ActuatorSetupResult {
-            val endpointsAPI: String = Flags.getStringValue(ENDPOINTS_API) ?: return ActuatorSetupResult.Failure
-            val request = HttpRequest("GET")
-            val response = LegacyHttpClient(endpointsAPI, log = ignoreLog).execute(request)
+        logger.debug(response.toLogString())
+        openApiCoverageReportInput.setEndpointsAPIFlag(true)
+        val endpointData = response.body as JSONObjectValue
+        val apis: List<API> = endpointData.getJSONObject("contexts").entries.flatMap { entry ->
+            val mappings: JSONArrayValue =
+                (entry.value as JSONObjectValue).findFirstChildByPath("mappings.dispatcherServlets.dispatcherServlet") as JSONArrayValue
+            mappings.list.map { it as JSONObjectValue }.filter {
+                it.findFirstChildByPath("details.handlerMethod.className")?.toStringLiteral()
+                    ?.contains("springframework") != true
+            }.flatMap {
+                val methods: JSONArrayValue? =
+                    it.findFirstChildByPath("details.requestMappingConditions.methods") as JSONArrayValue?
+                val paths: JSONArrayValue? =
+                    it.findFirstChildByPath("details.requestMappingConditions.patterns") as JSONArrayValue?
 
-            if (response.status != 200) {
-                logger.log("Failed to query actuator, status code: ${response.status}")
-                return ActuatorSetupResult.Failure
-            }
-
-            logger.debug(response.toLogString())
-            openApiCoverageReportInput.setEndpointsAPIFlag(true)
-            val endpointData = response.body as JSONObjectValue
-            val apis: List<API> = endpointData.getJSONObject("contexts").entries.flatMap { entry ->
-                val mappings: JSONArrayValue =
-                    (entry.value as JSONObjectValue).findFirstChildByPath("mappings.dispatcherServlets.dispatcherServlet") as JSONArrayValue
-                mappings.list.map { it as JSONObjectValue }.filter {
-                    it.findFirstChildByPath("details.handlerMethod.className")?.toStringLiteral()
-                        ?.contains("springframework") != true
-                }.flatMap {
-                    val methods: JSONArrayValue? =
-                        it.findFirstChildByPath("details.requestMappingConditions.methods") as JSONArrayValue?
-                    val paths: JSONArrayValue? =
-                        it.findFirstChildByPath("details.requestMappingConditions.patterns") as JSONArrayValue?
-
-                    if(methods != null && paths != null) {
-                        methods.list.flatMap { method ->
-                            paths.list.map { path ->
-                                API(method.toStringLiteral(), path.toStringLiteral())
-                            }
+                if(methods != null && paths != null) {
+                    methods.list.flatMap { method ->
+                        paths.list.map { path ->
+                            API(method.toStringLiteral(), path.toStringLiteral())
                         }
-                    } else {
-                        emptyList()
                     }
+                } else {
+                    emptyList()
                 }
             }
-            openApiCoverageReportInput.addAPIs(apis)
-
-            return ActuatorSetupResult.Success
         }
+        openApiCoverageReportInput.addAPIs(apis)
 
-        val configFile get() = getConfigFilePath()
+        return ActuatorSetupResult.Success
+    }
 
-        private fun getConfigFileWithAbsolutePath() = File(configFile).canonicalPath
+    private fun getConfigFileWithAbsolutePath() = File(settings.configFile).canonicalPath
+
+    @AfterAll
+    fun report() {
+        TestReportHooks.onEachListener { onTestsComplete() }
+        val reportProcessors = listOf(OpenApiCoverageReportProcessor(openApiCoverageReportInput, settings.reportBaseDirectory ?: "."))
+        val reportConfiguration = getReportConfiguration()
+        val config = specmaticConfig?.updateReportConfiguration(reportConfiguration) ?: SpecmaticConfig().updateReportConfiguration(reportConfiguration)
+
+        reportProcessors.forEach { it.process(config) }
+
+        threads.distinct().let {
+            if(it.size > 1) {
+                logger.newLine()
+                logger.log("Executed tests in ${it.size} threads")
+            }
+        }
     }
 
     private fun getEnvConfig(envName: String?): JSONObjectValue {
@@ -211,15 +211,8 @@ open class SpecmaticJUnitSupport {
 
     @TestFactory
     fun contractTest(): Stream<DynamicTest> {
-        val statistics = ContractTestStatistics()
-        val name = ObjectName("io.specmatic:type=ContractTestStatistics")
+        partialSuccesses.clear()
 
-        val mbs = ManagementFactory.getPlatformMBeanServer()
-
-        if(!mbs.isRegistered(name))
-            mbs.registerMBean(statistics, name)
-
-        val contractPaths = System.getProperty(CONTRACT_PATHS)
         val givenWorkingDirectory = System.getProperty(WORKING_DIRECTORY)
         val filterName: String? = System.getProperty(FILTER_NAME_PROPERTY) ?: System.getenv(FILTER_NAME_ENVIRONMENT_VARIABLE)
         val filterNotName: String? = System.getProperty(FILTER_NOT_NAME_PROPERTY) ?: System.getenv(FILTER_NOT_NAME_ENVIRONMENT_VARIABLE)
@@ -228,8 +221,6 @@ open class SpecmaticJUnitSupport {
 
         val filterExpression = System.getProperty(FILTER, "")
         openApiCoverageReportInput = OpenApiCoverageReportInput(getConfigFileWithAbsolutePath(), filterExpression = filterExpression)
-
-        specmaticConfig = getSpecmaticConfig()
 
         val timeoutInMilliseconds = specmaticConfig?.getTestTimeoutInMilliseconds() ?: try {
             getLongValue(SPECMATIC_TEST_TIMEOUT)
@@ -250,8 +241,8 @@ open class SpecmaticJUnitSupport {
         }
         val testScenarios = try {
             val (testScenarios, allEndpoints) = when {
-                contractPaths != null -> {
-                    val testScenariosAndEndpointsPairList = contractPaths.split(",").filter {
+                settings.contractPaths != null -> {
+                    val testScenariosAndEndpointsPairList = settings.contractPaths.split(",").filter {
                         File(it).extension in CONTRACT_EXTENSIONS
                     }.map {
                         loadTestScenarios(
@@ -271,12 +262,11 @@ open class SpecmaticJUnitSupport {
                     Pair(tests, endpoints)
                 }
                 else -> {
-                    val configFile = configFile
-                    if(File(configFile).exists().not()) exitWithMessage(MISSING_CONFIG_FILE_MESSAGE)
+                    if(File(settings.configFile).exists().not()) exitWithMessage(MISSING_CONFIG_FILE_MESSAGE)
 
                     createIfDoesNotExist(workingDirectory.path)
 
-                    val contractFilePaths = contractTestPathsFrom(configFile, workingDirectory.path)
+                    val contractFilePaths = contractTestPathsFrom(settings.configFile, workingDirectory.path)
 
                     exitIfAnyDoNotExist("The following specifications do not exist", contractFilePaths.map { it.path })
 
@@ -426,10 +416,9 @@ open class SpecmaticJUnitSupport {
     }
 
     fun constructTestBaseURL(): String {
-        val testBaseURL = System.getProperty(TEST_BASE_URL)
-        if (testBaseURL != null) {
-            when (val validationResult = validateTestOrStubUri(testBaseURL)) {
-                URIValidationResult.Success -> return testBaseURL
+        if (settings.testBaseURL != null) {
+            when (val validationResult = validateTestOrStubUri(settings.testBaseURL)) {
+                URIValidationResult.Success -> return settings.testBaseURL
                 else -> throw TestAbortedException("${validationResult.message} in $TEST_BASE_URL environment variable")
             }
         }
@@ -554,19 +543,6 @@ open class SpecmaticJUnitSupport {
             .generateContractTests(suggestions, originalScenarios = feature.scenarios)
 
         return Pair(tests, allEndpoints)
-    }
-
-    private fun getSpecmaticConfig(): SpecmaticConfig? {
-        return try {
-            loadSpecmaticConfig(configFile)
-        }
-        catch (e: ContractException) {
-            logger.log(exceptionCauseMessage(e))
-            null
-        }
-        catch (e: Throwable) {
-            exitWithMessage(exceptionCauseMessage(e))
-        }
     }
 
     private fun suggestionsFromFile(suggestionsPath: String): List<Scenario> {

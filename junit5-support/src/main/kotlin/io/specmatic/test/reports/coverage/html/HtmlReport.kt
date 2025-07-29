@@ -15,8 +15,9 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.*
 
-class HtmlReport(private val htmlReportInformation: HtmlReportInformation) {
-    private val outputDirectory = htmlReportInformation.reportFormat.getOutputDirectoryOrDefault()
+class HtmlReport(private val htmlReportInformation: HtmlReportInformation, private val baseDir: String? = null) {
+    private val configuredOutputDirectory = htmlReportInformation.reportFormat.getOutputDirectoryOrDefault()
+    private val outputDirectory = baseDir?.let { File(it).resolve(configuredOutputDirectory).path } ?: configuredOutputDirectory
     private val apiSuccessCriteria = htmlReportInformation.successCriteria
     private val reportFormat = htmlReportInformation.reportFormat
     private val reportData = htmlReportInformation.reportData

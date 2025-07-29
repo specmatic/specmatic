@@ -13,17 +13,15 @@ import io.specmatic.test.SpecmaticJUnitSupport.Companion.TEST_BASE_URL
 import io.specmatic.test.TestInteractionsLog.displayName
 import io.specmatic.test.TestInteractionsLog.duration
 import io.specmatic.test.TestResultRecord
+import io.specmatic.test.reports.coverage.OpenApiCoverageReportInput
 import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
 import io.specmatic.test.reports.coverage.console.OpenApiCoverageConsoleRow
 import io.specmatic.test.reports.coverage.html.*
 
 typealias GroupedScenarioData = Map<String, Map<String, Map<String, Map<String, List<ScenarioData>>>>>
 
-class CoverageReportHtmlRenderer : ReportRenderer<OpenAPICoverageConsoleReport> {
-
-    companion object {
-        val actuatorEnabled = SpecmaticJUnitSupport.openApiCoverageReportInput.endpointsAPISet
-    }
+class CoverageReportHtmlRenderer(openApiCoverageReportInput: OpenApiCoverageReportInput, val baseDir: String) : ReportRenderer<OpenAPICoverageConsoleReport> {
+    val actuatorEnabled = openApiCoverageReportInput.endpointsAPISet
 
     override fun render(report: OpenAPICoverageConsoleReport, specmaticConfig: SpecmaticConfig): String {
         logger.log("Generating HTML report...")
@@ -44,7 +42,7 @@ class CoverageReportHtmlRenderer : ReportRenderer<OpenAPICoverageConsoleReport> 
             isGherkinReport = report.isGherkinReport
         )
 
-        HtmlReport(htmlReportInformation).generate()
+        HtmlReport(htmlReportInformation, baseDir).generate()
         return "Successfully generated HTML report in ${htmlReportConfiguration.getOutputDirectoryOrDefault()}"
     }
 
