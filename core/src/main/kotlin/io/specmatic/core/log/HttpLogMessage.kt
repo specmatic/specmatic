@@ -20,6 +20,16 @@ data class HttpLogMessage(
     var scenario: Scenario? = null,
     var exception: Exception? = null
 ) : LogMessage {
+    fun combineLog(): String {
+        val request = this.request.toLogString().trim('\n')
+        val response = this.response?.toLogString()?.trim('\n') ?: "No response"
+
+        return "$request\n\n$response"
+    }
+
+    fun duration() = (responseTime?.toEpochMillis() ?: requestTime.toEpochMillis()) - requestTime.toEpochMillis()
+
+    fun displayName() = scenario?.testDescription()
 
     fun addRequestWithCurrentTime(httpRequest: HttpRequest) {
         requestTime = CurrentDate()

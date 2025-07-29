@@ -1,6 +1,5 @@
 package io.specmatic.test.reports.coverage.console
 
-import io.specmatic.test.TestInteractionsLog
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.reports.TestReportListener
 import io.specmatic.test.reports.onEachListener
@@ -18,10 +17,9 @@ data class OpenAPICoverageConsoleReport(
     val notImplementedAPICount: Int,
     val partiallyMissedEndpointsCount: Int,
     val partiallyNotImplementedAPICount: Int,
-    private val coverageHooks: List<TestReportListener> = emptyList()
+    private val coverageHooks: List<TestReportListener> = emptyList(),
 ) {
     val totalCoveragePercentage: Int = calculateTotalCoveragePercentage()
-    val httpLogMessages = TestInteractionsLog.testHttpLogMessages
     val isGherkinReport = testResultRecords.all { it.isGherkin }
 
     init {

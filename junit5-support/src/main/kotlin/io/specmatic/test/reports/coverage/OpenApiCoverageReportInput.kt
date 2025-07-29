@@ -4,7 +4,9 @@ import io.specmatic.conversions.SERVICE_TYPE_HTTP
 import io.specmatic.core.TestResult
 import io.specmatic.core.filters.ExpressionStandardizer
 import io.specmatic.core.filters.TestRecordFilter
+import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.test.API
+import io.specmatic.test.HttpInteractionsLog
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.reports.TestReportListener
 import io.specmatic.test.reports.coverage.console.GroupedTestResultRecords
@@ -27,10 +29,19 @@ class OpenApiCoverageReportInput(
     private var groupedTestResultRecords: GroupedTestResultRecords = mutableMapOf(),
     private var apiCoverageRows: MutableList<OpenApiCoverageConsoleRow> = mutableListOf(),
     private val filterExpression: String = "",
-    private val coverageHooks: List<TestReportListener> = emptyList()
+    private val coverageHooks: List<TestReportListener> = emptyList(),
+    private val httpInteractionsLog: HttpInteractionsLog = HttpInteractionsLog()
 ) {
+    fun totalDuration(): Long {
+        return httpInteractionsLog.totalDuration()
+    }
+
+    fun findFirstMatchingScenario(logMessageSelector: (HttpLogMessage) -> Boolean): HttpLogMessage? {
+        return httpInteractionsLog.testHttpLogMessages.firstOrNull(logMessageSelector)
+    }
+
     fun addTestReportRecords(testResultRecord: TestResultRecord) {
-        coverageHooks.onTestResult(testResultRecord)
+        coverageHooks.onTestResult(testResultRecord, httpInteractionsLog.testHttpLogMessages.toList())
         testResultRecords.add(testResultRecord)
     }
 

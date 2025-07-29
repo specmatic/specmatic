@@ -12,7 +12,7 @@ data class ContractTestSettings(
     val configFile: String,
     val generative: Boolean?,
     val reportBaseDirectory: String?,
-    val coverageHooks: List<TestReportListener>
+    val coverageHooks: List<TestReportListener>,
 ) {
     fun adjust(specmaticConfig: SpecmaticConfig?): SpecmaticConfig? =
         if (generative == true) {
