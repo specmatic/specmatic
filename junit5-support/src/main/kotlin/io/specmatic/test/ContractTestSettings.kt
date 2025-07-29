@@ -10,8 +10,14 @@ data class ContractTestSettings(
     val filter: String,
     val configFile: String,
     val generative: Boolean?,
+    val reportBaseDirectory: String?,
 ) {
-    fun adjust(specmaticConfig: SpecmaticConfig?): SpecmaticConfig = (specmaticConfig ?: SpecmaticConfig()).enableResiliencyTests()
+    fun adjust(specmaticConfig: SpecmaticConfig?): SpecmaticConfig? =
+        if (generative == true) {
+            (specmaticConfig ?: SpecmaticConfig()).enableResiliencyTests()
+        } else {
+            specmaticConfig
+        }
 
     internal constructor(contractTestSettings: ThreadLocal<ContractTestSettings?>) : this(
         testBaseURL = contractTestSettings.get()?.testBaseURL ?: System.getProperty(SpecmaticJUnitSupport.TEST_BASE_URL),
@@ -23,5 +29,6 @@ data class ContractTestSettings(
             ).orEmpty(),
         configFile = contractTestSettings.get()?.configFile ?: getConfigFilePath(),
         generative = contractTestSettings.get()?.generative,
+        reportBaseDirectory = contractTestSettings.get()?.reportBaseDirectory,
     )
 }

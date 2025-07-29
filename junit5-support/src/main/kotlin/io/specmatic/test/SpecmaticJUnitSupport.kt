@@ -52,7 +52,7 @@ open class SpecmaticJUnitSupport {
     private val settings = ContractTestSettings(settingsStaging)
 
     private val specmaticConfig: SpecmaticConfig? =
-        settings.adjust(loadSpecmaticConfigOrDefault(getConfigFilePath()))
+        settings.adjust(loadSpecmaticConfigOrNull(getConfigFilePath()))
 
     private val testFilter = ScenarioMetadataFilter.from(settings.filter)
 
@@ -170,7 +170,7 @@ open class SpecmaticJUnitSupport {
     @AfterAll
     fun report() {
         TestReportHooks.onEachListener { onTestsComplete() }
-        val reportProcessors = listOf(OpenApiCoverageReportProcessor(openApiCoverageReportInput))
+        val reportProcessors = listOf(OpenApiCoverageReportProcessor(openApiCoverageReportInput, settings.reportBaseDirectory ?: "."))
         val reportConfiguration = getReportConfiguration()
         val config = specmaticConfig?.updateReportConfiguration(reportConfiguration) ?: SpecmaticConfig().updateReportConfiguration(reportConfiguration)
 
