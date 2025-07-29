@@ -21,9 +21,6 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 import io.specmatic.stub.hasOpenApiFileExtension
 import io.specmatic.stub.isOpenAPI
-import io.specmatic.test.SpecmaticJUnitSupport.Companion.CONTRACT_PATHS
-import io.specmatic.test.SpecmaticJUnitSupport.Companion.FILTER
-import io.specmatic.test.SpecmaticJUnitSupport.Companion.TEST_BASE_URL
 import io.specmatic.test.reports.OpenApiCoverageReportProcessor
 import io.specmatic.test.reports.TestReportHooks
 import io.specmatic.test.reports.coverage.Endpoint
@@ -48,26 +45,6 @@ data class API(
     val method: String,
     val path: String,
 )
-
-data class ContractTestSettings(
-    val testBaseURL: String?,
-    val contractPaths: String?,
-    val filter: String,
-    val configFile: String,
-    val specmaticConfig: SpecmaticConfig?,
-) {
-    internal constructor(contractTestSettings: ThreadLocal<ContractTestSettings?>) : this(
-        testBaseURL = contractTestSettings.get()?.testBaseURL ?: System.getProperty(TEST_BASE_URL),
-        contractPaths = contractTestSettings.get()?.contractPaths ?: System.getProperty(CONTRACT_PATHS),
-        filter = contractTestSettings.get()?.filter ?: readEnvVarOrProperty(FILTER, FILTER).orEmpty(),
-        configFile = contractTestSettings.get()?.configFile ?: getConfigFilePath(),
-        specmaticConfig =
-            contractTestSettings.get()?.specmaticConfig
-                ?: contractTestSettings.get()?.configFile?.let {
-                    loadSpecmaticConfigOrDefault(it)
-                } ?: loadSpecmaticConfigOrDefault(getConfigFilePath()),
-    )
-}
 
 @Execution(ExecutionMode.CONCURRENT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
