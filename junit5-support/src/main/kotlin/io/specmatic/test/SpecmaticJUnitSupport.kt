@@ -51,7 +51,9 @@ data class API(
 open class SpecmaticJUnitSupport {
     private val settings = ContractTestSettings(settingsStaging)
 
-    private val specmaticConfig: SpecmaticConfig? = loadSpecmaticConfigOrDefault(getConfigFilePath())
+    private val specmaticConfig: SpecmaticConfig? =
+        settings.adjust(loadSpecmaticConfigOrDefault(getConfigFilePath()))
+
     private val testFilter = ScenarioMetadataFilter.from(settings.filter)
 
     companion object {

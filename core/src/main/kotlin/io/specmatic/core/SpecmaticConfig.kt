@@ -598,6 +598,18 @@ data class SpecmaticConfig(
             throw ContractException("Error loading Specmatic configuration: ${e.message}")
         }
     }
+
+    fun enableResiliencyTests(): SpecmaticConfig {
+        return this.copy(
+            test =
+                (test ?: TestConfiguration()).copy(
+                    resiliencyTests =
+                        (test?.resiliencyTests ?: ResiliencyTestsConfig()).copy(
+                            enable = ResiliencyTestSuite.all,
+                        ),
+                ),
+        )
+    }
 }
 
 data class TestConfiguration(
