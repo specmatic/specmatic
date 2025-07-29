@@ -22,7 +22,6 @@ import io.specmatic.core.value.Value
 import io.specmatic.stub.hasOpenApiFileExtension
 import io.specmatic.stub.isOpenAPI
 import io.specmatic.test.reports.OpenApiCoverageReportProcessor
-import io.specmatic.test.reports.TestReportHooks
 import io.specmatic.test.reports.coverage.Endpoint
 import io.specmatic.test.reports.coverage.OpenApiCoverageReportInput
 import kotlinx.serialization.Serializable
@@ -82,7 +81,7 @@ open class SpecmaticJUnitSupport {
         val partialSuccesses: ConcurrentLinkedDeque<Result.Success> = ConcurrentLinkedDeque()
     }
 
-    internal var openApiCoverageReportInput: OpenApiCoverageReportInput = OpenApiCoverageReportInput(getConfigFileWithAbsolutePath())
+    internal var openApiCoverageReportInput: OpenApiCoverageReportInput = OpenApiCoverageReportInput(getConfigFileWithAbsolutePath(), coverageHooks = settings.coverageHooks)
 
     private val threads: Vector<String> = Vector<String>()
 
@@ -169,7 +168,7 @@ open class SpecmaticJUnitSupport {
 
     @AfterAll
     fun report() {
-        TestReportHooks.onEachListener { onTestsComplete() }
+        settings.coverageHooks.forEach { it.onTestsComplete() }
         val reportProcessors = listOf(OpenApiCoverageReportProcessor(openApiCoverageReportInput, settings.reportBaseDirectory ?: "."))
         val reportConfiguration = getReportConfiguration()
         val config = specmaticConfig?.updateReportConfiguration(reportConfiguration) ?: SpecmaticConfig().updateReportConfiguration(reportConfiguration)
@@ -220,7 +219,7 @@ open class SpecmaticJUnitSupport {
         val overlayContent = if(overlayFilePath.isNullOrBlank()) "" else readFrom(overlayFilePath, "overlay")
 
         val filterExpression = System.getProperty(FILTER, "")
-        openApiCoverageReportInput = OpenApiCoverageReportInput(getConfigFileWithAbsolutePath(), filterExpression = filterExpression)
+        openApiCoverageReportInput = OpenApiCoverageReportInput(getConfigFileWithAbsolutePath(), filterExpression = filterExpression, coverageHooks = settings.coverageHooks)
 
         val timeoutInMilliseconds = specmaticConfig?.getTestTimeoutInMilliseconds() ?: try {
             getLongValue(SPECMATIC_TEST_TIMEOUT)

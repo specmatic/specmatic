@@ -6,12 +6,14 @@ import io.specmatic.core.filters.ExpressionStandardizer
 import io.specmatic.core.filters.TestRecordFilter
 import io.specmatic.test.API
 import io.specmatic.test.TestResultRecord
-import io.specmatic.test.reports.TestReportHooks
+import io.specmatic.test.reports.TestReportListener
 import io.specmatic.test.reports.coverage.console.GroupedTestResultRecords
 import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
 import io.specmatic.test.reports.coverage.console.OpenApiCoverageConsoleRow
 import io.specmatic.test.reports.coverage.console.Remarks
 import io.specmatic.test.reports.coverage.json.OpenApiCoverageJsonReport
+import io.specmatic.test.reports.onEachListener
+import io.specmatic.test.reports.onTestResult
 import kotlinx.serialization.Serializable
 import kotlin.math.roundToInt
 
@@ -24,15 +26,16 @@ class OpenApiCoverageReportInput(
     internal var endpointsAPISet: Boolean = false,
     private var groupedTestResultRecords: GroupedTestResultRecords = mutableMapOf(),
     private var apiCoverageRows: MutableList<OpenApiCoverageConsoleRow> = mutableListOf(),
-    private val filterExpression: String = ""
+    private val filterExpression: String = "",
+    private val coverageHooks: List<TestReportListener> = emptyList()
 ) {
     fun addTestReportRecords(testResultRecord: TestResultRecord) {
-        TestReportHooks.onTestResult(testResultRecord)
+        coverageHooks.onTestResult(testResultRecord)
         testResultRecords.add(testResultRecord)
     }
 
     fun addAPIs(apis: List<API>) {
-        TestReportHooks.onEachListener { onActuatorApis(apis) }
+        coverageHooks.onEachListener { onActuatorApis(apis) }
         applicationAPIs.addAll(apis)
     }
 
@@ -41,12 +44,12 @@ class OpenApiCoverageReportInput(
     }
 
     fun addEndpoints(endpoints: List<Endpoint>) {
-        TestReportHooks.onEachListener { onEndpointApis(endpoints) }
+        coverageHooks.onEachListener { onEndpointApis(endpoints) }
         allEndpoints.addAll(endpoints)
     }
 
     fun setEndpointsAPIFlag(isSet: Boolean) {
-        TestReportHooks.onEachListener { onActuator(isSet) }
+        coverageHooks.onEachListener { onActuator(isSet) }
         endpointsAPISet = isSet
     }
 
@@ -68,7 +71,7 @@ class OpenApiCoverageReportInput(
             val routeAPIRows: MutableList<OpenApiCoverageConsoleRow> = mutableListOf()
             val totalCoveragePercentage = calculateTotalCoveragePercentage(methodMap)
 
-            TestReportHooks.onEachListener { onPathCoverageCalculated(path, totalCoveragePercentage) }
+            coverageHooks.onEachListener { onPathCoverageCalculated(path, totalCoveragePercentage) }
 
             methodMap.forEach { (method, contentTypeMap) ->
                 contentTypeMap.forEach { (requestContentType, responseCodeMap) ->
@@ -118,7 +121,8 @@ class OpenApiCoverageReportInput(
             missedAPICount,
             notImplementedAPICount,
             partiallyMissedAPICount,
-            partiallyNotImplementedAPICount
+            partiallyNotImplementedAPICount,
+            coverageHooks
         )
     }
 
