@@ -39,6 +39,7 @@ import org.opentest4j.TestAbortedException
 import java.io.File
 import java.net.URI
 import java.util.*
+import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.stream.Stream
 import kotlin.streams.asStream
 
@@ -73,7 +74,7 @@ data class ContractTestSettings(
 open class SpecmaticJUnitSupport {
     private val settings = ContractTestSettings(settingsStaging)
 
-    private val specmaticConfig: SpecmaticConfig = loadSpecmaticConfigOrDefault(getConfigFilePath())
+    private val specmaticConfig: SpecmaticConfig? = loadSpecmaticConfigOrDefault(getConfigFilePath())
     private val testFilter = ScenarioMetadataFilter.from(settings.filter)
 
     companion object {
@@ -99,7 +100,7 @@ open class SpecmaticJUnitSupport {
         private const val ENDPOINTS_API = "endpointsAPI"
         private const val SWAGGER_UI_BASEURL = "swaggerUIBaseURL"
 
-        val partialSuccesses: MutableList<Result.Success> = mutableListOf()
+        val partialSuccesses: ConcurrentLinkedDeque<Result.Success> = ConcurrentLinkedDeque()
     }
 
     internal var openApiCoverageReportInput: OpenApiCoverageReportInput = OpenApiCoverageReportInput(getConfigFileWithAbsolutePath())
@@ -231,6 +232,8 @@ open class SpecmaticJUnitSupport {
 
     @TestFactory
     fun contractTest(): Stream<DynamicTest> {
+        partialSuccesses.clear()
+
         val givenWorkingDirectory = System.getProperty(WORKING_DIRECTORY)
         val filterName: String? = System.getProperty(FILTER_NAME_PROPERTY) ?: System.getenv(FILTER_NAME_ENVIRONMENT_VARIABLE)
         val filterNotName: String? = System.getProperty(FILTER_NOT_NAME_PROPERTY) ?: System.getenv(FILTER_NOT_NAME_ENVIRONMENT_VARIABLE)
