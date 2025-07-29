@@ -20,7 +20,7 @@ import io.specmatic.test.reports.coverage.html.*
 
 typealias GroupedScenarioData = Map<String, Map<String, Map<String, Map<String, List<ScenarioData>>>>>
 
-class CoverageReportHtmlRenderer(openApiCoverageReportInput: OpenApiCoverageReportInput) : ReportRenderer<OpenAPICoverageConsoleReport> {
+class CoverageReportHtmlRenderer(openApiCoverageReportInput: OpenApiCoverageReportInput, val baseDir: String) : ReportRenderer<OpenAPICoverageConsoleReport> {
     val actuatorEnabled = openApiCoverageReportInput.endpointsAPISet
 
     override fun render(report: OpenAPICoverageConsoleReport, specmaticConfig: SpecmaticConfig): String {
@@ -42,7 +42,7 @@ class CoverageReportHtmlRenderer(openApiCoverageReportInput: OpenApiCoverageRepo
             isGherkinReport = report.isGherkinReport
         )
 
-        HtmlReport(htmlReportInformation).generate()
+        HtmlReport(htmlReportInformation, baseDir).generate()
         return "Successfully generated HTML report in ${htmlReportConfiguration.getOutputDirectoryOrDefault()}"
     }
 
