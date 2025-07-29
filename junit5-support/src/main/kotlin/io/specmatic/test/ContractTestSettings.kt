@@ -3,6 +3,7 @@ package io.specmatic.test
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.utilities.readEnvVarOrProperty
+import io.specmatic.test.reports.TestReportListener
 
 data class ContractTestSettings(
     val testBaseURL: String?,
@@ -11,6 +12,7 @@ data class ContractTestSettings(
     val configFile: String,
     val generative: Boolean?,
     val reportBaseDirectory: String?,
+    val coverageHooks: List<TestReportListener>,
 ) {
     fun adjust(specmaticConfig: SpecmaticConfig?): SpecmaticConfig? =
         if (generative == true) {
@@ -30,5 +32,6 @@ data class ContractTestSettings(
         configFile = contractTestSettings.get()?.configFile ?: getConfigFilePath(),
         generative = contractTestSettings.get()?.generative,
         reportBaseDirectory = contractTestSettings.get()?.reportBaseDirectory,
+        coverageHooks = contractTestSettings.get()?.coverageHooks ?: emptyList(),
     )
 }

@@ -40,6 +40,7 @@ data class HttpClient(
     private var httpLogMessage: HttpLogMessage = HttpLogMessage(targetServer = baseURL),
     private val httpClientFactory: Lazy<ApacheHttpClientFactory> = lazy { ApacheHttpClientFactory(timeoutInMilliseconds) },
     private val httpClient: Lazy<io.ktor.client.HttpClient> = lazy { httpClientFactory.value.create() },
+    private val httpInteractionsLog: HttpInteractionsLog = HttpInteractionsLog()
 ) : TestExecutor, AutoCloseable {
 
     override fun execute(request: HttpRequest): HttpResponse {
@@ -127,7 +128,7 @@ data class HttpClient(
 
     override fun preExecuteScenario(scenario: Scenario, request: HttpRequest) {
         httpLogMessage = httpLogMessage.copy(scenario = scenario, request = request)
-        TestInteractionsLog.addHttpLog(httpLogMessage)
+        httpInteractionsLog.addHttpLog(httpLogMessage)
     }
 
     override fun close() {

@@ -6,12 +6,9 @@ import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.Flags
 import io.specmatic.junit5.support.VersionInfo
-import io.specmatic.test.SpecmaticJUnitSupport
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.HOST
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.PORT
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.TEST_BASE_URL
-import io.specmatic.test.TestInteractionsLog.displayName
-import io.specmatic.test.TestInteractionsLog.duration
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.reports.coverage.OpenApiCoverageReportInput
 import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
@@ -20,7 +17,7 @@ import io.specmatic.test.reports.coverage.html.*
 
 typealias GroupedScenarioData = Map<String, Map<String, Map<String, Map<String, List<ScenarioData>>>>>
 
-class CoverageReportHtmlRenderer(openApiCoverageReportInput: OpenApiCoverageReportInput, val baseDir: String) : ReportRenderer<OpenAPICoverageConsoleReport> {
+class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApiCoverageReportInput, val baseDir: String) : ReportRenderer<OpenAPICoverageConsoleReport> {
     val actuatorEnabled = openApiCoverageReportInput.endpointsAPISet
 
     override fun render(report: OpenAPICoverageConsoleReport, specmaticConfig: SpecmaticConfig): String {
@@ -32,7 +29,7 @@ class CoverageReportHtmlRenderer(openApiCoverageReportInput: OpenApiCoverageRepo
         val reportData = HtmlReportData(
             totalCoveragePercentage = report.totalCoveragePercentage, actuatorEnabled = actuatorEnabled,
             tableRows = makeTableRows(report, htmlReportConfiguration),
-            scenarioData = makeScenarioData(report), totalTestDuration = getTotalDuration(report)
+            scenarioData = makeScenarioData(report), totalTestDuration = getTotalDuration()
         )
 
         val htmlReportInformation = HtmlReportInformation(
@@ -97,8 +94,8 @@ class CoverageReportHtmlRenderer(openApiCoverageReportInput: OpenApiCoverageRepo
         }
     }
 
-    private fun getTotalDuration(report: OpenAPICoverageConsoleReport): Long {
-        return report.httpLogMessages.sumOf { it.duration() }
+    private fun getTotalDuration(): Long {
+        return openApiCoverageReportInput.totalDuration()
     }
 
     private fun makeScenarioData(report: OpenAPICoverageConsoleReport): GroupedScenarioData {
@@ -114,7 +111,7 @@ class CoverageReportHtmlRenderer(openApiCoverageReportInput: OpenApiCoverageRepo
                         val scenarioDataList = statusMap.getOrPut(status) { mutableListOf() }
 
                         for (test in testResults) {
-                            val matchingLogMessage = report.httpLogMessages.firstOrNull {
+                            val matchingLogMessage = openApiCoverageReportInput.findFirstMatchingScenario() {
                                 it.scenario == test.scenarioResult?.scenario
                             }
                             val scenarioName = getTestName(test, matchingLogMessage)
