@@ -215,6 +215,7 @@ internal class ScenarioStubKtTest {
     When POST /customer
     And request-body (RequestBody)
     Then status 200
+    And response-header Content-Type application/json
     And response-body (ResponseBody)
   
     Examples:
@@ -263,6 +264,7 @@ internal class ScenarioStubKtTest {
     When POST /customer
     And form-field X-FormData1 (string)
     Then status 200
+    And response-header Content-Type application/json
     And response-body (ResponseBody)
   
     Examples:
@@ -282,6 +284,7 @@ internal class ScenarioStubKtTest {
     When POST /customer
     And request-part name (string)
     Then status 200
+    And response-header Content-Type application/json
     And response-body (ResponseBody)
   
     Examples:
@@ -301,6 +304,7 @@ internal class ScenarioStubKtTest {
     When POST /customer
     And request-part customer_csv @(string) text/csv identity
     Then status 200
+    And response-header Content-Type application/json
     And response-body (ResponseBody)
   
     Examples:
@@ -1017,7 +1021,7 @@ paths:
 
 fun validateStubAndSpec(request: HttpRequest, response: HttpResponse, expectedGherkin: String? = null) {
     try {
-        val cleanedUpResponse = dropContentAndCORSResponseHeaders(response)
+        val cleanedUpResponse = response.copy(headers = dropConversionExcludedHeaders(response.headers))
         val gherkin = toGherkinFeature(NamedStub("New scenario", ScenarioStub(request, cleanedUpResponse))).also { println(it) }
 
         if(expectedGherkin != null) {
