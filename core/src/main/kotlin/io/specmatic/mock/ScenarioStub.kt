@@ -3,9 +3,7 @@ package io.specmatic.mock
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.specmatic.core.*
 import io.specmatic.core.log.logger
-import io.specmatic.core.pattern.ContractException
-import io.specmatic.core.pattern.Pattern
-import io.specmatic.core.pattern.parsedJSONObject
+import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.*
 import io.specmatic.stub.stringToMockScenario
@@ -42,9 +40,15 @@ data class ScenarioStub(
 
     fun requestElsePartialRequest() = partial?.request ?: request
 
+    fun responseElsePartialResponse() = partial?.response ?: response
+
     fun response() = getHttpResponse()
 
     fun isPartial() = partial != null
+
+    fun isInvalid(): Boolean = requestMethod() == null || requestPath() == null || responseStatus() == null
+
+    val name: String? = this.data.jsonObject["name"]?.toStringLiteral() ?: partial?.name
 
     fun toJSON(): JSONObjectValue {
         val requestResponse: Map<String, Value> =
@@ -343,12 +347,21 @@ data class ScenarioStub(
     }
 
     companion object {
-        fun parse(text: String): ScenarioStub {
-            return stringToMockScenario(StringValue(text))
+        fun readFromFile(file: File): ScenarioStub {
+            return attempt(
+                breadCrumb = file.path,
+                errorMessage = "Error loading example due to invalid format. Please correct the format to proceed"
+            ) {
+                parse(file.readText(Charsets.UTF_8)).copy(filePath = file.path)
+            }
         }
 
-        fun readFromFile(file: File): ScenarioStub {
-            return stringToMockScenario(StringValue(file.readText(Charsets.UTF_8))).copy(filePath = file.path)
+        fun parse(text: String): ScenarioStub {
+            return parse(StringValue(text))
+        }
+
+        fun parse(json: Value): ScenarioStub {
+            return stringToMockScenario(json)
         }
     }
 }
@@ -373,9 +386,9 @@ fun validateMock(mockSpec: Map<String, Any?>) {
     }
 
     if (MOCK_HTTP_REQUEST_ALL_KEYS.none { mockSpec.containsKey(it) })
-        throw ContractException(errorMessage = "Stub does not contain http-request/mock-http-request as a top level key.")
+        throw ContractException(errorMessage = "Example should contain http-request/mock-http-request as a top level key.")
     if (MOCK_HTTP_RESPONSE_ALL_KEYS.none { mockSpec.containsKey(it) })
-        throw ContractException(errorMessage = "Stub does not contain http-response/mock-http-response as a top level key.")
+        throw ContractException(errorMessage = "Example should contain http-response/mock-http-response as a top level key.")
 }
 
 fun mockFromJSON(mockSpec: Map<String, Value>): ScenarioStub {
