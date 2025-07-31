@@ -67,7 +67,7 @@ data class OperationMetadata(
 
 class OpenApiSpecification(
     private val openApiFilePath: String,
-    private val parsedOpenApi: OpenAPI,
+    val parsedOpenApi: OpenAPI,
     private val sourceProvider: String? = null,
     private val sourceRepository: String? = null,
     private val sourceRepositoryBranch: String? = null,
