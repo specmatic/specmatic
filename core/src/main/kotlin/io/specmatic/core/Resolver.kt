@@ -439,6 +439,12 @@ data class Resolver(
         return findKeyErrorCheck.toPartialKeyCheck()
     }
 
+    fun provideString(pattern: Pattern): StringValue? {
+        val path = dictionaryLookupPath.split(".").filter(String::isNotBlank)
+        val value = StringProviders.getFor(path) { pattern.matches(StringValue(it),this).isSuccess() }
+        return value?.let(::StringValue)
+    }
+
     private fun lastLookupKey(): String? = dictionaryLookupPath.substringAfterLast(".").takeIf(String::isNotBlank)
 }
 
