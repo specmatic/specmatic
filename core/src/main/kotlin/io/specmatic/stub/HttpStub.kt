@@ -181,41 +181,15 @@ class HttpStub(
     private fun staticHttpStubData(rawHttpStubs: List<HttpStubData>): MutableList<HttpStubData> {
         val staticStubs = rawHttpStubs.filter { it.stubToken == null }
 
-        val stubsFromSpecificationExamples: List<HttpStubData> = features.map { feature ->
-            feature.stubsFromExamples.entries.map { (exampleName, examples) ->
-                examples.mapNotNull { (request, response) ->
-                    try {
-                        val stubData: HttpStubData =
-                            feature.matchingStub(request, response, ExamplesAsExpectationsMismatch(exampleName))
-
-                        if (stubData.matchFailure) {
-                            logger.newLine()
-                            logger.log(stubData.response.body.toStringLiteral())
-                            null
-                        } else {
-                            stubData
-                        }
-                    } catch (e: Throwable) {
-                        logger.newLine()
-
-                        when (e) {
-                            is ContractException -> {
-                                logger.log(e)
-                                null
-                            }
-                            is NoMatchingScenario -> {
-                                logger.log(e, "[Example $exampleName]")
-                                null
-                            }
-                            else -> {
-                                logger.log(e, "[Example $exampleName]")
-                                throw e
-                            }
-                        }
-                    }
-                }
-            }
-        }.flatten().flatten()
+        val stubsFromSpecificationExamples: List<HttpStubData> = features.map {
+            it.loadInlineExamplesAsStub()
+        }.flatten().mapNotNull {
+            it.realise(
+                hasValue = { stubData, _ -> stubData },
+                orFailure = { null },
+                orException = { null }
+            )
+        }
 
         return staticStubs.plus(stubsFromSpecificationExamples).toMutableList()
     }
