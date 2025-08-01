@@ -3003,13 +3003,13 @@ Then status 200
                     mockk {
                         every { path } returns "spec1.yaml"
                         every { specification } returns "spec1.yaml"
-                        every { stubsFromExamples } returns emptyMap()
+                        every { loadInlineExamplesAsStub() } returns emptyList()
                         every { scenarios } returns emptyList()
                     },
                     mockk {
                         every { path } returns "spec2.yaml"
                         every { specification } returns "spec2.yaml"
-                        every { stubsFromExamples } returns emptyMap()
+                        every { loadInlineExamplesAsStub() } returns emptyList()
                         every { scenarios } returns emptyList()
                     }
                 )
@@ -3035,13 +3035,13 @@ Then status 200
                     mockk {
                         every { path } returns "spec1.yaml"
                         every { specification } returns "spec1.yaml"
-                        every { stubsFromExamples } returns emptyMap()
+                        every { loadInlineExamplesAsStub() } returns emptyList()
                         every { scenarios } returns emptyList()
                     },
                     mockk {
                         every { path } returns "spec2.yaml"
                         every { specification } returns "spec2.yaml"
-                        every { stubsFromExamples } returns emptyMap()
+                        every { loadInlineExamplesAsStub() } returns emptyList()
                         every { scenarios } returns emptyList()
                     }
                 )
@@ -3067,13 +3067,13 @@ Then status 200
                     mockk {
                         every { path } returns "spec3.yaml"
                         every { specification } returns "spec3.yaml"
-                        every { stubsFromExamples } returns emptyMap()
+                        every { loadInlineExamplesAsStub() } returns emptyList()
                         every { scenarios } returns emptyList()
                     },
                     mockk {
                         every { path } returns "spec4.yaml"
                         every { specification } returns "spec4.yaml"
-                        every { stubsFromExamples } returns emptyMap()
+                        every { loadInlineExamplesAsStub() } returns emptyList()
                         every { scenarios } returns emptyList()
                     }
                 )
@@ -3096,13 +3096,13 @@ Then status 200
                     mockk {
                         every { path } returns "spec3.yaml"
                         every { specification } returns "spec3.yaml"
-                        every { stubsFromExamples } returns emptyMap()
+                        every { loadInlineExamplesAsStub() } returns emptyList()
                         every { scenarios } returns emptyList()
                     },
                     mockk {
                         every { path } returns "spec4.yaml"
                         every { specification } returns "spec4.yaml"
-                        every { stubsFromExamples } returns emptyMap()
+                        every { loadInlineExamplesAsStub() } returns emptyList()
                         every { scenarios } returns emptyList()
                     }
                 )
@@ -3145,13 +3145,13 @@ Then status 200
                 val feature1 = mockk<Feature> {
                     every { path } returns "spec1.yaml"
                     every { specification } returns "spec1.yaml"
-                    every { stubsFromExamples } returns emptyMap()
+                    every { loadInlineExamplesAsStub() } returns emptyList()
                     every { scenarios } returns emptyList()
                 }
                 val feature2 = mockk<Feature> {
                     every { path } returns "spec2.yaml"
                     every { specification } returns "spec2.yaml"
-                    every { stubsFromExamples } returns emptyMap()
+                    every { loadInlineExamplesAsStub() } returns emptyList()
                     every { scenarios } returns emptyList()
                 }
                 val features = listOf(feature1,feature2)
@@ -3177,13 +3177,13 @@ Then status 200
                 val feature1 = mockk<Feature> {
                     every { path } returns "spec1.yaml"
                     every { specification } returns "spec1.yaml"
-                    every { stubsFromExamples } returns emptyMap()
+                    every { loadInlineExamplesAsStub() } returns emptyList()
                     every { scenarios } returns emptyList()
                 }
                 val feature2 = mockk<Feature> {
                     every { path } returns "spec2.yaml"
                     every { specification } returns "spec2.yaml"
-                    every { stubsFromExamples } returns emptyMap()
+                    every { loadInlineExamplesAsStub() } returns emptyList()
                     every { scenarios } returns emptyList()
                 }
                 val features = listOf(feature1,feature2)
