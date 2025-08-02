@@ -16,6 +16,7 @@ import io.specmatic.core.value.*
 import io.specmatic.core.Result.Success
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.stub.ExamplesAsExpectationsMismatch
 import io.specmatic.stub.HttpStubData
 import io.specmatic.test.*
 import io.swagger.v3.oas.models.*
@@ -168,6 +169,42 @@ data class Feature(
             return scenario.generateHttpResponse(serverState)
         } finally {
             serverState = emptyMap()
+        }
+    }
+
+    fun loadInlineExamplesAsStub(): List<ReturnValue<HttpStubData>> {
+        return this.stubsFromExamples.entries.flatMap { (exampleName, examples) ->
+            examples.mapNotNull { (request, response) ->
+                try {
+                    val stubData: HttpStubData =
+                        this.matchingStub(request, response, ExamplesAsExpectationsMismatch(exampleName))
+
+                    if (stubData.matchFailure) {
+                        logger.newLine()
+                        logger.log(stubData.response.body.toStringLiteral())
+                        null
+                    } else {
+                        HasValue(stubData)
+                    }
+                } catch (e: Throwable) {
+                    logger.newLine()
+
+                    when (e) {
+                        is ContractException -> {
+                            logger.log(e)
+                            null
+                        }
+                        is NoMatchingScenario -> {
+                            logger.log(e, "[Example $exampleName]")
+                            HasFailure("[Example $exampleName] ${e.message}")
+                        }
+                        else -> {
+                            logger.log(e, "[Example $exampleName]")
+                            throw e
+                        }
+                    }
+                }
+            }
         }
     }
 
