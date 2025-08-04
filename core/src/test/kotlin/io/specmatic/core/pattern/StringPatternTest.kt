@@ -435,4 +435,21 @@ internal class StringPatternTest {
             assertThat(generated).isInstanceOf(StringValue::class.java)
         }
     }
+
+    @Test
+    fun `should not use provider provided value if pattern is mutated from number to string and value is all digits`() {
+        val pattern = NumberPattern()
+        val resolver = Resolver(isNegative = true)
+        val provider = object: StringProvider {
+            override fun getFor(pattern: ScalarType, resolver: Resolver, path: List<String>): String = "123"
+        }
+
+        StringProviders.with(provider) {
+            val mutations = pattern.negativeBasedOn(Row(), resolver).toList()
+            assertThat(mutations).allSatisfy { mutation ->
+                val generated = mutation.value.parse(mutation.value.generate(resolver).toStringLiteral(), resolver)
+                assertThat(pattern.matches(generated, resolver).isSuccess()).isFalse()
+            }
+        }
+    }
 }
