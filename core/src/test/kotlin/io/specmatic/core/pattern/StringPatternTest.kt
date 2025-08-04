@@ -1,9 +1,7 @@
 package io.specmatic.core.pattern
 
 import io.specmatic.GENERATION
-import io.specmatic.core.Resolver
-import io.specmatic.core.Result
-import io.specmatic.core.UseDefaultExample
+import io.specmatic.core.*
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.StringValue
@@ -392,6 +390,49 @@ internal class StringPatternTest {
             }
         } catch (e: Exception) {
             if (shouldBeValid) throw e
+        }
+    }
+
+    @Test
+    fun `should be able to use values provided by StringProviders when one is registered`() {
+        val pattern = StringPattern()
+        val resolver = Resolver()
+        val provider = object: StringProvider {
+            override fun getFor(pattern: ScalarType, resolver: Resolver, path: List<String>): String = "TODO"
+        }
+
+        StringProviders.with(provider) {
+            val generated = pattern.generate(resolver)
+            assertThat(generated).isEqualTo(StringValue("TODO"))
+        }
+    }
+
+    @Test
+    fun `should generate a random string if no provider exists or can't provide a value`() {
+        val pattern = StringPattern()
+        val resolver = Resolver()
+        val provider = object: StringProvider {
+            override fun getFor(pattern: ScalarType, resolver: Resolver, path: List<String>): String? = null
+        }
+
+        StringProviders.with(provider) {
+            val generated = pattern.generate(resolver)
+            assertThat(generated).isInstanceOf(StringValue::class.java)
+        }
+    }
+
+    @Test
+    fun `invalid value provided by any StringProviders should be halted by resolver and result in random generation`() {
+        val pattern = StringPattern(regex = "[^\\d]")
+        val resolver = Resolver()
+        val provider = object: StringProvider {
+            override fun getFor(pattern: ScalarType, resolver: Resolver, path: List<String>): String = "123"
+        }
+
+        StringProviders.with(provider) {
+            val generated = pattern.generate(resolver)
+            assertThat(generated.toStringLiteral()).isNotEqualTo("123")
+            assertThat(generated).isInstanceOf(StringValue::class.java)
         }
     }
 }

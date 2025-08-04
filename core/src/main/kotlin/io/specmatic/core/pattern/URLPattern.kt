@@ -8,7 +8,7 @@ import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import java.net.URI
 
-data class URLPattern(val scheme: URLScheme = URLScheme.HTTPS, override val typeAlias: String? = null): Pattern {
+data class URLPattern(val scheme: URLScheme = URLScheme.HTTPS, override val typeAlias: String? = null): Pattern, ScalarType {
     override val pattern: String = "(url)"
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {

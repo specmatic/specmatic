@@ -439,9 +439,8 @@ data class Resolver(
         return findKeyErrorCheck.toPartialKeyCheck()
     }
 
-    fun provideString(pattern: Pattern): StringValue? {
-        val path = dictionaryLookupPath.replace(WILDCARD_INDEX, "|$WILDCARD_INDEX|").split(".", "|").filter(String::isNotEmpty)
-        val values = StringProviders.getFor(path.reversed())
+    fun provideString(pattern: ScalarType): StringValue? {
+        val values = StringProviders.getFor(pattern, this)
         return values.map(::StringValue).firstNotNullOfOrNull { value ->
             val result = pattern.matches(value, this)
             value.takeIf { result.isSuccess() }
