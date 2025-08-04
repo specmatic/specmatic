@@ -440,9 +440,12 @@ data class Resolver(
     }
 
     fun provideString(pattern: Pattern): StringValue? {
-        val path = dictionaryLookupPath.split(".").filter(String::isNotBlank)
-        val value = StringProviders.getFor(path) { pattern.matches(StringValue(it),this).isSuccess() }
-        return value?.let(::StringValue)
+        val path = dictionaryLookupPath.replace(WILDCARD_INDEX, "|$WILDCARD_INDEX|").split(".", "|").filter(String::isNotEmpty)
+        val values = StringProviders.getFor(path.reversed())
+        return values.map(::StringValue).firstNotNullOfOrNull { value ->
+            val result = pattern.matches(value, this)
+            value.takeIf { result.isSuccess() }
+        }
     }
 
     private fun lastLookupKey(): String? = dictionaryLookupPath.substringAfterLast(".").takeIf(String::isNotBlank)

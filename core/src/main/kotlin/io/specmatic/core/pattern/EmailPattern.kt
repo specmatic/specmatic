@@ -55,7 +55,7 @@ class EmailPattern (private val stringPatternDelegate: StringPattern) :
     override fun generate(resolver: Resolver): Value {
         val localPart = randomString(5).lowercase(Locale.getDefault())
         val domain = randomString(5).lowercase(Locale.getDefault())
-        return StringValue("$localPart@$domain.com")
+        return resolver.provideString(this) ?: StringValue("$localPart@$domain.com")
     }
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> {

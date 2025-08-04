@@ -78,6 +78,7 @@ class OpenApiSpecification(
     private val strictMode: Boolean = false
 ) : IncludedSpecification, ApiSpecification {
     init {
+        StringProviders // Trigger early initialization of StringProviders to ensure all providers are loaded at startup
         logger.log(openApiSpecificationInfo(openApiFilePath, parsedOpenApi))
     }
 
