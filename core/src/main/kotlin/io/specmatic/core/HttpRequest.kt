@@ -144,7 +144,7 @@ data class HttpRequest(
     fun toJSON(): JSONObjectValue {
         val requestMap = mutableMapOf<String, Value>()
 
-        requestMap["path"] = path?.let { StringValue(it) } ?: StringValue("/")
+        requestMap["path"] = path?.encodeURLPath()?.let { StringValue(it) } ?: StringValue("/")
         method?.let { requestMap["method"] = StringValue(it) }
             ?: throw ContractException("Can't serialise the request without a method.")
 

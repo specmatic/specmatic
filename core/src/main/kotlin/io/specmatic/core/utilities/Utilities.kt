@@ -380,17 +380,21 @@ fun nullOrExceptionString(fn: () -> Result): String? {
     }
 }
 
+private fun sanitizeFilename(input: String): String {
+    return input.replace(Regex("""[\\/:*?"'<>| ]"""), "_")
+}
+
 fun uniqueNameForApiOperation(httpRequest: HttpRequest, baseURL: String, responseStatus: Int): String {
     val (method, path, headers) = httpRequest
     val contentType = if(method == "PATCH")
         "_" + headers[CONTENT_TYPE].orEmpty().replace("/", "_")
     else ""
-    val formattedPath = path?.replace(baseURL, "")
-        ?.replace("/", "_")
-        ?.drop(1)
-        .orEmpty()
+
+    val formattedPath = path?.replace(baseURL, "")?.drop(1).orEmpty()
     if (formattedPath.isEmpty()) return "${method}_${responseStatus}"
-    return "${formattedPath}_${method}_${responseStatus}$contentType"
+
+    val rawName = "${formattedPath}_${method}_${responseStatus}$contentType"
+    return sanitizeFilename(rawName)
 }
 
 fun consolePrintableURL(host: String, port: Int, keyStoreData: KeyData? = null): String {
