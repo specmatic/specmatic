@@ -440,8 +440,12 @@ data class Resolver(
     }
 
     fun provideString(pattern: ScalarType): StringValue? {
-        val values = StringProviders.getFor(pattern, this)
+        val path = dictionaryLookupPath.replace(WILDCARD_INDEX, "|$WILDCARD_INDEX|").split(".", "|")
+        val values = StringProviders.getFor(pattern, this, path)
+        val isForParameter = path.contains(BreadCrumb.PARAMETERS.value)
+
         return values.filterNot { value ->
+            if (!isForParameter) return@filterNot false
             this.isNegative && (value.toIntOrNull() != null || value.lowercase() in setOf("true", "false"))
         }.map(::StringValue).firstNotNullOfOrNull { value ->
             val result = pattern.matches(value, this)

@@ -437,9 +437,9 @@ internal class StringPatternTest {
     }
 
     @Test
-    fun `should not use provider provided value if pattern is mutated from number to string and value is all digits`() {
+    fun `should not allow number or boolean like values from string providers for parameter requests`() {
         val pattern = NumberPattern()
-        val resolver = Resolver(isNegative = true)
+        val resolver = Resolver(isNegative = true, dictionaryLookupPath = BreadCrumb.PARAMETERS.value)
         val provider = object: StringProvider {
             override fun getFor(pattern: ScalarType, resolver: Resolver, path: List<String>): String = "123"
         }
@@ -450,6 +450,20 @@ internal class StringPatternTest {
                 val generated = mutation.value.parse(mutation.value.generate(resolver).toStringLiteral(), resolver)
                 assertThat(pattern.matches(generated, resolver).isSuccess()).isFalse()
             }
+        }
+    }
+
+    @Test
+    fun `should allow number or boolean like values from string providers for non parameter requests`() {
+        val pattern = StringPattern()
+        val resolver = Resolver(isNegative = true, dictionaryLookupPath = "SomeSchema.nestedObject.thisKey")
+        val provider = object: StringProvider {
+            override fun getFor(pattern: ScalarType, resolver: Resolver, path: List<String>): String = "123"
+        }
+
+        StringProviders.with(provider) {
+            val generated = pattern.generate(resolver)
+            assertThat(generated.toStringLiteral()).isEqualTo("123")
         }
     }
 }
