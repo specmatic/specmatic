@@ -485,6 +485,7 @@ Scenario: Get product by id
                             schema:
                               required:
                               - "id"
+                              type: object
                               properties:
                                 id:
                                   type: "string"
@@ -540,6 +541,7 @@ Scenario: Get product by id
                           required:
                           - "address"
                           - "id"
+                          type: object
                           properties:
                             id:
                               type: "string"
@@ -559,6 +561,7 @@ Scenario: Get product by id
                   required:
                   - "locality"
                   - "street"
+                  type: object
                   properties:
                     street:
                       type: "string"
@@ -621,6 +624,7 @@ Scenario: Get product by id
                           required:
                           - "address"
                           - "id"
+                          type: object
                           properties:
                             id:
                               type: "string"
@@ -642,6 +646,7 @@ Scenario: Get product by id
                   required:
                   - "locality"
                   - "street"
+                  type: object
                   properties:
                     street:
                       type: "string"
@@ -755,6 +760,7 @@ Scenario: Get product by id
                           required:
                           - "address"
                           - "id"
+                          type: object
                           properties:
                             id:
                               type: "string"
@@ -777,6 +783,7 @@ Scenario: Get product by id
                   required:
                   - "locality"
                   - "street"
+                  type: object
                   properties:
                     street:
                       type: "string"
@@ -834,6 +841,7 @@ Scenario: Get product by id
                         schema:
                           required:
                           - "id"
+                          type: object
                           properties:
                             id:
                               type: "string"
@@ -907,6 +915,7 @@ Scenario: Get product by id
                         schema:
                           required:
                           - "id"
+                          type: object
                           properties:
                             id:
                               type: "string"
@@ -991,6 +1000,7 @@ Scenario: Get product by id
                           required:
                           - "address"
                           - "id"
+                          type: object
                           properties:
                             id:
                               type: "string"
@@ -1013,6 +1023,7 @@ Scenario: Get product by id
                   required:
                   - "locality"
                   - "street"
+                  type: object
                   properties:
                     street:
                       type: "string"
@@ -1075,6 +1086,7 @@ Scenario: Get product by id
                           required:
                           - "address"
                           - "id"
+                          type: object
                           properties:
                             id:
                               type: "string"
@@ -1099,6 +1111,7 @@ Scenario: Get product by id
                   required:
                   - "locality"
                   - "street"
+                  type: object
                   properties:
                     street:
                       type: "string"
@@ -1158,6 +1171,7 @@ Scenario: Get product by id
                         schema:
                           required:
                           - "person"
+                          type: object
                           properties:
                             person:
                               ${"$"}ref: '#/components/schemas/Person'
@@ -1178,6 +1192,7 @@ Scenario: Get product by id
                   required:
                   - "locality"
                   - "street"
+                  type: object
                   properties:
                     street:
                       type: "string"
@@ -1187,6 +1202,7 @@ Scenario: Get product by id
                   required:
                   - "address"
                   - "id"
+                  type: object
                   properties:
                     id:
                       type: "string"
@@ -1244,6 +1260,7 @@ Scenario: Get product by id
                         schema:
                           required:
                           - "data"
+                          type: object
                           properties:
                             data:
                               type: "string"
@@ -1325,6 +1342,7 @@ Scenario: Get product by id
                 Person:
                   required:
                   - "address"
+                  type: object
                   properties:
                     address:
                       type: "string"
@@ -1430,6 +1448,7 @@ Scenario: Get product by id
                 Person:
                   required:
                   - "address"
+                  type: object
                   properties:
                     address:
                       type: "string"
@@ -1691,6 +1710,7 @@ Scenario: Get product by id
                         schema:
                           required:
                           - "id"
+                          type: object
                           properties:
                             id:
                               type: "string"
@@ -1747,6 +1767,7 @@ Scenario: Get product by id
                         schema:
                           required:
                           - "id"
+                          type: object
                           properties:
                             id:
                               type: "string"
@@ -1928,6 +1949,7 @@ Scenario: Get product by id
                 Person:
                   required:
                   - "address"
+                  type: object
                   properties:
                     address:
                       type: "string"
@@ -1988,6 +2010,7 @@ Scenario: Get product by id
                 Person:
                   required:
                   - "address"
+                  type: object
                   properties:
                     address:
                       type: "string"
@@ -2056,6 +2079,7 @@ Scenario: Get product by id
                 Person:
                   required:
                   - "address"
+                  type: object
                   properties:
                     address:
                       nullable: true
@@ -2124,6 +2148,7 @@ Scenario: Get product by id
                 Person:
                   required:
                   - "address"
+                  type: object
                   properties:
                     address:
                       type: "array"
@@ -2194,6 +2219,7 @@ Scenario: Get product by id
                 Person:
                   required:
                   - "address"
+                  type: object
                   properties:
                     address:
                       type: "array"
@@ -2714,6 +2740,7 @@ Scenario: Get product by id
                         schema:
                           required:
                           - "Data"
+                          type: object
                           properties:
                             Data:
                               ${"$"}ref: '#/components/schemas/Record'
@@ -2733,6 +2760,7 @@ Scenario: Get product by id
                 Record:
                   required:
                   - "id"
+                  type: object
                   properties:
                     id:
                       type: "number"
@@ -2930,12 +2958,14 @@ Scenario: Get product by id
                 Data1_RequestBody:
                   required:
                   - hello
+                  type: object
                   properties:
                     hello:
                       type: string
                 Data2_RequestBody:
                   required:
                   - world
+                  type: object
                   properties:
                     world:
                       type: string
@@ -3015,6 +3045,7 @@ Scenario: Get product by id
                 Data_RequestBody:
                   required:
                   - hello
+                  type: object
                   properties:
                     hello:
                       type: string
@@ -3097,12 +3128,14 @@ Scenario: Get product by id
                 Hello:
                   required:
                   - world
+                  type: object
                   properties:
                     world:
                       type: string
                 Data_RequestBody:
                   required:
                   - hello
+                  type: object
                   properties:
                     hello:
                       oneOf:
@@ -3187,12 +3220,14 @@ Scenario: Get product by id
                 Hello:
                   required:
                   - world
+                  type: object
                   properties:
                     world:
                       type: string
                 Data_RequestBody:
                   required:
                   - hello
+                  type: object
                   properties:
                     hello:
                       oneOf:
@@ -3313,6 +3348,7 @@ Scenario: Get product by id
                 Data:
                   required:
                   - id
+                  type: object
                   properties:
                     id:
                       type: number
@@ -6031,6 +6067,7 @@ paths:
                 1_RequestBody:
                   required:
                   - hello
+                  type: object
                   properties:
                     hello:
                       type: string
@@ -6100,6 +6137,7 @@ paths:
                 1_RequestBody:
                   required:
                   - hello
+                  type: object
                   properties:
                     hello:
                       type: string

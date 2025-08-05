@@ -353,6 +353,7 @@ class FeatureKtTest {
               Addresses:
                 required:
                 - street
+                type: object
                 properties:
                   street:
                     type: string
@@ -360,6 +361,7 @@ class FeatureKtTest {
                 required:
                 - addresses
                 - id
+                type: object
                 properties:
                   id:
                     type: integer
@@ -412,6 +414,7 @@ class FeatureKtTest {
                   Addresses:
                     required:
                     - street
+                    type: object
                     properties:
                       street:
                         type: string
@@ -419,6 +422,7 @@ class FeatureKtTest {
                     required:
                     - addresses
                     - id
+                    type: object
                     properties:
                       id:
                         type: integer
