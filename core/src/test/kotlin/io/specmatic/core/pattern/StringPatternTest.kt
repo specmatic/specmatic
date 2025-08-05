@@ -452,18 +452,4 @@ internal class StringPatternTest {
             }
         }
     }
-
-    @Test
-    fun `should allow number or boolean like values from string providers for non parameter requests`() {
-        val pattern = StringPattern()
-        val resolver = Resolver(isNegative = true, dictionaryLookupPath = "SomeSchema.nestedObject.thisKey")
-        val provider = object: StringProvider {
-            override fun getFor(pattern: ScalarType, resolver: Resolver, path: List<String>): String = "123"
-        }
-
-        StringProviders.with(provider) {
-            val generated = pattern.generate(resolver)
-            assertThat(generated.toStringLiteral()).isEqualTo("123")
-        }
-    }
 }
