@@ -1482,6 +1482,7 @@ data class Feature(
             if (scenario.httpRequestPattern.formFieldsPattern.isNotEmpty()) {
                 val mediaType = MediaType()
                 mediaType.schema = Schema<Any>().apply {
+                    this.type = OBJECT_TYPE
                     this.required = scenario.httpRequestPattern.formFieldsPattern.keys.toList()
                     this.properties = scenario.httpRequestPattern.formFieldsPattern.map { (key, type) ->
                         val schema = toOpenApiSchema(type)
@@ -1856,6 +1857,7 @@ data class Feature(
 
     private fun jsonToSchema(pattern: Map<String, Pattern>): Schema<Any> {
         val schema = Schema<Any>()
+        schema.type = OBJECT_TYPE
 
         schema.required = pattern.keys.filterNot { it.endsWith("?") }
 

@@ -42,6 +42,7 @@ import io.swagger.v3.parser.core.models.SwaggerParseResult
 import java.io.File
 
 private const val BEARER_SECURITY_SCHEME = "bearer"
+const val OBJECT_TYPE = "object"
 const val SERVICE_TYPE_HTTP = "HTTP"
 
 const val testDirectoryEnvironmentVariable = "SPECMATIC_TESTS_DIRECTORY"
@@ -2055,7 +2056,7 @@ class OpenApiSpecification(
 
             val specmaticPattern: Pattern? = if (it.schema.type == "array") {
                 QueryParameterArrayPattern(listOf(toSpecmaticPattern(schema = it.schema.items, typeStack = emptyList(), breadCrumb = breadCrumb)), it.name)
-            } else if (it.schema.type != "object") {
+            } else if (it.schema.type != OBJECT_TYPE) {
                 QueryParameterScalarPattern(toSpecmaticPattern(schema = it.schema, typeStack = emptyList(), breadCrumb = breadCrumb))
             } else {
                 null
@@ -2076,7 +2077,7 @@ class OpenApiSpecification(
 
     private fun additionalPropertiesInQueryParam(parameters: List<Parameter>): Pattern? {
         val additionalProperties = parameters.filterIsInstance<QueryParameter>()
-            .find { it.schema.type == "object" && it.schema.additionalProperties != null }?.schema?.additionalProperties
+            .find { it.schema.type == OBJECT_TYPE && it.schema.additionalProperties != null }?.schema?.additionalProperties
 
         if(additionalProperties == false)
             return null
