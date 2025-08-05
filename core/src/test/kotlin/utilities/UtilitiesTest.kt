@@ -23,12 +23,10 @@ import io.ktor.server.routing.*
 import io.mockk.*
 import io.specmatic.toContractSourceEntries
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.Nested
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.*
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.MethodSource
 import java.io.File
 import java.net.ServerSocket
@@ -557,6 +555,19 @@ internal class UtilitiesTest {
     fun `validateURI should return error for invalid URLs`(url: String, expectedResult: URIValidationResult) {
         val result = validateTestOrStubUri(url)
         assertThat(result).isEqualTo(expectedResult)
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "http://example.com/api/v1/user, http://example.com/api/v1, GET, 200, user_GET_200",
+        "http://localhost:8080/users/Specmatic Test/details, http://localhost:8080, GET, 200, users_Specmatic_Test_details_GET_200",
+    )
+    fun `unique names from operation information names should be path valid`(path: String?, baseURL: String, method: String, status: Int, expected: String) {
+        val request = HttpRequest(method, path, emptyMap())
+        val actual = uniqueNameForApiOperation(request, baseURL, status)
+
+        assertThat(actual).isEqualTo(expected)
+        assertDoesNotThrow { File(actual).canonicalPath }
     }
 
     private fun deleteGitIgnoreFile(){

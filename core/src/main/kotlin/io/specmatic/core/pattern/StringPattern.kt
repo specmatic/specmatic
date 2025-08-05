@@ -89,7 +89,7 @@ data class StringPattern (
             return it
         }
 
-        return regExSpec.generateRandomString(effectiveMinLength, maxLength)
+        return resolver.provideString(this) ?: regExSpec.generateRandomString(effectiveMinLength, maxLength)
     }
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> {

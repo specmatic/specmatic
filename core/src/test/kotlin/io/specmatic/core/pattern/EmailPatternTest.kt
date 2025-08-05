@@ -226,4 +226,47 @@ class EmailPatternTest {
 
         assertThat(result).isInstanceOf(HasFailure::class.java)
     }
+
+    @Test
+    fun `should be able to use values provided by StringProviders when one is registered`() {
+        val pattern = EmailPattern()
+        val resolver = Resolver()
+        val provider = object: StringProvider {
+            override fun getFor(pattern: ScalarType, resolver: Resolver, path: List<String>): String = "specmatic@test.in"
+        }
+
+        StringProviders.with(provider) {
+            val generated = pattern.generate(resolver)
+            assertThat(generated).isEqualTo(StringValue("specmatic@test.in"))
+        }
+    }
+
+    @Test
+    fun `should generate a random string if no provider exists or can't provide a value`() {
+        val pattern = EmailPattern()
+        val resolver = Resolver()
+        val provider = object: StringProvider {
+            override fun getFor(pattern: ScalarType, resolver: Resolver, path: List<String>): String? = null
+        }
+
+        StringProviders.with(provider) {
+            val generated = pattern.generate(resolver)
+            assertThat(generated).isInstanceOf(StringValue::class.java)
+        }
+    }
+
+    @Test
+    fun `invalid value provided by any StringProviders should be halted by resolver and result in random generation`() {
+        val pattern = EmailPattern()
+        val resolver = Resolver()
+        val provider = object: StringProvider {
+            override fun getFor(pattern: ScalarType, resolver: Resolver, path: List<String>): String = "123"
+        }
+
+        StringProviders.with(provider) {
+            val generated = pattern.generate(resolver)
+            assertThat(generated.toStringLiteral()).isNotEqualTo("123")
+            assertThat(generated).isInstanceOf(StringValue::class.java)
+        }
+    }
 }

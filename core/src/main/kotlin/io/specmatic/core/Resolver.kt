@@ -439,6 +439,20 @@ data class Resolver(
         return findKeyErrorCheck.toPartialKeyCheck()
     }
 
+    fun provideString(pattern: ScalarType): StringValue? {
+        if (this.isNegative) {
+            return null
+        }
+
+        val path = dictionaryLookupPath.replace(WILDCARD_INDEX, "|$WILDCARD_INDEX|").split(".", "|")
+        val values = StringProviders.getFor(pattern, this, path)
+
+        return values.map(::StringValue).firstNotNullOfOrNull { value ->
+            val result = pattern.matches(value, this)
+            value.takeIf { result.isSuccess() }
+        }
+    }
+
     private fun lastLookupKey(): String? = dictionaryLookupPath.substringAfterLast(".").takeIf(String::isNotBlank)
 }
 

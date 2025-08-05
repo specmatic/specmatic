@@ -524,7 +524,21 @@ class HttpQueryParamPatternTest {
         assertThat(generatedValue.first()).hasSize(2)
         assertThat(generatedValue.first().keys).contains("key")
         assertThat(generatedValue.first().keys.filter { it != "key" }).hasSize(1)
- }
+    }
+
+    @Test
+    fun `should replace any non-encodable characters from values provided by StringProviders`() {
+        val pattern = HttpQueryParamPattern(mapOf("userName" to QueryParameterScalarPattern(StringPattern())))
+        val resolver = Resolver()
+        val provider = object: StringProvider {
+            override fun getFor(pattern: ScalarType, resolver: Resolver, path: List<String>): String = "specmatic test"
+        }
+
+        StringProviders.with(provider) {
+            val generated = pattern.generate(resolver).toMap()
+            assertThat(generated["userName"]).isEqualTo("specmatic_test")
+        }
+    }
 
     @Nested
     inner class FixValueTests {
