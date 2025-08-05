@@ -117,14 +117,6 @@ data class HttpResponse(
         return this.copy(headers = this.headers.plus(SPECMATIC_TYPE_HEADER to "random"))
     }
 
-    fun withoutSpecmaticHeaders(): HttpResponse {
-        val withoutSpecmaticHeaders = this.headers.filterNot {
-            it.key.startsWith(SPECMATIC_HEADER_PREFIX)
-        }
-
-        return this.copy(headers = withoutSpecmaticHeaders)
-    }
-
     fun withoutSpecmaticResultHeader(): HttpResponse {
         return this.copy(headers = this.headers.minus(SPECMATIC_RESULT_HEADER))
     }
@@ -177,6 +169,8 @@ data class HttpResponse(
 
     fun withoutTransportHeaders(): HttpResponse = copy(headers = headers.withoutTransportHeaders())
 
+    fun withoutSpecmaticHeaders(): HttpResponse = copy(headers = dropSpecmaticHeaders(headers))
+
     fun isNotEmpty(): Boolean {
         val bodyIsEmpty = body == NoBodyValue
         val headersIsEmpty = headers.isEmpty() ||  headersHasOnlyTextPlainContentTypeHeader()
@@ -224,44 +218,38 @@ fun nativeInteger(json: Map<String, Value>, key: String): Int? {
     }
 }
 
-
-val responseHeadersToExcludeFromConversion = listOf("Vary", SPECMATIC_RESULT_HEADER)
-
 fun toGherkinClauses(
     response: HttpResponse,
     types: Map<String, Pattern> = emptyMap()
 ): Triple<List<GherkinClause>, Map<String, Pattern>, ExampleDeclarations> {
     return try {
-        val cleanedUpResponse = dropContentAndCORSResponseHeaders(response)
-
         return Triple(
             emptyList<GherkinClause>(),
             types,
             DiscardExampleDeclarations()
         ).let { (clauses, types, examples) ->
             val status = when {
-                cleanedUpResponse.status > 0 -> cleanedUpResponse.status
+                response.status > 0 -> response.status
                 else -> throw ContractException("Can't generate a contract without a response status")
             }
             Triple(clauses.plus(GherkinClause("status $status", Then)), types, examples)
         }.let { (clauses, types, _) ->
-            val contentTypeHeader: List<GherkinClause> = response.headers.entries.find {
-                it.key.equals(CONTENT_TYPE, ignoreCase = true)
-            }?.let {
-                val contentType = it.value.split(";")[0]
-                listOf(GherkinClause("response-header ${it.key} $contentType", Then))
-            } ?: emptyList()
+            val (contentTypeEntry, restHeaders) = partitionOnContentType(response.headers)
+            val contentTypHeaderClause = contentTypeEntry?.let { (key, value) ->
+                val contentType = value.split(";").first()
+                listOf(GherkinClause("response-header $key $contentType", Then))
+            }.orEmpty()
 
             val (newClauses, newTypes, _) = headersToGherkin(
-                cleanedUpResponse.headers,
+                restHeaders,
                 "response-header",
                 types,
                 DiscardExampleDeclarations(),
                 Then
             )
-            Triple(clauses.plus(newClauses).plus(contentTypeHeader), newTypes, DiscardExampleDeclarations())
+            Triple(clauses.plus(newClauses).plus(contentTypHeaderClause), newTypes, DiscardExampleDeclarations())
         }.let { (clauses, types, examples) ->
-            when (val result = responseBodyToGherkinClauses("ResponseBody", guessType(cleanedUpResponse.body), types)) {
+            when (val result = responseBodyToGherkinClauses("ResponseBody", guessType(response.body), types)) {
                 null -> Triple(clauses, types, examples)
                 else -> {
                     val (newClauses, newTypes, _) = result
@@ -274,7 +262,22 @@ fun toGherkinClauses(
     }
 }
 
-fun dropContentAndCORSResponseHeaders(response: HttpResponse) =
-    response.copy(headers = response.headers.filterNot {
-        it.key in responseHeadersToExcludeFromConversion || it.key.lowercase() in listOf("content-type", "content-encoding", "content-length", "content-disposition") || it.key.startsWith("Access-Control-")
-    })
+fun dropConversionExcludedHeaders(headers: Map<String, String>): Map<String, String> {
+    val headersToExcludeFromConversion = listOf(HttpHeaders.ContentDisposition, HttpHeaders.ContentEncoding)
+    return headers.minusIgnoringCase(headersToExcludeFromConversion).filterKeys { !it.startsWith("Access-Control-") }
+}
+
+fun dropSpecmaticHeaders(headers: Map<String, String>): Map<String, String> {
+    return headers.filterKeys { !it.contains(APPLICATION_NAME, ignoreCase = true) }
+}
+
+fun <T> partitionOnContentType(headers: Map<String, T>): Pair<Map.Entry<String, T>?, Map<String, T>> {
+    val contentTypeEntry = headers.entries.find { it.key.equals(CONTENT_TYPE, ignoreCase = true) }
+    if (contentTypeEntry == null) return null to headers
+    return contentTypeEntry to headers.minus(contentTypeEntry.key)
+}
+
+fun <T> Map<String, T>.minusIgnoringCase(keys: Iterable<String>): Map<String, T> {
+    val caseInsensitiveKeys = keys.map(String::lowercase).toSet()
+    return this.filterKeys { it.lowercase() !in caseInsensitiveKeys }
+}
