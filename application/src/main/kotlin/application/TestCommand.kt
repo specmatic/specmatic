@@ -53,7 +53,7 @@ private const val DISPLAY_NAME_PREFIX_IN_SYSTEM_OUT_TAG_TEXT = "display-name: "
 
 @Command(name = "test",
         mixinStandardHelpOptions = true,
-        description = ["Run contract as tests"])
+        description = ["Run contract tests"])
 class TestCommand(private val junitLauncher: Launcher = LauncherFactory.create()) : Callable<Unit> {
 
     @CommandLine.Parameters(arity = "0..*", description = ["Contract file paths"])
