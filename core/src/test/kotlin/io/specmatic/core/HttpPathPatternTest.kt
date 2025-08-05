@@ -406,6 +406,20 @@ internal class HttpPathPatternTest {
         assertThat(result).isInstanceOf(Result.Success::class.java)
     }
 
+    @Test
+    fun `should replace any non-encodable characters from values provided by StringProviders`() {
+        val pattern = HttpPathPattern.from("/test/(userName:string)")
+        val resolver = Resolver()
+        val provider = object: StringProvider {
+            override fun getFor(pattern: ScalarType, resolver: Resolver, path: List<String>): String = "specmatic test"
+        }
+
+        StringProviders.with(provider) {
+            val generated = pattern.generate(resolver)
+            assertThat(generated).isEqualTo("/test/specmatic_test")
+        }
+    }
+
     @Nested
     inner class FixValueTests {
         @Test

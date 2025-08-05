@@ -22,12 +22,19 @@ object StringProviders {
         providers.add(provider)
     }
 
-    fun getFor(pattern: ScalarType, resolver: Resolver): Sequence<String> {
-        val path = resolver.dictionaryLookupPath.replace(WILDCARD_INDEX, "|$WILDCARD_INDEX|").split(".", "|")
+    fun getFor(pattern: ScalarType, resolver: Resolver, path: List<String>): Sequence<String> {
         val reversedPath = path.filter(String::isNotEmpty).reversed()
         return providers.asSequence().mapNotNull {
             runCatching { it.getFor(pattern, resolver, reversedPath) }.getOrNull()
+        }.map {
+            encodeIfForPathOrQuery(it, path)
         }
+    }
+
+    private fun encodeIfForPathOrQuery(value: String, path: List<String>): String {
+        val isForPathOrQuery = path.any { it == BreadCrumb.PATH.value || it == BreadCrumb.QUERY.value }
+        if (!isForPathOrQuery) return value
+        return value.replace(Regex("[^A-Za-z0-9]"), "_")
     }
 
     fun with(provider: StringProvider, block: () -> Unit) {
