@@ -13,7 +13,7 @@ dependencies {
     implementation("com.arakelian:java-jq:2.0.0")
     testImplementation("com.arakelian:java-jq:2.0.0")
 
-    implementation("org.assertj:assertj-core:3.27.3")
+    implementation("org.assertj:assertj-core:3.27.4")
     implementation("org.junit.jupiter:junit-jupiter-api:5.13.4")
 
     implementation("info.picocli:picocli:4.7.7")
@@ -46,7 +46,7 @@ dependencies {
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.13.4")
 
     testImplementation("io.mockk:mockk:1.13.11")
-    testImplementation("org.assertj:assertj-core:3.27.3")
+    testImplementation("org.assertj:assertj-core:3.27.4")
     testImplementation("com.ginsberg:junit5-system-exit:2.0.2")
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.13.4")
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.13.4")
