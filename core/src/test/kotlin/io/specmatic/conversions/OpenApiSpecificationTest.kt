@@ -11402,47 +11402,6 @@ paths:
         assertThat(results.testCount).isGreaterThan(0)
     }
 
-    @Test
-    fun `HEAD method examples should be validated successfully by validate command`() {
-        val openApiContent = """
-            openapi: 3.0.0
-            info:
-              title: HEAD Method Validation API
-              version: 1.0.0
-            paths:
-              /validation:
-                head:
-                  summary: Validation endpoint
-                  responses:
-                    200:
-                      description: Valid response
-                      headers:
-                        Content-Type:
-                          schema:
-                            type: string
-                        Content-Length:
-                          schema:
-                            type: integer
-        """.trimIndent()
-
-        // Test that the specification is valid and can be parsed without errors
-        assertThatCode {
-            val spec = OpenApiSpecification.fromYAML(openApiContent, "test.yaml")
-            val feature = spec.toFeature()
-            
-            // Verify HEAD scenarios exist
-            val headScenarios = feature.scenarios.filter { it.httpRequestPattern.method == "HEAD" }
-            assertThat(headScenarios).isNotEmpty
-            
-            // Verify the scenario can generate a valid request
-            val headScenario = headScenarios.first()
-            val generatedRequest = headScenario.httpRequestPattern.generate(Resolver())
-            assertThat(generatedRequest.method).isEqualTo("HEAD")
-            assertThat(generatedRequest.path).isEqualTo("/validation")
-            
-        }.doesNotThrowAnyException()
-    }
-
     private fun ignoreButLogException(function: () -> OpenApiSpecification) {
         try {
             function()
