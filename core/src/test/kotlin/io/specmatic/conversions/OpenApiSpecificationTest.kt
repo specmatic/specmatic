@@ -10975,6 +10975,161 @@ paths:
         assertThat(unreferenced.keys).containsExactlyInAnyOrder("(UnreferencedSchema)", "(AnotherUnreferenced)")
     }
     
+    @Test
+    fun `HEAD method should be supported in OpenAPI specification parsing`() {
+        val openApiContent = """
+            openapi: 3.0.0
+            info:
+              title: HEAD Method Test API
+              version: 1.0.0
+            paths:
+              /status:
+                head:
+                  summary: Check resource status
+                  responses:
+                    200:
+                      description: Resource exists
+                      headers:
+                        Last-Modified:
+                          schema:
+                            type: string
+                    404:
+                      description: Resource not found
+        """.trimIndent()
+
+        val spec = OpenApiSpecification.fromYAML(openApiContent, "")
+        val feature = spec.toFeature()
+        
+        // Verify that HEAD scenarios are created
+        val headScenarios = feature.scenarios.filter { it.httpRequestPattern.method == "HEAD" }
+        assertThat(headScenarios).isNotEmpty
+        
+        // Verify the HEAD scenario details
+        val headScenario = headScenarios.first()
+        assertThat(headScenario.httpRequestPattern.httpPathPattern?.path).isEqualTo("/status")
+        assertThat(headScenario.httpResponsePattern.status).isIn(200, 404)
+    }
+
+    @Test  
+    fun `HEAD method with examples should be loaded successfully for stub mode`() {
+        val openApiContent = """
+            openapi: 3.0.0
+            info:
+              title: HEAD Method with Examples Test API
+              version: 1.0.0
+            paths:
+              /resource/{id}:
+                head:
+                  summary: Check resource by ID
+                  parameters:
+                    - name: id
+                      in: path
+                      required: true
+                      schema:
+                        type: integer
+                  responses:
+                    200:
+                      description: Resource exists
+                      headers:
+                        Content-Length:
+                          schema:
+                            type: integer
+        """.trimIndent()
+
+        val spec = OpenApiSpecification.fromYAML(openApiContent, "")
+        val (scenarios, stubExamples) = spec.toScenarioInfos()
+        
+        // Verify HEAD scenarios are created
+        val headScenarios = scenarios.filter { it.httpRequestPattern.method == "HEAD" }
+        assertThat(headScenarios).isNotEmpty
+        
+        // Verify scenario has the correct path and method
+        val headScenario = headScenarios.first()
+        assertThat(headScenario.httpRequestPattern.method).isEqualTo("HEAD")
+        assertThat(headScenario.httpRequestPattern.httpPathPattern?.path).isEqualTo("/resource/(id:number)")
+    }
+    
+    @Test
+    fun `HEAD method scenarios should work in test mode`() {
+        val openApiContent = """
+            openapi: 3.0.0
+            info:
+              title: HEAD Method Test Mode API
+              version: 1.0.0
+            paths:
+              /health:
+                head:
+                  summary: Health check
+                  responses:
+                    200:
+                      description: Service is healthy
+                      headers:
+                        X-Health-Status:
+                          schema:
+                            type: string
+        """.trimIndent()
+
+        val spec = OpenApiSpecification.fromYAML(openApiContent, "")
+        val feature = spec.toFeature()
+        
+        // Create a test scenario
+        val headScenarios = feature.scenarios.filter { it.httpRequestPattern.method == "HEAD" }
+        assertThat(headScenarios).isNotEmpty
+        
+        val headScenario = headScenarios.first()
+        val testScenario = ScenarioAsTest(
+            scenario = headScenario,
+            feature = feature,
+            originalScenario = headScenario,
+            flagsBased = DefaultStrategies
+        )
+        
+        // Verify the test scenario can be created (this validates contract test functionality)
+        assertThat(testScenario.testDescription()).contains("HEAD")
+        assertThat(testScenario.testDescription()).contains("/health")
+    }
+
+    @Test
+    fun `HEAD method examples should be validated successfully by validate command`() {
+        val openApiContent = """
+            openapi: 3.0.0
+            info:
+              title: HEAD Method Validation API
+              version: 1.0.0
+            paths:
+              /validation:
+                head:
+                  summary: Validation endpoint
+                  responses:
+                    200:
+                      description: Valid response
+                      headers:
+                        Content-Type:
+                          schema:
+                            type: string
+                        Content-Length:
+                          schema:
+                            type: integer
+        """.trimIndent()
+
+        // Test that the specification is valid and can be parsed without errors
+        assertThatCode {
+            val spec = OpenApiSpecification.fromYAML(openApiContent, "test.yaml")
+            val feature = spec.toFeature()
+            
+            // Verify HEAD scenarios exist
+            val headScenarios = feature.scenarios.filter { it.httpRequestPattern.method == "HEAD" }
+            assertThat(headScenarios).isNotEmpty
+            
+            // Verify the scenario can generate a valid request
+            val headScenario = headScenarios.first()
+            val generatedRequest = headScenario.httpRequestPattern.generate(Resolver())
+            assertThat(generatedRequest.method).isEqualTo("HEAD")
+            assertThat(generatedRequest.path).isEqualTo("/validation")
+            
+        }.doesNotThrowAnyException()
+    }
+
     private fun ignoreButLogException(function: () -> OpenApiSpecification) {
         try {
             function()

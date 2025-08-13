@@ -2150,7 +2150,8 @@ class OpenApiSpecification(
             "GET" to pathItem.get,
             "PATCH" to pathItem.patch,
             "PUT" to pathItem.put,
-            "DELETE" to pathItem.delete
+            "DELETE" to pathItem.delete,
+            "HEAD" to pathItem.head
         ).filter { (_, value) -> value != null }.map { (key, value) -> key to OpenApiOperation(value!!) }.toMap()
     }
 }
