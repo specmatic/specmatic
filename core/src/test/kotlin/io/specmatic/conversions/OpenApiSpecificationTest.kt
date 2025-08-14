@@ -10975,6 +10975,225 @@ paths:
         assertThat(unreferenced.keys).containsExactlyInAnyOrder("(UnreferencedSchema)", "(AnotherUnreferenced)")
     }
     
+    @Test
+    fun `HEAD method should be supported in OpenAPI specification parsing`() {
+        val openApiContent = """
+            openapi: 3.0.0
+            info:
+              title: HEAD Method Test API
+              version: 1.0.0
+            paths:
+              /status:
+                head:
+                  summary: Check resource status
+                  responses:
+                    200:
+                      description: Resource exists
+                      headers:
+                        Last-Modified:
+                          schema:
+                            type: string
+                    404:
+                      description: Resource not found
+        """.trimIndent()
+
+        val spec = OpenApiSpecification.fromYAML(openApiContent, "")
+        val feature = spec.toFeature()
+        
+        // Verify that HEAD scenarios are created
+        val headScenarios = feature.scenarios.filter { it.httpRequestPattern.method == "HEAD" }
+        assertThat(headScenarios).isNotEmpty
+        
+        // Verify the HEAD scenario details
+        val headScenario = headScenarios.first()
+        assertThat(headScenario.httpRequestPattern.httpPathPattern?.path).isEqualTo("/status")
+        assertThat(headScenario.httpResponsePattern.status).isIn(200, 404)
+    }
+
+    @Test  
+    fun `HEAD method with internal examples should be loaded successfully for stub mode`() {
+        val openApiContent = """
+            openapi: 3.0.0
+            info:
+              title: HEAD Method with Internal Examples Test API
+              version: 1.0.0
+            paths:
+              /resource/{id}:
+                head:
+                  summary: Check resource by ID
+                  parameters:
+                    - name: id
+                      in: path
+                      required: true
+                      schema:
+                        type: integer
+                      examples:
+                        SUCCESS:
+                          value: "10"
+                  responses:
+                    200:
+                      description: Resource exists
+                      headers:
+                        X-Resource-Status:
+                          schema:
+                            type: string
+                          examples:
+                            SUCCESS:
+                              value: "found"
+        """.trimIndent()
+
+        val spec = OpenApiSpecification.fromYAML(openApiContent, "")
+        val feature = spec.toFeature()
+
+        // Test with HttpClient that stub works for HEAD method
+        HttpStub(feature).use { stub ->
+            val response = stub.client.execute(
+                HttpRequest("HEAD", "/resource/10"),
+            )
+
+            assertThat(response.status).isEqualTo(200)
+            // Verify headers are present (values might be generated randomly)
+            assertThat(response.headers).containsEntry("X-Resource-Status", "found")
+        }
+    }
+
+    @Test
+    fun `HEAD method with internal examples should show validation warning when example is invalid`() {
+        // Simplified test without examples that cause parsing issues
+        val openApiContent = """
+            openapi: 3.0.0
+            info:
+              title: HEAD Method Validation Test
+              version: 1.0.0
+            paths:
+              /resource/{id}:
+                head:
+                  summary: Check resource by ID
+                  parameters:
+                    - name: id
+                      in: path
+                      required: true
+                      schema:
+                        type: integer
+                      examples:
+                        BAD_EXAMPLE:
+                          value: "not-an-integer"
+                  responses:
+                    200:
+                      description: Resource exists
+                      headers:
+                        X-Resource-Status:
+                          schema:
+                            type: string
+                          examples:
+                            BAD_EXAMPLE:
+                              value: "found"
+        """.trimIndent()
+
+        val spec = OpenApiSpecification.fromYAML(openApiContent, "")
+        val feature = spec.toFeature()
+
+        assertThatThrownBy {
+            feature.validateExamplesOrException()
+        }.satisfies({
+            assertThat(it.message).contains("REQUEST.PARAMETERS.PATH.id")
+        })
+
+        val (output, _) =
+            captureStandardOutput {
+                HttpStub(feature).use { stub ->
+                }
+            }
+
+        assertThat(output).contains("REQUEST.PARAMETERS.PATH.id")
+    }
+
+    @Test
+    fun `HEAD method scenarios should work in test mode`() {
+        val openApiContent = """
+            openapi: 3.0.0
+            info:
+              title: HEAD Method Test Mode API
+              version: 1.0.0
+            paths:
+              /health:
+                head:
+                  summary: Health check
+                  responses:
+                    200:
+                      description: Service is healthy
+                      headers:
+                        X-Health-Status:
+                          schema:
+                            type: string
+        """.trimIndent()
+
+        val spec = OpenApiSpecification.fromYAML(openApiContent, "")
+        val feature = spec.toFeature()
+
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                assertThat(request.method).isEqualTo("HEAD")
+                assertThat(request.path).isEqualTo("/health")
+
+                return HttpResponse(200, mapOf("X-Health-Status" to "healthy"), EmptyString)
+            }
+        })
+
+        assertThat(results.success()).isTrue()
+        assertThat(results.testCount).isGreaterThan(0)
+    }
+
+    @Test
+    fun `HEAD method with internal examples and path params should run tests successfully`() {
+        val openApiContent = """
+            openapi: 3.0.0
+            info:
+              title: HEAD Method Test Mode with Internal Examples
+              version: 1.0.0
+            paths:
+              /resource/{id}:
+                head:
+                  summary: Check resource by ID
+                  parameters:
+                    - name: id
+                      in: path
+                      required: true
+                      schema:
+                        type: integer
+                      examples:
+                        SUCCESS:
+                          value: "42"
+                  responses:
+                    200:
+                      description: Resource exists
+                      headers:
+                        X-Resource-Status:
+                          schema:
+                            type: string
+                          examples:
+                            SUCCESS:
+                              value: "found"
+        """.trimIndent()
+
+        val spec = OpenApiSpecification.fromYAML(openApiContent, "")
+        val feature = spec.toFeature()
+
+        val results =
+            feature.executeTests(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    assertThat(request.method).isEqualTo("HEAD")
+                    assertThat(request.path).matches("/resource/\\d+")
+
+                    return HttpResponse(200, mapOf("X-Resource-Status" to "found"), EmptyString)
+                }
+            })
+
+        // Check that the contract tests passed
+        assertThat(results.success()).isTrue()
+        assertThat(results.testCount).isGreaterThan(0)
+    }
+
     private fun ignoreButLogException(function: () -> OpenApiSpecification) {
         try {
             function()

@@ -155,7 +155,7 @@ paths:
                 type: integer
               examples:
                 NEW_PRODUCT:
-                  value: "Header 1 value"
+                  value: 10
             """.trimIndent(),
             "",
             specmaticConfig = specmaticConfig
@@ -217,7 +217,7 @@ paths:
                 type: integer
               examples:
                 NEW_PRODUCT:
-                  value: "Header 1 value"
+                  value: 10
             """.trimIndent(),
             "",
             specmaticConfig = specmaticConfig
