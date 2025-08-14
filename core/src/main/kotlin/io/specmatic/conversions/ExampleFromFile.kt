@@ -1,43 +1,46 @@
 package io.specmatic.conversions
 
+import io.specmatic.core.CONTENT_TYPE
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
-import io.specmatic.core.NoBodyValue
-import io.specmatic.core.QueryParameters
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.examples.server.SchemaExample
 import io.specmatic.core.log.logger
-import io.specmatic.core.pattern.HasFailure
-import io.specmatic.core.pattern.HasValue
-import io.specmatic.core.pattern.ResponseExample
-import io.specmatic.core.pattern.ResponseValueExample
-import io.specmatic.core.pattern.ReturnValue
-import io.specmatic.core.pattern.Row
-import io.specmatic.core.pattern.attempt
-import io.specmatic.core.pattern.parsedJSONObject
-import io.specmatic.core.utilities.URIUtils.parseQuery
+import io.specmatic.core.pattern.*
 import io.specmatic.core.value.EmptyString
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
-import io.specmatic.mock.mockFromJSON
+import io.specmatic.mock.ScenarioStub
 import io.specmatic.test.ExampleProcessor
 import java.io.File
 import java.net.URI
 
-class ExampleFromFile(val json: JSONObjectValue, val file: File) {
+class ExampleFromFile(private val scenarioStub: ScenarioStub, val json: JSONObjectValue, val file: File) {
+
     companion object {
         fun fromFile(file: File): ReturnValue<ExampleFromFile> {
             if (SchemaExample.matchesFilePattern(file)) {
                 return HasFailure("Skipping file ${file.canonicalPath}, because it contains schema-based example")
             }
-            return HasValue(ExampleFromFile(file))
+
+            return runCatching { ExampleFromFile(file) }.map(::HasValue).getOrElse(::HasException)
         }
     }
+
+    constructor(file: File): this(
+        scenarioStub = ScenarioStub.readFromFile(file),
+        json = readValueAs<JSONObjectValue>(file), file = file
+    )
+
+    constructor(json: JSONObjectValue, file: File): this(
+        scenarioStub = ScenarioStub.parse(json),
+        json = json, file = file
+    )
 
     fun toRow(specmaticConfig: SpecmaticConfig = SpecmaticConfig()): Row {
         logger.log("Loading test file ${this.expectationFilePath}")
 
-        val examples: Map<String, String> = headers
+        val examples: Map<String, String> = request.headers
             .plus(queryParams)
             .plus(requestBody?.let { mapOf("(REQUEST-BODY)" to it.toStringLiteral()) } ?: emptyMap())
 
@@ -51,7 +54,6 @@ class ExampleFromFile(val json: JSONObjectValue, val file: File) {
                 else -> null
             }
         }
-        val scenarioStub = mockFromJSON(json.jsonObject)
 
         return Row(
             columnNames,
@@ -66,122 +68,25 @@ class ExampleFromFile(val json: JSONObjectValue, val file: File) {
         ).let { ExampleProcessor.resolve(it, ExampleProcessor::ifNotExitsToLookupPattern) }
     }
 
-    constructor(file: File) : this(json = attempt("Error reading example file ${file.canonicalPath}") { parsedJSONObject(file.readText()) }, file = file)
-
-    private fun JSONObjectValue.findByPath(path: String): Value? {
-        return  findFirstChildByPath("partial.$path") ?: findFirstChildByPath(path)
-    }
-
-    fun isPartial(): Boolean {
-        return json.findFirstChildByPath("partial") != null
-    }
-
-    fun isInvalid(): Boolean {
-        return (requestMethod == null || requestPath == null || responseStatus == null)
-    }
-
     val expectationFilePath: String = file.canonicalPath
+    @Suppress("MemberVisibilityCanBePrivate") // Used in openapi-module
+    val testName: String = scenarioStub.name ?: file.nameWithoutExtension
 
-    val response: HttpResponse
-        get() {
-            if(responseBody == null && responseHeaders == null)
-                return HttpResponse(
-                    responseStatus ?: 0,
-                    body = NoBodyValue,
-                    headers = emptyMap()
-                )
+    val request: HttpRequest = scenarioStub.requestElsePartialRequest()
+    val requestPath: String? = request.path?.let(::URI)?.path
+    val requestMethod: String? = request.method
+    val queryParams: Map<String, String> = request.queryParams.asValueMap().mapValues { it.value.toStringLiteral() }
+    val requestContentType: String? = request.headers.getCaseInsensitive(CONTENT_TYPE)?.split(";")?.firstOrNull()
+    val requestBody: Value? = request.body.takeUnless { it === EmptyString }
 
-            val body = responseBody ?: EmptyString
-            val headers = responseHeaders ?: JSONObjectValue()
+    val response: HttpResponse = scenarioStub.responseElsePartialResponse()
+    val responseStatus: Int? = response.status.takeUnless { it == 0 }
+    val responseContentType: String? = response.headers.getCaseInsensitive(CONTENT_TYPE)?.split(";")?.firstOrNull()
+    val responseBody: Value? = response.body.takeUnless { it === EmptyString }
 
-            return HttpResponse(responseStatus ?: 0, headers.jsonObject.mapValues { it.value.toStringLiteral() }, body)
-        }
-
-    val request: HttpRequest
-        get() {
-            return HttpRequest(
-                method = requestMethod,
-                path = requestPath,
-                headers = headers,
-                body = requestBody ?: NoBodyValue,
-                queryParams = QueryParameters(queryParams),
-            )
-        }
-
-    val responseBody: Value? = attempt("Error reading response body in file ${file.canonicalPath}") {
-        json.findByPath("http-response.body")
+    fun isPartial(): Boolean = scenarioStub.isPartial()
+    fun isInvalid(): Boolean = scenarioStub.isInvalid()
+    private fun <T> Map<String, T>.getCaseInsensitive(key: String): T? {
+        return this.asSequence().find { it.key.lowercase() == key.lowercase() }?.value
     }
-
-    val responseHeaders: JSONObjectValue? = attempt("Error reading response headers in file ${file.canonicalPath}") {
-        val headers = json.findByPath("http-response.headers") ?: return@attempt null
-
-        if(headers !is JSONObjectValue)
-            return@attempt null
-
-        headers
-    }
-
-    val responseStatus: Int? = attempt("Error reading status in file ${file.canonicalPath}") {
-        json.findByPath("http-response.status")?.toStringLiteral()?.toInt()
-    }
-
-    val requestMethod: String? = attempt("Error reading method in file ${file.canonicalPath}") {
-        json.findByPath("http-request.method")?.toStringLiteral()
-    }
-
-    val requestContentType: String?
-        get() {
-            val rawContentType = headers.filter { it.key.lowercase() == "content-type" }.values.firstOrNull()
-            return rawContentType?.split(";")?.firstOrNull()
-        }
-
-    private val rawPath: String? =
-        json.findByPath("http-request.path")?.toStringLiteral()
-
-    val requestPath: String? = attempt("Error reading path in file ${file.canonicalPath}") {
-        rawPath?.let { pathOnly(it) }
-    }
-
-    private fun pathOnly(requestPath: String): String {
-        return URI(requestPath).path ?: ""
-    }
-
-    val testName: String = attempt("Error reading expectation name in file ${file.canonicalPath}") {
-        json.findByPath("name")?.toStringLiteral() ?: file.nameWithoutExtension
-    }
-
-    val queryParams: Map<String, String>
-        get() {
-            val path = attempt("Error reading path in file ${file.canonicalPath}") {
-                rawPath ?: ""
-            }
-
-            val uri = URI.create(path)
-            val queryParamsFromURL = parseQuery(uri.query)
-
-            val queryParamsFromJSONBlock = attempt("Error reading query params in file ${file.canonicalPath}") {
-                (json.findByPath("http-request.query") as JSONObjectValue?)?.jsonObject?.mapValues { (_, value) ->
-                    value.toStringLiteral()
-                } ?: emptyMap()
-            }
-
-            return queryParamsFromURL + queryParamsFromJSONBlock
-        }
-
-    val headers: Map<String, String> = attempt("Error reading headers in file ${file.canonicalPath}") {
-        (json.findByPath("http-request.headers") as JSONObjectValue?)?.jsonObject?.mapValues { (_, value) ->
-            value.toStringLiteral()
-        } ?: emptyMap()
-    }
-
-    val requestBody: Value? = attempt("Error reading request body in file ${file.canonicalPath}") {
-        json.findByPath("http-request.body")
-    }
-
-    val responseContentType: String?
-        get() {
-            return responseHeaders?.let {
-                it.jsonObject.filter { entry -> entry.key.lowercase() == "content-type" }.values.firstOrNull()?.toStringLiteral()
-            }
-        }
 }
