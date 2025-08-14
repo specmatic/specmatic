@@ -147,7 +147,13 @@ fun postmanItemResponse(responseItem: JSONObjectValue): HttpResponse {
     }
 
     val body: Value = when {
-        responseItem.jsonObject.containsKey("body") -> guessType(parsedValue(responseItem.jsonObject.getValue("body").toString()))
+        responseItem.jsonObject.containsKey("body") -> {
+            val bodyContent = responseItem.jsonObject.getValue("body").toString()
+            val contentType = headers.entries.find { 
+                it.key.lowercase() == "content-type" 
+            }?.value
+            guessType(parsedValue(bodyContent, contentType))
+        }
         else -> EmptyString
     }
 
@@ -167,7 +173,13 @@ fun postmanItemRequest(request: JSONObjectValue): Pair<String, HttpRequest> {
 
     val (body, formFields, formData) = when {
         request.jsonObject.contains("body") -> when (val mode = request.getJSONObjectValue("body").getString("mode")) {
-            "raw" -> Triple(guessType(parsedValue(request.getJSONObjectValue("body").getString(mode))), emptyMap(), emptyList<MultiPartFormDataValue>())
+            "raw" -> {
+                val bodyContent = request.getJSONObjectValue("body").getString(mode)
+                val contentType = headers.entries.find { 
+                    it.key.lowercase() == "content-type" 
+                }?.value
+                Triple(guessType(parsedValue(bodyContent, contentType)), emptyMap(), emptyList<MultiPartFormDataValue>())
+            }
             "urlencoded" -> {
                 val rawFormFields = request.getJSONObjectValue("body").getJSONArray(mode)
                 val formFields = rawFormFields.map {
