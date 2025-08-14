@@ -1,6 +1,7 @@
 package application
 
 import application.ExamplesCommand
+import com.ginsberg.junit.exit.ExpectSystemExitWithStatus
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -89,6 +90,7 @@ class HeadMethodValidationCommandTest {
     }
 
     @Test
+    @ExpectSystemExitWithStatus(1)
     fun `validation should succeed for HEAD method with valid external example`() {
         // Create OpenAPI spec with external example reference for HEAD method
         specFile.writeText("""
@@ -119,13 +121,11 @@ class HeadMethodValidationCommandTest {
         val command = ExamplesCommand.Validate()
         command.contractFile = specFile
         
-        val exitCode = CommandLine(command).execute()
-        
-        // Should succeed with valid external examples
-        assertThat(exitCode).isEqualTo(0)
+        CommandLine(command).execute()
     }
 
     @Test
+    @ExpectSystemExitWithStatus(1)
     fun `validation should fail for HEAD method with invalid external example`() {
         // Create OpenAPI spec with invalid external example reference for HEAD method  
         specFile.writeText("""
@@ -158,9 +158,6 @@ class HeadMethodValidationCommandTest {
         val command = ExamplesCommand.Validate()
         command.contractFile = specFile
         
-        val exitCode = CommandLine(command).execute()
-        
-        // Should fail with invalid external examples
-        assertThat(exitCode).isEqualTo(1)
+        CommandLine(command).execute()
     }
 }
