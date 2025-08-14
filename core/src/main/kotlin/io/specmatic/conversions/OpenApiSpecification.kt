@@ -921,16 +921,6 @@ class OpenApiSpecification(
         path: String,
         schemas: Map<String, Schema<Any>>
     ): List<ResponsePatternData> {
-        if (response.content == null || response.content.isEmpty()) {
-            val responsePattern = HttpResponsePattern(
-                headersPattern = HttpHeadersPattern(headersMap),
-                body = NoBodyPattern,
-                status = status.toIntOrNull() ?: DEFAULT_RESPONSE_CODE
-            )
-
-            return listOf(ResponsePatternData(response, MediaType(), responsePattern, emptyMap()))
-        }
-
         val headerExamples =
             if (specmaticConfig.getIgnoreInlineExamples() || getBooleanValue(Flags.IGNORE_INLINE_EXAMPLES))
                 emptyMap()
@@ -938,6 +928,29 @@ class OpenApiSpecification(
                 response.headers.orEmpty().entries.fold(emptyMap<String, Map<String, String>>()) { acc, (headerName, header) ->
                     extractParameterExamples(header.examples, headerName, acc)
                 }
+
+        if (response.content == null || response.content.isEmpty()) {
+            val responsePattern =
+                HttpResponsePattern(
+                    headersPattern = HttpHeadersPattern(headersMap),
+                    body = NoBodyPattern,
+                    status = status.toIntOrNull() ?: DEFAULT_RESPONSE_CODE,
+                )
+
+            val examples =
+                headerExamples.mapNotNull { (exampleName, headerExamples) ->
+                    val intStatus = status.toIntOrNull()?.takeIf { it != 0 } ?: return@mapNotNull null
+
+                    exampleName to
+                        HttpResponse(
+                            intStatus,
+                            body = NoBodyValue,
+                            headers = headerExamples,
+                        )
+                }.toMap()
+
+            return listOf(ResponsePatternData(response, MediaType(), responsePattern, examples))
+        }
 
         val contentTypeHeaderPattern = headersMap.entries.find { it.key.lowercase() in listOf("content-type", "content-type?") }?.value
 

@@ -11027,33 +11027,36 @@ paths:
                       required: true
                       schema:
                         type: integer
+                      examples:
+                        SUCCESS:
+                          value: "10"
                   responses:
                     200:
                       description: Resource exists
                       headers:
-                        Content-Length:
-                          schema:
-                            type: integer
-                        X-Resource-Type:
+                        X-Resource-Status:
                           schema:
                             type: string
+                          examples:
+                            SUCCESS:
+                              value: "found"
         """.trimIndent()
 
         val spec = OpenApiSpecification.fromYAML(openApiContent, "")
         val feature = spec.toFeature()
-        
+
         // Test with HttpClient that stub works for HEAD method
         HttpStub(feature).use { stub ->
             val response = stub.client.execute(
-                HttpRequest("HEAD", "/resource/123")
+                HttpRequest("HEAD", "/resource/10"),
             )
-            
+
             assertThat(response.status).isEqualTo(200)
             // Verify headers are present (values might be generated randomly)
-            assertThat(response.headers).isNotEmpty()
+            assertThat(response.headers).containsEntry("X-Resource-Status", "found")
         }
     }
-    
+
     @Test
     fun `HEAD method with internal examples should show validation warning when example is invalid`() {
         // Simplified test without examples that cause parsing issues
@@ -11072,15 +11075,25 @@ paths:
                       required: true
                       schema:
                         type: integer
+                      examples:
+                        BAD_EXAMPLE:
+                          value: "not-an-integer"
                   responses:
                     200:
                       description: Resource exists
+                      headers:
+                        X-Resource-Status:
+                          schema:
+                            type: string
+                          examples:
+                            BAD_EXAMPLE:
+                              value: "found"
         """.trimIndent()
 
         val (output, _) = captureStandardOutput {
             val spec = OpenApiSpecification.fromYAML(openApiContent, "")
             val feature = spec.toFeature()
-            
+
             HttpStub(feature).use { stub ->
                 val response = stub.client.execute(
                     HttpRequest("HEAD", "/resource/123")
