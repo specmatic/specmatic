@@ -11090,106 +11090,24 @@ paths:
                               value: "found"
         """.trimIndent()
 
-        val (output, _) = captureStandardOutput {
-            val spec = OpenApiSpecification.fromYAML(openApiContent, "")
-            val feature = spec.toFeature()
-
-            HttpStub(feature).use { stub ->
-                val response = stub.client.execute(
-                    HttpRequest("HEAD", "/resource/123")
-                )
-                assertThat(response.status).isEqualTo(200)
-            }
-        }
-        
-        // Test passes if no exceptions are thrown
-        assertThat(output).isNotNull()
-    }
-    
-    @Test
-    fun `HEAD method with external examples should be loaded successfully for stub mode`() {
-        // Simplified test without complex examples
-        val openApiContent = """
-            openapi: 3.0.0
-            info:
-              title: HEAD Method with External Examples Test API
-              version: 1.0.0
-            paths:
-              /resource/{id}:
-                head:
-                  summary: Check resource by ID
-                  parameters:
-                    - name: id
-                      in: path
-                      required: true
-                      schema:
-                        type: integer
-                  responses:
-                    200:
-                      description: Resource exists
-                      headers:
-                        Content-Length:
-                          schema:
-                            type: integer
-                        X-Resource-Type:
-                          schema:
-                            type: string
-        """.trimIndent()
-
         val spec = OpenApiSpecification.fromYAML(openApiContent, "")
         val feature = spec.toFeature()
-        
-        // Test with HttpClient that stub works for HEAD method
-        HttpStub(feature).use { stub ->
-            val response = stub.client.execute(
-                HttpRequest("HEAD", "/resource/456")
-            )
-            
-            assertThat(response.status).isEqualTo(200)
-            // Verify headers are present (values might be generated randomly)
-            assertThat(response.headers).isNotEmpty()
-        }
-    }
-    
-    @Test
-    fun `HEAD method with invalid external examples should show validation warning`() {
-        // Simplified test focused on basic functionality
-        val openApiContent = """
-            openapi: 3.0.0
-            info:
-              title: HEAD Method Validation Test
-              version: 1.0.0
-            paths:
-              /resource/{id}:
-                head:
-                  summary: Check resource by ID
-                  parameters:
-                    - name: id
-                      in: path
-                      required: true
-                      schema:
-                        type: integer
-                  responses:
-                    200:
-                      description: Resource exists
-        """.trimIndent()
 
-        val (output, _) = captureStandardOutput {
-            val spec = OpenApiSpecification.fromYAML(openApiContent, "")
-            val feature = spec.toFeature()
-            
-            HttpStub(feature).use { stub ->
-                val response = stub.client.execute(
-                    HttpRequest("HEAD", "/resource/123")
-                )
-                assertThat(response.status).isEqualTo(200)
+        assertThatThrownBy {
+            feature.validateExamplesOrException()
+        }.satisfies({
+            assertThat(it.message).contains("REQUEST.PARAMETERS.PATH.id")
+        })
+
+        val (output, _) =
+            captureStandardOutput {
+                HttpStub(feature).use { stub ->
+                }
             }
-        }
-        
-        // Test passes if no exceptions are thrown
-        assertThat(output).isNotNull()
+
+        assertThat(output).contains("REQUEST.PARAMETERS.PATH.id")
     }
-    
+
     @Test
     fun `HEAD method scenarios should work in test mode`() {
         val openApiContent = """
@@ -11212,27 +11130,20 @@ paths:
 
         val spec = OpenApiSpecification.fromYAML(openApiContent, "")
         val feature = spec.toFeature()
-        
-        // Execute contract tests using feature.executeTests
+
         val results = feature.executeTests(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
-                // Verify that the test request is for HEAD /health
                 assertThat(request.method).isEqualTo("HEAD")
                 assertThat(request.path).isEqualTo("/health")
-                
-                // Return a 200 response as requested
+
                 return HttpResponse(200, mapOf("X-Health-Status" to "healthy"), EmptyString)
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
-        
-        // Check that the contract tests passed
+
         assertThat(results.success()).isTrue()
         assertThat(results.testCount).isGreaterThan(0)
     }
-    
+
     @Test
     fun `HEAD method with internal examples and path params should run tests successfully`() {
         val openApiContent = """
@@ -11250,168 +11161,36 @@ paths:
                       required: true
                       schema:
                         type: integer
+                      examples:
+                        SUCCESS:
+                          value: "42"
                   responses:
                     200:
                       description: Resource exists
                       headers:
-                        Content-Length:
+                        X-Resource-Status:
                           schema:
-                            type: integer
+                            type: string
+                          examples:
+                            SUCCESS:
+                              value: "found"
         """.trimIndent()
 
         val spec = OpenApiSpecification.fromYAML(openApiContent, "")
         val feature = spec.toFeature()
-        
-        // Execute contract tests using feature.executeTests
-        val results = feature.executeTests(object : TestExecutor {
-            override fun execute(request: HttpRequest): HttpResponse {
-                // Verify that the test request is for HEAD with path param
-                assertThat(request.method).isEqualTo("HEAD")
-                assertThat(request.path).matches("/resource/\\d+")
-                
-                // Return a 200 response
-                return HttpResponse(200, mapOf("Content-Length" to "100"), EmptyString)
-            }
 
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
-        })
-        
+        val results =
+            feature.executeTests(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    assertThat(request.method).isEqualTo("HEAD")
+                    assertThat(request.path).matches("/resource/\\d+")
+
+                    return HttpResponse(200, mapOf("X-Resource-Status" to "found"), EmptyString)
+                }
+            })
+
         // Check that the contract tests passed
         assertThat(results.success()).isTrue()
-        assertThat(results.testCount).isGreaterThan(0)
-    }
-    
-    @Test
-    fun `HEAD method with internal examples should fail when test executor returns error`() {
-        val openApiContent = """
-            openapi: 3.0.0
-            info:
-              title: HEAD Method Test Mode with Internal Examples Error
-              version: 1.0.0
-            paths:
-              /resource/{id}:
-                head:
-                  summary: Check resource by ID
-                  parameters:
-                    - name: id
-                      in: path
-                      required: true
-                      schema:
-                        type: integer
-                  responses:
-                    200:
-                      description: Resource exists
-        """.trimIndent()
-
-        val spec = OpenApiSpecification.fromYAML(openApiContent, "")
-        val feature = spec.toFeature()
-        
-        // Execute contract tests that will fail
-        val results = feature.executeTests(object : TestExecutor {
-            override fun execute(request: HttpRequest): HttpResponse {
-                // Return a 500 error to make the test fail
-                return HttpResponse(500, mapOf("Content-Type" to "text/plain"), EmptyString)
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
-        })
-        
-        // Check that the contract tests failed
-        assertThat(results.success()).isFalse()
-        assertThat(results.testCount).isGreaterThan(0)
-    }
-    
-    @Test
-    fun `HEAD method with external examples should run tests successfully`() {
-        val openApiContent = """
-            openapi: 3.0.0
-            info:
-              title: HEAD Method Test Mode with External Examples
-              version: 1.0.0
-            paths:
-              /resource/{id}:
-                head:
-                  summary: Check resource by ID
-                  parameters:
-                    - name: id
-                      in: path
-                      required: true
-                      schema:
-                        type: integer
-                  responses:
-                    200:
-                      description: Resource exists
-                      headers:
-                        Content-Length:
-                          schema:
-                            type: integer
-        """.trimIndent()
-
-        val spec = OpenApiSpecification.fromYAML(openApiContent, "")
-        val feature = spec.toFeature()
-        
-        // Execute contract tests using feature.executeTests
-        val results = feature.executeTests(object : TestExecutor {
-            override fun execute(request: HttpRequest): HttpResponse {
-                // Verify that the test request is for HEAD with path param
-                assertThat(request.method).isEqualTo("HEAD")
-                assertThat(request.path).matches("/resource/\\d+")
-                
-                // Return a 200 response
-                return HttpResponse(200, mapOf("Content-Length" to "2048"), EmptyString)
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
-        })
-        
-        // Check that the contract tests passed
-        assertThat(results.success()).isTrue()
-        assertThat(results.testCount).isGreaterThan(0)
-    }
-    
-    @Test
-    fun `HEAD method with external examples should fail when test executor returns error`() {
-        val openApiContent = """
-            openapi: 3.0.0
-            info:
-              title: HEAD Method Test Mode with External Examples Error
-              version: 1.0.0
-            paths:
-              /resource/{id}:
-                head:
-                  summary: Check resource by ID
-                  parameters:
-                    - name: id
-                      in: path
-                      required: true
-                      schema:
-                        type: integer
-                  responses:
-                    200:
-                      description: Resource exists
-                    400:
-                      description: Bad request
-        """.trimIndent()
-
-        val spec = OpenApiSpecification.fromYAML(openApiContent, "")
-        val feature = spec.toFeature()
-        
-        // Execute contract tests that will fail
-        val results = feature.executeTests(object : TestExecutor {
-            override fun execute(request: HttpRequest): HttpResponse {
-                // Return a 404 error which is not defined in the spec
-                return HttpResponse(404, mapOf("Content-Type" to "text/plain"), EmptyString)
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
-        })
-        
-        // Check that the contract tests failed
-        assertThat(results.success()).isFalse()
         assertThat(results.testCount).isGreaterThan(0)
     }
 

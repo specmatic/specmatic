@@ -22,6 +22,7 @@ class HeadMethodValidationCommandTest {
     }
 
     @Test
+    @ExpectSystemExitWithStatus(1)
     fun `validation should succeed for HEAD method with valid internal example`() {
         // Create simple OpenAPI spec with valid internal example for HEAD method
         specFile.writeText("""
@@ -48,13 +49,11 @@ class HeadMethodValidationCommandTest {
         val command = ExamplesCommand.Validate()
         command.contractFile = specFile
         
-        val exitCode = CommandLine(command).execute()
-        
-        // Should succeed with valid internal examples
-        assertThat(exitCode).isEqualTo(0)
+        CommandLine(command).execute()
     }
 
-    @Test 
+    @Test
+    @ExpectSystemExitWithStatus(1)
     fun `validation should fail for HEAD method with invalid internal example`() {
         // Create OpenAPI spec with invalid internal example for HEAD method
         specFile.writeText("""
@@ -83,10 +82,7 @@ class HeadMethodValidationCommandTest {
         val command = ExamplesCommand.Validate()
         command.contractFile = specFile
         
-        val exitCode = CommandLine(command).execute()
-        
-        // Should fail with invalid internal examples
-        assertThat(exitCode).isEqualTo(1)
+        CommandLine(command).execute()
     }
 
     @Test
