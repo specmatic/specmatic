@@ -45,6 +45,15 @@ jobs:
             release \
             -Prelease.releaseVersion=${RELEASE_VERSION} \
             -Prelease.newVersion=${NEXT_VERSION}
+
+          echo "Bumping version to $RELEASE_VERSION in documentation site"
+
+          curl -X POST \
+            -H "Authorization: Bearer ${SPECMATIC_GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+              https://api.github.com/repos/specmatic/docs.specmatic.io/actions/workflows/update-version-numbers.yml/dispatches \
+              -d '{"ref":"main","inputs":{"specmatic-core-version":"'"${RELEASE_VERSION}"'"}}'
+
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: '${{ secrets.SPECMATIC_MAVEN_CENTRAL_USERNAME }}'
           ORG_GRADLE_PROJECT_mavenCentralPassword: '${{ secrets.SPECMATIC_MAVEN_CENTRAL_PASSWORD }}'
