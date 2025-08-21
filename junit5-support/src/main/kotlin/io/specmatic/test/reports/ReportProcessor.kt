@@ -6,7 +6,7 @@ import io.specmatic.test.ContractTestSettings
 import io.specmatic.test.reports.renderers.ReportRenderer
 
 interface ReportProcessor<T> {
-    fun process(specmaticConfig: SpecmaticConfig, settings: ContractTestSettings)
+    fun process(specmaticConfig: SpecmaticConfig)
 
     fun configureReportRenderers(reportConfiguration: ReportConfiguration): List<ReportRenderer<T>>
 

@@ -19,13 +19,17 @@ import java.io.File
 
 const val SPECMATIC_EXCLUDED_ENDPOINTS = "SPECMATIC_EXCLUDED_ENDPOINTS"
 
-class OpenApiCoverageReportProcessor(private val openApiCoverageReportInput: OpenApiCoverageReportInput, private val reportBaseDirectory: String): ReportProcessor<OpenAPICoverageConsoleReport> {
+class OpenApiCoverageReportProcessor(
+    private val openApiCoverageReportInput: OpenApiCoverageReportInput,
+    private val reportBaseDirectory: String,
+    private val settings: ContractTestSettings
+): ReportProcessor<OpenAPICoverageConsoleReport> {
     companion object {
         const val JSON_REPORT_PATH = "./build/reports/specmatic"
         const val JSON_REPORT_FILE_NAME = "coverage_report.json"
     }
 
-    override fun process(specmaticConfig: SpecmaticConfig, settings: ContractTestSettings) {
+    override fun process(specmaticConfig: SpecmaticConfig) {
         val reportConfiguration = specmaticConfig.getReport()!!
 
         openApiCoverageReportInput.addExcludedAPIs(

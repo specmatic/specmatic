@@ -175,11 +175,13 @@ open class SpecmaticJUnitSupport {
     @AfterAll
     fun report() {
         settings.coverageHooks.forEach { it.onTestsComplete() }
-        val reportProcessors = listOf(OpenApiCoverageReportProcessor(openApiCoverageReportInput, settings.reportBaseDirectory ?: "."))
+        val reportProcessors = listOf(
+            OpenApiCoverageReportProcessor(openApiCoverageReportInput, settings.reportBaseDirectory ?: ".", settings)
+        )
         val reportConfiguration = getReportConfiguration()
         val config = specmaticConfig?.updateReportConfiguration(reportConfiguration) ?: SpecmaticConfig().updateReportConfiguration(reportConfiguration)
 
-        reportProcessors.forEach { it.process(config, settings) }
+        reportProcessors.forEach { it.process(config) }
 
         threads.distinct().let {
             if(it.size > 1) {
