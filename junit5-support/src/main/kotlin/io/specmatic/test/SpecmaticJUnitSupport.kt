@@ -224,8 +224,7 @@ open class SpecmaticJUnitSupport {
         val overlayFilePath: String? = System.getProperty(OVERLAY_FILE_PATH) ?: System.getenv(OVERLAY_FILE_PATH)
         val overlayContent = if(overlayFilePath.isNullOrBlank()) "" else readFrom(overlayFilePath, "overlay")
 
-        val filterExpression = System.getProperty(FILTER, "")
-        openApiCoverageReportInput = OpenApiCoverageReportInput(getConfigFileWithAbsolutePath(), filterExpression = filterExpression, coverageHooks = settings.coverageHooks, httpInteractionsLog = httpInteractionsLog)
+        openApiCoverageReportInput = OpenApiCoverageReportInput(getConfigFileWithAbsolutePath(), filterExpression = settings.filter, coverageHooks = settings.coverageHooks, httpInteractionsLog = httpInteractionsLog)
 
         val timeoutInMilliseconds = specmaticConfig?.getTestTimeoutInMilliseconds() ?: try {
             getLongValue(SPECMATIC_TEST_TIMEOUT)
