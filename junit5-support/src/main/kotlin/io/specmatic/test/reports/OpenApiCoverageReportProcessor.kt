@@ -4,6 +4,7 @@ import io.specmatic.core.ReportConfiguration
 import io.specmatic.core.ReportFormatterType
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.log.logger
+import io.specmatic.core.utilities.readEnvVarOrProperty
 import io.specmatic.test.reports.coverage.OpenApiCoverageReportInput
 import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
 import io.specmatic.test.reports.coverage.json.OpenApiCoverageJsonReport
@@ -14,6 +15,8 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.assertj.core.api.Assertions.assertThat
 import java.io.File
+
+const val SPECMATIC_EXCLUDED_ENDPOINTS = "SPECMATIC_EXCLUDED_ENDPOINTS"
 
 class OpenApiCoverageReportProcessor(private val openApiCoverageReportInput: OpenApiCoverageReportInput, private val reportBaseDirectory: String): ReportProcessor<OpenAPICoverageConsoleReport> {
     companion object {
@@ -49,9 +52,10 @@ class OpenApiCoverageReportProcessor(private val openApiCoverageReportInput: Ope
         }
     }
 
-    private fun excludedEndpointsFromEnv() = System.getenv("SPECMATIC_EXCLUDED_ENDPOINTS")?.let { excludedEndpoints ->
-        excludedEndpoints.split(",").map { it.trim() }
-    } ?: emptyList()
+    private fun excludedEndpointsFromEnv() =
+        readEnvVarOrProperty(SPECMATIC_EXCLUDED_ENDPOINTS, SPECMATIC_EXCLUDED_ENDPOINTS)?.let { excludedEndpoints ->
+            excludedEndpoints.split(",").map { it.trim() }
+        } ?: emptyList()
 
     private fun saveAsJson(openApiCoverageJsonReport: OpenApiCoverageJsonReport) {
         println("Saving Coverage Report json to $JSON_REPORT_PATH ...")
