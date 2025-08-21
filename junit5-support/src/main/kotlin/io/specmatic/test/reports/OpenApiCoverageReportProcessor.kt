@@ -5,6 +5,7 @@ import io.specmatic.core.ReportFormatterType
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.readEnvVarOrProperty
+import io.specmatic.test.ContractTestSettings
 import io.specmatic.test.reports.coverage.OpenApiCoverageReportInput
 import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
 import io.specmatic.test.reports.coverage.json.OpenApiCoverageJsonReport
@@ -24,10 +25,12 @@ class OpenApiCoverageReportProcessor(private val openApiCoverageReportInput: Ope
         const val JSON_REPORT_FILE_NAME = "coverage_report.json"
     }
 
-    override fun process(specmaticConfig: SpecmaticConfig) {
+    override fun process(specmaticConfig: SpecmaticConfig, settings: ContractTestSettings) {
         val reportConfiguration = specmaticConfig.getReport()!!
 
-        openApiCoverageReportInput.addExcludedAPIs(reportConfiguration.excludedOpenAPIEndpoints() + excludedEndpointsFromEnv())
+        openApiCoverageReportInput.addExcludedAPIs(
+            settings.exclusions + reportConfiguration.excludedOpenAPIEndpoints() + excludedEndpointsFromEnv()
+        )
         val openAPICoverageReport = openApiCoverageReportInput.generate()
 
         if (openAPICoverageReport.coverageRows.isEmpty()) {

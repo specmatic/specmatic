@@ -179,7 +179,7 @@ open class SpecmaticJUnitSupport {
         val reportConfiguration = getReportConfiguration()
         val config = specmaticConfig?.updateReportConfiguration(reportConfiguration) ?: SpecmaticConfig().updateReportConfiguration(reportConfiguration)
 
-        reportProcessors.forEach { it.process(config) }
+        reportProcessors.forEach { it.process(config, settings) }
 
         threads.distinct().let {
             if(it.size > 1) {

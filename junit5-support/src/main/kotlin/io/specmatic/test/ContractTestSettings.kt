@@ -13,6 +13,7 @@ data class ContractTestSettings(
     val generative: Boolean?,
     val reportBaseDirectory: String?,
     val coverageHooks: List<TestReportListener>,
+    val exclusions: List<String>
 ) {
     fun adjust(specmaticConfig: SpecmaticConfig?): SpecmaticConfig? =
         if (generative == true) {
@@ -33,5 +34,6 @@ data class ContractTestSettings(
         generative = contractTestSettings.get()?.generative,
         reportBaseDirectory = contractTestSettings.get()?.reportBaseDirectory,
         coverageHooks = contractTestSettings.get()?.coverageHooks ?: emptyList(),
+        exclusions = contractTestSettings.get()?.exclusions.orEmpty()
     )
 }
