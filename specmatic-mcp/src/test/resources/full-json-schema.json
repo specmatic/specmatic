@@ -1,0 +1,426 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Comprehensive Schema for All JSON Schema Types and Constraints",
+  "description": "Complete reference schema covering all JSON Schema types, constraints, and validation patterns",
+  "type": "object",
+  "properties": {
+    "string_types": {
+      "type": "object",
+      "properties": {
+        "basic_string": {
+          "type": "string",
+          "description": "Basic string with no constraints"
+        },
+        "string_with_minlength": {
+          "type": "string",
+          "minLength": 1,
+          "description": "String with minimum length constraint"
+        },
+        "string_with_maxlength": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "String with maximum length constraint"
+        },
+        "string_with_both_lengths": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 200,
+          "description": "String with both min and max length constraints"
+        },
+        "string_with_pattern": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "description": "String with regex pattern validation"
+        },
+        "string_with_format": {
+          "type": "string",
+          "format": "email",
+          "description": "String with format validation (email, uri, date-time, etc.)"
+        },
+        "string_with_enum": {
+          "type": "string",
+          "enum": ["option1", "option2", "option3"],
+          "description": "String constrained to specific enumerated values"
+        },
+        "string_with_default": {
+          "type": "string",
+          "default": "default_value",
+          "description": "String with default value"
+        }
+      }
+    },
+
+    "number_types": {
+      "type": "object",
+      "properties": {
+        "basic_number": {
+          "type": "number",
+          "description": "Basic number (integer or float)"
+        },
+        "integer_type": {
+          "type": "integer",
+          "description": "Integer number only"
+        },
+        "number_with_minimum": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Number with minimum value constraint"
+        },
+        "number_with_maximum": {
+          "type": "number",
+          "maximum": 100,
+          "description": "Number with maximum value constraint"
+        },
+        "number_with_both_limits": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 2147483647,
+          "description": "Number with both minimum and maximum constraints"
+        },
+        "number_exclusive_minimum": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Number with exclusive minimum (greater than, not equal to)"
+        },
+        "number_exclusive_maximum": {
+          "type": "number",
+          "exclusiveMaximum": 100,
+          "description": "Number with exclusive maximum (less than, not equal to)"
+        },
+        "number_with_multiple_of": {
+          "type": "number",
+          "multipleOf": 10,
+          "description": "Number that must be multiple of specified value"
+        },
+        "number_with_default": {
+          "type": "number",
+          "default": 42,
+          "description": "Number with default value"
+        },
+        "number_with_enum": {
+          "type": "number",
+          "enum": [1, 5, 10, 25, 50],
+          "description": "Number constrained to specific enumerated values"
+        }
+      }
+    },
+
+    "boolean_types": {
+      "type": "object",
+      "properties": {
+        "basic_boolean": {
+          "type": "boolean",
+          "description": "Basic boolean true/false"
+        },
+        "boolean_with_default_true": {
+          "type": "boolean",
+          "default": true,
+          "description": "Boolean with default value true"
+        },
+        "boolean_with_default_false": {
+          "type": "boolean",
+          "default": false,
+          "description": "Boolean with default value false"
+        }
+      }
+    },
+
+    "array_types": {
+      "type": "object",
+      "properties": {
+        "basic_array": {
+          "type": "array",
+          "description": "Basic array with any items"
+        },
+        "array_with_string_items": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array containing only string items"
+        },
+        "array_with_number_items": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "description": "Array containing numbers with constraints"
+        },
+        "array_with_object_items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {"type": "string"},
+              "value": {"type": "number"}
+            },
+            "required": ["id"]
+          },
+          "description": "Array containing objects with specific structure"
+        },
+        "array_with_min_items": {
+          "type": "array",
+          "items": {"type": "string"},
+          "minItems": 1,
+          "description": "Array with minimum number of items"
+        },
+        "array_with_max_items": {
+          "type": "array",
+          "items": {"type": "string"},
+          "maxItems": 10,
+          "description": "Array with maximum number of items"
+        },
+        "array_with_both_item_limits": {
+          "type": "array",
+          "items": {"type": "string"},
+          "minItems": 2,
+          "maxItems": 5,
+          "description": "Array with both min and max item constraints"
+        },
+        "array_with_unique_items": {
+          "type": "array",
+          "items": {"type": "string"},
+          "uniqueItems": true,
+          "description": "Array where all items must be unique"
+        },
+        "array_with_tuple_validation": {
+          "type": "array",
+          "items": [
+            {"type": "string"},
+            {"type": "number"},
+            {"type": "boolean"}
+          ],
+          "additionalItems": false,
+          "description": "Array with tuple validation (fixed item types at positions)"
+        }
+      }
+    },
+
+    "object_types": {
+      "type": "object",
+      "properties": {
+        "basic_object": {
+          "type": "object",
+          "description": "Basic object with any properties"
+        },
+        "object_with_properties": {
+          "type": "object",
+          "properties": {
+            "name": {"type": "string"},
+            "age": {"type": "number"},
+            "active": {"type": "boolean"}
+          },
+          "description": "Object with defined properties"
+        },
+        "object_with_required_properties": {
+          "type": "object",
+          "properties": {
+            "id": {"type": "string"},
+            "title": {"type": "string"},
+            "optional": {"type": "string"}
+          },
+          "required": ["id", "title"],
+          "description": "Object with required properties"
+        },
+        "object_no_additional_properties": {
+          "type": "object",
+          "properties": {
+            "allowed_prop": {"type": "string"}
+          },
+          "additionalProperties": false,
+          "description": "Object that doesn't allow additional properties"
+        },
+        "object_typed_additional_properties": {
+          "type": "object",
+          "properties": {
+            "known_prop": {"type": "string"}
+          },
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "Object with typed additional properties"
+        },
+        "object_with_min_properties": {
+          "type": "object",
+          "minProperties": 2,
+          "description": "Object with minimum number of properties"
+        },
+        "object_with_max_properties": {
+          "type": "object",
+          "maxProperties": 5,
+          "description": "Object with maximum number of properties"
+        },
+        "object_with_pattern_properties": {
+          "type": "object",
+          "patternProperties": {
+            "^S_": {"type": "string"},
+            "^I_": {"type": "integer"}
+          },
+          "description": "Object with pattern-based property validation"
+        },
+        "object_with_dependencies": {
+          "type": "object",
+          "properties": {
+            "name": {"type": "string"},
+            "credit_card": {"type": "number"},
+            "billing_address": {"type": "string"}
+          },
+          "dependencies": {
+            "credit_card": ["billing_address"]
+          },
+          "description": "Object with property dependencies"
+        }
+      }
+    },
+
+    "null_and_mixed_types": {
+      "type": "object",
+      "properties": {
+        "null_type": {
+          "type": "null",
+          "description": "Explicitly null value"
+        },
+        "nullable_string": {
+          "type": ["string", "null"],
+          "description": "String that can also be null"
+        },
+        "multiple_types": {
+          "type": ["string", "number"],
+          "description": "Property that can be string or number"
+        },
+        "any_type": {
+          "description": "Property with no type constraint (any type allowed)"
+        }
+      }
+    },
+
+    "conditional_schemas": {
+      "type": "object",
+      "properties": {
+        "conditional_with_if_then_else": {
+          "type": "object",
+          "properties": {
+            "type": {"type": "string", "enum": ["personal", "business"]},
+            "name": {"type": "string"},
+            "company": {"type": "string"}
+          },
+          "if": {
+            "properties": {"type": {"const": "business"}}
+          },
+          "then": {
+            "required": ["company"]
+          },
+          "else": {
+            "not": {"required": ["company"]}
+          },
+          "description": "Conditional validation based on property values"
+        },
+        "one_of_validation": {
+          "oneOf": [
+            {"type": "string", "maxLength": 5},
+            {"type": "number", "minimum": 0}
+          ],
+          "description": "Must match exactly one of the schemas"
+        },
+        "any_of_validation": {
+          "anyOf": [
+            {"type": "string"},
+            {"type": "number"},
+            {"type": "boolean"}
+          ],
+          "description": "Must match at least one of the schemas"
+        },
+        "all_of_validation": {
+          "allOf": [
+            {"type": "string"},
+            {"minLength": 2},
+            {"maxLength": 10}
+          ],
+          "description": "Must match all of the schemas"
+        },
+        "not_validation": {
+          "not": {
+            "type": "null"
+          },
+          "description": "Must NOT match the schema (not null in this case)"
+        }
+      }
+    },
+
+    "reference_and_definitions": {
+      "type": "object",
+      "definitions": {
+        "address": {
+          "type": "object",
+          "properties": {
+            "street": {"type": "string"},
+            "city": {"type": "string"},
+            "zipcode": {"type": "string", "pattern": "^[0-9]{5}$"}
+          },
+          "required": ["street", "city", "zipcode"]
+        },
+        "person": {
+          "type": "object",
+          "properties": {
+            "name": {"type": "string"}
+          }
+        }
+      },
+      "properties": {
+        "primary_contact": {
+          "type": "string",
+          "description": "Reference to a defined schema"
+        },
+        "all_contacts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of references to defined schema"
+        }
+      }
+    },
+
+    "custom_keywords_and_annotations": {
+      "type": "object",
+      "properties": {
+        "annotated_property": {
+          "type": "string",
+          "title": "Custom Title",
+          "description": "Detailed description of the property",
+          "examples": ["example1", "example2"],
+          "default": "default_value"
+        },
+        "property_with_const": {
+          "const": "fixed_value",
+          "description": "Property that must have exact constant value"
+        },
+        "deprecated_property": {
+          "type": "string",
+          "deprecated": true,
+          "description": "Property marked as deprecated"
+        }
+      }
+    }
+  },
+  "required": ["string_types", "number_types", "boolean_types"],
+  "additionalProperties": true,
+  "$comment": "This is a comprehensive schema covering all JSON Schema features",
+  "examples": [
+    {
+      "string_types": {
+        "basic_string": "hello world",
+        "string_with_enum": "option1"
+      },
+      "number_types": {
+        "basic_number": 42.5,
+        "integer_type": 100
+      },
+      "boolean_types": {
+        "basic_boolean": true
+      }
+    }
+  ]
+}
