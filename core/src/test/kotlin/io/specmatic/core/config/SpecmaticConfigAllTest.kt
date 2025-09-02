@@ -17,7 +17,7 @@ import io.specmatic.core.config.v2.ContractConfig
 import io.specmatic.core.config.v2.ContractConfig.FileSystemContractSource
 import io.specmatic.core.config.v2.ContractConfig.GitContractSource
 import io.specmatic.core.config.v2.SpecmaticConfigV2
-import io.specmatic.core.config.v3.Consumes
+import io.specmatic.core.config.v3.SpecsWithPort
 import io.specmatic.core.loadSpecmaticConfig
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSON
@@ -89,14 +89,14 @@ internal class SpecmaticConfigAllTest {
                 repository = "https://contracts",
                 branch = "1.0.1",
                 test = listOf("com/petstore/1.yaml"),
-                stub = listOf(Consumes.StringValue("com/petstore/payment.yaml"))
+                stub = listOf(SpecsWithPort.StringValue("com/petstore/payment.yaml"))
             ),
             Source(
                 provider = filesystem,
                 test = listOf("com/petstore/1.yaml"),
                 stub = listOf(
-                    Consumes.StringValue("com/petstore/payment.yaml"),
-                    Consumes.StringValue("com/petstore/order.yaml")
+                    SpecsWithPort.StringValue("com/petstore/payment.yaml"),
+                    SpecsWithPort.StringValue("com/petstore/order.yaml")
                 ),
                 directory = "contracts"
             )
@@ -120,14 +120,14 @@ internal class SpecmaticConfigAllTest {
                 repository = "https://contracts",
                 branch = "1.0.1",
                 test = listOf("com/petstore/1.yaml"),
-                stub = listOf(Consumes.StringValue("com/petstore/payment.yaml"))
+                stub = listOf(SpecsWithPort.StringValue("com/petstore/payment.yaml"))
             ),
             Source(
                 provider = filesystem,
                 test = listOf("com/petstore/1.yaml"),
                 stub = listOf(
-                    Consumes.StringValue("com/petstore/payment.yaml"),
-                    Consumes.ObjectValue.FullUrl(
+                    SpecsWithPort.StringValue("com/petstore/payment.yaml"),
+                    SpecsWithPort.ObjectValue.FullUrl(
                         specs = listOf("com/petstore/order1.yaml", "com/petstore/order2.yaml"),
                         baseUrl = "http://localhost:9001"
                     )
@@ -164,16 +164,16 @@ internal class SpecmaticConfigAllTest {
         val gitContractSource = contracts[0].contractSource as GitContractSource
         assertThat(gitContractSource.url).isEqualTo("https://contracts")
         assertThat(gitContractSource.branch).isEqualTo("1.0.1")
-        assertThat(contracts[0].provides).containsOnly("com/petstore/1.yaml")
-        assertThat(contracts[0].consumes).containsOnly(Consumes.StringValue("com/petstore/payment.yaml"))
+        assertThat(contracts[0].provides).containsOnly(SpecsWithPort.StringValue("com/petstore/1.yaml"))
+        assertThat(contracts[0].consumes).containsOnly(SpecsWithPort.StringValue("com/petstore/payment.yaml"))
 
         assertThat(contracts[1].contractSource).isInstanceOf(FileSystemContractSource::class.java)
         val fileSystemContractSource = contracts[1].contractSource as FileSystemContractSource
         assertThat(fileSystemContractSource.directory).isEqualTo("contracts")
-        assertThat(contracts[1].provides).containsOnly("com/petstore/1.yaml")
+        assertThat(contracts[1].provides).containsOnly(SpecsWithPort.StringValue("com/petstore/1.yaml"))
         assertThat(contracts[1].consumes).containsOnly(
-            Consumes.StringValue("com/petstore/payment.yaml"),
-            Consumes.StringValue("com/petstore/order.yaml")
+            SpecsWithPort.StringValue("com/petstore/payment.yaml"),
+            SpecsWithPort.StringValue("com/petstore/order.yaml")
         )
     }
 
@@ -200,15 +200,15 @@ internal class SpecmaticConfigAllTest {
         val contracts = listOf(
             ContractConfig(
                 contractSource = GitContractSource(url = "https://contracts", branch = "1.0.1"),
-                provides = listOf("com/petstore/1.yaml"),
-                consumes = listOf(Consumes.StringValue("com/petstore/payment.yaml"))
+                provides = listOf(SpecsWithPort.StringValue("com/petstore/1.yaml")),
+                consumes = listOf(SpecsWithPort.StringValue("com/petstore/payment.yaml"))
             ),
             ContractConfig(
                 contractSource = FileSystemContractSource(directory = "contracts"),
-                provides = listOf("com/petstore/1.yaml"),
+                provides = listOf(SpecsWithPort.StringValue("com/petstore/1.yaml")),
                 consumes = listOf(
-                    Consumes.StringValue("com/petstore/payment.yaml"),
-                    Consumes.StringValue("com/petstore/order.yaml")
+                    SpecsWithPort.StringValue("com/petstore/payment.yaml"),
+                    SpecsWithPort.StringValue("com/petstore/order.yaml")
                 )
             )
         )
@@ -236,16 +236,16 @@ internal class SpecmaticConfigAllTest {
         val gitContractSource = contracts[0].contractSource as GitContractSource
         assertThat(gitContractSource.url).isEqualTo("https://contracts")
         assertThat(gitContractSource.branch).isEqualTo("1.0.1")
-        assertThat(contracts[0].provides).containsOnly("com/petstore/1.yaml")
-        assertThat(contracts[0].consumes).containsOnly(Consumes.StringValue("com/petstore/payment.yaml"))
+        assertThat(contracts[0].provides).containsOnly(SpecsWithPort.StringValue("com/petstore/1.yaml"))
+        assertThat(contracts[0].consumes).containsOnly(SpecsWithPort.StringValue("com/petstore/payment.yaml"))
 
         assertThat(contracts[1].contractSource).isInstanceOf(FileSystemContractSource::class.java)
         val fileSystemContractSource = contracts[1].contractSource as FileSystemContractSource
         assertThat(fileSystemContractSource.directory).isEqualTo("contracts")
-        assertThat(contracts[1].provides).containsOnly("com/petstore/1.yaml")
+        assertThat(contracts[1].provides).containsOnly(SpecsWithPort.StringValue("com/petstore/1.yaml"))
         assertThat(contracts[1].consumes).containsOnly(
-            Consumes.StringValue("com/petstore/payment.yaml"),
-            Consumes.ObjectValue.FullUrl(
+            SpecsWithPort.StringValue("com/petstore/payment.yaml"),
+            SpecsWithPort.ObjectValue.FullUrl(
                 specs = listOf("com/petstore/order1.yaml", "com/petstore/order2.yaml"),
                 baseUrl = "http://localhost:9001"
             )
@@ -281,17 +281,17 @@ internal class SpecmaticConfigAllTest {
         val contracts = listOf(
             ContractConfig(
                 contractSource = GitContractSource(url = "https://contracts", branch = "1.0.1"),
-                provides = listOf("com/petstore/1.yaml"),
+                provides = listOf(SpecsWithPort.StringValue("com/petstore/1.yaml")),
                 consumes = listOf(
-                    Consumes.StringValue("com/petstore/payment.yaml")
+                    SpecsWithPort.StringValue("com/petstore/payment.yaml")
                 )
             ),
             ContractConfig(
                 contractSource = FileSystemContractSource(directory = "contracts"),
-                provides = listOf("com/petstore/1.yaml"),
+                provides = listOf(SpecsWithPort.StringValue("com/petstore/1.yaml")),
                 consumes = listOf(
-                    Consumes.StringValue("com/petstore/payment.yaml"),
-                    Consumes.ObjectValue.FullUrl(
+                    SpecsWithPort.StringValue("com/petstore/payment.yaml"),
+                    SpecsWithPort.ObjectValue.FullUrl(
                         specs = listOf("com/petstore/order.yaml"),
                         baseUrl = "http://localhost:9001"
                     )
@@ -321,8 +321,8 @@ internal class SpecmaticConfigAllTest {
 
         assertThat(contractConfig.contractSource).isInstanceOf(GitContractSource::class.java)
         assertThat((contractConfig.contractSource as GitContractSource).url).isEqualTo("https://contracts")
-        assertThat(contractConfig.provides).containsOnly("com/petstore/1.yaml")
-        assertThat(contractConfig.consumes).containsOnly(Consumes.StringValue("com/petstore/payment.yaml"))
+        assertThat(contractConfig.provides).containsOnly(SpecsWithPort.StringValue("com/petstore/1.yaml"))
+        assertThat(contractConfig.consumes).containsOnly(SpecsWithPort.StringValue("com/petstore/payment.yaml"))
     }
 
     @Test
@@ -343,12 +343,12 @@ internal class SpecmaticConfigAllTest {
 
         assertThat(contractConfig.contractSource).isInstanceOf(GitContractSource::class.java)
         assertThat((contractConfig.contractSource as GitContractSource).url).isEqualTo("https://contracts")
-        assertThat(contractConfig.provides).containsOnly("com/petstore/1.yaml")
-        assertThat((contractConfig.consumes?.get(0) as Consumes.StringValue).value)
+        assertThat(contractConfig.provides).containsOnly(SpecsWithPort.StringValue("com/petstore/1.yaml"))
+        assertThat((contractConfig.consumes?.get(0) as SpecsWithPort.StringValue).value)
             .isEqualTo("com/petstore/payment.yaml")
-        val consumesObjectValue = contractConfig.consumes?.get(1) as Consumes.ObjectValue
-        assertThat(consumesObjectValue.toBaseUrl()).isEqualTo("http://localhost:9001")
-        assertThat(consumesObjectValue.specs).containsOnly("com/petstore/order.yaml")
+        val specsWithPortObjectValue = contractConfig.consumes?.get(1) as SpecsWithPort.ObjectValue
+        assertThat(specsWithPortObjectValue.toBaseUrl()).isEqualTo("http://localhost:9001")
+        assertThat(specsWithPortObjectValue.specs).containsOnly("com/petstore/order.yaml")
     }
 
     @Test
@@ -365,7 +365,7 @@ internal class SpecmaticConfigAllTest {
         assertThat(contractConfig.contractSource).isInstanceOf(GitContractSource::class.java)
         assertThat((contractConfig.contractSource as GitContractSource).url).isEqualTo("https://contracts")
         assertThat(contractConfig.provides).isNull()
-        assertThat(contractConfig.consumes).containsOnly(Consumes.StringValue("com/petstore/payment.yaml"))
+        assertThat(contractConfig.consumes).containsOnly(SpecsWithPort.StringValue("com/petstore/payment.yaml"))
     }
 
     @Test
@@ -385,11 +385,11 @@ internal class SpecmaticConfigAllTest {
         assertThat(contractConfig.contractSource).isInstanceOf(GitContractSource::class.java)
         assertThat((contractConfig.contractSource as GitContractSource).url).isEqualTo("https://contracts")
         assertThat(contractConfig.provides).isNull()
-        assertThat((contractConfig.consumes?.get(0) as Consumes.StringValue).value)
+        assertThat((contractConfig.consumes?.get(0) as SpecsWithPort.StringValue).value)
             .isEqualTo("com/petstore/payment.yaml")
-        val consumesObjectValue = contractConfig.consumes?.get(1) as Consumes.ObjectValue
-        assertThat(consumesObjectValue.toBaseUrl()).isEqualTo("http://localhost:9001")
-        assertThat(consumesObjectValue.specs).containsOnly("com/petstore/order.yaml")
+        val specsWithPortObjectValue = contractConfig.consumes?.get(1) as SpecsWithPort.ObjectValue
+        assertThat(specsWithPortObjectValue.toBaseUrl()).isEqualTo("http://localhost:9001")
+        assertThat(specsWithPortObjectValue.specs).containsOnly("com/petstore/order.yaml")
     }
 
     @Test
@@ -405,7 +405,7 @@ internal class SpecmaticConfigAllTest {
 
         assertThat(contractConfig.contractSource).isInstanceOf(GitContractSource::class.java)
         assertThat((contractConfig.contractSource as GitContractSource).url).isEqualTo("https://contracts")
-        assertThat(contractConfig.provides).containsOnly("com/petstore/1.yaml")
+        assertThat(contractConfig.provides).containsOnly(SpecsWithPort.StringValue("com/petstore/1.yaml"))
         assertThat(contractConfig.consumes).isNull()
     }
 
@@ -422,7 +422,7 @@ internal class SpecmaticConfigAllTest {
 
         assertThat(contractConfig.contractSource).isInstanceOf(GitContractSource::class.java)
         assertThat((contractConfig.contractSource as GitContractSource).url).isEqualTo("https://contracts")
-        assertThat(contractConfig.provides).containsOnly("com/petstore/1.yaml")
+        assertThat(contractConfig.provides).containsOnly(SpecsWithPort.StringValue("com/petstore/1.yaml"))
         assertThat(contractConfig.consumes).isNull()
     }
 
