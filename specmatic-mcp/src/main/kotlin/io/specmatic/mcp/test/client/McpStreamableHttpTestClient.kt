@@ -43,7 +43,7 @@ class McpStreamableHttpTestClient(
     private suspend fun sendJsonRpcRequest(request: JsonRpcRequest): JsonRpcResponse {
         logWithTag("Sending request: ${objectMapper.writeValueAsString(request)}")
 
-        val httpResponse = client.post("$baseUrl/mcp") {
+        val httpResponse = client.post(baseUrl) {
             contentType(ContentType.Application.Json)
             headers {
                 append(HttpHeaders.Accept, "application/json, text/event-stream")
