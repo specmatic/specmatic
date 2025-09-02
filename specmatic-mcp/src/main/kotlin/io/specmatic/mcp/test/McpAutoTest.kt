@@ -49,7 +49,7 @@ class McpAutoTest(
         }
         logWithTag("Fetching tools to load scenarios..")
         val tools = client.tools()
-        logWithTag("Tools fetched successfully. Found ${tools.size} tools. Loading scenarios..")
+        logWithTag("Tools fetched successfully. Found ${tools.size} tools. Loading and executing scenarios..")
 
         return tools.filter { tool ->
             tool.name in filterTools || filterTools.isEmpty()

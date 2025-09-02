@@ -63,6 +63,17 @@ data class McpScenario(
             arguments = arguments,
         )
 
+        if (response.error != null && response.error.isInternalErrorStatusCode()) {
+            return ScenarioExecutionResult(
+                name = name,
+                toolName = toolName,
+                isNegative = isNegative,
+                request = arguments,
+                response = response,
+                result = Result.Failure("Tool invocation failed with an internal server error: ${response.error.message}"),
+            )
+        }
+
         val result = when {
             isNegative -> executionResultForNegativeScenario(response)
             else -> executionResultForPositiveScenario(response)
@@ -87,7 +98,9 @@ data class McpScenario(
 
     private fun executionResultForPositiveScenario(response: JsonRpcResponse): Result {
         if (response.error != null) {
-            return Result.Failure(response.error.message)
+            if (response.error.isInvalidParamsStatusCode()) return Result.Failure(response.error.message)
+            logWithTag("JSON RPC error received, but the passed arguments are accepted since the status code is not -32602; hence, the test has passed.")
+            return Result.Success()
         }
         val toolResponse = try {
             ObjectMapper().treeToValue(response.result, ToolResponse::class.java)
@@ -95,7 +108,9 @@ data class McpScenario(
             return Result.Failure(e.message ?: "Unable to fetch a valid response from the tool")
         }
 
-        if (toolResponse.isError) return Result.Failure(toolResponse.content.toString())
+        if (toolResponse.isError) {
+            return Result.Failure(toolResponse.content.toString())
+        }
         if (outputPattern == null) return Result.Success()
 
         return outputPattern.matches(

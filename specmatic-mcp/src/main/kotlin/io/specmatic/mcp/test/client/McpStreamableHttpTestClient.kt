@@ -21,6 +21,7 @@ import kotlinx.coroutines.withTimeout
 import java.util.concurrent.atomic.AtomicLong
 import com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES
 import io.specmatic.core.log.logger
+import io.specmatic.mcp.test.client.model.JsonRpcError
 import io.specmatic.mcp.test.logWithTag
 
 class McpStreamableHttpTestClient(
@@ -55,6 +56,14 @@ class McpStreamableHttpTestClient(
         }
 
         logWithTag("HTTP Response Status: ${httpResponse.status}")
+
+        if (httpResponse.status == HttpStatusCode.InternalServerError) {
+            return JsonRpcResponse(
+                "2.0",
+                null,
+                error = JsonRpcError(HttpStatusCode.InternalServerError.value, "Internal Server Error")
+            )
+        }
 
         if (sessionId == null) {
             sessionId = httpResponse.headers["mcp-session-id"]
