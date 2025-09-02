@@ -27,8 +27,9 @@ class McpTestCommand : Callable<Unit> {
     @Option(
         names = ["--transport-kind"],
         description = ["Kind of transport mechanism being used by the mcp server. Valid values: \${COMPLETION-CANDIDATES}"],
+        required = false
     )
-    lateinit var transportKind: McpTransport
+    var transportKind: McpTransport = McpTransport.STREAMABLE_HTTP
 
     @Option(
         names = ["--enable-resiliency-tests"],
