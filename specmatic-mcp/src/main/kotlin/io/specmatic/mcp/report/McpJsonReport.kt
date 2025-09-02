@@ -9,7 +9,7 @@ private const val JSON_REPORT_PATH = "./build/reports/specmatic"
 private const val JSON_REPORT_FILE_NAME = "test_report.json"
 
 class McpJsonReport(
-    private val executionResults: Sequence<ScenarioExecutionResult>,
+    private val executionResults: List<ScenarioExecutionResult>,
     private val reportBaseDirectory: String = ".",
 ) {
     fun generate() {

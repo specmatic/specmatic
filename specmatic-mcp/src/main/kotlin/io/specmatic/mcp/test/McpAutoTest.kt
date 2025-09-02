@@ -39,7 +39,7 @@ class McpAutoTest(
             }
 
         McpConsoleReport(executionResults.asSequence()).generate()
-        McpJsonReport(executionResults.asSequence()).generate()
+        McpJsonReport(executionResults).generate()
     }
 
     private suspend fun loadScenarios(): Flow<McpScenario> {
