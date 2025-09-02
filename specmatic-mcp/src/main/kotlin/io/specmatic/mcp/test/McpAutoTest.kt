@@ -19,7 +19,8 @@ class McpAutoTest(
     private val transport: McpTransport,
     private val enableResiliency: Boolean = false,
     private val dictionaryFile: File? = null,
-    private val bearerToken: String? = null
+    private val bearerToken: String? = null,
+    private val filterTools: Set<String> = emptySet()
 ) {
     val client = McpTestClient.from(baseUrl, transport, bearerToken)
 
@@ -50,7 +51,9 @@ class McpAutoTest(
         val tools = client.tools()
         logWithTag("Tools fetched successfully. Found ${tools.size} tools. Loading scenarios..")
 
-        return tools.asFlow()
+        return tools.filter { tool ->
+            tool.name in filterTools || filterTools.isEmpty()
+        }.asFlow()
             .flatMapConcat { tool ->
                 McpScenario.from(tool, client, enableResiliency, dictionary).asFlow()
             }
