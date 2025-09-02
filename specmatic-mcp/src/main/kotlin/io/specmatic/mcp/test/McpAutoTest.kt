@@ -57,9 +57,6 @@ class McpAutoTest(
             .flatMapConcat { tool ->
                 McpScenario.from(tool, client, enableResiliency, dictionary).asFlow()
             }
-            .onCompletion {
-                logWithTag("Scenarios loaded successfully. Executing tests..")
-            }
     }
 
     private suspend fun executeScenario(scenario: McpScenario, index: Int): ScenarioExecutionResult {
