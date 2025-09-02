@@ -38,7 +38,7 @@ class WebSource(override val testContracts: List<ContractSourceEntry>, override 
         configFilePath: String
     ): List<ContractPathData> {
         val resolvedPath = File(workingDirectory).resolve("web")
-        return selector.select(this).map { (url, baseUrl) ->
+        return selector.select(this).map { (url, baseUrl, generative) ->
             val path = toSpecificationPath(URL(url))
 
             val initialDownloadPath = resolvedPath.resolve(path).canonicalFile
@@ -51,7 +51,8 @@ class WebSource(override val testContracts: List<ContractSourceEntry>, override 
                 actualDownloadPath.path,
                 provider = type,
                 specificationPath = initialDownloadPath.canonicalPath,
-                baseUrl = baseUrl
+                baseUrl = baseUrl,
+                generative = generative
             )
         }
     }

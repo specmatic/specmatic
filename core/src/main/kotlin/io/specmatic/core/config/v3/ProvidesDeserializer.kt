@@ -7,9 +7,9 @@ import com.fasterxml.jackson.databind.JsonDeserializer
 /**
  * Delegates provides deserialization to ConsumesDeserializer while disallowing basePath.
  */
-class ProvidesDeserializer : JsonDeserializer<List<SpecsWithPort>>() {
-    private val delegate = ConsumesDeserializer(allowBasePath = false)
+class ProvidesDeserializer : JsonDeserializer<List<SpecExecutionConfig>>() {
+    private val delegate = ConsumesDeserializer(consumes = false)
 
-    override fun deserialize(p: JsonParser, ctxt: DeserializationContext): List<SpecsWithPort> =
+    override fun deserialize(p: JsonParser, ctxt: DeserializationContext): List<SpecExecutionConfig> =
         delegate.deserialize(p, ctxt)
 }

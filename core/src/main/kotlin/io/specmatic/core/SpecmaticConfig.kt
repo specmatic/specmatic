@@ -24,7 +24,7 @@ import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.SpecmaticConfigVersion.VERSION_1
 import io.specmatic.core.config.Switch
 import io.specmatic.core.config.toSpecmaticConfig
-import io.specmatic.core.config.v3.SpecsWithPort
+import io.specmatic.core.config.v3.SpecExecutionConfig
 import io.specmatic.core.config.v3.ConsumesDeserializer
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
@@ -328,8 +328,8 @@ data class SpecmaticConfig(
         return sources.flatMap {
             it.stub.orEmpty().map { consumes ->
                 when(consumes) {
-                    is SpecsWithPort.StringValue -> defaultBaseUrl
-                    is SpecsWithPort.ObjectValue -> consumes.toBaseUrl(defaultBaseUrl)
+                    is SpecExecutionConfig.StringValue -> defaultBaseUrl
+                    is SpecExecutionConfig.ObjectValue -> consumes.toBaseUrl(defaultBaseUrl)
                 }
             }
         }.distinct()
@@ -340,8 +340,8 @@ data class SpecmaticConfig(
         return sources.flatMap { source ->
             source.stub.orEmpty().flatMap { consumes ->
                 when (consumes) {
-                    is SpecsWithPort.StringValue -> listOf(consumes.value to defaultBaseUrl)
-                    is SpecsWithPort.ObjectValue -> consumes.specs.map { it to consumes.toBaseUrl(defaultBaseUrl) }
+                    is SpecExecutionConfig.StringValue -> listOf(consumes.value to defaultBaseUrl)
+                    is SpecExecutionConfig.ObjectValue -> consumes.specs.map { it to consumes.toBaseUrl(defaultBaseUrl) }
                 }
             }
         }
@@ -389,7 +389,9 @@ data class SpecmaticConfig(
     fun loadSources(): List<ContractSource> {
         return sources.map { source ->
             val stubPaths = source.specToStubBaseUrlMap().entries.map { ContractSourceEntry(it.key, it.value) }
-            val testPaths = source.specToTestBaseUrlMap().entries.map { ContractSourceEntry(it.key, it.value) }
+            val testBaseUrlMap = source.specToTestBaseUrlMap()
+            val testGenerativeMap = source.specToTestGenerativeMap()
+            val testPaths = testBaseUrlMap.entries.map { ContractSourceEntry(it.key, it.value, testGenerativeMap[it.key]) }
 
             when (source.provider) {
                 git -> when (source.repository) {
@@ -569,8 +571,8 @@ data class SpecmaticConfig(
         return sources.flatMap { source ->
             source.stub.orEmpty().flatMap { stub ->
                 when (stub) {
-                    is SpecsWithPort.StringValue -> listOf(stub.value)
-                    is SpecsWithPort.ObjectValue -> stub.specs
+                    is SpecExecutionConfig.StringValue -> listOf(stub.value)
+                    is SpecExecutionConfig.ObjectValue -> stub.specs
                 }
             }.map { spec ->
                 if (source.provider == web) spec
@@ -695,20 +697,20 @@ data class Source(
     val test: List<String>? = null,
     @field:JsonAlias("consumes")
     @JsonDeserialize(using = ConsumesDeserializer::class)
-    val stub: List<SpecsWithPort>? = null,
+    val stub: List<SpecExecutionConfig>? = null,
     val directory: String? = null,
-    @JsonIgnore val testConsumes: List<SpecsWithPort>? = null,
+    @JsonIgnore val testConsumes: List<SpecExecutionConfig>? = null,
 ) {
     constructor(test: List<String>? = null, stub: List<String>? = null) : this(
         test = test,
-        stub = stub?.map { SpecsWithPort.StringValue(it) }
+        stub = stub?.map { SpecExecutionConfig.StringValue(it) }
     )
 
     fun specsUsedAsStub(): List<String> {
         return stub.orEmpty().flatMap {
             when (it) {
-                is SpecsWithPort.StringValue -> listOf(it.value)
-                is SpecsWithPort.ObjectValue -> it.specs
+                is SpecExecutionConfig.StringValue -> listOf(it.value)
+                is SpecExecutionConfig.ObjectValue -> it.specs
             }
         }
     }
@@ -716,8 +718,8 @@ data class Source(
     fun specsUsedAsTest(): List<String> {
         return testConsumes?.flatMap {
             when (it) {
-                is SpecsWithPort.StringValue -> listOf(it.value)
-                is SpecsWithPort.ObjectValue -> it.specs
+                is SpecExecutionConfig.StringValue -> listOf(it.value)
+                is SpecExecutionConfig.ObjectValue -> it.specs
             }
         } ?: test.orEmpty()
     }
@@ -725,8 +727,8 @@ data class Source(
     fun specToStubBaseUrlMap(defaultBaseUrl: String? = null): Map<String, String?> {
         return stub.orEmpty().flatMap {
             when (it) {
-                is SpecsWithPort.StringValue -> listOf(it.value to null)
-                is SpecsWithPort.ObjectValue -> it.specs.map { specPath ->
+                is SpecExecutionConfig.StringValue -> listOf(it.value to null)
+                is SpecExecutionConfig.ObjectValue -> it.specs.map { specPath ->
                     specPath to it.toBaseUrl(defaultBaseUrl)
                 }
             }
@@ -736,12 +738,23 @@ data class Source(
     fun specToTestBaseUrlMap(defaultBaseUrl: String? = null): Map<String, String?> {
         return testConsumes?.flatMap {
             when (it) {
-                is SpecsWithPort.StringValue -> listOf(it.value to null)
-                is SpecsWithPort.ObjectValue -> it.specs.map { specPath ->
+                is SpecExecutionConfig.StringValue -> listOf(it.value to null)
+                is SpecExecutionConfig.ObjectValue -> it.specs.map { specPath ->
                     specPath to it.toBaseUrl(defaultBaseUrl)
                 }
             }
         }?.toMap() ?: test.orEmpty().associateWith { null }
+    }
+
+    fun specToTestGenerativeMap(): Map<String, io.specmatic.core.config.v3.Generative?> {
+        return testConsumes?.flatMap {
+            when (it) {
+                is SpecExecutionConfig.StringValue -> listOf(it.value to null)
+                is SpecExecutionConfig.ObjectValue -> it.specs.map { specPath ->
+                    specPath to it.generative
+                }
+            }
+        }?.toMap() ?: emptyMap()
     }
 }
 

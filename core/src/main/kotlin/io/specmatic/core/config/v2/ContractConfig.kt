@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import io.specmatic.core.Source
 import io.specmatic.core.SourceProvider
-import io.specmatic.core.config.v3.SpecsWithPort
+import io.specmatic.core.config.v3.SpecExecutionConfig
 import io.specmatic.core.config.v3.ConsumesDeserializer
 import io.specmatic.core.config.v3.ProvidesDeserializer
 
@@ -13,15 +13,15 @@ data class ContractConfig(
     @JsonIgnore
     val contractSource: ContractSource? = null,
     @JsonDeserialize(using = ProvidesDeserializer::class)
-    val provides: List<SpecsWithPort>? = null,
-    val consumes: List<SpecsWithPort>? = null
+    val provides: List<SpecExecutionConfig>? = null,
+    val consumes: List<SpecExecutionConfig>? = null
 ) {
     @Suppress("unused")
     constructor(
         @JsonProperty("git") git: GitContractSource? = null,
         @JsonProperty("filesystem") filesystem: FileSystemContractSource? = null,
-        @JsonDeserialize(using = ProvidesDeserializer::class) @JsonProperty("provides") provides: List<SpecsWithPort>? = null,
-        @JsonDeserialize(using = ConsumesDeserializer::class) @JsonProperty("consumes") consumes: List<SpecsWithPort>? = null
+        @JsonDeserialize(using = ProvidesDeserializer::class) @JsonProperty("provides") provides: List<SpecExecutionConfig>? = null,
+        @JsonDeserialize(using = ConsumesDeserializer::class) @JsonProperty("consumes") consumes: List<SpecExecutionConfig>? = null
     ) : this(
         contractSource = git ?: filesystem,
         provides = provides,
@@ -34,7 +34,7 @@ data class ContractConfig(
             source.directory != null -> FileSystemContractSource(source)
             else -> null
         },
-        provides = source.testConsumes ?: source.test?.map { SpecsWithPort.StringValue(it) },
+        provides = source.testConsumes ?: source.test?.map { SpecExecutionConfig.StringValue(it) },
         consumes = source.stub
     )
 
@@ -53,20 +53,20 @@ data class ContractConfig(
     fun transform(): Source {
         val testSpecs: List<String>? = provides?.flatMap { consume ->
             when (consume) {
-                is SpecsWithPort.StringValue -> listOf(consume.value)
-                is SpecsWithPort.ObjectValue -> consume.specs
+                is SpecExecutionConfig.StringValue -> listOf(consume.value)
+                is SpecExecutionConfig.ObjectValue -> consume.specs
             }
         }
-        val testSpecsWithPortOrNull = when {
-            provides?.any { it is SpecsWithPort.ObjectValue } == true -> provides
+        val testSpecExecutionConfigOrNull = when {
+            provides?.any { it is SpecExecutionConfig.ObjectValue } == true -> provides
             else -> null
         }
         return this.contractSource?.transform(provides, consumes)
-            ?: Source(test = testSpecs, stub = consumes, testConsumes = testSpecsWithPortOrNull)
+            ?: Source(test = testSpecs, stub = consumes, testConsumes = testSpecExecutionConfigOrNull)
     }
 
     fun interface ContractSource {
-        fun transform(provides: List<SpecsWithPort>?, consumes: List<SpecsWithPort>?): Source
+        fun transform(provides: List<SpecExecutionConfig>?, consumes: List<SpecExecutionConfig>?): Source
     }
 
     data class GitContractSource(
@@ -75,10 +75,10 @@ data class ContractConfig(
     ) : ContractSource {
         constructor(source: Source) : this(source.repository, source.branch)
 
-        override fun transform(provides: List<SpecsWithPort>?, consumes: List<SpecsWithPort>?): Source {
-            val testSpecs = provides?.flatMap { p -> when(p) { is SpecsWithPort.StringValue -> listOf(p.value); is SpecsWithPort.ObjectValue -> p.specs } }
-            val testSpecsWithPortOrNull = when {
-                provides?.any { it is SpecsWithPort.ObjectValue } == true -> provides
+        override fun transform(provides: List<SpecExecutionConfig>?, consumes: List<SpecExecutionConfig>?): Source {
+            val testSpecs = provides?.flatMap { p -> when(p) { is SpecExecutionConfig.StringValue -> listOf(p.value); is SpecExecutionConfig.ObjectValue -> p.specs } }
+            val testSpecExecutionConfigOrNull = when {
+                provides?.any { it is SpecExecutionConfig.ObjectValue } == true -> provides
                 else -> null
             }
             return Source(
@@ -87,7 +87,7 @@ data class ContractConfig(
                 branch = this.branch,
                 test = testSpecs,
                 stub = consumes.orEmpty(),
-                testConsumes = testSpecsWithPortOrNull
+                testConsumes = testSpecExecutionConfigOrNull
             )
         }
     }
@@ -97,10 +97,10 @@ data class ContractConfig(
     ) : ContractSource {
         constructor(source: Source) : this(source.directory ?: ".")
 
-        override fun transform(provides: List<SpecsWithPort>?, consumes: List<SpecsWithPort>?): Source {
-            val testSpecs = provides?.flatMap { p -> when(p) { is SpecsWithPort.StringValue -> listOf(p.value); is SpecsWithPort.ObjectValue -> p.specs } }
-            val testSpecsWithPortOrNull = when {
-                provides?.any { it is SpecsWithPort.ObjectValue } == true -> provides
+        override fun transform(provides: List<SpecExecutionConfig>?, consumes: List<SpecExecutionConfig>?): Source {
+            val testSpecs = provides?.flatMap { p -> when(p) { is SpecExecutionConfig.StringValue -> listOf(p.value); is SpecExecutionConfig.ObjectValue -> p.specs } }
+            val testSpecExecutionConfigOrNull = when {
+                provides?.any { it is SpecExecutionConfig.ObjectValue } == true -> provides
                 else -> null
             }
             return Source(
@@ -108,7 +108,7 @@ data class ContractConfig(
                 directory = this.directory,
                 test = testSpecs,
                 stub = consumes.orEmpty(),
-                testConsumes = testSpecsWithPortOrNull
+                testConsumes = testSpecExecutionConfigOrNull
             )
         }
     }

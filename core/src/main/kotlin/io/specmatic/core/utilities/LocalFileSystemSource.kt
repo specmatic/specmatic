@@ -45,7 +45,8 @@ data class LocalFileSystemSource(
                 resolvedPath.path,
                 provider = type,
                 specificationPath = resolvedPath.canonicalPath,
-                baseUrl = it.baseUrl
+                baseUrl = it.baseUrl,
+                generative = it.generative
             )
         }
     }

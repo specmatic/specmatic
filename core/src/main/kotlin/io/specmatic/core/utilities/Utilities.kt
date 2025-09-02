@@ -12,6 +12,7 @@ import io.specmatic.core.KeyData
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.azure.AzureAuthCredentials
+import io.specmatic.core.config.v3.Generative
 import io.specmatic.core.git.GitCommand
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.loadSpecmaticConfig
@@ -295,7 +296,8 @@ data class ContractPathData(
     val repository: String? = null,
     val branch: String? = null,
     val specificationPath: String? = null,
-    val baseUrl: String? = null
+    val baseUrl: String? = null,
+    val generative: Generative? = null
 ) {
     companion object {
         fun List<ContractPathData>.specToBaseUrlMap(): Map<String, String?> {

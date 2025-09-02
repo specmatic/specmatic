@@ -41,7 +41,8 @@ data class GitMonoRepo(override val testContracts: List<ContractSourceEntry>, ov
                 configFileLocation.resolve(it.path).canonicalPath,
                 provider = type,
                 specificationPath = it.path,
-                baseUrl = it.baseUrl
+                baseUrl = it.baseUrl,
+                generative = it.generative
             )
         }
     }

@@ -4,6 +4,7 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.*
 import io.specmatic.core.SpecmaticConfig.Companion.getSecurityConfiguration
+import io.specmatic.core.config.v3.Generative
 import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.filters.ScenarioMetadataFilter.Companion.filterUsing
 import io.specmatic.core.log.LogMessage
@@ -301,6 +302,7 @@ open class SpecmaticJUnitSupport {
                             filterName,
                             filterNotName,
                             specmaticConfig = specmaticConfig,
+                            generative = contractPathData.generative,
                             overlayContent = overlayContent
                         )
 
@@ -500,6 +502,7 @@ open class SpecmaticJUnitSupport {
         filterName: String?,
         filterNotName: String?,
         specmaticConfig: SpecmaticConfig? = null,
+        generative: Generative? = null,
         overlayContent: String = ""
     ): Pair<Sequence<ContractTest>, List<Endpoint>> {
         if(hasOpenApiFileExtension(path) && !isOpenAPI(path))
@@ -509,19 +512,25 @@ open class SpecmaticJUnitSupport {
         val strictMode = (System.getProperty(STRICT_MODE) ?: System.getenv(STRICT_MODE)) == "true"
         val feature =
             parseContractFileToFeature(
-                contractFile.path,
-                CommandHook(HookName.test_load_contract),
-                sourceProvider,
-                sourceRepository,
-                sourceRepositoryBranch,
-                specificationPath,
-                securityConfiguration,
-                specmaticConfig = specmaticConfig ?: SpecmaticConfig(),
-                overlayContent = overlayContent,
-                strictMode = strictMode
-            ).copy(testVariables = config.variables, testBaseURLs = config.baseURLs).loadExternalisedExamples()
-
-        feature.validateExamplesOrException()
+            contractFile.path,
+            CommandHook(HookName.test_load_contract),
+            sourceProvider,
+            sourceRepository,
+            sourceRepositoryBranch,
+            specificationPath,
+            securityConfiguration,
+            specmaticConfig = specmaticConfig ?: SpecmaticConfig(),
+            overlayContent = overlayContent,
+            strictMode = strictMode
+        ).copy(testVariables = config.variables, testBaseURLs = config.baseURLs)
+            .also { it.loadExternalisedExamples() }
+            .let {
+                when (generative) {
+                    Generative.positiveOnly -> it.enableGenerativeTesting(onlyPositive = true)
+                    Generative.all -> it.enableGenerativeTesting(onlyPositive = false)
+                    else -> it
+                }
+            }
 
         val suggestions = when {
             suggestionsPath.isNotEmpty() -> suggestionsFromFile(suggestionsPath)

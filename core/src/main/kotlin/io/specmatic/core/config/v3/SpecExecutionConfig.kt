@@ -10,10 +10,17 @@ import io.specmatic.core.Configuration.Companion.DEFAULT_BASE_URL
 import io.specmatic.core.utilities.Flags
 import java.net.URI
 
-sealed class SpecsWithPort {
-    data class StringValue(@get:JsonValue val value: String) : SpecsWithPort()
-    sealed class ObjectValue : SpecsWithPort() {
+enum class Generative {
+    positiveOnly,
+    all,
+    none
+}
+
+sealed class SpecExecutionConfig {
+    data class StringValue(@get:JsonValue val value: String) : SpecExecutionConfig()
+    sealed class ObjectValue : SpecExecutionConfig() {
         abstract val specs: List<String>
+        abstract val generative: Generative?
         private val defaultBaseUrl: URI get() = URI(Flags.getStringValue(Flags.SPECMATIC_BASE_URL) ?: DEFAULT_BASE_URL)
 
         fun toBaseUrl(defaultBaseUrl: String? = null): String {
@@ -23,11 +30,21 @@ sealed class SpecsWithPort {
 
         abstract fun toUrl(default: URI): URI
 
-        data class FullUrl(val baseUrl: String, override val specs: List<String>) : ObjectValue() {
+        data class FullUrl(
+            val baseUrl: String,
+            override val specs: List<String>,
+            override val generative: Generative? = null
+        ) : ObjectValue() {
             override fun toUrl(default: URI) = URI(baseUrl)
         }
 
-        data class PartialUrl(val host: String? = null, val port: Int? = null, val basePath: String? = null, override val specs: List<String>) : ObjectValue() {
+        data class PartialUrl(
+            val host: String? = null,
+            val port: Int? = null,
+            val basePath: String? = null,
+            override val specs: List<String>,
+            override val generative: Generative? = null
+        ) : ObjectValue() {
             override fun toUrl(default: URI): URI {
                 return URI(
                     default.scheme,
@@ -43,34 +60,39 @@ sealed class SpecsWithPort {
     }
 }
 
-class ConsumesDeserializer(private val allowBasePath: Boolean = true) : JsonDeserializer<List<SpecsWithPort>>() {
-    override fun deserialize(p: JsonParser, ctxt: DeserializationContext): List<SpecsWithPort> {
+class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeserializer<List<SpecExecutionConfig>>() {
+    override fun deserialize(p: JsonParser, ctxt: DeserializationContext): List<SpecExecutionConfig> {
         return p.codec.readTree<JsonNode>(p).takeIf(JsonNode::isArray)?.map { element ->
             when {
-                element.isTextual -> SpecsWithPort.StringValue(element.asText())
+                element.isTextual -> SpecExecutionConfig.StringValue(element.asText())
                 element.isObject -> element.parseObjectValue(p)
                 else -> throw JsonMappingException(p, "Consumes entry must be string or object")
             }
         } ?: throw JsonMappingException(p, "Consumes should be an array")
     }
 
-    private fun JsonNode.parseObjectValue(p: JsonParser): SpecsWithPort.ObjectValue {
+    private fun JsonNode.parseObjectValue(p: JsonParser): SpecExecutionConfig.ObjectValue {
         val validatedJsonNode = this.getValidatedJsonNode(p)
         val specs = validatedJsonNode.get("specs").map(JsonNode::asText)
+        val generative = parseGenerativeIfApplicable(p)
 
         return when {
-            has("baseUrl") -> SpecsWithPort.ObjectValue.FullUrl(get("baseUrl").asText(), specs)
-            else -> SpecsWithPort.ObjectValue.PartialUrl(
+            has("baseUrl") -> SpecExecutionConfig.ObjectValue.FullUrl(get("baseUrl").asText(), specs, generative)
+            else -> SpecExecutionConfig.ObjectValue.PartialUrl(
                 host = get("host")?.asText(),
                 port = get("port")?.asInt(),
                 basePath = get("basePath")?.asText(),
-                specs = specs
+                specs = specs,
+                generative = generative
             )
         }
     }
 
     private fun JsonNode.getValidatedJsonNode(p: JsonParser): JsonNode {
-        val allowedFields = setOf("baseUrl", "host", "port", "basePath", "specs")
+        val allowedFields = buildSet {
+            addAll(listOf("baseUrl", "host", "port", "basePath", "specs"))
+            if (!consumes) add("generative")
+        }
         val unknownFields = fieldNames().asSequence().filterNot(allowedFields::contains).toSet()
         if (unknownFields.isNotEmpty()) {
             throw JsonMappingException(p,
@@ -78,7 +100,7 @@ class ConsumesDeserializer(private val allowBasePath: Boolean = true) : JsonDese
             )
         }
 
-        if (!allowBasePath && has("basePath")) {
+        if (!consumes && has("basePath")) {
             // In provides, basePath is not permitted
             throw JsonMappingException(p, "Field 'basePath' is not supported in provides")
         }
@@ -93,7 +115,7 @@ class ConsumesDeserializer(private val allowBasePath: Boolean = true) : JsonDese
 
         val hasBaseUrl = has("baseUrl")
 
-        if (allowBasePath) {
+        if (consumes) {
             val partialFields = listOf("host", "port", "basePath").filter(::has)
             val hasPartialFields = partialFields.isNotEmpty()
             when {
@@ -109,5 +131,17 @@ class ConsumesDeserializer(private val allowBasePath: Boolean = true) : JsonDese
         }
 
         return this
+    }
+
+    private fun JsonNode.parseGenerativeIfApplicable(p: JsonParser): Generative? {
+        if (consumes) return null // consumes: generative not supported
+        val node = get("generative") ?: return null
+        if (!node.isTextual) throw JsonMappingException(p, "'generative' must be one of: positiveOnly, all, none")
+        return when (val value = node.asText()) {
+            "positiveOnly" -> Generative.positiveOnly
+            "all" -> Generative.all
+            "none" -> Generative.none
+            else -> throw JsonMappingException(p, "Unknown value '$value' for 'generative'. Allowed: positiveOnly, all, none")
+        }
     }
 }
