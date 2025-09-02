@@ -11,7 +11,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.withIndex
 
 class McpAutoTest(
@@ -20,7 +19,8 @@ class McpAutoTest(
     private val enableResiliency: Boolean = false,
     private val dictionaryFile: File? = null,
     private val bearerToken: String? = null,
-    private val filterTools: Set<String> = emptySet()
+    private val filterTools: Set<String> = emptySet(),
+    private val onlyNegativeTests: Boolean = false
 ) {
     val client = McpTestClient.from(baseUrl, transport, bearerToken)
 
@@ -55,7 +55,7 @@ class McpAutoTest(
             tool.name in filterTools || filterTools.isEmpty()
         }.asFlow()
             .flatMapConcat { tool ->
-                McpScenario.from(tool, client, enableResiliency, dictionary).asFlow()
+                McpScenario.from(tool, client, enableResiliency, dictionary, onlyNegativeTests).asFlow()
             }
     }
 

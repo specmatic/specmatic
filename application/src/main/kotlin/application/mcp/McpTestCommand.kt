@@ -38,6 +38,14 @@ class McpTestCommand : Callable<Unit> {
     )
     var enableResiliencyTests: Boolean? = false
 
+    @Option(
+        names = ["--only-negative-tests"],
+        description = ["Run only negative tests"],
+        required = false,
+        defaultValue = "false"
+    )
+    var onlyNegativeTests: Boolean? = false
+
 
     @Option(
         names = ["--dictionary-file"],
@@ -79,7 +87,8 @@ class McpTestCommand : Callable<Unit> {
                     enableResiliency = enableResiliencyTests == true,
                     dictionaryFile = dictionaryFile,
                     bearerToken = bearerToken,
-                    filterTools = filterTools.toSet()
+                    filterTools = filterTools.toSet(),
+                    onlyNegativeTests = onlyNegativeTests == true
                 ).run()
             }
         } catch (e: Throwable) {

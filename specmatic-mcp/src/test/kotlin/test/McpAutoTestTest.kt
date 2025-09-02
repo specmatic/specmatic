@@ -15,7 +15,8 @@ class McpAutoTestTest {
             transport = McpTransport.STREAMABLE_HTTP,
             enableResiliency = true,
             dictionaryFile = File("src/test/resources/hugging_face_dicts/simple_dict.json"),
-            filterTools = setOf("dataset_details")
+            filterTools = setOf("dataset_details"),
+            onlyNegativeTests = enableNegativeTests
         )
         runBlocking {
             autoTest.run()

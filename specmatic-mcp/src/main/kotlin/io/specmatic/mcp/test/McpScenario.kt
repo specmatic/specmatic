@@ -158,7 +158,8 @@ data class McpScenario(
             tool: Tool,
             mcpTestClient: McpTestClient,
             enableResiliency: Boolean,
-            dictionary: Dictionary = Dictionary.empty()
+            dictionary: Dictionary = Dictionary.empty(),
+            onlyNegativeTests: Boolean
         ): Sequence<McpScenario> {
             val inputPatternMap = JsonSchemaToPattern(tool.inputSchema).pattern()
             val outputPatternMap = tool.outputSchema?.let {
@@ -176,8 +177,9 @@ data class McpScenario(
             )
 
             return when {
-                enableResiliency.not() -> sequenceOf(scenario)
-                else -> scenario.newBasedOn() + scenario.negativeBasedOn()
+                enableResiliency -> scenario.newBasedOn() + scenario.negativeBasedOn()
+                onlyNegativeTests -> scenario.negativeBasedOn()
+                else -> sequenceOf(scenario)
             }
         }
     }
