@@ -33,6 +33,7 @@ dependencies {
 
     implementation(project(":specmatic-core"))
     implementation(project(":junit5-support"))
+    implementation(project(":specmatic-mcp"))
 
     implementation("io.ktor:ktor-client-cio:2.3.13")
     implementation("io.swagger.parser.v3:swagger-parser:2.1.31") {

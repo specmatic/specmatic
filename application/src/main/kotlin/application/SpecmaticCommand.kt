@@ -1,6 +1,7 @@
 package application
 
 import application.backwardCompatibility.BackwardCompatibilityCheckCommandV2
+import application.mcp.McpBaseCommand
 import picocli.AutoComplete.GenerateCompletion
 import picocli.CommandLine
 import picocli.CommandLine.Command
@@ -21,7 +22,8 @@ import java.util.concurrent.Callable
             StubCommand::class,
             TestCommand::class,
             CentralContractRepoReportCommand::class,
-            ConfigCommand::class
+            ConfigCommand::class,
+            McpBaseCommand::class
         ]
 )
 class SpecmaticCommand : Callable<Int> {
