@@ -127,13 +127,11 @@ data class McpScenario(
                 append("Tool '$toolName'")
                 if (details.isNotBlank()) append("| Mutation: [$details]")
             }
-            return McpScenario(
+            return this.copy(
                 name = detailedName,
-                toolName = toolName,
-                inputPattern = inputPattern,
-                outputPattern = outputPattern,
-                mcpTestClient = mcpTestClient,
+                inputPattern = newInputPattern.value,
                 isNegative = isNegative,
+                resolver = if (isNegative) resolver.copy(dictionary = Dictionary.empty()) else resolver
             )
         } catch (_: Throwable) {
             return null
