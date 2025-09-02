@@ -20,7 +20,8 @@ class McpAutoTest(
     private val dictionaryFile: File? = null,
     private val bearerToken: String? = null,
     private val filterTools: Set<String> = emptySet(),
-    private val onlyNegativeTests: Boolean = false
+    private val onlyNegativeTests: Boolean = false,
+    private val skipTools: Set<String> = emptySet()
 ) {
     val client = McpTestClient.from(baseUrl, transport, bearerToken)
 
@@ -53,6 +54,8 @@ class McpAutoTest(
 
         return tools.filter { tool ->
             tool.name in filterTools || filterTools.isEmpty()
+        }.filter { tool ->
+            tool.name !in skipTools
         }.asFlow()
             .flatMapConcat { tool ->
                 McpScenario.from(tool, client, enableResiliency, dictionary, onlyNegativeTests).asFlow()

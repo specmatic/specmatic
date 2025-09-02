@@ -68,6 +68,13 @@ class McpTestCommand : Callable<Unit> {
     var filterTools: List<String> = emptyList()
 
     @Option(
+        names = ["--skip-tools"],
+        description = ["Skip the auto test for the specified tools; provide a comma-separated list or repeat the flag"],
+        split = ","
+    )
+    var skipTools: List<String> = emptyList()
+
+    @Option(
         names = ["--verbose", "-v"],
         description = ["Enable verbose logging"],
         defaultValue = "false"
@@ -88,7 +95,8 @@ class McpTestCommand : Callable<Unit> {
                     dictionaryFile = dictionaryFile,
                     bearerToken = bearerToken,
                     filterTools = filterTools.toSet(),
-                    onlyNegativeTests = onlyNegativeTests == true
+                    onlyNegativeTests = onlyNegativeTests == true,
+                    skipTools = skipTools.toSet()
                 ).run()
             }
         } catch (e: Throwable) {
