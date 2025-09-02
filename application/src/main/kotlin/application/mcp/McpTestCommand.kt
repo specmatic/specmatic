@@ -6,9 +6,6 @@ import io.specmatic.mcp.test.McpAutoTest
 import io.specmatic.mcp.test.McpTransport
 import java.io.File
 import java.util.concurrent.Callable
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import picocli.CommandLine.Command
 import picocli.CommandLine.Option
@@ -54,6 +51,14 @@ class McpTestCommand : Callable<Unit> {
     )
     var bearerToken: String? = null
 
+
+    @Option(
+        names = ["--filter-tools"],
+        description = ["Run the auto test for specified tools; provide a comma-separated list or repeat the flag"],
+        split = ","
+    )
+    var filterTools: List<String> = emptyList()
+
     @Option(
         names = ["--verbose", "-v"],
         description = ["Enable verbose logging"],
@@ -73,7 +78,8 @@ class McpTestCommand : Callable<Unit> {
                     transport = transportKind,
                     enableResiliency = enableResiliencyTests == true,
                     dictionaryFile = dictionaryFile,
-                    bearerToken = bearerToken
+                    bearerToken = bearerToken,
+                    filterTools = filterTools.toSet()
                 ).run()
             }
         } catch (e: Throwable) {
