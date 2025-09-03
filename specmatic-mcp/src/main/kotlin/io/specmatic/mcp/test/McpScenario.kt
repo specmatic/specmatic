@@ -90,10 +90,20 @@ data class McpScenario(
     }
 
     private fun executionResultForNegativeScenario(response: JsonRpcResponse): Result {
-        if (response.error != null && response.error.isInvalidParamsStatusCode())
-            return Result.Success()
+        if (response.error != null) {
+            if(response.error.isInvalidParamsStatusCode()) return Result.Success()
+            return Result.Failure("Expected an error with code -32602 but got ${response.error?.code ?: "no error"}")
+        }
 
-        return Result.Failure("Expected an error with code -32602 but got ${response.error?.code ?: "no error"}")
+        val toolResponse = try {
+            ObjectMapper().treeToValue(response.result, ToolResponse::class.java)
+        } catch (e: Throwable) {
+            return Result.Failure(e.message ?: "Unable to fetch a valid response from the tool")
+        }
+
+        if (toolResponse.isError) return Result.Success()
+
+        return Result.Failure("Expected an error response but got a successful response: ${toolResponse.content}")
     }
 
     private fun executionResultForPositiveScenario(response: JsonRpcResponse): Result {

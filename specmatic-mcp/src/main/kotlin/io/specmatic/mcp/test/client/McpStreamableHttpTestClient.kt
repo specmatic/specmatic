@@ -116,8 +116,9 @@ class McpStreamableHttpTestClient(
             method = "initialize",
             params = initParams
         )
-
-        return sendJsonRpcRequest(request)
+        return withTimeout(30000) {
+            sendJsonRpcRequest(request)
+        }
     }
 
     override suspend fun sendInitializedNotification() {
@@ -143,7 +144,7 @@ class McpStreamableHttpTestClient(
             method = "tools/list"
         )
 
-        val response = withTimeout(10000) {
+        val response = withTimeout(30000) {
             sendJsonRpcRequest(request)
         }
 
