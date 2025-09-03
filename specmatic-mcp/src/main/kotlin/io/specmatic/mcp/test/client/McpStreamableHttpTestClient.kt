@@ -135,10 +135,6 @@ class McpStreamableHttpTestClient(
     }
 
     override suspend fun tools(): List<Tool> {
-        if (sessionId == null) {
-            throw IllegalStateException("Must initialize connection before calling tools/list")
-        }
-
         val request = JsonRpcRequest(
             id = requestIdGenerator.getAndIncrement(),
             method = "tools/list"
@@ -158,10 +154,6 @@ class McpStreamableHttpTestClient(
     }
 
     override suspend fun toolCall(toolName: String, arguments: Map<String, Any?>): JsonRpcResponse {
-        if (sessionId == null) {
-            throw IllegalStateException("Must initialize connection before calling tools")
-        }
-
         val request = JsonRpcRequest(
             id = requestIdGenerator.getAndIncrement(),
             method = "tools/call",
