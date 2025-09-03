@@ -35,7 +35,7 @@ import io.specmatic.mock.ScenarioStub
 import org.yaml.snakeyaml.Yaml
 import java.io.File
 
-private const val HTTP_STUB_SHUTDOWN_TIMEOUT = 2000L
+const val HTTP_STUB_SHUTDOWN_TIMEOUT = 2000L
 private const val STUB_START_TIMEOUT = 20_000L
 private const val INDENT = "  "
 
@@ -127,7 +127,7 @@ internal fun createStub(
     return createStub(host, port, timeoutMillis, strict, null, dataDirPaths)
 }
 
-internal fun createStub(
+fun createStub(
     host: String = "localhost",
     port: Int = 9000,
     timeoutMillis: Long,
