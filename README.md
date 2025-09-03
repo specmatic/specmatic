@@ -15,8 +15,6 @@ Learn more at [specmatic.io](https://specmatic.io/#features) 🌐
 
 [Get started now](https://specmatic.io/getting_started.html) 🚀
 
-[![Specmatic - Contract Driven Development - YouTube playlist](https://img.youtube.com/vi/Bp0wEHffQmA/0.jpg)](https://www.youtube.com/watch?v=Bp0wEHffQmA&list=PL9Z-JgiTsOYRERcsy9o3y6nsi5yK3IB_w&index=1)
+[![Specmatic - Contract Driven Development - YouTube playlist](https://img.youtube.com/vi/K5BYxoONgXo/0.jpg)](https://www.youtube.com/watch?v=K5BYxoONgXo&list=PL9Z-JgiTsOYRERcsy9o3y6nsi5yK3IB_w)
 
-[YouTube playlist](https://www.youtube.com/watch?v=3HPgpvd8MGg&list=PL9Z-JgiTsOYRERcsy9o3y6nsi5yK3IB_w) 📺
-
-
+[YouTube playlist](https://www.youtube.com/watch?v=K5BYxoONgXo&list=PL9Z-JgiTsOYRERcsy9o3y6nsi5yK3IB_w) 📺
