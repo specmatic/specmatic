@@ -2,8 +2,8 @@ Specmatic
 =========
 [![Maven Central](https://img.shields.io/maven-central/v/io.specmatic/specmatic-core.svg)](https://mvnrepository.com/artifact/io.specmatic/specmatic-core) [![GitHub release](https://img.shields.io/github/v/release/specmatic/specmatic.svg)](https://github.com/specmatic/specmatic/releases) ![CI Build](https://github.com/specmatic/specmatic/workflows/CI%20Build/badge.svg) [![Twitter Follow](https://img.shields.io/twitter/follow/specmatic.svg?style=social&label=Follow)](https://twitter.com/specmatic) [![Docker Pulls](https://img.shields.io/docker/pulls/specmatic/specmatic.svg)](https://hub.docker.com/r/specmatic/specmatic)
 
-##### Transform your API Specifications into Executable Contracts with #NoCode in Seconds
-Experience the power of Contract-Driven Development to confidently develop and independently deploy your Microservices and Microfrontends faster.
+##### Ship AI-Ready APIs 10x Faster with Zero Integration Headaches
+Eliminate API integration headaches with Specmatic's no-code AI-powered API development suite. Teams ship APIs 10x faster by transforming specifications into executable contracts instantly—no coding required, no integration surprises.
 
 ### Context
 
