@@ -4,7 +4,7 @@ plugins {
 }
 
 dependencies {
-    implementation("io.specmatic:specmatic-core:2.19.1")
+    implementation(project(":specmatic-core"))
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
     implementation("io.ktor:ktor-client-core:3.2.3")
