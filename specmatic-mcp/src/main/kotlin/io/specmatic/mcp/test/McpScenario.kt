@@ -58,10 +58,21 @@ data class McpScenario(
             object : TypeReference<Map<String, Any>>() {},
         )
 
-        val response = mcpTestClient.toolCall(
-            toolName = toolName,
-            arguments = arguments,
-        )
+        val response = try {
+            mcpTestClient.toolCall(
+                toolName = toolName,
+                arguments = arguments,
+            )
+        } catch(e: Throwable) {
+            return ScenarioExecutionResult(
+                name = name,
+                toolName = toolName,
+                isNegative = isNegative,
+                request = arguments,
+                response = JsonRpcResponse("2.0", null),
+                result = Result.Failure("Tool invocation failed: ${e.message}"),
+            )
+        }
 
         if (response.error != null && response.error.isInternalErrorStatusCode()) {
             return ScenarioExecutionResult(
