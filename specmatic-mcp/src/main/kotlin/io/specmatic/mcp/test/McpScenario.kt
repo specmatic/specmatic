@@ -167,7 +167,7 @@ data class McpScenario(
                 name = detailedName,
                 inputPattern = newInputPattern.value,
                 isNegative = isNegative,
-                resolver = if (isNegative) resolver.copy(dictionary = Dictionary.empty()) else resolver
+                resolver = resolver.copy(isNegative = isNegative)
             )
         } catch (_: Throwable) {
             return null
