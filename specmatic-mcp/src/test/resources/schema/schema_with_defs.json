@@ -1,0 +1,37 @@
+{
+  "type": "object",
+  "properties": {
+    "result": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Product"
+      }
+    }
+  },
+  "required": [
+    "result"
+  ],
+  "x-fastmcp-wrap-result": true,
+  "$defs": {
+    "Product": {
+      "required": [
+        "id",
+        "name",
+        "price"
+      ],
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "price": {
+          "type": "number",
+          "format": "float"
+        }
+      }
+    }
+  }
+}

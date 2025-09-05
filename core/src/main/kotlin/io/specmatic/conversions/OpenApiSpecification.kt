@@ -86,13 +86,19 @@ class OpenApiSpecification(
     companion object {
 
         fun patternsFrom(jsonSchema: Map<String, Any>, schemaName: String = "Schema"): Map<String, Pattern> {
+            val definitions = try {
+                (jsonSchema["${'$'}defs"] as? Map<String, Any>).orEmpty()
+            } catch (_: Throwable) {
+                emptyMap()
+            }
+
             val openApiMap = mapOf(
                 "openapi" to "3.0.1",
                 "components" to mapOf(
                     "schemas" to mapOf(
-                        schemaName to jsonSchema
-                    )
-                )
+                        schemaName to replaceDefsReferences(jsonSchema)
+                    ).plus(definitions)
+                ),
             )
             val openApiSpec = fromYAML(
                 yamlContent = ObjectMapper().writeValueAsString(openApiMap),
@@ -100,6 +106,35 @@ class OpenApiSpecification(
             )
 
             return openApiSpec.parseUnreferencedSchemas()
+        }
+
+        private fun replaceDefsReferences(jsonSchema: Map<String, Any>): Map<String, Any> {
+            return jsonSchema.mapValues { (key, value) ->
+                when (value) {
+                    is String -> {
+                        when {
+                            key == "\$ref" && value.startsWith("#/\$defs/") -> value.replace(
+                                "#/\$defs/",
+                                "#/components/schemas/"
+                            )
+
+                            else -> value
+                        }
+                    }
+
+                    is Map<*, *> -> replaceDefsReferences(value as Map<String, Any>)
+                    is List<*> -> {
+                        value.map { item ->
+                            when (item) {
+                                is Map<*, *> -> replaceDefsReferences(item as Map<String, Any>)
+                                else -> item
+                            }
+                        }
+                    }
+
+                    else -> value
+                }
+            }
         }
 
         fun fromFile(openApiFilePath: String, relativeTo: String = ""): OpenApiSpecification {
