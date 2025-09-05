@@ -1,7 +1,6 @@
 package io.specmatic.mcp.test.client
 
 import io.specmatic.mcp.test.McpTransport
-import io.specmatic.mcp.test.ToolResponse
 import io.specmatic.mcp.test.client.model.JsonRpcResponse
 import io.specmatic.mcp.test.client.model.Tool
 import io.specmatic.mcp.test.logWithTag
@@ -17,7 +16,6 @@ interface McpTestClient {
     companion object {
         fun from(baseUrl: String, transport: McpTransport, bearerToken: String?): McpTestClient {
             return when(transport) {
-                McpTransport.SSE -> McpSseTestClient(baseUrl)
                 McpTransport.STREAMABLE_HTTP -> McpStreamableHttpTestClient(baseUrl, bearerToken)
             }
         }
