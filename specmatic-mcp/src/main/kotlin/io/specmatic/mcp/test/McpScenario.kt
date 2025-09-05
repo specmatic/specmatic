@@ -19,7 +19,6 @@ import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.pattern.singleLineDescription
 import io.specmatic.mcp.constants.SchemaType
-import io.specmatic.mcp.parser.toMap
 import io.specmatic.mcp.test.client.McpTestClient
 import io.specmatic.mcp.test.client.model.JsonRpcResponse
 import io.specmatic.mcp.test.client.model.Tool
@@ -236,4 +235,11 @@ data class McpScenario(
             throw IllegalArgumentException("Expected a JSONObjectPattern, but got ${pattern::class.simpleName} for ${schemaType.name.lowercase()} schema of tool '$toolName'")
         }
     }
+}
+
+fun JsonNode.toMap(): Map<String, Any> {
+    return ObjectMapper().convertValue(
+        this,
+        object : TypeReference<Map<String, Any>>() {}
+    )
 }
