@@ -4,10 +4,13 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.core.type.TypeReference
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.Dictionary
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
+import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.JSONObjectPattern
 import io.specmatic.core.pattern.Pattern
@@ -15,7 +18,8 @@ import io.specmatic.core.pattern.ReturnValue
 import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.pattern.singleLineDescription
-import io.specmatic.mcp.parser.JsonSchemaToPattern
+import io.specmatic.mcp.constants.SchemaType
+import io.specmatic.mcp.parser.toMap
 import io.specmatic.mcp.test.client.McpTestClient
 import io.specmatic.mcp.test.client.model.JsonRpcResponse
 import io.specmatic.mcp.test.client.model.Tool
@@ -182,17 +186,15 @@ data class McpScenario(
             dictionary: Dictionary = Dictionary.empty(),
             onlyNegativeTests: Boolean
         ): Sequence<McpScenario> {
-            val inputPatternMap = JsonSchemaToPattern(tool.inputSchema).pattern()
-            val outputPatternMap = tool.outputSchema?.let {
-                JsonSchemaToPattern(it).pattern()
+            val inputPattern = jsonObjectPatternFrom(tool.inputSchema, SchemaType.INPUT, tool.name)
+            val outputPattern = tool.outputSchema?.let {
+                jsonObjectPatternFrom(it, SchemaType.OUTPUT, tool.name)
             }
             val scenario = McpScenario(
                 name = tool.name,
                 toolName = tool.name,
-                inputPattern = JSONObjectPattern(inputPatternMap, typeAlias = tool.name),
-                outputPattern = outputPatternMap?.let {
-                    JSONObjectPattern(it, typeAlias = tool.name)
-                },
+                inputPattern = inputPattern,
+                outputPattern = outputPattern,
                 mcpTestClient = mcpTestClient,
                 resolver = Resolver(dictionary = dictionary),
             )
@@ -202,6 +204,36 @@ data class McpScenario(
                 onlyNegativeTests -> scenario.negativeBasedOn()
                 else -> sequenceOf(scenario)
             }
+        }
+
+        private fun jsonObjectPatternFrom(
+            schema: JsonNode,
+            schemaType: SchemaType,
+            toolName: String
+        ): JSONObjectPattern {
+            try {
+                logger.disableInfoLogging()
+                val pattern = OpenApiSpecification.patternsFrom(
+                    jsonSchema = schema.toMap(),
+                    schemaName = toolName
+                ).getValue("($toolName)")
+                logger.enableInfoLogging()
+
+                return pattern
+                    .returnIfJsonObjectPattern(toolName, schemaType)
+                    .copy(typeAlias = toolName)
+            } catch (e: Throwable) {
+                logger.enableInfoLogging()
+                throw e
+            }
+        }
+
+        private fun Pattern.returnIfJsonObjectPattern(
+            toolName: String,
+            schemaType: SchemaType
+        ): JSONObjectPattern {
+            if (this is JSONObjectPattern) return this
+            throw IllegalArgumentException("Expected a JSONObjectPattern, but got ${pattern::class.simpleName} for ${schemaType.name.lowercase()} schema of tool '$toolName'")
         }
     }
 }

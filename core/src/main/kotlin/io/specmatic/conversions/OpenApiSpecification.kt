@@ -85,6 +85,23 @@ class OpenApiSpecification(
 
     companion object {
 
+        fun patternsFrom(jsonSchema: Map<String, Any>, schemaName: String = "Schema"): Map<String, Pattern> {
+            val openApiMap = mapOf(
+                "openapi" to "3.0.1",
+                "components" to mapOf(
+                    "schemas" to mapOf(
+                        schemaName to jsonSchema
+                    )
+                )
+            )
+            val openApiSpec = fromYAML(
+                yamlContent = ObjectMapper().writeValueAsString(openApiMap),
+                openApiFilePath = ""
+            )
+
+            return openApiSpec.parseUnreferencedSchemas()
+        }
+
         fun fromFile(openApiFilePath: String, relativeTo: String = ""): OpenApiSpecification {
             val openApiFile = File(openApiFilePath).let { openApiFile ->
                 if (openApiFile.isAbsolute) {

@@ -11,7 +11,7 @@ class McpAutoTestTest {
     @Test
     fun `should run the auto test`() {
         val autoTest = McpAutoTest(
-            baseUrl = "https://huggingface.co",
+            baseUrl = "https://huggingface.co/mcp",
             transport = McpTransport.STREAMABLE_HTTP,
             enableResiliency = false,
             dictionaryFile = File("src/test/resources/hugging_face_dicts/simple_dict.json"),

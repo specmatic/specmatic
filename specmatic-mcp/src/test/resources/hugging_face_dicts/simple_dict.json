@@ -11,5 +11,9 @@
   },
   "gr2_0_abidlabs_easyghiblis_ndition_generate_image": {
     "spatial_img": "https://upload.wikimedia.org/wikipedia/commons/4/47/PNG_transparency_demonstration_1.png"
+  },
+  "hf_doc_fetch": {
+    "doc_url": "https://huggingface.co/docs",
+    "offset": 10
   }
 }
