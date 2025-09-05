@@ -331,11 +331,22 @@ data class SpecmaticConfig(
         sources
             .flatMap { source ->
                 source.stub.orEmpty().flatMap { consumes ->
+                    val selectorWrapper = { specPath: String ->
+                        val resolvedPath =
+                            if (source.directory != null) {
+                                File(source.directory).resolve(specPath).path
+                            } else {
+                                specPath
+                            }
+
+                        specSelector(resolvedPath)
+                    }
+
                     when (consumes) {
-                        is SpecExecutionConfig.StringValue -> if (specSelector(consumes.value)) listOf(defaultBaseUrl) else emptyList()
+                        is SpecExecutionConfig.StringValue -> if (selectorWrapper(consumes.value)) listOf(defaultBaseUrl) else emptyList()
                         is SpecExecutionConfig.ObjectValue -> {
                             val baseUrl = consumes.toBaseUrl(defaultBaseUrl)
-                            if (consumes.specs.any(specSelector)) listOf(baseUrl) else emptyList()
+                            if (consumes.specs.any(selectorWrapper)) listOf(baseUrl) else emptyList()
                         }
                     }
                 }

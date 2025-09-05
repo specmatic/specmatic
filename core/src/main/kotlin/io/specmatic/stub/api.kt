@@ -36,7 +36,7 @@ import org.yaml.snakeyaml.Yaml
 import java.io.File
 
 const val HTTP_STUB_SHUTDOWN_TIMEOUT = 2000L
-private const val STUB_START_TIMEOUT = 20_000L
+const val STUB_START_TIMEOUT = 20_000L
 private const val INDENT = "  "
 
 // Used by stub client code

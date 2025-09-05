@@ -1,7 +1,7 @@
 version: 2
 contracts:
   - filesystem:
-      directory: specs
+      directory: src/test/resources/multi_port_stub_with_explicit_examples_dir/specs
     consumes:
       - baseUrl: http://localhost:9001
         specs:
