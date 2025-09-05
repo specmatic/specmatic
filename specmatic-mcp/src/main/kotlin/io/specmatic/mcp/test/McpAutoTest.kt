@@ -9,6 +9,7 @@ import io.specmatic.mcp.test.client.use
 import java.io.File
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.withIndex
@@ -59,7 +60,7 @@ class McpAutoTest(
         }.asFlow()
             .flatMapConcat { tool ->
                 McpScenario.from(tool, client, enableResiliency, dictionary, onlyNegativeTests).asFlow()
-            }
+            }.filterNotNull()
     }
 
     private suspend fun executeScenario(scenario: McpScenario, index: Int): ScenarioExecutionResult {

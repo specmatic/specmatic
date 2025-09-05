@@ -184,24 +184,29 @@ data class McpScenario(
             enableResiliency: Boolean,
             dictionary: Dictionary = Dictionary.empty(),
             onlyNegativeTests: Boolean
-        ): Sequence<McpScenario> {
-            val inputPattern = jsonObjectPatternFrom(tool.inputSchema, SchemaType.INPUT, tool.name)
-            val outputPattern = tool.outputSchema?.let {
-                jsonObjectPatternFrom(it, SchemaType.OUTPUT, tool.name)
-            }
-            val scenario = McpScenario(
-                name = tool.name,
-                toolName = tool.name,
-                inputPattern = inputPattern,
-                outputPattern = outputPattern,
-                mcpTestClient = mcpTestClient,
-                resolver = Resolver(dictionary = dictionary),
-            )
+        ): Sequence<McpScenario?> {
+            try {
+                val inputPattern = jsonObjectPatternFrom(tool.inputSchema, SchemaType.INPUT, tool.name)
+                val outputPattern = tool.outputSchema?.let {
+                    jsonObjectPatternFrom(it, SchemaType.OUTPUT, tool.name)
+                }
+                val scenario = McpScenario(
+                    name = tool.name,
+                    toolName = tool.name,
+                    inputPattern = inputPattern,
+                    outputPattern = outputPattern,
+                    mcpTestClient = mcpTestClient,
+                    resolver = Resolver(dictionary = dictionary),
+                )
 
-            return when {
-                enableResiliency -> scenario.newBasedOn() + scenario.negativeBasedOn()
-                onlyNegativeTests -> scenario.negativeBasedOn()
-                else -> sequenceOf(scenario)
+                return when {
+                    enableResiliency -> scenario.newBasedOn() + scenario.negativeBasedOn()
+                    onlyNegativeTests -> scenario.negativeBasedOn()
+                    else -> sequenceOf(scenario)
+                }
+            } catch(e: Throwable) {
+                logWithTag("Skipping tool '${tool.name}' as failed to generate the scenario with following errors: ${e.message}")
+                return sequenceOf(null)
             }
         }
 
