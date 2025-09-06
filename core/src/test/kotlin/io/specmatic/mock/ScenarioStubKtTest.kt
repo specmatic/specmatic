@@ -978,13 +978,13 @@ paths:
                     "supposed-to-be-http-request": { "path": "/add", "method": "POST" },
                     "http-response": { "status": 200 }
                     }""".trimIndent(),
-                    "Stub does not contain http-request/mock-http-request as a top level key."
+                    "Example should contain http-request/mock-http-request as a top level key."
                 ),
                 Arguments.of("""{
                     "http-request": { "path": "/add", "method": "POST" },
                     "supposed-to-be-http-response": { "status": 200 }
                     }""".trimIndent(),
-                    "Stub does not contain http-response/mock-http-response as a top level key."
+                    "Example should contain http-response/mock-http-response as a top level key."
                 ),
                 Arguments.of("""{
                     "http-request": { "path": "/add", "supposed-to-be-method": "POST" },
