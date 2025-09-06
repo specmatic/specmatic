@@ -545,12 +545,12 @@ data class SpecmaticConfig(
 
     @JsonIgnore
     fun getRepositoryProvider(): String? {
-        return repository?.getProvider()
+        return repository?.provider
     }
 
     @JsonIgnore
     fun getRepositoryCollectionName(): String? {
-        return repository?.getCollectionName()
+        return repository?.collectionName
     }
 
     @JsonIgnore
@@ -776,18 +776,9 @@ data class Source(
 }
 
 data class RepositoryInfo(
-    private val provider: String,
-    private val collectionName: String
-) {
-    fun getProvider(): String {
-        return provider
-    }
-
-    fun getCollectionName(): String {
-        return collectionName
-    }
-}
-
+    val provider: String? = null,
+    val collectionName: String? = null
+)
 
 interface ReportConfiguration {
     fun withDefaultFormattersIfMissing(): ReportConfiguration
