@@ -15,6 +15,7 @@ import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_STUB_DELAY
 import io.specmatic.core.utilities.exitIfAnyDoNotExist
 import io.specmatic.core.utilities.exitWithMessage
 import io.specmatic.core.utilities.throwExceptionIfDirectoriesAreInvalid
+import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.ContractStub
 import io.specmatic.stub.HttpClientFactory
 import io.specmatic.stub.endPointFromHostAndPort
@@ -230,7 +231,11 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             dataDirs = exampleDirs,
             specmaticConfigPath = specmaticConfigPath,
             strictMode = strictMode
-        ).mapNotNull { (feature, scenarioStubs) ->
+        )
+        
+        logStubLoadingSummary(stubData)
+        
+        val filteredStubData = stubData.mapNotNull { (feature, scenarioStubs) ->
             val metadataFilter = ScenarioMetadataFilter.from(filter)
             val filteredScenarios = ScenarioMetadataFilter.filterUsing(
                 feature.scenarios.asSequence(),
@@ -246,7 +251,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             } else null
         }
 
-        if (filter != "" && stubData.isEmpty()) {
+        if (filter != "" && filteredStubData.isEmpty()) {
             consoleLog(StringLog("FATAL: No stubs found for the given filter: $filter"))
             return
         }
@@ -262,7 +267,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         }
 
         httpStub = httpStubEngine.runHTTPStub(
-            stubs = stubData,
+            stubs = filteredStubData,
             host = host,
             port = port,
             certInfo = certInfo,
@@ -313,6 +318,33 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
                 }
             }
         })
+    }
+    
+    private fun logStubLoadingSummary(stubData: List<Pair<Feature, List<ScenarioStub>>>) {
+        val totalStubs = stubData.sumOf { it.second.size }
+        
+        if (verbose) {
+            logger.newLine()
+            consoleLog(StringLog("Loaded stubs:"))
+            stubData.forEach { (feature, stubs) ->
+                val featureName = feature.specification ?: feature.path
+                stubs.forEach { stub ->
+                    val stubDescription = buildStubDescription(stub)
+                    consoleLog(StringLog("  - $featureName: $stubDescription"))
+                }
+            }
+            consoleLog(StringLog("Total: $totalStubs stubs loaded"))
+        } else {
+            consoleLog(StringLog("$totalStubs stubs loaded"))
+        }
+        logger.newLine()
+    }
+    
+    private fun buildStubDescription(stub: ScenarioStub): String {
+        val request = stub.partial?.request ?: stub.request
+        val method = request.method
+        val path = request.path
+        return "$method $path"
     }
 }
 

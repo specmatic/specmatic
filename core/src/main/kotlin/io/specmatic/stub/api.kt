@@ -18,6 +18,7 @@ import io.specmatic.core.git.SystemGit
 import io.specmatic.core.isContractFile
 import io.specmatic.core.loadSpecmaticConfigOrDefault
 import io.specmatic.core.log.StringLog
+import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.consoleDebug
 import io.specmatic.core.log.consoleLog
 import io.specmatic.core.log.logger
@@ -807,7 +808,9 @@ fun loadContractStubsAsResults(
             if (matchResult.feature == null) {
                 null
             } else {
-                logger.debug("Successfully loaded the stub expectation from '${stub.filePath.orEmpty()}".prependIndent(" "))
+                if (logger is Verbose) {
+                    logger.debug("Successfully loaded the stub expectation from '${stub.filePath.orEmpty()}".prependIndent(" "))
+                }
                 FeatureStubsResult.Success(matchResult.feature, listOf(stub))
             }
         }
