@@ -1,10 +1,10 @@
 version: 2
 contracts:
   - filesystem:
-      directory: "."
+      directory: "src/test/resources/multi_port_stub_string_and_object_syntax"
     consumes:
-      - ./product.yaml
+      - product.yaml
       - baseUrl: http://localhost:9001
         specs:
-          - ./order.yaml
-          - ./exported_product/exported_product.yaml
+          - order.yaml
+          - exported_product/exported_product.yaml

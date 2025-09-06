@@ -137,11 +137,9 @@ class SpecmaticJunitSupportTest {
     }
 
     @Test
-    fun `testBaseURL or host and port system property are mandatory`() {
-        val ex = assertThrows<TestAbortedException> {
-            SpecmaticJUnitSupport().constructTestBaseURL()
-        }
-        assertThat(ex.message).isEqualTo("Please specify $TEST_BASE_URL OR host and port as environment variables")
+    fun `defaults to http localhost 9000 when testBaseURL not set`() {
+        val url = SpecmaticJUnitSupport().constructTestBaseURL()
+        assertThat(url).isEqualTo("http://localhost:9000")
     }
 
     @Test

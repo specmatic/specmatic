@@ -4,6 +4,7 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.*
 import io.specmatic.core.SpecmaticConfig.Companion.getSecurityConfiguration
+import io.specmatic.core.config.v3.Generative
 import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.filters.ScenarioMetadataFilter.Companion.filterUsing
 import io.specmatic.core.log.LogMessage
@@ -243,13 +244,16 @@ open class SpecmaticJUnitSupport {
         } catch (e: Throwable) {
             return loadExceptionAsTestError(e)
         }
-        val testScenarios = try {
-            val (testScenarios, allEndpoints) = when {
+        val testBuildResult = try {
+            when {
                 settings.contractPaths != null -> {
+                    // Default base URL is mandatory for this mode
+                    val defaultBaseURL = constructTestBaseURL()
+
                     val testScenariosAndEndpointsPairList = settings.contractPaths.split(",").filter {
                         File(it).extension in CONTRACT_EXTENSIONS
                     }.map {
-                        loadTestScenarios(
+                        val (tests, endpoints) = loadTestScenarios(
                             it,
                             suggestionsPath,
                             suggestionsData,
@@ -260,13 +264,17 @@ open class SpecmaticJUnitSupport {
                             specmaticConfig = specmaticConfig,
                             overlayContent = overlayContent
                         )
+
+                        Pair(tests.map { test -> Pair(test, defaultBaseURL) }, endpoints)
                     }
-                    val tests: Sequence<ContractTest> = testScenariosAndEndpointsPairList.asSequence().flatMap { it.first }
+
+                    val testsWithUrls: Sequence<Pair<ContractTest, String>> = testScenariosAndEndpointsPairList.asSequence().flatMap { it.first }
                     val endpoints: List<Endpoint> = testScenariosAndEndpointsPairList.flatMap { it.second }
-                    Pair(tests, endpoints)
+
+                    Triple(testsWithUrls, endpoints, defaultBaseURL)
                 }
                 else -> {
-                    if(File(settings.configFile).exists().not()) exitWithMessage(MISSING_CONFIG_FILE_MESSAGE)
+                    if (File(settings.configFile).exists().not()) exitWithMessage(MISSING_CONFIG_FILE_MESSAGE)
 
                     createIfDoesNotExist(workingDirectory.path)
 
@@ -274,42 +282,65 @@ open class SpecmaticJUnitSupport {
 
                     exitIfAnyDoNotExist("The following specifications do not exist", contractFilePaths.map { it.path })
 
+                    // Compute default base URL only if any spec lacks a provides baseUrl
+                    val needsDefaultBase = contractFilePaths.any { it.baseUrl.isNullOrBlank() }
+                    val defaultBaseURL = if (needsDefaultBase) constructTestBaseURL() else ""
+
                     val testScenariosAndEndpointsPairList = contractFilePaths.filter {
                         File(it.path).extension in CONTRACT_EXTENSIONS
-                    }.map {
-                        loadTestScenarios(
-                            it.path,
+                    }.map { contractPathData ->
+                        val (tests, endpoints) = loadTestScenarios(
+                            contractPathData.path,
                             "",
                             "",
                             testConfig,
-                            it.provider,
-                            it.repository,
-                            it.branch,
-                            it.specificationPath,
+                            contractPathData.provider,
+                            contractPathData.repository,
+                            contractPathData.branch,
+                            contractPathData.specificationPath,
                             getSecurityConfiguration(specmaticConfig),
                             filterName,
                             filterNotName,
                             specmaticConfig = specmaticConfig,
+                            generative = contractPathData.generative,
                             overlayContent = overlayContent
                         )
+
+                        val resolvedBaseURL = contractPathData.baseUrl ?: defaultBaseURL
+                        Pair(tests.map { test -> Pair(test, resolvedBaseURL) }, endpoints)
                     }
 
-                    val tests: Sequence<ContractTest> = testScenariosAndEndpointsPairList.asSequence().flatMap { it.first }
-
+                    val testsWithUrls: Sequence<Pair<ContractTest, String>> = testScenariosAndEndpointsPairList.asSequence().flatMap { it.first }
                     val endpoints: List<Endpoint> = testScenariosAndEndpointsPairList.flatMap { it.second }
 
-                    Pair(tests, endpoints)
+                    // Prefer settings.testBaseURL for actuator; else first provides; else default
+                    val actuatorBaseURL = settings.testBaseURL
+                        ?: contractFilePaths.firstNotNullOfOrNull { it.baseUrl }
+                        ?: if (needsDefaultBase) defaultBaseURL else constructTestBaseURL()
+
+                    Triple(testsWithUrls, endpoints, actuatorBaseURL)
                 }
             }
-            openApiCoverageReportInput.addEndpoints(allEndpoints)
+        } catch (e: ContractException) {
+            return loadExceptionAsTestError(e)
+        } catch (e: Throwable) {
+            return loadExceptionAsTestError(e)
+        }
 
-            val filteredTestsBasedOnName = selectTestsToRun(
-                testScenarios,
+        val (allTestsWithUrls, allEndpoints, actuatorBaseURL) = testBuildResult
+
+        openApiCoverageReportInput.addEndpoints(allEndpoints)
+
+        val testScenariosWithUrls = try {
+            val filteredPairsBasedOnName = selectTestsToRun(
+                allTestsWithUrls,
                 filterName,
                 filterNotName
-            ) { it.testDescription() }
+            ) { it.first.testDescription() }
 
-            filterUsing(filteredTestsBasedOnName, testFilter)
+            filteredPairsBasedOnName.filter { pair ->
+                testFilter.isSatisfiedBy(pair.first.toScenarioMetadata())
+            }
         } catch (e: ContractException) {
             return loadExceptionAsTestError(e)
         } catch (e: Throwable) {
@@ -317,7 +348,7 @@ open class SpecmaticJUnitSupport {
         }
 
         // Check if no tests remain after filtering
-        if (!testScenarios.iterator().hasNext()) {
+        if (!testScenariosWithUrls.iterator().hasNext()) {
             val filterDetails = buildString {
                 if (!filterName.isNullOrBlank()) append("name filter: '$filterName'")
                 if (!filterNotName.isNullOrBlank()) {
@@ -337,34 +368,26 @@ open class SpecmaticJUnitSupport {
             return noTestsFoundError(reason)
         }
 
-        val testBaseURL = try {
-            constructTestBaseURL()
-        } catch (e: Throwable) {
-            logger.logError(e)
-            logger.newLine()
-            throw(e)
-        }
-
         return try {
-            dynamicTestStream(firstNScenarios(testScenarios), testBaseURL, timeoutInMilliseconds)
+            dynamicTestStream(firstNScenarios(testScenariosWithUrls), actuatorBaseURL, timeoutInMilliseconds)
         } catch(e: Throwable) {
             logger.logError(e)
             loadExceptionAsTestError(e)
         }
     }
 
-    private fun firstNScenarios(testScenarios: Sequence<ContractTest>): Sequence<ContractTest> {
+    private fun firstNScenarios(testScenarios: Sequence<Pair<ContractTest, String>>): Sequence<Pair<ContractTest, String>> {
         val maxTestCount = Flags.getIntValue(Flags.MAX_TEST_COUNT) ?: return testScenarios
         return testScenarios.take(maxTestCount)
     }
 
     private fun dynamicTestStream(
-        testScenarios: Sequence<ContractTest>,
-        testBaseURL: String,
+        testScenarios: Sequence<Pair<ContractTest, String>>,
+        actuatorBaseURL: String,
         timeoutInMilliseconds: Long,
     ): Stream<DynamicTest> {
         try {
-            if (queryActuator().failed && actuatorFromSwagger(testBaseURL).failed) {
+            if (queryActuator().failed && actuatorFromSwagger(actuatorBaseURL).failed) {
                 openApiCoverageReportInput.setEndpointsAPIFlag(false)
                 logger.log("EndpointsAPI and SwaggerUI URL missing; cannot calculate actual coverage")
             }
@@ -375,22 +398,30 @@ open class SpecmaticJUnitSupport {
 
         logger.newLine()
 
-        val log: (LogMessage) -> Unit = { logMessage ->
-            logger.log(logMessage)
-        }
-
-        val httpClient =
-            HttpClient(testBaseURL, log = log, timeoutInMilliseconds = timeoutInMilliseconds, httpInteractionsLog = httpInteractionsLog)
-
-        return testScenarios.map { contractTest ->
+        return testScenarios.map { (contractTest, baseURL) ->
             DynamicTest.dynamicTest(contractTest.testDescription()) {
                 threads.add(Thread.currentThread().name)
 
                 var testResult: Pair<Result, HttpResponse?>? = null
 
                 try {
-                    testResult = contractTest.runTest(httpClient)
-                    val (result) = testResult
+                    val log: (LogMessage) -> Unit = { logMessage ->
+                        logger.log(logMessage)
+                    }
+
+                    val httpClient = HttpClient(
+                        baseURL,
+                        log = log,
+                        timeoutInMilliseconds = timeoutInMilliseconds,
+                        httpInteractionsLog = httpInteractionsLog
+                    )
+
+                    try {
+                        testResult = contractTest.runTest(httpClient)
+                    } finally {
+                        httpClient.close()
+                    }
+                    val (result) = testResult!!
 
                     if (result is Result.Success && result.isPartialSuccess()) {
                         partialSuccesses.add(result)
@@ -417,7 +448,7 @@ open class SpecmaticJUnitSupport {
                     }
                 }
             }
-        }.asStream().onClose { httpClient.close() }
+        }.asStream()
     }
 
     fun constructTestBaseURL(): String {
@@ -428,26 +459,28 @@ open class SpecmaticJUnitSupport {
             }
         }
 
+        // If testBaseURL is not provided, assume http://localhost:9000 by default.
         val hostProperty = System.getProperty(HOST)
-            ?: throw TestAbortedException("Please specify $TEST_BASE_URL OR $HOST and $PORT as environment variables")
-        val host = if (hostProperty.startsWith("http")) {
-            URI(hostProperty).host
-        } else {
-            hostProperty
-        }
-        val protocol = System.getProperty(PROTOCOL) ?: "http"
         val port = System.getProperty(PORT)
+        if (!hostProperty.isNullOrBlank() && !port.isNullOrBlank()) {
+            val host = if (hostProperty.startsWith("http")) {
+                URI(hostProperty).host
+            } else hostProperty
 
-        if (!isNumeric(port)) {
-            throw TestAbortedException("Please specify a number value for $PORT environment variable")
+            val protocol = System.getProperty(PROTOCOL) ?: "http"
+
+            if (!isNumeric(port)) {
+                throw TestAbortedException("Please specify a number value for $PORT environment variable")
+            }
+
+            val urlConstructedFromProtocolHostAndPort = "$protocol://$host:$port"
+            return when (validateTestOrStubUri(urlConstructedFromProtocolHostAndPort)) {
+                URIValidationResult.Success -> urlConstructedFromProtocolHostAndPort
+                else -> throw TestAbortedException("Please specify a valid $PROTOCOL, $HOST and $PORT environment variables")
+            }
         }
 
-        val urlConstructedFromProtocolHostAndPort = "$protocol://$host:$port"
-
-        return when (validateTestOrStubUri(urlConstructedFromProtocolHostAndPort)) {
-            URIValidationResult.Success -> urlConstructedFromProtocolHostAndPort
-            else -> throw TestAbortedException("Please specify a valid $PROTOCOL, $HOST and $PORT environment variables")
-        }
+        return "http://localhost:9000"
     }
 
     private fun isNumeric(port: String?): Boolean {
@@ -469,6 +502,7 @@ open class SpecmaticJUnitSupport {
         filterName: String?,
         filterNotName: String?,
         specmaticConfig: SpecmaticConfig? = null,
+        generative: Generative? = null,
         overlayContent: String = ""
     ): Pair<Sequence<ContractTest>, List<Endpoint>> {
         if(hasOpenApiFileExtension(path) && !isOpenAPI(path))
@@ -487,10 +521,17 @@ open class SpecmaticJUnitSupport {
                 securityConfiguration,
                 specmaticConfig = specmaticConfig ?: SpecmaticConfig(),
                 overlayContent = overlayContent,
-                strictMode = strictMode
-            ).copy(testVariables = config.variables, testBaseURLs = config.baseURLs).loadExternalisedExamples()
-
-        feature.validateExamplesOrException()
+                strictMode = strictMode,
+            ).copy(testVariables = config.variables, testBaseURLs = config.baseURLs)
+                .loadExternalisedExamples()
+                .also { it.validateExamplesOrException() }
+                .let {
+                    when (generative) {
+                        Generative.positiveOnly -> it.enableGenerativeTesting(onlyPositive = true)
+                        Generative.all -> it.enableGenerativeTesting(onlyPositive = false)
+                        else -> it
+                    }
+                }
 
         val suggestions = when {
             suggestionsPath.isNotEmpty() -> suggestionsFromFile(suggestionsPath)

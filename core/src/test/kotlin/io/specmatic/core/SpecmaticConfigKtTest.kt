@@ -4,10 +4,12 @@ import com.fasterxml.jackson.databind.JsonMappingException
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.kotlin.readValue
-import io.specmatic.core.config.v3.Consumes
+import io.specmatic.core.config.v3.SpecExecutionConfig
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.specmatic.core.config.v2.ContractConfig
+import io.specmatic.core.utilities.ContractSourceEntry
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
+import io.specmatic.core.config.v2.SpecmaticConfigV2
 import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_SCHEMA
 import io.specmatic.core.utilities.Flags.Companion.MAX_TEST_REQUEST_COMBINATIONS
 import io.specmatic.core.utilities.Flags.Companion.ONLY_POSITIVE
@@ -276,13 +278,13 @@ internal class SpecmaticConfigKtTest {
         fun `should return all stub baseUrls from sources`() {
             val source1 = Source(
                 stub = listOf(
-                    Consumes.StringValue("9000_first.yaml"),
-                    Consumes.StringValue("9000_second.yaml"),
-                    Consumes.ObjectValue.FullUrl(
+                    SpecExecutionConfig.StringValue("9000_first.yaml"),
+                    SpecExecutionConfig.StringValue("9000_second.yaml"),
+                    SpecExecutionConfig.ObjectValue.FullUrl(
                         specs = listOf("9001_first.yaml", "9001_second.yaml"),
                         baseUrl = "http://localhost:9001"
                     ),
-                    Consumes.ObjectValue.FullUrl(
+                    SpecExecutionConfig.ObjectValue.FullUrl(
                         specs = listOf("9002_first.yaml"),
                         baseUrl = "http://localhost:9002"
                     ),
@@ -291,12 +293,12 @@ internal class SpecmaticConfigKtTest {
 
             val source2 = Source(
                 stub = listOf(
-                    Consumes.StringValue("9000_third.yaml"),
-                    Consumes.ObjectValue.FullUrl(
+                    SpecExecutionConfig.StringValue("9000_third.yaml"),
+                    SpecExecutionConfig.ObjectValue.FullUrl(
                         specs = listOf("9001_third.yaml", "9001_fourth.yaml"),
                         baseUrl = "http://localhost:9001"
                     ),
-                    Consumes.ObjectValue.FullUrl(
+                    SpecExecutionConfig.ObjectValue.FullUrl(
                         specs = listOf("9002_second.yaml"),
                         baseUrl = "http://localhost:9002"
                     ),
@@ -324,13 +326,13 @@ internal class SpecmaticConfigKtTest {
         fun `should return all stub contracts from sources`() {
             val source1 = Source(
                 stub = listOf(
-                    Consumes.StringValue("9000_first.yaml"),
-                    Consumes.StringValue("9000_second.yaml"),
-                    Consumes.ObjectValue.FullUrl(
+                    SpecExecutionConfig.StringValue("9000_first.yaml"),
+                    SpecExecutionConfig.StringValue("9000_second.yaml"),
+                    SpecExecutionConfig.ObjectValue.FullUrl(
                         specs = listOf("9001_first.yaml", "9001_second.yaml"),
                         baseUrl = "http://localhost:9001"
                     ),
-                    Consumes.ObjectValue.FullUrl(
+                    SpecExecutionConfig.ObjectValue.FullUrl(
                         specs = listOf("9002_first.yaml"),
                         baseUrl = "http://localhost:9002"
                     ),
@@ -339,12 +341,12 @@ internal class SpecmaticConfigKtTest {
 
             val source2 = Source(
                 stub = listOf(
-                    Consumes.StringValue("9000_third.yaml"),
-                    Consumes.ObjectValue.FullUrl(
+                    SpecExecutionConfig.StringValue("9000_third.yaml"),
+                    SpecExecutionConfig.ObjectValue.FullUrl(
                         specs = listOf("9001_third.yaml", "9001_fourth.yaml"),
                         baseUrl = "http://localhost:9001"
                     ),
-                    Consumes.ObjectValue.FullUrl(
+                    SpecExecutionConfig.ObjectValue.FullUrl(
                         specs = listOf("9002_second.yaml"),
                         baseUrl = "http://localhost:9002",
                     ),
@@ -374,9 +376,222 @@ internal class SpecmaticConfigKtTest {
 
         @ParameterizedTest
         @MethodSource("io.specmatic.core.SpecmaticConfigKtTest#consumesProvider")
-        fun `should return a complete baseUrl when accessing value of a consumes object`(consumes: Consumes.ObjectValue, defaultBaseUrl: String?, expectedValue: String) {
-            val finalBaseUrl = consumes.toBaseUrl(defaultBaseUrl)
+        fun `should return a complete baseUrl when accessing value of a consumes object`(specExecutionConfig: SpecExecutionConfig.ObjectValue, defaultBaseUrl: String?, expectedValue: String) {
+            val finalBaseUrl = specExecutionConfig.toBaseUrl(defaultBaseUrl)
             assertThat(finalBaseUrl).isEqualTo(expectedValue)
+        }
+    }
+
+    @Nested
+    inner class ProvidesConfigTests {
+        private val mapper = ObjectMapper(YAMLFactory()).registerKotlinModule()
+
+        @Test
+        fun `should return all test baseUrls from sources`() {
+            val source1 = Source(
+                test = listOf(
+                    "9000_first.yaml",
+                    "9000_second.yaml",
+                    "9001_first.yaml",
+                    "9001_second.yaml",
+                    "9002_first.yaml",
+                ),
+                testConsumes = listOf(
+                    SpecExecutionConfig.StringValue("9000_first.yaml"),
+                    SpecExecutionConfig.StringValue("9000_second.yaml"),
+                    SpecExecutionConfig.ObjectValue.FullUrl(
+                        specs = listOf("9001_first.yaml", "9001_second.yaml"),
+                        baseUrl = "http://localhost:9001"
+                    ),
+                    SpecExecutionConfig.ObjectValue.FullUrl(
+                        specs = listOf("9002_first.yaml"),
+                        baseUrl = "http://localhost:9002"
+                    ),
+                )
+            )
+
+            val source2 = Source(
+                test = listOf(
+                    "9000_third.yaml",
+                    "9001_third.yaml",
+                    "9001_fourth.yaml",
+                    "9002_second.yaml",
+                ),
+                testConsumes = listOf(
+                    SpecExecutionConfig.StringValue("9000_third.yaml"),
+                    SpecExecutionConfig.ObjectValue.FullUrl(
+                        specs = listOf("9001_third.yaml", "9001_fourth.yaml"),
+                        baseUrl = "http://localhost:9001"
+                    ),
+                    SpecExecutionConfig.ObjectValue.FullUrl(
+                        specs = listOf("9002_second.yaml"),
+                        baseUrl = "http://localhost:9002"
+                    ),
+                )
+            )
+
+            val specmaticConfig = SpecmaticConfig(
+                sources = listOf(source1, source2)
+            )
+
+            val testToBaseUrl = specmaticConfig
+                .let { SpecmaticConfig.getSources(it) }
+                .flatMap { it.specToTestBaseUrlMap().entries }
+                .associate { it.key to it.value }
+
+            assertThat(testToBaseUrl).containsAllEntriesOf(
+                mapOf(
+                    "9000_first.yaml" to null,
+                    "9000_second.yaml" to null,
+                    "9001_first.yaml" to "http://localhost:9001",
+                    "9001_second.yaml" to "http://localhost:9001",
+                    "9002_first.yaml" to "http://localhost:9002",
+                    "9000_third.yaml" to null,
+                    "9001_third.yaml" to "http://localhost:9001",
+                    "9001_fourth.yaml" to "http://localhost:9001",
+                    "9002_second.yaml" to "http://localhost:9002"
+                )
+            )
+        }
+
+        @Test
+        fun `should support provides with baseUrl alongside simple spec entries`() {
+            val providesYaml = """
+                version: 2
+                contracts:
+                  - filesystem:
+                      directory: contracts
+                    provides:
+                      - baseUrl: http://localhost:9100
+                        specs:
+                          - com/petstore/a.yaml
+                          - com/petstore/b.yaml
+                      - com/petstore/c.yaml
+            """.trimIndent()
+
+            val specmaticConfig = ObjectMapper(YAMLFactory()).registerKotlinModule()
+                .readValue(providesYaml, SpecmaticConfigV2::class.java)
+                .transform()
+
+            val sources = SpecmaticConfig.getSources(specmaticConfig)
+            assertThat(sources).hasSize(1)
+
+            val testMap = sources.single().specToTestBaseUrlMap()
+            assertThat(testMap["com/petstore/a.yaml"]).isEqualTo("http://localhost:9100")
+            assertThat(testMap["com/petstore/b.yaml"]).isEqualTo("http://localhost:9100")
+            assertThat(testMap["com/petstore/c.yaml"]).isNull()
+
+            // Also ensure loadSources wires baseUrl into ContractSourceEntry
+            val contractSources = specmaticConfig.loadSources()
+            val entries: List<ContractSourceEntry> = contractSources.flatMap { source -> source.testContracts }
+            assertThat(entries).contains(
+                ContractSourceEntry("com/petstore/a.yaml", "http://localhost:9100"),
+                ContractSourceEntry("com/petstore/b.yaml", "http://localhost:9100"),
+                ContractSourceEntry("com/petstore/c.yaml", null)
+            )
+        }
+
+        @Test
+        fun `should complain when basePath is used in provides object value`() {
+            val providesString = """
+            provides:
+              - host: "127.0.0.1"
+                port: 8080
+                basePath: "/api/v2"
+                specs:
+                - "com/order.yaml"
+            """.trimIndent()
+
+            val exception = assertThrows<JsonMappingException> {
+                mapper.readValue<ContractConfig>(providesString)
+            }
+
+            assertThat(exception.originalMessage).isEqualToNormalizingWhitespace("""
+            Field 'basePath' is not supported in provides
+            """.trimIndent())
+        }
+
+        @Test
+        fun `should parse provides with generative positiveOnly`() {
+            val providesString = """
+            provides:
+              - baseUrl: "http://localhost:9100"
+                specs:
+                  - "com/petstore/a.yaml"
+                generative: positiveOnly
+            """.trimIndent()
+
+            val config = mapper.readValue<ContractConfig>(providesString)
+            val provides = requireNotNull(config.provides)
+            val obj = provides.single() as SpecExecutionConfig.ObjectValue.FullUrl
+            assertThat(obj.generative).isEqualTo(io.specmatic.core.config.v3.Generative.positiveOnly)
+        }
+
+        @Test
+        fun `should parse provides with generative all`() {
+            val providesString = """
+            provides:
+              - host: "127.0.0.1"
+                port: 8080
+                specs:
+                  - "com/petstore/a.yaml"
+                generative: all
+            """.trimIndent()
+
+            val config = mapper.readValue<ContractConfig>(providesString)
+            val provides = requireNotNull(config.provides)
+            val obj = provides.single() as SpecExecutionConfig.ObjectValue.PartialUrl
+            assertThat(obj.generative).isEqualTo(io.specmatic.core.config.v3.Generative.all)
+        }
+
+        @Test
+        fun `should parse provides with generative none`() {
+            val providesString = """
+            provides:
+              - baseUrl: "http://localhost:9100"
+                specs:
+                  - "com/petstore/a.yaml"
+                generative: none
+            """.trimIndent()
+
+            val config = mapper.readValue<ContractConfig>(providesString)
+            val provides = requireNotNull(config.provides)
+            val obj = provides.single() as SpecExecutionConfig.ObjectValue.FullUrl
+            assertThat(obj.generative).isEqualTo(io.specmatic.core.config.v3.Generative.none)
+        }
+
+        @Test
+        fun `should set generative to null when omitted`() {
+            val providesString = """
+            provides:
+              - baseUrl: "http://localhost:9100"
+                specs:
+                  - "com/petstore/a.yaml"
+            """.trimIndent()
+
+            val config = mapper.readValue<ContractConfig>(providesString)
+            val provides = requireNotNull(config.provides)
+            val obj = provides.single() as SpecExecutionConfig.ObjectValue.FullUrl
+            assertThat(obj.generative).isNull()
+        }
+
+        @Test
+        fun `should complain when generative has an invalid value in provides`() {
+            val providesString = """
+            provides:
+              - baseUrl: "http://localhost:9100"
+                specs:
+                  - "com/petstore/a.yaml"
+                generative: invalid
+            """.trimIndent()
+
+            val exception = assertThrows<JsonMappingException> {
+                mapper.readValue<ContractConfig>(providesString)
+            }
+
+            assertThat(exception.originalMessage).isEqualToNormalizingWhitespace("""
+            Unknown value 'invalid' for 'generative'. Allowed: positiveOnly, all, none
+            """.trimIndent())
         }
     }
 
@@ -396,15 +611,15 @@ internal class SpecmaticConfigKtTest {
 
             assertThat(sources).hasSize(1)
             assertThat(sources.single().stub).containsExactly(
-                Consumes.StringValue("com/order.yaml"),
-                Consumes.ObjectValue.FullUrl(baseUrl = "http://127.0.0.1:8080/api/v2", specs = listOf("com/order.yaml")),
-                Consumes.ObjectValue.PartialUrl(host = "127.0.0.1", specs = listOf("com/order.yaml")),
-                Consumes.ObjectValue.PartialUrl(port = 8080, specs = listOf("com/order.yaml")),
-                Consumes.ObjectValue.PartialUrl(basePath = "/api/v2", specs = listOf("com/order.yaml")),
-                Consumes.ObjectValue.PartialUrl(host = "127.0.0.1", port = 8080, specs = listOf("com/order.yaml")),
-                Consumes.ObjectValue.PartialUrl(host = "127.0.0.1", basePath = "/api/v2", specs = listOf("com/order.yaml")),
-                Consumes.ObjectValue.PartialUrl(port = 8080, basePath = "/api/v2", specs = listOf("com/order.yaml")),
-                Consumes.ObjectValue.PartialUrl(host = "127.0.0.1", port = 8080, basePath = "/api/v2", specs = listOf("com/order.yaml"))
+                SpecExecutionConfig.StringValue("com/order.yaml"),
+                SpecExecutionConfig.ObjectValue.FullUrl(baseUrl = "http://127.0.0.1:8080/api/v2", specs = listOf("com/order.yaml")),
+                SpecExecutionConfig.ObjectValue.PartialUrl(host = "127.0.0.1", specs = listOf("com/order.yaml")),
+                SpecExecutionConfig.ObjectValue.PartialUrl(port = 8080, specs = listOf("com/order.yaml")),
+                SpecExecutionConfig.ObjectValue.PartialUrl(basePath = "/api/v2", specs = listOf("com/order.yaml")),
+                SpecExecutionConfig.ObjectValue.PartialUrl(host = "127.0.0.1", port = 8080, specs = listOf("com/order.yaml")),
+                SpecExecutionConfig.ObjectValue.PartialUrl(host = "127.0.0.1", basePath = "/api/v2", specs = listOf("com/order.yaml")),
+                SpecExecutionConfig.ObjectValue.PartialUrl(port = 8080, basePath = "/api/v2", specs = listOf("com/order.yaml")),
+                SpecExecutionConfig.ObjectValue.PartialUrl(host = "127.0.0.1", port = 8080, basePath = "/api/v2", specs = listOf("com/order.yaml"))
             )
         }
 
@@ -519,8 +734,28 @@ internal class SpecmaticConfigKtTest {
             val config = assertDoesNotThrow { mapper.readValue<ContractConfig>(consumesString) }
             val consumes = config.consumes
 
-            assertThat(consumes).hasSize(1).hasOnlyElementsOfTypes(Consumes.StringValue::class.java)
-            assertThat(consumes?.single() as Consumes.StringValue).isEqualTo(Consumes.StringValue("http://127.0.0.1:8080/api/v2"))
+            assertThat(consumes).hasSize(1).hasOnlyElementsOfTypes(SpecExecutionConfig.StringValue::class.java)
+            assertThat(consumes?.single() as SpecExecutionConfig.StringValue).isEqualTo(SpecExecutionConfig.StringValue("http://127.0.0.1:8080/api/v2"))
+        }
+
+        @Test
+        fun `should complain when generative is provided in consumes`() {
+            val consumesString = """
+            consumes:
+              - baseUrl: "http://127.0.0.1:8080/api/v2"
+                specs:
+                  - "com/order.yaml"
+                generative: all
+            """.trimIndent()
+
+            val exception = assertThrows<JsonMappingException> {
+                mapper.readValue<ContractConfig>(consumesString)
+            }
+
+            assertThat(exception.originalMessage).isEqualToNormalizingWhitespace("""
+            Unknown fields: generative
+            Allowed fields: baseUrl, host, port, basePath, specs
+            """.trimIndent())
         }
     }
 
@@ -529,31 +764,31 @@ internal class SpecmaticConfigKtTest {
         @JvmStatic
         fun consumesProvider(): Stream<Arguments> {
             val withDefaultBaseUrls = listOf(
-                Consumes.ObjectValue.FullUrl("http://localhost:3000", specs = emptyList()) to "http://localhost:3000",
-                Consumes.ObjectValue.PartialUrl(host = "127.0.0.1", specs = emptyList()) to "http://127.0.0.1:9000",
-                Consumes.ObjectValue.PartialUrl(port = 3000, specs = emptyList()) to "http://0.0.0.0:3000",
-                Consumes.ObjectValue.PartialUrl(basePath = "/api/v2", specs = emptyList()) to "http://0.0.0.0:9000/api/v2"
+                SpecExecutionConfig.ObjectValue.FullUrl("http://localhost:3000", specs = emptyList()) to "http://localhost:3000",
+                SpecExecutionConfig.ObjectValue.PartialUrl(host = "127.0.0.1", specs = emptyList()) to "http://127.0.0.1:9000",
+                SpecExecutionConfig.ObjectValue.PartialUrl(port = 3000, specs = emptyList()) to "http://0.0.0.0:3000",
+                SpecExecutionConfig.ObjectValue.PartialUrl(basePath = "/api/v2", specs = emptyList()) to "http://0.0.0.0:9000/api/v2"
             ).map { Arguments.of(it.first, null, it.second) }
 
             val withCustomBaseUrlCases = listOf(
-                Consumes.ObjectValue.FullUrl("http://localhost:3000", specs = emptyList()) to "http://localhost:3000",
-                Consumes.ObjectValue.PartialUrl(host = "127.0.0.1", specs = emptyList()) to "https://127.0.0.1:5000",
-                Consumes.ObjectValue.PartialUrl(port = 3000, specs = emptyList()) to "https://localhost:3000",
-                Consumes.ObjectValue.PartialUrl(basePath = "/api/v2", specs = emptyList()) to "https://localhost:5000/api/v2"
+                SpecExecutionConfig.ObjectValue.FullUrl("http://localhost:3000", specs = emptyList()) to "http://localhost:3000",
+                SpecExecutionConfig.ObjectValue.PartialUrl(host = "127.0.0.1", specs = emptyList()) to "https://127.0.0.1:5000",
+                SpecExecutionConfig.ObjectValue.PartialUrl(port = 3000, specs = emptyList()) to "https://localhost:3000",
+                SpecExecutionConfig.ObjectValue.PartialUrl(basePath = "/api/v2", specs = emptyList()) to "https://localhost:5000/api/v2"
             ).map { Arguments.of(it.first, "https://localhost:5000", it.second) }
 
             val baseUrlWithBasePath = listOf(
-                Consumes.ObjectValue.FullUrl("http://localhost:3000", specs = emptyList()) to "http://localhost:3000",
-                Consumes.ObjectValue.PartialUrl(host = "127.0.0.1", specs = emptyList()) to "http://127.0.0.1:8080/api",
-                Consumes.ObjectValue.PartialUrl(port = 3000, specs = emptyList()) to "http://localhost:3000/api",
-                Consumes.ObjectValue.PartialUrl(basePath = "/api/v2", specs = emptyList()) to "http://localhost:8080/api/v2"
+                SpecExecutionConfig.ObjectValue.FullUrl("http://localhost:3000", specs = emptyList()) to "http://localhost:3000",
+                SpecExecutionConfig.ObjectValue.PartialUrl(host = "127.0.0.1", specs = emptyList()) to "http://127.0.0.1:8080/api",
+                SpecExecutionConfig.ObjectValue.PartialUrl(port = 3000, specs = emptyList()) to "http://localhost:3000/api",
+                SpecExecutionConfig.ObjectValue.PartialUrl(basePath = "/api/v2", specs = emptyList()) to "http://localhost:8080/api/v2"
             ).map { Arguments.of(it.first, "http://localhost:8080/api", it.second) }
 
             val partialUrlWithMultipleValues = listOf(
-                Consumes.ObjectValue.PartialUrl(host = "127.0.0.1", port = 8080, specs = emptyList()) to "http://127.0.0.1:8080",
-                Consumes.ObjectValue.PartialUrl(host = "127.0.0.1", basePath = "/api/v2", specs = emptyList()) to "http://127.0.0.1:5000/api/v2",
-                Consumes.ObjectValue.PartialUrl(port = 8080, basePath = "/api/v2", specs = emptyList()) to "http://0.0.0.0:8080/api/v2",
-                Consumes.ObjectValue.PartialUrl(host = "127.0.0.1", port = 8080, basePath = "/api/v2", specs = emptyList()) to "http://127.0.0.1:8080/api/v2"
+                SpecExecutionConfig.ObjectValue.PartialUrl(host = "127.0.0.1", port = 8080, specs = emptyList()) to "http://127.0.0.1:8080",
+                SpecExecutionConfig.ObjectValue.PartialUrl(host = "127.0.0.1", basePath = "/api/v2", specs = emptyList()) to "http://127.0.0.1:5000/api/v2",
+                SpecExecutionConfig.ObjectValue.PartialUrl(port = 8080, basePath = "/api/v2", specs = emptyList()) to "http://0.0.0.0:8080/api/v2",
+                SpecExecutionConfig.ObjectValue.PartialUrl(host = "127.0.0.1", port = 8080, basePath = "/api/v2", specs = emptyList()) to "http://127.0.0.1:8080/api/v2"
             ).map { Arguments.of(it.first, "http://0.0.0.0:5000", it.second) }
 
             return withDefaultBaseUrls.plus(withCustomBaseUrlCases).plus(baseUrlWithBasePath).plus(partialUrlWithMultipleValues).stream()

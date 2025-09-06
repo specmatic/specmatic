@@ -92,7 +92,8 @@ data class GitRepo(
                 gitRepositoryURL,
                 branchName,
                 it.path,
-                it.baseUrl
+                it.baseUrl,
+                generative = it.generative
             )
         }
     }

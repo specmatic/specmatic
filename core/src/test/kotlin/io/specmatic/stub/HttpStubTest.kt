@@ -43,6 +43,8 @@ import kotlin.time.DurationUnit
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
 
+private const val STUB_SHUTDOWN_TIMEOUT = 0L
+
 internal class HttpStubTest {
     @Test
     fun `randomly generated HTTP response includes an HTTP header indicating that it was randomly generated`() {
@@ -2421,17 +2423,9 @@ Then status 200
 
         @Test
         fun `should serve requests from multiple ports as configured in specmatic config where stubs are loaded from examples`() {
-            val specmaticConfigFile = File("src/test/resources/multi_port_stub/specmatic.yaml")
-            val specmaticConfig = loadSpecmaticConfig(specmaticConfigFile.absolutePath)
-            val contractPathData = contractStubPaths(specmaticConfigFile.absolutePath)
-            val scenarioStubs = scenarioStubsFrom(specmaticConfigFile, contractPathData, specmaticConfig)
+            val specmaticConfigFile = "src/test/resources/multi_port_stub/specmatic.yaml"
 
-            HttpStub(
-                features = scenarioStubs.features(),
-                rawHttpStubs = contractInfoToHttpExpectations(scenarioStubs),
-                specmaticConfigPath = specmaticConfigFile.canonicalPath,
-                specToStubBaseUrlMap = contractPathData.specToBaseUrlMap()
-            ).use { _ ->
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile).use { _ ->
                 val request = HttpRequest(
                     method = "POST",
                     path = "/products",
@@ -2464,17 +2458,9 @@ Then status 200
 
         @Test
         fun `should serve requests from multiple baseUrls with a path as configured in specmatic config where stubs are loaded from examples`() {
-            val specmaticConfigFile = File("src/test/resources/multi_baseUrl_stub_with_path/specmatic.yaml")
-            val specmaticConfig = loadSpecmaticConfig(specmaticConfigFile.absolutePath)
-            val contractPathData = contractStubPaths(specmaticConfigFile.absolutePath)
-            val scenarioStubs = scenarioStubsFrom(specmaticConfigFile, contractPathData, specmaticConfig)
+            val specmaticConfigFile = "src/test/resources/multi_baseUrl_stub_with_path/specmatic.yaml"
 
-            HttpStub(
-                features = scenarioStubs.features(),
-                rawHttpStubs = contractInfoToHttpExpectations(scenarioStubs),
-                specmaticConfigPath = specmaticConfigFile.canonicalPath,
-                specToStubBaseUrlMap = contractPathData.specToBaseUrlMap()
-            ).use { _ ->
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile).use { _ ->
                 val request = HttpRequest(
                     method = "POST",
                     path = "/products",
@@ -2507,17 +2493,9 @@ Then status 200
 
         @Test
         fun `should serve requests from multiple ports as configured in specmatic config where no examples are loaded as stubs`() {
-            val specmaticConfigFile = File("src/test/resources/multi_port_stub_without_examples/specmatic.yaml")
-            val specmaticConfig = loadSpecmaticConfig(specmaticConfigFile.absolutePath)
-            val contractPathData = contractStubPaths(specmaticConfigFile.absolutePath)
-            val scenarioStubs = scenarioStubsFrom(specmaticConfigFile, contractPathData, specmaticConfig)
+            val specmaticConfigFile = "src/test/resources/multi_port_stub_without_examples/specmatic.yaml"
 
-            HttpStub(
-                features = scenarioStubs.features(),
-                rawHttpStubs = contractInfoToHttpExpectations(scenarioStubs),
-                specmaticConfigPath = specmaticConfigFile.canonicalPath,
-                specToStubBaseUrlMap = contractPathData.specToBaseUrlMap()
-            ).use {
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile).use {
                 val productWithoutCategoryResponse = LegacyHttpClient(
                     endPointFromHostAndPort("localhost", 9000, null)
                 ).execute(
@@ -2547,17 +2525,9 @@ Then status 200
 
         @Test
         fun `should only start stub server on specified baseUrls`() {
-            val specmaticConfigFile = File("src/test/resources/multi_port_stub/specmatic.yaml")
-            val specmaticConfig = loadSpecmaticConfig(specmaticConfigFile.absolutePath)
-            val contractPathData = contractStubPaths(specmaticConfigFile.absolutePath)
-            val scenarioStubs = scenarioStubsFrom(specmaticConfigFile, contractPathData, specmaticConfig)
+            val specmaticConfigFile = "src/test/resources/multi_port_stub/specmatic.yaml"
 
-            HttpStub(
-                features = scenarioStubs.features(),
-                rawHttpStubs = contractInfoToHttpExpectations(scenarioStubs),
-                specmaticConfigPath = specmaticConfigFile.canonicalPath,
-                specToStubBaseUrlMap = contractPathData.specToBaseUrlMap()
-            ).use {
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile).use {
                 val request = HttpRequest(
                     method = "POST",
                     path = "/products",
@@ -2574,17 +2544,9 @@ Then status 200
 
         @Test
         fun `should return an error if a request for a specific specification is sent to the wrong port`() {
-            val specmaticConfigFile = File("src/test/resources/multi_port_stub_without_examples/specmatic.yaml")
-            val specmaticConfig = loadSpecmaticConfig(specmaticConfigFile.absolutePath)
-            val contractPathData = contractStubPaths(specmaticConfigFile.absolutePath)
-            val scenarioStubs = scenarioStubsFrom(specmaticConfigFile, contractPathData, specmaticConfig)
+            val specmaticConfigFile = "src/test/resources/multi_port_stub_without_examples/specmatic.yaml"
 
-            HttpStub(
-                features = scenarioStubs.features(),
-                rawHttpStubs = contractInfoToHttpExpectations(scenarioStubs),
-                specmaticConfigPath = specmaticConfigFile.canonicalPath,
-                specToStubBaseUrlMap = contractPathData.specToBaseUrlMap()
-            ).use {
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile).use {
 
                 val productWithoutCategoryExampleBasedRequest = HttpRequest(
                     method = "POST",
@@ -2613,17 +2575,9 @@ Then status 200
 
         @Test
         fun `should return generated response even if the request matches the stub being served on another port`() {
-            val specmaticConfigFile = File("src/test/resources/multi_port_stub_with_stubbed_unstubbed_specs/specmatic.yaml")
-            val specmaticConfig = loadSpecmaticConfig(specmaticConfigFile.absolutePath)
-            val contractPathData = contractStubPaths(specmaticConfigFile.absolutePath)
-            val scenarioStubs = scenarioStubsFrom(specmaticConfigFile, contractPathData, specmaticConfig)
+            val specmaticConfigFile = "src/test/resources/multi_port_stub_with_stubbed_unstubbed_specs/specmatic.yaml"
 
-            HttpStub(
-                features = scenarioStubs.features(),
-                rawHttpStubs = contractInfoToHttpExpectations(scenarioStubs),
-                specmaticConfigPath = specmaticConfigFile.canonicalPath,
-                specToStubBaseUrlMap = contractPathData.specToBaseUrlMap()
-            ).use {
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile).use {
                 val exportedProductStubbedRequest = HttpRequest(
                     method = "POST",
                     path = "/products",
@@ -2698,17 +2652,9 @@ Then status 200
 
         @Test
         fun `should serve requests from multiple ports when the specs are configured using a mixture of string based and object based syntax`() {
-            val specmaticConfigFile = File("src/test/resources/multi_port_stub_string_and_object_syntax/specmatic.yaml")
-            val specmaticConfig = loadSpecmaticConfig(specmaticConfigFile.absolutePath)
-            val contractPathData = contractStubPaths(specmaticConfigFile.absolutePath)
-            val scenarioStubs = scenarioStubsFrom(specmaticConfigFile, contractPathData, specmaticConfig)
+            val specmaticConfigFile = "src/test/resources/multi_port_stub_string_and_object_syntax/specmatic.yaml"
 
-            HttpStub(
-                features = scenarioStubs.features(),
-                rawHttpStubs = contractInfoToHttpExpectations(scenarioStubs),
-                specmaticConfigPath = specmaticConfigFile.canonicalPath,
-                specToStubBaseUrlMap = contractPathData.specToBaseUrlMap()
-            ).use {
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile).use {
                 val productsResponse = LegacyHttpClient(
                     endPointFromHostAndPort("localhost", 9000, null)
                 ).execute(
@@ -2814,29 +2760,9 @@ Then status 200
 
         @Test
         fun `should serve requests from multiple ports as configured in specmatic config where stubs are loaded from explicit examples directory`() {
-            val specmaticConfigFile =
-                File("src/test/resources/multi_port_stub_with_explicit_examples_dir/specmatic.yaml")
-            val specmaticConfig = loadSpecmaticConfig(specmaticConfigFile.absolutePath)
-            val contractPathData = contractStubPaths(specmaticConfigFile.absolutePath)
-            val scenarioStubs = implicitScenariosStubsFromExplicitDirs(
-                specmaticConfigFile,
-                contractPathData,
-                specmaticConfig,
-                listOf(
-                    "src/test/resources/multi_port_stub_with_explicit_examples_dir/examples/stub".replaceFileSeparator()
-                )
-            )
+            val specmaticConfigFile = "src/test/resources/multi_port_stub_with_explicit_examples_dir/specmatic.yaml"
 
-            HttpStub(
-                features = scenarioStubs.features(),
-                rawHttpStubs = contractInfoToHttpExpectations(scenarioStubs),
-                specmaticConfigPath = specmaticConfigFile.canonicalPath,
-                specToStubBaseUrlMap = contractPathData.map {
-                    it.copy(
-                        path = specmaticConfigFile.parentFile.resolve(it.path).absolutePath
-                    )
-                }.specToBaseUrlMap()
-            ).use { _ ->
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, dataDirPaths = listOf("src/test/resources/multi_port_stub_with_explicit_examples_dir/examples/stub")).use { _ ->
                 val request = HttpRequest(
                     method = "POST",
                     path = "/products",
@@ -2870,17 +2796,9 @@ Then status 200
 
         @Test
         fun `should be able to serve requests matching partial examples`() {
-            val specmaticConfigFile = File("src/test/resources/multi_port_stub_with_partials/specmatic.yaml")
-            val specmaticConfig = loadSpecmaticConfig(specmaticConfigFile.absolutePath)
-            val contractPathData = contractStubPaths(specmaticConfigFile.absolutePath)
-            val scenarioStubs = scenarioStubsFrom(specmaticConfigFile, contractPathData, specmaticConfig)
+            val specmaticConfigFile = "src/test/resources/multi_port_stub_with_partials/specmatic.yaml"
 
-            HttpStub(
-                features = scenarioStubs.features(),
-                rawHttpStubs = contractInfoToHttpExpectations(scenarioStubs),
-                specmaticConfigPath = specmaticConfigFile.canonicalPath,
-                specToStubBaseUrlMap = contractPathData.specToBaseUrlMap()
-            ).use { _ ->
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile).use { _ ->
                 val request = HttpRequest(
                     method = "POST",
                     path = "/products",
@@ -2902,10 +2820,7 @@ Then status 200
 
         @Test
         fun `stub bound to loop-back or wildcard interface should be able to serve requests sent to any loop-back address`() {
-            val specmaticConfigFile = File("src/test/resources/multi_port_stub/specmatic.yaml")
-            val specmaticConfig = loadSpecmaticConfig(specmaticConfigFile.absolutePath)
-            val contractPathData = contractStubPaths(specmaticConfigFile.absolutePath)
-            val scenarioStubs = scenarioStubsFrom(specmaticConfigFile, contractPathData, specmaticConfig)
+            val specmaticConfigFile = "src/test/resources/multi_port_stub/specmatic.yaml"
 
             val loopBackAndWildcardHostnames = setOf("127.0.0.1","localhost", "0.0.0.0")
             val portToExpectedId = mapOf(9001 to "100", 9002 to "200", 9003 to "300")
@@ -2913,12 +2828,7 @@ Then status 200
                 loopBackAndWildcardHostnames.map { host -> Triple(host, port, expectedId) }
             }
 
-            HttpStub(
-                features = scenarioStubs.features(),
-                rawHttpStubs = contractInfoToHttpExpectations(scenarioStubs),
-                specmaticConfigPath = specmaticConfigFile.canonicalPath,
-                specToStubBaseUrlMap = contractPathData.specToBaseUrlMap()
-            ).use {
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile).use {
                 assertThat(hostPortIdCombos).allSatisfy { (host, port, expectedId) ->
                     val request = HttpRequest(
                         method = "POST", path = "/products",

@@ -1,7 +1,7 @@
 version: 2
 contracts:
   - consumes:
-      - product_without_category.yaml
+      - src/test/resources/multi_port_stub_without_examples/product_without_category.yaml
       - specs:
-          - product_with_category.yaml
+          - src/test/resources/multi_port_stub_without_examples/product_with_category.yaml
         baseUrl: http://localhost:9001
