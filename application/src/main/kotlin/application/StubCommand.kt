@@ -222,7 +222,6 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         listOf(TextFilePrinter(LogDirectory(it, logPrefix, ".log")))
     } ?: emptyList()
 
-
     private fun startServer() {
         val workingDirectory = WorkingDirectory()
         if(strictMode) throwExceptionIfDirectoriesAreInvalid(exampleDirs, "example directories")
@@ -230,16 +229,16 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             contractPathDataList = contractSources,
             dataDirs = exampleDirs,
             specmaticConfigPath = specmaticConfigPath,
-            strictMode = strictMode
+            strictMode = strictMode,
         )
-        
+
         logStubLoadingSummary(stubData)
-        
+
         val filteredStubData = stubData.mapNotNull { (feature, scenarioStubs) ->
             val metadataFilter = ScenarioMetadataFilter.from(filter)
             val filteredScenarios = ScenarioMetadataFilter.filterUsing(
                 feature.scenarios.asSequence(),
-                metadataFilter
+                metadataFilter,
             ).toList()
             val stubFilterExpression = ExpressionStandardizer.filterToEvalEx(filter)
             val filteredStubScenario = scenarioStubs.filter { it ->
@@ -319,12 +318,12 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             }
         })
     }
-    
+
     private fun logStubLoadingSummary(stubData: List<Pair<Feature, List<ScenarioStub>>>) {
         val totalStubs = stubData.sumOf { it.second.size }
-        
+
         if (verbose) {
-            logger.newLine()
+            logger.boundary()
             consoleLog(StringLog("Loaded stubs:"))
             stubData.forEach { (feature, stubs) ->
                 val featureName = feature.specification ?: feature.path
@@ -333,11 +332,10 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
                     consoleLog(StringLog("  - $featureName: $stubDescription"))
                 }
             }
-            consoleLog(StringLog("Total: $totalStubs stubs loaded"))
-        } else {
-            consoleLog(StringLog("$totalStubs stubs loaded"))
+            consoleLog(StringLog("Total: $totalStubs example(s) loaded"))
         }
-        logger.newLine()
+
+        logger.boundary()
     }
     
     private fun buildStubDescription(stub: ScenarioStub): String {
