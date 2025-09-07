@@ -183,8 +183,7 @@ data class McpScenario(
             tool: Tool,
             mcpTestClient: McpTestClient,
             enableResiliency: Boolean,
-            dictionary: Dictionary = Dictionary.empty(),
-            onlyNegativeTests: Boolean
+            dictionary: Dictionary = Dictionary.empty()
         ): Sequence<McpScenario?> {
             try {
                 logger.disableInfoLogging()
@@ -223,7 +222,6 @@ data class McpScenario(
 
                 return when {
                     enableResiliency -> scenario.newBasedOn() + scenario.negativeBasedOn()
-                    onlyNegativeTests -> scenario.negativeBasedOn()
                     else -> sequenceOf(scenario)
                 }
             } catch(e: Throwable) {
