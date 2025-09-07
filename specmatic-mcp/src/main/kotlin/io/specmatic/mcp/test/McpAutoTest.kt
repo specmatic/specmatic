@@ -15,11 +15,11 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.withIndex
 
 class McpAutoTest(
-    private val baseUrl: String,
-    private val transport: McpTransport,
+    baseUrl: String,
+    transport: McpTransport,
     private val enableResiliency: Boolean = false,
     private val dictionaryFile: File? = null,
-    private val bearerToken: String? = null,
+    bearerToken: String? = null,
     private val filterTools: Set<String> = emptySet(),
     private val onlyNegativeTests: Boolean = false,
     private val skipTools: Set<String> = emptySet()

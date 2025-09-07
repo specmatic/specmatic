@@ -8,7 +8,6 @@ import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.jackson.*
-import io.specmatic.mcp.test.ToolResponse
 import io.specmatic.mcp.test.client.model.Capabilities
 import io.specmatic.mcp.test.client.model.ClientInfo
 import io.specmatic.mcp.test.client.model.InitializeParams
@@ -20,7 +19,6 @@ import io.specmatic.mcp.test.client.model.ToolsListResult
 import kotlinx.coroutines.withTimeout
 import java.util.concurrent.atomic.AtomicLong
 import com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES
-import io.specmatic.core.log.logger
 import io.specmatic.mcp.test.client.model.JsonRpcError
 import io.specmatic.mcp.test.logWithTag
 
