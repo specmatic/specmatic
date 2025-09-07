@@ -1,5 +1,6 @@
 package io.specmatic.core.utilities
 
+import io.specmatic.core.config.v3.Generative
 import io.specmatic.core.git.NonZeroExitError
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.git.exitErrorMessageContains
@@ -7,7 +8,8 @@ import java.io.File
 
 data class ContractSourceEntry(
     val path: String,
-    val baseUrl: String? = null
+    val baseUrl: String? = null,
+    val generative: Generative? = null
 )
 
 sealed interface ContractSource {

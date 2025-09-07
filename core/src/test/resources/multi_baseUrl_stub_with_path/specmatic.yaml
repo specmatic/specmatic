@@ -1,7 +1,7 @@
 version: 2
 contracts:
   - filesystem:
-      directory: "."
+      directory: "src/test/resources/multi_baseUrl_stub_with_path"
     consumes:
       - baseUrl: http://localhost:9001/base
         specs:

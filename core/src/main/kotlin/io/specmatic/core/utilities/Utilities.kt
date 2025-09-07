@@ -12,6 +12,7 @@ import io.specmatic.core.KeyData
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.azure.AzureAuthCredentials
+import io.specmatic.core.config.v3.Generative
 import io.specmatic.core.git.GitCommand
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.loadSpecmaticConfig
@@ -40,6 +41,7 @@ import java.io.StringWriter
 import java.net.MalformedURLException
 import java.net.URISyntaxException
 import java.net.URL
+import java.net.URI
 import java.util.concurrent.*
 import javax.xml.parsers.DocumentBuilder
 import javax.xml.parsers.DocumentBuilderFactory
@@ -295,7 +297,9 @@ data class ContractPathData(
     val repository: String? = null,
     val branch: String? = null,
     val specificationPath: String? = null,
-    val baseUrl: String? = null
+    val baseUrl: String? = null,
+    val generative: Generative? = null,
+    val port: Int? = null
 ) {
     companion object {
         fun List<ContractPathData>.specToBaseUrlMap(): Map<String, String?> {
@@ -315,7 +319,21 @@ fun contractFilePathsFrom(configFilePath: String, workingDirectory: String, sele
     logger.debug("Spec file paths in $configFilePath:")
     logger.debug(contractPathData.joinToString(System.lineSeparator()) { "- ${it.path}" })
 
-    return contractPathData
+    // Populate the port from baseUrl if explicitly present
+    val contractPathDataWithPorts = contractPathData.map { data ->
+        val parsedPort = try {
+            data.baseUrl?.let { url ->
+                val uri = URI(url)
+                if (uri.port != -1) uri.port else null
+            }
+        } catch (_: Throwable) {
+            null
+        }
+
+        if (parsedPort != null && data.port != parsedPort) data.copy(port = parsedPort) else data
+    }
+
+    return contractPathDataWithPorts
 }
 
 fun getSystemGit(path: String) : GitCommand {

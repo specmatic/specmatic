@@ -411,7 +411,7 @@ class HttpStub(
             logger.log("Note: The logs below indicate the selected base URL for each specification")
         }
 
-        return specmaticConfig.stubBaseUrls(defaultBaseUrl).map { stubBaseUrl ->
+        return specmaticConfig.stubBaseUrls(defaultBaseUrl, ::isOpenAPI).map { stubBaseUrl ->
             val host = extractHost(stubBaseUrl).let(::normalizeHost)
             val port = extractPort(stubBaseUrl)
             Pair(host, port)

@@ -5,10 +5,10 @@ contracts:
     consumes:
       - baseUrl: http://localhost:9001
         specs:
-          - imported_product/imported_product.yaml
+          - src/test/resources/multi_port_stub/imported_product/imported_product.yaml
       - baseUrl: http://0.0.0.0:9002
         specs:
-          - exported_product/exported_product.yaml
+          - src/test/resources/multi_port_stub/exported_product/exported_product.yaml
       - baseUrl: http://127.0.0.1:9003
         specs:
-          - another_exported_product/exported_product.yaml
+          - src/test/resources/multi_port_stub/another_exported_product/exported_product.yaml

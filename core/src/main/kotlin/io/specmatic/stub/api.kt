@@ -18,6 +18,7 @@ import io.specmatic.core.git.SystemGit
 import io.specmatic.core.isContractFile
 import io.specmatic.core.loadSpecmaticConfigOrDefault
 import io.specmatic.core.log.StringLog
+import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.consoleDebug
 import io.specmatic.core.log.consoleLog
 import io.specmatic.core.log.logger
@@ -35,8 +36,8 @@ import io.specmatic.mock.ScenarioStub
 import org.yaml.snakeyaml.Yaml
 import java.io.File
 
-private const val HTTP_STUB_SHUTDOWN_TIMEOUT = 2000L
-private const val STUB_START_TIMEOUT = 20_000L
+const val HTTP_STUB_SHUTDOWN_TIMEOUT = 2000L
+const val STUB_START_TIMEOUT = 20_000L
 private const val INDENT = "  "
 
 // Used by stub client code
@@ -127,7 +128,7 @@ internal fun createStub(
     return createStub(host, port, timeoutMillis, strict, null, dataDirPaths)
 }
 
-internal fun createStub(
+fun createStub(
     host: String = "localhost",
     port: Int = 9000,
     timeoutMillis: Long,
@@ -253,7 +254,7 @@ fun loadContractStubsFromImplicitPathsAsResults(
                 }
                 val feature = cachedFeature ?: loadIfOpenAPISpecification(
                     contractSource,
-                    specmaticConfig
+                    specmaticConfig,
                 )?.second
 
                 if(feature == null) {
@@ -263,14 +264,13 @@ fun loadContractStubsFromImplicitPathsAsResults(
                     val implicitDataDirs = implicitDirsForSpecifications(specFile)
                     val externalDataDirs = dataDirFiles(externalDataDirPaths)
 
-                    consoleLog("")
                     val dataFiles = implicitDataDirs.flatMap { filesInDir(it).orEmpty() }
                     if(dataFiles.isEmpty()) {
                         debugLogNonExistentDataFiles(implicitDataDirs.map { it.path }.relativePaths())
                     } else {
                         consoleLog(dataFilesLogForStubScan(
                             dataFiles,
-                            implicitDataDirs.map { it.path }.relativePaths()
+                            implicitDataDirs.map { it.path }.relativePaths(),
                         ))
                     }
                     val stubData = when {
@@ -395,11 +395,11 @@ fun loadContractStubsFromFilesAsResults(
 
     dataDirPaths.forEach { dataDirPath ->
         val dataFiles = dataDirFiles(listOf(dataDirPath))
-        consoleLog("")
+        logger.boundary()
         if(dataFiles.isEmpty()) {
             debugLogNonExistentDataFiles(dataDirPaths)
         } else {
-            consoleLog(dataFilesLogForStubScan(dataFiles, listOf(dataDirPath).relativePaths()))
+            consoleLog(dataFilesLogForStubScan(dataFiles, listOf(dataDirPath).relativePaths(), logger is Verbose))
         }
     }
 
@@ -675,16 +675,19 @@ private fun dataFilesLogForStubScan(
         return StringLog("")
     }
 
-    val dataFilesString = dataFiles.joinToString(System.lineSeparator()) { file ->
-        "- ${file.canonicalPath}".prependIndent(INDENT)
+    return if (debugMode) {
+        val dataFilesString = dataFiles.joinToString(System.lineSeparator()) { file ->
+            "- ${file.canonicalPath}".prependIndent(INDENT)
+        }
+        
+        StringLog(buildString {
+            append("Scanning example files from '${dataDirPaths.joinToString(", ")}'".prependIndent(" "))
+            append(System.lineSeparator())
+            append(dataFilesString)
+        })
+    } else {
+        StringLog(" ${dataFiles.size} examples(s) found for '${dataDirPaths.joinToString(", ")}'".prependIndent(" "))
     }
-
-    return StringLog(buildString {
-        val messagePrefix = if(debugMode) "Scanning example files from" else "Example files in"
-        append("$messagePrefix '${dataDirPaths.joinToString(", ")}'".prependIndent(" "))
-        append(System.lineSeparator())
-        append(dataFilesString)
-    })
 }
 
 class StubMatchExceptionReport(val request: HttpRequest, val e: NoMatchingScenario) {
@@ -807,7 +810,9 @@ fun loadContractStubsAsResults(
             if (matchResult.feature == null) {
                 null
             } else {
-                logger.debug("Successfully loaded the stub expectation from '${stub.filePath.orEmpty()}".prependIndent(" "))
+                if (logger is Verbose) {
+                    logger.debug("Successfully loaded the stub expectation from '${stub.filePath.orEmpty()}".prependIndent(" "))
+                }
                 FeatureStubsResult.Success(matchResult.feature, listOf(stub))
             }
         }
