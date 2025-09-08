@@ -5,7 +5,7 @@ import io.specmatic.mcp.test.ScenarioExecutionResult
 import io.specmatic.mcp.test.logWithTag
 import java.io.File
 
-private const val JSON_REPORT_PATH = "./build/reports/specmatic"
+const val ARTIFACTS_PATH = "./build/reports/specmatic"
 private const val JSON_REPORT_FILE_NAME = "test_report.json"
 
 class McpJsonReport(
@@ -14,10 +14,10 @@ class McpJsonReport(
 ) {
     fun generate() {
         try {
-            logWithTag("Saving JSON test report to $JSON_REPORT_PATH ...")
-            val directory = File(reportBaseDirectory).resolve(JSON_REPORT_PATH)
+            val directory = File(reportBaseDirectory).resolve(ARTIFACTS_PATH)
             directory.mkdirs()
             val file = File(directory, JSON_REPORT_FILE_NAME)
+            logWithTag("Saving JSON test report to ${file.canonicalPath} ...")
 
             val reportJson = ObjectMapper().writeValueAsString(executionResults)
             file.writeText(reportJson)
