@@ -741,7 +741,7 @@ And response-body
         val results: Results = testBackwardCompatibility(behaviour, behaviour)
 
         println(results.report())
-        assertEquals(1, results.successCount)
+        assertEquals(3, results.successCount)
         assertEquals(0, results.failureCount)
     }
 

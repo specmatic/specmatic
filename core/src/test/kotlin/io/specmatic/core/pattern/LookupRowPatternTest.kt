@@ -5,6 +5,7 @@ import io.specmatic.core.Result
 import io.specmatic.core.value.NumberValue
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import java.math.BigDecimal
 
 internal class LookupRowPatternTest {
     @Test
@@ -17,12 +18,16 @@ internal class LookupRowPatternTest {
     }
 
     @Test
-    fun `it should return a new exact value pattern when generating pattern from row with no matching key`() {
+    fun `it should return new exact value patterns when generating pattern from row with no matching key`() {
         val pattern = LookupRowPattern(NumberPattern(), "customerId")
         val row = Row(emptyList(), emptyList())
 
         val newPattern = pattern.newBasedOn(row, Resolver()).map { it.value }
-        assertThat(newPattern.single()).isEqualTo(NumberPattern())
+        assertThat(newPattern.toList()).containsExactlyInAnyOrder(
+            NumberPattern(),
+            ExactValuePattern(NumberValue(BigDecimal(Int.MAX_VALUE))),
+            ExactValuePattern(NumberValue(BigDecimal(Int.MIN_VALUE))),
+        )
     }
 
     @Test

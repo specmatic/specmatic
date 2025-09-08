@@ -143,8 +143,8 @@ paths:
         println(count)
         println(params)
 
-        assertThat(params).isEqualTo(listOf("data"))
-        assertThat(count).isEqualTo(2)
+        assertThat(params).isEqualTo(listOf("data", "data", "data"))
+        assertThat(count).isEqualTo(4)
     }
 
     @Test

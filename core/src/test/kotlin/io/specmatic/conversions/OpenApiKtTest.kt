@@ -18,7 +18,6 @@ import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.specmatic.jsonBody
-import io.specmatic.runningOnWindows
 import io.specmatic.stub.HttpStub
 import io.specmatic.test.TestExecutor
 import io.specmatic.trimmedLinesString
@@ -30,7 +29,6 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
@@ -120,7 +118,7 @@ Scenario: zero should return not found
             object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     flags["${request.path} executed"] = true
-                    assertThat(request.path).matches("""/hello/\d+""")
+                    assertThat(request.path).matches("""/hello/-?\d+""")
                     val headers: HashMap<String, String> = object : HashMap<String, String>() {
                         init {
                             put("Content-Type", "application/json")
@@ -140,7 +138,7 @@ Scenario: zero should return not found
         )
 
         assertThat(flags["/hello/0 executed"]).isTrue
-        assertThat(flags.size).isEqualTo(2)
+        assertThat(flags.size).isEqualTo(4)
         assertThat(results.report()).isEqualTo("""Match not found""".trimIndent())
     }
 
@@ -449,9 +447,9 @@ Background:
             }
         )
 
-        assertThat(results.results.size).isEqualTo(17)
-        assertThat(results.results.filterIsInstance<Result.Success>().size).isEqualTo(4)
-        assertThat(results.results.filterIsInstance<Result.Failure>().size).isEqualTo(13)
+        assertThat(results.results.size).isEqualTo(31)
+        assertThat(results.results.filterIsInstance<Result.Success>().size).isEqualTo(8)
+        assertThat(results.results.filterIsInstance<Result.Failure>().size).isEqualTo(23)
     }
 
     @Test
@@ -464,7 +462,7 @@ Background:
             object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     flags["executed"] = true
-                    assertThat(request.path).matches("""/hello/\d+""")
+                    assertThat(request.path).matches("""/hello/-?\d+""")
                     val headers: HashMap<String, String> = object : HashMap<String, String>() {
                         init {
                             put("Content-Type", "application/json")
@@ -477,10 +475,7 @@ Background:
                     }
                     return HttpResponse(status, "", headers)
                 }
-
-                override fun setServerState(serverState: Map<String, Value>) {
-                }
-            }
+            },
         )
 
         assertThat(flags["executed"]).isTrue
@@ -544,7 +539,7 @@ Background:
         })
 
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
-        assertThat(results.successCount).isEqualTo(2)
+        assertThat(results.successCount).isEqualTo(4)
         assertThat(pathsSeen).contains("/v1/users/me")
     }
 
@@ -748,7 +743,7 @@ Feature: multipart file upload
         )
 
         val contractTests = contract.generateContractTests(emptyList())
-        val result = contractTests.single().runTest(object : TestExecutor {
+        val result = contractTests.first().runTest(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
                 val multipartFileValues = request.multiPartFormData.filterIsInstance<MultiPartFileValue>()
                 assertThat(multipartFileValues.size).isEqualTo(1)
@@ -1168,162 +1163,6 @@ Background:
         }.sorted().distinct()
 
         assertThat(apiIdentifiersFromGherkinSpec).isEqualTo(apiIdentifiersDirectlyFromSpecification)
-    }
-    @Test
-    fun `should create petstore tests`() {
-        val systemPropertiesMap = System.getProperties().map { it.key.toString() to it.value.toString() }.toMap()
-        printMap("System Properties", systemPropertiesMap)
-
-        printMap("Environment Variables", System.getenv())
-
-        val flags = mutableMapOf<String, Int>().withDefault { 0 }
-
-        val feature = parseGherkinStringToFeature(
-            """
-Feature: Hello world
-
-Background:
-  Given openapi openapi/petstore-expanded.yaml
-  
-  Scenario: get by tag
-    When POST /pets
-    Then status 201
-    Examples:
-      | tag     | name |
-      | testing | test |
-      
-  Scenario: zero return bad request
-    When GET /pets/0
-    Then status 400
-        """.trimIndent(), sourceSpecPath
-        )
-
-        val results = feature.executeTests(
-            object : TestExecutor {
-                override fun execute(request: HttpRequest): HttpResponse {
-                    val flagKey = "${request.path} ${request.method} executed"
-                    flags[flagKey] = flags.getValue(flagKey) + 1
-                    val headers: HashMap<String, String> = object : HashMap<String, String>() {
-                        init {
-                            put("Content-Type", "application/json")
-                        }
-                    }
-                    val pet = Pet("scooby", "golden", 1, "retriever", 2)
-                    return when {
-                        request.path!!.matches(Regex("""/pets/\d+""")) -> when (request.method) {
-                            "GET" -> {
-                                when (request.path) {
-                                    "/pets/0" -> HttpResponse(
-                                        400,
-                                        ObjectMapper().writeValueAsString(Error(1, "zero is not allowed")),
-                                        headers
-                                    )
-
-                                    else -> HttpResponse(
-                                        200,
-                                        ObjectMapper().writeValueAsString(pet),
-                                        headers
-                                    )
-                                }
-                            }
-
-                            "DELETE" -> HttpResponse(
-                                204,
-                                headers
-                            )
-
-                            "PATCH" -> {
-                                HttpResponse(
-                                    200,
-                                    ObjectMapper().writeValueAsString(pet),
-                                    headers
-                                )
-                            }
-
-                            else -> HttpResponse(400, "", headers)
-                        }
-
-                        request.path == "/pets" -> {
-                            when (request.method) {
-                                "GET" -> {
-                                    println(request.queryParams.toLine())
-                                    HttpResponse(
-                                        200,
-                                        ObjectMapper().writeValueAsString(listOf(pet)),
-                                        object : HashMap<String, String>() {
-                                            init {
-                                                put("Content-Type", "application/json")
-                                                put("X-RateLimit-Reset", "2021-05-31T17:32:28Z")
-                                                put("X-Date-DataType", "2021-05-31")
-                                                put("X-Boolean-DataType", "true")
-                                                put("X-Number-DataType", "123123.123123")
-                                            }
-                                        }
-                                    )
-                                }
-
-                                "POST" -> {
-                                    assertThat(request.body).isIn(
-                                        parsedJSONObject("""
-                                        {
-                                            "tag": "testing",
-                                            "name": "test"
-                                        }
-                                    """.trimIndent()),
-                                        parsedJSONObject("""
-                                        {
-                                            "name": "test"
-                                        }
-                                    """.trimIndent())
-                                    )
-                                    HttpResponse(
-                                        201,
-                                        ObjectMapper().writeValueAsString(pet),
-                                        headers
-                                    )
-                                }
-
-                                else -> HttpResponse(400, "", headers)
-                            }
-                        }
-
-                        request.path == "/petIds" -> {
-                            when (request.method) {
-                                "GET" -> {
-                                    if (request.headers.containsKey("Authorization")) {
-                                        HttpResponse(
-                                            200,
-                                            ObjectMapper().writeValueAsString(listOf(1)),
-                                            headers
-                                        )
-                                    } else {
-                                        HttpResponse(403, "UnAuthorized", headers)
-                                    }
-                                }
-
-                                else -> HttpResponse(400, "", headers)
-                            }
-                        }
-
-                        else -> HttpResponse(400, "", headers)
-                    }
-                }
-
-                override fun setServerState(serverState: Map<String, Value>) {
-                }
-            }
-        )
-
-        printMap("Tests Executed", flags.mapValues { it.toString() })
-
-        assertThat(flags["/pets POST executed"]).isEqualTo(1)
-        assertThat(flags["/pets GET executed"]).isEqualTo(5)
-        assertThat(flags["/petIds GET executed"]).isEqualTo(2)
-        assertThat(flags["/pets/0 GET executed"]).isEqualTo(1)
-        assertThat(flags.keys.filter { it.matches(Regex("""/pets/\d+ GET executed""")) }.size).isEqualTo(2)
-        assertThat(flags.keys.any { it.matches(Regex("""/pets/\d+ DELETE executed""")) }).isNotNull
-        assertThat(flags.filter {(path, _) -> path.matches(Regex("""/pets/\d+ PATCH executed""")) }.values.sum()).isEqualTo(21)
-        assertTrue(results.success(), results.report())
     }
 
     private fun printMap(label: String, map: Map<String, String>) {

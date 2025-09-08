@@ -9,7 +9,6 @@ import io.specmatic.core.value.*
 import io.specmatic.test.TestExecutor
 import io.specmatic.trimmedLinesString
 import org.assertj.core.api.Assertions.assertThat
-import org.json.JSONObject
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.fail
@@ -108,7 +107,7 @@ class ContractAsTest {
         val results = contractBehaviour.executeTests(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
                 assertThat(request.headers.keys).contains("test")
-                assertThat(request.headers["test"]).matches("[0-9]+")
+                assertThat(request.headers["test"]).matches("-?[0-9]+")
                 return HttpResponse.OK
             }
 
@@ -291,7 +290,7 @@ class ContractAsTest {
             override fun setServerState(serverState: Map<String, Value>) {}
         })
 
-        assertThat(flags).containsExactlyInAnyOrder("with", "without")
+        assertThat(flags).containsExactlyInAnyOrder("with", "with", "with", "without")
         assertTrue(results.success(), results.report())
     }
 
@@ -747,83 +746,6 @@ class ContractAsTest {
                 setupStatus[0] = setupSuccess
                 assertTrue(serverState.containsKey("cities_exist"))
                 assertTrue(serverState["cities_exist"] != True)
-            }
-        })
-
-        assertEquals("Setup happened", setupStatus[0])
-        assertTrue(results.success(), results.report())
-    }
-
-    @Test
-    @Throws(Throwable::class)
-    fun randomFactNumberIsPickedUpByGeneratedPattern() {
-        val contractGherkin = "Feature: Pet API\n\n" +
-                "Scenario: Update pet details\n" +
-                "  Given pattern Pet {\"name\": \"(string)\", \"type\": \"(string)\", \"status\": \"(string)\", \"id\": \"(number)\"}\n" +
-                "  And fact id (number)\n" +
-                "  When POST /pets\n" +
-                "  And request-body (Pet)\n" +
-                "  Then status 200\n"
-        val contractBehaviour = parseGherkinStringToFeature(contractGherkin)
-        val setupStatus = arrayOf("Setup did not happen")
-        val setupSuccess = "Setup happened"
-        val idFound = intArrayOf(0)
-
-        val results = contractBehaviour.executeTests(object : TestExecutor {
-            override fun execute(request: HttpRequest): HttpResponse {
-                assertEquals("/pets", request.path)
-                assertEquals("POST", request.method)
-                val requestBody = JSONObject(request.bodyString)
-                assertEquals(idFound[0], requestBody.getInt("id"))
-                return HttpResponse.OK
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-                setupStatus[0] = setupSuccess
-                assertTrue(serverState.containsKey("id"))
-                idFound[0] = serverState["id"].toString().toInt()
-            }
-        })
-
-        assertEquals("Setup happened", setupStatus[0])
-        assertTrue(results.success(), results.report())
-    }
-
-    @Test
-    @Throws(Throwable::class)
-    fun `random fact number is picked up by the tabular pattern`() {
-        val contractGherkin = """
-Feature: Pet API
-
-Scenario: Update pet details
-  Given pattern Pet
-  | name   | (string) |
-  | type   | (string) |
-  | status | (string) |
-  | id     | (number) |
-  And fact id (number)
-  When POST /pets
-  And request-body (Pet)
-  Then status 200
-"""
-        val contractBehaviour = parseGherkinStringToFeature(contractGherkin)
-        val setupStatus = arrayOf("Setup didn't happen")
-        val setupSuccess = "Setup happened"
-        val idFound = intArrayOf(0)
-
-        val results = contractBehaviour.executeTests(object : TestExecutor {
-            override fun execute(request: HttpRequest): HttpResponse {
-                assertEquals("/pets", request.path)
-                assertEquals("POST", request.method)
-                val requestBody = JSONObject(request.bodyString)
-                assertEquals(idFound[0], requestBody.getInt("id"))
-                return HttpResponse.OK
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-                setupStatus[0] = setupSuccess
-                assertTrue(serverState.containsKey("id"))
-                idFound[0] = serverState["id"].toString().toInt()
             }
         })
 

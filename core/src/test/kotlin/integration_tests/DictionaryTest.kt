@@ -478,6 +478,7 @@ class DictionaryTest {
     inner class NegativeBasedOnTests {
 
         @Test
+        // TODO: REVIEW
         fun `negative based path parameters should still be generated when dictionary contains substitutions`() {
             val dictionary = "PARAMETERS: { PATH: { id: 123 } }".let(Dictionary::fromYaml)
             val scenario = Scenario(ScenarioInfo(
@@ -501,11 +502,12 @@ class DictionaryTest {
                 }
             })
 
-            assertThat(result.results).hasSize(3)
+            assertThat(result.results).hasSize(5)
             assertThat(result.successCount).isEqualTo(1)
         }
 
         @Test
+        // TODO: REVIEW
         fun `negative based query parameters should still be generated when dictionary contains substitutions`() {
             val dictionary = "PARAMETERS: { QUERY: { id: 123 } }".let(Dictionary::fromYaml)
             val scenario = Scenario(ScenarioInfo(
@@ -534,11 +536,12 @@ class DictionaryTest {
                 }
             })
 
-            assertThat(result.results).hasSize(4)
+            assertThat(result.results).hasSize(6)
             assertThat(result.successCount).isEqualTo(1)
         }
 
         @Test
+        // TODO: REVIEW
         fun `negative based headers should still be generated when dictionary contains substitutions`() {
             val dictionary = "PARAMETERS: { HEADER: { ID: 123 } }".let(Dictionary::fromYaml)
             val scenario = Scenario(ScenarioInfo(
@@ -567,11 +570,12 @@ class DictionaryTest {
                 }
             })
 
-            assertThat(result.results).hasSize(4)
+            assertThat(result.results).hasSize(6)
             assertThat(result.successCount).isEqualTo(1)
         }
 
         @Test
+        // TODO: REVIEW
         fun `negative based bodies should still be generated when dictionary contains substitutions`() {
             val dictionary = mapOf("OBJECT.id" to NumberValue(123)).let(Dictionary::from)
             val scenario = Scenario(ScenarioInfo(
@@ -602,7 +606,7 @@ class DictionaryTest {
                 }
             })
 
-            assertThat(result.results).hasSize(4)
+            assertThat(result.results).hasSize(6)
         }
     }
 

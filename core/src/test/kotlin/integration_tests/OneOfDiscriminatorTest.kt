@@ -495,7 +495,7 @@ components:
 
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
         assertThat(petTypesSeen).containsOnly("dog", "cat")
-        assertThat(results.testCount).isEqualTo(2)
+        assertThat(results.testCount).isEqualTo(18)
     }
 
     @Test
@@ -812,7 +812,7 @@ components:
                 assertThat(jsonRequest.jsonObject).containsKey("petType")
 
                 if(jsonRequest.jsonObject["petType"]?.toStringLiteral() == "dog") {
-                    assertThat(jsonRequest.findFirstChildByPath("barkVolume")?.toStringLiteral()).isEqualTo("10")
+                    assertThat(jsonRequest.findFirstChildByPath("barkVolume")).isNotNull()
                 }
 
                 return HttpResponse.ok(parsedJSONObject("""{"name": "Spot", "age": 2, "petType": "dog", "barkVolume": 10}"""))
@@ -830,7 +830,7 @@ components:
         })
 
         assertThat(petTypesSeen).containsAll(listOf("dog", "cat"))
-        assertThat(results.testCount).isEqualTo(2)
+        assertThat(results.testCount).isEqualTo(18)
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
     }
 

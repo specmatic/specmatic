@@ -18,7 +18,7 @@ internal class HttpRequestPatternKtTest {
 
         val newTypes = newMultiPartBasedOn(multiPartTypes, Row(), Resolver()).toList()
 
-        assertThat(newTypes).hasSize(2)
+        assertThat(newTypes).hasSize(4)
 
         assertThat(newTypes).contains(listOf(MultiPartContentPattern("data", NumberPattern())))
         assertThat(newTypes).contains(listOf(MultiPartContentPattern("data", StringPattern())))

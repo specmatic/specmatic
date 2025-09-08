@@ -250,7 +250,7 @@ class GenerativeTests {
 
         try {
             val results = runGenerativeTests(feature)
-            assertThat(results.results).hasSize(7)
+            assertThat(results.results).hasSize(9)
         } catch (e: ContractException) {
             println(e.report())
             throw e
@@ -313,7 +313,7 @@ class GenerativeTests {
 
         try {
             val results = runGenerativeTests(feature)
-            assertThat(results.results).hasSize(7)
+            assertThat(results.results).hasSize(9)
         } catch (e: ContractException) {
             println(e.report())
             throw e
@@ -443,7 +443,7 @@ class GenerativeTests {
 
         try {
             val results = runGenerativeTests(feature)
-            assertThat(results.results).hasSize(4)
+            assertThat(results.results).hasSize(6)
         } catch (e: ContractException) {
             println(e.report())
             throw e
@@ -489,7 +489,7 @@ class GenerativeTests {
 
         try {
             val results = runGenerativeTests(feature)
-            assertThat(results.results).hasSize(4)
+            assertThat(results.results).hasSize(6)
         } catch (e: ContractException) {
             println(e.report())
             throw e
@@ -535,7 +535,7 @@ class GenerativeTests {
 
         try {
             val results = runGenerativeTests(feature)
-            assertThat(results.results).hasSize(4)
+            assertThat(results.results).hasSize(6)
         } catch (e: ContractException) {
             println(e.report())
             throw e
@@ -586,7 +586,7 @@ class GenerativeTests {
 
         try {
             val results = runGenerativeTests(feature)
-            assertThat(results.results).hasSize(9)
+            assertThat(results.results).hasSize(27)
         } catch (e: ContractException) {
             println(e.report())
             throw e
@@ -645,7 +645,7 @@ class GenerativeTests {
 
         try {
             val results = runGenerativeTests(feature)
-            assertThat(results.results).hasSize(9)
+            assertThat(results.results).hasSize(27)
         } catch (e: ContractException) {
             println(e.report())
             throw e
@@ -705,7 +705,7 @@ class GenerativeTests {
 
         try {
             val results = runGenerativeTests(feature)
-            assertThat(results.results).hasSize(9)
+            assertThat(results.results).hasSize(27)
         } catch (e: ContractException) {
             println(e.report())
             throw e
@@ -1016,7 +1016,9 @@ class GenerativeTests {
                 "Value Bldg no 1 in company.address.building",
                 "null in company.address.building",
                 "Value type number in company.address.building",
-                "Value type boolean in company.address.building"
+                "Value type boolean in company.address.building",
+                "Value -2147483648 in person.address.building",
+                "Value 2147483647 in person.address.building",
             )
         } catch (e: ContractException) {
             Assertions.fail("Should not have got this error:\n${e.report()}")
@@ -1349,20 +1351,18 @@ class GenerativeTests {
 
                     return HttpResponse.OK
                 }
-
-                override fun setServerState(serverState: Map<String, Value>) {
-
-                }
             })
 
             assertThat(testType).containsExactlyInAnyOrder(
-                "price is present", "price is absent"
+                "price is present",
+                "price is present",
+                "price is present",
+                "price is absent",
             )
 
             assertThat(results.results).hasSize(testType.size)
 
             assertThat(results.failureCount).isEqualTo(0)
-
         } finally {
             System.clearProperty(SPECMATIC_GENERATIVE_TESTS)
             System.clearProperty(ONLY_POSITIVE)
@@ -1530,8 +1530,20 @@ class GenerativeTests {
                 "address.building.flat mutated to string",
                 "address.building.name mutated to boolean",
                 "address.building.name mutated to boolean",
+                "address.building.name mutated to boolean",
+                "address.building.name mutated to boolean",
+                "address.building.name mutated to boolean",
+                "address.building.name mutated to boolean",
                 "address.building.name mutated to null",
                 "address.building.name mutated to null",
+                "address.building.name mutated to null",
+                "address.building.name mutated to null",
+                "address.building.name mutated to null",
+                "address.building.name mutated to null",
+                "address.building.name mutated to number",
+                "address.building.name mutated to number",
+                "address.building.name mutated to number",
+                "address.building.name mutated to number",
                 "address.building.name mutated to number",
                 "address.building.name mutated to number",
                 "address.propertyType is commercial",
@@ -1561,11 +1573,23 @@ class GenerativeTests {
                 "name mutated to boolean",
                 "name mutated to boolean",
                 "name mutated to boolean",
+                "name mutated to boolean",
+                "name mutated to boolean",
+                "name mutated to boolean",
+                "name mutated to boolean",
                 "name mutated to null",
                 "name mutated to null",
                 "name mutated to null",
                 "name mutated to null",
                 "name mutated to null",
+                "name mutated to null",
+                "name mutated to null",
+                "name mutated to null",
+                "name mutated to null",
+                "name mutated to number",
+                "name mutated to number",
+                "name mutated to number",
+                "name mutated to number",
                 "name mutated to number",
                 "name mutated to number",
                 "name mutated to number",
@@ -1861,7 +1885,7 @@ class GenerativeTests {
             }
         })
 
-        assertThat(results.testCount).isEqualTo(6)
+        assertThat(results.testCount).isEqualTo(8)
         assertThat(testsSeen).doesNotContain("-ve" to "BAD_REQUEST")
         assertThat(testsSeen).doesNotContain("-ve" to "SERVER_ERROR")
     }
@@ -2113,7 +2137,7 @@ class GenerativeTests {
             }
         })
 
-        assertThat(results.testCount).isEqualTo(5)
+        assertThat(results.testCount).isEqualTo(7)
         assertThat(testsSeen).doesNotContain("-ve" to "BAD_REQUEST")
         assertThat(testsSeen).doesNotContain("-ve" to "SERVER_ERROR")
     }
@@ -2327,7 +2351,13 @@ class GenerativeTests {
             "POST /items -> 4xx [REQUEST.BODY.[].name string mutated to number]",
             "POST /items -> 4xx [REQUEST.BODY.[].quantity number mutated to boolean]",
             "POST /items -> 4xx [REQUEST.BODY.[].quantity number mutated to null]",
-            "POST /items -> 4xx [REQUEST.BODY.[].quantity number mutated to string]"
+            "POST /items -> 4xx [REQUEST.BODY.[].quantity number mutated to string]",
+            "POST /items -> 4xx [REQUEST.BODY.[].name string mutated to boolean, REQUEST.BODY.[].quantity highest possible value when no maximum is set]",
+            "POST /items -> 4xx [REQUEST.BODY.[].name string mutated to boolean, REQUEST.BODY.[].quantity lowest possible value when no minimum is set]",
+            "POST /items -> 4xx [REQUEST.BODY.[].name string mutated to null, REQUEST.BODY.[].quantity highest possible value when no maximum is set]",
+            "POST /items -> 4xx [REQUEST.BODY.[].name string mutated to null, REQUEST.BODY.[].quantity lowest possible value when no minimum is set]",
+            "POST /items -> 4xx [REQUEST.BODY.[].name string mutated to number, REQUEST.BODY.[].quantity highest possible value when no maximum is set]",
+            "POST /items -> 4xx [REQUEST.BODY.[].name string mutated to number, REQUEST.BODY.[].quantity lowest possible value when no minimum is set]",
         )
     }
 
