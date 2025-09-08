@@ -1,12 +1,12 @@
 package io.specmatic.mcp.report
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.specmatic.core.Constants.Companion.ARTIFACTS_PATH
 import io.specmatic.mcp.test.ScenarioExecutionResult
 import io.specmatic.mcp.test.logWithTag
 import java.io.File
 
-const val ARTIFACTS_PATH = "./build/reports/specmatic"
-private const val JSON_REPORT_FILE_NAME = "test_report.json"
+private const val JSON_REPORT_FILE_NAME = "mcp_test_report.json"
 
 class McpJsonReport(
     private val executionResults: List<ScenarioExecutionResult>,
