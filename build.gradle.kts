@@ -113,4 +113,32 @@ specmatic {
             }
         }
     }
+    withOSSLibrary(project(":specmatic-mcp")) {
+        githubRelease()
+        publish {
+            pom {
+                name = "Specmatic"
+                description =
+                    "Turn your contracts into executable specifications. Contract Driven Development - Collaboratively Design & Independently Deploy MicroServices & MicroFrontends."
+                url = "https://specmatic.io"
+                licenses {
+                    license {
+                        name = "MIT"
+                        url = "https://github.com/specmatic/specmatic/blob/main/License.md"
+                    }
+                }
+                developers {
+                    developer {
+                        id = "specmaticBuilders"
+                        name = "Specmatic Builders"
+                        email = "info@specmatic.io"
+                    }
+                }
+                scm {
+                    connection = "https://github.com/specmatic/specmatic"
+                    url = "https://specmatic.io/"
+                }
+            }
+        }
+    }
 }

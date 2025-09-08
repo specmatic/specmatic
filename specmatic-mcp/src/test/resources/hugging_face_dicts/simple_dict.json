@@ -1,0 +1,19 @@
+{
+  "hf_doc_search": {
+    "query": "agent",
+    "product": "smolagents"
+  },
+  "model_details": {
+    "model_id": "Qwen/Qwen2.5-Coder-32B-Instruct"
+  },
+  "dataset_details": {
+    "dataset_id": "MathArena/usamo_2025"
+  },
+  "gr2_0_abidlabs_easyghiblis_ndition_generate_image": {
+    "spatial_img": "https://upload.wikimedia.org/wikipedia/commons/4/47/PNG_transparency_demonstration_1.png"
+  },
+  "hf_doc_fetch": {
+    "doc_url": "https://huggingface.co/docs",
+    "offset": 10
+  }
+}
