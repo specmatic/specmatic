@@ -1,9 +1,9 @@
 package io.specmatic.mcp.test
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.specmatic.core.Constants.Companion.ARTIFACTS_PATH
 import io.specmatic.core.Dictionary
 import io.specmatic.core.log.logger
-import io.specmatic.mcp.report.ARTIFACTS_PATH
 import io.specmatic.mcp.report.McpConsoleReport
 import io.specmatic.mcp.report.McpJsonReport
 import io.specmatic.mcp.test.client.McpTestClient
