@@ -7,20 +7,16 @@ import com.fasterxml.jackson.databind.JsonDeserializer
 import com.fasterxml.jackson.databind.JsonMappingException
 import com.fasterxml.jackson.databind.JsonNode
 import io.specmatic.core.Configuration.Companion.DEFAULT_BASE_URL
+import io.specmatic.core.ResiliencyTestSuite
+import io.specmatic.core.ResiliencyTestsConfig
 import io.specmatic.core.utilities.Flags
 import java.net.URI
-
-enum class Generative {
-    positiveOnly,
-    all,
-    none
-}
 
 sealed class SpecExecutionConfig {
     data class StringValue(@get:JsonValue val value: String) : SpecExecutionConfig()
     sealed class ObjectValue : SpecExecutionConfig() {
         abstract val specs: List<String>
-        abstract val generative: Generative?
+        abstract val resiliencyTests: ResiliencyTestsConfig?
         private val defaultBaseUrl: URI get() = URI(Flags.getStringValue(Flags.SPECMATIC_BASE_URL) ?: DEFAULT_BASE_URL)
 
         fun toBaseUrl(defaultBaseUrl: String? = null): String {
@@ -33,7 +29,7 @@ sealed class SpecExecutionConfig {
         data class FullUrl(
             val baseUrl: String,
             override val specs: List<String>,
-            override val generative: Generative? = null
+            override val resiliencyTests: ResiliencyTestsConfig? = null
         ) : ObjectValue() {
             override fun toUrl(default: URI) = URI(baseUrl)
         }
@@ -43,7 +39,7 @@ sealed class SpecExecutionConfig {
             val port: Int? = null,
             val basePath: String? = null,
             override val specs: List<String>,
-            override val generative: Generative? = null
+            override val resiliencyTests: ResiliencyTestsConfig? = null
         ) : ObjectValue() {
             override fun toUrl(default: URI): URI {
                 return URI(
@@ -74,16 +70,16 @@ class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeseriali
     private fun JsonNode.parseObjectValue(p: JsonParser): SpecExecutionConfig.ObjectValue {
         val validatedJsonNode = this.getValidatedJsonNode(p)
         val specs = validatedJsonNode.get("specs").map(JsonNode::asText)
-        val generative = parseGenerativeIfApplicable(p)
+        val resiliencyTests = parseResiliencyTestsIfApplicable(p)
 
         return when {
-            has("baseUrl") -> SpecExecutionConfig.ObjectValue.FullUrl(get("baseUrl").asText(), specs, generative)
+            has("baseUrl") -> SpecExecutionConfig.ObjectValue.FullUrl(get("baseUrl").asText(), specs, resiliencyTests)
             else -> SpecExecutionConfig.ObjectValue.PartialUrl(
                 host = get("host")?.asText(),
                 port = get("port")?.asInt(),
                 basePath = get("basePath")?.asText(),
                 specs = specs,
-                generative = generative
+                resiliencyTests = resiliencyTests
             )
         }
     }
@@ -91,7 +87,7 @@ class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeseriali
     private fun JsonNode.getValidatedJsonNode(p: JsonParser): JsonNode {
         val allowedFields = buildSet {
             addAll(listOf("baseUrl", "host", "port", "basePath", "specs"))
-            if (!consumes) add("generative")
+            if (!consumes) add("resiliencyTests")
         }
         val unknownFields = fieldNames().asSequence().filterNot(allowedFields::contains).toSet()
         if (unknownFields.isNotEmpty()) {
@@ -133,15 +129,19 @@ class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeseriali
         return this
     }
 
-    private fun JsonNode.parseGenerativeIfApplicable(p: JsonParser): Generative? {
-        if (consumes) return null // consumes: generative not supported
-        val node = get("generative") ?: return null
-        if (!node.isTextual) throw JsonMappingException(p, "'generative' must be one of: positiveOnly, all, none")
-        return when (val value = node.asText()) {
-            "positiveOnly" -> Generative.positiveOnly
-            "all" -> Generative.all
-            "none" -> Generative.none
-            else -> throw JsonMappingException(p, "Unknown value '$value' for 'generative'. Allowed: positiveOnly, all, none")
+    private fun JsonNode.parseResiliencyTestsIfApplicable(p: JsonParser): ResiliencyTestsConfig? {
+        if (consumes) return null // consumes: resiliencyTests not supported
+        val node = get("resiliencyTests") ?: return null
+        if (!node.isObject) throw JsonMappingException(p, "'resiliencyTests' must be an object with field 'enable'")
+
+        val enableNode = node.get("enable") ?: return ResiliencyTestsConfig() // present but no enable -> default/null
+        if (!enableNode.isTextual) throw JsonMappingException(p, "'resiliencyTests.enable' must be one of: positiveOnly, all, none")
+        val enable = when (val value = enableNode.asText()) {
+            "positiveOnly" -> ResiliencyTestSuite.positiveOnly
+            "all" -> ResiliencyTestSuite.all
+            "none" -> ResiliencyTestSuite.none
+            else -> throw JsonMappingException(p, "Unknown value '$value' for 'resiliencyTests.enable'. Allowed: positiveOnly, all, none")
         }
+        return ResiliencyTestsConfig(enable = enable)
     }
 }

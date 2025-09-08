@@ -12,8 +12,8 @@ import io.specmatic.core.KeyData
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.azure.AzureAuthCredentials
-import io.specmatic.core.config.v3.Generative
 import io.specmatic.core.git.GitCommand
+import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.loadSpecmaticConfig
 import io.specmatic.core.log.consoleDebug
@@ -298,7 +298,7 @@ data class ContractPathData(
     val branch: String? = null,
     val specificationPath: String? = null,
     val baseUrl: String? = null,
-    val generative: Generative? = null,
+    val generative: ResiliencyTestSuite? = null,
     val port: Int? = null
 ) {
     companion object {
