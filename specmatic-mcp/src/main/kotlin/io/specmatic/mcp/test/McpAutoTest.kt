@@ -1,10 +1,13 @@
 package io.specmatic.mcp.test
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.specmatic.core.Dictionary
 import io.specmatic.core.log.logger
+import io.specmatic.mcp.report.ARTIFACTS_PATH
 import io.specmatic.mcp.report.McpConsoleReport
 import io.specmatic.mcp.report.McpJsonReport
 import io.specmatic.mcp.test.client.McpTestClient
+import io.specmatic.mcp.test.client.model.Tool
 import io.specmatic.mcp.test.client.use
 import java.io.File
 import kotlinx.coroutines.flow.Flow
@@ -43,6 +46,20 @@ class McpAutoTest(
         McpJsonReport(executionResults).generate()
     }
 
+    private fun saveToolsSchemaResponse(tools: List<Tool>) {
+        try {
+            val directory = File(".").resolve(ARTIFACTS_PATH)
+            directory.mkdirs()
+            val file = File(directory, "tools_schema.json")
+            logWithTag("Saving tools schema to ${file.canonicalPath} ...")
+
+            val reportJson = ObjectMapper().writeValueAsString(tools)
+            file.writeText(reportJson)
+        } catch (e: Throwable) {
+            logWithTag("Failed to save the tools schema: ${e.message}")
+        }
+    }
+
     private suspend fun loadScenarios(): Flow<McpScenario> {
         val dictionary = when {
             dictionaryFile == null || dictionaryFile.exists().not() -> Dictionary.empty()
@@ -51,6 +68,7 @@ class McpAutoTest(
         logWithTag("Fetching tools to load scenarios..")
         val tools = client.tools()
         logWithTag("Tools fetched successfully. Found ${tools.size} tools. Loading and executing scenarios..")
+        saveToolsSchemaResponse(tools)
 
         return tools.filter { tool ->
             tool.name in filterTools || filterTools.isEmpty()
