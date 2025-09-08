@@ -452,4 +452,16 @@ internal class StringPatternTest {
             }
         }
     }
+
+    @Test
+    fun `should throw stackOverflowException`() {
+        val pattern = StringPattern(
+            regex = "^.*$",
+            minLength = 1,
+//            maxLength = 2147
+          maxLength = 2147483647
+        )
+
+        val newPatterns = pattern.newBasedOn(Row(), Resolver())
+    }
 }
