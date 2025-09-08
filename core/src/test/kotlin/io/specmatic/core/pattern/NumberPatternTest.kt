@@ -332,7 +332,7 @@ internal class NumberPatternTest {
     }
 
     @Test
-    fun `positive values generated should include only one value when effective min is equal to effective max`() {
+    fun `positive values should include only one value when effective min is equal to effective max`() {
         val minimum = BigDecimal(1)
         val maximum = BigDecimal(3)
         val pattern = NumberPattern(
@@ -346,6 +346,110 @@ internal class NumberPatternTest {
         assertThat(result.filterIsInstance<ExactValuePattern>().map { it.pattern as NumberValue }.map {
             it.nativeValue as BigDecimal
         }).containsExactly(BigDecimal("2"))
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "givenMin, givenMax, givenType, expectedTestMin, expectedTestMax, exclusive",
+        "none, 10, int, INT_MIN, 10, non-exclusive",
+        "-10, none, int, -10, INT_MAX, non-exclusive",
+        "none, 10.0, double, DOUBLE_MIN, 10.0, non-exclusive",
+        "-10.0, none, double, -10.0, DOUBLE_MAX, non-exclusive",
+        "none, 10, int, INT_MIN+1, 10, exclusive",
+        "-10, none, int, -10, INT_MAX-1, exclusive",
+        "none, 10.0, double, DOUBLE_MIN+1, 10.0, exclusive",
+        "-10.0, none, double, -10.0, DOUBLE_MAX-1, exclusive",
+        useHeadersInDisplayName = true,
+    )
+    fun `positive values should include actual bound of the data type if no constraint is provided`(
+        givenMin: String,
+        givenMax: String,
+        givenType: String,
+        expectedTestMin: String,
+        expectedTestMax: String,
+        exclusivity: String,
+    ) {
+        val parseNumber =
+            if (givenType == "int") {
+                { s: String -> BigDecimal(s.toInt()) }
+            } else {
+                { s: String -> BigDecimal(s.toDouble()) }
+            }
+
+        val minimum = if (givenMin == "none") null else parseNumber(givenMin)
+        val maximum = if (givenMax == "none") null else parseNumber(givenMax)
+
+        val exclusive = exclusivity == "exclusive"
+        val isDoubleFormat = givenType != "int"
+
+        val testValues =
+            NumberPattern(
+                minimum = minimum,
+                maximum = maximum,
+                isDoubleFormat = isDoubleFormat,
+                exclusiveMaximum = exclusive,
+                exclusiveMinimum = exclusive,
+            ).newBasedOn(Row(), Resolver()).toList().map { it.value }
+
+        val expectedMinTestNumber =
+            when (expectedTestMin) {
+                "INT_MIN" -> {
+                    Int.MIN_VALUE
+                }
+                "DOUBLE_MIN" -> {
+                    -Double.MAX_VALUE
+                }
+                "INT_MIN+1" -> {
+                    Int.MIN_VALUE + 1
+                }
+                "DOUBLE_MIN+1" -> {
+                    -Double.MAX_VALUE + 1
+                }
+                else -> {
+                    parseNumber(expectedTestMin)
+                }
+            }
+
+        val expectedMaxTestNumber =
+            when (expectedTestMax) {
+                "INT_MAX" -> {
+                    Int.MAX_VALUE
+                }
+                "DOUBLE_MAX" -> {
+                    Double.MAX_VALUE
+                }
+                "INT_MAX-1" -> {
+                    Int.MAX_VALUE - 1
+                }
+                "DOUBLE_MAX-1" -> {
+                    Double.MAX_VALUE - 1
+                }
+                else -> {
+                    parseNumber(expectedTestMax)
+                }
+            }
+
+        assertThat(testValues).hasSize(3)
+
+        assertThat(testValues).anySatisfy {
+            it is ExactValuePattern && it.pattern.let { it is NumberValue && it.nativeValue == expectedMinTestNumber }
+        }
+
+        assertThat(testValues).anySatisfy {
+            it is ExactValuePattern && it.pattern.let { it is NumberValue && it.nativeValue == expectedMaxTestNumber }
+        }
+
+        val cast =
+            if (isDoubleFormat) {
+                { number: Number -> BigDecimal(number.toDouble()) }
+            } else {
+                { number: Number -> BigDecimal(number.toInt()) }
+            }
+
+        assertThat(testValues).anySatisfy {
+            it is ExactValuePattern &&
+                it.pattern.let { it is NumberValue && cast(expectedMaxTestNumber) > cast(it.nativeValue) && (cast(it.nativeValue)) > cast(expectedMinTestNumber) }
+        }
     }
 
     @Test

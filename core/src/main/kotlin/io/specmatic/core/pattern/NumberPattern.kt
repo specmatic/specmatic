@@ -28,16 +28,19 @@ data class NumberPattern(
     private val upperBound = if (isDoubleFormat) BigDecimal(Double.MAX_VALUE) else BigDecimal(Int.MAX_VALUE)
     private val smallInc = BigDecimal("1")
 
-    private val effectiveMax = if (maximum != null) {
-        if (exclusiveMaximum) maximum - smallInc else maximum
-    } else {
-        upperBound
-    }
+    private val effectiveMax =
+        if (maximum != null) {
+            if (exclusiveMaximum) maximum - smallInc else maximum
+        } else {
+            upperBound
+        }
 
-    private val effectiveMin = if (minimum != null) {
-        if (exclusiveMinimum) minimum + smallInc else minimum
-    } else
-        lowerBound
+    private val effectiveMin =
+        if (minimum != null) {
+            if (exclusiveMinimum) minimum + smallInc else minimum
+        } else {
+            lowerBound
+        }
 
     init {
         if (minLength < 1) throw IllegalArgumentException("minLength $minLength cannot be less than 1")
@@ -119,15 +122,23 @@ data class NumberPattern(
 
         values.add(HasValue(this, messageForTestFromThisObject))
 
-        if (minValueIsSet()) {
-            val message = if (exclusiveMinimum) "value just within exclusive minimum $effectiveMin" else "minimum value $effectiveMin"
-            values.add(HasValue(ExactValuePattern(NumberValue(effectiveMin)), message))
-        }
+        val minimumValueAnnotation =
+            if (minValueIsSet()) {
+                if (exclusiveMinimum) "value just within exclusive minimum $effectiveMin" else "minimum value $effectiveMin"
+            } else {
+                "lowest possible value when no minimum is set"
+            }
 
-        if (maxValueIsSet()) {
-            val message = if (exclusiveMaximum) "value just within exclusive maximum $effectiveMax" else "maximum value $effectiveMax"
-            values.add(HasValue(ExactValuePattern(NumberValue(effectiveMax)), message))
-        }
+        values.add(HasValue(ExactValuePattern(NumberValue(effectiveMin)), minimumValueAnnotation))
+
+        val maximumValueAnnotation =
+            if (maxValueIsSet()) {
+                if (exclusiveMaximum) "value just within exclusive maximum $effectiveMax" else "maximum value $effectiveMax"
+            } else {
+                "highest possible value when no maximum is set"
+            }
+
+        values.add(HasValue(ExactValuePattern(NumberValue(effectiveMax)), maximumValueAnnotation))
 
         return values.asSequence().distinct()
     }
