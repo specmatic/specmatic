@@ -85,7 +85,7 @@ class OpenApiSpecification(
 
     companion object {
 
-        fun patternsFrom(jsonSchema: Map<String, Any>, schemaName: String = "Schema"): Map<String, Pattern> {
+        fun patternsFrom(jsonSchema: Map<String, Any?>, schemaName: String = "Schema"): Map<String, Pattern> {
             val definitions = try {
                 (jsonSchema["${'$'}defs"] as? Map<String, Any>).orEmpty()
             } catch (_: Throwable) {
@@ -108,7 +108,7 @@ class OpenApiSpecification(
             return openApiSpec.parseUnreferencedSchemas()
         }
 
-        private fun replaceDefsReferences(jsonSchema: Map<String, Any>): Map<String, Any> {
+        private fun replaceDefsReferences(jsonSchema: Map<String, Any?>): Map<String, Any?> {
             return jsonSchema.mapValues { (key, value) ->
                 when (value) {
                     is String -> {
@@ -122,11 +122,11 @@ class OpenApiSpecification(
                         }
                     }
 
-                    is Map<*, *> -> replaceDefsReferences(value as Map<String, Any>)
+                    is Map<*, *> -> replaceDefsReferences(value as Map<String, Any?>)
                     is List<*> -> {
                         value.map { item ->
                             when (item) {
-                                is Map<*, *> -> replaceDefsReferences(item as Map<String, Any>)
+                                is Map<*, *> -> replaceDefsReferences(item as Map<String, Any?>)
                                 else -> item
                             }
                         }
