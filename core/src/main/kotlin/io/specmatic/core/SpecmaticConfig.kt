@@ -763,12 +763,12 @@ data class Source(
         }?.toMap() ?: test.orEmpty().associateWith { null }
     }
 
-    fun specToTestGenerativeMap(): Map<String, io.specmatic.core.config.v3.Generative?> {
+    fun specToTestGenerativeMap(): Map<String, ResiliencyTestSuite?> {
         return testConsumes?.flatMap {
             when (it) {
                 is SpecExecutionConfig.StringValue -> listOf(it.value to null)
                 is SpecExecutionConfig.ObjectValue -> it.specs.map { specPath ->
-                    specPath to it.generative
+                    specPath to it.resiliencyTests?.enable
                 }
             }
         }?.toMap() ?: emptyMap()

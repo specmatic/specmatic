@@ -10,6 +10,7 @@ import io.specmatic.core.config.v2.ContractConfig
 import io.specmatic.core.utilities.ContractSourceEntry
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.config.v2.SpecmaticConfigV2
+import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_SCHEMA
 import io.specmatic.core.utilities.Flags.Companion.MAX_TEST_REQUEST_COMBINATIONS
 import io.specmatic.core.utilities.Flags.Companion.ONLY_POSITIVE
@@ -492,6 +493,34 @@ internal class SpecmaticConfigKtTest {
         }
 
         @Test
+        fun `should wire resiliencyTests enable into ContractSourceEntry`() {
+            val providesYaml = """
+                version: 2
+                contracts:
+                  - provides:
+                      - baseUrl: http://localhost:9100
+                        specs:
+                          - com/petstore/a.yaml
+                          - com/petstore/b.yaml
+                        resiliencyTests:
+                          enable: positiveOnly
+            """.trimIndent()
+
+            val specmaticConfig = ObjectMapper(YAMLFactory()).registerKotlinModule()
+                .readValue(providesYaml, SpecmaticConfigV2::class.java)
+                .transform()
+
+            val entries: List<ContractSourceEntry> = specmaticConfig
+                .loadSources()
+                .flatMap { source -> source.testContracts }
+
+            assertThat(entries).contains(
+                ContractSourceEntry("com/petstore/a.yaml", "http://localhost:9100", ResiliencyTestSuite.positiveOnly),
+                ContractSourceEntry("com/petstore/b.yaml", "http://localhost:9100", ResiliencyTestSuite.positiveOnly),
+            )
+        }
+
+        @Test
         fun `should complain when basePath is used in provides object value`() {
             val providesString = """
             provides:
@@ -512,56 +541,59 @@ internal class SpecmaticConfigKtTest {
         }
 
         @Test
-        fun `should parse provides with generative positiveOnly`() {
+        fun `should parse provides with resiliencyTests enable positiveOnly`() {
             val providesString = """
             provides:
               - baseUrl: "http://localhost:9100"
                 specs:
                   - "com/petstore/a.yaml"
-                generative: positiveOnly
+                resiliencyTests:
+                  enable: positiveOnly
             """.trimIndent()
 
             val config = mapper.readValue<ContractConfig>(providesString)
             val provides = requireNotNull(config.provides)
             val obj = provides.single() as SpecExecutionConfig.ObjectValue.FullUrl
-            assertThat(obj.generative).isEqualTo(io.specmatic.core.config.v3.Generative.positiveOnly)
+            assertThat(obj.resiliencyTests?.enable).isEqualTo(ResiliencyTestSuite.positiveOnly)
         }
 
         @Test
-        fun `should parse provides with generative all`() {
+        fun `should parse provides with resiliencyTests enable all`() {
             val providesString = """
             provides:
               - host: "127.0.0.1"
                 port: 8080
                 specs:
                   - "com/petstore/a.yaml"
-                generative: all
+                resiliencyTests:
+                  enable: all
             """.trimIndent()
 
             val config = mapper.readValue<ContractConfig>(providesString)
             val provides = requireNotNull(config.provides)
             val obj = provides.single() as SpecExecutionConfig.ObjectValue.PartialUrl
-            assertThat(obj.generative).isEqualTo(io.specmatic.core.config.v3.Generative.all)
+            assertThat(obj.resiliencyTests?.enable).isEqualTo(ResiliencyTestSuite.all)
         }
 
         @Test
-        fun `should parse provides with generative none`() {
+        fun `should parse provides with resiliencyTests enable none`() {
             val providesString = """
             provides:
               - baseUrl: "http://localhost:9100"
                 specs:
                   - "com/petstore/a.yaml"
-                generative: none
+                resiliencyTests:
+                  enable: none
             """.trimIndent()
 
             val config = mapper.readValue<ContractConfig>(providesString)
             val provides = requireNotNull(config.provides)
             val obj = provides.single() as SpecExecutionConfig.ObjectValue.FullUrl
-            assertThat(obj.generative).isEqualTo(io.specmatic.core.config.v3.Generative.none)
+            assertThat(obj.resiliencyTests?.enable).isEqualTo(ResiliencyTestSuite.none)
         }
 
         @Test
-        fun `should set generative to null when omitted`() {
+        fun `should set resiliencyTests to null when omitted`() {
             val providesString = """
             provides:
               - baseUrl: "http://localhost:9100"
@@ -572,17 +604,18 @@ internal class SpecmaticConfigKtTest {
             val config = mapper.readValue<ContractConfig>(providesString)
             val provides = requireNotNull(config.provides)
             val obj = provides.single() as SpecExecutionConfig.ObjectValue.FullUrl
-            assertThat(obj.generative).isNull()
+            assertThat(obj.resiliencyTests).isNull()
         }
 
         @Test
-        fun `should complain when generative has an invalid value in provides`() {
+        fun `should complain when resiliencyTests enable has an invalid value in provides`() {
             val providesString = """
             provides:
               - baseUrl: "http://localhost:9100"
                 specs:
                   - "com/petstore/a.yaml"
-                generative: invalid
+                resiliencyTests:
+                  enable: invalid
             """.trimIndent()
 
             val exception = assertThrows<JsonMappingException> {
@@ -590,7 +623,7 @@ internal class SpecmaticConfigKtTest {
             }
 
             assertThat(exception.originalMessage).isEqualToNormalizingWhitespace("""
-            Unknown value 'invalid' for 'generative'. Allowed: positiveOnly, all, none
+            Unknown value 'invalid' for 'resiliencyTests.enable'. Allowed: positiveOnly, all, none
             """.trimIndent())
         }
     }
@@ -739,13 +772,14 @@ internal class SpecmaticConfigKtTest {
         }
 
         @Test
-        fun `should complain when generative is provided in consumes`() {
+        fun `should complain when resiliencyTests is provided in consumes`() {
             val consumesString = """
             consumes:
               - baseUrl: "http://127.0.0.1:8080/api/v2"
                 specs:
                   - "com/order.yaml"
-                generative: all
+                resiliencyTests:
+                  enable: all
             """.trimIndent()
 
             val exception = assertThrows<JsonMappingException> {
@@ -753,9 +787,68 @@ internal class SpecmaticConfigKtTest {
             }
 
             assertThat(exception.originalMessage).isEqualToNormalizingWhitespace("""
-            Unknown fields: generative
+            Unknown fields: resiliencyTests
             Allowed fields: baseUrl, host, port, basePath, specs
             """.trimIndent())
+        }
+    }
+
+    @Nested
+    inner class MinimalV2LoadingTests {
+        private val mapper = ObjectMapper(YAMLFactory()).registerKotlinModule()
+
+        @Test
+        fun `v2 config with only consumes should load`() {
+            val yaml = """
+                version: 2
+                contracts:
+                  - consumes:
+                    - abc.yaml
+                    - def.yaml
+            """.trimIndent()
+
+            val v2 = mapper.readValue<SpecmaticConfigV2>(yaml)
+            val config = v2.transform()
+            val sources = SpecmaticConfig.getSources(config)
+            assertThat(sources).hasSize(1)
+            assertThat(sources.single().specsUsedAsStub()).containsExactly("abc.yaml", "def.yaml")
+        }
+
+        @Test
+        fun `v2 config with vanilla provides should load`() {
+            val yaml = """
+                version: 2
+                contracts:
+                  - provides:
+                    - abc.yaml
+                    - def.yaml
+            """.trimIndent()
+
+            val v2 = mapper.readValue<SpecmaticConfigV2>(yaml)
+            val config = v2.transform()
+            val sources = SpecmaticConfig.getSources(config)
+            assertThat(sources).hasSize(1)
+            assertThat(sources.single().specsUsedAsTest()).containsExactly("abc.yaml", "def.yaml")
+        }
+
+        @Test
+        fun `v2 config with provides with base url should load`() {
+            val yaml = """
+                version: 2
+                contracts:
+                  - provides:
+                    - baseUrl: "http://localhost:9010"
+                      specs:
+                        - abc.yaml
+                        - def.yaml
+            """.trimIndent()
+
+            val v2 = mapper.readValue<SpecmaticConfigV2>(yaml)
+            val config = v2.transform()
+            val sources = SpecmaticConfig.getSources(config)
+            val baseUrlMap = sources.single().specToTestBaseUrlMap()
+            assertThat(baseUrlMap["abc.yaml"]).isEqualTo("http://localhost:9010")
+            assertThat(baseUrlMap["def.yaml"]).isEqualTo("http://localhost:9010")
         }
     }
 
