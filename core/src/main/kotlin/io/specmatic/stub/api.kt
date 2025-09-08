@@ -686,7 +686,7 @@ private fun dataFilesLogForStubScan(
             append(dataFilesString)
         })
     } else {
-        StringLog(" ${dataFiles.size} examples(s) found for '${dataDirPaths.joinToString(", ")}'".prependIndent(" "))
+        StringLog(" ${dataFiles.size} examples(s) found in ${dataDirPaths.joinToString(", ")}".prependIndent(" "))
     }
 }
 
