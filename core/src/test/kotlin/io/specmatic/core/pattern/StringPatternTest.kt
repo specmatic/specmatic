@@ -461,7 +461,7 @@ internal class StringPatternTest {
         ", 2147483647",
         useHeadersInDisplayName = true,
     )
-    fun `should gracefully fail to generate a pattern when the specified maxLength is too long`(regex: String?, maxLength: Int) {
+    fun `should gracefully fail to generate a pattern for test when the specified maxLength is too long`(regex: String?, maxLength: Int) {
         val pattern =
             StringPattern(
                 regex = regex,
@@ -478,5 +478,27 @@ internal class StringPatternTest {
         assertThat(values).allSatisfy {
             assertThat(it).hasSizeLessThan(Int.MAX_VALUE)
         }
+    }
+
+    @ParameterizedTest
+    @CsvSource (
+        "regex, maxLength",
+        "^.*$, 2147483647",
+        ", 2147483647",
+        useHeadersInDisplayName = true,
+    )
+    fun `should generate a pattern when the specified maxLength is too long`(regex: String?, maxLength: Int) {
+        val pattern =
+            StringPattern(
+                regex = regex,
+                minLength = 1,
+                maxLength = maxLength,
+            )
+
+        val value = assertDoesNotThrow {
+            pattern.generate(Resolver())
+        }
+
+        assertThat(value.toStringLiteral()).hasSizeLessThan(Int.MAX_VALUE)
     }
 }
