@@ -1524,7 +1524,7 @@ class OpenApiSpecification(
                 ).also {
                     if (schema.maxLength?.let { it > 4 * 1024 * 1024 } == true) {
                         val warningMessage =
-                            "WARNING: The maxLength of ${schema.maxLength} for ${if (patternName.isNotBlank()) "schema $patternName" else breadCrumb} is very large. Tests do not run for values with size > 6MB. Please review the size of this field"
+                            "WARNING: The maxLength of ${schema.maxLength} for ${if (patternName.isNotBlank()) "schema $patternName" else breadCrumb} is very large. It may have downstream results, such as tests do not covering the max length value of this field. Please reconsider the design of this field."
                         logger.log(warningMessage)
                         logger.boundary()
                     }
