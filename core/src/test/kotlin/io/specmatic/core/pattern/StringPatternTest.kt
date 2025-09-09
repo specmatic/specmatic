@@ -7,10 +7,10 @@ import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.shouldNotMatch
 import org.apache.commons.lang3.RandomStringUtils
-import org.assertj.core.api.Assertions.*
+import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.fail
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
@@ -454,51 +454,40 @@ internal class StringPatternTest {
         }
     }
 
-    @ParameterizedTest
-    @CsvSource (
-        "regex, maxLength",
-        "^.*$, 2147483647",
-        ", 2147483647",
-        useHeadersInDisplayName = true,
-    )
-    fun `should gracefully fail to generate a pattern for test when the specified maxLength is too long`(regex: String?, maxLength: Int) {
+    @Test
+    fun `should not generate boundary pattern test for maxLength when it is downsampled`() {
         val pattern =
             StringPattern(
-                regex = regex,
+                regex = "^.*$",
                 minLength = 1,
-                maxLength = maxLength,
+                maxLength = 4000,
+                downsampledMax = true,
             )
 
-        val patterns = assertDoesNotThrow {
-            pattern.newBasedOn(Row(), Resolver())
-        }
+        val patterns = pattern.negativeBasedOn(Row(), Resolver())
 
-        val values = patterns.toList().map { it.value.generate(Resolver()).toStringLiteral() }
+        val values = patterns.toList().map { it.value.generate(Resolver()) }
 
-        assertThat(values).allSatisfy {
-            assertThat(it).hasSizeLessThan(Int.MAX_VALUE)
+        assertThat(values).noneSatisfy {
+            assertThat((it as? StringValue)?.string?.length).isEqualTo(4001)
         }
     }
 
-    @ParameterizedTest
-    @CsvSource (
-        "regex, maxLength",
-        "^.*$, 2147483647",
-        ", 2147483647",
-        useHeadersInDisplayName = true,
-    )
-    fun `should generate a pattern when the specified maxLength is too long`(regex: String?, maxLength: Int) {
+    @Test
+    fun `should not generate boundary pattern test for minLength when it is downsampled`() {
         val pattern =
             StringPattern(
-                regex = regex,
-                minLength = 1,
-                maxLength = maxLength,
+                regex = "^.*$",
+                minLength = 4000,
+                downsampledMin = true,
             )
 
-        val value = assertDoesNotThrow {
-            pattern.generate(Resolver())
-        }
+        val patterns = pattern.negativeBasedOn(Row(), Resolver())
 
-        assertThat(value.toStringLiteral()).hasSizeLessThan(Int.MAX_VALUE)
+        val values = patterns.toList().map { it.value.generate(Resolver()) }
+
+        assertThat(values).noneSatisfy {
+            assertThat((it as? StringValue)?.string?.length).isEqualTo(3999)
+        }
     }
 }

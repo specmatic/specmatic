@@ -35,10 +35,15 @@ class HTTPStubEngineTest {
     @Test
     fun `should log sever startup messages for each base urls`() {
         val (stdOut, _) = captureStandardOutput {
-            runHttpStubEngineWithMockPaths("api.yaml", "bff.yaml", specToBaseUrlMap = mapOf(
-                "api.yaml" to "http://localhost:8000/api/v3",
-                "bff.yaml" to "http://localhost:9000"
-            ))
+            runHttpStubEngineWithMockPaths(
+                "api.yaml",
+                "bff.yaml",
+                specToBaseUrlMap =
+                    mapOf(
+                        "api.yaml" to "http://localhost:8000/api/v3",
+                        "bff.yaml" to "http://localhost:9000",
+                    ),
+            )
         }
 
         assertThat(stdOut).isEqualToNormalizingNewlines("""

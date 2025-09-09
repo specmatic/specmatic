@@ -16,7 +16,9 @@ data class StringPattern (
     val minLength: Int? = null,
     val maxLength: Int? = null,
     override val example: String? = null,
-    val regex: String? = null
+    val regex: String? = null,
+    private val downsampledMin: Boolean = false,
+    private val downsampledMax: Boolean = false,
 ) : Pattern, ScalarType, HasDefaultExample {
     private val regExSpec get() = RegExSpec(regex)
     private val effectiveMinLength get() = minLength ?: 0
@@ -103,13 +105,7 @@ data class StringPattern (
 
         val maxLengthExample: ReturnValue<Pattern>? =
             maxLength?.let { maxLen ->
-                val exampleString =
-                    try {
-                        regExSpec.generateLongestStringOrRandom(maxLen)
-                    } catch (_: Throwable) {
-                        return@let null
-                    }
-
+                val exampleString = regExSpec.generateLongestStringOrRandom(maxLen)
                 HasValue(ExactValuePattern(StringValue(exampleString)), "maximum length string")
             }
 
@@ -126,7 +122,7 @@ data class StringPattern (
                 yieldAll(scalarAnnotation(current, sequenceOf(NullPattern, NumberPattern(), BooleanPattern())))
             }
 
-            if (maxLength != null) {
+            if (maxLength != null && !downsampledMax) {
                 val pattern = copy(
                     minLength = maxLength.inc(),
                     maxLength = maxLength.inc(),
@@ -136,7 +132,7 @@ data class StringPattern (
                     HasValue(pattern, "length greater than maxLength '$maxLength'")
                 )
             }
-            if (minLength != null && minLength != 0) {
+            if (minLength != null && minLength != 0 && !downsampledMin) {
                 val pattern = copy(
                     minLength = effectiveMinLength.dec(),
                     maxLength = effectiveMinLength.dec(),
