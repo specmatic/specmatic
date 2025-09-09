@@ -1505,10 +1505,12 @@ class OpenApiSpecification(
                 logger.boundary()
             }
             if (!cyclicReference) {
-                val componentPattern = toSpecmaticPattern(
-                    referredSchema,
-                    typeStack.plus(componentName), componentName
-                )
+                val componentPattern =
+                    toSpecmaticPattern(
+                        referredSchema,
+                        typeStack.plus(componentName),
+                        componentName,
+                    )
                 cacheComponentPattern(componentName, componentPattern)
             }
             DeferredPattern("(${componentName})")
@@ -1518,11 +1520,17 @@ class OpenApiSpecification(
                     minLength = schema.minLength,
                     maxLength = schema.maxLength,
                     example = schema.example?.toString(),
-                    regex = schema.pattern
-                )
-
+                    regex = schema.pattern,
+                ).also {
+                    if (schema.maxLength?.let { it > 4 * 1024 * 1024 } == true) {
+                        val warningMessage =
+                            "WARNING: The maxLength of ${schema.maxLength} for ${if (patternName.isNotBlank()) "schema $patternName" else breadCrumb} is very large. Tests do not run for values with size > 6MB. Please review the size of this field"
+                        logger.log(warningMessage)
+                        logger.boundary()
+                    }
+                }
                 else -> toEnum(schema, patternName) { enumValue -> StringValue(enumValue.toString()) }.withExample(
-                    schema.example?.toString()
+                    schema.example?.toString(),
                 )
             }
 

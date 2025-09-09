@@ -469,12 +469,13 @@ internal class StringPatternTest {
                 maxLength = maxLength,
             )
 
-        assertDoesNotThrow {
-            pattern.newBasedOn(Row(), Resolver()).toList()
+        val patterns = assertDoesNotThrow {
+            pattern.newBasedOn(Row(), Resolver())
         }
 
-        val patterns = pattern.newBasedOn(Row(), Resolver()).toList().map { it.value.generate(Resolver()).toStringLiteral() }
-        assertThat(patterns).allSatisfy {
+        val values = patterns.toList().map { it.value.generate(Resolver()).toStringLiteral() }
+
+        assertThat(values).allSatisfy {
             assertThat(it).hasSizeLessThan(Int.MAX_VALUE)
         }
     }

@@ -107,7 +107,6 @@ data class StringPattern (
                     try {
                         regExSpec.generateLongestStringOrRandom(maxLen)
                     } catch (_: Throwable) {
-                        logger.log("WARNING: Skipping generation of maximum length string example as the length is greater than 4MB")
                         return@let null
                     }
 
