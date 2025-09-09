@@ -2,6 +2,7 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
+import io.specmatic.core.log.logger
 import io.specmatic.core.mismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.JSONArrayValue
@@ -100,10 +101,18 @@ data class StringPattern (
 
         val withinRangeExample: ReturnValue<Pattern> = HasValue(this)
 
-        val maxLengthExample: ReturnValue<Pattern>? = maxLength?.let { maxLen ->
-            val exampleString = regExSpec.generateLongestStringOrRandom(maxLen)
-            HasValue(ExactValuePattern(StringValue(exampleString)), "maximum length string")
-        }
+        val maxLengthExample: ReturnValue<Pattern>? =
+            maxLength?.let { maxLen ->
+                val exampleString =
+                    try {
+                        regExSpec.generateLongestStringOrRandom(maxLen)
+                    } catch (_: Throwable) {
+                        logger.log("WARNING: Skipping generation of maximum length string example as the length is greater than 4MB")
+                        return@let null
+                    }
+
+                HasValue(ExactValuePattern(StringValue(exampleString)), "maximum length string")
+            }
 
         return sequenceOf(minLengthExample, withinRangeExample, maxLengthExample).filterNotNull()
     }

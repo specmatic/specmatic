@@ -10,6 +10,7 @@ import org.apache.commons.lang3.RandomStringUtils
 import org.assertj.core.api.Assertions.*
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
@@ -453,15 +454,28 @@ internal class StringPatternTest {
         }
     }
 
-    @Test
-    fun `should throw stackOverflowException`() {
-        val pattern = StringPattern(
-            regex = "^.*$",
-            minLength = 1,
-//            maxLength = 2147
-          maxLength = 2147483647
-        )
+    @ParameterizedTest
+    @CsvSource (
+        "regex, maxLength",
+        "^.*$, 2147483647",
+        ", 2147483647",
+        useHeadersInDisplayName = true,
+    )
+    fun `should gracefully fail to generate a pattern when the specified maxLength is too long`(regex: String?, maxLength: Int) {
+        val pattern =
+            StringPattern(
+                regex = regex,
+                minLength = 1,
+                maxLength = maxLength,
+            )
 
-        val newPatterns = pattern.newBasedOn(Row(), Resolver())
+        assertDoesNotThrow {
+            pattern.newBasedOn(Row(), Resolver()).toList()
+        }
+
+        val patterns = pattern.newBasedOn(Row(), Resolver()).toList().map { it.value.generate(Resolver()).toStringLiteral() }
+        assertThat(patterns).allSatisfy {
+            assertThat(it).hasSizeLessThan(Int.MAX_VALUE)
+        }
     }
 }
