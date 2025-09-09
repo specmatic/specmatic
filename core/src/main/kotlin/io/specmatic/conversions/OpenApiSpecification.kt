@@ -1724,7 +1724,7 @@ class OpenApiSpecification(
                 if (schema.nullable == true && schema.additionalProperties == null && schema.`$ref` == null) {
                     NullPattern
                 } else if (schema.additionalProperties is Schema<*> || schema.additionalProperties == true || schema.properties != null) {
-                    toJsonObjectPattern(schema, patternName, typeStack)
+                    toJsonObjectPattern(schema, patternName, typeStack, breadCrumb)
                 } else {
                     val schemaFragment = if(patternName.isNotBlank()) " in schema $patternName" else " in the schema"
 
