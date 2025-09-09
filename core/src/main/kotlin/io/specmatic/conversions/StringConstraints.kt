@@ -27,21 +27,21 @@ class StringConstraints(
             downsampledMin = it.second
         }
     }
+}
 
-    private fun rightSizedLength(
-        length: Int?,
-        paramName: String,
-        breadCrumb: String,
-    ): Pair<Int?, Boolean> {
-        length ?: return null to false
+internal fun rightSizedLength(
+    length: Int?,
+    paramName: String,
+    breadCrumb: String,
+): Pair<Int?, Boolean> {
+    length ?: return null to false
 
-        return if (length > REASONABLE_STRING_LENGTH) {
-            val warningMessage =
-                "WARNING: The $paramName of $length for $breadCrumb is very large. We will use a more reasonable $paramName of 4MB. Boundary testing will not be done for this parameter, and string lengths generated for test or stub will not exceed 4MB in length. Please review the $paramName of $length on this field."
-            logger.log(warningMessage)
-            REASONABLE_STRING_LENGTH to true
-        } else {
-            length to false
-        }
+    return if (length > REASONABLE_STRING_LENGTH) {
+        val warningMessage =
+            "WARNING: The $paramName of $length for $breadCrumb is very large. We will use a more reasonable $paramName of 4MB. Boundary testing will not be done for this parameter, and string lengths generated for test or stub will not exceed 4MB in length. Please review the $paramName of $length on this field."
+        logger.log(warningMessage)
+        REASONABLE_STRING_LENGTH to true
+    } else {
+        length to false
     }
 }
