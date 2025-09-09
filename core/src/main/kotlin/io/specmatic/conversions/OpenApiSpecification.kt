@@ -42,6 +42,8 @@ import io.swagger.v3.parser.core.models.SwaggerParseResult
 import java.io.File
 
 private const val BEARER_SECURITY_SCHEME = "bearer"
+private const val REASONABLE_STRING_LENGTH = 4 * 1024 * 1024
+
 const val OBJECT_TYPE = "object"
 const val SERVICE_TYPE_HTTP = "HTTP"
 
@@ -1522,7 +1524,7 @@ class OpenApiSpecification(
                     example = schema.example?.toString(),
                     regex = schema.pattern,
                 ).also {
-                    if (schema.maxLength?.let { it > 4 * 1024 * 1024 } == true) {
+                    if (schema.maxLength?.let { maxLength -> maxLength > REASONABLE_STRING_LENGTH } == true) {
                         val warningMessage =
                             "WARNING: The maxLength of ${schema.maxLength} for ${if (patternName.isNotBlank()) "schema $patternName" else breadCrumb} is very large. It may have downstream results, such as tests do not covering the max length value of this field. Please reconsider the design of this field."
                         logger.log(warningMessage)
