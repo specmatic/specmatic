@@ -39,7 +39,8 @@ jobs:
           echo "Making a release with version $RELEASE_VERSION and next version $NEXT_VERSION..."
           
           git clean -fd
-          git remote set-url origin "https://x-access-token:${{ secrets.SPECMATIC_GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          echo 'Updating git credentials to allow push as per https://github.com/actions/checkout/blob/main/adrs/0153-checkout-v2.md#pat'
+          git config set --local http.https://github.com/.extraheader "Authorization: basic $(/bin/echo -n x-access-token:${{ secrets.SPECMATIC_GITHUB_TOKEN }} | base64)"
           
           ./gradlew --stacktrace \
             release \
