@@ -13,12 +13,13 @@ jobs:
         os: [ ubuntu-latest, windows-latest, macos-latest ]
     runs-on: ${{ matrix.os }}
     permissions:
+      pull-requests: write
       contents: write # This is required so that the dependency check can push dependency graph to the github repository
     steps:
       - uses: specmatic/specmatic-github-workflows/action-build-gradle@main
         with:
           gradle-extra-args: -Preposilite.user=${{ vars.SPECMATIC_REPOSILITE_USERNAME }} -Preposilite.token=${{ secrets.SPECMATIC_REPOSILITE_TOKEN }}
-          github-token-for-pr-comment: ${{ secrets.SPECMATIC_GITHUB_TOKEN }}
+          github-token-for-pr-comment: ${{ secrets.GITHUB_TOKEN }} # use the CI token with write permissions to post PR comments
 
       - name: Publish Snapshot
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/main') && matrix.os == 'ubuntu-latest'
