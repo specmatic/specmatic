@@ -7,7 +7,8 @@ import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.shouldNotMatch
 import org.apache.commons.lang3.RandomStringUtils
-import org.assertj.core.api.Assertions.*
+import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.fail
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -450,6 +451,43 @@ internal class StringPatternTest {
                 val generated = mutation.value.parse(mutation.value.generate(resolver).toStringLiteral(), resolver)
                 assertThat(pattern.matches(generated, resolver).isSuccess()).isFalse()
             }
+        }
+    }
+
+    @Test
+    fun `should not generate boundary pattern test for maxLength when it is downsampled`() {
+        val pattern =
+            StringPattern(
+                regex = "^.*$",
+                minLength = 1,
+                maxLength = 4000,
+                downsampledMax = true,
+            )
+
+        val patterns = pattern.negativeBasedOn(Row(), Resolver())
+
+        val values = patterns.toList().map { it.value.generate(Resolver()) }
+
+        assertThat(values).noneSatisfy {
+            assertThat((it as? StringValue)?.string?.length).isEqualTo(4001)
+        }
+    }
+
+    @Test
+    fun `should not generate boundary pattern test for minLength when it is downsampled`() {
+        val pattern =
+            StringPattern(
+                regex = "^.*$",
+                minLength = 4000,
+                downsampledMin = true,
+            )
+
+        val patterns = pattern.negativeBasedOn(Row(), Resolver())
+
+        val values = patterns.toList().map { it.value.generate(Resolver()) }
+
+        assertThat(values).noneSatisfy {
+            assertThat((it as? StringValue)?.string?.length).isEqualTo(3999)
         }
     }
 }

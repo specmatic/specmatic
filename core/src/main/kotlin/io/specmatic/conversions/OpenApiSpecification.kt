@@ -42,6 +42,7 @@ import io.swagger.v3.parser.core.models.SwaggerParseResult
 import java.io.File
 
 private const val BEARER_SECURITY_SCHEME = "bearer"
+
 const val OBJECT_TYPE = "object"
 const val SERVICE_TYPE_HTTP = "HTTP"
 
@@ -1505,24 +1506,31 @@ class OpenApiSpecification(
                 logger.boundary()
             }
             if (!cyclicReference) {
-                val componentPattern = toSpecmaticPattern(
-                    referredSchema,
-                    typeStack.plus(componentName), componentName
-                )
+                val componentPattern =
+                    toSpecmaticPattern(
+                        referredSchema,
+                        typeStack.plus(componentName),
+                        componentName,
+                    )
                 cacheComponentPattern(componentName, componentPattern)
             }
             DeferredPattern("(${componentName})")
         } else when (schema) {
             is StringSchema -> when (schema.enum) {
-                null -> StringPattern(
-                    minLength = schema.minLength,
-                    maxLength = schema.maxLength,
-                    example = schema.example?.toString(),
-                    regex = schema.pattern
-                )
+                null -> {
+                    val stringConstraints = StringConstraints(schema, patternName, breadCrumb)
 
+                    StringPattern(
+                        minLength = stringConstraints.resolvedMinLength,
+                        maxLength = stringConstraints.resolvedMaxLength,
+                        example = schema.example?.toString(),
+                        regex = schema.pattern,
+                        downsampledMax = stringConstraints.downsampledMax,
+                        downsampledMin = stringConstraints.downsampledMin,
+                    )
+                }
                 else -> toEnum(schema, patternName) { enumValue -> StringValue(enumValue.toString()) }.withExample(
-                    schema.example?.toString()
+                    schema.example?.toString(),
                 )
             }
 
@@ -1716,7 +1724,7 @@ class OpenApiSpecification(
                 if (schema.nullable == true && schema.additionalProperties == null && schema.`$ref` == null) {
                     NullPattern
                 } else if (schema.additionalProperties is Schema<*> || schema.additionalProperties == true || schema.properties != null) {
-                    toJsonObjectPattern(schema, patternName, typeStack)
+                    toJsonObjectPattern(schema, patternName, typeStack, breadCrumb)
                 } else {
                     val schemaFragment = if(patternName.isNotBlank()) " in schema $patternName" else " in the schema"
 
