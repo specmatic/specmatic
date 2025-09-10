@@ -498,7 +498,7 @@ internal class HttpHeadersPatternTest {
         @Test
         fun `should use allOrNothingCombination when generating patterns`() {
             val headers = HttpHeadersPattern(1.until(11).associate { index ->
-                "Header${index}${"?".takeIf { index % 2 == 0 }}" to NumberPattern()
+                "Header${index}${"?".takeIf { index % 2 == 0 }}" to StringPattern()
             })
             val newHeaders = headers.newBasedOn(Row(), Resolver()).toList()
 

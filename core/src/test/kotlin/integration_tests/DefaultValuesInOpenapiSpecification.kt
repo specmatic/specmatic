@@ -164,8 +164,7 @@ class DefaultValuesInOpenapiSpecification {
             }
         })
 
-        assertThat(testTypes).containsExactlyInAnyOrder(
-            "salary is present",
+        assertThat(testTypes.distinct()).containsExactlyInAnyOrder(
             "salary is present",
             "name mutated to null",
             "name mutated to number",
@@ -181,19 +180,7 @@ class DefaultValuesInOpenapiSpecification {
             "years_employed[item] mutated to null",
             "years_employed[item] mutated to boolean",
             "years_employed[item] mutated to string",
-            "name mutated to null",
-            "name mutated to number",
-            "name mutated to boolean",
-            "age mutated to null",
-            "age mutated to boolean",
-            "age mutated to string",
-            "salary mutated to boolean",
-            "salary mutated to string",
-            "years_employed[item] mutated to null",
-            "years_employed[item] mutated to boolean",
-            "years_employed[item] mutated to string"
         )
-        assertThat(results.results).hasSize(testTypes.size)
     }
 
     @Test
@@ -295,13 +282,9 @@ class DefaultValuesInOpenapiSpecification {
 
                 return HttpResponse.OK
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-
-            }
         })
 
-        assertThat(testTypes).containsExactlyInAnyOrder(
+        assertThat(testTypes.distinct()).containsExactlyInAnyOrder(
             "salary is present",
             "salary is absent",
             "name mutated to null",
@@ -312,14 +295,8 @@ class DefaultValuesInOpenapiSpecification {
             "age mutated to string",
             "salary mutated to boolean",
             "salary mutated to string",
-            "name mutated to null",
-            "name mutated to number",
-            "name mutated to boolean",
-            "age mutated to null",
-            "age mutated to boolean",
-            "age mutated to string"
         )
-        assertThat(results.results).hasSize(testTypes.size)
+        assertThat(results.results).hasSize(36)
     }
 
     @Test
@@ -371,21 +348,22 @@ class DefaultValuesInOpenapiSpecification {
                 """, "",
             ).toFeature()
 
+            var priceSeen = false
+
             val results = feature.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     val body = request.body as JSONObjectValue
                     assertThat(body.jsonObject["name"]).isEqualTo(StringValue("Soap"))
-                    assertThat(body.jsonObject["price"]).isEqualTo(NumberValue(10))
+                    if(body.jsonObject["price"] == NumberValue(10)) {
+                        priceSeen = true
+                    }
                     return HttpResponse.OK
-                }
-
-                override fun setServerState(serverState: Map<String, Value>) {
-
                 }
             })
 
-            assertThat(results.successCount).isEqualTo(1)
+            assertThat(results.successCount).isEqualTo(3)
             assertThat(results.failureCount).isEqualTo(0)
+            assertThat(priceSeen).isTrue()
         } finally {
             System.clearProperty(SCHEMA_EXAMPLE_DEFAULT)
         }

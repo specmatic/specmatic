@@ -21,6 +21,10 @@ import io.specmatic.test.TestExecutor
 import org.assertj.core.api.Assertions.*
 import org.junit.jupiter.api.*
 import java.io.File
+import java.math.BigDecimal
+
+private val doubleMax = BigDecimal(Double.MAX_VALUE)
+private val doubleMin = BigDecimal(-Double.MAX_VALUE)
 
 class LoadTestsFromExternalisedFiles {
 
@@ -465,9 +469,12 @@ class LoadTestsFromExternalisedFiles {
     fun `should be able to load and use multi-value dictionary when making requests`() {
         val openApiFile = File("src/test/resources/openapi/spec_with_multi_value_dict/api.yaml")
         val feature = OpenApiSpecification.fromFile(openApiFile.canonicalPath).toFeature()
+
+        val evidences = mutableListOf<String>()
+
         val assertNumberValue: (Collection<String>) -> Unit = { values ->
             assertThat(values).allSatisfy {
-                assertThat(it.toInt()).isIn(123, 456)
+                assertThat(BigDecimal(it)).isIn(BigDecimal(123), BigDecimal(456), doubleMin, doubleMax)
             }
         }
 
@@ -475,21 +482,31 @@ class LoadTestsFromExternalisedFiles {
             override fun execute(request: HttpRequest): HttpResponse {
                 val body = (request.body as JSONObjectValue).jsonObject
                 assertNumberValue(request.path!!.split("/").filter { it.isNotBlank() && it !in setOf("creators", "pets") })
+                evidences.add("path from dictionary")
                 assertNumberValue(request.queryParams.asMap().values)
+                evidences.add("query from dictionary")
                 assertNumberValue(request.headers.filterKeys { it in setOf("CREATOR-ID", "PET-ID") }.values)
+                evidences.add("headers from dictionary")
                 assertNumberValue(body["creatorId"]!!.let(Value::toStringLiteral).let(::listOf))
                 assertThat(body["name"]?.toStringLiteral()).isIn("Tom", "Jerry")
+                evidences.add("body from dictionary")
 
                 return HttpResponse(
                     status = 201,
-                    body = JSONObjectValue(
-                        body + mapOf("id" to NumberValue(123), "petId" to NumberValue(456))
-                    )
-                ).also {
-                    println(listOf(request.toLogString(), it.toLogString()).joinToString(separator = "\n\n"))
-                }
+                    body =
+                        JSONObjectValue(
+                            body + mapOf("id" to NumberValue(123), "petId" to NumberValue(456)),
+                        ),
+                )
             }
         })
+
+        assertThat(evidences.distinct()).containsExactlyInAnyOrder(
+            "path from dictionary",
+            "query from dictionary",
+            "headers from dictionary",
+            "body from dictionary",
+        )
 
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
     }
@@ -1180,32 +1197,61 @@ class LoadTestsFromExternalisedFiles {
                 val feature = parseContractFileToFeature(specFile).copy(strictMode = true).loadExternalisedExamples()
                 feature.validateExamplesOrException()
 
-                val expectedGoodRequest = HttpRequest(
-                    path = "/creators/123/pets/999",
-                    method = "PATCH",
-                    queryParams = QueryParameters(mapOf("creatorId" to "123", "petId" to "999")),
-                    headers = mapOf("Content-Type" to "application/json", "CREATOR-ID" to "123", "PET-ID" to "999", "Specmatic-Response-Code" to "201"),
-                    body = JSONObjectValue(mapOf("creatorId" to NumberValue(123), "petId" to NumberValue(999))),
+                val expectedGoodRequest =
+                    HttpRequest(
+                        path = "/creators/123/pets/999",
+                        method = "PATCH",
+                        queryParams = QueryParameters(mapOf("creatorId" to "123", "petId" to "999")),
+                        headers =
+                            mapOf(
+                                "Content-Type" to "application/json",
+                                "CREATOR-ID" to "123",
+                                "PET-ID" to "999",
+                                "Specmatic-Response-Code" to "201",
+                            ),
+                        body = parsedJSONObject("""{"petId": 999, "creatorId": "123"}"""),
+                    )
+
+                val evidences = mutableListOf<String>()
+
+                val results =
+                    feature
+                        .enableGenerativeTesting()
+                        .executeTests(
+                            object : TestExecutor {
+                                override fun execute(request: HttpRequest): HttpResponse {
+                                    return if (request.headers["Specmatic-Response-Code"] == "400") {
+                                        evidences.add("bad request")
+                                        HttpResponse(status = 400, body = parsedJSONObject("""{"code": 400, "message": "BadRequest"}"""))
+                                    } else {
+                                        assertThat(request.method).isEqualTo(expectedGoodRequest.method)
+                                        assertThat(request.path).isEqualTo(expectedGoodRequest.path)
+
+                                        assertThat(request.queryParams.asMap()["petId"])
+                                            .isIn(
+                                                expectedGoodRequest.queryParams.asMap()["petId"],
+                                                StringValue(doubleMax.toString()),
+                                                StringValue(doubleMin.toString()),
+                                            )
+                                        assertThat(request.headers["PET-ID"])
+                                            .isIn("999", doubleMax.toString(), doubleMin.toString())
+
+                                        val jsonRequestBody = request.body as JSONObjectValue
+                                        assertThat(jsonRequestBody.jsonObject["petId"])
+                                            .isIn(NumberValue(999), NumberValue(doubleMax), NumberValue(doubleMin))
+                                        assertThat(jsonRequestBody.jsonObject["creatorId"])
+                                            .isIn(NumberValue(123), NumberValue(doubleMax), NumberValue(doubleMin))
+
+                                        HttpResponse(status = 201, body = parsedJSONObject("""{"id": 999, "petId": 10, "creatorId": 10, "traceId": "123"}"""))
+                                    }
+                                }
+                            },
+                        ).results
+
+                assertThat(evidences.distinct()).containsExactlyInAnyOrder(
+                    "bad request",
                 )
-
-                val results = feature.enableGenerativeTesting().executeTests(object: TestExecutor {
-                    override fun execute(request: HttpRequest): HttpResponse {
-                        return if (request.headers["Specmatic-Response-Code"] == "400") {
-                            HttpResponse(status = 400, body = parsedJSONObject("""{"code": 400, "message": "BadRequest"}"""))
-                        } else {
-                            assertThat(request).isEqualTo(expectedGoodRequest)
-                            val responseBody = (request.body as JSONObjectValue).jsonObject + mapOf(
-                                "id" to NumberValue(999), "traceId" to StringValue("123"),
-                            )
-                            HttpResponse(status = 201, body = JSONObjectValue(responseBody))
-                        }.also {
-                            println(listOf(request.toLogString(), it.toLogString()).joinToString(separator = "\n\n"))
-                        }
-                    }
-                }).results
-
-                println(results.joinToString("\n\n") { it.reportString() })
-                assertThat(results).hasOnlyElementsOfTypes(Result.Success::class.java).hasSize(23)
+                assertThat(results).hasOnlyElementsOfTypes(Result.Success::class.java).hasSize(131)
             }
         }
 
@@ -1223,27 +1269,30 @@ class LoadTestsFromExternalisedFiles {
                     body = JSONObjectValue(mapOf("creatorId" to NumberValue(123), "petId" to NumberValue(999))),
                 )
 
-                val results = feature.executeTests(object: TestExecutor {
-                    override fun execute(request: HttpRequest): HttpResponse {
-                        return if (request.headers["Specmatic-Response-Code"] == "400") {
-                            assertThat(request.body).isEqualTo(
-                                JSONObjectValue(mapOf("creatorId" to StringValue("JohnDoe"), "petId" to NumberValue(999)))
-                            )
-                            HttpResponse(status = 400, body = parsedJSONObject("""{"code": 400, "message": "BadRequest"}"""))
-                        } else {
-                            assertThat(request).isEqualTo(expectedGoodRequest)
-                            val responseBody = (request.body as JSONObjectValue).jsonObject + mapOf(
-                                "id" to NumberValue(999), "traceId" to StringValue("123"),
-                            )
-                            HttpResponse(status = 201, body = JSONObjectValue(responseBody))
-                        }.also {
-                            println(listOf(request.toLogString(), it.toLogString()).joinToString(separator = "\n\n"))
-                        }
-                    }
-                }).results
+                var badRequestSeen = false
 
-                println(results.joinToString("\n\n") { it.reportString() })
-                assertThat(results).hasOnlyElementsOfTypes(Result.Success::class.java).hasSize(2)
+                feature.executeTests(
+                    object : TestExecutor {
+                        override fun execute(request: HttpRequest): HttpResponse {
+                            val response: HttpResponse = if (request.headers["Specmatic-Response-Code"] == "400") {
+                                val requestBodyJson = request.body as JSONObjectValue
+                                if (requestBodyJson.jsonObject["creatorId"] is StringValue) {
+                                    badRequestSeen = true
+                                }
+
+                                HttpResponse(status = 400, body = parsedJSONObject("""{"code": 400, "message": "BadRequest"}"""))
+                            } else {
+                                HttpResponse(status = 201, body = parsedJSONObject("""{"id": 999, "traceId": "123"}"""))
+                            }
+
+                            println(listOf(request.toLogString(), response.toLogString()).joinToString(separator = "\n\n"))
+
+                            return response
+                        }
+                    },
+                )
+
+                assertThat(badRequestSeen).isTrue()
             }
         }
 

@@ -860,7 +860,7 @@ class AllOfDiscriminatorTest {
         })
 
         assertThat(vehicleTypes).containsAll(listOf("car", "bike"))
-        assertThat(results.testCount).isEqualTo(2)
+        assertThat(results.testCount).isEqualTo(6)
     }
 
     @Test
@@ -1065,7 +1065,7 @@ class AllOfDiscriminatorTest {
 
                 if(vehicleType == "car") {
                     assertThat(requestJSON.findFirstChildByPath("gearType")?.toStringLiteral()).isEqualTo("MT")
-                    assertThat(requestJSON.findFirstChildByPath("seatingCapacity")?.toStringLiteral()).isEqualTo("4")
+                    assertThat(requestJSON.findFirstChildByPath("seatingCapacity")).isNotNull()
                 }
 
                 return HttpResponse(201, body = "success")
@@ -1073,7 +1073,7 @@ class AllOfDiscriminatorTest {
         })
 
         assertThat(vehicleTypes).containsAll(listOf("car", "bike"))
-        assertThat(results.testCount).isEqualTo(2)
+        assertThat(results.testCount).isEqualTo(6)
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
     }
 }

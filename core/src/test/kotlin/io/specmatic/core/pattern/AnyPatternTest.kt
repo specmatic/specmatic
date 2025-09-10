@@ -184,7 +184,7 @@ internal class AnyPatternTest {
             ),
             extensions = emptyMap()
         ).newBasedOn(Row(), Resolver()).map { it.value }.toList().let { patterns ->
-            patterns.map { it.typeName } shouldContainInAnyOrder listOf("number", "\"one\"", "\"two\"")
+            patterns.map { it.typeName } shouldContainInAnyOrder listOf("number", "\"one\"", "\"two\"", "-2147483648", "2147483647")
         }
     }
 

@@ -1,8 +1,10 @@
 package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
+import io.specmatic.core.value.NumberValue
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import java.math.BigDecimal
 
 class AllNegativePatternsTest {
     @Test
@@ -37,6 +39,12 @@ class AllNegativePatternsTest {
             mapOf("key1" to NumberPattern(), "key2" to BooleanPattern()),
             mapOf("key1" to NumberPattern(), "key2" to NumberPattern()),
             mapOf("key1" to NumberPattern(), "key2" to NullPattern),
+            mapOf("key1" to ExactValuePattern(NumberValue(BigDecimal(Int.MIN_VALUE))), "key2" to NumberPattern()),
+            mapOf("key1" to ExactValuePattern(NumberValue(BigDecimal(Int.MAX_VALUE))), "key2" to BooleanPattern()),
+            mapOf("key1" to ExactValuePattern(NumberValue(BigDecimal(Int.MIN_VALUE))), "key2" to NullPattern),
+            mapOf("key1" to ExactValuePattern(NumberValue(BigDecimal(Int.MIN_VALUE))), "key2" to BooleanPattern()),
+            mapOf("key1" to ExactValuePattern(NumberValue(BigDecimal(Int.MAX_VALUE))), "key2" to NullPattern),
+            mapOf("key1" to ExactValuePattern(NumberValue(BigDecimal(Int.MAX_VALUE))), "key2" to NumberPattern()),
         )
     }
 }

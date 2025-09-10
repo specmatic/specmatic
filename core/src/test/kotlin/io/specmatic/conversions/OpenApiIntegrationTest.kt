@@ -67,7 +67,7 @@ Examples:
                 val feature =
                     parseContractFileToFeature("./src/test/resources/openapi/hello_with_oauth2_authorization_code_flow.yaml")
                 val contractTests = feature.generateContractTests(emptyList())
-                val result = contractTests.single().runTest(object : TestExecutor {
+                val result = contractTests.first().runTest(object : TestExecutor {
                     override fun execute(request: HttpRequest): HttpResponse {
                         assertThat(request.headers).containsKey(HttpHeaders.AUTHORIZATION)
                         assertThat(request.headers[HttpHeaders.AUTHORIZATION]).matches("Bearer (\\S+)")
@@ -90,7 +90,7 @@ Examples:
                     securityConfiguration = newSecurityConfiguration(token)
                 )
                 val contractTests = feature.generateContractTests(emptyList())
-                val result = contractTests.single().runTest(object : TestExecutor {
+                val result = contractTests.first().runTest(object : TestExecutor {
                     override fun execute(request: HttpRequest): HttpResponse {
                         assertThat(request.headers).containsKey(HttpHeaders.AUTHORIZATION)
                         assertThat(request.headers[HttpHeaders.AUTHORIZATION]).matches("Bearer $token")
@@ -114,7 +114,7 @@ Examples:
                         "./src/test/resources/openapi/hello_with_oauth2_authorization_code_flow.yaml",
                     )
                     val contractTests = feature.generateContractTests(emptyList())
-                    val result = contractTests.single().runTest(object : TestExecutor {
+                    val result = contractTests.first().runTest(object : TestExecutor {
                         override fun execute(request: HttpRequest): HttpResponse {
                             assertThat(request.headers).containsKey(HttpHeaders.AUTHORIZATION)
                             assertThat(request.headers[HttpHeaders.AUTHORIZATION]).matches("Bearer ENV1234")
