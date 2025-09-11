@@ -598,10 +598,14 @@ class PartialExampleTest {
 
         val (output, _) = captureStandardOutput { createStubFromContracts(listOf(apiSpecification), listOf(examplesDir)).also { it.close() } }
         val exampleFile = osAgnosticPath("src/test/resources/openapi/partial_example_tests/bad_request_invalid_example/pets_post.json")
+        val apiSpecFile = osAgnosticPath(apiSpecification)
 
         print(output)
         assertThat(output).containsIgnoringWhitespaces("""
         Could not load partial example $exampleFile
+        Error from contract $apiSpecFile
+        In scenario "PATCH /creators/(creatorId:number)/pets/(petId:number). Response: bad request"
+        API: PATCH /creators/(creatorId:number)/pets/(petId:number) -> 400
         >> RESPONSE.BODY.code
         Expected number, actual was "400"
         >> RESPONSE.BODY.message

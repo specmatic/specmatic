@@ -624,7 +624,7 @@ class HttpStub(
                 }.flatten().toList()
 
                 val failureResults = Results(failures).withoutFluff()
-                throw NoMatchingScenario(failureResults, cachedMessage = failureResults.report(stub.request))
+                throw NoMatchingScenario(failureResults, cachedMessage = failureResults.report(stub.requestElsePartialRequest()))
             }
 
             else -> {

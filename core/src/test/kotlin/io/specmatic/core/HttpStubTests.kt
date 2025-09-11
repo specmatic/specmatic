@@ -4,6 +4,7 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.pattern.parsedJSON
+import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
@@ -31,6 +32,7 @@ import org.w3c.dom.Node
 import java.io.File
 import java.net.URI
 import java.util.*
+import java.util.Map.entry
 
 class HttpStubTests {
     private val contractGherkin = """
@@ -776,6 +778,68 @@ Scenario: JSON API to get account details with fact check
             assertThat(response.status).isEqualTo(201)
             assertThat(responseBody.jsonObject["creatorId"]).isEqualTo(requestBody.jsonObject["creatorId"])
             assertThat(responseBody.jsonObject["petId"]).isEqualTo(requestBody.jsonObject["petId"])
+        }
+    }
+
+    @Test
+    fun `should be able to set expectations using a partial example`() {
+        val openApiFile = File("src/test/resources/openapi/partial_example_tests/simple.yaml")
+        val feature = OpenApiSpecification.fromFile(openApiFile.canonicalPath).toFeature()
+        val partialExample = ScenarioStub(
+            partial = ScenarioStub(
+                request = HttpRequest(path = "/creators/123/pets/456", method = "PATCH", body = parsedValue("{}")),
+                response = HttpResponse(status = 201, body = parsedValue("""{"creatorId": 123, "petId": 456}"""))
+            )
+        )
+
+        HttpStub(feature).use { stub ->
+            val expectationResponse = stub.client.execute(HttpRequest("POST", "/_specmatic/expectations", body = partialExample.toJSON()))
+            assertThat(expectationResponse.status).isEqualTo(200)
+
+            val response = stub.client.execute(HttpRequest(
+                path = "/creators/123/pets/456?creatorId=123&petId=456", method = "PATCH", headers = mapOf("CREATOR-ID" to "123", "PET-ID" to "456"),
+                body = parsedValue("""{"creatorId": 123, "petId": 456}""")
+            ))
+            assertThat(response.status).isEqualTo(201)
+            assertThat((response.body as JSONObjectValue).jsonObject).contains(
+                entry("creatorId", NumberValue(123)),
+                entry("petId", NumberValue(456))
+            )
+        }
+    }
+
+    @Test
+    fun `should return appropriate error when trying to set an invalid partial expectation`() {
+        val openApiFile = File("src/test/resources/openapi/partial_example_tests/simple.yaml")
+        val feature = OpenApiSpecification.fromFile(openApiFile.canonicalPath).toFeature()
+        val partialExample = ScenarioStub(
+            partial = ScenarioStub(
+                request = HttpRequest(path = "/creators/ABC/pets/DEF?creatorId=ABC", headers = mapOf("PET-ID" to "DEF"), method = "PATCH", body = parsedJSONObject("""{"creatorId": "ABC"}""")),
+                response = HttpResponse(status = 201, body = parsedJSONObject("""{"petId": "DEF"}"""))
+            )
+        )
+
+        HttpStub(feature).use { stub ->
+            val expectationResponse = stub.client.execute(HttpRequest("POST", "/_specmatic/expectations", body = partialExample.toJSON()))
+            assertThat(expectationResponse.status).isEqualTo(400)
+            assertThat(expectationResponse.body.toStringLiteral()).containsIgnoringWhitespaces("""
+            No match was found.
+            Error from contract ${openApiFile.canonicalPath}
+            In scenario "PATCH /creators/(creatorId:number)/pets/(petId:number). Response: pet response"
+            API: PATCH /creators/(creatorId:number)/pets/(petId:number) -> 201
+            >> REQUEST.PARAMETERS.PATH.creatorId
+            Expected number, actual was "ABC"
+            >> REQUEST.PARAMETERS.PATH.petId
+            Expected number, actual was "DEF"
+            >> REQUEST.PARAMETERS.QUERY.creatorId
+            Expected number, actual was "ABC"
+            >> REQUEST.PARAMETERS.HEADER.PET-ID
+            Expected number, actual was "DEF"
+            >> REQUEST.BODY.creatorId
+            Expected number, actual was "ABC"
+            >> RESPONSE.BODY.petId
+            Expected number, actual was "DEF"
+            """.trimIndent())
         }
     }
 }

@@ -848,7 +848,7 @@ data class Feature(
         }
 
         val results = scenarios.asSequence().map { scenario ->
-            scenario.matchesPartial(scenarioStub.partial) to scenario
+            scenario.matchesPartial(scenarioStub.partial).updateScenario(scenario).updatePath(path) to scenario
         }
 
         val matchingScenario = results.filter { it.first is Result.Success }.map { it.second }.firstOrNull()
