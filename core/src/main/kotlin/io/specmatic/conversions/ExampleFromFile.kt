@@ -1,5 +1,6 @@
 package io.specmatic.conversions
 
+import io.ktor.http.decodeURLPart
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.NoBodyValue
@@ -136,7 +137,7 @@ class ExampleFromFile(val json: JSONObjectValue, val file: File) {
         }
 
     private val rawPath: String? =
-        json.findByPath("http-request.path")?.toStringLiteral()
+        json.findByPath("http-request.path")?.toStringLiteral()?.decodeURLPart()
 
     val requestPath: String? = attempt("Error reading path in file ${file.canonicalPath}") {
         rawPath?.let { pathOnly(it) }
