@@ -2461,7 +2461,11 @@ paths:
             feature.loadExternalisedExamples()
         }
 
-        assertThat(error.message).isEqualTo("Error loading example from file 'invalid.json' as it is in invalid format. Please fix the example format to load this example.")
+        assertThat(error.report()).isEqualToNormalizingWhitespace("""
+        >> ${File("src/test/resources/openapi/hello_with_invalid_externalised_example_examples/invalid.json").canonicalPath}
+        Error loading example due to invalid format. Please correct the format to proceed
+        Example should contain http-response/mock-http-response as a top level key.
+        """.trimIndent())
     }
 
     @Test
