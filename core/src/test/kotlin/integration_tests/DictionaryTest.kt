@@ -476,38 +476,40 @@ class DictionaryTest {
 
     @Nested
     inner class NegativeBasedOnTests {
-
         @Test
-        // TODO: REVIEW
         fun `negative based path parameters should still be generated when dictionary contains substitutions`() {
             val dictionary = "PARAMETERS: { PATH: { id: 123 } }".let(Dictionary::fromYaml)
             val scenario = Scenario(ScenarioInfo(
                 httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/orders/(id:number)"), method = "GET"),
                 httpResponsePattern = HttpResponsePattern(status = 200)
             )).copy(dictionary = dictionary)
-            val feature = Feature(listOf(scenario), name = "")
+            val feature = Feature(scenario.withBadRequest(), name = "")
 
             val result = feature.enableGenerativeTesting().executeTests(object: TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
-                    return HttpResponse.OK.also {
-                        val logs = listOf(request.toLogString(), it.toLogString())
-                        println(logs.joinToString(separator = "\n", postfix = "\n\n"))
-
+                    val isPositiveTest = request.getHeader(SPECMATIC_RESPONSE_CODE_HEADER) == "200"
+                    return if (isPositiveTest) {
                         assertThat(request.path).satisfiesAnyOf(
                             { path -> assertThat(path).isEqualTo("/orders/123") },
+                            { path -> assertThat(path).isEqualTo("/orders/${Int.MAX_VALUE}") },
+                            { path -> assertThat(path).isEqualTo("/orders/${Int.MIN_VALUE}") },
+                        )
+                        HttpResponse.OK
+                    } else {
+                        assertThat(request.path).satisfiesAnyOf(
                             { path -> assertThat(path).matches("/orders/(false|true)") },
                             { path -> assertThat(path).matches("/orders/[a-zA-Z]+") },
                         )
+                        HttpResponse.ERROR_400
                     }
                 }
             })
 
             assertThat(result.results).hasSize(5)
-            assertThat(result.successCount).isEqualTo(1)
+            assertThat(result.successCount).withFailMessage(result.report()).isEqualTo(5)
         }
 
         @Test
-        // TODO: REVIEW
         fun `negative based query parameters should still be generated when dictionary contains substitutions`() {
             val dictionary = "PARAMETERS: { QUERY: { id: 123 } }".let(Dictionary::fromYaml)
             val scenario = Scenario(ScenarioInfo(
@@ -517,31 +519,35 @@ class DictionaryTest {
                 ),
                 httpResponsePattern = HttpResponsePattern(status = 200)
             )).copy(dictionary = dictionary)
-            val feature = Feature(listOf(scenario), name = "")
+            val feature = Feature(scenario.withBadRequest(), name = "")
 
             val result = feature.enableGenerativeTesting().executeTests(object: TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
-                    return HttpResponse.OK.also {
-                        val logs = listOf(request.toLogString(), it.toLogString())
-                        println(logs.joinToString(separator = "\n", postfix = "\n\n"))
-
-                        assertThat(request.queryParams.keys).contains("id")
-                        assertThat(request.queryParams.getOrElse("id") { throw AssertionError("Query param id not found") }).satisfiesAnyOf(
-                            { id -> assertThat(id).isEqualTo("123") },
-                            { id -> assertThat(id).matches("(false|true)") },
-                            { id -> assertThat(id).matches("[a-zA-Z]+") },
-                            { id -> assertThat(id).isEmpty() }
+                    if (!request.queryParams.containsKey("id")) return HttpResponse.ERROR_400
+                    val isPositiveTest = request.getHeader(SPECMATIC_RESPONSE_CODE_HEADER) == "200"
+                    val queryParamId = request.queryParams.getOrElse("id") { throw IllegalStateException() }
+                    return if (isPositiveTest) {
+                        assertThat(queryParamId).satisfiesAnyOf(
+                            { paramId -> assertThat(paramId).isEqualTo("123") },
+                            { paramId -> assertThat(paramId).isEqualTo("${Int.MAX_VALUE}") },
+                            { paramId -> assertThat(paramId).isEqualTo("${Int.MIN_VALUE}") },
                         )
+                        HttpResponse.OK
+                    } else {
+                        assertThat(queryParamId).satisfiesAnyOf(
+                            { paramId -> assertThat(paramId).matches("(false|true)") },
+                            { paramId -> assertThat(paramId).matches("[a-zA-Z]+") },
+                        )
+                        HttpResponse.ERROR_400
                     }
                 }
             })
 
             assertThat(result.results).hasSize(6)
-            assertThat(result.successCount).isEqualTo(1)
+            assertThat(result.successCount).withFailMessage(result.report()).isEqualTo(6)
         }
 
         @Test
-        // TODO: REVIEW
         fun `negative based headers should still be generated when dictionary contains substitutions`() {
             val dictionary = "PARAMETERS: { HEADER: { ID: 123 } }".let(Dictionary::fromYaml)
             val scenario = Scenario(ScenarioInfo(
@@ -551,33 +557,36 @@ class DictionaryTest {
                 ),
                 httpResponsePattern = HttpResponsePattern(status = 200)
             )).copy(dictionary = dictionary)
-            val feature = Feature(listOf(scenario), name = "")
+            val feature = Feature(scenario.withBadRequest(), name = "")
 
             val result = feature.enableGenerativeTesting().executeTests(object: TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
-                    return HttpResponse.OK.also {
-                        val logs = listOf(request.toLogString(), it.toLogString())
-                        println(logs.joinToString(separator = "\n", postfix = "\n\n"))
-
-                        assertThat(request.headers).containsKey("ID")
-                        assertThat(request.headers["ID"]).satisfiesAnyOf(
-                            { id -> assertThat(id).isEqualTo("123") },
-                            { id -> assertThat(id).matches("(false|true)") },
-                            { id -> assertThat(id).matches("[a-zA-Z]+") },
-                            { id -> assertThat(id).isEmpty() }
+                    val isPositiveTest = request.getHeader(SPECMATIC_RESPONSE_CODE_HEADER) == "200"
+                    val headerParamId = request.headers["ID"] ?: return HttpResponse.ERROR_400
+                    return if (isPositiveTest) {
+                        assertThat(headerParamId).satisfiesAnyOf(
+                            { paramId -> assertThat(paramId).isEqualTo("123") },
+                            { paramId -> assertThat(paramId).isEqualTo("${Int.MAX_VALUE}") },
+                            { paramId -> assertThat(paramId).isEqualTo("${Int.MIN_VALUE}") },
                         )
+                        HttpResponse.OK
+                    } else {
+                        assertThat(headerParamId).satisfiesAnyOf(
+                            { paramId -> assertThat(paramId).matches("(false|true)") },
+                            { paramId -> assertThat(paramId).matches("[a-zA-Z]+") },
+                        )
+                        HttpResponse.ERROR_400
                     }
                 }
             })
 
             assertThat(result.results).hasSize(6)
-            assertThat(result.successCount).isEqualTo(1)
+            assertThat(result.successCount).withFailMessage(result.report()).isEqualTo(6)
         }
 
         @Test
-        // TODO: REVIEW
         fun `negative based bodies should still be generated when dictionary contains substitutions`() {
-            val dictionary = mapOf("OBJECT.id" to NumberValue(123)).let(Dictionary::from)
+            val dictionary = Dictionary.fromYaml("{ OBJECT: { id: 123 } }")
             val scenario = Scenario(ScenarioInfo(
                 httpRequestPattern = HttpRequestPattern(
                     httpPathPattern = buildHttpPathPattern("/orders"), method = "GET",
@@ -587,26 +596,38 @@ class DictionaryTest {
                 ),
                 httpResponsePattern = HttpResponsePattern(status = 200)
             )).copy(dictionary = dictionary)
-            val feature = Feature(listOf(scenario), name = "")
+            val feature = Feature(scenario.withBadRequest(), name = "")
 
             val result = feature.enableGenerativeTesting().executeTests(object: TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
-                    return HttpResponse.OK.also {
-                        val logs = listOf(request.toLogString(), it.toLogString())
-                        println(logs.joinToString(separator = "\n", postfix = "\n\n"))
-
-                        assertThat(request.body).isInstanceOf(JSONObjectValue::class.java)
+                    val isPositiveTest = request.getHeader(SPECMATIC_RESPONSE_CODE_HEADER) == "200"
+                    return if (isPositiveTest) {
+                        assertThat((request.body as JSONObjectValue).findFirstChildByName("id") as NumberValue).satisfiesAnyOf(
+                            { id -> assertThat(id.nativeValue.toInt()).isEqualTo(123) },
+                            { id -> assertThat(id.nativeValue.toInt()).isEqualTo(Int.MAX_VALUE) },
+                            { id -> assertThat(id.nativeValue.toInt()).isEqualTo(Int.MIN_VALUE) }
+                        )
+                        HttpResponse.OK
+                    } else {
                         assertThat((request.body as JSONObjectValue).findFirstChildByName("id")).satisfiesAnyOf(
-                            { id -> assertThat(id).isEqualTo(NumberValue(123)) },
                             { id -> assertThat(id).isInstanceOf(StringValue::class.java) },
                             { id -> assertThat(id).isInstanceOf(BooleanValue::class.java) },
                             { id -> assertThat(id).isInstanceOf(NullValue::class.java) }
                         )
+                        HttpResponse.ERROR_400
                     }
                 }
             })
 
             assertThat(result.results).hasSize(6)
+            assertThat(result.successCount).withFailMessage(result.report()).isEqualTo(6)
+        }
+
+        private fun Scenario.withBadRequest(): List<Scenario> {
+            return buildList {
+                add(this@withBadRequest)
+                add(this@withBadRequest.copy(httpResponsePattern = this@withBadRequest.httpResponsePattern.copy(status = 400, body = StringPattern())))
+            }
         }
     }
 
