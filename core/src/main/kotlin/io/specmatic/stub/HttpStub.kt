@@ -396,7 +396,7 @@ class HttpStub(
         val defaultBaseUrl = endPointFromHostAndPort(this.host, this.port, this.keyData)
         val specsWithMultipleBaseUrls = specmaticConfig.stubToBaseUrlList(defaultBaseUrl).groupBy(
             keySelector = { it.first }, valueTransform = { it.second }
-        ).filterValues { it.size > 1 }
+            ).filterValues { it.size > 1 }
 
         if (specsWithMultipleBaseUrls.isNotEmpty()) {
             logger.log("WARNING: The following specification are associated with multiple base URLs:")
@@ -408,14 +408,28 @@ class HttpStub(
                     }
                 }
             }
-            logger.log("Note: The logs below indicate the selected base URL for each specification")
+            logger.boundary()
         }
 
-        return specmaticConfig.stubBaseUrls(defaultBaseUrl, ::isOpenAPI).map { stubBaseUrl ->
-            val host = extractHost(stubBaseUrl).let(::normalizeHost)
-            val port = extractPort(stubBaseUrl)
-            Pair(host, port)
-        }.distinct().ifEmpty { listOf(this.host to this.port) }
+        val openApiBaseUrls: List<String> = features
+            .asSequence()
+            .filter { feature ->
+                val path = feature.path
+                hasOpenApiFileExtension(path) && isOpenAPI(path)
+            }
+            .map { feature ->
+                specToBaseUrlMap[feature.path] ?: defaultBaseUrl
+            }
+            .distinct()
+            .toList()
+
+        val hostPorts = openApiBaseUrls.map { baseUrl ->
+            val host = extractHost(baseUrl).let(::normalizeHost)
+            val port = extractPort(baseUrl)
+            host to port
+        }.distinct()
+
+        return hostPorts.ifEmpty { listOf(this.host to this.port) }
     }
 
     fun serveStubResponse(
