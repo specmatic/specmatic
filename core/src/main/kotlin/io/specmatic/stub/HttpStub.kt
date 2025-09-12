@@ -408,6 +408,7 @@ class HttpStub(
                     }
                 }
             }
+            logger.log("Note: The logs below indicate the selected base URL for each specification")
             logger.boundary()
         }
 
