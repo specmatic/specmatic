@@ -324,30 +324,13 @@ data class SpecmaticConfig(
     }
 
     @JsonIgnore
-    fun stubBaseUrls(
-        defaultBaseUrl: String,
-        specSelector: (String) -> Boolean = { true },
-    ): List<String> =
+    fun stubBaseUrls(defaultBaseUrl: String): List<String> =
         sources
             .flatMap { source ->
-                source.stub.orEmpty().flatMap { consumes ->
-                    val selectorWrapper = { specPath: String ->
-                        val resolvedPath =
-                            if (source.directory != null) {
-                                File(source.directory).resolve(specPath).path
-                            } else {
-                                specPath
-                            }
-
-                        specSelector(resolvedPath)
-                    }
-
+                source.stub.orEmpty().map { consumes ->
                     when (consumes) {
-                        is SpecExecutionConfig.StringValue -> if (selectorWrapper(consumes.value)) listOf(defaultBaseUrl) else emptyList()
-                        is SpecExecutionConfig.ObjectValue -> {
-                            val baseUrl = consumes.toBaseUrl(defaultBaseUrl)
-                            if (consumes.specs.any(selectorWrapper)) listOf(baseUrl) else emptyList()
-                        }
+                        is SpecExecutionConfig.StringValue -> defaultBaseUrl
+                        is SpecExecutionConfig.ObjectValue -> consumes.toBaseUrl(defaultBaseUrl)
                     }
                 }
             }.distinct()

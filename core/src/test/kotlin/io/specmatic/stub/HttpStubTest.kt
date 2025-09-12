@@ -3226,12 +3226,12 @@ Then status 200
                 version: 2
                 contracts:
                 - consumes:
-                  - port: 5000
+                  - port: 20000
                     specs:
                     - ${simpleProductIdSpec.path}
                 """.trimIndent()
             ) {
-                val client = LegacyHttpClient("http://0.0.0.0:5000")
+                val client = LegacyHttpClient("http://0.0.0.0:20000")
                 assertGetProductResponse(client)
             }
         }
