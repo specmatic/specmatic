@@ -413,10 +413,6 @@ class HttpStub(
 
         val openApiBaseUrls: List<String> = features
             .asSequence()
-            .filter { feature ->
-                val path = feature.path
-                hasOpenApiFileExtension(path) && isOpenAPI(path)
-            }
             .map { feature ->
                 specToBaseUrlMap[feature.path] ?: defaultBaseUrl
             }
