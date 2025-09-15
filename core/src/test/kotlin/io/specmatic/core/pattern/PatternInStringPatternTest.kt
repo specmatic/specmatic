@@ -40,7 +40,7 @@ internal class PatternInStringPatternTest {
     fun `should generate a list of patterns based on a Row`() {
         val patterns = PatternInStringPattern(NumberPattern()).newBasedOn(Row(), Resolver()).map { it.value }.toList()
 
-        assertThat(patterns).hasSize(3)
+        assertThat(patterns).hasSize(1)
 
         val pattern = patterns.first()
 

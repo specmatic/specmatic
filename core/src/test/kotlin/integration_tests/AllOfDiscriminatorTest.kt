@@ -860,7 +860,7 @@ class AllOfDiscriminatorTest {
         })
 
         assertThat(vehicleTypes).containsAll(listOf("car", "bike"))
-        assertThat(results.testCount).isEqualTo(6)
+        assertThat(results.testCount).isEqualTo(2)
     }
 
     @Test
@@ -1073,7 +1073,7 @@ class AllOfDiscriminatorTest {
         })
 
         assertThat(vehicleTypes).containsAll(listOf("car", "bike"))
-        assertThat(results.testCount).isEqualTo(6)
+        assertThat(results.testCount).isEqualTo(2)
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
     }
 }

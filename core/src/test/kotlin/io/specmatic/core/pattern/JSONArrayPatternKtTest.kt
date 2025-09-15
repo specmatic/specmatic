@@ -13,7 +13,7 @@ internal class JSONArrayPatternKtTest {
         val arrayType = parsedPattern("""["(number?)", "(number)"]""")
 
         val patterns = arrayType.newBasedOn(Row(), Resolver()).toList().map { it.value as JSONArrayPattern }
-        assertThat(patterns).hasSize(12)
+        assertThat(patterns).hasSize(2)
         assertThat(patterns).contains(JSONArrayPattern(listOf<Pattern>(NullPattern, NumberPattern())))
         assertThat(patterns).contains(JSONArrayPattern(listOf<Pattern>(NullPattern, NumberPattern())))
 

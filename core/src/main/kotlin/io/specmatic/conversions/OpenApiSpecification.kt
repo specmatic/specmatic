@@ -46,6 +46,10 @@ private const val BEARER_SECURITY_SCHEME = "bearer"
 const val OBJECT_TYPE = "object"
 const val SERVICE_TYPE_HTTP = "HTTP"
 
+private const val X_SPECMATIC_HINT = "x-specmatic-hint"
+private const val HINT_BOUNDARY_TESTING_ENABLED = "boundary_testing_enabled"
+private val HINT_VALUE_DELIMITERS = charArrayOf(',')
+
 const val testDirectoryEnvironmentVariable = "SPECMATIC_TESTS_DIRECTORY"
 const val testDirectoryProperty = "specmaticTestsDirectory"
 
@@ -1761,8 +1765,26 @@ class OpenApiSpecification(
         exclusiveMinimum = schema.exclusiveMinimum ?: false,
         exclusiveMaximum = schema.exclusiveMaximum ?: false,
         isDoubleFormat = isDoubleFormat,
-        example = schema.example?.toString()
+        example = schema.example?.toString(),
+        boundaryTestingEnabled = isBoundaryTestingEnabled(schema)
     )
+
+    private fun isBoundaryTestingEnabled(schema: Schema<*>): Boolean {
+        val extensions = schema.extensions.orEmpty()
+        if (extensions.isEmpty()) return false
+
+        val raw = extensions[X_SPECMATIC_HINT] ?: return false
+
+        fun normalizeHintString(s: String): String = s.trim().lowercase()
+
+        return when (raw) {
+            is String -> raw
+                .split(*HINT_VALUE_DELIMITERS)
+                .map(::normalizeHintString)
+                .any { it == HINT_BOUNDARY_TESTING_ENABLED }
+            else -> false
+        }
+    }
 
     private fun toListExample(example: Any?): List<String?>? {
         if (example == null)

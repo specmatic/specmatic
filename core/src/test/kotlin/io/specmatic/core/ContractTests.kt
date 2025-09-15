@@ -59,8 +59,8 @@ Then status 200
             }
         })
 
-        assertEquals(9, flags["with"])
-        assertEquals(3, flags["without"])
+        assertEquals(1, flags["with"])
+        assertEquals(1, flags["without"])
         assertTrue(results.success(), results.report())
     }
 
@@ -100,7 +100,7 @@ Examples:
         })
 
         assertThat(optionals).contains(10)
-        assertThat(optionals).hasSize(3)
+        assertThat(optionals).hasSize(1)
         assertTrue(results.success(), results.report())
     }
 
@@ -477,7 +477,7 @@ Then status 200
             }
         })
 
-        assertEquals(3, invocationCount)
+        assertEquals(1, invocationCount)
         assertFalse(results.hasFailures(), results.report())
     }
 
@@ -606,7 +606,7 @@ Then status 200
             }
         })
 
-        assertThat(flags).isEqualTo(mutableListOf("executed", "executed", "executed"))
+        assertThat(flags).isEqualTo(mutableListOf("executed"))
         assertFalse(results.hasFailures(), results.report())
     }
 

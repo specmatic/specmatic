@@ -25,8 +25,6 @@ internal class LookupRowPatternTest {
         val newPattern = pattern.newBasedOn(row, Resolver()).map { it.value }
         assertThat(newPattern.toList()).containsExactlyInAnyOrder(
             NumberPattern(),
-            ExactValuePattern(NumberValue(BigDecimal(Int.MAX_VALUE))),
-            ExactValuePattern(NumberValue(BigDecimal(Int.MIN_VALUE))),
         )
     }
 

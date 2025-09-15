@@ -296,7 +296,7 @@ class DefaultValuesInOpenapiSpecification {
             "salary mutated to boolean",
             "salary mutated to string",
         )
-        assertThat(results.results).hasSize(36)
+        assertThat(results.results).hasSize(16)
     }
 
     @Test
@@ -361,7 +361,7 @@ class DefaultValuesInOpenapiSpecification {
                 }
             })
 
-            assertThat(results.successCount).isEqualTo(3)
+            assertThat(results.successCount).isEqualTo(1)
             assertThat(results.failureCount).isEqualTo(0)
             assertThat(priceSeen).isTrue()
         } finally {

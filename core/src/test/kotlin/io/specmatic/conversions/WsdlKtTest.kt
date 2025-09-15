@@ -405,7 +405,7 @@ Scenario: test spec with mandatory attributes without examples
             }
         )
         assertTrue(results.success(), results.report())
-        assertThat(countOfTestsWithAgeAttributeSetToRandomValue).isEqualTo(12)
+        assertThat(countOfTestsWithAgeAttributeSetToRandomValue).isEqualTo(2)
     }
 
     @Test
@@ -721,7 +721,7 @@ Scenario: test spec with mandatory attributes without examples
         }
 
         assertTrue(results.success(), results.report())
-        assertThat(countWithEscapedAction).isEqualTo(18)
+        assertThat(countWithEscapedAction).isEqualTo(2)
     }
 
     @AfterEach

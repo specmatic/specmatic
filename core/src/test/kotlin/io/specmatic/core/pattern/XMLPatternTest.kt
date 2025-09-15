@@ -594,7 +594,7 @@ internal class XMLPatternTest {
             val type = XMLPattern("""<number val$XML_ATTR_OPTIONAL_SUFFIX="(number)"></number>""")
 
             val newTypes = type.newBasedOn(Row(), Resolver()).map { it.value as XMLPattern }.toList()
-            assertThat(newTypes.size).isEqualTo(4)
+            assertThat(newTypes.size).isEqualTo(2)
 
             val flags = mutableListOf<String>()
 
@@ -605,7 +605,7 @@ internal class XMLPatternTest {
                 }
             }
 
-            assertThat(flags).hasSize(4)
+            assertThat(flags).hasSize(2)
             assertThat(flags).contains("with")
             assertThat(flags).contains("without")
         }
@@ -616,7 +616,7 @@ internal class XMLPatternTest {
                 XMLPattern("""<number val$XML_ATTR_OPTIONAL_SUFFIX$XML_ATTR_OPTIONAL_SUFFIX="(number)"></number>""")
 
             val newTypes = type.newBasedOn(Row(), Resolver()).map { it.value as XMLPattern }.toList()
-            assertThat(newTypes).hasSize(4)
+            assertThat(newTypes).hasSize(2)
 
             val flags = mutableListOf<String>()
 
@@ -627,7 +627,7 @@ internal class XMLPatternTest {
                 }
             }
 
-            assertThat(flags).hasSize(4)
+            assertThat(flags).hasSize(2)
             assertThat(flags).contains("with")
             assertThat(flags).contains("without")
         }
@@ -742,7 +742,7 @@ internal class XMLPatternTest {
             val nameType = XMLPattern("<name><nameid $isOptional>(number)</nameid></name>")
             val newTypes = nameType.newBasedOn(Row(), Resolver()).map { it.value as XMLPattern }.toList()
 
-            assertThat(newTypes).hasSize(4)
+            assertThat(newTypes).hasSize(2)
 
             val newValues = newTypes.map {
                 it.generate(Resolver())
@@ -859,7 +859,7 @@ internal class XMLPatternTest {
             val nameType = XMLPattern("<name><title $occursMultipleTimes>(number)</title></name>")
             val newTypes = nameType.newBasedOn(Row(), Resolver()).map { it.value as XMLPattern }.toList()
 
-            assertThat(newTypes).hasSize(3)
+            assertThat(newTypes).hasSize(1)
         }
 
         @Test
