@@ -1856,6 +1856,47 @@ components:
             assertThat(result).isInstanceOf(Result.Failure::class.java)
             verify(exactly = 1) { pattern.encompasses(any<Pattern>(), any(), any(), any()) }
         }
+
+        @Test
+        fun `should be able to resolve substitutions with pattern and additionalProperty keys in the value`() {
+            val additionalProperties = AdditionalProperties.PatternConstrained(StringPattern())
+            val pattern = JSONObjectPattern(mapOf("name" to StringPattern()), additionalProperties = additionalProperties)
+            val substitutionData = parsedJSONObject("""{ "data": { "User": { "*": { "name": "JohnDoe", "extraKey": "extraValue" } } } }""")
+            val substitution = substitutionWithData(substitutionData.jsonObject)
+            val valueToBeResolved = JSONObjectValue(mapOf("name" to StringValue("$(data.User[NON_EXISTENT].name)"), "extraKey" to StringValue("$(data.User[NON_EXISTENT].extraKey)")))
+            val resolvedValue = pattern.resolveSubstitutions(substitution, valueToBeResolved, Resolver()).value
+            assertThat(resolvedValue).isEqualTo(JSONObjectValue(mapOf("name" to StringValue("JohnDoe"), "extraKey" to StringValue("extraValue"))))
+        }
+
+        @Test
+        fun `should be able to resolve substitutions with complex additionalProperties`() {
+            val additionalProperties = AdditionalProperties.PatternConstrained(JSONObjectPattern(mapOf("alias" to StringPattern())))
+            val pattern = JSONObjectPattern(mapOf("name" to StringPattern()), additionalProperties = additionalProperties)
+            val substitutionData = parsedJSONObject("""{ "data": { "User": { "*": { "name": "JohnDoe", "alias": "extraValue" } } } }""")
+            val substitution = substitutionWithData(substitutionData.jsonObject)
+            val valueToBeResolved = JSONObjectValue(mapOf("name" to StringValue("$(data.User[NON_EXISTENT].name)"), "extraKey" to JSONObjectValue(mapOf("alias" to StringValue("$(data.User[NON_EXISTENT].alias)")))))
+            val resolvedValue = pattern.resolveSubstitutions(substitution, valueToBeResolved, Resolver()).value
+            assertThat(resolvedValue).isEqualTo(JSONObjectValue(mapOf("name" to StringValue("JohnDoe"), "extraKey" to JSONObjectValue(mapOf("alias" to StringValue("extraValue"))))))
+        }
+
+        @Test
+        fun `should be able to resolve substitutions with free-form additionalProperties`() {
+            val additionalProperties = AdditionalProperties.FreeForm
+            val pattern = JSONObjectPattern(mapOf("name" to StringPattern()), additionalProperties = additionalProperties)
+            val substitutionData = parsedJSONObject("""{ "data": { "User": { "*": { "name": "JohnDoe", "alias": "extraValue" } } } }""")
+            val substitution = substitutionWithData(substitutionData.jsonObject)
+            val valueToBeResolved = JSONObjectValue(mapOf("name" to StringValue("$(data.User[NON_EXISTENT].name)"), "extraKey" to JSONObjectValue(mapOf("alias" to StringValue("$(data.User[NON_EXISTENT].alias)")))))
+            val resolvedValue = pattern.resolveSubstitutions(substitution, valueToBeResolved, Resolver()).value
+            assertThat(resolvedValue).isEqualTo(JSONObjectValue(mapOf("name" to StringValue("JohnDoe"), "extraKey" to JSONObjectValue(mapOf("alias" to StringValue("extraValue"))))))
+        }
+
+        private fun substitutionWithData(valueMap: Map<String, Value>): Substitution {
+            return Substitution(
+                HttpRequest(path = "/"), HttpRequest(path = "/"),
+                HttpPathPattern.from("/"), HttpHeadersPattern(),
+                AnyValuePattern, Resolver(), JSONObjectValue(valueMap)
+            )
+        }
     }
 
     @Nested

@@ -52,7 +52,7 @@ sealed interface AdditionalProperties {
     data object FreeForm : AdditionalProperties {
         override fun updatePatternMap(patternMap: Map<String, Pattern>, valueMap: Map<String, Value>): Map<String, Pattern> {
             val extraKeys = valueMap.excludingPatternKeys(patternMap)
-            return patternMap + extraKeys.associateWith { AnyValuePattern }
+            return patternMap + extraKeys.associateWith { valueMap.getValue(it).deepPattern() }
         }
 
         override fun encompasses(other: AdditionalProperties, thisResolver: Resolver, otherResolver: Resolver, typeStack: TypeStack): Result {
@@ -195,12 +195,13 @@ data class JSONObjectPattern(
     ): ReturnValue<Value> {
         val resolved = runCatching { substitution.resolveIfLookup(value, this) }.getOrElse { e -> return HasException(e) }
         val resolvedValue = resolved as? JSONObjectValue ?: return HasValue(resolved)
+        val adjustedPattern = additionalProperties.updatePatternMap(patternMap = pattern, valueMap = resolvedValue.jsonObject)
 
-        if(pattern.isEmpty()) return HasValue(value)
+        if(adjustedPattern.isEmpty()) return HasValue(value)
         val updatedMap = resolvedValue.jsonObject.mapNotNull { (key, value) ->
-            val pattern = attempt("Could not find key in json object", key) { pattern[key] ?: pattern["$key?"] ?: throw MissingDataException("Could not find key $key") }
+            val pattern = attempt("Could not find key in json object", key) { adjustedPattern[key] ?: adjustedPattern["$key?"] ?: throw MissingDataException("Could not find key $key") }
             if (substitution.isDropDirective(value)) {
-                if (this.pattern[key] != null) return HasFailure(Result.Failure(breadCrumb = key, message = "Cannot drop mandatory key named ${key.quote()}"))
+                if (adjustedPattern[key] != null) return HasFailure(Result.Failure(breadCrumb = key, message = "Cannot drop mandatory key named ${key.quote()}"))
                 else return@mapNotNull null
             }
             key to pattern.resolveSubstitutions(substitution, value, resolver, key).breadCrumb(key)
