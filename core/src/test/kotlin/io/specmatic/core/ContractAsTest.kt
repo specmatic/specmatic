@@ -290,7 +290,7 @@ class ContractAsTest {
             override fun setServerState(serverState: Map<String, Value>) {}
         })
 
-        assertThat(flags).containsExactlyInAnyOrder("with", "with", "with", "without")
+        assertThat(flags).containsExactlyInAnyOrder("with", "without")
         assertTrue(results.success(), results.report())
     }
 

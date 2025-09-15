@@ -1251,7 +1251,7 @@ class LoadTestsFromExternalisedFiles {
                 assertThat(evidences.distinct()).containsExactlyInAnyOrder(
                     "bad request",
                 )
-                assertThat(results).hasOnlyElementsOfTypes(Result.Success::class.java).hasSize(131)
+                assertThat(results).hasOnlyElementsOfTypes(Result.Success::class.java).hasSize(23)
             }
         }
 

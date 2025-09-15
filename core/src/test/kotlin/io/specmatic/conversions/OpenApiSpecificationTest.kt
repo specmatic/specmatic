@@ -7686,15 +7686,10 @@ paths:
             }
         })
 
-        val exclusiveMin = minAge + smallInc
-        val exclusiveMax = maxAge - smallInc
-
-        val minOutsideBounds = exclusiveMin - smallInc
-        val maxOutsideBounds = exclusiveMax + smallInc
+        val minOutsideBounds = minAge
+        val maxOutsideBounds = maxAge
 
         assertThat(actualAges).contains(
-            exclusiveMin,
-            exclusiveMax,
             minOutsideBounds,
             maxOutsideBounds
         )

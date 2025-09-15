@@ -138,7 +138,7 @@ Scenario: zero should return not found
         )
 
         assertThat(flags["/hello/0 executed"]).isTrue
-        assertThat(flags.size).isEqualTo(4)
+        assertThat(flags.size).isEqualTo(2)
         assertThat(results.report()).isEqualTo("""Match not found""".trimIndent())
     }
 
@@ -447,9 +447,9 @@ Background:
             }
         )
 
-        assertThat(results.results.size).isEqualTo(31)
-        assertThat(results.results.filterIsInstance<Result.Success>().size).isEqualTo(8)
-        assertThat(results.results.filterIsInstance<Result.Failure>().size).isEqualTo(23)
+        assertThat(results.results.size).isEqualTo(17)
+        assertThat(results.results.filterIsInstance<Result.Success>().size).isEqualTo(4)
+        assertThat(results.results.filterIsInstance<Result.Failure>().size).isEqualTo(13)
     }
 
     @Test
@@ -539,7 +539,7 @@ Background:
         })
 
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
-        assertThat(results.successCount).isEqualTo(4)
+        assertThat(results.successCount).isEqualTo(2)
         assertThat(pathsSeen).contains("/v1/users/me")
     }
 

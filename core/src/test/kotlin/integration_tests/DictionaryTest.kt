@@ -505,8 +505,8 @@ class DictionaryTest {
                 }
             })
 
-            assertThat(result.results).hasSize(5)
-            assertThat(result.successCount).withFailMessage(result.report()).isEqualTo(5)
+            assertThat(result.results).hasSize(3)
+            assertThat(result.successCount).withFailMessage(result.report()).isEqualTo(3)
         }
 
         @Test
@@ -543,8 +543,8 @@ class DictionaryTest {
                 }
             })
 
-            assertThat(result.results).hasSize(6)
-            assertThat(result.successCount).withFailMessage(result.report()).isEqualTo(6)
+            assertThat(result.results).hasSize(4)
+            assertThat(result.successCount).withFailMessage(result.report()).isEqualTo(4)
         }
 
         @Test
@@ -580,8 +580,8 @@ class DictionaryTest {
                 }
             })
 
-            assertThat(result.results).hasSize(6)
-            assertThat(result.successCount).withFailMessage(result.report()).isEqualTo(6)
+            assertThat(result.results).hasSize(4)
+            assertThat(result.successCount).withFailMessage(result.report()).isEqualTo(4)
         }
 
         @Test
@@ -619,8 +619,8 @@ class DictionaryTest {
                 }
             })
 
-            assertThat(result.results).hasSize(6)
-            assertThat(result.successCount).withFailMessage(result.report()).isEqualTo(6)
+            assertThat(result.results).hasSize(4)
+            assertThat(result.successCount).withFailMessage(result.report()).isEqualTo(4)
         }
 
         private fun Scenario.withBadRequest(): List<Scenario> {

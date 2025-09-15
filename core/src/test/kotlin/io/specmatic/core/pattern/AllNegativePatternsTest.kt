@@ -39,12 +39,6 @@ class AllNegativePatternsTest {
             mapOf("key1" to NumberPattern(), "key2" to BooleanPattern()),
             mapOf("key1" to NumberPattern(), "key2" to NumberPattern()),
             mapOf("key1" to NumberPattern(), "key2" to NullPattern),
-            mapOf("key1" to ExactValuePattern(NumberValue(BigDecimal(Int.MIN_VALUE))), "key2" to NumberPattern()),
-            mapOf("key1" to ExactValuePattern(NumberValue(BigDecimal(Int.MAX_VALUE))), "key2" to BooleanPattern()),
-            mapOf("key1" to ExactValuePattern(NumberValue(BigDecimal(Int.MIN_VALUE))), "key2" to NullPattern),
-            mapOf("key1" to ExactValuePattern(NumberValue(BigDecimal(Int.MIN_VALUE))), "key2" to BooleanPattern()),
-            mapOf("key1" to ExactValuePattern(NumberValue(BigDecimal(Int.MAX_VALUE))), "key2" to NullPattern),
-            mapOf("key1" to ExactValuePattern(NumberValue(BigDecimal(Int.MAX_VALUE))), "key2" to NumberPattern()),
         )
     }
 }

@@ -495,7 +495,7 @@ components:
 
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
         assertThat(petTypesSeen).containsOnly("dog", "cat")
-        assertThat(results.testCount).isEqualTo(18)
+        assertThat(results.testCount).isEqualTo(2)
     }
 
     @Test
@@ -830,7 +830,7 @@ components:
         })
 
         assertThat(petTypesSeen).containsAll(listOf("dog", "cat"))
-        assertThat(results.testCount).isEqualTo(18)
+        assertThat(results.testCount).isEqualTo(2)
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
     }
 

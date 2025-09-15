@@ -429,7 +429,7 @@ internal class NumberPatternTest {
                 }
             }
 
-        assertThat(testValues).hasSize(3)
+        assertThat(testValues).hasSize(2)
 
         assertThat(testValues).anySatisfy {
             it is ExactValuePattern && it.pattern.let { it is NumberValue && it.nativeValue == expectedMinTestNumber }
@@ -546,5 +546,34 @@ internal class NumberPatternTest {
     fun `NumberPattern with no constraints must generate a 3 digit number to ensure that Spring Boot is not able to convert it into an enum`() {
         val number = NumberPattern(isDoubleFormat = false).generate(Resolver()).toStringLiteral()
         assertThat(number).hasSize(3)
+    }
+
+    @Test
+    fun `newBasedOn should not include boundary values by default`() {
+        val generated =
+            NumberPattern()
+                .newBasedOn(Row(), Resolver())
+                .map { it.value }
+                .toList()
+
+        val boundaryExactValues = generated.filterIsInstance<ExactValuePattern>().map { (it.pattern as NumberValue).nativeValue }
+
+        assertThat(boundaryExactValues).isEmpty()
+    }
+
+    @Test
+    fun `newBasedOn should include boundary values when enabled boundary testing is enabled`() {
+        val intMinimum = BigDecimal(Int.MIN_VALUE)
+        val intMaximum = BigDecimal(Int.MAX_VALUE)
+
+        val generated =
+            NumberPattern(boundaryTestingEnabled = true)
+                .newBasedOn(Row(), Resolver())
+                .map { it.value }
+                .toList()
+
+        val boundaryExactValues = generated.filterIsInstance<ExactValuePattern>().map { (it.pattern as NumberValue).nativeValue as BigDecimal }
+
+        assertThat(boundaryExactValues).contains(intMinimum, intMaximum)
     }
 }

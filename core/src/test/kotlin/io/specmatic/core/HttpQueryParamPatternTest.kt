@@ -520,7 +520,7 @@ class HttpQueryParamPatternTest {
 
         val generatedValue = queryPattern.newBasedOn(Row(), Resolver()).toList().map { it.value.queryPatterns }
 
-        assertThat(generatedValue).hasSize(9)
+        assertThat(generatedValue).hasSize(1)
         assertThat(generatedValue.first()).hasSize(2)
         assertThat(generatedValue.first().keys).contains("key")
         assertThat(generatedValue.first().keys.filter { it != "key" }).hasSize(1)
