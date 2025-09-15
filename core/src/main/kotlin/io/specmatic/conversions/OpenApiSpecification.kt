@@ -226,15 +226,19 @@ class OpenApiSpecification(
             val parsedOpenApi: OpenAPI? = parseResult.openAPI
 
             if (parsedOpenApi == null) {
-                logger.debug("Failed to parse OpenAPI from file $openApiFilePath\n\n$yamlContent")
+                logger.log("FATAL: Failed to parse OpenAPI from file $openApiFilePath\n\n$yamlContent")
 
-                printMessages(parseResult, openApiFilePath, loggerForErrors)
+                printMessages(parseResult, loggerForErrors)
 
                 throw ContractException("Could not parse contract $openApiFilePath, please validate the syntax using https://editor.swagger.io")
             } else if (parseResult.messages?.isNotEmpty() == true) {
-                logger.log("The OpenAPI file $openApiFilePath was read successfully but with some issues")
+                logger.boundary()
+                logger.log("WARNING: The OpenAPI file $openApiFilePath was read successfully but with some issues")
 
-                printMessages(parseResult, openApiFilePath, loggerForErrors)
+                loggerForErrors.withIndentation(2) {
+                    printMessages(parseResult, loggerForErrors)
+                }
+                logger.boundary()
             }
 
             return OpenApiSpecification(
@@ -265,12 +269,11 @@ class OpenApiSpecification(
             }.firstOrNull(File::exists)
         }
 
-        private fun printMessages(parseResult: SwaggerParseResult, filePath: String, loggerForErrors: LogStrategy) {
+        private fun printMessages(parseResult: SwaggerParseResult, loggerForErrors: LogStrategy) {
             parseResult.messages.filterNotNull().let {
                 if (it.isNotEmpty()) {
-                    val parserMessages = parseResult.messages.joinToString(System.lineSeparator())
-                    loggerForErrors.log("Error parsing file $filePath")
-                    loggerForErrors.log(parserMessages.prependIndent("  "))
+                    val parserMessages = parseResult.messages.map { "- $it" }.joinToString(System.lineSeparator())
+                    loggerForErrors.log(parserMessages)
                 }
             }
         }

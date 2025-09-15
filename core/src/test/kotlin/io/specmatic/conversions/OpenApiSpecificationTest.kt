@@ -7907,7 +7907,7 @@ paths:
     }
 
     @Test
-    fun `check that a console warning is printed when a named request example has no corresponding named responsee example`() {
+    fun `check that a console warning is printed when a named request example has no corresponding named response example`() {
         val (stdout, _) = captureStandardOutput {
             OpenApiSpecification.fromYAML(
                 """
@@ -11200,5 +11200,34 @@ paths:
         } catch (e: Throwable) {
             println(exceptionCauseMessage(e))
         }
+    }
+
+    @Test
+    fun `parser errors should be printed as a WARNING statement on the console`() {
+        val yaml =
+            """
+            openapi: 3.0.3
+            info:
+              title: Simple API
+              version: 1.0.0
+            paths:
+              /data:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          additionalProperties: []
+                  responses:
+                    '200':
+                      description: Success
+            """.trimIndent()
+
+        val (output, _) = captureStandardOutput { OpenApiSpecification.fromYAML(yaml, "spec.yaml") }
+
+        assertThat(output).contains("WARNING: The OpenAPI file spec.yaml was read successfully but with some issues")
+        assertThat(output).contains("additionalProperties is not of type")
     }
 }
