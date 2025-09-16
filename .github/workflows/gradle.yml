@@ -25,6 +25,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
+
+      - name: List build directory
+        run: ls -R build || true
       
       # Convert JUnit XML to CTRF format
       - name: Convert JUnit to CTRF
