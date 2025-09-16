@@ -77,6 +77,14 @@ internal class StringPatternTest {
     }
 
     @Test
+    fun `should match word regex string`() {
+        val regex = "\\w+"
+        val candidate = "uuid"
+        val result = StringPattern(regex = regex, minLength = 1, maxLength = 262144).matches(StringValue(candidate), Resolver())
+        assertThat(result.isSuccess()).isTrue
+    }
+
+    @Test
     fun `should not match an invalid string`() {
         val regex = "[0-9a-z]{32}"
         val candidate = "VAKTIGOOIXJDKQWGBBAPFXRKIHLEONUP"
