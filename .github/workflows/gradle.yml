@@ -30,14 +30,14 @@ jobs:
       - name: Convert JUnit to CTRF
         if: always() # Run even if tests fail
         run: |
-          npx junit-to-ctrf build/test-results/test/TEST-com.component.orders.contract.ContractTests.xml --output ctrf-report.json
+          npx junit-to-ctrf build/test-results/test/TEST-com.component.orders.contract.ContractTests.xml --output ctrf/ctrf-report.json
       
       # Display CTRF test results
       - name: Publish Test Results
         uses: ctrf-io/github-test-reporter@v1
         if: always() # Run even if tests fail
         with:
-          report-path: ctrf-report.json
+          report-path: './ctrf/*.json'
           github-token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Publish Snapshot
