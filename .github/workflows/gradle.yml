@@ -1,11 +1,9 @@
 name: Java Build with Gradle
-
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
-
 jobs:
   build:
     strategy:
@@ -15,12 +13,33 @@ jobs:
     permissions:
       pull-requests: write
       contents: write # This is required so that the dependency check can push dependency graph to the github repository
+      checks: write # Required for test reporting
     steps:
       - uses: specmatic/specmatic-github-workflows/action-build-gradle@main
         with:
           gradle-extra-args: -Preposilite.user=${{ vars.SPECMATIC_REPOSILITE_USERNAME }} -Preposilite.token=${{ secrets.SPECMATIC_REPOSILITE_TOKEN }}
           github-token-for-pr-comment: ${{ secrets.GITHUB_TOKEN }} # use the CI token with write permissions to post PR comments
-
+      
+      # Set up Node.js for CTRF conversion
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      # Convert JUnit XML to CTRF format
+      - name: Convert JUnit to CTRF
+        if: always() # Run even if tests fail
+        run: |
+          npx junit-to-ctrf build/test-results/test/TEST-com.component.orders.contract.ContractTests.xml --output ctrf-report.json
+      
+      # Display CTRF test results
+      - name: Publish Test Results
+        uses: ctrf-io/github-test-reporter@v1
+        if: always() # Run even if tests fail
+        with:
+          ctrf-report: ctrf-report.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      
       - name: Publish Snapshot
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/main') && matrix.os == 'ubuntu-latest'
         run: ./gradlew publishAllPublicationsToMavenCentralRepository publishAllPublicationsToSpecmaticPrivateRepository publishAllPublicationsToSpecmaticSnapshotsRepository
