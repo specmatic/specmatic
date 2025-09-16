@@ -25,22 +25,19 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-
-      - name: List build directory
-        run: ls -R build || true
       
       # Convert JUnit XML to CTRF format
       - name: Convert JUnit to CTRF
         if: always() # Run even if tests fail
         run: |
-          npx junit-to-ctrf build/test-results/test/TEST-com.component.orders.contract.ContractTests.xml --output ctrf/ctrf-report.json
+          npx junit-to-ctrf build/test-results/test/TEST-com.component.orders.contract.ContractTests.xml --output ctrf-report.json
       
       # Display CTRF test results
       - name: Publish Test Results
         uses: ctrf-io/github-test-reporter@v1
         if: always() # Run even if tests fail
         with:
-          report-path: './ctrf/*.json'
+          ctrf-report: ctrf-report.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Publish Snapshot
