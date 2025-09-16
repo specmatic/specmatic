@@ -37,7 +37,7 @@ jobs:
         uses: ctrf-io/github-test-reporter@v1
         if: always() # Run even if tests fail
         with:
-          ctrf-report: ctrf-report.json
+          report-path: ctrf-report.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Publish Snapshot
