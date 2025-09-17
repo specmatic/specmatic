@@ -758,7 +758,7 @@ data class Scenario(
         }
 
     override fun testDescription(): String {
-        val exampleIdentifier = if(exampleName.isNullOrBlank()) "" else { " | EX:${exampleName.trim()}" }
+        val exampleIdentifier = if(exampleName.isNullOrBlank()) "" else { " — EX:${exampleName.trim()}" }
 
         val generativePrefix = this.generativePrefix
 
