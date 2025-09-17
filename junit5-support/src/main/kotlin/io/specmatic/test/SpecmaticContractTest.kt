@@ -5,6 +5,7 @@ import org.junit.jupiter.api.TestFactory
 import org.junit.jupiter.api.extension.AfterTestExecutionCallback
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.extension.ExtensionContext
+import java.util.*
 import java.util.stream.Stream
 import kotlin.jvm.optionals.getOrNull
 
@@ -24,7 +25,6 @@ interface SpecmaticContractTest {
     }
 }
 
-
 class AfterSpecmaticContractTestExecutionCallback : AfterTestExecutionCallback {
     override fun afterTestExecution(context: ExtensionContext?) {
         val testInstance = context?.testInstance?.getOrNull() as? SpecmaticJUnitSupport
@@ -35,6 +35,10 @@ class AfterSpecmaticContractTestExecutionCallback : AfterTestExecutionCallback {
             synchronized(SpecmaticJUnitSupport::class.java) {
                 contractTestHarnessInstance?.report()
             }
+        }
+
+        ServiceLoader.load(SpecmaticAfterAllHook::class.java).forEach {
+            it.onAfterAllTests()
         }
     }
 }
