@@ -314,7 +314,7 @@ data class JSONObjectPattern(
         return when (pattern) {
             is DeferredPattern -> getPatternsToCheck(resolvedHop(pattern, resolver), resolver)
             is ListPattern -> getPatternsToCheck(pattern.pattern, resolver)
-            is AnyPattern -> pattern.pattern.flatMap { getPatternsToCheck(it, resolver) }
+            is SubSchemaCompositePattern -> pattern.pattern.flatMap { getPatternsToCheck(it, resolver) }
             else -> listOf(pattern.takeIf { it.typeAlias != null } ?: this)
         }
     }
@@ -511,7 +511,7 @@ data class JSONObjectPattern(
         val resolvedPattern = resolvedHop(childPattern, resolver)
         
         return when (resolvedPattern) {
-            is AnyPattern -> calculatePathForAnyPattern(key, childValue, resolvedPattern, resolver)
+            is SubSchemaCompositePattern -> calculatePathForAnyPattern(key, childValue, resolvedPattern, resolver)
             is JSONObjectPattern -> calculatePathForJSONObjectPattern(key, childValue, resolvedPattern, resolver)
             is JSONArrayPattern, is ListPattern -> calculatePathForArrayPattern(key, childValue, resolvedPattern, resolver)
             else -> emptyList()
@@ -519,7 +519,7 @@ data class JSONObjectPattern(
     }
     
 
-    private fun calculatePathForAnyPattern(key: String, childValue: Value, anyPattern: AnyPattern, resolver: Resolver): List<String> {
+    private fun calculatePathForAnyPattern(key: String, childValue: Value, anyPattern: SubSchemaCompositePattern, resolver: Resolver): List<String> {
         val anyPatternPaths = anyPattern.calculatePath(childValue, resolver)
         val pathPrefix = if (!typeAlias.isNullOrBlank()) {
             val cleanTypeAlias = withoutPatternDelimiters(typeAlias)
@@ -582,13 +582,13 @@ data class JSONObjectPattern(
         val resolvedElementPattern = resolvedHop(elementPattern, resolver)
         
         return when (resolvedElementPattern) {
-            is AnyPattern -> calculatePathForArrayAnyPattern(key, index, arrayItem, resolvedElementPattern, resolver)
+            is SubSchemaCompositePattern -> calculatePathForArrayAnyPattern(key, index, arrayItem, resolvedElementPattern, resolver)
             is JSONObjectPattern -> calculatePathForArrayJSONObjectPattern(key, index, arrayItem, resolvedElementPattern, resolver)
             else -> emptyList()
         }
     }
     
-    private fun calculatePathForArrayAnyPattern(key: String, index: Int, arrayItem: Value, anyPattern: AnyPattern, resolver: Resolver): List<String> {
+    private fun calculatePathForArrayAnyPattern(key: String, index: Int, arrayItem: Value, anyPattern: SubSchemaCompositePattern, resolver: Resolver): List<String> {
         val anyPatternPaths = anyPattern.calculatePath(arrayItem, resolver)
         
         return if (anyPatternPaths.isNotEmpty()) {

@@ -213,7 +213,7 @@ fun encompasses(
             typeStack
         )
 
-        otherPattern is AnyPattern -> {
+        otherPattern is SubSchemaCompositePattern -> {
             val failures: List<Result.Failure> = otherPattern.patternSet(otherResolver).map {
                 thisPattern.encompasses(it, thisResolver, otherResolver)
             }.filterIsInstance<Result.Failure>()

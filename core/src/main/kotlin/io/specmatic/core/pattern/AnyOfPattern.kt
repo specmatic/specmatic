@@ -13,7 +13,7 @@ class AnyOfPattern(
     private val key: String? = null,
     override val typeAlias: String? = null,
     override val example: String? = null,
-    private val discriminator: Discriminator? = null,
+    override val discriminator: Discriminator? = null,
     override val extensions: Map<String, Any> = pattern.extractCombinedExtensions(),
     private val delegate: AnyPattern =
         AnyPattern(
@@ -26,7 +26,8 @@ class AnyOfPattern(
         ),
 ) : Pattern by delegate,
     HasDefaultExample by delegate,
-    PossibleJsonObjectPatternContainer by delegate {
+    PossibleJsonObjectPatternContainer by delegate,
+    SubSchemaCompositePattern by delegate {
     override fun matches(
         sampleData: Value?,
         resolver: Resolver,
@@ -146,8 +147,7 @@ class AnyOfPattern(
                     .map(::withoutOptionality)
                     .toSet()
 
-            is AnyPattern -> resolved.pattern.flatMap { it.extractObjectKeys(resolver, nextVisited) }.toSet()
-            is AnyOfPattern -> resolved.pattern.flatMap { it.extractObjectKeys(resolver, nextVisited) }.toSet()
+            is SubSchemaCompositePattern -> resolved.pattern.flatMap { it.extractObjectKeys(resolver, nextVisited) }.toSet()
 
             is PossibleJsonObjectPatternContainer ->
                 resolved

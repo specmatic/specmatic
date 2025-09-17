@@ -137,7 +137,7 @@ data class JSONArrayPattern(override val pattern: List<Pattern> = emptyList(), o
             if (pattern.size == 1) {
                 val resolvedPattern = resolvedHop(pattern[0], resolver)
                 when (resolvedPattern) {
-                    is AnyPattern -> {
+                    is SubSchemaCompositePattern -> {
                         // For AnyPattern, get the path and add array index prefix
                         val anyPatternPaths = resolvedPattern.calculatePath(arrayItem, resolver)
                         anyPatternPaths.map { path ->
@@ -166,7 +166,7 @@ data class JSONArrayPattern(override val pattern: List<Pattern> = emptyList(), o
                 if (index < pattern.size) {
                     val resolvedPattern = resolvedHop(pattern[index], resolver)
                     when (resolvedPattern) {
-                        is AnyPattern -> {
+                        is SubSchemaCompositePattern -> {
                             val anyPatternPaths = resolvedPattern.calculatePath(arrayItem, resolver)
                             anyPatternPaths.map { path ->
                                 if (path in setOf("string", "number", "boolean")) {
