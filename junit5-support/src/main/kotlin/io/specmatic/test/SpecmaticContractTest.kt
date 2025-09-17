@@ -38,7 +38,7 @@ class AfterSpecmaticContractTestExecutionCallback : AfterTestExecutionCallback {
         }
 
         ServiceLoader.load(SpecmaticAfterAllHook::class.java).forEach {
-            it.onAfterAllTests()
+            it.onAfterAllTests(testInstance?.openApiCoverageReportInput?.testResultRecords)
         }
     }
 }
