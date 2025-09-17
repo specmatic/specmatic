@@ -1,5 +1,7 @@
 package io.specmatic.test
 
+import java.io.File
+
 interface SpecmaticAfterAllHook {
-    fun onAfterAllTests()
+    fun onAfterAllTests(junitReportDir: File? = null)
 }

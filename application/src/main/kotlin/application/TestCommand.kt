@@ -14,6 +14,7 @@ import io.specmatic.core.utilities.Flags.Companion.getStringValue
 import io.specmatic.core.utilities.exitWithMessage
 import io.specmatic.core.utilities.newXMLBuilder
 import io.specmatic.core.utilities.xmlToString
+import io.specmatic.test.SpecmaticAfterAllHook
 import io.specmatic.test.SpecmaticJUnitSupport
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.CONTRACT_PATHS
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.ENV_NAME
@@ -45,6 +46,7 @@ import java.io.File
 import java.io.PrintWriter
 import java.io.StringReader
 import java.nio.file.Paths
+import java.util.*
 import java.util.concurrent.Callable
 
 private const val SYSTEM_OUT_TESTCASE_TAG = "system-out"
@@ -215,6 +217,11 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             } else {
                 throw ContractException("Was expecting a JUnit report file called TEST-junit-jupiter.xml inside $junitReportDirName but could not find it.")
             }
+        }
+
+        ServiceLoader.load(SpecmaticAfterAllHook::class.java).forEach {
+            val junitReportDir = junitReportDirName?.let { File(it) }
+            it.onAfterAllTests(junitReportDir)
         }
 
         ContractExecutionListener.exitProcess()
