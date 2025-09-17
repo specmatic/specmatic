@@ -10026,6 +10026,56 @@ paths:
     }
 
     @Test
+    fun `anyOf schema converts to AnyOfPattern with free form additional properties`() {
+        val specContent = """
+        openapi: '3.0.3'
+        info:
+          title: Simple API
+          version: '1.0'
+        paths:
+          /choice:
+            get:
+              responses:
+                '200':
+                  description: OK
+                  content:
+                    application/json:
+                      schema:
+                        ${'$'}ref: '#/components/schemas/Choice'
+        components:
+          schemas:
+            Choice:
+              anyOf:
+                - type: object
+                  required:
+                    - id
+                  properties:
+                    id:
+                      type: string
+                - type: object
+                  required:
+                    - code
+                  properties:
+                    code:
+                      type: integer
+        """.trimIndent()
+
+        val specification = OpenApiSpecification.fromYAML(specContent, "")
+        val feature = specification.toFeature()
+        val scenario = feature.scenarios.first()
+        val responseBodyPattern = resolvedHop(scenario.httpResponsePattern.body, scenario.resolver)
+
+        assertThat(responseBodyPattern).isInstanceOf(AnyOfPattern::class.java)
+        responseBodyPattern as AnyOfPattern
+
+        val objectPatterns = responseBodyPattern.pattern.filterIsInstance<JSONObjectPattern>()
+        assertThat(objectPatterns).hasSize(2)
+        objectPatterns.forEach {
+            assertThat(it.additionalProperties).isEqualTo(AdditionalProperties.FreeForm)
+        }
+    }
+
+    @Test
     fun `when a content-type header with a specific value is given it should override the media-type`() {
         val spec = """
             openapi: 3.0.3

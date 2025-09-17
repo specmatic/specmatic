@@ -1741,7 +1741,46 @@ class OpenApiSpecification(
                         discriminator = Discriminator.create(schema.discriminator?.propertyName, finalDiscriminatorMappings.keys.toSet(), finalDiscriminatorMappings)
                     )
                 } else if (schema.anyOf != null) {
-                    throw UnsupportedOperationException("Specmatic does not support anyOf")
+                    val candidatePatterns =
+                        schema
+                            .anyOf
+                            .map { componentSchema ->
+                                val (componentName, schemaToProcess) =
+                                    if (componentSchema.`$ref` != null) {
+                                        resolveReferenceToSchema(componentSchema.`$ref`)
+                                    } else {
+                                        "" to componentSchema
+                                    }
+
+                                val schemaWithAdditionalProps = ensureAnyOfAdditionalProperties(schemaToProcess)
+
+                                toSpecmaticPattern(
+                                    schemaWithAdditionalProps,
+                                    typeStack.plus(componentName),
+                                    componentName,
+                                )
+                            }
+
+                    val impliedDiscriminatorMappings = schema.anyOf.impliedDiscriminatorMappings()
+                    val finalDiscriminatorMappings =
+                        schema
+                            .discriminator
+                            ?.mapping
+                            .orEmpty()
+                            .plus(impliedDiscriminatorMappings)
+                            .distinctByValue()
+
+                    AnyOfPattern(
+                        candidatePatterns,
+                        typeAlias = "($patternName)",
+                        discriminator =
+                            Discriminator
+                                .create(
+                                    schema.discriminator?.propertyName,
+                                    finalDiscriminatorMappings.keys.toSet(),
+                                    finalDiscriminatorMappings,
+                                ),
+                    )
                 } else {
                     throw UnsupportedOperationException("Unsupported composed schema: $schema")
                 }
@@ -1881,6 +1920,13 @@ class OpenApiSpecification(
             }
         }
         return pattern
+    }
+
+    private fun ensureAnyOfAdditionalProperties(schema: Schema<*>): Schema<*> {
+        if (schema.additionalProperties == null) {
+            schema.additionalProperties = true
+        }
+        return schema
     }
 
     private fun nullableEmptyObject(schema: Schema<*>): Boolean {
