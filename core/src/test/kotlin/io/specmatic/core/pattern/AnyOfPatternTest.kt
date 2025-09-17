@@ -2,7 +2,6 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
-import io.specmatic.core.pattern.AdditionalProperties
 import io.specmatic.core.value.BooleanValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
@@ -81,5 +80,134 @@ internal class AnyOfPatternTest {
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.toReport().toText()).contains("Key(s) extra")
+    }
+
+    @Test
+    fun `generate produces value matching one of the subschemas`() {
+        val pattern = AnyOfPattern(listOf(StringPattern(), NumberPattern()))
+
+        val generated = pattern.generate(resolver)
+
+        assertThat(pattern.matches(generated, resolver)).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `newBasedOn returns patterns derived from each subschema`() {
+        val pattern = AnyOfPattern(listOf(StringPattern(), NumberPattern()))
+
+        val generatedPatterns = pattern.newBasedOn(Row(), resolver).map { it.value }.toList()
+
+        assertThat(generatedPatterns.any { it is StringPattern }).isTrue()
+        assertThat(generatedPatterns.any { it is NumberPattern }).isTrue()
+    }
+
+    @Test
+    fun `matches succeeds when object fits only one of two object subschemas`() {
+        val first = JSONObjectPattern(mapOf("id" to StringPattern()))
+        val second = JSONObjectPattern(mapOf("code" to NumberPattern()))
+        val anyOf = AnyOfPattern(listOf(first, second))
+
+        val value = JSONObjectValue(mapOf("id" to StringValue("ABC")))
+
+        assertThat(anyOf.matches(value, resolver)).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `matches succeeds when object fits both subschemas`() {
+        val first = JSONObjectPattern(mapOf("id" to StringPattern()))
+        val second = JSONObjectPattern(mapOf("id" to StringPattern(), "status?" to StringPattern()))
+        val anyOf = AnyOfPattern(listOf(first, second))
+
+        val value = JSONObjectValue(mapOf("id" to StringValue("XYZ")))
+
+        assertThat(anyOf.matches(value, resolver)).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `discriminator based anyOf matches respective subschema`() {
+        val alphaPattern = JSONObjectPattern(
+            mapOf(
+                "type" to ExactValuePattern(StringValue("alpha"), discriminator = true),
+                "message" to StringPattern(),
+            ),
+            typeAlias = "(Alpha)",
+        )
+        val betaPattern = JSONObjectPattern(
+            mapOf(
+                "type" to ExactValuePattern(StringValue("beta"), discriminator = true),
+                "count" to NumberPattern(),
+            ),
+            typeAlias = "(Beta)",
+        )
+
+        val anyOf = AnyOfPattern(
+            listOf(alphaPattern, betaPattern),
+            discriminator = Discriminator.create("type", setOf("alpha", "beta"), emptyMap()),
+        )
+
+        val alphaValue = JSONObjectValue(mapOf("type" to StringValue("alpha"), "message" to StringValue("hello")))
+        val betaValue = JSONObjectValue(mapOf("type" to StringValue("beta"), "count" to NumberValue(5)))
+
+        assertThat(anyOf.matches(alphaValue, resolver)).isInstanceOf(Result.Success::class.java)
+        assertThat(anyOf.matches(betaValue, resolver)).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `discriminator based anyOf generate produces matching value`() {
+        val alphaPattern = JSONObjectPattern(
+            mapOf(
+                "type" to ExactValuePattern(StringValue("alpha"), discriminator = true),
+                "message" to StringPattern(),
+            ),
+            typeAlias = "(Alpha)",
+        )
+        val betaPattern = JSONObjectPattern(
+            mapOf(
+                "type" to ExactValuePattern(StringValue("beta"), discriminator = true),
+                "count" to NumberPattern(),
+            ),
+            typeAlias = "(Beta)",
+        )
+
+        val anyOf = AnyOfPattern(
+            listOf(alphaPattern, betaPattern),
+            discriminator = Discriminator.create("type", setOf("alpha", "beta"), emptyMap()),
+        )
+
+        val generated = anyOf.generate(resolver)
+
+        assertThat(anyOf.matches(generated, resolver)).isInstanceOf(Result.Success::class.java)
+        assertThat(generated).isInstanceOf(JSONObjectValue::class.java)
+        val typeValue = (generated as JSONObjectValue).jsonObject["type"] as StringValue
+        assertThat(typeValue.string).isIn("alpha", "beta")
+    }
+
+    @Test
+    fun `discriminator based anyOf newBasedOn derives both subschemas`() {
+        val alphaPattern = JSONObjectPattern(
+            mapOf(
+                "type" to ExactValuePattern(StringValue("alpha"), discriminator = true),
+                "message" to StringPattern(),
+            ),
+            typeAlias = "(Alpha)",
+        )
+        val betaPattern = JSONObjectPattern(
+            mapOf(
+                "type" to ExactValuePattern(StringValue("beta"), discriminator = true),
+                "count" to NumberPattern(),
+            ),
+            typeAlias = "(Beta)",
+        )
+
+        val anyOf = AnyOfPattern(
+            listOf(alphaPattern, betaPattern),
+            discriminator = Discriminator.create("type", setOf("alpha", "beta"), emptyMap()),
+        )
+
+        val derivedPatterns = anyOf.newBasedOn(Row(), resolver).map { it.value }.toList()
+
+        assertThat(derivedPatterns).hasSize(2)
+        val derivedAliases = derivedPatterns.filterIsInstance<JSONObjectPattern>().mapNotNull { it.typeAlias }
+        assertThat(derivedAliases).contains("(Alpha)", "(Beta)")
     }
 }
