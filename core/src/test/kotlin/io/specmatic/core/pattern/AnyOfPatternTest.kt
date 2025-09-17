@@ -4,8 +4,8 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.AdditionalProperties
 import io.specmatic.core.value.BooleanValue
-import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.JSONObjectValue
+import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -61,18 +61,19 @@ internal class AnyOfPatternTest {
 
     @Test
     fun `matches fails when object contains keys missing from all schemas`() {
-        val pattern = AnyOfPattern(
-            listOf(
-                JSONObjectPattern(
-                    pattern = mapOf("id" to StringPattern()),
-                    additionalProperties = AdditionalProperties.FreeForm
+        val pattern =
+            AnyOfPattern(
+                listOf(
+                    JSONObjectPattern(
+                        pattern = mapOf("id" to StringPattern()),
+                        additionalProperties = AdditionalProperties.FreeForm,
+                    ),
+                    JSONObjectPattern(
+                        pattern = mapOf("code" to NumberPattern()),
+                        additionalProperties = AdditionalProperties.FreeForm,
+                    ),
                 ),
-                JSONObjectPattern(
-                    pattern = mapOf("code" to NumberPattern()),
-                    additionalProperties = AdditionalProperties.FreeForm
-                )
             )
-        )
 
         val value = JSONObjectValue(mapOf("id" to StringValue("123"), "extra" to StringValue("value")))
 

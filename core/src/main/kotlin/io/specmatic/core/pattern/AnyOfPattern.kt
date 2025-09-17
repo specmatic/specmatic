@@ -15,31 +15,39 @@ class AnyOfPattern(
     override val example: String? = null,
     private val discriminator: Discriminator? = null,
     override val extensions: Map<String, Any> = pattern.extractCombinedExtensions(),
-    private val delegate: AnyPattern = AnyPattern(
-        pattern = pattern,
-        key = key,
-        typeAlias = typeAlias,
-        example = example,
-        discriminator = discriminator,
-        extensions = extensions,
-    )
-) : Pattern by delegate, HasDefaultExample by delegate, PossibleJsonObjectPatternContainer by delegate {
-
-    override fun matches(sampleData: Value?, resolver: Resolver): Result {
+    private val delegate: AnyPattern =
+        AnyPattern(
+            pattern = pattern,
+            key = key,
+            typeAlias = typeAlias,
+            example = example,
+            discriminator = discriminator,
+            extensions = extensions,
+        ),
+) : Pattern by delegate,
+    HasDefaultExample by delegate,
+    PossibleJsonObjectPatternContainer by delegate {
+    override fun matches(
+        sampleData: Value?,
+        resolver: Resolver,
+    ): Result {
         if (discriminator != null) {
             // Discriminator-driven resolution behaves the same as oneOf
             return delegate.matches(sampleData, resolver)
         }
 
         val updatedPatterns = delegate.getUpdatedPattern(resolver)
-        val unknownKeys = if (sampleData is JSONObjectValue)
-            findKeysNotDeclaredInAnySchema(sampleData, updatedPatterns, resolver)
-        else
-            emptyList()
+        val unknownKeys =
+            if (sampleData is JSONObjectValue) {
+                findKeysNotDeclaredInAnySchema(sampleData, updatedPatterns, resolver)
+            } else {
+                emptyList()
+            }
 
-        val matchResults = updatedPatterns.map { innerPattern ->
-            resolver.matchesPattern(key, innerPattern, sampleData ?: EmptyString)
-        }
+        val matchResults =
+            updatedPatterns.map { innerPattern ->
+                resolver.matchesPattern(key, innerPattern, sampleData ?: EmptyString)
+            }
 
         if (unknownKeys.isEmpty() && matchResults.any { it.isSuccess() }) {
             return Result.Success()
@@ -63,15 +71,17 @@ class AnyOfPattern(
         }
     }
 
-    override fun generate(resolver: Resolver): Value {
-        return delegate.generate(resolver)
-    }
+    override fun generate(resolver: Resolver): Value = delegate.generate(resolver)
 
-    override fun fixValue(value: Value, resolver: Resolver): Value {
+    override fun fixValue(
+        value: Value,
+        resolver: Resolver,
+    ): Value {
         val updatedPatterns = delegate.getUpdatedPattern(resolver)
-        val firstPattern = updatedPatterns.firstOrNull { it !is NullPattern }
-            ?: updatedPatterns.firstOrNull()
-            ?: throw ContractException("Cannot fix value: anyOf has no subschemas")
+        val firstPattern =
+            updatedPatterns.firstOrNull { it !is NullPattern }
+                ?: updatedPatterns.firstOrNull()
+                ?: throw ContractException("Cannot fix value: anyOf has no subschemas")
 
         val updatedResolver = resolver.updateLookupPath(typeAlias)
         return firstPattern.fixValue(value, updatedResolver)
@@ -81,7 +91,7 @@ class AnyOfPattern(
         otherPattern: Pattern,
         thisResolver: Resolver,
         otherResolver: Resolver,
-        typeStack: TypeStack
+        typeStack: TypeStack,
     ): Result {
         if (otherPattern !is AnyOfPattern) {
             return mismatchResult(this, otherPattern, thisResolver.mismatchMessages)
@@ -89,18 +99,20 @@ class AnyOfPattern(
 
         val myPatterns = patternSet(thisResolver)
 
-        val encompassResults = otherPattern.pattern.map { legacyPattern ->
-            val results = myPatterns.asSequence().map { candidate ->
-                biggerEncompassesSmaller(candidate, legacyPattern, thisResolver, otherResolver, typeStack)
-            }
+        val encompassResults =
+            otherPattern.pattern.map { legacyPattern ->
+                val results =
+                    myPatterns.asSequence().map { candidate ->
+                        biggerEncompassesSmaller(candidate, legacyPattern, thisResolver, otherResolver, typeStack)
+                    }
 
-            results.find { it is Result.Success } ?: results.firstOrNull()?.let {
-                when (it) {
-                    is Failure -> it
-                    else -> Result.Success()
-                }
-            } ?: Failure("Could not find matching subschema in anyOf pattern")
-        }
+                results.find { it is Result.Success } ?: results.firstOrNull()?.let {
+                    when (it) {
+                        is Failure -> it
+                        else -> Result.Success()
+                    }
+                } ?: Failure("Could not find matching subschema in anyOf pattern")
+            }
 
         return Result.fromResults(encompassResults)
     }
@@ -112,26 +124,39 @@ class AnyOfPattern(
     private fun findKeysNotDeclaredInAnySchema(
         value: JSONObjectValue,
         patterns: List<Pattern>,
-        resolver: Resolver
+        resolver: Resolver,
     ): List<String> {
         val declaredKeys = patterns.flatMap { it.extractObjectKeys(resolver) }.toSet()
         val presentKeys = value.jsonObject.keys
         return presentKeys.filter { key -> key !in declaredKeys }
     }
 
-    private fun Pattern.extractObjectKeys(resolver: Resolver, visited: Set<Pattern> = emptySet()): Set<String> {
+    private fun Pattern.extractObjectKeys(
+        resolver: Resolver,
+        visited: Set<Pattern> = emptySet(),
+    ): Set<String> {
         val resolved = resolvedHop(this, resolver)
         if (resolved in visited) return emptySet()
 
         val nextVisited = visited + resolved
 
         return when (resolved) {
-            is JSONObjectPattern -> resolved.pattern.keys.map(::withoutOptionality).toSet()
-            is PossibleJsonObjectPatternContainer -> resolved.jsonObjectPattern(resolver)?.pattern?.keys
-                ?.map(::withoutOptionality)
-                ?.toSet() ?: emptySet()
+            is JSONObjectPattern ->
+                resolved.pattern.keys
+                    .map(::withoutOptionality)
+                    .toSet()
+
             is AnyPattern -> resolved.pattern.flatMap { it.extractObjectKeys(resolver, nextVisited) }.toSet()
             is AnyOfPattern -> resolved.pattern.flatMap { it.extractObjectKeys(resolver, nextVisited) }.toSet()
+
+            is PossibleJsonObjectPatternContainer ->
+                resolved
+                    .jsonObjectPattern(resolver)
+                    ?.pattern
+                    ?.keys
+                    ?.map(::withoutOptionality)
+                    ?.toSet() ?: emptySet()
+
             else -> emptySet()
         }
     }
