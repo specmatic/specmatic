@@ -15,12 +15,17 @@ val OMIT = listOf("(OMIT)", "(omit)")
 data class HttpPathPattern(
     val pathSegmentPatterns: List<URLPathSegmentPattern>,
     val path: String,
+    val otherPathPatterns: Collection<HttpPathPattern> = emptyList(),
 ) {
 
     fun toRawPath(): String {
         return pathSegmentPatterns.joinToString("/", prefix = "/") { segment ->
             segment.key?.let { "{$it}" } ?: segment.pattern.toString()
         }
+    }
+
+    private fun calculateSpecificity(): Int {
+        return pathSegmentPatterns.count { it.pattern is ExactValuePattern }
     }
 
     fun encompasses(otherHttpPathPattern: HttpPathPattern, thisResolver: Resolver, otherResolver: Resolver): Result {
@@ -93,23 +98,32 @@ data class HttpPathPattern(
         val structureMatches = structureMatches(path, resolver)
         if (!structureMatches) return finalMatchResult.withFailureReason(FailureReason.URLPathMisMatch)
 
-        val areAllConflicts =
-            failures.isNotEmpty() && failures.all { it.hasReason(FailureReason.URLPathParamMatchButConflict) }
-        if (!areAllConflicts) return finalMatchResult.withFailureReason(FailureReason.URLPathParamMismatchButSameStructure)
-
-        val pathParametersCount = pathSegmentPatterns.count { it.pattern !is ExactValuePattern }
-        return when {
-            failures.size == pathParametersCount -> Failure(
-                breadCrumb = BreadCrumb.PATH.value,
-                message = """
-                |Path segments of URL $path overlap with another URL that has the same structure
-                |${failures.joinToString("\n") { it.reportString() }}
-                """.trimMargin(),
-                failureReason = FailureReason.URLPathParamMatchButConflict
-            )
-
-            else -> Success()
+        // If there are basic pattern matching failures but structure matches, return URLPathParamMismatchButSameStructure
+        if (failures.isNotEmpty()) {
+            return finalMatchResult.withFailureReason(FailureReason.URLPathParamMismatchButSameStructure)
         }
+
+        // Check for conflicts with other path patterns based on specificity
+        val matchingOtherPatterns = otherPathPatterns.filter { otherPattern ->
+            otherPattern.path != this.path && otherPattern.matches(path, resolver).isSuccess()
+        }
+
+        if (matchingOtherPatterns.isNotEmpty()) {
+            val currentSpecificity = calculateSpecificity()
+            val conflictingPatterns = matchingOtherPatterns.filter { otherPattern ->
+                otherPattern.calculateSpecificity() > currentSpecificity
+            }
+
+            if (conflictingPatterns.isNotEmpty()) {
+                return Failure(
+                    breadCrumb = BreadCrumb.PATH.value,
+                    message = "URL $path matches a more specific pattern: ${conflictingPatterns.first().path}",
+                    failureReason = FailureReason.URLPathParamMatchButConflict
+                )
+            }
+        }
+
+        return Success()
     }
 
     fun generate(resolver: Resolver): String {

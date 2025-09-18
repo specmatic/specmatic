@@ -479,6 +479,18 @@ class OpenApiSpecification(
     data class RequestPatternsData(val requestPattern: HttpRequestPattern, val examples: Map<String, List<HttpRequest>>, val original: Pair<String, MediaType>? = null)
 
     private fun openApiToScenarioInfos(): Pair<List<ScenarioInfo>, Map<String, List<Pair<HttpRequest, HttpResponse>>>> {
+        // First pass: collect all path patterns for conflict detection
+        val allPathPatterns = openApiPaths().map { (openApiPath, pathItem) ->
+            openApiOperations(pathItem).map { (httpMethod, openApiOperation) ->
+                val operation = openApiOperation.operation
+                toSpecmaticPathParam(
+                    openApiPath,
+                    operation,
+                    schemaLocationDescription = "$httpMethod $openApiPath.REQUEST.${HTTPFilterKeys.PARAMETERS_PATH.key}",
+                )
+            }
+        }.flatten()
+
         val data: List<Pair<List<ScenarioInfo>, Map<String, List<Pair<HttpRequest, HttpResponse>>>>> =
             openApiPaths().map { (openApiPath, pathItem) ->
                 val scenariosAndExamples = openApiOperations(pathItem).map { (httpMethod, openApiOperation) ->
@@ -492,7 +504,12 @@ class OpenApiSpecification(
 
                     val operation = openApiOperation.operation
 
-                    val specmaticPathParam = toSpecmaticPathParam(openApiPath, operation, schemaLocationDescription = "$httpMethod $openApiPath.REQUEST.${HTTPFilterKeys.PARAMETERS_PATH.key}")
+                    val specmaticPathParam = toSpecmaticPathParam(
+                        openApiPath,
+                        operation,
+                        schemaLocationDescription = "$httpMethod $openApiPath.REQUEST.${HTTPFilterKeys.PARAMETERS_PATH.key}",
+                        otherPathPatterns = allPathPatterns,
+                    )
                     val specmaticQueryParam = toSpecmaticQueryParam(operation, schemaLocationDescription = "$httpMethod $openApiPath.REQUEST.${HTTPFilterKeys.PARAMETERS_QUERY.key}")
 
                     val httpResponsePatterns: List<ResponsePatternData> =
@@ -2190,7 +2207,7 @@ class OpenApiSpecification(
         return null
     }
 
-    private fun toSpecmaticPathParam(openApiPath: String, operation: Operation, schemaLocationDescription: String): HttpPathPattern {
+    private fun toSpecmaticPathParam(openApiPath: String, operation: Operation, schemaLocationDescription: String, otherPathPatterns: Collection<HttpPathPattern> = emptyList()): HttpPathPattern {
         val parameters = operation.parameters ?: emptyList()
 
         val pathSegments: List<String> = openApiPath.removePrefix("/").removeSuffix("/").let {
@@ -2214,18 +2231,15 @@ class OpenApiSpecification(
                 errorMessage = "The path parameter in $openApiPath is not defined in the specification"
             )
 
-            val pathSoFar = pathSegments.take(index + 1).joinToString(separator = "/")
-            val conflicts = pathTree.conflictsFor(pathSoFar)
             URLPathSegmentPattern(
                 pattern = toSpecmaticPattern(param.schema, emptyList(), "$schemaLocationDescription.$paramName"),
-                key = paramName,
-                conflicts = conflicts
+                key = paramName
             )
         }
 
         val specmaticPath = toSpecmaticFormattedPathString(parameters, openApiPath)
 
-        return HttpPathPattern(pathPattern, specmaticPath)
+        return HttpPathPattern(pathPattern, specmaticPath, otherPathPatterns)
     }
 
     private fun isParameter(pathSegment: String) = pathSegment.startsWith("{") && pathSegment.endsWith("}")
