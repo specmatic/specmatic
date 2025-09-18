@@ -98,12 +98,6 @@ data class HttpPathPattern(
         val structureMatches = structureMatches(path, resolver)
         if (!structureMatches) return finalMatchResult.withFailureReason(FailureReason.URLPathMisMatch)
 
-        // If there are basic pattern matching failures but structure matches, return URLPathParamMismatchButSameStructure
-        if (failures.isNotEmpty()) {
-            return finalMatchResult.withFailureReason(FailureReason.URLPathParamMismatchButSameStructure)
-        }
-
-        // Check for conflicts with other path patterns based on specificity
         val matchingOtherPatterns = otherPathPatterns.filter { otherPattern ->
             otherPattern.path != this.path && otherPattern.matches(path, resolver).isSuccess()
         }
@@ -121,6 +115,10 @@ data class HttpPathPattern(
                     failureReason = FailureReason.URLPathParamMatchButConflict
                 )
             }
+        }
+
+        if (failures.isNotEmpty()) {
+            return finalMatchResult.withFailureReason(FailureReason.URLPathParamMismatchButSameStructure)
         }
 
         return Success()
