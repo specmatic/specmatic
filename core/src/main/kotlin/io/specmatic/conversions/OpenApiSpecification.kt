@@ -479,17 +479,18 @@ class OpenApiSpecification(
     data class RequestPatternsData(val requestPattern: HttpRequestPattern, val examples: Map<String, List<HttpRequest>>, val original: Pair<String, MediaType>? = null)
 
     private fun openApiToScenarioInfos(): Pair<List<ScenarioInfo>, Map<String, List<Pair<HttpRequest, HttpResponse>>>> {
-        // First pass: collect all path patterns for conflict detection
-        val allPathPatterns = openApiPaths().map { (openApiPath, pathItem) ->
+        // First pass: collect all path patterns grouped by HTTP method for conflict detection
+        val allPathPatternsByMethod = openApiPaths().flatMap { (openApiPath, pathItem) ->
             openApiOperations(pathItem).map { (httpMethod, openApiOperation) ->
                 val operation = openApiOperation.operation
-                toSpecmaticPathParam(
+                val pathPattern = toSpecmaticPathParam(
                     openApiPath,
                     operation,
                     schemaLocationDescription = "$httpMethod $openApiPath.REQUEST.${HTTPFilterKeys.PARAMETERS_PATH.key}",
                 )
+                httpMethod to pathPattern
             }
-        }.flatten()
+        }.groupBy({ it.first }, { it.second })
 
         val data: List<Pair<List<ScenarioInfo>, Map<String, List<Pair<HttpRequest, HttpResponse>>>>> =
             openApiPaths().map { (openApiPath, pathItem) ->
@@ -508,7 +509,7 @@ class OpenApiSpecification(
                         openApiPath,
                         operation,
                         schemaLocationDescription = "$httpMethod $openApiPath.REQUEST.${HTTPFilterKeys.PARAMETERS_PATH.key}",
-                        otherPathPatterns = allPathPatterns,
+                        otherPathPatterns = allPathPatternsByMethod[httpMethod].orEmpty(),
                     )
                     val specmaticQueryParam = toSpecmaticQueryParam(operation, schemaLocationDescription = "$httpMethod $openApiPath.REQUEST.${HTTPFilterKeys.PARAMETERS_QUERY.key}")
 

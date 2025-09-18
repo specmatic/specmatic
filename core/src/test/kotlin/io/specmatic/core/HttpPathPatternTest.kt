@@ -100,6 +100,20 @@ internal class HttpPathPatternTest {
         assertThat((result as Result.Failure).reportString()).contains("matches a more specific pattern")
     }
 
+    @Test
+    fun `should not conflict when otherPathPatterns is empty representing different HTTP methods`() {
+        val postPattern = HttpPathPattern(listOf(
+            URLPathSegmentPattern(StringPattern(), "section"),
+            URLPathSegmentPattern(StringPattern(), "version"),
+            URLPathSegmentPattern(ExactValuePattern(StringValue("users")))
+        ), path = "/(section:String)/(version:String)/users", otherPathPatterns = emptyList())
+        
+        // This should succeed because there are no conflicting patterns in the same HTTP method
+        val result = postPattern.matches("api/v1/users", Resolver())
+
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
     @ParameterizedTest
     @CsvSource(
         "/pets/(id:number), /pets/abc",
