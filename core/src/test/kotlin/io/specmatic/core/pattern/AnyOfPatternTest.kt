@@ -210,4 +210,18 @@ internal class AnyOfPatternTest {
         val derivedAliases = derivedPatterns.filterIsInstance<JSONObjectPattern>().mapNotNull { it.typeAlias }
         assertThat(derivedAliases).contains("(Alpha)", "(Beta)")
     }
+
+    @Test
+    fun `typeName describes constituent patterns`() {
+        val pattern = AnyOfPattern(listOf(StringPattern(), NumberPattern()))
+
+        assertThat(pattern.typeName).isEqualTo("(anyOf string or number)")
+    }
+
+    @Test
+    fun `typeName for empty anyOf`() {
+        val pattern = AnyOfPattern(emptyList())
+
+        assertThat(pattern.typeName).isEqualTo("(anyOf)")
+    }
 }

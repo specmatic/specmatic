@@ -122,6 +122,13 @@ class AnyOfPattern(
 
     override fun hashCode(): Int = pattern.hashCode()
 
+    override val typeName: String
+        get() =
+            when {
+                pattern.isEmpty() -> "(anyOf)"
+                else -> pattern.joinToString(prefix = "(anyOf ", postfix = ")", separator = " or ") { withoutPatternDelimiters(it.typeName) }
+            }
+
     private fun findKeysNotDeclaredInAnySchema(
         value: JSONObjectValue,
         patterns: List<Pattern>,
