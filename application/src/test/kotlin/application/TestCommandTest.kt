@@ -113,7 +113,7 @@ internal class TestCommandTest {
             <testcase name="contractTest()[1]" classname="io.specmatic.test.SpecmaticJUnitSupport" time="1.028">
             <system-out><![CDATA[
             unique-id: [engine:junit-jupiter]/[class:io.specmatic.test.SpecmaticJUnitSupport]/[test-factory:contractTest()]/[dynamic-test:#1]
-            display-name:  Scenario: GET /pets/(petid:number) -> 200 | EX:200_OKAY
+            display-name:  Scenario: GET /pets/(petid:number) -> 200 — EX:200_OKAY
             ]]></system-out>
             </testcase>
             <system-out><![CDATA[
@@ -132,7 +132,7 @@ internal class TestCommandTest {
 
         val testCaseNode = findFirstChildNodeByName(reportDocument.documentElement.childNodes, "testcase") ?: fail("Could not find testcase node in the updated JUnit report")
 
-        assertThat(testCaseNode.attributes.getNamedItem("name").nodeValue).isEqualTo("Scenario: GET /pets/(petid:number) -> 200 | EX:200_OKAY")
+        assertThat(testCaseNode.attributes.getNamedItem("name").nodeValue).isEqualTo("Scenario: GET /pets/(petid:number) -> 200 — EX:200_OKAY")
     }
 
     private companion object {
