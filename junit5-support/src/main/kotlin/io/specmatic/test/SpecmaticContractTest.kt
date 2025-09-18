@@ -5,7 +5,6 @@ import org.junit.jupiter.api.TestFactory
 import org.junit.jupiter.api.extension.AfterTestExecutionCallback
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.extension.ExtensionContext
-import java.util.*
 import java.util.stream.Stream
 import kotlin.jvm.optionals.getOrNull
 
@@ -35,10 +34,6 @@ class AfterSpecmaticContractTestExecutionCallback : AfterTestExecutionCallback {
             synchronized(SpecmaticJUnitSupport::class.java) {
                 contractTestHarnessInstance?.report()
             }
-        }
-
-        ServiceLoader.load(SpecmaticAfterAllHook::class.java).forEach {
-            it.onAfterAllTests(testInstance?.openApiCoverageReportInput?.testResultRecords)
         }
     }
 }
