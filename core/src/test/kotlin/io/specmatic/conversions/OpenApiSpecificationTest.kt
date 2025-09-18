@@ -10208,6 +10208,98 @@ paths:
     }
 
     @Test
+    fun `should run 1 contract test per anyOf example`() {
+        val spec =
+            """
+            openapi: '3.0.3'
+            info:
+              title: AnyOf API
+              version: '1.0'
+            paths:
+              /choice:
+                post:
+                  requestBody:
+                    content:
+                      application/json:
+                        schema:
+                          ${"$"}ref: '#/components/schemas/Choice'
+                        examples:
+                          messageExample:
+                            value:
+                              type: alpha
+                              message: hello
+                          countExample:
+                            value:
+                              type: beta
+                              count: 5
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            properties:
+                              status:
+                                type: string
+                          examples:
+                            messageExample:
+                              value:
+                                status: ok
+                            countExample:
+                              value:
+                                status: ok
+            components:
+              schemas:
+                Message:
+                  type: object
+                  required:
+                    - type
+                    - message
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - alpha
+                    message:
+                      type: string
+                Count:
+                  type: object
+                  required:
+                    - type
+                    - count
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - beta
+                    count:
+                      type: integer
+                Choice:
+                  anyOf:
+                    - ${"$"}ref: '#/components/schemas/Message'
+                    - ${"$"}ref: '#/components/schemas/Count'
+            """.trimIndent()
+
+        val feature =
+            OpenApiSpecification
+                .fromYAML(spec, "")
+                .toFeature()
+                .enableGenerativeTesting(onlyPositive = true)
+
+        val results =
+            feature.executeTests(
+                object : TestExecutor {
+                    override fun execute(request: HttpRequest): HttpResponse {
+                        return HttpResponse.ok(parsedJSONObject("""{"status":"ok"}"""))
+                    }
+                },
+            )
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+    }
+
+    @Test
     fun `when a content-type header with a specific value is given it should override the media-type`() {
         val spec = """
             openapi: 3.0.3
