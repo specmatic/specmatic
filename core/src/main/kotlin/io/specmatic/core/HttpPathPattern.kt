@@ -6,11 +6,26 @@ import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.StringValue
-import io.swagger.v3.oas.models.parameters.Parameter
-import io.swagger.v3.oas.models.parameters.PathParameter
 import java.net.URI
 
 val OMIT = listOf("(OMIT)", "(omit)")
+
+private data class SegregatedFailures(val matchConflict: List<Failure>, val mismatchConflict: List<Failure>, val mismatch: List<Failure>) {
+    val noConflicts = matchConflict.isEmpty() && mismatchConflict.isEmpty()
+    val mismatchFailures = mismatchConflict.plus(mismatch)
+
+    companion object {
+        fun from(failures: List<Failure>): SegregatedFailures {
+            return failures.fold(Triple(emptyList<Failure>(), emptyList<Failure>(), emptyList<Failure>())) { acc, failure ->
+                when {
+                    failure.hasReason(FailureReason.URLPathParamMatchButConflict) -> acc.copy(first = acc.first.plus(failure))
+                    failure.hasReason(FailureReason.URLPathParamMismatchAndConflict) -> acc.copy(second = acc.second.plus(failure))
+                    else -> acc.copy(third = acc.third.plus(failure))
+                }
+            }.let { SegregatedFailures(it.first, it.second, it.third) }
+        }
+    }
+}
 
 data class HttpPathPattern(
     val pathSegmentPatterns: List<URLPathSegmentPattern>,
@@ -89,17 +104,17 @@ data class HttpPathPattern(
 
         val failures = results.filterIsInstance<Failure>()
         val finalMatchResult = Result.fromResults(failures)
+        if (finalMatchResult is Success) return finalMatchResult
 
         val structureMatches = structureMatches(path, resolver)
         if (!structureMatches) return finalMatchResult.withFailureReason(FailureReason.URLPathMisMatch)
 
-        val areAllConflicts =
-            failures.isNotEmpty() && failures.all { it.hasReason(FailureReason.URLPathParamMatchButConflict) }
-        if (!areAllConflicts) return finalMatchResult.withFailureReason(FailureReason.URLPathParamMismatchButSameStructure)
-
-        val pathParametersCount = pathSegmentPatterns.count { it.pattern !is ExactValuePattern }
+        val segregatedFailures = SegregatedFailures.from(failures)
+        val numConflictingParams  = pathSegmentPatterns.count { it.pattern !is ExactValuePattern && it.conflicts.isNotEmpty() }
         return when {
-            failures.size == pathParametersCount -> Failure(
+            segregatedFailures.noConflicts -> Result.fromFailures(segregatedFailures.mismatch).withFailureReason(FailureReason.URLPathParamMismatchButSameStructure)
+            segregatedFailures.mismatchFailures.isNotEmpty() -> Result.fromFailures(segregatedFailures.mismatchFailures).withFailureReason(FailureReason.URLPathParamMismatchAndConflict)
+            segregatedFailures.matchConflict.size == numConflictingParams -> Failure(
                 breadCrumb = BreadCrumb.PATH.value,
                 message = """
                 |Path segments of URL $path overlap with another URL that has the same structure
@@ -107,7 +122,6 @@ data class HttpPathPattern(
                 """.trimMargin(),
                 failureReason = FailureReason.URLPathParamMatchButConflict
             )
-
             else -> Success()
         }
     }

@@ -50,7 +50,13 @@ internal class HttpPathPatternTest {
         ), path = "/(first:number)/(second:String)/(third:String)")
         val result = pattern.matches("/a/b/1", Resolver())
 
-        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result).isInstanceOf(Result.Failure::class.java); result as Result.Failure
+        assertThat(result.hasReason(FailureReason.URLPathParamMismatchAndConflict)).isTrue()
+        assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
+        >> PARAMETERS.PATH.first
+        Value "a" conflicts with an existing path using the same value
+        Expected number, actual was "a"
+        """.trimIndent())
     }
 
     @Test
@@ -68,12 +74,55 @@ internal class HttpPathPatternTest {
         >> PATH
         Path segments of URL a/b/c overlap with another URL that has the same structure
         >> PARAMETERS.PATH.first
-        Value "a" conflicts with an existing path using the same prefix
+        Value "a" conflicts with an existing path using the same value
         >> PARAMETERS.PATH.second
-        Value "b" conflicts with an existing path using the same prefix
+        Value "b" conflicts with an existing path using the same value
         >> PARAMETERS.PATH.third
-        Value "c" conflicts with an existing path using the same prefix
+        Value "c" conflicts with an existing path using the same value
         """.trimIndent())
+    }
+
+    @Test
+    fun `should return failure with appropriate reason when param mismatches with conflict`() {
+        val pattern = HttpPathPattern(listOf(
+            URLPathSegmentPattern(ExactValuePattern(StringValue("orders"))),
+            URLPathSegmentPattern(NumberPattern(), "orderId", conflicts = setOf("bulk"))
+        ), path = "/orders/(orderId:number)")
+        val result = pattern.matches("/orders/bulk", Resolver())
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat((result as Result.Failure).hasReason(FailureReason.URLPathParamMismatchAndConflict)).isTrue()
+        assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
+        >> PARAMETERS.PATH.orderId
+        Value "bulk" conflicts with an existing path using the same value
+        Expected number, actual was "bulk"
+        """.trimIndent())
+    }
+
+    @Test
+    fun `should return failure with appropriate reason when param matches with conflict`() {
+        val pattern = HttpPathPattern(listOf(
+            URLPathSegmentPattern(StringPattern(), "customerId"),
+            URLPathSegmentPattern(ExactValuePattern(StringValue("orders"))),
+            URLPathSegmentPattern(StringPattern(), "orderId", conflicts = setOf("all"))
+        ), path = "(customerId:string)/orders/(orderId:string)")
+
+        val allResult = pattern.matches("1234/orders/all", Resolver())
+        assertThat(allResult).isInstanceOf(Result.Failure::class.java)
+        assertThat((allResult as Result.Failure).hasReason(FailureReason.URLPathParamMatchButConflict)).isTrue()
+    }
+
+    @Test
+    fun `conflict failure reason should take priority over same-structure failure reason`() {
+        val pattern = HttpPathPattern(listOf(
+            URLPathSegmentPattern(StringPattern(), "customerId"),
+            URLPathSegmentPattern(ExactValuePattern(StringValue("orders"))),
+            URLPathSegmentPattern(StringPattern(), "orderId", conflicts = setOf("all"))
+        ), path = "(customerId:string)/orders/(orderId:string)")
+
+        val allResult = pattern.matches("ABC/orders/all", Resolver())
+        assertThat(allResult).isInstanceOf(Result.Failure::class.java)
+        assertThat((allResult as Result.Failure).hasReason(FailureReason.URLPathParamMatchButConflict)).isTrue()
     }
 
     @ParameterizedTest
