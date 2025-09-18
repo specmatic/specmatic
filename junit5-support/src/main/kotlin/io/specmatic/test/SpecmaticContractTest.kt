@@ -24,7 +24,6 @@ interface SpecmaticContractTest {
     }
 }
 
-
 class AfterSpecmaticContractTestExecutionCallback : AfterTestExecutionCallback {
     override fun afterTestExecution(context: ExtensionContext?) {
         val testInstance = context?.testInstance?.getOrNull() as? SpecmaticJUnitSupport

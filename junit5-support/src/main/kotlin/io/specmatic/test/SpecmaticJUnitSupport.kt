@@ -35,6 +35,8 @@ import org.junit.jupiter.api.parallel.ExecutionMode
 import org.opentest4j.TestAbortedException
 import java.io.File
 import java.net.URI
+import java.time.Duration
+import java.time.Instant
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.stream.Stream
@@ -181,6 +183,10 @@ open class SpecmaticJUnitSupport {
         val config = specmaticConfig?.updateReportConfiguration(reportConfiguration) ?: SpecmaticConfig().updateReportConfiguration(reportConfiguration)
 
         reportProcessors.forEach { it.process(config) }
+
+        ServiceLoader.load(SpecmaticAfterAllHook::class.java).forEach {
+            it.onAfterAllTests(openApiCoverageReportInput.testResultRecords)
+        }
 
         threads.distinct().let {
             if(it.size > 1) {
@@ -444,7 +450,9 @@ open class SpecmaticJUnitSupport {
                 } finally {
                     if (testResult != null) {
                         val (result, response) = testResult
-                        contractTest.testResultRecord(result, response)?.let { testREsultRecord -> openApiCoverageReportInput.addTestReportRecords(testREsultRecord) }
+                        contractTest.testResultRecord(result, response)?.let { testREsultRecord ->
+                            openApiCoverageReportInput.addTestReportRecords(testREsultRecord)
+                        }
                     }
                 }
             }

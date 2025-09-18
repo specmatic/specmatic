@@ -775,6 +775,7 @@ data class RepositoryInfo(
 interface ReportConfiguration {
     fun withDefaultFormattersIfMissing(): ReportConfiguration
     fun getHTMLFormatter(): ReportFormatterDetails?
+    fun getFormatterWithType(type: ReportFormatterType): ReportFormatterDetails?
     fun getSuccessCriteria(): SuccessCriteria
     fun <T> mapRenderers(fn: (ReportFormatterType) -> T): List<T>
     fun excludedOpenAPIEndpoints(): List<String>
@@ -832,6 +833,11 @@ data class ReportConfigurationDetails(
     @JsonIgnore
     override fun getHTMLFormatter(): ReportFormatterDetails? {
         return formatters?.firstOrNull { it.getTypeOrDefault() == ReportFormatterType.HTML }
+    }
+
+    @JsonIgnore
+    override fun getFormatterWithType(type: ReportFormatterType): ReportFormatterDetails? {
+        return formatters?.firstOrNull { it.getTypeOrDefault() == type }
     }
 
     @JsonIgnore
@@ -919,7 +925,10 @@ enum class ReportFormatterType {
     TEXT,
 
     @JsonProperty("html")
-    HTML
+    HTML,
+
+    @JsonProperty("ctrf")
+    CTRF
 }
 
 enum class ReportFormatterLayout {

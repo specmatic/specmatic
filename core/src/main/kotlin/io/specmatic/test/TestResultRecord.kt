@@ -19,7 +19,8 @@ data class TestResultRecord(
     val isWip: Boolean = false,
     val requestContentType: String? = null,
     val soapAction: String? = null,
-    val isGherkin: Boolean = false
+    val isGherkin: Boolean = false,
+    val duration: Long = 0
 ) {
     val isExercised = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
     val isCovered = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)

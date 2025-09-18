@@ -11,6 +11,8 @@ import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.Value
 import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
+import java.time.Duration
+import java.time.Instant
 
 data class ScenarioAsTest(
     val scenario: Scenario,
@@ -31,6 +33,9 @@ data class ScenarioAsTest(
         private var id: Value? = null
     }
 
+    private var startTime: Instant? = null
+    private var endTime: Instant? = null
+
     override fun toScenarioMetadata() = scenario.toScenarioMetadata()
 
     override fun testResultRecord(result: Result, response: HttpResponse?): TestResultRecord {
@@ -50,7 +55,8 @@ data class ScenarioAsTest(
             actualResponseStatus = response?.status ?: 0,
             scenarioResult = result,
             soapAction = scenario.httpRequestPattern.getSOAPAction().takeIf { scenario.isGherkinScenario },
-            isGherkin = scenario.isGherkinScenario
+            isGherkin = scenario.isGherkinScenario,
+            duration = Duration.between(startTime, Instant.now()).toMillis()
         )
     }
 
@@ -69,7 +75,7 @@ data class ScenarioAsTest(
     }
 
     override fun runTest(testExecutor: TestExecutor): Pair<Result, HttpResponse?> {
-
+        startTime = Instant.now()
         val newExecutor = if (testExecutor is HttpClient) {
             val log: (LogMessage) -> Unit = { logMessage ->
                 logger.log(logMessage.withComment(this.annotations))
@@ -81,6 +87,7 @@ data class ScenarioAsTest(
         }
 
         val (result, response) = executeTestAndReturnResultAndResponse(scenario, newExecutor, flagsBased)
+        endTime = Instant.now()
         return Pair(result.updateScenario(scenario), response)
     }
 
