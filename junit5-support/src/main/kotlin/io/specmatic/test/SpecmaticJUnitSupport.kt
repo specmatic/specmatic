@@ -409,7 +409,6 @@ open class SpecmaticJUnitSupport {
                 threads.add(Thread.currentThread().name)
 
                 var testResult: Pair<Result, HttpResponse?>? = null
-                val startTime: Instant = Instant.now()
 
                 try {
                     val log: (LogMessage) -> Unit = { logMessage ->
@@ -450,10 +449,9 @@ open class SpecmaticJUnitSupport {
                     throw e
                 } finally {
                     if (testResult != null) {
-                        val durationMillis = Duration.between(startTime, Instant.now()).toMillis()
                         val (result, response) = testResult
                         contractTest.testResultRecord(result, response)?.let { testREsultRecord ->
-                            openApiCoverageReportInput.addTestReportRecords(testREsultRecord.copy(duration = durationMillis))
+                            openApiCoverageReportInput.addTestReportRecords(testREsultRecord)
                         }
                     }
                 }
