@@ -6,7 +6,7 @@ plugins {
 
 dependencies {
     implementation("io.netty:netty-codec-http:4.2.5.Final")
-    implementation("net.minidev:json-smart:2.5.2")
+    implementation("net.minidev:json-smart:2.6.0")
     implementation("com.ezylang:EvalEx:3.5.0")
     implementation(project(":specmatic-core"))
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
