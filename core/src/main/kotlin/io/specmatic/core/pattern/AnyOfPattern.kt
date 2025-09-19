@@ -130,7 +130,8 @@ class AnyOfPattern(
 
         val resolvedPatterns = pattern.map { resolvedHop(it, resolver) }
         if (resolvedPatterns.all { it is JSONObjectPattern } && discriminator == null) {
-            return newPatterns.plus(HasValue(combineJSONPatterns(pattern.filterIsInstance<JSONObjectPattern>())))
+            val combinedPattern = combineJSONPatterns(pattern.filterIsInstance<JSONObjectPattern>())
+            return newPatterns.plus(combinedPattern.newBasedOn(row, resolver))
         }
 
         return newPatterns
