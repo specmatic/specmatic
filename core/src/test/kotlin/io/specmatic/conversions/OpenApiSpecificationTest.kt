@@ -10208,7 +10208,7 @@ paths:
     }
 
     @Test
-    fun `should run 1 contract test per anyOf example`() {
+    fun `should run the right count of contract test per anyOf example`() {
         val spec =
             """
             openapi: '3.0.3'
@@ -10259,8 +10259,6 @@ paths:
                   properties:
                     type:
                       type: string
-                      enum:
-                        - alpha
                     message:
                       type: string
                 Count:
@@ -10271,12 +10269,10 @@ paths:
                   properties:
                     type:
                       type: string
-                      enum:
-                        - beta
                     count:
                       type: integer
                 Choice:
-                  anyOf:
+                  oneOf:
                     - ${"$"}ref: '#/components/schemas/Message'
                     - ${"$"}ref: '#/components/schemas/Count'
             """.trimIndent()
@@ -10293,10 +10289,17 @@ paths:
                     override fun execute(request: HttpRequest): HttpResponse {
                         return HttpResponse.ok(parsedJSONObject("""{"status":"ok"}"""))
                     }
+
+                    override fun preExecuteScenario(scenario: Scenario, request: HttpRequest) {
+                        println("Executing scenario: ${scenario.testDescription()}")
+                        println(request.toLogString())
+                        println()
+                    }
                 },
             )
 
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(results.results).hasSize(4)
     }
 
     @Test
