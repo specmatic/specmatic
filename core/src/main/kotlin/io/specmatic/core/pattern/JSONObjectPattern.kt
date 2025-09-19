@@ -3,6 +3,7 @@ package io.specmatic.core.pattern
 import io.ktor.http.*
 import io.specmatic.core.*
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.resolveExample
 import io.specmatic.core.utilities.mapZip
 import io.specmatic.core.utilities.stringToPatternMap
 import io.specmatic.core.utilities.withNullPattern
@@ -15,7 +16,11 @@ fun toJSONObjectPattern(jsonContent: String, typeAlias: String?): JSONObjectPatt
 fun toJSONObjectPattern(
     map: Map<String, Pattern>,
     typeAlias: String? = null,
-    extensions: Map<String, Any> = emptyMap()
+    extensions: Map<String, Any> = emptyMap(),
+    example: Any? = null,
+    minProperties: Int? = null,
+    maxProperties: Int? = null,
+    additionalProperties: AdditionalProperties = AdditionalProperties.NoAdditionalProperties
 ): JSONObjectPattern {
     val missingKeyStrategy: UnexpectedKeyCheck = when ("...") {
         in map -> IgnoreUnexpectedKeys
@@ -26,7 +31,11 @@ fun toJSONObjectPattern(
         pattern = map.minus("..."),
         unexpectedKeyCheck = missingKeyStrategy,
         typeAlias = typeAlias,
-        extensions = extensions
+        extensions = extensions,
+        example = example,
+        minProperties = minProperties,
+        maxProperties = maxProperties,
+        additionalProperties = additionalProperties
     )
 }
 
@@ -94,8 +103,9 @@ data class JSONObjectPattern(
     val minProperties: Int? = null,
     val maxProperties: Int? = null,
     val additionalProperties: AdditionalProperties = AdditionalProperties.NoAdditionalProperties,
-    override val extensions: Map<String, Any> = emptyMap()
-) : Pattern, PossibleJsonObjectPatternContainer {
+    override val extensions: Map<String, Any> = emptyMap(),
+    override val example: Any? = null
+) : Pattern, PossibleJsonObjectPatternContainer, HasDefaultExample {
 
     override fun fixValue(value: Value, resolver: Resolver): Value {
         if (resolver.matchesPattern(null, this, value).isSuccess()) return value
@@ -399,7 +409,42 @@ data class JSONObjectPattern(
         }
     }
 
+    private fun resolveJSONObjectExample(example: Any?): JSONObjectValue? {
+        if (example == null) return null
+
+        if (example !is Map<*, *>?) {
+            throw ContractException("Example must be a Map, but got ${example.javaClass.name ?: "null"}")
+        }
+        val exampleValue = convertAnyToValue(example)
+
+
+        val exampleMatchResult = this.matches(exampleValue, Resolver())
+        if (exampleMatchResult.isSuccess()) return exampleValue as JSONObjectValue
+        throw ContractException("Example \"$example\" does not match ${this.typeName} type")
+    }
+
+    private fun convertAnyToValue(example: Any?): Value {
+        return when(example) {
+            is String -> StringValue(example)
+            is Number -> NumberValue(example)
+            is Boolean -> BooleanValue(example)
+            is Map<*, *> -> JSONObjectValue(
+                example.mapKeys { it.key.toString() }
+                    .mapValues { convertAnyToValue(it.value) }
+            )
+
+            is List<*> -> JSONArrayValue(example.map { convertAnyToValue(it) })
+            null -> NullValue
+            else -> StringValue(example.toString())
+        }
+    }
+
     override fun generate(resolver: Resolver): JSONObjectValue {
+        if (!resolver.allowOnlyMandatoryKeysInJsonObject) {
+            val exampleValue = resolveJSONObjectExample(example)
+            if (exampleValue != null) return exampleValue
+        }
+
         val pattern = if (resolver.allowOnlyMandatoryKeysInJsonObject) {
             getPatternWithOmittedOptionalFields(this.pattern, resolver)
         } else {
@@ -431,20 +476,28 @@ data class JSONObjectPattern(
         }.toMap()
     }
 
-    override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> =
-        allOrNothingCombinationIn(
+    override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> {
+        val resolvedExample = resolveJSONObjectExample(example)
+        if (resolvedExample != null) {
+            val resolvedExampleResult = this.matches(resolvedExample, resolver)
+            return sequenceOf(resolvedExampleResult.toReturnValue(ExactValuePattern(resolvedExample)))
+        }
+        return allOrNothingCombinationIn(
             pattern.minus("..."),
             resolver.resolveRow(row),
             minProperties,
-            maxProperties
+            maxProperties,
         ) { pattern ->
             newMapBasedOn(pattern, row, withNullPattern(resolver))
         }.map { it: ReturnValue<Map<String, Pattern>> ->
             it.ifValue {
-                toJSONObjectPattern(it.mapKeys { (key, _) ->
-                    withoutOptionality(key)
-                }, typeAlias)
+                toJSONObjectPattern(
+                    it.mapKeys { (key, _) ->
+                        withoutOptionality(key)
+                },
+                        typeAlias)
             }
+        }
     }
 
     override fun newBasedOn(resolver: Resolver): Sequence<JSONObjectPattern> =
