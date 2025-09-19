@@ -448,7 +448,7 @@ data class HttpHeadersPattern(
         } ?: return this
 
         val resolvedPattern = resolvedHop(soapActionPattern, resolver)
-        if (resolvedPattern !is AnyPattern) return this
+        if (resolvedPattern !is SubSchemaCompositePattern) return this
 
         val preferEscaped = Flags.getBooleanValue(Flags.SPECMATIC_ESCAPE_SOAP_ACTION)
         val updatedSoapActionPattern = resolvedPattern.pattern.filterIsInstance<ExactValuePattern>().firstOrNull {

@@ -251,7 +251,7 @@ data class ListPattern(
         return value.list.flatMapIndexed { index, arrayItem ->
             val resolvedPattern = resolvedHop(pattern, resolver)
             when (resolvedPattern) {
-                is AnyPattern -> {
+                is SubSchemaCompositePattern -> {
                     // For AnyPattern, get the path and add array index prefix
                     val anyPatternPaths = resolvedPattern.calculatePath(arrayItem, resolver)
                     anyPatternPaths.map { path ->

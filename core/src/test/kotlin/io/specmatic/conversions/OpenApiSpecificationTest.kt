@@ -7,6 +7,7 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkAll
 import io.specmatic.core.*
+import io.specmatic.core.SPECMATIC_RESULT_HEADER
 import io.specmatic.core.log.CompositePrinter
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.LogStrategy
@@ -34,6 +35,7 @@ import io.swagger.v3.oas.models.OpenAPI
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatCode
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.assertj.core.api.Assertions.fail
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.condition.DisabledOnOs
@@ -10023,6 +10025,281 @@ paths:
                 pattern = patterns, typeAlias = "(ComplexSchema)", extensions = patterns.extractCombinedExtensions()
             )
         )
+    }
+
+    @Test
+    fun `anyOf schema converts to AnyOfPattern with free form additional properties`() {
+        val specContent = """
+        openapi: '3.0.3'
+        info:
+          title: Simple API
+          version: '1.0'
+        paths:
+          /choice:
+            get:
+              responses:
+                '200':
+                  description: OK
+                  content:
+                    application/json:
+                      schema:
+                        ${'$'}ref: '#/components/schemas/Choice'
+        components:
+          schemas:
+            Choice:
+              anyOf:
+                - type: object
+                  required:
+                    - id
+                  properties:
+                    id:
+                      type: string
+                - type: object
+                  required:
+                    - code
+                  properties:
+                    code:
+                      type: integer
+        """.trimIndent()
+
+        val specification = OpenApiSpecification.fromYAML(specContent, "")
+        val feature = specification.toFeature()
+        val scenario = feature.scenarios.first()
+        val responseBodyPattern = resolvedHop(scenario.httpResponsePattern.body, scenario.resolver)
+
+        assertThat(responseBodyPattern).isInstanceOf(AnyOfPattern::class.java)
+        responseBodyPattern as AnyOfPattern
+
+        val objectPatterns = responseBodyPattern.pattern.filterIsInstance<JSONObjectPattern>()
+        assertThat(objectPatterns).hasSize(2)
+        objectPatterns.forEach {
+            assertThat(it.additionalProperties).isEqualTo(AdditionalProperties.FreeForm)
+        }
+    }
+
+    @Test
+    fun `stub and contract tests use anyOf examples`() {
+        val spec =
+            """
+            openapi: '3.0.3'
+            info:
+              title: AnyOf API
+              version: '1.0'
+            paths:
+              /choice:
+                post:
+                  requestBody:
+                    content:
+                      application/json:
+                        schema:
+                          ${"$"}ref: '#/components/schemas/Choice'
+                        examples:
+                          alphaExample:
+                            value:
+                              type: alpha
+                              message: hello
+                          betaExample:
+                            value:
+                              type: beta
+                              count: 5
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            properties:
+                              status:
+                                type: string
+                          examples:
+                            alphaExample:
+                              value:
+                                status: ok
+                            betaExample:
+                              value:
+                                status: ok
+            components:
+              schemas:
+                Choice:
+                  anyOf:
+                    - type: object
+                      required:
+                        - type
+                        - message
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - alpha
+                        message:
+                          type: string
+                    - type: object
+                      required:
+                        - type
+                        - count
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - beta
+                        count:
+                          type: integer
+            """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+
+        HttpStub(feature).use { stub ->
+            val alphaRequest = HttpRequest(
+                method = "POST",
+                path = "/choice",
+                body = parsedJSONObject("""{"type":"alpha","message":"hello"}"""),
+                headers = mapOf("Content-Type" to "application/json"),
+            )
+
+            val alphaResponse = stub.client.execute(alphaRequest)
+            assertThat(alphaResponse.status).isEqualTo(200)
+            assertThat(alphaResponse.headers).containsEntry(SPECMATIC_RESULT_HEADER, "success")
+            assertThat(alphaResponse.body).isEqualTo(parsedJSONObject("""{"status":"ok"}"""))
+
+            val betaRequest = HttpRequest(
+                method = "POST",
+                path = "/choice",
+                body = parsedJSONObject("""{"type":"beta","count":5}"""),
+                headers = mapOf("Content-Type" to "application/json"),
+            )
+
+            val betaResponse = stub.client.execute(betaRequest)
+            assertThat(betaResponse.status).isEqualTo(200)
+            assertThat(betaResponse.headers).containsEntry(SPECMATIC_RESULT_HEADER, "success")
+            assertThat(betaResponse.body).isEqualTo(parsedJSONObject("""{"status":"ok"}"""))
+        }
+
+        val seenTypes = mutableSetOf<String>()
+        val results =
+            feature.executeTests(
+                object : TestExecutor {
+                    override fun execute(request: HttpRequest): HttpResponse {
+                        assertThat(request.method).isEqualTo("POST")
+                        assertThat(request.path).isEqualTo("/choice")
+
+                        val body = request.body as JSONObjectValue
+                        val type = (body.jsonObject["type"] as StringValue).string
+
+                        when (type) {
+                            "alpha" -> {
+                                assertThat(body.jsonObject["message"]).isEqualTo(StringValue("hello"))
+                                seenTypes.add("alpha")
+                            }
+                            "beta" -> {
+                                assertThat(body.jsonObject["count"]).isEqualTo(NumberValue(5))
+                                seenTypes.add("beta")
+                            }
+                            else -> fail("Unexpected anyOf example type $type")
+                        }
+
+                        return HttpResponse.ok(parsedJSONObject("""{"status":"ok"}"""))
+                    }
+                },
+            )
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(seenTypes).containsExactlyInAnyOrder("alpha", "beta")
+    }
+
+    @Test
+    fun `should run the right count of contract test per anyOf example`() {
+        val spec =
+            """
+            openapi: '3.0.3'
+            info:
+              title: AnyOf API
+              version: '1.0'
+            paths:
+              /choice:
+                post:
+                  requestBody:
+                    content:
+                      application/json:
+                        schema:
+                          ${"$"}ref: '#/components/schemas/Choice'
+                        examples:
+                          messageExample:
+                            value:
+                              type: alpha
+                              message: hello
+                          countExample:
+                            value:
+                              type: beta
+                              count: 5
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            properties:
+                              status:
+                                type: string
+                          examples:
+                            messageExample:
+                              value:
+                                status: ok
+                            countExample:
+                              value:
+                                status: ok
+            components:
+              schemas:
+                Message:
+                  type: object
+                  required:
+                    - type
+                    - message
+                  properties:
+                    type:
+                      type: string
+                    message:
+                      type: string
+                Count:
+                  type: object
+                  required:
+                    - type
+                    - count
+                  properties:
+                    type:
+                      type: string
+                    count:
+                      type: integer
+                Choice:
+                  oneOf:
+                    - ${"$"}ref: '#/components/schemas/Message'
+                    - ${"$"}ref: '#/components/schemas/Count'
+            """.trimIndent()
+
+        val feature =
+            OpenApiSpecification
+                .fromYAML(spec, "")
+                .toFeature()
+                .enableGenerativeTesting(onlyPositive = true)
+
+        val results =
+            feature.executeTests(
+                object : TestExecutor {
+                    override fun execute(request: HttpRequest): HttpResponse {
+                        return HttpResponse.ok(parsedJSONObject("""{"status":"ok"}"""))
+                    }
+
+                    override fun preExecuteScenario(scenario: Scenario, request: HttpRequest) {
+                        println("Executing scenario: ${scenario.testDescription()}")
+                        println(request.toLogString())
+                        println()
+                    }
+                },
+            )
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(results.results).hasSize(4)
     }
 
     @Test

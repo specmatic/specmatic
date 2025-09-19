@@ -20,9 +20,12 @@ data class AnyPattern(
     val key: String? = null,
     override val typeAlias: String? = null,
     override val example: String? = null,
-    val discriminator: Discriminator? = null,
+    override val discriminator: Discriminator? = null,
     override val extensions: Map<String, Any> = pattern.extractCombinedExtensions()
-) : Pattern, HasDefaultExample, PossibleJsonObjectPatternContainer {
+) : Pattern,
+    HasDefaultExample,
+    PossibleJsonObjectPatternContainer,
+    SubSchemaCompositePattern {
     constructor(
         pattern: List<Pattern>,
         key: String? = null,
@@ -38,7 +41,7 @@ data class AnyPattern(
 
     data class AnyPatternMatch(val pattern: Pattern, val result: Result)
 
-    fun fixValue(
+    override fun fixValue(
         value: Value, resolver: Resolver, discriminatorValue: String,
         onValidDiscValue: () -> Value?, onInvalidDiscValue: (Failure) -> Value?
     ): Value? {
@@ -366,11 +369,11 @@ data class AnyPattern(
         return this
     }
 
-    fun isDiscriminatorPresent() = discriminator?.isNotEmpty() == true
+    override fun isDiscriminatorPresent() = discriminator?.isNotEmpty() == true
 
     fun hasMultipleDiscriminatorValues() = discriminator?.hasMultipleValues() == true
 
-    fun generateForEveryDiscriminatorValue(resolver: Resolver): List<DiscriminatorBasedItem<Value>> {
+    override fun generateForEveryDiscriminatorValue(resolver: Resolver): List<DiscriminatorBasedItem<Value>> {
         return discriminator?.values.orEmpty().map { discriminatorValue ->
             DiscriminatorBasedItem(
                 discriminator = DiscriminatorMetadata(
@@ -418,7 +421,7 @@ data class AnyPattern(
         )
     }
 
-    fun matchesValue(sampleData: Value?, resolver: Resolver, discriminatorValue: String, discMisMatchBreadCrumb: String? = null): Result {
+    override fun matchesValue(sampleData: Value?, resolver: Resolver, discriminatorValue: String, discMisMatchBreadCrumb: String?): Result {
         if (discriminator == null) return matches(sampleData, resolver)
 
         return getDiscriminatorPattern(discriminatorValue, resolver).realise(
@@ -428,7 +431,7 @@ data class AnyPattern(
         )
     }
 
-    fun generateValue(resolver: Resolver, discriminatorValue: String = ""): Value {
+    override fun generateValue(resolver: Resolver, discriminatorValue: String): Value {
         data class GenerationResult(val value: Value? = null, val exception: Throwable? = null) {
             val isCycle = exception is ContractException && exception.isCycle
         }
@@ -472,10 +475,10 @@ data class AnyPattern(
         return pattern.size == 2 && pattern.count { it is NullPattern } == 1 && pattern.count { it is ScalarType } == 2
     }
 
-    private fun getDiscriminatorBasedPattern(updatedPatterns: List<Pattern>, discriminatorValue: String, resolver: Resolver): JSONObjectPattern? {
+    override fun getDiscriminatorBasedPattern(updatedPatterns: List<Pattern>, discriminatorValue: String, resolver: Resolver): JSONObjectPattern? {
         return updatedPatterns.firstNotNullOfOrNull {
             when (it) {
-                is AnyPattern -> it.getDiscriminatorBasedPattern(
+                is SubSchemaCompositePattern -> it.getDiscriminatorBasedPattern(
                     it.discriminator?.updatePatternsWithDiscriminator(it.pattern, resolver)?.listFold()?.value ?: it.pattern,
                     discriminatorValue = discriminatorValue, resolver = resolver
                 )
@@ -518,7 +521,7 @@ data class AnyPattern(
         return randomString(10)
     }
 
-    fun calculatePath(value: Value, resolver: Resolver): Set<String> {
+    override fun calculatePath(value: Value, resolver: Resolver): Set<String> {
         // Find which pattern in the list matches the given value
         val matchingPatternIndex = pattern.indexOfFirst { pattern ->
             val resolvedPattern = resolvedHop(pattern, resolver)

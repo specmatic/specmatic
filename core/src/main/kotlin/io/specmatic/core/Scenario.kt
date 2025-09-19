@@ -801,14 +801,14 @@ data class Scenario(
         val bodyPattern = resolvedHop(this.httpRequestPattern.body, this.resolver)
         val paths = when (bodyPattern) {
             is JSONObjectPattern -> bodyPattern.calculatePath(httpRequest.body, this.resolver)
-            is AnyPattern -> bodyPattern.calculatePath(httpRequest.body, this.resolver)
+            is SubSchemaCompositePattern -> bodyPattern.calculatePath(httpRequest.body, this.resolver)
             is ListPattern -> bodyPattern.calculatePath(httpRequest.body, this.resolver)
             is JSONArrayPattern -> bodyPattern.calculatePath(httpRequest.body, this.resolver)
             else -> emptySet()
         }
 
         // For top-level AnyPattern that returns scalar type names, wrap them in braces
-        return if (bodyPattern is AnyPattern) {
+        return if (bodyPattern is SubSchemaCompositePattern) {
             paths.map { path ->
                 // If it's a simple scalar type name (string, number, boolean), wrap in braces
                 if (path in setOf("string", "number", "boolean")) {

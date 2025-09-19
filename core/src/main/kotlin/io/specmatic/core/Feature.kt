@@ -473,7 +473,7 @@ data class Feature(
             else Result.Failure(e.message ?: "Invalid Pattern \"$discriminatorPatternName.$patternName\"")
         }
 
-        return if (pattern is AnyPattern && !discriminatorPatternName.isNullOrEmpty()) {
+        return if (pattern is SubSchemaCompositePattern && !discriminatorPatternName.isNullOrEmpty()) {
             pattern.matchesValue(value, updatedResolver, patternName, breadCrumbIfDiscriminatorMismatch)
         } else pattern.matches(value, updatedResolver)
     }
@@ -485,7 +485,7 @@ data class Feature(
         }.getOrElse { return emptySet() }
 
         return when (pattern) {
-            is AnyPattern -> pattern.discriminator?.values.orEmpty()
+            is SubSchemaCompositePattern -> pattern.discriminator?.values.orEmpty()
             else -> emptySet()
         }
     }
@@ -494,7 +494,7 @@ data class Feature(
         val updatedResolver = flagsBased.update(scenarios.last().resolver)
 
        return when (val pattern = getSchemaPattern(discriminatorPatternName, patternName, updatedResolver)) {
-           is AnyPattern -> pattern.generateValue(updatedResolver, patternName)
+           is SubSchemaCompositePattern -> pattern.generateValue(updatedResolver, patternName)
            else -> pattern.generate(updatedResolver)
        }
     }

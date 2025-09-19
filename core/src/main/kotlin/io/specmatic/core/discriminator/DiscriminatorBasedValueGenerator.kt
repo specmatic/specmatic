@@ -1,12 +1,7 @@
 package io.specmatic.core.discriminator
 
 import io.specmatic.core.Resolver
-import io.specmatic.core.pattern.AnyPattern
-import io.specmatic.core.pattern.JSONObjectPattern
-import io.specmatic.core.pattern.ListPattern
-import io.specmatic.core.pattern.Pattern
-import io.specmatic.core.pattern.resolvedHop
-import io.specmatic.core.pattern.withoutOptionality
+import io.specmatic.core.pattern.*
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
@@ -32,7 +27,7 @@ object DiscriminatorBasedValueGenerator {
 
             if (resolvedPattern is ListPattern) {
                 val listValuePattern = resolvedHop(resolvedPattern.pattern, updatedResolver)
-                if (listValuePattern is AnyPattern && listValuePattern.isDiscriminatorPresent()) {
+                if (listValuePattern is SubSchemaCompositePattern && listValuePattern.isDiscriminatorPresent()) {
                     val values = listValuePattern.generateForEveryDiscriminatorValue(updatedResolver)
                     return@withCyclePrevention values.map {
                         it.copy(value = JSONArrayValue(listOf(it.value)))
@@ -40,7 +35,7 @@ object DiscriminatorBasedValueGenerator {
                 }
             }
 
-            if (resolvedPattern !is AnyPattern || resolvedPattern.isDiscriminatorPresent().not()) {
+            if (resolvedPattern !is SubSchemaCompositePattern || resolvedPattern.isDiscriminatorPresent().not()) {
                 return@withCyclePrevention listOf(
                     DiscriminatorBasedItem(
                         discriminator = DiscriminatorMetadata(
@@ -62,7 +57,7 @@ object DiscriminatorBasedValueGenerator {
         return resolver.withCyclePrevention(pattern) { updatedResolver ->
             val resolvedPattern = resolvedHop(pattern, updatedResolver)
 
-            if(resolvedPattern !is AnyPattern) return@withCyclePrevention emptyList()
+            if(resolvedPattern !is SubSchemaCompositePattern) return@withCyclePrevention emptyList()
             if(resolvedPattern.pattern.firstOrNull() !is JSONObjectPattern) return@withCyclePrevention emptyList()
 
             val eventContainerPattern = resolvedPattern.pattern.first() as JSONObjectPattern
@@ -120,7 +115,7 @@ object DiscriminatorBasedValueGenerator {
     private fun isEventBasedPattern(
         resolvedPattern: Pattern
     ): Boolean {
-        if(resolvedPattern !is AnyPattern) return false
+        if(resolvedPattern !is SubSchemaCompositePattern) return false
         if(resolvedPattern.pattern.firstOrNull() !is JSONObjectPattern) return false
 
         val eventContainerPattern = resolvedPattern.pattern.first() as JSONObjectPattern
