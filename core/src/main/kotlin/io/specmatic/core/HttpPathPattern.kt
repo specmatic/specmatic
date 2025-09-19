@@ -6,8 +6,6 @@ import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.StringValue
-import io.swagger.v3.oas.models.parameters.Parameter
-import io.swagger.v3.oas.models.parameters.PathParameter
 import java.net.URI
 
 val OMIT = listOf("(OMIT)", "(omit)")
@@ -15,13 +13,15 @@ val OMIT = listOf("(OMIT)", "(omit)")
 data class HttpPathPattern(
     val pathSegmentPatterns: List<URLPathSegmentPattern>,
     val path: String,
+    val otherPathPatterns: Collection<HttpPathPattern> = emptyList(),
 ) {
-
     fun toRawPath(): String {
         return pathSegmentPatterns.joinToString("/", prefix = "/") { segment ->
             segment.key?.let { "{$it}" } ?: segment.pattern.toString()
         }
     }
+
+    private fun calculateSpecificity(): Int = pathSegmentPatterns.count { it.pattern is ExactValuePattern }
 
     fun encompasses(otherHttpPathPattern: HttpPathPattern, thisResolver: Resolver, otherResolver: Resolver): Result {
         if (this.matches(URI.create(otherHttpPathPattern.path), resolver = thisResolver) is Success)
@@ -54,61 +54,80 @@ data class HttpPathPattern(
         val path = httpRequest.path!!
         val pathSegments = path.split("/".toRegex()).filter { it.isNotEmpty() }.toTypedArray()
 
-        if (pathSegmentPatterns.size != pathSegments.size)
+        if (pathSegmentPatterns.size != pathSegments.size) {
             return Failure(
                 "Expected $path (having ${pathSegments.size} path segments) to match ${this.path} (which has ${pathSegmentPatterns.size} path segments).",
                 breadCrumb = BreadCrumb.PATH.value,
-                failureReason = FailureReason.URLPathMisMatch
+                failureReason = FailureReason.URLPathMisMatch,
             )
+        }
 
-        val results = pathSegmentPatterns.zip(pathSegments).map { (urlPathPattern, token) ->
-            try {
+        val results = checkIfPathSegmentsMatch(pathSegments, resolver, path)
 
-                val parsedValue = urlPathPattern.tryParse(token, resolver)
-                val result = urlPathPattern.matches(parsedValue, resolver)
-                if (result is Failure) {
-                    when (urlPathPattern.key) {
-                        null -> result.breadCrumb("${BreadCrumb.PARAM_PATH.value} ($path)")
-                            .withFailureReason(FailureReason.URLPathMisMatch)
+        val failures = results.filterIsInstance<Failure>()
+        val segmentMatchResult = Result.fromResults(failures)
 
-                        else -> result.breadCrumb(urlPathPattern.key).breadCrumb(BreadCrumb.PARAM_PATH.value)
-                    }
-                } else {
-                    Success()
+        if (!structureMatches(path, resolver)) {
+            return segmentMatchResult.withFailureReason(FailureReason.URLPathMisMatch)
+        }
+
+        val otherPathsInSpecThatMatch =
+            otherPathPatterns.filter { otherPattern ->
+                otherPattern.path != this.path && otherPattern.matches(path, resolver).isSuccess()
+            }
+
+        if (otherPathsInSpecThatMatch.isNotEmpty()) {
+            val specificityOfCurrentPattern = calculateSpecificity()
+
+            val conflictingPatterns =
+                otherPathsInSpecThatMatch.filter { otherPathPattern ->
+                    otherPathPattern.calculateSpecificity() > specificityOfCurrentPattern
                 }
-            } catch (e: ContractException) {
-                e.failure().breadCrumb("${BreadCrumb.PARAM_PATH.value} ($path)").let { failure ->
-                    urlPathPattern.key?.let { failure.breadCrumb(urlPathPattern.key) } ?: failure
-                }.withFailureReason(FailureReason.URLPathMisMatch)
-            } catch (e: Throwable) {
-                Failure(e.localizedMessage).breadCrumb("${BreadCrumb.PARAM_PATH.value} ($path)").let { failure ->
-                    urlPathPattern.key?.let { failure.breadCrumb(urlPathPattern.key) } ?: failure
-                }.withFailureReason(FailureReason.URLPathMisMatch)
+
+            if (conflictingPatterns.isNotEmpty()) {
+                val mostSpecificPathMatch = conflictingPatterns.maxBy { it.calculateSpecificity() }
+
+                return Failure(
+                    breadCrumb = BreadCrumb.PATH.value,
+                    message = "URL $path matches a more specific pattern: ${mostSpecificPathMatch.path}",
+                    failureReason = FailureReason.URLPathParamMatchButConflict,
+                )
             }
         }
 
-        val failures = results.filterIsInstance<Failure>()
-        val finalMatchResult = Result.fromResults(failures)
+        if (failures.isNotEmpty()) {
+            return segmentMatchResult.withFailureReason(FailureReason.URLPathParamMismatchButSameStructure)
+        }
 
-        val structureMatches = structureMatches(path, resolver)
-        if (!structureMatches) return finalMatchResult.withFailureReason(FailureReason.URLPathMisMatch)
+        return Success()
+    }
 
-        val areAllConflicts =
-            failures.isNotEmpty() && failures.all { it.hasReason(FailureReason.URLPathParamMatchButConflict) }
-        if (!areAllConflicts) return finalMatchResult.withFailureReason(FailureReason.URLPathParamMismatchButSameStructure)
+    private fun checkIfPathSegmentsMatch(
+        pathSegments: Array<String>,
+        resolver: Resolver,
+        path: String
+    ) = pathSegmentPatterns.zip(pathSegments).map { (urlPathPattern, token) ->
+        try {
+            val parsedValue = urlPathPattern.tryParse(token, resolver)
+            val result = urlPathPattern.matches(parsedValue, resolver)
+            if (result is Failure) {
+                when (urlPathPattern.key) {
+                    null -> result.breadCrumb("${BreadCrumb.PARAM_PATH.value} ($path)")
+                        .withFailureReason(FailureReason.URLPathMisMatch)
 
-        val pathParametersCount = pathSegmentPatterns.count { it.pattern !is ExactValuePattern }
-        return when {
-            failures.size == pathParametersCount -> Failure(
-                breadCrumb = BreadCrumb.PATH.value,
-                message = """
-                |Path segments of URL $path overlap with another URL that has the same structure
-                |${failures.joinToString("\n") { it.reportString() }}
-                """.trimMargin(),
-                failureReason = FailureReason.URLPathParamMatchButConflict
-            )
-
-            else -> Success()
+                    else -> result.breadCrumb(urlPathPattern.key).breadCrumb(BreadCrumb.PARAM_PATH.value)
+                }
+            } else {
+                Success()
+            }
+        } catch (e: ContractException) {
+            e.failure().breadCrumb("${BreadCrumb.PARAM_PATH.value} ($path)").let { failure ->
+                urlPathPattern.key?.let { failure.breadCrumb(urlPathPattern.key) } ?: failure
+            }.withFailureReason(FailureReason.URLPathMisMatch)
+        } catch (e: Throwable) {
+            Failure(e.localizedMessage).breadCrumb("${BreadCrumb.PARAM_PATH.value} ($path)").let { failure ->
+                urlPathPattern.key?.let { failure.breadCrumb(urlPathPattern.key) } ?: failure
+            }.withFailureReason(FailureReason.URLPathMisMatch)
         }
     }
 

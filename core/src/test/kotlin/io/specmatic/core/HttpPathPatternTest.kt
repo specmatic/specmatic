@@ -32,9 +32,9 @@ internal class HttpPathPatternTest {
     )
     fun `should match path when structure matches and not all segments conflict`(path: String) {
         val pattern = HttpPathPattern(listOf(
-            URLPathSegmentPattern(StringPattern(), "first", conflicts = setOf("a")),
-            URLPathSegmentPattern(StringPattern(), "second", conflicts = setOf("b")),
-            URLPathSegmentPattern(StringPattern(), "third", conflicts = setOf("c"))
+            URLPathSegmentPattern(StringPattern(), "first"),
+            URLPathSegmentPattern(StringPattern(), "second"),
+            URLPathSegmentPattern(StringPattern(), "third")
         ), path = "/(first:String)/(second:String)/(third:String)")
         val result = pattern.matches(path, Resolver())
 
@@ -44,9 +44,9 @@ internal class HttpPathPatternTest {
     @Test
     fun `should match not path when structure does matches and there are some segment conflicts`() {
         val pattern = HttpPathPattern(listOf(
-            URLPathSegmentPattern(NumberPattern(), "first", conflicts = setOf("a")),
-            URLPathSegmentPattern(StringPattern(), "second", conflicts = setOf("b")),
-            URLPathSegmentPattern(StringPattern(), "third", conflicts = setOf("c"))
+            URLPathSegmentPattern(NumberPattern(), "first"),
+            URLPathSegmentPattern(StringPattern(), "second"),
+            URLPathSegmentPattern(StringPattern(), "third")
         ), path = "/(first:number)/(second:String)/(third:String)")
         val result = pattern.matches("/a/b/1", Resolver())
 
@@ -54,26 +54,64 @@ internal class HttpPathPatternTest {
     }
 
     @Test
-    fun `should return failure when path conflicts with an existing path even if structure and data type matches`() {
-        val pattern = HttpPathPattern(listOf(
-            URLPathSegmentPattern(StringPattern(), "first", conflicts = setOf("a")),
-            URLPathSegmentPattern(StringPattern(), "second", conflicts = setOf("b")),
-            URLPathSegmentPattern(StringPattern(), "third", conflicts = setOf("c"))
+    fun `should return success when path matches and no other patterns conflict based on specificity`() {
+        // Create a pattern with other less specific patterns that should not conflict
+        val lessSpecificPattern1 = HttpPathPattern(listOf(
+            URLPathSegmentPattern(StringPattern(), "first"),
+            URLPathSegmentPattern(StringPattern(), "second"),
+            URLPathSegmentPattern(StringPattern(), "third")
         ), path = "/(first:String)/(second:String)/(third:String)")
+        
+        val lessSpecificPattern2 = HttpPathPattern(listOf(
+            URLPathSegmentPattern(StringPattern(), "param"),
+            URLPathSegmentPattern(StringPattern(), "second")
+        ), path = "/(param:String)/(second:String)")
+
+        val pattern = HttpPathPattern(listOf(
+            URLPathSegmentPattern(ExactValuePattern(StringValue("a"))),
+            URLPathSegmentPattern(ExactValuePattern(StringValue("b"))),
+            URLPathSegmentPattern(ExactValuePattern(StringValue("c")))
+        ), path = "/a/b/c", otherPathPatterns = listOf(lessSpecificPattern1, lessSpecificPattern2))
+        
         val result = pattern.matches("a/b/c", Resolver())
 
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `should return failure when path matches a more specific pattern based on specificity`() {
+        // Create a more specific pattern (with more ExactValuePattern segments)
+        val moreSpecificPattern = HttpPathPattern(listOf(
+            URLPathSegmentPattern(ExactValuePattern(StringValue("api"))),
+            URLPathSegmentPattern(ExactValuePattern(StringValue("v1"))),
+            URLPathSegmentPattern(ExactValuePattern(StringValue("users")))
+        ), path = "/api/v1/users")
+
+        // Create a less specific pattern (with fewer ExactValuePattern segments)
+        val lessSpecificPattern = HttpPathPattern(listOf(
+            URLPathSegmentPattern(StringPattern(), "section"),
+            URLPathSegmentPattern(StringPattern(), "version"),
+            URLPathSegmentPattern(ExactValuePattern(StringValue("users")))
+        ), path = "/(section:String)/(version:String)/users", otherPathPatterns = listOf(moreSpecificPattern))
+        
+        val result = lessSpecificPattern.matches("api/v1/users", Resolver())
+
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat((result as Result.Failure).hasReason(FailureReason.URLPathParamMatchButConflict)).isTrue()
-        assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> PATH
-        Path segments of URL a/b/c overlap with another URL that has the same structure
-        >> PARAMETERS.PATH.first
-        Value "a" conflicts with an existing path using the same prefix
-        >> PARAMETERS.PATH.second
-        Value "b" conflicts with an existing path using the same prefix
-        >> PARAMETERS.PATH.third
-        Value "c" conflicts with an existing path using the same prefix
-        """.trimIndent())
+        assertThat((result as Result.Failure).reportString()).contains("matches a more specific pattern")
+    }
+
+    @Test
+    fun `should not conflict when otherPathPatterns is empty representing different HTTP methods`() {
+        val postPattern = HttpPathPattern(listOf(
+            URLPathSegmentPattern(StringPattern(), "section"),
+            URLPathSegmentPattern(StringPattern(), "version"),
+            URLPathSegmentPattern(ExactValuePattern(StringValue("users")))
+        ), path = "/(section:String)/(version:String)/users", otherPathPatterns = emptyList())
+        
+        // This should succeed because there are no conflicting patterns in the same HTTP method
+        val result = postPattern.matches("api/v1/users", Resolver())
+
+        assertThat(result).isInstanceOf(Result.Success::class.java)
     }
 
     @ParameterizedTest
