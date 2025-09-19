@@ -33,7 +33,6 @@ class AnyOfPattern(
         resolver: Resolver,
     ): Result {
         if (discriminator != null) {
-            // Discriminator-driven resolution behaves the same as oneOf
             return delegate.matches(sampleData, resolver)
         }
 
