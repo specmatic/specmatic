@@ -2,6 +2,8 @@ package application
 
 import application.backwardCompatibility.BackwardCompatibilityCheckCommandV2
 import application.mcp.McpBaseCommand
+import io.specmatic.license.core.cli.FetchLicenseCommand
+import io.specmatic.reporter.commands.SendReportCommand
 import picocli.AutoComplete.GenerateCompletion
 import picocli.CommandLine
 import picocli.CommandLine.Command
@@ -23,7 +25,9 @@ import java.util.concurrent.Callable
             TestCommand::class,
             CentralContractRepoReportCommand::class,
             ConfigCommand::class,
-            McpBaseCommand::class
+            McpBaseCommand::class,
+            FetchLicenseCommand::class,
+            SendReportCommand::class
         ]
 )
 class SpecmaticCommand : Callable<Int> {
