@@ -9,6 +9,18 @@ allprojects {
     repositories {
         mavenLocal()
         mavenCentral()
+
+        val repos = mapOf(
+            "specmaticReleases" to uri("https://repo.specmatic.io/releases"),
+            "specmaticSnapshots" to uri("https://repo.specmatic.io/snapshots"),
+        )
+
+        repos.forEach { (repoName, repoUrl) ->
+            maven {
+                name = repoName
+                url = repoUrl
+            }
+        }
     }
 }
 
