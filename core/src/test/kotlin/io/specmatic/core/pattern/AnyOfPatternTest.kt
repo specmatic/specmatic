@@ -233,4 +233,56 @@ internal class AnyOfPatternTest {
 
         assertThat(pattern.typeName).isEqualTo("(anyOf)")
     }
+
+    @Test
+    fun `matches reports overlapping pattern failure when key violates schema`() {
+        val idPattern =
+            JSONObjectPattern(
+                pattern = mapOf("id" to StringPattern()),
+                additionalProperties = AdditionalProperties.FreeForm,
+            )
+        val cidPattern =
+            JSONObjectPattern(
+                pattern = mapOf("cid" to StringPattern(maxLength = 10)),
+            )
+        val newIdPattern = JSONObjectPattern(pattern = mapOf("id" to NumberPattern()))
+
+        val anyOf = AnyOfPattern(listOf(idPattern, cidPattern, newIdPattern))
+
+        val value =
+            JSONObjectValue(
+                mapOf(
+                    "id" to StringValue("abc123"),
+                    "cid" to StringValue("abcdefghijklmnopqrstuvwxyz"),
+                ),
+            )
+
+        val result = anyOf.matches(value, resolver)
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        val report = result.toReport().toText()
+        assertThat(report).contains("cid").contains("maxLength 10")
+    }
+
+    @Test
+    fun `matches succeeds when overlapping key schema succeeds`() {
+        val idPattern =
+            JSONObjectPattern(
+                pattern = mapOf("id" to StringPattern()),
+                additionalProperties = AdditionalProperties.FreeForm,
+            )
+        val cidPattern =
+            JSONObjectPattern(
+                pattern = mapOf("cid" to StringPattern(maxLength = 10)),
+            )
+        val newIdPattern = JSONObjectPattern(pattern = mapOf("id" to NumberPattern()))
+
+        val anyOf = AnyOfPattern(listOf(idPattern, cidPattern, newIdPattern))
+
+        val value = JSONObjectValue(mapOf("id" to NumberValue(10)))
+
+        val result = anyOf.matches(value, resolver)
+
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
 }

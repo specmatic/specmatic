@@ -37,28 +37,35 @@ class AnyOfPattern(
         }
 
         val updatedPatterns = delegate.getUpdatedPattern(resolver)
-        val unknownKeys =
-            if (sampleData is JSONObjectValue) {
-                findKeysNotDeclaredInAnySchema(sampleData, updatedPatterns, resolver)
-            } else {
-                emptyList()
-            }
 
         val matchResults =
             updatedPatterns.map { innerPattern ->
                 resolver.matchesPattern(key, innerPattern, sampleData ?: EmptyString)
             }
 
-        if (unknownKeys.isEmpty() && matchResults.any { it.isSuccess() }) {
+        val jsonMatchAnalysis =
+            if (sampleData is JSONObjectValue) {
+                analyzeJSONObjectKeys(sampleData, updatedPatterns, matchResults, resolver)
+            } else {
+                JsonMatchAnalysis.empty()
+            }
+
+        if (jsonMatchAnalysis.isClean() && matchResults.any { it.isSuccess() }) {
             return Result.Success()
         }
 
         val delegateResult = delegate.matches(sampleData, resolver)
 
         val failures = mutableListOf<Failure>()
-        if (unknownKeys.isNotEmpty()) {
-            failures.add(Failure("Key(s) ${unknownKeys.joinToString(", ")} are not declared in any anyOf option"))
+        if (jsonMatchAnalysis.unknownKeys.isNotEmpty()) {
+            failures.add(Failure("Key(s) ${jsonMatchAnalysis.unknownKeys.joinToString(", ")} are not declared in any anyOf option"))
         }
+
+        if (jsonMatchAnalysis.keysDeclaredButUnmatched.isNotEmpty()) {
+            failures.add(Failure("Key(s) ${jsonMatchAnalysis.keysDeclaredButUnmatched.joinToString(", ")} did not match any anyOf option that declares them"))
+        }
+
+        failures.addAll(jsonMatchAnalysis.relevantPatternFailures)
 
         if (delegateResult is Failure) {
             failures.add(delegateResult)
@@ -164,14 +171,49 @@ class AnyOfPattern(
                     ) { withoutPatternDelimiters(it.typeName) }
             }
 
-    private fun findKeysNotDeclaredInAnySchema(
+    private fun analyzeJSONObjectKeys(
         value: JSONObjectValue,
         patterns: List<Pattern>,
+        matchResults: List<Result>,
         resolver: Resolver,
-    ): List<String> {
-        val declaredKeys = patterns.flatMap { it.extractObjectKeys(resolver) }.toSet()
+    ): JsonMatchAnalysis {
+        val patternKeysPerPattern = patterns.map { it.extractObjectKeys(resolver) }
+        val declaredKeys = patternKeysPerPattern.flatten().toSet()
         val presentKeys = value.jsonObject.keys
-        return presentKeys.filter { key -> key !in declaredKeys }
+
+        val unknownKeys = presentKeys.filter { key -> key !in declaredKeys }
+
+        val keysWithSuccessfulMatch =
+            patternKeysPerPattern
+                .zip(matchResults)
+                .filter { (_, result) -> result.isSuccess() }
+                .flatMap { (keys, _) -> keys }
+                .toSet()
+
+        val keysDeclaredButUnmatched =
+            presentKeys.filter { key -> key in declaredKeys && key !in keysWithSuccessfulMatch }
+
+        val relevantPatternFailures =
+            patternKeysPerPattern
+                .withIndex()
+                .filter { (index, keys) ->
+                    keys.intersect(presentKeys).isNotEmpty() && matchResults.getOrNull(index) is Failure
+                }
+                .mapNotNull { (index, _) -> matchResults[index] as? Failure }
+
+        return JsonMatchAnalysis(unknownKeys, keysDeclaredButUnmatched, relevantPatternFailures)
+    }
+
+    private data class JsonMatchAnalysis(
+        val unknownKeys: List<String>,
+        val keysDeclaredButUnmatched: List<String>,
+        val relevantPatternFailures: List<Failure>,
+    ) {
+        fun isClean(): Boolean = unknownKeys.isEmpty() && keysDeclaredButUnmatched.isEmpty()
+
+        companion object {
+            fun empty() = JsonMatchAnalysis(emptyList(), emptyList(), emptyList())
+        }
     }
 
     private fun Pattern.extractObjectKeys(
