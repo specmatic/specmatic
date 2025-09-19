@@ -809,6 +809,70 @@ Feature: Recursive test
     }
 
     @Nested
+    inner class MinMaxItemsTests {
+        @Test
+        fun `should not allow maxItems less than minItems`() {
+            val exception = assertThrows<IllegalArgumentException> { ListPattern(StringPattern(), minItems = 2, maxItems = 1) }
+            assertThat(exception.message).isEqualTo("maxItems 1 cannot be less than minItems 2")
+        }
+
+        @Test
+        fun `list generation should honor minItems and maxItems`() {
+            val pattern = ListPattern(StringPattern(), minItems = 2, maxItems = 3)
+            val value = pattern.generate(Resolver()) as JSONArrayValue
+            assertThat(value.list.size).isGreaterThanOrEqualTo(2)
+            assertThat(value.list.size).isLessThanOrEqualTo(3)
+        }
+
+        @Test
+        fun `should not match when list shorter than minItems`() {
+            val pattern = ListPattern(StringPattern(), minItems = 2)
+            val result = pattern.matches(JSONArrayValue(listOf(StringValue("one"))), Resolver())
+            assertThat(result).isInstanceOf(Result.Failure::class.java)
+        }
+
+        @Test
+        fun `should not match when list longer than maxItems`() {
+            val pattern = ListPattern(StringPattern(), maxItems = 1)
+            val result = pattern.matches(JSONArrayValue(listOf(StringValue("one"), StringValue("two"))), Resolver())
+            assertThat(result).isInstanceOf(Result.Failure::class.java)
+        }
+
+        @Test
+        fun `should handle maxItems equal to zero`() {
+            val pattern = ListPattern(StringPattern(), maxItems = 0)
+            val emptyMatch = pattern.matches(JSONArrayValue(emptyList()), Resolver())
+            val nonEmptyMatch = pattern.matches(JSONArrayValue(listOf(StringValue("one"))), Resolver())
+
+            assertThat(emptyMatch).isInstanceOf(Result.Success::class.java)
+            assertThat(nonEmptyMatch).isInstanceOf(Result.Failure::class.java)
+        }
+
+        @Test
+        fun `generation should honor only minItems or maxItems`() {
+            val minPattern = ListPattern(StringPattern(), minItems = 2)
+            val minValue = minPattern.generate(Resolver()) as JSONArrayValue
+            assertThat(minValue.list.size).isGreaterThanOrEqualTo(2)
+
+            val maxPattern = ListPattern(StringPattern(), maxItems = 2)
+            val maxValue = maxPattern.generate(Resolver()) as JSONArrayValue
+            assertThat(maxValue.list.size).isLessThanOrEqualTo(2)
+        }
+
+        @Test
+        fun `generation should honor both minItems and maxItems when both are provided`() {
+            val pattern = ListPattern(StringPattern(), minItems = 2, maxItems = 3)
+            val patterns = pattern.newBasedOn(Row(), Resolver()).toList()
+
+            assertThat(patterns).hasSize(3)
+            val sizes = patterns.map { it.value }.filterIsInstance<JSONArrayPattern>().map { it.pattern.size }
+
+            assertThat(sizes).contains(2, 3)
+            assertThat(sizes).allMatch { it in 2..3 }
+        }
+    }
+
+    @Nested
     inner class CalculatePathTests {
         @Test
         fun `calculatePath should return empty set for non-JSONArrayValue input`() {
