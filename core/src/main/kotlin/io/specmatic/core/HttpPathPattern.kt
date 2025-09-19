@@ -15,16 +15,13 @@ data class HttpPathPattern(
     val path: String,
     val otherPathPatterns: Collection<HttpPathPattern> = emptyList(),
 ) {
-
     fun toRawPath(): String {
         return pathSegmentPatterns.joinToString("/", prefix = "/") { segment ->
             segment.key?.let { "{$it}" } ?: segment.pattern.toString()
         }
     }
 
-    private fun calculateSpecificity(): Int {
-        return pathSegmentPatterns.count { it.pattern is ExactValuePattern }
-    }
+    private fun calculateSpecificity(): Int = pathSegmentPatterns.count { it.pattern is ExactValuePattern }
 
     fun encompasses(otherHttpPathPattern: HttpPathPattern, thisResolver: Resolver, otherResolver: Resolver): Result {
         if (this.matches(URI.create(otherHttpPathPattern.path), resolver = thisResolver) is Success)
@@ -57,37 +54,15 @@ data class HttpPathPattern(
         val path = httpRequest.path!!
         val pathSegments = path.split("/".toRegex()).filter { it.isNotEmpty() }.toTypedArray()
 
-        if (pathSegmentPatterns.size != pathSegments.size)
+        if (pathSegmentPatterns.size != pathSegments.size) {
             return Failure(
                 "Expected $path (having ${pathSegments.size} path segments) to match ${this.path} (which has ${pathSegmentPatterns.size} path segments).",
                 breadCrumb = BreadCrumb.PATH.value,
                 failureReason = FailureReason.URLPathMisMatch,
             )
+        }
 
-        val results =
-            pathSegmentPatterns.zip(pathSegments).map { (urlPathPattern, token) ->
-                try {
-                    val parsedValue = urlPathPattern.tryParse(token, resolver)
-                    val result = urlPathPattern.matches(parsedValue, resolver)
-                    if (result is Failure) {
-                        when (urlPathPattern.key) {
-                            null -> result.breadCrumb("${BreadCrumb.PARAM_PATH.value} ($path)")
-                                .withFailureReason(FailureReason.URLPathMisMatch)
-                            else -> result.breadCrumb(urlPathPattern.key).breadCrumb(BreadCrumb.PARAM_PATH.value)
-                        }
-                    } else {
-                        Success()
-                    }
-                } catch (e: ContractException) {
-                    e.failure().breadCrumb("${BreadCrumb.PARAM_PATH.value} ($path)").let { failure ->
-                        urlPathPattern.key?.let { failure.breadCrumb(urlPathPattern.key) } ?: failure
-                    }.withFailureReason(FailureReason.URLPathMisMatch)
-                } catch (e: Throwable) {
-                    Failure(e.localizedMessage).breadCrumb("${BreadCrumb.PARAM_PATH.value} ($path)").let { failure ->
-                        urlPathPattern.key?.let { failure.breadCrumb(urlPathPattern.key) } ?: failure
-                    }.withFailureReason(FailureReason.URLPathMisMatch)
-                }
-            }
+        val results = checkIfPathSegmentsMatch(pathSegments, resolver, path)
 
         val failures = results.filterIsInstance<Failure>()
         val segmentMatchResult = Result.fromResults(failures)
@@ -96,23 +71,25 @@ data class HttpPathPattern(
             return segmentMatchResult.withFailureReason(FailureReason.URLPathMisMatch)
         }
 
-        val matchingOtherPatterns =
+        val otherPathsInSpecThatMatch =
             otherPathPatterns.filter { otherPattern ->
                 otherPattern.path != this.path && otherPattern.matches(path, resolver).isSuccess()
             }
 
-        if (matchingOtherPatterns.isNotEmpty()) {
-            val currentSpecificity = calculateSpecificity()
+        if (otherPathsInSpecThatMatch.isNotEmpty()) {
+            val specificityOfCurrentPattern = calculateSpecificity()
 
             val conflictingPatterns =
-                matchingOtherPatterns.filter { otherPattern ->
-                    otherPattern.calculateSpecificity() > currentSpecificity
+                otherPathsInSpecThatMatch.filter { otherPathPattern ->
+                    otherPathPattern.calculateSpecificity() > specificityOfCurrentPattern
                 }
 
             if (conflictingPatterns.isNotEmpty()) {
+                val mostSpecificPathMatch = conflictingPatterns.maxBy { it.calculateSpecificity() }
+
                 return Failure(
                     breadCrumb = BreadCrumb.PATH.value,
-                    message = "URL $path matches a more specific pattern: ${conflictingPatterns.first().path}",
+                    message = "URL $path matches a more specific pattern: ${mostSpecificPathMatch.path}",
                     failureReason = FailureReason.URLPathParamMatchButConflict,
                 )
             }
@@ -123,6 +100,35 @@ data class HttpPathPattern(
         }
 
         return Success()
+    }
+
+    private fun checkIfPathSegmentsMatch(
+        pathSegments: Array<String>,
+        resolver: Resolver,
+        path: String
+    ) = pathSegmentPatterns.zip(pathSegments).map { (urlPathPattern, token) ->
+        try {
+            val parsedValue = urlPathPattern.tryParse(token, resolver)
+            val result = urlPathPattern.matches(parsedValue, resolver)
+            if (result is Failure) {
+                when (urlPathPattern.key) {
+                    null -> result.breadCrumb("${BreadCrumb.PARAM_PATH.value} ($path)")
+                        .withFailureReason(FailureReason.URLPathMisMatch)
+
+                    else -> result.breadCrumb(urlPathPattern.key).breadCrumb(BreadCrumb.PARAM_PATH.value)
+                }
+            } else {
+                Success()
+            }
+        } catch (e: ContractException) {
+            e.failure().breadCrumb("${BreadCrumb.PARAM_PATH.value} ($path)").let { failure ->
+                urlPathPattern.key?.let { failure.breadCrumb(urlPathPattern.key) } ?: failure
+            }.withFailureReason(FailureReason.URLPathMisMatch)
+        } catch (e: Throwable) {
+            Failure(e.localizedMessage).breadCrumb("${BreadCrumb.PARAM_PATH.value} ($path)").let { failure ->
+                urlPathPattern.key?.let { failure.breadCrumb(urlPathPattern.key) } ?: failure
+            }.withFailureReason(FailureReason.URLPathMisMatch)
+        }
     }
 
     fun generate(resolver: Resolver): String {
