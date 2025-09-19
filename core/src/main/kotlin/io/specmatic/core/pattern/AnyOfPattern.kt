@@ -122,11 +122,46 @@ class AnyOfPattern(
 
     override fun hashCode(): Int = pattern.hashCode()
 
+    override fun newBasedOn(
+        row: Row,
+        resolver: Resolver,
+    ): Sequence<ReturnValue<Pattern>> {
+        val newPatterns = delegate.newBasedOn(row, resolver)
+
+        val resolvedPatterns = pattern.map { resolvedHop(it, resolver) }
+        if (resolvedPatterns.all { it is JSONObjectPattern } && discriminator == null) {
+            return newPatterns.plus(HasValue(combineJSONPatterns(pattern.filterIsInstance<JSONObjectPattern>())))
+        }
+
+        return newPatterns
+    }
+
+    private fun combineJSONPatterns(pattern: List<JSONObjectPattern>): Pattern {
+        val patternMap =
+            pattern.fold(emptyMap<String, Pattern>()) { acc, next ->
+                val updated = acc + next.pattern
+
+                val optionalKeys = acc.keys.filter { it.endsWith("?") }
+                val mandatoryKeyExists = optionalKeys.filter { withoutOptionality(it) in updated }
+
+                mandatoryKeyExists.fold(updated) { withoutClobberedOptionals, key ->
+                    withoutClobberedOptionals - key
+                }
+            }
+
+        return JSONObjectPattern(patternMap)
+    }
+
     override val typeName: String
         get() =
             when {
                 pattern.isEmpty() -> "(anyOf)"
-                else -> pattern.joinToString(prefix = "(anyOf ", postfix = ")", separator = " or ") { withoutPatternDelimiters(it.typeName) }
+                else ->
+                    pattern.joinToString(
+                        prefix = "(anyOf ",
+                        postfix = ")",
+                        separator = " or ",
+                    ) { withoutPatternDelimiters(it.typeName) }
             }
 
     private fun findKeysNotDeclaredInAnySchema(
@@ -154,7 +189,10 @@ class AnyOfPattern(
                     .map(::withoutOptionality)
                     .toSet()
 
-            is SubSchemaCompositePattern -> resolved.pattern.flatMap { it.extractObjectKeys(resolver, nextVisited) }.toSet()
+            is SubSchemaCompositePattern ->
+                resolved.pattern
+                    .flatMap { it.extractObjectKeys(resolver, nextVisited) }
+                    .toSet()
 
             is PossibleJsonObjectPatternContainer ->
                 resolved

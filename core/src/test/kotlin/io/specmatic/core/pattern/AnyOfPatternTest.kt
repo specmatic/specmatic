@@ -125,25 +125,28 @@ internal class AnyOfPatternTest {
 
     @Test
     fun `discriminator based anyOf matches respective subschema`() {
-        val alphaPattern = JSONObjectPattern(
-            mapOf(
-                "type" to ExactValuePattern(StringValue("alpha"), discriminator = true),
-                "message" to StringPattern(),
-            ),
-            typeAlias = "(Alpha)",
-        )
-        val betaPattern = JSONObjectPattern(
-            mapOf(
-                "type" to ExactValuePattern(StringValue("beta"), discriminator = true),
-                "count" to NumberPattern(),
-            ),
-            typeAlias = "(Beta)",
-        )
+        val alphaPattern =
+            JSONObjectPattern(
+                mapOf(
+                    "type" to ExactValuePattern(StringValue("alpha"), discriminator = true),
+                    "message" to StringPattern(),
+                ),
+                typeAlias = "(Alpha)",
+            )
+        val betaPattern =
+            JSONObjectPattern(
+                mapOf(
+                    "type" to ExactValuePattern(StringValue("beta"), discriminator = true),
+                    "count" to NumberPattern(),
+                ),
+                typeAlias = "(Beta)",
+            )
 
-        val anyOf = AnyOfPattern(
-            listOf(alphaPattern, betaPattern),
-            discriminator = Discriminator.create("type", setOf("alpha", "beta"), emptyMap()),
-        )
+        val anyOf =
+            AnyOfPattern(
+                listOf(alphaPattern, betaPattern),
+                discriminator = Discriminator.create("type", setOf("alpha", "beta"), emptyMap()),
+            )
 
         val alphaValue = JSONObjectValue(mapOf("type" to StringValue("alpha"), "message" to StringValue("hello")))
         val betaValue = JSONObjectValue(mapOf("type" to StringValue("beta"), "count" to NumberValue(5)))
@@ -154,25 +157,28 @@ internal class AnyOfPatternTest {
 
     @Test
     fun `discriminator based anyOf generate produces matching value`() {
-        val alphaPattern = JSONObjectPattern(
-            mapOf(
-                "type" to ExactValuePattern(StringValue("alpha"), discriminator = true),
-                "message" to StringPattern(),
-            ),
-            typeAlias = "(Alpha)",
-        )
-        val betaPattern = JSONObjectPattern(
-            mapOf(
-                "type" to ExactValuePattern(StringValue("beta"), discriminator = true),
-                "count" to NumberPattern(),
-            ),
-            typeAlias = "(Beta)",
-        )
+        val alphaPattern =
+            JSONObjectPattern(
+                mapOf(
+                    "type" to ExactValuePattern(StringValue("alpha"), discriminator = true),
+                    "message" to StringPattern(),
+                ),
+                typeAlias = "(Alpha)",
+            )
+        val betaPattern =
+            JSONObjectPattern(
+                mapOf(
+                    "type" to ExactValuePattern(StringValue("beta"), discriminator = true),
+                    "count" to NumberPattern(),
+                ),
+                typeAlias = "(Beta)",
+            )
 
-        val anyOf = AnyOfPattern(
-            listOf(alphaPattern, betaPattern),
-            discriminator = Discriminator.create("type", setOf("alpha", "beta"), emptyMap()),
-        )
+        val anyOf =
+            AnyOfPattern(
+                listOf(alphaPattern, betaPattern),
+                discriminator = Discriminator.create("type", setOf("alpha", "beta"), emptyMap()),
+            )
 
         val generated = anyOf.generate(resolver)
 
@@ -184,25 +190,28 @@ internal class AnyOfPatternTest {
 
     @Test
     fun `discriminator based anyOf newBasedOn derives both subschemas`() {
-        val alphaPattern = JSONObjectPattern(
-            mapOf(
-                "type" to ExactValuePattern(StringValue("alpha"), discriminator = true),
-                "message" to StringPattern(),
-            ),
-            typeAlias = "(Alpha)",
-        )
-        val betaPattern = JSONObjectPattern(
-            mapOf(
-                "type" to ExactValuePattern(StringValue("beta"), discriminator = true),
-                "count" to NumberPattern(),
-            ),
-            typeAlias = "(Beta)",
-        )
+        val alphaPattern =
+            JSONObjectPattern(
+                mapOf(
+                    "type" to ExactValuePattern(StringValue("alpha"), discriminator = true),
+                    "message" to StringPattern(),
+                ),
+                typeAlias = "(Alpha)",
+            )
+        val betaPattern =
+            JSONObjectPattern(
+                mapOf(
+                    "type" to ExactValuePattern(StringValue("beta"), discriminator = true),
+                    "count" to NumberPattern(),
+                ),
+                typeAlias = "(Beta)",
+            )
 
-        val anyOf = AnyOfPattern(
-            listOf(alphaPattern, betaPattern),
-            discriminator = Discriminator.create("type", setOf("alpha", "beta"), emptyMap()),
-        )
+        val anyOf =
+            AnyOfPattern(
+                listOf(alphaPattern, betaPattern),
+                discriminator = Discriminator.create("type", setOf("alpha", "beta"), emptyMap()),
+            )
 
         val derivedPatterns = anyOf.newBasedOn(Row(), resolver).map { it.value }.toList()
 
