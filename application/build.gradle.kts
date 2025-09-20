@@ -5,7 +5,7 @@ plugins {
 }
 
 dependencies {
-    shadow("io.specmatic.build-reporter:specmatic-reporter:0.0.7")
+    shadow("io.specmatic.build-reporter:specmatic-reporter:0.0.8")
 
     implementation("io.netty:netty-codec-http:4.2.5.Final")
     implementation("joda-time:joda-time:2.14.0")
