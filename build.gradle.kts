@@ -9,18 +9,24 @@ allprojects {
     repositories {
         mavenLocal()
         mavenCentral()
-
-        val repos = mapOf(
-            "specmaticReleases" to uri("https://repo.specmatic.io/releases"),
-            "specmaticSnapshots" to uri("https://repo.specmatic.io/snapshots"),
-        )
-
-        repos.forEach { (repoName, repoUrl) ->
-            maven {
-                name = repoName
-                url = repoUrl
+        maven {
+            name = "specmaticReleases"
+            url = uri("https://repo.specmatic.io/releases")
+            credentials {
+                username = settings.extra.properties["reposilite.user"]?.toString() ?: System.getenv("SPECMATIC_REPOSILITE_USERNAME")
+                password = settings.extra.properties["reposilite.token"]?.toString() ?: System.getenv("SPECMATIC_REPOSILITE_TOKEN")
             }
         }
+
+        maven {
+            name = "specmaticSnapshots"
+            url = uri("https://repo.specmatic.io/snapshots")
+            credentials {
+                username = settings.extra.properties["reposilite.user"]?.toString() ?: System.getenv("SPECMATIC_REPOSILITE_USERNAME")
+                password = settings.extra.properties["reposilite.token"]?.toString() ?: System.getenv("SPECMATIC_REPOSILITE_TOKEN")
+            }
+        }
+
     }
 }
 
