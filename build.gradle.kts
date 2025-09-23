@@ -13,20 +13,19 @@ allprojects {
             name = "specmaticReleases"
             url = uri("https://repo.specmatic.io/releases")
             credentials {
-                username = settings.extra.properties["reposilite.user"]?.toString() ?: System.getenv("SPECMATIC_REPOSILITE_USERNAME")
-                password = settings.extra.properties["reposilite.token"]?.toString() ?: System.getenv("SPECMATIC_REPOSILITE_TOKEN")
+                username = project.extra.properties["reposilite.user"]?.toString() ?: System.getenv("SPECMATIC_REPOSILITE_USERNAME")
+                password = project.extra.properties["reposilite.token"]?.toString() ?: System.getenv("SPECMATIC_REPOSILITE_TOKEN")
             }
         }
-
+    
         maven {
             name = "specmaticSnapshots"
             url = uri("https://repo.specmatic.io/snapshots")
             credentials {
-                username = settings.extra.properties["reposilite.user"]?.toString() ?: System.getenv("SPECMATIC_REPOSILITE_USERNAME")
-                password = settings.extra.properties["reposilite.token"]?.toString() ?: System.getenv("SPECMATIC_REPOSILITE_TOKEN")
+                username = project.extra.properties["reposilite.user"]?.toString() ?: System.getenv("SPECMATIC_REPOSILITE_USERNAME")
+                password = project.extra.properties["reposilite.token"]?.toString() ?: System.getenv("SPECMATIC_REPOSILITE_TOKEN")
             }
         }
-
     }
 }
 
