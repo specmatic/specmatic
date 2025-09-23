@@ -9,7 +9,7 @@ dependencies {
 
     implementation("io.netty:netty-codec-http:4.2.5.Final")
     implementation("joda-time:joda-time:2.14.0")
-    implementation("net.minidev:json-smart:2.5.2")
+    implementation("net.minidev:json-smart:2.6.0")
 
     implementation("com.ezylang:EvalEx:3.5.0")
     implementation("com.arakelian:java-jq:2.0.0")
