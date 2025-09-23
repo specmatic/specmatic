@@ -1625,7 +1625,7 @@ class OpenApiSpecification(
                                     discriminator
                                 )
                             )
-                        }.fold(SchemaProperty(extensions = emptyMap(), properties = emptyMap())) { propertiesAcc, propertiesEntry ->
+                        }.fold(SchemaProperty(extensions = schema.extensions.orEmpty(), properties = emptyMap())) { propertiesAcc, propertiesEntry ->
                             val (extensions, properties) = propertiesEntry
                             propertiesAcc.copy(
                                 extensions = propertiesAcc.extensions.plus(extensions),
