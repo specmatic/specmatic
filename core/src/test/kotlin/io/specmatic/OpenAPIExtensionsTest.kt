@@ -101,6 +101,59 @@ class OpenAPIExtensionsTest {
         assertThat(resolvedResponseBodyPattern.extensions["x-id-field"]).isEqualTo("productId")
     }
 
+
+    @Test
+    fun `should store extensions from allOfs in the resolved JSONObjectPattern where the extensions are present in the root allOf schema`() {
+        val specContent = """
+            openapi: 3.0.3
+            info:
+              title: Product API
+              version: 1.0.0
+            paths:
+              /product:
+                get:
+                  responses:
+                    '200':
+                      description: Product retrieved successfully
+                      content:
+                        application/json:
+                          schema:
+                            ${'$'}ref: '#/components/schemas/ExtendedProduct'
+            components:
+              schemas:
+                BaseProduct:
+                  type: object
+                  properties:
+                    category:
+                      type: string
+                    price:
+                      type: number
+                  required:
+                    - category 
+                    - price
+                ExtendedProduct:
+                  allOf:
+                    - ${'$'}ref: '#/components/schemas/BaseProduct'
+                    - type: object
+                      properties:
+                        productId:
+                          type: string
+                      required:
+                        - productId 
+                  x-id-field: productId
+
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(specContent, "").toFeature()
+        val scenario = feature.scenarios.first { it.path == "/product" }
+
+        val responseBodyPattern = scenario.httpResponsePattern.body
+        val resolvedResponseBodyPattern = resolvedHop(responseBodyPattern, scenario.resolver) as JSONObjectPattern
+
+        assertThat(resolvedResponseBodyPattern.pattern.keys).containsAll(listOf("productId", "price", "category"))
+        assertThat(resolvedResponseBodyPattern.extensions["x-id-field"]).isEqualTo("productId")
+    }
+
     @Test
     fun `should store extensions from allOfs in the resolved JSONObjectPattern where the extensions are present in a referenced schema`() {
         val specContent = """
