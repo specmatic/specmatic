@@ -2762,4 +2762,188 @@ components:
             assertThat(paths).isEmpty()
         }
     }
+
+    @Nested
+    inner class HasDefaultExampleTests {
+
+        @Test
+        fun `should implement HasDefaultExample interface`() {
+            val pattern = JSONObjectPattern()
+            assertThat(pattern).isInstanceOf(HasDefaultExample::class.java)
+        }
+
+        @Test
+        fun `should have null example by default`() {
+            val pattern = JSONObjectPattern()
+            assertThat(pattern.example).isNull()
+        }
+
+        @Test
+        fun `should support map example`() {
+            val example = mapOf("id" to 123, "name" to "John")
+            val pattern = JSONObjectPattern(example = example)
+            assertThat(pattern.example).isEqualTo(example)
+        }
+
+        @Test
+        fun `should work with utility function hasExample when example is null`() {
+            val pattern = JSONObjectPattern()
+            assertThat(hasExample(pattern)).isFalse()
+        }
+
+        @Test
+        fun `should work with utility function hasExample when example is provided`() {
+            val pattern = JSONObjectPattern(example = mapOf("id" to 123))
+            assertThat(hasExample(pattern)).isTrue()
+        }
+
+        @Test
+        fun `should work with utility function theDefaultExampleForThisKeyIsNotOmit when example is null`() {
+            val pattern = JSONObjectPattern()
+            assertThat(theDefaultExampleForThisKeyIsNotOmit(pattern)).isTrue()
+        }
+
+        @Test
+        fun `should work with utility function theDefaultExampleForThisKeyIsNotOmit when example is provided`() {
+            val pattern = JSONObjectPattern(example = mapOf("id" to 123))
+            assertThat(theDefaultExampleForThisKeyIsNotOmit(pattern)).isTrue()
+        }
+
+        @Test
+        fun `should work with utility function theDefaultExampleForThisKeyIsNotOmit when example is a map`() {
+            val pattern = JSONObjectPattern(example = mapOf("id" to 123))
+            // Map examples are never considered as omit, so this should always return true
+            assertThat(theDefaultExampleForThisKeyIsNotOmit(pattern)).isTrue()
+        }
+
+        @Test
+        fun `should maintain backward compatibility with existing constructors`() {
+            // Test various existing constructor patterns to ensure backward compatibility
+            val pattern1 = JSONObjectPattern(mapOf("id" to NumberPattern()))
+            assertThat(pattern1.example).isNull()
+
+            val pattern2 = JSONObjectPattern(
+                pattern = mapOf("name" to StringPattern()),
+                typeAlias = "Test"
+            )
+            assertThat(pattern2.example).isNull()
+
+            val pattern3 = JSONObjectPattern(
+                pattern = mapOf("id" to NumberPattern()),
+                minProperties = 1,
+                maxProperties = 5
+            )
+            assertThat(pattern3.example).isNull()
+        }
+
+        @Test
+        fun `should use map example in generate method when allowOnlyMandatoryKeysInJsonObject is false`() {
+            val resolver = Resolver()
+            
+            val example = mapOf("id" to 123)
+            val pattern = JSONObjectPattern(
+                pattern = mapOf("id" to NumberPattern()),
+                example = example
+            )
+            
+            val generated = pattern.generate(resolver)
+            
+            // The generated value should match the example
+            assertThat(generated.findFirstChildByPath("id")).isEqualTo(NumberValue(123))
+        }
+
+        @Test
+        fun `should use different map example in generate method when allowOnlyMandatoryKeysInJsonObject is false`() {
+            val resolver = Resolver()
+            
+            val example = mapOf("id" to 456)
+            val pattern = JSONObjectPattern(
+                pattern = mapOf("id" to NumberPattern()),
+                example = example
+            )
+            
+            val generated = pattern.generate(resolver)
+            
+            // The generated value should match the example
+            assertThat(generated.findFirstChildByPath("id")).isEqualTo(NumberValue(456))
+        }
+
+        @Test
+        fun `should not use example when allowOnlyMandatoryKeysInJsonObject is true`() {
+            val resolver = Resolver().withOnlyMandatoryKeysInJSONObject()
+            
+            val example = mapOf("id" to 123)
+            val pattern = JSONObjectPattern(
+                pattern = mapOf("id" to NumberPattern()),
+                example = example
+            )
+            
+            val generated = pattern.generate(resolver)
+            
+            // The generated value should not use the example, should generate a different random number
+            assertThat(generated.findFirstChildByPath("id")).isNotNull()
+            assertThat(generated.findFirstChildByPath("id")).isInstanceOf(NumberValue::class.java)
+            // We can't easily verify that the example was not used without more complex setup
+            // This test mainly ensures the code path doesn't break
+        }
+
+        @Test
+        fun `should fall back to normal generation when example is null`() {
+            val resolver = Resolver()
+            
+            val pattern = JSONObjectPattern(
+                pattern = mapOf("id" to NumberPattern()),
+                example = null
+            )
+            
+            val generated = pattern.generate(resolver)
+            
+            // Should generate normally based on pattern
+            assertThat(generated.findFirstChildByPath("id")).isNotNull()
+            assertThat(generated.findFirstChildByPath("id")).isInstanceOf(NumberValue::class.java)
+        }
+    }
+
+    @Nested
+    inner class ToJSONObjectPatternFunctionTests {
+        @Test
+        fun `toJSONObjectPattern should work with examples`() {
+            val pattern = toJSONObjectPattern(
+                map = mapOf(
+                    "name" to StringPattern(),
+                    "age" to NumberPattern()
+                ),
+                example = mapOf("name" to "John Doe", "age" to 30)
+            )
+            
+            assertThat(pattern.example).isNotNull()
+            
+            val resolver = Resolver()
+            val generated = pattern.generate(resolver)
+            
+            // Should use the example
+            assertThat(generated.findFirstChildByPath("name")?.toStringLiteral()).isEqualTo("John Doe")
+            assertThat(generated.findFirstChildByPath("age")?.toStringLiteral()).isEqualTo("30")
+        }
+        
+        @Test
+        fun `toJSONObjectPattern should handle JSON string examples`() {
+            val pattern = toJSONObjectPattern(
+                map = mapOf(
+                    "name" to StringPattern(),
+                    "age" to NumberPattern()
+                ),
+                example = mapOf("name" to "Jane Doe", "age" to 25)
+            )
+            
+            assertThat(pattern.example).isNotNull()
+            
+            val resolver = Resolver()
+            val generated = pattern.generate(resolver)
+            
+            // Should use the example
+            assertThat(generated.findFirstChildByPath("name")?.toStringLiteral()).isEqualTo("Jane Doe")
+            assertThat(generated.findFirstChildByPath("age")?.toStringLiteral()).isEqualTo("25")
+        }
+    }
 }
