@@ -8,11 +8,13 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkAll
+import io.mockk.verify
 import io.specmatic.core.*
 import io.specmatic.core.SPECMATIC_RESULT_HEADER
 import io.specmatic.core.log.CompositePrinter
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.LogStrategy
+import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.exceptionCauseMessage
@@ -359,6 +361,35 @@ components:
 
   assertThat(exampleNode.isMissingNode).isFalse()
     assertThat(exampleNode.has("additionalProperties")).isTrue()
+    }
+
+    @Test
+    fun `should log removal path for additionalProperties`() {
+        val yaml = """
+openapi: 3.0.0
+info:
+  title: Sample API
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Person:
+      name:
+        type: string
+        additionalProperties: {}
+""".trimIndent()
+
+        val originalLogger = logger
+        val mockLogger = mockk<LogStrategy>(relaxed = true)
+        val expectedLog = "Removed 'additionalProperties' from components.schemas.Person.name where type was string, instead of 'object'"
+
+        try {
+            logger = mockLogger
+            OpenApiSpecification.fromYAML(yaml, "spec.yaml")
+            verify { mockLogger.debug(expectedLog) }
+        } finally {
+            logger = originalLogger
+        }
     }
 
     @AfterEach

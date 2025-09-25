@@ -1,3 +1,5 @@
+@file:Suppress("UNCHECKED_CAST", "UNUSED_EXPRESSION")
+
 package io.specmatic.conversions
 
 import com.fasterxml.jackson.databind.JsonNode
@@ -44,6 +46,7 @@ import io.swagger.v3.parser.OpenAPIV3Parser
 import io.swagger.v3.parser.core.models.ParseOptions
 import io.swagger.v3.parser.core.models.SwaggerParseResult
 import java.io.File
+import kotlin.sequences.asSequence
 
 private const val BEARER_SECURITY_SCHEME = "bearer"
 
@@ -317,27 +320,47 @@ class OpenApiSpecification(
             }
         }
 
-        private fun removeInvalidAdditionalProperties(node: JsonNode?, skipProcessing: Boolean = false) {
+        private fun removeInvalidAdditionalProperties(node: JsonNode?, skipProcessing: Boolean = false, currentPath: String = "") {
             if (node == null || skipProcessing) return
 
             when (node) {
                 is ObjectNode -> {
                     if (node.has("additionalProperties") && shouldRemoveAdditionalProperties(node.get("type"))) {
+                        val logPath = currentPath.ifBlank { "root" }
+                        val typeDescription = node.get("type")?.let { typeNode ->
+                            when {
+                                typeNode.isTextual -> typeNode.asText()
+                                typeNode.isNull -> "null"
+                                else -> typeNode.toString()
+                            }
+                        } ?: "unspecified"
+                        logger.debug("Removed 'additionalProperties' from $logPath where type was $typeDescription, instead of 'object'")
                         node.remove("additionalProperties")
                     }
 
-                    val iterator = node.fields()
-                    while (iterator.hasNext()) {
-                        val entry = iterator.next()
-                        val fieldName = entry.key
-                        val value = entry.value
+                    val fieldNames = node.fieldNames()
+                    while (fieldNames.hasNext()) {
+                        val fieldName = fieldNames.next()
+                        val value = node.get(fieldName)
                         val shouldSkipChild = fieldName == "example" || fieldName == "examples"
+                        val childPath = when {
+                            currentPath.isBlank() -> fieldName
+                            else -> "$currentPath.$fieldName"
+                        }
 
-                        removeInvalidAdditionalProperties(value, shouldSkipChild)
+                        removeInvalidAdditionalProperties(value, shouldSkipChild, childPath)
                     }
                 }
 
-                is ArrayNode -> node.forEach { removeInvalidAdditionalProperties(it, skipProcessing) }
+                is ArrayNode -> {
+                    node.forEachIndexed { index, element ->
+                        val elementPath = when {
+                            currentPath.isBlank() -> index.toString()
+                            else -> "$currentPath.$index"
+                        }
+                        removeInvalidAdditionalProperties(element, skipProcessing, elementPath)
+                    }
+                }
             }
         }
 
@@ -346,10 +369,6 @@ class OpenApiSpecification(
 
             if (typeNode.isTextual) {
                 return !typeNode.asText().equals(OBJECT_TYPE, ignoreCase = true)
-            }
-
-            if (typeNode is ArrayNode) {
-                return typeNode.none { it.isTextual && it.asText().equals(OBJECT_TYPE, ignoreCase = true) }
             }
 
             return true
