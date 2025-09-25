@@ -1,5 +1,7 @@
 package io.specmatic.conversions
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import integration_tests.testCount
 import io.ktor.util.reflect.*
 import io.mockk.every
@@ -72,6 +74,15 @@ internal class OpenApiSpecificationTest {
                 Arguments.of(OPENAPI_FILE_WITH_YML_EXTENSION)
             )
         }
+
+    @JvmStatic
+    fun nonObjectAdditionalPropertiesVariants(): Stream<Arguments> {
+      return Stream.of(
+        Arguments.of("{}"),
+        Arguments.of("true"),
+        Arguments.of("false")
+      )
+    }
     }
 
     private fun portableComparisonAcrossBuildEnvironments(actual: String, expected: String) {
@@ -243,6 +254,111 @@ Pet:
         val petFile = File("./${SCHEMAS_DIRECTORY}/$PET_OPENAPI_FILE")
         petFile.createNewFile()
         petFile.writeText(pet)
+    }
+
+    @ParameterizedTest
+    @MethodSource("nonObjectAdditionalPropertiesVariants")
+    fun `should remove additionalProperties from non object schemas`(additionalPropertiesValue: String) {
+        val yaml = """
+openapi: 3.0.0
+info:
+  title: Sample API
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Sample:
+      type: string
+      additionalProperties: $additionalPropertiesValue
+""".trimIndent()
+
+        val specification = OpenApiSpecification.fromYAML(yaml, "")
+        val schema = specification.parsedOpenApi.components?.schemas?.get("Sample")
+
+        assertThat(schema?.additionalProperties).isNull()
+        assertThat(schema?.type).isEqualTo("string")
+    }
+
+    @Test
+    fun `should retain additionalProperties for object schemas`() {
+        val yaml = """
+openapi: 3.0.0
+info:
+  title: Sample API
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Sample:
+      type: object
+      additionalProperties:
+        type: string
+""".trimIndent()
+
+        val specification = OpenApiSpecification.fromYAML(yaml, "")
+        val schema = specification.parsedOpenApi.components?.schemas?.get("Sample")
+
+        assertThat(schema?.additionalProperties).isNotNull
+    }
+
+    @Test
+    fun `should not alter additionalProperties inside examples`() {
+        val yaml = """
+openapi: 3.0.0
+info:
+  title: Sample API
+  version: 1.0.0
+paths:
+  /ping:
+    get:
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+              examples:
+                sample:
+                  value:
+                    additionalProperties:
+                      nested: true
+components:
+  schemas:
+    NonObject:
+      type: string
+      additionalProperties: {}
+""".trimIndent()
+
+    val method = OpenApiSpecification.Companion::class.java.getDeclaredMethod(
+      "preprocessYamlForAdditionalProperties",
+      String::class.java
+    )
+    method.isAccessible = true
+
+    val processedYaml = method.invoke(OpenApiSpecification.Companion, yaml) as String
+
+    val mapper = ObjectMapper(YAMLFactory())
+    val processedRoot = mapper.readTree(processedYaml)
+
+    val processedSchemaNode = processedRoot.path("components").path("schemas").path("NonObject")
+    assertThat(processedSchemaNode.has("additionalProperties")).isFalse()
+  assertThat(processedSchemaNode.path("type").textValue()).isEqualTo("string")
+
+    val exampleNode = processedRoot
+      .path("paths")
+      .path("/ping")
+      .path("get")
+      .path("responses")
+      .path("200")
+      .path("content")
+      .path("application/json")
+      .path("examples")
+      .path("sample")
+      .path("value")
+
+  assertThat(exampleNode.isMissingNode).isFalse()
+    assertThat(exampleNode.has("additionalProperties")).isTrue()
     }
 
     @AfterEach
@@ -9245,10 +9361,11 @@ paths:
                 when (scenario.method) {
                     "POST" -> {
                         assertThat(requestBodyPattern).isInstanceOf(AnyPattern::class.java)
-                        (requestBodyPattern as AnyPattern).let {
-                            assertThat(it.pattern).hasSize(2)
-                            assertThat(it.discriminator!!.property).isEqualTo("type")
-                            assertThat(it.discriminator!!.values).containsExactlyInAnyOrder("car", "truck")
+            (requestBodyPattern as AnyPattern).let {
+              assertThat(it.pattern).hasSize(2)
+              val discriminator = it.discriminator ?: fail("Expected discriminator")
+              assertThat(discriminator.property).isEqualTo("type")
+              assertThat(discriminator.values).containsExactlyInAnyOrder("car", "truck")
                         }
                     }
                     "PATCH" -> assertThat(requestBodyPattern).isNotInstanceOf(AnyPattern::class.java)
@@ -9551,9 +9668,10 @@ paths:
 
         assertThat(requestBodyPattern).isInstanceOf(AnyPattern::class.java)
         (requestBodyPattern as AnyPattern).let {
-            assertThat(it.discriminator!!.values).isEqualTo(setOf("simpleObject", "complexObject"))
-            assertThat(it.discriminator!!.property).isEqualTo("objectType")
-            assertThat(it.discriminator!!.mapping).isEqualTo(
+      val discriminator = it.discriminator ?: fail("Expected discriminator")
+      assertThat(discriminator.values).isEqualTo(setOf("simpleObject", "complexObject"))
+      assertThat(discriminator.property).isEqualTo("objectType")
+      assertThat(discriminator.mapping).isEqualTo(
                 mapOf(
                     "simpleObject" to "#/components/schemas/simpleObject",
                     "complexObject" to "#/components/schemas/complexObject"
@@ -9625,9 +9743,10 @@ paths:
 
         assertThat(requestBodyPattern).isInstanceOf(AnyPattern::class.java)
         (requestBodyPattern as AnyPattern).let {
-            assertThat(it.discriminator!!.values).isEqualTo(setOf("simple", "complexObject"))
-            assertThat(it.discriminator!!.property).isEqualTo("objectType")
-            assertThat(it.discriminator!!.mapping).isEqualTo(
+      val discriminator = it.discriminator ?: fail("Expected discriminator")
+      assertThat(discriminator.values).isEqualTo(setOf("simple", "complexObject"))
+      assertThat(discriminator.property).isEqualTo("objectType")
+      assertThat(discriminator.mapping).isEqualTo(
                 mapOf(
                     "simple" to "#/components/schemas/simpleObject",
                     "complexObject" to "#/components/schemas/complexObject"

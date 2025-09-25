@@ -1,7 +1,11 @@
 package io.specmatic.conversions
 
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ArrayNode
+import com.fasterxml.jackson.databind.node.ObjectNode
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
 import io.cucumber.messages.types.Step
 import io.ktor.util.reflect.*
 import io.specmatic.core.*
@@ -219,10 +223,12 @@ class OpenApiSpecification(
             strictMode: Boolean = false
         ): OpenApiSpecification {
             val implicitOverlayFile = getImplicitOverlayContent(openApiFilePath)
+            val mergedYaml = yamlContent.applyOverlay(overlayContent).applyOverlay(implicitOverlayFile)
+            val preprocessedYaml = preprocessYamlForAdditionalProperties(mergedYaml)
 
             val parseResult: SwaggerParseResult =
                 OpenAPIV3Parser().readContents(
-                    yamlContent.applyOverlay(overlayContent).applyOverlay(implicitOverlayFile),
+                    preprocessedYaml,
                     null,
                     resolveExternalReferences(),
                     openApiFilePath
@@ -230,7 +236,7 @@ class OpenApiSpecification(
             val parsedOpenApi: OpenAPI? = parseResult.openAPI
 
             if (parsedOpenApi == null) {
-                logger.log("FATAL: Failed to parse OpenAPI from file $openApiFilePath\n\n$yamlContent")
+                logger.log("FATAL: Failed to parse OpenAPI from file $openApiFilePath after preprocessing additionalProperties\n\n$preprocessedYaml")
 
                 printMessages(parseResult, loggerForErrors)
 
@@ -288,6 +294,65 @@ class OpenApiSpecification(
                 it.isResolveRequestBody = true
                 it.isResolveResponses = true
             }
+        }
+
+        private val yamlPreprocessorMapper: ObjectMapper by lazy {
+            ObjectMapper(
+                YAMLFactory()
+                    .disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER)
+                    .enable(YAMLGenerator.Feature.MINIMIZE_QUOTES)
+            )
+        }
+
+        private fun preprocessYamlForAdditionalProperties(yaml: String): String {
+            if (yaml.isBlank()) return yaml
+
+            return try {
+                val root = yamlPreprocessorMapper.readTree(yaml) ?: return yaml
+                removeInvalidAdditionalProperties(root)
+                yamlPreprocessorMapper.writeValueAsString(root)
+            } catch (exception: Exception) {
+                logger.debug("Skipping additionalProperties preprocessing due to error: ${exception.message}")
+                yaml
+            }
+        }
+
+        private fun removeInvalidAdditionalProperties(node: JsonNode?, skipProcessing: Boolean = false) {
+            if (node == null || skipProcessing) return
+
+            when (node) {
+                is ObjectNode -> {
+                    if (node.has("additionalProperties") && shouldRemoveAdditionalProperties(node.get("type"))) {
+                        node.remove("additionalProperties")
+                    }
+
+                    val iterator = node.fields()
+                    while (iterator.hasNext()) {
+                        val entry = iterator.next()
+                        val fieldName = entry.key
+                        val value = entry.value
+                        val shouldSkipChild = fieldName == "example" || fieldName == "examples"
+
+                        removeInvalidAdditionalProperties(value, shouldSkipChild)
+                    }
+                }
+
+                is ArrayNode -> node.forEach { removeInvalidAdditionalProperties(it, skipProcessing) }
+            }
+        }
+
+        private fun shouldRemoveAdditionalProperties(typeNode: JsonNode?): Boolean {
+            if (typeNode == null) return false
+
+            if (typeNode.isTextual) {
+                return !typeNode.asText().equals(OBJECT_TYPE, ignoreCase = true)
+            }
+
+            if (typeNode is ArrayNode) {
+                return typeNode.none { it.isTextual && it.asText().equals(OBJECT_TYPE, ignoreCase = true) }
+            }
+
+            return true
         }
 
         fun String.applyOverlay(overlayContent: String): String {
