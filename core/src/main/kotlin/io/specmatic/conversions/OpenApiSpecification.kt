@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.cucumber.messages.types.Step
 import io.ktor.util.reflect.*
 import io.specmatic.core.*
@@ -302,9 +303,8 @@ class OpenApiSpecification(
         private val yamlPreprocessorMapper: ObjectMapper by lazy {
             ObjectMapper(
                 YAMLFactory()
-                    .disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER)
-                    .enable(YAMLGenerator.Feature.MINIMIZE_QUOTES)
-            )
+                    .disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER),
+            ).registerKotlinModule()
         }
 
         private fun preprocessYamlForAdditionalProperties(yaml: String): String {
