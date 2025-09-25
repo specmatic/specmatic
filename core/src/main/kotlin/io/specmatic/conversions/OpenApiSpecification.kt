@@ -334,7 +334,7 @@ class OpenApiSpecification(
                                 else -> typeNode.toString()
                             }
                         } ?: "unspecified"
-                        logger.debug("Removed 'additionalProperties' from $logPath where type was $typeDescription, instead of 'object'")
+                        logger.debug("Ignoring 'additionalProperties' from $logPath (additionalProperties only applies to 'type: object', but found 'type: $typeDescription')")
                         node.remove("additionalProperties")
                     }
 

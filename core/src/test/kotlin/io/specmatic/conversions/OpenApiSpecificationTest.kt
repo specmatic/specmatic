@@ -381,7 +381,7 @@ components:
 
         val originalLogger = logger
         val mockLogger = mockk<LogStrategy>(relaxed = true)
-        val expectedLog = "Removed 'additionalProperties' from components.schemas.Person.name where type was string, instead of 'object'"
+  val expectedLog = "Ignoring 'additionalProperties' from components.schemas.Person.name (additionalProperties only applies to 'type: object', but found 'type: string')"
 
         try {
             logger = mockLogger
