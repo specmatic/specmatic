@@ -188,4 +188,6 @@ class RegExSpec(regex: String?) {
     override fun toString(): String {
         return regex ?: "regex not set"
     }
+
+    fun negative(): String? = regex?.let { "${it}_" }
 }

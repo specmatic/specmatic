@@ -271,7 +271,7 @@ internal class StringPatternTest {
 
         assertThat(
             result.filterIsInstance<StringPattern>().filter {
-                it.regex == "^[^0-9]{15}\$_"
+                it.regex == "[^0-9]{15}_"
             }
         ).hasSize(1)
     }
@@ -300,7 +300,7 @@ internal class StringPatternTest {
         ).hasSize(0)
 
         assertThat(
-            result.filterIsInstance<StringPattern>().filter { it.regex == "^[^0-9]{15}\$_" }
+            result.filterIsInstance<StringPattern>().filter { it.regex == "[^0-9]{15}_" }
         ).hasSize(1)
 
         assertThat(
