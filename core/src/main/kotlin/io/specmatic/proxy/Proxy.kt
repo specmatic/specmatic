@@ -32,7 +32,10 @@ import java.net.URI
 import java.net.URL
 
 fun interface RequestObserver {
-    fun onRequestHandled(httpRequest: HttpRequest, httpResponse: HttpResponse)
+    fun onRequestHandled(
+        httpRequest: HttpRequest,
+        httpResponse: HttpResponse,
+    )
 }
 
 class Proxy(
@@ -43,7 +46,7 @@ class Proxy(
     keyData: KeyData? = null,
     timeoutInMilliseconds: Long = DEFAULT_TIMEOUT_IN_MILLISECONDS,
     filter: String? = "",
-    private val requestObserver: RequestObserver? = null
+    private val requestObserver: RequestObserver? = null,
 ) : Closeable {
     constructor(
         host: String,
@@ -53,133 +56,144 @@ class Proxy(
         keyData: KeyData? = null,
         timeoutInMilliseconds: Long,
         filter: String,
-        requestObserver: RequestObserver? = null
+        requestObserver: RequestObserver? = null,
     ) : this(host, port, baseURL, RealFileWriter(proxySpecmaticDataDir), keyData, timeoutInMilliseconds, filter)
 
     private val stubs = mutableListOf<NamedStub>()
 
-    private val targetHost = baseURL.let {
-        when {
-            it.isBlank() -> null
-            else -> URI(baseURL).host
+    private val targetHost =
+        baseURL.let {
+            when {
+                it.isBlank() -> null
+                else -> URI(baseURL).host
+            }
         }
-    }
 
-    private val environment = applicationEngineEnvironment {
-        module {
-            intercept(ApplicationCallPipeline.Call) {
-                try {
-                    val httpRequest = ktorHttpRequestToHttpRequest(call)
+    private val environment =
+        applicationEngineEnvironment {
+            module {
+                intercept(ApplicationCallPipeline.Call) {
+                    try {
+                        val httpRequest = ktorHttpRequestToHttpRequest(call)
 
-                    if (httpRequest.isHealthCheckRequest()) return@intercept
-                    if (httpRequest.isDumpRequest()) return@intercept
+                        if (httpRequest.isHealthCheckRequest()) return@intercept
+                        if (httpRequest.isDumpRequest()) return@intercept
 
-                    when (httpRequest.method?.uppercase()) {
-                        "CONNECT" -> {
-                            val errorResponse = HttpResponse(400, "CONNECT is not supported")
-                            println(
-                                listOf(httpRequestLog(httpRequest), httpResponseLog(errorResponse)).joinToString(
-                                    System.lineSeparator()
+                        when (httpRequest.method?.uppercase()) {
+                            "CONNECT" -> {
+                                val errorResponse = HttpResponse(400, "CONNECT is not supported")
+                                println(
+                                    listOf(httpRequestLog(httpRequest), httpResponseLog(errorResponse)).joinToString(
+                                        System.lineSeparator(),
+                                    ),
                                 )
-                            )
-                            respondToKtorHttpResponse(call, errorResponse)
-                        }
-
-                        else -> try {
-                            if (filter != "" && filterHttpRequest(httpRequest, filter)) {
-                                respondToKtorHttpResponse(call, HttpResponse(404, "This request has been filtered out"))
-                                return@intercept
+                                respondToKtorHttpResponse(call, errorResponse)
                             }
 
-                            // continue as before, if not matching filter
-                            val client = LegacyHttpClient(
-                                proxyURL(httpRequest, baseURL),
-                                timeoutInMilliseconds = timeoutInMilliseconds
-                            )
+                            else ->
+                                try {
+                                    if (filter != "" && filterHttpRequest(httpRequest, filter)) {
+                                        respondToKtorHttpResponse(call, HttpResponse(404, "This request has been filtered out"))
+                                        return@intercept
+                                    }
 
-                            val requestToSend = targetHost?.let {
-                                httpRequest.withHost(targetHost)
-                            } ?: httpRequest
+                                    // continue as before, if not matching filter
+                                    val client =
+                                        LegacyHttpClient(
+                                            proxyURL(httpRequest, baseURL),
+                                            timeoutInMilliseconds = timeoutInMilliseconds,
+                                        )
 
-                            val httpResponse = client.execute(requestToSend)
+                                    val requestToSend =
+                                        targetHost?.let {
+                                            httpRequest.withHost(targetHost)
+                                        } ?: httpRequest
 
-                            if (filter != "" && filterHttpResponse(httpResponse, filter)) {
-                                respondToKtorHttpResponse(call, HttpResponse(404, "This response has been filtered out"))
-                                return@intercept
-                            }
+                                    val httpResponse = client.execute(requestToSend)
 
-                            // check response for matching filter. if matches, bail!
-                            val name =
-                                "${httpRequest.method} ${httpRequest.path}${toQueryString(httpRequest.queryParams.asMap())}"
-                            stubs.add(
-                                NamedStub(
-                                    name,
-                                    uniqueNameForApiOperation(httpRequest, baseURL, httpResponse.status),
-                                    ScenarioStub(
-                                        httpRequest.withoutTransportHeaders(),
-                                        httpResponse.withoutTransportHeaders()
+                                    if (filter != "" && filterHttpResponse(httpResponse, filter)) {
+                                        respondToKtorHttpResponse(
+                                            call,
+                                            HttpResponse(404, "This response has been filtered out"),
+                                        )
+                                        return@intercept
+                                    }
+
+                                    // check response for matching filter. if matches, bail!
+                                    val name =
+                                        "${httpRequest.method} ${httpRequest.path}${toQueryString(httpRequest.queryParams.asMap())}"
+                                    stubs.add(
+                                        NamedStub(
+                                            name,
+                                            uniqueNameForApiOperation(httpRequest, baseURL, httpResponse.status),
+                                            ScenarioStub(
+                                                httpRequest.withoutTransportHeaders(),
+                                                httpResponse.withoutTransportHeaders(),
+                                            ),
+                                        ),
                                     )
-                                )
-                            )
 
-                            requestObserver?.onRequestHandled(httpRequest, httpResponse)
+                                    requestObserver?.onRequestHandled(httpRequest, httpResponse)
 
-                            respondToKtorHttpResponse(call, withoutContentEncodingGzip(httpResponse))
-                        } catch (e: Throwable) {
-                            logger.log(e)
-                            val errorResponse =
-                                HttpResponse(500, exceptionCauseMessage(e) + "\n\n" + e.stackTraceToString())
-                            respondToKtorHttpResponse(call, errorResponse)
-                            logger.debug(
-                                listOf(
-                                    httpRequestLog(httpRequest),
-                                    httpResponseLog(errorResponse)
-                                ).joinToString(System.lineSeparator())
-                            )
+                                    respondToKtorHttpResponse(call, withoutContentEncodingGzip(httpResponse))
+                                } catch (e: Throwable) {
+                                    logger.log(e)
+                                    val errorResponse =
+                                        HttpResponse(500, exceptionCauseMessage(e) + "\n\n" + e.stackTraceToString())
+                                    respondToKtorHttpResponse(call, errorResponse)
+                                    logger.debug(
+                                        listOf(
+                                            httpRequestLog(httpRequest),
+                                            httpResponseLog(errorResponse),
+                                        ).joinToString(System.lineSeparator()),
+                                    )
+                                }
                         }
+                    } catch (e: Throwable) {
+                        logger.log(e)
+                        val errorResponse =
+                            HttpResponse(500, exceptionCauseMessage(e) + "\n\n" + e.stackTraceToString())
+                        respondToKtorHttpResponse(call, errorResponse)
                     }
-                } catch (e: Throwable) {
-                    logger.log(e)
-                    val errorResponse =
-                        HttpResponse(500, exceptionCauseMessage(e) + "\n\n" + e.stackTraceToString())
-                    respondToKtorHttpResponse(call, errorResponse)
+                }
+
+                configureHealthCheckModule()
+
+                routing {
+                    post(DUMP_ENDPOINT) { handleDumpRequest(call) }
                 }
             }
 
-            configureHealthCheckModule()
+            when (keyData) {
+                null ->
+                    connector {
+                        this.host = host
+                        this.port = port
+                    }
 
-            routing {
-                post(DUMP_ENDPOINT) { handleDumpRequest(call) }
+                else ->
+                    sslConnector(
+                        keyStore = keyData.keyStore,
+                        keyAlias = keyData.keyAlias,
+                        privateKeyPassword = { keyData.keyPassword.toCharArray() },
+                        keyStorePassword = { keyData.keyPassword.toCharArray() },
+                    ) {
+                        this.host = host
+                        this.port = port
+                    }
             }
         }
 
-        when (keyData) {
-            null -> connector {
-                this.host = host
-                this.port = port
+    private fun toQueryString(queryParams: Map<String, String>): String =
+        queryParams.entries
+            .joinToString("&") { entry ->
+                "${entry.key}=${entry.value}"
+            }.let {
+                when {
+                    it.isEmpty() -> it
+                    else -> "?$it"
+                }
             }
-
-            else -> sslConnector(
-                keyStore = keyData.keyStore,
-                keyAlias = keyData.keyAlias,
-                privateKeyPassword = { keyData.keyPassword.toCharArray() },
-                keyStorePassword = { keyData.keyPassword.toCharArray() }) {
-                this.host = host
-                this.port = port
-            }
-        }
-    }
-
-    private fun toQueryString(queryParams: Map<String, String>): String {
-        return queryParams.entries.joinToString("&") { entry ->
-            "${entry.key}=${entry.value}"
-        }.let {
-            when {
-                it.isEmpty() -> it
-                else -> "?$it"
-            }
-        }
-    }
 
     private fun withoutContentEncodingGzip(httpResponse: HttpResponse): HttpResponse {
         val contentEncodingKey =
@@ -193,27 +207,31 @@ class Proxy(
         }
     }
 
-    private val server: ApplicationEngine = embeddedServer(Netty, environment, configure = {
-        this.requestQueueLimit = 1000
-        this.callGroupSize = 5
-        this.connectionGroupSize = 20
-        this.workerGroupSize = 20
-    })
+    private val server: ApplicationEngine =
+        embeddedServer(Netty, environment, configure = {
+            this.requestQueueLimit = 1000
+            this.callGroupSize = 5
+            this.connectionGroupSize = 20
+            this.workerGroupSize = 20
+        })
 
-    private fun proxyURL(httpRequest: HttpRequest, baseURL: String): String {
-        return when {
+    private fun proxyURL(
+        httpRequest: HttpRequest,
+        baseURL: String,
+    ): String =
+        when {
             isFullURL(httpRequest.path) -> ""
             else -> baseURL
         }
-    }
 
-    private fun isFullURL(path: String?): Boolean {
-        return path != null && try {
-            URL(URLParts(path).withEncodedPathSegments()); true
-        } catch (e: Throwable) {
-            false
-        }
-    }
+    private fun isFullURL(path: String?): Boolean =
+        path != null &&
+            try {
+                URL(URLParts(path).withEncodedPathSegments())
+                true
+            } catch (e: Throwable) {
+                false
+            }
 
     init {
         server.start()
@@ -229,51 +247,60 @@ class Proxy(
         }
     }
 
-    private fun filterHttpRequest(httpRequest: HttpRequest, filter: String?): Boolean {
+    private fun filterHttpRequest(
+        httpRequest: HttpRequest,
+        filter: String?,
+    ): Boolean {
         if (filter.isNullOrBlank()) {
             return true
         }
         val filterToEvalEx = ExpressionStandardizer.filterToEvalEx(filter)
-        return filterToEvalEx.with("context", HttpRequestFilterContext(httpRequest))
+        return filterToEvalEx
+            .with("context", HttpRequestFilterContext(httpRequest))
             .evaluate()
             .booleanValue
     }
 
-    private fun filterHttpResponse(httpResponse: HttpResponse, filter: String?): Boolean {
+    private fun filterHttpResponse(
+        httpResponse: HttpResponse,
+        filter: String?,
+    ): Boolean {
         if (filter.isNullOrBlank()) {
             return true
         }
         val filterToEvalEx = ExpressionStandardizer.filterToEvalEx(filter)
-        return filterToEvalEx.with("context", HttpResponseFilterContext(httpResponse))
+        return filterToEvalEx
+            .with("context", HttpResponseFilterContext(httpResponse))
             .evaluate()
             .booleanValue
     }
 
-    private suspend fun dumpSpecAndExamplesIntoOutputDir() = Mutex().withLock {
-        val gherkin = toGherkinFeature("New feature", stubs)
-        val base = "proxy_generated"
-        val featureFileName = "$base.yaml"
+    private suspend fun dumpSpecAndExamplesIntoOutputDir() =
+        Mutex().withLock {
+            val gherkin = toGherkinFeature("New feature", stubs)
+            val base = "proxy_generated"
+            val featureFileName = "$base.yaml"
 
-        if (stubs.isEmpty()) {
-            println("No stubs were recorded. No contract will be written.")
-            return
+            if (stubs.isEmpty()) {
+                println("No stubs were recorded. No contract will be written.")
+                return
+            }
+            outputDirectory.createDirectory()
+
+            val stubDataDirectory = outputDirectory.subDirectory("${base}$EXAMPLES_DIR_SUFFIX")
+            stubDataDirectory.createDirectory()
+
+            stubs.mapIndexed { index, namedStub: NamedStub ->
+                val fileName = "${namedStub.shortName}_${index.inc()}.json"
+                println("Writing stub data to $fileName")
+                stubDataDirectory.writeText(fileName, namedStub.stub.toJSON().toStringLiteral())
+            }
+
+            val openApi = parseGherkinStringToFeature(gherkin).toOpenApi()
+
+            println("Writing specification to $featureFileName")
+            outputDirectory.writeText(featureFileName, Yaml.pretty(openApi))
         }
-        outputDirectory.createDirectory()
-
-        val stubDataDirectory = outputDirectory.subDirectory("${base}$EXAMPLES_DIR_SUFFIX")
-        stubDataDirectory.createDirectory()
-
-        stubs.mapIndexed { index, namedStub: NamedStub ->
-            val fileName = "${namedStub.shortName}_${index.inc()}.json"
-            println("Writing stub data to $fileName")
-            stubDataDirectory.writeText(fileName, namedStub.stub.toJSON().toStringLiteral())
-        }
-
-        val openApi = parseGherkinStringToFeature(gherkin).toOpenApi()
-
-        println("Writing specification to $featureFileName")
-        outputDirectory.writeText(featureFileName, Yaml.pretty(openApi))
-    }
 
     private suspend fun handleDumpRequest(call: ApplicationCall) {
         call.respond(HttpStatusCode.Accepted, "Dump process of spec and examples has started in the background")
@@ -285,8 +312,6 @@ class Proxy(
     companion object {
         private const val DUMP_ENDPOINT = "/_specmatic/proxy/dump"
 
-        private fun HttpRequest.isDumpRequest(): Boolean {
-            return (this.path == DUMP_ENDPOINT) && (this.method == HttpMethod.Post.value)
-        }
+        private fun HttpRequest.isDumpRequest(): Boolean = (this.path == DUMP_ENDPOINT) && (this.method == HttpMethod.Post.value)
     }
 }
