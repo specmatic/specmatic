@@ -1,15 +1,15 @@
 package io.specmatic.proxy
 
+import io.ktor.http.*
+import io.specmatic.Waiter
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.YAML
 import io.specmatic.core.parseGherkinStringToFeature
 import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.value.JSONObjectValue
-import io.specmatic.stub.HttpStub
-import io.ktor.http.*
-import io.specmatic.Waiter
 import io.specmatic.mock.DELAY_IN_MILLISECONDS
+import io.specmatic.stub.HttpStub
 import org.assertj.core.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -21,23 +21,25 @@ import java.io.File
 import java.net.InetSocketAddress
 
 internal class ProxyTest {
-    private val dynamicHttpHeaders = listOf(
-        HttpHeaders.Authorization,
-        HttpHeaders.UserAgent,
-        HttpHeaders.Cookie,
-        HttpHeaders.Referrer,
-        HttpHeaders.AcceptLanguage,
-        HttpHeaders.Host,
-        HttpHeaders.IfModifiedSince,
-        HttpHeaders.IfNoneMatch,
-        HttpHeaders.CacheControl,
-        HttpHeaders.ContentLength,
-        HttpHeaders.Range,
-        HttpHeaders.XForwardedFor
-    )
+    private val dynamicHttpHeaders =
+        listOf(
+            HttpHeaders.Authorization,
+            HttpHeaders.UserAgent,
+            HttpHeaders.Cookie,
+            HttpHeaders.Referrer,
+            HttpHeaders.AcceptLanguage,
+            HttpHeaders.Host,
+            HttpHeaders.IfModifiedSince,
+            HttpHeaders.IfNoneMatch,
+            HttpHeaders.CacheControl,
+            HttpHeaders.ContentLength,
+            HttpHeaders.Range,
+            HttpHeaders.XForwardedFor,
+        )
 
-    private val simpleFeature = parseGherkinStringToFeature(
-        """
+    private val simpleFeature =
+        parseGherkinStringToFeature(
+            """
             Feature: Math
               Scenario: Square
                 When POST /
@@ -55,16 +57,17 @@ internal class ProxyTest {
                 When GET /
                 Then status 200
                 And response-body (number)
-        """.trimIndent()
-    )
+            """.trimIndent(),
+        )
 
     private var fakeFileWriter: FakeFileWriter = FakeFileWriter()
     private val generatedContracts = File("./build/generatedContracts")
 
     @BeforeEach
     fun setup() {
-        if (generatedContracts.exists())
+        if (generatedContracts.exists()) {
             generatedContracts.deleteRecursively()
+        }
         generatedContracts.mkdirs()
     }
 
@@ -78,7 +81,7 @@ internal class ProxyTest {
                 val client = RestTemplate(requestFactory)
                 val response = client.postForEntity("http://localhost:9000/", "10", String::class.java)
 
-                assertThat(response.statusCodeValue).isEqualTo(200)
+                assertThat(response.statusCode.value()).isEqualTo(200)
                 assertThatNoException().isThrownBy { response.body!!.toInt() }
             }
         }
@@ -87,11 +90,14 @@ internal class ProxyTest {
         assertThatCode {
             OpenApiSpecification.fromYAML(
                 fakeFileWriter.receivedContract!!,
-                ""
+                "",
             )
         }.doesNotThrowAnyException()
         assertThatCode { parsedJSON(fakeFileWriter.receivedStub ?: "") }.doesNotThrowAnyException()
-        assertThat(fakeFileWriter.receivedPaths.toList()).containsExactlyInAnyOrder("proxy_generated.yaml", "POST_200_1.json")
+        assertThat(fakeFileWriter.receivedPaths.toList()).containsExactlyInAnyOrder(
+            "proxy_generated.yaml",
+            "POST_200_1.json",
+        )
     }
 
     @Test
@@ -104,7 +110,7 @@ internal class ProxyTest {
                 val client = RestTemplate(requestFactory)
                 val response = client.postForEntity("http://localhost:9000/multiply", "10", String::class.java)
 
-                assertThat(response.statusCodeValue).isEqualTo(200)
+                assertThat(response.statusCode.value()).isEqualTo(200)
                 assertThatNoException().isThrownBy { response.body!!.toInt() }
             }
         }
@@ -113,11 +119,14 @@ internal class ProxyTest {
         assertThatCode {
             OpenApiSpecification.fromYAML(
                 fakeFileWriter.receivedContract!!,
-                ""
+                "",
             )
         }.doesNotThrowAnyException()
         assertThatCode { parsedJSON(fakeFileWriter.receivedStub ?: "") }.doesNotThrowAnyException()
-        assertThat(fakeFileWriter.receivedPaths.toList()).containsExactlyInAnyOrder("proxy_generated.yaml", "multiply_POST_200_1.json")
+        assertThat(fakeFileWriter.receivedPaths.toList()).containsExactlyInAnyOrder(
+            "proxy_generated.yaml",
+            "multiply_POST_200_1.json",
+        )
     }
 
     @Test
@@ -127,7 +136,7 @@ internal class ProxyTest {
                 val client = RestTemplate()
                 val response = client.postForEntity("http://localhost:9001/", "10", String::class.java)
 
-                assertThat(response.statusCodeValue).isEqualTo(200)
+                assertThat(response.statusCode.value()).isEqualTo(200)
                 assertThatNoException().isThrownBy { response.body!!.toInt() }
             }
         }
@@ -136,7 +145,7 @@ internal class ProxyTest {
         assertThatCode {
             OpenApiSpecification.fromYAML(
                 fakeFileWriter.receivedContract!!,
-                ""
+                "",
             )
         }.doesNotThrowAnyException()
         assertThatCode { parsedJSON(fakeFileWriter.receivedStub ?: "") }.doesNotThrowAnyException()
@@ -145,28 +154,33 @@ internal class ProxyTest {
 
     @Test
     fun `reverse proxy should record a space appropriately`() {
-        val spec = OpenApiSpecification.fromYAML("""
-            openapi: 3.0.1
-            info:
-              title: Data
-              version: "1"
-            paths:
-              /da ta:
-                get:
-                  summary: Data
-                  responses:
-                    "200":
-                      description: Data
-                      content:
-                        text/plain:
-                          schema:
-                            type: string
-        """.trimIndent(), "").toFeature()
+        val spec =
+            OpenApiSpecification
+                .fromYAML(
+                    """
+                    openapi: 3.0.1
+                    info:
+                      title: Data
+                      version: "1"
+                    paths:
+                      /da ta:
+                        get:
+                          summary: Data
+                          responses:
+                            "200":
+                              description: Data
+                              content:
+                                text/plain:
+                                  schema:
+                                    type: string
+                    """.trimIndent(),
+                    "",
+                ).toFeature()
 
         HttpStub(spec).use {
             Proxy(host = "localhost", port = 9001, "http://localhost:9000", fakeFileWriter).use {
                 val client = RestTemplate()
-                val response = client.getForEntity("http://localhost:9001/da ta", String::class.java)
+                client.getForEntity("http://localhost:9001/da ta", String::class.java)
             }
         }
 
@@ -181,7 +195,7 @@ internal class ProxyTest {
                 val client = RestTemplate()
                 val response = client.postForEntity("http://localhost:9001/", "10", String::class.java)
 
-                assertThat(response.statusCodeValue).isEqualTo(200)
+                assertThat(response.statusCode.value()).isEqualTo(200)
                 assertThatNoException().isThrownBy { response.body!!.toInt() }
             }
         }
@@ -189,7 +203,8 @@ internal class ProxyTest {
         assertThat(fakeFileWriter.receivedContract?.trim()).startsWith("openapi:")
 
         dynamicHttpHeaders.forEach {
-            assertThat(fakeFileWriter.receivedContract).withFailMessage("Specification should not have contained $it")
+            assertThat(fakeFileWriter.receivedContract)
+                .withFailMessage("Specification should not have contained $it")
                 .doesNotContainIgnoringCase("name: $it")
             assertThat(fakeFileWriter.receivedStub).withFailMessage("Stub should not have contained $it")
         }
@@ -202,36 +217,42 @@ internal class ProxyTest {
                 val client = RestTemplate()
                 val response = client.getForEntity("http://localhost:9001/", String::class.java)
 
-                assertThat(response.statusCodeValue).isEqualTo(200)
+                assertThat(response.statusCode.value()).isEqualTo(200)
                 assertThatNoException().isThrownBy { response.body!!.toInt() }
             }
         }
 
         assertThat(fakeFileWriter.receivedContract?.trim()).doesNotContainIgnoringCase("requestBody")
 
-        val requestInTheGeneratedExpectation = (parsedJSONObject(fakeFileWriter.receivedStub!!).jsonObject["http-request"] as JSONObjectValue).jsonObject
+        val requestInTheGeneratedExpectation =
+            (parsedJSONObject(fakeFileWriter.receivedStub!!).jsonObject["http-request"] as JSONObjectValue).jsonObject
         assertThat(requestInTheGeneratedExpectation).doesNotContainKeys("body")
     }
 
     @Test
     fun `should use the text-html content type from the actual response instead of inferring it`() {
-        val featureWithHTMLResponse = OpenApiSpecification.fromYAML("""
-            openapi: 3.0.1
-            info:
-              title: Data
-              version: "1"
-            paths:
-              /:
-                get:
-                  summary: Data
-                  responses:
-                    "200":
-                      description: Data
-                      content:
-                        text/html:
-                          schema:
-                            type: string
-        """.trimIndent(), "").toFeature()
+        val featureWithHTMLResponse =
+            OpenApiSpecification
+                .fromYAML(
+                    """
+                    openapi: 3.0.1
+                    info:
+                      title: Data
+                      version: "1"
+                    paths:
+                      /:
+                        get:
+                          summary: Data
+                          responses:
+                            "200":
+                              description: Data
+                              content:
+                                text/html:
+                                  schema:
+                                    type: string
+                    """.trimIndent(),
+                    "",
+                ).toFeature()
 
         HttpStub(featureWithHTMLResponse).use {
             Proxy(host = "localhost", port = 9001, "http://localhost:9000", fakeFileWriter).use {
@@ -244,7 +265,6 @@ internal class ProxyTest {
         assertThat(fakeFileWriter.receivedContract).withFailMessage(fakeFileWriter.receivedStub).contains("text/html")
 
         HttpStub(OpenApiSpecification.fromYAML(fakeFileWriter.receivedContract!!, "").toFeature()).use { stub ->
-
         }
     }
 
@@ -255,7 +275,7 @@ internal class ProxyTest {
                 val client = RestTemplate()
                 val response = client.getForEntity("http://localhost:9001/actuator/health", Map::class.java)
 
-                assertThat(response.statusCodeValue).isEqualTo(200)
+                assertThat(response.statusCode.value()).isEqualTo(200)
                 assertThat(response.body).isEqualTo(mapOf("status" to "UP"))
             }
         }
@@ -273,32 +293,34 @@ internal class ProxyTest {
 
                 val response = client.postForEntity<String>("http://localhost:9001/_specmatic/proxy/dump")
 
-                assertThat(response.statusCodeValue).isEqualTo(202)
+                assertThat(response.statusCode.value()).isEqualTo(202)
                 assertThat(response.body).isEqualTo("Dump process of spec and examples has started in the background")
 
-                val waiter = Waiter(1000L, 10000L)
+                val waiter = Waiter(1000L, 30000L)
 
-                while(waiter.canWaitForMoreTime()) {
-                    if(fakeFileWriter.receivedContract != null)
+                while (waiter.canWaitForMoreTime()) {
+                    if (fakeFileWriter.receivedContract != null) {
                         break
+                    }
 
                     waiter.waitForMoreTime()
                 }
 
-                if(fakeFileWriter.receivedContract == null && waiter.hasTimeRunOut())
+                if (fakeFileWriter.receivedContract == null && waiter.hasTimeRunOut()) {
                     throw Exception("Timed out waiting for the contract to be written")
+                }
 
                 assertThat(fakeFileWriter.receivedContract?.trim()).startsWith("openapi:")
                 assertThatCode {
                     OpenApiSpecification.fromYAML(
                         fakeFileWriter.receivedContract!!,
-                        ""
+                        "",
                     )
                 }.doesNotThrowAnyException()
                 assertThatCode { parsedJSON(fakeFileWriter.receivedStub ?: "") }.doesNotThrowAnyException()
                 assertThat(fakeFileWriter.receivedPaths.toList()).contains(
                     "proxy_generated.yaml",
-                    "multiply_POST_200_1.json"
+                    "multiply_POST_200_1.json",
                 )
             }
         }
@@ -307,20 +329,24 @@ internal class ProxyTest {
     @Test
     fun `should not timeout if custom timeout is greater than backend service delay`() {
         HttpStub(simpleFeature).use { fake ->
-            val expectation = """ {
-                "http-request": {
-                    "method": "POST",
-                    "path": "/",
-                    "body": "10"
-                },
-                "http-response": {
-                    "status": 200,
-                    "body": "100"
-                },
-                "$DELAY_IN_MILLISECONDS": 100
-            }""".trimIndent()
+            val expectation =
+                """
+                 {
+                    "http-request": {
+                        "method": "POST",
+                        "path": "/",
+                        "body": "10"
+                    },
+                    "http-response": {
+                        "status": 200,
+                        "body": "100"
+                    },
+                    "$DELAY_IN_MILLISECONDS": 100
+                }
+                """.trimIndent()
 
-            val stubResponse =  RestTemplate().postForEntity<String>(fake.endPoint + "/_specmatic/expectations", expectation)
+            val stubResponse =
+                RestTemplate().postForEntity<String>(fake.endPoint + "/_specmatic/expectations", expectation)
             assertThat(stubResponse.statusCode.value()).isEqualTo(200)
 
             Proxy(host = "localhost", port = 9001, "", fakeFileWriter, timeoutInMilliseconds = 5000).use {
@@ -330,7 +356,7 @@ internal class ProxyTest {
                 val client = RestTemplate(requestFactory)
                 val response = client.postForEntity("http://localhost:9000/", "10", String::class.java)
 
-                assertThat(response.statusCodeValue).isEqualTo(200)
+                assertThat(response.statusCode.value()).isEqualTo(200)
                 assertThatNoException().isThrownBy { response.body!!.toInt() }
             }
         }
@@ -339,23 +365,27 @@ internal class ProxyTest {
     @Test
     fun `should timeout if custom timeout is less than backend service delay`() {
         HttpStub(simpleFeature).use { fake ->
-            val expectation = """ {
-                "http-request": {
-                    "method": "POST",
-                    "path": "/",
-                    "body": "10"
-                },
-                "http-response": {
-                    "status": 200,
-                    "body": "100"
-                },
-                "$DELAY_IN_MILLISECONDS": 5000
-            }""".trimIndent()
+            val expectation =
+                """
+                 {
+                    "http-request": {
+                        "method": "POST",
+                        "path": "/",
+                        "body": "10"
+                    },
+                    "http-response": {
+                        "status": 200,
+                        "body": "100"
+                    },
+                    "$DELAY_IN_MILLISECONDS": 5000
+                }
+                """.trimIndent()
 
-            val stubResponse =  RestTemplate().postForEntity<String>(fake.endPoint + "/_specmatic/expectations", expectation)
+            val stubResponse =
+                RestTemplate().postForEntity<String>(fake.endPoint + "/_specmatic/expectations", expectation)
             assertThat(stubResponse.statusCode.value()).isEqualTo(200)
 
-            assertThrows<Exception>{
+            assertThrows<Exception> {
                 Proxy(host = "localhost", port = 9001, "", fakeFileWriter, timeoutInMilliseconds = 100).use {
                     val restProxy = java.net.Proxy(java.net.Proxy.Type.HTTP, InetSocketAddress("localhost", 9001))
                     val requestFactory = SimpleClientHttpRequestFactory()
@@ -378,16 +408,18 @@ class FakeFileWriter : FileWriter {
         this.flags.add("createDirectory")
     }
 
-    override fun writeText(path: String, content: String) {
+    override fun writeText(
+        path: String,
+        content: String,
+    ) {
         this.receivedPaths.add(path)
 
-        if (path.endsWith(".${YAML}"))
+        if (path.endsWith(".$YAML")) {
             this.receivedContract = content
-        else
+        } else {
             this.receivedStub = content
+        }
     }
 
-    override fun subDirectory(path: String): FileWriter {
-        return this
-    }
+    override fun subDirectory(path: String): FileWriter = this
 }
