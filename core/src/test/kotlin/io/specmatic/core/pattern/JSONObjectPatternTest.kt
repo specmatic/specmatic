@@ -997,7 +997,7 @@ internal class JSONObjectPatternTest {
 
         val dictionary = """
         Address:
-            - street: $street
+            street: $street
         """.let(Dictionary::fromYaml)
         val resolver = Resolver(
             newPatterns = mapOf(personTypeAlias to personPattern, addressTypeAlias to addressPattern),

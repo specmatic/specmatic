@@ -1,0 +1,20 @@
+{
+  "InputData": {
+    "name": "name",
+    "config": {
+      "name": "name",
+      "address": [
+        {}
+      ]
+    }
+  },
+  "OutputData": {
+    "data":  {
+      "id": 123,
+      "config": {
+        "name": "name",
+        "address": [{}]
+      }
+    }
+  }
+}

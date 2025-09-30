@@ -36,7 +36,7 @@ data class Dictionary(private val data: Map<String, Value>, private val focusedD
 
     fun <T> focusIntoSequence(pattern: T, childPattern: Pattern, key: String, resolver: Resolver): Dictionary where T: Pattern, T: SequenceType {
         return focusInto(pattern, key, resolver, focusedData) { value ->
-            when (val valueToMatch = getValueToMatch(value, childPattern, resolver, overrideNestedCheck = true)) {
+            when (val valueToMatch = getValueToMatch(value, childPattern, resolver, overrideNestedCheck = false)) {
                 is JSONObjectValue -> valueToMatch
                 is Value -> JSONObjectValue(mapOf(key to valueToMatch))
                 else -> value as? JSONObjectValue
@@ -79,7 +79,9 @@ data class Dictionary(private val data: Map<String, Value>, private val focusedD
 
     private fun getValueToMatch(value: Value, pattern: Pattern, resolver: Resolver, overrideNestedCheck: Boolean = false): Value? {
         if (value !is JSONArrayValue) return value.takeIf { pattern.isScalar(resolver) || overrideNestedCheck }
-        if (pattern !is SequenceType) return value.list.randomOrNull()
+        if (pattern !is SequenceType) {
+            return if (overrideNestedCheck) value else value.list.randomOrNull()
+        }
 
         val patternDepth = calculateDepth<Pattern>(pattern) { (resolvedHop(it, resolver) as? SequenceType)?.memberList?.patternList() }
         val valueDepth = calculateDepth<Value>(value) { (it as? JSONArrayValue)?.list }
