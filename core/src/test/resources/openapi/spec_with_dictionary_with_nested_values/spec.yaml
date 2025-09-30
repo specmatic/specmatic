@@ -1,0 +1,83 @@
+openapi: 3.0.0
+info:
+  title: Data API with Nested Dictionary
+  description: Data API with nested values in dictionary
+  version: 0.1.9
+servers:
+  - url: http://data.api.example.com/v1
+    description: Data API server
+paths:
+  /data:
+    post:
+      summary: data
+      description: data
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InputData'
+      responses:
+        '200':
+          description: Returns nested data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OutputData'
+components:
+  schemas:
+    InputData:
+      type: object
+      required:
+        - name
+        - config
+      properties:
+        name:
+          type: string
+        config:
+          type: object
+          required:
+            - name
+            - address
+          properties:
+            name:
+              type: string
+            address:
+              type: object
+              properties:
+                addressLineOne:
+                  type: string
+                addressLineTwo:
+                  type: string
+                landmark:
+                  type: object
+                  properties:
+                    addressLineOne:
+                      type: string
+    OutputData:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: object
+          required:
+            - id
+            - config
+          properties:
+            id:
+              type: integer
+            config:
+              type: object
+              required:
+                - name
+                - address
+              properties:
+                name:
+                  type: string
+                address:
+                  type: object
+                  properties:
+                    addressLineOne:
+                      type: string
+                    addressLineTwo:
+                      type: string

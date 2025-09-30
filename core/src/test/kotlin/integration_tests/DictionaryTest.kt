@@ -8,6 +8,7 @@ import io.specmatic.stub.*
 import io.specmatic.stub.createStubFromContracts
 import io.specmatic.stub.httpRequestLog
 import io.specmatic.stub.httpResponseLog
+import io.specmatic.test.ScenarioAsTest
 import io.specmatic.test.TestExecutor
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
@@ -792,6 +793,45 @@ class DictionaryTest {
                 assertThat(generatedValue).isInstanceOf(JSONObjectValue::class.java); generatedValue as JSONObjectValue
                 assertThat(generatedValue.jsonObject["test"]).isIn(value.list)
             }
+        }
+    }
+
+    @Test
+    fun `should generate test values based on a dictionary where an empty object is assigned to a top level key`() {
+        val feature = OpenApiSpecification
+            .fromFile("src/test/resources/openapi/spec_with_dictionary_with_nested_values/spec.yaml")
+            .toFeature()
+        val scenario = feature.scenarios.first()
+
+        val request = scenario.generateHttpRequest()
+
+        assertThat(request.body).isInstanceOf(JSONObjectValue::class.java)
+        val body = request.body as JSONObjectValue
+        val address = body.findFirstChildByPath("config.address") as JSONObjectValue
+        assertThat(address.jsonObject).isEmpty()
+    }
+
+    @Test
+    fun `stubbed responses for request with dictionary values where the dictionary has an empty object assigned to a top level key, should return correct nested response`() {
+        val feature = OpenApiSpecification
+            .fromFile("src/test/resources/openapi/spec_with_dictionary_with_nested_values/spec.yaml")
+            .toFeature()
+
+        HttpStub(feature).use { stub ->
+            val response = stub.client.execute(
+                HttpRequest(
+                    "POST", "/data", body = parsedJSON(
+                        """{"name": "name", "config": {"name": "name", "address": {}}}""".trimIndent()
+                    )
+                )
+            )
+            val jsonResponsePayload = response.body as JSONObjectValue
+            assertThat(jsonResponsePayload.findFirstChildByPath("data.id")?.toStringLiteral()).isEqualTo("123")
+            assertThat(jsonResponsePayload.findFirstChildByPath("data.config.name")?.toStringLiteral()).isEqualTo("name")
+            val address = jsonResponsePayload.findFirstChildByPath("data.config.address")
+            assertThat(address).isInstanceOf(JSONObjectValue::class.java)
+            address as JSONObjectValue
+            assertThat(address.jsonObject).isEmpty()
         }
     }
 
