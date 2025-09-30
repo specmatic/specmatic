@@ -1,5 +1,6 @@
 package application.mcp
 
+import io.specmatic.core.examples.module.FAILURE_EXIT_CODE
 import io.specmatic.mcp.constants.BASE_URL
 import io.specmatic.mcp.constants.TRANSPORT_KIND
 import io.specmatic.mcp.test.McpAutoTest
@@ -9,14 +10,13 @@ import java.util.concurrent.Callable
 import kotlinx.coroutines.runBlocking
 import picocli.CommandLine.Command
 import picocli.CommandLine.Option
-import kotlin.system.exitProcess
 
 @Command(
     name = "test",
     mixinStandardHelpOptions = true,
     description = ["Runs auto tests against a mcp server"]
 )
-class McpTestCommand : Callable<Unit> {
+class McpTestCommand : Callable<Int> {
     @Option(
         names = ["--url"],
         description = ["URL of the mcp server"],
@@ -73,14 +73,15 @@ class McpTestCommand : Callable<Unit> {
     )
     var verbose: Boolean = false
 
-    override fun call() {
+    override fun call(): Int {
         McpBaseCommand.configureLogger(verbose)
         try {
             System.setProperty(BASE_URL, baseUrl)
             System.setProperty(TRANSPORT_KIND, transportKind.name)
+            var exitCode = 0
 
             runBlocking {
-                McpAutoTest(
+                exitCode = McpAutoTest(
                     baseUrl = baseUrl,
                     transport = transportKind,
                     enableResiliency = enableResiliencyTests == true,
@@ -90,9 +91,10 @@ class McpTestCommand : Callable<Unit> {
                     skipTools = skipTools.toSet()
                 ).run()
             }
+            return exitCode
         } catch (e: Throwable) {
             e.printStackTrace()
-            exitProcess(1)
+            return FAILURE_EXIT_CODE
         }
     }
 }
