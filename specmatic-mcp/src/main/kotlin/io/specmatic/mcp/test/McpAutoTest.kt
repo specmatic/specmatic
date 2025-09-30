@@ -3,6 +3,8 @@ package io.specmatic.mcp.test
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.specmatic.core.Constants.Companion.ARTIFACTS_PATH
 import io.specmatic.core.Dictionary
+import io.specmatic.core.examples.module.FAILURE_EXIT_CODE
+import io.specmatic.core.examples.module.SUCCESS_EXIT_CODE
 import io.specmatic.core.log.logger
 import io.specmatic.mcp.report.McpConsoleReport
 import io.specmatic.mcp.report.McpJsonReport
@@ -44,6 +46,7 @@ class McpAutoTest(
 
         McpConsoleReport(executionResults.asSequence()).generate()
         McpJsonReport(executionResults).generate()
+        return@use if (executionResults.none { it.result.isSuccess() }) FAILURE_EXIT_CODE else SUCCESS_EXIT_CODE
     }
 
     private fun saveToolsSchemaResponse(tools: List<Tool>) {
