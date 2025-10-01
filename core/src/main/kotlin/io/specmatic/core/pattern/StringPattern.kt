@@ -145,7 +145,7 @@ data class StringPattern (
                 )
             }
             if (regex != null) {
-                val pattern = copy(regex = regex.plus("_"))
+                val pattern = copy(regex = regExSpec.negativeBasedOn(), maxLength = maxLength?.inc())
                 yield(HasValue(pattern, "invalid regex"))
             }
         }

@@ -635,6 +635,8 @@ data class HttpRequestPattern(
                         pattern.ifValue { HttpQueryParamPattern(pattern.value) }
                     }
                 }
+            }.ifEmpty {
+                sequenceOf(HasValue(HttpQueryParamPattern(emptyMap())))
             }
 
             val newHeadersPattern: Sequence<ReturnValue<HttpHeadersPattern>> = returnValue(breadCrumb = BreadCrumb.PARAM_HEADER.value) {
@@ -653,9 +655,11 @@ data class HttpRequestPattern(
                         BreadCrumb.PARAM_HEADER.value
                     )
                 }
+            }.ifEmpty {
+                sequenceOf(HasValue(HttpHeadersPattern()))
             }
 
-            val newBodies: Sequence<ReturnValue<Pattern>> = attempt(breadCrumb = "BODY") {
+            val newBodies = attempt(breadCrumb = "BODY") {
                 val rawRequestBody = row.getFieldOrNull(REQUEST_BODY_FIELD) ?: return@attempt resolver.generateHttpRequestBodies(this.body, row)
                 val parsedValue = runCatching { body.parse(rawRequestBody, resolver) }.getOrElse { e ->
                     if (isInvalidRequestResponse(status)) StringValue(rawRequestBody)
@@ -671,12 +675,23 @@ data class HttpRequestPattern(
                     resolver.generateHttpRequestBodies(this.body, row, requestBodyAsIs)
                 else
                     sequenceOf(HasValue(requestBodyAsIs))
+            }.ifEmpty {
+                sequenceOf(HasValue(NoBodyPattern))
             }
 
-            val newFormFieldsPatterns: Sequence<ReturnValue<Map<String, Pattern>>> =
-                newMapBasedOn(formFieldsPattern, row, resolver).map { it.value }.map { HasValue(it) }
-            val newFormDataPartLists: Sequence<ReturnValue<List<MultiPartFormDataPattern>>> =
-                newMultiPartBasedOn(multiPartFormDataPattern, row, resolver).map { HasValue(it) }
+            val newFormFieldsPatterns: Sequence<ReturnValue<Map<String, Pattern>>> = newMapBasedOn(formFieldsPattern, row, resolver).map {
+                it.value
+            }.map {
+                HasValue(it)
+            }.ifEmpty {
+                sequenceOf(HasValue(emptyMap()))
+            }
+
+            val newFormDataPartLists: Sequence<ReturnValue<List<MultiPartFormDataPattern>>> = newMultiPartBasedOn(multiPartFormDataPattern, row, resolver).map {
+                HasValue(it)
+            }.ifEmpty {
+                sequenceOf(HasValue(emptyList()))
+            }
 
             newHttpPathPatterns.flatMap(BreadCrumb.PARAM_PATH.value) { newPathParamPattern ->
                 newQueryParamsPatterns.flatMap(BreadCrumb.PARAM_QUERY.value) { newQueryParamPattern ->
@@ -751,18 +766,32 @@ data class HttpRequestPattern(
             val newHttpPathPatterns = httpPathPattern?.let { httpPathPattern ->
                 val newURLPathSegmentPatternsList = httpPathPattern.newBasedOn(resolver)
                 newURLPathSegmentPatternsList.map { HttpPathPattern(it, httpPathPattern.path) }
-            } ?: sequenceOf<HttpPathPattern?>(null)
+            }?.ifEmpty { sequenceOf(null) } ?: sequenceOf<HttpPathPattern?>(null)
 
-            val newQueryParamsPatterns = httpQueryParamPattern.newBasedOn(resolver)
+            val newQueryParamsPatterns = httpQueryParamPattern.newBasedOn(resolver).ifEmpty {
+                sequenceOf(HttpQueryParamPattern(emptyMap()))
+            }
+
             val newBodies = attempt(breadCrumb = "BODY") {
                 resolver.withCyclePrevention(body) { cyclePreventedResolver ->
                     body.newBasedOn(cyclePreventedResolver)
                 }
+            }.ifEmpty {
+                sequenceOf(NoBodyPattern)
             }
-            val newHeadersPattern = headersPattern.newBasedOn(resolver)
-            val newFormFieldsPatterns = newBasedOn(formFieldsPattern, resolver)
+
+            val newHeadersPattern = headersPattern.newBasedOn(resolver).ifEmpty {
+                sequenceOf(HttpHeadersPattern())
+            }
+
+            val newFormFieldsPatterns = newBasedOn(formFieldsPattern, resolver).ifEmpty {
+                sequenceOf(emptyMap())
+            }
+
             //TODO: Backward Compatibility
-            val newFormDataPartLists = newMultiPartBasedOn(multiPartFormDataPattern, Row(), resolver)
+            val newFormDataPartLists = newMultiPartBasedOn(multiPartFormDataPattern, Row(), resolver).ifEmpty {
+                sequenceOf(emptyList())
+            }
 
             newHttpPathPatterns.flatMap { newPathParamPattern ->
                 newQueryParamsPatterns.flatMap { newQueryParamPattern ->
@@ -979,9 +1008,7 @@ fun newMultiPartBasedOn(
 }
 
 fun multiPartListCombinations(values: List<Sequence<MultiPartFormDataPattern?>>): Sequence<List<MultiPartFormDataPattern>> {
-    if (values.isEmpty())
-        return sequenceOf(emptyList())
-
+    if (values.isEmpty()) return emptySequence()
     val value: Sequence<MultiPartFormDataPattern?> = values.last()
     val subLists = multiPartListCombinations(values.dropLast(1))
 

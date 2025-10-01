@@ -164,11 +164,13 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
                     else
                         it
                 }
+
                 val patternMap = queryParams.mapValues {
                     if (it.value is QueryParameterScalarPattern) return@mapValues it.value.pattern as Pattern
                     (it.value as QueryParameterArrayPattern).pattern.firstOrNull() ?: EmptyStringPattern
                 }
 
+                if (patternMap.isEmpty()) return@attempt emptySequence()
                 allOrNothingCombinationIn(patternMap) { pattern ->
                     NegativeNonStringlyPatterns().negativeBasedOn(pattern.mapKeys { withoutOptionality(it.key) }, row, resolver, config)
                 }.plus(

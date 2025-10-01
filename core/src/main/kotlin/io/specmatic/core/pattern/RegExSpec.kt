@@ -33,6 +33,10 @@ class RegExSpec(regex: String?) {
 
     private val isFinite = this.regex != null && !Generex(this.regex).isInfinite
 
+    fun negativeBasedOn(): String {
+        return "${regex}_"
+    }
+
     fun validateMinLength(minLength: Int?) {
         if (regex == null) return
         minLength?.let {
@@ -56,11 +60,16 @@ class RegExSpec(regex: String?) {
         }
     }
 
+    fun validateLength(length: Int) {
+        if (regex == null) return
+        generateFromRegex(regex, length, length)
+    }
+
     fun generateShortestStringOrRandom(minLen: Int): String {
         if (regex == null) return randomString(minLen)
         val shortestExample = generateShortestString()
         if (minLen <= shortestExample.length) return shortestExample
-        return Generex(regex).random(minLen, minLen)
+        return Generex(regex).randomWithRetryOnStackOverflow(minLen, minLen)
     }
 
     private fun generateShortestString(): String =
@@ -68,10 +77,12 @@ class RegExSpec(regex: String?) {
 
     fun generateLongestStringOrRandom(maxLen: Int): String {
         if (regex == null) return randomString(maxLen)
+
         val generex = Generex(regex)
         if (generex.isInfinite) {
-            return generex.random(maxLen, maxLen)
+            return generex.randomWithRetryOnStackOverflow(maxLen, maxLen)
         }
+
         val automaton = RegExp(regex).toAutomaton()
         return longestFrom(automaton.initialState, maxLen, mutableMapOf())
             ?: throw IllegalStateException("No valid string found")
@@ -89,7 +100,7 @@ class RegExSpec(regex: String?) {
 
     private fun String.validateRegex(): String {
         return runCatching {
-            val random = Generex(this).random()
+            val random = Generex(this).randomWithRetryOnStackOverflow()
             if (!Regex(this).matches(random)) {
                 logger.log("WARNING: Please check the regex $originalRegex. We generated a random string $random and the regex does not match the string.")
             }
@@ -172,20 +183,29 @@ class RegExSpec(regex: String?) {
         }
     }
 
-    private fun generateFromRegex(regex: String, minLength: Int, maxLength: Int? = null): String {
-        return try {
-            if (maxLength == null) {
-                Generex(regex).random(minLength)
-            } else {
-                Generex(regex).random(minLength, maxLength)
-            }
-        } catch (e: StackOverflowError) {
-            //TODO: This is a workaround for a bug in Generex. Remove this when the bug is fixed.
-            generateFromRegex(regex, minLength, maxLength)
-        }
+    fun generateFromRegex(regex: String, minLength: Int, maxLength: Int? = null): String {
+        return Generex(regex).randomWithRetryOnStackOverflow(minLength, maxLength)
     }
 
     override fun toString(): String {
         return regex ?: "regex not set"
+    }
+
+    //TODO: This is a workaround for a bug in Generex. Remove this when the bug is fixed.
+    private fun Generex.randomWithRetryOnStackOverflow(minLen: Int = 1, maxLength: Int? = null, remainingRetries: Int = 5): String {
+        return try {
+            this.random(minLen, maxLength ?: Int.MAX_VALUE)
+        } catch (e: StackOverflowError) {
+            if (remainingRetries > 0) {
+                logger.debug("StackOverflowError while generating for Regex: $regex, minLen: $minLen, maxLength: $maxLength, retrying...")
+                this.randomWithRetryOnStackOverflow(minLen, maxLength, remainingRetries - 1)
+            } else {
+                throw ContractException(
+                    errorMessage = "StackOverflowError while generating for Regex: $regex, minLen: $minLen, maxLength: $maxLength",
+                    breadCrumb = regex.orEmpty(),
+                    exceptionCause = e
+                )
+            }
+        }
     }
 }
