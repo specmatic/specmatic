@@ -380,9 +380,17 @@ fun parsedScalarValue(content: String?): Value {
 }
 
 fun readValue(file: File): Value = processContent(file.readText(), file.extension)
+fun readValue(content: String, extension: String): Value = processContent(content, extension)
 
 inline fun <reified T : Value> readValueAs(file: File): T {
     return when (val parsedValue = readValue(file)) {
+        is T -> parsedValue
+        else -> throw ClassCastException("Expected ${T::class.simpleName} but got ${parsedValue::class.simpleName}")
+    }
+}
+
+inline fun <reified T : Value> readValueAs(content: String, extension: String): T {
+    return when (val parsedValue = readValue(content, extension)) {
         is T -> parsedValue
         else -> throw ClassCastException("Expected ${T::class.simpleName} but got ${parsedValue::class.simpleName}")
     }

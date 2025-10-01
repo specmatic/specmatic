@@ -1,5 +1,12 @@
 package io.specmatic.core
 
+import com.fasterxml.jackson.core.JsonPointer
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.node.ArrayNode
+import com.fasterxml.jackson.databind.node.ObjectNode
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+import com.fasterxml.jackson.module.kotlin.contains
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.exceptionCauseMessage
@@ -122,8 +129,7 @@ data class Dictionary(private val data: Map<String, Value>, private val focusedD
 
             return runCatching {
                 logger.log("Using dictionary file ${file.path}")
-                val dictionaryContent = readValueAs<JSONObjectValue>(file).jsonObject
-                from(dictionaryContent)
+                from(data = DictionaryReader.read(file).jsonObject)
             }.getOrElse { e ->
                 logger.debug(e)
                 throw ContractException(
@@ -153,5 +159,92 @@ data class Dictionary(private val data: Map<String, Value>, private val focusedD
         fun empty(): Dictionary {
             return Dictionary(data = emptyMap())
         }
+    }
+}
+
+object DictionaryReader {
+    private const val SPECMATIC_CONSTANTS = "SPECMATIC_CONSTANTS"
+
+    fun read(dictFile: File): JSONObjectValue {
+        val node = ObjectMapper(YAMLFactory()).readTree(dictFile)
+
+        if (node !is ObjectNode) return readValueAs<JSONObjectValue>(dictFile)
+
+        val constants = extractAndRemoveConstantsFromNode(node)
+        if (constants.isEmpty()) return readValueAs<JSONObjectValue>(dictFile)
+
+        findConstantPlaceholders(node, constants).forEach { (pointer, value) ->
+            replaceValueAtPointerWithGivenValue(pointer, value, node)
+        }
+
+        return readValueAs<JSONObjectValue>(
+            content = ObjectMapper().writeValueAsString(node),
+            extension = dictFile.extension
+        )
+    }
+
+    private fun extractAndRemoveConstantsFromNode(node: ObjectNode): Map<String, Any> {
+        if(node.contains(SPECMATIC_CONSTANTS).not()) return emptyMap()
+
+        val constants = ObjectMapper().convertValue(
+            node.get(SPECMATIC_CONSTANTS),
+            Map::class.java
+        ) as Map<String, Any>
+
+        node.remove(SPECMATIC_CONSTANTS)
+        return constants
+    }
+
+    private fun replaceValueAtPointerWithGivenValue(
+        pointer: JsonPointer,
+        value: Any,
+        json: ObjectNode
+    ) {
+        val parent = json.at(pointer.head())
+        val propertyName = pointer.last().matchingProperty
+        val arrayIndex = pointer.last().matchingIndex
+
+        when {
+            parent.isObject && propertyName != null -> {
+                (parent as ObjectNode).replace(propertyName, ObjectMapper().valueToTree(value))
+            }
+
+            parent.isArray && arrayIndex >= 0 -> {
+                val arrayNode = parent as ArrayNode
+                arrayNode.set(arrayIndex, ObjectMapper().valueToTree<JsonNode>(value))
+            }
+        }
+    }
+
+    private fun findConstantPlaceholders(
+        dictNode: JsonNode,
+        constants: Map<String, Any>,
+        path: String = "",
+        replacements: MutableMap<JsonPointer, Any> = mutableMapOf()
+    ): Map<JsonPointer, Any> {
+        when {
+            dictNode.isTextual -> {
+                val text = dictNode.asText()
+                if (text.startsWith("<") && text.endsWith(">")) {
+                    val key = text.substring(1, text.length - 1)
+                    constants[key]?.let { value ->
+                        replacements.put(JsonPointer.compile(path), value)
+                    }
+                }
+            }
+
+            dictNode.isObject -> {
+                dictNode.properties().forEach { (fieldName, fieldValue) ->
+                    findConstantPlaceholders(fieldValue, constants, "$path/$fieldName", replacements)
+                }
+            }
+
+            dictNode.isArray -> {
+                dictNode.forEachIndexed { index, element ->
+                    findConstantPlaceholders(element, constants, "$path/$index", replacements)
+                }
+            }
+        }
+        return replacements.toMap()
     }
 }
