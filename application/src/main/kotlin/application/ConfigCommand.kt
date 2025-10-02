@@ -13,6 +13,7 @@ import io.specmatic.core.config.toSpecmaticConfig
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.exitWithMessage
+import io.specmatic.core.utilities.yamlObjectMapper
 import picocli.CommandLine.Command
 import picocli.CommandLine.Option
 import java.io.File
@@ -85,7 +86,7 @@ class ConfigCommand : Callable<Int> {
         }
 
         private fun getObjectMapper(): ObjectMapper {
-            val objectMapper = ObjectMapper(YAMLFactory()).apply {
+            val objectMapper = yamlObjectMapper.copy().apply {
                 registerKotlinModule()
                 setDefaultPropertyInclusion(
                     JsonInclude.Value.construct(

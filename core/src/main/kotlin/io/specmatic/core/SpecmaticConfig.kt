@@ -47,6 +47,7 @@ import io.specmatic.core.utilities.GitRepo
 import io.specmatic.core.utilities.LocalFileSystemSource
 import io.specmatic.core.utilities.WebSource
 import io.specmatic.core.utilities.exceptionCauseMessage
+import io.specmatic.core.utilities.jsonObjectMapper
 import io.specmatic.core.utilities.readEnvVarOrProperty
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
@@ -433,7 +434,7 @@ data class SpecmaticConfig(
 
     @JsonIgnore
     fun parsedDefaultPatternValues(): Map<String, Value> {
-        return parsedJSONObject(ObjectMapper().writeValueAsString(defaultPatternValues)).jsonObject
+        return parsedJSONObject(jsonObjectMapper.writeValueAsString(defaultPatternValues)).jsonObject
     }
 
     @JsonIgnore
@@ -595,7 +596,7 @@ data class SpecmaticConfig(
         val envConfigFromFile = environments?.get(envName) ?: return JSONObjectValue()
 
         try {
-            return parsedJSONObject(content = ObjectMapper().writeValueAsString(envConfigFromFile))
+            return parsedJSONObject(content = jsonObjectMapper.writeValueAsString(envConfigFromFile))
         } catch(e: Throwable) {
             throw ContractException("Error loading Specmatic configuration: ${e.message}")
         }

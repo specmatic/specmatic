@@ -1,11 +1,11 @@
 package io.specmatic.test.reports.coverage.html
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import io.specmatic.core.ReportFormatter
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.SuccessCriteria
 import io.specmatic.core.TestResult
+import io.specmatic.core.utilities.jsonObjectMapper
 import io.specmatic.test.reports.coverage.console.Remarks
 import io.specmatic.test.reports.coverage.html.HtmlTemplateConfiguration.Companion.configureTemplateEngine
 import io.specmatic.test.reports.renderers.GroupedScenarioData
@@ -187,10 +187,9 @@ class HtmlReport(private val htmlReportInformation: HtmlReportInformation, priva
     }
 
     private fun dumpTestData(testData: GroupedScenarioData): String {
-        val mapper = ObjectMapper()
-        val json = mapper.writeValueAsString(testData)
-        mapper.enable(SerializationFeature.INDENT_OUTPUT)
-        writeToFileToAssets(outputDirectory, "test_data.json", mapper.writeValueAsString(testData))
+        val json = jsonObjectMapper.writeValueAsString(testData)
+        jsonObjectMapper.enable(SerializationFeature.INDENT_OUTPUT)
+        writeToFileToAssets(outputDirectory, "test_data.json", jsonObjectMapper.writeValueAsString(testData))
         return json
     }
 }
