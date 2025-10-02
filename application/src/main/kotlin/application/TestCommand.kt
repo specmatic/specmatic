@@ -6,10 +6,12 @@ import io.specmatic.core.DEFAULT_TIMEOUT_IN_MILLISECONDS
 import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_PARALLELISM
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_TIMEOUT
+import io.specmatic.core.utilities.Flags.Companion.USE_CURRENT_BRANCH_FOR_CENTRAL_REPO
 import io.specmatic.core.utilities.Flags.Companion.getStringValue
 import io.specmatic.core.utilities.exitWithMessage
 import io.specmatic.core.utilities.newXMLBuilder
@@ -135,6 +137,13 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     )
     var strictMode: Boolean = false
 
+    @Option(
+        names = ["--use-current-branch-for-central-repo"],
+        description = ["Use the current branch name for contract source branch when not on default branch"],
+        required = false
+    )
+    var useCurrentBranchForCentralRepo: Boolean = false
+
     override fun call() = try {
         setParallelism()
 
@@ -172,6 +181,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         System.setProperty(FILTER, filter)
         System.setProperty(OVERLAY_FILE_PATH, overlayFilePath.orEmpty())
         System.setProperty(STRICT_MODE, strictMode.toString())
+        System.setProperty(USE_CURRENT_BRANCH_FOR_CENTRAL_REPO, useCurrentBranchForCentralRepo.toString())
 
         if(exampleDirs.isNotEmpty()) {
             System.setProperty(EXAMPLE_DIRECTORIES, exampleDirs.joinToString(","))

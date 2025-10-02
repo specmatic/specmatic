@@ -40,7 +40,18 @@ fun clone(workingDirectory: File, gitRepo: GitRepo): File {
 fun checkout(workingDirectory: File, branchName: String) {
     logger.log("Checking out branch: $branchName")
     try {
-        SystemGit(workingDirectory.path).checkout(branchName)
+        val git = SystemGit(workingDirectory.path)
+        val useCurrentBranch = io.specmatic.core.utilities.Flags.getBooleanValue(
+            io.specmatic.core.utilities.Flags.USE_CURRENT_BRANCH_FOR_CENTRAL_REPO,
+            false
+        )
+        
+        if (useCurrentBranch) {
+            // Use -B flag to create/reset branch if needed
+            git.checkoutWithCreate(branchName)
+        } else {
+            git.checkout(branchName)
+        }
     } catch(exception: Exception) {
         logger.debug("Could not checkout branch $branchName")
         logger.debug(exception.localizedMessage ?: exception.message ?: "")

@@ -26,6 +26,7 @@ import io.specmatic.core.config.Switch
 import io.specmatic.core.config.toSpecmaticConfig
 import io.specmatic.core.config.v3.SpecExecutionConfig
 import io.specmatic.core.config.v3.ConsumesDeserializer
+import io.specmatic.core.git.SystemGit
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSONObject
@@ -393,16 +394,41 @@ data class SpecmaticConfig(
             val testGenerativeMap = source.specToTestGenerativeMap()
             val testPaths = testBaseUrlMap.entries.map { ContractSourceEntry(it.key, it.value, testGenerativeMap[it.key]) }
 
+            val effectiveBranch = getEffectiveBranchForSource(source.branch)
+
             when (source.provider) {
                 git -> when (source.repository) {
                     null -> GitMonoRepo(testPaths, stubPaths, source.provider.toString())
-                    else -> GitRepo(source.repository, source.branch, testPaths, stubPaths, source.provider.toString())
+                    else -> GitRepo(source.repository, effectiveBranch, testPaths, stubPaths, source.provider.toString())
                 }
 
                 filesystem -> LocalFileSystemSource(source.directory ?: ".", testPaths, stubPaths)
 
                 web -> WebSource(testPaths, stubPaths)
             }
+        }
+    }
+
+    private fun getEffectiveBranchForSource(configuredBranch: String?): String? {
+        val useCurrentBranch = getBooleanValue(Flags.USE_CURRENT_BRANCH_FOR_CENTRAL_REPO, false)
+        if (!useCurrentBranch) {
+            return configuredBranch
+        }
+
+        return try {
+            val git = SystemGit()
+            val currentBranch = git.currentBranch()
+            val defaultBranch = git.getOriginDefaultBranchName()
+            
+            if (currentBranch == defaultBranch) {
+                configuredBranch
+            } else {
+                logger.log("Using current branch '$currentBranch' for contract source instead of configured branch")
+                currentBranch
+            }
+        } catch (e: Throwable) {
+            logger.log("Could not determine current branch, using configured branch: ${e.message}")
+            configuredBranch
         }
     }
 

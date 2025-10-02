@@ -48,6 +48,7 @@ class SystemGit(override val workingDirectory: String = ".", private val prefix:
     override fun resetMixed(): SystemGit = this.also { execute(Configuration.gitCommand, "reset", "--mixed", "HEAD") }
     override fun mergeAbort(): SystemGit = this.also { execute(Configuration.gitCommand, "merge", "--aborg") }
     override fun checkout(branchName: String): SystemGit = this.also { execute(Configuration.gitCommand, "checkout", branchName) }
+    override fun checkoutWithCreate(branchName: String): SystemGit = this.also { execute(Configuration.gitCommand, "checkout", "-B", branchName) }
     override fun merge(branchName: String): SystemGit = this.also { execute(Configuration.gitCommand, "merge", branchName) }
     override fun clone(gitRepositoryURI: String, cloneDirectory: File): SystemGit =
         this.also { executeWithAuth("clone", evaluateEnvVariablesInGitRepoURI(gitRepositoryURI, System.getenv()), cloneDirectory.absolutePath) }
