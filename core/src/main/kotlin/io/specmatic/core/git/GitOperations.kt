@@ -37,16 +37,12 @@ fun clone(workingDirectory: File, gitRepo: GitRepo): File {
     return cloneDirectory
 }
 
-fun checkout(workingDirectory: File, branchName: String) {
+fun checkout(workingDirectory: File, branchName: String, useCurrentBranchForCentralRepo: Boolean = false) {
     logger.log("Checking out branch: $branchName")
     try {
         val git = SystemGit(workingDirectory.path)
-        val useCurrentBranch = io.specmatic.core.utilities.Flags.getBooleanValue(
-            io.specmatic.core.utilities.Flags.USE_CURRENT_BRANCH_FOR_CENTRAL_REPO,
-            false
-        )
         
-        if (useCurrentBranch) {
+        if (useCurrentBranchForCentralRepo) {
             // Use -B flag to create/reset branch if needed
             git.checkoutWithCreate(branchName)
         } else {

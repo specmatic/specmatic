@@ -387,19 +387,19 @@ data class SpecmaticConfig(
 
 
     @JsonIgnore
-    fun loadSources(): List<ContractSource> {
+    fun loadSources(useCurrentBranchForCentralRepo: Boolean = false): List<ContractSource> {
         return sources.map { source ->
             val stubPaths = source.specToStubBaseUrlMap().entries.map { ContractSourceEntry(it.key, it.value) }
             val testBaseUrlMap = source.specToTestBaseUrlMap()
             val testGenerativeMap = source.specToTestGenerativeMap()
             val testPaths = testBaseUrlMap.entries.map { ContractSourceEntry(it.key, it.value, testGenerativeMap[it.key]) }
 
-            val effectiveBranch = getEffectiveBranchForSource(source.branch)
+            val effectiveBranch = getEffectiveBranchForSource(source.branch, useCurrentBranchForCentralRepo)
 
             when (source.provider) {
                 git -> when (source.repository) {
                     null -> GitMonoRepo(testPaths, stubPaths, source.provider.toString())
-                    else -> GitRepo(source.repository, effectiveBranch, testPaths, stubPaths, source.provider.toString())
+                    else -> GitRepo(source.repository, effectiveBranch, testPaths, stubPaths, source.provider.toString(), useCurrentBranchForCentralRepo)
                 }
 
                 filesystem -> LocalFileSystemSource(source.directory ?: ".", testPaths, stubPaths)
@@ -409,9 +409,8 @@ data class SpecmaticConfig(
         }
     }
 
-    private fun getEffectiveBranchForSource(configuredBranch: String?): String? {
-        val useCurrentBranch = getBooleanValue(Flags.USE_CURRENT_BRANCH_FOR_CENTRAL_REPO, false)
-        if (!useCurrentBranch) {
+    private fun getEffectiveBranchForSource(configuredBranch: String?, useCurrentBranchForCentralRepo: Boolean): String? {
+        if (!useCurrentBranchForCentralRepo) {
             return configuredBranch
         }
 

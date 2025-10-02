@@ -181,7 +181,9 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         System.setProperty(FILTER, filter)
         System.setProperty(OVERLAY_FILE_PATH, overlayFilePath.orEmpty())
         System.setProperty(STRICT_MODE, strictMode.toString())
-        System.setProperty(USE_CURRENT_BRANCH_FOR_CENTRAL_REPO, useCurrentBranchForCentralRepo.toString())
+        if(useCurrentBranchForCentralRepo) {
+            System.setProperty(USE_CURRENT_BRANCH_FOR_CENTRAL_REPO, useCurrentBranchForCentralRepo.toString())
+        }
 
         if(exampleDirs.isNotEmpty()) {
             System.setProperty(EXAMPLE_DIRECTORIES, exampleDirs.joinToString(","))

@@ -160,7 +160,6 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         }
         val baseUrl = endPointFromHostAndPort(host, port, keyData = certInfo.getHttpsCert())
         System.setProperty(SPECMATIC_BASE_URL, baseUrl)
-        System.setProperty(USE_CURRENT_BRANCH_FOR_CENTRAL_REPO, useCurrentBranchForCentralRepo.toString())
 
         try {
             contractSources = when (contractPaths.isEmpty()) {
@@ -168,7 +167,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
                     specmaticConfigPath = File(Configuration.configFilePath).canonicalPath
 
                     logger.debug("Using the spec paths configured for stubs in the configuration file '$specmaticConfigPath'")
-                    specmaticConfig.contractStubPathData()
+                    specmaticConfig.contractStubPathData(useCurrentBranchForCentralRepo)
                 }
                 else -> contractPaths.map {
                     ContractPathData("", it)
