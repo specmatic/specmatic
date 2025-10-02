@@ -60,7 +60,7 @@ internal class UtilitiesTest {
         every { clone(File(".spec/repos"), any()) }.returns(File(".spec/repos/repo1"))
 
 
-        val contractPaths = contractFilePathsFrom("/configFilePath", ".$CONTRACT_EXTENSION") { source -> source.stubContracts }
+        val contractPaths = contractFilePathsFrom("/configFilePath", ".$CONTRACT_EXTENSION", { source -> source.stubContracts })
         val expectedContractPaths = listOf(
             ContractPathData(".spec/repos/repo1", ".spec/repos/repo1/a/1.$CONTRACT_EXTENSION", "git", "https://repo1",  specificationPath = "a/1.spec"),
             ContractPathData(".spec/repos/repo1", ".spec/repos/repo1/b/1.$CONTRACT_EXTENSION", "git", "https://repo1",  specificationPath = "b/1.spec"),
@@ -85,7 +85,7 @@ internal class UtilitiesTest {
         every { clone(File(".spec/repos"), any()) }.returns(repositoryDirectory)
         every { checkout(repositoryDirectory, branchName) }.returns(Unit)
 
-        val contractPaths = contractFilePathsFrom("/configFilePath", ".$CONTRACT_EXTENSION") { source -> source.stubContracts }
+        val contractPaths = contractFilePathsFrom("/configFilePath", ".$CONTRACT_EXTENSION", { source -> source.stubContracts })
         val expectedContractPaths = listOf(
             ContractPathData(".spec/repos/repo1", ".spec/repos/repo1/a/1.$CONTRACT_EXTENSION", "git", "https://repo1", "featureBranch", "a/1.spec"),
             ContractPathData(".spec/repos/repo1", ".spec/repos/repo1/b/1.$CONTRACT_EXTENSION", "git", "https://repo1", "featureBranch", "b/1.spec"),
@@ -121,7 +121,7 @@ internal class UtilitiesTest {
         every { getSystemGitWithAuth(any()) }.returns(mockGitCommand)
         every { getSystemGit(any()) }.returns(mockGitCommand)
 
-        val contractPaths = contractFilePathsFrom("/configFilePath", ".$CONTRACT_EXTENSION") { source -> source.stubContracts }
+        val contractPaths = contractFilePathsFrom("/configFilePath", ".$CONTRACT_EXTENSION", { source -> source.stubContracts })
         val expectedContractPaths = listOf(
                 ContractPathData(".spec/repos/repo1", ".spec/repos/repo1/a/1.$CONTRACT_EXTENSION", "git", "https://repo1",  specificationPath = "a/1.spec"),
                 ContractPathData(".spec/repos/repo1", ".spec/repos/repo1/b/1.$CONTRACT_EXTENSION", "git", "https://repo1",  specificationPath = "b/1.spec"),
@@ -174,7 +174,7 @@ internal class UtilitiesTest {
         every { clone(File(".spec/repos"), any()) }.returns(File(".spec/repos/repo1"))
 
 
-        val contractPaths = contractFilePathsFrom("/configFilePath", ".$CONTRACT_EXTENSION") { source -> source.stubContracts }
+        val contractPaths = contractFilePathsFrom("/configFilePath", ".$CONTRACT_EXTENSION", { source -> source.stubContracts })
         val expectedContractPaths = listOf(
             ContractPathData(".spec/repos/repo1", ".spec/repos/repo1/a/1.$CONTRACT_EXTENSION", "git", "https://repo1",  specificationPath = "a/1.spec"),
             ContractPathData(".spec/repos/repo1", ".spec/repos/repo1/b/1.$CONTRACT_EXTENSION", "git", "https://repo1",  specificationPath = "b/1.spec"),
@@ -205,7 +205,7 @@ internal class UtilitiesTest {
         every { clone(File(".spec/repos"), any()) }.returns(File(".spec/repos/repo1"))
 
 
-        val contractPaths = contractFilePathsFrom("/configFilePath", ".$CONTRACT_EXTENSION") { source -> source.stubContracts }
+        val contractPaths = contractFilePathsFrom("/configFilePath", ".$CONTRACT_EXTENSION", { source -> source.stubContracts })
         val expectedContractPaths = listOf(
             ContractPathData(".spec/repos/repo1", ".spec/repos/repo1/a/1.$CONTRACT_EXTENSION", "git", "https://repo1",  specificationPath = "a/1.spec"),
             ContractPathData(".spec/repos/repo1", ".spec/repos/repo1/b/1.$CONTRACT_EXTENSION", "git", "https://repo1",  specificationPath = "b/1.spec"),
@@ -238,8 +238,8 @@ internal class UtilitiesTest {
         every { anyConstructed<SystemGit>().gitRoot() }.returns("/path/to/monorepo")
 
         val currentPath = File(".").canonicalPath
-        val testPaths = contractFilePathsFrom(configFilePath, ".$CONTRACT_EXTENSION") { source -> source.testContracts }
-        val stubPaths = contractFilePathsFrom(configFilePath, ".$CONTRACT_EXTENSION") { source -> source.stubContracts }
+        val testPaths = contractFilePathsFrom(configFilePath, ".$CONTRACT_EXTENSION", { source -> source.testContracts })
+        val stubPaths = contractFilePathsFrom(configFilePath, ".$CONTRACT_EXTENSION", { source -> source.stubContracts })
         val expectedStubPaths = listOf(
             ContractPathData("/path/to/monorepo", "$currentPath/monorepo/a/1.$CONTRACT_EXTENSION", provider = SourceProvider.git.toString(), specificationPath = "../a/1.spec"),
             ContractPathData("/path/to/monorepo", "$currentPath/monorepo/b/1.$CONTRACT_EXTENSION", provider = SourceProvider.git.toString(), specificationPath = "../b/1.spec")
