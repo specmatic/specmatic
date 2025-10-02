@@ -1,6 +1,7 @@
 package io.specmatic.core
 
 import com.fasterxml.jackson.core.JsonPointer
+import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ArrayNode
@@ -10,6 +11,8 @@ import com.fasterxml.jackson.module.kotlin.contains
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.exceptionCauseMessage
+import io.specmatic.core.utilities.jsonObjectMapper
+import io.specmatic.core.utilities.yamlObjectMapper
 import io.specmatic.core.utilities.yamlStringToValue
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
@@ -166,7 +169,7 @@ object DictionaryReader {
     private const val SPECMATIC_CONSTANTS = "SPECMATIC_CONSTANTS"
 
     fun read(dictFile: File): JSONObjectValue {
-        val node = ObjectMapper(YAMLFactory()).readTree(dictFile)
+        val node = yamlObjectMapper.readTree(dictFile)
 
         if (node !is ObjectNode) return readValueAs<JSONObjectValue>(dictFile)
 
@@ -178,7 +181,7 @@ object DictionaryReader {
         }
 
         return readValueAs<JSONObjectValue>(
-            content = ObjectMapper().writeValueAsString(node),
+            content = jsonObjectMapper.writeValueAsString(node),
             extension = dictFile.extension
         )
     }
@@ -187,10 +190,10 @@ object DictionaryReader {
         if(node.contains(SPECMATIC_CONSTANTS).not()) return emptyMap()
 
         val constants = try {
-            ObjectMapper().convertValue(
+            jsonObjectMapper.convertValue(
                 node.get(SPECMATIC_CONSTANTS),
-                Map::class.java
-            ) as Map<String, Any>
+                object : TypeReference<Map<String, Any>>() {}
+            )
         } catch(e: Throwable) {
             throw ContractException(
                 errorMessage = "Could not parse $SPECMATIC_CONSTANTS as an object: ${e.message}. Please ensure it is a valid JSON/YAML object."
@@ -212,12 +215,12 @@ object DictionaryReader {
 
         when {
             parent.isObject && propertyName != null -> {
-                (parent as ObjectNode).replace(propertyName, ObjectMapper().valueToTree(value))
+                (parent as ObjectNode).replace(propertyName, jsonObjectMapper.valueToTree(value))
             }
 
             parent.isArray && arrayIndex >= 0 -> {
                 val arrayNode = parent as ArrayNode
-                arrayNode.set(arrayIndex, ObjectMapper().valueToTree<JsonNode>(value))
+                arrayNode.set(arrayIndex, jsonObjectMapper.valueToTree<JsonNode>(value))
             }
         }
     }

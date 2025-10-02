@@ -19,13 +19,14 @@ import io.specmatic.mcp.test.client.model.ToolsListResult
 import kotlinx.coroutines.withTimeout
 import java.util.concurrent.atomic.AtomicLong
 import com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES
+import io.specmatic.core.utilities.jsonObjectMapper
 import io.specmatic.mcp.test.client.model.JsonRpcError
 import io.specmatic.mcp.test.logWithTag
 
 class McpStreamableHttpTestClient(
     private val baseUrl: String,
     private val bearerToken: String? = null,
-    private val objectMapper: ObjectMapper = ObjectMapper()
+    private val objectMapper: ObjectMapper = jsonObjectMapper
 ): McpTestClient {
     private val client = HttpClient(CIO) {
         install(ContentNegotiation) {

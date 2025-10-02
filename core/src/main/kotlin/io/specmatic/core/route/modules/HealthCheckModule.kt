@@ -5,6 +5,7 @@ import io.ktor.server.application.*
 import io.ktor.server.routing.*
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
+import io.specmatic.core.utilities.jsonObjectMapper
 import io.specmatic.stub.respondToKtorHttpResponse
 
 class HealthCheckModule {
@@ -19,7 +20,7 @@ class HealthCheckModule {
                         call,
                         HttpResponse(
                             status = 200,
-                            body = ObjectMapper().writeValueAsString(healthStatus),
+                            body = jsonObjectMapper.writeValueAsString(healthStatus),
                             headers = mapOf("Content-Type" to "application/json")
                         )
                     )

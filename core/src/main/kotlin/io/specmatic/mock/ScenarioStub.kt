@@ -7,6 +7,7 @@ import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.utilities.exceptionCauseMessage
+import io.specmatic.core.utilities.jsonObjectMapper
 import io.specmatic.core.value.*
 import io.specmatic.stub.stringToMockScenario
 import java.io.File
@@ -99,7 +100,7 @@ data class ScenarioStub(
         }
 
         try {
-            val additionalExampleParams = ObjectMapper().readValue(
+            val additionalExampleParams = jsonObjectMapper.readValue(
                 File(additionalExampleParamsFilePath).readText(),
                 Map::class.java
             ) as? Map<String, Any>

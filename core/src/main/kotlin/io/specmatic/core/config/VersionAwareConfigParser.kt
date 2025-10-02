@@ -1,17 +1,16 @@
 package io.specmatic.core.config
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.config.v1.SpecmaticConfigV1
 import io.specmatic.core.config.v2.SpecmaticConfigV2
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.utilities.yamlObjectMapper
 import java.io.File
 
 private const val SPECMATIC_CONFIG_VERSION = "version"
 
-private val objectMapper = ObjectMapper(YAMLFactory()).registerKotlinModule()
+private val objectMapper = yamlObjectMapper.copy().registerKotlinModule()
 
 fun File.toSpecmaticConfig(): SpecmaticConfig {
     val configYaml = this.readText()

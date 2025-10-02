@@ -9,6 +9,7 @@ import com.jayway.jsonpath.DocumentContext
 import com.jayway.jsonpath.JsonPath
 import com.jayway.jsonpath.Option
 import io.specmatic.core.log.logger
+import io.specmatic.core.utilities.jsonObjectMapper
 
 class OverlayMerger {
 
@@ -65,7 +66,7 @@ class OverlayMerger {
             }
 
             return yamlMapper.writeValueAsString(
-                ObjectMapper().readTree(documentContext.jsonString()) as ObjectNode
+                jsonObjectMapper.readTree(documentContext.jsonString()) as ObjectNode
             ) ?: baseContent
         } catch(e: Exception) {
             println("Failed while applying overlay over the specification content with error: ${e.message}")
@@ -77,7 +78,7 @@ class OverlayMerger {
         return JsonPath.using(
             Configuration.builder().options(Option.ALWAYS_RETURN_LIST).build()
         ).parse(
-            ObjectMapper().writeValueAsString(rootNode)
+            jsonObjectMapper.writeValueAsString(rootNode)
         )
     }
 }

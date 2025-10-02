@@ -24,6 +24,7 @@ import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.IGNORE_INLINE_EXAMPLE_WARNINGS
 import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
 import io.specmatic.core.utilities.capitalizeFirstChar
+import io.specmatic.core.utilities.jsonObjectMapper
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.NumberValue
@@ -114,7 +115,7 @@ class OpenApiSpecification(
                 ),
             )
             val openApiSpec = fromYAML(
-                yamlContent = ObjectMapper().writeValueAsString(openApiMap),
+                yamlContent = jsonObjectMapper.writeValueAsString(openApiMap),
                 openApiFilePath = ""
             )
 
@@ -929,7 +930,7 @@ class OpenApiSpecification(
                 requestExamples.values.toList().map { value: Any? -> value?.toString() ?: "" }
                     .map { valueString: String ->
                         if (valueString.contains("externalValue")) {
-                            ObjectMapper().readValue(valueString, Map::class.java).values.first().toString()
+                            jsonObjectMapper.readValue(valueString, Map::class.java).values.first().toString()
                         } else valueString
                     },
                 name = exampleName,

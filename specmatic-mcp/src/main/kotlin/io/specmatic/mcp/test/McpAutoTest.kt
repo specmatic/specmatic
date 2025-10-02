@@ -6,6 +6,7 @@ import io.specmatic.core.Dictionary
 import io.specmatic.core.examples.module.FAILURE_EXIT_CODE
 import io.specmatic.core.examples.module.SUCCESS_EXIT_CODE
 import io.specmatic.core.log.logger
+import io.specmatic.core.utilities.jsonObjectMapper
 import io.specmatic.mcp.report.McpConsoleReport
 import io.specmatic.mcp.report.McpJsonReport
 import io.specmatic.mcp.test.client.McpTestClient
@@ -56,7 +57,7 @@ class McpAutoTest(
             val file = File(directory, "tools_schema.json")
             logWithTag("Saving tools schema to ${file.canonicalPath} ...")
 
-            val reportJson = ObjectMapper().writeValueAsString(tools)
+            val reportJson = jsonObjectMapper.writeValueAsString(tools)
             file.writeText(reportJson)
         } catch (e: Throwable) {
             logWithTag("Failed to save the tools schema: ${e.message}")
