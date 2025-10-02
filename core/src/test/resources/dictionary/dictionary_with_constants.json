@@ -14,23 +14,23 @@
     ]
   },
   "getOrder": {
-    "orderId": "<ORDER_ID>"
+    "orderId": "$(ORDER_ID)"
   },
   "getOrderWithFilteredProduct": {
-    "orderId": "<ORDER_ID>",
+    "orderId": "$(ORDER_ID)",
     "filter": {
       "product": {
-        "name": "<PRODUCT_NAME>",
-        "category": "<PRODUCT_CATEGORY>"
+        "name": "$(PRODUCT_NAME)",
+        "category": "$(PRODUCT_CATEGORY)"
       },
-      "quantity": "<ORDER_QUANTITY>"
+      "quantity": "$(ORDER_QUANTITY)"
     }
   },
   "postOrder": {
-    "quantity": "<ORDER_QUANTITY>",
-    "product": "<NEW_PRODUCT>"
+    "quantity": "$(ORDER_QUANTITY)",
+    "product": "$(NEW_PRODUCT)"
   },
   "ordersResponse": {
-    "orders": "<ORDERS>"
+    "orders": "$(ORDERS)"
   }
 }

@@ -1,6 +1,7 @@
 package io.specmatic.core
 
 import com.fasterxml.jackson.core.JsonPointer
+import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ArrayNode
@@ -189,9 +190,9 @@ object DictionaryReader {
         val constants = try {
             ObjectMapper().convertValue(
                 node.get(SPECMATIC_CONSTANTS),
-                Map::class.java
-            ) as Map<String, Any>
-        } catch(e: Throwable) {
+                object : TypeReference<Map<String, Any>>() {}
+            )
+        } catch (e: Throwable) {
             throw ContractException(
                 errorMessage = "Could not parse $SPECMATIC_CONSTANTS as an object: ${e.message}. Please ensure it is a valid JSON/YAML object."
             )
@@ -231,8 +232,8 @@ object DictionaryReader {
         when {
             dictNode.isTextual -> {
                 val text = dictNode.asText()
-                if (text.startsWith("<") && text.endsWith(">")) {
-                    val key = text.substring(1, text.length - 1)
+                if (text.isSpecmaticConstantPlaceholder()) {
+                    val key = text.extractSpecmaticConstantPlaceHolderKey()
                     constants[key]?.let { value ->
                         replacements.put(JsonPointer.compile(path), value)
                     }
@@ -252,5 +253,13 @@ object DictionaryReader {
             }
         }
         return replacements.toMap()
+    }
+
+    private fun String.isSpecmaticConstantPlaceholder(): Boolean {
+        return this.startsWith("$(") && this.endsWith(")")
+    }
+
+    private fun String.extractSpecmaticConstantPlaceHolderKey(): String {
+        return this.substring(2, this.length - 1)
     }
 }
