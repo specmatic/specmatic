@@ -186,10 +186,16 @@ object DictionaryReader {
     private fun extractAndRemoveConstantsFromNode(node: ObjectNode): Map<String, Any> {
         if(node.contains(SPECMATIC_CONSTANTS).not()) return emptyMap()
 
-        val constants = ObjectMapper().convertValue(
-            node.get(SPECMATIC_CONSTANTS),
-            Map::class.java
-        ) as Map<String, Any>
+        val constants = try {
+            ObjectMapper().convertValue(
+                node.get(SPECMATIC_CONSTANTS),
+                Map::class.java
+            ) as Map<String, Any>
+        } catch(e: Throwable) {
+            throw ContractException(
+                errorMessage = "Could not parse $SPECMATIC_CONSTANTS as an object: ${e.message}. Please ensure it is a valid JSON/YAML object."
+            )
+        }
 
         node.remove(SPECMATIC_CONSTANTS)
         return constants
