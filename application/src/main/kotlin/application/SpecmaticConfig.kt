@@ -10,26 +10,23 @@ class SpecmaticConfig {
         return contractFilePathsFrom(
             Configuration.configFilePath, 
             DEFAULT_WORKING_DIRECTORY,
-            { source -> source.stubContracts },
             useCurrentBranchForCentralRepo
-        ).map { it.path }
+        ) { source -> source.stubContracts }.map { it.path }
     }
 
     fun contractTestPaths(useCurrentBranchForCentralRepo: Boolean = false): List<String> {
         return contractFilePathsFrom(
             Configuration.configFilePath,
             DEFAULT_WORKING_DIRECTORY,
-            { source -> source.testContracts },
             useCurrentBranchForCentralRepo
-        ).map { it.path }
+        ) { source -> source.testContracts }.map { it.path }
     }
 
     fun contractStubPathData(useCurrentBranchForCentralRepo: Boolean = false): List<ContractPathData> {
         return contractFilePathsFrom(
             Configuration.configFilePath,
             DEFAULT_WORKING_DIRECTORY,
-            { source -> source.stubContracts },
             useCurrentBranchForCentralRepo
-        )
+        ) { source -> source.stubContracts }
     }
 }

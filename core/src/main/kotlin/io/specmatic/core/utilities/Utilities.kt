@@ -275,7 +275,7 @@ fun exitIfAnyDoNotExist(label: String, filePaths: List<String>) {
 
 // Used by SpecmaticJUnitSupport users for loading contracts to stub or mock
 fun contractStubPaths(configFileName: String, useCurrentBranchForCentralRepo: Boolean = false): List<ContractPathData> {
-    return contractFilePathsFrom(configFileName, DEFAULT_WORKING_DIRECTORY, { source -> source.stubContracts }, useCurrentBranchForCentralRepo)
+    return contractFilePathsFrom(configFileName, DEFAULT_WORKING_DIRECTORY, useCurrentBranchForCentralRepo) { source -> source.stubContracts }
 }
 
 fun interface ContractsSelectorPredicate {
@@ -283,7 +283,7 @@ fun interface ContractsSelectorPredicate {
 }
 
 fun contractTestPathsFrom(configFilePath: String, workingDirectory: String, useCurrentBranchForCentralRepo: Boolean = false): List<ContractPathData> {
-    return contractFilePathsFrom(configFilePath, workingDirectory, { source -> source.testContracts }, useCurrentBranchForCentralRepo)
+    return contractFilePathsFrom(configFilePath, workingDirectory, useCurrentBranchForCentralRepo) { source -> source.testContracts }
 }
 
 fun gitRootDir(): String {
@@ -312,8 +312,8 @@ data class ContractPathData(
 fun contractFilePathsFrom(
     configFilePath: String, 
     workingDirectory: String, 
-    selector: ContractsSelectorPredicate,
-    useCurrentBranchForCentralRepo: Boolean = false
+    useCurrentBranchForCentralRepo: Boolean = false,
+    selector: ContractsSelectorPredicate
 ): List<ContractPathData> {
     logger.log("Loading config file $configFilePath")
     val sources = loadSources(configFilePath, useCurrentBranchForCentralRepo)
