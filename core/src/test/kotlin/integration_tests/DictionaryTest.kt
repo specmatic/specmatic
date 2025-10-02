@@ -1,22 +1,53 @@
 package integration_tests
 
 import io.specmatic.conversions.OpenApiSpecification
-import io.specmatic.core.*
-import io.specmatic.core.pattern.*
-import io.specmatic.core.value.*
-import io.specmatic.stub.*
+import io.specmatic.core.Dictionary
+import io.specmatic.core.Feature
+import io.specmatic.core.HttpHeadersPattern
+import io.specmatic.core.HttpQueryParamPattern
+import io.specmatic.core.HttpRequest
+import io.specmatic.core.HttpRequestPattern
+import io.specmatic.core.HttpResponse
+import io.specmatic.core.HttpResponsePattern
+import io.specmatic.core.Resolver
+import io.specmatic.core.SPECMATIC_STUB_DICTIONARY
+import io.specmatic.core.Scenario
+import io.specmatic.core.ScenarioInfo
+import io.specmatic.core.buildHttpPathPattern
+import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.pattern.EmailPattern
+import io.specmatic.core.pattern.JSONObjectPattern
+import io.specmatic.core.pattern.ListPattern
+import io.specmatic.core.pattern.NumberPattern
+import io.specmatic.core.pattern.Pattern
+import io.specmatic.core.pattern.QueryParameterScalarPattern
+import io.specmatic.core.pattern.Row
+import io.specmatic.core.pattern.StringPattern
+import io.specmatic.core.pattern.parsedJSON
+import io.specmatic.core.pattern.parsedJSONArray
+import io.specmatic.core.pattern.parsedJSONObject
+import io.specmatic.core.pattern.parsedPattern
+import io.specmatic.core.value.BooleanValue
+import io.specmatic.core.value.JSONArrayValue
+import io.specmatic.core.value.JSONObjectValue
+import io.specmatic.core.value.NullValue
+import io.specmatic.core.value.NumberValue
+import io.specmatic.core.value.StringValue
+import io.specmatic.stub.HttpStub
+import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
 import io.specmatic.stub.createStubFromContracts
 import io.specmatic.stub.httpRequestLog
 import io.specmatic.stub.httpResponseLog
-import io.specmatic.test.ScenarioAsTest
 import io.specmatic.test.TestExecutor
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
+import java.io.File
 import java.util.stream.Stream
 
 class DictionaryTest {
@@ -475,6 +506,209 @@ class DictionaryTest {
         }
     }
 
+    @Test
+    fun `basedOn bodies should use dictionary values when applicable`() {
+        val dictionary = mapOf("OBJECT.id" to NumberValue(123), "OBJECT.name" to StringValue("test"))
+        val scenario = Scenario(ScenarioInfo(
+            httpRequestPattern = HttpRequestPattern(
+                httpPathPattern = buildHttpPathPattern("/"), method = "GET",
+                body = JSONObjectPattern(mapOf(
+                    "id" to NumberPattern(),
+                    "name" to StringPattern()
+                ), typeAlias = "(OBJECT)")
+            ),
+            httpResponsePattern = HttpResponsePattern(status = 200)
+        )).copy(dictionary = dictionary.let(Dictionary::from))
+        val feature = Feature(listOf(scenario), name = "")
+
+
+        feature.enableGenerativeTesting().executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                val isNegative = request.headers[SPECMATIC_RESPONSE_CODE_HEADER] != "200"
+                val requestBody = request.body as JSONObjectValue
+                val idValue = requestBody.findFirstChildByName("id")
+                val nameValue = requestBody.findFirstChildByName("name")
+
+                return HttpResponse.OK.also {
+                    val logs = listOf(request.toLogString(), it.toLogString())
+                    println(logs.joinToString(separator = "\n", postfix = "\n\n"))
+
+                    if (isNegative) {
+                        assertThat(requestBody).satisfiesAnyOf(
+                            { assertThat(idValue).isEqualTo(NumberValue(123)) },
+                            { assertThat(nameValue).isEqualTo(StringValue("test")) }
+                        )
+                    } else {
+                        assertThat(idValue).isEqualTo(NumberValue(123))
+                        assertThat(nameValue).isEqualTo(StringValue("test"))
+                    }
+                }
+            }
+        })
+    }
+
+    @Test
+    fun `should generate test values based on a dictionary where an empty object is assigned to a top level key`() {
+        val feature = OpenApiSpecification
+            .fromFile("src/test/resources/openapi/spec_with_dictionary_with_nested_values/spec.yaml")
+            .toFeature()
+        val scenario = feature.scenarios.first()
+
+        val request = scenario.generateHttpRequest()
+
+        assertThat(request.body).isInstanceOf(JSONObjectValue::class.java)
+        val body = request.body as JSONObjectValue
+        val address = body.findFirstChildByPath("config.address") as JSONObjectValue
+        assertThat(address.jsonObject).isEmpty()
+    }
+
+    @Test
+    fun `stubbed responses for request with dictionary values where the dictionary has an empty object assigned to a top level key, should return correct nested response`() {
+        val feature = OpenApiSpecification
+            .fromFile("src/test/resources/openapi/spec_with_dictionary_with_nested_values/spec.yaml")
+            .toFeature()
+
+        HttpStub(feature).use { stub ->
+            val response = stub.client.execute(
+                HttpRequest(
+                    "POST", "/data", body = parsedJSON(
+                        """{"name": "name", "config": {"name": "name", "address": {}}}""".trimIndent()
+                    )
+                )
+            )
+            val jsonResponsePayload = response.body as JSONObjectValue
+            assertThat(jsonResponsePayload.findFirstChildByPath("data.id")?.toStringLiteral()).isEqualTo("123")
+            assertThat(jsonResponsePayload.findFirstChildByPath("data.config.name")?.toStringLiteral()).isEqualTo("name")
+            val address = jsonResponsePayload.findFirstChildByPath("data.config.address")
+            assertThat(address).isInstanceOf(JSONObjectValue::class.java)
+            address as JSONObjectValue
+            assertThat(address.jsonObject).isEmpty()
+        }
+    }
+
+    @Nested
+    inner class MultiValueDictionaryTests {
+
+        @Test
+        fun `should randomly pick one of the dictionary values when generating`() {
+            val dictionary = "Schema: { number: [10, 20, 30], string: [a, b, c] } ".let(Dictionary::fromYaml)
+            val pattern = parsedPattern("""{
+                "number": "(number)",
+                "string": "(string)"
+            }""".trimIndent(), typeAlias = "(Schema)")
+            val resolver = Resolver(dictionary = dictionary)
+            val value = pattern.generate(resolver) as JSONObjectValue
+
+            assertThat(value.jsonObject["number"]).isIn(listOf(10, 20, 30).map(::NumberValue))
+            assertThat(value.jsonObject["string"]).isIn(listOf("a", "b", "c").map(::StringValue))
+        }
+
+        @Test
+        fun `should use the array value as is when pattern is an array and dictionary contains array level key`() {
+            val dictionary = "Schema: { array: [10, 20, 30] }".let(Dictionary::fromYaml)
+            val pattern = JSONObjectPattern(mapOf("array" to ListPattern(NumberPattern())), typeAlias = "(Schema)")
+            val resolver = Resolver(dictionary = dictionary)
+            val value = pattern.generate(resolver)
+
+            assertThat(value.jsonObject["array"]).isInstanceOf(JSONArrayValue::class.java)
+            assertThat((value.jsonObject["array"])).isEqualTo(listOf(10, 20, 30).map(::NumberValue).let(::JSONArrayValue))
+        }
+
+        @Test
+        fun `should throw an exception when array key contains invalid value and pattern is an array`() {
+            val dictionary = "Schema: { array: [1, abc, 3] }".let(Dictionary::fromYaml)
+            val pattern = JSONObjectPattern(mapOf("array" to ListPattern(NumberPattern())), typeAlias = "(Schema)")
+            val resolver = Resolver(dictionary = dictionary)
+            val exception = assertThrows<ContractException> { pattern.generate(resolver) }
+
+            assertThat(exception.report()).isEqualToNormalizingWhitespace("""
+            >> array[1]
+            Invalid Dictionary value at "Schema.array"
+            Expected number, actual was "abc"
+            """.trimIndent())
+        }
+
+        @Test
+        fun `should look for default dictionary values when schema key is missing`() {
+            val dictionary = """
+            (number): [1, 2, 3]
+            (string): [a, b, c]
+            """.let(Dictionary::fromYaml)
+            val pattern = parsedPattern("""{
+            "numberKey": "(number)",
+            "stringKey": "(string)"
+            }""".trimIndent(), typeAlias = "(Schema)")
+            val resolver = Resolver(dictionary = dictionary)
+            val value = pattern.generate(resolver) as JSONObjectValue
+
+            assertThat(value.jsonObject["numberKey"]).isIn(listOf(1, 2, 3).map(::NumberValue))
+            assertThat(value.jsonObject["stringKey"]).isIn(listOf("a", "b", "c").map(::StringValue))
+        }
+
+        @Test
+        fun `should pick up default value for complex pattern if exists in dictionary`() {
+            val dictionary = """
+            (list of number): [1, 2, 3]
+            (list of email): [john@mail.com, jane@mail.com, bob@mail.com]
+            """.let(Dictionary::fromYaml)
+            val pattern = JSONObjectPattern(mapOf(
+                "numbers" to ListPattern(NumberPattern()),
+                "emails" to ListPattern(EmailPattern())
+            ), typeAlias = "(Schema)")
+            val resolver = Resolver(dictionary = dictionary)
+            val value = pattern.generate(resolver)
+
+            assertThat(value.jsonObject["numbers"]).isInstanceOf(JSONArrayValue::class.java)
+            assertThat((value.jsonObject["numbers"] as JSONArrayValue).list).isEqualTo(
+                listOf(1, 2, 3).map(::NumberValue)
+            )
+
+            assertThat(value.jsonObject["emails"]).isInstanceOf(JSONArrayValue::class.java)
+            assertThat((value.jsonObject["emails"] as JSONArrayValue).list).isEqualTo(
+                listOf("john@mail.com", "jane@mail.com", "bob@mail.com").map(::StringValue)
+            )
+        }
+
+        @Test
+        fun `should prioritise schema keys over default values in dictionary`() {
+            val dictionary = """
+            (number): [1, 2, 3]
+            Schema: { number: [10, 20, 30] }
+            """.let(Dictionary::fromYaml)
+            val pattern = parsedPattern("""{ "number": "(number)" }""".trimIndent(), typeAlias = "(Schema)")
+            val resolver = Resolver(dictionary = dictionary)
+            val value = pattern.generate(resolver) as JSONObjectValue
+
+            assertThat(value.jsonObject["number"]).isIn(listOf(10, 20, 30).map(::NumberValue))
+        }
+
+        @Nested
+        inner class ListPatternTests {
+
+            @ParameterizedTest
+            @MethodSource("integration_tests.DictionaryTest#listPatternToSingleValueProvider")
+            fun `should use the dictionary value as is when when pattern and value depth matches`(pattern: ListPattern, value: JSONArrayValue) {
+                val testPattern = JSONObjectPattern(mapOf("test" to pattern), typeAlias = "(Test)")
+                val resolver = Resolver(dictionary = "Test: { test: $value }".let(Dictionary::fromYaml))
+                val generatedValue = resolver.generate(testPattern)
+
+                assertThat(generatedValue).isInstanceOf(JSONObjectValue::class.java); generatedValue as JSONObjectValue
+                assertThat(generatedValue.jsonObject["test"]).isEqualTo(value)
+            }
+
+            @ParameterizedTest
+            @MethodSource("integration_tests.DictionaryTest#listPatternToMultiValueProvider")
+            fun `should pick random value from the dictionary when value depth is higher than pattern`(pattern: ListPattern, value: JSONArrayValue) {
+                val testPattern = JSONObjectPattern(mapOf("test" to pattern), typeAlias = "(Test)")
+                val resolver = Resolver(dictionary = "Test: { test: $value }".let(Dictionary::fromYaml))
+                val generatedValue = resolver.generate(testPattern)
+
+                assertThat(generatedValue).isInstanceOf(JSONObjectValue::class.java); generatedValue as JSONObjectValue
+                assertThat(generatedValue.jsonObject["test"]).isIn(value.list)
+            }
+        }
+    }
+
     @Nested
     inner class NegativeBasedOnTests {
         @Test
@@ -632,206 +866,48 @@ class DictionaryTest {
         }
     }
 
-    @Test
-    fun `basedOn bodies should use dictionary values when applicable`() {
-        val dictionary = mapOf("OBJECT.id" to NumberValue(123), "OBJECT.name" to StringValue("test"))
-        val scenario = Scenario(ScenarioInfo(
-            httpRequestPattern = HttpRequestPattern(
-                httpPathPattern = buildHttpPathPattern("/"), method = "GET",
-                body = JSONObjectPattern(mapOf(
-                    "id" to NumberPattern(),
-                    "name" to StringPattern()
-                ), typeAlias = "(OBJECT)")
-            ),
-            httpResponsePattern = HttpResponsePattern(status = 200)
-        )).copy(dictionary = dictionary.let(Dictionary::from))
-        val feature = Feature(listOf(scenario), name = "")
-
-
-        feature.enableGenerativeTesting().executeTests(object : TestExecutor {
-            override fun execute(request: HttpRequest): HttpResponse {
-                val isNegative = request.headers[SPECMATIC_RESPONSE_CODE_HEADER] != "200"
-                val requestBody = request.body as JSONObjectValue
-                val idValue = requestBody.findFirstChildByName("id")
-                val nameValue = requestBody.findFirstChildByName("name")
-
-                return HttpResponse.OK.also {
-                    val logs = listOf(request.toLogString(), it.toLogString())
-                    println(logs.joinToString(separator = "\n", postfix = "\n\n"))
-
-                    if (isNegative) {
-                        assertThat(requestBody).satisfiesAnyOf(
-                            { assertThat(idValue).isEqualTo(NumberValue(123)) },
-                            { assertThat(nameValue).isEqualTo(StringValue("test")) }
-                        )
-                    } else {
-                        assertThat(idValue).isEqualTo(NumberValue(123))
-                        assertThat(nameValue).isEqualTo(StringValue("test"))
-                    }
-                }
-            }
-        })
-    }
-
     @Nested
-    inner class MultiValueDictionaryTests {
-
+    inner class ConstantSupportTests {
         @Test
-        fun `should randomly pick one of the dictionary values when generating`() {
-            val dictionary = "Schema: { number: [10, 20, 30], string: [a, b, c] } ".let(Dictionary::fromYaml)
-            val pattern = parsedPattern("""{
-                "number": "(number)",
-                "string": "(string)"
-            }""".trimIndent(), typeAlias = "(Schema)")
-            val resolver = Resolver(dictionary = dictionary)
-            val value = pattern.generate(resolver) as JSONObjectValue
+        fun `should replace placeholders in dictionary with the constant values`() {
+            val file = File("src/test/resources/dictionary/dictionary_with_constants.json")
+            val dictionary = Dictionary.from(file)
 
-            assertThat(value.jsonObject["number"]).isIn(listOf(10, 20, 30).map(::NumberValue))
-            assertThat(value.jsonObject["string"]).isIn(listOf("a", "b", "c").map(::StringValue))
-        }
+            // Assert getOrder
+            val expectedGetOrder = parsedJSONObject("""{ "orderId": 1234 }""")
+            assertEquals(expectedGetOrder, dictionary.getRawValue("getOrder"))
 
-        @Test
-        fun `should use the array value as is when pattern is an array and dictionary contains array level key`() {
-            val dictionary = "Schema: { array: [10, 20, 30] }".let(Dictionary::fromYaml)
-            val pattern = JSONObjectPattern(mapOf("array" to ListPattern(NumberPattern())), typeAlias = "(Schema)")
-            val resolver = Resolver(dictionary = dictionary)
-            val value = pattern.generate(resolver)
+            // Assert getOrderWithFilteredProduct
+            val expectedGetOrderWithFilteredProduct = parsedJSONObject("""{
+                "orderId": 1234,
+                "filter": {
+                    "product": {
+                        "name": "iPhone",
+                        "category": "gadget"
+                    },
+                    "quantity": 100
+                }
+            }""")
+            assertEquals(expectedGetOrderWithFilteredProduct, dictionary.getRawValue("getOrderWithFilteredProduct"))
 
-            assertThat(value.jsonObject["array"]).isInstanceOf(JSONArrayValue::class.java)
-            assertThat((value.jsonObject["array"])).isEqualTo(listOf(10, 20, 30).map(::NumberValue).let(::JSONArrayValue))
-        }
+            // Assert postOrder
+            val expectedPostOrder = parsedJSONObject("""{
+                "quantity": 100,
+                "product": {
+                    "name": "Volleyball",
+                    "category": "sports"
+                }
+            }""")
+            assertEquals(expectedPostOrder, dictionary.getRawValue("postOrder"))
 
-        @Test
-        fun `should throw an exception when array key contains invalid value and pattern is an array`() {
-            val dictionary = "Schema: { array: [1, abc, 3] }".let(Dictionary::fromYaml)
-            val pattern = JSONObjectPattern(mapOf("array" to ListPattern(NumberPattern())), typeAlias = "(Schema)")
-            val resolver = Resolver(dictionary = dictionary)
-            val exception = assertThrows<ContractException> { pattern.generate(resolver) }
-
-            assertThat(exception.report()).isEqualToNormalizingWhitespace("""
-            >> array[1]
-            Invalid Dictionary value at "Schema.array"
-            Expected number, actual was "abc"
-            """.trimIndent())
-        }
-
-        @Test
-        fun `should look for default dictionary values when schema key is missing`() {
-            val dictionary = """
-            (number): [1, 2, 3]
-            (string): [a, b, c]
-            """.let(Dictionary::fromYaml)
-            val pattern = parsedPattern("""{
-            "numberKey": "(number)",
-            "stringKey": "(string)"
-            }""".trimIndent(), typeAlias = "(Schema)")
-            val resolver = Resolver(dictionary = dictionary)
-            val value = pattern.generate(resolver) as JSONObjectValue
-
-            assertThat(value.jsonObject["numberKey"]).isIn(listOf(1, 2, 3).map(::NumberValue))
-            assertThat(value.jsonObject["stringKey"]).isIn(listOf("a", "b", "c").map(::StringValue))
-        }
-        
-        @Test
-        fun `should pick up default value for complex pattern if exists in dictionary`() {
-            val dictionary = """
-            (list of number): [1, 2, 3]
-            (list of email): [john@mail.com, jane@mail.com, bob@mail.com]
-            """.let(Dictionary::fromYaml)
-            val pattern = JSONObjectPattern(mapOf(
-                "numbers" to ListPattern(NumberPattern()),
-                "emails" to ListPattern(EmailPattern())
-            ), typeAlias = "(Schema)")
-            val resolver = Resolver(dictionary = dictionary)
-            val value = pattern.generate(resolver)
-
-            assertThat(value.jsonObject["numbers"]).isInstanceOf(JSONArrayValue::class.java)
-            assertThat((value.jsonObject["numbers"] as JSONArrayValue).list).isEqualTo(
-                listOf(1, 2, 3).map(::NumberValue)
-            )
-
-            assertThat(value.jsonObject["emails"]).isInstanceOf(JSONArrayValue::class.java)
-            assertThat((value.jsonObject["emails"] as JSONArrayValue).list).isEqualTo(
-                listOf("john@mail.com", "jane@mail.com", "bob@mail.com").map(::StringValue)
-            )
-        }
-
-        @Test
-        fun `should prioritise schema keys over default values in dictionary`() {
-            val dictionary = """
-            (number): [1, 2, 3]
-            Schema: { number: [10, 20, 30] }
-            """.let(Dictionary::fromYaml)
-            val pattern = parsedPattern("""{ "number": "(number)" }""".trimIndent(), typeAlias = "(Schema)")
-            val resolver = Resolver(dictionary = dictionary)
-            val value = pattern.generate(resolver) as JSONObjectValue
-
-            assertThat(value.jsonObject["number"]).isIn(listOf(10, 20, 30).map(::NumberValue))
-        }
-
-        @Nested
-        inner class ListPatternTests {
-
-            @ParameterizedTest
-            @MethodSource("integration_tests.DictionaryTest#listPatternToSingleValueProvider")
-            fun `should use the dictionary value as is when when pattern and value depth matches`(pattern: ListPattern, value: JSONArrayValue) {
-                val testPattern = JSONObjectPattern(mapOf("test" to pattern), typeAlias = "(Test)")
-                val resolver = Resolver(dictionary = "Test: { test: $value }".let(Dictionary::fromYaml))
-                val generatedValue = resolver.generate(testPattern)
-
-                assertThat(generatedValue).isInstanceOf(JSONObjectValue::class.java); generatedValue as JSONObjectValue
-                assertThat(generatedValue.jsonObject["test"]).isEqualTo(value)
-            }
-
-            @ParameterizedTest
-            @MethodSource("integration_tests.DictionaryTest#listPatternToMultiValueProvider")
-            fun `should pick random value from the dictionary when value depth is higher than pattern`(pattern: ListPattern, value: JSONArrayValue) {
-                val testPattern = JSONObjectPattern(mapOf("test" to pattern), typeAlias = "(Test)")
-                val resolver = Resolver(dictionary = "Test: { test: $value }".let(Dictionary::fromYaml))
-                val generatedValue = resolver.generate(testPattern)
-
-                assertThat(generatedValue).isInstanceOf(JSONObjectValue::class.java); generatedValue as JSONObjectValue
-                assertThat(generatedValue.jsonObject["test"]).isIn(value.list)
-            }
-        }
-    }
-
-    @Test
-    fun `should generate test values based on a dictionary where an empty object is assigned to a top level key`() {
-        val feature = OpenApiSpecification
-            .fromFile("src/test/resources/openapi/spec_with_dictionary_with_nested_values/spec.yaml")
-            .toFeature()
-        val scenario = feature.scenarios.first()
-
-        val request = scenario.generateHttpRequest()
-
-        assertThat(request.body).isInstanceOf(JSONObjectValue::class.java)
-        val body = request.body as JSONObjectValue
-        val address = body.findFirstChildByPath("config.address") as JSONObjectValue
-        assertThat(address.jsonObject).isEmpty()
-    }
-
-    @Test
-    fun `stubbed responses for request with dictionary values where the dictionary has an empty object assigned to a top level key, should return correct nested response`() {
-        val feature = OpenApiSpecification
-            .fromFile("src/test/resources/openapi/spec_with_dictionary_with_nested_values/spec.yaml")
-            .toFeature()
-
-        HttpStub(feature).use { stub ->
-            val response = stub.client.execute(
-                HttpRequest(
-                    "POST", "/data", body = parsedJSON(
-                        """{"name": "name", "config": {"name": "name", "address": {}}}""".trimIndent()
-                    )
-                )
-            )
-            val jsonResponsePayload = response.body as JSONObjectValue
-            assertThat(jsonResponsePayload.findFirstChildByPath("data.id")?.toStringLiteral()).isEqualTo("123")
-            assertThat(jsonResponsePayload.findFirstChildByPath("data.config.name")?.toStringLiteral()).isEqualTo("name")
-            val address = jsonResponsePayload.findFirstChildByPath("data.config.address")
-            assertThat(address).isInstanceOf(JSONObjectValue::class.java)
-            address as JSONObjectValue
-            assertThat(address.jsonObject).isEmpty()
+            // Assert ordersResponse
+            val expectedOrdersResponse = parsedJSONObject("""{
+                "orders": [
+                    { "orderId": 1234 },
+                    { "orderId": 4567 }
+                ]
+            }""")
+            assertEquals(expectedOrdersResponse, dictionary.getRawValue("ordersResponse"))
         }
     }
 
