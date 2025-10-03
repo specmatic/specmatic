@@ -26,6 +26,7 @@ import io.specmatic.core.config.Switch
 import io.specmatic.core.config.toSpecmaticConfig
 import io.specmatic.core.config.v3.SpecExecutionConfig
 import io.specmatic.core.config.v3.ConsumesDeserializer
+import io.specmatic.core.git.SystemGit
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSONObject
@@ -386,23 +387,55 @@ data class SpecmaticConfig(
 
 
     @JsonIgnore
-    fun loadSources(): List<ContractSource> {
+    fun loadSources(useCurrentBranchForCentralRepo: Boolean = false): List<ContractSource> {
         return sources.map { source ->
             val stubPaths = source.specToStubBaseUrlMap().entries.map { ContractSourceEntry(it.key, it.value) }
             val testBaseUrlMap = source.specToTestBaseUrlMap()
             val testGenerativeMap = source.specToTestGenerativeMap()
             val testPaths = testBaseUrlMap.entries.map { ContractSourceEntry(it.key, it.value, testGenerativeMap[it.key]) }
 
+            val effectiveBranch = getEffectiveBranchForSource(source.branch, useCurrentBranchForCentralRepo)
+
             when (source.provider) {
                 git -> when (source.repository) {
                     null -> GitMonoRepo(testPaths, stubPaths, source.provider.toString())
-                    else -> GitRepo(source.repository, source.branch, testPaths, stubPaths, source.provider.toString())
+                    else -> GitRepo(source.repository, effectiveBranch, testPaths, stubPaths, source.provider.toString(), useCurrentBranchForCentralRepo)
                 }
 
                 filesystem -> LocalFileSystemSource(source.directory ?: ".", testPaths, stubPaths)
 
                 web -> WebSource(testPaths, stubPaths)
             }
+        }
+    }
+
+    private fun getEffectiveBranchForSource(configuredBranch: String?, useCurrentBranchForCentralRepo: Boolean): String? {
+        if (!useCurrentBranchForCentralRepo) {
+            return configuredBranch
+        }
+
+        return try {
+            val git = SystemGit()
+            val currentBranch = git.getCurrentBranchForMatchBranch()
+            logger.debug("Current branch: $currentBranch")
+            
+            val defaultBranch = git.getOriginDefaultBranchName()
+            logger.debug("Default branch: $defaultBranch")
+            
+            if (currentBranch == defaultBranch) {
+                logger.log("Using default branch on central repo")
+                configuredBranch
+            } else {
+                // Note: We don't check if the branch exists in the remote here because
+                // we don't have access to the cloned repo yet. The actual creation happens
+                // in GitOperations.checkout() which will log the appropriate message.
+                logger.log("Using branch '$currentBranch' in central repo")
+                currentBranch
+            }
+        } catch (e: Throwable) {
+            logger.log("Could not determine current branch for --match-branch flag: ${e.message}")
+            logger.debug("Falling back to configured branch: ${configuredBranch ?: "default"}")
+            configuredBranch
         }
     }
 

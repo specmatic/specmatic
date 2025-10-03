@@ -15,6 +15,7 @@ interface GitCommand {
     fun resetMixed(): SystemGit
     fun mergeAbort(): SystemGit
     fun checkout(branchName: String): SystemGit
+    fun checkoutWithCreate(branchName: String): SystemGit
     fun merge(branchName: String): SystemGit
     fun clone(gitRepositoryURI: String, cloneDirectory: File): SystemGit
     fun gitRoot(): String
@@ -36,6 +37,7 @@ interface GitCommand {
     fun getFileInBranch(fileName: String, currentBranch: String, baseBranch: String): File?
     fun currentRemoteBranch(): String
     fun getOriginDefaultBranchName(): String
+    fun remoteBranchExists(branchName: String): Boolean
     fun currentBranch(): String {
         return ""
     }

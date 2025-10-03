@@ -174,7 +174,8 @@ fun strings(list: List<Value>): List<String> {
     }
 }
 
-fun loadSources(configFilePath: String): List<ContractSource> = loadSpecmaticConfig(configFilePath).loadSources()
+fun loadSources(configFilePath: String, useCurrentBranchForCentralRepo: Boolean = false): List<ContractSource> = 
+    loadSpecmaticConfig(configFilePath).loadSources(useCurrentBranchForCentralRepo)
 
 fun loadConfigJSON(configFile: File): JSONObjectValue {
     val configJson = try {
@@ -273,16 +274,16 @@ fun exitIfAnyDoNotExist(label: String, filePaths: List<String>) {
 }
 
 // Used by SpecmaticJUnitSupport users for loading contracts to stub or mock
-fun contractStubPaths(configFileName: String): List<ContractPathData> {
-    return contractFilePathsFrom(configFileName, DEFAULT_WORKING_DIRECTORY) { source -> source.stubContracts }
+fun contractStubPaths(configFileName: String, useCurrentBranchForCentralRepo: Boolean = false): List<ContractPathData> {
+    return contractFilePathsFrom(configFileName, DEFAULT_WORKING_DIRECTORY, useCurrentBranchForCentralRepo) { source -> source.stubContracts }
 }
 
 fun interface ContractsSelectorPredicate {
     fun select(source: ContractSource): List<ContractSourceEntry>
 }
 
-fun contractTestPathsFrom(configFilePath: String, workingDirectory: String): List<ContractPathData> {
-    return contractFilePathsFrom(configFilePath, workingDirectory) { source -> source.testContracts }
+fun contractTestPathsFrom(configFilePath: String, workingDirectory: String, useCurrentBranchForCentralRepo: Boolean = false): List<ContractPathData> {
+    return contractFilePathsFrom(configFilePath, workingDirectory, useCurrentBranchForCentralRepo) { source -> source.testContracts }
 }
 
 fun gitRootDir(): String {
@@ -308,9 +309,14 @@ data class ContractPathData(
     }
 }
 
-fun contractFilePathsFrom(configFilePath: String, workingDirectory: String, selector: ContractsSelectorPredicate): List<ContractPathData> {
+fun contractFilePathsFrom(
+    configFilePath: String, 
+    workingDirectory: String, 
+    useCurrentBranchForCentralRepo: Boolean = false,
+    selector: ContractsSelectorPredicate
+): List<ContractPathData> {
     logger.log("Loading config file $configFilePath")
-    val sources = loadSources(configFilePath)
+    val sources = loadSources(configFilePath, useCurrentBranchForCentralRepo)
 
     val contractPathData = sources.flatMap {
         it.loadContracts(selector, workingDirectory, configFilePath)

@@ -14,7 +14,7 @@ internal class SpecmaticConfigTest {
         val contractPathData = ContractPathData("baseDir", "invalidPath")
         mockkStatic("io.specmatic.core.utilities.Utilities")
         every {
-            contractFilePathsFrom(any(), any(), any())
+            contractFilePathsFrom(any(), any(), any(), any())
         }.returns(listOf(contractPathData))
 
         val paths = SpecmaticConfig().contractStubPathData()

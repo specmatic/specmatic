@@ -37,10 +37,25 @@ fun clone(workingDirectory: File, gitRepo: GitRepo): File {
     return cloneDirectory
 }
 
-fun checkout(workingDirectory: File, branchName: String) {
+fun checkout(workingDirectory: File, branchName: String, useCurrentBranchForCentralRepo: Boolean = false) {
     logger.log("Checking out branch: $branchName")
     try {
-        SystemGit(workingDirectory.path).checkout(branchName)
+        val git = SystemGit(workingDirectory.path)
+        
+        if (useCurrentBranchForCentralRepo) {
+            // Check if the branch exists in origin
+            val branchExists = git.remoteBranchExists(branchName)
+            
+            if (branchExists) {
+                logger.debug("Branch $branchName exists in origin, using regular checkout")
+                git.checkout(branchName)
+            } else {
+                logger.log("Creating branch '$branchName' in the local checkout of the central repo")
+                git.checkoutWithCreate(branchName)
+            }
+        } else {
+            git.checkout(branchName)
+        }
     } catch(exception: Exception) {
         logger.debug("Could not checkout branch $branchName")
         logger.debug(exception.localizedMessage ?: exception.message ?: "")

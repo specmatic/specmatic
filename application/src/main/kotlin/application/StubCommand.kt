@@ -10,8 +10,11 @@ import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.log.*
 import io.specmatic.core.utilities.ContractPathData
 import io.specmatic.core.utilities.ContractPathData.Companion.specToBaseUrlMap
+import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_BASE_URL
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_STUB_DELAY
+import io.specmatic.core.utilities.Flags.Companion.MATCH_BRANCH
+import io.specmatic.core.utilities.Flags.Companion.USE_CURRENT_BRANCH_FOR_CENTRAL_REPO
 import io.specmatic.core.utilities.exitIfAnyDoNotExist
 import io.specmatic.core.utilities.exitWithMessage
 import io.specmatic.core.utilities.throwExceptionIfDirectoriesAreInvalid
@@ -120,6 +123,13 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     @Option(names = ["--hot-reload"], description = ["Time to wait for the server to stop before starting it again"])
     var hotReload: Switch? = null
 
+    @Option(
+        names = ["--match-branch"],
+        description = ["Use the current branch name for contract source branch when not on default branch"],
+        required = false
+    )
+    var useCurrentBranchForCentralRepo: Boolean = false
+
     private var contractSources: List<ContractPathData> = emptyList()
 
     var specmaticConfigPath: String? = null
@@ -153,12 +163,14 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         System.setProperty(SPECMATIC_BASE_URL, baseUrl)
 
         try {
+            val matchBranchEnabled = useCurrentBranchForCentralRepo || Flags.getBooleanValue(MATCH_BRANCH, false)
+            
             contractSources = when (contractPaths.isEmpty()) {
                 true -> {
                     specmaticConfigPath = File(Configuration.configFilePath).canonicalPath
 
                     logger.debug("Using the spec paths configured for stubs in the configuration file '$specmaticConfigPath'")
-                    specmaticConfig.contractStubPathData()
+                    specmaticConfig.contractStubPathData(matchBranchEnabled)
                 }
                 else -> contractPaths.map {
                     ContractPathData("", it)
