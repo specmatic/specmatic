@@ -416,7 +416,7 @@ data class SpecmaticConfig(
 
         return try {
             val git = SystemGit()
-            val currentBranch = git.currentBranch()
+            val currentBranch = git.getCurrentBranchForMatchBranch()
             logger.debug("Current branch: $currentBranch")
             
             val defaultBranch = git.getOriginDefaultBranchName()

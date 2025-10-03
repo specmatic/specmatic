@@ -172,6 +172,26 @@ class SystemGit(override val workingDirectory: String = ".", private val prefix:
         return execute(Configuration.gitCommand, "rev-parse", "--abbrev-ref", "HEAD").trim()
     }
 
+    fun getCurrentBranchForMatchBranch(): String {
+        // In GitHub Actions, GITHUB_HEAD_REF contains the source branch name for pull requests
+        // For push events, it's empty and we fall back to GITHUB_REF_NAME or git command
+        val githubHeadRef = System.getenv("GITHUB_HEAD_REF")
+        if (!githubHeadRef.isNullOrBlank()) {
+            logger.debug("Using GITHUB_HEAD_REF: $githubHeadRef")
+            return githubHeadRef
+        }
+        
+        // GITHUB_REF_NAME contains the branch or tag name for push events
+        val githubRefName = System.getenv("GITHUB_REF_NAME")
+        if (!githubRefName.isNullOrBlank()) {
+            logger.debug("Using GITHUB_REF_NAME: $githubRefName")
+            return githubRefName
+        }
+        
+        // Fall back to git command for local development
+        return currentBranch()
+    }
+
     override fun remoteBranchExists(branchName: String): Boolean {
         return try {
             execute(Configuration.gitCommand, "rev-parse", "--verify", "origin/$branchName")
