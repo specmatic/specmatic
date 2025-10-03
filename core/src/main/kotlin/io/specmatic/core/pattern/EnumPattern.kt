@@ -73,7 +73,7 @@ data class EnumPattern(
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> {
         return pattern.newBasedOn(row, resolver).map {
             it.ifHasValue {
-                HasValue(it.value, "selected ${it.value} from enum")
+                HasValue(it.value, "is set to '${it.value}' from enum")
             }
         }
     }

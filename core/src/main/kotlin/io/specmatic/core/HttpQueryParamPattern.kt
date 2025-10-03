@@ -172,7 +172,7 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
                 allOrNothingCombinationIn(patternMap) { pattern ->
                     NegativeNonStringlyPatterns().negativeBasedOn(pattern.mapKeys { withoutOptionality(it.key) }, row, resolver, config)
                 }.plus(
-                    patternsWithNoRequiredKeys(patternMap, "mandatory query param not sent")
+                    patternsWithNoRequiredKeys(patternMap, ",a mandatory query param, is not sent")
                 ).map { it: ReturnValue<Map<String, Pattern>> ->
                     it.ifValue { value -> HttpQueryParamPattern(value) }
                 }

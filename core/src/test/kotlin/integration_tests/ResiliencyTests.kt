@@ -2310,20 +2310,30 @@ class GenerativeTests {
                 println(scenario.testDescription())
                 println(request.toLogString())
 
-                testDescriptions.add(scenario.descriptionFromPlugin.orEmpty())
+                testDescriptions.add(scenario.testDescription())
             }
         })
 
         assertThat(results.testCount).isPositive()
 
         assertThat(testDescriptions.sorted().distinct()).containsExactlyInAnyOrder(
-            "POST /items -> 201",
-            "POST /items -> 4xx [REQUEST.BODY.[].name string mutated to boolean]",
-            "POST /items -> 4xx [REQUEST.BODY.[].name string mutated to null]",
-            "POST /items -> 4xx [REQUEST.BODY.[].name string mutated to number]",
-            "POST /items -> 4xx [REQUEST.BODY.[].quantity number mutated to boolean]",
-            "POST /items -> 4xx [REQUEST.BODY.[].quantity number mutated to null]",
-            "POST /items -> 4xx [REQUEST.BODY.[].quantity number mutated to string]",
+            "+ve  Scenario: POST /items -> 201 with the request from the example 'sampleItems'",
+            "+ve  Scenario: POST /items -> 201 with the request from the example 'sampleItems' where REQUEST.BODY.quantity is set to the largest possible value",
+            "+ve  Scenario: POST /items -> 201 with the request from the example 'sampleItems' where REQUEST.BODY.quantity is set to the smallest possible value '1'",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[].name is mutated from string to boolean",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[].name is mutated from string to boolean, REQUEST.BODY.[].quantity is set to the largest possible value",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[].name is mutated from string to boolean, REQUEST.BODY.[].quantity is set to the smallest possible value '1'",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[].name is mutated from string to null",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[].name is mutated from string to null, REQUEST.BODY.[].quantity is set to the largest possible value",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[].name is mutated from string to null, REQUEST.BODY.[].quantity is set to the smallest possible value '1'",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[].name is mutated from string to number",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[].name is mutated from string to number, REQUEST.BODY.[].quantity is set to the largest possible value",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[].name is mutated from string to number, REQUEST.BODY.[].quantity is set to the smallest possible value '1'",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[].quantity is mutated from number to boolean",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[].quantity is mutated from number to null",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[].quantity is mutated from number to string",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[].quantity is set to a value greater than maximum value '5000'",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[].quantity is set to a value lesser than minimum value '1'"
         )
     }
 

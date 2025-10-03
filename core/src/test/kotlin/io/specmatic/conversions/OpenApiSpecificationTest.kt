@@ -7246,9 +7246,9 @@ components:
 
         val testDescriptionList = tests.map { it.testDescription() }
         assertThat(testDescriptionList).containsExactlyInAnyOrder(
-            " Scenario: GET /items -> 200 [REQUEST.PARAMETERS.HEADER.X-region selected FIRST from enum]",
-            " Scenario: GET /items -> 200 [REQUEST.PARAMETERS.HEADER.X-region selected SECOND from enum]",
-            " Scenario: GET /items -> 200 [REQUEST.PARAMETERS.HEADER.X-region selected THIRD from enum]"
+            " Scenario: GET /items -> 200 with a request where REQUEST.PARAMETERS.HEADER.X-region is set to 'FIRST' from enum",
+            " Scenario: GET /items -> 200 with a request where REQUEST.PARAMETERS.HEADER.X-region is set to 'SECOND' from enum",
+            " Scenario: GET /items -> 200 with a request where REQUEST.PARAMETERS.HEADER.X-region is set to 'THIRD' from enum"
         )
     }
 
@@ -8895,8 +8895,8 @@ paths:
                 }
             })
 
-            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.PARAMETERS.QUERY.id mandatory query param not sent]")
-            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.PARAMETERS.QUERY.age mandatory query param not sent]")
+            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.QUERY.id ,a mandatory query param, is not sent")
+            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.QUERY.age ,a mandatory query param, is not sent")
         }
 
         @Test
@@ -8950,7 +8950,7 @@ paths:
                 }
             })
 
-            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /items -> 4xx [REQUEST.PARAMETERS.QUERY.ids mandatory query param not sent]")
+            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /items -> 4xx with a request where REQUEST.PARAMETERS.QUERY.ids ,a mandatory query param, is not sent")
         }
 
         @Test
@@ -9033,8 +9033,8 @@ paths:
                 }
             })
 
-            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.PARAMETERS.QUERY.id mandatory query param not sent] — EX:EXAMPLE")
-            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.PARAMETERS.QUERY.age mandatory query param not sent] — EX:EXAMPLE")
+            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with the request from the example 'EXAMPLE' where REQUEST.PARAMETERS.QUERY.id ,a mandatory query param, is not sent")
+            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with the request from the example 'EXAMPLE' where REQUEST.PARAMETERS.QUERY.age ,a mandatory query param, is not sent")
         }
 
     }
@@ -9114,8 +9114,8 @@ paths:
                 }
             })
 
-            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.PARAMETERS.HEADER.X-Required-Header mandatory header not sent]")
-            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.PARAMETERS.HEADER.X-Another-Required-Header mandatory header not sent]")
+            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.HEADER.X-Required-Header ,a mandatory header, is not sent")
+            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.HEADER.X-Another-Required-Header ,a mandatory header, is not sent")
         }
 
         @Test
@@ -9204,8 +9204,8 @@ paths:
                     return HttpResponse.OK
                 }
             })
-            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.PARAMETERS.HEADER.X-Required-Header mandatory header not sent]")
-            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.PARAMETERS.HEADER.X-Another-Required-Header mandatory header not sent]")
+            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.HEADER.X-Required-Header ,a mandatory header, is not sent")
+            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.HEADER.X-Another-Required-Header ,a mandatory header, is not sent")
         }
     }
 

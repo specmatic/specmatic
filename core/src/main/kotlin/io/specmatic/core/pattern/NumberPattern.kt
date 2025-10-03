@@ -119,7 +119,7 @@ data class NumberPattern(
             if (minAndMaxValuesNotSet()) {
                 ""
             } else {
-                "value within bounds"
+                "is set to a value within the specified bounds"
             }
 
         values.add(HasValue(this, messageForTestFromThisObject))
@@ -127,9 +127,9 @@ data class NumberPattern(
         if (minValueIsSet() || boundaryTestingEnabled) {
             val minimumValueAnnotation =
                 if (minValueIsSet()) {
-                    if (exclusiveMinimum) "value just within exclusive minimum $effectiveMin" else "minimum value $effectiveMin"
+                    if (exclusiveMinimum) "is set to a value just within exclusive minimum '$effectiveMin'" else "is set to the smallest possible value '$effectiveMin'"
                 } else {
-                    "lowest possible value when no minimum is set"
+                    "is set to the lowest possible value when no minimum is set"
                 }
 
             values.add(HasValue(ExactValuePattern(NumberValue(effectiveMin)), minimumValueAnnotation))
@@ -138,9 +138,9 @@ data class NumberPattern(
         if (maxValueIsSet() || boundaryTestingEnabled) {
             val maximumValueAnnotation =
                 if (maxValueIsSet()) {
-                    if (exclusiveMaximum) "value just within exclusive maximum $effectiveMax" else "maximum value $effectiveMax"
+                    if (exclusiveMaximum) "is set to a value just within exclusive maximum '$effectiveMax'" else "is set to the largest possible value"
                 } else {
-                    "highest possible value when no maximum is set"
+                    "is set to the largest possible value when no maximum is set"
                 }
 
             values.add(HasValue(ExactValuePattern(NumberValue(effectiveMax)), maximumValueAnnotation))
@@ -159,9 +159,9 @@ data class NumberPattern(
                 yieldAll(scalarAnnotation(current, sequenceOf(NullPattern, BooleanPattern(), StringPattern())))
             }
             val negativeForMinimumValue: Sequence<ReturnValue<Pattern>> =
-                negativeRangeValues(minValueIsSet(), effectiveMin - smallInc, "value lesser than minimum value '$effectiveMin'")
+                negativeRangeValues(minValueIsSet(), effectiveMin - smallInc, "is set to a value lesser than minimum value '$effectiveMin'")
             val negativeForMaximumValue: Sequence<ReturnValue<Pattern>> =
-                negativeRangeValues(maxValueIsSet(), effectiveMax + smallInc, "value greater than maximum value '$effectiveMax'")
+                negativeRangeValues(maxValueIsSet(), effectiveMax + smallInc, "is set to a value greater than maximum value '$effectiveMax'")
 
             yieldAll(negativeForMinimumValue + negativeForMaximumValue)
         }

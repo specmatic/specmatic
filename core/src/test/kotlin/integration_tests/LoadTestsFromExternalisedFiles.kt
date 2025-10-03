@@ -893,7 +893,7 @@ class LoadTestsFromExternalisedFiles {
 
                 assertThat(requestsCount).isEqualTo(1)
                 assertThat(results).hasSize(2)
-                assertThat(failure.scenario?.testDescription()).isEqualToNormalizingWhitespace("Scenario: PATCH /pets/(id:number) -> 200 — EX:patch")
+                assertThat(failure.scenario?.testDescription()).isEqualToNormalizingWhitespace("Scenario: PATCH /pets/(id:number) -> 200 with the request from the example 'patch'")
                 assertThat(failure.reportString()).isEqualToNormalizingWhitespace("""
                 In scenario "PATCH /pets/(id:number). Response: pet response"
                 API: PATCH /pets/(id:number) -> 200
@@ -941,7 +941,7 @@ class LoadTestsFromExternalisedFiles {
 
                 assertThat(requestsCount).isEqualTo(1)
                 assertThat(results).hasSize(2)
-                assertThat(failure.scenario?.testDescription()).isEqualToNormalizingWhitespace("Scenario: PATCH /pets/(id:number) -> 200 — EX:patch")
+                assertThat(failure.scenario?.testDescription()).isEqualToNormalizingWhitespace("Scenario: PATCH /pets/(id:number) -> 200 with the request from the example 'patch'")
                 assertThat(failure.reportString()).isEqualToNormalizingWhitespace("""
                 In scenario "PATCH /pets/(id:number). Response: pet response"
                 API: PATCH /pets/(id:number) -> 200

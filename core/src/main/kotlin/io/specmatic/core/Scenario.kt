@@ -90,7 +90,8 @@ data class Scenario(
     val dictionary: Dictionary = Dictionary.empty(),
     val attributeSelectionPattern: AttributeSelectionPatternDetails = AttributeSelectionPatternDetails.default,
     val exampleRow: Row? = null,
-    val operationMetadata: OperationMetadata? = null
+    val operationMetadata: OperationMetadata? = null,
+    val requestChangeSummary: String? = null
 ): ScenarioDetailsForResult, HasScenarioMetadata {
     constructor(scenarioInfo: ScenarioInfo) : this(
         name = scenarioInfo.scenarioName,
@@ -758,12 +759,22 @@ data class Scenario(
         }
 
     override fun testDescription(): String {
-        val exampleIdentifier = if(exampleName.isNullOrBlank()) "" else { " — EX:${exampleName.trim()}" }
+        val apiDescription = descriptionFromPlugin ?: this.apiDescription
+        val hasExample = exampleName.isNullOrBlank().not()
+        val hasRequestChangeSummary = requestChangeSummary.isNullOrBlank().not()
 
-        val generativePrefix = this.generativePrefix
+        return when {
+            hasExample && hasRequestChangeSummary ->
+                "$generativePrefix Scenario: $apiDescription with the request from the example '${exampleName?.trim()}' where $requestChangeSummary"
 
-        val apiDescription = descriptionFromPlugin ?: apiDescription
-        return "$generativePrefix Scenario: $apiDescription$exampleIdentifier"
+            hasExample ->
+                "$generativePrefix Scenario: $apiDescription with the request from the example '${exampleName?.trim()}'"
+
+            hasRequestChangeSummary ->
+                "$generativePrefix Scenario: $apiDescription with a request where $requestChangeSummary"
+
+            else -> "$generativePrefix Scenario: $apiDescription"
+        }
     }
 
     fun newBasedOn(scenario: Scenario): Scenario {

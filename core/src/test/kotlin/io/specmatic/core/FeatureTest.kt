@@ -1491,7 +1491,8 @@ paths:
         }
 
         negativeTestScenarios.zip((1..negativeTestScenarios.size).toList()).forEach { (scenario, _) ->
-            assertThat(scenario.testDescription()).contains("4xx [REQUEST.BODY.name string mutated to")
+            assertThat(scenario.testDescription()).contains("4xx")
+            assertThat(scenario.testDescription()).contains("REQUEST.BODY.name is mutated from string to")
         }
     }
 

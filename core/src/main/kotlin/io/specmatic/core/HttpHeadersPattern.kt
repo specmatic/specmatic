@@ -306,7 +306,7 @@ data class HttpHeadersPattern(
         allOrNothingCombinationIn(patternMap, row, null, null) { pattern ->
             NegativeNonStringlyPatterns().negativeBasedOn(pattern, row, resolver)
         }.plus(
-            patternsWithNoRequiredKeys(patternMap, "mandatory header not sent")
+            patternsWithNoRequiredKeys(patternMap, ",a mandatory header, is not sent")
         ).map { patternMapR ->
             patternMapR.ifValue { patternMap ->
                 HttpHeadersPattern(
