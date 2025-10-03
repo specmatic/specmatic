@@ -50,7 +50,7 @@ fun checkout(workingDirectory: File, branchName: String, useCurrentBranchForCent
                 logger.debug("Branch $branchName exists in origin, using regular checkout")
                 git.checkout(branchName)
             } else {
-                logger.log("Branch $branchName does not exist in origin, creating it with -B flag")
+                logger.log("Creating branch '$branchName' in the local checkout of the central repo")
                 git.checkoutWithCreate(branchName)
             }
         } else {

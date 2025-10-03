@@ -426,6 +426,9 @@ data class SpecmaticConfig(
                 logger.log("Using default branch on central repo")
                 configuredBranch
             } else {
+                // Note: We don't check if the branch exists in the remote here because
+                // we don't have access to the cloned repo yet. The actual creation happens
+                // in GitOperations.checkout() which will log the appropriate message.
                 logger.log("Using branch '$currentBranch' in central repo")
                 currentBranch
             }
