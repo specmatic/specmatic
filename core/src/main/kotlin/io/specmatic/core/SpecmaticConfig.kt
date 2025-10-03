@@ -417,16 +417,21 @@ data class SpecmaticConfig(
         return try {
             val git = SystemGit()
             val currentBranch = git.currentBranch()
+            logger.debug("Current branch: $currentBranch")
+            
             val defaultBranch = git.getOriginDefaultBranchName()
+            logger.debug("Default branch: $defaultBranch")
             
             if (currentBranch == defaultBranch) {
+                logger.log("On default branch '$defaultBranch', using configured branch: ${configuredBranch ?: "default"}")
                 configuredBranch
             } else {
-                logger.log("Using current branch '$currentBranch' for contract source instead of configured branch")
+                logger.log("Using current branch '$currentBranch' for contract source (not on default branch '$defaultBranch')")
                 currentBranch
             }
         } catch (e: Throwable) {
-            logger.log("Could not determine current branch, using configured branch: ${e.message}")
+            logger.log("Could not determine current branch for --match-branch flag: ${e.message}")
+            logger.debug("Falling back to configured branch: ${configuredBranch ?: "default"}")
             configuredBranch
         }
     }

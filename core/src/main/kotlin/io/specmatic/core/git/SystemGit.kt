@@ -182,14 +182,48 @@ class SystemGit(override val workingDirectory: String = ".", private val prefix:
     }
 
     override fun getOriginDefaultBranchName(): String {
-        val defaultBranchRef = execute(Configuration.gitCommand, "symbolic-ref", "refs/remotes/origin/HEAD", "--short")
+        return try {
+            val defaultBranchRef = execute(Configuration.gitCommand, "symbolic-ref", "refs/remotes/origin/HEAD", "--short")
 
-        val parts = defaultBranchRef.split("/").map(String::trim).filterNot(String::isEmpty)
-        if (parts.size < 2) {
-            throw ContractException(errorMessage = "Could not parse symbolic-ref value '$defaultBranchRef'. Expected format: 'origin/branch'")
+            val parts = defaultBranchRef.split("/").map(String::trim).filterNot(String::isEmpty)
+            if (parts.size < 2) {
+                throw ContractException(errorMessage = "Could not parse symbolic-ref value '$defaultBranchRef'. Expected format: 'origin/branch'")
+            }
+
+            parts[1]
+        } catch (e: NonZeroExitError) {
+            // If symbolic-ref fails, try to determine default branch from remote
+            logger.debug("symbolic-ref failed, attempting to determine default branch from remote")
+            try {
+                // Try git remote show origin to get default branch
+                val remoteInfo = execute(Configuration.gitCommand, "remote", "show", "origin")
+                val headBranchLine = remoteInfo.lines().find { it.trim().startsWith("HEAD branch:") }
+                if (headBranchLine != null) {
+                    val branchName = headBranchLine.substringAfter("HEAD branch:").trim()
+                    logger.debug("Default branch from remote: $branchName")
+                    return branchName
+                }
+            } catch (remoteError: Throwable) {
+                logger.debug("Failed to get default branch from remote: ${remoteError.message}")
+            }
+            
+            // Fallback to common default branch names
+            logger.debug("Falling back to common default branch names")
+            val commonDefaults = listOf("main", "master", "develop")
+            for (branchName in commonDefaults) {
+                try {
+                    execute(Configuration.gitCommand, "rev-parse", "--verify", "origin/$branchName")
+                    logger.debug("Using fallback default branch: $branchName")
+                    return branchName
+                } catch (verifyError: Throwable) {
+                    // Branch doesn't exist, try next
+                }
+            }
+            
+            // If all else fails, return "main" as final fallback
+            logger.debug("Using final fallback: main")
+            "main"
         }
-
-        return parts[1]
     }
 
     private fun getStashListSize(): Int {
