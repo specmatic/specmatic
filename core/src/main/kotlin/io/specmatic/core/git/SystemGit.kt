@@ -172,6 +172,15 @@ class SystemGit(override val workingDirectory: String = ".", private val prefix:
         return execute(Configuration.gitCommand, "rev-parse", "--abbrev-ref", "HEAD").trim()
     }
 
+    override fun remoteBranchExists(branchName: String): Boolean {
+        return try {
+            execute(Configuration.gitCommand, "rev-parse", "--verify", "origin/$branchName")
+            true
+        } catch (e: NonZeroExitError) {
+            false
+        }
+    }
+
     override fun currentRemoteBranch(): String {
         val branchStatus = execute(Configuration.gitCommand, "status", "-b", "--porcelain=2").trim()
         val hasUpstream = branchStatus.lines().any { it.startsWith("# branch.upstream") }

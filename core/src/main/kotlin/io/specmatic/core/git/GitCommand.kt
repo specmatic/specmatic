@@ -37,6 +37,7 @@ interface GitCommand {
     fun getFileInBranch(fileName: String, currentBranch: String, baseBranch: String): File?
     fun currentRemoteBranch(): String
     fun getOriginDefaultBranchName(): String
+    fun remoteBranchExists(branchName: String): Boolean
     fun currentBranch(): String {
         return ""
     }

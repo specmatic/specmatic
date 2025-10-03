@@ -43,8 +43,16 @@ fun checkout(workingDirectory: File, branchName: String, useCurrentBranchForCent
         val git = SystemGit(workingDirectory.path)
         
         if (useCurrentBranchForCentralRepo) {
-            // Use -B flag to create/reset branch if needed
-            git.checkoutWithCreate(branchName)
+            // Check if the branch exists in origin
+            val branchExists = git.remoteBranchExists(branchName)
+            
+            if (branchExists) {
+                logger.debug("Branch $branchName exists in origin, using regular checkout")
+                git.checkout(branchName)
+            } else {
+                logger.log("Branch $branchName does not exist in origin, creating it with -B flag")
+                git.checkoutWithCreate(branchName)
+            }
         } else {
             git.checkout(branchName)
         }
