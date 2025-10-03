@@ -28,6 +28,7 @@ class Flags {
 
         const val MAX_TEST_COUNT = "MAX_TEST_COUNT"
         const val USE_CURRENT_BRANCH_FOR_CENTRAL_REPO = "USE_CURRENT_BRANCH_FOR_CENTRAL_REPO"
+        const val MATCH_BRANCH = "MATCH_BRANCH"
 
         fun getStringValue(flagName: String): String? = System.getenv(flagName) ?: System.getProperty(flagName)
 

@@ -13,6 +13,7 @@ import io.specmatic.core.utilities.ContractPathData.Companion.specToBaseUrlMap
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_BASE_URL
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_STUB_DELAY
+import io.specmatic.core.utilities.Flags.Companion.MATCH_BRANCH
 import io.specmatic.core.utilities.Flags.Companion.USE_CURRENT_BRANCH_FOR_CENTRAL_REPO
 import io.specmatic.core.utilities.exitIfAnyDoNotExist
 import io.specmatic.core.utilities.exitWithMessage
@@ -162,12 +163,14 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         System.setProperty(SPECMATIC_BASE_URL, baseUrl)
 
         try {
+            val matchBranchEnabled = useCurrentBranchForCentralRepo || Flags.getBooleanValue(MATCH_BRANCH, false)
+            
             contractSources = when (contractPaths.isEmpty()) {
                 true -> {
                     specmaticConfigPath = File(Configuration.configFilePath).canonicalPath
 
                     logger.debug("Using the spec paths configured for stubs in the configuration file '$specmaticConfigPath'")
-                    specmaticConfig.contractStubPathData(useCurrentBranchForCentralRepo)
+                    specmaticConfig.contractStubPathData(matchBranchEnabled)
                 }
                 else -> contractPaths.map {
                     ContractPathData("", it)

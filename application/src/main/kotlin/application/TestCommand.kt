@@ -12,6 +12,7 @@ import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_PARALLELISM
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_TIMEOUT
 import io.specmatic.core.utilities.Flags.Companion.USE_CURRENT_BRANCH_FOR_CENTRAL_REPO
+import io.specmatic.core.utilities.Flags.Companion.MATCH_BRANCH
 import io.specmatic.core.utilities.Flags.Companion.getStringValue
 import io.specmatic.core.utilities.exitWithMessage
 import io.specmatic.core.utilities.newXMLBuilder
@@ -181,8 +182,10 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         System.setProperty(FILTER, filter)
         System.setProperty(OVERLAY_FILE_PATH, overlayFilePath.orEmpty())
         System.setProperty(STRICT_MODE, strictMode.toString())
-        if(useCurrentBranchForCentralRepo) {
-            System.setProperty(USE_CURRENT_BRANCH_FOR_CENTRAL_REPO, useCurrentBranchForCentralRepo.toString())
+        
+        val matchBranchEnabled = useCurrentBranchForCentralRepo || Flags.getBooleanValue(MATCH_BRANCH, false)
+        if(matchBranchEnabled) {
+            System.setProperty(USE_CURRENT_BRANCH_FOR_CENTRAL_REPO, matchBranchEnabled.toString())
         }
 
         if(exampleDirs.isNotEmpty()) {
