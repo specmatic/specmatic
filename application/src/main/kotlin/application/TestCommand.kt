@@ -138,7 +138,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     var strictMode: Boolean = false
 
     @Option(
-        names = ["--use-current-branch-for-central-repo"],
+        names = ["--match-branch"],
         description = ["Use the current branch name for contract source branch when not on default branch"],
         required = false
     )
