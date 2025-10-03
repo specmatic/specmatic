@@ -423,10 +423,10 @@ data class SpecmaticConfig(
             logger.debug("Default branch: $defaultBranch")
             
             if (currentBranch == defaultBranch) {
-                logger.log("On default branch '$defaultBranch', using configured branch: ${configuredBranch ?: "default"}")
+                logger.log("Using default branch on central repo")
                 configuredBranch
             } else {
-                logger.log("Using current branch '$currentBranch' for contract source (not on default branch '$defaultBranch')")
+                logger.log("Using current branch '$currentBranch' in central repo")
                 currentBranch
             }
         } catch (e: Throwable) {
