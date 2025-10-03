@@ -426,7 +426,7 @@ data class SpecmaticConfig(
                 logger.log("Using default branch on central repo")
                 configuredBranch
             } else {
-                logger.log("Using current branch '$currentBranch' in central repo")
+                logger.log("Using branch '$currentBranch' in central repo")
                 currentBranch
             }
         } catch (e: Throwable) {
