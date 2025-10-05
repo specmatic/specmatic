@@ -62,7 +62,7 @@ data class GitRepo(
                 logger.log("Looking for a contract repo checkout at: ${contractsRepoDir.canonicalPath}")
                 when {
                     !contractsRepoDir.exists() -> {
-                        logger.log("Contract repo does not exist.")
+                        logger.log("Contract repo dir does not exist.")
                         cloneRepoAndCheckoutBranch(reposBaseDir, this)
                     }
                     isNotOnBranch(contractsRepoDir) -> {
