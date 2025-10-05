@@ -422,11 +422,14 @@ data class SpecmaticConfig(
             val currentBranch = git.getCurrentBranchForMatchBranch()
             logger.debug("Current branch: $currentBranch")
 
-            logger.log("Using branch '$currentBranch' in central repo")
+            logger.log("Central repo branch: '$currentBranch'")
             currentBranch
         } catch (e: Throwable) {
+            val fallbackBranchToLog = configuredBranch?.let { "configured branch: $configuredBranch" } ?: "default"
+
             logger.log("Could not determine current branch for --match-branch flag: ${e.message}")
-            logger.debug("Falling back to configured branch: ${configuredBranch ?: "default"}")
+            logger.log("Falling back to $fallbackBranchToLog")
+
             configuredBranch
         }
     }
