@@ -65,8 +65,19 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
             resolver,
             breadCrumb = BreadCrumb.PARAM_QUERY.value
         ).map { it: ReturnValue<Map<String, Pattern>> ->
-            it.ifValue {
-                HttpQueryParamPattern(it.mapKeys { entry -> withoutOptionality(entry.key) })
+            it.ifHasValue {
+                val patternMap = it.value
+                val keys = patternMap.keys.joinToString(", ") { key -> "'$key'" }
+                val message = when {
+                    patternMap.isEmpty() -> ""
+                    patternMap.size == 1 -> "contains the key $keys"
+                    else -> "contains the keys $keys"
+                }
+
+                HasValue(
+                    HttpQueryParamPattern(patternMap.mapKeys { entry -> withoutOptionality(entry.key) }),
+                    listOf(ValueDetails(messages = listOf(message)))
+                )
             }
         }
     }
@@ -188,9 +199,11 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
         row: Row,
         resolver: Resolver,
         generateMandatoryEntryIfMissing: Boolean
-    ): Sequence<ReturnValue<Map<String, Pattern>>> {
+    ): Sequence<ReturnValue<HttpQueryParamPattern>> {
         return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
             readFrom(queryPatterns, row, resolver, generateMandatoryEntryIfMissing).map { HasValue(it) }
+        }.map { pattern ->
+            pattern.ifValue { HttpQueryParamPattern(pattern.value) }
         }
     }
     fun matches(row: Row, resolver: Resolver): Result {

@@ -11652,4 +11652,38 @@ paths:
         assertThat(output).contains("WARNING: The OpenAPI file spec.yaml was read successfully but with some issues")
         assertThat(output).contains("additionalProperties is not of type")
     }
+
+    @Test
+    fun `should generate tests with different combinations of the query params`() {
+        val spec = OpenApiSpecification.fromFile("src/test/resources/openapi/spec_with_query_params.yaml")
+        val feature = spec.toFeature().enableGenerativeTesting()
+        val testDescriptions = mutableListOf<String>()
+
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                return HttpResponse(200, parsedJSONObject("""{ "id": 10 }"""))
+            }
+
+            override fun preExecuteScenario(scenario: Scenario, request: HttpRequest) {
+                println(scenario.testDescription())
+                println(request.toLogString())
+
+                testDescriptions.add(scenario.testDescription())
+            }
+        })
+
+        assertThat(testDescriptions).containsExactlyInAnyOrder(
+            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.QUERY contains the keys 'productId', 'status', 'quantity'",
+            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.QUERY contains the key 'quantity'",
+            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.QUERY contains the keys 'status', 'quantity'",
+            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.QUERY contains the keys 'productId', 'quantity'",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY.productId is mutated from number to boolean",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY.productId is mutated from number to string",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY.quantity is mutated from number to boolean",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY.quantity is mutated from number to string",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY.quantity is mutated from number to boolean",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY.quantity is mutated from number to string",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY.quantity ,a mandatory query param, is not sent"
+        )
+    }
 }

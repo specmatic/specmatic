@@ -654,9 +654,7 @@ data class HttpRequestPattern(
                         row,
                         resolver,
                         shouldGenerateMandatoryEntryIfMissing(resolver, status)
-                    ).map { pattern ->
-                        pattern.ifValue { HttpQueryParamPattern(pattern.value) }
-                    }
+                    )
                 }
             }
 
