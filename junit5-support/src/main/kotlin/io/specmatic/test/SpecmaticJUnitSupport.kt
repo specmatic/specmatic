@@ -15,6 +15,7 @@ import io.specmatic.core.pattern.Examples
 import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.utilities.*
+import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_TIMEOUT
 import io.specmatic.core.utilities.Flags.Companion.getLongValue
 import io.specmatic.core.value.JSONArrayValue
@@ -230,6 +231,7 @@ open class SpecmaticJUnitSupport {
         val filterNotName: String? = System.getProperty(FILTER_NOT_NAME_PROPERTY) ?: System.getenv(FILTER_NOT_NAME_ENVIRONMENT_VARIABLE)
         val overlayFilePath: String? = System.getProperty(OVERLAY_FILE_PATH) ?: System.getenv(OVERLAY_FILE_PATH)
         val overlayContent = if(overlayFilePath.isNullOrBlank()) "" else readFrom(overlayFilePath, "overlay")
+        val useCurrentBranchForCentralRepo = System.getProperty(Flags.USE_CURRENT_BRANCH_FOR_CENTRAL_REPO)?.toBoolean() ?: false
 
         openApiCoverageReportInput = OpenApiCoverageReportInput(getConfigFileWithAbsolutePath(), filterExpression = settings.filter, coverageHooks = settings.coverageHooks, httpInteractionsLog = httpInteractionsLog)
 
@@ -284,7 +286,7 @@ open class SpecmaticJUnitSupport {
 
                     createIfDoesNotExist(workingDirectory.path)
 
-                    val contractFilePaths = contractTestPathsFrom(settings.configFile, workingDirectory.path)
+                    val contractFilePaths = contractTestPathsFrom(settings.configFile, workingDirectory.path, useCurrentBranchForCentralRepo)
 
                     exitIfAnyDoNotExist("The following specifications do not exist", contractFilePaths.map { it.path })
 

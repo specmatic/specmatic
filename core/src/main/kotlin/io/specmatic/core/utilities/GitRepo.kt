@@ -15,7 +15,8 @@ data class GitRepo(
     val branchName: String?,
     override val testContracts: List<ContractSourceEntry>,
     override val stubContracts: List<ContractSourceEntry>,
-    override val type: String?
+    override val type: String?,
+    val useCurrentBranchForCentralRepo: Boolean = false
 ) : ContractSource, GitSource {
     private val repoName = gitRepositoryURL.split("/").last().removeSuffix(".git")
     override fun pathDescriptor(path: String): String {
@@ -61,7 +62,7 @@ data class GitRepo(
                 logger.log("Looking for a contract repo checkout at: ${contractsRepoDir.canonicalPath}")
                 when {
                     !contractsRepoDir.exists() -> {
-                        logger.log("Contract repo does not exist.")
+                        logger.log("Contract repo dir does not exist.")
                         cloneRepoAndCheckoutBranch(reposBaseDir, this)
                     }
                     isNotOnBranch(contractsRepoDir) -> {
@@ -132,7 +133,7 @@ data class GitRepo(
         val repositoryDirectory = clone(reposBaseDir, gitRepo)
         when (branchName) {
             null -> logger.log("No branch specified, using default branch")
-            else -> checkout(repositoryDirectory, branchName)
+            else -> checkout(repositoryDirectory, branchName, useCurrentBranchForCentralRepo)
         }
         return repositoryDirectory
     }
