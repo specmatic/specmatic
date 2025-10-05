@@ -409,7 +409,10 @@ data class SpecmaticConfig(
         }
     }
 
-    private fun getEffectiveBranchForSource(configuredBranch: String?, useCurrentBranchForCentralRepo: Boolean): String? {
+    private fun getEffectiveBranchForSource(
+        configuredBranch: String?,
+        useCurrentBranchForCentralRepo: Boolean,
+    ): String? {
         if (!useCurrentBranchForCentralRepo) {
             return configuredBranch
         }
@@ -418,20 +421,9 @@ data class SpecmaticConfig(
             val git = SystemGit()
             val currentBranch = git.getCurrentBranchForMatchBranch()
             logger.debug("Current branch: $currentBranch")
-            
-            val defaultBranch = git.getOriginDefaultBranchName()
-            logger.debug("Default branch: $defaultBranch")
-            
-            if (currentBranch == defaultBranch) {
-                logger.log("Using default branch on central repo")
-                configuredBranch
-            } else {
-                // Note: We don't check if the branch exists in the remote here because
-                // we don't have access to the cloned repo yet. The actual creation happens
-                // in GitOperations.checkout() which will log the appropriate message.
-                logger.log("Using branch '$currentBranch' in central repo")
-                currentBranch
-            }
+
+            logger.log("Using branch '$currentBranch' in central repo")
+            currentBranch
         } catch (e: Throwable) {
             logger.log("Could not determine current branch for --match-branch flag: ${e.message}")
             logger.debug("Falling back to configured branch: ${configuredBranch ?: "default"}")
