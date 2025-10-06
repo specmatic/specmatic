@@ -65,28 +65,7 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
             resolver,
             breadCrumb = BreadCrumb.PARAM_QUERY.value
         ).map { it: ReturnValue<Map<String, Pattern>> ->
-            it.ifHasValue {
-                val existingValueDescription = it.valueDetails.singleLineDescription()
-                val patternMap = it.value
-                val keys = patternMap.keys.joinToString(", ") { key -> "'$key'" }
-
-                val keyCombinationMessage = when {
-                    patternMap.isEmpty() -> ""
-                    patternMap.size == 1 -> "contains the param $keys"
-                    else -> "contains the params $keys"
-                }
-
-                val message =
-                    when {
-                        existingValueDescription.isBlank() -> keyCombinationMessage
-                        else -> "$keyCombinationMessage and $existingValueDescription"
-                    }
-
-                HasValue(
-                    HttpQueryParamPattern(patternMap.mapKeys { entry -> withoutOptionality(entry.key) }),
-                    listOf(ValueDetails(messages = listOf(message)))
-                )
-            }
+            httpQueryParamPatternWithKeyCombinationDetails(it)
         }
     }
 
@@ -191,9 +170,9 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
                 allOrNothingCombinationIn(patternMap) { pattern ->
                     NegativeNonStringlyPatterns().negativeBasedOn(pattern.mapKeys { withoutOptionality(it.key) }, row, resolver, config)
                 }.plus(
-                    patternsWithNoRequiredKeys(patternMap, ",a mandatory query param, is not sent")
+                    patternsWithNoRequiredKeys(patternMap, "which is a mandatory query param, is not sent")
                 ).map { it: ReturnValue<Map<String, Pattern>> ->
-                    it.ifValue { value -> HttpQueryParamPattern(value) }
+                    httpQueryParamPatternWithKeyCombinationDetails(it)
                 }
             }
         }
@@ -263,6 +242,30 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
             orException = { e -> e.cast() }, orFailure = { f -> f.cast() }
         )
     }
+
+    private fun httpQueryParamPatternWithKeyCombinationDetails(it: ReturnValue<Map<String, Pattern>>) =
+        it.ifHasValue {
+            val existingValueDescription = it.valueDetails.singleLineDescription()
+            val patternMap = it.value
+            val keys = patternMap.keys.joinToString(", ") { key -> "'$key'" }
+
+            val keyCombinationMessage = when {
+                patternMap.isEmpty() -> ""
+                patternMap.size == 1 -> "contains the param $keys"
+                else -> "contains the params $keys"
+            }
+
+            val message =
+                when {
+                    existingValueDescription.isBlank() -> keyCombinationMessage
+                    else -> "$keyCombinationMessage and $existingValueDescription"
+                }
+
+            HasValue(
+                HttpQueryParamPattern(patternMap.mapKeys { entry -> withoutOptionality(entry.key) }),
+                listOf(ValueDetails(messages = listOf(message)))
+            )
+        }
 }
 
 internal fun buildQueryPattern(

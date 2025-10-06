@@ -8895,8 +8895,8 @@ paths:
                 }
             })
 
-            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.QUERY.id ,a mandatory query param, is not sent")
-            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.QUERY.age ,a mandatory query param, is not sent")
+            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'name', 'age' and id which is a mandatory query param, is not sent")
+            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'id', 'name' and age which is a mandatory query param, is not sent")
         }
 
         @Test
@@ -8950,7 +8950,7 @@ paths:
                 }
             })
 
-            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /items -> 4xx with a request where REQUEST.PARAMETERS.QUERY.ids ,a mandatory query param, is not sent")
+            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /items -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the param 'category' and ids which is a mandatory query param, is not sent")
         }
 
         @Test
@@ -9033,8 +9033,8 @@ paths:
                 }
             })
 
-            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with the request from the example 'EXAMPLE' where REQUEST.PARAMETERS.QUERY.id ,a mandatory query param, is not sent")
-            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with the request from the example 'EXAMPLE' where REQUEST.PARAMETERS.QUERY.age ,a mandatory query param, is not sent")
+            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with the request from the example 'EXAMPLE' where REQUEST.PARAMETERS.QUERY contains the params 'name', 'age' and id which is a mandatory query param, is not sent")
+            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with the request from the example 'EXAMPLE' where REQUEST.PARAMETERS.QUERY contains the params 'id', 'name' and age which is a mandatory query param, is not sent")
         }
 
     }
@@ -11679,19 +11679,19 @@ paths:
             "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.QUERY contains the params 'status', 'quantity' and status is set to 'fulfilled' from enum",
             "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.QUERY contains the params 'status', 'quantity' and status is set to 'pending' from enum",
             "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'quantity'",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY.productId is mutated from number to boolean, REQUEST.PARAMETERS.QUERY.status is set to 'fulfilled' from enum",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY.productId is mutated from number to string, REQUEST.PARAMETERS.QUERY.status is set to 'pending' from enum",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY.productId is mutated from number to boolean, REQUEST.PARAMETERS.QUERY.status is set to 'pending' from enum",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY.productId is mutated from number to string, REQUEST.PARAMETERS.QUERY.status is set to 'fulfilled' from enum",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY.status is mutated from (\"fulfilled\" or \"pending\") to number",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY.status is mutated from (\"fulfilled\" or \"pending\") to boolean",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY.status is set to 'fulfilled' from enum, REQUEST.PARAMETERS.QUERY.quantity is mutated from number to boolean",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY.status is set to 'pending' from enum, REQUEST.PARAMETERS.QUERY.quantity is mutated from number to string",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY.status is set to 'fulfilled' from enum, REQUEST.PARAMETERS.QUERY.quantity is mutated from number to string",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY.status is set to 'pending' from enum, REQUEST.PARAMETERS.QUERY.quantity is mutated from number to boolean",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY.quantity is mutated from number to boolean",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY.quantity is mutated from number to string",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY.quantity ,a mandatory query param, is not sent"
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' and productId is mutated from number to boolean, status is set to 'fulfilled' from enum",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' and productId is mutated from number to string, status is set to 'pending' from enum",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' and productId is mutated from number to boolean, status is set to 'pending' from enum",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' and productId is mutated from number to string, status is set to 'fulfilled' from enum",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' and status is mutated from (\"fulfilled\" or \"pending\") to number",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' and status is mutated from (\"fulfilled\" or \"pending\") to boolean",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' and status is set to 'fulfilled' from enum, quantity is mutated from number to boolean",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' and status is set to 'pending' from enum, quantity is mutated from number to string",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' and status is set to 'fulfilled' from enum, quantity is mutated from number to string",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' and status is set to 'pending' from enum, quantity is mutated from number to boolean",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the param 'quantity' and quantity is mutated from number to boolean",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the param 'quantity' and quantity is mutated from number to string",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status' and quantity which is a mandatory query param, is not sent"
         )
     }
 
