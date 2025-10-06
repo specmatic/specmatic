@@ -376,9 +376,28 @@ data class HttpHeadersPattern(
             row,
             resolver,
             breadCrumb
-        ).map {
-            it.ifValue {
-                HttpHeadersPattern(it, contentType = contentType)
+        ).map { patternMapValue ->
+            patternMapValue.ifHasValue {
+                val existingValueDescription = it.valueDetails.singleLineDescription()
+                val patternMap = it.value
+                val keys = patternMap.keys.joinToString(", ") { key -> "'$key'" }
+
+                val keyCombinationMessage = when {
+                    patternMap.isEmpty() -> ""
+                    patternMap.size == 1 -> "contains the header $keys"
+                    else -> "contains the headers $keys"
+                }
+
+                val message =
+                    when {
+                        existingValueDescription.isBlank() -> keyCombinationMessage
+                        else -> "$keyCombinationMessage and $existingValueDescription"
+                    }
+
+                HasValue(
+                    HttpHeadersPattern(patternMap, contentType = contentType),
+                    listOf(ValueDetails(messages = listOf(message)))
+                )
             }
         }
     }

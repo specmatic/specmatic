@@ -1,0 +1,55 @@
+openapi: 3.0.1
+info:
+  title: Order API
+  version: "2.0"
+servers:
+  - url: "http://localhost:3000"
+paths:
+  /orders:
+    get:
+      summary: Search for orders
+      operationId: get-orders
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+      parameters:
+        - name: X-Product-Id
+          in: header
+          schema:
+            type: number
+          examples:
+            200_OK:
+              value: 10
+          required: true
+        - name: X-Order-Status
+          in: header
+          schema:
+            type: string
+            enum: [fulfilled, pending]
+          examples:
+            200_OK:
+              value: fulfilled
+          required: false
+        - name: X-Quantity
+          in: header
+          schema:
+            type: number
+          examples:
+            200_OK:
+              value: 100
+          required: true
+        - name: X-Request-Source
+          in: header
+          schema:
+            type: string
+          examples:
+            200_OK:
+              value: "mobile-app"
+          required: false
