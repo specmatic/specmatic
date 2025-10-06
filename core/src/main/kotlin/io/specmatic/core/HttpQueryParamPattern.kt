@@ -65,7 +65,9 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
             resolver,
             breadCrumb = BreadCrumb.PARAM_QUERY.value
         ).map { it: ReturnValue<Map<String, Pattern>> ->
-            httpQueryParamPatternWithKeyCombinationDetails(it)
+            patternWithKeyCombinationDetailsFrom(it, QUERY_PARAM_KEY_ID_IN_TEST_DETAILS) { patternMap ->
+                HttpQueryParamPattern(patternMap.mapKeys { entry -> withoutOptionality(entry.key) })
+            }
         }
     }
 
@@ -172,7 +174,9 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
                 }.plus(
                     patternsWithNoRequiredKeys(patternMap, "which is a mandatory query param, is not sent")
                 ).map { it: ReturnValue<Map<String, Pattern>> ->
-                    httpQueryParamPatternWithKeyCombinationDetails(it)
+                    patternWithKeyCombinationDetailsFrom(it, QUERY_PARAM_KEY_ID_IN_TEST_DETAILS) {
+                        HttpQueryParamPattern(it.mapKeys { entry -> withoutOptionality(entry.key) })
+                    }
                 }
             }
         }
@@ -243,29 +247,9 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
         )
     }
 
-    private fun httpQueryParamPatternWithKeyCombinationDetails(patternMapValue: ReturnValue<Map<String, Pattern>>) =
-        patternMapValue.ifHasValue {
-            val existingValueDescription = it.valueDetails.singleLineDescription()
-            val patternMap = it.value
-            val keys = patternMap.keys.joinToString(", ") { key -> "'$key'" }
-
-            val keyCombinationMessage = when {
-                patternMap.isEmpty() -> ""
-                patternMap.size == 1 -> "contains the param $keys"
-                else -> "contains the params $keys"
-            }
-
-            val message =
-                when {
-                    existingValueDescription.isBlank() -> keyCombinationMessage
-                    else -> "$keyCombinationMessage and $existingValueDescription"
-                }
-
-            HasValue(
-                HttpQueryParamPattern(patternMap.mapKeys { entry -> withoutOptionality(entry.key) }),
-                listOf(ValueDetails(messages = listOf(message)))
-            )
-        }
+    companion object {
+        private const val QUERY_PARAM_KEY_ID_IN_TEST_DETAILS = "param"
+    }
 }
 
 internal fun buildQueryPattern(

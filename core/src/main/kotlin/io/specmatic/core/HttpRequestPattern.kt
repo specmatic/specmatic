@@ -20,6 +20,7 @@ import io.specmatic.core.pattern.QueryParameterScalarPattern
 import io.specmatic.core.pattern.REQUEST_BODY_FIELD
 import io.specmatic.core.pattern.ReturnValue
 import io.specmatic.core.pattern.Row
+import io.specmatic.core.pattern.ValueDetails
 import io.specmatic.core.pattern.attempt
 import io.specmatic.core.pattern.breadCrumb
 import io.specmatic.core.pattern.isOptional
@@ -29,6 +30,7 @@ import io.specmatic.core.pattern.newMapBasedOn
 import io.specmatic.core.pattern.parsedPattern
 import io.specmatic.core.pattern.resolvedHop
 import io.specmatic.core.pattern.returnValue
+import io.specmatic.core.pattern.singleLineDescription
 import io.specmatic.core.pattern.withoutOptionality
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_QUERY_PARAMS
@@ -1030,5 +1032,36 @@ private fun Map<String, Pattern>.mergeIgnoringCaseAndOptionalsWith(other: Map<St
     return buildMap {
         putAll(this@mergeIgnoringCaseAndOptionalsWith)
         putAll(other.filterKeys { withoutOptionality(it).toLowerCasePreservingASCIIRules() !in thisNormalizedKeys })
+    }
+}
+
+fun <T> patternWithKeyCombinationDetailsFrom(
+    patternMapValue: ReturnValue<Map<String, Pattern>>,
+    keyId: String,
+    buildPattern: (Map<String, Pattern>) -> T,
+): ReturnValue<T> {
+    return patternMapValue.ifHasValue {
+        val existingValueDescription = it.valueDetails.singleLineDescription()
+        val patternMap = it.value
+        val keys = patternMap.keys.map { key ->
+            withoutOptionality(key)
+        }.joinToString(", ") { key -> "'$key'" }
+
+        val keyCombinationMessage = when {
+            patternMap.isEmpty() -> ""
+            patternMap.size == 1 -> "contains the $keyId $keys"
+            else -> "contains the ${keyId}s $keys"
+        }
+
+        val message =
+            when {
+                existingValueDescription.isBlank() -> keyCombinationMessage
+                else -> "$keyCombinationMessage and $existingValueDescription"
+            }
+
+        HasValue(
+            buildPattern(patternMap),
+            listOf(ValueDetails(messages = listOf(message)))
+        )
     }
 }

@@ -308,8 +308,11 @@ data class HttpHeadersPattern(
         }.plus(
             patternsWithNoRequiredKeys(patternMap, "which is a mandatory header, is not sent")
         ).map { patternMapR ->
-            httpHeadersPatternWithDetailsFrom(patternMapR) { patternMap ->
-                patternMap.mapKeys { withoutOptionality(it.key) }.plus(soapActionPattern)
+            patternWithKeyCombinationDetailsFrom(patternMapR, HEADER_KEY_ID_IN_TEST_DETAILS) { patternMap ->
+                HttpHeadersPattern(
+                    pattern = patternMap.mapKeys { withoutOptionality(it.key) }.plus(soapActionPattern),
+                    contentType = contentType
+                )
             }
         }
     }
@@ -374,7 +377,9 @@ data class HttpHeadersPattern(
             resolver,
             breadCrumb
         ).map { patternMapValue ->
-            httpHeadersPatternWithDetailsFrom(patternMapValue)
+            patternWithKeyCombinationDetailsFrom(patternMapValue, HEADER_KEY_ID_IN_TEST_DETAILS) { patternMap ->
+                HttpHeadersPattern(patternMap, contentType = contentType)
+            }
         }
     }
 
@@ -482,32 +487,8 @@ data class HttpHeadersPattern(
 
     private fun contentTypeHeaderPatternExists() = pattern.keys.caseInsensitiveContains(CONTENT_TYPE)
 
-    private fun httpHeadersPatternWithDetailsFrom(
-        patternMapValue: ReturnValue<Map<String, Pattern>>,
-        modifyPatternMap: (Map<String, Pattern>) -> Map<String, Pattern> = { it }
-    ): ReturnValue<HttpHeadersPattern> {
-        return patternMapValue.ifHasValue {
-            val existingValueDescription = it.valueDetails.singleLineDescription()
-            val patternMap = modifyPatternMap(it.value)
-            val keys = patternMap.keys.joinToString(", ") { key -> "'$key'" }
-
-            val keyCombinationMessage = when {
-                patternMap.isEmpty() -> ""
-                patternMap.size == 1 -> "contains the header $keys"
-                else -> "contains the headers $keys"
-            }
-
-            val message =
-                when {
-                    existingValueDescription.isBlank() -> keyCombinationMessage
-                    else -> "$keyCombinationMessage and $existingValueDescription"
-                }
-
-            HasValue(
-                HttpHeadersPattern(patternMap, contentType = contentType),
-                listOf(ValueDetails(messages = listOf(message)))
-            )
-        }
+    companion object {
+        private const val HEADER_KEY_ID_IN_TEST_DETAILS = "header"
     }
 }
 
