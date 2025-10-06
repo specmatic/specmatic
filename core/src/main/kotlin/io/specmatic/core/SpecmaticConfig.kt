@@ -26,6 +26,7 @@ import io.specmatic.core.config.Switch
 import io.specmatic.core.config.toSpecmaticConfig
 import io.specmatic.core.config.v3.SpecExecutionConfig
 import io.specmatic.core.config.v3.ConsumesDeserializer
+import io.specmatic.core.git.SystemGit
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSONObject
@@ -386,23 +387,50 @@ data class SpecmaticConfig(
 
 
     @JsonIgnore
-    fun loadSources(): List<ContractSource> {
+    fun loadSources(useCurrentBranchForCentralRepo: Boolean = false): List<ContractSource> {
         return sources.map { source ->
             val stubPaths = source.specToStubBaseUrlMap().entries.map { ContractSourceEntry(it.key, it.value) }
             val testBaseUrlMap = source.specToTestBaseUrlMap()
             val testGenerativeMap = source.specToTestGenerativeMap()
             val testPaths = testBaseUrlMap.entries.map { ContractSourceEntry(it.key, it.value, testGenerativeMap[it.key]) }
 
+            val effectiveBranch = getEffectiveBranchForSource(source.branch, useCurrentBranchForCentralRepo)
+
             when (source.provider) {
                 git -> when (source.repository) {
                     null -> GitMonoRepo(testPaths, stubPaths, source.provider.toString())
-                    else -> GitRepo(source.repository, source.branch, testPaths, stubPaths, source.provider.toString())
+                    else -> GitRepo(source.repository, effectiveBranch, testPaths, stubPaths, source.provider.toString(), useCurrentBranchForCentralRepo)
                 }
 
                 filesystem -> LocalFileSystemSource(source.directory ?: ".", testPaths, stubPaths)
 
                 web -> WebSource(testPaths, stubPaths)
             }
+        }
+    }
+
+    private fun getEffectiveBranchForSource(
+        configuredBranch: String?,
+        useCurrentBranchForCentralRepo: Boolean,
+    ): String? {
+        if (!useCurrentBranchForCentralRepo) {
+            return configuredBranch
+        }
+
+        return try {
+            val git = SystemGit()
+            val currentBranch = git.getCurrentBranchForMatchBranch()
+            logger.debug("Current branch: $currentBranch")
+
+            logger.log("Central repo branch: '$currentBranch'")
+            currentBranch
+        } catch (e: Throwable) {
+            val fallbackBranchToLog = configuredBranch?.let { "configured branch: $configuredBranch" } ?: "default"
+
+            logger.log("Could not determine current branch for --match-branch flag: ${e.message}")
+            logger.log("Falling back to $fallbackBranchToLog")
+
+            configuredBranch
         }
     }
 

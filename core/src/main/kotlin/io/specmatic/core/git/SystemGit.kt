@@ -48,6 +48,7 @@ class SystemGit(override val workingDirectory: String = ".", private val prefix:
     override fun resetMixed(): SystemGit = this.also { execute(Configuration.gitCommand, "reset", "--mixed", "HEAD") }
     override fun mergeAbort(): SystemGit = this.also { execute(Configuration.gitCommand, "merge", "--aborg") }
     override fun checkout(branchName: String): SystemGit = this.also { execute(Configuration.gitCommand, "checkout", branchName) }
+    override fun checkoutWithCreate(branchName: String): SystemGit = this.also { execute(Configuration.gitCommand, "checkout", "-B", branchName) }
     override fun merge(branchName: String): SystemGit = this.also { execute(Configuration.gitCommand, "merge", branchName) }
     override fun clone(gitRepositoryURI: String, cloneDirectory: File): SystemGit =
         this.also { executeWithAuth("clone", evaluateEnvVariablesInGitRepoURI(gitRepositoryURI, System.getenv()), cloneDirectory.absolutePath) }
@@ -171,6 +172,35 @@ class SystemGit(override val workingDirectory: String = ".", private val prefix:
         return execute(Configuration.gitCommand, "rev-parse", "--abbrev-ref", "HEAD").trim()
     }
 
+    fun getCurrentBranchForMatchBranch(): String {
+        // In GitHub Actions, GITHUB_HEAD_REF contains the source branch name for pull requests
+        // For push events, it's empty and we fall back to GITHUB_REF_NAME or git command
+        val githubHeadRef = System.getenv("GITHUB_HEAD_REF")
+        if (!githubHeadRef.isNullOrBlank()) {
+            logger.debug("Using GITHUB_HEAD_REF: $githubHeadRef")
+            return githubHeadRef
+        }
+        
+        // GITHUB_REF_NAME contains the branch or tag name for push events
+        val githubRefName = System.getenv("GITHUB_REF_NAME")
+        if (!githubRefName.isNullOrBlank()) {
+            logger.debug("Using GITHUB_REF_NAME: $githubRefName")
+            return githubRefName
+        }
+        
+        // Fall back to git command for local development
+        return currentBranch()
+    }
+
+    override fun remoteBranchExists(branchName: String): Boolean {
+        return try {
+            execute(Configuration.gitCommand, "rev-parse", "--verify", "origin/$branchName")
+            true
+        } catch (e: NonZeroExitError) {
+            false
+        }
+    }
+
     override fun currentRemoteBranch(): String {
         val branchStatus = execute(Configuration.gitCommand, "status", "-b", "--porcelain=2").trim()
         val hasUpstream = branchStatus.lines().any { it.startsWith("# branch.upstream") }
@@ -181,14 +211,48 @@ class SystemGit(override val workingDirectory: String = ".", private val prefix:
     }
 
     override fun getOriginDefaultBranchName(): String {
-        val defaultBranchRef = execute(Configuration.gitCommand, "symbolic-ref", "refs/remotes/origin/HEAD", "--short")
+//        return try {
+            val defaultBranchRef = execute(Configuration.gitCommand, "symbolic-ref", "refs/remotes/origin/HEAD", "--short")
 
-        val parts = defaultBranchRef.split("/").map(String::trim).filterNot(String::isEmpty)
-        if (parts.size < 2) {
-            throw ContractException(errorMessage = "Could not parse symbolic-ref value '$defaultBranchRef'. Expected format: 'origin/branch'")
-        }
+            val parts = defaultBranchRef.split("/").map(String::trim).filterNot(String::isEmpty)
+            if (parts.size < 2) {
+                throw ContractException(errorMessage = "Could not parse symbolic-ref value '$defaultBranchRef'. Expected format: 'origin/branch'")
+            }
 
-        return parts[1]
+            return parts[1]
+//        } catch (e: NonZeroExitError) {
+//            // If symbolic-ref fails, try to determine default branch from remote
+//            logger.debug("symbolic-ref failed, attempting to determine default branch from remote")
+//            try {
+//                // Try git remote show origin to get default branch
+//                val remoteInfo = execute(Configuration.gitCommand, "remote", "show", "origin")
+//                val headBranchLine = remoteInfo.lines().find { it.trim().startsWith("HEAD branch:") }
+//                if (headBranchLine != null) {
+//                    val branchName = headBranchLine.substringAfter("HEAD branch:").trim()
+//                    logger.debug("Default branch from remote: $branchName")
+//                    return branchName
+//                }
+//            } catch (remoteError: Throwable) {
+//                logger.debug("Failed to get default branch from remote: ${remoteError.message}")
+//            }
+//
+//            // Fallback to common default branch names
+//            logger.debug("Falling back to common default branch names")
+//            val commonDefaults = listOf("main", "master", "develop")
+//            for (branchName in commonDefaults) {
+//                try {
+//                    execute(Configuration.gitCommand, "rev-parse", "--verify", "origin/$branchName")
+//                    logger.debug("Using fallback default branch: $branchName")
+//                    return branchName
+//                } catch (verifyError: Throwable) {
+//                    // Branch doesn't exist, try next
+//                }
+//            }
+//
+//            // If all else fails, return "main" as final fallback
+//            logger.debug("Using final fallback: main")
+//            "main"
+//        }
     }
 
     private fun getStashListSize(): Int {
