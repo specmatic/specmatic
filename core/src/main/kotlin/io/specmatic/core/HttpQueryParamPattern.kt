@@ -66,13 +66,21 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
             breadCrumb = BreadCrumb.PARAM_QUERY.value
         ).map { it: ReturnValue<Map<String, Pattern>> ->
             it.ifHasValue {
+                val existingValueDescription = it.valueDetails.singleLineDescription()
                 val patternMap = it.value
                 val keys = patternMap.keys.joinToString(", ") { key -> "'$key'" }
-                val message = when {
+
+                val keyCombinationMessage = when {
                     patternMap.isEmpty() -> ""
-                    patternMap.size == 1 -> "contains the key $keys"
-                    else -> "contains the keys $keys"
+                    patternMap.size == 1 -> "contains the param $keys"
+                    else -> "contains the params $keys"
                 }
+
+                val message =
+                    when {
+                        existingValueDescription.isBlank() -> keyCombinationMessage
+                        else -> "$keyCombinationMessage and $existingValueDescription"
+                    }
 
                 HasValue(
                     HttpQueryParamPattern(patternMap.mapKeys { entry -> withoutOptionality(entry.key) }),
