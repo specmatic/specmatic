@@ -8,11 +8,15 @@ class RegExSpec(regex: String?) {
     private val originalRegex = regex
     private val generex = regex?.let(::cleanRegex)?.let(::InternalGenerex)
 
-    fun validateRegex() {
+    init {
+        validateRegex()
+    }
+
+    private fun validateRegex() {
         runCatching {
             if (generex == null || originalRegex == null) return
             val random = generex.random()
-            if (!Regex(originalRegex).matches(random)) {
+            if (!Regex(originalRegex.replaceRegexLowerBounds()).matches(random)) {
                 logger.log("WARNING: Please check the regex $originalRegex. We generated a random string $random and the regex does not match the string.")
             }
         }.getOrElse { e ->
@@ -24,7 +28,7 @@ class RegExSpec(regex: String?) {
         if (generex == null) return
         minLength?.let {
             val shortestString = generex.generateShortest()
-            if (it > shortestString.length && generex.isInfinite) {
+            if (it > shortestString.length && generex.isFinite) {
                 val longestString = generateLongestStringOrRandom(it)
                 if (longestString.length < it) {
                     throw IllegalArgumentException("minLength $it cannot be greater than the length of longest possible string that matches regex ${this.originalRegex}")
@@ -62,7 +66,7 @@ class RegExSpec(regex: String?) {
     }
 
     fun match(sampleData: StringValue) = originalRegex?.let {
-        Regex(it).matches(sampleData.toStringLiteral())
+        Regex(originalRegex.replaceRegexLowerBounds()).matches(sampleData.toStringLiteral())
     } ?: true
 
     fun generateRandomString(minLength: Int, maxLength: Int? = null): Value {
@@ -87,6 +91,7 @@ class RegExSpec(regex: String?) {
             .removeSuffix(WORD_BOUNDARY)
             .replaceRegexLowerBounds()
             .replaceShorthandCharacterClasses()
+            .requote()
     }
 
     private fun String.replaceRegexLowerBounds(): String {
@@ -95,34 +100,65 @@ class RegExSpec(regex: String?) {
     }
 
     private fun String.replaceShorthandCharacterClasses(): String {
-        val charClassRegex = Regex("""\[(?:\\.|[^]])*]""")
-        val replacements = mapOf(
+        val shorthandMap = mapOf(
             "\\w" to "a-zA-Z_0-9",
-            "\\s" to " \\t\\n\\f\\r",
+            "\\W" to "^a-zA-Z_0-9",
             "\\d" to "0-9",
             "\\D" to "^0-9",
-            "\\S" to "^ \\t\\n\\f\\r",
-            "\\W" to "^a-zA-Z_0-9"
+            "\\s" to " \\t\\n\\f\\r",
+            "\\S" to "^ \\t\\n\\f\\r"
         )
 
-        val withCharClassesProcessed = charClassRegex.replace(this) { match ->
-            val charClass = match.value
-            val isNegated = charClass.startsWith("[^")
-            val innerContent = replacements.entries.fold(
-                initial = charClass.substring(if (isNegated) 2 else 1, charClass.length - 1)
-            ) { acc, (key, value) ->
-                acc.replace(key, value)
+        val result = StringBuilder(length)
+        var insideCharClass = false
+        var pendingEscape = false
+
+        for (ch in this) {
+            when {
+                pendingEscape -> {
+                    val seq = "\\$ch"
+                    shorthandMap[seq]?.let { replacement ->
+                        if (insideCharClass) {
+                            result.append(replacement)
+                        } else {
+                            result.append("[").append(replacement).append("]")
+                        }
+                    } ?: result.append(seq)
+                    pendingEscape = false
+                }
+                ch == '\\' -> {
+                    pendingEscape = true
+                }
+                ch == '[' -> {
+                    insideCharClass = true
+                    result.append(ch)
+                }
+                ch == ']' -> {
+                    insideCharClass = false
+                    result.append(ch)
+                }
+                else -> result.append(ch)
             }
-
-            if (isNegated) "[^$innerContent]" else "[$innerContent]"
         }
 
-        return replacements.entries.fold(withCharClassesProcessed) { acc, (key, value) ->
-            acc.replace(key, "[$value]")
+        if (pendingEscape) result.append('\\')
+        return result.toString()
+    }
+
+    private fun String.requote(): String {
+        val patternRequoted = Regex("""\\Q(.*?)\\E""")
+        val patternSpecial = Regex("[.^$*+?(){|\\[@\\\\]")
+        tailrec fun process(input: String): String {
+            val match = patternRequoted.find(input) ?: return input
+            val group = match.groups[1]?.value ?: ""
+            val replacement = patternSpecial.replace(group) { "\\${it.value}" }
+            val replaced = input.replaceRange(match.range, replacement)
+            return process(replaced)
         }
+        return process(this)
     }
 
     override fun toString(): String {
-        return originalRegex ?: "regex not set"
+        return generex?.regex ?: "regex not set"
     }
 }
