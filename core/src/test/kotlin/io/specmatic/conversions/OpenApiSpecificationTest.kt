@@ -7246,9 +7246,9 @@ components:
 
         val testDescriptionList = tests.map { it.testDescription() }
         assertThat(testDescriptionList).containsExactlyInAnyOrder(
-            " Scenario: GET /items -> 200 [REQUEST.PARAMETERS.HEADER.X-region selected FIRST from enum]",
-            " Scenario: GET /items -> 200 [REQUEST.PARAMETERS.HEADER.X-region selected SECOND from enum]",
-            " Scenario: GET /items -> 200 [REQUEST.PARAMETERS.HEADER.X-region selected THIRD from enum]"
+            " Scenario: GET /items -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the header 'X-region' AND X-region is set to 'FIRST' from enum",
+            " Scenario: GET /items -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the header 'X-region' AND X-region is set to 'SECOND' from enum",
+            " Scenario: GET /items -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the header 'X-region' AND X-region is set to 'THIRD' from enum"
         )
     }
 
@@ -8895,8 +8895,8 @@ paths:
                 }
             })
 
-            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.PARAMETERS.QUERY.id mandatory query param not sent]")
-            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.PARAMETERS.QUERY.age mandatory query param not sent]")
+            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'name', 'age' AND id which is a mandatory query param, is not sent")
+            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'id', 'name' AND age which is a mandatory query param, is not sent")
         }
 
         @Test
@@ -8950,7 +8950,7 @@ paths:
                 }
             })
 
-            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /items -> 4xx [REQUEST.PARAMETERS.QUERY.ids mandatory query param not sent]")
+            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /items -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the param 'category' AND ids which is a mandatory query param, is not sent")
         }
 
         @Test
@@ -9033,8 +9033,8 @@ paths:
                 }
             })
 
-            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.PARAMETERS.QUERY.id mandatory query param not sent] — EX:EXAMPLE")
-            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.PARAMETERS.QUERY.age mandatory query param not sent] — EX:EXAMPLE")
+            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with the request from the example 'EXAMPLE' where REQUEST.PARAMETERS.QUERY contains the params 'name', 'age' AND id which is a mandatory query param, is not sent")
+            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with the request from the example 'EXAMPLE' where REQUEST.PARAMETERS.QUERY contains the params 'id', 'name' AND age which is a mandatory query param, is not sent")
         }
 
     }
@@ -9114,8 +9114,8 @@ paths:
                 }
             })
 
-            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.PARAMETERS.HEADER.X-Required-Header mandatory header not sent]")
-            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.PARAMETERS.HEADER.X-Another-Required-Header mandatory header not sent]")
+            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Optional-Header', 'X-Another-Required-Header' AND X-Required-Header which is a mandatory header, is not sent")
+            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Required-Header', 'X-Optional-Header' AND X-Another-Required-Header which is a mandatory header, is not sent")
         }
 
         @Test
@@ -9204,8 +9204,8 @@ paths:
                     return HttpResponse.OK
                 }
             })
-            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.PARAMETERS.HEADER.X-Required-Header mandatory header not sent]")
-            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx [REQUEST.PARAMETERS.HEADER.X-Another-Required-Header mandatory header not sent]")
+            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Optional-Header', 'X-Another-Required-Header' AND X-Required-Header which is a mandatory header, is not sent")
+            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Required-Header', 'X-Optional-Header' AND X-Another-Required-Header which is a mandatory header, is not sent")
         }
     }
 
@@ -11651,5 +11651,136 @@ paths:
 
         assertThat(output).contains("WARNING: The OpenAPI file spec.yaml was read successfully but with some issues")
         assertThat(output).contains("additionalProperties is not of type")
+    }
+
+    @Test
+    fun `should generate tests with different combinations of the query params`() {
+        val spec = OpenApiSpecification.fromFile("src/test/resources/openapi/spec_with_query_params.yaml")
+        val feature = spec.toFeature().enableGenerativeTesting()
+        val testDescriptions = mutableListOf<String>()
+
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                return HttpResponse(200, parsedJSONObject("""{ "id": 10 }"""))
+            }
+
+            override fun preExecuteScenario(scenario: Scenario, request: HttpRequest) {
+                println(scenario.testDescription())
+                println(request.toLogString())
+
+                testDescriptions.add(scenario.testDescription())
+            }
+        })
+
+        assertThat(testDescriptions).containsExactlyInAnyOrder(
+            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' AND status is set to 'fulfilled' from enum",
+            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' AND status is set to 'pending' from enum",
+            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.QUERY contains the param 'quantity'",
+            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.QUERY contains the params 'status', 'quantity' AND status is set to 'fulfilled' from enum",
+            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.QUERY contains the params 'status', 'quantity' AND status is set to 'pending' from enum",
+            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'quantity'",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' AND productId is mutated from number to boolean AND status is set to 'fulfilled' from enum",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' AND productId is mutated from number to string AND status is set to 'pending' from enum",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' AND productId is mutated from number to boolean AND status is set to 'pending' from enum",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' AND productId is mutated from number to string AND status is set to 'fulfilled' from enum",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' AND status is mutated from (\"fulfilled\" or \"pending\") to number",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' AND status is mutated from (\"fulfilled\" or \"pending\") to boolean",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' AND status is set to 'fulfilled' from enum AND quantity is mutated from number to boolean",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' AND status is set to 'pending' from enum AND quantity is mutated from number to string",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' AND status is set to 'fulfilled' from enum AND quantity is mutated from number to string",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' AND status is set to 'pending' from enum AND quantity is mutated from number to boolean",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the param 'quantity' AND quantity is mutated from number to boolean",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the param 'quantity' AND quantity is mutated from number to string",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status' AND quantity which is a mandatory query param, is not sent"
+        )
+    }
+
+    @Test
+    fun `should generate tests with different combinations of the headers`() {
+        val spec = OpenApiSpecification.fromFile("src/test/resources/openapi/spec_with_headers.yaml")
+        val feature = spec.toFeature().enableGenerativeTesting()
+        val testDescriptions = mutableListOf<String>()
+
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                return HttpResponse(200, parsedJSONObject("""{ "id": 10 }"""))
+            }
+
+            override fun preExecuteScenario(scenario: Scenario, request: HttpRequest) {
+                println(scenario.testDescription())
+                println(request.toLogString())
+
+                testDescriptions.add(scenario.testDescription())
+            }
+        })
+
+        assertThat(testDescriptions).containsExactlyInAnyOrder(
+            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' AND X-Order-Status is set to 'fulfilled' from enum",
+            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' AND X-Order-Status is set to 'pending' from enum",
+            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Quantity'",
+            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Quantity', 'X-Request-Source'",
+            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity' AND X-Order-Status is set to 'fulfilled' from enum",
+            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity' AND X-Order-Status is set to 'pending' from enum",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' AND X-Product-Id is mutated from number to boolean AND X-Order-Status is set to 'fulfilled' from enum",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' AND X-Product-Id is mutated from number to string AND X-Order-Status is set to 'pending' from enum",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' AND X-Product-Id is mutated from number to boolean AND X-Order-Status is set to 'pending' from enum",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' AND X-Product-Id is mutated from number to string AND X-Order-Status is set to 'fulfilled' from enum",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' AND X-Order-Status is mutated from (\"fulfilled\" or \"pending\") to number",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' AND X-Order-Status is mutated from (\"fulfilled\" or \"pending\") to boolean",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' AND X-Order-Status is set to 'fulfilled' from enum AND X-Quantity is mutated from number to boolean",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' AND X-Order-Status is set to 'pending' from enum AND X-Quantity is mutated from number to string",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' AND X-Order-Status is set to 'fulfilled' from enum AND X-Quantity is mutated from number to string",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' AND X-Order-Status is set to 'pending' from enum AND X-Quantity is mutated from number to boolean",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Quantity' AND X-Product-Id is mutated from number to boolean",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Quantity' AND X-Product-Id is mutated from number to string",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Quantity' AND X-Quantity is mutated from number to boolean",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Quantity' AND X-Quantity is mutated from number to string",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Order-Status', 'X-Quantity', 'X-Request-Source' AND X-Product-Id which is a mandatory header, is not sent",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Request-Source' AND X-Quantity which is a mandatory header, is not sent"
+        )
+    }
+
+    @Test
+    fun `should generate tests with different combinations of the request body`() {
+        val spec = OpenApiSpecification.fromFile("src/test/resources/openapi/spec_with_simple_request_body.yaml")
+        val feature = spec.toFeature().enableGenerativeTesting()
+        val testDescriptions = mutableListOf<String>()
+
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                return HttpResponse(200, parsedJSONObject("""{ "id": 10 }"""))
+            }
+
+            override fun preExecuteScenario(scenario: Scenario, request: HttpRequest) {
+                println(scenario.testDescription())
+                println(request.toLogString())
+
+                testDescriptions.add(scenario.testDescription())
+            }
+        })
+
+        assertThat(testDescriptions).containsExactlyInAnyOrder(
+            "+ve  Scenario: POST /orders -> 200 with a request where REQUEST.BODY contains all the keys AND the key status is set to 'fulfilled' from enum",
+            "+ve  Scenario: POST /orders -> 200 with a request where REQUEST.BODY contains all the keys AND the key status is set to 'pending' from enum",
+            "+ve  Scenario: POST /orders -> 200 with a request where REQUEST.BODY contains only the mandatory keys",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys AND the key productId is mutated from number to null AND status is set to 'fulfilled' from enum",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys AND the key productId is mutated from number to boolean AND status is set to 'pending' from enum",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys AND the key productId is mutated from number to string AND status is set to 'fulfilled' from enum",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys AND the key productId is mutated from number to null AND status is set to 'pending' from enum",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys AND the key productId is mutated from number to boolean AND status is set to 'fulfilled' from enum",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys AND the key productId is mutated from number to string AND status is set to 'pending' from enum",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys AND the key status is mutated from (\"fulfilled\" or \"pending\") to null",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys AND the key status is mutated from (\"fulfilled\" or \"pending\") to number",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys AND the key status is mutated from (\"fulfilled\" or \"pending\") to boolean",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys AND the key status is set to 'fulfilled' from enum AND quantity is mutated from number to null",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys AND the key status is set to 'pending' from enum AND quantity is mutated from number to boolean",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys AND the key status is set to 'fulfilled' from enum AND quantity is mutated from number to string",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys AND the key status is set to 'fulfilled' from enum AND quantity is mutated from number to boolean",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys AND the key status is set to 'pending' from enum AND quantity is mutated from number to null",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys AND the key status is set to 'pending' from enum AND quantity is mutated from number to string",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains only the mandatory keys AND the key quantity is mutated from number to null",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains only the mandatory keys AND the key quantity is mutated from number to boolean",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains only the mandatory keys AND the key quantity is mutated from number to string"
+        )
     }
 }

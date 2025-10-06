@@ -8,12 +8,14 @@ import io.specmatic.mcp.test.McpAutoTest
 import io.specmatic.mcp.test.McpTransport
 import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import java.io.File
 
 class McpAutoTestTest {
 
     @Test
+    @Disabled("This is a utility test")
     fun `should run the auto test`() {
         val autoTest = McpAutoTest(
             baseUrl = "https://huggingface.co/mcp",

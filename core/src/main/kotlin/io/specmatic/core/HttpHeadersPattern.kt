@@ -306,11 +306,11 @@ data class HttpHeadersPattern(
         allOrNothingCombinationIn(patternMap, row, null, null) { pattern ->
             NegativeNonStringlyPatterns().negativeBasedOn(pattern, row, resolver)
         }.plus(
-            patternsWithNoRequiredKeys(patternMap, "mandatory header not sent")
+            patternsWithNoRequiredKeys(patternMap, "which is a mandatory header, is not sent")
         ).map { patternMapR ->
-            patternMapR.ifValue { patternMap ->
+            patternWithKeyCombinationDetailsFrom(patternMapR, HEADER_KEY_ID_IN_TEST_DETAILS) { patternMap ->
                 HttpHeadersPattern(
-                    patternMap.mapKeys { withoutOptionality(it.key) }.plus(soapActionPattern),
+                    pattern = patternMap.mapKeys { withoutOptionality(it.key) }.plus(soapActionPattern),
                     contentType = contentType
                 )
             }
@@ -376,9 +376,9 @@ data class HttpHeadersPattern(
             row,
             resolver,
             breadCrumb
-        ).map {
-            it.ifValue {
-                HttpHeadersPattern(it, contentType = contentType)
+        ).map { patternMapValue ->
+            patternWithKeyCombinationDetailsFrom(patternMapValue, HEADER_KEY_ID_IN_TEST_DETAILS) { patternMap ->
+                HttpHeadersPattern(patternMap, contentType = contentType)
             }
         }
     }
@@ -486,6 +486,10 @@ data class HttpHeadersPattern(
     }
 
     private fun contentTypeHeaderPatternExists() = pattern.keys.caseInsensitiveContains(CONTENT_TYPE)
+
+    companion object {
+        private const val HEADER_KEY_ID_IN_TEST_DETAILS = "header"
+    }
 }
 
 private fun parseOrString(pattern: Pattern, sampleValue: String, resolver: Resolver) =

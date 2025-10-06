@@ -416,14 +416,14 @@ internal class HttpPathPatternTest {
 
         negativePathPatterns.filter {
             val value = it as? HasValue ?: fail("Expected HasValue but got ${it.javaClass.simpleName}")
-            value.comments()?.contains("mutated to boolean") == true
+            value.comments()?.contains("is mutated from number to boolean") == true
         }.let {
             assertThat(it).hasSize(1)
         }
 
         negativePathPatterns.filter {
             val value = it as? HasValue ?: fail("Expected HasValue but got ${it.javaClass.simpleName}")
-            value.comments()?.contains("mutated to string") == true
+            value.comments()?.contains("is mutated from number to string") == true
         }.let {
             assertThat(it).hasSize(1)
         }

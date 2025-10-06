@@ -65,8 +65,8 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
             resolver,
             breadCrumb = BreadCrumb.PARAM_QUERY.value
         ).map { it: ReturnValue<Map<String, Pattern>> ->
-            it.ifValue {
-                HttpQueryParamPattern(it.mapKeys { entry -> withoutOptionality(entry.key) })
+            patternWithKeyCombinationDetailsFrom(it, QUERY_PARAM_KEY_ID_IN_TEST_DETAILS) { patternMap ->
+                HttpQueryParamPattern(patternMap.mapKeys { entry -> withoutOptionality(entry.key) })
             }
         }
     }
@@ -172,9 +172,11 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
                 allOrNothingCombinationIn(patternMap) { pattern ->
                     NegativeNonStringlyPatterns().negativeBasedOn(pattern.mapKeys { withoutOptionality(it.key) }, row, resolver, config)
                 }.plus(
-                    patternsWithNoRequiredKeys(patternMap, "mandatory query param not sent")
+                    patternsWithNoRequiredKeys(patternMap, "which is a mandatory query param, is not sent")
                 ).map { it: ReturnValue<Map<String, Pattern>> ->
-                    it.ifValue { value -> HttpQueryParamPattern(value) }
+                    patternWithKeyCombinationDetailsFrom(it, QUERY_PARAM_KEY_ID_IN_TEST_DETAILS) {
+                        HttpQueryParamPattern(it.mapKeys { entry -> withoutOptionality(entry.key) })
+                    }
                 }
             }
         }
@@ -188,9 +190,11 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
         row: Row,
         resolver: Resolver,
         generateMandatoryEntryIfMissing: Boolean
-    ): Sequence<ReturnValue<Map<String, Pattern>>> {
+    ): Sequence<ReturnValue<HttpQueryParamPattern>> {
         return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
             readFrom(queryPatterns, row, resolver, generateMandatoryEntryIfMissing).map { HasValue(it) }
+        }.map { pattern ->
+            pattern.ifValue { HttpQueryParamPattern(pattern.value) }
         }
     }
     fun matches(row: Row, resolver: Resolver): Result {
@@ -241,6 +245,10 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
             hasValue = { valuesMap, _ -> HasValue(QueryParameters(valuesMap.mapValues { it.value.toStringLiteral() })) },
             orException = { e -> e.cast() }, orFailure = { f -> f.cast() }
         )
+    }
+
+    companion object {
+        private const val QUERY_PARAM_KEY_ID_IN_TEST_DETAILS = "param"
     }
 }
 

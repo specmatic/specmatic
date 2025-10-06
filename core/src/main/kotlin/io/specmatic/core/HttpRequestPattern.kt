@@ -1,20 +1,43 @@
 package io.specmatic.core
 
+import io.ktor.util.*
 import io.specmatic.conversions.NoSecurityScheme
 import io.specmatic.conversions.OpenAPISecurityScheme
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
-import io.specmatic.core.pattern.*
-import io.specmatic.core.value.StringValue
-import io.ktor.util.*
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.discriminator.DiscriminatorBasedValueGenerator
 import io.specmatic.core.discriminator.DiscriminatorMetadata
+import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.pattern.EmptyStringPattern
+import io.specmatic.core.pattern.ExactValuePattern
+import io.specmatic.core.pattern.HasException
+import io.specmatic.core.pattern.HasValue
+import io.specmatic.core.pattern.IgnoreUnexpectedKeys
+import io.specmatic.core.pattern.Pattern
+import io.specmatic.core.pattern.QueryParameterArrayPattern
+import io.specmatic.core.pattern.QueryParameterScalarPattern
+import io.specmatic.core.pattern.REQUEST_BODY_FIELD
+import io.specmatic.core.pattern.ReturnValue
+import io.specmatic.core.pattern.Row
+import io.specmatic.core.pattern.ValueDetails
+import io.specmatic.core.pattern.attempt
+import io.specmatic.core.pattern.breadCrumb
+import io.specmatic.core.pattern.isOptional
+import io.specmatic.core.pattern.isPatternToken
+import io.specmatic.core.pattern.newBasedOn
+import io.specmatic.core.pattern.newMapBasedOn
+import io.specmatic.core.pattern.parsedPattern
+import io.specmatic.core.pattern.resolvedHop
+import io.specmatic.core.pattern.returnValue
+import io.specmatic.core.pattern.singleLineDescription
+import io.specmatic.core.pattern.withoutOptionality
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_QUERY_PARAMS
 import io.specmatic.core.value.EmptyString
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
+import io.specmatic.core.value.StringValue
 
 private const val MULTIPART_FORMDATA_BREADCRUMB = "MULTIPART-FORMDATA"
 const val METHOD_BREAD_CRUMB = "METHOD"
@@ -612,12 +635,14 @@ data class HttpRequestPattern(
         }
 
         return returnValue(breadCrumb = "REQUEST") {
-            val newHttpPathPatterns: Sequence<ReturnValue<HttpPathPattern?>> = httpPathPattern?.let { httpPathPattern ->
-                val newURLPathSegmentPatternsList = if (status.toString().startsWith("2")) {
-                    httpPathPattern.newBasedOn(row, resolver)
-                } else httpPathPattern.readFrom(row, resolver)
-                newURLPathSegmentPatternsList.map { HttpPathPattern(it, httpPathPattern.path) }.map { HasValue(it) }
-            } ?: sequenceOf(HasValue(null))
+            val newHttpPathPatterns: Sequence<ReturnValue<HttpPathPattern?>> = returnValue(breadCrumb = BreadCrumb.PARAM_PATH.value) {
+                httpPathPattern?.let { httpPathPattern ->
+                    val newURLPathSegmentPatternsList = if (status.toString().startsWith("2")) {
+                        httpPathPattern.newBasedOn(row, resolver)
+                    } else httpPathPattern.readFrom(row, resolver)
+                    newURLPathSegmentPatternsList.map { HttpPathPattern(it, httpPathPattern.path) }.map { HasValue(it) }
+                } ?: sequenceOf(HasValue(null))
+            }
 
             val newQueryParamsPatterns: Sequence<ReturnValue<HttpQueryParamPattern>> = returnValue(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
                 if (status.toString().startsWith("2")) {
@@ -631,9 +656,7 @@ data class HttpRequestPattern(
                         row,
                         resolver,
                         shouldGenerateMandatoryEntryIfMissing(resolver, status)
-                    ).map { pattern ->
-                        pattern.ifValue { HttpQueryParamPattern(pattern.value) }
-                    }
+                    )
                 }
             }
 
@@ -655,8 +678,8 @@ data class HttpRequestPattern(
                 }
             }
 
-            val newBodies: Sequence<ReturnValue<Pattern>> = attempt(breadCrumb = "BODY") {
-                val rawRequestBody = row.getFieldOrNull(REQUEST_BODY_FIELD) ?: return@attempt resolver.generateHttpRequestBodies(this.body, row)
+            val newBodies: Sequence<ReturnValue<Pattern>> = returnValue(breadCrumb = "BODY") BODY@ {
+                val rawRequestBody = row.getFieldOrNull(REQUEST_BODY_FIELD) ?: return@BODY resolver.generateHttpRequestBodies(this.body, row)
                 val parsedValue = runCatching { body.parse(rawRequestBody, resolver) }.getOrElse { e ->
                     if (isInvalidRequestResponse(status)) StringValue(rawRequestBody)
                     else throw e
@@ -673,25 +696,33 @@ data class HttpRequestPattern(
                     sequenceOf(HasValue(requestBodyAsIs))
             }
 
-            val newFormFieldsPatterns: Sequence<ReturnValue<Map<String, Pattern>>> =
+            val newFormFieldsPatterns: Sequence<ReturnValue<Map<String, Pattern>>> = returnValue(breadCrumb = "FORM-FIELDS") {
                 newMapBasedOn(formFieldsPattern, row, resolver).map { it.value }.map { HasValue(it) }
-            val newFormDataPartLists: Sequence<ReturnValue<List<MultiPartFormDataPattern>>> =
+            }
+            val newFormDataPartLists: Sequence<ReturnValue<List<MultiPartFormDataPattern>>> = returnValue(breadCrumb = "FORM-DATA") {
                 newMultiPartBasedOn(multiPartFormDataPattern, row, resolver).map { HasValue(it) }
+            }
 
-            newHttpPathPatterns.flatMap(BreadCrumb.PARAM_PATH.value) { newPathParamPattern ->
-                newQueryParamsPatterns.flatMap(BreadCrumb.PARAM_QUERY.value) { newQueryParamPattern ->
-                    newBodies.flatMap("BODY") { newBody ->
-                        newHeadersPattern.flatMap(BreadCrumb.PARAM_HEADER.value) { newHeadersPattern ->
-                            newFormFieldsPatterns.flatMap("FORM-FIELDS") { newFormFieldsPattern ->
-                                newFormDataPartLists.flatMap("FORM-DATA") { newFormDataPartList ->
+            newHttpPathPatterns.flatMap { newPathParamPatternValue ->
+                val pathParamPattern = newPathParamPatternValue.value
+                newQueryParamsPatterns.flatMap { newQueryParamPatternValue ->
+                    val queryParamPattern = newQueryParamPatternValue.value
+                    newBodies.flatMap { newBodyPatternValue ->
+                        val bodyPattern = newBodyPatternValue.value
+                        newHeadersPattern.flatMap { newHeadersPatternValue ->
+                            val headersPattern = newHeadersPatternValue.value
+                            newFormFieldsPatterns.flatMap { newFormFieldsPatternValue ->
+                                val formFieldsPattern = newFormFieldsPatternValue.value
+                                newFormDataPartLists.flatMap { newFormDataPartListValue ->
+                                    val formDataPartList = newFormDataPartListValue.value
                                     val newRequestPattern = HttpRequestPattern(
-                                        headersPattern = newHeadersPattern.value,
-                                        httpPathPattern = newPathParamPattern.value,
-                                        httpQueryParamPattern = newQueryParamPattern.value,
+                                        headersPattern = headersPattern,
+                                        httpPathPattern = pathParamPattern,
+                                        httpQueryParamPattern = queryParamPattern,
                                         method = method,
-                                        body = newBody.value,
-                                        formFieldsPattern = newFormFieldsPattern.value,
-                                        multiPartFormDataPattern = newFormDataPartList.value
+                                        body = bodyPattern,
+                                        formFieldsPattern = formFieldsPattern,
+                                        multiPartFormDataPattern = formDataPartList
                                     )
 
                                     val schemeInRow = securitySchemes.find { it.isInRow(row) }
@@ -703,10 +734,11 @@ data class HttpRequestPattern(
                                             newRequestPattern.copy(securitySchemes = listOf(it))
                                         }
                                     }.map { requestPattern ->
-                                        val requestValueDetails = listOf(newHeadersPattern)
-                                            .filterIsInstance<HasValue<*>>().flatMap {
-                                                it.valueDetails
-                                            }
+                                        val requestValueDetails = listOf(
+                                            newHeadersPatternValue,
+                                            newBodyPatternValue,
+                                            newQueryParamPatternValue
+                                        ).filterIsInstance<HasValue<*>>().flatMap { it.valueDetails }
                                         HasValue(requestPattern, requestValueDetails)
                                     }
                                 }
@@ -718,7 +750,7 @@ data class HttpRequestPattern(
         }
     }
 
-    fun <T, U> Sequence<T>.flatMap(breadCrumb: String = "", fn: (T) -> Sequence<ReturnValue<U>>): Sequence<ReturnValue<U>> {
+    private fun <T, U> Sequence<T>.flatMap(fn: (T) -> Sequence<ReturnValue<U>>): Sequence<ReturnValue<U>> {
         val iterator = this.iterator()
 
         return sequence {
@@ -731,7 +763,7 @@ data class HttpRequestPattern(
                     yieldAll(results)
                 }
             } catch(t: Throwable) {
-                yield(HasException(t, breadCrumb = breadCrumb))
+                yield(HasException(t))
             }
         }
     }
@@ -1000,5 +1032,36 @@ private fun Map<String, Pattern>.mergeIgnoringCaseAndOptionalsWith(other: Map<St
     return buildMap {
         putAll(this@mergeIgnoringCaseAndOptionalsWith)
         putAll(other.filterKeys { withoutOptionality(it).toLowerCasePreservingASCIIRules() !in thisNormalizedKeys })
+    }
+}
+
+fun <T> patternWithKeyCombinationDetailsFrom(
+    patternMapValue: ReturnValue<Map<String, Pattern>>,
+    keyId: String,
+    buildPattern: (Map<String, Pattern>) -> T,
+): ReturnValue<T> {
+    return patternMapValue.ifHasValue {
+        val existingValueDescription = it.valueDetails.singleLineDescription()
+        val patternMap = it.value
+        val keys = patternMap.keys.map { key ->
+            withoutOptionality(key)
+        }.joinToString(", ") { key -> "'$key'" }
+
+        val keyCombinationMessage = when {
+            patternMap.isEmpty() -> ""
+            patternMap.size == 1 -> "contains the $keyId $keys"
+            else -> "contains the ${keyId}s $keys"
+        }
+
+        val message =
+            when {
+                existingValueDescription.isBlank() -> keyCombinationMessage
+                else -> "$keyCombinationMessage AND $existingValueDescription"
+            }
+
+        HasValue(
+            buildPattern(patternMap),
+            listOf(ValueDetails(messages = listOf(message)))
+        )
     }
 }

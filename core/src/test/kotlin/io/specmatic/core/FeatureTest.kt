@@ -1491,7 +1491,8 @@ paths:
         }
 
         negativeTestScenarios.zip((1..negativeTestScenarios.size).toList()).forEach { (scenario, _) ->
-            assertThat(scenario.testDescription()).contains("4xx [REQUEST.BODY.name string mutated to")
+            assertThat(scenario.testDescription()).contains("4xx")
+            assertThat(scenario.testDescription()).contains("REQUEST.BODY contains all the keys AND the key name is mutated from string to")
         }
     }
 
@@ -1550,7 +1551,7 @@ paths:
                 .map {
                     it.second.value
                 }.map {
-                    it.copy(descriptionFromPlugin = "scenario custom description")
+                    it.copy(customAPIDescription = "scenario custom description")
                 }
         val negativeTestScenarios = scenarios.filter { it.testDescription().contains("-ve") }
         assertThat(negativeTestScenarios.map { it.testDescription() }).allSatisfy {

@@ -727,7 +727,7 @@ data class Feature(
     fun adjustTestDescription(scenario: Scenario, scenarios: List<Scenario> = this.scenarios): Scenario {
         if (!isAcceptedResponsePossible(scenario, scenarios)) return scenario
         return scenario.copy(
-            descriptionFromPlugin = null,
+            customAPIDescription = null,
             statusInDescription = "${scenario.statusInDescription}/202"
         )
     }
@@ -917,11 +917,9 @@ data class Feature(
 
     private fun getScenarioWithDescription(scenarioResult: ReturnValue<Scenario>): ReturnValue<Scenario> {
         return scenarioResult.ifHasValue { result: HasValue<Scenario> ->
-            val apiDescription = result.value.descriptionFromPlugin ?: result.value.apiDescription
-            val tag = result.valueDetails.singleLineDescription().let {
-                if (it.isNotBlank()) " [$it]" else ""
-            }
-            HasValue(result.value.copy(descriptionFromPlugin = "$apiDescription$tag"))
+            val apiDescription = result.value.customAPIDescription ?: result.value.defaultAPIDescription
+            val tag = result.valueDetails.singleLineDescription().takeIf { it.isNotBlank() }
+            HasValue(result.value.copy(customAPIDescription = apiDescription, requestChangeSummary = tag))
         }
     }
 

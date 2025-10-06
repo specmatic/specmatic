@@ -98,7 +98,7 @@ data class StringPattern (
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> {
         val minLengthExample: ReturnValue<Pattern>? = minLength?.let { minLen ->
             val exampleString = regExSpec.generateShortestStringOrRandom(minLen)
-            HasValue(ExactValuePattern(StringValue(exampleString)), "minimum length string")
+            HasValue(ExactValuePattern(StringValue(exampleString)), "is set to the shortest possible string")
         }
 
         val withinRangeExample: ReturnValue<Pattern> = HasValue(this)
@@ -106,7 +106,7 @@ data class StringPattern (
         val maxLengthExample: ReturnValue<Pattern>? =
             maxLength?.let { maxLen ->
                 val exampleString = regExSpec.generateLongestStringOrRandom(maxLen)
-                HasValue(ExactValuePattern(StringValue(exampleString)), "maximum length string")
+                HasValue(ExactValuePattern(StringValue(exampleString)), "is set to the longest possible string")
             }
 
         return sequenceOf(minLengthExample, withinRangeExample, maxLengthExample).filterNotNull()
@@ -129,7 +129,7 @@ data class StringPattern (
                     regex = null
                 )
                 yield(
-                    HasValue(pattern, "length greater than maxLength '$maxLength'")
+                    HasValue(pattern, "is set to a value with length greater than maxLength '$maxLength'")
                 )
             }
             if (minLength != null && minLength != 0 && !downsampledMin) {
@@ -140,13 +140,14 @@ data class StringPattern (
                 )
                 yield(
                     HasValue(
-                        pattern, "length lesser than minLength '$effectiveMinLength'"
+                        pattern, "is set to a value with length lesser than minLength '$effectiveMinLength'"
                     )
                 )
             }
             if (regex != null) {
-                val pattern = copy(regex = regex.plus("_"))
-                yield(HasValue(pattern, "invalid regex"))
+                val invalidRegex = regex.plus("_")
+                val pattern = copy(regex = invalidRegex)
+                yield(HasValue(pattern, "is set to a value matching an invalid regex '$invalidRegex'"))
             }
         }
     }
