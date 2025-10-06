@@ -86,7 +86,7 @@ data class Scenario(
     val generativePrefix: String = "",
     val statusInDescription: String = httpResponsePattern.status.toString(),
     val disambiguate: () -> String = { "" },
-    val descriptionFromPlugin: String? = null,
+    val customAPIDescription: String? = null,
     val dictionary: Dictionary = Dictionary.empty(),
     val attributeSelectionPattern: AttributeSelectionPatternDetails = AttributeSelectionPatternDetails.default,
     val exampleRow: Row? = null,
@@ -542,9 +542,9 @@ data class Scenario(
 
             if (errors.isNotEmpty()) {
                 val title = if (row.fileSource != null) {
-                    "Error loading example for ${this.apiDescription.trim()} from ${row.fileSource}"
+                    "Error loading example for ${this.defaultAPIDescription.trim()} from ${row.fileSource}"
                 } else {
-                    "Error loading example named ${row.name} for ${this.apiDescription.trim()}"
+                    "Error loading example named ${row.name} for ${this.defaultAPIDescription.trim()}"
                 }
 
                 listOf(title).plus(errors).joinToString("${System.lineSeparator()}${System.lineSeparator()}").also { message ->
@@ -748,7 +748,7 @@ data class Scenario(
             }
         }
 
-    val apiDescription: String
+    val defaultAPIDescription: String
         get() {
             val soapActionInfo = httpRequestPattern.getSOAPAction()
             return if (soapActionInfo != null) {
@@ -759,7 +759,7 @@ data class Scenario(
         }
 
     override fun testDescription(): String {
-        val apiDescription = descriptionFromPlugin ?: this.apiDescription
+        val apiDescription = customAPIDescription ?: this.defaultAPIDescription
         val hasExample = exampleName.isNullOrBlank().not()
         val hasRequestChangeSummary = requestChangeSummary.isNullOrBlank().not()
 

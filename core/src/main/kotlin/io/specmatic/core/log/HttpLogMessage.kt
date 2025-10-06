@@ -133,7 +133,7 @@ data class HttpLogMessage(
     fun toDetails(): String {
         return when {
             this.examplePath != null -> "Request Matched Example: ${this.examplePath}"
-            this.scenario != null && response?.status !in invalidRequestStatuses -> "Request Matched Contract ${scenario?.apiDescription}"
+            this.scenario != null && response?.status !in invalidRequestStatuses -> "Request Matched Contract ${scenario?.defaultAPIDescription}"
             this.exception != null -> "Invalid Request\n${exception?.let(::exceptionCauseMessage)}"
             else -> response?.body?.toStringLiteral() ?: "Request Didn't Match Contract"
         }

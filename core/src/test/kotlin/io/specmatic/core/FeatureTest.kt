@@ -1551,7 +1551,7 @@ paths:
                 .map {
                     it.second.value
                 }.map {
-                    it.copy(descriptionFromPlugin = "scenario custom description")
+                    it.copy(customAPIDescription = "scenario custom description")
                 }
         val negativeTestScenarios = scenarios.filter { it.testDescription().contains("-ve") }
         assertThat(negativeTestScenarios.map { it.testDescription() }).allSatisfy {

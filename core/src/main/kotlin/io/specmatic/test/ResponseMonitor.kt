@@ -69,7 +69,7 @@ class ResponseMonitor(
 
     private fun getScenarioAndLink(): ReturnValue<Pair<Scenario, Link>> {
         val processingScenario = getProcessingScenario() ?:
-            return HasFailure("No accepted response scenario found for ${originalScenario.apiDescription}")
+            return HasFailure("No accepted response scenario found for ${originalScenario.defaultAPIDescription}")
 
         val processingScenarioResult = processingScenario.matches(response)
         if (processingScenarioResult is Result.Failure) {

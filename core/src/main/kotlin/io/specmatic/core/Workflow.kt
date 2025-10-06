@@ -10,7 +10,7 @@ class Workflow(
     var id: Value? = null
 
     fun extractDataFrom(response: HttpResponse, originalScenario: Scenario) {
-        val extractLocation = workflow.getExtractForAPI(originalScenario.apiDescription) ?: return
+        val extractLocation = workflow.getExtractForAPI(originalScenario.defaultAPIDescription) ?: return
 
         val locationPath = extractLocation.split(".")
         if(locationPath.isEmpty())
@@ -42,7 +42,7 @@ class Workflow(
         if(originalScenario.isNegative)
             return request
 
-        val useLocation = workflow.getUseForAPI(originalScenario.apiDescription) ?: return request
+        val useLocation = workflow.getUseForAPI(originalScenario.defaultAPIDescription) ?: return request
 
         val locationPath = useLocation.split(".")
         if(locationPath.isEmpty())

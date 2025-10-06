@@ -750,7 +750,7 @@ data class HttpRequestPattern(
         }
     }
 
-    fun <T, U> Sequence<T>.flatMap(breadCrumb: String = "", fn: (T) -> Sequence<ReturnValue<U>>): Sequence<ReturnValue<U>> {
+    private fun <T, U> Sequence<T>.flatMap(fn: (T) -> Sequence<ReturnValue<U>>): Sequence<ReturnValue<U>> {
         val iterator = this.iterator()
 
         return sequence {
@@ -763,7 +763,7 @@ data class HttpRequestPattern(
                     yieldAll(results)
                 }
             } catch(t: Throwable) {
-                yield(HasException(t, breadCrumb = breadCrumb))
+                yield(HasException(t))
             }
         }
     }

@@ -34,7 +34,7 @@ class ScenarioSOAPActionTest {
         )
         
         // Test that the API description includes SOAPAction
-        val description = scenario.apiDescription
+        val description = scenario.defaultAPIDescription
         assertThat(description).isEqualTo("POST /soap/service SOAPAction http://example.com/soap/action -> 200")
     }
     
@@ -62,7 +62,7 @@ class ScenarioSOAPActionTest {
         )
         
         // Test that the API description works normally
-        val description = scenario.apiDescription
+        val description = scenario.defaultAPIDescription
         assertThat(description).isEqualTo("GET /api/data -> 200")
     }
     
@@ -91,7 +91,7 @@ class ScenarioSOAPActionTest {
         )
         
         // Test that the API description includes SOAPAction regardless of case
-        val description = scenario.apiDescription
+        val description = scenario.defaultAPIDescription
         assertThat(description).isEqualTo("POST /soap/service SOAPAction http://example.com/soap/action -> 200")
     }
     
@@ -119,7 +119,7 @@ class ScenarioSOAPActionTest {
         )
         
         // Test that the API description does not include SOAPAction for non-exact patterns
-        val description = scenario.apiDescription
+        val description = scenario.defaultAPIDescription
         assertThat(description).isEqualTo("POST /soap/service -> 200")
     }
     
