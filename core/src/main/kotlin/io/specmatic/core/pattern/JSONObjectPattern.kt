@@ -440,10 +440,8 @@ data class JSONObjectPattern(
         ) { pattern ->
             newMapBasedOn(pattern, row, withNullPattern(resolver))
         }.map { it: ReturnValue<Map<String, Pattern>> ->
-            it.ifValue {
-                toJSONObjectPattern(it.mapKeys { (key, _) ->
-                    withoutOptionality(key)
-                }, typeAlias)
+            patternWithKeyCombinationDetails(it) { patternMap ->
+                toJSONObjectPattern(patternMap.mapKeys { (key, _) -> withoutOptionality(key) }, typeAlias)
             }
     }
 
@@ -455,10 +453,18 @@ data class JSONObjectPattern(
             null, returnValues { pattern: Map<String, Pattern> -> newBasedOn(pattern, withNullPattern(resolver)) }
         ).map { it.value }.map { toJSONObjectPattern(it, typeAlias) }
 
-    override fun negativeBasedOn(row: Row, resolver: Resolver, config: NegativePatternConfiguration): Sequence<ReturnValue<Pattern>> =
+    override fun negativeBasedOn(
+        row: Row,
+        resolver: Resolver,
+        config: NegativePatternConfiguration
+    ): Sequence<ReturnValue<Pattern>> =
         allOrNothingCombinationIn(pattern.minus("...")) { pattern ->
             AllNegativePatterns().negativeBasedOn(pattern, row, withNullPattern(resolver), config)
-        }.map { it.ifValue { toJSONObjectPattern(it, typeAlias) } }
+        }.map {
+            patternWithKeyCombinationDetails(it) { patternMap ->
+                toJSONObjectPattern(patternMap, typeAlias)
+            }
+        }
 
     override fun parse(value: String, resolver: Resolver): Value = parsedJSONObject(value, resolver.mismatchMessages)
     override fun hashCode(): Int = pattern.hashCode()
@@ -642,6 +648,28 @@ data class JSONObjectPattern(
             }
         }
     }
+
+    private fun patternWithKeyCombinationDetails(
+        patternMap: ReturnValue<Map<String, Pattern>>,
+        buildPattern: (Map<String, Pattern>) -> Pattern
+    ): ReturnValue<Pattern> =
+        patternMap.ifHasValue {
+            val existingValueDescription = it.valueDetails.singleLineDescription()
+            val keyCombinationMessage = when (it.value.keys.size) {
+                this.pattern.size -> "contains all the keys"
+                else -> "contains only the mandatory keys"
+            }
+            val message =
+                when {
+                    existingValueDescription.isBlank() -> keyCombinationMessage
+                    else -> "$keyCombinationMessage and the key $existingValueDescription"
+                }
+
+            HasValue(
+                buildPattern(it.value),
+                listOf(ValueDetails(messages = listOf(message)))
+            )
+        }
 }
 
 fun generate(jsonPatternMap: Map<String, Pattern>, resolver: Resolver, jsonPattern: JSONObjectPattern): Map<String, Value> {
