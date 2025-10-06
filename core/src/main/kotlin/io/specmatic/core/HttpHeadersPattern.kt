@@ -306,13 +306,10 @@ data class HttpHeadersPattern(
         allOrNothingCombinationIn(patternMap, row, null, null) { pattern ->
             NegativeNonStringlyPatterns().negativeBasedOn(pattern, row, resolver)
         }.plus(
-            patternsWithNoRequiredKeys(patternMap, ",a mandatory header, is not sent")
+            patternsWithNoRequiredKeys(patternMap, "which is a mandatory header, is not sent")
         ).map { patternMapR ->
-            patternMapR.ifValue { patternMap ->
-                HttpHeadersPattern(
-                    patternMap.mapKeys { withoutOptionality(it.key) }.plus(soapActionPattern),
-                    contentType = contentType
-                )
+            httpHeadersPatternWithDetailsFrom(patternMapR) { patternMap ->
+                patternMap.mapKeys { withoutOptionality(it.key) }.plus(soapActionPattern)
             }
         }
     }
@@ -377,28 +374,7 @@ data class HttpHeadersPattern(
             resolver,
             breadCrumb
         ).map { patternMapValue ->
-            patternMapValue.ifHasValue {
-                val existingValueDescription = it.valueDetails.singleLineDescription()
-                val patternMap = it.value
-                val keys = patternMap.keys.joinToString(", ") { key -> "'$key'" }
-
-                val keyCombinationMessage = when {
-                    patternMap.isEmpty() -> ""
-                    patternMap.size == 1 -> "contains the header $keys"
-                    else -> "contains the headers $keys"
-                }
-
-                val message =
-                    when {
-                        existingValueDescription.isBlank() -> keyCombinationMessage
-                        else -> "$keyCombinationMessage and $existingValueDescription"
-                    }
-
-                HasValue(
-                    HttpHeadersPattern(patternMap, contentType = contentType),
-                    listOf(ValueDetails(messages = listOf(message)))
-                )
-            }
+            httpHeadersPatternWithDetailsFrom(patternMapValue)
         }
     }
 
@@ -505,6 +481,34 @@ data class HttpHeadersPattern(
     }
 
     private fun contentTypeHeaderPatternExists() = pattern.keys.caseInsensitiveContains(CONTENT_TYPE)
+
+    private fun httpHeadersPatternWithDetailsFrom(
+        patternMapValue: ReturnValue<Map<String, Pattern>>,
+        modifyPatternMap: (Map<String, Pattern>) -> Map<String, Pattern> = { it }
+    ): ReturnValue<HttpHeadersPattern> {
+        return patternMapValue.ifHasValue {
+            val existingValueDescription = it.valueDetails.singleLineDescription()
+            val patternMap = modifyPatternMap(it.value)
+            val keys = patternMap.keys.joinToString(", ") { key -> "'$key'" }
+
+            val keyCombinationMessage = when {
+                patternMap.isEmpty() -> ""
+                patternMap.size == 1 -> "contains the header $keys"
+                else -> "contains the headers $keys"
+            }
+
+            val message =
+                when {
+                    existingValueDescription.isBlank() -> keyCombinationMessage
+                    else -> "$keyCombinationMessage and $existingValueDescription"
+                }
+
+            HasValue(
+                HttpHeadersPattern(patternMap, contentType = contentType),
+                listOf(ValueDetails(messages = listOf(message)))
+            )
+        }
+    }
 }
 
 private fun parseOrString(pattern: Pattern, sampleValue: String, resolver: Resolver) =

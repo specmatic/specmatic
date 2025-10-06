@@ -9114,8 +9114,8 @@ paths:
                 }
             })
 
-            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.HEADER.X-Required-Header ,a mandatory header, is not sent")
-            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.HEADER.X-Another-Required-Header ,a mandatory header, is not sent")
+            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Optional-Header', 'X-Another-Required-Header' and X-Required-Header which is a mandatory header, is not sent")
+            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Required-Header', 'X-Optional-Header' and X-Another-Required-Header which is a mandatory header, is not sent")
         }
 
         @Test
@@ -9204,8 +9204,8 @@ paths:
                     return HttpResponse.OK
                 }
             })
-            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.HEADER.X-Required-Header ,a mandatory header, is not sent")
-            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.HEADER.X-Another-Required-Header ,a mandatory header, is not sent")
+            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Optional-Header', 'X-Another-Required-Header' and X-Required-Header which is a mandatory header, is not sent")
+            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Required-Header', 'X-Optional-Header' and X-Another-Required-Header which is a mandatory header, is not sent")
         }
     }
 
@@ -11721,22 +11721,22 @@ paths:
             "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Quantity', 'X-Request-Source'",
             "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity' and X-Order-Status is set to 'fulfilled' from enum",
             "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity' and X-Order-Status is set to 'pending' from enum",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER.X-Product-Id is mutated from number to boolean, REQUEST.PARAMETERS.HEADER.X-Order-Status is set to 'fulfilled' from enum",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER.X-Product-Id is mutated from number to string, REQUEST.PARAMETERS.HEADER.X-Order-Status is set to 'pending' from enum",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER.X-Product-Id is mutated from number to boolean, REQUEST.PARAMETERS.HEADER.X-Order-Status is set to 'pending' from enum",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER.X-Product-Id is mutated from number to string, REQUEST.PARAMETERS.HEADER.X-Order-Status is set to 'fulfilled' from enum",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER.X-Order-Status is mutated from (\"fulfilled\" or \"pending\") to number",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER.X-Order-Status is mutated from (\"fulfilled\" or \"pending\") to boolean",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER.X-Order-Status is set to 'fulfilled' from enum, REQUEST.PARAMETERS.HEADER.X-Quantity is mutated from number to boolean",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER.X-Order-Status is set to 'pending' from enum, REQUEST.PARAMETERS.HEADER.X-Quantity is mutated from number to string",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER.X-Order-Status is set to 'fulfilled' from enum, REQUEST.PARAMETERS.HEADER.X-Quantity is mutated from number to string",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER.X-Order-Status is set to 'pending' from enum, REQUEST.PARAMETERS.HEADER.X-Quantity is mutated from number to boolean",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER.X-Product-Id is mutated from number to boolean",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER.X-Product-Id is mutated from number to string",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER.X-Quantity is mutated from number to boolean",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER.X-Quantity is mutated from number to string",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER.X-Product-Id ,a mandatory header, is not sent",
-            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER.X-Quantity ,a mandatory header, is not sent"
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' and X-Product-Id is mutated from number to boolean, X-Order-Status is set to 'fulfilled' from enum",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' and X-Product-Id is mutated from number to string, X-Order-Status is set to 'pending' from enum",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' and X-Product-Id is mutated from number to boolean, X-Order-Status is set to 'pending' from enum",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' and X-Product-Id is mutated from number to string, X-Order-Status is set to 'fulfilled' from enum",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' and X-Order-Status is mutated from (\"fulfilled\" or \"pending\") to number",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' and X-Order-Status is mutated from (\"fulfilled\" or \"pending\") to boolean",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' and X-Order-Status is set to 'fulfilled' from enum, X-Quantity is mutated from number to boolean",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' and X-Order-Status is set to 'pending' from enum, X-Quantity is mutated from number to string",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' and X-Order-Status is set to 'fulfilled' from enum, X-Quantity is mutated from number to string",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' and X-Order-Status is set to 'pending' from enum, X-Quantity is mutated from number to boolean",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Quantity' and X-Product-Id is mutated from number to boolean",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Quantity' and X-Product-Id is mutated from number to string",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Quantity' and X-Quantity is mutated from number to boolean",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Quantity' and X-Quantity is mutated from number to string",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Order-Status', 'X-Quantity', 'X-Request-Source' and X-Product-Id which is a mandatory header, is not sent",
+            "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Request-Source' and X-Quantity which is a mandatory header, is not sent"
         )
     }
 }
