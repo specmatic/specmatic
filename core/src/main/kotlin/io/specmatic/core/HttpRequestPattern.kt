@@ -1056,7 +1056,7 @@ fun <T> patternWithKeyCombinationDetailsFrom(
         val message =
             when {
                 existingValueDescription.isBlank() -> keyCombinationMessage
-                else -> "$keyCombinationMessage and $existingValueDescription"
+                else -> "$keyCombinationMessage AND $existingValueDescription"
             }
 
         HasValue(

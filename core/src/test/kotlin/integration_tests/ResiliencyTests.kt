@@ -2319,22 +2319,22 @@ class GenerativeTests {
         assertThat(testDescriptions.sorted().distinct()).containsExactlyInAnyOrder(
             "+ve  Scenario: POST /items -> 201 with the request from the example 'sampleItems'",
             "+ve  Scenario: POST /items -> 201 with the request from the example 'sampleItems' where REQUEST.BODY contains all the keys",
-            "+ve  Scenario: POST /items -> 201 with the request from the example 'sampleItems' where REQUEST.BODY contains all the keys and the key quantity is set to the largest possible value",
-            "+ve  Scenario: POST /items -> 201 with the request from the example 'sampleItems' where REQUEST.BODY contains all the keys and the key quantity is set to the smallest possible value '1'",
-            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys and the key name is mutated from string to boolean",
-            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys and the key name is mutated from string to boolean AND quantity is set to the largest possible value",
-            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys and the key name is mutated from string to boolean AND quantity is set to the smallest possible value '1'",
-            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys and the key name is mutated from string to null",
-            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys and the key name is mutated from string to null AND quantity is set to the largest possible value",
-            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys and the key name is mutated from string to null AND quantity is set to the smallest possible value '1'",
-            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys and the key name is mutated from string to number",
-            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys and the key name is mutated from string to number AND quantity is set to the largest possible value",
-            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys and the key name is mutated from string to number AND quantity is set to the smallest possible value '1'",
-            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys and the key quantity is mutated from number to boolean",
-            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys and the key quantity is mutated from number to null",
-            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys and the key quantity is mutated from number to string",
-            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys and the key quantity is set to a value greater than maximum value '5000'",
-            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys and the key quantity is set to a value lesser than minimum value '1'"
+            "+ve  Scenario: POST /items -> 201 with the request from the example 'sampleItems' where REQUEST.BODY contains all the keys AND the key quantity is set to the largest possible value",
+            "+ve  Scenario: POST /items -> 201 with the request from the example 'sampleItems' where REQUEST.BODY contains all the keys AND the key quantity is set to the smallest possible value '1'",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys AND the key name is mutated from string to boolean",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys AND the key name is mutated from string to boolean AND quantity is set to the largest possible value",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys AND the key name is mutated from string to boolean AND quantity is set to the smallest possible value '1'",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys AND the key name is mutated from string to null",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys AND the key name is mutated from string to null AND quantity is set to the largest possible value",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys AND the key name is mutated from string to null AND quantity is set to the smallest possible value '1'",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys AND the key name is mutated from string to number",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys AND the key name is mutated from string to number AND quantity is set to the largest possible value",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys AND the key name is mutated from string to number AND quantity is set to the smallest possible value '1'",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys AND the key quantity is mutated from number to boolean",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys AND the key quantity is mutated from number to null",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys AND the key quantity is mutated from number to string",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys AND the key quantity is set to a value greater than maximum value '5000'",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys AND the key quantity is set to a value lesser than minimum value '1'"
         )
     }
 

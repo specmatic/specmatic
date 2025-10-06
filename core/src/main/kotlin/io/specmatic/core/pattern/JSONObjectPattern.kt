@@ -662,7 +662,7 @@ data class JSONObjectPattern(
             val message =
                 when {
                     existingValueDescription.isBlank() -> keyCombinationMessage
-                    else -> "$keyCombinationMessage and the key $existingValueDescription"
+                    else -> "$keyCombinationMessage AND the key $existingValueDescription"
                 }
 
             HasValue(

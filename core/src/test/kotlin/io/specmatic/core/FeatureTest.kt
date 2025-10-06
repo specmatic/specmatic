@@ -1492,7 +1492,7 @@ paths:
 
         negativeTestScenarios.zip((1..negativeTestScenarios.size).toList()).forEach { (scenario, _) ->
             assertThat(scenario.testDescription()).contains("4xx")
-            assertThat(scenario.testDescription()).contains("REQUEST.BODY contains all the keys and the key name is mutated from string to")
+            assertThat(scenario.testDescription()).contains("REQUEST.BODY contains all the keys AND the key name is mutated from string to")
         }
     }
 
