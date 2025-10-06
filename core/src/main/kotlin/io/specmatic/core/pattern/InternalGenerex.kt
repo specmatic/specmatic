@@ -8,20 +8,19 @@ import kotlin.random.Random
 
 internal const val WORD_BOUNDARY = "\\b"
 
-class InternalGenerex(val regex: String) {
+class InternalGenerex(val regex: String, private val generex: Generex = Generex(regex)) {
     val regExp = RegExp(regex)
-    val isInfinite: Boolean get() {
-        return Generex(regex).isInfinite
-    }
+    val isInfinite: Boolean = generex.isInfinite
+    val isFinite: Boolean = !generex.isInfinite
 
     init {
-        check(!regex.startsWith("\\") && !regex.endsWith("\\")) {
+        check(!regex.startsWith("/") && !regex.endsWith("/")) {
             "Invalid regex $regex. OpenAPI follows ECMA-262 regular expressions, which do not support / / delimiters like those used in many programming languages"
         }
     }
 
     fun random(minLength: Int? = 1, maxLength: Int? = REASONABLE_STRING_LENGTH): String {
-        return Generex(regex).generateOptimized(minLength ?: 1, maxLength ?: REASONABLE_STRING_LENGTH)
+        return generex.generateOptimized(minLength ?: 1, maxLength ?: REASONABLE_STRING_LENGTH)
     }
 
     fun generateShortest(): String = regExp.toAutomaton().getShortestExample(true)
@@ -74,7 +73,7 @@ class InternalGenerex(val regex: String) {
         return if (selectedTransitions.add(nextIdx)) {
             val transition = transitions[nextIdx]
             val rangeWidth = transition.max - transition.min + 1
-            val randomChar = (transition.min + Random.nextInt(rangeWidth)).toChar()
+            val randomChar = (transition.min + Random.nextInt(rangeWidth))
             prepareRandomTailRec(builder.append(randomChar), transition.dest, minLength, maxLength)
         } else {
             prepareRandomTailRec(builder, state, minLength, maxLength, selectedTransitions)
