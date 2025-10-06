@@ -32,6 +32,7 @@ data class StringPattern (
                 throw IllegalArgumentException("maxLength $it cannot be less than minLength $effectiveMinLength")
             }
         }
+        regExSpec.validateRegex()
         regExSpec.validateMinLength(minLength)
         regExSpec.validateMaxLength(maxLength)
     }
@@ -132,6 +133,7 @@ data class StringPattern (
                     HasValue(pattern, "is set to a value with length greater than maxLength '$maxLength'")
                 )
             }
+
             if (minLength != null && minLength != 0 && !downsampledMin) {
                 val pattern = copy(
                     minLength = effectiveMinLength.dec(),
@@ -144,10 +146,10 @@ data class StringPattern (
                     )
                 )
             }
-            if (regex != null) {
-                val invalidRegex = regex.plus("_")
-                val pattern = copy(regex = invalidRegex)
-                yield(HasValue(pattern, "is set to a value matching an invalid regex '$invalidRegex'"))
+
+            regExSpec.negativeBasedOn(minLength, maxLength)?.let { (regex, minLength, maxLength) ->
+                val pattern = copy(regex = regex, minLength = minLength, maxLength = maxLength)
+                yield(HasValue(pattern, "is set to a value matching an invalid regex '$regex'"))
             }
         }
     }
