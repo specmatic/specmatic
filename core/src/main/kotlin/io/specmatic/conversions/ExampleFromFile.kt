@@ -1,6 +1,5 @@
 package io.specmatic.conversions
 
-import io.ktor.http.decodeURLPart
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.NoBodyValue
@@ -137,14 +136,11 @@ class ExampleFromFile(val json: JSONObjectValue, val file: File) {
         }
 
     private val rawPath: String? =
-        json.findByPath("http-request.path")?.toStringLiteral()?.decodeURLPart()
+        json.findByPath("http-request.path")?.toStringLiteral()
 
     val requestPath: String? = attempt("Error reading path in file ${file.canonicalPath}") {
-        rawPath?.let { pathOnly(it) }
-    }
-
-    private fun pathOnly(requestPath: String): String {
-        return URI(requestPath).path ?: ""
+        if (rawPath == null) return@attempt null
+        URI(rawPath).path.orEmpty()
     }
 
     val testName: String = attempt("Error reading expectation name in file ${file.canonicalPath}") {
