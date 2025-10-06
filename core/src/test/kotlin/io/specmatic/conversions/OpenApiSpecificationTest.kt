@@ -11760,27 +11760,27 @@ paths:
         })
 
         assertThat(testDescriptions).containsExactlyInAnyOrder(
-            "+ve  Scenario: POST /orders -> 200 with a request where REQUEST.BODY.status is set to 'fulfilled' from enum",
-            "+ve  Scenario: POST /orders -> 200 with a request where REQUEST.BODY.status is set to 'pending' from enum",
-            "+ve  Scenario: POST /orders -> 200",
-            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.productId is mutated from number to null AND REQUEST.BODY.status is set to 'fulfilled' from enum",
-            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.productId is mutated from number to boolean AND REQUEST.BODY.status is set to 'pending' from enum",
-            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.productId is mutated from number to string AND REQUEST.BODY.status is set to 'fulfilled' from enum",
-            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.productId is mutated from number to null AND REQUEST.BODY.status is set to 'pending' from enum",
-            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.productId is mutated from number to boolean AND REQUEST.BODY.status is set to 'fulfilled' from enum",
-            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.productId is mutated from number to string AND REQUEST.BODY.status is set to 'pending' from enum",
-            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.status is mutated from (\"fulfilled\" or \"pending\") to null",
-            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.status is mutated from (\"fulfilled\" or \"pending\") to number",
-            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.status is mutated from (\"fulfilled\" or \"pending\") to boolean",
-            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.status is set to 'fulfilled' from enum AND REQUEST.BODY.quantity is mutated from number to null",
-            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.status is set to 'pending' from enum AND REQUEST.BODY.quantity is mutated from number to boolean",
-            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.status is set to 'fulfilled' from enum AND REQUEST.BODY.quantity is mutated from number to string",
-            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.status is set to 'fulfilled' from enum AND REQUEST.BODY.quantity is mutated from number to boolean",
-            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.status is set to 'pending' from enum AND REQUEST.BODY.quantity is mutated from number to null",
-            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.status is set to 'pending' from enum AND REQUEST.BODY.quantity is mutated from number to string",
-            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.quantity is mutated from number to null",
-            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.quantity is mutated from number to boolean",
-            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.quantity is mutated from number to string"
+            "+ve  Scenario: POST /orders -> 200 with a request where REQUEST.BODY contains all the keys and the key status is set to 'fulfilled' from enum",
+            "+ve  Scenario: POST /orders -> 200 with a request where REQUEST.BODY contains all the keys and the key status is set to 'pending' from enum",
+            "+ve  Scenario: POST /orders -> 200 with a request where REQUEST.BODY contains only the mandatory keys",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys and the key productId is mutated from number to null AND status is set to 'fulfilled' from enum",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys and the key productId is mutated from number to boolean AND status is set to 'pending' from enum",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys and the key productId is mutated from number to string AND status is set to 'fulfilled' from enum",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys and the key productId is mutated from number to null AND status is set to 'pending' from enum",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys and the key productId is mutated from number to boolean AND status is set to 'fulfilled' from enum",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys and the key productId is mutated from number to string AND status is set to 'pending' from enum",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys and the key status is mutated from (\"fulfilled\" or \"pending\") to null",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys and the key status is mutated from (\"fulfilled\" or \"pending\") to number",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys and the key status is mutated from (\"fulfilled\" or \"pending\") to boolean",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys and the key status is set to 'fulfilled' from enum AND quantity is mutated from number to null",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys and the key status is set to 'pending' from enum AND quantity is mutated from number to boolean",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys and the key status is set to 'fulfilled' from enum AND quantity is mutated from number to string",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys and the key status is set to 'fulfilled' from enum AND quantity is mutated from number to boolean",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys and the key status is set to 'pending' from enum AND quantity is mutated from number to null",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys and the key status is set to 'pending' from enum AND quantity is mutated from number to string",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains only the mandatory keys and the key quantity is mutated from number to null",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains only the mandatory keys and the key quantity is mutated from number to boolean",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains only the mandatory keys and the key quantity is mutated from number to string"
         )
     }
 }
