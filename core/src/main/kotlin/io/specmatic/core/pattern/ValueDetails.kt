@@ -39,5 +39,5 @@ fun List<ValueDetails>.singleLineDescription(): String {
         val message = it.messages.joinToString(" ").trim()
         if (message.isBlank()) null
         else "${it.breadCrumbs} $message"
-    }.joinToString(", ")
+    }.joinToString(" AND ")
 }
