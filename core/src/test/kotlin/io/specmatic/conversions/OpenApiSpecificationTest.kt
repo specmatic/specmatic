@@ -11739,4 +11739,48 @@ paths:
             "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Request-Source' and X-Quantity which is a mandatory header, is not sent"
         )
     }
+
+    @Test
+    fun `should generate tests with different combinations of the request body`() {
+        val spec = OpenApiSpecification.fromFile("src/test/resources/openapi/spec_with_simple_request_body.yaml")
+        val feature = spec.toFeature().enableGenerativeTesting()
+        val testDescriptions = mutableListOf<String>()
+
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                return HttpResponse(200, parsedJSONObject("""{ "id": 10 }"""))
+            }
+
+            override fun preExecuteScenario(scenario: Scenario, request: HttpRequest) {
+                println(scenario.testDescription())
+                println(request.toLogString())
+
+                testDescriptions.add(scenario.testDescription())
+            }
+        })
+
+        assertThat(testDescriptions).containsExactlyInAnyOrder(
+            "+ve  Scenario: POST /orders -> 200 with a request where REQUEST.BODY.status is set to 'fulfilled' from enum",
+            "+ve  Scenario: POST /orders -> 200 with a request where REQUEST.BODY.status is set to 'pending' from enum",
+            "+ve  Scenario: POST /orders -> 200",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.productId is mutated from number to null, REQUEST.BODY.status is set to 'fulfilled' from enum",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.productId is mutated from number to boolean, REQUEST.BODY.status is set to 'pending' from enum",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.productId is mutated from number to string, REQUEST.BODY.status is set to 'fulfilled' from enum",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.productId is mutated from number to null, REQUEST.BODY.status is set to 'pending' from enum",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.productId is mutated from number to boolean, REQUEST.BODY.status is set to 'fulfilled' from enum",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.productId is mutated from number to string, REQUEST.BODY.status is set to 'pending' from enum",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.status is mutated from (\"fulfilled\" or \"pending\") to null",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.status is mutated from (\"fulfilled\" or \"pending\") to number",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.status is mutated from (\"fulfilled\" or \"pending\") to boolean",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.status is set to 'fulfilled' from enum, REQUEST.BODY.quantity is mutated from number to null",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.status is set to 'pending' from enum, REQUEST.BODY.quantity is mutated from number to boolean",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.status is set to 'fulfilled' from enum, REQUEST.BODY.quantity is mutated from number to string",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.status is set to 'fulfilled' from enum, REQUEST.BODY.quantity is mutated from number to boolean",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.status is set to 'pending' from enum, REQUEST.BODY.quantity is mutated from number to null",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.status is set to 'pending' from enum, REQUEST.BODY.quantity is mutated from number to string",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.quantity is mutated from number to null",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.quantity is mutated from number to boolean",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY.quantity is mutated from number to string"
+        )
+    }
 }

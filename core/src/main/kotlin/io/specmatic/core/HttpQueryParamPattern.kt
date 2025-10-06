@@ -243,8 +243,8 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
         )
     }
 
-    private fun httpQueryParamPatternWithKeyCombinationDetails(it: ReturnValue<Map<String, Pattern>>) =
-        it.ifHasValue {
+    private fun httpQueryParamPatternWithKeyCombinationDetails(patternMapValue: ReturnValue<Map<String, Pattern>>) =
+        patternMapValue.ifHasValue {
             val existingValueDescription = it.valueDetails.singleLineDescription()
             val patternMap = it.value
             val keys = patternMap.keys.joinToString(", ") { key -> "'$key'" }

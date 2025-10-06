@@ -1,0 +1,40 @@
+openapi: 3.0.1
+info:
+  title: Order API
+  version: "2.0"
+servers:
+  - url: "http://localhost:3000"
+paths:
+  /orders:
+    post:
+      summary: Search for orders
+      operationId: search-orders
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                productId:
+                  type: number
+                  example: 10
+                status:
+                  type: string
+                  enum: [fulfilled, pending]
+                  example: fulfilled
+                quantity:
+                  type: number
+                  example: 100
+              required:
+                - quantity
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
