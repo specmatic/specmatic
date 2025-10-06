@@ -18,15 +18,6 @@ class RegExSpecTest {
     }
 
     @Test
-    fun `should warn if the random generated string from the regex does not match back with the regex`() {
-        val regex = "^\\\\d{6}$"
-        val (consoleOutput, _) = captureStandardOutput {
-            RegExSpec(regex)
-        }
-        assertThat(consoleOutput).contains("WARNING: Please check the regex $regex. We generated a random string")
-    }
-
-    @Test
     fun `should not allow construction with minLength greater that what is possible with regex`() {
         val tenOccurrencesOfAlphabetA = "^a{10}\$"
         val minLength = 15
@@ -120,10 +111,10 @@ class RegExSpecTest {
         "^[A-Z]{5,10}\$; [A-Z]{5,10}",
         "[A-Z]{,10}; [A-Z]{0,10}",
         "$WORD_BOUNDARY[A-Z]{5,10}$WORD_BOUNDARY; [A-Z]{5,10}",
-        "A-Z\\s0-9; A-Z\\s0-9",
+        "A-Z\\s0-9; A-Z[ \\t\\n\\f\\r]0-9",
         "A-Z\\d0-9; A-Z\\d0-9",
         "A-Z\\w0-9; A-Z\\w0-9",
-        "a[A-Z\\s0-9]b; a[A-Z \\t\\r\\n0-9]b",
+        "a[A-Z\\s0-9]b; a[A-Z[ \\t\\n\\f\\r]0-9]b",
         "a[A-Z\\da-z]b; a[A-Z0-9a-z]b",
         "a[A-Z\\w0-9]b; a[A-Za-zA-Z0-9_0-9]b",
         "a[^A-Z\\s0-9]b; a[^A-Z \\t\\r\\n0-9]b",

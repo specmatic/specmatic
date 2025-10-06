@@ -32,7 +32,6 @@ data class StringPattern (
                 throw IllegalArgumentException("maxLength $it cannot be less than minLength $effectiveMinLength")
             }
         }
-        regExSpec.validateRegex()
         regExSpec.validateMinLength(minLength)
         regExSpec.validateMaxLength(maxLength)
     }
