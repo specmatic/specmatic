@@ -91,7 +91,7 @@ data class HttpRequest(
 
     fun updatePath(path: String): HttpRequest {
         return try {
-            val urlParam = URI(path.decodeURLPart())
+            val urlParam = URI(path)
             updateWith(urlParam)
         } catch (e: URISyntaxException) {
             val pieces = path.split("?", limit = 2)
