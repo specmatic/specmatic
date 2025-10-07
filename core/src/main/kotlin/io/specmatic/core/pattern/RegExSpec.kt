@@ -55,8 +55,13 @@ class RegExSpec(regex: String?) {
     }
 
     fun negativeBasedOn(minLength: Int?, maxLength: Int?): Triple<String, Int?, Int?>? {
-        if (generex == null) return null
-        return Triple("${generex.regex}_", minLength, maxLength?.inc())
+        if (originalRegex == null) return null
+        val negativeRegex = if (originalRegex.endsWith("$")) {
+            originalRegex.dropLast(1) + "_$"
+        } else {
+            originalRegex + "_"
+        }
+        return Triple(negativeRegex, minLength, maxLength)
     }
 
     fun generateLongestStringOrRandom(maxLen: Int): String {
