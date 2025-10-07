@@ -55,8 +55,13 @@ class RegExSpec(regex: String?) {
     }
 
     fun negativeBasedOn(minLength: Int?, maxLength: Int?): Triple<String, Int?, Int?>? {
-        if (generex == null) return null
-        return Triple("${generex.regex}_", minLength, maxLength?.inc())
+        if (originalRegex == null) return null
+        val negativeRegex = if (originalRegex.endsWith("$")) {
+            originalRegex.dropLast(1) + "_$"
+        } else {
+            originalRegex + "_"
+        }
+        return Triple(negativeRegex, minLength, maxLength?.inc())
     }
 
     fun generateLongestStringOrRandom(maxLen: Int): String {
@@ -148,14 +153,10 @@ class RegExSpec(regex: String?) {
     private fun String.requote(): String {
         val patternRequoted = Regex("""\\Q(.*?)\\E""")
         val patternSpecial = Regex("[.^$*+?(){|\\[@\\\\]")
-        tailrec fun process(input: String): String {
-            val match = patternRequoted.find(input) ?: return input
-            val group = match.groups[1]?.value ?: ""
-            val replacement = patternSpecial.replace(group) { "\\${it.value}" }
-            val replaced = input.replaceRange(match.range, replacement)
-            return process(replaced)
+        return patternRequoted.replace(this) { matchResult ->
+            val group = matchResult.groups[1]?.value.orEmpty()
+            patternSpecial.replace(group) { "\\${it.value}" }
         }
-        return process(this)
     }
 
     override fun toString(): String {
