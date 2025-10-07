@@ -271,7 +271,7 @@ internal class StringPatternTest {
 
         assertThat(
             result.filterIsInstance<StringPattern>().filter {
-                it.regex == "^[^0-9]{15}\$_"
+                it.regex == "^[^0-9]{15}_$"
             }
         ).hasSize(1)
     }
@@ -300,7 +300,7 @@ internal class StringPatternTest {
         ).hasSize(0)
 
         assertThat(
-            result.filterIsInstance<StringPattern>().filter { it.regex == "^[^0-9]{15}\$_" }
+            result.filterIsInstance<StringPattern>().filter { it.regex == "^[^0-9]{15}_$" }
         ).hasSize(1)
 
         assertThat(
@@ -496,6 +496,23 @@ internal class StringPatternTest {
 
         assertThat(values).noneSatisfy {
             assertThat((it as? StringValue)?.string?.length).isEqualTo(3999)
+        }
+    }
+
+    @Test
+    fun `newBasedOn methods should return self first instead of positive mutations`() {
+        // TODO: This is a temporary solution until regex-based generations can be optimized.
+        // Yielding a lenBased generation first in the presence of regex slows down empty sequence checks later on
+        val pattern = StringPattern()
+        val resolver = Resolver()
+        val methods = listOf(
+            { pattern.newBasedOn(resolver).map(::HasValue) },
+            { pattern.newBasedOn(Row(), resolver) },
+        )
+
+        assertThat(methods).allSatisfy { invocation ->
+            val firstPattern = invocation.invoke().first()
+            assertThat(firstPattern.value).isEqualTo(pattern)
         }
     }
 }
