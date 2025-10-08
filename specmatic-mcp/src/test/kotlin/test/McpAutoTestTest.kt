@@ -20,8 +20,8 @@ class McpAutoTestTest {
         val autoTest = McpAutoTest(
             baseUrl = "https://huggingface.co/mcp",
             transport = McpTransport.STREAMABLE_HTTP,
-            enableResiliency = false,
-            dictionaryFile = File("src/test/resources/hugging_face_dicts/simple_dict.json"),
+            enableResiliency = true,
+            dictionaryFile = File("src/test/resources/hugging_face_dicts/simple_dict.json")
         )
         runBlocking {
             autoTest.run()
