@@ -165,7 +165,7 @@ data class McpScenario(
             val detailedName = buildString {
                 append(if (isNegative) "(-ve) " else "(+ve) ")
                 append("Tool '$toolName'")
-                if (details.isNotBlank()) append("| Mutation: [$details]")
+                if (details.isNotBlank()) append(" where the 'arguments' body$details")
             }
             return this.copy(
                 name = detailedName,
