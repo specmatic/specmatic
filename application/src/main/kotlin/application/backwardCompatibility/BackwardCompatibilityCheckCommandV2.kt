@@ -5,6 +5,8 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
 import io.specmatic.core.log.logger
+import io.specmatic.core.utilities.jsonObjectMapper
+import io.specmatic.core.utilities.yamlObjectMapper
 import io.specmatic.stub.isOpenAPI
 import picocli.CommandLine.Command
 import java.io.File
@@ -27,7 +29,7 @@ class BackwardCompatibilityCheckCommandV2: BackwardCompatibilityCheckBaseCommand
 
     private fun isYAML(string: String): Boolean {
         return try {
-            ObjectMapper(YAMLFactory()).readValue(string, Map::class.java)
+            yamlObjectMapper.readValue(string, Map::class.java)
             true
         } catch(e: Throwable) {
             false
@@ -36,7 +38,7 @@ class BackwardCompatibilityCheckCommandV2: BackwardCompatibilityCheckBaseCommand
 
     private fun isJSON(string: String): Boolean {
         return try {
-            ObjectMapper().readValue(string, Map::class.java)
+            jsonObjectMapper.readValue(string, Map::class.java)
             true
         } catch(e: Throwable) {
             false

@@ -19,6 +19,7 @@ import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.pattern.resolvedHop
 import io.specmatic.core.pattern.singleLineDescription
+import io.specmatic.core.utilities.jsonObjectMapper
 import io.specmatic.mcp.constants.SchemaType
 import io.specmatic.mcp.test.client.McpTestClient
 import io.specmatic.mcp.test.client.model.JsonRpcResponse
@@ -57,7 +58,7 @@ data class McpScenario(
 ) {
 
     suspend fun execute(): ScenarioExecutionResult {
-        val arguments = ObjectMapper().readValue(
+        val arguments = jsonObjectMapper.readValue(
             inputPattern.generate(resolver).toStringLiteral(),
             object : TypeReference<Map<String, Any>>() {},
         )
@@ -111,7 +112,7 @@ data class McpScenario(
         }
 
         val toolResponse = try {
-            ObjectMapper().treeToValue(response.result, ToolResponse::class.java)
+            jsonObjectMapper.treeToValue(response.result, ToolResponse::class.java)
         } catch (e: Throwable) {
             return Result.Failure(e.message ?: "Unable to fetch a valid response from the tool")
         }
@@ -128,7 +129,7 @@ data class McpScenario(
             return Result.Success()
         }
         val toolResponse = try {
-            ObjectMapper().treeToValue(response.result, ToolResponse::class.java)
+            jsonObjectMapper.treeToValue(response.result, ToolResponse::class.java)
         } catch (e: Throwable) {
             return Result.Failure(e.message ?: "Unable to fetch a valid response from the tool")
         }
@@ -139,7 +140,7 @@ data class McpScenario(
         if (outputPattern == null) return Result.Success()
 
         return outputPattern.matches(
-            parsedValue(ObjectMapper().writeValueAsString(toolResponse.structuredContent)),
+            parsedValue(jsonObjectMapper.writeValueAsString(toolResponse.structuredContent)),
             resolver,
         )
     }
@@ -246,7 +247,7 @@ data class McpScenario(
 }
 
 fun JsonNode.toMap(): Map<String, Any> {
-    return ObjectMapper().convertValue(
+    return jsonObjectMapper.convertValue(
         this,
         object : TypeReference<Map<String, Any>>() {}
     )

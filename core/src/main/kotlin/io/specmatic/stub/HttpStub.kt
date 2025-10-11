@@ -581,7 +581,7 @@ class HttpStub(
 
     private suspend fun handleSseExpectationCreationRequest(httpRequest: HttpRequest): HttpStubResponse {
         return try {
-            val sseEvent: SseEvent? = ObjectMapper().readValue(httpRequest.bodyString, SseEvent::class.java)
+            val sseEvent: SseEvent? = jsonObjectMapper.readValue(httpRequest.bodyString, SseEvent::class.java)
 
             if (sseEvent == null) {
                 logger.debug("No Sse Event was found in the request:\n${httpRequest.toLogString("  ")}")
