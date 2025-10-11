@@ -37,21 +37,12 @@ class CombinationSpec<ValueType>(
     val selectedCombinations: Sequence<ReturnValue<Map<String, ValueType>>> = toSelectedCombinations(keyToCandidates, maxCombinations)
 
     fun <ValueType> toSelectedCombinations(rawPatternCollection: Map<String, Sequence<ReturnValue<ValueType>>>, maxCombinations: Int): Sequence<ReturnValue<Map<String, ValueType>>> {
-        val patternCollection = rawPatternCollection.filterValues { it.any() }
+        val iterators = rawPatternCollection.mapValues { it.value.iterator() }.filterValues { it.hasNext() }
+        if (iterators.isEmpty()) return emptySequence()
 
-        if (patternCollection.isEmpty())
-            return emptySequence()
-
-        val cachedValues = patternCollection.mapValues { mutableListOf<ReturnValue<ValueType>>() }
+        val cachedValues = iterators.mapValues { mutableListOf<ReturnValue<ValueType>>() }
         val prioritisedGenerations = mutableSetOf<ReturnValue<Map<String, ValueType>>>()
-
         val ranOut = cachedValues.mapValues { false }.toMutableMap()
-
-        val iterators = patternCollection.mapValues {
-            it.value.iterator()
-        }.filter {
-            it.value.hasNext()
-        }
 
         return sequence {
             var ctr = 0
@@ -93,7 +84,7 @@ class CombinationSpec<ValueType>(
             if(prioritisedGenerations.size == maxCombinations)
                 return@sequence
 
-            val otherPatterns: Sequence<ReturnValue<Map<String, ValueType>>> = allCombinations(patternCollection).map { it.mapFold() }
+            val otherPatterns: Sequence<ReturnValue<Map<String, ValueType>>> = allCombinations(rawPatternCollection).map { it.mapFold() }
 
             val maxCountOfUnPrioritisedGenerations = maxCombinations - prioritisedGenerations.size
 
