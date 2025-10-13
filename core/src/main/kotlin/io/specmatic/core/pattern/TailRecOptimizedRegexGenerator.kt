@@ -8,7 +8,7 @@ import kotlin.random.Random
 
 internal const val WORD_BOUNDARY = "\\b"
 
-class InternalGenerex(val regex: String) {
+class TailRecOptimizedRegexGenerator(val regex: String) {
     val isInfinite: Boolean get() { return Generex(regex).isInfinite }
     val isFinite: Boolean get() { return !Generex(regex).isInfinite }
 

@@ -4,9 +4,11 @@ import io.specmatic.core.log.logger
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
-class RegExSpec(regex: String?) {
+class RegExSpec(
+    regex: String?,
+) {
     private val originalRegex = regex
-    private val generex = regex?.let(::cleanRegex)?.let(::InternalGenerex)
+    private val regexGenerator = regex?.let(::cleanRegex)?.let(::TailRecOptimizedRegexGenerator)
 
     init {
         validateRegex()
@@ -14,8 +16,8 @@ class RegExSpec(regex: String?) {
 
     private fun validateRegex() {
         runCatching {
-            if (generex == null || originalRegex == null) return
-            val random = generex.random()
+            if (regexGenerator == null || originalRegex == null) return
+            val random = regexGenerator.random()
             if (!Regex(originalRegex.replaceRegexLowerBounds()).matches(random)) {
                 logger.log("WARNING: Please check the regex $originalRegex. We generated a random string $random and the regex does not match the string.")
             }
@@ -25,10 +27,10 @@ class RegExSpec(regex: String?) {
     }
 
     fun validateMinLength(minLength: Int?) {
-        if (generex == null) return
+        if (regexGenerator == null) return
         minLength?.let {
-            val shortestString = generex.generateShortest()
-            if (it > shortestString.length && generex.isFinite) {
+            val shortestString = regexGenerator.generateShortest()
+            if (it > shortestString.length && regexGenerator.isFinite) {
                 val longestString = generateLongestStringOrRandom(it)
                 if (longestString.length < it) {
                     throw IllegalArgumentException("minLength $it cannot be greater than the length of longest possible string that matches regex ${this.originalRegex}")
@@ -38,9 +40,9 @@ class RegExSpec(regex: String?) {
     }
 
     fun validateMaxLength(maxLength: Int?) {
-        if (generex == null) return
+        if (regexGenerator == null) return
         maxLength?.let {
-            val shortestPossibleString = generex.generateShortest()
+            val shortestPossibleString = regexGenerator.generateShortest()
             if (shortestPossibleString.length > it) {
                 throw IllegalArgumentException("maxLength $it cannot be less than the length of shortest possible string that matches regex ${this.originalRegex}")
             }
@@ -48,10 +50,10 @@ class RegExSpec(regex: String?) {
     }
 
     fun generateShortestStringOrRandom(minLen: Int): String {
-        if (generex == null) return randomString(minLen)
-        val shortestExample = generex.generateShortest()
+        if (regexGenerator == null) return randomString(minLen)
+        val shortestExample = regexGenerator.generateShortest()
         if (minLen <= shortestExample.length) return shortestExample
-        return generex.random(minLen, minLen)
+        return regexGenerator.random(minLen, minLen)
     }
 
     fun negativeBasedOn(minLength: Int?, maxLength: Int?): Triple<String, Int?, Int?>? {
@@ -65,9 +67,9 @@ class RegExSpec(regex: String?) {
     }
 
     fun generateLongestStringOrRandom(maxLen: Int): String {
-        if (generex == null) return randomString(maxLen)
-        if (generex.isInfinite) return generex.random(maxLen, maxLen)
-        return generex.generateLongest(maxLen) ?: throw IllegalStateException("No valid string found")
+        if (regexGenerator == null) return randomString(maxLen)
+        if (regexGenerator.isInfinite) return regexGenerator.random(maxLen, maxLen)
+        return regexGenerator.generateLongest(maxLen) ?: throw IllegalStateException("No valid string found")
     }
 
     fun match(sampleData: StringValue) = originalRegex?.let {
@@ -75,8 +77,8 @@ class RegExSpec(regex: String?) {
     } ?: true
 
     fun generateRandomString(minLength: Int, maxLength: Int? = null): Value {
-        return generex?.let {
-            StringValue(generex.random(minLength, maxLength))
+        return regexGenerator?.let {
+            StringValue(regexGenerator.random(minLength, maxLength))
         } ?: StringValue(randomString(patternBaseLength(minLength, maxLength)))
     }
 
@@ -160,6 +162,6 @@ class RegExSpec(regex: String?) {
     }
 
     override fun toString(): String {
-        return generex?.regex ?: "regex not set"
+        return regexGenerator?.regex ?: "regex not set"
     }
 }
