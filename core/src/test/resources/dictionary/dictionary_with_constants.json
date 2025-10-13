@@ -1,0 +1,37 @@
+{
+  "SPECMATIC_CONSTANTS": {
+    "ORDER_ID": 1234,
+    "PRODUCT_NAME": "iPhone",
+    "PRODUCT_CATEGORY": "gadget",
+    "ORDER_QUANTITY": 100,
+    "NEW_PRODUCT": {
+      "name": "Volleyball",
+      "category": "sports"
+    },
+    "ORDERS": [
+      { "orderId": 1234 },
+      { "orderId": 4567 }
+    ]
+  },
+  "getOrder": {
+    "orderId": "$(ORDER_ID)"
+  },
+  "getOrderWithFilteredProduct": {
+    "orderId": "$(ORDER_ID)",
+    "filter": {
+      "product": {
+        "name": "$(PRODUCT_NAME)",
+        "category": "$(PRODUCT_CATEGORY)"
+      },
+      "quantity": "$(ORDER_QUANTITY)"
+    }
+  },
+  "postOrder": {
+    "quantity": "$(ORDER_QUANTITY)",
+    "product": "$(NEW_PRODUCT)"
+  },
+  "ordersResponse": {
+    "orders": "$(ORDERS)",
+    "id": 123
+  }
+}

@@ -7,6 +7,8 @@ import io.specmatic.core.utilities.yamlStringToValue
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
+import io.specmatic.test.ExampleProcessor
+import io.specmatic.test.ExampleProcessor.toFactStore
 import io.specmatic.test.asserts.WILDCARD_INDEX
 import java.io.File
 
@@ -109,6 +111,8 @@ data class Dictionary(private val data: Map<String, Value>, private val focusedD
     private fun resetFocus(): Dictionary = copy(focusedData = emptyMap())
 
     companion object {
+        private const val SPECMATIC_CONSTANTS = "SPECMATIC_CONSTANTS"
+
         fun from(file: File): Dictionary {
             if (!file.exists()) throw ContractException(
                 breadCrumb = file.path,
@@ -122,8 +126,8 @@ data class Dictionary(private val data: Map<String, Value>, private val focusedD
 
             return runCatching {
                 logger.log("Using dictionary file ${file.path}")
-                val dictionaryContent = readValueAs<JSONObjectValue>(file).jsonObject
-                from(dictionaryContent)
+                val dictionary = readValueAs<JSONObjectValue>(file).resolveConstants()
+                from(data = dictionary.jsonObject)
             }.getOrElse { e ->
                 logger.debug(e)
                 throw ContractException(
@@ -152,6 +156,16 @@ data class Dictionary(private val data: Map<String, Value>, private val focusedD
 
         fun empty(): Dictionary {
             return Dictionary(data = emptyMap())
+        }
+
+        private fun JSONObjectValue.resolveConstants(): JSONObjectValue {
+            if (this.jsonObject.containsKey(SPECMATIC_CONSTANTS).not()) return this
+
+            val constants = this.getJSONObjectValue(SPECMATIC_CONSTANTS).toFactStore()
+            return ExampleProcessor.resolve(this) { lookupKey, _ ->
+                constants[lookupKey]
+                    ?: throw ContractException("Could not find the replacement for the lookup key '$lookupKey' while resolving $SPECMATIC_CONSTANTS in the dictionary")
+            }
         }
     }
 }
