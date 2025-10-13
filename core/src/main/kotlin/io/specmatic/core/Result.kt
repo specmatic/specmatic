@@ -334,7 +334,21 @@ enum class TestResult {
     Failed,
     NotImplemented,
     MissingInSpec,
-    NotCovered
+    NotCovered;
+
+    fun isSuccess() = (this == Success)
+
+    fun isSkipped() = (this == NotCovered)
+
+    fun isOther() = (this == MissingInSpec)
+
+    fun isFailure(isWip: Boolean): Boolean {
+        return ((this == Failed) || (isWip.not() && this == NotImplemented))
+    }
+
+    fun isError(isWip: Boolean): Boolean {
+        return ((this == Error) || (isWip && this == NotImplemented))
+    }
 }
 
 enum class FailureReason(val fluffLevel: Int, val objectMatchOccurred: Boolean) {

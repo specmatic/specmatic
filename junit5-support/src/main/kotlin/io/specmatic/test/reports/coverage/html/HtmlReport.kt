@@ -124,12 +124,12 @@ class HtmlReport(private val htmlReportInformation: HtmlReportInformation, priva
                 secondGroup.forEach { (_, thirdGroup) ->
                     thirdGroup.forEach { (_, scenariosList) ->
                         scenariosList.forEach {
-                            when (it.testResult) {
-                                TestResult.MissingInSpec -> totalMissing++
-                                TestResult.NotCovered -> totalSkipped++
-                                TestResult.Success -> totalSuccess++
-                                TestResult.Error -> totalErrors++
-                                else -> if (it.wip) totalErrors++ else totalFailures++
+                            when {
+                                it.testResult == TestResult.MissingInSpec -> totalMissing++
+                                it.testResult.isSkipped() -> totalSkipped++
+                                it.testResult.isSuccess() -> totalSuccess++
+                                it.testResult.isError(it.wip) -> totalErrors++
+                                it.testResult.isFailure(it.wip) -> totalFailures++
                             }
                         }
                     }
