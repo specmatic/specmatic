@@ -21,7 +21,7 @@ import kotlin.math.roundToInt
 
 class OpenApiCoverageReportInput(
     private var configFilePath: String,
-    internal val testResultRecords: MutableList<TestResultRecord> = mutableListOf(),
+    private val testResultRecords: MutableList<TestResultRecord> = mutableListOf(),
     private val applicationAPIs: MutableList<API> = mutableListOf(),
     private val excludedAPIs: MutableList<String> = mutableListOf(),
     private val allEndpoints: MutableList<Endpoint> = mutableListOf(),
