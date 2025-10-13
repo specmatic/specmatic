@@ -8,7 +8,7 @@ class RegExSpec(
     regex: String?,
 ) {
     private val originalRegex = regex
-    private val regexGenerator = regex?.let(::cleanRegex)?.let(::TailRecOptimizedRegexGenerator)
+    private val regexGenerator = regex?.let(::cleanRegex)?.let(::OptimizedRegexGenerator)
 
     init {
         validateRegex()
