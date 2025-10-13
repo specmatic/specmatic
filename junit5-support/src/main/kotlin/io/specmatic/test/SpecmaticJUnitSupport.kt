@@ -54,6 +54,7 @@ data class API(
 open class SpecmaticJUnitSupport {
     private val settings = ContractTestSettings(settingsStaging)
     private val httpInteractionsLog: HttpInteractionsLog = HttpInteractionsLog()
+    private var startTime: Instant? = null
 
     private val specmaticConfig: SpecmaticConfig? =
         settings.adjust(loadSpecmaticConfigOrNull(getConfigFilePath()))
@@ -186,7 +187,11 @@ open class SpecmaticJUnitSupport {
         reportProcessors.forEach { it.process(config) }
 
         ServiceLoader.load(SpecmaticAfterAllHook::class.java).forEach {
-            it.onAfterAllTests(openApiCoverageReportInput.testResultRecords())
+            it.onAfterAllTests(
+                testResultRecords = openApiCoverageReportInput.testResultRecords(),
+                startTime = startTime?.toEpochMilli() ?: 0L,
+                endTime = if (startTime != null) Instant.now().toEpochMilli() else 0L
+            )
         }
 
         threads.distinct().let {
@@ -406,6 +411,7 @@ open class SpecmaticJUnitSupport {
 
         logger.newLine()
 
+        startTime = Instant.now()
         return testScenarios.map { (contractTest, baseURL) ->
             DynamicTest.dynamicTest(contractTest.testDescription()) {
                 threads.add(Thread.currentThread().name)
