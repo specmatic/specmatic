@@ -31,6 +31,7 @@
     "product": "$(NEW_PRODUCT)"
   },
   "ordersResponse": {
-    "orders": "$(ORDERS)"
+    "orders": "$(ORDERS)",
+    "id": 123
   }
 }

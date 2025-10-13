@@ -1,13 +1,5 @@
 package io.specmatic.core
 
-import com.fasterxml.jackson.core.JsonPointer
-import com.fasterxml.jackson.core.type.TypeReference
-import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.node.ArrayNode
-import com.fasterxml.jackson.databind.node.ObjectNode
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
-import com.fasterxml.jackson.module.kotlin.contains
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.exceptionCauseMessage
@@ -15,6 +7,8 @@ import io.specmatic.core.utilities.yamlStringToValue
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
+import io.specmatic.test.ExampleProcessor
+import io.specmatic.test.ExampleProcessor.toFactStore
 import io.specmatic.test.asserts.WILDCARD_INDEX
 import java.io.File
 
@@ -117,6 +111,8 @@ data class Dictionary(private val data: Map<String, Value>, private val focusedD
     private fun resetFocus(): Dictionary = copy(focusedData = emptyMap())
 
     companion object {
+        private const val SPECMATIC_CONSTANTS = "SPECMATIC_CONSTANTS"
+
         fun from(file: File): Dictionary {
             if (!file.exists()) throw ContractException(
                 breadCrumb = file.path,
@@ -130,7 +126,8 @@ data class Dictionary(private val data: Map<String, Value>, private val focusedD
 
             return runCatching {
                 logger.log("Using dictionary file ${file.path}")
-                from(data = DictionaryReader.read(file).jsonObject)
+                val dictionary = readValueAs<JSONObjectValue>(file).resolveConstants()
+                from(data = dictionary.jsonObject)
             }.getOrElse { e ->
                 logger.debug(e)
                 throw ContractException(
@@ -160,106 +157,15 @@ data class Dictionary(private val data: Map<String, Value>, private val focusedD
         fun empty(): Dictionary {
             return Dictionary(data = emptyMap())
         }
-    }
-}
 
-object DictionaryReader {
-    private const val SPECMATIC_CONSTANTS = "SPECMATIC_CONSTANTS"
+        private fun JSONObjectValue.resolveConstants(): JSONObjectValue {
+            if (this.jsonObject.containsKey(SPECMATIC_CONSTANTS).not()) return this
 
-    fun read(dictFile: File): JSONObjectValue {
-        val node = ObjectMapper(YAMLFactory()).readTree(dictFile)
-
-        if (node !is ObjectNode) return readValueAs<JSONObjectValue>(dictFile)
-
-        val constants = extractAndRemoveConstantsFromNode(node)
-        if (constants.isEmpty()) return readValueAs<JSONObjectValue>(dictFile)
-
-        findConstantPlaceholders(node, constants).forEach { (pointer, value) ->
-            replaceValueAtPointerWithGivenValue(pointer, value, node)
-        }
-
-        return readValueAs<JSONObjectValue>(
-            content = ObjectMapper().writeValueAsString(node),
-            extension = dictFile.extension
-        )
-    }
-
-    private fun extractAndRemoveConstantsFromNode(node: ObjectNode): Map<String, Any> {
-        if(node.contains(SPECMATIC_CONSTANTS).not()) return emptyMap()
-
-        val constants = try {
-            ObjectMapper().convertValue(
-                node.get(SPECMATIC_CONSTANTS),
-                object : TypeReference<Map<String, Any>>() {}
-            )
-        } catch (e: Throwable) {
-            throw ContractException(
-                errorMessage = "Could not parse $SPECMATIC_CONSTANTS as an object: ${e.message}. Please ensure it is a valid JSON/YAML object."
-            )
-        }
-
-        node.remove(SPECMATIC_CONSTANTS)
-        return constants
-    }
-
-    private fun replaceValueAtPointerWithGivenValue(
-        pointer: JsonPointer,
-        value: Any,
-        json: ObjectNode
-    ) {
-        val parent = json.at(pointer.head())
-        val propertyName = pointer.last().matchingProperty
-        val arrayIndex = pointer.last().matchingIndex
-
-        when {
-            parent.isObject && propertyName != null -> {
-                (parent as ObjectNode).replace(propertyName, ObjectMapper().valueToTree(value))
-            }
-
-            parent.isArray && arrayIndex >= 0 -> {
-                val arrayNode = parent as ArrayNode
-                arrayNode.set(arrayIndex, ObjectMapper().valueToTree<JsonNode>(value))
+            val constants = this.getJSONObjectValue(SPECMATIC_CONSTANTS).toFactStore()
+            return ExampleProcessor.resolve(this) { lookupKey, _ ->
+                constants[lookupKey]
+                    ?: throw ContractException("Could not find the replacement for the lookup key '$lookupKey' while resolving $SPECMATIC_CONSTANTS in the dictionary")
             }
         }
-    }
-
-    private fun findConstantPlaceholders(
-        dictNode: JsonNode,
-        constants: Map<String, Any>,
-        path: String = "",
-        replacements: MutableMap<JsonPointer, Any> = mutableMapOf()
-    ): Map<JsonPointer, Any> {
-        when {
-            dictNode.isTextual -> {
-                val text = dictNode.asText()
-                if (text.isSpecmaticConstantPlaceholder()) {
-                    val key = text.extractSpecmaticConstantPlaceHolderKey()
-                    constants[key]?.let { value ->
-                        replacements.put(JsonPointer.compile(path), value)
-                    }
-                }
-            }
-
-            dictNode.isObject -> {
-                dictNode.properties().forEach { (fieldName, fieldValue) ->
-                    findConstantPlaceholders(fieldValue, constants, "$path/$fieldName", replacements)
-                }
-            }
-
-            dictNode.isArray -> {
-                dictNode.forEachIndexed { index, element ->
-                    findConstantPlaceholders(element, constants, "$path/$index", replacements)
-                }
-            }
-        }
-        return replacements.toMap()
-    }
-
-    private fun String.isSpecmaticConstantPlaceholder(): Boolean {
-        return this.startsWith("$(") && this.endsWith(")")
-    }
-
-    private fun String.extractSpecmaticConstantPlaceHolderKey(): String {
-        return this.substring(2, this.length - 1)
     }
 }

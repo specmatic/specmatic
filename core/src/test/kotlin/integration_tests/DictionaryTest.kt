@@ -905,7 +905,8 @@ class DictionaryTest {
                 "orders": [
                     { "orderId": 1234 },
                     { "orderId": 4567 }
-                ]
+                ],
+                "id": 123
             }""")
             assertEquals(expectedOrdersResponse, dictionary.getRawValue("ordersResponse"))
         }
