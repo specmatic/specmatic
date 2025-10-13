@@ -11,8 +11,8 @@ import java.util.stream.Collectors
 
 object URIUtils {
     fun parsePathToURI(rawPath: String): URI {
-        val decodedRawPath = rawPath.decodeURLPart().replace(" ", "%20")
         return runCatching {
+            val decodedRawPath = rawPath.decodeURLPart().replace(" ", "%20")
             URI.create(decodedRawPath)
         }.getOrElse { e ->
             throw ContractException(breadCrumb = rawPath, errorMessage = "Failed to parse path: ${exceptionCauseMessage(e)}")
