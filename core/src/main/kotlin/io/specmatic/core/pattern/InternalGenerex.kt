@@ -8,10 +8,9 @@ import kotlin.random.Random
 
 internal const val WORD_BOUNDARY = "\\b"
 
-class InternalGenerex(val regex: String, private val generex: Generex = Generex(regex)) {
-    val regExp = RegExp(regex)
-    val isInfinite: Boolean = generex.isInfinite
-    val isFinite: Boolean = !generex.isInfinite
+class InternalGenerex(val regex: String) {
+    val isInfinite: Boolean get() { return Generex(regex).isInfinite }
+    val isFinite: Boolean get() { return !Generex(regex).isInfinite }
 
     init {
         check(!regex.startsWith("/") && !regex.endsWith("/")) {
@@ -20,10 +19,10 @@ class InternalGenerex(val regex: String, private val generex: Generex = Generex(
     }
 
     fun random(minLength: Int? = 1, maxLength: Int? = REASONABLE_STRING_LENGTH): String {
-        return generex.generateOptimized(minLength ?: 1, maxLength ?: REASONABLE_STRING_LENGTH)
+        return Generex(regex).generateOptimized(minLength ?: 1, maxLength ?: REASONABLE_STRING_LENGTH)
     }
 
-    fun generateShortest(): String = regExp.toAutomaton().getShortestExample(true)
+    fun generateShortest(): String = RegExp(regex).toAutomaton().getShortestExample(true)
 
     /**
      * Recursively computes the longest accepted string (using at most [remaining] transitions)
@@ -31,7 +30,7 @@ class InternalGenerex(val regex: String, private val generex: Generex = Generex(
      *
      * The tie-breaker when strings have the same length is the lexicographical order.
      */
-    fun generateLongest(remaining: Int, state: State = regExp.toAutomaton().initialState, memo: MutableMap<Pair<State, Int>, String?> = mutableMapOf()): String? {
+    fun generateLongest(remaining: Int, state: State = RegExp(regex).toAutomaton().initialState, memo: MutableMap<Pair<State, Int>, String?> = mutableMapOf()): String? {
         val key = state to remaining
         memo[key]?.let { return it }
 
@@ -57,7 +56,7 @@ class InternalGenerex(val regex: String, private val generex: Generex = Generex(
     }
 
     private fun Generex.generateOptimized(minLength: Int, maxLength: Int): String {
-        val automaton = regExp.toAutomaton()
+        val automaton = RegExp(regex).toAutomaton()
         val builder = StringBuilder(maxLength.coerceAtMost(REASONABLE_STRING_LENGTH))
         return prepareRandomTailRec(builder, automaton.initialState, minLength, maxLength)
     }
