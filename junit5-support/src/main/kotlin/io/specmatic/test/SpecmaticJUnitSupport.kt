@@ -186,7 +186,7 @@ open class SpecmaticJUnitSupport {
         reportProcessors.forEach { it.process(config) }
 
         ServiceLoader.load(SpecmaticAfterAllHook::class.java).forEach {
-            it.onAfterAllTests(openApiCoverageReportInput.testResultRecords)
+            it.onAfterAllTests(openApiCoverageReportInput.testResultRecords())
         }
 
         threads.distinct().let {
