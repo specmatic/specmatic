@@ -19,6 +19,8 @@ class OptimizedRegexGenerator(val regex: String) {
     }
 
     fun random(minLength: Int? = 1, maxLength: Int? = REASONABLE_STRING_LENGTH): String {
+        return Generex(regex).random(minLength ?: 1, maxLength ?: REASONABLE_STRING_LENGTH)
+
         return generateOptimized(minLength ?: 1, maxLength ?: REASONABLE_STRING_LENGTH)
     }
 
