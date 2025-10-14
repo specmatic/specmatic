@@ -148,6 +148,7 @@ internal class StringPatternTest {
         "'^\\w+(-\\w+)*$',null,10,1",
         "'^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$',1,10,1",
         "'^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$',10,10,1",
+        "'^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$',8,8,1",
         "'^[a-z]*$', null, null, 0",
         "'^[a-z]*$', 5, null, 5",
         "'^[a-z0-9]{6,10}',6,10,6",
@@ -384,7 +385,7 @@ internal class StringPatternTest {
             val stringPattern = StringPattern(
                 minLength = min,
                 maxLength = max,
-                regex = regex
+                regex = regex,
             )
             val result = stringPattern.generate(Resolver()) as StringValue
             if (shouldBeValid) {
