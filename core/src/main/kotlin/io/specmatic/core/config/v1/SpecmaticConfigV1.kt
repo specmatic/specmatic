@@ -9,7 +9,7 @@ import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.Flags.Companion.getStringValue
 
-data class SpecmaticConfigV1 (
+data class SpecmaticConfigV1(
 	@field:JsonAlias("contract_repositories")
 	val sources: List<Source> = emptyList(),
 	val auth: Auth? = null,
@@ -32,7 +32,7 @@ data class SpecmaticConfigV1 (
 	@field:JsonAlias("all_patterns_mandatory")
 	val allPatternsMandatory: Boolean? = null,
 	@field:JsonAlias("default_pattern_values")
-	val defaultPatternValues: Map<String, Any> = emptyMap(),
+	val defaultPatternValues: Map<String, Any>? = null,
 	val version: SpecmaticConfigVersion? = null
 ): SpecmaticVersionedConfig {
 	override fun transform(): SpecmaticConfig {
