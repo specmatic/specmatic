@@ -147,6 +147,7 @@ internal class StringPatternTest {
     @CsvSource(
         "'^\\w+(-\\w+)*$',null,10,1",
         "'^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$',1,10,1",
+        "'^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$',10,10,1",
         "'^[a-z]*$', null, null, 0",
         "'^[a-z]*$', 5, null, 5",
         "'^[a-z0-9]{6,10}',6,10,6",
