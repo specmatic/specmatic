@@ -11,10 +11,10 @@ import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_PARALLELISM
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_TIMEOUT
-import io.specmatic.core.utilities.Flags.Companion.USE_CURRENT_BRANCH_FOR_CENTRAL_REPO
 import io.specmatic.core.utilities.Flags.Companion.MATCH_BRANCH
 import io.specmatic.core.utilities.Flags.Companion.getStringValue
 import io.specmatic.core.utilities.exitWithMessage
+import io.specmatic.core.loadSpecmaticConfigOrNull
 import io.specmatic.core.utilities.newXMLBuilder
 import io.specmatic.core.utilities.xmlToString
 import io.specmatic.test.SpecmaticJUnitSupport
@@ -182,10 +182,11 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         System.setProperty(FILTER, filter)
         System.setProperty(OVERLAY_FILE_PATH, overlayFilePath.orEmpty())
         System.setProperty(STRICT_MODE, strictMode.toString())
-        
-        val matchBranchEnabled = useCurrentBranchForCentralRepo || Flags.getBooleanValue(MATCH_BRANCH, false)
+
+        val configMatchBranch = loadSpecmaticConfigOrNull(Configuration.configFilePath)?.getMatchBranch() ?: false
+        val matchBranchEnabled = useCurrentBranchForCentralRepo || Flags.getBooleanValue(MATCH_BRANCH, false) || configMatchBranch
         if(matchBranchEnabled) {
-            System.setProperty(USE_CURRENT_BRANCH_FOR_CENTRAL_REPO, matchBranchEnabled.toString())
+            System.setProperty(MATCH_BRANCH, matchBranchEnabled.toString())
         }
 
         if(exampleDirs.isNotEmpty()) {

@@ -236,7 +236,7 @@ open class SpecmaticJUnitSupport {
         val filterNotName: String? = System.getProperty(FILTER_NOT_NAME_PROPERTY) ?: System.getenv(FILTER_NOT_NAME_ENVIRONMENT_VARIABLE)
         val overlayFilePath: String? = System.getProperty(OVERLAY_FILE_PATH) ?: System.getenv(OVERLAY_FILE_PATH)
         val overlayContent = if(overlayFilePath.isNullOrBlank()) "" else readFrom(overlayFilePath, "overlay")
-        val useCurrentBranchForCentralRepo = System.getProperty(Flags.USE_CURRENT_BRANCH_FOR_CENTRAL_REPO)?.toBoolean() ?: false
+        val useCurrentBranchForCentralRepo = specmaticConfig?.getMatchBranch() ?: Flags.getBooleanValue(Flags.MATCH_BRANCH) ?: false
 
         openApiCoverageReportInput = OpenApiCoverageReportInput(getConfigFileWithAbsolutePath(), filterExpression = settings.filter, coverageHooks = settings.coverageHooks, httpInteractionsLog = httpInteractionsLog)
 
