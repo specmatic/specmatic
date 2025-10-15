@@ -350,6 +350,87 @@ internal class StringPatternTest {
         "'^[a-z]*$'; 5; null; true; 5; 99999999",
         "'^[a-z0-9]{6,10}';6;10;true; 6; 10",
         "null; 1; 10; true; 1; 10",
+
+        // Nested * or + operators
+        "'^(a*)*$';null;10;true;0;10",           // Catastrophic backtracking case
+        "'^(a+)*$';null;10;true;0;10",
+        "'^([a-z]*[0-9]*)*$';null;20;true;0;20",
+        "'^(ab+)+$';null;15;true;2;15",
+        "'^(a{2,})+$';null;20;true;2;20",
+
+        // Alternation with infinite quantifiers
+        "'^(a*|b*)$';null;10;true;0;10",
+        "'^(a+|b+|c+)$';null;10;true;1;10",
+        "'^([a-z]+|[0-9]+)*$';null;15;true;0;15",
+        "'^(abc|def)*$';null;20;true;0;20",
+
+        // Optional groups with repetition
+        "'^(a?)*$';null;10;true;0;10",           // Can generate empty or any length
+        "'^(ab?)+$';null;10;true;1;10",
+        "'^([a-z]{2,4})?$';null;10;true;0;4",
+        "'^(test)?.*$';null;20;true;0;20",
+
+        // Multiple consecutive infinite quantifiers
+        "'^[a-z]*[0-9]*$';null;10;true;0;10",
+        "'^[a-z]+[0-9]+$';null;10;true;2;10",
+        "'^\\w*\\d*$';null;15;true;0;15",
+        "'^[A-Z]*[a-z]*[0-9]*$';null;20;true;0;20",
+
+        // Dot (.) with infinite quantifiers
+        "'^.*$';null;10;true;0;10",              // Match anything
+        "'^.+$';null;10;true;1;10",
+        "'^.{0,}$';null;10;true;0;10",
+        "'^a.*z$';null;20;true;2;20",            // Prefix and suffix with .*
+        "'^.*@.*\\..*$';null;30;true;3;30",      // Email-like pattern
+
+        // Character class negation with infinite quantifiers
+        "'^[^0-9]*$';null;10;true;0;10",         // Everything except digits
+        "'^[^a-z]+$';null;10;true;1;10",
+        "'^[^\\s]*$';null;15;true;0;15",
+
+        // Min > Max scenarios
+        "'^[a-z]*$';100;10;false;0;0",           // Impossible constraint
+        "'^[a-z]+$';50;20;false;0;0",
+
+        // Very large min/max values
+        "'^[a-z]*$';null;10000;true;0;10000",
+        "'^[a-z]+$';1000;null;true;1000;99999999",
+        "'^[a-z]*$';10000;10000;true;10000;10000",
+
+        // Complex real world patterns
+        "'^[a-z]+@[a-z]+\\.[a-z]+$';null;50;true;5;50", // Email-like patterns
+        "'^[\\w.+-]+@[\\w.-]+\\.[a-z]{2,}$';null;50;true;5;50", // Email-like patterns
+        "'^https?://[a-z]+(\\.[a-z]+)*$';null;50;true;8;50", // URL-like patterns
+        "'^\\+?[0-9]*-?[0-9]*$';null;20;true;0;20", // Phone number-like
+        "'^[a-f0-9]{8}(-[a-f0-9]{4})*$';null;50;true;8;50", // UUID-like with repetition
+
+        // Lookahead/Lookbehind
+        "'^(?=.*[a-z]).*$';null;10;true;1;10",   // Lookahead with infinite
+        "'^(?!.*test).*$';null;10;true;0;10",    // Negative lookahead
+
+        // Mixed Greedy/Lazy quantifiers
+        "'^.*?$';null;10;true;0;10",             // Lazy quantifier
+        "'^.+?$';null;10;true;1;10",
+        "'^[a-z]*?[0-9]+$';null;15;true;1;15",
+
+        // Edge cases with zero length matches
+        "'^()*$';null;10;true;0;0",              // Empty group repeated
+        "'^a*b*$';0;0;true;0;0",                 // Both can be zero-length
+        "'^(a|)*$';null;10;true;0;10",           // Alternation with empty option
+
+        // Backreferences with infinite quantifiers
+        "'^(\\w+)\\s+\\1$';null;20;true;3;20",   // Backreference pattern
+        "'^([a-z]+)-\\1*$';null;30;true;2;30",
+
+        // Catastrophic backtracking patterns
+        "'^(a*)*b$';null;20;true;1;20",
+        "'^(a+)+b$';null;20;true;2;20",
+        "'^(a|a)*b$';null;20;true;1;20",
+        "'^(a|ab)*b$';null;20;true;1;20",
+
+        // Deeply nested quantifiers
+        "'^((a*)*)*$';null;10;true;0;10",
+        "'^(((a+)+)+)+$';null;10;true;1;10",
         delimiterString = ";"
     )
     fun `generate string value as per regex in conjunction with minimum and maximum`(
