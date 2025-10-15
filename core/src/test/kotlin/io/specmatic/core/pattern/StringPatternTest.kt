@@ -143,39 +143,6 @@ internal class StringPatternTest {
         maxLength?.let { assertThat(generatedLength).isLessThanOrEqualTo(it) }
     }
 
-    @ParameterizedTest
-    @CsvSource(
-        "'^\\w+(-\\w+)*$',null,10,1",
-        "'^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$',1,10,1",
-        "'^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$',10,10,1",
-        "'^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$',8,8,1",
-        "'^[a-z]*$', null, null, 0",
-        "'^[a-z]*$', 5, null, 5",
-        "'^[a-z0-9]{6,10}',6,10,6",
-        "null, 1, 10, 1"
-    )
-    fun `generate string value as per regex in conjunction with minLength and maxLength`(
-        regex: String?, min: String?, max: String?, expectedMinLength: Int
-    ) {
-        repeat(10) {
-            val minLength = min?.toIntOrNull()
-            val maxLength = max?.toIntOrNull()
-            val patternRegex = if (regex == "null") null else regex
-
-            val result = StringPattern(
-                minLength = minLength,
-                maxLength = maxLength,
-                regex = patternRegex
-            ).generate(Resolver()) as StringValue
-            val generatedString = result.string
-            val generatedLength = generatedString.length
-
-            assertThat(generatedLength).isGreaterThanOrEqualTo(expectedMinLength)
-            maxLength?.let { assertThat(generatedLength).isLessThanOrEqualTo(it) }
-            patternRegex?.let { assertThat(generatedString).matches(patternRegex) }
-        }
-    }
-
     @Test
     fun `string should encompass enum of string`() {
         val result: Result = StringPattern().encompasses(
@@ -373,6 +340,16 @@ internal class StringPatternTest {
         "'^[a-zA-Z0-9]+$';null;0;false;0;0",
         "'^[a-zA-Z0-9]+$';null;1;true;1;1",
         "'^[a-zA-Z0-9]+$';null;10;true;1;10",
+
+        // from other test
+        "'^\\w+(-\\w+)*$';null;10;true;0;10",
+        "'^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$';1;10;true;1;10",
+        "'^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$';10;10;true;10;10",
+        "'^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$';8;8;true;8;8",
+        "'^[a-z]*$'; null; null; true; 0; 99999999",
+        "'^[a-z]*$'; 5; null; true; 5; 99999999",
+        "'^[a-z0-9]{6,10}';6;10;true; 6; 10",
+        "null; 1; 10; true; 1; 10",
         delimiterString = ";"
     )
     fun `generate string value as per regex in conjunction with minimum and maximum`(
