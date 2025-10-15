@@ -129,7 +129,7 @@ class ExecutionStack(regex: String) {
     internal val executionStack = ArrayDeque<Frame>()
     private var _lastResult: GeneratedSoFar? = null
 
-    fun getLastResult() = _lastResult
+    fun returnedValue() = _lastResult
 
     init {
         val state = RegExp(regex).toAutomaton().initialState
@@ -137,7 +137,7 @@ class ExecutionStack(regex: String) {
 
     }
 
-    fun addResultOfLastFrame(result: GeneratedSoFar) {
+    fun returnValue(result: GeneratedSoFar) {
         executionStack.removeLast()
         _lastResult = result
     }
@@ -150,7 +150,7 @@ class ExecutionStack(regex: String) {
         return executionStack.lastOrNull()
     }
 
-    fun addFrame(newFrame: Frame) {
+    fun newComputationFrame(newFrame: Frame) {
         executionStack.addLast(newFrame)
         _lastResult = null
     }
@@ -166,7 +166,7 @@ private fun prepareRandomIterative2(
     val executionStack = ExecutionStack(regex)
 
     while (true) {
-        val lastResult = executionStack.getLastResult()
+        val lastResult = executionStack.returnedValue()
 
         if (lastResult != null) {
             if (lastResult.exceededMaxLength) {
@@ -184,34 +184,34 @@ private fun prepareRandomIterative2(
         frame.strMatch = lastResult?.stringSoFar ?: frame.strMatch
 
         if (frame.transitions.size <= frame.selectedTransitions.size) {
-            executionStack.addResultOfLastFrame(GeneratedSoFar(frame.strMatch))
+            executionStack.returnValue(GeneratedSoFar(frame.strMatch))
             continue
         }
 
         if (frame.state.isAccept) {
             if (frame.strMatch.length == maxLength) {
-                executionStack.addResultOfLastFrame(GeneratedSoFar(frame.strMatch))
+                executionStack.returnValue(GeneratedSoFar(frame.strMatch))
                 continue
             }
 
             if (frame.strMatch.length > maxLength) {
-                executionStack.addResultOfLastFrame(GeneratedSoFar(frame.strMatch, true))
+                executionStack.returnValue(GeneratedSoFar(frame.strMatch, true))
                 continue
             }
 
             if (random.nextInt().toDouble() > 6.442450941E8 && frame.strMatch.length >= minLength) {
-                executionStack.addResultOfLastFrame(GeneratedSoFar(frame.strMatch))
+                executionStack.returnValue(GeneratedSoFar(frame.strMatch))
                 continue
             }
         } else {
             if (frame.strMatch.length == maxLength) {
-                executionStack.addResultOfLastFrame(GeneratedSoFar(frame.strMatch, true))
+                executionStack.returnValue(GeneratedSoFar(frame.strMatch, true))
                 continue
             }
         }
 
         if (frame.transitions.isEmpty()) {
-            executionStack.addResultOfLastFrame(GeneratedSoFar(frame.strMatch, frame.state.isAccept))
+            executionStack.returnValue(GeneratedSoFar(frame.strMatch, frame.state.isAccept))
             continue
         }
 
@@ -232,9 +232,9 @@ private fun prepareRandomIterative2(
                     randomTransition.dest,
                     randomTransition.dest.getSortedTransitions(false),
                 )
-            executionStack.addFrame(newFrame)
+            executionStack.newComputationFrame(newFrame)
         }
     }
 
-    return executionStack.getLastResult()?.stringSoFar ?: ""
+    return executionStack.returnedValue()?.stringSoFar ?: ""
 }
