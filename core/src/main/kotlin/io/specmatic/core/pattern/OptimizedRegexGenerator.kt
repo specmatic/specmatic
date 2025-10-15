@@ -125,17 +125,11 @@ data class Frame(
     var selectedTransitions: MutableSet<Int?> = mutableSetOf(),
 )
 
-class ExecutionStack(regex: String) {
+class ExecutionStack {
     internal val executionStack = ArrayDeque<Frame>()
     private var _lastResult: GeneratedSoFar? = null
 
     fun returnedValue() = _lastResult
-
-    init {
-        val state = RegExp(regex).toAutomaton().initialState
-        executionStack.addLast(Frame("", state, state.getSortedTransitions(false).toList()))
-
-    }
 
     fun returnValue(result: GeneratedSoFar) {
         executionStack.removeLast()
@@ -150,7 +144,7 @@ class ExecutionStack(regex: String) {
         return executionStack.lastOrNull()
     }
 
-    fun newComputationFrame(newFrame: Frame) {
+    fun addFrame(newFrame: Frame) {
         executionStack.addLast(newFrame)
         _lastResult = null
     }
@@ -163,7 +157,10 @@ private fun prepareRandomIterative2(
     maxLength: Int,
 ): String {
     val random = Random.asJavaRandom()
-    val executionStack = ExecutionStack(regex)
+    val executionStack = ExecutionStack()
+
+    val state = RegExp(regex).toAutomaton().initialState
+    executionStack.addFrame(Frame("", state, state.getSortedTransitions(false).toList()))
 
     while (true) {
         val lastResult = executionStack.returnedValue()
@@ -232,7 +229,7 @@ private fun prepareRandomIterative2(
                     randomTransition.dest,
                     randomTransition.dest.getSortedTransitions(false),
                 )
-            executionStack.newComputationFrame(newFrame)
+            executionStack.addFrame(newFrame)
         }
     }
 
