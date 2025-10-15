@@ -155,7 +155,7 @@ internal class StringPatternTest {
         "null, 1, 10, 1"
     )
     fun `generate string value as per regex in conjunction with minLength and maxLength`(
-        regex: String?, min: String?, max: String?, expectedLength: Int
+        regex: String?, min: String?, max: String?, expectedMinLength: Int
     ) {
         repeat(10) {
             val minLength = min?.toIntOrNull()
@@ -170,7 +170,7 @@ internal class StringPatternTest {
             val generatedString = result.string
             val generatedLength = generatedString.length
 
-            assertThat(generatedLength).isGreaterThanOrEqualTo(expectedLength)
+            assertThat(generatedLength).isGreaterThanOrEqualTo(expectedMinLength)
             maxLength?.let { assertThat(generatedLength).isLessThanOrEqualTo(it) }
             patternRegex?.let { assertThat(generatedString).matches(patternRegex) }
         }
