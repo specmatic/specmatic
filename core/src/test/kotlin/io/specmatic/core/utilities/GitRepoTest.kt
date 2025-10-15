@@ -91,6 +91,7 @@ class GitRepoTest {
         every { fakeGit.fetch() } returns ""
         every { fakeGit.revisionsBehindCount() } returns 0
         every { fakeGit.statusPorcelain() } returns ""
+        every { fakeGit.currentRemoteBranch() } returns "origin/main"
 
         every { getSystemGit(any()) } returns fakeGit
         every { getSystemGitWithAuth(any()) } returns fakeGit
@@ -111,5 +112,33 @@ class GitRepoTest {
         verify(exactly = 0) { clone(tempDir.resolve("repos"), gitRepo) }
         verify(exactly = 0) { checkout(tempDir,"main") }
         assertThat(stdOut).containsIgnoringWhitespaces("Contract repo exists, is clean, and is up to date with remote.")
+    }
+
+    @Test
+    fun `should treat repo as up to date when upstream is missing`(@TempDir tempDir: File) {
+        tempDir.resolve("repos").resolve("specmatic").mkdirs()
+        val fakeGit = mockk<GitCommand>()
+        every { fakeGit.currentBranch() } returns "feature/match-branch"
+        every { fakeGit.getOriginDefaultBranchName() } returns "feature/match-branch"
+        every { fakeGit.currentRemoteBranch() } returns "feature/match-branch"
+        every { fakeGit.statusPorcelain() } returns ""
+
+        every { getSystemGit(any()) } returns fakeGit
+        every { getSystemGitWithAuth(any()) } returns fakeGit
+        every { clone(any(), any()) } returns tempDir
+        every { checkout(any(), any()) } returns Unit
+
+        val gitRepo = GitRepo(
+            gitRepositoryURL = "https://github.com/specmatic/specmatic.git",
+            branchName = null,
+            testContracts = emptyList(),
+            stubContracts = emptyList(),
+            type = null
+        )
+
+        gitRepo.loadContracts(workingDirectory = tempDir.canonicalPath, configFilePath = "", selector = { it.stubContracts })
+
+        verify(exactly = 0) { fakeGit.fetch() }
+        verify(exactly = 0) { fakeGit.revisionsBehindCount() }
     }
 }

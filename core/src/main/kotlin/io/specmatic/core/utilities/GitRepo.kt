@@ -123,7 +123,16 @@ data class GitRepo(
 
     private fun isBehind(contractsRepoDir: File): Boolean {
         val sourceGit = getSystemGitWithAuth(contractsRepoDir.path)
+        val currentBranch = sourceGit.currentBranch()
+        val upstreamBranch = sourceGit.currentRemoteBranch()
+
+        if (upstreamBranch == currentBranch) {
+            logger.debug("No upstream found for branch $currentBranch in ${contractsRepoDir.path}. Assuming repository is up to date.")
+            return false
+        }
+
         sourceGit.fetch()
+
         return sourceGit.revisionsBehindCount() > 0
     }
 

@@ -138,12 +138,13 @@ fun createStub(
 ): ContractStub {
     val configFileName = givenConfigFileName ?: getConfigFilePath()
     val specmaticConfig = loadSpecmaticConfigOrDefault(configFileName)
+    val useCurrentBranchForCentralRepo = specmaticConfig.getMatchBranch() == true
 
     val stubValues = runWithTimeout(specmaticConfig.getStubStartTimeoutInMilliseconds()) {
         val workingDirectory = WorkingDirectory()
         if (File(configFileName).exists().not()) exitWithMessage(MISSING_CONFIG_FILE_MESSAGE)
 
-        val contractStubPaths = contractStubPaths(configFileName)
+        val contractStubPaths = contractStubPaths(configFileName, useCurrentBranchForCentralRepo)
 
         val stubs = if (dataDirPaths.isEmpty()) {
             loadContractStubsFromImplicitPaths(contractStubPaths, specmaticConfig, dataDirPaths)
@@ -583,7 +584,7 @@ fun loadImplicitExpectationsFromDataDirsForFeature(
         specmaticConfig,
         strictMode,
         contractPathDataList
-    ).filterIsInstance<FeatureStubsResult.Success>().map { Pair(it.feature!!, it.scenarioStubs) }
+    ).filterIsInstance<FeatureStubsResult.Success>().map { Pair(it.feature, it.scenarioStubs) }
 }
 
 private fun specPathToImplicitDataDirPaths(
@@ -591,7 +592,8 @@ private fun specPathToImplicitDataDirPaths(
     dataDirPaths: List<String>,
     contractPathDataList: List<ContractPathData>
 ): List<Pair<String, List<ImplicitOriginalDataDirPair>>> {
-    return specmaticConfig.loadSources().flatMap { contractSource ->
+    val useCurrentBranchForCentralRepo = specmaticConfig.getMatchBranch() == true
+    return specmaticConfig.loadSources(useCurrentBranchForCentralRepo).flatMap { contractSource ->
         contractSource.stubDirectoryToContractPath(contractPathDataList)
     }.mapNotNull { (stubDirectory, stubContractPath) ->
         if (stubContractPath.isContractFile().not()) {
@@ -842,7 +844,7 @@ fun loadContractStubs(
 ): List<Pair<Feature, List<ScenarioStub>>> {
     return loadContractStubsAsResults(
         features, stubData, strictMode, logIgnoredFiles
-    ).filterIsInstance<FeatureStubsResult.Success>().map { Pair(it.feature!!, it.scenarioStubs) }
+    ).filterIsInstance<FeatureStubsResult.Success>().map { Pair(it.feature, it.scenarioStubs) }
 }
 
 private fun logPartialErrorMessages(

@@ -111,10 +111,11 @@ internal class UtilitiesTest {
 
         val mockGitCommand = mockk<GitCommand>()
         every { mockGitCommand.fetch() }.returns("")
-        every { mockGitCommand.revisionsBehindCount() }.returns(0)
-        every { mockGitCommand.statusPorcelain() }.returns("")
-        every { mockGitCommand.currentBranch() } returns "main"
-        every { mockGitCommand.getOriginDefaultBranchName() } returns "main"
+    every { mockGitCommand.revisionsBehindCount() }.returns(0)
+    every { mockGitCommand.statusPorcelain() }.returns("")
+    every { mockGitCommand.currentBranch() } returns "main"
+    every { mockGitCommand.currentRemoteBranch() } returns "origin/main"
+    every { mockGitCommand.getOriginDefaultBranchName() } returns "main"
 
         mockkStatic("io.specmatic.core.utilities.Utilities")
         every { loadSources("/configFilePath") }.returns(sources)
@@ -160,10 +161,11 @@ internal class UtilitiesTest {
 
         val mockGitCommand = mockk<GitCommand>()
         every { mockGitCommand.fetch() }.returns("")
-        every { mockGitCommand.revisionsBehindCount() }.returns(0)
-        every { mockGitCommand.statusPorcelain() }.returns("someDir/someFile")
-        every { mockGitCommand.currentBranch() } returns "main"
-        every { mockGitCommand.getOriginDefaultBranchName() } returns "main"
+    every { mockGitCommand.revisionsBehindCount() }.returns(0)
+    every { mockGitCommand.statusPorcelain() }.returns("someDir/someFile")
+    every { mockGitCommand.currentBranch() } returns "main"
+    every { mockGitCommand.currentRemoteBranch() } returns "origin/main"
+    every { mockGitCommand.getOriginDefaultBranchName() } returns "main"
 
         mockkStatic("io.specmatic.core.utilities.Utilities")
         every { loadSources("/configFilePath") }.returns(sources)
@@ -190,11 +192,12 @@ internal class UtilitiesTest {
         File(".spec/repos/repo1").mkdirs()
 
         val mockGitCommand = mockk<GitCommand>()
-        every { mockGitCommand.statusPorcelain() }.returns("")
-        every { mockGitCommand.fetch() }.returns("changes")
-        every { mockGitCommand.revisionsBehindCount() }.returns(1)
-        every { mockGitCommand.currentBranch() } returns "main"
-        every { mockGitCommand.getOriginDefaultBranchName() } returns "main"
+    every { mockGitCommand.statusPorcelain() }.returns("")
+    every { mockGitCommand.fetch() }.returns("changes")
+    every { mockGitCommand.revisionsBehindCount() }.returns(1)
+    every { mockGitCommand.currentBranch() } returns "main"
+    every { mockGitCommand.currentRemoteBranch() } returns "origin/main"
+    every { mockGitCommand.getOriginDefaultBranchName() } returns "main"
 
         mockkStatic("io.specmatic.core.utilities.Utilities")
         every { loadSources("/configFilePath") }.returns(sources)
