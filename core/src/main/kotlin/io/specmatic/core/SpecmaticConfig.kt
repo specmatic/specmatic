@@ -225,6 +225,7 @@ data class SpecmaticConfig(
     private val attributeSelectionPattern: AttributeSelectionPattern = AttributeSelectionPattern(),
     private val allPatternsMandatory: Boolean? = null,
     private val defaultPatternValues: Map<String, Any> = emptyMap(),
+    private val matchBranch: Boolean? = null,
     private val version: SpecmaticConfigVersion? = null
 ) {
     companion object {
@@ -533,6 +534,12 @@ data class SpecmaticConfig(
     fun getVersion(): SpecmaticConfigVersion {
         return this.version ?: VERSION_1
     }
+
+    @JsonIgnore
+    fun getMatchBranch(): Boolean? {
+        return matchBranch
+    }
+
 
     @JsonIgnore
     fun getAuth(): Auth? {
