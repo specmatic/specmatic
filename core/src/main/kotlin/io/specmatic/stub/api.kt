@@ -26,6 +26,7 @@ import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.parseGherkinStringToFeature
 import io.specmatic.core.utilities.ContractPathData
 import io.specmatic.core.utilities.ContractPathData.Companion.specToBaseUrlMap
+import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.contractStubPaths
 import io.specmatic.core.utilities.examplesDirFor
 import io.specmatic.core.utilities.exceptionCauseMessage
@@ -138,7 +139,7 @@ fun createStub(
 ): ContractStub {
     val configFileName = givenConfigFileName ?: getConfigFilePath()
     val specmaticConfig = loadSpecmaticConfigOrDefault(configFileName)
-    val useCurrentBranchForCentralRepo = specmaticConfig.getMatchBranch() == true
+    val useCurrentBranchForCentralRepo = specmaticConfig.getMatchBranch() == true || Flags.getBooleanValue(Flags.MATCH_BRANCH)
 
     val stubValues = runWithTimeout(specmaticConfig.getStubStartTimeoutInMilliseconds()) {
         val workingDirectory = WorkingDirectory()
