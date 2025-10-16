@@ -1,6 +1,5 @@
 package io.specmatic.conversions
 
-import io.ktor.http.decodeURLPart
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.NoBodyValue
@@ -16,6 +15,7 @@ import io.specmatic.core.pattern.ReturnValue
 import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.attempt
 import io.specmatic.core.pattern.parsedJSONObject
+import io.specmatic.core.utilities.URIUtils
 import io.specmatic.core.utilities.URIUtils.parseQuery
 import io.specmatic.core.value.EmptyString
 import io.specmatic.core.value.JSONObjectValue
@@ -23,7 +23,6 @@ import io.specmatic.core.value.Value
 import io.specmatic.mock.mockFromJSON
 import io.specmatic.test.ExampleProcessor
 import java.io.File
-import java.net.URI
 
 class ExampleFromFile(val json: JSONObjectValue, val file: File) {
     companion object {
@@ -137,14 +136,11 @@ class ExampleFromFile(val json: JSONObjectValue, val file: File) {
         }
 
     private val rawPath: String? =
-        json.findByPath("http-request.path")?.toStringLiteral()?.decodeURLPart()
+        json.findByPath("http-request.path")?.toStringLiteral()
 
     val requestPath: String? = attempt("Error reading path in file ${file.canonicalPath}") {
-        rawPath?.let { pathOnly(it) }
-    }
-
-    private fun pathOnly(requestPath: String): String {
-        return URI(requestPath).path ?: ""
+        if (rawPath == null) return@attempt null
+        URIUtils.parsePathToURI(rawPath).path.orEmpty()
     }
 
     val testName: String = attempt("Error reading expectation name in file ${file.canonicalPath}") {
@@ -157,7 +153,7 @@ class ExampleFromFile(val json: JSONObjectValue, val file: File) {
                 rawPath ?: ""
             }
 
-            val uri = URI.create(path)
+            val uri = URIUtils.parsePathToURI(path)
             val queryParamsFromURL = parseQuery(uri.query)
 
             val queryParamsFromJSONBlock = attempt("Error reading query params in file ${file.canonicalPath}") {

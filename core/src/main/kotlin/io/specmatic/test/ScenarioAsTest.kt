@@ -102,11 +102,11 @@ data class ScenarioAsTest(
         testExecutor: TestExecutor,
         flagsBased: FlagsBased
     ): Pair<Result, HttpResponse?> {
-        val request = testScenario.generateHttpRequest(flagsBased).let {
-            workflow.updateRequest(it, originalScenario)
-        }.addHeaderIfMissing(SPECMATIC_RESPONSE_CODE_HEADER, testScenario.status.toString())
-
         try {
+            val request = testScenario.generateHttpRequest(flagsBased).let {
+                workflow.updateRequest(it, originalScenario)
+            }.addHeaderIfMissing(SPECMATIC_RESPONSE_CODE_HEADER, testScenario.status.toString())
+
             testExecutor.setServerState(testScenario.serverState)
             testExecutor.preExecuteScenario(testScenario, request)
             val response = testExecutor.execute(request)

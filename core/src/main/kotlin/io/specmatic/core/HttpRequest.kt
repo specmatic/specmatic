@@ -11,6 +11,7 @@ import io.ktor.http.*
 import io.ktor.http.content.*
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_PRETTY_PRINT
 import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
+import io.specmatic.core.utilities.URIUtils
 import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
 import org.apache.http.client.utils.URLEncodedUtils
 import org.apache.http.message.BasicNameValuePair
@@ -91,7 +92,7 @@ data class HttpRequest(
 
     fun updatePath(path: String): HttpRequest {
         return try {
-            val urlParam = URI(path.decodeURLPart())
+            val urlParam = URIUtils.parsePathToURI(path)
             updateWith(urlParam)
         } catch (e: URISyntaxException) {
             val pieces = path.split("?", limit = 2)
