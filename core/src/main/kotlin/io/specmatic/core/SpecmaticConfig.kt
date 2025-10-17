@@ -1131,7 +1131,7 @@ fun configErrorMessage(e: DatabindException): String {
         is UnrecognizedPropertyException -> {
             val path = e.path
             val fieldPath = readablePath(path)
-            val knownProperties = e.knownPropertyIds.joinToString(", ")
+            val knownProperties = e.knownPropertyIds.sortedBy { it.toString() }.joinToString(", ")
             "$errorPrefix: $fieldPath is not a valid property in the configuration file. Known properties are: $knownProperties."
         }
 
