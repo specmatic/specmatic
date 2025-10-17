@@ -47,6 +47,7 @@ import io.swagger.v3.parser.OpenAPIV3Parser
 import io.swagger.v3.parser.core.models.ParseOptions
 import io.swagger.v3.parser.core.models.SwaggerParseResult
 import java.io.File
+import java.util.LinkedHashSet
 import kotlin.sequences.asSequence
 
 private const val BEARER_SECURITY_SCHEME = "bearer"
@@ -57,6 +58,77 @@ const val SERVICE_TYPE_HTTP = "HTTP"
 private const val X_SPECMATIC_HINT = "x-specmatic-hint"
 private const val HINT_BOUNDARY_TESTING_ENABLED = "boundary_testing_enabled"
 private val HINT_VALUE_DELIMITERS = charArrayOf(',')
+
+private const val NULL_TYPE_KEYWORD = "null"
+private val BINARY_CONTENT_ENCODINGS = setOf("binary")
+private val BASE64_CONTENT_ENCODINGS = setOf("base64")
+private val OCTET_STREAM_MEDIA_TYPES = setOf("application/octet-stream")
+
+private fun Schema<*>.normalizeForOpenAPI31() {
+    val typeKeyword = this.type?.lowercase()
+    if (typeKeyword == NULL_TYPE_KEYWORD) {
+        if (this.nullable != true) this.nullable = true
+        this.type = null
+    }
+
+    val definedTypes = this.types
+    if (!definedTypes.isNullOrEmpty()) {
+        val hasNullType = definedTypes.any { it.equals(NULL_TYPE_KEYWORD, ignoreCase = true) }
+        if (hasNullType && this.nullable != true) {
+            this.nullable = true
+        }
+
+        if (hasNullType) {
+            val nonNullTypes = definedTypes.filterNot { it.equals(NULL_TYPE_KEYWORD, ignoreCase = true) }
+            if (nonNullTypes.size != definedTypes.size) {
+                this.types = LinkedHashSet(nonNullTypes)
+            }
+
+            if (this.type.isNullOrBlank() && nonNullTypes.size == 1) {
+                this.type = nonNullTypes.first()
+            }
+        }
+    }
+}
+
+private fun Schema<*>.typeKeywords(): Set<String> {
+    val explicitTypes = this.types?.map { it.lowercase() }?.toSet().orEmpty()
+    val singularType = this.type?.lowercase()
+    return if (singularType != null) explicitTypes + singularType else explicitTypes
+}
+
+private fun Schema<*>.nonNullTypeKeywords(): Set<String> =
+    typeKeywords().filterNot { it == NULL_TYPE_KEYWORD }.toSet()
+
+private fun Schema<*>.exampleOrFirstExample(): Any? = this.example ?: this.examples?.firstOrNull()
+
+private fun Schema<*>.exampleOrFirstExampleText(): String? = when (val value = exampleOrFirstExample()) {
+    null -> null
+    is String -> value
+    is Number -> value.toString()
+    is Boolean -> value.toString()
+    is JsonNode -> value.toString()
+    else -> value.toString()
+}
+
+private fun Schema<*>.contentEncodingLowerCase(): String? = this.contentEncoding?.lowercase()
+
+private fun Schema<*>.contentMediaTypeLowerCase(): String? = this.contentMediaType?.lowercase()
+
+private fun Schema<*>.isBinaryContentSchema(): Boolean {
+    val encoding = contentEncodingLowerCase()
+    val mediaType = contentMediaTypeLowerCase()
+    val format = this.format?.lowercase()
+
+    return encoding in BINARY_CONTENT_ENCODINGS || mediaType in OCTET_STREAM_MEDIA_TYPES || format in BINARY_CONTENT_ENCODINGS
+}
+
+private fun Schema<*>.isBase64ContentSchema(): Boolean {
+    val encoding = contentEncodingLowerCase()
+    val format = this.format?.lowercase()
+
+    return encoding in BASE64_CONTENT_ENCODINGS || format in BASE64_CONTENT_ENCODINGS || this is ByteArraySchema
+}
 
 const val testDirectoryEnvironmentVariable = "SPECMATIC_TESTS_DIRECTORY"
 const val testDirectoryProperty = "specmaticTestsDirectory"
@@ -1593,7 +1665,9 @@ class OpenApiSpecification(
     private fun toSpecmaticPattern(
         schema: Schema<*>, typeStack: List<String>, patternName: String = "", jsonInFormData: Boolean = false, breadCrumb: String = ""
     ): Pattern {
-        if(patternName.isNotBlank()) logger.debug("Processing schema $patternName")
+    if(patternName.isNotBlank()) logger.debug("Processing schema $patternName")
+
+    schema.normalizeForOpenAPI31()
 
         val preExistingResult = patterns["($patternName)"]
         val pattern = if (preExistingResult != null && patternName.isNotBlank()) {
@@ -1627,27 +1701,29 @@ class OpenApiSpecification(
             }
             DeferredPattern("(${componentName})")
         } else when (schema) {
-            is StringSchema -> when (schema.enum) {
-                null -> {
+            is StringSchema -> when {
+                schema.isBinaryContentSchema() -> BinaryPattern()
+                schema.isBase64ContentSchema() -> Base64StringPattern()
+                schema.enum == null -> {
                     val stringConstraints = StringConstraints(schema, patternName, breadCrumb)
 
                     StringPattern(
                         minLength = stringConstraints.resolvedMinLength,
                         maxLength = stringConstraints.resolvedMaxLength,
-                        example = schema.example?.toString(),
+                        example = schema.exampleOrFirstExampleText(),
                         regex = schema.pattern,
                         downsampledMax = stringConstraints.downsampledMax,
                         downsampledMin = stringConstraints.downsampledMin,
                     )
                 }
                 else -> toEnum(schema, patternName) { enumValue -> StringValue(enumValue.toString()) }.withExample(
-                    schema.example?.toString(),
+                    schema.exampleOrFirstExampleText(),
                 )
             }
 
-            is EmailSchema -> EmailPattern(example = schema.example?.toString())
+            is EmailSchema -> EmailPattern(example = schema.exampleOrFirstExampleText())
 
-            is PasswordSchema -> StringPattern(example = schema.example?.toString())
+            is PasswordSchema -> StringPattern(example = schema.exampleOrFirstExampleText())
 
             is IntegerSchema -> when (schema.enum) {
                 null -> numberPattern(schema, false)
@@ -1655,7 +1731,7 @@ class OpenApiSpecification(
                     NumberValue(
                         enumValue.toString().toInt()
                     )
-                }.withExample(schema.example?.toString())
+                }.withExample(schema.exampleOrFirstExampleText())
             }
 
             is BinarySchema -> BinaryPattern()
@@ -1663,7 +1739,7 @@ class OpenApiSpecification(
             is UUIDSchema -> UUIDPattern
             is DateTimeSchema -> DateTimePattern
             is DateSchema -> DatePattern
-            is BooleanSchema -> BooleanPattern(example = schema.example?.toString())
+            is BooleanSchema -> BooleanPattern(example = schema.exampleOrFirstExampleText())
             is ObjectSchema, is MapSchema -> {
                 if (schema.xml?.name != null) {
                     toXMLPattern(schema, typeStack = typeStack)
@@ -1682,7 +1758,7 @@ class OpenApiSpecification(
                         toSpecmaticPattern(
                             schema.items, typeStack, breadCrumb = "$breadCrumb[]"
                         ),
-                        example = toListExample(schema.example)
+                        example = toListExample(schema.exampleOrFirstExample())
                     )
                 }
             }
@@ -1898,17 +1974,25 @@ class OpenApiSpecification(
 
         return when (schema.nullable) {
             false, null -> pattern
-            true -> pattern.toNullable(schema.example?.toString())
+            true -> pattern.toNullable(schema.exampleOrFirstExampleText())
         }
     }
 
     private fun numberPattern(schema: Schema<*>, isDoubleFormat: Boolean) = NumberPattern(
-        minimum = schema.minimum,
-        maximum = schema.maximum,
-        exclusiveMinimum = schema.exclusiveMinimum ?: false,
-        exclusiveMaximum = schema.exclusiveMaximum ?: false,
+        minimum = schema.minimum ?: schema.exclusiveMinimumValue,
+        maximum = schema.maximum ?: schema.exclusiveMaximumValue,
+        exclusiveMinimum = when {
+            schema.exclusiveMinimumValue != null -> true
+            schema.exclusiveMinimum != null -> schema.exclusiveMinimum!!
+            else -> false
+        },
+        exclusiveMaximum = when {
+            schema.exclusiveMaximumValue != null -> true
+            schema.exclusiveMaximum != null -> schema.exclusiveMaximum!!
+            else -> false
+        },
         isDoubleFormat = isDoubleFormat,
-        example = schema.example?.toString(),
+        example = schema.exampleOrFirstExampleText(),
         boundaryTestingEnabled = isBoundaryTestingEnabled(schema)
     )
 
