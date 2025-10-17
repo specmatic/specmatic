@@ -395,12 +395,14 @@ data class SpecmaticConfig(
             val testGenerativeMap = source.specToTestGenerativeMap()
             val testPaths = testBaseUrlMap.entries.map { ContractSourceEntry(it.key, it.value, testGenerativeMap[it.key]) }
 
-            val effectiveBranch = getEffectiveBranchForSource(source.branch, useCurrentBranchForCentralRepo)
+            val sourceMatchBranch = source.matchBranch ?: false
+            val effectiveUseCurrentBranch = useCurrentBranchForCentralRepo || sourceMatchBranch
+            val effectiveBranch = getEffectiveBranchForSource(source.branch, effectiveUseCurrentBranch)
 
             when (source.provider) {
                 git -> when (source.repository) {
                     null -> GitMonoRepo(testPaths, stubPaths, source.provider.toString())
-                    else -> GitRepo(source.repository, effectiveBranch, testPaths, stubPaths, source.provider.toString(), useCurrentBranchForCentralRepo)
+                    else -> GitRepo(source.repository, effectiveBranch, testPaths, stubPaths, source.provider.toString(), effectiveUseCurrentBranch)
                 }
 
                 filesystem -> LocalFileSystemSource(source.directory ?: ".", testPaths, stubPaths)
@@ -735,6 +737,7 @@ data class Source(
     val stub: List<SpecExecutionConfig>? = null,
     val directory: String? = null,
     @JsonIgnore val testConsumes: List<SpecExecutionConfig>? = null,
+    val matchBranch: Boolean? = null,
 ) {
     constructor(test: List<String>? = null, stub: List<String>? = null) : this(
         test = test,

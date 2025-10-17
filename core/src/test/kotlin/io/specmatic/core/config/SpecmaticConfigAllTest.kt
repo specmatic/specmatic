@@ -427,6 +427,34 @@ internal class SpecmaticConfigAllTest {
     }
 
     @Test
+    fun `should deserialize ContractConfigV2 successfully when matchBranch is present in git config`() {
+        val contractConfigYaml = """
+            git:
+              url: https://contracts
+              branch: main
+              matchBranch: true
+            provides:
+              - com/petstore/1.yaml
+            consumes:
+              - com/petstore/payment.yaml
+        """.trimIndent()
+
+        val contractConfig = objectMapper.readValue(contractConfigYaml, ContractConfig::class.java)
+
+        assertThat(contractConfig.contractSource).isInstanceOf(GitContractSource::class.java)
+        val gitContractSource = contractConfig.contractSource as GitContractSource
+        assertThat(gitContractSource.url).isEqualTo("https://contracts")
+        assertThat(gitContractSource.branch).isEqualTo("main")
+        assertThat(gitContractSource.matchBranch).isEqualTo(true)
+        assertThat(contractConfig.provides).containsOnly(SpecExecutionConfig.StringValue("com/petstore/1.yaml"))
+        assertThat(contractConfig.consumes).containsOnly(SpecExecutionConfig.StringValue("com/petstore/payment.yaml"))
+        
+        // Test that the matchBranch is properly transformed to Source
+        val source = contractConfig.transform()
+        assertThat(source.matchBranch).isEqualTo(true)
+    }
+
+    @Test
     fun `should deserialize SpecmaticConfig successfully when VirtualService key is present`(@TempDir tempDir: File) {
         val configFile = tempDir.resolve("specmatic.yaml")
         val configYaml = """
