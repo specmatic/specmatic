@@ -71,9 +71,10 @@ data class ContractConfig(
 
     data class GitContractSource(
         val url: String? = null,
-        val branch: String? = null
+        val branch: String? = null,
+        val matchBranch: Boolean? = null
     ) : ContractSource {
-        constructor(source: Source) : this(source.repository, source.branch)
+        constructor(source: Source) : this(source.repository, source.branch, source.matchBranch)
 
         override fun transform(provides: List<SpecExecutionConfig>?, consumes: List<SpecExecutionConfig>?): Source {
             val testSpecs = provides?.flatMap { p -> when(p) { is SpecExecutionConfig.StringValue -> listOf(p.value); is SpecExecutionConfig.ObjectValue -> p.specs } }
@@ -87,7 +88,8 @@ data class ContractConfig(
                 branch = this.branch,
                 test = testSpecs,
                 stub = consumes.orEmpty(),
-                testConsumes = testSpecExecutionConfigOrNull
+                testConsumes = testSpecExecutionConfigOrNull,
+                matchBranch = this.matchBranch
             )
         }
     }

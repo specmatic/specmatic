@@ -22,7 +22,6 @@ import org.eclipse.jgit.lib.BranchConfig
 data class SpecmaticConfigV2(
     val version: SpecmaticConfigVersion,
     val contracts: List<ContractConfig> = emptyList(),
-    val matchBranch: Boolean? = null,
     val auth: Auth? = null,
     val pipeline: Pipeline? = null,
     val environments: Map<String, Environment>? = null,
@@ -48,7 +47,6 @@ data class SpecmaticConfigV2(
         return SpecmaticConfig(
             version = currentConfigVersion(),
             sources = this.contracts.map { contract -> contract.transform() },
-            matchBranch = this.matchBranch,
             auth = this.auth,
             pipeline = this.pipeline,
             environments = this.environments,
