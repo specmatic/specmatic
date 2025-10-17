@@ -3,7 +3,7 @@ package io.specmatic.core.utilities
 import io.mockk.*
 import io.specmatic.core.git.GitCommand
 import io.specmatic.core.git.checkout
-import io.specmatic.core.git.clone
+import io.specmatic.core.git.shallowClone
 import io.specmatic.stub.captureStandardOutput
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterAll
@@ -42,7 +42,7 @@ class GitRepoTest {
         every { fakeGit.currentBranch() } returns "feature"
 
         every { getSystemGit(any()) } returns fakeGit
-        every { clone(any(), any()) } returns tempDir
+        every { shallowClone(any(), any()) } returns tempDir
         every { checkout(any(), any()) } returns Unit
 
         val gitRepo = GitRepo(
@@ -54,8 +54,7 @@ class GitRepoTest {
         )
         gitRepo.loadContracts(workingDirectory = tempDir.canonicalPath, configFilePath = "", selector = { it.stubContracts })
 
-        verify(exactly = 1) { clone(tempDir.canonicalFile.resolve("repos"), gitRepo) }
-        verify(exactly = 1) { checkout(tempDir,"main") }
+        verify(exactly = 1) { shallowClone(tempDir.canonicalFile.resolve("repos"), gitRepo) }
     }
 
     @Test
@@ -66,7 +65,7 @@ class GitRepoTest {
         every { fakeGit.getOriginDefaultBranchName() } returns "main"
 
         every { getSystemGit(any()) } returns fakeGit
-        every { clone(any(), any()) } returns tempDir
+        every { shallowClone(any(), any()) } returns tempDir
         every { checkout(any(), any()) } returns Unit
 
         val gitRepo = GitRepo(
@@ -78,7 +77,7 @@ class GitRepoTest {
         )
         gitRepo.loadContracts(workingDirectory = tempDir.canonicalPath, configFilePath = "", selector = { it.stubContracts })
 
-        verify(exactly = 1) { clone(tempDir.canonicalFile.resolve("repos"), gitRepo) }
+        verify(exactly = 1) { shallowClone(tempDir.canonicalFile.resolve("repos"), gitRepo) }
         verify(exactly = 0) { checkout(tempDir,"main") }
     }
 
@@ -95,7 +94,7 @@ class GitRepoTest {
 
         every { getSystemGit(any()) } returns fakeGit
         every { getSystemGitWithAuth(any()) } returns fakeGit
-        every { clone(any(), any()) } returns tempDir
+        every { shallowClone(any(), any()) } returns tempDir
         every { checkout(any(), any()) } returns Unit
 
         val gitRepo = GitRepo(
@@ -109,7 +108,7 @@ class GitRepoTest {
             gitRepo.loadContracts(workingDirectory = tempDir.canonicalPath, configFilePath = "", selector = { it.stubContracts })
         }
 
-        verify(exactly = 0) { clone(tempDir.resolve("repos"), gitRepo) }
+        verify(exactly = 0) { shallowClone(tempDir.resolve("repos"), gitRepo) }
         verify(exactly = 0) { checkout(tempDir,"main") }
         assertThat(stdOut).containsIgnoringWhitespaces("Contract repo exists, is clean, and is up to date with remote.")
     }
@@ -125,7 +124,7 @@ class GitRepoTest {
 
         every { getSystemGit(any()) } returns fakeGit
         every { getSystemGitWithAuth(any()) } returns fakeGit
-        every { clone(any(), any()) } returns tempDir
+        every { shallowClone(any(), any()) } returns tempDir
         every { checkout(any(), any()) } returns Unit
 
         val gitRepo = GitRepo(

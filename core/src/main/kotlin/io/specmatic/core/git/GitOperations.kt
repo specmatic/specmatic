@@ -28,11 +28,11 @@ import java.net.Proxy
 import java.net.URL
 
 
-fun clone(workingDirectory: File, gitRepo: GitRepo): File {
+fun shallowClone(workingDirectory: File, gitRepo: GitRepo): File {
     val cloneDirectory = gitRepo.directoryRelativeTo(workingDirectory)
 
     resetCloneDirectory(cloneDirectory)
-    clone(gitRepo.gitRepositoryURL, cloneDirectory)
+    shallowClone(gitRepo.gitRepositoryURL, cloneDirectory, gitRepo.branchName)
 
     return cloneDirectory
 }
@@ -63,9 +63,13 @@ fun checkout(workingDirectory: File, branchName: String, useCurrentBranchForCent
     }
 }
 
-private fun clone(gitRepositoryURI: String, cloneDirectory: File) {
+private fun shallowClone(gitRepositoryURI: String, cloneDirectory: File, branchName: String?) {
     try {
-        SystemGit(cloneDirectory.parent, "-", AzureAuthCredentials).clone(gitRepositoryURI, cloneDirectory)
+        SystemGit(
+            cloneDirectory.parent,
+            "-",
+            AzureAuthCredentials
+        ).shallowClone(gitRepositoryURI, cloneDirectory, branchName)
     } catch(exception: Exception) {
         logger.debug("Falling back to jgit after trying shallow clone")
         logger.debug(exception.localizedMessage ?: exception.message ?: "")

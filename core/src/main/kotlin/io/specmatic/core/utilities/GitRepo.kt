@@ -3,8 +3,7 @@ package io.specmatic.core.utilities
 import io.specmatic.core.APPLICATION_NAME_LOWER_CASE
 import io.specmatic.core.Configuration
 import io.specmatic.core.git.SystemGit
-import io.specmatic.core.git.checkout
-import io.specmatic.core.git.clone
+import io.specmatic.core.git.shallowClone
 import io.specmatic.core.log.logger
 import java.io.File
 
@@ -63,15 +62,15 @@ data class GitRepo(
                 when {
                     !contractsRepoDir.exists() -> {
                         logger.log("Contract repo dir does not exist.")
-                        cloneRepoAndCheckoutBranch(reposBaseDir, this)
+                        shallowCloneRepoAndCheckoutBranch(reposBaseDir, this)
                     }
                     isNotOnBranch(contractsRepoDir) -> {
                         logger.log("Contract repo exists but is not on the correct branch.")
-                        cloneRepoAndCheckoutBranch(reposBaseDir, this)
+                        shallowCloneRepoAndCheckoutBranch(reposBaseDir, this)
                     }
                     isBehind(contractsRepoDir) -> {
                         logger.log("Contract repo exists but is behind the remote.")
-                        cloneRepoAndCheckoutBranch(reposBaseDir, this)
+                        shallowCloneRepoAndCheckoutBranch(reposBaseDir, this)
                     }
                     isClean(contractsRepoDir) -> {
                         logger.log("Contract repo exists, is clean, and is up to date with remote.")
@@ -79,7 +78,7 @@ data class GitRepo(
                     }
                     else -> {
                         logger.log("Contract repo exists, but it is not clean.")
-                        cloneRepoAndCheckoutBranch(reposBaseDir, this)
+                        shallowCloneRepoAndCheckoutBranch(reposBaseDir, this)
                     }
                 }
             }
@@ -136,13 +135,13 @@ data class GitRepo(
         return sourceGit.revisionsBehindCount() > 0
     }
 
-    private fun cloneRepoAndCheckoutBranch(reposBaseDir: File, gitRepo: GitRepo): File {
+    private fun shallowCloneRepoAndCheckoutBranch(reposBaseDir: File, gitRepo: GitRepo): File {
         logger.log("Cloning $gitRepositoryURL into ${reposBaseDir.path}")
         reposBaseDir.mkdirs()
-        val repositoryDirectory = clone(reposBaseDir, gitRepo)
+        val repositoryDirectory = shallowClone(reposBaseDir, gitRepo)
         when (branchName) {
             null -> logger.log("No branch specified, using default branch")
-            else -> checkout(repositoryDirectory, branchName, useCurrentBranchForCentralRepo)
+            else -> logger.log("Using the specified branch '$branchName'")
         }
         return repositoryDirectory
     }
@@ -164,7 +163,7 @@ data class GitRepo(
                 sourceDir.deleteRecursively()
                 sourceDir.mkdirs()
                 println("Cloning ${this.gitRepositoryURL} into ${sourceDir.canonicalPath}")
-                this.cloneRepoAndCheckoutBranch(sourceDir.canonicalFile.parentFile, this)
+                this.shallowCloneRepoAndCheckoutBranch(sourceDir.canonicalFile.parentFile, this)
             } else {
                 println("Git repo already exists at ${sourceDir.path}, so ignoring it and moving on")
             }

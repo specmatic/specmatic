@@ -117,9 +117,21 @@ class SystemGit(override val workingDirectory: String = ".", private val prefix:
         }
     }
 
-    override fun shallowClone(gitRepositoryURI: String, cloneDirectory: File): SystemGit =
+    override fun shallowClone(gitRepositoryURI: String, cloneDirectory: File, branchName: String?): SystemGit =
         this.also {
-            executeWithAuth("clone", "--depth", "1", gitRepositoryURI, cloneDirectory.absolutePath)
+            if (branchName.isNullOrBlank()) {
+                executeWithAuth("clone", "--depth", "1", gitRepositoryURI, cloneDirectory.absolutePath)
+            } else {
+                executeWithAuth(
+                    "clone",
+                    "--depth",
+                    "1",
+                    "--branch",
+                    branchName,
+                    gitRepositoryURI,
+                    cloneDirectory.absolutePath
+                )
+            }
         }
 
     override fun gitRoot(): String = execute(Configuration.gitCommand, "rev-parse", "--show-toplevel").trim()
