@@ -113,9 +113,10 @@ class OptimizedRegexGenerator(val regex: String) {
     }
 }
 
-data class GeneratedSoFar(
+data class ComputedSoFar(
     val stringSoFar: String,
     val exceededMaxLength: Boolean = false,
+    val acceptableState: Boolean = true
 )
 
 data class Frame(
@@ -127,11 +128,11 @@ data class Frame(
 
 class ExecutionStack {
     internal val executionStack = ArrayDeque<Frame>()
-    private var _lastResult: GeneratedSoFar? = null
+    private var _lastResult: ComputedSoFar? = null
 
     fun returnedValue() = _lastResult
 
-    fun returnValue(result: GeneratedSoFar) {
+    fun returnValue(result: ComputedSoFar) {
         executionStack.removeLast()
         _lastResult = result
     }
@@ -171,7 +172,7 @@ private fun prepareRandomIterative2(
                 continue
             }
 
-            if (lastResult.stringSoFar.length in minLength..maxLength) {
+            if (lastResult.stringSoFar.length in minLength..maxLength && lastResult.acceptableState) {
                 break
             }
         }
@@ -181,34 +182,34 @@ private fun prepareRandomIterative2(
         frame.strMatch = lastResult?.stringSoFar ?: frame.strMatch
 
         if (frame.transitions.size <= frame.selectedTransitions.size) {
-            executionStack.returnValue(GeneratedSoFar(frame.strMatch))
+            executionStack.returnValue(ComputedSoFar(frame.strMatch))
             continue
         }
 
         if (frame.state.isAccept) {
             if (frame.strMatch.length == maxLength) {
-                executionStack.returnValue(GeneratedSoFar(frame.strMatch))
+                executionStack.returnValue(ComputedSoFar(frame.strMatch))
                 continue
             }
 
             if (frame.strMatch.length > maxLength) {
-                executionStack.returnValue(GeneratedSoFar(frame.strMatch, true))
+                executionStack.returnValue(ComputedSoFar(frame.strMatch, true))
                 continue
             }
 
             if (random.nextInt().toDouble() > 6.442450941E8 && frame.strMatch.length >= minLength) {
-                executionStack.returnValue(GeneratedSoFar(frame.strMatch))
+                executionStack.returnValue(ComputedSoFar(frame.strMatch))
                 continue
             }
         } else {
             if (frame.strMatch.length == maxLength) {
-                executionStack.returnValue(GeneratedSoFar(frame.strMatch, true))
+                executionStack.returnValue(ComputedSoFar(frame.strMatch, true, acceptableState = state.isAccept))
                 continue
             }
         }
 
         if (frame.transitions.isEmpty()) {
-            executionStack.returnValue(GeneratedSoFar(frame.strMatch, frame.state.isAccept))
+            executionStack.returnValue(ComputedSoFar(frame.strMatch, frame.state.isAccept))
             continue
         }
 

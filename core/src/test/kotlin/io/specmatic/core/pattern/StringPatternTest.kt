@@ -575,4 +575,41 @@ internal class StringPatternTest {
             assertThat(firstPattern.value).isEqualTo(pattern)
         }
     }
+
+    @ParameterizedTest
+    @CsvSource(
+        "'^.*\\@.*\\..*$';null;30;true;3;30", // Email-like pattern
+        "'^.+?$';null;10;true;1;10",
+        delimiterString = ";"
+    )
+    fun temp(
+        regex: String, minInput: String?, maxInput: String?, shouldBeValid:Boolean, expectedMinLen: Int, expectedMaxLen: Int
+    ) {
+        val min = minInput?.toIntOrNull()
+        val max = maxInput?.toIntOrNull()
+
+        var generatedString = ""
+
+        try {
+            val stringPattern = StringPattern(
+                minLength = min,
+                maxLength = max,
+                regex = regex,
+            )
+            val result = stringPattern.generate(Resolver()) as StringValue
+            if (shouldBeValid) {
+                generatedString = result.string
+
+                assertThat(generatedString.length)
+                    .isGreaterThanOrEqualTo(expectedMinLen)
+                    .isLessThanOrEqualTo(expectedMaxLen)
+
+                assertThat(generatedString).matches(RegExSpec(regex).toString())
+            } else {
+                fail("Expected an exception to be thrown")
+            }
+        } catch (e: Exception) {
+            if (shouldBeValid) throw e
+        }
+    }
 }
