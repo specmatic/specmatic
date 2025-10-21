@@ -5,6 +5,7 @@ import dk.brics.automaton.RegExp
 import dk.brics.automaton.State
 import dk.brics.automaton.Transition
 import io.specmatic.conversions.REASONABLE_STRING_LENGTH
+import io.specmatic.core.log.logger
 import kotlin.random.Random
 import kotlin.random.asJavaRandom
 
@@ -60,63 +61,13 @@ class OptimizedRegexGenerator(val regex: String) {
 
     private fun generateOptimized(minLength: Int, maxLength: Int): String {
         return prepareRandomIterative2(regex, minLength, maxLength)
-
-        val automaton = RegExp(regex).toAutomaton()
-        val builder = StringBuilder(maxLength.coerceAtMost(REASONABLE_STRING_LENGTH))
-        return prepareRandomIterative(builder, automaton.initialState, minLength, maxLength)
-    }
-
-    private data class Frame(val text: StringBuilder, val state: State, val order: ArrayDeque<Int>, val builderLenAtStart: Int)
-
-    private fun shuffledOrder(state: State, rng: Random): ArrayDeque<Int> {
-        return ArrayDeque(state.getSortedTransitions(false).indices.shuffled(rng))
-    }
-
-    private fun shouldAccept(builderLength: Int, frame: Frame, min: Int, max: Int, rng: Random): Boolean {
-        if (!frame.state.isAccept) return false
-        if (builderLength >= max) return true
-        return builderLength >= min && rng.nextInt(100) >= 30
-    }
-
-    fun prepareRandomIterative(builder: StringBuilder, start: State, minLength: Int, maxLength: Int, rng: Random = Random): String {
-        val stack = ArrayDeque<Frame>()
-        stack.addLast(Frame(builder, start, shuffledOrder(start, rng), 0))
-
-        while (stack.isNotEmpty()) {
-            val frame = stack.last()
-            val transitions = frame.state.getSortedTransitions(false)
-
-            if (shouldAccept(frame.text.length, frame, minLength, maxLength, rng) || frame.order.isEmpty()) {
-                return frame.text.toString()
-            }
-
-            if (frame.text.length > maxLength || frame.text.length < minLength && frame.order.isEmpty()) {
-                stack.removeLast()
-                frame.text.setLength(frame.builderLenAtStart)
-                continue
-            }
-
-            val nextTransition = transitions[frame.order.removeFirst()]
-            val diff = nextTransition.max.code - nextTransition.min.code + 1
-            val offset = if (diff > 0) rng.nextInt(diff) else diff
-            val randomChar = (nextTransition.min.code + offset).toChar()
-            val builderLength = frame.text.length
-            stack.addLast(Frame(
-                frame.text.append(randomChar),
-                nextTransition.dest,
-                shuffledOrder(nextTransition.dest, rng),
-                builderLength,
-            ))
-        }
-
-        return builder.toString()
     }
 }
 
 data class ComputedSoFar(
     val stringSoFar: String,
-    val exceededMaxLength: Boolean = false,
-    val acceptableState: Boolean = true
+    val dropResult: Boolean = false,
+    val acceptableState: Boolean
 )
 
 data class Frame(
@@ -124,7 +75,12 @@ data class Frame(
     var state: State,
     val transitions: List<Transition>,
     var selectedTransitions: MutableSet<Int?> = mutableSetOf(),
-)
+    val id: Int = Companion.id++
+) {
+    companion object {
+        private var id = 0
+    }
+}
 
 class ExecutionStack {
     internal val executionStack = ArrayDeque<Frame>()
@@ -133,11 +89,18 @@ class ExecutionStack {
     fun returnedValue() = _lastResult
 
     fun returnValue(result: ComputedSoFar) {
+        val lastFrame = executionStack.last()
+        logger.debug("Removing ${lastFrame.hashCode()} ${executionStack.last()}")
         executionStack.removeLast()
+        logger.debug("Storing result $result")
+        logger.debug("${executionStack.size} frames left")
+        logger.boundary()
         _lastResult = result
     }
 
     fun dropLastResult() {
+        logger.debug("Dropping last result ${_lastResult ?: "null result"}")
+        logger.boundary()
         _lastResult = null
     }
 
@@ -146,7 +109,10 @@ class ExecutionStack {
     }
 
     fun addFrame(newFrame: Frame) {
+        logger.debug("Adding ${newFrame.hashCode()} $newFrame")
         executionStack.addLast(newFrame)
+        logger.debug("${executionStack.size} frames on stack")
+        logger.boundary()
         _lastResult = null
     }
 
@@ -157,6 +123,7 @@ private fun prepareRandomIterative2(
     minLength: Int,
     maxLength: Int,
 ): String {
+    logger.debug("=== Starting computation for regex: $regex -> minLength $minLength, maxLength $maxLength")
     val random = Random.asJavaRandom()
     val executionStack = ExecutionStack()
 
@@ -164,10 +131,13 @@ private fun prepareRandomIterative2(
     executionStack.addFrame(Frame("", state, state.getSortedTransitions(false).toList()))
 
     while (true) {
+        logger.debug("Current frame: ${executionStack.currentFrame()?.hashCode()} ${executionStack.currentFrame() ?: "no frames left"}")
+        logger.boundary()
+
         val lastResult = executionStack.returnedValue()
 
         if (lastResult != null) {
-            if (lastResult.exceededMaxLength) {
+            if (lastResult.dropResult) {
                 executionStack.dropLastResult()
                 continue
             }
@@ -177,43 +147,66 @@ private fun prepareRandomIterative2(
             }
         }
 
-        val frame = executionStack.currentFrame() ?: break
+        val frame = executionStack.currentFrame()
+        if (frame == null) {
+            break
+        }
 
-        frame.strMatch = lastResult?.stringSoFar ?: frame.strMatch
-
+        // NOT ACCEPTED
         if (frame.transitions.size <= frame.selectedTransitions.size) {
-            executionStack.returnValue(ComputedSoFar(frame.strMatch))
+            val result =
+                ComputedSoFar(
+                    frame.strMatch,
+                    dropResult =
+                        if (frame.state.isAccept) false else true,
+                    acceptableState = frame.state.isAccept,
+                )
+
+            executionStack
+                .returnValue(
+                    result,
+                )
             continue
         }
 
+        frame.strMatch = lastResult?.stringSoFar ?: frame.strMatch
+
         if (frame.state.isAccept) {
             if (frame.strMatch.length == maxLength) {
-                executionStack.returnValue(ComputedSoFar(frame.strMatch))
+                executionStack.returnValue(ComputedSoFar(frame.strMatch, acceptableState = frame.state.isAccept))
                 continue
             }
 
             if (frame.strMatch.length > maxLength) {
-                executionStack.returnValue(ComputedSoFar(frame.strMatch, true))
+                // NOT ACCEPTED
+                executionStack.returnValue(ComputedSoFar(frame.strMatch, dropResult = true, acceptableState = frame.state.isAccept))
                 continue
             }
 
             if (random.nextInt().toDouble() > 6.442450941E8 && frame.strMatch.length >= minLength) {
-                executionStack.returnValue(ComputedSoFar(frame.strMatch))
+                executionStack.returnValue(ComputedSoFar(frame.strMatch, acceptableState = frame.state.isAccept))
                 continue
             }
         } else {
+            // NOT ACCEPTED
             if (frame.strMatch.length == maxLength) {
-                executionStack.returnValue(ComputedSoFar(frame.strMatch, true, acceptableState = state.isAccept))
+                executionStack.returnValue(ComputedSoFar(frame.strMatch, true, acceptableState = frame.state.isAccept))
                 continue
             }
         }
 
         if (frame.transitions.isEmpty()) {
-            executionStack.returnValue(ComputedSoFar(frame.strMatch, frame.state.isAccept))
+            executionStack.returnValue(ComputedSoFar(frame.strMatch, acceptableState = frame.state.isAccept))
             continue
         }
 
-        val nextInt = random.nextInt(frame.transitions.size)
+        val remainingTransitionsWithIndex = frame.transitions.mapIndexed { index, item -> index to item }.filter { (index, _) ->
+            index !in frame.selectedTransitions
+        }
+
+        val nextRemainingTransition = random.nextInt(remainingTransitionsWithIndex.size)
+        val nextInt = remainingTransitionsWithIndex[nextRemainingTransition].first
+
         if (!frame.selectedTransitions.contains(nextInt)) {
             frame.selectedTransitions.add(nextInt)
             val randomTransition = frame.transitions.get(nextInt)

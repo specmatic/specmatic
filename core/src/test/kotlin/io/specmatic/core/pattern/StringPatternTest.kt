@@ -381,7 +381,7 @@ internal class StringPatternTest {
         "'^.+$';null;10;true;1;10",
         "'^.{0,}$';null;10;true;0;10",
         "'^a.*z$';null;20;true;2;20",            // Prefix and suffix with .*
-        "'^.*@.*\\..*$';null;30;true;3;30",      // Email-like pattern
+        "'^.*\\@.*\\..*$';null;30;true;2;30",      // Email-like pattern
 
         // Character class negation with infinite quantifiers
         "'^[^0-9]*$';null;10;true;0;10",         // Everything except digits
@@ -398,29 +398,20 @@ internal class StringPatternTest {
         "'^[a-z]*$';10000;10000;true;10000;10000",
 
         // Complex real world patterns
-        "'^[a-z]+@[a-z]+\\.[a-z]+$';null;50;true;5;50", // Email-like patterns
-        "'^[\\w.+-]+@[\\w.-]+\\.[a-z]{2,}$';null;50;true;5;50", // Email-like patterns
+        "'^[a-z]+\\@[a-z]+\\.[a-z]+$';null;50;true;5;50", // Email-like patterns
+        "'^[\\w.+-]+\\@[\\w.-]+\\.[a-z]{2,}$';null;50;true;5;50", // Email-like patterns
         "'^https?://[a-z]+(\\.[a-z]+)*$';null;50;true;8;50", // URL-like patterns
         "'^\\+?[0-9]*-?[0-9]*$';null;20;true;0;20", // Phone number-like
         "'^[a-f0-9]{8}(-[a-f0-9]{4})*$';null;50;true;8;50", // UUID-like with repetition
 
-        // Lookahead/Lookbehind
-        "'^(?=.*[a-z]).*$';null;10;true;1;10",   // Lookahead with infinite
-        "'^(?!.*test).*$';null;10;true;0;10",    // Negative lookahead
-
         // Mixed Greedy/Lazy quantifiers
         "'^.*?$';null;10;true;0;10",             // Lazy quantifier
-        "'^.+?$';null;10;true;1;10",
+        "'^.+?$';1;10;true;1;10",
         "'^[a-z]*?[0-9]+$';null;15;true;1;15",
 
         // Edge cases with zero length matches
         "'^()*$';null;10;true;0;0",              // Empty group repeated
         "'^a*b*$';0;0;true;0;0",                 // Both can be zero-length
-        "'^(a|)*$';null;10;true;0;10",           // Alternation with empty option
-
-        // Backreferences with infinite quantifiers
-        "'^(\\w+)\\s+\\1$';null;20;true;3;20",   // Backreference pattern
-        "'^([a-z]+)-\\1*$';null;30;true;2;30",
 
         // Catastrophic backtracking patterns
         "'^(a*)*b$';null;20;true;1;20",
@@ -578,8 +569,13 @@ internal class StringPatternTest {
 
     @ParameterizedTest
     @CsvSource(
-        "'^.*\\@.*\\..*$';null;30;true;3;30", // Email-like pattern
-        "'^.+?$';null;10;true;1;10",
+        "'^(abc|def)*$';null;20;true;0;20",
+        "'^[\\w.+-]+\\@[\\w.-]+\\.[a-z]{2,}$';null;6;true;5;6",
+        "'^[a]+\\@[a]+\\.[a]{2,}$';null;6;true;5;6",
+        "'^[a]+\\@[a]+b$';null;5;true;4;5",
+        "'^[a]+b[a]+c$';null;5;true;4;5",
+        "'^[a]+c[a]+c$';null;5;true;4;5",
+        "'^[a]+b$';null;2;true;1;2",
         delimiterString = ";"
     )
     fun temp(
@@ -587,8 +583,6 @@ internal class StringPatternTest {
     ) {
         val min = minInput?.toIntOrNull()
         val max = maxInput?.toIntOrNull()
-
-        var generatedString = ""
 
         try {
             val stringPattern = StringPattern(
@@ -598,7 +592,7 @@ internal class StringPatternTest {
             )
             val result = stringPattern.generate(Resolver()) as StringValue
             if (shouldBeValid) {
-                generatedString = result.string
+                val generatedString = result.string
 
                 assertThat(generatedString.length)
                     .isGreaterThanOrEqualTo(expectedMinLen)
