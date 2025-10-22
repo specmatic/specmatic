@@ -430,6 +430,8 @@ internal class StringPatternTest {
         val max = maxInput?.toIntOrNull()
 
         try {
+            println("Generating string for regex: $regex")
+
             val stringPattern = StringPattern(
                 minLength = min,
                 maxLength = max,
