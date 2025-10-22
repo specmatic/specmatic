@@ -112,8 +112,8 @@ class RegExSpec(
             "\\W" to "^a-zA-Z_0-9",
             "\\d" to "0-9",
             "\\D" to "^0-9",
-            "\\s" to " \\t\\n\\f\\r",
-            "\\S" to "^ \\t\\n\\f\\r"
+            "\\s" to " \t\n\u000c\r",
+            "\\S" to "^ \t\n\u000c\r"
         )
 
         val result = StringBuilder(length)

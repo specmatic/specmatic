@@ -336,6 +336,7 @@ internal class StringPatternTest {
         "'^[a-zA-Z0-9]+$';0;null;true;1;99999999",
         "'^[a-zA-Z0-9]+$';1;null;true;1;99999999",
         "'^[a-zA-Z0-9]+$';10;null;true;10;99999999",
+        "'^[^\\s]*$';null;15;true;0;15",
         "'^[a-zA-Z0-9]+$';null;0;false;0;0",
         "'^[a-zA-Z0-9]+$';null;1;true;1;1",
         "'^[a-zA-Z0-9]+$';null;10;true;1;10",
