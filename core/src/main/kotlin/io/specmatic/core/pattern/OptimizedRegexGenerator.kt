@@ -5,7 +5,8 @@ import dk.brics.automaton.RegExp
 import dk.brics.automaton.State
 import dk.brics.automaton.Transition
 import io.specmatic.conversions.REASONABLE_STRING_LENGTH
-import io.specmatic.core.log.logger
+import io.specmatic.core.pattern.regex.ComputationResult
+import io.specmatic.core.pattern.regex.ExecutionStack
 import kotlin.random.Random
 import kotlin.random.asJavaRandom
 
@@ -22,7 +23,6 @@ class OptimizedRegexGenerator(
         get() {
             return !Generex(regex).isInfinite
         }
-    val random = Random.asJavaRandom()
 
     init {
         check(!regex.startsWith("/") && !regex.endsWith("/")) {
@@ -33,7 +33,7 @@ class OptimizedRegexGenerator(
     fun random(
         minLength: Int? = 1,
         maxLength: Int? = REASONABLE_STRING_LENGTH,
-    ): String = generateOptimized(minLength ?: 1, maxLength ?: REASONABLE_STRING_LENGTH)
+    ): String = generate(minLength ?: 1, maxLength ?: REASONABLE_STRING_LENGTH)
 
     fun generateShortest(): String = RegExp(regex).toAutomaton().getShortestExample(true)
 
@@ -73,113 +73,60 @@ class OptimizedRegexGenerator(
         return best
     }
 
-    private fun generateOptimized(
+    private fun generate(
         minLength: Int,
         maxLength: Int,
-    ): String = prepareRandomIterative2(regex, minLength, maxLength)
-}
+    ): String {
+        val executionStack = ExecutionStack()
 
-data class ComputedSoFar(
-    val stringSoFar: String,
-    val dropResult: Boolean = false,
-    val acceptableState: Boolean,
-)
+        val state = RegExp(regex).toAutomaton().initialState
+        executionStack.addFrame(Frame("", state, state.getSortedTransitions(false).toList(), random = random))
 
-data class Frame(
-    var strMatch: String,
-    var state: State,
-    val transitions: List<Transition>,
-    var selectedTransitions: MutableSet<Int?> = mutableSetOf(),
-    val id: Int = Companion.id++,
-) {
-    companion object {
-        private var id = 0
-    }
-}
-
-class ExecutionStack {
-    internal val executionStack = ArrayDeque<Frame>()
-    private var _lastResult: ComputedSoFar? = null
-
-    fun returnedValue() = _lastResult
-
-    fun returnValue(result: ComputedSoFar) {
-        val lastFrame = executionStack.last()
-        executionStack.removeLast()
-        _lastResult = result
+        return generate(executionStack, minLength, maxLength)
     }
 
-    fun dropLastResult() {
-        _lastResult = null
-    }
-
-    fun currentFrame(): Frame? = executionStack.lastOrNull()
-
-    fun addFrame(newFrame: Frame) {
-        executionStack.addLast(newFrame)
-        _lastResult = null
-    }
-}
-
-private fun prepareRandomIterative2(
-    regex: String,
-    minLength: Int,
-    maxLength: Int,
-): String {
     val random = Random.asJavaRandom()
-    val executionStack = ExecutionStack()
 
-    val state = RegExp(regex).toAutomaton().initialState
-    executionStack.addFrame(Frame("", state, state.getSortedTransitions(false).toList()))
+    private fun generate(
+        executionStack: ExecutionStack,
+        minLength: Int,
+        maxLength: Int,
+    ): String {
+        while (true) {
+            val lastResult = executionStack.returnedValue()
 
-    while (true) {
-        val lastResult = executionStack.returnedValue()
+            if (lastResult != null) {
+                if (lastResult.dropResult) {
+                    executionStack.dropLastResult()
+                    continue
+                }
 
-        if (lastResult != null) {
-            if (lastResult.dropResult) {
-                executionStack.dropLastResult()
-                continue
+                if (lastResult.string.length in minLength..maxLength && lastResult.acceptableState) {
+                    break
+                }
             }
 
-            if (lastResult.stringSoFar.length in minLength..maxLength && lastResult.acceptableState) {
-                break
-            }
-        }
+            val frame = executionStack.currentFrame() ?: break
 
-        val frame = executionStack.currentFrame()
-        if (frame == null) {
-            break
-        }
+            if (frame.allTransitionsAreWithdrawn()) {
+                val result =
+                    ComputationResult(
+                        frame.strMatch,
+                        dropResult = !frame.state.isAccept,
+                        acceptableState = frame.state.isAccept,
+                    )
 
-        // NOT ACCEPTED
-        if (frame.transitions.size <= frame.selectedTransitions.size) {
-            val result =
-                ComputedSoFar(
-                    frame.strMatch,
-                    dropResult =
-                        if (frame.state.isAccept) false else true,
-                    acceptableState = frame.state.isAccept,
-                )
-
-            executionStack
-                .returnValue(
+                executionStack.returnValue(
                     result,
                 )
-            continue
-        }
-
-        frame.strMatch = lastResult?.stringSoFar ?: frame.strMatch
-
-        if (frame.state.isAccept) {
-            if (frame.strMatch.length == maxLength) {
-                executionStack.returnValue(ComputedSoFar(frame.strMatch, acceptableState = frame.state.isAccept))
                 continue
             }
 
+            frame.strMatch = lastResult?.string ?: frame.strMatch
+
             if (frame.strMatch.length > maxLength) {
-                // NOT ACCEPTED
                 executionStack.returnValue(
-                    ComputedSoFar(
+                    ComputationResult(
                         frame.strMatch,
                         dropResult = true,
                         acceptableState = frame.state.isAccept,
@@ -188,50 +135,64 @@ private fun prepareRandomIterative2(
                 continue
             }
 
-            if (random.nextInt().toDouble() > 6.442450941E8 && frame.strMatch.length >= minLength) {
-                executionStack.returnValue(ComputedSoFar(frame.strMatch, acceptableState = frame.state.isAccept))
+            if (frame.state.isAccept) {
+                if (frame.strMatch.length == maxLength || (
+                        random
+                            .nextInt()
+                            .toDouble() > 6.442450941E8 && frame.strMatch.length >= minLength
+                    )
+                ) {
+                    executionStack.returnValue(
+                        ComputationResult(
+                            frame.strMatch,
+                            acceptableState = frame.state.isAccept,
+                        ),
+                    )
+                    continue
+                }
+            } else if (frame.strMatch.length == maxLength) {
+                executionStack.returnValue(
+                    ComputationResult(
+                        frame.strMatch,
+                        dropResult = true,
+                        acceptableState = frame.state.isAccept,
+                    ),
+                )
                 continue
             }
-        } else {
-            // NOT ACCEPTED
-            if (frame.strMatch.length == maxLength) {
-                executionStack.returnValue(ComputedSoFar(frame.strMatch, true, acceptableState = frame.state.isAccept))
+
+            if (frame.hasNoTransitions()) {
+                executionStack.returnValue(ComputationResult(frame.strMatch, acceptableState = frame.state.isAccept))
                 continue
             }
-        }
 
-        if (frame.transitions.isEmpty()) {
-            executionStack.returnValue(ComputedSoFar(frame.strMatch, acceptableState = frame.state.isAccept))
-            continue
-        }
+            val nextTransition = frame.withdrawUnusedTransitionIndex()
 
-        val remainingTransitionsWithIndex =
-            frame.transitions.mapIndexed { index, item -> index to item }.filter { (index, _) ->
-                index !in frame.selectedTransitions
-            }
+            val randomChar = nextRandomChar(nextTransition)
 
-        val nextRemainingTransition = random.nextInt(remainingTransitionsWithIndex.size)
-        val nextInt = remainingTransitionsWithIndex[nextRemainingTransition].first
-
-        if (!frame.selectedTransitions.contains(nextInt)) {
-            frame.selectedTransitions.add(nextInt)
-            val randomTransition = frame.transitions.get(nextInt)
-            val diff = randomTransition.getMax().code - randomTransition.getMin().code + 1
-            var randomOffset = diff
-            if (diff > 0) {
-                randomOffset = random.nextInt(diff)
-            }
-
-            val randomChar = (randomOffset + randomTransition.getMin().code).toChar()
             val newFrame =
                 Frame(
                     frame.strMatch + randomChar,
-                    randomTransition.dest,
-                    randomTransition.dest.getSortedTransitions(false),
+                    nextTransition.dest,
+                    nextTransition.dest.getSortedTransitions(false),
+                    random = random,
                 )
             executionStack.addFrame(newFrame)
         }
+
+        return executionStack.returnedValue()?.string ?: ""
     }
 
-    return executionStack.returnedValue()?.stringSoFar ?: ""
+    private fun nextRandomChar(nextTransition: Transition): Char {
+        val diff = nextTransition.getMax().code - nextTransition.getMin().code + 1
+        val randomOffset =
+            if (diff > 0) {
+                random.nextInt(diff)
+            } else {
+                diff
+            }
+
+        val randomChar = (randomOffset + nextTransition.getMin().code).toChar()
+        return randomChar
+    }
 }
