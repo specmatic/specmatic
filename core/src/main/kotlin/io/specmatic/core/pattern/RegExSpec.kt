@@ -18,7 +18,7 @@ class RegExSpec(
         runCatching {
             if (regexGenerator == null || originalRegex == null) return
             val random = regexGenerator.random()
-            if (!Regex(originalRegex.replaceRegexLowerBounds()).matches(random)) {
+            if (!Regex(originalRegex.replaceRegexLowerBounds(), RegexOption.DOT_MATCHES_ALL).matches(random)) {
                 logger.log("WARNING: Please check the regex $originalRegex. We generated a random string $random and the regex does not match the string.")
             }
         }.getOrElse { e ->

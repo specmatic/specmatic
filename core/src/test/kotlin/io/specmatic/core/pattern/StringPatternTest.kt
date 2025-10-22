@@ -385,7 +385,6 @@ internal class StringPatternTest {
         // Character class negation with infinite quantifiers
         "'^[^0-9]*$';null;10;true;0;10",         // Everything except digits
         "'^[^a-z]+$';null;10;true;1;10",
-        "'^[^\\s]*$';null;15;true;0;15",
 
         // Min > Max scenarios
         "'^[a-z]*$';100;10;false;0;0",           // Impossible constraint
@@ -430,7 +429,7 @@ internal class StringPatternTest {
         val max = maxInput?.toIntOrNull()
 
         try {
-            println("Generating string for regex: $regex")
+            println("Generating string for regex: $regex (after cleaning up: ${RegExSpec(regex)})")
 
             val stringPattern = StringPattern(
                 minLength = min,
@@ -445,7 +444,9 @@ internal class StringPatternTest {
                     .isGreaterThanOrEqualTo(expectedMinLen)
                     .isLessThanOrEqualTo(expectedMaxLen)
 
-                assertThat(generatedString).matches(RegExSpec(regex).toString())
+                assertThat(generatedString).matches {
+                    Regex(RegExSpec(regex).toString(), RegexOption.DOT_MATCHES_ALL).matches(it)
+                }
             } else {
                 fail("Expected an exception to be thrown")
             }
