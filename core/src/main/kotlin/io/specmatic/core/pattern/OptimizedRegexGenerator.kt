@@ -11,9 +11,17 @@ import kotlin.random.asJavaRandom
 
 internal const val WORD_BOUNDARY = "\\b"
 
-class OptimizedRegexGenerator(val regex: String) {
-    val isInfinite: Boolean get() { return Generex(regex).isInfinite }
-    val isFinite: Boolean get() { return !Generex(regex).isInfinite }
+class OptimizedRegexGenerator(
+    val regex: String,
+) {
+    val isInfinite: Boolean
+        get() {
+            return Generex(regex).isInfinite
+        }
+    val isFinite: Boolean
+        get() {
+            return !Generex(regex).isInfinite
+        }
     val random = Random.asJavaRandom()
 
     init {
@@ -22,9 +30,10 @@ class OptimizedRegexGenerator(val regex: String) {
         }
     }
 
-    fun random(minLength: Int? = 1, maxLength: Int? = REASONABLE_STRING_LENGTH): String {
-        return generateOptimized(minLength ?: 1, maxLength ?: REASONABLE_STRING_LENGTH)
-    }
+    fun random(
+        minLength: Int? = 1,
+        maxLength: Int? = REASONABLE_STRING_LENGTH,
+    ): String = generateOptimized(minLength ?: 1, maxLength ?: REASONABLE_STRING_LENGTH)
 
     fun generateShortest(): String = RegExp(regex).toAutomaton().getShortestExample(true)
 
@@ -34,7 +43,11 @@ class OptimizedRegexGenerator(val regex: String) {
      *
      * The tie-breaker when strings have the same length is the lexicographical order.
      */
-    fun generateLongest(remaining: Int, state: State = RegExp(regex).toAutomaton().initialState, memo: MutableMap<Pair<State, Int>, String?> = mutableMapOf()): String? {
+    fun generateLongest(
+        remaining: Int,
+        state: State = RegExp(regex).toAutomaton().initialState,
+        memo: MutableMap<Pair<State, Int>, String?> = mutableMapOf(),
+    ): String? {
         val key = state to remaining
         memo[key]?.let { return it }
 
@@ -45,12 +58,13 @@ class OptimizedRegexGenerator(val regex: String) {
                 val sub = generateLongest(remaining - 1, t.dest, memo)
                 sub?.let {
                     val candidate = t.max.toString() + it
-                    best = when {
-                        best == null -> candidate
-                        candidate.length > best!!.length -> candidate
-                        candidate.length == best!!.length && candidate > best!! -> candidate
-                        else -> best
-                    }
+                    best =
+                        when {
+                            best == null -> candidate
+                            candidate.length > best!!.length -> candidate
+                            candidate.length == best!!.length && candidate > best!! -> candidate
+                            else -> best
+                        }
                 }
             }
         }
@@ -59,15 +73,16 @@ class OptimizedRegexGenerator(val regex: String) {
         return best
     }
 
-    private fun generateOptimized(minLength: Int, maxLength: Int): String {
-        return prepareRandomIterative2(regex, minLength, maxLength)
-    }
+    private fun generateOptimized(
+        minLength: Int,
+        maxLength: Int,
+    ): String = prepareRandomIterative2(regex, minLength, maxLength)
 }
 
 data class ComputedSoFar(
     val stringSoFar: String,
     val dropResult: Boolean = false,
-    val acceptableState: Boolean
+    val acceptableState: Boolean,
 )
 
 data class Frame(
@@ -75,7 +90,7 @@ data class Frame(
     var state: State,
     val transitions: List<Transition>,
     var selectedTransitions: MutableSet<Int?> = mutableSetOf(),
-    val id: Int = Companion.id++
+    val id: Int = Companion.id++,
 ) {
     companion object {
         private var id = 0
@@ -90,32 +105,20 @@ class ExecutionStack {
 
     fun returnValue(result: ComputedSoFar) {
         val lastFrame = executionStack.last()
-        logger.debug("Removing ${lastFrame.hashCode()} ${executionStack.last()}")
         executionStack.removeLast()
-        logger.debug("Storing result $result")
-        logger.debug("${executionStack.size} frames left")
-        logger.boundary()
         _lastResult = result
     }
 
     fun dropLastResult() {
-        logger.debug("Dropping last result ${_lastResult ?: "null result"}")
-        logger.boundary()
         _lastResult = null
     }
 
-    fun currentFrame(): Frame? {
-        return executionStack.lastOrNull()
-    }
+    fun currentFrame(): Frame? = executionStack.lastOrNull()
 
     fun addFrame(newFrame: Frame) {
-        logger.debug("Adding ${newFrame.hashCode()} $newFrame")
         executionStack.addLast(newFrame)
-        logger.debug("${executionStack.size} frames on stack")
-        logger.boundary()
         _lastResult = null
     }
-
 }
 
 private fun prepareRandomIterative2(
@@ -123,7 +126,6 @@ private fun prepareRandomIterative2(
     minLength: Int,
     maxLength: Int,
 ): String {
-    logger.debug("=== Starting computation for regex: $regex -> minLength $minLength, maxLength $maxLength")
     val random = Random.asJavaRandom()
     val executionStack = ExecutionStack()
 
@@ -131,9 +133,6 @@ private fun prepareRandomIterative2(
     executionStack.addFrame(Frame("", state, state.getSortedTransitions(false).toList()))
 
     while (true) {
-        logger.debug("Current frame: ${executionStack.currentFrame()?.hashCode()} ${executionStack.currentFrame() ?: "no frames left"}")
-        logger.boundary()
-
         val lastResult = executionStack.returnedValue()
 
         if (lastResult != null) {
@@ -179,7 +178,13 @@ private fun prepareRandomIterative2(
 
             if (frame.strMatch.length > maxLength) {
                 // NOT ACCEPTED
-                executionStack.returnValue(ComputedSoFar(frame.strMatch, dropResult = true, acceptableState = frame.state.isAccept))
+                executionStack.returnValue(
+                    ComputedSoFar(
+                        frame.strMatch,
+                        dropResult = true,
+                        acceptableState = frame.state.isAccept,
+                    ),
+                )
                 continue
             }
 
@@ -200,9 +205,10 @@ private fun prepareRandomIterative2(
             continue
         }
 
-        val remainingTransitionsWithIndex = frame.transitions.mapIndexed { index, item -> index to item }.filter { (index, _) ->
-            index !in frame.selectedTransitions
-        }
+        val remainingTransitionsWithIndex =
+            frame.transitions.mapIndexed { index, item -> index to item }.filter { (index, _) ->
+                index !in frame.selectedTransitions
+            }
 
         val nextRemainingTransition = random.nextInt(remainingTransitionsWithIndex.size)
         val nextInt = remainingTransitionsWithIndex[nextRemainingTransition].first
