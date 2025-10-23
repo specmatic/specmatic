@@ -103,11 +103,23 @@ class OptimizedRegexGenerator(
             val noTransitionsLeft = frame.hasNoTransitions() || frame.noTransitionsLeftInPool()
 
             if (frame.state.isAccept) {
-                if (frame.strMatch.length == maxLength ||
-                    (frame.strMatch.length >= minLength && (noTransitionsLeft || randomBooleanIsTrue()))
-                ) {
-                    result = frame.strMatch
-                    break
+                when (frame.strMatch.length) {
+                    maxLength -> {
+                        result = frame.strMatch
+                        break
+                    }
+                    in minLength..maxLength -> {
+                        if (noTransitionsLeft || randomBooleanIsTrue()) {
+                            result = frame.strMatch
+                            break
+                        }
+                    }
+                    else -> {
+                        if (noTransitionsLeft) {
+                            executionStack.removeLast()
+                            continue
+                        }
+                    }
                 }
             } else {
                 if (frame.strMatch.length == maxLength || frame.noTransitionsLeftInPool()) {

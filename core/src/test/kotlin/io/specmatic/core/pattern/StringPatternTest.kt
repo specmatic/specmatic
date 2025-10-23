@@ -1,6 +1,7 @@
 package io.specmatic.core.pattern
 
 import io.specmatic.GENERATION
+import io.specmatic.conversions.REASONABLE_STRING_LENGTH
 import io.specmatic.core.*
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.NullValue
@@ -433,8 +434,7 @@ internal class StringPatternTest {
         "'^.+?$';1;10;true;1;10",
         "'^[a-z]*?[0-9]+$';null;15;true;1;15",
         // Edge cases with zero length matches
-        "'^a*b*$';0;0;true;0;0",                 // Both can be zero-length
-
+        "'^a*b*$';0;0;true;0;0", // Both can be zero-length
         // Catastrophic backtracking patterns
         "'^(a*)*b$';null;20;true;1;20",
         "'^(a+)+b$';null;20;true;2;20",
@@ -616,6 +616,21 @@ internal class StringPatternTest {
         assertThat(methods).allSatisfy { invocation ->
             val firstPattern = invocation.invoke().first()
             assertThat(firstPattern.value).isEqualTo(pattern)
+        }
+    }
+
+    @Test
+    fun temp() {
+        try {
+            val result =
+                StringPattern(
+                    minLength = REASONABLE_STRING_LENGTH,
+                    maxLength = REASONABLE_STRING_LENGTH,
+                    regex = "^\\w+$",
+                ).generate(Resolver())
+            println(result)
+        } catch(e: Throwable) {
+            throw e
         }
     }
 }
