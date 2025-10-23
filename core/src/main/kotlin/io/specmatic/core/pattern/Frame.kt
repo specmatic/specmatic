@@ -5,13 +5,20 @@ import dk.brics.automaton.Transition
 import java.util.Random
 
 data class Frame(
-    var strMatch: String,
+    var strMatch: StringBuilder,
     var state: State,
-    val transitions: List<Transition>,
     var usedTransitionIndices: MutableSet<Int?> = mutableSetOf(),
     val random: Random
 ) {
+    val transitionCount = getTransitions().size
+
+    fun getTransitions(): List<Transition> {
+        return state.getSortedTransitions(false)
+    }
+
     fun withdrawUnusedTransitionFromPool(): Transition {
+        val transitions = getTransitions()
+
         val remainingTransitionsWithIndex =
             transitions.mapIndexed { index, item -> index to item }.filter { (index, _) ->
                 index !in usedTransitionIndices
@@ -26,10 +33,14 @@ data class Frame(
     }
 
     fun hasNoTransitions(): Boolean {
-        return transitions.isEmpty()
+        return transitionCount == 0
     }
 
     fun noTransitionsLeftInPool(): Boolean {
-        return transitions.size <= usedTransitionIndices.size
+        return transitionCount <= usedTransitionIndices.size
+    }
+
+    fun deleteLastChar() {
+        strMatch.deleteCharAt(strMatch.length - 1)
     }
 }

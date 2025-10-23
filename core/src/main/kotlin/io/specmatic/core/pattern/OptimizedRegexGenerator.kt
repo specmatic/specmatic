@@ -75,18 +75,37 @@ class OptimizedRegexGenerator(
         minLength: Int,
         maxLength: Int,
     ): String {
-        val executionStack = ArrayDeque<Frame>()
-
         val state = RegExp(regex).toAutomaton().initialState
-        executionStack.addLast(Frame("", state, state.getSortedTransitions(false).toList(), random = random))
+        val executionStack =
+            ExecutionStack(Frame(StringBuilder(), state, random = random))
 
         return generate(executionStack, minLength, maxLength)
     }
 
     val random = Random.asJavaRandom()
 
+    class ExecutionStack(
+        frame: Frame,
+    ) {
+        private val executionStack =
+            ArrayDeque<Frame>().also {
+                it.addLast(frame)
+            }
+
+        fun lastOrNull(): Frame? = executionStack.lastOrNull()
+
+        fun removeLast() {
+            executionStack.removeLast()
+            executionStack.lastOrNull()?.deleteLastChar()
+        }
+
+        fun addLast(newFrame: Frame) {
+            executionStack.addLast(newFrame)
+        }
+    }
+
     private fun generate(
-        executionStack: ArrayDeque<Frame>,
+        executionStack: ExecutionStack,
         minLength: Int,
         maxLength: Int,
     ): String {
@@ -97,6 +116,7 @@ class OptimizedRegexGenerator(
 
             if (frame.strMatch.length > maxLength) {
                 executionStack.removeLast()
+                frame.strMatch.deleteAt(frame.strMatch.length - 1)
                 continue
             }
 
@@ -105,15 +125,17 @@ class OptimizedRegexGenerator(
             if (frame.state.isAccept) {
                 when (frame.strMatch.length) {
                     maxLength -> {
-                        result = frame.strMatch
+                        result = frame.strMatch.toString()
                         break
                     }
+
                     in minLength..maxLength -> {
                         if (noTransitionsLeft || randomBooleanIsTrue()) {
-                            result = frame.strMatch
+                            result = frame.strMatch.toString()
                             break
                         }
                     }
+
                     else -> {
                         if (noTransitionsLeft) {
                             executionStack.removeLast()
@@ -134,10 +156,9 @@ class OptimizedRegexGenerator(
 
             val newFrame =
                 Frame(
-                    frame.strMatch + randomChar,
+                    frame.strMatch.append(randomChar),
                     nextTransition.dest,
-                    nextTransition.dest.getSortedTransitions(false),
-                    random = random,
+                    random = frame.random,
                 )
             executionStack.addLast(newFrame)
         }
