@@ -11,7 +11,7 @@ data class Frame(
     var usedTransitionIndices: MutableSet<Int?> = mutableSetOf(),
     val random: Random
 ) {
-    fun withdrawUnusedTransitionIndex(): Transition {
+    fun withdrawUnusedTransitionFromPool(): Transition {
         val remainingTransitionsWithIndex =
             transitions.mapIndexed { index, item -> index to item }.filter { (index, _) ->
                 index !in usedTransitionIndices
@@ -29,7 +29,7 @@ data class Frame(
         return transitions.isEmpty()
     }
 
-    fun allTransitionsAreWithdrawn(): Boolean {
+    fun noTransitionsLeftInPool(): Boolean {
         return transitions.size <= usedTransitionIndices.size
     }
 }

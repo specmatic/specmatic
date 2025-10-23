@@ -5,8 +5,6 @@ import dk.brics.automaton.RegExp
 import dk.brics.automaton.State
 import dk.brics.automaton.Transition
 import io.specmatic.conversions.REASONABLE_STRING_LENGTH
-import io.specmatic.core.pattern.regex.ComputationResult
-import io.specmatic.core.pattern.regex.ExecutionStack
 import kotlin.random.Random
 import kotlin.random.asJavaRandom
 
@@ -77,10 +75,10 @@ class OptimizedRegexGenerator(
         minLength: Int,
         maxLength: Int,
     ): String {
-        val executionStack = ExecutionStack()
+        val executionStack = ArrayDeque<Frame>()
 
         val state = RegExp(regex).toAutomaton().initialState
-        executionStack.addFrame(Frame("", state, state.getSortedTransitions(false).toList(), random = random))
+        executionStack.addLast(Frame("", state, state.getSortedTransitions(false).toList(), random = random))
 
         return generate(executionStack, minLength, maxLength)
     }
@@ -88,85 +86,37 @@ class OptimizedRegexGenerator(
     val random = Random.asJavaRandom()
 
     private fun generate(
-        executionStack: ExecutionStack,
+        executionStack: ArrayDeque<Frame>,
         minLength: Int,
         maxLength: Int,
     ): String {
+        var result: String? = null
+
         while (true) {
-            val lastResult = executionStack.returnedValue()
-
-            if (lastResult != null) {
-                if (lastResult.dropResult) {
-                    executionStack.dropLastResult()
-                    continue
-                }
-
-                if (lastResult.string.length in minLength..maxLength && lastResult.acceptableState) {
-                    break
-                }
-            }
-
-            val frame = executionStack.currentFrame() ?: break
-
-            if (frame.allTransitionsAreWithdrawn()) {
-                val result =
-                    ComputationResult(
-                        frame.strMatch,
-                        dropResult = !frame.state.isAccept,
-                        acceptableState = frame.state.isAccept,
-                    )
-
-                executionStack.returnValue(
-                    result,
-                )
-                continue
-            }
-
-            frame.strMatch = lastResult?.string ?: frame.strMatch
+            val frame = executionStack.lastOrNull() ?: break
 
             if (frame.strMatch.length > maxLength) {
-                executionStack.returnValue(
-                    ComputationResult(
-                        frame.strMatch,
-                        dropResult = true,
-                        acceptableState = frame.state.isAccept,
-                    ),
-                )
+                executionStack.removeLast()
                 continue
             }
+
+            val noTransitionsLeft = frame.hasNoTransitions() || frame.noTransitionsLeftInPool()
 
             if (frame.state.isAccept) {
-                if (frame.strMatch.length == maxLength || (
-                        random
-                            .nextInt()
-                            .toDouble() > 6.442450941E8 && frame.strMatch.length >= minLength
-                    )
+                if (frame.strMatch.length == maxLength ||
+                    (frame.strMatch.length >= minLength && (noTransitionsLeft || randomBooleanIsTrue()))
                 ) {
-                    executionStack.returnValue(
-                        ComputationResult(
-                            frame.strMatch,
-                            acceptableState = frame.state.isAccept,
-                        ),
-                    )
+                    result = frame.strMatch
+                    break
+                }
+            } else {
+                if (frame.strMatch.length == maxLength || frame.noTransitionsLeftInPool()) {
+                    executionStack.removeLast()
                     continue
                 }
-            } else if (frame.strMatch.length == maxLength) {
-                executionStack.returnValue(
-                    ComputationResult(
-                        frame.strMatch,
-                        dropResult = true,
-                        acceptableState = frame.state.isAccept,
-                    ),
-                )
-                continue
             }
 
-            if (frame.hasNoTransitions()) {
-                executionStack.returnValue(ComputationResult(frame.strMatch, acceptableState = frame.state.isAccept))
-                continue
-            }
-
-            val nextTransition = frame.withdrawUnusedTransitionIndex()
+            val nextTransition = frame.withdrawUnusedTransitionFromPool()
 
             val randomChar = nextRandomChar(nextTransition)
 
@@ -177,11 +127,16 @@ class OptimizedRegexGenerator(
                     nextTransition.dest.getSortedTransitions(false),
                     random = random,
                 )
-            executionStack.addFrame(newFrame)
+            executionStack.addLast(newFrame)
         }
 
-        return executionStack.returnedValue()?.string ?: ""
+        return result.orEmpty()
     }
+
+    private fun randomBooleanIsTrue(): Boolean =
+        random
+            .nextInt()
+            .toDouble() > 6.442450941E8
 
     private fun nextRandomChar(nextTransition: Transition): Char {
         val diff = nextTransition.getMax().code - nextTransition.getMin().code + 1
