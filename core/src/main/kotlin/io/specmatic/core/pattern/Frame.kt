@@ -2,45 +2,34 @@ package io.specmatic.core.pattern
 
 import dk.brics.automaton.State
 import dk.brics.automaton.Transition
-import java.util.Random
 
 data class Frame(
-    var strMatch: StringBuilder,
+    var string: StringBuilder,
     var state: State,
-    var usedTransitionIndices: MutableSet<Int?> = mutableSetOf(),
-    val random: Random
 ) {
-    val transitionCount = getTransitions().size
+    val transitionCount: Int
+    val availableTransitionIndices: MutableList<Int>
 
-    fun getTransitions(): List<Transition> {
-        return state.getSortedTransitions(false)
+    init {
+        transitionCount = getTransitions().size
+        availableTransitionIndices = getTransitions().indices.shuffled().toMutableList()
     }
+
+    fun getTransitions(): List<Transition> = state.getSortedTransitions(false)
 
     fun withdrawUnusedTransitionFromPool(): Transition {
         val transitions = getTransitions()
 
-        val remainingTransitionsWithIndex =
-            transitions.mapIndexed { index, item -> index to item }.filter { (index, _) ->
-                index !in usedTransitionIndices
-            }
-
-        val nextRemainingTransition = random.nextInt(remainingTransitionsWithIndex.size)
-        val nextTransitionIndex = remainingTransitionsWithIndex[nextRemainingTransition].first
-
-        usedTransitionIndices.add(nextTransitionIndex)
-
+        val nextTransitionIndex = availableTransitionIndices.last()
+        availableTransitionIndices.removeLast()
         return transitions[nextTransitionIndex]
     }
 
-    fun hasNoTransitions(): Boolean {
-        return transitionCount == 0
-    }
+    fun hasNoTransitions(): Boolean = transitionCount == 0
 
-    fun noTransitionsLeftInPool(): Boolean {
-        return transitionCount <= usedTransitionIndices.size
-    }
+    fun noTransitionsLeftInPool(): Boolean = availableTransitionIndices.isEmpty()
 
     fun deleteLastChar() {
-        strMatch.deleteCharAt(strMatch.length - 1)
+        string.deleteCharAt(string.length - 1)
     }
 }

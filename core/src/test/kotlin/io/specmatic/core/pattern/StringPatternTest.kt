@@ -620,17 +620,15 @@ internal class StringPatternTest {
     }
 
     @Test
-    fun temp() {
-        try {
-            val result =
-                StringPattern(
-                    minLength = REASONABLE_STRING_LENGTH,
-                    maxLength = REASONABLE_STRING_LENGTH,
-                    regex = "^\\w+$",
-                ).generate(Resolver())
-            println(result)
-        } catch(e: Throwable) {
-            throw e
-        }
+    fun `generation of 4MB length string should work`() {
+        val regex = "^\\w+$"
+        val value =
+            StringPattern(
+                minLength = REASONABLE_STRING_LENGTH,
+                maxLength = REASONABLE_STRING_LENGTH,
+                regex = regex,
+            ).generate(Resolver()) as StringValue
+
+        assertThat(value.string).hasSize(REASONABLE_STRING_LENGTH)
     }
 }
