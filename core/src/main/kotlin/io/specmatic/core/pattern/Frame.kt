@@ -7,8 +7,8 @@ data class Frame(
     var string: StringBuilder,
     var state: State,
 ) {
-    val transitionCount: Int
-    val availableTransitionIndices: MutableList<Int>
+    private val transitionCount: Int
+    private val availableTransitionIndices: MutableList<Int>
 
     init {
         transitionCount = getTransitions().size

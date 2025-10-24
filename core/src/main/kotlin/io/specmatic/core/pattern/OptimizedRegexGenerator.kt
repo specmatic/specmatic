@@ -87,15 +87,14 @@ class OptimizedRegexGenerator(
         var result: String? = null
 
         while (true) {
-            val frame = executionStack.lastOrNull() ?: break
+            val frame = executionStack.lastFrame() ?: break
 
             if (frame.string.length > maxLength) {
-                executionStack.removeLast()
-                frame.string.deleteAt(frame.string.length - 1)
+                executionStack.backtrack()
                 continue
             }
 
-            val noTransitionsLeft = frame.hasNoTransitions() || frame.noTransitionsLeftInPool()
+            val cannotGenerateMoreCharacters = frame.hasNoTransitions() || frame.noTransitionsLeftInPool()
 
             if (frame.state.isAccept) {
                 when (frame.string.length) {
@@ -105,22 +104,22 @@ class OptimizedRegexGenerator(
                     }
 
                     in minLength..maxLength -> {
-                        if (noTransitionsLeft || randomBooleanIsTrue()) {
+                        if (cannotGenerateMoreCharacters || randomBooleanIsTrue()) {
                             result = frame.string.toString()
                             break
                         }
                     }
 
                     else -> {
-                        if (noTransitionsLeft) {
-                            executionStack.removeLast()
+                        if (cannotGenerateMoreCharacters) {
+                            executionStack.backtrack()
                             continue
                         }
                     }
                 }
             } else {
                 if (frame.string.length == maxLength || frame.noTransitionsLeftInPool()) {
-                    executionStack.removeLast()
+                    executionStack.backtrack()
                     continue
                 }
             }
@@ -134,7 +133,7 @@ class OptimizedRegexGenerator(
                     frame.string.append(randomChar),
                     nextTransition.dest,
                 )
-            executionStack.addLast(newFrame)
+            executionStack.addFrame(newFrame)
         }
 
         return result.orEmpty()

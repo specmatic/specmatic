@@ -10,14 +10,14 @@ class ExecutionStack(
             it.addLast(frame)
         }
 
-    fun lastOrNull(): Frame? = executionStack.lastOrNull()
+    fun lastFrame(): Frame? = executionStack.lastOrNull()
 
-    fun removeLast() {
+    fun backtrack() {
         executionStack.removeLast()
         executionStack.lastOrNull()?.deleteLastChar()
     }
 
-    fun addLast(newFrame: Frame) {
+    fun addFrame(newFrame: Frame) {
         executionStack.addLast(newFrame)
     }
 }
