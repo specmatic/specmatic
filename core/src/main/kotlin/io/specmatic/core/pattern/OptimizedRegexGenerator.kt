@@ -3,7 +3,6 @@ package io.specmatic.core.pattern
 import com.mifmif.common.regex.Generex
 import dk.brics.automaton.RegExp
 import dk.brics.automaton.State
-import dk.brics.automaton.Transition
 import io.specmatic.conversions.REASONABLE_STRING_LENGTH
 import io.specmatic.core.pattern.regex.ExecutionStack
 import kotlin.random.Random
@@ -33,7 +32,7 @@ class OptimizedRegexGenerator(
         minLength: Int? = 1,
         maxLength: Int? = REASONABLE_STRING_LENGTH,
     ): String {
-        val state = RegExp(regex).toAutomaton().initialState
+        val state = RegExp(regex, 0).toAutomaton().initialState
         val executionStack =
             ExecutionStack(Frame(StringBuilder(), state))
         return generate(executionStack, minLength ?: 1, maxLength ?: REASONABLE_STRING_LENGTH)
@@ -94,7 +93,7 @@ class OptimizedRegexGenerator(
                 continue
             }
 
-            val cannotGenerateMoreCharacters = frame.hasNoTransitions() || frame.allTransitionsHaveFailed()
+            val cannotGenerateAnotherCharacter = frame.hasNoTransitions() || frame.allTransitionsHaveFailed()
 
             if (frame.stringMatchesRegex()) {
                 when (frame.stringLength) {
@@ -104,14 +103,14 @@ class OptimizedRegexGenerator(
                     }
 
                     in minLength..maxLength -> {
-                        if (cannotGenerateMoreCharacters || randomBooleanIsTrue()) {
+                        if (cannotGenerateAnotherCharacter || coinTossSaysToTerminate()) {
                             result = frame.buildString()
                             break
                         }
                     }
 
                     else -> {
-                        if (cannotGenerateMoreCharacters) {
+                        if (cannotGenerateAnotherCharacter) {
                             executionStack.backtrack()
                             continue
                         }
@@ -133,22 +132,8 @@ class OptimizedRegexGenerator(
         return result.orEmpty()
     }
 
-    private fun randomBooleanIsTrue(): Boolean =
+    private fun coinTossSaysToTerminate(): Boolean =
         random
             .nextInt()
             .toDouble() > 6.442450941E8
-
-    private fun nextRandomChar(nextTransition: Transition): Char {
-        val diff = nextTransition.getMax().code - nextTransition.getMin().code + 1
-        val randomOffset =
-            if (diff > 0) {
-                random.nextInt(diff)
-            } else {
-                diff
-            }
-
-        val randomChar = (randomOffset + nextTransition.getMin().code).toChar()
-        return randomChar
-    }
 }
-

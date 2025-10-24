@@ -17,9 +17,7 @@ class Frame(
             return stringSoFar.length
         }
 
-    fun buildString(): String {
-        return stringSoFar.toString()
-    }
+    fun buildString(): String = stringSoFar.toString()
 
     fun stringMatchesRegex(): Boolean = isAccept
 

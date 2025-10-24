@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.ValueSource
 
 internal class StringPatternTest {
     @Test
@@ -412,7 +413,7 @@ internal class StringPatternTest {
         "'^.+$';null;10;true;1;10",
         "'^.{0,}$';null;10;true;0;10",
         "'^a.*z$';null;20;true;2;20", // Prefix and suffix with .*
-        "'^.*\\@.*\\..*$';null;30;true;2;30", // Email-like pattern
+        "'^.*@.*\\..*$';null;30;true;2;30", // Email-like pattern
         // Character class negation with infinite quantifiers
         "'^[^0-9]*$';null;10;true;0;10", // Everything except digits
         "'^[^a-z]+$';null;10;true;1;10",
@@ -424,8 +425,8 @@ internal class StringPatternTest {
         "'^[a-z]+$';1000;null;true;1000;99999999",
         "'^[a-z]*$';10000;10000;true;10000;10000",
         // Complex real world patterns
-        "'^[a-z]+\\@[a-z]+\\.[a-z]+$';null;50;true;5;50", // Email-like patterns
-        "'^[\\w.+-]+\\@[\\w.-]+\\.[a-z]{2,}$';null;50;true;5;50", // Email-like patterns
+        "'^[a-z]+@[a-z]+\\.[a-z]+$';null;50;true;5;50", // Email-like patterns
+        "'^[\\w.+-]+@[\\w.-]+\\.[a-z]{2,}$';null;50;true;5;50", // Email-like patterns
         "'^https?://[a-z]+(\\.[a-z]+)*$';null;50;true;8;50", // URL-like patterns
         "'^\\+?[0-9]*-?[0-9]*$';null;20;true;0;20", // Phone number-like
         "'^[a-f0-9]{8}(-[a-f0-9]{4})*$';null;50;true;8;50", // UUID-like with repetition
@@ -630,5 +631,14 @@ internal class StringPatternTest {
             ).generate(Resolver()) as StringValue
 
         assertThat(value.string).hasSize(REASONABLE_STRING_LENGTH)
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+        chars = ['@', '#']
+    )
+    fun `regex should not treat at or hash symbols as special characters`(character: Char) {
+        val result = RegExSpec("$character").generateRandomString(1, 1) as StringValue
+        assertThat(result.string).isEqualTo("$character")
     }
 }
