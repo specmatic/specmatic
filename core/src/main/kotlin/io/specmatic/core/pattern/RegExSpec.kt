@@ -5,6 +5,8 @@ import io.specmatic.core.pattern.regex.OptimizedRegexGenerator
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
+internal const val WORD_BOUNDARY = "\\b"
+
 class RegExSpec(
     regex: String?,
 ) {
