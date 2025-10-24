@@ -94,7 +94,7 @@ class OptimizedRegexGenerator(
                 continue
             }
 
-            val cannotGenerateMoreCharacters = frame.hasNoTransitions() || frame.noTransitionsLeftInPool()
+            val cannotGenerateMoreCharacters = frame.hasNoTransitions() || frame.noTransitionsLeftToTry()
 
             if (frame.state.isAccept) {
                 when (frame.string.length) {
@@ -118,7 +118,7 @@ class OptimizedRegexGenerator(
                     }
                 }
             } else {
-                if (frame.string.length == maxLength || frame.noTransitionsLeftInPool()) {
+                if (frame.string.length == maxLength || frame.noTransitionsLeftToTry()) {
                     executionStack.backtrack()
                     continue
                 }

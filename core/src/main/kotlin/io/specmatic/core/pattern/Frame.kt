@@ -27,7 +27,7 @@ data class Frame(
 
     fun hasNoTransitions(): Boolean = transitionCount == 0
 
-    fun noTransitionsLeftInPool(): Boolean = availableTransitionIndices.isEmpty()
+    fun noTransitionsLeftToTry(): Boolean = availableTransitionIndices.isEmpty()
 
     fun deleteLastChar() {
         string.deleteCharAt(string.length - 1)
