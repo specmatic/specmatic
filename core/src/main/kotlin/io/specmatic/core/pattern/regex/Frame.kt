@@ -1,4 +1,4 @@
-package io.specmatic.core.pattern
+package io.specmatic.core.pattern.regex
 
 import dk.brics.automaton.State
 import dk.brics.automaton.Transition
@@ -39,7 +39,7 @@ class Frame(
         val diff = nextTransition.getMax().code - nextTransition.getMin().code + 1
         val randomOffset =
             if (diff > 0) {
-                Random.nextInt(diff)
+                Random.Default.nextInt(diff)
             } else {
                 diff
             }

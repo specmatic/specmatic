@@ -1,6 +1,7 @@
 package io.specmatic.core.pattern
 
 import io.specmatic.core.log.logger
+import io.specmatic.core.pattern.regex.OptimizedRegexGenerator
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 

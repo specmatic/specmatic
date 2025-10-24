@@ -1,6 +1,6 @@
 package io.specmatic.core.pattern.regex
 
-import io.specmatic.core.pattern.Frame
+import io.specmatic.core.pattern.regex.Frame
 
 class ExecutionStack(
     frame: Frame,
