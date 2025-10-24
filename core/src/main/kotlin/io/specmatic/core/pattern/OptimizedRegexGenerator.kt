@@ -89,23 +89,23 @@ class OptimizedRegexGenerator(
         while (true) {
             val frame = executionStack.lastFrame() ?: break
 
-            if (frame.string.length > maxLength) {
+            if (frame.stringLength > maxLength) {
                 executionStack.backtrack()
                 continue
             }
 
-            val cannotGenerateMoreCharacters = frame.hasNoTransitions() || frame.noTransitionsLeftToTry()
+            val cannotGenerateMoreCharacters = frame.hasNoTransitions() || frame.allTransitionsHaveFailed()
 
-            if (frame.state.isAccept) {
-                when (frame.string.length) {
+            if (frame.stringMatchesRegex()) {
+                when (frame.stringLength) {
                     maxLength -> {
-                        result = frame.string.toString()
+                        result = frame.buildString()
                         break
                     }
 
                     in minLength..maxLength -> {
                         if (cannotGenerateMoreCharacters || randomBooleanIsTrue()) {
-                            result = frame.string.toString()
+                            result = frame.buildString()
                             break
                         }
                     }
@@ -118,21 +118,15 @@ class OptimizedRegexGenerator(
                     }
                 }
             } else {
-                if (frame.string.length == maxLength || frame.noTransitionsLeftToTry()) {
+                if (frame.stringLength == maxLength || frame.allTransitionsHaveFailed()) {
                     executionStack.backtrack()
                     continue
                 }
             }
 
             val nextTransition = frame.withdrawUnusedTransitionFromPool()
+            val newFrame = frame.apply(nextTransition)
 
-            val randomChar = nextRandomChar(nextTransition)
-
-            val newFrame =
-                Frame(
-                    frame.string.append(randomChar),
-                    nextTransition.dest,
-                )
             executionStack.addFrame(newFrame)
         }
 

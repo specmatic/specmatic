@@ -621,12 +621,12 @@ internal class StringPatternTest {
 
     @Test
     fun `generation of 4MB length string should work`() {
-        val regex = "^\\w+$"
+        val infiniteRegex = "^\\w+$"
         val value =
             StringPattern(
                 minLength = REASONABLE_STRING_LENGTH,
                 maxLength = REASONABLE_STRING_LENGTH,
-                regex = regex,
+                regex = infiniteRegex,
             ).generate(Resolver()) as StringValue
 
         assertThat(value.string).hasSize(REASONABLE_STRING_LENGTH)

@@ -14,7 +14,7 @@ class ExecutionStack(
 
     fun backtrack() {
         executionStack.removeLast()
-        executionStack.lastOrNull()?.deleteLastChar()
+        executionStack.lastOrNull()?.dropLastChar()
     }
 
     fun addFrame(newFrame: Frame) {
