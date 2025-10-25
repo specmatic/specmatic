@@ -72,7 +72,7 @@ class OptimizedRegexGenerator(
         return best
     }
 
-    val random = Random.Default.asJavaRandom()
+    val random = Random.asJavaRandom()
 
     private fun generate(
         executionStack: ExecutionStack,
