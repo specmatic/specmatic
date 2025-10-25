@@ -1,10 +1,8 @@
 package io.specmatic.core.pattern.regex
 
-import com.mifmif.common.regex.Generex
 import dk.brics.automaton.RegExp
 import dk.brics.automaton.State
 import io.specmatic.conversions.REASONABLE_STRING_LENGTH
-import io.specmatic.core.pattern.regex.Frame
 import kotlin.random.Random
 import kotlin.random.asJavaRandom
 
@@ -13,11 +11,11 @@ class OptimizedRegexGenerator(
 ) {
     val isInfinite: Boolean
         get() {
-            return Generex(regex).isInfinite
+            return !isFinite
         }
     val isFinite: Boolean
         get() {
-            return !Generex(regex).isInfinite
+            return RegExp(regex).toAutomaton().isFinite
         }
 
     init {
