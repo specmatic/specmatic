@@ -1,23 +1,21 @@
 package io.specmatic.core.pattern.regex
 
-import io.specmatic.core.pattern.regex.Frame
-
 class ExecutionStack(
-    frame: Frame,
+    stage: Stage,
 ) {
     private val executionStack =
-        ArrayDeque<Frame>().also {
-            it.addLast(frame)
+        ArrayDeque<Stage>().also {
+            it.addLast(stage)
         }
 
-    fun lastFrame(): Frame? = executionStack.lastOrNull()
+    fun lastStage(): Stage? = executionStack.lastOrNull()
 
     fun backtrack() {
         executionStack.removeLast()
         executionStack.lastOrNull()?.dropLastChar()
     }
 
-    fun addFrame(newFrame: Frame) {
-        executionStack.addLast(newFrame)
+    fun addStage(newStage: Stage) {
+        executionStack.addLast(newStage)
     }
 }

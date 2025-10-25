@@ -4,7 +4,7 @@ import dk.brics.automaton.State
 import dk.brics.automaton.Transition
 import kotlin.random.Random
 
-class Frame(
+class Stage(
     private var stringSoFar: StringBuilder = StringBuilder(),
     state: State,
 ) {
@@ -48,12 +48,55 @@ class Frame(
         return randomChar
     }
 
-    fun apply(nextTransition: Transition): Frame {
+    fun apply(nextTransition: Transition): Stage {
         val randomChar = nextRandomChar(nextTransition)
 
-        return Frame(
+        return Stage(
             stringSoFar.append(randomChar),
             nextTransition.dest,
         )
     }
+
+    fun computeNext(
+        minLength: Int,
+        maxLength: Int,
+    ): ComputationResult {
+        if (this.stringLength > maxLength) {
+            return ComputationPathIsLostCause
+        }
+
+        val cannotGenerateAnotherCharacter = this.hasNoTransitions() || this.allTransitionsHaveFailed()
+
+        if (this.stringMatchesRegex()) {
+            when (this.stringLength) {
+                maxLength -> {
+                    return FoundAnswer(this.buildString())
+                }
+
+                in minLength..maxLength -> {
+                    if (cannotGenerateAnotherCharacter || coinTossSaysToTerminate()) {
+                        return FoundAnswer(this.buildString())
+                    }
+                }
+
+                else -> {
+                    if (cannotGenerateAnotherCharacter) {
+                        return ComputationPathIsLostCause
+                    }
+                }
+            }
+        } else {
+            if (this.stringLength == maxLength || this.allTransitionsHaveFailed()) {
+                return ComputationPathIsLostCause
+            }
+        }
+
+        val nextTransition = this.withdrawUnusedTransitionFromPool()
+        return NextStage(this.apply(nextTransition))
+    }
+
+    private fun coinTossSaysToTerminate(): Boolean =
+        Random
+            .nextInt()
+            .toDouble() > 6.442450941E8
 }

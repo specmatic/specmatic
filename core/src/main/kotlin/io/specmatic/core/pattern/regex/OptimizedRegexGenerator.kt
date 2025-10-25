@@ -30,7 +30,7 @@ class OptimizedRegexGenerator(
     ): String {
         val state = RegExp(regex, 0).toAutomaton().initialState
         val executionStack =
-            ExecutionStack(Frame(StringBuilder(), state))
+            ExecutionStack(Stage(StringBuilder(), state))
         return generate(executionStack, minLength ?: 1, maxLength ?: REASONABLE_STRING_LENGTH)
     }
 
@@ -79,57 +79,18 @@ class OptimizedRegexGenerator(
         minLength: Int,
         maxLength: Int,
     ): String {
-        var result: String? = null
+        var answer: String? = null
 
-        while (true) {
-            val frame = executionStack.lastFrame() ?: break
+        while (answer == null) {
+            val stage = executionStack.lastStage() ?: break
 
-            if (frame.stringLength > maxLength) {
-                executionStack.backtrack()
-                continue
+            when (val result = stage.computeNext(minLength, maxLength)) {
+                is FoundAnswer -> answer = result.answer
+                ComputationPathIsLostCause -> executionStack.backtrack()
+                is NextStage -> executionStack.addStage(result.stage)
             }
-
-            val cannotGenerateAnotherCharacter = frame.hasNoTransitions() || frame.allTransitionsHaveFailed()
-
-            if (frame.stringMatchesRegex()) {
-                when (frame.stringLength) {
-                    maxLength -> {
-                        result = frame.buildString()
-                        break
-                    }
-
-                    in minLength..maxLength -> {
-                        if (cannotGenerateAnotherCharacter || coinTossSaysToTerminate()) {
-                            result = frame.buildString()
-                            break
-                        }
-                    }
-
-                    else -> {
-                        if (cannotGenerateAnotherCharacter) {
-                            executionStack.backtrack()
-                            continue
-                        }
-                    }
-                }
-            } else {
-                if (frame.stringLength == maxLength || frame.allTransitionsHaveFailed()) {
-                    executionStack.backtrack()
-                    continue
-                }
-            }
-
-            val nextTransition = frame.withdrawUnusedTransitionFromPool()
-            val newFrame = frame.apply(nextTransition)
-
-            executionStack.addFrame(newFrame)
         }
 
-        return result.orEmpty()
+        return answer.orEmpty()
     }
-
-    private fun coinTossSaysToTerminate(): Boolean =
-        random
-            .nextInt()
-            .toDouble() > 6.442450941E8
 }
