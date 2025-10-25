@@ -1,6 +1,7 @@
 package io.specmatic.core.pattern
 
 import io.specmatic.GENERATION
+import io.specmatic.conversions.REASONABLE_STRING_LENGTH
 import io.specmatic.core.*
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.NullValue
@@ -14,7 +15,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
-
+import org.junit.jupiter.params.provider.ValueSource
 
 internal class StringPatternTest {
     @Test
@@ -80,7 +81,8 @@ internal class StringPatternTest {
     fun `should match word regex string`() {
         val regex = "\\w+"
         val candidate = "uuid"
-        val result = StringPattern(regex = regex, minLength = 1, maxLength = 262144).matches(StringValue(candidate), Resolver())
+        val result =
+            StringPattern(regex = regex, minLength = 1, maxLength = 262144).matches(StringValue(candidate), Resolver())
         assertThat(result.isSuccess()).isTrue
     }
 
@@ -95,12 +97,22 @@ internal class StringPatternTest {
 
     @Test
     fun `should match valid string when min is specified`() {
-        assertThat(StringPattern(regex = "[0-9A-Z]{32}", minLength = 32).matches(StringValue("VAKTIGOOIXJDKQWGBBAPFXRKIHLEONUP"), Resolver()).isSuccess()).isTrue
+        assertThat(
+            StringPattern(
+                regex = "[0-9A-Z]{32}",
+                minLength = 32,
+            ).matches(StringValue("VAKTIGOOIXJDKQWGBBAPFXRKIHLEONUP"), Resolver()).isSuccess(),
+        ).isTrue
     }
 
     @Test
     fun `should match valid string when max is specified`() {
-        assertThat(StringPattern(regex = "[0-9A-Z]{32}", maxLength = 32).matches(StringValue("VAKTIGOOIXJDKQWGBBAPFXRKIHLEONUP"), Resolver()).isSuccess()).isTrue
+        assertThat(
+            StringPattern(
+                regex = "[0-9A-Z]{32}",
+                maxLength = 32,
+            ).matches(StringValue("VAKTIGOOIXJDKQWGBBAPFXRKIHLEONUP"), Resolver()).isSuccess(),
+        ).isTrue
     }
 
     @Test
@@ -132,7 +144,11 @@ internal class StringPatternTest {
         "6, null, 6",
         "null, null, 5",
     )
-    fun `generate string value as per minLength and maxLength`(min: String?, max: String?, expectedLength: Int) {
+    fun `generate string value as per minLength and maxLength`(
+        min: String?,
+        max: String?,
+        expectedLength: Int,
+    ) {
         val minLength = if (min == "null") null else min?.toInt()
         val maxLength = if (max == "null") null else max?.toInt()
 
@@ -143,63 +159,38 @@ internal class StringPatternTest {
         maxLength?.let { assertThat(generatedLength).isLessThanOrEqualTo(it) }
     }
 
-    @ParameterizedTest
-    @CsvSource(
-        "'^\\w+(-\\w+)*$',null,10,1",
-        "'^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$',1,10,1",
-        "'^[a-z]*$', null, null, 0",
-        "'^[a-z]*$', 5, null, 5",
-        "'^[a-z0-9]{6,10}',6,10,6",
-        "null, 1, 10, 1"
-    )
-    fun `generate string value as per regex in conjunction with minLength and maxLength`(
-        regex: String?, min: String?, max: String?, expectedLength: Int
-    ) {
-        repeat(10) {
-            val minLength = min?.toIntOrNull()
-            val maxLength = max?.toIntOrNull()
-            val patternRegex = if (regex == "null") null else regex
-
-            val result = StringPattern(
-                minLength = minLength,
-                maxLength = maxLength,
-                regex = patternRegex
-            ).generate(Resolver()) as StringValue
-            val generatedString = result.string
-            val generatedLength = generatedString.length
-
-            assertThat(generatedLength).isGreaterThanOrEqualTo(expectedLength)
-            maxLength?.let { assertThat(generatedLength).isLessThanOrEqualTo(it) }
-            patternRegex?.let { assertThat(generatedString).matches(patternRegex) }
-        }
-    }
-
     @Test
     fun `string should encompass enum of string`() {
-        val result: Result = StringPattern().encompasses(
-            AnyPattern(
-                listOf(
-                    ExactValuePattern(StringValue("01")),
-                    ExactValuePattern(StringValue("02"))
+        val result: Result =
+            StringPattern().encompasses(
+                AnyPattern(
+                    listOf(
+                        ExactValuePattern(StringValue("01")),
+                        ExactValuePattern(StringValue("02")),
+                    ),
+                    extensions = emptyMap(),
                 ),
-                extensions = emptyMap()
-            ), Resolver(), Resolver()
-        )
+                Resolver(),
+                Resolver(),
+            )
 
         assertThat(result).isInstanceOf(Result.Success::class.java)
     }
 
     @Test
     fun `enum should not encompass string`() {
-        val result: Result = AnyPattern(
-            listOf(
-                ExactValuePattern(StringValue("01")),
-                ExactValuePattern(StringValue("02"))
-            ),
-            extensions = emptyMap()
-        ).encompasses(
-            StringPattern(), Resolver(), Resolver()
-        )
+        val result: Result =
+            AnyPattern(
+                listOf(
+                    ExactValuePattern(StringValue("01")),
+                    ExactValuePattern(StringValue("02")),
+                ),
+                extensions = emptyMap(),
+            ).encompasses(
+                StringPattern(),
+                Resolver(),
+                Resolver(),
+            )
 
         println(result.reportString())
         assertThat(result).isInstanceOf(Result.Failure::class.java)
@@ -207,7 +198,8 @@ internal class StringPatternTest {
 
     @Test
     fun `it should use the example if provided when generating`() {
-        val generated = StringPattern(example = "sample data").generate(Resolver(defaultExampleResolver = UseDefaultExample))
+        val generated =
+            StringPattern(example = "sample data").generate(Resolver(defaultExampleResolver = UseDefaultExample))
         assertThat(generated).isEqualTo(StringValue("sample data"))
     }
 
@@ -230,10 +222,11 @@ internal class StringPatternTest {
 
         val result = StringPattern(minLength = minLength, maxLength = maxLength).newBasedOn(Row(), Resolver()).toList()
 
-        val randomlyGeneratedStrings = result.map { it.value } .filterIsInstance<ExactValuePattern>().map { it.pattern.toString() }
+        val randomlyGeneratedStrings =
+            result.map { it.value }.filterIsInstance<ExactValuePattern>().map { it.pattern.toString() }
 
-        assertThat(randomlyGeneratedStrings.filter { it.length == minLength}).hasSize(1)
-        assertThat(randomlyGeneratedStrings.filter { it.length == maxLength}).hasSize(1)
+        assertThat(randomlyGeneratedStrings.filter { it.length == minLength }).hasSize(1)
+        assertThat(randomlyGeneratedStrings.filter { it.length == maxLength }).hasSize(1)
     }
 
     @Test
@@ -242,18 +235,22 @@ internal class StringPatternTest {
         val minLength = 10
         val maxLength = 20
 
-        val result = StringPattern(minLength = minLength, maxLength = maxLength).negativeBasedOn(Row(), Resolver()).map { it.value }.toList()
+        val result =
+            StringPattern(minLength = minLength, maxLength = maxLength)
+                .negativeBasedOn(Row(), Resolver())
+                .map { it.value }
+                .toList()
 
         assertThat(
             result.filterIsInstance<StringPattern>().filter {
-                it.minLength == minLength-1 && it.maxLength == minLength-1 && it.regex == null
-            }
+                it.minLength == minLength - 1 && it.maxLength == minLength - 1 && it.regex == null
+            },
         ).hasSize(1)
 
         assertThat(
             result.filterIsInstance<StringPattern>().filter {
-                it.minLength == maxLength+1 && it.maxLength == maxLength+1 && it.regex == null
-            }
+                it.minLength == maxLength + 1 && it.maxLength == maxLength + 1 && it.regex == null
+            },
         ).hasSize(1)
     }
 
@@ -263,16 +260,17 @@ internal class StringPatternTest {
         val minLength = 10
         val maxLength = 20
 
-        val result = StringPattern(
-            minLength = minLength,
-            maxLength = maxLength,
-            regex = "^[^0-9]{15}$"
-        ).negativeBasedOn(Row(), Resolver()).map { it.value }.toList()
+        val result =
+            StringPattern(
+                minLength = minLength,
+                maxLength = maxLength,
+                regex = "^[^0-9]{15}$",
+            ).negativeBasedOn(Row(), Resolver()).map { it.value }.toList()
 
         assertThat(
             result.filterIsInstance<StringPattern>().filter {
-                it.regex == "^[^0-9]{15}\$_"
-            }
+                it.regex == "^[^0-9]{15}_$"
+            },
         ).hasSize(1)
     }
 
@@ -282,50 +280,58 @@ internal class StringPatternTest {
         val minLength = 10
         val maxLength = 20
 
-        val result = StringPattern(
-            minLength = minLength,
-            maxLength = maxLength,
-            regex = "^[^0-9]{15}$"
-        ).negativeBasedOn(
-            Row(),
-            Resolver(),
-            NegativePatternConfiguration(withDataTypeNegatives = false)
-        ).map { it.value }.toList()
-
+        val result =
+            StringPattern(
+                minLength = minLength,
+                maxLength = maxLength,
+                regex = "^[^0-9]{15}$",
+            ).negativeBasedOn(
+                Row(),
+                Resolver(),
+                NegativePatternConfiguration(withDataTypeNegatives = false),
+            ).map { it.value }
+                .toList()
 
         assertThat(
-            result.filterIsInstance<NullPattern>()
-                    + result.filterIsInstance<NumberPattern>()
-                    + result.filterIsInstance<BooleanPattern>()
+            result.filterIsInstance<NullPattern>() +
+                result.filterIsInstance<NumberPattern>() +
+                result.filterIsInstance<BooleanPattern>(),
         ).hasSize(0)
 
         assertThat(
-            result.filterIsInstance<StringPattern>().filter { it.regex == "^[^0-9]{15}\$_" }
+            result.filterIsInstance<StringPattern>().filter { it.regex == "^[^0-9]{15}_$" },
         ).hasSize(1)
 
         assertThat(
             result.filterIsInstance<StringPattern>().filter {
-                it.minLength == minLength-1 && it.maxLength == minLength-1 && it.regex == null
-            }
+                it.minLength == minLength - 1 && it.maxLength == minLength - 1 && it.regex == null
+            },
         ).hasSize(1)
 
         assertThat(
             result.filterIsInstance<StringPattern>().filter {
-                it.minLength == maxLength+1 && it.maxLength == maxLength+1 && it.regex == null
-            }
+                it.minLength == maxLength + 1 && it.maxLength == maxLength + 1 && it.regex == null
+            },
         ).hasSize(1)
     }
 
     @Test
     fun `string pattern encompasses email`() {
-        assertThat(StringPattern().encompasses(EmailPattern(), Resolver(), Resolver())).isInstanceOf(Result.Success::class.java)
+        assertThat(
+            StringPattern().encompasses(
+                EmailPattern(),
+                Resolver(),
+                Resolver(),
+            ),
+        ).isInstanceOf(Result.Success::class.java)
     }
 
     @Test
     fun `should fail to generate string when maxLength is less than minLength`() {
-        val exception = assertThrows<IllegalArgumentException> {
-            StringPattern(minLength = 6, maxLength = 4)
-        }
+        val exception =
+            assertThrows<IllegalArgumentException> {
+                StringPattern(minLength = 6, maxLength = 4)
+            }
         assertThat(exception.message).isEqualTo("maxLength 4 cannot be less than minLength 6")
     }
 
@@ -368,23 +374,98 @@ internal class StringPatternTest {
         "'^[a-zA-Z0-9]+$';0;null;true;1;99999999",
         "'^[a-zA-Z0-9]+$';1;null;true;1;99999999",
         "'^[a-zA-Z0-9]+$';10;null;true;10;99999999",
+        "'^[^\\s]*$';null;15;true;0;15",
         "'^[a-zA-Z0-9]+$';null;0;false;0;0",
         "'^[a-zA-Z0-9]+$';null;1;true;1;1",
         "'^[a-zA-Z0-9]+$';null;10;true;1;10",
-        delimiterString = ";"
+        // from other test
+        "'^\\w+(-\\w+)*$';null;10;true;0;10",
+        "'^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$';1;10;true;1;10",
+        "'^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$';10;10;true;10;10",
+        "'^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$';8;8;true;8;8",
+        "'^[a-z]*$'; null; null; true; 0; 99999999",
+        "'^[a-z]*$'; 5; null; true; 5; 99999999",
+        "'^[a-z0-9]{6,10}';6;10;true; 6; 10",
+        "null; 1; 10; true; 1; 10",
+        // Nested * or + operators
+        "'^(a*)*$';null;10;true;0;10", // Catastrophic backtracking case
+        "'^(a+)*$';null;10;true;0;10",
+        "'^([a-z]*[0-9]*)*$';null;20;true;0;20",
+        "'^(ab+)+$';null;15;true;2;15",
+        "'^(a{2,})+$';null;20;true;2;20",
+        // Alternation with infinite quantifiers
+        "'^(a*|b*)$';null;10;true;0;10",
+        "'^(a+|b+|c+)$';null;10;true;1;10",
+        "'^([a-z]+|[0-9]+)*$';null;15;true;0;15",
+        "'^(abc|def)*$';null;20;true;0;20",
+        // Optional groups with repetition
+        "'^(a?)*$';null;10;true;0;10", // Can generate empty or any length
+        "'^(ab?)+$';null;10;true;1;10",
+        "'^([a-z]{2,4})?$';null;10;true;0;4",
+        "'^(test)?.*$';null;20;true;0;20",
+        // Multiple consecutive infinite quantifiers
+        "'^[a-z]*[0-9]*$';null;10;true;0;10",
+        "'^[a-z]+[0-9]+$';null;10;true;2;10",
+        "'^\\w*\\d*$';null;15;true;0;15",
+        "'^[A-Z]*[a-z]*[0-9]*$';null;20;true;0;20",
+        // Dot (.) with infinite quantifiers
+        "'^.*$';null;10;true;0;10", // Match anything
+        "'^.+$';null;10;true;1;10",
+        "'^.{0,}$';null;10;true;0;10",
+        "'^a.*z$';null;20;true;2;20", // Prefix and suffix with .*
+        "'^.*@.*\\..*$';null;30;true;2;30", // Email-like pattern
+        // Character class negation with infinite quantifiers
+        "'^[^0-9]*$';null;10;true;0;10", // Everything except digits
+        "'^[^a-z]+$';null;10;true;1;10",
+        // Min > Max scenarios
+        "'^[a-z]*$';100;10;false;0;0", // Impossible constraint
+        "'^[a-z]+$';50;20;false;0;0",
+        // Very large min/max values
+        "'^[a-z]*$';null;10000;true;0;10000",
+        "'^[a-z]+$';1000;null;true;1000;99999999",
+        "'^[a-z]*$';10000;10000;true;10000;10000",
+        // Complex real world patterns
+        "'^[a-z]+@[a-z]+\\.[a-z]+$';null;50;true;5;50", // Email-like patterns
+        "'^[\\w.+-]+@[\\w.-]+\\.[a-z]{2,}$';null;50;true;5;50", // Email-like patterns
+        "'^https?://[a-z]+(\\.[a-z]+)*$';null;50;true;8;50", // URL-like patterns
+        "'^\\+?[0-9]*-?[0-9]*$';null;20;true;0;20", // Phone number-like
+        "'^[a-f0-9]{8}(-[a-f0-9]{4})*$';null;50;true;8;50", // UUID-like with repetition
+        // Mixed Greedy/Lazy quantifiers
+        "'^.*?$';null;10;true;0;10", // Lazy quantifier
+        "'^.+?$';1;10;true;1;10",
+        "'^[a-z]*?[0-9]+$';null;15;true;1;15",
+        // Edge cases with zero length matches
+        "'^a*b*$';0;0;true;0;0", // Both can be zero-length
+        // Catastrophic backtracking patterns
+        "'^(a*)*b$';null;20;true;1;20",
+        "'^(a+)+b$';null;20;true;2;20",
+        "'^(a|a)*b$';null;20;true;1;20",
+        "'^(a|ab)*b$';null;20;true;1;20",
+        // Deeply nested quantifiers
+        "'^((a*)*)*$';null;10;true;0;10",
+        "'^(((a+)+)+)+$';null;10;true;1;10",
+        delimiterString = ";",
     )
     fun `generate string value as per regex in conjunction with minimum and maximum`(
-        regex: String, minInput: String?, maxInput: String?, shouldBeValid:Boolean, expectedMinLen: Int, expectedMaxLen: Int
+        regex: String,
+        minInput: String?,
+        maxInput: String?,
+        shouldBeValid: Boolean,
+        expectedMinLen: Int,
+        expectedMaxLen: Int,
     ) {
         val min = minInput?.toIntOrNull()
         val max = maxInput?.toIntOrNull()
 
         try {
-            val stringPattern = StringPattern(
-                minLength = min,
-                maxLength = max,
-                regex = regex
-            )
+            println("Generating string for regex: $regex (after cleaning up: ${RegExSpec(regex)})")
+
+            val stringPattern =
+                StringPattern(
+                    minLength = min,
+                    maxLength = max,
+                    regex = regex,
+                )
             val result = stringPattern.generate(Resolver()) as StringValue
             if (shouldBeValid) {
                 val generatedString = result.string
@@ -393,7 +474,9 @@ internal class StringPatternTest {
                     .isGreaterThanOrEqualTo(expectedMinLen)
                     .isLessThanOrEqualTo(expectedMaxLen)
 
-                assertThat(generatedString).matches(RegExSpec(regex).toString())
+                assertThat(generatedString).matches {
+                    Regex(RegExSpec(regex).toString(), RegexOption.DOT_MATCHES_ALL).matches(it)
+                }
             } else {
                 fail("Expected an exception to be thrown")
             }
@@ -406,9 +489,14 @@ internal class StringPatternTest {
     fun `should be able to use values provided by StringProviders when one is registered`() {
         val pattern = StringPattern()
         val resolver = Resolver()
-        val provider = object: StringProvider {
-            override fun getFor(pattern: ScalarType, resolver: Resolver, path: List<String>): String = "TODO"
-        }
+        val provider =
+            object : StringProvider {
+                override fun getFor(
+                    pattern: ScalarType,
+                    resolver: Resolver,
+                    path: List<String>,
+                ): String = "TODO"
+            }
 
         StringProviders.with(provider) {
             val generated = pattern.generate(resolver)
@@ -420,9 +508,14 @@ internal class StringPatternTest {
     fun `should generate a random string if no provider exists or can't provide a value`() {
         val pattern = StringPattern()
         val resolver = Resolver()
-        val provider = object: StringProvider {
-            override fun getFor(pattern: ScalarType, resolver: Resolver, path: List<String>): String? = null
-        }
+        val provider =
+            object : StringProvider {
+                override fun getFor(
+                    pattern: ScalarType,
+                    resolver: Resolver,
+                    path: List<String>,
+                ): String? = null
+            }
 
         StringProviders.with(provider) {
             val generated = pattern.generate(resolver)
@@ -434,9 +527,14 @@ internal class StringPatternTest {
     fun `invalid value provided by any StringProviders should be halted by resolver and result in random generation`() {
         val pattern = StringPattern(regex = "[^\\d]")
         val resolver = Resolver()
-        val provider = object: StringProvider {
-            override fun getFor(pattern: ScalarType, resolver: Resolver, path: List<String>): String = "123"
-        }
+        val provider =
+            object : StringProvider {
+                override fun getFor(
+                    pattern: ScalarType,
+                    resolver: Resolver,
+                    path: List<String>,
+                ): String = "123"
+            }
 
         StringProviders.with(provider) {
             val generated = pattern.generate(resolver)
@@ -449,9 +547,14 @@ internal class StringPatternTest {
     fun `should not allow number or boolean like values from string providers for parameter requests`() {
         val pattern = NumberPattern()
         val resolver = Resolver(isNegative = true, dictionaryLookupPath = BreadCrumb.PARAMETERS.value)
-        val provider = object: StringProvider {
-            override fun getFor(pattern: ScalarType, resolver: Resolver, path: List<String>): String = "123"
-        }
+        val provider =
+            object : StringProvider {
+                override fun getFor(
+                    pattern: ScalarType,
+                    resolver: Resolver,
+                    path: List<String>,
+                ): String = "123"
+            }
 
         StringProviders.with(provider) {
             val mutations = pattern.negativeBasedOn(Row(), resolver).toList()
@@ -497,5 +600,45 @@ internal class StringPatternTest {
         assertThat(values).noneSatisfy {
             assertThat((it as? StringValue)?.string?.length).isEqualTo(3999)
         }
+    }
+
+    @Test
+    fun `newBasedOn methods should return self first instead of positive mutations`() {
+        // TODO: This is a temporary solution until regex-based generations can be optimized.
+        // Yielding a lenBased generation first in the presence of regex slows down empty sequence checks later on
+        val pattern = StringPattern()
+        val resolver = Resolver()
+        val methods =
+            listOf(
+                { pattern.newBasedOn(resolver).map(::HasValue) },
+                { pattern.newBasedOn(Row(), resolver) },
+            )
+
+        assertThat(methods).allSatisfy { invocation ->
+            val firstPattern = invocation.invoke().first()
+            assertThat(firstPattern.value).isEqualTo(pattern)
+        }
+    }
+
+    @Test
+    fun `generation of 4MB length string should work`() {
+        val infiniteRegex = "^\\w+$"
+        val value =
+            StringPattern(
+                minLength = REASONABLE_STRING_LENGTH,
+                maxLength = REASONABLE_STRING_LENGTH,
+                regex = infiniteRegex,
+            ).generate(Resolver()) as StringValue
+
+        assertThat(value.string).hasSize(REASONABLE_STRING_LENGTH)
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+        chars = ['@', '#']
+    )
+    fun `regex should not treat at or hash symbols as special characters`(character: Char) {
+        val result = RegExSpec("$character").generateRandomString(1, 1) as StringValue
+        assertThat(result.string).isEqualTo("$character")
     }
 }

@@ -244,17 +244,10 @@ private enum class ValueSource {
 }
 
 fun <ValueType> allOrNothingListCombinations(values: List<Sequence<ValueType?>>): Sequence<List<ValueType>> {
-    if (values.none())
-        return sequenceOf(emptyList())
-
-    val iterators = values.filter {
-        it.any()
-    }.map {
-        it.iterator()
-    }
+    val iterators = values.map { it.iterator() }.filter { it.hasNext() }
+    if (iterators.isEmpty()) return sequenceOf(emptyList())
 
     val cacheOfFirstValue = mutableListOf<ValueType?>()
-
     val iteratorCache: MutableMap<Int, Iterator<ValueType?>> = mutableMapOf()
 
     return sequence {

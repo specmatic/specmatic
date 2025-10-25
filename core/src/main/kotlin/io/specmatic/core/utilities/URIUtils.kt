@@ -1,12 +1,35 @@
 package io.specmatic.core.utilities
 
+import io.ktor.http.URLDecodeException
+import io.ktor.http.decodeURLPart
+import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.isPatternToken
 import io.specmatic.core.pattern.withoutPatternDelimiters
+import java.net.URI
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import java.util.stream.Collectors
 
 object URIUtils {
+    fun parsePathToURI(rawPath: String): URI {
+        return try {
+            val decodedRawPath = rawPath.decodeURLPart().replace(" ", "%20")
+            URI.create(decodedRawPath)
+        } catch (e: URLDecodeException) {
+            throw ContractException(
+                breadCrumb = rawPath,
+                errorMessage = "Failed to parse path because of an invalid escape sequence: ${exceptionCauseMessage(e)}",
+                exceptionCause = e,
+            )
+        } catch (e: Throwable) {
+            throw ContractException(
+                breadCrumb = rawPath,
+                errorMessage = "Failed to parse path: ${exceptionCauseMessage(e)}",
+                exceptionCause = e,
+            )
+        }
+    }
+
     fun parseQuery(query: String?): Map<String, String> {
         if (query == null) {
             return emptyMap()

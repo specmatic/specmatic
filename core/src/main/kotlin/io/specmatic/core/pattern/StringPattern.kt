@@ -95,21 +95,18 @@ data class StringPattern (
         return resolver.provideString(this) ?: regExSpec.generateRandomString(effectiveMinLength, maxLength)
     }
 
-    override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> {
-        val minLengthExample: ReturnValue<Pattern>? = minLength?.let { minLen ->
+    override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> = sequence {
+        yield(HasValue(this@StringPattern))
+
+        minLength?.let { minLen ->
             val exampleString = regExSpec.generateShortestStringOrRandom(minLen)
-            HasValue(ExactValuePattern(StringValue(exampleString)), "is set to the shortest possible string")
+            yield(HasValue(ExactValuePattern(StringValue(exampleString)), "is set to the shortest possible string"))
         }
 
-        val withinRangeExample: ReturnValue<Pattern> = HasValue(this)
-
-        val maxLengthExample: ReturnValue<Pattern>? =
-            maxLength?.let { maxLen ->
-                val exampleString = regExSpec.generateLongestStringOrRandom(maxLen)
-                HasValue(ExactValuePattern(StringValue(exampleString)), "is set to the longest possible string")
-            }
-
-        return sequenceOf(minLengthExample, withinRangeExample, maxLengthExample).filterNotNull()
+        maxLength?.let { maxLen ->
+            val exampleString = regExSpec.generateLongestStringOrRandom(maxLen)
+            yield(HasValue(ExactValuePattern(StringValue(exampleString)), "is set to the longest possible string"))
+        }
     }
 
     override fun newBasedOn(resolver: Resolver): Sequence<Pattern> = sequenceOf(this)
@@ -132,6 +129,7 @@ data class StringPattern (
                     HasValue(pattern, "is set to a value with length greater than maxLength '$maxLength'")
                 )
             }
+
             if (minLength != null && minLength != 0 && !downsampledMin) {
                 val pattern = copy(
                     minLength = effectiveMinLength.dec(),
@@ -144,10 +142,10 @@ data class StringPattern (
                     )
                 )
             }
-            if (regex != null) {
-                val invalidRegex = regex.plus("_")
-                val pattern = copy(regex = invalidRegex)
-                yield(HasValue(pattern, "is set to a value matching an invalid regex '$invalidRegex'"))
+
+            regExSpec.negativeBasedOn(minLength, maxLength)?.let { (regex, minLength, maxLength) ->
+                val pattern = copy(regex = regex, minLength = minLength, maxLength = maxLength)
+                yield(HasValue(pattern, "is set to a value matching an invalid regex '$regex'"))
             }
         }
     }

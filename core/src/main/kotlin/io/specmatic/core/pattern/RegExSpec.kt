@@ -1,43 +1,39 @@
 package io.specmatic.core.pattern
 
-import com.mifmif.common.regex.Generex
-import dk.brics.automaton.RegExp
-import dk.brics.automaton.State
 import io.specmatic.core.log.logger
+import io.specmatic.core.pattern.regex.RegexBasedStringGenerator
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
-import kotlin.collections.MutableMap
-import kotlin.collections.forEach
-import kotlin.collections.mutableMapOf
-import kotlin.collections.set
 
 internal const val WORD_BOUNDARY = "\\b"
 
-class RegExSpec(regex: String?) {
+class RegExSpec(
+    regex: String?,
+) {
     private val originalRegex = regex
-    private val regex = regex?.let {
-        doesNotStartWithRegexDelimiters(it)
-        .replaceRegexLowerBounds()
-        .removePrefix("^").removeSuffix("$")
-        .removePrefix(WORD_BOUNDARY).removeSuffix(WORD_BOUNDARY)
-        .replaceShorthandEscapeSeq()
-        .validateRegex()
+    private val regexGenerator = regex?.let(::cleanRegex)?.let(::RegexBasedStringGenerator)
+
+    init {
+        validateRegex()
     }
 
-    private fun doesNotStartWithRegexDelimiters(regex: String): String {
-        if (regex.startsWith("/") && regex.endsWith("/")) {
-            throw IllegalArgumentException("Invalid regex $originalRegex. OpenAPI follows ECMA-262 regular expressions, which do not support / / delimiters like those used in many programming languages")
+    private fun validateRegex() {
+        runCatching {
+            if (regexGenerator == null || originalRegex == null) return
+            val random = regexGenerator.random()
+            if (!Regex(originalRegex.replaceRegexLowerBounds(), RegexOption.DOT_MATCHES_ALL).matches(random)) {
+                logger.log("WARNING: Please check the regex $originalRegex. We generated a random string $random and the regex does not match the string.")
+            }
+        }.getOrElse { e ->
+            throw IllegalArgumentException("Failed to parse regex $originalRegex\nReason: ${e.message}")
         }
-        return regex
     }
-
-    private val isFinite = this.regex != null && !Generex(this.regex).isInfinite
 
     fun validateMinLength(minLength: Int?) {
-        if (regex == null) return
+        if (regexGenerator == null) return
         minLength?.let {
-            val shortestString = generateShortestString()
-            if (it > shortestString.length && isFinite) {
+            val shortestString = regexGenerator.generateShortest()
+            if (it > shortestString.length && regexGenerator.isFinite) {
                 val longestString = generateLongestStringOrRandom(it)
                 if (longestString.length < it) {
                     throw IllegalArgumentException("minLength $it cannot be greater than the length of longest possible string that matches regex ${this.originalRegex}")
@@ -47,9 +43,9 @@ class RegExSpec(regex: String?) {
     }
 
     fun validateMaxLength(maxLength: Int?) {
-        if (regex == null) return
+        if (regexGenerator == null) return
         maxLength?.let {
-            val shortestPossibleString = generateShortestString()
+            val shortestPossibleString = regexGenerator.generateShortest()
             if (shortestPossibleString.length > it) {
                 throw IllegalArgumentException("maxLength $it cannot be less than the length of shortest possible string that matches regex ${this.originalRegex}")
             }
@@ -57,110 +53,35 @@ class RegExSpec(regex: String?) {
     }
 
     fun generateShortestStringOrRandom(minLen: Int): String {
-        if (regex == null) return randomString(minLen)
-        val shortestExample = generateShortestString()
+        if (regexGenerator == null) return randomString(minLen)
+        val shortestExample = regexGenerator.generateShortest()
         if (minLen <= shortestExample.length) return shortestExample
-        return Generex(regex).random(minLen, minLen)
+        return regexGenerator.random(minLen, minLen)
     }
 
-    private fun generateShortestString(): String =
-        regex?.let { RegExp(it).toAutomaton().getShortestExample(true) } ?: ""
+    fun negativeBasedOn(minLength: Int?, maxLength: Int?): Triple<String, Int?, Int?>? {
+        if (originalRegex == null) return null
+        val negativeRegex = if (originalRegex.endsWith("$")) {
+            originalRegex.dropLast(1) + "_$"
+        } else {
+            originalRegex + "_"
+        }
+        return Triple(negativeRegex, minLength, maxLength?.inc())
+    }
 
     fun generateLongestStringOrRandom(maxLen: Int): String {
-        if (regex == null) return randomString(maxLen)
-        val generex = Generex(regex)
-        if (generex.isInfinite) {
-            return generex.random(maxLen, maxLen)
-        }
-        val automaton = RegExp(regex).toAutomaton()
-        return longestFrom(automaton.initialState, maxLen, mutableMapOf())
-            ?: throw IllegalStateException("No valid string found")
+        if (regexGenerator == null) return randomString(maxLen)
+        if (regexGenerator.isInfinite) return regexGenerator.random(maxLen, maxLen)
+        return regexGenerator.generateLongest(maxLen) ?: throw IllegalStateException("No valid string found")
     }
 
-    fun match(sampleData: StringValue) =
-        regex?.let { Regex(it).matches(sampleData.toStringLiteral()) } ?: true
-
-    private fun String.replaceRegexLowerBounds(): String {
-        val pattern = Regex("""\{,(\d+)}""")
-        return this.replace(pattern) { matchResult ->
-            "{0,${matchResult.groupValues[1]}}"
-        }
-    }
-
-    private fun String.validateRegex(): String {
-        return runCatching {
-            val random = Generex(this).random()
-            if (!Regex(this).matches(random)) {
-                logger.log("WARNING: Please check the regex $originalRegex. We generated a random string $random and the regex does not match the string.")
-            }
-            this
-        }.getOrElse {
-                e -> throw IllegalArgumentException("Failed to parse regex $originalRegex\nReason: ${e.message}")
-        }
-    }
-
-    private fun String.replaceShorthandEscapeSeq(): String {
-        // This regex matches a character class: a '[' followed by either an escaped char (e.g. \])
-        // or any char that is not a ']', until the first unescaped ']'
-        val charClassRegex = Regex("""\[(?:\\.|[^\]])*]""")
-
-        return charClassRegex.replace(this) { matchResult ->
-            val charClass = matchResult.value
-
-            // Check if the class is negated (i.e. starts with "[^")
-            val isNegated = charClass.startsWith("[^")
-            // Extract the inner content (skip the starting '[' or "[^" and the ending ']')
-            val innerContent = if (isNegated)
-                charClass.substring(2, charClass.length - 1)
-            else
-                charClass.substring(1, charClass.length - 1)
-
-            // Replace shorthand escapes inside the character class.
-            // Note: The replacements are applied only to the inner content.
-            val replaced = innerContent
-                .replace(Regex("""\\w"""), """a-zA-Z0-9_""")
-                .replace(Regex("""\\s"""), """ \\t\\r\\n""")
-                .replace(Regex("""\\d"""), """0-9""")
-
-            // Rebuild the character class with its original negation if present.
-            if (isNegated) "[^$replaced]" else "[$replaced]"
-        }
-    }
-
-    /**
-     * Recursively computes the longest accepted string (using at most [remaining] transitions)
-     * from [state]. Returns null if no accepted string can be formed within the given limit.
-     *
-     * The tie-breaker when strings have the same length is the lexicographical order.
-     */
-    private fun longestFrom(state: State, remaining: Int, memo: MutableMap<Pair<State, Int>, String?>): String? {
-        val key = state to remaining
-        memo[key]?.let { return it }
-
-        var best: String? = if (state.isAccept) "" else null
-
-        if (remaining > 0) {
-            state.transitions.forEach { t ->
-                val sub = longestFrom(t.dest, remaining - 1, memo)
-                sub?.let {
-                    val candidate = t.max.toString() + it
-                    best = when {
-                        best == null -> candidate
-                        candidate.length > best!!.length -> candidate
-                        candidate.length == best!!.length && candidate > best!! -> candidate
-                        else -> best
-                    }
-                }
-            }
-        }
-
-        memo[key] = best
-        return best
-    }
+    fun match(sampleData: StringValue) = originalRegex?.let {
+        Regex(originalRegex.replaceRegexLowerBounds()).matches(sampleData.toStringLiteral())
+    } ?: true
 
     fun generateRandomString(minLength: Int, maxLength: Int? = null): Value {
-        return regex?.let {
-            StringValue(generateFromRegex(it, minLength, maxLength))
+        return regexGenerator?.let {
+            StringValue(regexGenerator.random(minLength, maxLength))
         } ?: StringValue(randomString(patternBaseLength(minLength, maxLength)))
     }
 
@@ -172,20 +93,78 @@ class RegExSpec(regex: String?) {
         }
     }
 
-    private fun generateFromRegex(regex: String, minLength: Int, maxLength: Int? = null): String {
-        return try {
-            if (maxLength == null) {
-                Generex(regex).random(minLength)
-            } else {
-                Generex(regex).random(minLength, maxLength)
+    private fun cleanRegex(regex: String): String {
+        return regex
+            .removePrefix("^")
+            .removeSuffix("$")
+            .removePrefix(WORD_BOUNDARY)
+            .removeSuffix(WORD_BOUNDARY)
+            .replaceRegexLowerBounds()
+            .replaceShorthandCharacterClasses()
+            .requote()
+    }
+
+    private fun String.replaceRegexLowerBounds(): String {
+        val pattern = Regex("""\{,(\d+)}""")
+        return this.replace(pattern) { matchResult -> "{0,${matchResult.groupValues[1]}}" }
+    }
+
+    private fun String.replaceShorthandCharacterClasses(): String {
+        val shorthandMap = mapOf(
+            "\\w" to "a-zA-Z_0-9",
+            "\\W" to "^a-zA-Z_0-9",
+            "\\d" to "0-9",
+            "\\D" to "^0-9",
+            "\\s" to " \t\n\u000c\r",
+            "\\S" to "^ \t\n\u000c\r"
+        )
+
+        val result = StringBuilder(length)
+        var insideCharClass = false
+        var pendingEscape = false
+
+        for (ch in this) {
+            when {
+                pendingEscape -> {
+                    val seq = "\\$ch"
+                    shorthandMap[seq]?.let { replacement ->
+                        if (insideCharClass) {
+                            result.append(replacement)
+                        } else {
+                            result.append("[").append(replacement).append("]")
+                        }
+                    } ?: result.append(seq)
+                    pendingEscape = false
+                }
+                ch == '\\' -> {
+                    pendingEscape = true
+                }
+                ch == '[' -> {
+                    insideCharClass = true
+                    result.append(ch)
+                }
+                ch == ']' -> {
+                    insideCharClass = false
+                    result.append(ch)
+                }
+                else -> result.append(ch)
             }
-        } catch (e: StackOverflowError) {
-            //TODO: This is a workaround for a bug in Generex. Remove this when the bug is fixed.
-            generateFromRegex(regex, minLength, maxLength)
+        }
+
+        if (pendingEscape) result.append('\\')
+        return result.toString()
+    }
+
+    private fun String.requote(): String {
+        val patternRequoted = Regex("""\\Q(.*?)\\E""")
+        val patternSpecial = Regex("[.^$*+?(){|\\[@\\\\]")
+        return patternRequoted.replace(this) { matchResult ->
+            val group = matchResult.groups[1]?.value.orEmpty()
+            patternSpecial.replace(group) { "\\${it.value}" }
         }
     }
 
     override fun toString(): String {
-        return regex ?: "regex not set"
+        return regexGenerator?.regex ?: "regex not set"
     }
 }
