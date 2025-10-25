@@ -1,5 +1,5 @@
 package io.specmatic.core.pattern.regex
 
-data class FoundAnswer(
+data class Answer(
     val answer: String,
 ) : ComputationResult

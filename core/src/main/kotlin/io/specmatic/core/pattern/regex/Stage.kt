@@ -8,28 +8,19 @@ class Stage(
     private var stringSoFar: StringBuilder = StringBuilder(),
     state: State,
 ) {
-    private val isAccept = state.isAccept
+    private val stringMatchesRegex = state.isAccept
     private val availableTransitions = state.getSortedTransitions(false).shuffled().toMutableList()
     private val originalTransitionCount = availableTransitions.size
 
-    val stringLength: Int
-        get() {
-            return stringSoFar.length
-        }
-
-    fun buildString(): String = stringSoFar.toString()
-
-    fun stringMatchesRegex(): Boolean = isAccept
-
-    fun withdrawUnusedTransitionFromPool(): Transition {
+    private fun removeUnusedTransitionFromPool(): Transition {
         val transition = availableTransitions.last()
         availableTransitions.removeLast()
         return transition
     }
 
-    fun hasNoTransitions(): Boolean = originalTransitionCount == 0
+    private fun hasNoTransitions(): Boolean = originalTransitionCount == 0
 
-    fun allTransitionsHaveFailed(): Boolean = availableTransitions.isEmpty()
+    private fun allTransitionsHaveFailed(): Boolean = availableTransitions.isEmpty()
 
     fun dropLastChar() {
         stringSoFar.deleteCharAt(stringSoFar.length - 1)
@@ -48,34 +39,25 @@ class Stage(
         return randomChar
     }
 
-    fun apply(nextTransition: Transition): Stage {
-        val randomChar = nextRandomChar(nextTransition)
-
-        return Stage(
-            stringSoFar.append(randomChar),
-            nextTransition.dest,
-        )
-    }
-
     fun computeNext(
         minLength: Int,
         maxLength: Int,
     ): ComputationResult {
-        if (this.stringLength > maxLength) {
+        if (stringSoFar.length > maxLength) {
             return ComputationPathIsLostCause
         }
 
-        val cannotGenerateAnotherCharacter = this.hasNoTransitions() || this.allTransitionsHaveFailed()
+        val cannotGenerateAnotherCharacter = hasNoTransitions() || allTransitionsHaveFailed()
 
-        if (this.stringMatchesRegex()) {
-            when (this.stringLength) {
+        if (stringMatchesRegex) {
+            when (stringSoFar.length) {
                 maxLength -> {
-                    return FoundAnswer(this.buildString())
+                    return Answer(stringSoFar.toString())
                 }
 
                 in minLength..maxLength -> {
                     if (cannotGenerateAnotherCharacter || coinTossSaysToTerminate()) {
-                        return FoundAnswer(this.buildString())
+                        return Answer(stringSoFar.toString())
                     }
                 }
 
@@ -86,17 +68,22 @@ class Stage(
                 }
             }
         } else {
-            if (this.stringLength == maxLength || this.allTransitionsHaveFailed()) {
+            if (stringSoFar.length == maxLength || this.allTransitionsHaveFailed()) {
                 return ComputationPathIsLostCause
             }
         }
 
-        val nextTransition = this.withdrawUnusedTransitionFromPool()
-        return NextStage(this.apply(nextTransition))
+        val nextTransition = this.removeUnusedTransitionFromPool()
+
+        val randomChar = nextRandomChar(nextTransition)
+
+        return NextStage(
+            Stage(
+                stringSoFar.append(randomChar),
+                nextTransition.dest,
+            ),
+        )
     }
 
-    private fun coinTossSaysToTerminate(): Boolean =
-        Random
-            .nextInt()
-            .toDouble() > 6.442450941E8
+    private fun coinTossSaysToTerminate(): Boolean = Random.nextInt().toDouble() > 6.442450941E8
 }

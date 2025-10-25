@@ -1,7 +1,7 @@
 package io.specmatic.core.pattern
 
 import io.specmatic.core.log.logger
-import io.specmatic.core.pattern.regex.OptimizedRegexGenerator
+import io.specmatic.core.pattern.regex.RegexBasedStringGenerator
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
@@ -11,7 +11,7 @@ class RegExSpec(
     regex: String?,
 ) {
     private val originalRegex = regex
-    private val regexGenerator = regex?.let(::cleanRegex)?.let(::OptimizedRegexGenerator)
+    private val regexGenerator = regex?.let(::cleanRegex)?.let(::RegexBasedStringGenerator)
 
     init {
         validateRegex()
