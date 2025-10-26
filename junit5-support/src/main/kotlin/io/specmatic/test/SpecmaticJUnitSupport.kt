@@ -319,7 +319,11 @@ open class SpecmaticJUnitSupport {
                             overlayContent = overlayContent
                         )
 
-                        val resolvedBaseURL = contractPathData.baseUrl ?: defaultBaseURL
+                        val resolvedBaseURL = resolveEffectiveBaseURL(
+                            settings.testBaseURL,
+                            contractPathData.baseUrl,
+                            defaultBaseURL
+                        )
                         Pair(tests.map { test -> Pair(test, resolvedBaseURL) }, endpoints)
                     }
 
@@ -699,4 +703,14 @@ fun <T> selectTestsToRun(
         filteredByName
 
     return filteredByNotName
+}
+
+internal fun resolveEffectiveBaseURL(
+    testBaseURL: String?,
+    contractBaseUrl: String?,
+    defaultBaseURL: String
+): String {
+    return sequenceOf(testBaseURL, contractBaseUrl, defaultBaseURL)
+        .firstOrNull { !it.isNullOrBlank() }
+        .orEmpty()
 }

@@ -143,6 +143,39 @@ class SpecmaticJunitSupportTest {
     }
 
     @Test
+    fun `cli testBaseURL should take precedence over config baseUrl`() {
+        val resolvedBaseURL = resolveEffectiveBaseURL(
+            testBaseURL = "http://cli.example.com",
+            contractBaseUrl = "http://config.example.com",
+            defaultBaseURL = "http://default.example.com"
+        )
+
+        assertThat(resolvedBaseURL).isEqualTo("http://cli.example.com")
+    }
+
+    @Test
+    fun `config baseUrl should be used when cli testBaseURL is absent`() {
+        val resolvedBaseURL = resolveEffectiveBaseURL(
+            testBaseURL = null,
+            contractBaseUrl = "http://config.example.com",
+            defaultBaseURL = "http://default.example.com"
+        )
+
+        assertThat(resolvedBaseURL).isEqualTo("http://config.example.com")
+    }
+
+    @Test
+    fun `default baseUrl should be used when both cli and config baseUrls are absent`() {
+        val resolvedBaseURL = resolveEffectiveBaseURL(
+            testBaseURL = null,
+            contractBaseUrl = null,
+            defaultBaseURL = "http://default.example.com"
+        )
+
+        assertThat(resolvedBaseURL).isEqualTo("http://default.example.com")
+    }
+
+    @Test
     fun `ContractExecutionListener should be registered`() {
         val registeredListeners = ServiceLoader.load(TestExecutionListener::class.java)
             .map { it.javaClass.name }
