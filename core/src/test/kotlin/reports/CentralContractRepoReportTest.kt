@@ -50,7 +50,7 @@ class CentralContractRepoReportTest {
     @Test
     fun `test generates report based on asyncapi 3_0_0 spec with operations section`() {
         val report = CentralContractRepoReport().generate("./specifications/asyncapi3spec")
-        assertThat(report).isEqualTo(
+        assertThat(osAgnosticPaths(report)).isEqualTo(
             CentralContractRepoReportJson(
                 listOf(
                     SpecificationRow(
@@ -79,7 +79,7 @@ class CentralContractRepoReportTest {
     @Test
     fun `test generates report based on asyncapi 2 6 0 spec with publish and subscribe operations`() {
         val report = CentralContractRepoReport().generate("./specifications/asyncapi2spec")
-        assertThat(report).isEqualTo(
+        assertThat(osAgnosticPaths(report)).isEqualTo(
             CentralContractRepoReportJson(
                 listOf(
                     SpecificationRow(
