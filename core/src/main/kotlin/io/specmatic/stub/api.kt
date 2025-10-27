@@ -204,7 +204,7 @@ internal fun createStubFromContracts(
     timeoutMillis: Long,
     specmaticConfig: SpecmaticConfig
 ): HttpStub {
-    val contractPathData = contractPaths.map { ContractPathData("", it) }
+    val contractPathData = contractPaths.map { ContractPathData("", it, specificationPath = it) }
     val contractInfo = loadContractStubsFromFiles(contractPathData, dataDirPaths, specmaticConfig)
     val features = contractInfo.map { it.first }
     val httpExpectations = contractInfoToHttpExpectations(contractInfo)
@@ -327,7 +327,7 @@ fun loadContractStubsFromImplicitPathsAsResults(
             specFile.isDirectory -> {
                 loadContractStubsFromImplicitPathsAsResults(
                     contractPathDataList = specFile.listFiles()?.toList()?.map {
-                        ContractPathData("",  it.absolutePath)
+                        ContractPathData("", it.absolutePath, specificationPath = it.path)
                     } ?: emptyList(),
                     specmaticConfig = specmaticConfig,
                     externalDataDirPaths = externalDataDirPaths,

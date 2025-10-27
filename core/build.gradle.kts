@@ -56,6 +56,10 @@ dependencies {
     implementation("org.junit.platform:junit-platform-launcher:1.13.4")
 }
 
+tasks.test {
+    systemProperty("SKIP_REPORT_MERGE", "true")
+}
+
 configurations.implementation.configure {
     exclude(group = "commons-logging", module = "commons-logging")
 }

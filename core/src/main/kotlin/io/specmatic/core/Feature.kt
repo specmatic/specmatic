@@ -125,7 +125,7 @@ data class Feature(
     val sourceProvider:String? = null,
     val sourceRepository:String? = null,
     val sourceRepositoryBranch:String? = null,
-    val specification:String? = null,
+    val specification:String? = path.takeUnless(String::isEmpty),
     val serviceType:String? = null,
     val specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
     val flagsBased: FlagsBased = strategiesFromFlags(specmaticConfig),

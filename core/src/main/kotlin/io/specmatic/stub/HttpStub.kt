@@ -32,11 +32,12 @@ import io.specmatic.mock.ScenarioStub
 import io.specmatic.mock.TRANSIENT_MOCK
 import io.specmatic.mock.mockFromJSON
 import io.specmatic.mock.validateMock
+import io.specmatic.reports.OpenApiStubUsageStrategy
+import io.specmatic.reports.ReportGenerator
+import io.specmatic.reports.StubUsageReport
 import io.specmatic.stub.listener.MockEvent
 import io.specmatic.stub.listener.MockEventListener
 import io.specmatic.stub.report.StubEndpoint
-import io.specmatic.stub.report.StubUsageReport
-import io.specmatic.stub.report.StubUsageReportJson
 import io.specmatic.test.LegacyHttpClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BroadcastChannel
@@ -46,9 +47,6 @@ import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.broadcast
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.SerializationException
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.Writer
@@ -80,6 +78,8 @@ class HttpStub(
     },
     private val listeners: List<MockEventListener> = emptyList(),
     private val reportBaseDirectoryPath: String = ".",
+    private val reportFilePath: String = JSON_REPORT_PATH,
+    private val stubUsageReportGenerator: ReportGenerator<StubEndpoint, StubUsageReport> = ReportGenerator.createStubUsageReportGenerator(strategy = OpenApiStubUsageStrategy()),
 ) : ContractStub {
     constructor(
         feature: Feature,
@@ -690,51 +690,45 @@ class HttpStub(
     }
 
     private fun extractALlEndpoints(): List<StubEndpoint> {
-        return features.map {
+        return features.flatMap {
             it.scenarios.map { scenario ->
-                if (scenario.isA2xxScenario()) {
-                    StubEndpoint(
-                        scenario.path,
-                        scenario.method,
-                        scenario.status,
-                        scenario.sourceProvider,
-                        scenario.sourceRepository,
-                        scenario.sourceRepositoryBranch,
-                        scenario.specification,
-                        scenario.serviceType
-                    )
-                } else {
-                    null
-                }
+                StubEndpoint(
+                    scenario.name,
+                    scenario.path,
+                    scenario.method,
+                    scenario.status,
+                    scenario.sourceProvider,
+                    scenario.sourceRepository,
+                    scenario.sourceRepositoryBranch,
+                    scenario.specification,
+                    scenario.serviceType
+                )
             }
-        }.flatten().filterNotNull()
+        }
     }
 
     private fun printUsageReport() {
-        specmaticConfigPath?.let {
-            val stubUsageReport = StubUsageReport(specmaticConfigPath, _allEndpoints, _logs)
-            println("Saving Stub Usage Report json to $JSON_REPORT_PATH ...")
-            val json = Json {
-                encodeDefaults = false
-            }
-            val generatedReport = stubUsageReport.generate()
-            val reportPath = File(reportBaseDirectoryPath).resolve(JSON_REPORT_PATH).canonicalFile
-            val reportJson: String = reportPath.resolve(JSON_REPORT_FILE_NAME).let { reportFile ->
-                if (reportFile.exists()) {
-                    try {
-                        val existingReport = Json.decodeFromString<StubUsageReportJson>(reportFile.readText())
-                        json.encodeToString(generatedReport.merge(existingReport))
-                    } catch (exception: SerializationException) {
-                        logger.log("The existing report file is not a valid Stub Usage Report. ${exception.message}")
-                        json.encodeToString(generatedReport)
-                    }
-                } else {
-                    json.encodeToString(generatedReport)
-                }
-            }
+        val skipReportMerge = Flags.getBooleanValue("SKIP_REPORT_MERGE", default = false)
+        val reportsDirectory = File(reportBaseDirectoryPath).resolve(reportFilePath).canonicalFile
+        val reportFile = reportsDirectory.resolve(JSON_REPORT_FILE_NAME)
+        val stubUsageReport = stubUsageReportGenerator.generate(
+            configPath = specmaticConfigPath,
+            allInputs = allEndpoints,
+            processedInputs = logs,
+        )
 
-            saveJsonFile(reportJson, reportPath.canonicalPath, JSON_REPORT_FILE_NAME)
+        if (reportFile.exists() && !skipReportMerge) {
+            println("Merging Stub Usage Report with existing Stub Usage Report: ${reportFile.canonicalPath} ...")
+            val existingReport = StubUsageReport.readFromJson(reportFile)
+            val mergedReportJson = stubUsageReport.merge(existingReport).toJson()
+            println("Saving Stub Usage Report json to ${reportFile.path} ...")
+            saveJsonFile(mergedReportJson, reportsDirectory.canonicalPath, JSON_REPORT_FILE_NAME)
+            return
         }
+
+        val reportJson = stubUsageReport.toJson()
+        println("Saving Stub Usage Report json to ${reportFile.path} ...")
+        saveJsonFile(reportJson, reportsDirectory.canonicalPath, JSON_REPORT_FILE_NAME)
     }
 
     private fun getValidatedBaseUrlsOrExit(specToBaseUrlMap: Map<String, String>): Map<String, String> {
@@ -946,10 +940,14 @@ fun getHttpResponse(
                 )
             )
         }
-        if (strictMode) return NotStubbed(HttpStubResponse(
-            response = strictModeHttp400Response(httpRequest, matchResults),
-            scenario = features.firstNotNullOfOrNull { it.identifierMatchingScenario(httpRequest) }
-        ))
+        if (strictMode) {
+            val featureToScenario = features.firstNotNullOfOrNull { feature -> feature.identifierMatchingScenario(httpRequest)?.let { feature to it } }
+            return NotStubbed(HttpStubResponse(
+                response = strictModeHttp400Response(httpRequest, matchResults),
+                feature = featureToScenario?.first,
+                scenario = featureToScenario?.second
+            ))
+        }
 
         return fakeHttpResponse(features, httpRequest, specmaticConfig)
     } finally {
@@ -1078,8 +1076,8 @@ fun fakeHttpResponse(
                 )
             } else {
                 val httpFailureResponse = combinedFailureResult.generateErrorHttpResponse(httpRequest)
-                val nearestScenario = features.firstNotNullOfOrNull { it.identifierMatchingScenario(httpRequest) }
-                NotStubbed(HttpStubResponse(httpFailureResponse, scenario = nearestScenario))
+                val featureToScenario = features.firstNotNullOfOrNull { feature -> feature.identifierMatchingScenario(httpRequest)?.let { feature to it } }
+                NotStubbed(HttpStubResponse(httpFailureResponse, feature = featureToScenario?.first, scenario = featureToScenario?.second))
             }
         }
 

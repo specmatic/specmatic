@@ -723,7 +723,17 @@ data class Environment(
     val variables: Map<String, String>? = null
 )
 
-enum class SourceProvider { git, filesystem, web }
+enum class SourceProvider {
+    git,
+    filesystem,
+    web,;
+
+    companion object {
+        fun fromString(value: String): SourceProvider = entries.firstOrNull {
+            it.name.equals(value, ignoreCase = true)
+        } ?: throw IllegalArgumentException("Invalid SourceProvider value '$value'")
+    }
+}
 
 data class Source(
     @field:JsonAlias("type")

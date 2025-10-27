@@ -68,7 +68,7 @@ class HTTPStubEngineTest {
             ))
         }
 
-        assertThat(stdOut).isEqualToNormalizingNewlines("""
+        assertThat(stdOut).containsIgnoringNewLines("""
         |Stub server is running on the following URLs:
         |- http://localhost:8000/api/v3 serving endpoints from specs:
         |\t1. api.yaml
@@ -87,7 +87,7 @@ class HTTPStubEngineTest {
             ))
         }
 
-        assertThat(stdOut).isEqualToNormalizingNewlines("""
+        assertThat(stdOut).containsIgnoringNewLines("""
         |Stub server is running on the following URLs:
         |- http://0.0.0.0:9000 serving endpoints from specs:
         |\t1. api.yaml

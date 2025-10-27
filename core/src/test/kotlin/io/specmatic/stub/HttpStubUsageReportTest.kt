@@ -2,14 +2,16 @@ package io.specmatic.stub
 
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.HttpRequest
+import io.specmatic.core.SourceProvider
+import io.specmatic.reports.OpenApiOperationGroup
+import io.specmatic.reports.ReportItem
+import io.specmatic.reports.ReportMetadata
+import io.specmatic.reports.ServiceType
+import io.specmatic.reports.StubUsageReport
 import io.specmatic.stub.report.StubEndpoint
-import io.specmatic.stub.report.StubUsageReportJson
-import io.specmatic.stub.report.StubUsageReportOperation
-import io.specmatic.stub.report.StubUsageReportRow
 import kotlinx.serialization.json.Json
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.springframework.web.client.RestTemplate
 import java.io.File
@@ -18,13 +20,6 @@ import kotlin.concurrent.thread
 class HttpStubUsageReportTest {
     companion object {
         private val stubUsageReportFile = File("./build/reports/specmatic/stub_usage_report.json")
-
-        @BeforeAll
-        @AfterAll
-        @JvmStatic
-        fun cleanUpAnyExistingReports() {
-            stubUsageReportFile.delete()
-        }
 
         private val helloAndDataSpec = """
 openapi: 3.0.0
@@ -90,6 +85,11 @@ paths:
 
     }
 
+    @AfterEach
+    fun cleanUpAnyExistingReports() {
+        stubUsageReportFile.delete()
+    }
+
     @Test
     fun `should determine all the api endpoints across all the specs`() {
         val stubContract1 = OpenApiSpecification.fromYAML(helloAndDataSpec, "").toFeature()
@@ -97,10 +97,10 @@ paths:
 
         HttpStub(listOf(stubContract1, stubContract2)).use { stub ->
             assertThat(stub.allEndpoints).isEqualTo(listOf(
-                StubEndpoint("/data", "GET", 200, serviceType = "HTTP"),
-                StubEndpoint("/hello", "GET", 200, serviceType = "HTTP"),
-                StubEndpoint("/data2", "GET", 200, serviceType = "HTTP"),
-                StubEndpoint("/hello2", "GET", 200, serviceType = "HTTP")
+                StubEndpoint("hello world. Response: Says hello", "/data", "GET", 200, serviceType = "HTTP"),
+                StubEndpoint("hello world. Response: Says hello", "/hello", "GET", 200, serviceType = "HTTP"),
+                StubEndpoint("hello world. Response: Says hello", "/data2", "GET", 200, serviceType = "HTTP"),
+                StubEndpoint("hello world. Response: Says hello", "/hello2", "GET", 200, serviceType = "HTTP"),
             ))
         }
     }
@@ -122,35 +122,39 @@ paths:
             stub.client.execute(HttpRequest("GET", "/data2"))
         }
 
-        val stubUsageReport: StubUsageReportJson = Json.decodeFromString(stubUsageReportFile.readText())
-
+        val stubUsageReport: StubUsageReport = Json.decodeFromString(stubUsageReportFile.readText())
         assertThat(stubUsageReport).isEqualTo(
-            StubUsageReportJson(
-            StubUsageReportTest.CONFIG_FILE_PATH, listOf(
-                StubUsageReportRow(
-                    "git",
-                    "https://github.com/specmatic/specmatic-order-contracts.git",
-                    "main",
-                    "in/specmatic/examples/store/helloAndDataSpec.yaml",
-                    "HTTP",
-                    listOf(
-                        StubUsageReportOperation("/data", "GET",200, 1),
-                        StubUsageReportOperation( "/hello", "GET",200, 1)
-                    )
+            StubUsageReport(
+                specmaticConfigPath = StubUsageReportTest.CONFIG_FILE_PATH,
+                stubUsage = listOf(
+                    ReportItem(
+                        metadata = ReportMetadata(
+                            SourceProvider.git,
+                            "https://github.com/specmatic/specmatic-order-contracts.git",
+                            "main",
+                            "in/specmatic/examples/store/helloAndDataSpec.yaml",
+                            ServiceType.HTTP,
+                        ),
+                        operations = listOf(
+                            OpenApiOperationGroup("/data", "GET",200, 1),
+                            OpenApiOperationGroup("/hello", "GET",200, 1),
+                        ),
+                    ),
+                    ReportItem(
+                        metadata = ReportMetadata(
+                            SourceProvider.git,
+                            "https://github.com/specmatic/specmatic-order-contracts.git",
+                            "main",
+                            "in/specmatic/examples/store/hello2AndData2Spec.yaml",
+                            ServiceType.HTTP,
+                        ),
+                        operations = listOf(
+                            OpenApiOperationGroup("/data2", "GET",200, 2),
+                            OpenApiOperationGroup("/hello2", "GET",200, 2),
+                        ),
+                    ),
                 ),
-                StubUsageReportRow(
-                    "git",
-                    "https://github.com/specmatic/specmatic-order-contracts.git",
-                    "main",
-                    "in/specmatic/examples/store/hello2AndData2Spec.yaml",
-                    "HTTP",
-                    listOf(
-                        StubUsageReportOperation( "/data2", "GET",200, 2),
-                        StubUsageReportOperation( "/hello2", "GET",200, 2)
-                    )
-                )
-            )
-        )
+            ),
         )
     }
 
@@ -163,8 +167,8 @@ paths:
             stub.client.execute(HttpRequest("GET", "/hello"))
 
             assertThat(stub.logs).isEqualTo(listOf(
-                StubEndpoint("/data", "GET", 200, serviceType = "HTTP"),
-                StubEndpoint("/hello", "GET", 200, serviceType = "HTTP")
+                StubEndpoint("hello world. Response: Says hello", "/data", "GET", 200, serviceType = "HTTP"),
+                StubEndpoint("hello world. Response: Says hello", "/hello", "GET", 200, serviceType = "HTTP")
             ))
         }
     }
@@ -195,8 +199,9 @@ paths:
             stub.client.execute(HttpRequest("GET", "/unknown"))
 
             assertThat(stub.logs).isEqualTo(listOf(
-                StubEndpoint("/data", "GET", 200, serviceType = "HTTP"),
-                StubEndpoint("/hello", "GET", 200, serviceType = "HTTP")
+                StubEndpoint("hello world. Response: Says hello", "/data", "GET", 200, serviceType = "HTTP"),
+                StubEndpoint("hello world. Response: Says hello", "/hello", "GET", 200, serviceType = "HTTP"),
+                StubEndpoint(null, "/unknown", "GET", 400, serviceType = "HTTP")
             ))
         }
     }
@@ -211,7 +216,8 @@ paths:
             stub.client.execute(HttpRequest("GET", "/unknown"))
 
             assertThat(stub.logs).isEqualTo(listOf(
-                StubEndpoint("/data", "GET", 200, serviceType = "HTTP"),
+                StubEndpoint("hello world. Response: Says hello", "/data", "GET", 200, serviceType = "HTTP"),
+                StubEndpoint(null, "/unknown", "GET", 400, serviceType = "HTTP")
             ))
         }
     }
@@ -239,7 +245,8 @@ paths:
             stub.client.execute(HttpRequest("GET", "/hello"))
 
             assertThat(stub.logs).isEqualTo(listOf(
-                StubEndpoint("/data", "GET", 200, serviceType = "HTTP"),
+                StubEndpoint("hello world. Response: Says hello", "/data", "GET", 200, serviceType = "HTTP"),
+                StubEndpoint("hello world. Response: Says hello", "/hello", "GET", 400, serviceType = "HTTP"),
             ))
         }
     }
@@ -259,7 +266,7 @@ paths:
             threads.forEach { it.join() }
 
             assertThat(stub.logs.count()).isEqualTo(10)
-            assertThat(stub.logs.all { it == StubEndpoint("/hello", "GET", 200, serviceType = "HTTP") }).isTrue
+            assertThat(stub.logs.all { it == StubEndpoint("hello world. Response: Says hello", "/hello", "GET", 200, serviceType = "HTTP") }).isTrue
         }
     }
 }

@@ -91,7 +91,7 @@ internal class StubCommandTest {
             val stubInfo = listOf(Pair(feature, emptyList<ScenarioStub>()))
             every {
                 stubLoaderEngine.loadStubs(
-                    listOf(contractPath).map { ContractPathData("", it) },
+                    listOf(contractPath).map { ContractPathData("", it, specificationPath = it) },
                     emptyList(),
                     any(),
                     false
@@ -200,7 +200,7 @@ internal class StubCommandTest {
             val stubInfo = listOf(Pair(feature, emptyList<ScenarioStub>()))
             every {
                 stubLoaderEngine.loadStubs(
-                    listOf(contractPath).map { ContractPathData("", it) },
+                    listOf(contractPath).map { ContractPathData("", it, specificationPath = it) },
                     emptyList(),
                     any(),
                     false

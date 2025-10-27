@@ -170,7 +170,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
                     specmaticConfig.contractStubPathData(matchBranchEnabled)
                 }
                 else -> contractPaths.map {
-                    ContractPathData("", it)
+                    ContractPathData("", it, specificationPath = it)
                 }
             }
             contractPaths = contractSources.map { it.path }
