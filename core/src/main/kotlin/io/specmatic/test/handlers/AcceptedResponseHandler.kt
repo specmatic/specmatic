@@ -2,11 +2,14 @@ package io.specmatic.test.handlers
 
 import io.ktor.http.*
 import io.specmatic.core.*
+import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.HasException
 import io.specmatic.core.pattern.HasFailure
 import io.specmatic.core.pattern.HasValue
+import io.specmatic.core.pattern.ReturnFailure
 import io.specmatic.core.pattern.ReturnValue
+import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NullValue
@@ -55,6 +58,9 @@ class AcceptedResponseHandler(
             onResponse = { response ->
                 val responseResult = monitorScenario.matches(response)
                 if (responseResult is Result.Failure) {
+                    logger.debug("Monitor response didn't match scenario")
+                    logger.boundary()
+                    logger.debug(responseResult.reportString())
                     return@ResponseMonitor RetryResult.Continue(response)
                 }
 
@@ -97,6 +103,12 @@ class AcceptedResponseHandler(
         }
 
         val result = scenariosToConsider.findMatching(requestFromMonitor, responseFromMonitor)
+        if (result is ReturnFailure) {
+            logger.debug("Parsed request/response pairs didn't match any valid scenarios")
+            logger.boundary()
+            logger.debug(result.toFailure().reportString())
+        }
+
         return result.realise(
             hasValue = { _, _ -> MonitorResult.Success(responseFromMonitor) },
             orException = { e -> MonitorResult.Failure(e.toHasFailure().toFailure(), responseFromMonitor) },
@@ -141,6 +153,9 @@ class AcceptedResponseHandler(
         return runCatching {
             HasValue(this.convertToOriginalRequest() to this.convertToOriginalResponse())
         }.getOrElse {
+            logger.debug("Failed to parse monitor response into request/response pairs")
+            logger.boundary()
+            logger.debug(exceptionCauseMessage(it))
             return HasException(it)
         }
     }

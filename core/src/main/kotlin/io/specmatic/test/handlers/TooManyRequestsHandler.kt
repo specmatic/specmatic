@@ -6,6 +6,7 @@ import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
 import io.specmatic.core.Scenario
+import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.HasFailure
 import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.ReturnFailure
@@ -47,10 +48,16 @@ class TooManyRequestsHandler(
             retryHandler = retryHandler,
             onResponse = { response ->
                 val matchResult = matchingScenarios.findMatching(response)
+                if (matchResult is ReturnFailure) {
+                    logger.debug("Response didn't match any valid scenarios")
+                    logger.boundary()
+                    logger.debug(matchResult.toFailure().reportString())
+                }
+
                 matchResult.realise(
                     hasValue = { _, _ -> RetryResult.Stop(MonitorResult.Success(response)) },
                     orException = { e -> retryResultOnMatchFailure(e, response) },
-                    orFailure = { f->  retryResultOnMatchFailure(f, response) },
+                    orFailure = { f -> retryResultOnMatchFailure(f, response) },
                 )
             },
         )
