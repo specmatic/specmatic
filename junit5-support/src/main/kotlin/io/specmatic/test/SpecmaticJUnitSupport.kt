@@ -551,6 +551,13 @@ open class SpecmaticJUnitSupport {
                 .loadExternalisedExamples()
                 .also { it.validateExamplesOrException() }
 
+        try {
+            feature.validateExamplesOrException()
+        } catch (t: Throwable) {
+            logger.log(exceptionCauseMessage(t))
+            throw t
+        }
+
         val suggestions = when {
             suggestionsPath.isNotEmpty() -> suggestionsFromFile(suggestionsPath)
             suggestionsData.isNotEmpty() -> suggestionsFromCommandLine(suggestionsData)

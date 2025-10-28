@@ -5,6 +5,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
 import io.specmatic.core.log.logger
+import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.stub.isOpenAPI
 import picocli.CommandLine.Command
 import java.io.File
@@ -137,6 +138,7 @@ class BackwardCompatibilityCheckCommandV2: BackwardCompatibilityCheckBaseCommand
             feature.validateExamplesOrException()
             true
         } catch (t: Throwable) {
+            logger.log(exceptionCauseMessage(t))
             println()
             false
         }

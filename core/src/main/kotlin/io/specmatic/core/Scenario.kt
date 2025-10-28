@@ -538,22 +538,17 @@ data class Scenario(
                 validateResponseExample(row, resolverForExample)
             }
 
-            val errors = listOfNotNull(requestError, responseError).map { it.prependIndent("  ") }
+            val errors = listOfNotNull(requestError, responseError).map {
+                it.prependIndent("  ")
+            }
+            if(errors.isEmpty()) return@mapNotNull null
 
-            if (errors.isNotEmpty()) {
-                val title = if (row.fileSource != null) {
-                    "Error loading example for ${this.defaultAPIDescription.trim()} from ${row.fileSource}"
-                } else {
-                    "Error loading example named ${row.name} for ${this.defaultAPIDescription.trim()}"
-                }
+            val title = when {
+                row.fileSource != null -> "Error loading example for ${this.defaultAPIDescription.trim()} from ${row.fileSource}"
+                else -> "Error loading example named ${row.name} for ${this.defaultAPIDescription.trim()}"
+            }
 
-                listOf(title).plus(errors).joinToString("${System.lineSeparator()}${System.lineSeparator()}").also { message ->
-                    logger.logError(Exception(message))
-
-                        logger.newLine()
-                    }
-            } else
-                null
+            listOf(title).plus(errors).joinToString("${System.lineSeparator()}${System.lineSeparator()}")
         }
 
         if(errors.isNotEmpty())
