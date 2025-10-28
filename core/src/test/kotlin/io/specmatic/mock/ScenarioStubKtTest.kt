@@ -17,6 +17,7 @@ import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
+import org.junit.jupiter.params.provider.ValueSource
 import java.util.function.Consumer
 import java.util.stream.Stream
 
@@ -968,6 +969,64 @@ paths:
     fun `should provide appropriate error message when example is invalid with missing or invalid keys`(mockString: String, expectedMessage: String) {
         val exception = assertThrows<ContractException> { ScenarioStub.parse(mockString) }
         assertThat(exception.report()).isEqualToNormalizingWhitespace(expectedMessage)
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun `should be able to parse mocks with transient boolean property`(isTransient: Boolean) {
+        val stubText = """
+        {
+          "$IS_TRANSIENT_MOCK": $isTransient,
+          "http-request": {
+            "method": "POST",
+            "path": "/square"
+          },
+          "http-response": {
+            "status": 200
+          }
+        }
+        """.trim()
+
+        val scenarioStub = mockFromJSON(jsonStringToValueMap(stubText))
+        assertThat(scenarioStub.stubToken != null).isEqualTo(isTransient)
+    }
+
+    @Test
+    fun `should prefer explicit http-stub-id over transient boolean random value`() {
+        val stubText = """
+        {
+          "$IS_TRANSIENT_MOCK": true,
+          "http-stub-id": "10",
+          "http-request": {
+            "method": "POST",
+            "path": "/square"
+          },
+          "http-response": {
+            "status": 200
+          }
+        }
+        """.trim()
+
+        val scenarioStub = mockFromJSON(jsonStringToValueMap(stubText))
+        assertThat(scenarioStub.stubToken).isEqualTo("10")
+    }
+
+    @Test
+    fun `should not be considered transient if transient property and http-stub-id is not defined`() {
+        val stubText = """
+        {
+          "http-request": {
+            "method": "POST",
+            "path": "/square"
+          },
+          "http-response": {
+            "status": 200
+          }
+        }
+        """.trim()
+
+        val scenarioStub = mockFromJSON(jsonStringToValueMap(stubText))
+        assertThat(scenarioStub.stubToken).isNull()
     }
 
     companion object {

@@ -10,6 +10,7 @@ import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.*
 import io.specmatic.stub.stringToMockScenario
 import java.io.File
+import java.util.UUID
 
 fun loadDictionary(fileName: String): Map<String,Value> {
     return try {
@@ -360,6 +361,7 @@ const val DELAY_IN_MILLISECONDS = "delay-in-milliseconds"
 const val TRANSIENT_MOCK = "http-stub"
 const val TRANSIENT_MOCK_ID = "$TRANSIENT_MOCK-id"
 const val REQUEST_BODY_REGEX = "bodyRegex"
+const val IS_TRANSIENT_MOCK = "transient"
 
 val MOCK_HTTP_REQUEST_ALL_KEYS = listOf("mock-http-request", MOCK_HTTP_REQUEST)
 val MOCK_HTTP_RESPONSE_ALL_KEYS = listOf("mock-http-response", MOCK_HTTP_RESPONSE)
@@ -381,9 +383,8 @@ fun validateMock(mockSpec: Map<String, Any?>) {
 fun mockFromJSON(mockSpec: Map<String, Value>): ScenarioStub {
     val data = JSONObjectValue(mockSpec.filterKeys { it !in (MOCK_HTTP_REQUEST_ALL_KEYS + MOCK_HTTP_RESPONSE_ALL_KEYS).plus(PARTIAL) })
 
-    if(PARTIAL in mockSpec) {
+    if (PARTIAL in mockSpec) {
         val template = mockSpec.getValue(PARTIAL) as? JSONObjectValue ?: throw ContractException("template key must be an object")
-
         return ScenarioStub(data = data, partial = mockFromJSON(template.jsonObject))
     }
 
@@ -394,16 +395,18 @@ fun mockFromJSON(mockSpec: Map<String, Value>): ScenarioStub {
     val delayInMilliseconds: Long? = getLongOrNull(DELAY_IN_MILLISECONDS, mockSpec)
     val delayInMs: Long? = delayInMilliseconds ?: delayInSeconds?.toLong()?.times(1000)
 
-    val stubToken: String? = getStringOrNull(TRANSIENT_MOCK_ID, mockSpec)
-    val requestBodyRegex: String? = getRequestBodyRegexOrNull(mockSpec)
+    val explicitStubToken = getStringOrNull(TRANSIENT_MOCK_ID, mockSpec)
+    val isTransientMock = getBooleanOrNull(IS_TRANSIENT_MOCK, mockSpec) ?: false
+    val stubToken: String? = explicitStubToken ?: if (isTransientMock) UUID.randomUUID().toString() else null
 
+    val requestBodyRegex: String? = getRequestBodyRegexOrNull(mockSpec)
     return ScenarioStub(
         request = mockRequest,
         response = mockResponse,
         delayInMilliseconds = delayInMs,
         stubToken = stubToken,
         requestBodyRegex = requestBodyRegex,
-        data = data
+        data = data,
     )
 }
 
@@ -450,3 +453,10 @@ fun getStringOrNull(key: String, mapData: Map<String, Value>): String? {
     }
 }
 
+fun getBooleanOrNull(key: String, mapData: Map<String, Value>): Boolean? {
+    val data = mapData[key]
+    return data?.let {
+        if (data !is BooleanValue) throw ContractException("$key should be a boolean")
+        return data.booleanValue
+    }
+}
