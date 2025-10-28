@@ -5,12 +5,12 @@ import io.specmatic.core.*
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.logger
-import io.specmatic.core.pattern.HasException
-import io.specmatic.core.pattern.HasFailure
-import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.Value
 import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
+import io.specmatic.test.handlers.ResponseHandler
+import io.specmatic.test.handlers.ResponseHandlerRegistry
+import io.specmatic.test.handlers.ResponseHandlingResult
 import java.time.Duration
 import java.time.Instant
 
@@ -27,6 +27,7 @@ data class ScenarioAsTest(
     private val validators: List<ResponseValidator> = emptyList(),
     private val originalScenario: Scenario,
     private val workflow: Workflow = Workflow(),
+    private val responseHandlerRegistry: ResponseHandlerRegistry = ResponseHandlerRegistry(feature, originalScenario)
 ) : ContractTest {
 
     companion object {
@@ -113,41 +114,29 @@ data class ScenarioAsTest(
 
             //TODO: Review - Do we need workflow anymore
             workflow.extractDataFrom(response, originalScenario)
-
-            val validatorResult =
-                validators.asSequence().map { it.validate(scenario, response) }.filterNotNull().firstOrNull()
+            val validatorResult = validators.asSequence().map { it.validate(scenario, response) }.filterNotNull().firstOrNull()
             if (validatorResult is Result.Failure) {
                 return Pair(validatorResult.withBindings(testScenario.bindings, response), response)
             }
 
             val testResult = validatorResult ?: testResult(request, response, testScenario, flagsBased)
-            if (testResult is Result.Failure && !(response.isAcceptedHenceValid() && ResponseMonitor.isMonitorLinkPresent(
-                    response
-                ))
-            ) {
+            val responseHandler = response.getResponseHandlerIfExists()
+            if (testResult is Result.Failure && responseHandler == null) {
                 return Pair(testResult.withBindings(testScenario.bindings, response), response)
             }
 
-            val responseToCheckAndStore = when (testResult) {
-                is Result.Failure -> {
+            val responseToCheckAndStore = when (responseHandler) {
+                null -> response
+                else -> {
                     val client = if (testExecutor is LegacyHttpClient) testExecutor.copy() else testExecutor
-                    val awaitedResponse = ResponseMonitor(feature, originalScenario, response).waitForResponse(client)
-                    when (awaitedResponse) {
-                        is HasValue -> awaitedResponse.value
-                        is HasFailure -> return Pair(
-                            awaitedResponse.failure.withBindings(
-                                testScenario.bindings,
-                                response
-                            ), response
-                        )
-
-                        is HasException -> return Pair(
-                            awaitedResponse.toFailure().withBindings(testScenario.bindings, response), response
-                        )
+                    when (val handlerResult = responseHandler.handle(request, response, scenario, client)) {
+                        is ResponseHandlingResult.Continue -> handlerResult.response
+                        is ResponseHandlingResult.Stop -> {
+                            val bindingResponse = handlerResult.response ?: response
+                            return Pair(handlerResult.result.withBindings(testScenario.bindings, bindingResponse), bindingResponse)
+                        }
                     }
                 }
-
-                else -> response
             }
 
             val result = validators.asSequence().mapNotNull {
@@ -186,9 +175,9 @@ data class ScenarioAsTest(
         return result
     }
 
-    private fun HttpResponse.isAcceptedHenceValid(): Boolean {
-        if (scenario.status == 202 && this.status == 202) return false
-        return feature.isAcceptedResponsePossible(scenario)
+    private fun HttpResponse.getResponseHandlerIfExists(): ResponseHandler? {
+        if (scenario.isNegative) return null
+        return responseHandlerRegistry.getHandlerFor(this, scenario)
     }
 }
 

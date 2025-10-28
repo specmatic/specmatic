@@ -26,7 +26,7 @@ class RetryHandler<Output, DelayContext>(private val delayStrategy: DelayStrateg
                     if (attempt == maxAttempts - 1) return onExhausted(maxAttempts)
                     val context = DelayStrategyContext(value = result.value, attempt = attempt)
                     val nextDelay = delayStrategy.calculateDelay(context)
-                    logger.log("Retrying after ${nextDelay}ms (attempt ${attempt + 1}/$maxAttempts)")
+                    logger.log("Sleeping for ${nextDelay}ms (attempt ${attempt + 2}/$maxAttempts)")
                     sleeper.sleep(nextDelay)
                 }
             }

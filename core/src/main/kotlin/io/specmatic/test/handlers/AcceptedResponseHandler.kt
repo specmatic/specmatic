@@ -80,7 +80,7 @@ class AcceptedResponseHandler(
             return HasFailure(processingScenarioResult, message = "Response doesn't match processing scenario")
         }
 
-        val monitorLink = response.extractMonitorLinkFromHeader(HEADER_KEY)
+        val monitorLink = runCatching { response.extractMonitorLinkFromHeader(HEADER_KEY) }.getOrElse { e -> return HasException(e) }
         val monitorScenario = monitorLink?.let(::monitorScenario) ?: return HasFailure("No monitor scenario found matching link: $monitorLink")
         return HasValue(Pair(monitorScenario, monitorLink))
     }
@@ -112,16 +112,13 @@ class AcceptedResponseHandler(
     }
 
     private fun extractLinksFromHeader(headerValue: String): List<Link> =
-        headerValue
-            .split(",")
-            .map { it.trim() }
-            .map { link ->
-                val parts = link.split(";").map { it.trim() }
-                val url = parts[0].removePrefix("<").removeSuffix(">")
-                val rel = parts[1].removePrefix("rel=").removeSurrounding("\"")
-                val title = parts.getOrNull(2)?.removePrefix("title=")?.removeSurrounding("\"")
-                Link(url, rel, title)
-            }
+        headerValue.split(",").map(String::trim).map { link ->
+            val parts = link.split(";").map(String::trim)
+            val url = parts.getOrNull(0)?.removePrefix("<")?.removeSuffix(">") ?: throw IllegalArgumentException("Invalid $HEADER_KEY Header $headerValue")
+            val rel = parts.getOrNull(1)?.removePrefix("rel=")?.removeSurrounding("\"")
+            val title = parts.getOrNull(2)?.removePrefix("title=")?.removeSurrounding("\"")
+            Link(url, rel, title)
+        }
 
     private fun getProcessingScenario(): Scenario? {
         return feature.scenarioAssociatedTo(

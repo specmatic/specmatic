@@ -1,5 +1,7 @@
 package io.specmatic.core
 
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
 import io.specmatic.DefaultStrategies
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.*
@@ -654,8 +656,10 @@ paths:
         In scenario ""
         API: POST / -> 201
         >> MONITOR.RESPONSE.BODY.name
+        Invalid request or response payload in the monitor response
         Expected string, actual was 20 (number)
         >> MONITOR.RESPONSE.BODY.age
+        Invalid request or response payload in the monitor response
         Expected number, actual was "John"
         """.trimIndent())
     }
@@ -726,6 +730,75 @@ paths:
         >> RESPONSE.STATUS
         Expected status 201, actual was status 202
         """.trimIndent())
+    }
+
+    @Test
+    fun `should retry tooManyRequests response for a given scenario`() {
+        val postScenario = Scenario(ScenarioInfo(
+            httpRequestPattern = HttpRequestPattern(
+                httpPathPattern = buildHttpPathPattern("/(id:string)"), method = "POST",
+                body = JSONObjectPattern(mapOf("age" to NumberPattern()))
+            ),
+            httpResponsePattern = HttpResponsePattern(status = 201),
+        ))
+        val tooManyRequestsScenario = Scenario(ScenarioInfo(
+            httpRequestPattern = HttpRequestPattern(
+                httpPathPattern = buildHttpPathPattern("/(id:string)"), method = "POST",
+                body = JSONObjectPattern(mapOf("age" to NumberPattern()))
+            ),
+            httpResponsePattern = HttpResponsePattern(status = HttpStatusCode.TooManyRequests.value),
+        ))
+
+        val feature = Feature(name = "", scenarios = listOf(postScenario, tooManyRequestsScenario))
+        val contractTest = ScenarioAsTest(postScenario, feature, feature.flagsBased, originalScenario = postScenario)
+        val (result) = contractTest.runTest(object : TestExecutor {
+            var retryCount: Int = 0
+
+            override fun execute(request: HttpRequest): HttpResponse {
+                if (++retryCount <= 3) return HttpResponse(429, headers = mapOf(HttpHeaders.RetryAfter to "0"))
+                return HttpResponse(201)
+            }
+        })
+
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `should accept any 2xx response when the original scenarios was for tooManyRequests`() {
+        val postScenario = Scenario(ScenarioInfo(
+            httpRequestPattern = HttpRequestPattern(
+                httpPathPattern = buildHttpPathPattern("/(id:string)"), method = "POST",
+                body = JSONObjectPattern(mapOf("age" to NumberPattern()))
+            ),
+            httpResponsePattern = HttpResponsePattern(status = 201),
+        ))
+        val acceptedScenario = Scenario(ScenarioInfo(
+            httpRequestPattern = HttpRequestPattern(
+                httpPathPattern = buildHttpPathPattern("/(id:string)"), method = "POST",
+                body = JSONObjectPattern(mapOf("age" to NumberPattern()))
+            ),
+            httpResponsePattern = HttpResponsePattern(status = 202),
+        ))
+        val tooManyRequestsScenario = Scenario(ScenarioInfo(
+            httpRequestPattern = HttpRequestPattern(
+                httpPathPattern = buildHttpPathPattern("/(id:string)"), method = "POST",
+                body = JSONObjectPattern(mapOf("age" to NumberPattern()))
+            ),
+            httpResponsePattern = HttpResponsePattern(status = HttpStatusCode.TooManyRequests.value),
+        ))
+
+        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario, tooManyRequestsScenario))
+        val contractTest = ScenarioAsTest(tooManyRequestsScenario, feature, feature.flagsBased, originalScenario = tooManyRequestsScenario)
+        val (result) = contractTest.runTest(object : TestExecutor {
+            var retryCount: Int = 0
+
+            override fun execute(request: HttpRequest): HttpResponse {
+                if (retryCount++ == 0) return HttpResponse(429, headers = mapOf(HttpHeaders.RetryAfter to "0"))
+                return HttpResponse(202)
+            }
+        })
+
+        assertThat(result).isInstanceOf(Result.Success::class.java)
     }
 
     @ParameterizedTest
