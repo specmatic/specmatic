@@ -52,7 +52,7 @@ class AcceptedResponseHandler(
         }
 
         val responseMonitor = ResponseMonitor(
-            requestGeneratorStrategy = MonitorRequestGeneratorStrategy.MonitorLink(monitorScenario, monitorLink),
+            requestGeneratorStrategy = MonitorRequestGeneratorStrategy.MonitorLink(testScenario, monitorScenario, monitorLink),
             initialDelayContext = response,
             retryHandler = retryHandler,
             onResponse = { response ->

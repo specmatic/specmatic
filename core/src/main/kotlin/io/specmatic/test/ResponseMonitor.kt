@@ -16,17 +16,18 @@ sealed interface MonitorResult {
 
 sealed interface MonitorRequestGeneratorStrategy {
     val identifier: String
+    val testScenario: Scenario
 
     fun generate(): HttpRequest
 
-    data class MonitorLink(val monitorScenario: Scenario, val link: ResponseMonitor.Link) : MonitorRequestGeneratorStrategy {
+    data class MonitorLink(override val testScenario: Scenario, val monitorScenario: Scenario, val link: ResponseMonitor.Link) : MonitorRequestGeneratorStrategy {
         private val request: HttpRequest by lazy { monitorScenario.generateHttpRequest().updatePath(link.toPath()) }
         override val identifier: String by lazy { "${request.method.orEmpty()} ${link.toPath()}" }
 
         override fun generate(): HttpRequest = request
     }
 
-    data class ReuseRequest(val request: HttpRequest) : MonitorRequestGeneratorStrategy {
+    data class ReuseRequest(override val testScenario: Scenario, val request: HttpRequest) : MonitorRequestGeneratorStrategy {
         override val identifier: String = "${request.method.orEmpty()} ${request.path.orEmpty()}"
 
         override fun generate(): HttpRequest = request
@@ -43,6 +44,7 @@ class ResponseMonitor(
         return retryHandler.run(onExhausted = ::onAttemptsExhaustion, initialDelayContext = initialDelayContext) { retryCount ->
             val request = requestGeneratorStrategy.generate()
             logger.log("Retrying Link (attempt $retryCount): ${request.path} ...")
+            executor.preExecuteScenario(requestGeneratorStrategy.testScenario, request)
             onResponse(executor.execute(request))
         }
     }

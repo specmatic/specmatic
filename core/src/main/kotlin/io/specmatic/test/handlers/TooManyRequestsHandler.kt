@@ -43,7 +43,7 @@ class TooManyRequestsHandler(
 
         val matchingScenarios = findMatchingScenarios(testScenario)
         val responseMonitor = ResponseMonitor(
-            requestGeneratorStrategy = MonitorRequestGeneratorStrategy.ReuseRequest(request),
+            requestGeneratorStrategy = MonitorRequestGeneratorStrategy.ReuseRequest(testScenario, request),
             initialDelayContext = response,
             retryHandler = retryHandler,
             onResponse = { response ->
