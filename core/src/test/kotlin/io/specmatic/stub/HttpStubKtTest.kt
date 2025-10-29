@@ -3,14 +3,20 @@ package io.specmatic.stub
 import io.mockk.InternalPlatformDsl.toStr
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.APPLICATION_NAME_LOWER_CASE
+import io.specmatic.core.Feature
+import io.specmatic.core.HttpPathPattern
 import io.specmatic.core.HttpRequest
+import io.specmatic.core.HttpRequestPattern
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.HttpResponsePattern
 import io.specmatic.core.KeyData
+import io.specmatic.core.NoBodyPattern
 import io.specmatic.core.QueryParameters
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.SPECMATIC_RESULT_HEADER
+import io.specmatic.core.Scenario
+import io.specmatic.core.ScenarioInfo
 import io.specmatic.core.log.consoleLog
 import io.specmatic.core.parseGherkinStringToFeature
 import io.specmatic.core.pattern.ContractException
@@ -1084,5 +1090,50 @@ paths:
         extractPort("http://localhost/api").let {
             assertThat(it).isEqualTo(80)
         }
+    }
+
+    @Test
+    fun `should correctly extract metadata from scenario stub`() {
+        val scenario = Scenario(ScenarioInfo(
+            httpRequestPattern = HttpRequestPattern(httpPathPattern = HttpPathPattern.from("/square"), method = "POST"),
+            httpResponsePattern = HttpResponsePattern(status = 200, body = NoBodyPattern),
+        ))
+        val scenarioStub = ScenarioStub.parse("""
+{
+  "partial": {
+    "delay-in-seconds": 10,
+    "http-stub-id": "10",
+    "http-request": {
+      "bodyRegex": "\\w+",
+      "method": "POST",
+      "path": "/square"
+    },
+    "http-response": {
+      "status": 200
+    },
+    "data": {
+      "category": {
+        "technology": {
+          "city": "Gotham"
+        }
+      }
+    }
+  }
+}
+""".trimIndent()).copy(filePath = "example.json")
+
+        val feature = Feature(name = "", scenarios = listOf(scenario))
+        val httpStubData = feature.matchingStub(scenarioStub)
+
+        assertThat(httpStubData.feature).isEqualTo(feature)
+        assertThat(httpStubData.scenario).isEqualTo(scenario)
+        assertThat(httpStubData.data).isEqualTo(scenarioStub.data)
+        assertThat(httpStubData.partial).isEqualTo(scenarioStub.partial)
+        assertThat(httpStubData.response).isEqualTo(scenarioStub.response())
+        assertThat(httpStubData.stubToken).isEqualTo(scenarioStub.stubToken)
+        assertThat(httpStubData.examplePath).isEqualTo(scenarioStub.filePath)
+        assertThat(httpStubData.delayInMilliseconds).isEqualTo(scenarioStub.delayInMilliseconds)
+        assertThat(httpStubData.requestBodyRegex?.pattern).isEqualTo(scenarioStub.requestBodyRegex)
+        assertThat(httpStubData.resolveOriginalRequest()).isEqualTo(scenarioStub.requestElsePartialRequest())
     }
 }

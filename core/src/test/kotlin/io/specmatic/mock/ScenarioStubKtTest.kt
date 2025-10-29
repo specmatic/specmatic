@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test
 import io.specmatic.core.*
 import io.specmatic.core.Result.Success
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.utilities.jsonStringToValueMap
 import io.specmatic.core.value.JSONObjectValue
@@ -19,6 +20,7 @@ import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import java.util.function.Consumer
 import java.util.stream.Stream
+import kotlin.time.Duration.Companion.seconds
 
 internal class ScenarioStubKtTest {
     @Test
@@ -968,6 +970,96 @@ paths:
     fun `should provide appropriate error message when example is invalid with missing or invalid keys`(mockString: String, expectedMessage: String) {
         val exception = assertThrows<ContractException> { ScenarioStub.parse(mockString) }
         assertThat(exception.report()).isEqualToNormalizingWhitespace(expectedMessage)
+    }
+
+    @Test
+    fun `should be able to parse additional metadata like timeouts when specified inside a partial`() {
+        val stubText = """
+{
+  "partial": {
+    "delay-in-seconds": 10,
+    "http-stub-id": "10",
+    "http-request": {
+      "bodyRegex": "\\w+",
+      "method": "POST",
+      "path": "/square"
+    },
+    "http-response": {
+      "status": 200
+    },
+    "data": {
+      "category": {
+        "technology": {
+          "city": "Gotham"
+        }
+      }
+    }
+  }
+}
+        """.trim()
+
+        val scenarioStub = mockFromJSON(jsonStringToValueMap(stubText))
+        assertThat(scenarioStub.delayInMilliseconds).isEqualTo(10.seconds.inWholeMilliseconds)
+        assertThat(scenarioStub.stubToken).isEqualTo("10")
+        assertThat(scenarioStub.requestBodyRegex).isEqualTo("\\w+")
+        assertThat(scenarioStub.data).isEqualTo(parsedJSONObject("""
+{
+    "delay-in-seconds": 10,
+    "http-stub-id": "10",
+    "data": {
+      "category": {
+        "technology": {
+          "city": "Gotham"
+        }
+      }
+    }
+}
+""".trimIndent()))
+    }
+
+    @Test
+    fun `should be able to parse additional metadata like timeouts when specified outside and partial`() {
+        val stubText = """
+{
+  "delay-in-seconds": 10,
+  "http-stub-id": "10",
+  "partial": {
+    "http-request": {
+      "bodyRegex": "\\w+",
+      "method": "POST",
+      "path": "/square"
+    },
+    "http-response": {
+      "status": 200
+    }
+  },
+  "data": {
+    "category": {
+      "technology": {
+        "city": "Gotham"
+      }
+    }
+  }
+}
+        """.trim()
+
+        val scenarioStub = mockFromJSON(jsonStringToValueMap(stubText))
+        assertThat(scenarioStub.delayInMilliseconds).isEqualTo(10.seconds.inWholeMilliseconds)
+        assertThat(scenarioStub.stubToken).isEqualTo("10")
+        assertThat(scenarioStub.requestBodyRegex).isEqualTo("\\w+")
+        assertThat(scenarioStub.data).isEqualTo(parsedJSONObject("""
+{
+    "delay-in-seconds": 10,
+    "http-stub-id": "10",
+    "data": {
+      "category": {
+        "technology": {
+          "city": "Gotham"
+        }
+      }
+    }
+}
+""".trimIndent()))
     }
 
     companion object {

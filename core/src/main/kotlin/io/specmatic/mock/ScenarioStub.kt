@@ -381,10 +381,10 @@ fun validateMock(mockSpec: Map<String, Any?>) {
 fun mockFromJSON(mockSpec: Map<String, Value>): ScenarioStub {
     val data = JSONObjectValue(mockSpec.filterKeys { it !in (MOCK_HTTP_REQUEST_ALL_KEYS + MOCK_HTTP_RESPONSE_ALL_KEYS).plus(PARTIAL) })
 
-    if(PARTIAL in mockSpec) {
+    if (PARTIAL in mockSpec) {
         val template = mockSpec.getValue(PARTIAL) as? JSONObjectValue ?: throw ContractException("template key must be an object")
-
-        return ScenarioStub(data = data, partial = mockFromJSON(template.jsonObject))
+        val parsedPartial = mockFromJSON(template.plus(data).jsonObject)
+        return parsedPartial.copy(partial = parsedPartial, request = HttpRequest(), response = HttpResponse(0, emptyMap()))
     }
 
     val mockRequest: HttpRequest = requestFromJSON(getJSONObjectValue(MOCK_HTTP_REQUEST_ALL_KEYS, mockSpec))
