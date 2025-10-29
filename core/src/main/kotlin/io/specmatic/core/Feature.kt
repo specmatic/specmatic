@@ -872,15 +872,20 @@ data class Feature(
             )
 
         return HttpStubData(
-            requestTypeWithAncestors,
-            HttpResponse(),
-            matchingScenario.resolver,
+            requestType = requestTypeWithAncestors,
+            response = scenarioStub.response(),
+            resolver = matchingScenario.resolver,
             responsePattern = responseTypeWithAncestors,
             examplePath = scenarioStub.filePath,
             scenario = matchingScenario,
             data = scenarioStub.data,
             contractPath = this.path,
-            partial = scenarioStub.partial.copy(response = scenarioStub.partial.response)
+            partial = scenarioStub.partial,
+            originalRequest = scenarioStub.requestElsePartialRequest(),
+            delayInMilliseconds = scenarioStub.delayInMilliseconds,
+            requestBodyRegex = scenarioStub.requestBodyRegex?.let { Regex(it) },
+            stubToken = scenarioStub.stubToken,
+            feature = this,
         )
     }
 
