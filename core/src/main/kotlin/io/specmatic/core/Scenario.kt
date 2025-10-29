@@ -745,6 +745,7 @@ data class Scenario(
 
     val defaultAPIDescription: String
         get() {
+            if(customAPIDescription != null) return "$customAPIDescription ${disambiguate()}"
             val soapActionInfo = httpRequestPattern.getSOAPAction()
             return if (soapActionInfo != null) {
                 "$method $path SOAPAction $soapActionInfo ${disambiguate()}-> $statusInDescription"
