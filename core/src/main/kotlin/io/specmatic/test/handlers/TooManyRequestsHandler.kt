@@ -50,7 +50,7 @@ class TooManyRequestsHandler(
                 val matchResult = matchingScenarios.findMatching(response)
                 if (matchResult is ReturnFailure) {
                     logger.debug("Response didn't match any valid scenarios")
-                    logger.boundary()
+                    logger.debug("")
                     logger.debug(matchResult.toFailure().reportString())
                 }
 

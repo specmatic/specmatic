@@ -20,7 +20,7 @@ sealed interface MonitorRequestGeneratorStrategy {
 
     fun generate(): HttpRequest
 
-    data class MonitorLink(override val testScenario: Scenario, val monitorScenario: Scenario, val link: ResponseMonitor.Link) : MonitorRequestGeneratorStrategy {
+    data class MonitorLink(override val testScenario: Scenario, val monitorScenario: Scenario, val link: Link) : MonitorRequestGeneratorStrategy {
         private val request: HttpRequest by lazy { monitorScenario.generateHttpRequest().updatePath(link.toPath()) }
         override val identifier: String by lazy { "${request.method.orEmpty()} ${link.toPath()}" }
 
@@ -31,6 +31,10 @@ sealed interface MonitorRequestGeneratorStrategy {
         override val identifier: String = "${request.method.orEmpty()} ${request.path.orEmpty()}"
 
         override fun generate(): HttpRequest = request
+    }
+
+    data class Link(val url: String, val rel: String? = null, val title: String? = null) {
+        fun toPath(): String = url
     }
 }
 
@@ -53,9 +57,5 @@ class ResponseMonitor(
         return MonitorResult.Failure(
             failure = Result.Failure(message = "Max retries of $attempts exceeded with ${requestGeneratorStrategy.identifier}"),
         )
-    }
-
-    data class Link(val url: String, val rel: String? = null, val title: String? = null) {
-        fun toPath(): String = url
     }
 }

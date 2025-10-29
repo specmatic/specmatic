@@ -15,9 +15,9 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.test.MonitorRequestGeneratorStrategy
+import io.specmatic.test.MonitorRequestGeneratorStrategy.Link
 import io.specmatic.test.MonitorResult
 import io.specmatic.test.ResponseMonitor
-import io.specmatic.test.ResponseMonitor.Link
 import io.specmatic.test.TestExecutor
 import io.specmatic.test.utils.DelayStrategy
 import io.specmatic.test.utils.RetryHandler

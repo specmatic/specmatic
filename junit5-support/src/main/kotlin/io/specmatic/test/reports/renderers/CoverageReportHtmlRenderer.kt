@@ -112,7 +112,7 @@ class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApi
                         val scenarioDataList = statusMap.getOrPut(status) { mutableListOf() }
 
                         for (test in testResults) {
-                            val matchingLogMessages = openApiCoverageReportInput.findFirstMatchingScenario { it.scenario == test.scenarioResult?.scenario }
+                            val matchingLogMessages = openApiCoverageReportInput.findMatchingScenarios { it.scenario == test.scenarioResult?.scenario }
                             val firstLogMessage = matchingLogMessages.firstOrNull()
                             val lastLogMessage = matchingLogMessages.lastOrNull()
 
