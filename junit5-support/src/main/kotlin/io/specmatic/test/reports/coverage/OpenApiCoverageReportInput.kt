@@ -36,8 +36,8 @@ class OpenApiCoverageReportInput(
         return httpInteractionsLog.totalDuration()
     }
 
-    fun findFirstMatchingScenario(logMessageSelector: (HttpLogMessage) -> Boolean): HttpLogMessage? {
-        return httpInteractionsLog.testHttpLogMessages.firstOrNull(logMessageSelector)
+    fun findMatchingScenarios(logMessageSelector: (HttpLogMessage) -> Boolean): List<HttpLogMessage> {
+        return httpInteractionsLog.testHttpLogMessages.filter(logMessageSelector)
     }
 
     fun addTestReportRecords(testResultRecord: TestResultRecord) {

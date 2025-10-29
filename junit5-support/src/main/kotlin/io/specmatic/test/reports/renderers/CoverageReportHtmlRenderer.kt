@@ -1,5 +1,6 @@
 package io.specmatic.test.reports.renderers
 
+import io.specmatic.core.HttpRequest
 import io.specmatic.core.ReportFormatter
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.log.HttpLogMessage
@@ -111,18 +112,21 @@ class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApi
                         val scenarioDataList = statusMap.getOrPut(status) { mutableListOf() }
 
                         for (test in testResults) {
-                            val matchingLogMessage = openApiCoverageReportInput.findFirstMatchingScenario() {
-                                it.scenario == test.scenarioResult?.scenario
-                            }
-                            val scenarioName = getTestName(test, matchingLogMessage)
-                            val (requestString, requestTime) = getRequestString(test, matchingLogMessage)
-                            val (responseString, responseTime) = getResponseString(test, matchingLogMessage)
+                            val matchingLogMessages = openApiCoverageReportInput.findMatchingScenarios { it.scenario == test.scenarioResult?.scenario }
+                            val firstLogMessage = matchingLogMessages.firstOrNull()
+                            val lastLogMessage = matchingLogMessages.lastOrNull()
+
+                            val scenarioName = getTestName(test, firstLogMessage)
+                            val (requestString, requestTime) = getRequestString(matchingLogMessages)
+                            val (responseString, responseTime) = getResponseString(matchingLogMessages)
+                            val firstLogMessageTime = firstLogMessage?.requestTime?.toEpochMillis() ?: 0
+                            val lastLogMessageTime = lastLogMessage?.responseTime?.toEpochMillis() ?: lastLogMessage?.requestTime?.toEpochMillis() ?: 0
 
                             scenarioDataList.add(
                                 ScenarioData(
                                     name = scenarioName,
-                                    baseUrl = getBaseUrl(test, matchingLogMessage),
-                                    duration = matchingLogMessage?.duration() ?: 0,
+                                    baseUrl = getBaseUrl(firstLogMessage),
+                                    duration = lastLogMessageTime - firstLogMessageTime,
                                     testResult = test.result,
                                     valid = test.isValid,
                                     wip = test.isWip,
@@ -130,9 +134,9 @@ class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApi
                                     requestTime = requestTime,
                                     response = responseString,
                                     responseTime = responseTime,
-                                    specFileName = getSpecFileName(test, matchingLogMessage),
-                                    details = getReportDetail(test)
-                                )
+                                    specFileName = getSpecFileName(test, firstLogMessage),
+                                    details = getReportDetail(test),
+                                ),
                             )
                         }
                     }
@@ -147,24 +151,28 @@ class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApi
         return httpLogMessage?.displayName() ?: testResult.scenarioResult?.scenario?.testDescription() ?: "Scenario: ${testResult.path} -> ${testResult.responseStatus}"
     }
 
-    private fun getBaseUrl(testResult: TestResultRecord, httpLogMessage: HttpLogMessage?): String {
+    private fun getBaseUrl(httpLogMessage: HttpLogMessage?): String {
         val host = Flags.getStringValue(HOST).orEmpty()
         val port = Flags.getStringValue(PORT).orEmpty()
         val baseUrlFromFlags = Flags.getStringValue(TEST_BASE_URL) ?: if (host.isNotBlank() && port.isNotBlank()) "$host:$port" else null
         return httpLogMessage?.targetServer ?: baseUrlFromFlags ?: "Unknown baseURL"
     }
 
-    private fun getRequestString(testResult: TestResultRecord, httpLogMessage: HttpLogMessage?): Pair<String, Long> {
+    private fun getRequestString(httpLogMessage: List<HttpLogMessage>): Pair<String, Long> {
+        val requests = httpLogMessage.map(HttpLogMessage::request).joinToString(separator = "---END BLOCK---", transform = HttpRequest::toLogString)
         return Pair(
-            httpLogMessage?.request?.toLogString() ?: "No Request",
-            httpLogMessage?.requestTime?.toEpochMillis() ?: 0
+            requests,
+            httpLogMessage.firstOrNull()?.requestTime?.toEpochMillis() ?: 0,
         )
     }
 
-    private fun getResponseString(testResult: TestResultRecord, httpLogMessage: HttpLogMessage?): Pair<String, Long> {
+    private fun getResponseString(httpLogMessage: List<HttpLogMessage>): Pair<String, Long> {
+        val responses = httpLogMessage.map(HttpLogMessage::response).joinToString(separator = "---END BLOCK---") {
+            it?.toLogString() ?: "No Response"
+        }
         return Pair(
-            httpLogMessage?.response?.toLogString() ?: "No Response",
-            httpLogMessage?.responseTime?.toEpochMillis() ?: 0
+            responses,
+            httpLogMessage.lastOrNull()?.responseTime?.toEpochMillis() ?: httpLogMessage.lastOrNull()?.requestTime?.toEpochMillis() ?: 0,
         )
     }
 

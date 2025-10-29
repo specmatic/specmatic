@@ -16,9 +16,9 @@ data class TestExecutionResult(
     val testResult: TestResult,
     val valid: Boolean,
     val wip: Boolean,
-    val request: HttpRequest,
+    val request: List<HttpRequest>,
     val requestTime: Long,
-    val response: HttpResponse?,
+    val response: List<HttpResponse?>,
     val responseTime: Long?
 )
 
@@ -43,21 +43,21 @@ internal fun getTestName(testResult: TestResultRecord, httpLogMessage: HttpLogMe
 }
 
 internal fun List<TestReportListener>.onTestResult(testResultRecord: TestResultRecord, testHttpLogMessages: List<HttpLogMessage>) {
-    val httpLogMessage = testHttpLogMessages.find { it.scenario == testResultRecord.scenarioResult?.scenario }
-    if (httpLogMessage == null) return
+    val httpLogMessages = testHttpLogMessages.filter { it.scenario == testResultRecord.scenarioResult?.scenario }
+    if (httpLogMessages.isEmpty()) return
+    val firstHttpLogMessage = httpLogMessages.first()
+    val lastHttpLogMessage = httpLogMessages.last()
     val testExecutionResult = TestExecutionResult(
-        name = getTestName(testResultRecord, httpLogMessage),
-        scenario = httpLogMessage.scenario!!,
+        name = getTestName(testResultRecord, firstHttpLogMessage),
+        scenario = firstHttpLogMessage.scenario!!,
         testResult = testResultRecord.result,
         valid = testResultRecord.isValid,
         wip = testResultRecord.isWip,
-        request = httpLogMessage.request,
-        requestTime = httpLogMessage.requestTime.toEpochMillis(),
-        response = httpLogMessage.response,
-        responseTime = httpLogMessage.responseTime?.toEpochMillis(),
-        details = testResultRecord.scenarioResult?.reportString() ?: "No details found for this test"
+        request = httpLogMessages.map(HttpLogMessage::request),
+        requestTime = firstHttpLogMessage.requestTime.toEpochMillis(),
+        response = httpLogMessages.map(HttpLogMessage::response),
+        responseTime = lastHttpLogMessage.responseTime?.toEpochMillis(),
+        details = testResultRecord.scenarioResult?.reportString() ?: "No details found for this test",
     )
-
     onEachListener { onTestResult(testExecutionResult) }
 }
-

@@ -199,8 +199,8 @@ function createReqResDetailsContainer(scenario) {
   reqResDetailsDiv.appendChild(additionalInfoDiv);
 
   reqResDetailsDiv.appendChild(createReqResDetailDiv("Details", scenario.details));
-  reqResDetailsDiv.appendChild(createReqResDetailDiv("Request", scenario.request));
-  reqResDetailsDiv.appendChild(createReqResDetailDiv("Response", scenario.response));
+  const pairsDiv = createReqResPairDiv(scenario.request, scenario.response);
+  reqResDetailsDiv.appendChild(pairsDiv);
 
   return reqResDetailsDiv;
 }
@@ -213,6 +213,26 @@ function createReqResDetailDiv(title, content) {
   elementPre.classList.add("whitespace-pre-wrap");
   elementDiv.appendChild(elementPre).textContent = content;
   return elementDiv;
+}
+
+function createReqResPairDiv(request, response) {
+  const splitBlocks = (text) => (text ? text.split("---END BLOCK---").map(s => s.trim()).filter(Boolean) : []);
+  const requests = splitBlocks(request);
+  const responses = splitBlocks(response);
+  const maxLen = Math.max(requests.length, responses.length);
+  const container = document.createElement("div");
+
+  for (let i = 0; i < maxLen; i++) {
+    const pairDiv = document.createElement("div");
+    pairDiv.classList.add("pair");
+    const reqContent = requests[i] !== undefined ? requests[i] : "No request data";
+    const resContent = responses[i] !== undefined ? responses[i] : "No response data";
+    pairDiv.appendChild(createReqResDetailDiv("Request", reqContent));
+    pairDiv.appendChild(createReqResDetailDiv("Response", resContent));
+    container.appendChild(pairDiv);
+  }
+
+  return container;
 }
 
 function noScenarioFoundMessage() {

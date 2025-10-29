@@ -725,19 +725,18 @@ data class Feature(
     )
 
     fun adjustTestDescription(scenario: Scenario, scenarios: List<Scenario> = this.scenarios): Scenario {
-        if (!isAcceptedResponsePossible(scenario, scenarios)) return scenario
+        if (!isResponseStatusPossible(scenario, HttpStatusCode.Accepted.value, scenarios)) return scenario
         return scenario.copy(
             customAPIDescription = null,
-            statusInDescription = "${scenario.statusInDescription}/202"
+            statusInDescription = "${scenario.statusInDescription}/${HttpStatusCode.Accepted.value}"
         )
     }
 
-    fun isAcceptedResponsePossible(scenario: Scenario, scenarios: List<Scenario> = this.scenarios): Boolean {
-        if (scenario.status == 202 || scenario.isNegative) return false
+    fun isResponseStatusPossible(scenario: Scenario, responseStatusCode: Int, scenarios: List<Scenario> = this.scenarios): Boolean {
         return this.scenarioAssociatedTo(
             scenarios = scenarios,
             path = scenario.path, method = scenario.method,
-            responseStatusCode = 202, contentType = scenario.requestContentType
+            responseStatusCode = responseStatusCode, contentType = scenario.requestContentType
         ) != null
     }
 

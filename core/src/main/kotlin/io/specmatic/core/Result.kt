@@ -41,7 +41,7 @@ sealed class Result {
 
     abstract fun isAnyFluffy(acceptableFluffLevel: Int): Boolean
 
-    fun updateScenario(scenario: ScenarioDetailsForResult): Result {
+    fun updateScenario(scenario: ScenarioDetailsForResult?): Result {
         this.scenario = scenario
         return this
     }
