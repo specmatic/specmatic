@@ -1,6 +1,7 @@
 package application.mcp
 
 import io.specmatic.core.examples.module.FAILURE_EXIT_CODE
+import io.specmatic.license.core.cli.Category
 import io.specmatic.mcp.constants.BASE_URL
 import io.specmatic.mcp.constants.TRANSPORT_KIND
 import io.specmatic.mcp.test.McpAutoTest
@@ -16,6 +17,7 @@ import picocli.CommandLine.Option
     mixinStandardHelpOptions = true,
     description = ["Runs auto tests against a mcp server"]
 )
+@Category("AI Assisted Contract Programming")
 class McpTestCommand : Callable<Int> {
     @Option(
         names = ["--url"],

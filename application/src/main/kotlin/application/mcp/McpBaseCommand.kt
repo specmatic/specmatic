@@ -5,6 +5,7 @@ import io.specmatic.core.log.ConsolePrinter
 import io.specmatic.core.log.NonVerbose
 import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.logger
+import io.specmatic.license.core.cli.Category
 import picocli.CommandLine
 import java.util.concurrent.Callable
 
@@ -15,6 +16,7 @@ import java.util.concurrent.Callable
     subcommands = [McpTestCommand::class],
     description = ["Execute Specmatic MCP capabilities"]
 )
+@Category("MCP capabilities")
 class McpBaseCommand : Callable<Int> {
     override fun call(): Int = 0
 

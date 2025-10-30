@@ -20,6 +20,7 @@ open class SpecmaticApplication {
             }
 
             val commandLine = CommandLine(SpecmaticCommand())
+            SpecmaticCoreSubcommands.configure(commandLine)
             if (args.none { it == "-V" || it == "--version" }) {
                 print("Specmatic Version: ")
                 commandLine.printVersionHelp(System.out)

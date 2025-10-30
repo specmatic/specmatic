@@ -14,6 +14,7 @@ import io.specmatic.core.loadSpecmaticConfigOrNull
 import io.specmatic.core.utilities.Flags.Companion.MATCH_BRANCH
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_BASE_URL
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_STUB_DELAY
+import io.specmatic.license.core.cli.Category
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.ContractStub
 import io.specmatic.stub.HttpClientFactory
@@ -29,6 +30,7 @@ import java.util.concurrent.Callable
     mixinStandardHelpOptions = true,
     description = ["Start a stub server with contract"]
 )
+@Category("Specmatic core")
 class StubCommand(
     private val httpStubEngine: HTTPStubEngine = HTTPStubEngine(),
     private val stubLoaderEngine: StubLoaderEngine = StubLoaderEngine(),

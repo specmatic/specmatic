@@ -6,6 +6,7 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.exceptionCauseMessage
+import io.specmatic.license.core.cli.Category
 import io.specmatic.stub.isOpenAPI
 import picocli.CommandLine.Command
 import java.io.File
@@ -20,7 +21,8 @@ import kotlin.io.path.pathString
     mixinStandardHelpOptions = true,
     description = ["Checks backward compatibility of OpenAPI specifications"]
 )
-class BackwardCompatibilityCheckCommandV2: BackwardCompatibilityCheckBaseCommand() {
+@Category("Specmatic core")
+class BackwardCompatibilityCheckCommandV2 : BackwardCompatibilityCheckBaseCommand() {
 
     override fun checkBackwardCompatibility(oldFeature: IFeature, newFeature: IFeature): Results {
         return testBackwardCompatibility(oldFeature as Feature, newFeature as Feature)
@@ -30,7 +32,7 @@ class BackwardCompatibilityCheckCommandV2: BackwardCompatibilityCheckBaseCommand
         return try {
             ObjectMapper(YAMLFactory()).readValue(string, Map::class.java)
             true
-        } catch(e: Throwable) {
+        } catch (e: Throwable) {
             false
         }
     }
@@ -39,7 +41,7 @@ class BackwardCompatibilityCheckCommandV2: BackwardCompatibilityCheckBaseCommand
         return try {
             ObjectMapper().readValue(string, Map::class.java)
             true
-        } catch(e: Throwable) {
+        } catch (e: Throwable) {
             false
         }
     }
@@ -49,7 +51,7 @@ class BackwardCompatibilityCheckCommandV2: BackwardCompatibilityCheckBaseCommand
 
         val content = this.readText()
 
-        return when(this.extension.lowercase()) {
+        return when (this.extension.lowercase()) {
             "yaml", "yml" -> isYAML(content)
             "json" -> isJSON(content)
             "spec" -> isGherkin(content)
@@ -65,7 +67,7 @@ class BackwardCompatibilityCheckCommandV2: BackwardCompatibilityCheckBaseCommand
         return try {
             parseGherkinStringToFeature(content)
             true
-        } catch(e: Throwable) {
+        } catch (e: Throwable) {
             false
         }
     }
@@ -152,7 +154,12 @@ class BackwardCompatibilityCheckCommandV2: BackwardCompatibilityCheckBaseCommand
     private fun findSpecFiles(path: Path): List<Path> {
         val extensions = CONTRACT_EXTENSIONS
         return extensions.map { path.resolveSibling(path.fileName.toString() + it) }
-            .filter { Files.exists(it) && (isOpenAPI(it.pathString) || it.extension in listOf(WSDL, CONTRACT_EXTENSION)) }
+            .filter {
+                Files.exists(it) && (isOpenAPI(it.pathString) || it.extension in listOf(
+                    WSDL,
+                    CONTRACT_EXTENSION
+                ))
+            }
     }
 }
 
