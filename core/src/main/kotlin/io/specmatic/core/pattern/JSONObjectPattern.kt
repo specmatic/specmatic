@@ -440,7 +440,7 @@ data class JSONObjectPattern(
         ) { pattern ->
             newMapBasedOn(pattern, row, withNullPattern(resolver))
         }.map { it: ReturnValue<Map<String, Pattern>> ->
-            patternWithKeyCombinationDetails(it) { patternMap ->
+            patternWithKeyCombinationDetails(it, resolver) { patternMap ->
                 toJSONObjectPattern(patternMap.mapKeys { (key, _) -> withoutOptionality(key) }, typeAlias)
             }
     }
@@ -461,7 +461,7 @@ data class JSONObjectPattern(
         allOrNothingCombinationIn(pattern.minus("...")) { pattern ->
             AllNegativePatterns().negativeBasedOn(pattern, row, withNullPattern(resolver), config)
         }.map {
-            patternWithKeyCombinationDetails(it) { patternMap ->
+            patternWithKeyCombinationDetails(it, resolver) { patternMap ->
                 toJSONObjectPattern(patternMap, typeAlias)
             }
         }
@@ -651,10 +651,16 @@ data class JSONObjectPattern(
 
     private fun patternWithKeyCombinationDetails(
         patternMap: ReturnValue<Map<String, Pattern>>,
+        resolver: Resolver,
         buildPattern: (Map<String, Pattern>) -> Pattern
     ): ReturnValue<Pattern> =
         patternMap.ifHasValue {
             val existingValueDescription = it.valueDetails.singleLineDescription()
+
+            if (resolver.isNegative && existingValueDescription.isBlank()) {
+                return@ifHasValue HasValue(buildPattern(it.value), it.valueDetails)
+            }
+
             val keyCombinationMessage = when (it.value.keys.size) {
                 this.pattern.size -> "contains all the keys"
                 else -> "contains only the mandatory keys"
