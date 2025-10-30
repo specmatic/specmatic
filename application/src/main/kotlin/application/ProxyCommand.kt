@@ -9,6 +9,7 @@ import io.specmatic.core.log.*
 import io.specmatic.core.utilities.consolePrintableURL
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.utilities.exitWithMessage
+import io.specmatic.license.core.cli.Category
 import io.specmatic.proxy.Proxy
 import java.io.File
 import java.lang.Thread.sleep
@@ -17,6 +18,7 @@ import java.util.concurrent.Callable
 @Command(name = "proxy",
         mixinStandardHelpOptions = true,
         description = ["Proxies requests to the specified target and converts the result into contracts and stubs"])
+@Category("Specmatic core")
 class ProxyCommand : Callable<Unit> {
     @Option(names = ["--target"], description = ["Base URL of the target to proxy"], required = true)
     var targetBaseURL: String = ""

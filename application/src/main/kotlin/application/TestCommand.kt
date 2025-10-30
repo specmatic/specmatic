@@ -17,6 +17,7 @@ import io.specmatic.core.utilities.exitWithMessage
 import io.specmatic.core.loadSpecmaticConfigOrNull
 import io.specmatic.core.utilities.newXMLBuilder
 import io.specmatic.core.utilities.xmlToString
+import io.specmatic.license.core.cli.Category
 import io.specmatic.test.SpecmaticJUnitSupport
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.CONTRACT_PATHS
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.ENV_NAME
@@ -58,6 +59,7 @@ private const val DISPLAY_NAME_PREFIX_IN_SYSTEM_OUT_TAG_TEXT = "display-name: "
 @Command(name = "test",
         mixinStandardHelpOptions = true,
         description = ["Run contract tests"])
+@Category("Specmatic core")
 class TestCommand(private val junitLauncher: Launcher = LauncherFactory.create()) : Callable<Unit> {
 
     @CommandLine.Parameters(arity = "0..*", description = ["Contract file paths"])

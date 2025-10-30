@@ -10,6 +10,7 @@ import io.specmatic.core.log.NonVerbose
 import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.capitalizeFirstChar
+import io.specmatic.license.core.cli.Category
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.isOpenAPI
 import picocli.CommandLine.*
@@ -26,6 +27,7 @@ private const val FAILURE_EXIT_CODE = 1
     description = ["Validate inline and externalised examples"],
     subcommands = [ExamplesCommand.Validate::class]
 )
+@Category("Specmatic core")
 class ExamplesCommand : Callable<Int> {
 
     override fun call(): Int {

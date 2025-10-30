@@ -4,6 +4,7 @@ import io.specmatic.core.*
 import io.specmatic.core.log.logger
 import io.specmatic.core.log.logException
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.license.core.cli.Category
 import picocli.CommandLine.Command
 import picocli.CommandLine.Option
 import picocli.CommandLine.Parameters
@@ -18,6 +19,7 @@ Checks if two contracts are equivalent.
 DEPRECATED: This command will be removed in the next major release. Use 'backward-compatibility-check' command instead.
 """
         ])
+@Category("Specmatic core")
 class CompareCommand : Callable<Unit> {
     @Parameters(index = "0", description = ["Older contract file path"])
     lateinit var olderContractFilePath: String
@@ -76,4 +78,3 @@ fun backwardCompatible(olderContract: Feature, newerContract: Feature): Compatib
         } catch(e: Throwable) {
             ExceptionReport(e)
         }
-

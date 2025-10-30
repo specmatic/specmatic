@@ -13,6 +13,7 @@ import io.specmatic.core.config.toSpecmaticConfig
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.exitWithMessage
+import io.specmatic.license.core.cli.Category
 import picocli.CommandLine.Command
 import picocli.CommandLine.Option
 import java.io.File
@@ -34,6 +35,7 @@ private const val SPECMATIC_CONFIGURATION = "Specmatic Configuration"
         ConfigCommand.Upgrade::class
     ]
 )
+@Category("Specmatic core")
 class ConfigCommand : Callable<Int> {
     override fun call(): Int {
         println("Use a subcommand. Use --help for more details.")

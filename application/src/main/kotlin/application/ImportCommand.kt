@@ -12,6 +12,7 @@ import io.specmatic.core.utilities.jsonStringToValueMap
 import io.specmatic.core.utilities.parseXML
 import io.specmatic.core.value.toXMLNode
 import io.specmatic.core.wsdl.parser.WSDL
+import io.specmatic.license.core.cli.Category
 import io.specmatic.mock.mockFromJSON
 import io.swagger.v3.core.util.Yaml
 import java.io.File
@@ -20,6 +21,7 @@ import java.util.concurrent.Callable
 @Command(name = "import",
         mixinStandardHelpOptions = true,
         description = ["Converts a $APPLICATION_NAME stub, Postman or WSDL file into a $APPLICATION_NAME spec file"])
+@Category("Contract conversion")
 class ImportCommand : Callable<Int> {
     @Parameters(description = ["File to convert"], index = "0")
     lateinit var path: String
