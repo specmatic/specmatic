@@ -7,7 +7,7 @@ plugins {
 dependencies {
     implementation("io.specmatic.build-reporter:specmatic-reporter:0.0.22")
 
-    implementation("io.netty:netty-codec-http:4.2.5.Final")
+    implementation("io.netty:netty-codec-http:4.2.7.Final")
     implementation("joda-time:joda-time:2.14.0")
     implementation("net.minidev:json-smart:2.6.0")
 
