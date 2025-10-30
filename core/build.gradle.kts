@@ -6,9 +6,9 @@ plugins {
 
 dependencies {
     // Pinned dependencies
-    implementation("io.netty:netty-codec-http2:4.1.124.Final")
+    implementation("io.netty:netty-codec-http2:4.2.7.Final")
 
-    implementation("io.netty:netty-codec-http:4.2.5.Final")
+    implementation("io.netty:netty-codec-http:4.2.7.Final")
     implementation("joda-time:joda-time:2.14.0")
     implementation("net.minidev:json-smart:2.6.0")
 
