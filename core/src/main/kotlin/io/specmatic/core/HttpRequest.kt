@@ -388,9 +388,13 @@ data class HttpRequest(
         return requestNotRecognized(StrictRequestNotRecognizedMessages())
     }
 
+    fun dropIrrelevantHeaders(): HttpRequest = withoutTransportHeaders().withoutConversionHeaders().withoutSpecmaticHeaders()
+
     fun withoutTransportHeaders(): HttpRequest = copy(headers = headers.withoutTransportHeaders())
 
     fun withoutSpecmaticHeaders(): HttpRequest = copy(headers = dropSpecmaticHeaders(headers))
+
+    fun withoutConversionHeaders(): HttpRequest = copy(headers = dropConversionExcludedHeaders(headers))
 
     fun addSecurityHeader(headerName: String, headerValue: String): HttpRequest {
         val updatedMetadata = metadata.copy(securityHeaderNames = metadata.securityHeaderNames.plus(headerName))

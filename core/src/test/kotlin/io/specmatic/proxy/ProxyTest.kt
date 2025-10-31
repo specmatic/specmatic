@@ -9,13 +9,10 @@ import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.stub.HttpStub
-import io.ktor.http.*
 import io.ktor.util.*
-import io.specmatic.Waiter
 import io.specmatic.mock.DELAY_IN_MILLISECONDS
 import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
 import io.specmatic.test.HttpClient
-import io.specmatic.stub.HttpStub
 import org.assertj.core.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -421,6 +418,30 @@ internal class ProxyTest {
         }
 
         assertThat(fakeFileWriter.receivedContract).doesNotContainIgnoringCase("Specmatic", "Content-Type")
+        assertThat(fakeFileWriter.receivedStub).doesNotContainIgnoringCase("Specmatic").containsIgnoringCase("Content-Type")
+    }
+
+    @Test
+    fun `dumped specification headers should be in-sync with dumped examples`() {
+        val openApiFile = File("src/test/resources/openapi/partial_with_discriminator/openapi.yaml")
+        val feature = OpenApiSpecification.fromFile(openApiFile.canonicalPath).toFeature()
+
+        HttpStub(feature).use {
+            Proxy(host = "localhost", port = 9001, "http://localhost:9000", fakeFileWriter).use {
+                val request = feature.scenarios.first().generateHttpRequest()
+                    .addHeaderIfMissing(SPECMATIC_RESPONSE_CODE_HEADER, "201")
+                    .addHeaderIfMissing(HttpHeaders.AccessControlAllowOrigin, "*")
+                    .addHeaderIfMissing(HttpHeaders.ContentDisposition, "*")
+
+                val response = HttpClient(baseURL = "http://localhost:9001").use { it.execute(request) }
+                assertThat(response.status).isEqualTo(201)
+                assertThat(response.headers.keys.map(String::toLowerCasePreservingASCIIRules)).contains(
+                    "x-specmatic-result", "x-specmatic-type", "content-type"
+                )
+            }
+        }
+
+        assertThat(fakeFileWriter.receivedContract).doesNotContainIgnoringCase("Specmatic", "Content-Type", HttpHeaders.AccessControlAllowOrigin, HttpHeaders.ContentDisposition)
         assertThat(fakeFileWriter.receivedStub).doesNotContainIgnoringCase("Specmatic").containsIgnoringCase("Content-Type")
     }
 }

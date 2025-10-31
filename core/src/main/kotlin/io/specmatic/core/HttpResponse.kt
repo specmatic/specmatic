@@ -167,9 +167,13 @@ data class HttpResponse(
         }
     }
 
+    fun dropIrrelevantHeaders(): HttpResponse = withoutTransportHeaders().withoutConversionHeaders().withoutSpecmaticHeaders()
+
     fun withoutTransportHeaders(): HttpResponse = copy(headers = headers.withoutTransportHeaders())
 
     fun withoutSpecmaticHeaders(): HttpResponse = copy(headers = dropSpecmaticHeaders(headers))
+
+    fun withoutConversionHeaders(): HttpResponse = copy(headers = dropConversionExcludedHeaders(headers))
 
     fun isNotEmpty(): Boolean {
         val bodyIsEmpty = body == NoBodyValue

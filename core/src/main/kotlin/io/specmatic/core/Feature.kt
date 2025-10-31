@@ -1197,9 +1197,10 @@ data class Feature(
 
             if (
                 scenario.httpRequestPattern.body.let {
-                    it is DeferredPattern && it.pattern == "(RequestBody)" && isJSONPayload(it.resolvePattern(scenario.resolver))
-                }
-            ) {
+                    it is DeferredPattern && it.pattern == "(RequestBody)" && isJSONPayload(
+                        it.resolvePattern(scenario.resolver)
+                    )
+                }) {
                 val requestBody = scenario.httpRequestPattern.body as DeferredPattern
                 val oldTypeName = requestBody.pattern
                 val newTypeName = "(${prefix}_${withoutPatternDelimiters(oldTypeName)})"
@@ -1219,9 +1220,10 @@ data class Feature(
 
             if (
                 scenario.httpResponsePattern.body.let {
-                    it is DeferredPattern && it.pattern == "(ResponseBody)" && isJSONPayload(it.resolvePattern(scenario.resolver))
-                }
-            ) {
+                    it is DeferredPattern && it.pattern == "(ResponseBody)" && isJSONPayload(
+                        it.resolvePattern(scenario.resolver)
+                    )
+                }) {
                 val responseBody = scenario.httpResponsePattern.body as DeferredPattern
                 val oldTypeName = responseBody.pattern
                 val newTypeName = "(${prefix}_${withoutPatternDelimiters(oldTypeName)})"
@@ -2567,18 +2569,13 @@ private fun scenarios(featureChildren: List<FeatureChild>) = featureChildren.fil
 fun toGherkinFeature(stub: NamedStub): String = toGherkinFeature("New Feature", listOf(stub))
 
 private fun stubToClauses(namedStub: NamedStub): Pair<List<GherkinClause>, ExampleDeclarations> {
-    val (requestClauses, typesFromRequest, examples) = toGherkinClauses(
-        namedStub.stub.request.copy(headers = dropConversionExcludedHeaders(namedStub.stub.request.headers))
-    )
+    val (requestClauses, typesFromRequest, examples) = toGherkinClauses(namedStub.stub.request)
 
     for (message in examples.messages) {
         logger.log(message)
     }
 
-    val (responseClauses, allTypes, _) = toGherkinClauses(
-        namedStub.stub.response.copy(headers = dropConversionExcludedHeaders(namedStub.stub.response.headers)),
-        typesFromRequest
-    )
+    val (responseClauses, allTypes, _) = toGherkinClauses(namedStub.stub.response, typesFromRequest)
     val typeClauses = toGherkinClauses(allTypes)
     return Pair(typeClauses.plus(requestClauses).plus(responseClauses), examples)
 }
