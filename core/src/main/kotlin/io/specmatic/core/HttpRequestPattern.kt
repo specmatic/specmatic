@@ -906,7 +906,7 @@ data class HttpRequestPattern(
     fun addPathParamsToRows(requestPath: String, row: Row, resolver: Resolver): Row {
         return httpPathPattern?.let { httpPathPattern ->
             val pathParams = httpPathPattern.extractPathParams(requestPath, resolver)
-            return row.addFields(pathParams)
+            return row.addFields(pathParams.mapValues { it.value.toStringLiteral() })
         } ?: row
     }
 

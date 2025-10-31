@@ -15,6 +15,15 @@ import java.io.File
 data class Dictionary(private val data: Map<String, Value>, private val focusedData: Map<String, Value> = emptyMap()) {
     private val defaultData: Map<String, Value> = data.filterKeys(::isPatternToken)
 
+    fun addParameters(parameters: Map<String, Value>, breadCrumb: BreadCrumb): Dictionary {
+        val parameters = mapOf(
+            BreadCrumb.PARAMETERS.value to JSONObjectValue(
+                mapOf(breadCrumb.value to JSONObjectValue(parameters)),
+            ),
+        )
+        return copy(data = data.plus(parameters))
+    }
+
     fun plus(other: Map<String, Value>): Dictionary {
         return copy(data = data + other)
     }

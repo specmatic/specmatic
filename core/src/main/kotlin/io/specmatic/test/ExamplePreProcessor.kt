@@ -5,15 +5,18 @@ import io.ktor.util.*
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.QueryParameters
+import io.specmatic.core.Scenario
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.loadSpecmaticConfig
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.pattern.parsedValue
+import io.specmatic.core.pattern.withoutOptionality
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
+import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.ScalarValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
@@ -22,6 +25,7 @@ import java.io.File
 
 const val delayedRandomSubstitutionKey = "\$rand"
 val SUBSTITUTE_PATTERN = Regex("^\\$(\\w+)?\\((.*)\\)$")
+val EMBEDDED_SUBSTITUTE_PATTERN = Regex(SUBSTITUTE_PATTERN.pattern.drop(1).dropLast(1))
 
 enum class SubstitutionType { SIMPLE, DELAYED_RANDOM }
 
@@ -31,7 +35,8 @@ enum class StoreType(val type: String, val grammar: String) {
 
 object ExampleProcessor {
     private var runningEntity: Map<String, Value> = mapOf()
-    private var factStore: Map<String, Value> = loadConfig().toFactStore("CONFIG")
+    private var linksStore: Map<String, Value> = mapOf()
+    private var configStore: Map<String, Value> = loadConfig().toFactStore("CONFIG")
 
     private fun loadConfig(): JSONObjectValue {
         val configFilePath = runCatching {
@@ -53,8 +58,9 @@ object ExampleProcessor {
     }
 
     fun cleanStores() {
-        factStore = loadConfig().toFactStore("CONFIG")
+        configStore = loadConfig().toFactStore("CONFIG")
         runningEntity = emptyMap()
+        linksStore = emptyMap()
     }
 
     @Suppress("MemberVisibilityCanBePrivate") // Being used by other projects
@@ -71,18 +77,18 @@ object ExampleProcessor {
     }
 
     fun getFactStore(): Map<String, Value> {
-        return factStore + runningEntity
+        return configStore + runningEntity + linksStore
     }
 
     private fun getValue(key: String, type: SubstitutionType): Value? {
-        val returnValue = factStore[key] ?: runningEntity[key]
+        val returnValue = configStore[key] ?: runningEntity[key] ?: linksStore[key]
         if (type != SubstitutionType.DELAYED_RANDOM) return returnValue
 
         val arrayValue = returnValue as? JSONArrayValue
             ?: throw ContractException(breadCrumb = key, errorMessage = "${key.quote()} is not an array in fact store")
 
         val entityKey = "ENTITY.${key.substringAfterLast('.')}"
-        val entityValue = factStore[entityKey] ?: runningEntity[entityKey]
+        val entityValue = configStore[entityKey] ?: runningEntity[entityKey]
             ?: throw ContractException(breadCrumb = entityKey, errorMessage = "Could not resolve ${entityKey.quote()} in fact store")
 
         val filteredList = arrayValue.list.filterNot { it.toStringLiteral() == entityValue.toStringLiteral() }.ifEmpty {
@@ -162,12 +168,25 @@ object ExampleProcessor {
         return value
     }
 
+    private fun resolveSingleToken(tokenWithDelimiters: StringValue, ifNotExists: (String, SubstitutionType) -> Value): Value? {
+        return tokenWithDelimiters.ifSubstitutionToken { token, type ->
+            if (type == SubstitutionType.DELAYED_RANDOM && ifNotExists == ::ifNotExitsToLookupPattern) ifNotExitsToLookupPattern(token, type)
+            else getValue(token, type) ?: ifNotExists(token, type)
+        }
+    }
+
     private fun resolve(value: StringValue, ifNotExists: (lookupKey: String, type: SubstitutionType) -> Value): Value {
-        return value.ifSubstitutionToken { token, type ->
-            if (type == SubstitutionType.DELAYED_RANDOM && ifNotExists == ::ifNotExitsToLookupPattern) {
-                return@ifSubstitutionToken ifNotExitsToLookupPattern(token, type)
-            } else getValue(token, type) ?: ifNotExists(token, type)
-        } ?: value
+        return resolveSingleToken(value, ifNotExists) ?: resolveEmbeddedTokens(value, ifNotExists)
+    }
+
+    private fun resolveEmbeddedTokens(value: StringValue, ifNotExists: (lookupKey: String, type: SubstitutionType) -> Value): Value {
+        if ("$(" !in value.string) return value
+        return StringValue(
+            string = EMBEDDED_SUBSTITUTE_PATTERN.replace(value.string) { matchResult ->
+                val value = StringValue(matchResult.value)
+                resolveSingleToken(value, ifNotExists)?.toStringLiteral() ?: matchResult.value
+            },
+        )
     }
 
     internal fun resolve(value: JSONObjectValue, ifNotExists: (lookupKey: String, type: SubstitutionType) -> Value): JSONObjectValue {
@@ -183,6 +202,36 @@ object ExampleProcessor {
     }
 
     /* STORE HELPERS */
+    fun store(testScenario: Scenario, originalScenario: Scenario, httpRequest: HttpRequest, httpResponse: HttpResponse) {
+        if (testScenario.isNegative) return
+
+        if (originalScenario.openApiLinks.isNotEmpty()) {
+            val pathParams = originalScenario.httpRequestPattern.httpPathPattern?.let { pattern ->
+                val requestPath = httpRequest.path.orEmpty()
+                pattern.extractPathParams(requestPath, originalScenario.resolver).mapKeys { withoutOptionality(it.key) }
+            }.orEmpty()
+
+            val valueToStore = buildMap {
+                put("url", httpRequest.path.orEmpty().let(::StringValue))
+                put("method", httpRequest.method.orEmpty().let(::StringValue))
+                put("request", JSONObjectValue(buildMap {
+                    putAll(httpRequest.toJSON().jsonObject)
+                    put("path", JSONObjectValue(pathParams))
+                }))
+
+                put("response", httpResponse.toJSON())
+                put("statusCode", httpResponse.status.let(::NumberValue))
+            }.let(::JSONObjectValue)
+
+            originalScenario.openApiLinks.forEach { link ->
+                linksStore = linksStore.plus(valueToStore.toFactStore(link.name))
+            }
+        }
+
+        if (testScenario.exampleRow == null) return
+        return store(testScenario.exampleRow, httpRequest, httpResponse)
+    }
+
     fun store(exampleRow: Row, httpRequest: HttpRequest, httpResponse: HttpResponse) {
         if (httpRequest.method == "POST") {
             runningEntity = httpResponse.body.toFactStore(prefix = "ENTITY")
@@ -249,7 +298,6 @@ object ExampleProcessor {
             val type = if (this.toString().contains(delayedRandomSubstitutionKey)) {
                 SubstitutionType.DELAYED_RANDOM
             } else SubstitutionType.SIMPLE
-
             block(withoutSubstituteDelimiters(this), type)
         } else null
     }
@@ -267,7 +315,14 @@ object ExampleProcessor {
             is String -> SUBSTITUTE_PATTERN.find(token)?.groups?.get(2)?.value ?: ""
             is StringValue -> SUBSTITUTE_PATTERN.find(token.string)?.groups?.get(2)?.value ?: ""
             else -> ""
-        }
+        }.jsonPointerToInternalPointer()
+    }
+
+    private fun String.jsonPointerToInternalPointer(): String {
+        val cleaned = this.replace("~0", "~").replace("~1", "/").replace("#", "")
+        return cleaned.split('/').joinToString(separator = "") {
+            if (it.toIntOrNull() != null) "[$it]" else ".$it"
+        }.removePrefix(".")
     }
 }
 

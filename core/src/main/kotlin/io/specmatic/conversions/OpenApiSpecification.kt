@@ -11,6 +11,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.cucumber.messages.types.Step
 import io.ktor.util.reflect.*
+import io.specmatic.conversions.links.OpenApiLinksRepository
 import io.specmatic.core.*
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.filters.HTTPFilterKeys
@@ -382,6 +383,7 @@ class OpenApiSpecification(
     }
 
     val patterns = mutableMapOf<String, Pattern>()
+    val openApiLinksRepository: OpenApiLinksRepository = OpenApiLinksRepository.from(parsedOpenApi, openApiFilePath).unwrapOrContractException()
 
     fun isOpenAPI31(): Boolean {
         return parsedOpenApi.openapi.startsWith("3.1")
@@ -393,10 +395,14 @@ class OpenApiSpecification(
         val (scenarioInfos, stubsFromExamples) = toScenarioInfos()
         val unreferencedSchemaPatterns = parseUnreferencedSchemas()
         val updatedScenarios = scenarioInfos.map {
-            Scenario(it).copy(
+            val scenario = Scenario(it)
+            val linksDefinedForScenario = openApiLinksRepository.getDefinedFor(scenario)
+            val examplesFromLinks = openApiLinksRepository.openApiLinksToExamples(linksDefinedForScenario, scenario)
+            scenario.copy(
                 dictionary = dictionary.plus(specmaticConfig.parsedDefaultPatternValues()),
                 attributeSelectionPattern = specmaticConfig.getAttributeSelectionPattern(),
-                patterns = it.patterns + unreferencedSchemaPatterns
+                patterns = it.patterns + unreferencedSchemaPatterns,
+                examples = scenario.examples.plus(examplesFromLinks.unwrapOrContractException()),
             )
         }
 
@@ -408,7 +414,7 @@ class OpenApiSpecification(
             serviceType = SERVICE_TYPE_HTTP,
             stubsFromExamples = stubsFromExamples,
             specmaticConfig = specmaticConfig,
-            strictMode = strictMode
+            strictMode = strictMode,
         )
     }
 
@@ -662,7 +668,8 @@ class OpenApiSpecification(
                             sourceRepositoryBranch = sourceRepositoryBranch,
                             specification = specificationPath,
                             serviceType = SERVICE_TYPE_HTTP,
-                            operationMetadata = operationMetadata
+                            operationMetadata = operationMetadata,
+                            openApiLinks = openApiLinksRepository.getDefinedBy(openApiPath, httpMethod, httpResponsePattern.status),
                         )
                     }
 
