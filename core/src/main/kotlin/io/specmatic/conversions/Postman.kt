@@ -105,8 +105,8 @@ private fun baseNamedStub(request: JSONObjectValue, scenarioName: String): List<
         val response = LegacyHttpClient(baseURL, log = dontPrintToConsole).execute(httpRequest)
 
         listOf(Pair(hostAndPort(baseURL), NamedStub(scenarioName, ScenarioStub(
-            httpRequest,
-            response.withoutSpecmaticHeaders()
+            httpRequest.dropIrrelevantHeaders(),
+            response.dropIrrelevantHeaders()
         ))))
     } catch (e: Throwable) {
         logger.log(e,"  Failed to generate a response for the Postman request")
@@ -124,7 +124,10 @@ fun namedStubsFromPostmanResponses(responses: List<Value>): List<Pair<BaseURLInf
         val (baseURL, innerHttpRequest) = postmanItemRequest(innerRequest)
         val innerHttpResponse: HttpResponse = postmanItemResponse(responseItem)
 
-        Pair(hostAndPort(baseURL), NamedStub(scenarioName, ScenarioStub(innerHttpRequest, innerHttpResponse)))
+        Pair(hostAndPort(baseURL), NamedStub(scenarioName, ScenarioStub(
+            innerHttpRequest.dropIrrelevantHeaders(),
+            innerHttpResponse.dropIrrelevantHeaders()
+        )))
     }
 }
 

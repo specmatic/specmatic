@@ -9,6 +9,8 @@ import io.ktor.client.request.*
 import io.ktor.client.request.forms.*
 import io.ktor.http.*
 import io.ktor.http.content.*
+import io.specmatic.core.GherkinSection.Then
+import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_PRETTY_PRINT
 import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
 import io.specmatic.core.utilities.URIUtils
@@ -387,7 +389,13 @@ data class HttpRequest(
         return requestNotRecognized(StrictRequestNotRecognizedMessages())
     }
 
+    fun dropIrrelevantHeaders(): HttpRequest = withoutTransportHeaders().withoutConversionHeaders().withoutSpecmaticHeaders()
+
     fun withoutTransportHeaders(): HttpRequest = copy(headers = headers.withoutTransportHeaders())
+
+    fun withoutSpecmaticHeaders(): HttpRequest = copy(headers = dropSpecmaticHeaders(headers))
+
+    fun withoutConversionHeaders(): HttpRequest = copy(headers = dropConversionExcludedHeaders(headers))
 
     fun addSecurityHeader(headerName: String, headerValue: String): HttpRequest {
         val updatedMetadata = metadata.copy(securityHeaderNames = metadata.securityHeaderNames.plus(headerName))
@@ -578,14 +586,31 @@ fun toGherkinClauses(request: HttpRequest): Triple<List<GherkinClause>, Map<Stri
         val (newClauses, newTypes, newExamples) = firstLineToGherkin(request, types, exampleDeclaration)
         Triple(clauses.plus(newClauses), newTypes, newExamples)
     }.let { (clauses, types, examples) ->
+        val (contentTypeEntry, restHeaders) = partitionOnContentType(request.headers)
+        val contentTypHeaderClause = contentTypeEntry?.let { (key, value) ->
+            val contentType = value.split(";").firstOrNull()
+
+            if (contentType == null) {
+                if (value.isBlank()) {
+                    logger.log("WARNING: Content-Type header for ${request.method} ${request.path} is blank")
+                } else {
+                    logger.log("WARNING: Could not parse content type from header value '$value'")
+                }
+
+                return@let null
+            }
+
+            listOf(GherkinClause("request-header $key $contentType", Then))
+        }.orEmpty()
+
         val (newClauses, newTypes, newExamples) = headersToGherkin(
-            request.headers,
+            restHeaders,
             "request-header",
             types,
             examples,
             When
         )
-        Triple(clauses.plus(newClauses), newTypes, newExamples)
+        Triple(clauses.plus(newClauses).plus(contentTypHeaderClause), newTypes, newExamples)
     }.let { (clauses, types, examples) ->
         val (newClauses, newTypes, newExamples) = bodyToGherkin(request, types, examples)
         Triple(clauses.plus(newClauses), newTypes, newExamples)

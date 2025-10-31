@@ -127,8 +127,8 @@ class Proxy(
                                             name,
                                             uniqueNameForApiOperation(httpRequest, baseURL, httpResponse.status),
                                             ScenarioStub(
-                                                httpRequest.withoutTransportHeaders(),
-                                                httpResponse.withoutTransportHeaders(),
+                                                httpRequest.dropIrrelevantHeaders(),
+                                                httpResponse.dropIrrelevantHeaders(),
                                             ),
                                         ),
                                     )
