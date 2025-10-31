@@ -3,6 +3,7 @@ package io.specmatic.core
 import io.ktor.http.*
 import io.specmatic.conversions.guessType
 import io.specmatic.core.GherkinSection.Then
+import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.isPatternToken
@@ -240,7 +241,18 @@ fun toGherkinClauses(
         }.let { (clauses, types, _) ->
             val (contentTypeEntry, restHeaders) = partitionOnContentType(response.headers)
             val contentTypHeaderClause = contentTypeEntry?.let { (key, value) ->
-                val contentType = value.split(";").first()
+                val contentType = value.split(";").firstOrNull()
+
+                if (contentType == null) {
+                    if (value.isBlank()) {
+                        logger.log("WARNING: Content-Type header for ${response.status} response is blank")
+                    } else {
+                        logger.log("WARNING: Could not parse content type from header value '$value'")
+                    }
+
+                    return@let null
+                }
+
                 listOf(GherkinClause("response-header $key $contentType", Then))
             }.orEmpty()
 
@@ -267,7 +279,12 @@ fun toGherkinClauses(
 }
 
 fun dropConversionExcludedHeaders(headers: Map<String, String>): Map<String, String> {
-    val headersToExcludeFromConversion = listOf(HttpHeaders.ContentDisposition, HttpHeaders.ContentEncoding)
+    val headersToExcludeFromConversion =
+        listOf(
+            HttpHeaders.ContentDisposition,
+            HttpHeaders.ContentEncoding,
+            HttpHeaders.Vary,
+        )
     return headers.minusIgnoringCase(headersToExcludeFromConversion).filterKeys { !it.startsWith("Access-Control-") }
 }
 

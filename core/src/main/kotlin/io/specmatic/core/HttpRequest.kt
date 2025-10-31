@@ -10,6 +10,7 @@ import io.ktor.client.request.forms.*
 import io.ktor.http.*
 import io.ktor.http.content.*
 import io.specmatic.core.GherkinSection.Then
+import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_PRETTY_PRINT
 import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
 import io.specmatic.core.utilities.URIUtils
@@ -587,7 +588,18 @@ fun toGherkinClauses(request: HttpRequest): Triple<List<GherkinClause>, Map<Stri
     }.let { (clauses, types, examples) ->
         val (contentTypeEntry, restHeaders) = partitionOnContentType(request.headers)
         val contentTypHeaderClause = contentTypeEntry?.let { (key, value) ->
-            val contentType = value.split(";").first()
+            val contentType = value.split(";").firstOrNull()
+
+            if (contentType == null) {
+                if (value.isBlank()) {
+                    logger.log("WARNING: Content-Type header for ${request.method} ${request.path} is blank")
+                } else {
+                    logger.log("WARNING: Could not parse content type from header value '$value'")
+                }
+
+                return@let null
+            }
+
             listOf(GherkinClause("request-header $key $contentType", Then))
         }.orEmpty()
 
