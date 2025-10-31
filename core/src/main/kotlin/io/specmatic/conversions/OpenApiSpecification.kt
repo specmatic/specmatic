@@ -47,7 +47,6 @@ import io.swagger.v3.parser.OpenAPIV3Parser
 import io.swagger.v3.parser.core.models.ParseOptions
 import io.swagger.v3.parser.core.models.SwaggerParseResult
 import java.io.File
-import kotlin.sequences.asSequence
 
 private const val BEARER_SECURITY_SCHEME = "bearer"
 
@@ -383,8 +382,6 @@ class OpenApiSpecification(
     }
 
     val patterns = mutableMapOf<String, Pattern>()
-
-    private val pathTree: PathTree = PathTree.from(parsedOpenApi.paths.orEmpty())
 
     fun isOpenAPI31(): Boolean {
         return parsedOpenApi.openapi.startsWith("3.1")
