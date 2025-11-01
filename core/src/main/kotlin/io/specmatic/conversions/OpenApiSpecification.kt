@@ -2,13 +2,8 @@
 
 package io.specmatic.conversions
 
-import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ArrayNode
-import com.fasterxml.jackson.databind.node.ObjectNode
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
-import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.cucumber.messages.types.Step
 import io.ktor.util.reflect.*
 import io.specmatic.conversions.links.OpenApiLinksRepository
@@ -97,6 +92,7 @@ class OpenApiSpecification(
     }
 
     companion object {
+        private val openApiSpecProcessor = OpenApiSpecPreProcessor()
 
         fun patternsFrom(jsonSchema: Map<String, Any?>, schemaName: String = "Schema"): Map<String, Pattern> {
             val definitions = try {
@@ -228,7 +224,7 @@ class OpenApiSpecification(
         ): OpenApiSpecification {
             val implicitOverlayFile = getImplicitOverlayContent(openApiFilePath)
             val mergedYaml = yamlContent.applyOverlay(overlayContent).applyOverlay(implicitOverlayFile)
-            val preprocessedYaml = preprocessYamlForAdditionalProperties(mergedYaml)
+            val preprocessedYaml = openApiSpecProcessor.process(mergedYaml)
 
             val parseResult: SwaggerParseResult =
                 OpenAPIV3Parser().readContents(
@@ -298,80 +294,6 @@ class OpenApiSpecification(
                 it.isResolveRequestBody = true
                 it.isResolveResponses = true
             }
-        }
-
-        private val yamlPreprocessorMapper: ObjectMapper by lazy {
-            ObjectMapper(
-                YAMLFactory()
-                    .disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER),
-            ).registerKotlinModule()
-        }
-
-        private fun preprocessYamlForAdditionalProperties(yaml: String): String {
-            if (yaml.isBlank()) return yaml
-
-            return try {
-                val root = yamlPreprocessorMapper.readTree(yaml) ?: return yaml
-                removeInvalidAdditionalProperties(root)
-                yamlPreprocessorMapper.writeValueAsString(root)
-            } catch (exception: Exception) {
-                logger.debug("Skipping additionalProperties preprocessing due to error: ${exception.message}")
-                yaml
-            }
-        }
-
-        private fun removeInvalidAdditionalProperties(node: JsonNode?, skipProcessing: Boolean = false, currentPath: String = "") {
-            if (node == null || skipProcessing) return
-
-            when (node) {
-                is ObjectNode -> {
-                    if (node.has("additionalProperties") && shouldRemoveAdditionalProperties(node.get("type"))) {
-                        val logPath = currentPath.ifBlank { "root" }
-                        val typeDescription = node.get("type")?.let { typeNode ->
-                            when {
-                                typeNode.isTextual -> typeNode.asText()
-                                typeNode.isNull -> "null"
-                                else -> typeNode.toString()
-                            }
-                        } ?: "unspecified"
-                        logger.debug("Ignoring 'additionalProperties' from $logPath (additionalProperties only applies to 'type: object', but found 'type: $typeDescription')")
-                        node.remove("additionalProperties")
-                    }
-
-                    val fieldNames = node.fieldNames()
-                    while (fieldNames.hasNext()) {
-                        val fieldName = fieldNames.next()
-                        val value = node.get(fieldName)
-                        val shouldSkipChild = fieldName == "example" || fieldName == "examples"
-                        val childPath = when {
-                            currentPath.isBlank() -> fieldName
-                            else -> "$currentPath.$fieldName"
-                        }
-
-                        removeInvalidAdditionalProperties(value, shouldSkipChild, childPath)
-                    }
-                }
-
-                is ArrayNode -> {
-                    node.forEachIndexed { index, element ->
-                        val elementPath = when {
-                            currentPath.isBlank() -> index.toString()
-                            else -> "$currentPath.$index"
-                        }
-                        removeInvalidAdditionalProperties(element, skipProcessing, elementPath)
-                    }
-                }
-            }
-        }
-
-        private fun shouldRemoveAdditionalProperties(typeNode: JsonNode?): Boolean {
-            if (typeNode == null) return false
-
-            if (typeNode.isTextual) {
-                return !typeNode.asText().equals(OBJECT_TYPE, ignoreCase = true)
-            }
-
-            return true
         }
 
         fun String.applyOverlay(overlayContent: String): String {

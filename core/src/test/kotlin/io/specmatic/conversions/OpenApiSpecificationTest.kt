@@ -1,7 +1,5 @@
 package io.specmatic.conversions
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import integration_tests.testCount
 import io.ktor.util.reflect.*
 import io.mockk.every
@@ -304,66 +302,6 @@ components:
     }
 
     @Test
-    fun `should not alter additionalProperties inside examples`() {
-        val yaml = """
-openapi: 3.0.0
-info:
-  title: Sample API
-  version: 1.0.0
-paths:
-  /ping:
-    get:
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-              examples:
-                sample:
-                  value:
-                    additionalProperties:
-                      nested: true
-components:
-  schemas:
-    NonObject:
-      type: string
-      additionalProperties: {}
-""".trimIndent()
-
-    val method = OpenApiSpecification.Companion::class.java.getDeclaredMethod(
-      "preprocessYamlForAdditionalProperties",
-      String::class.java
-    )
-    method.isAccessible = true
-
-    val processedYaml = method.invoke(OpenApiSpecification.Companion, yaml) as String
-
-    val mapper = ObjectMapper(YAMLFactory())
-    val processedRoot = mapper.readTree(processedYaml)
-
-    val processedSchemaNode = processedRoot.path("components").path("schemas").path("NonObject")
-    assertThat(processedSchemaNode.has("additionalProperties")).isFalse()
-  assertThat(processedSchemaNode.path("type").textValue()).isEqualTo("string")
-
-    val exampleNode = processedRoot
-      .path("paths")
-      .path("/ping")
-      .path("get")
-      .path("responses")
-      .path("200")
-      .path("content")
-      .path("application/json")
-      .path("examples")
-      .path("sample")
-      .path("value")
-
-  assertThat(exampleNode.isMissingNode).isFalse()
-    assertThat(exampleNode.has("additionalProperties")).isTrue()
-    }
-
-    @Test
     fun `should log removal path for additionalProperties`() {
         val yaml = """
 openapi: 3.0.0
@@ -381,12 +319,14 @@ components:
 
         val originalLogger = logger
         val mockLogger = mockk<LogStrategy>(relaxed = true)
-  val expectedLog = "Ignoring 'additionalProperties' from components.schemas.Person.name (additionalProperties only applies to 'type: object', but found 'type: string')"
 
         try {
             logger = mockLogger
             OpenApiSpecification.fromYAML(yaml, "spec.yaml")
-            verify { mockLogger.debug(expectedLog) }
+            verify {
+                mockLogger.debug("Ignoring 'additionalProperties' from components.schemas.Person.name")
+                mockLogger.debug("additionalProperties only applies to 'type: object', but found 'type: string' at components.schemas.Person.name")
+            }
         } finally {
             logger = originalLogger
         }
