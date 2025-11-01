@@ -699,6 +699,41 @@ internal class JSONObjectPatternTest {
         }
 
         @Test
+        fun `should return no negative patterns for a pattern with all optional keys and withDataTypeNegatives set to false`() {
+            val pattern: Pattern = JSONObjectPattern(
+                mapOf(
+                    "address?" to StringPattern(),
+                    "pincode?" to NumberPattern()
+                )
+            )
+
+            val negativePatternDetails = pattern.negativeBasedOn(
+                Row(),
+                Resolver(isNegative = true),
+                NegativePatternConfiguration(withDataTypeNegatives = false)
+            ).map {
+                (it as HasValue<Pattern>).valueDetails.singleLineDescription()
+            }.filter { it.isNotBlank() }.toList()
+
+            assertThat(negativePatternDetails).isEmpty()
+        }
+
+        @Test
+        fun `should return no negative patterns for a pattern with no keys and withDataTypeNegatives set to false`() {
+            val pattern: Pattern = JSONObjectPattern()
+
+            val negativePatternDetails = pattern.negativeBasedOn(
+                Row(),
+                Resolver(isNegative = true),
+                NegativePatternConfiguration(withDataTypeNegatives = false)
+            ).map {
+                (it as HasValue<Pattern>).valueDetails.singleLineDescription()
+            }.filter { it.isNotBlank() }.toList()
+
+            assertThat(negativePatternDetails).isEmpty()
+        }
+
+        @Test
         fun `basedOn methods should generate with typeAlias copied from original pattern`() {
             val pattern = JSONObjectPattern(mapOf(
                 "name" to StringPattern(), "address?" to StringPattern(), "age?" to NumberPattern()
