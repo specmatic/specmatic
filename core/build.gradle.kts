@@ -54,6 +54,9 @@ dependencies {
     implementation("org.thymeleaf:thymeleaf:3.1.3.RELEASE")
 
     implementation("org.junit.platform:junit-platform-launcher:1.13.4")
+
+    // TEMPORARILY ADDED FOR GENERATING THE CENTRAL CONTRACT REPO
+    implementation("com.asyncapi:asyncapi-core:1.0.0-RC4")
 }
 
 configurations.implementation.configure {
