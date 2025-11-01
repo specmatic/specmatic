@@ -61,7 +61,7 @@ components:
     }
 
     @Test
-    fun `should escape requestBodies under links`() {
+    fun `should escape requestBodies under links and add ESCAPED for later parsing`() {
         val yaml = """
 openapi: 3.0.0
 info:
@@ -93,6 +93,7 @@ paths:
             .path("requestBody")
 
         assertThat(exampleNode.isTextual).withFailMessage("Expected TextualNode got ${exampleNode.javaClass.simpleName}").isTrue
+        assertThat(exampleNode.textValue()).startsWith("<ESCAPED>")
     }
 
     @Test

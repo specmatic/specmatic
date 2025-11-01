@@ -10,6 +10,7 @@ import io.specmatic.core.pattern.HasException
 import io.specmatic.core.pattern.HasFailure
 import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.ReturnValue
+import io.specmatic.core.pattern.breadCrumb
 import io.specmatic.core.pattern.isOptional
 import io.specmatic.core.pattern.listFold
 import io.specmatic.core.pattern.mapFold
@@ -17,41 +18,37 @@ import io.specmatic.core.pattern.unwrapOrReturn
 import io.specmatic.core.pattern.withOptionality
 import io.specmatic.core.pattern.withoutOptionality
 import io.swagger.v3.oas.models.OpenAPI
+import io.swagger.v3.oas.models.Operation
 import io.swagger.v3.oas.models.PathItem
 import io.swagger.v3.oas.models.links.Link
 
-data class OpenApiOperationReference(val path: String, val method: String, val status: Int) {
+data class OpenApiOperationReference(val path: String, val method: String, val status: Int, val operationId: String?) {
     fun matches(path: String, method: String, status: Int): Boolean {
+        if (this.operationId != null) return false
         return this.path == convertPathParameterStyle(path) && this.method.equals(method, ignoreCase = true) && this.status == status
+    }
+
+    fun matches(operationId: String?, status: Int): Boolean {
+        if (this.operationId == null || operationId == null) return false
+        return operationId == this.operationId && status == this.status
     }
 }
 
 data class OpenApiLink(
     val name: String,
-    val forStatusCode: Int,
     val isPartial: Boolean = false,
     val description: String? = null,
-    val operationId: String? = null,
     val server: OpenApiServerObject? = null,
-    val byOperationReference: OpenApiOperationReference,
+    val byOperation: OpenApiOperationReference,
+    val forOperation: OpenApiOperationReference,
     val requestBody: OpenApiValueOrLinkExpression? = null,
-    val forOperationReference: OpenApiOperationReference? = null,
     val parameters: Map<String, OpenApiValueOrLinkExpression> = emptyMap(),
 ) {
-    fun matchesFor(operationId: String?, status: Int): Boolean {
-        if (this.operationId == null || operationId == null) return false
-        return operationId == this.operationId && status == forStatusCode
-    }
+    fun matchesFor(operationId: String?, status: Int): Boolean = forOperation.matches(operationId, status)
 
-    fun matchesFor(path: String, method: String, status: Int): Boolean {
-        if (this.operationId != null) return false
-        if (this.forOperationReference == null) return false
-        return this.forOperationReference.matches(path, method, status)
-    }
+    fun matchesFor(path: String, method: String, status: Int): Boolean = forOperation.matches(path, method, status)
 
-    fun matchesBy(path: String, method: String, status: Int): Boolean {
-        return this.byOperationReference.matches(path, method, status)
-    }
+    fun matchesBy(path: String, method: String, status: Int): Boolean = byOperation.matches(path, method, status)
 
     fun toHttpRequest(scenario: Scenario): ReturnValue<HttpRequest> {
         if (
@@ -104,16 +101,16 @@ data class OpenApiLink(
         pathPattern.pathParameters().map { param ->
             if (withoutOptionality(param.key.orEmpty()) in pathDictionary) return@map HasValue(Unit)
             if (isOptional(param.key.orEmpty())) return@map HasValue(Unit)
-            HasFailure("Expected mandatory path parameter ${param.key} is missing from link parameters", name)
+            HasFailure("Expected mandatory path parameter '${param.key}' is missing from link parameters", param.key)
         }.listFold().unwrapOrReturn {
-            return it.cast()
+            return it.breadCrumb("LINKS.$name.parameters").cast()
         }
 
         return runCatching {
             val updatedDictionary = scenario.resolver.dictionary.addParameters(pathDictionary, BreadCrumb.PATH)
             val path = pathPattern.generate(resolver = scenario.resolver.copy(dictionary = updatedDictionary))
             httpRequest.copy(path = path)
-        }.map(::HasValue).getOrElse(::HasException)
+        }.map(::HasValue).getOrElse(::HasException).breadCrumb("LINKS.$name.parameters")
     }
 
     private fun <T> Map<String, T>.containsPatternKey(key: String): Boolean {
@@ -125,95 +122,93 @@ data class OpenApiLink(
         const val LINK_EXPECTED_STATUS_CODE = "x-StatusCode"
         const val LINK_PARTIAL = "x-Partial"
 
-        fun from(parsedOpenApi: OpenAPI, byOperationReference: OpenApiOperationReference, name: String, parsedOpenApiLink: Link): ReturnValue<OpenApiLink> {
-            val operationRefWithStatusCode = parsedOpenApiLink.operationRef?.let {
+        fun from(parsedOpenApi: OpenAPI, byOperation: OpenApiOperationReference, name: String, parsedOpenApiLink: Link): ReturnValue<OpenApiLink> {
+            val operationRefWithOperationFromOperationRef = parsedOpenApiLink.operationRef?.let {
                 parsedOpenApi.verifyOperationReference(it)
             }?.unwrapOrReturn {
-                return it.cast()
+                return it.breadCrumb("LINKS.$name.operationRef").cast()
             }
 
-            val operationIdWithStatusCode = parsedOpenApiLink.operationId?.let {
+            val operationRefWithOperationFromOperationId = parsedOpenApiLink.operationId?.let {
                 parsedOpenApi.verifyOperationId(it)
             }?.unwrapOrReturn {
-                return it.cast()
+                return it.breadCrumb("LINKS.$name.operationId").cast()
             }
 
-            if (operationRefWithStatusCode == null && operationIdWithStatusCode == null) {
-                return HasFailure("Must define either operationId or operationRef in OpenApi Link")
+            if (operationRefWithOperationFromOperationRef == null && operationRefWithOperationFromOperationId == null) {
+                return HasFailure("Must define either operationId or operationRef in OpenApi Link", "LINKS.$name")
             }
 
             val parameters = parsedOpenApiLink.parameters?.let {
                 extractParameters(it, name)
             }?.unwrapOrReturn {
-                return it.cast()
+                return it.breadCrumb("LINKS.$name.parameters").cast()
             }
 
             val requestBody = parsedOpenApiLink.requestBody?.let {
                 OpenApiValueOrLinkExpression.from(it, name)
             }?.unwrapOrReturn {
-                return it.cast()
+                return it.breadCrumb("LINKS.$name.requestBody").cast()
             }
 
             val server = parsedOpenApiLink.server?.let {
                 OpenApiServerObject.from(it)
             }?.unwrapOrReturn {
-                return it.cast()
+                return it.breadCrumb("LINKS.$name").cast()
             }
 
+            val operation = (operationRefWithOperationFromOperationId?.second ?: operationRefWithOperationFromOperationRef?.second) as Operation
             val statusCodeFromExtension: Int? = parsedOpenApiLink.extensions?.get(LINK_EXPECTED_STATUS_CODE)?.let {
-                if (it is String && it.equals("default", ignoreCase = true)) return@let HasValue(DEFAULT_RESPONSE_CODE)
-                runCatching { it.toString().toInt() }.map(::HasValue).getOrElse(::HasException).addDetails(
-                    "Invalid Expected Status Code $it", name,
-                )
+                extractAndValidateExpectedStatusCode(it, operation)
             }?.unwrapOrReturn {
-                return it.cast()
+                return it.breadCrumb("LINKS.$name.extensions.$LINK_EXPECTED_STATUS_CODE").cast()
             }
 
             val isPartialFromExtension: Boolean? = parsedOpenApiLink.extensions?.get(LINK_PARTIAL)?.let {
-                runCatching { it.toString().toBoolean() }.map(::HasValue).getOrElse(::HasException).addDetails(
-                    "Invalid Partial Boolean value $it", name,
-                )
+                extractAndValidateIsPartial(it)
             }?.unwrapOrReturn {
-                return it.cast()
+                return it.breadCrumb("LINKS.$name.extensions.$LINK_PARTIAL").cast()
             }
 
-            val firstStatusCode = operationIdWithStatusCode?.second ?: operationRefWithStatusCode?.second
-            val forStatusCode = statusCodeFromExtension ?: firstStatusCode ?: DEFAULT_RESPONSE_CODE
+            val firstStatusCode = operation.responses?.let { responses ->
+                val first2xxStatusCode = responses.entries.firstOrNull { it.key.startsWith("2") }
+                if (first2xxStatusCode != null) return@let first2xxStatusCode.key.toInt()
+                DEFAULT_RESPONSE_CODE.takeIf { responses.contains("default") } ?: responses.entries.firstOrNull()?.key?.toIntOrNull()
+            }
 
+            val forStatusCode = statusCodeFromExtension ?: firstStatusCode ?: DEFAULT_RESPONSE_CODE
+            val forOperation = (operationRefWithOperationFromOperationId?.first ?: operationRefWithOperationFromOperationRef?.first)
             return HasValue(
                 OpenApiLink(
                     name = name,
                     server = server,
                     requestBody = requestBody,
-                    forStatusCode = forStatusCode,
                     parameters = parameters.orEmpty(),
-                    byOperationReference = byOperationReference,
+                    byOperation = byOperation,
                     description = parsedOpenApiLink.description,
                     isPartial = isPartialFromExtension ?: false,
-                    operationId = operationIdWithStatusCode?.first,
-                    forOperationReference = operationRefWithStatusCode?.first?.copy(status = forStatusCode),
+                    forOperation = (forOperation as OpenApiOperationReference).copy(status = forStatusCode),
                 ),
             )
         }
 
-        private fun OpenAPI.verifyOperationReference(operationRef: String): ReturnValue<Pair<OpenApiOperationReference, Int>> {
+        private fun OpenAPI.verifyOperationReference(operationRef: String): ReturnValue<Pair<OpenApiOperationReference, Operation>> {
             val (path, method) = parseAndExtractOperationReference(operationRef).unwrapOrReturn { return it.cast() }
-            val pathItem = paths?.get(path) ?: return HasFailure("Path doesn't exist", path)
-            val operation = pathItem.readOperationsMap()[method] ?: return HasFailure("Http Method $method, doesn't exist on path $path", method.name)
-            val firstStatusCode = operation.responses?.entries?.firstOrNull()?.key?.toIntOrNull() ?: DEFAULT_RESPONSE_CODE
-            return HasValue(OpenApiOperationReference(path, method.name, firstStatusCode) to firstStatusCode)
+            val pathItem = paths?.get(path) ?: return HasFailure("Path '$path' doesn't exist in the specification")
+            val operation = pathItem.readOperationsMap()[method] ?: return HasFailure("Http Method '$method' doesn't exist on path '$path'")
+            return HasValue(OpenApiOperationReference(path, method.name, DEFAULT_RESPONSE_CODE, operation.operationId) to operation)
         }
 
-        private fun OpenAPI.verifyOperationId(operationId: String): ReturnValue<Pair<String, Int>> {
-            paths.orEmpty().forEach { (_, pathItem) ->
-                pathItem.readOperations().map { operation ->
+        private fun OpenAPI.verifyOperationId(operationId: String): ReturnValue<Pair<OpenApiOperationReference, Operation>> {
+            paths.orEmpty().forEach { (path, pathItem) ->
+                pathItem.readOperationsMap().map { (method, operation) ->
                     if (operation.operationId == operationId) {
-                        val firstStatusCode = operation.responses?.entries?.firstOrNull()?.key?.toIntOrNull() ?: DEFAULT_RESPONSE_CODE
-                        return HasValue(operationId to firstStatusCode)
+                        val opRef = OpenApiOperationReference(path, method.name, DEFAULT_RESPONSE_CODE, operationId)
+                        return HasValue(opRef to operation)
                     }
                 }
             }
-            return HasFailure("No Operation Found with id $operationId", operationId)
+            return HasFailure("No Operation Found with operationId '$operationId' in the specification")
         }
 
         private fun extractParameters(parameters: Map<String, String>, name: String): ReturnValue<Map<String, OpenApiValueOrLinkExpression>> {
@@ -233,6 +228,32 @@ data class OpenApiLink(
             return runCatching {
                 Pair(decodedPath, PathItem.HttpMethod.valueOf(upperCasedMethod))
             }.map(::HasValue).getOrElse(::HasException)
+        }
+
+        private fun extractAndValidateExpectedStatusCode(value: Any, operation: Operation): ReturnValue<Int> {
+            val statusCode = if (value is String && value.equals("default", ignoreCase = true)) {
+                "default"
+            } else {
+                runCatching { value.toString().toInt().toString() }.getOrElse { _ ->
+                    return HasFailure("Invalid Expected Status Code '$value' must be a valid integer or 'default'")
+                }
+            }
+
+            val allPossibleStatusCodes = operation.responses.map { it.key.lowercase() }.toSet()
+            return when {
+                statusCode in allPossibleStatusCodes -> HasValue(statusCode.toIntOrNull() ?: DEFAULT_RESPONSE_CODE)
+                "default" in allPossibleStatusCodes -> HasValue(DEFAULT_RESPONSE_CODE)
+                else -> HasFailure("""
+                Invalid status Code for $LINK_EXPECTED_STATUS_CODE '$statusCode' is not possible
+                Must be one of ${allPossibleStatusCodes.joinToString(separator = ", ")}
+                """.trimIndent())
+            }
+        }
+
+        private fun extractAndValidateIsPartial(value: Any): ReturnValue<Boolean> {
+            if (value is Boolean) return HasValue(value)
+            if (value is String && value.lowercase() in setOf("true", "false")) return HasValue(value.toBoolean())
+            return HasFailure("Invalid Is-Partial value '$value' must be a valid boolean")
         }
     }
 }

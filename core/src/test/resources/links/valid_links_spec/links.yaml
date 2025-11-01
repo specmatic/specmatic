@@ -1,0 +1,256 @@
+openapi: 3.0.3
+
+info:
+  title: Product API
+  description: Sample Order API
+  version: '5.0'
+  contact:
+    email: devs@specmatic.io
+
+servers:
+  - url: "http://localhost:3000"
+
+tags:
+  - name: Product
+    description: Product Related APIs
+
+paths:
+  /products:
+    post:
+      description: Create a new product
+      operationId: createProduct
+      tags:
+        - Product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductBase'
+      responses:
+        '201':
+          description: Product created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+          links:
+            listProducts:
+              operationId: getProducts
+              parameters:
+                type: "$request.body#/type"
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseBody'
+    get:
+      description: Get all products
+      operationId: getProducts
+      tags:
+        - Product
+      parameters:
+        - $ref: '#/components/parameters/ProductTypeParam'
+      responses:
+        '200':
+          description: Products found successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+          links:
+            getProduct:
+              $ref: '#/components/links/getProduct'
+            getProductByIdDoesNotExist:
+              $ref: '#/components/links/getProductByIdDoesNotExist'
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseBody'
+
+  /products/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ProductIdParam'
+    get:
+      description: Get a product by ID
+      operationId: getProductById
+      tags:
+        - Product
+      responses:
+        '200':
+          description: Product found successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+          links:
+            updateProduct:
+              x-Partial: true
+              operationId: updateProductById
+              parameters:
+                id: "$request.path.id"
+              requestBody:
+                name: Updated-{$response.body#/name}
+                price: 100
+            updateProductByIdDoesNotExist:
+              x-Partial: true
+              x-StatusCode: 404
+              operationId: updateProductById
+              parameters:
+                id: 999
+              requestBody":
+                name: Updated-{$response.body#/name}
+                price: 999
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseBody'
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseBody'
+    patch:
+      description: Update a product by ID
+      operationId: updateProductById
+      tags:
+        - Product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductBase'
+
+      responses:
+        '200':
+          description: Product updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+          links:
+            deleteProduct:
+              operationRef: '#/paths/~1products~1{id}/delete'
+              parameters:
+                path.id: "$request.path.id"
+            deleteProductByIdDoesNotExist:
+              x-StatusCode: 404
+              operationRef: '#/paths/~1products~1{id}/delete'
+              parameters:
+                path.id: 999
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseBody'
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseBody'
+    delete:
+      description: Delete a product by ID
+      operationId: deleteProductById
+      tags:
+        - Product
+      responses:
+        '200':
+          description: Product deleted successfully
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseBody'
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseBody'
+
+components:
+  links:
+    getProduct:
+      operationId: getProductById
+      parameters:
+        id: "$response.body#/0/id"
+
+    getProductByIdDoesNotExist:
+      x-StatusCode: 404
+      operationId: getProductById
+      parameters:
+        id: 999
+
+  parameters:
+    ProductIdParam:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: integer
+
+    ProductTypeParam:
+      in: query
+      name: type
+      required: true
+      schema:
+        $ref: '#/components/schemas/ProductType'
+
+  schemas:
+    Id:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: integer
+
+    ProductType:
+      type: string
+      enum:
+        - gadgets
+        - book
+        - food
+        - other
+
+    ProductBase:
+      type: object
+      required:
+        - name
+        - price
+        - type
+      properties:
+        name:
+          type: string
+        price:
+          type: integer
+        type:
+          $ref: '#/components/schemas/ProductType'
+
+    Product:
+      allOf:
+        - $ref: '#/components/schemas/ProductBase'
+        - $ref: '#/components/schemas/Id'
+
+    ErrorResponseBody:
+      properties:
+        timestamp:
+          type: string
+        status:
+          type: number
+        error:
+          type: string
+        message:
+          type: string

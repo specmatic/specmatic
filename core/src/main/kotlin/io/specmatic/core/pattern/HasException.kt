@@ -17,6 +17,11 @@ data class HasException<T>(val t: Throwable, val message: String = "", val bread
         return failure
     }
 
+    override fun breadCrumb(breadCrumb: String?, message: String?): ReturnFailure {
+        if (breadCrumb.isNullOrBlank()) return this
+        return this.addDetails(message.orEmpty(), breadCrumb)
+    }
+
     override fun <U> withDefault(default: U, fn: (T) -> U): U {
         return default
     }

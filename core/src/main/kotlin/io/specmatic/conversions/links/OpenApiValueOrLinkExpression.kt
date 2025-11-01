@@ -20,11 +20,16 @@ data class OpenApiValueOrLinkExpression(val value: Value) {
 
     companion object {
         private val embeddedExpressionRegex: Regex = Regex("""\{\$(.*?)}""")
+        private const val ESCAPED_TAG = "<ESCAPED>"
 
         fun from(rawValue: Any, linkName: String): ReturnValue<OpenApiValueOrLinkExpression> {
             // TODO: Temporary Until Swagger-Parser Can Parse RequestBodies as Any
-            val parsedValue = if (rawValue is String) {
-                yamlMapper.readValue(rawValue, Any::class.java)
+            val parsedValue = if (rawValue is String && rawValue.startsWith(ESCAPED_TAG)) {
+                runCatching {
+                    yamlMapper.readValue(rawValue.removePrefix(ESCAPED_TAG), Any::class.java)
+                }.getOrElse { e ->
+                    return HasException(e)
+                }
             } else {
                 rawValue
             }

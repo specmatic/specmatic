@@ -305,7 +305,11 @@ class OpenApiSpecification(
     }
 
     val patterns = mutableMapOf<String, Pattern>()
-    val openApiLinksRepository: OpenApiLinksRepository = OpenApiLinksRepository.from(parsedOpenApi, openApiFilePath).unwrapOrContractException()
+    val openApiLinksRepository: OpenApiLinksRepository = OpenApiLinksRepository.from(
+        openApi = parsedOpenApi,
+        openApiFilePath = openApiFilePath,
+        lenient = !strictMode,
+    ).unwrapOrContractException()
 
     fun isOpenAPI31(): Boolean {
         return parsedOpenApi.openapi.startsWith("3.1")
@@ -313,20 +317,27 @@ class OpenApiSpecification(
 
     fun toFeature(): Feature {
         val name = File(openApiFilePath).name
-
         val (scenarioInfos, stubsFromExamples) = toScenarioInfos()
         val unreferencedSchemaPatterns = parseUnreferencedSchemas()
+
         val updatedScenarios = scenarioInfos.map {
             val scenario = Scenario(it)
             val linksDefinedForScenario = openApiLinksRepository.getDefinedFor(scenario)
-            val examplesFromLinks = openApiLinksRepository.openApiLinksToExamples(linksDefinedForScenario, scenario)
-            scenario.copy(
-                dictionary = dictionary.plus(specmaticConfig.parsedDefaultPatternValues()),
-                attributeSelectionPattern = specmaticConfig.getAttributeSelectionPattern(),
-                patterns = it.patterns + unreferencedSchemaPatterns,
-                examples = scenario.examples.plus(examplesFromLinks.unwrapOrContractException()),
+            val examplesFromLinks = openApiLinksRepository.openApiLinksToExamples(
+                links = linksDefinedForScenario,
+                scenario = scenario,
+                lenient = !strictMode
             )
-        }
+
+            examplesFromLinks.ifValue { examples ->
+                scenario.copy(
+                    dictionary = dictionary.plus(specmaticConfig.parsedDefaultPatternValues()),
+                    attributeSelectionPattern = specmaticConfig.getAttributeSelectionPattern(),
+                    patterns = it.patterns + unreferencedSchemaPatterns,
+                    examples = scenario.examples.plus(examples),
+                )
+            }
+        }.listFold().unwrapOrContractException()
 
         return Feature.from(
             updatedScenarios, name = name, path = openApiFilePath, sourceProvider = sourceProvider,

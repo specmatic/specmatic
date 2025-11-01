@@ -47,6 +47,7 @@ interface JsonNodeProcessor {
     data object EscapeLinkRequestBody : JsonNodeProcessor {
         private const val REQUEST_BODY = "requestBody"
         private const val LINKS = "links"
+        private const val ESCAPED_TAG = "<ESCAPED>"
 
         override fun qualifiesForProcessing(jsonPath: BreadCrumb, node: JsonNode): Boolean {
             return !jsonPath.value.contains("example")
@@ -62,7 +63,7 @@ interface JsonNodeProcessor {
 
             logger.debug("Escaping '$REQUEST_BODY' at $jsonPath")
             val escapedText = jsonNodeProcessYamlMapper.writeValueAsString(requestBodyNode)
-            node.put(REQUEST_BODY, escapedText)
+            node.put(REQUEST_BODY, "$ESCAPED_TAG$escapedText")
         }
     }
 

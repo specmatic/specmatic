@@ -52,6 +52,11 @@ data class HasFailure<T>(val failure: Result.Failure, val message: String = "") 
         return Result.Failure(message, failure).updateScenario(failure.scenario) as Result.Failure
     }
 
+    override fun breadCrumb(breadCrumb: String?, message: String?): ReturnFailure {
+        if (breadCrumb.isNullOrBlank()) return this
+        return this.addDetails(message.orEmpty(), breadCrumb)
+    }
+
     override fun addDetails(message: String, breadCrumb: String): HasFailure<T> {
         return HasFailure(Result.Failure(message, this.toFailure(), breadCrumb))
     }

@@ -12,16 +12,14 @@ import io.specmatic.core.pattern.listFold
 import io.specmatic.core.pattern.mapFold
 import io.specmatic.core.pattern.unwrapOrReturn
 import io.swagger.v3.oas.models.OpenAPI
-import io.swagger.v3.oas.models.PathItem
 import io.swagger.v3.oas.models.links.Link
-
-data class PathMethod(val path: String, val method: PathItem.HttpMethod)
 
 data class OpenApiLinksRepository(
     private val openApiFilePath: String? = null,
-    private val operationToLinks: Map<PathMethod, List<OpenApiLink>> = emptyMap(),
+    private val operationToLinks: Map<OpenApiOperationReference, List<OpenApiLink>> = emptyMap(),
 ) {
     private val links: List<OpenApiLink> = operationToLinks.flatMap { it.value }
+    val size: Int = links.size
 
     fun getDefinedFor(scenario: Scenario): List<OpenApiLink> {
         return links.filter {
@@ -40,16 +38,18 @@ data class OpenApiLinksRepository(
             link.toHttpRequest(scenario).realise(
                 hasValue = { it, _ -> HasValue(Pair(link, it)) },
                 orException = { e ->
-                    if (!lenient) return@realise e.cast()
+                    val errorMessage = "Unexpected Exception while converting openApiLink ${link.name} to request"
+                    if (!lenient) return@realise e.addDetails(errorMessage, "").cast()
                     logger.boundary()
-                    logger.ofTheException(e.t, "Unexpected Exception while converting openApiLink ${link.name} to request")
+                    logger.ofTheException(e.t, errorMessage)
                     logger.boundary()
                     null
                 },
                 orFailure = { f ->
-                    if (!lenient) return@realise f.cast()
+                    val errorMessage = "Invalid Request in OpenApi Link ${link.name}"
+                    if (!lenient) return@realise f.addDetails(errorMessage, "").cast()
                     logger.boundary()
-                    logger.log(f.addDetails("Invalid Request in OpenApi Link ${link.name}", link.name).failure.reportString())
+                    logger.log(f.addDetails(errorMessage, "").failure.reportString())
                     logger.boundary()
                     null
                 },
@@ -88,23 +88,31 @@ data class OpenApiLinksRepository(
 
             val linksMap = openApi.paths.orEmpty().mapValues { (path, pathItem) ->
                 pathItem.readOperationsMap().mapValues { (method, operation) ->
-                    operation.responses.orEmpty().flatMap { (response, apiResponse) ->
-                        apiResponse.links.orEmpty().mapNotNull { (name, link) ->
-                            val opReference = OpenApiOperationReference(path, method.name, response.toIntOrNull() ?: DEFAULT_RESPONSE_CODE)
+                    operation.responses.orEmpty().entries.associate { (response, apiResponse) ->
+                        Pair(operation, response) to apiResponse.links.orEmpty().mapNotNull { (name, link) ->
+                            val operationId = operation.operationId
+                            val statusCode = response.toIntOrNull() ?: DEFAULT_RESPONSE_CODE
+                            val opReference = OpenApiOperationReference(path, method.name, statusCode, operationId)
                             parser(openApi, opReference, name, link)
-                        }
-                    }.listFold()
+                        }.listFold()
+                    }.mapFold()
                 }.mapFold()
             }.mapFold().unwrapOrReturn { return it.cast() }
 
             val flatLinks = linksMap.flatMap { (path, methodMap) ->
-                methodMap.map { (method, links) -> PathMethod(path, method) to links }
+                methodMap.flatMap { (method, operationMap) ->
+                    operationMap.map { (operationToResponse, links) ->
+                        val operationId = operationToResponse.first.operationId
+                        val statusCode = operationToResponse.second.toIntOrNull() ?: DEFAULT_RESPONSE_CODE
+                        OpenApiOperationReference(path, method.name, statusCode, operationId) to links
+                    }
+                }
             }.toMap()
 
             return HasValue(OpenApiLinksRepository(openApiFilePath, flatLinks))
         }
 
-        private fun parseOpenApiLinkLenient(openAPI: OpenAPI, byOperationReference: OpenApiOperationReference, linkName: String, openApiLink: Link): HasValue<OpenApiLink>? {
+        private fun parseOpenApiLinkLenient(openAPI: OpenAPI, byOperation: OpenApiOperationReference, linkName: String, openApiLink: Link): HasValue<OpenApiLink>? {
             val resolvedLink = if (openApiLink.`$ref` != null) {
                 unReferenceLink(openAPI, openApiLink).realise(
                     hasValue = { it, _ -> it },
@@ -123,7 +131,7 @@ data class OpenApiLinksRepository(
                 )
             } else { openApiLink } ?: return null
 
-            val parseResult = OpenApiLink.from(openAPI, byOperationReference, linkName, resolvedLink)
+            val parseResult = OpenApiLink.from(openAPI, byOperation, linkName, resolvedLink)
             return parseResult.realise(
                 hasValue = { it, _ -> HasValue(it) },
                 orException = { e ->
@@ -134,22 +142,30 @@ data class OpenApiLinksRepository(
                 },
                 orFailure = { f ->
                     logger.boundary()
-                    logger.log(f.addDetails("Invalid OpenApi Link $linkName", linkName).failure.reportString())
+                    logger.log(f.addDetails("Invalid OpenApi Link $linkName", "").failure.reportString())
                     logger.boundary()
                     null
                 },
             )
         }
 
-        private fun parseOpenApiLink(openAPI: OpenAPI, byOperationReference: OpenApiOperationReference, linkName: String, openApiLink: Link): ReturnValue<OpenApiLink> {
+        private fun parseOpenApiLink(openAPI: OpenAPI, byOperation: OpenApiOperationReference, linkName: String, openApiLink: Link): ReturnValue<OpenApiLink> {
             val resolvedLink = if (openApiLink.`$ref` != null) {
                 unReferenceLink(openAPI, openApiLink).unwrapOrReturn { return it.cast() }
             } else {
                 openApiLink
             }
 
-            val parseResult = OpenApiLink.from(openAPI, byOperationReference, linkName, resolvedLink)
-            return parseResult.addDetails("Invalid OpenApi Link $linkName", linkName)
+            val parseResult = OpenApiLink.from(openAPI, byOperation, linkName, resolvedLink)
+            return parseResult.realise(
+                hasValue = { it, _ -> HasValue(it) },
+                orException = { e ->
+                    e.addDetails("Unexpected Exception while parsing openApiLink $linkName", "")
+                },
+                orFailure = { f ->
+                    f.addDetails("Invalid OpenApi Link $linkName", "")
+                },
+            )
         }
 
         private fun unReferenceLink(openAPI: OpenAPI, openApiLink: Link): ReturnValue<Link> {
