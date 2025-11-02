@@ -24,7 +24,7 @@ dependencies {
     implementation("io.ktor:ktor-server-content-negotiation:2.3.13")
     implementation("io.ktor:ktor-serialization-jackson:2.3.13")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.19.1")
-    implementation("com.jayway.jsonpath:json-path:2.9.0")
+    implementation("com.jayway.jsonpath:json-path:2.10.0")
 
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.6.3")
