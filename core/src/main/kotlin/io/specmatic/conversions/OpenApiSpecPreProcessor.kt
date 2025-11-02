@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.ObjectNode
+import com.fasterxml.jackson.databind.node.TextNode
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
@@ -22,7 +23,7 @@ interface JsonNodeProcessor {
         private const val TYPE = "type"
 
         override fun qualifiesForProcessing(jsonPath: BreadCrumb, node: JsonNode): Boolean {
-            return !jsonPath.value.contains("example")
+            return !jsonPath.value.contains(".example.") || !jsonPath.value.contains(".examples.")
         }
 
         override fun tryProcess(jsonPath: BreadCrumb, node: JsonNode) {
@@ -50,7 +51,7 @@ interface JsonNodeProcessor {
         private const val ESCAPED_TAG = "<ESCAPED>"
 
         override fun qualifiesForProcessing(jsonPath: BreadCrumb, node: JsonNode): Boolean {
-            return !jsonPath.value.contains("example")
+            return !jsonPath.value.contains(".example.") || !jsonPath.value.contains(".examples.")
         }
 
         override fun tryProcess(jsonPath: BreadCrumb, node: JsonNode) {
@@ -67,11 +68,41 @@ interface JsonNodeProcessor {
         }
     }
 
+    data object EscapeLinkParameterValues : JsonNodeProcessor {
+        private const val PARAMETERS = "parameters"
+        private const val LINKS = "links"
+        private const val ESCAPED_TAG = "<ESCAPED>"
+
+        override fun qualifiesForProcessing(jsonPath: BreadCrumb, node: JsonNode): Boolean {
+            return !jsonPath.value.contains(".example.") || !jsonPath.value.contains(".examples.")
+        }
+
+        override fun tryProcess(jsonPath: BreadCrumb, node: JsonNode) {
+            if (node !is ObjectNode) return
+            if (!node.has(PARAMETERS)) return
+            if (!jsonPath.previous().last().equalTo(LINKS)) return
+
+            val parametersNode = node.get(PARAMETERS)
+            if (parametersNode !is ObjectNode) return
+
+            val iterator = parametersNode.fieldNames()
+            while (iterator.hasNext()) {
+                val name = iterator.next()
+                val value = parametersNode.get(name)
+                if (value is TextNode) return
+                val escapedValue = jsonNodeProcessYamlMapper.writeValueAsString(value)
+                logger.debug("Escaping '$PARAMETERS.$name' at $jsonPath")
+                parametersNode.put(name, "$ESCAPED_TAG$escapedValue")
+            }
+        }
+    }
+
     companion object {
         private val yamlFactory = YAMLFactory().disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER)
         val jsonNodeProcessYamlMapper: ObjectMapper = ObjectMapper(yamlFactory).registerKotlinModule()
         val default: List<JsonNodeProcessor> = buildList {
             add(RemoveInvalidAdditionalProperties)
+            add(EscapeLinkParameterValues)
             add(EscapeLinkRequestBody)
         }
     }

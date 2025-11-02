@@ -39,6 +39,7 @@ value class BreadCrumb(val value: String) {
 
     fun previous(): BreadCrumb {
         val bounds = lastSegmentBounds()
+        if (bounds?.first == 0) return BreadCrumb("")
         return BreadCrumb(bounds?.let { value.take(bounds.first.dec()) }.orEmpty())
     }
 

@@ -145,4 +145,43 @@ paths:
         assertThat(exampleNode.isObject).withFailMessage("Expected ObjectNode got ${exampleNode.javaClass.simpleName}").isTrue
         assertThat(linkExampleNode.isObject).withFailMessage("Expected ObjectNode got ${exampleNode.javaClass.simpleName}").isTrue
     }
+
+    @Test
+    fun `should escape non-string parameter values under links and add ESCAPED for later parsing`() {
+        val yaml = """
+openapi: 3.0.0
+info:
+  title: Sample API
+  version: 1.0.0
+paths:
+  /ping:
+    get:
+      responses:
+        '200':
+          description: OK
+          links:
+            LinkName:
+              parameters:
+                id: 10
+                empId: "123456"
+                name: John
+""".trimIndent()
+
+        val processedYaml = OpenApiSpecPreProcessor().process(yaml)
+        val processedRoot = yamlMapper.readTree(processedYaml)
+        val parametersNode = processedRoot
+            .path("paths")
+            .path("/ping")
+            .path("get")
+            .path("responses")
+            .path("200")
+            .path("links")
+            .path("LinkName")
+            .path("parameters")
+
+        assertThat(parametersNode.isObject).isTrue
+        assertThat(parametersNode.path("id").textValue().trim()).isEqualTo("<ESCAPED>10")
+        assertThat(parametersNode.path("empId").textValue().trim()).isEqualTo("123456")
+        assertThat(parametersNode.path("name").textValue().trim()).isEqualTo("John")
+    }
 }
