@@ -4,15 +4,22 @@ import io.specmatic.core.HttpResponse.Companion.jsonResponse
 import io.specmatic.core.HttpResponse.Companion.xmlResponse
 import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.pattern.StringPattern
+import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.parseXML
 import io.specmatic.core.value.*
+import io.specmatic.mock.ScenarioStub
+import io.specmatic.stub.HttpStub
 import io.specmatic.test.TestExecutor
 import io.specmatic.trimmedLinesString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.fail
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.xml.sax.SAXException
+import java.io.File
 import java.io.IOException
 import javax.xml.parsers.ParserConfigurationException
 
@@ -981,6 +988,174 @@ Feature: Contract
         assertThat(flags.toList()).isEqualTo(listOf("ran"))
     }
 
+    @Nested
+    inner class OpenApiLinksTests {
+        private val examples = File("src/test/resources/links/valid_links_spec/examples")
+        private val scenarioStubs = examples.listFiles().map(ScenarioStub::readFromFile).toList()
+        private val dictionary = File("src/test/resources/links/valid_links_spec/dictionary.yaml")
+
+        @Test
+        fun `should be able to run contract tests using openapi-links`() {
+            val specFile = File("src/test/resources/links/valid_links_spec/links.yaml")
+            val feature = Flags.using(SPECMATIC_STUB_DICTIONARY to dictionary.canonicalPath) {
+                parseContractFileToFeature(specFile, strictMode = true).loadExternalisedExamples()
+            }
+
+            assertDoesNotThrow { feature.validateExamplesOrException() }
+            val scenarioFlow = mutableListOf<Scenario>()
+
+            val testResults = HttpStub(feature, scenarioStubs, strictMode = true).use { stub ->
+                feature.executeTests(object : TestExecutor {
+                    override fun execute(request: HttpRequest): HttpResponse {
+                        return stub.client.execute(request)
+                    }
+
+                    override fun preExecuteScenario(scenario: Scenario, request: HttpRequest) {
+                        scenarioFlow.add(scenario)
+                        super.preExecuteScenario(scenario, request)
+                    }
+                })
+            }
+
+            assertThat(testResults.results.size).isEqualTo(11)
+            assertThat(Result.fromResults(testResults.results).isSuccess())
+                .withFailMessage { Result.fromResults(testResults.results).reportString() }
+                .isTrue
+
+            val apiFlowDescriptions = scenarioFlow.map { it.defaultAPIDescription.trim() }
+            assertThat(apiFlowDescriptions).containsExactly(
+                "POST /products -> 201",
+                "POST /products -> 201",
+                "POST /products -> 201",
+                "POST /products -> 201",
+                "GET /products -> 200",
+                "GET /products/(id:number) -> 200",
+                "GET /products/(id:number) -> 404",
+                "PATCH /products/(id:number) -> 200",
+                "PATCH /products/(id:number) -> 404",
+                "DELETE /products/(id:number) -> 200",
+                "DELETE /products/(id:number) -> 404"
+            )
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings=[
+            "src/test/resources/links/valid_links_spec/links.yaml",
+            "src/test/resources/links/valid_links_spec/shuffled.yaml",
+        ])
+        fun `should be able to run contract tests using openapi-links with generative tests`(specFilePath: String) {
+            val specFile = File(specFilePath)
+            val feature = Flags.using(SPECMATIC_STUB_DICTIONARY to dictionary.canonicalPath) {
+                parseContractFileToFeature(specFile, strictMode = true).loadExternalisedExamples()
+            }
+
+            assertDoesNotThrow { feature.validateExamplesOrException() }
+            val scenarioFlow = mutableListOf<Scenario>()
+
+            val testResults = HttpStub(feature, scenarioStubs, strictMode = true).use { stub ->
+                feature.enableGenerativeTesting().executeTests(object : TestExecutor {
+                    override fun execute(request: HttpRequest): HttpResponse {
+                        return stub.client.execute(request)
+                    }
+
+                    override fun preExecuteScenario(scenario: Scenario, request: HttpRequest) {
+                        scenarioFlow.add(scenario)
+                        super.preExecuteScenario(scenario, request)
+                    }
+                })
+            }
+
+            assertThat(testResults.results.size).isEqualTo(80)
+            assertThat(Result.fromResults(testResults.results).isSuccess())
+                .withFailMessage { Result.fromResults(testResults.results).reportString() }
+                .isTrue
+
+            val apiFlowDescriptions = scenarioFlow.map { it.defaultAPIDescription.trim() }
+            assertThat(apiFlowDescriptions).containsExactly(
+                "POST /products -> 201",
+                "POST /products -> 201",
+                "POST /products -> 201",
+                "POST /products -> 201",
+                "GET /products -> 200",
+                "GET /products -> 200",
+                "GET /products -> 200",
+                "GET /products -> 200",
+                "GET /products/(id:number) -> 200",
+                "GET /products/(id:number) -> 404",
+                "PATCH /products/(id:number) -> 200",
+                "PATCH /products/(id:number) -> 200",
+                "PATCH /products/(id:number) -> 200",
+                "PATCH /products/(id:number) -> 200",
+                "PATCH /products/(id:number) -> 404",
+                "DELETE /products/(id:number) -> 200",
+                "DELETE /products/(id:number) -> 404",
+                "POST /products -> 4xx [1]",
+                "POST /products -> 4xx [2]",
+                "POST /products -> 4xx [3]",
+                "POST /products -> 4xx [4]",
+                "POST /products -> 4xx [5]",
+                "POST /products -> 4xx [6]",
+                "POST /products -> 4xx [7]",
+                "POST /products -> 4xx [8]",
+                "POST /products -> 4xx [9]",
+                "POST /products -> 4xx [10]",
+                "POST /products -> 4xx [11]",
+                "POST /products -> 4xx [12]",
+                "POST /products -> 4xx [13]",
+                "POST /products -> 4xx [14]",
+                "POST /products -> 4xx [15]",
+                "POST /products -> 4xx [16]",
+                "POST /products -> 4xx [17]",
+                "POST /products -> 4xx [18]",
+                "POST /products -> 4xx [19]",
+                "POST /products -> 4xx [20]",
+                "POST /products -> 4xx [21]",
+                "POST /products -> 4xx [22]",
+                "POST /products -> 4xx [23]",
+                "POST /products -> 4xx [24]",
+                "POST /products -> 4xx [25]",
+                "POST /products -> 4xx [26]",
+                "POST /products -> 4xx [27]",
+                "GET /products -> 4xx [1]",
+                "GET /products -> 4xx [2]",
+                "GET /products -> 4xx [3]",
+                "GET /products/(id:number) -> 4xx [1]",
+                "GET /products/(id:number) -> 4xx [2]",
+                "PATCH /products/(id:number) -> 4xx [1]",
+                "PATCH /products/(id:number) -> 4xx [2]",
+                "PATCH /products/(id:number) -> 4xx [3]",
+                "PATCH /products/(id:number) -> 4xx [4]",
+                "PATCH /products/(id:number) -> 4xx [5]",
+                "PATCH /products/(id:number) -> 4xx [6]",
+                "PATCH /products/(id:number) -> 4xx [7]",
+                "PATCH /products/(id:number) -> 4xx [8]",
+                "PATCH /products/(id:number) -> 4xx [9]",
+                "PATCH /products/(id:number) -> 4xx [10]",
+                "PATCH /products/(id:number) -> 4xx [11]",
+                "PATCH /products/(id:number) -> 4xx [12]",
+                "PATCH /products/(id:number) -> 4xx [13]",
+                "PATCH /products/(id:number) -> 4xx [14]",
+                "PATCH /products/(id:number) -> 4xx [15]",
+                "PATCH /products/(id:number) -> 4xx [16]",
+                "PATCH /products/(id:number) -> 4xx [17]",
+                "PATCH /products/(id:number) -> 4xx [18]",
+                "PATCH /products/(id:number) -> 4xx [19]",
+                "PATCH /products/(id:number) -> 4xx [20]",
+                "PATCH /products/(id:number) -> 4xx [21]",
+                "PATCH /products/(id:number) -> 4xx [22]",
+                "PATCH /products/(id:number) -> 4xx [23]",
+                "PATCH /products/(id:number) -> 4xx [24]",
+                "PATCH /products/(id:number) -> 4xx [25]",
+                "PATCH /products/(id:number) -> 4xx [26]",
+                "PATCH /products/(id:number) -> 4xx [27]",
+                "PATCH /products/(id:number) -> 4xx [28]",
+                "PATCH /products/(id:number) -> 4xx [29]",
+                "DELETE /products/(id:number) -> 4xx [1]",
+                "DELETE /products/(id:number) -> 4xx [2]",
+            )
+        }
+
+    }
 }
 
 internal fun jsonObject(value: Value?): Map<String, Value> {

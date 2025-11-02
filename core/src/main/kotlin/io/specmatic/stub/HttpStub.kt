@@ -87,10 +87,9 @@ class HttpStub(
         host: String = "localhost",
         port: Int = 9000,
         log: (event: LogMessage) -> Unit = dontPrintToConsole,
-        specToStubBaseUrlMap: Map<String, String> = mapOf(
-            feature.path to endPointFromHostAndPort(host, port, null)
-        ),
-        listeners: List<MockEventListener> = emptyList()
+        specToStubBaseUrlMap: Map<String, String> = mapOf(feature.path to endPointFromHostAndPort(host, port, null)),
+        listeners: List<MockEventListener> = emptyList(),
+        strictMode: Boolean = false,
     ) : this(
         listOf(feature),
         contractInfoToHttpExpectations(listOf(Pair(feature, scenarioStubs))),
@@ -98,7 +97,8 @@ class HttpStub(
         port,
         log,
         specToStubBaseUrlMap = specToStubBaseUrlMap,
-        listeners = listeners
+        listeners = listeners,
+        strictMode = strictMode,
     )
 
     constructor(

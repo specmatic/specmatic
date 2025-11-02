@@ -1,0 +1,10 @@
+{
+    "http-request": {
+        "path": "/products/1234",
+        "method": "DELETE"
+    },
+    "http-response": {
+        "status": 200,
+        "status-text": "OK"
+    }
+}

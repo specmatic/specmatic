@@ -163,7 +163,8 @@ class OpenApiSpecification(
         }
 
         fun fromFile(openApiFilePath: String, specmaticConfig: SpecmaticConfig): OpenApiSpecification {
-            return OpenApiSpecification(openApiFilePath, getParsedOpenApi(openApiFilePath), specmaticConfig = specmaticConfig)
+            val specFile = File(openApiFilePath)
+            return fromYAML(specFile.readText(), openApiFilePath, specmaticConfig = specmaticConfig)
         }
 
         fun getParsedOpenApi(openApiFilePath: String): OpenAPI {

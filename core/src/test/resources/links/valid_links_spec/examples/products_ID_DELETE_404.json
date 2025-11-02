@@ -1,0 +1,19 @@
+{
+    "http-request": {
+        "path": "/products/999",
+        "method": "DELETE"
+    },
+    "http-response": {
+        "status": 404,
+        "body": {
+            "timestamp": "(string)",
+            "status": "(number)",
+            "error": "(string)",
+            "message": "(string)"
+        },
+        "status-text": "Not Found",
+        "headers": {
+            "Content-Type": "application/json"
+        }
+    }
+}

@@ -1,0 +1,27 @@
+{
+    "http-request": {
+        "path": "/products",
+        "method": "POST",
+        "headers": {
+            "Content-Type": "application/json"
+        },
+        "body": {
+            "name": "GadgetName",
+            "price": 1234,
+            "type": "(TYPE:ProductType)"
+        }
+    },
+    "http-response": {
+        "status": 201,
+        "body": {
+			"id": 1234,
+            "name": "GadgetName",
+            "price": 1234,
+            "type": "$(TYPE)"
+        },
+        "status-text": "Created",
+        "headers": {
+            "Content-Type": "application/json"
+        }
+    }
+}
