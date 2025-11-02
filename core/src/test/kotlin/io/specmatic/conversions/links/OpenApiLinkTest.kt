@@ -1,5 +1,8 @@
 package io.specmatic.conversions.links
 
+import io.specmatic.conversions.APIKeyInHeaderSecurityScheme
+import io.specmatic.conversions.APIKeyInQueryParamSecurityScheme
+import io.specmatic.conversions.BearerSecurityScheme
 import io.specmatic.conversions.OperationMetadata
 import io.specmatic.core.DEFAULT_RESPONSE_CODE
 import io.specmatic.core.HttpHeadersPattern
@@ -25,6 +28,7 @@ import io.swagger.v3.oas.models.responses.ApiResponses
 import io.swagger.v3.oas.models.servers.Server
 import io.swagger.v3.oas.models.servers.ServerVariable
 import io.swagger.v3.oas.models.servers.ServerVariables
+import org.apache.http.HttpHeaders.AUTHORIZATION
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -122,6 +126,50 @@ class OpenApiLinkTest {
         >> LINKS.TEST.parameters.param2
         Expected mandatory path parameter 'param2' is missing from link parameters
         """.trimIndent())
+    }
+
+    @Test
+    fun `should be able to convert implicit security schemes to header or query parameters`() {
+        val scenario = Scenario(
+            ScenarioInfo(
+                httpRequestPattern = HttpRequestPattern(
+                    httpPathPattern = HttpPathPattern.from("/test/(pathParam:string)"), method = "POST",
+                    httpQueryParamPattern = HttpQueryParamPattern(mapOf("queryParam" to StringPattern())),
+                    headersPattern = HttpHeadersPattern(mapOf("headerParam" to NumberPattern())),
+                    securitySchemes = listOf(
+                        APIKeyInQueryParamSecurityScheme("apiKeyInQuery", null),
+                        APIKeyInHeaderSecurityScheme("apiKeyInHeader", null),
+                        BearerSecurityScheme(null),
+                    ),
+                ),
+                httpResponsePattern = HttpResponsePattern(status = 201),
+                operationMetadata = OperationMetadata(operationId = "testPost"),
+            ),
+        )
+
+        val parameters = buildMap {
+            put("pathParam", OpenApiValueOrLinkExpression.from("pathValue", "TEST").value)
+            put("queryParam", OpenApiValueOrLinkExpression.from("queryValue", "TEST").value)
+            put("headerParam", OpenApiValueOrLinkExpression.from("headerValue", "TEST").value)
+
+            put("apiKeyInQuery", OpenApiValueOrLinkExpression.from("queryScheme", "TEST").value)
+            put("apiKeyInHeader", OpenApiValueOrLinkExpression.from("headerScheme", "TEST").value)
+            put(AUTHORIZATION, OpenApiValueOrLinkExpression.from("headerBearerScheme", "TEST").value)
+        }
+
+        val httpRequest = OpenApiLink(
+            name = "TEST",
+            parameters = parameters,
+            forOperation = OpenApiOperationReference("/test", "POST", 201, "testPost"),
+            byOperation = OpenApiOperationReference("/test", "GET", 200, "testGet"),
+        ).toHttpRequest(scenario).unwrapOrContractException()
+
+        assertThat(httpRequest.path).isEqualTo("/test/pathValue")
+        assertThat(httpRequest.queryParams.getOrDefault("queryParam", "null")).isEqualTo("queryValue")
+        assertThat(httpRequest.queryParams.getOrDefault("apiKeyInQuery", "null")).isEqualTo("queryScheme")
+        assertThat(httpRequest.headers["headerParam"]).isEqualTo("headerValue")
+        assertThat(httpRequest.headers["apiKeyInHeader"]).isEqualTo("headerScheme")
+        assertThat(httpRequest.headers[AUTHORIZATION]).isEqualTo("headerBearerScheme")
     }
 
     @Nested

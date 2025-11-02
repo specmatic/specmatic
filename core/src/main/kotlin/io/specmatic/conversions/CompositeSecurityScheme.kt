@@ -51,4 +51,8 @@ data class CompositeSecurityScheme(val schemes: List<OpenAPISecurityScheme>): Op
             securityScheme.warnIfExistsInParameters(parameters, method, path)
         }
     }
+
+    override fun getParameterLocationIfPartOfSelf(parameter: String): List<SecuritySchemaParameterLocation> {
+        return schemes.flatMap { getParameterLocationIfPartOfSelf(parameter) }
+    }
 }

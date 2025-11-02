@@ -147,4 +147,9 @@ data class BasicAuthSecurityScheme(private val token: String? = null) : OpenAPIS
 
         }
     }
+
+    override fun getParameterLocationIfPartOfSelf(parameter: String): List<SecuritySchemaParameterLocation> {
+        if (!parameter.equals(AUTHORIZATION, ignoreCase = true)) return emptyList()
+        return listOf(SecuritySchemaParameterLocation.HEADER)
+    }
 }

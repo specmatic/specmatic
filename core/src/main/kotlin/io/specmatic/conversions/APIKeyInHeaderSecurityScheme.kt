@@ -57,6 +57,11 @@ data class APIKeyInHeaderSecurityScheme(val name: String, private val apiKey:Str
         }
     }
 
+    override fun getParameterLocationIfPartOfSelf(parameter: String): List<SecuritySchemaParameterLocation> {
+        if (!parameter.equals(name, ignoreCase = true)) return emptyList()
+        return listOf(SecuritySchemaParameterLocation.HEADER)
+    }
+
     override fun getHeaderKey(): String? {
         return apiKeyParamName
     }

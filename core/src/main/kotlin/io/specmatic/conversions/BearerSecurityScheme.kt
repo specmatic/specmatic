@@ -80,4 +80,9 @@ data class BearerSecurityScheme(private val configuredToken: String? = null) : O
 
         }
     }
+
+    override fun getParameterLocationIfPartOfSelf(parameter: String): List<SecuritySchemaParameterLocation> {
+        if (!parameter.equals(AUTHORIZATION, ignoreCase = true)) return emptyList()
+        return listOf(SecuritySchemaParameterLocation.HEADER)
+    }
 }

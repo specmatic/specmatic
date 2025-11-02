@@ -5,7 +5,6 @@ import io.specmatic.core.pattern.*
 import io.specmatic.core.value.StringValue
 import io.swagger.v3.oas.models.parameters.Parameter
 import io.swagger.v3.oas.models.parameters.QueryParameter
-import org.apache.http.HttpHeaders.AUTHORIZATION
 
 const val apiKeyParamName = "API-Key"
 
@@ -73,5 +72,10 @@ data class APIKeyInQueryParamSecurityScheme(val name: String, private val apiKey
                 path = path
             )
         }
+    }
+
+    override fun getParameterLocationIfPartOfSelf(parameter: String): List<SecuritySchemaParameterLocation> {
+        if (parameter != name) return emptyList()
+        return listOf(SecuritySchemaParameterLocation.QUERY)
     }
 }

@@ -9,6 +9,8 @@ import io.specmatic.core.pattern.*
 import io.specmatic.core.value.StringValue
 import io.swagger.v3.oas.models.parameters.Parameter
 
+enum class SecuritySchemaParameterLocation { QUERY, HEADER }
+
 interface OpenAPISecurityScheme {
     fun matches(httpRequest: HttpRequest, resolver: Resolver): Result
     fun removeParam(httpRequest: HttpRequest): HttpRequest
@@ -19,6 +21,7 @@ interface OpenAPISecurityScheme {
     fun isInRequest(request: HttpRequest, complete: Boolean): Boolean
     fun getHeaderKey(): String? = null
     fun warnIfExistsInParameters(parameters: List<Parameter>, method: String, path: String)
+    fun getParameterLocationIfPartOfSelf(parameter: String): List<SecuritySchemaParameterLocation>
 }
 
 fun addToHeaderType(

@@ -1,5 +1,6 @@
 package io.specmatic.conversions.links
 
+import io.specmatic.conversions.SecuritySchemaParameterLocation
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.BreadCrumb
 import io.specmatic.core.DEFAULT_RESPONSE_CODE
@@ -21,6 +22,7 @@ import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.Operation
 import io.swagger.v3.oas.models.PathItem
 import io.swagger.v3.oas.models.links.Link
+import kotlin.collections.plus
 
 data class OpenApiOperationReference(val path: String, val method: String, val status: Int, val operationId: String?) {
     val convertedPath = convertPathParameterStyle(path)
@@ -67,7 +69,6 @@ data class OpenApiLink(
     }
 
     private fun updateHeaderAndQueryParams(httpRequest: HttpRequest, scenario: Scenario): Pair<HttpRequest, Map<String, OpenApiValueOrLinkExpression>> {
-        // TODO: Handle query and header params that are also securitySchemes
         val pathParameters = mutableMapOf<String, OpenApiValueOrLinkExpression>()
         return parameters.entries.fold(httpRequest) { request, (key, expressionOrValue) ->
             when {
@@ -81,17 +82,36 @@ data class OpenApiLink(
                     request.copy(queryParams = request.queryParams.plus(queryParamName to expressionOrValue.toStringLiteral()))
                 }
                 else -> {
-                    if (scenario.httpRequestPattern.headersPattern.pattern.containsPatternKey(key)) {
-                        request.copy(headers = request.headers.plus(key to expressionOrValue.toStringLiteral()))
-                    } else if (scenario.httpRequestPattern.httpQueryParamPattern.queryPatterns.containsPatternKey(key)) {
-                        request.copy(queryParams = request.queryParams.plus(key to expressionOrValue.toStringLiteral()))
-                    } else {
+                    val updatedRequest = updateImplicitParams(key, expressionOrValue, request, scenario)
+                    updatedRequest ?: run {
                         pathParameters[key] = expressionOrValue
                         request
                     }
                 }
             }
         } to pathParameters
+    }
+
+    private fun updateImplicitParams(key: String, value: OpenApiValueOrLinkExpression, request: HttpRequest, scenario: Scenario): HttpRequest? {
+        if (scenario.httpRequestPattern.headersPattern.pattern.containsPatternKey(key)) {
+            return request.copy(headers = request.headers.plus(key to value.toStringLiteral()))
+        }
+
+        if (scenario.httpRequestPattern.httpQueryParamPattern.queryPatterns.containsPatternKey(key)) {
+            return request.copy(queryParams = request.queryParams.plus(key to value.toStringLiteral()))
+        }
+
+        val securitySchemaLocation = scenario.httpRequestPattern.securitySchemes.firstNotNullOfOrNull {
+            it.getParameterLocationIfPartOfSelf(key).takeUnless(List<SecuritySchemaParameterLocation>::isEmpty)
+        }
+        if (securitySchemaLocation != null) {
+            return when (securitySchemaLocation.first()) {
+                SecuritySchemaParameterLocation.HEADER -> request.copy(headers = request.headers.plus(key to value.toStringLiteral()))
+                SecuritySchemaParameterLocation.QUERY -> request.copy(queryParams = request.queryParams.plus(key to value.toStringLiteral()))
+            }
+        }
+
+        return null
     }
 
     private fun updatePath(pathParameters: Map<String, OpenApiValueOrLinkExpression>, httpRequest: HttpRequest, scenario: Scenario): ReturnValue<HttpRequest> {
