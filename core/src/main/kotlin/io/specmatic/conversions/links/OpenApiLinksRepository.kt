@@ -11,12 +11,14 @@ import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.listFold
 import io.specmatic.core.pattern.mapFold
 import io.specmatic.core.pattern.unwrapOrReturn
+import io.specmatic.core.utilities.Flags
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.links.Link
 
 data class OpenApiLinksRepository(
     private val openApiFilePath: String? = null,
     private val operationToLinks: Map<OpenApiOperationReference, List<OpenApiLink>> = emptyMap(),
+    private val openApiLinksGraph: OpenApiLinksGraph = OpenApiLinksGraph()
 ) {
     private val links: List<OpenApiLink> = operationToLinks.flatMap { it.value }
     val size: Int = links.size
@@ -78,8 +80,33 @@ data class OpenApiLinksRepository(
         )
     }
 
+    fun sortOpenApiScenariosBasedOnLinks(scenarios: List<Scenario>, lenient: Boolean): ReturnValue<List<Scenario>> {
+        return openApiLinksGraph.sortScenariosBasedOnDependency(scenarios).realise(
+            hasValue = { it, _ -> HasValue(it) },
+            orException = { e ->
+                if (!lenient) return@realise e.cast()
+                logger.boundary()
+                logger.ofTheException(e.t, "Unexpected Exception while generating execution order based on OpenApi links")
+                logger.boundary()
+                HasValue(scenarios)
+            },
+            orFailure = { f ->
+                if (!lenient) return@realise f.cast()
+                logger.boundary()
+                logger.log(f.addDetails("Failed to generate execution order based on OpenApi Links", "").failure.reportString())
+                logger.boundary()
+                HasValue(scenarios)
+            },
+        )
+    }
+
     companion object {
+        private const val ENABLE_OPENAPI_LINKS = "SPECMATIC_ENABLE_LINKS"
+        private val enableLinks: Boolean = Flags.getBooleanValue(ENABLE_OPENAPI_LINKS, true)
+
         fun from(openApi: OpenAPI, openApiFilePath: String? = null, lenient: Boolean = true): ReturnValue<OpenApiLinksRepository> {
+            if (!enableLinks) return HasValue(OpenApiLinksRepository())
+
             val parser = if (lenient) {
                 ::parseOpenApiLinkLenient
             } else {
@@ -109,7 +136,11 @@ data class OpenApiLinksRepository(
                 }
             }.toMap()
 
-            return HasValue(OpenApiLinksRepository(openApiFilePath, flatLinks))
+            val openApiLinksGraph = parseOpenApiLinkGraph(flatLinks, lenient = lenient).unwrapOrReturn {
+                return it.cast()
+            }
+
+            return HasValue(OpenApiLinksRepository(openApiFilePath, flatLinks, openApiLinksGraph))
         }
 
         private fun parseOpenApiLinkLenient(openAPI: OpenAPI, byOperation: OpenApiOperationReference, linkName: String, openApiLink: Link): HasValue<OpenApiLink>? {
@@ -174,6 +205,26 @@ data class OpenApiLinksRepository(
 
             return openAPI.components?.links?.get(linkName)?.let(::HasValue) ?: HasFailure(
                 "Failed to resolve reference to OpenApi Link", openApiLink.`$ref`,
+            )
+        }
+
+        private fun parseOpenApiLinkGraph(links: Map<OpenApiOperationReference, List<OpenApiLink>>, lenient: Boolean): ReturnValue<OpenApiLinksGraph> {
+            return OpenApiLinksGraph.from(links.flatMap { it.value }).realise(
+                hasValue = { it, _ -> HasValue(it) },
+                orException = { e ->
+                    if (!lenient) return@realise e.cast()
+                    logger.boundary()
+                    logger.ofTheException(e.t, "Unexpected Exception while parsing OpenApi Links Graph")
+                    logger.boundary()
+                    HasValue(OpenApiLinksGraph())
+                },
+                orFailure = { f ->
+                    if (!lenient) return@realise f.cast()
+                    logger.boundary()
+                    logger.log(f.addDetails("Failed to parse OpenApi Links Graph", "").failure.reportString())
+                    logger.boundary()
+                    HasValue(OpenApiLinksGraph())
+                },
             )
         }
     }

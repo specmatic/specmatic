@@ -23,15 +23,18 @@ import io.swagger.v3.oas.models.PathItem
 import io.swagger.v3.oas.models.links.Link
 
 data class OpenApiOperationReference(val path: String, val method: String, val status: Int, val operationId: String?) {
+    val convertedPath = convertPathParameterStyle(path)
+
     fun matches(path: String, method: String, status: Int): Boolean {
-        if (this.operationId != null) return false
-        return this.path == convertPathParameterStyle(path) && this.method.equals(method, ignoreCase = true) && this.status == status
+        return this.convertedPath == convertPathParameterStyle(path) && this.method.equals(method, ignoreCase = true) && this.status == status
     }
 
     fun matches(operationId: String?, status: Int): Boolean {
         if (this.operationId == null || operationId == null) return false
         return operationId == this.operationId && status == this.status
     }
+
+    fun operationIdOrPathAndMethod(): String = operationId ?: "$convertedPath-$method"
 }
 
 data class OpenApiLink(

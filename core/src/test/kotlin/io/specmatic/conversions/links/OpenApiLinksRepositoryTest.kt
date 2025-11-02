@@ -17,7 +17,7 @@ class OpenApiLinksRepositoryTest {
     fun `should be able to parse valid openApiLinks from OpenAPI Specification and convert to feature`() {
         val specFile = File("src/test/resources/links/valid_links_spec/links.yaml")
         val openApiSpecification = assertDoesNotThrow {
-            OpenApiSpecification.fromFile(specFile.canonicalPath)
+            OpenApiSpecification.fromYAML(specFile.readText(), specFile.canonicalPath, strictMode = true)
         }
 
         assertDoesNotThrow { openApiSpecification.toFeature() }
@@ -131,6 +131,17 @@ class OpenApiLinksRepositoryTest {
         Invalid Request in OpenApi Link deleteProduct
         Expected mandatory path parameter 'id' is missing from link parameters
         """.trimIndent())
+    }
+
+    @Test
+    fun `should be able to parse and load specification with shuffled paths which don't align with execution order`() {
+        val specFile = File("src/test/resources/links/valid_links_spec/shuffled.yaml")
+        val openApiSpecification = assertDoesNotThrow {
+            OpenApiSpecification.fromYAML(specFile.readText(), specFile.canonicalPath, strictMode = true)
+        }
+
+        assertDoesNotThrow { openApiSpecification.toFeature() }
+        assertThat(openApiSpecification.openApiLinksRepository.size).isEqualTo(7)
     }
 
     companion object {

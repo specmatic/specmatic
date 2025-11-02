@@ -326,7 +326,7 @@ class OpenApiSpecification(
             val examplesFromLinks = openApiLinksRepository.openApiLinksToExamples(
                 links = linksDefinedForScenario,
                 scenario = scenario,
-                lenient = !strictMode
+                lenient = !strictMode,
             )
 
             examplesFromLinks.ifValue { examples ->
@@ -337,7 +337,9 @@ class OpenApiSpecification(
                     examples = scenario.examples.plus(examples),
                 )
             }
-        }.listFold().unwrapOrContractException()
+        }.listFold().ifHasValue {
+            openApiLinksRepository.sortOpenApiScenariosBasedOnLinks(it.value, !strictMode)
+        }.unwrapOrContractException()
 
         return Feature.from(
             updatedScenarios, name = name, path = openApiFilePath, sourceProvider = sourceProvider,
