@@ -42,6 +42,7 @@ import io.swagger.v3.oas.models.servers.Server
 import io.swagger.v3.parser.OpenAPIV3Parser
 import io.swagger.v3.parser.core.models.ParseOptions
 import io.swagger.v3.parser.core.models.SwaggerParseResult
+import io.swagger.v3.parser.util.ClasspathHelper
 import java.io.File
 
 private const val BEARER_SECURITY_SCHEME = "bearer"
@@ -163,8 +164,27 @@ class OpenApiSpecification(
         }
 
         fun fromFile(openApiFilePath: String, specmaticConfig: SpecmaticConfig): OpenApiSpecification {
-            val specFile = File(openApiFilePath)
-            return fromYAML(specFile.readText(), openApiFilePath, specmaticConfig = specmaticConfig)
+            val specContent = sequenceOf(
+                { File(openApiFilePath).readText() },
+                { ClasspathHelper.loadFileFromClasspath(openApiFilePath) }
+            ).firstNotNullOfOrNull {
+                runCatching { it.invoke() }.getOrElse { e ->
+                    logger.debug(e, "Failed to read OpenApi Specification")
+                    null
+                }
+            }
+
+            if (specContent == null) throw ContractException(
+                errorMessage = "Failed to read OpenApi Specification from $openApiFilePath",
+                breadCrumb = openApiFilePath,
+            )
+
+            return runCatching {
+                fromYAML(specContent, openApiFilePath, specmaticConfig = specmaticConfig)
+            }.getOrElse { e ->
+                logger.debug(e, "Failed to parse specification $openApiFilePath using fromYAML")
+                OpenApiSpecification(openApiFilePath, getParsedOpenApi(openApiFilePath), specmaticConfig = specmaticConfig)
+            }
         }
 
         fun getParsedOpenApi(openApiFilePath: String): OpenAPI {
@@ -605,7 +625,12 @@ class OpenApiSpecification(
                             specification = specificationPath,
                             serviceType = SERVICE_TYPE_HTTP,
                             operationMetadata = operationMetadata,
-                            openApiLinks = openApiLinksRepository.getDefinedBy(openApiPath, httpMethod, httpResponsePattern.status),
+                            openApiLinks = openApiLinksRepository.getDefinedBy(
+                                path = openApiPath,
+                                method = httpMethod,
+                                status = httpResponsePattern.status,
+                                contentType = httpRequestPattern.headersPattern.contentType,
+                            ),
                         )
                     }
 

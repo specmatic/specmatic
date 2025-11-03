@@ -1,0 +1,115 @@
+openapi: 3.0.3
+
+info:
+  title: Product API
+  description: Sample Order API
+  version: '5.0'
+  contact:
+    email: devs@specmatic.io
+
+servers:
+  - url: "http://localhost:3000"
+
+tags:
+  - name: Product
+    description: Product Related APIs
+
+paths:
+  /products/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ProductIdParam'
+
+    patch:
+      description: Update a product by ID
+      operationId: updateProductById
+      tags:
+        - Product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductBase'
+
+      responses:
+        '200':
+          description: Product updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+            application/patch+json:
+              schema:
+                $ref: '#/components/schemas/Product'
+          links:
+            putProductImplicit:
+              x-ContentType-For: "application/json"
+              operationId: 'putProduct'
+
+            putProductExplicit:
+              x-ContentType-By: "application/patch+json"
+              x-ContentType-For: "application/patch+json"
+              operationId: 'putProduct'
+
+    put:
+      description: Put a product by ID
+      operationId: putProduct
+      tags:
+        - Product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Product'
+          application/patch+json:
+            schema:
+              $ref: '#/components/schemas/Product'
+      responses:
+        '200':
+          description: Product deleted successfully
+
+components:
+  parameters:
+    ProductIdParam:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: integer
+
+  schemas:
+    Id:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: integer
+
+    ProductType:
+      type: string
+      enum:
+        - gadgets
+        - book
+        - food
+        - other
+
+    ProductBase:
+      type: object
+      required:
+        - name
+        - price
+        - type
+      properties:
+        name:
+          type: string
+        price:
+          type: integer
+        type:
+          $ref: '#/components/schemas/ProductType'
+
+    Product:
+      allOf:
+        - $ref: '#/components/schemas/ProductBase'
+        - $ref: '#/components/schemas/Id'

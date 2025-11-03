@@ -144,6 +144,50 @@ class OpenApiLinksRepositoryTest {
         assertThat(openApiSpecification.openApiLinksRepository.size).isEqualTo(7)
     }
 
+    @Test
+    fun `should parse contentType-for and contentType-by both implicitly and explicitly`() {
+        val specFile = File("src/test/resources/links/valid_links_spec/content_type.yaml")
+        val openApiSpecification = assertDoesNotThrow {
+            OpenApiSpecification.fromYAML(specFile.readText(), specFile.canonicalPath, strictMode = true)
+        }
+        val openApiLinksRepository = openApiSpecification.openApiLinksRepository
+
+        val defineForJson = openApiLinksRepository.getDefinedFor(
+            path = "/products/{id}",
+            method = "PUT",
+            status = 200,
+            operationId = "putProduct",
+            contentType = "application/json",
+        )
+
+        val definedForPatchJson = openApiLinksRepository.getDefinedFor(
+            path = "/products/{id}",
+            method = "PUT",
+            status = 200,
+            operationId = "putProduct",
+            contentType = "application/patch+json",
+        )
+
+        val definedByJson = openApiLinksRepository.getDefinedBy(
+            path = "/products/{id}",
+            method = "PATCH",
+            status = 200,
+            contentType = "application/json",
+        )
+
+        val definedByPatchJson = openApiLinksRepository.getDefinedBy(
+            path = "/products/{id}",
+            method = "PATCH",
+            status = 200,
+            contentType = "application/patch+json",
+        )
+
+        assertThat(defineForJson).hasSize(1)
+        assertThat(definedForPatchJson).hasSize(1)
+        assertThat(definedByJson).isEqualTo(defineForJson)
+        assertThat(definedByPatchJson).containsExactlyInAnyOrderElementsOf(defineForJson.plus(definedForPatchJson))
+    }
+
     companion object {
         private fun File.toOpenApiPOJO(): OpenAPI = OpenApiSpecification.getParsedOpenApi(this.canonicalPath)
     }

@@ -23,6 +23,9 @@ import io.swagger.v3.oas.models.Operation
 import io.swagger.v3.oas.models.PathItem
 import io.swagger.v3.oas.models.Paths
 import io.swagger.v3.oas.models.links.Link
+import io.swagger.v3.oas.models.media.Content
+import io.swagger.v3.oas.models.media.MediaType
+import io.swagger.v3.oas.models.parameters.RequestBody
 import io.swagger.v3.oas.models.responses.ApiResponse
 import io.swagger.v3.oas.models.responses.ApiResponses
 import io.swagger.v3.oas.models.servers.Server
@@ -302,6 +305,24 @@ class OpenApiLinkTest {
                         extensions = mapOf("x-Partial" to false)
                     },
                 ),
+                Pair(
+                    first = OpenAPI().withOperation("/test/{id}", "post", "200", null, "application/json"),
+                    second = Link().apply {
+                        operationRef = "#/paths/~1test~1{id}/post"
+                        parameters = mapOf("id" to "${'$'}response.body#/data/0/product/id")
+                        extensions = mapOf("x-ContentType-For" to "application/json")
+                    },
+                ),
+                Pair(
+                    first = OpenAPI()
+                        .withOperation("/test/{id}", "post", "200", null, "application/json")
+                        .withOperation("/test/{id}", "post", "200", null, "application/patch+json"),
+                    second = Link().apply {
+                        operationRef = "#/paths/~1test~1{id}/post"
+                        parameters = mapOf("id" to "${'$'}response.body#/data/0/product/id")
+                        extensions = mapOf("x-ContentType-For" to "application/json")
+                    },
+                ),
             )
         }
 
@@ -403,10 +424,23 @@ class OpenApiLinkTest {
                     Invalid Is-Partial value 'ShouldBeABoolean' must be a valid boolean
                     """.trimIndent(),
                 ),
+                Triple(
+                    first = OpenAPI().withOperation("/test/{id}", "post", "200", null, "application/patch+json"),
+                    second = Link().apply {
+                        operationRef = "#/paths/~1test~1{id}/post"
+                        parameters = mapOf("id" to "${'$'}response.body#/data/0/product/id")
+                        extensions = mapOf("x-ContentType-For" to "application/json")
+                    },
+                    """
+                    >> LINKS.TEST.x-ContentType-For
+                    Expected Content-Type of application/json is not possible under 200
+                    Must match one of application/patch+json
+                    """.trimIndent(),
+                ),
             )
         }
 
-        private fun OpenAPI.withOperation(path: String, method: String, status: String, operationId: String?): OpenAPI {
+        private fun OpenAPI.withOperation(path: String, method: String, status: String, operationId: String?, contentType: String? = null): OpenAPI {
             val httpMethod = PathItem.HttpMethod.valueOf(method.uppercase())
             return this.apply {
                 paths(paths ?: Paths())
@@ -414,8 +448,24 @@ class OpenApiLinkTest {
                 paths.getValue(path).apply {
                     operation(httpMethod, operation.apply {
                         operationId(operationId)
+
+                        requestBody = (requestBody ?: RequestBody()).apply {
+                            if (contentType == null) return@apply
+                            content = (content ?: Content()).apply {
+                                addMediaType(contentType, MediaType())
+                            }
+                        }
+
                         responses = responses ?: ApiResponses()
-                        responses.addApiResponse(status, ApiResponse())
+                        responses.addApiResponse(
+                            status,
+                            (responses.get(status) ?: ApiResponse()).apply {
+                                if (contentType == null) return@apply
+                                content = (content ?: Content()).apply {
+                                    addMediaType(contentType, MediaType())
+                                }
+                            },
+                        )
                     })
                 }
             }

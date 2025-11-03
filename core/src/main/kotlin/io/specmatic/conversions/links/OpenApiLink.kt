@@ -1,8 +1,11 @@
 package io.specmatic.conversions.links
 
+import io.ktor.http.ContentType
 import io.specmatic.conversions.SecuritySchemaParameterLocation
 import io.specmatic.conversions.convertPathParameterStyle
+import io.specmatic.conversions.links.OpenApiLink.Companion.findMatchingContentType
 import io.specmatic.core.BreadCrumb
+import io.specmatic.core.CONTENT_TYPE
 import io.specmatic.core.DEFAULT_RESPONSE_CODE
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.NoBodyValue
@@ -22,21 +25,51 @@ import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.Operation
 import io.swagger.v3.oas.models.PathItem
 import io.swagger.v3.oas.models.links.Link
+import io.swagger.v3.oas.models.media.Content
+import io.swagger.v3.oas.models.responses.ApiResponse
+import kotlin.collections.contains
 import kotlin.collections.plus
 
-data class OpenApiOperationReference(val path: String, val method: String, val status: Int, val operationId: String?) {
+data class OpenApiOperationReference(val path: String, val method: String, val status: Int, val operationId: String?, val contentType: String? = null) {
     val convertedPath = convertPathParameterStyle(path)
+    val parsedContentType = contentType?.let(ContentType::parse)
 
-    fun matches(path: String, method: String, status: Int): Boolean {
-        return this.convertedPath == convertPathParameterStyle(path) && this.method.equals(method, ignoreCase = true) && this.status == status
+    fun matches(path: String, method: String, status: Int, contentType: String?): Boolean {
+        return this.convertedPath == convertPathParameterStyle(path) && this.method.equals(method, ignoreCase = true) && this.status == status && matchesContentType(contentType)
     }
 
-    fun matches(operationId: String?, status: Int): Boolean {
+    fun matches(operationId: String?, status: Int, contentType: String?): Boolean {
         if (this.operationId == null || operationId == null) return false
-        return operationId == this.operationId && status == this.status
+        return operationId == this.operationId && status == this.status && matchesContentType(contentType)
+    }
+
+    fun matchesContentType(contentType: String?): Boolean {
+        if (parsedContentType == null) return true
+        if (contentType == null) return false
+        val parsedMatchingType = ContentType.parse(contentType)
+        return parsedContentType.match(parsedMatchingType)
     }
 
     fun operationIdOrPathAndMethod(): String = operationId ?: "$convertedPath-$method"
+
+    companion object {
+        const val LINK_CONTENT_TYPE_BY = "x-ContentType-By"
+
+        fun updateContentType(openApiOperationReference: OpenApiOperationReference, response: ApiResponse, link: Link): ReturnValue<OpenApiOperationReference> {
+            val contentType = link.extensions?.get(LINK_CONTENT_TYPE_BY)?.toString()
+            return updateContentType(openApiOperationReference, response.content, contentType)
+        }
+
+        fun updateContentType(openApiOperationReference: OpenApiOperationReference, content: Content, contentType: String?): ReturnValue<OpenApiOperationReference> {
+            val contentType = contentType?.let {
+                findMatchingContentType(content, openApiOperationReference.status, it)
+            }?.unwrapOrReturn {
+                return it.cast()
+            }
+
+            return HasValue(openApiOperationReference.copy(contentType = contentType))
+        }
+    }
 }
 
 data class OpenApiLink(
@@ -49,21 +82,27 @@ data class OpenApiLink(
     val requestBody: OpenApiValueOrLinkExpression? = null,
     val parameters: Map<String, OpenApiValueOrLinkExpression> = emptyMap(),
 ) {
-    fun matchesFor(operationId: String?, status: Int): Boolean = forOperation.matches(operationId, status)
+    fun matchesFor(operationId: String?, status: Int, contentType: String?): Boolean = forOperation.matches(operationId, status, contentType)
 
-    fun matchesFor(path: String, method: String, status: Int): Boolean = forOperation.matches(path, method, status)
+    fun matchesFor(path: String, method: String, status: Int, contentType: String?): Boolean = forOperation.matches(path, method, status, contentType)
 
-    fun matchesBy(path: String, method: String, status: Int): Boolean = byOperation.matches(path, method, status)
+    fun matchesBy(path: String, method: String, status: Int, contentType: String?): Boolean = byOperation.matches(path, method, status, contentType)
 
     fun toHttpRequest(scenario: Scenario): ReturnValue<HttpRequest> {
         if (
-            !matchesFor(scenario.operationMetadata?.operationId, scenario.status) &&
-            !matchesFor(scenario.path, scenario.method, scenario.status)
+            !matchesFor(scenario.operationMetadata?.operationId, scenario.status, scenario.requestContentType) &&
+            !matchesFor(scenario.path, scenario.method, scenario.status, scenario.requestContentType)
         ) {
             return HasFailure("OpenApi Link $name isn't for scenario ${scenario.defaultAPIDescription}", name)
         }
 
-        val baseRequest = HttpRequest(method = scenario.method, body = requestBody?.value ?: NoBodyValue)
+        val contentTypeHeaders = if (scenario.requestContentType != null) {
+            mapOf(CONTENT_TYPE to scenario.requestContentType.orEmpty())
+        } else {
+            emptyMap()
+        }
+
+        val baseRequest = HttpRequest(method = scenario.method, body = requestBody?.value ?: NoBodyValue, headers = contentTypeHeaders)
         val (queryAndHeaderRequest, pathParams) = updateHeaderAndQueryParams(baseRequest, scenario)
         return updatePath(pathParams, queryAndHeaderRequest, scenario)
     }
@@ -142,6 +181,7 @@ data class OpenApiLink(
     }
 
     companion object {
+        const val LINK_CONTENT_TYPE_FOR = "x-ContentType-For"
         const val LINK_EXPECTED_STATUS_CODE = "x-StatusCode"
         const val LINK_PARTIAL = "x-Partial"
 
@@ -181,7 +221,7 @@ data class OpenApiLink(
             }
 
             val operation = (operationRefWithOperationFromOperationId?.second ?: operationRefWithOperationFromOperationRef?.second) as Operation
-            val statusCodeFromExtension: Int? = parsedOpenApiLink.extensions?.get(LINK_EXPECTED_STATUS_CODE)?.let {
+            val expectedStatusCodeToApiResponse = parsedOpenApiLink.extensions?.get(LINK_EXPECTED_STATUS_CODE)?.let {
                 extractAndValidateExpectedStatusCode(it, operation)
             }?.unwrapOrReturn {
                 return it.breadCrumb("LINKS.$name.extensions.$LINK_EXPECTED_STATUS_CODE").cast()
@@ -193,14 +233,24 @@ data class OpenApiLink(
                 return it.breadCrumb("LINKS.$name.extensions.$LINK_PARTIAL").cast()
             }
 
-            val firstStatusCode = operation.responses?.let { responses ->
-                val first2xxStatusCode = responses.entries.firstOrNull { it.key.startsWith("2") }
-                if (first2xxStatusCode != null) return@let first2xxStatusCode.key.toInt()
-                DEFAULT_RESPONSE_CODE.takeIf { responses.contains("default") } ?: responses.entries.firstOrNull()?.key?.toIntOrNull()
+            val (firstStatusCode, firstApiResponse, contentType) = extractFirstRespInfo(operation).unwrapOrReturn {
+                return it.breadCrumb("LINKS.$name").cast()
             }
 
-            val forStatusCode = statusCodeFromExtension ?: firstStatusCode ?: DEFAULT_RESPONSE_CODE
+            val forStatusCode = expectedStatusCodeToApiResponse?.first ?: firstStatusCode
             val forOperation = (operationRefWithOperationFromOperationId?.first ?: operationRefWithOperationFromOperationRef?.first)
+            val updatedForOperation = OpenApiOperationReference.updateContentType(
+                openApiOperationReference = (forOperation as OpenApiOperationReference).copy(status = forStatusCode),
+                content = operation.requestBody?.content ?: Content(),
+                contentType = parsedOpenApiLink.extensions?.get(LINK_CONTENT_TYPE_FOR)?.toString() ?: contentType,
+            ).unwrapOrReturn {
+                return if (parsedOpenApiLink.extensions?.get(LINK_CONTENT_TYPE_FOR) != null) {
+                    it.breadCrumb("LINKS.$name.$LINK_CONTENT_TYPE_FOR").cast()
+                } else {
+                    it.breadCrumb("LINKS.$name").cast()
+                }
+            }
+
             return HasValue(
                 OpenApiLink(
                     name = name,
@@ -210,7 +260,7 @@ data class OpenApiLink(
                     byOperation = byOperation,
                     description = parsedOpenApiLink.description,
                     isPartial = isPartialFromExtension ?: false,
-                    forOperation = (forOperation as OpenApiOperationReference).copy(status = forStatusCode),
+                    forOperation = updatedForOperation,
                 ),
             )
         }
@@ -253,7 +303,7 @@ data class OpenApiLink(
             }.map(::HasValue).getOrElse(::HasException)
         }
 
-        private fun extractAndValidateExpectedStatusCode(value: Any, operation: Operation): ReturnValue<Int> {
+        private fun extractAndValidateExpectedStatusCode(value: Any, operation: Operation): ReturnValue<Pair<Int, ApiResponse>> {
             val statusCode = if (value is String && value.equals("default", ignoreCase = true)) {
                 "default"
             } else {
@@ -262,10 +312,17 @@ data class OpenApiLink(
                 }
             }
 
-            val allPossibleStatusCodes = operation.responses.map { it.key.lowercase() }.toSet()
+            val allPossibleStatusCodes = operation.responses.orEmpty().map { it.key.lowercase() }.toSet()
             return when {
-                statusCode in allPossibleStatusCodes -> HasValue(statusCode.toIntOrNull() ?: DEFAULT_RESPONSE_CODE)
-                "default" in allPossibleStatusCodes -> HasValue(DEFAULT_RESPONSE_CODE)
+                statusCode in allPossibleStatusCodes -> {
+                    val apiResponse = operation.responses.getValue(statusCode)
+                    val status = statusCode.toIntOrNull() ?: DEFAULT_RESPONSE_CODE
+                    HasValue(status to apiResponse)
+                }
+                "default" in allPossibleStatusCodes -> {
+                    val apiResponse = operation.responses.getValue("default")
+                    HasValue(DEFAULT_RESPONSE_CODE to apiResponse)
+                }
                 else -> HasFailure("""
                 Invalid status Code for $LINK_EXPECTED_STATUS_CODE '$statusCode' is not possible
                 Must be one of ${allPossibleStatusCodes.joinToString(separator = ", ")}
@@ -277,6 +334,39 @@ data class OpenApiLink(
             if (value is Boolean) return HasValue(value)
             if (value is String && value.lowercase() in setOf("true", "false")) return HasValue(value.toBoolean())
             return HasFailure("Invalid Is-Partial value '$value' must be a valid boolean")
+        }
+
+        private fun extractFirstRespInfo(operation: Operation): ReturnValue<Triple<Int, ApiResponse, String?>> {
+            val firstOperation = sequenceOf(
+                operation.responses?.entries?.firstOrNull { it.key.startsWith("2") },
+                operation.responses?.entries?.firstOrNull { it.key.equals("default", ignoreCase = true) },
+                operation.responses?.entries?.firstOrNull(),
+            ).firstNotNullOfOrNull { it }
+
+            if (firstOperation == null) return HasFailure("""
+            Failed to pick and default expected response from operation
+            """.trimIndent())
+
+            val statusCode = firstOperation.key.toIntOrNull() ?: DEFAULT_RESPONSE_CODE
+            val firstContentType = operation.requestBody?.content?.keys?.firstOrNull()
+            return HasValue(Triple(statusCode, firstOperation.value, firstContentType))
+        }
+
+        fun findMatchingContentType(content: Content, statusCode: Any, contentType: String): ReturnValue<String> {
+            val expectedParsedContentType = ContentType.parse(contentType)
+            val matchingContentType = content?.asSequence()?.filter {
+                val thisContentType = ContentType.parse(it.key)
+                expectedParsedContentType.match(thisContentType)
+            }?.firstOrNull()
+
+            return if (matchingContentType == null) {
+                HasFailure("""
+                Expected Content-Type of $contentType is not possible under $statusCode
+                Must match one of ${content?.keys?.joinToString(separator = ", ") ?: "<EMPTY>"}
+                """.trimIndent())
+            } else {
+                HasValue(matchingContentType.key)
+            }
         }
     }
 }

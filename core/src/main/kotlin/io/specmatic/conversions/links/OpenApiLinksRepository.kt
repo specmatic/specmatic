@@ -9,11 +9,11 @@ import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.ReturnValue
 import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.listFold
-import io.specmatic.core.pattern.mapFold
 import io.specmatic.core.pattern.unwrapOrReturn
 import io.specmatic.core.utilities.Flags
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.links.Link
+import io.swagger.v3.oas.models.responses.ApiResponse
 
 data class OpenApiLinksRepository(
     private val openApiFilePath: String? = null,
@@ -25,12 +25,20 @@ data class OpenApiLinksRepository(
 
     fun getDefinedFor(scenario: Scenario): List<OpenApiLink> {
         return links.filter {
-            it.matchesFor(scenario.operationMetadata?.operationId, scenario.status) || it.matchesFor(scenario.path, scenario.method, scenario.status)
+            it.matchesFor(scenario.operationMetadata?.operationId, scenario.status, scenario.requestContentType) ||
+                it.matchesFor(scenario.path, scenario.method, scenario.status, scenario.requestContentType)
         }
     }
 
-    fun getDefinedBy(path: String, method: String, status: Int): List<OpenApiLink> {
-        return links.filter { it.matchesBy(path, method, status) }
+    // Use for testing, prefer scenario
+    fun getDefinedFor(path: String, method: String, status: Int, operationId: String?, contentType: String?): List<OpenApiLink> {
+        return links.filter {
+            it.matchesFor(operationId, status, contentType) || it.matchesFor(path, method, status, contentType)
+        }
+    }
+
+    fun getDefinedBy(path: String, method: String, status: Int, contentType: String?): List<OpenApiLink> {
+        return links.filter { it.matchesBy(path, method, status, contentType) }
     }
 
     fun openApiLinksToExamples(links: List<OpenApiLink>, scenario: Scenario, lenient: Boolean = true): ReturnValue<List<Examples>> {
@@ -113,37 +121,27 @@ data class OpenApiLinksRepository(
                 ::parseOpenApiLink
             }
 
-            val linksMap = openApi.paths.orEmpty().mapValues { (path, pathItem) ->
-                pathItem.readOperationsMap().mapValues { (method, operation) ->
-                    operation.responses.orEmpty().entries.associate { (response, apiResponse) ->
-                        Pair(operation, response) to apiResponse.links.orEmpty().mapNotNull { (name, link) ->
+            val parsedLinks = openApi.paths.orEmpty().flatMap { (path, pathItem) ->
+                pathItem.readOperationsMap().flatMap { (method, operation) ->
+                    operation.responses.orEmpty().flatMap { (response, apiResponse) ->
+                        apiResponse.links.orEmpty().mapNotNull { (name, link) ->
                             val operationId = operation.operationId
                             val statusCode = response.toIntOrNull() ?: DEFAULT_RESPONSE_CODE
                             val opReference = OpenApiOperationReference(path, method.name, statusCode, operationId)
-                            parser(openApi, opReference, name, link)
-                        }.listFold()
-                    }.mapFold()
-                }.mapFold()
-            }.mapFold().unwrapOrReturn { return it.cast() }
-
-            val flatLinks = linksMap.flatMap { (path, methodMap) ->
-                methodMap.flatMap { (method, operationMap) ->
-                    operationMap.map { (operationToResponse, links) ->
-                        val operationId = operationToResponse.first.operationId
-                        val statusCode = operationToResponse.second.toIntOrNull() ?: DEFAULT_RESPONSE_CODE
-                        OpenApiOperationReference(path, method.name, statusCode, operationId) to links
+                            parser(openApi, apiResponse, opReference, name, link)?.ifValue { it.byOperation to it }
+                        }
                     }
                 }
-            }.toMap()
+            }.listFold().unwrapOrReturn { return it.cast() }
 
-            val openApiLinksGraph = parseOpenApiLinkGraph(flatLinks, lenient = lenient).unwrapOrReturn {
+            val links = parsedLinks.groupBy({ it.first }, { it.second })
+            val openApiLinksGraph = parseOpenApiLinkGraph(links, lenient = lenient).unwrapOrReturn {
                 return it.cast()
             }
-
-            return HasValue(OpenApiLinksRepository(openApiFilePath, flatLinks, openApiLinksGraph))
+            return HasValue(OpenApiLinksRepository(openApiFilePath, links, openApiLinksGraph))
         }
 
-        private fun parseOpenApiLinkLenient(openAPI: OpenAPI, byOperation: OpenApiOperationReference, linkName: String, openApiLink: Link): HasValue<OpenApiLink>? {
+        private fun parseOpenApiLinkLenient(openAPI: OpenAPI, response: ApiResponse, byOperation: OpenApiOperationReference, linkName: String, openApiLink: Link): HasValue<OpenApiLink>? {
             val resolvedLink = if (openApiLink.`$ref` != null) {
                 unReferenceLink(openAPI, openApiLink).realise(
                     hasValue = { it, _ -> it },
@@ -162,7 +160,14 @@ data class OpenApiLinksRepository(
                 )
             } else { openApiLink } ?: return null
 
-            val parseResult = OpenApiLink.from(openAPI, byOperation, linkName, resolvedLink)
+            val updatedRef = OpenApiOperationReference.updateContentType(byOperation, response, openApiLink).unwrapOrReturn {
+                logger.boundary()
+                logger.log(it.toFailure().reportString())
+                logger.boundary()
+                return null
+            }
+
+            val parseResult = OpenApiLink.from(openAPI, updatedRef, linkName, resolvedLink)
             return parseResult.realise(
                 hasValue = { it, _ -> HasValue(it) },
                 orException = { e ->
@@ -180,14 +185,18 @@ data class OpenApiLinksRepository(
             )
         }
 
-        private fun parseOpenApiLink(openAPI: OpenAPI, byOperation: OpenApiOperationReference, linkName: String, openApiLink: Link): ReturnValue<OpenApiLink> {
+        private fun parseOpenApiLink(openAPI: OpenAPI, response: ApiResponse, byOperation: OpenApiOperationReference, linkName: String, openApiLink: Link): ReturnValue<OpenApiLink> {
             val resolvedLink = if (openApiLink.`$ref` != null) {
                 unReferenceLink(openAPI, openApiLink).unwrapOrReturn { return it.cast() }
             } else {
                 openApiLink
             }
 
-            val parseResult = OpenApiLink.from(openAPI, byOperation, linkName, resolvedLink)
+            val updatedRef = OpenApiOperationReference.updateContentType(byOperation, response, openApiLink).unwrapOrReturn {
+                return it.cast()
+            }
+
+            val parseResult = OpenApiLink.from(openAPI, updatedRef, linkName, resolvedLink)
             return parseResult.realise(
                 hasValue = { it, _ -> HasValue(it) },
                 orException = { e ->
