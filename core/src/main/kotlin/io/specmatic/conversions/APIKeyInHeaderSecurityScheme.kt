@@ -17,7 +17,7 @@ data class APIKeyInHeaderSecurityScheme(val name: String, private val apiKey:Str
     }
 
     override fun removeParam(httpRequest: HttpRequest): HttpRequest {
-        return httpRequest.copy(headers = httpRequest.headers.minus(name))
+        return httpRequest.removeSecurityHeader(name)
     }
 
     override fun addTo(httpRequest: HttpRequest, resolver: Resolver): HttpRequest {

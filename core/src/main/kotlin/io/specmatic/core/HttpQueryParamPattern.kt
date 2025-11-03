@@ -37,15 +37,18 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
     }
 
     fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<HttpQueryParamPattern>> {
+        val additionalQueryPattern = extractFromExampleQueryParamsNotInSpec(queryPatterns, row)
+        val patternMap = queryPatterns + additionalQueryPattern
+
         return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
-            val queryParams = queryPatterns.let {
+            val queryParams = patternMap.let {
                 if(additionalProperties != null)
                     it.plus(randomString(5) to additionalProperties)
                 else
                     it
             }
-            val patternMap = row.withoutOmittedKeys(queryParams, resolver.defaultExampleResolver)
 
+            val patternMap = row.withoutOmittedKeys(queryParams, resolver.defaultExampleResolver)
             allOrNothingCombinationIn(patternMap, resolver.resolveRow(row)) { pattern ->
                 newMapBasedOn(pattern,row,withNullPattern(resolver))
             }.map { it: ReturnValue<Map<String, Pattern>> ->
@@ -245,6 +248,23 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
             hasValue = { valuesMap, _ -> HasValue(QueryParameters(valuesMap.mapValues { it.value.toStringLiteral() })) },
             orException = { e -> e.cast() }, orFailure = { f -> f.cast() }
         )
+    }
+
+    private fun extractFromExampleQueryParamsNotInSpec(specPattern : Map<String, Pattern>, row: Row): Map<String, Pattern> {
+        val additionalQueryPattern = if (row.requestExample != null) {
+            row.requestExample.queryParams.keys.filter { exampleQueryParamName ->
+                !specPattern.containsKey(exampleQueryParamName) && !specPattern.containsKey("${exampleQueryParamName}?")
+            }.filter { exampleQueryParamName ->
+                exampleQueryParamName !in row.requestExample.metadata.securityQueryNames
+            }.associateWith { exampleQueryParamName ->
+                val value = row.requestExample.queryParams.getOrDefault(exampleQueryParamName, "NULL")
+                ExactValuePattern(StringValue(value))
+            }
+        } else {
+            emptyMap()
+        }
+
+        return additionalQueryPattern
     }
 
     companion object {
