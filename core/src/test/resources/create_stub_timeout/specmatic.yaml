@@ -1,0 +1,5 @@
+version: 2
+contracts: []
+stub:
+  startTimeoutInMilliseconds: 20000
+
