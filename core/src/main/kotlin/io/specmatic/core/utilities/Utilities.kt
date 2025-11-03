@@ -9,11 +9,11 @@ import io.specmatic.core.DEFAULT_WORKING_DIRECTORY
 import io.specmatic.core.EXAMPLES_DIR_SUFFIX
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.KeyData
+import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.azure.AzureAuthCredentials
 import io.specmatic.core.git.GitCommand
-import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.loadSpecmaticConfig
 import io.specmatic.core.log.consoleDebug
@@ -39,9 +39,9 @@ import java.io.File
 import java.io.StringReader
 import java.io.StringWriter
 import java.net.MalformedURLException
+import java.net.URI
 import java.net.URISyntaxException
 import java.net.URL
-import java.net.URI
 import java.util.concurrent.*
 import javax.xml.parsers.DocumentBuilder
 import javax.xml.parsers.DocumentBuilderFactory
@@ -51,28 +51,36 @@ import javax.xml.transform.dom.DOMSource
 import javax.xml.transform.stream.StreamResult
 import kotlin.system.exitProcess
 
-class SystemExitException(val code: Int, message: String?) : Exception(message)
+class SystemExitException(
+    val code: Int,
+    message: String?,
+) : Exception(message)
 
 object SystemExit {
     private val exitFunc: ThreadLocal<(Int, String?) -> Nothing> = ThreadLocal.withInitial { ::defaultExit }
 
-    private fun defaultExit(code: Int, message: String? = null): Nothing {
+    private fun defaultExit(
+        code: Int,
+        message: String? = null,
+    ): Nothing {
         message?.let(logger::log)
         exitProcess(code)
     }
 
-    fun exitWith(code: Int, message: String? = null): Nothing {
+    fun exitWith(
+        code: Int,
+        message: String? = null,
+    ): Nothing {
         exitFunc.get().invoke(code, message)
     }
 
-    fun <T> throwOnExit(block: () -> T): T {
-        return try {
+    fun <T> throwOnExit(block: () -> T): T =
+        try {
             exitFunc.set { code, message -> throw SystemExitException(code, message) }
             block()
         } finally {
             exitFunc.remove()
         }
-    }
 }
 
 fun exitWithMessage(message: String): Nothing = SystemExit.exitWith(1, "\n$message\n")
@@ -82,28 +90,29 @@ fun messageStringFrom(e: Throwable): String {
     return messageStack.joinToString("; ") { it.trim().removeSuffix(".") }.trim()
 }
 
-fun exceptionCauseMessage(e: Throwable): String {
-    return when(e) {
+fun exceptionCauseMessage(e: Throwable): String =
+    when (e) {
         is ContractException -> e.report()
-        else -> messageStringFrom(e).ifEmpty {
-            "Exception class=${e.javaClass.name}"
-        }
+        else ->
+            messageStringFrom(e).ifEmpty {
+                "Exception class=${e.javaClass.name}"
+            }
     }
-}
 
-fun exceptionMessageStack(e: Throwable, messages: List<String>): List<String> {
+fun exceptionMessageStack(
+    e: Throwable,
+    messages: List<String>,
+): List<String> {
     val message = e.localizedMessage ?: e.message
-    val newMessages = if(message != null) messages.plus(message) else messages
+    val newMessages = if (message != null) messages.plus(message) else messages
 
-    return when(val cause = e.cause) {
+    return when (val cause = e.cause) {
         null -> newMessages
         else -> exceptionMessageStack(cause, newMessages)
     }
 }
 
-fun readFile(filePath: String): String {
-    return File(filePath).readText().trim()
-}
+fun readFile(filePath: String): String = File(filePath).readText().trim()
 
 fun parseXML(xmlData: String): Document {
     val builder = newXMLBuilder()
@@ -123,27 +132,31 @@ fun removeIrrelevantNodes(document: Document): Document {
 }
 
 fun removeIrrelevantNodes(node: Node): Node {
-    if(node.hasChildNodes() && !containsTextContent(node)) {
-        val childNodes = 0.until(node.childNodes.length).map { i ->
-            node.childNodes.item(i)
-        }
+    if (node.hasChildNodes() && !containsTextContent(node)) {
+        val childNodes =
+            0.until(node.childNodes.length).map { i ->
+                node.childNodes.item(i)
+            }
 
         childNodes.forEach {
-            if (isEmptyText(it, node) || it.nodeType == COMMENT_NODE)
+            if (isEmptyText(it, node) || it.nodeType == COMMENT_NODE) {
                 node.removeChild(it)
-            else if (it.hasChildNodes())
+            } else if (it.hasChildNodes()) {
                 removeIrrelevantNodes(it)
+            }
         }
     }
 
     return node
 }
 
-private fun isEmptyText(it: Node, node: Node) =
-    it.nodeType == TEXT_NODE && node.nodeType == ELEMENT_NODE && it.textContent.trim().isBlank()
+private fun isEmptyText(
+    it: Node,
+    node: Node,
+) = it.nodeType == TEXT_NODE && node.nodeType == ELEMENT_NODE && it.textContent.trim().isBlank()
 
 private fun containsTextContent(node: Node) =
-        node.childNodes.length == 1 && node.firstChild.nodeType == TEXT_NODE && node.nodeType == ELEMENT_NODE
+    node.childNodes.length == 1 && node.firstChild.nodeType == TEXT_NODE && node.nodeType == ELEMENT_NODE
 
 fun xmlToString(node: Node): String {
     val writer = StringWriter()
@@ -154,39 +167,43 @@ fun xmlToString(node: Node): String {
     return writer.toString()
 }
 
-fun getTransportCallingCallback(bearerToken: String? = null): TransportConfigCallback {
-    return TransportConfigCallback { transport ->
+fun getTransportCallingCallback(bearerToken: String? = null): TransportConfigCallback =
+    TransportConfigCallback { transport ->
         if (transport is SshTransport) {
             transport.sshSessionFactory = SshdSessionFactory()
-        } else if(bearerToken != null && transport is TransportHttp) {
+        } else if (bearerToken != null && transport is TransportHttp) {
             logger.debug("Setting Authorization header")
             transport.additionalHeaders = mapOf("Authorization" to "Bearer $bearerToken")
         }
     }
-}
 
-fun strings(list: List<Value>): List<String> {
-    return list.map {
-        when(it) {
+fun strings(list: List<Value>): List<String> =
+    list.map {
+        when (it) {
             is StringValue -> it.string
             else -> exitWithMessage("All members of the paths array must be strings, but found one (${it.toStringLiteral()}) which was not")
         }
     }
-}
 
-fun loadSources(configFilePath: String, useCurrentBranchForCentralRepo: Boolean = false): List<ContractSource> = 
-    loadSpecmaticConfig(configFilePath).loadSources(useCurrentBranchForCentralRepo)
+fun loadSources(
+    configFilePath: String,
+    useCurrentBranchForCentralRepo: Boolean = false,
+): List<ContractSource> = loadSpecmaticConfig(configFilePath).loadSources(useCurrentBranchForCentralRepo)
 
 fun loadConfigJSON(configFile: File): JSONObjectValue {
-    val configJson = try {
-        parsedJSON(configFile.readText())
-    } catch (e: Throwable) {
-        throw ContractException("Error reading the $configFilePath: ${exceptionCauseMessage(e)}",
-            exceptionCause = e)
-    }
+    val configJson =
+        try {
+            parsedJSON(configFile.readText())
+        } catch (e: Throwable) {
+            throw ContractException(
+                "Error reading the $configFilePath: ${exceptionCauseMessage(e)}",
+                exceptionCause = e,
+            )
+        }
 
-    if (configJson !is JSONObjectValue)
+    if (configJson !is JSONObjectValue) {
         throw ContractException("The contents of $configFilePath must be a json object")
+    }
 
     return configJson
 }
@@ -194,16 +211,20 @@ fun loadConfigJSON(configFile: File): JSONObjectValue {
 fun loadSources(configJson: JSONObjectValue): List<ContractSource> {
     val sources = configJson.jsonObject.getOrDefault("sources", null)
 
-    if(sources !is JSONArrayValue)
+    if (sources !is JSONArrayValue) {
         throw ContractException("The \"sources\" key must hold a list of sources.")
+    }
 
     return sources.list.map { source ->
-        if (source !is JSONObjectValue)
-            throw ContractException("Every element of the sources json array must be a json object, but got this: ${source.toStringLiteral()}")
+        if (source !is JSONObjectValue) {
+            throw ContractException(
+                "Every element of the sources json array must be a json object, but got this: ${source.toStringLiteral()}",
+            )
+        }
 
         val type = nativeString(source.jsonObject, "provider")
 
-        when(nativeString(source.jsonObject, "provider")) {
+        when (nativeString(source.jsonObject, "provider")) {
             "git" -> {
                 val repositoryURL = nativeString(source.jsonObject, "repository")
                 val branch = nativeString(source.jsonObject, "branch")
@@ -213,42 +234,65 @@ fun loadSources(configJson: JSONObjectValue): List<ContractSource> {
 
                 when (repositoryURL) {
                     null -> GitMonoRepo(testPaths.toContractSourceEntries(), stubPaths.toContractSourceEntries(), type)
-                    else -> GitRepo(repositoryURL, branch, testPaths.toContractSourceEntries(), stubPaths.toContractSourceEntries(), type)
+                    else ->
+                        GitRepo(
+                            repositoryURL,
+                            branch,
+                            testPaths.toContractSourceEntries(),
+                            stubPaths.toContractSourceEntries(),
+                            type,
+                        )
                 }
             }
+
             "filesystem" -> {
-                val directory = nativeString(source.jsonObject, "directory") ?: throw ContractException("The \"directory\" key is required for the local source provider")
+                val directory =
+                    nativeString(source.jsonObject, "directory")
+                        ?: throw ContractException("The \"directory\" key is required for the local source provider")
                 val stubPaths = jsonArray(source, "stub")
                 val testPaths = jsonArray(source, "test")
 
-                LocalFileSystemSource(directory, testPaths.toContractSourceEntries(), stubPaths.toContractSourceEntries())
+                LocalFileSystemSource(
+                    directory,
+                    testPaths.toContractSourceEntries(),
+                    stubPaths.toContractSourceEntries(),
+                )
             }
+
             "web" -> {
                 val stubPaths = jsonArray(source, "stub")
                 val testPaths = jsonArray(source, "test")
                 WebSource(testPaths.toContractSourceEntries(), stubPaths.toContractSourceEntries())
             }
-            else -> throw ContractException("Provider ${nativeString(source.jsonObject, "provider")} not recognised in $configFilePath")
+
+            else -> throw ContractException(
+                "Provider ${
+                    nativeString(
+                        source.jsonObject,
+                        "provider",
+                    )
+                } not recognised in $configFilePath",
+            )
         }
     }
 }
 
-private fun List<String>.toContractSourceEntries(): List<ContractSourceEntry> {
-    return this.map { ContractSourceEntry(it) }
-}
+private fun List<String>.toContractSourceEntries(): List<ContractSourceEntry> = this.map { ContractSourceEntry(it) }
 
-internal fun jsonArray(source: JSONObjectValue, key: String): List<String> {
-    return when(val value = source.jsonObject[key]) {
+internal fun jsonArray(
+    source: JSONObjectValue,
+    key: String,
+): List<String> =
+    when (val value = source.jsonObject[key]) {
         is JSONArrayValue -> value.list.map { it.toStringLiteral() }
         null -> emptyList()
         else -> throw ContractException("Expected $key to be an array")
     }
-}
 
 fun createIfDoesNotExist(workingDirectoryPath: String) {
     val workingDirectory = File(workingDirectoryPath)
 
-    if(!workingDirectory.exists()) {
+    if (!workingDirectory.exists()) {
         try {
             workingDirectory.mkdirs()
         } catch (e: Throwable) {
@@ -257,34 +301,59 @@ fun createIfDoesNotExist(workingDirectoryPath: String) {
     }
 }
 
-fun throwExceptionIfDirectoriesAreInvalid(directoryPathsToVerify: List<String>, natureOfDirectoryPaths: String) {
+fun throwExceptionIfDirectoriesAreInvalid(
+    directoryPathsToVerify: List<String>,
+    natureOfDirectoryPaths: String,
+) {
     val invalidDataDirs = directoryPathsToVerify.filter { File(it).exists().not() || File(it).isDirectory.not() }
     if (invalidDataDirs.isNotEmpty()) {
-        throw Exception("The following $natureOfDirectoryPaths are invalid: ${invalidDataDirs.joinToString(", ")}. Please provide the valid $natureOfDirectoryPaths.")
+        throw Exception(
+            "The following $natureOfDirectoryPaths are invalid: ${invalidDataDirs.joinToString(
+                ", ",
+            )}. Please provide the valid $natureOfDirectoryPaths.",
+        )
     }
 }
 
-fun exitIfAnyDoNotExist(label: String, filePaths: List<String>) {
-    filePaths.filterNot {contractPath ->
-        File(contractPath).exists()
-    }.also {
-        if(it.isNotEmpty())
-            throw ContractException("$label: ${it.joinToString(", ")}")
-    }
+fun exitIfAnyDoNotExist(
+    label: String,
+    filePaths: List<String>,
+) {
+    filePaths
+        .filterNot { contractPath ->
+            File(contractPath).exists()
+        }.also {
+            if (it.isNotEmpty()) {
+                throw ContractException("$label: ${it.joinToString(", ")}")
+            }
+        }
 }
 
 // Used by SpecmaticJUnitSupport users for loading contracts to stub or mock
-fun contractStubPaths(configFileName: String, useCurrentBranchForCentralRepo: Boolean = false): List<ContractPathData> {
-    return contractFilePathsFrom(configFileName, DEFAULT_WORKING_DIRECTORY, useCurrentBranchForCentralRepo) { source -> source.stubContracts }
-}
+fun contractStubPaths(
+    configFileName: String,
+    useCurrentBranchForCentralRepo: Boolean = false,
+): List<ContractPathData> =
+    contractFilePathsFrom(
+        configFileName,
+        DEFAULT_WORKING_DIRECTORY,
+        useCurrentBranchForCentralRepo,
+    ) { source -> source.stubContracts }
 
 fun interface ContractsSelectorPredicate {
     fun select(source: ContractSource): List<ContractSourceEntry>
 }
 
-fun contractTestPathsFrom(configFilePath: String, workingDirectory: String, useCurrentBranchForCentralRepo: Boolean = false): List<ContractPathData> {
-    return contractFilePathsFrom(configFilePath, workingDirectory, useCurrentBranchForCentralRepo) { source -> source.testContracts }
-}
+fun contractTestPathsFrom(
+    configFilePath: String,
+    workingDirectory: String,
+    useCurrentBranchForCentralRepo: Boolean = false,
+): List<ContractPathData> =
+    contractFilePathsFrom(
+        configFilePath,
+        workingDirectory,
+        useCurrentBranchForCentralRepo,
+    ) { source -> source.testContracts }
 
 fun gitRootDir(): String {
     val gitRoot = SystemGit().gitRoot()
@@ -300,93 +369,104 @@ data class ContractPathData(
     val specificationPath: String? = null,
     val baseUrl: String? = null,
     val generative: ResiliencyTestSuite? = null,
-    val port: Int? = null
+    val port: Int? = null,
 ) {
     companion object {
-        fun List<ContractPathData>.specToBaseUrlMap(): Map<String, String?> {
-            return this.associate { File(it.path).path to it.baseUrl }
-        }
+        fun List<ContractPathData>.specToBaseUrlMap(): Map<String, String?> = this.associate { File(it.path).path to it.baseUrl }
     }
 }
 
 fun contractFilePathsFrom(
-    configFilePath: String, 
-    workingDirectory: String, 
+    configFilePath: String,
+    workingDirectory: String,
     useCurrentBranchForCentralRepo: Boolean = false,
-    selector: ContractsSelectorPredicate
+    selector: ContractsSelectorPredicate,
 ): List<ContractPathData> {
     logger.log("Loading config file $configFilePath")
     val sources = loadSources(configFilePath, useCurrentBranchForCentralRepo)
 
-    val contractPathData = sources.flatMap {
-        it.loadContracts(selector, workingDirectory, configFilePath)
-    }
+    val contractPathData =
+        sources.flatMap {
+            it.loadContracts(selector, workingDirectory, configFilePath)
+        }
 
     logger.debug("Spec file paths in $configFilePath:")
     logger.debug(contractPathData.joinToString(System.lineSeparator()) { "- ${it.path}" })
 
     // Populate the port from baseUrl if explicitly present
-    val contractPathDataWithPorts = contractPathData.map { data ->
-        val parsedPort = try {
-            data.baseUrl?.let { url ->
-                val uri = URI(url)
-                if (uri.port != -1) uri.port else null
-            }
-        } catch (_: Throwable) {
-            null
-        }
+    val contractPathDataWithPorts =
+        contractPathData.map { data ->
+            val parsedPort =
+                try {
+                    data.baseUrl?.let { url ->
+                        val uri = URI(url)
+                        if (uri.port != -1) uri.port else null
+                    }
+                } catch (_: Throwable) {
+                    null
+                }
 
-        if (parsedPort != null && data.port != parsedPort) data.copy(port = parsedPort) else data
-    }
+            if (parsedPort != null && data.port != parsedPort) data.copy(port = parsedPort) else data
+        }
 
     return contractPathDataWithPorts
 }
 
-fun getSystemGit(path: String) : GitCommand {
-    return SystemGit(path)
-}
+fun getSystemGit(path: String): GitCommand = SystemGit(path)
 
-fun getSystemGitWithAuth(path: String) : GitCommand {
-    return SystemGit(path, authCredentials = AzureAuthCredentials)
-}
+fun getSystemGitWithAuth(path: String): GitCommand = SystemGit(path, authCredentials = AzureAuthCredentials)
 
-class UncaughtExceptionHandler: Thread.UncaughtExceptionHandler {
-    override fun uncaughtException(t: Thread?, e: Throwable?) {
-        if(e != null)
+class UncaughtExceptionHandler : Thread.UncaughtExceptionHandler {
+    override fun uncaughtException(
+        t: Thread?,
+        e: Throwable?,
+    ) {
+        if (e != null) {
             consoleLog(logger.ofTheException(e))
+        }
 
         exitProcess(1)
     }
 }
 
-internal fun withNullPattern(resolver: Resolver): Resolver {
-    return resolver.copy(newPatterns = resolver.newPatterns.plus("(empty)" to NullPattern))
-}
+internal fun withNullPattern(resolver: Resolver): Resolver =
+    resolver.copy(newPatterns = resolver.newPatterns.plus("(empty)" to NullPattern))
 
-internal fun withNumberType(resolver: Resolver) =
-        resolver.copy(newPatterns = resolver.newPatterns.plus("(number)" to NumberPattern()))
+internal fun withNumberType(resolver: Resolver) = resolver.copy(newPatterns = resolver.newPatterns.plus("(number)" to NumberPattern()))
 
 fun String.capitalizeFirstChar() = this.replaceFirstChar { it.uppercase() }
 
-fun saveJsonFile(jsonString: String, path: String, fileName: String) {
+fun saveJsonFile(
+    jsonString: String,
+    path: String,
+    fileName: String,
+) {
     val directory = File(path)
     directory.mkdirs()
     File(directory, fileName).writeText(jsonString)
 }
 
-fun readEnvVarOrProperty(envVarName: String, propertyName: String): String? {
-    return System.getenv(envVarName) ?: System.getProperty(propertyName)
-}
+fun readEnvVarOrProperty(
+    envVarName: String,
+    propertyName: String,
+): String? = System.getenv(envVarName) ?: System.getProperty(propertyName)
 
-fun examplesDirFor(openApiFilePath: String, alternateSuffix: String): File {
+fun examplesDirFor(
+    openApiFilePath: String,
+    alternateSuffix: String,
+): File {
     val examplesDir = getExamplesDir(openApiFilePath, EXAMPLES_DIR_SUFFIX)
-    return if (examplesDir.isDirectory)
+    return if (examplesDir.isDirectory) {
         examplesDir
-    else
+    } else {
         getExamplesDir(openApiFilePath, alternateSuffix)
+    }
 }
 
-private fun getExamplesDir(openApiFilePath: String, suffix: String): File =
+private fun getExamplesDir(
+    openApiFilePath: String,
+    suffix: String,
+): File =
     File(openApiFilePath).canonicalFile.let {
         it.parentFile.resolve("${it.parent}/${it.nameWithoutExtension}$suffix")
     }
@@ -394,40 +474,53 @@ private fun getExamplesDir(openApiFilePath: String, suffix: String): File =
 fun nullOrExceptionString(fn: () -> Result): String? {
     return try {
         val result = fn()
-        if(result is Result.Failure)
+        if (result is Result.Failure) {
             return result.reportString()
+        }
 
         return null
-    }
-    catch(t: Throwable) {
+    } catch (t: Throwable) {
         logger.exceptionString(t)
     }
 }
 
-private fun sanitizeFilename(input: String): String {
-    return input.replace(Regex("""[\\/:*?"'<>| ]"""), "_")
-}
+private fun sanitizeFilename(input: String): String = input.replace(Regex("""[\\/:*?"'<>| ]"""), "_")
 
-fun uniqueNameForApiOperation(httpRequest: HttpRequest, baseURL: String, responseStatus: Int): String {
+fun uniqueNameForApiOperation(
+    httpRequest: HttpRequest,
+    baseURL: String,
+    responseStatus: Int,
+): String {
     val (method, path, headers) = httpRequest
-    val contentType = if(method == "PATCH")
-        "_" + headers[CONTENT_TYPE].orEmpty().replace("/", "_")
-    else ""
+    val contentType =
+        if (method == "PATCH") {
+            "_" + headers[CONTENT_TYPE].orEmpty().replace("/", "_")
+        } else {
+            ""
+        }
 
     val formattedPath = path?.replace(baseURL, "")?.drop(1).orEmpty()
-    if (formattedPath.isEmpty()) return "${method}_${responseStatus}"
+    if (formattedPath.isEmpty()) return "${method}_$responseStatus"
 
     val rawName = "${formattedPath}_${method}_${responseStatus}$contentType"
     return sanitizeFilename(rawName)
 }
 
-fun consolePrintableURL(host: String, port: Int, keyStoreData: KeyData? = null): String {
+fun consolePrintableURL(
+    host: String,
+    port: Int,
+    keyStoreData: KeyData? = null,
+): String {
     val protocol = keyStoreData?.let { "https" } ?: "http"
     val displayableHost = if (host == DEFAULT_HTTP_STUB_HOST) "localhost" else host
     return "$protocol://$displayableHost:$port"
 }
 
-fun <T> runWithTimeout(timeout: Long, task: Callable<T>): T {
+fun <T> runWithTimeout(
+    timeout: Long,
+    timeoutMessage: String,
+    task: Callable<T>,
+): T {
     val unit = TimeUnit.MILLISECONDS
 
     val executor = Executors.newSingleThreadExecutor()
@@ -437,7 +530,7 @@ fun <T> runWithTimeout(timeout: Long, task: Callable<T>): T {
         return future.get(timeout, unit)
     } catch (e: TimeoutException) {
         future.cancel(true)
-        throw e
+        throw ContractException(timeoutMessage, exceptionCause = e)
     } catch (e: ExecutionException) {
         throw e.cause ?: e
     } finally {
@@ -445,24 +538,27 @@ fun <T> runWithTimeout(timeout: Long, task: Callable<T>): T {
     }
 }
 
-enum class URIValidationResult(val message: String) {
+enum class URIValidationResult(
+    val message: String,
+) {
     URIParsingError("Please specify a valid URL in 'scheme://host[:port][path]' format"),
     InvalidURLSchemeError("Please specify a valid scheme / protocol (http or https)"),
     MissingHostError("Please specify a valid host name"),
     InvalidPortError("Please specify a valid port number"),
-    Success("This URL is valid");
+    Success("This URL is valid"),
 }
 
 fun validateTestOrStubUri(uri: String): URIValidationResult {
-    val parsedURI = try {
-        URL(uri).toURI()
-    } catch (e: URISyntaxException) {
-        consoleDebug(e)
-        return URIValidationResult.URIParsingError
-    } catch(e: MalformedURLException) {
-        consoleDebug(e)
-        return URIValidationResult.URIParsingError
-    }
+    val parsedURI =
+        try {
+            URL(uri).toURI()
+        } catch (e: URISyntaxException) {
+            consoleDebug(e)
+            return URIValidationResult.URIParsingError
+        } catch (e: MalformedURLException) {
+            consoleDebug(e)
+            return URIValidationResult.URIParsingError
+        }
 
     val validProtocols = listOf("http", "https")
     val validPorts = 1..65535
