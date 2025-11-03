@@ -159,7 +159,7 @@ fun createStub(
         specmaticConfig.getMatchBranch() == true || Flags.getBooleanValue(Flags.MATCH_BRANCH)
 
     val timeoutMessage =
-        "FATAL: Specmatic stub failed to start within ${specmaticConfig.getStubStartTimeoutInMilliseconds()} milliseconds. You can configure the stub startup timeout from Specmatic configuration. The default timeout is 20 seconds."
+        "FATAL: Specmatic stub failed to start within ${specmaticConfig.getStubStartTimeoutInMilliseconds()} milliseconds. You can configure the stub start timeout from Specmatic configuration. The default timeout is 20 seconds."
 
     val stubValues =
         runWithTimeout(specmaticConfig.getStubStartTimeoutInMilliseconds(), timeoutMessage) {
