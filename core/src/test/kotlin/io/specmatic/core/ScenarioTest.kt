@@ -21,11 +21,11 @@ import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import java.math.BigDecimal
 import java.util.function.Consumer
 import java.util.stream.Stream
 
 class ScenarioTest {
-
     companion object {
         @JvmStatic
         fun securitySchemaProvider(): Stream<OpenAPISecurityScheme> {
@@ -39,6 +39,46 @@ class ScenarioTest {
                     APIKeyInQueryParamSecurityScheme(name = "API-KEY", apiKey = "1234"),
                 ))
             )
+        }
+    }
+
+    @Test
+    fun `first generation from newBasedOn must be example based unmoified pattern`() {
+        val scenario = Scenario(ScenarioInfo(
+            httpRequestPattern = HttpRequestPattern(
+                method = "GET",
+                httpPathPattern = HttpPathPattern(
+                    path = "/test/(id:number)",
+                    pathSegmentPatterns = listOf(
+                        URLPathSegmentPattern(ExactValuePattern(StringValue("test"))),
+                        URLPathSegmentPattern(NumberPattern(minimum = BigDecimal(1), maximum = BigDecimal(999)), "id"),
+                    ),
+                ),
+                httpQueryParamPattern = HttpQueryParamPattern(mapOf("queryKey" to StringPattern(minLength = 1, maxLength = 999))),
+                headersPattern = HttpHeadersPattern(mapOf("headerKey" to NumberPattern(minimum = BigDecimal(1), maximum = BigDecimal(999)))),
+                body = JSONObjectPattern(mapOf(
+                    "enumKey" to EnumPattern(listOf(StringValue("FIRST"), StringValue("SECOND"))),
+                )),
+            ),
+            httpResponsePattern = HttpResponsePattern(status = 200),
+        ))
+
+        val httpRequest = HttpRequest(
+            path = "/test/123", method = "GET",
+            queryParams = QueryParameters(mapOf("queryKey" to "value")),
+            headers = mapOf("headerKey" to "123"),
+            body = JSONObjectValue(mapOf("enumKey" to StringValue("SECOND"))),
+        )
+
+        val exampleRow = Row().updateRequest(httpRequest, scenario.httpRequestPattern, scenario.resolver)
+        val positiveFlagBased = DefaultStrategies.copy(generation = GenerativeTestsEnabled(positiveOnly = true))
+        val basedOnScenarios = scenario.newBasedOn(exampleRow, positiveFlagBased).toList().listFold().value
+
+        assertThat(basedOnScenarios.size).isGreaterThan(1)
+        assertThat(basedOnScenarios.first().generateHttpRequest()).isEqualTo(httpRequest)
+        assertThat(basedOnScenarios.withIndex()).allSatisfy { (index, testScenario) ->
+            if (index == 0) assertThat(testScenario.exampleRow).isNotNull
+            else assertThat(testScenario.exampleRow).isNull()
         }
     }
 

@@ -10,8 +10,8 @@ import io.specmatic.test.asserts.parsedAssert
 
 object ExamplePostValidator: ResponseValidator {
     override fun postValidate(scenario: Scenario, originalScenario: Scenario, httpRequest: HttpRequest, httpResponse: HttpResponse): Result? {
-        if (scenario.isNegative) return null
-        val asserts = scenario.exampleRow?.toAsserts(scenario.resolver)?.takeIf(List<*>::isNotEmpty) ?: return null
+        if (scenario.isNegative || scenario.exampleRow == null) return null
+        val asserts = scenario.exampleRow.toAsserts(scenario.resolver).takeIf(List<*>::isNotEmpty) ?: return null
 
         val actualFactStore = httpRequest.toFactStore(originalScenario) + ExampleProcessor.getFactStore()
         val currentFactStore = httpResponse.toFactStore(originalScenario)
@@ -100,7 +100,7 @@ object ExamplePostValidator: ResponseValidator {
                 val pattern = patternMap[it.key] ?: patternMap["${it.key}?"] ?: return@runCatching toValue(it.value)
                 it.value as? Value ?: pattern.parse(it.value.toString(), resolver)
             }.getOrDefault(toValue(it.value))
-        }.mapKeys { "$prefix.${it.key}" } as Map<String, Value>
+        }.mapKeys { "$prefix.${it.key}" }
     }
 
     private fun toFactEntry(value: Value, prefix: String): Map<String, Value> = mapOf(prefix to value)

@@ -468,7 +468,8 @@ data class Scenario(
                     else -> Pair(httpRequestPattern.negativeBasedOn(rowValue, resolver.copy(isNegative = isNegative)), flagsBased.negativePrefix)
                 }
 
-                newRequestPatterns.map { newHttpRequestPattern ->
+                newRequestPatterns.mapIndexed { index, newHttpRequestPattern ->
+                    val isExampleBasedOrOriginal = index == 0
                     newHttpRequestPattern.realise(
                         hasValue = { it, _ ->
                             HasValue(
@@ -478,7 +479,7 @@ data class Scenario(
                                     expectedFacts = newExpectedServerState,
                                     ignoreFailure = ignoreFailure,
                                     exampleName = row.name,
-                                    exampleRow = row,
+                                    exampleRow = row.takeIf { isExampleBasedOrOriginal },
                                     generativePrefix = generativePrefix,
                                 ), (newHttpRequestPattern as HasValue<HttpRequestPattern>).valueDetails
                             )

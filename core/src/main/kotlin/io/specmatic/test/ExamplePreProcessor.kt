@@ -203,7 +203,7 @@ object ExampleProcessor {
 
     /* STORE HELPERS */
     fun store(testScenario: Scenario, originalScenario: Scenario, httpRequest: HttpRequest, httpResponse: HttpResponse) {
-        if (testScenario.isNegative) return
+        if (testScenario.isNegative || testScenario.exampleRow == null) return
 
         if (originalScenario.openApiLinks.isNotEmpty()) {
             val pathParams = originalScenario.httpRequestPattern.httpPathPattern?.let { pattern ->
@@ -228,7 +228,6 @@ object ExampleProcessor {
             }
         }
 
-        if (testScenario.exampleRow == null) return
         return store(testScenario.exampleRow, httpRequest, httpResponse)
     }
 
