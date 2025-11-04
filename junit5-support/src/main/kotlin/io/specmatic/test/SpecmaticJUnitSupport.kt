@@ -186,12 +186,18 @@ open class SpecmaticJUnitSupport {
 
         reportProcessors.forEach { it.process(config) }
 
-        ServiceLoader.load(SpecmaticAfterAllHook::class.java).forEach {
-            it.onAfterAllTests(
-                testResultRecords = openApiCoverageReportInput.testResultRecords(),
-                startTime = startTime?.toEpochMilli() ?: 0L,
-                endTime = if (startTime != null) Instant.now().toEpochMilli() else 0L
-            )
+        ServiceLoader.load(SpecmaticAfterAllHook::class.java).takeIf(ServiceLoader<SpecmaticAfterAllHook>::any)?.let { hooks ->
+            val report = openApiCoverageReportInput.generateCoverageReport(emptyList())
+            val start = startTime?.toEpochMilli() ?: 0L
+            val end = startTime?.let { Instant.now().toEpochMilli() } ?: 0L
+            hooks.forEach {
+                it.onAfterAllTests(
+                    testResultRecords = report.testResultRecords,
+                    coverage = report.totalCoveragePercentage,
+                    startTime = start,
+                    endTime = end,
+                )
+            }
         }
 
         threads.distinct().let {
