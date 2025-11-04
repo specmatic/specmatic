@@ -38,11 +38,9 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
 
     fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<HttpQueryParamPattern>> {
         val additionalQueryPattern = extractFromExampleQueryParamsNotInSpec(queryPatterns, row)
-        val patternMap = queryPatterns + additionalQueryPattern
-
         return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
-            val queryParams = patternMap.let {
-                if(additionalProperties != null)
+            val queryParams = queryPatterns.let {
+                if (additionalProperties != null)
                     it.plus(randomString(5) to additionalProperties)
                 else
                     it
@@ -50,10 +48,14 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
 
             val patternMap = row.withoutOmittedKeys(queryParams, resolver.defaultExampleResolver)
             allOrNothingCombinationIn(patternMap, resolver.resolveRow(row)) { pattern ->
-                newMapBasedOn(pattern,row,withNullPattern(resolver))
+                newMapBasedOn(pattern, row, withNullPattern(resolver))
             }.map { it: ReturnValue<Map<String, Pattern>> ->
                 it.ifValue {
-                    HttpQueryParamPattern(it.mapKeys { entry -> withoutOptionality(entry.key) })
+                    HttpQueryParamPattern(
+                        it
+                            .mapKeys { entry -> withoutOptionality(entry.key) }
+                            .plus(additionalQueryPattern),
+                    )
                 }
             }
         }
