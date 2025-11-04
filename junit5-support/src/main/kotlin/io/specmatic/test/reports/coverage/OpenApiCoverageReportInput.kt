@@ -26,8 +26,6 @@ class OpenApiCoverageReportInput(
     private val excludedAPIs: MutableList<String> = mutableListOf(),
     private val allEndpoints: MutableList<Endpoint> = mutableListOf(),
     internal var endpointsAPISet: Boolean = false,
-    private var groupedTestResultRecords: GroupedTestResultRecords = mutableMapOf(),
-    private var apiCoverageRows: MutableList<OpenApiCoverageConsoleRow> = mutableListOf(),
     private val filterExpression: String = "",
     private val coverageHooks: List<TestReportListener> = emptyList(),
     private val httpInteractionsLog: HttpInteractionsLog = HttpInteractionsLog()
@@ -80,15 +78,18 @@ class OpenApiCoverageReportInput(
     }
 
     fun generate(): OpenAPICoverageConsoleReport {
-        val allTests = testResultRecords()
+        return generateCoverageReport(coverageHooks)
+    }
 
-        groupedTestResultRecords = allTests.groupRecords()
+    fun generateCoverageReport(listeners: List<TestReportListener> = emptyList()): OpenAPICoverageConsoleReport {
+        val allTests = testResultRecords()
+        val apiCoverageRowsInternal: MutableList<OpenApiCoverageConsoleRow> = mutableListOf()
+        val groupedTestResultRecords = allTests.groupRecords()
+
         groupedTestResultRecords.forEach { (path, methodMap) ->
             val routeAPIRows: MutableList<OpenApiCoverageConsoleRow> = mutableListOf()
             val totalCoveragePercentage = calculateTotalCoveragePercentage(methodMap)
-
-            coverageHooks.onEachListener { onPathCoverageCalculated(path, totalCoveragePercentage) }
-
+            listeners.onEachListener { onPathCoverageCalculated(path, totalCoveragePercentage) }
             methodMap.forEach { (method, contentTypeMap) ->
                 contentTypeMap.forEach { (requestContentType, responseCodeMap) ->
                     responseCodeMap.forEach { (responseStatus, testResults) ->
@@ -102,13 +103,13 @@ class OpenApiCoverageReportInput(
                                 responseStatus = responseStatus,
                                 count = testResults.count { it.isExercised }.toString(),
                                 remarks = Remarks.resolve(testResults),
-                                coveragePercentage = totalCoveragePercentage
-                            )
+                                coveragePercentage = totalCoveragePercentage,
+                            ),
                         )
                     }
                 }
             }
-            apiCoverageRows.addAll(routeAPIRows)
+            apiCoverageRowsInternal.addAll(routeAPIRows)
         }
 
         val totalAPICount = groupedTestResultRecords.keys.size
@@ -131,14 +132,14 @@ class OpenApiCoverageReportInput(
         }
 
         return OpenAPICoverageConsoleReport(
-            apiCoverageRows,
+            apiCoverageRowsInternal,
             allTests,
             totalAPICount,
             missedAPICount,
             notImplementedAPICount,
             partiallyMissedAPICount,
             partiallyNotImplementedAPICount,
-            coverageHooks
+            listeners,
         )
     }
 
