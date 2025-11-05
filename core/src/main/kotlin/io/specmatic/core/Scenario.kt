@@ -756,21 +756,7 @@ data class Scenario(
 
     override fun testDescription(): String {
         val apiDescription = customAPIDescription ?: this.defaultAPIDescription
-        val hasExample = exampleName.isNullOrBlank().not()
-        val hasRequestChangeSummary = requestChangeSummary.isNullOrBlank().not()
-
-        return when {
-            hasExample && hasRequestChangeSummary ->
-                "$generativePrefix Scenario: $apiDescription with the request from the example '${exampleName?.trim()}' where $requestChangeSummary"
-
-            hasExample ->
-                "$generativePrefix Scenario: $apiDescription with the request from the example '${exampleName?.trim()}'"
-
-            hasRequestChangeSummary ->
-                "$generativePrefix Scenario: $apiDescription with a request where $requestChangeSummary"
-
-            else -> "$generativePrefix Scenario: $apiDescription"
-        }
+        return testDescription(generativePrefix, apiDescription, exampleName, requestChangeSummary)
     }
 
     fun newBasedOn(scenario: Scenario): Scenario {
@@ -974,6 +960,29 @@ data class Scenario(
                 newScenario.httpResponsePattern.fixResponse(httpResponse, updatedResolver)
             )
         }
+    }
+}
+
+fun testDescription(
+    generativePrefix: String,
+    apiDescription: String,
+    exampleName: String?,
+    requestChangeSummary: String?
+): String {
+    val hasExample = exampleName.isNullOrBlank().not()
+    val hasRequestChangeSummary = requestChangeSummary.isNullOrBlank().not()
+
+    return when {
+        hasExample && hasRequestChangeSummary ->
+            "$generativePrefix Scenario: $apiDescription with the request from the example '${exampleName?.trim()}' where $requestChangeSummary"
+
+        hasExample ->
+            "$generativePrefix Scenario: $apiDescription with the request from the example '${exampleName?.trim()}'"
+
+        hasRequestChangeSummary ->
+            "$generativePrefix Scenario: $apiDescription with a request where $requestChangeSummary"
+
+        else -> "$generativePrefix Scenario: $apiDescription"
     }
 }
 
