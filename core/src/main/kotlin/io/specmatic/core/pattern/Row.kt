@@ -21,7 +21,8 @@ data class Row(
     val exactResponseExample: ResponseExample? = null,
     val requestExample: HttpRequest? = null,
     val responseExample: HttpResponse? = null,
-    val isPartial: Boolean = false
+    val isPartial: Boolean = false,
+    val isFromOpenApiLink: Boolean = false
 ) {
     constructor(examples: Map<String, String>) :this(examples.keys.toList(), examples.values.toList())
 
@@ -169,6 +170,8 @@ data class Row(
             mapOf(REQUEST_BODY_FIELD to request.body.toStringLiteral())
         } else emptyMap()
 
-        return this.copy(columnNames = emptyList(), values = emptyList()).addFields(path + headers + queryParams + bodyEntry).copy(requestExample = request)
+        return this.copy(columnNames = emptyList(), values = emptyList()).addFields(
+            path.mapValues { it.value.toStringLiteral() } + headers + queryParams + bodyEntry,
+        ).copy(requestExample = request)
     }
 }

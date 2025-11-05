@@ -143,7 +143,7 @@ data class ScenarioAsTest(
                 it.postValidate(testScenario, originalScenario, request, responseToCheckAndStore)
             }.firstOrNull() ?: Result.Success()
 
-            testScenario.exampleRow?.let { ExampleProcessor.store(it, request, responseToCheckAndStore) }
+            ExampleProcessor.store(testScenario, originalScenario, request, responseToCheckAndStore)
             return Pair(result.withBindings(testScenario.bindings, response), response)
         } catch (exception: Throwable) {
             return Pair(

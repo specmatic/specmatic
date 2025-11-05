@@ -1,0 +1,19 @@
+{
+    "http-request": {
+        "path": "/products/1234",
+        "method": "GET"
+    },
+    "http-response": {
+        "status": 200,
+        "body": {
+          "id": 1234,
+          "name": "GadgetName",
+          "price": 1234,
+          "type": "gadgets"
+        },
+        "status-text": "OK",
+        "headers": {
+            "Content-Type": "application/json"
+        }
+    }
+}

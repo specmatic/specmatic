@@ -1,0 +1,22 @@
+{
+    "http-request": {
+        "path": "/products",
+        "method": "GET",
+        "query": {
+            "type": "(anyvalue)"
+        }
+    },
+    "http-response": {
+        "status": 400,
+        "body": {
+            "timestamp": "(string)",
+            "status": "(number)",
+            "error": "(string)",
+            "message": "(string)"
+        },
+        "status-text": "Bad Request",
+        "headers": {
+            "Content-Type": "application/json"
+        }
+    }
+}

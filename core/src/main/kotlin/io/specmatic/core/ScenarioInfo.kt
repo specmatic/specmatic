@@ -2,6 +2,7 @@ package io.specmatic.core
 
 import io.specmatic.conversions.ApiSpecification
 import io.specmatic.conversions.OperationMetadata
+import io.specmatic.conversions.links.OpenApiLink
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.Value
 
@@ -22,7 +23,8 @@ data class ScenarioInfo(
     val sourceRepositoryBranch:String? = null,
     val specification:String? = null,
     val serviceType:String? = null,
-    val operationMetadata: OperationMetadata? = null
+    val operationMetadata: OperationMetadata? = null,
+    val openApiLinks: List<OpenApiLink> = emptyList()
 ) {
 
     fun matchesGherkinWrapperPath(scenarioInfos: List<ScenarioInfo>, apiSpecification: ApiSpecification): List<ScenarioInfo> =

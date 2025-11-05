@@ -2,15 +2,11 @@
 
 package io.specmatic.conversions
 
-import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ArrayNode
-import com.fasterxml.jackson.databind.node.ObjectNode
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
-import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.cucumber.messages.types.Step
 import io.ktor.util.reflect.*
+import io.specmatic.conversions.links.OpenApiLinksRepository
 import io.specmatic.core.*
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.filters.HTTPFilterKeys
@@ -46,8 +42,8 @@ import io.swagger.v3.oas.models.servers.Server
 import io.swagger.v3.parser.OpenAPIV3Parser
 import io.swagger.v3.parser.core.models.ParseOptions
 import io.swagger.v3.parser.core.models.SwaggerParseResult
+import io.swagger.v3.parser.util.ClasspathHelper
 import java.io.File
-import kotlin.sequences.asSequence
 
 private const val BEARER_SECURITY_SCHEME = "bearer"
 
@@ -97,6 +93,7 @@ class OpenApiSpecification(
     }
 
     companion object {
+        private val openApiSpecProcessor = OpenApiSpecPreProcessor()
 
         fun patternsFrom(jsonSchema: Map<String, Any?>, schemaName: String = "Schema"): Map<String, Pattern> {
             val definitions = try {
@@ -167,7 +164,27 @@ class OpenApiSpecification(
         }
 
         fun fromFile(openApiFilePath: String, specmaticConfig: SpecmaticConfig): OpenApiSpecification {
-            return OpenApiSpecification(openApiFilePath, getParsedOpenApi(openApiFilePath), specmaticConfig = specmaticConfig)
+            val specContent = sequenceOf(
+                { File(openApiFilePath).readText() },
+                { ClasspathHelper.loadFileFromClasspath(openApiFilePath) }
+            ).firstNotNullOfOrNull {
+                runCatching { it.invoke() }.getOrElse { e ->
+                    logger.debug(e, "Failed to read OpenApi Specification")
+                    null
+                }
+            }
+
+            if (specContent == null) throw ContractException(
+                errorMessage = "Failed to read OpenApi Specification from $openApiFilePath",
+                breadCrumb = openApiFilePath,
+            )
+
+            return runCatching {
+                fromYAML(specContent, openApiFilePath, specmaticConfig = specmaticConfig)
+            }.getOrElse { e ->
+                logger.debug(e, "Failed to parse specification $openApiFilePath using fromYAML")
+                OpenApiSpecification(openApiFilePath, getParsedOpenApi(openApiFilePath), specmaticConfig = specmaticConfig)
+            }
         }
 
         fun getParsedOpenApi(openApiFilePath: String): OpenAPI {
@@ -228,7 +245,7 @@ class OpenApiSpecification(
         ): OpenApiSpecification {
             val implicitOverlayFile = getImplicitOverlayContent(openApiFilePath)
             val mergedYaml = yamlContent.applyOverlay(overlayContent).applyOverlay(implicitOverlayFile)
-            val preprocessedYaml = preprocessYamlForAdditionalProperties(mergedYaml)
+            val preprocessedYaml = openApiSpecProcessor.process(mergedYaml)
 
             val parseResult: SwaggerParseResult =
                 OpenAPIV3Parser().readContents(
@@ -300,80 +317,6 @@ class OpenApiSpecification(
             }
         }
 
-        private val yamlPreprocessorMapper: ObjectMapper by lazy {
-            ObjectMapper(
-                YAMLFactory()
-                    .disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER),
-            ).registerKotlinModule()
-        }
-
-        private fun preprocessYamlForAdditionalProperties(yaml: String): String {
-            if (yaml.isBlank()) return yaml
-
-            return try {
-                val root = yamlPreprocessorMapper.readTree(yaml) ?: return yaml
-                removeInvalidAdditionalProperties(root)
-                yamlPreprocessorMapper.writeValueAsString(root)
-            } catch (exception: Exception) {
-                logger.debug("Skipping additionalProperties preprocessing due to error: ${exception.message}")
-                yaml
-            }
-        }
-
-        private fun removeInvalidAdditionalProperties(node: JsonNode?, skipProcessing: Boolean = false, currentPath: String = "") {
-            if (node == null || skipProcessing) return
-
-            when (node) {
-                is ObjectNode -> {
-                    if (node.has("additionalProperties") && shouldRemoveAdditionalProperties(node.get("type"))) {
-                        val logPath = currentPath.ifBlank { "root" }
-                        val typeDescription = node.get("type")?.let { typeNode ->
-                            when {
-                                typeNode.isTextual -> typeNode.asText()
-                                typeNode.isNull -> "null"
-                                else -> typeNode.toString()
-                            }
-                        } ?: "unspecified"
-                        logger.debug("Ignoring 'additionalProperties' from $logPath (additionalProperties only applies to 'type: object', but found 'type: $typeDescription')")
-                        node.remove("additionalProperties")
-                    }
-
-                    val fieldNames = node.fieldNames()
-                    while (fieldNames.hasNext()) {
-                        val fieldName = fieldNames.next()
-                        val value = node.get(fieldName)
-                        val shouldSkipChild = fieldName == "example" || fieldName == "examples"
-                        val childPath = when {
-                            currentPath.isBlank() -> fieldName
-                            else -> "$currentPath.$fieldName"
-                        }
-
-                        removeInvalidAdditionalProperties(value, shouldSkipChild, childPath)
-                    }
-                }
-
-                is ArrayNode -> {
-                    node.forEachIndexed { index, element ->
-                        val elementPath = when {
-                            currentPath.isBlank() -> index.toString()
-                            else -> "$currentPath.$index"
-                        }
-                        removeInvalidAdditionalProperties(element, skipProcessing, elementPath)
-                    }
-                }
-            }
-        }
-
-        private fun shouldRemoveAdditionalProperties(typeNode: JsonNode?): Boolean {
-            if (typeNode == null) return false
-
-            if (typeNode.isTextual) {
-                return !typeNode.asText().equals(OBJECT_TYPE, ignoreCase = true)
-            }
-
-            return true
-        }
-
         fun String.applyOverlay(overlayContent: String): String {
             if(overlayContent.isBlank())
                 return this
@@ -383,8 +326,11 @@ class OpenApiSpecification(
     }
 
     val patterns = mutableMapOf<String, Pattern>()
-
-    private val pathTree: PathTree = PathTree.from(parsedOpenApi.paths.orEmpty())
+    val openApiLinksRepository: OpenApiLinksRepository = OpenApiLinksRepository.from(
+        openApi = parsedOpenApi,
+        openApiFilePath = openApiFilePath,
+        lenient = !strictMode,
+    ).unwrapOrContractException()
 
     fun isOpenAPI31(): Boolean {
         return parsedOpenApi.openapi.startsWith("3.1")
@@ -392,16 +338,29 @@ class OpenApiSpecification(
 
     fun toFeature(): Feature {
         val name = File(openApiFilePath).name
-
         val (scenarioInfos, stubsFromExamples) = toScenarioInfos()
         val unreferencedSchemaPatterns = parseUnreferencedSchemas()
+
         val updatedScenarios = scenarioInfos.map {
-            Scenario(it).copy(
-                dictionary = dictionary.plus(specmaticConfig.parsedDefaultPatternValues()),
-                attributeSelectionPattern = specmaticConfig.getAttributeSelectionPattern(),
-                patterns = it.patterns + unreferencedSchemaPatterns
+            val scenario = Scenario(it)
+            val linksDefinedForScenario = openApiLinksRepository.getDefinedFor(scenario)
+            val examplesFromLinks = openApiLinksRepository.openApiLinksToExamples(
+                links = linksDefinedForScenario,
+                scenario = scenario,
+                lenient = !strictMode,
             )
-        }
+
+            examplesFromLinks.ifValue { examples ->
+                scenario.copy(
+                    dictionary = dictionary.plus(specmaticConfig.parsedDefaultPatternValues()),
+                    attributeSelectionPattern = specmaticConfig.getAttributeSelectionPattern(),
+                    patterns = it.patterns + unreferencedSchemaPatterns,
+                    examples = scenario.examples.plus(examples),
+                )
+            }
+        }.listFold().ifHasValue {
+            openApiLinksRepository.sortOpenApiScenariosBasedOnLinks(it.value, !strictMode)
+        }.unwrapOrContractException()
 
         return Feature.from(
             updatedScenarios, name = name, path = openApiFilePath, sourceProvider = sourceProvider,
@@ -411,7 +370,7 @@ class OpenApiSpecification(
             serviceType = SERVICE_TYPE_HTTP,
             stubsFromExamples = stubsFromExamples,
             specmaticConfig = specmaticConfig,
-            strictMode = strictMode
+            strictMode = strictMode,
         )
     }
 
@@ -665,7 +624,13 @@ class OpenApiSpecification(
                             sourceRepositoryBranch = sourceRepositoryBranch,
                             specification = specificationPath,
                             serviceType = SERVICE_TYPE_HTTP,
-                            operationMetadata = operationMetadata
+                            operationMetadata = operationMetadata,
+                            openApiLinks = openApiLinksRepository.getDefinedBy(
+                                path = openApiPath,
+                                method = httpMethod,
+                                status = httpResponsePattern.status,
+                                contentType = httpRequestPattern.headersPattern.contentType,
+                            ),
                         )
                     }
 

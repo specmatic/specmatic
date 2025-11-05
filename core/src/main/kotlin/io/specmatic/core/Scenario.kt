@@ -2,6 +2,7 @@ package io.specmatic.core
 
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.OperationMetadata
+import io.specmatic.conversions.links.OpenApiLink
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.filters.HasScenarioMetadata
 import io.specmatic.core.filters.ExpressionContextPopulator
@@ -91,7 +92,8 @@ data class Scenario(
     val attributeSelectionPattern: AttributeSelectionPatternDetails = AttributeSelectionPatternDetails.default,
     val exampleRow: Row? = null,
     val operationMetadata: OperationMetadata? = null,
-    val requestChangeSummary: String? = null
+    val requestChangeSummary: String? = null,
+    val openApiLinks: List<OpenApiLink> = emptyList(),
 ): ScenarioDetailsForResult, HasScenarioMetadata {
     constructor(scenarioInfo: ScenarioInfo) : this(
         name = scenarioInfo.scenarioName,
@@ -110,7 +112,8 @@ data class Scenario(
         sourceRepositoryBranch = scenarioInfo.sourceRepositoryBranch,
         specification = scenarioInfo.specification,
         serviceType = scenarioInfo.serviceType,
-        operationMetadata = scenarioInfo.operationMetadata
+        operationMetadata = scenarioInfo.operationMetadata,
+        openApiLinks = scenarioInfo.openApiLinks
     )
 
     val apiIdentifier: String
@@ -465,7 +468,8 @@ data class Scenario(
                     else -> Pair(httpRequestPattern.negativeBasedOn(rowValue, resolver.copy(isNegative = isNegative)), flagsBased.negativePrefix)
                 }
 
-                newRequestPatterns.map { newHttpRequestPattern ->
+                newRequestPatterns.mapIndexed { index, newHttpRequestPattern ->
+                    val isExampleBasedOrOriginal = index == 0
                     newHttpRequestPattern.realise(
                         hasValue = { it, _ ->
                             HasValue(
@@ -475,7 +479,7 @@ data class Scenario(
                                     expectedFacts = newExpectedServerState,
                                     ignoreFailure = ignoreFailure,
                                     exampleName = row.name,
-                                    exampleRow = row,
+                                    exampleRow = row.takeIf { isExampleBasedOrOriginal },
                                     generativePrefix = generativePrefix,
                                 ), (newHttpRequestPattern as HasValue<HttpRequestPattern>).valueDetails
                             )
@@ -544,6 +548,7 @@ data class Scenario(
             if(errors.isEmpty()) return@mapNotNull null
 
             val title = when {
+                row.isFromOpenApiLink -> "Error loading OpenApi link for ${this.defaultAPIDescription.trim()} from ${row.name}"
                 row.fileSource != null -> "Error loading example for ${this.defaultAPIDescription.trim()} from ${row.fileSource}"
                 else -> "Error loading example named ${row.name} for ${this.defaultAPIDescription.trim()}"
             }
@@ -757,9 +762,16 @@ data class Scenario(
     override fun testDescription(): String {
         val apiDescription = customAPIDescription ?: this.defaultAPIDescription
         val hasExample = exampleName.isNullOrBlank().not()
+        val isFromApiLink = exampleRow != null && exampleRow.isFromOpenApiLink
         val hasRequestChangeSummary = requestChangeSummary.isNullOrBlank().not()
 
         return when {
+            isFromApiLink && hasRequestChangeSummary ->
+                "$generativePrefix Scenario: $apiDescription with the request from the openapi link '${exampleRow?.name?.trim()}' where $requestChangeSummary"
+
+            isFromApiLink ->
+                "$generativePrefix Scenario: $apiDescription with the request from the openapi link '${exampleRow?.name?.trim()}'"
+
             hasExample && hasRequestChangeSummary ->
                 "$generativePrefix Scenario: $apiDescription with the request from the example '${exampleName?.trim()}' where $requestChangeSummary"
 

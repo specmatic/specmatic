@@ -1,0 +1,4 @@
+ProductBase:
+  name: GadgetName
+  price: 1234
+  type: gadgets

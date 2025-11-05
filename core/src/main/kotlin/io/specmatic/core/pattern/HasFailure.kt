@@ -3,7 +3,7 @@ package io.specmatic.core.pattern
 import io.specmatic.core.Result
 
 data class HasFailure<T>(val failure: Result.Failure, val message: String = "") : ReturnValue<T>, ReturnFailure {
-    constructor(message: String) : this(Result.Failure(message))
+    constructor(message: String, breadCrumb: String? = null) : this(Result.Failure(message, breadCrumb = breadCrumb.orEmpty()))
 
     override fun <U> withDefault(default: U, fn: (T) -> U): U {
         return default
@@ -50,6 +50,11 @@ data class HasFailure<T>(val failure: Result.Failure, val message: String = "") 
 
     override fun toFailure(): Result.Failure {
         return Result.Failure(message, failure).updateScenario(failure.scenario) as Result.Failure
+    }
+
+    override fun breadCrumb(breadCrumb: String?, message: String?): ReturnFailure {
+        if (breadCrumb.isNullOrBlank()) return this
+        return this.addDetails(message.orEmpty(), breadCrumb)
     }
 
     override fun addDetails(message: String, breadCrumb: String): HasFailure<T> {

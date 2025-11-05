@@ -47,4 +47,8 @@ class NoSecurityScheme : OpenAPISecurityScheme {
     override fun warnIfExistsInParameters(parameters: List<Parameter>, method: String, path: String) {
         return
     }
+
+    override fun getParameterLocationIfPartOfSelf(parameter: String): List<SecuritySchemaParameterLocation> {
+        return emptyList()
+    }
 }

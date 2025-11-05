@@ -1,0 +1,27 @@
+{
+    "http-request": {
+        "path": "/products",
+        "method": "POST",
+        "headers": {
+            "Content-Type": "application/json"
+        },
+        "body": {
+            "name": "(anyvalue)",
+            "price": "(anyvalue)",
+            "type": "(anyvalue)"
+        }
+    },
+    "http-response": {
+        "status": 400,
+        "body": {
+            "timestamp": "(string)",
+            "status": "(number)",
+            "error": "(string)",
+            "message": "(string)"
+        },
+        "status-text": "Bad Request",
+        "headers": {
+            "Content-Type": "application/json"
+        }
+    }
+}

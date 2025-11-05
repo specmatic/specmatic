@@ -1,0 +1,24 @@
+{
+    "http-request": {
+        "path": "/products",
+        "method": "GET",
+        "query": {
+            "type": "(TYPE:ProductType)"
+        }
+    },
+    "http-response": {
+        "status": 200,
+        "body": [
+            {
+                "id": 1234,
+                "name": "GadgetName",
+                "price": 1234,
+                "type": "$(TYPE)"
+            }
+        ],
+        "status-text": "OK",
+        "headers": {
+            "Content-Type": "application/json"
+        }
+    }
+}

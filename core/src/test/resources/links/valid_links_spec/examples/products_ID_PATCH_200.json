@@ -1,0 +1,27 @@
+{
+    "http-request": {
+        "path": "/products/1234",
+        "method": "PATCH",
+        "headers": {
+            "Content-Type": "application/json"
+        },
+        "body": {
+            "name": "Updated-GadgetName",
+            "price": 100,
+            "type": "(TYPE:ProductType)"
+        }
+    },
+    "http-response": {
+        "status": 200,
+        "body": {
+            "id": 1234,
+            "name": "Updated-GadgetName",
+            "price": 100,
+            "type": "$(TYPE)"
+        },
+        "status-text": "OK",
+        "headers": {
+            "Content-Type": "application/json"
+        }
+    }
+}

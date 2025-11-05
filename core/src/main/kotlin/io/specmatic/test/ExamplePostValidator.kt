@@ -3,14 +3,15 @@ package io.specmatic.test
 import io.specmatic.core.*
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.Row
+import io.specmatic.core.utilities.toValue
 import io.specmatic.core.value.*
 import io.specmatic.test.asserts.Assert
 import io.specmatic.test.asserts.parsedAssert
 
 object ExamplePostValidator: ResponseValidator {
     override fun postValidate(scenario: Scenario, originalScenario: Scenario, httpRequest: HttpRequest, httpResponse: HttpResponse): Result? {
-        if (scenario.isNegative) return null
-        val asserts = scenario.exampleRow?.toAsserts(scenario.resolver)?.takeIf(List<*>::isNotEmpty) ?: return null
+        if (scenario.isNegative || scenario.exampleRow == null) return null
+        val asserts = scenario.exampleRow.toAsserts(scenario.resolver).takeIf(List<*>::isNotEmpty) ?: return null
 
         val actualFactStore = httpRequest.toFactStore(originalScenario) + ExampleProcessor.getFactStore()
         val currentFactStore = httpResponse.toFactStore(originalScenario)
@@ -93,12 +94,12 @@ object ExamplePostValidator: ResponseValidator {
         }
     }
 
-    private fun Map<String, String>.toFactStore(prefix: String, patternMap: Map<String, Pattern>, resolver: Resolver): Map<String, Value> {
+    private fun <T> Map<String, T>.toFactStore(prefix: String, patternMap: Map<String, Pattern>, resolver: Resolver): Map<String, Value> {
         return mapValues {
             runCatching {
-                val pattern = patternMap[it.key] ?: patternMap["${it.key}?"] ?: return@runCatching StringValue(it.value)
-                pattern.parse(it.value, resolver)
-            }.getOrDefault(StringValue(it.value))
+                val pattern = patternMap[it.key] ?: patternMap["${it.key}?"] ?: return@runCatching toValue(it.value)
+                it.value as? Value ?: pattern.parse(it.value.toString(), resolver)
+            }.getOrDefault(toValue(it.value))
         }.mapKeys { "$prefix.${it.key}" }
     }
 

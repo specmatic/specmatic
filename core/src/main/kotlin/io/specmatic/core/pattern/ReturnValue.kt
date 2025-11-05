@@ -165,3 +165,10 @@ fun <T> ReturnValue<T>.unwrapOrContractException(): T {
         orException = { hasE -> throw ContractException(hasE.toHasFailure().toFailure().toFailureReport()) }
     )
 }
+
+inline fun <T> ReturnValue<T>.unwrapOrReturn(inlined: (ReturnFailure) -> Nothing): T {
+    return when (this) {
+        is HasValue -> value
+        is HasFailure, is HasException -> inlined(this as ReturnFailure)
+    }
+}
