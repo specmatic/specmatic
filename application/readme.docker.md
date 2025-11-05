@@ -36,7 +36,7 @@ Will use the OpenAPI file `openapi.yaml` to validate the examples in the OpenAPI
 docker run specmatic/specmatic --help
 ```
 
-Please refer to [Specmatic documentation](https://specmatic.in/documentation/) for more details.
+Please refer to [Specmatic documentation](https://docs.specmatic.io/) for more details.
 
 ## Sample project to see full usage
 
@@ -50,8 +50,6 @@ With this ability, we can now independently deploy, at will, any service at any 
 
 Learn more at [specmatic.io](https://specmatic.io/#features) 🌐
 
-[Get started now](https://specmatic.io/getting_started.html) 🚀
-
-[![Specmatic - Contract Driven Development - YouTube playlist](https://img.youtube.com/vi/Bp0wEHffQmA/0.jpg)](https://www.youtube.com/watch?v=Bp0wEHffQmA&list=PL9Z-JgiTsOYRERcsy9o3y6nsi5yK3IB_w&index=1)
+[![Specmatic - Contract Driven Development](https://img.youtube.com/vi/Bp0wEHffQmA/0.jpg)](https://www.youtube.com/watch?v=Bp0wEHffQmA&list=PL9Z-JgiTsOYRERcsy9o3y6nsi5yK3IB_w&index=1)
 
 [YouTube playlist](https://www.youtube.com/watch?v=3HPgpvd8MGg&list=PL9Z-JgiTsOYRERcsy9o3y6nsi5yK3IB_w) 📺
