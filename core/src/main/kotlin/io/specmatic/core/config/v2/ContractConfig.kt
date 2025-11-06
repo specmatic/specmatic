@@ -1,5 +1,6 @@
 package io.specmatic.core.config.v2
 
+import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
@@ -16,6 +17,7 @@ data class ContractConfig(
     val provides: List<SpecExecutionConfig>? = null,
     val consumes: List<SpecExecutionConfig>? = null
 ) {
+    @JsonCreator
     @Suppress("unused")
     constructor(
         @JsonProperty("git") git: GitContractSource? = null,
