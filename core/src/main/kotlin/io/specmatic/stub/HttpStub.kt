@@ -14,7 +14,6 @@ import io.ktor.server.response.*
 import io.ktor.util.*
 import io.ktor.util.pipeline.*
 import io.specmatic.core.*
-import io.specmatic.core.loadSpecmaticConfig
 import io.specmatic.core.log.*
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedValue
@@ -73,8 +72,7 @@ class HttpStub(
     val passThroughTargetBase: String = "",
     val httpClientFactory: HttpClientFactory = HttpClientFactory(),
     val workingDirectory: WorkingDirectory? = null,
-    val specmaticConfigPath: String? = null,
-    specmaticConfig: SpecmaticConfig? = null,
+    specmaticConfigSource: SpecmaticConfigSource = SpecmaticConfigSource.None,
     private val timeoutMillis: Long = 0,
     private val specToStubBaseUrlMap: Map<String, String?> = features.associate {
         it.path to endPointFromHostAndPort(host, port, keyData)
@@ -153,13 +151,9 @@ class HttpStub(
         }
     }
 
-    private val specmaticConfigInstance: SpecmaticConfig =
-        when {
-            specmaticConfig != null -> specmaticConfig
-            specmaticConfigPath != null && File(specmaticConfigPath).exists() ->
-                loadSpecmaticConfig(specmaticConfigPath)
-            else -> SpecmaticConfig()
-        }
+    private val loadedSpecmaticConfig = specmaticConfigSource.load()
+    private val specmaticConfigInstance: SpecmaticConfig = loadedSpecmaticConfig.config
+    val specmaticConfigPath: String? = loadedSpecmaticConfig.path
 
     val specToBaseUrlMap: Map<String, String> = getValidatedBaseUrlsOrExit(
         features.associate {

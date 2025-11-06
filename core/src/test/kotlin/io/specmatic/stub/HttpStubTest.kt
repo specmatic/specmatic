@@ -18,6 +18,7 @@ import io.specmatic.mock.ScenarioStub
 import io.specmatic.osAgnosticPath
 import io.specmatic.shouldMatch
 import io.specmatic.test.LegacyHttpClient
+import io.specmatic.stub.SpecmaticConfigSource
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -75,7 +76,10 @@ internal class HttpStubTest {
         val feature = parseGherkinStringToFeature(gherkin)
         val specmaticConfig = SpecmaticConfig(stub = StubConfiguration(delayInMilliseconds = 123))
 
-        HttpStub(features = listOf(feature), specmaticConfig = specmaticConfig).use { stub ->
+        HttpStub(
+            features = listOf(feature),
+            specmaticConfigSource = SpecmaticConfigSource.fromConfig(specmaticConfig)
+        ).use { stub ->
             val specmaticConfigField = HttpStub::class.java.getDeclaredField("specmaticConfigInstance")
             specmaticConfigField.isAccessible = true
             val resolvedSpecmaticConfig = specmaticConfigField.get(stub)
@@ -1450,7 +1454,10 @@ paths:
 
             val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
 
-            HttpStub(listOf(feature), specmaticConfigPath = "src/test/resources/specmatic_config_wtih_generate_stub.yaml").use { stub ->
+            HttpStub(
+                listOf(feature),
+                specmaticConfigSource = SpecmaticConfigSource.fromPath("src/test/resources/specmatic_config_wtih_generate_stub.yaml")
+            ).use { stub ->
                 val request = HttpRequest("POST", path = "/hello", body = parsedJSONObject("""{"data": 10}"""))
                 val response = stub.client.execute(request)
 
@@ -1512,7 +1519,10 @@ paths:
 
             val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
 
-            HttpStub(listOf(feature), specmaticConfigPath = "src/test/resources/specmatic_config_wtih_generate_stub.yaml").use { stub ->
+            HttpStub(
+                listOf(feature),
+                specmaticConfigSource = SpecmaticConfigSource.fromPath("src/test/resources/specmatic_config_wtih_generate_stub.yaml")
+            ).use { stub ->
                 val request = HttpRequest("POST", path = "/hello", body = parsedJSONObject("""{"data": 10}"""))
                 val response = stub.client.execute(request)
 
@@ -1579,7 +1589,10 @@ paths:
 
             val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
 
-            HttpStub(listOf(feature), specmaticConfigPath = "src/test/resources/specmatic_config_wtih_generate_stub.yaml").use { stub ->
+            HttpStub(
+                listOf(feature),
+                specmaticConfigSource = SpecmaticConfigSource.fromPath("src/test/resources/specmatic_config_wtih_generate_stub.yaml")
+            ).use { stub ->
                 val request = HttpRequest("POST", path = "/hello", body = parsedJSONObject("""{"data": 10}"""))
                 val response = stub.client.execute(request)
 
@@ -1641,7 +1654,10 @@ paths:
 
             val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
 
-            HttpStub(listOf(feature), specmaticConfigPath = "src/test/resources/specmatic_config_wtih_generate_stub.yaml").use { stub ->
+            HttpStub(
+                listOf(feature),
+                specmaticConfigSource = SpecmaticConfigSource.fromPath("src/test/resources/specmatic_config_wtih_generate_stub.yaml")
+            ).use { stub ->
                 val request = HttpRequest("POST", path = "/hello", body = parsedJSONObject("""{"data": 10}"""))
                 val response = stub.client.execute(request)
 
@@ -1703,7 +1719,10 @@ paths:
 
             val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
 
-            HttpStub(listOf(feature), specmaticConfigPath = "src/test/resources/specmatic_config_wtih_generate_stub.yaml").use { stub ->
+            HttpStub(
+                listOf(feature),
+                specmaticConfigSource = SpecmaticConfigSource.fromPath("src/test/resources/specmatic_config_wtih_generate_stub.yaml")
+            ).use { stub ->
                 val request = HttpRequest("POST", path = "/hello", body = parsedJSONObject("""{"data": 10}"""))
                 val response = stub.client.execute(request)
 
@@ -2633,7 +2652,7 @@ Then status 200
             HttpStub(
                 features = scenarioStubs.features(),
                 rawHttpStubs = contractInfoToHttpExpectations(scenarioStubs),
-                specmaticConfigPath = specmaticConfigFile.canonicalPath,
+                specmaticConfigSource = SpecmaticConfigSource.fromPath(specmaticConfigFile.canonicalPath),
                 specToStubBaseUrlMap = contractPathData.specToBaseUrlMap()
             ).use {
                 val productsResponse = LegacyHttpClient(
@@ -2737,7 +2756,7 @@ Then status 200
             HttpStub(
                 features = scenarioStubs.features(),
                 rawHttpStubs = contractInfoToHttpExpectations(scenarioStubs),
-                specmaticConfigPath = specmaticConfigFile.canonicalPath,
+                specmaticConfigSource = SpecmaticConfigSource.fromPath(specmaticConfigFile.canonicalPath),
                 specToStubBaseUrlMap = contractPathData.specToBaseUrlMap()
             ).use {
                 val postProductResponse = LegacyHttpClient(
@@ -2875,7 +2894,7 @@ Then status 200
                 HttpStub(
                     features = scenarioStubs.features(),
                     rawHttpStubs = contractInfoToHttpExpectations(scenarioStubs),
-                    specmaticConfigPath = specmaticConfigFile.canonicalPath,
+                    specmaticConfigSource = SpecmaticConfigSource.fromPath(specmaticConfigFile.canonicalPath),
                     specToStubBaseUrlMap = contractPathData.specToBaseUrlMap()
                 ).close()
             }
@@ -2904,7 +2923,7 @@ Then status 200
                     HttpStub(
                         features = scenarioStubs.features(),
                         rawHttpStubs = contractInfoToHttpExpectations(scenarioStubs),
-                        specmaticConfigPath = specmaticConfigFile.canonicalPath,
+                        specmaticConfigSource = SpecmaticConfigSource.fromPath(specmaticConfigFile.canonicalPath),
                         specToStubBaseUrlMap = contractPathData.specToBaseUrlMap()
                     ).close()
                 }
