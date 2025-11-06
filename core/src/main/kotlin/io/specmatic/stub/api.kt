@@ -198,7 +198,7 @@ fun createStub(
         port,
         log = ::consoleLog,
         workingDirectory = stubValues.workingDirectory,
-        specmaticConfigPath = File(configFileName).canonicalPath,
+        specmaticConfigSource = SpecmaticConfigSource.fromPath(File(configFileName).canonicalPath),
         timeoutMillis = timeoutMillis,
         strictMode = strict,
         specToStubBaseUrlMap = stubValues.contractStubPaths.specToBaseUrlMap(),
@@ -241,7 +241,7 @@ internal fun createStubFromContracts(
         host,
         port,
         ::consoleLog,
-        specmaticConfigPath = File(getConfigFilePath()).canonicalPath,
+        specmaticConfigSource = SpecmaticConfigSource.fromPath(File(getConfigFilePath()).canonicalPath),
         timeoutMillis = timeoutMillis,
         specToStubBaseUrlMap = contractPathData.specToBaseUrlMap(),
     )

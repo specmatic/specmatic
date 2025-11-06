@@ -6,6 +6,7 @@ import io.specmatic.core.log.consoleLog
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpClientFactory
 import io.specmatic.stub.HttpStub
+import io.specmatic.stub.SpecmaticConfigSource
 import io.specmatic.stub.contractInfoToHttpExpectations
 import io.specmatic.stub.listener.MockEventListener
 
@@ -37,7 +38,7 @@ class HTTPStubEngine {
             passThroughTargetBase = passThroughTargetBase,
             httpClientFactory = httpClientFactory,
             workingDirectory = workingDirectory,
-            specmaticConfigPath = specmaticConfigPath,
+            specmaticConfigSource = SpecmaticConfigSource.fromPath(specmaticConfigPath),
             timeoutMillis = gracefulRestartTimeoutInMs,
             specToStubBaseUrlMap = specToBaseUrlMap,
             listeners = listeners

@@ -110,7 +110,10 @@ paths:
         val stubContract1 = OpenApiSpecification.fromYAML(helloAndDataSpec, "", sourceProvider = "git", sourceRepository = "https://github.com/specmatic/specmatic-order-contracts.git", sourceRepositoryBranch = "main", specificationPath = "in/specmatic/examples/store/helloAndDataSpec.yaml").toFeature()
         val stubContract2 = OpenApiSpecification.fromYAML(hello2AndData2Spec, "", sourceProvider = "git", sourceRepository = "https://github.com/specmatic/specmatic-order-contracts.git", sourceRepositoryBranch = "main", specificationPath = "in/specmatic/examples/store/hello2AndData2Spec.yaml").toFeature()
 
-        HttpStub(listOf(stubContract1, stubContract2), specmaticConfigPath = "./specmatic.json").use { stub ->
+        HttpStub(
+            listOf(stubContract1, stubContract2),
+            specmaticConfigSource = SpecmaticConfigSource.fromPath("./specmatic.json")
+        ).use { stub ->
             stub.client.execute(HttpRequest("GET", "/data"))
             stub.client.execute(HttpRequest("GET", "/unknown"))
             stub.client.execute(HttpRequest("GET", "/hello"))
