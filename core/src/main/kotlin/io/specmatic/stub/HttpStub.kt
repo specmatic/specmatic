@@ -74,6 +74,7 @@ class HttpStub(
     val httpClientFactory: HttpClientFactory = HttpClientFactory(),
     val workingDirectory: WorkingDirectory? = null,
     val specmaticConfigPath: String? = null,
+    specmaticConfig: SpecmaticConfig? = null,
     private val timeoutMillis: Long = 0,
     private val specToStubBaseUrlMap: Map<String, String?> = features.associate {
         it.path to endPointFromHostAndPort(host, port, keyData)
@@ -152,11 +153,13 @@ class HttpStub(
         }
     }
 
-    private val specmaticConfig: SpecmaticConfig =
-        if(specmaticConfigPath != null && File(specmaticConfigPath).exists())
-            loadSpecmaticConfig(specmaticConfigPath)
-        else
-            SpecmaticConfig()
+    private val specmaticConfigInstance: SpecmaticConfig =
+        when {
+            specmaticConfig != null -> specmaticConfig
+            specmaticConfigPath != null && File(specmaticConfigPath).exists() ->
+                loadSpecmaticConfig(specmaticConfigPath)
+            else -> SpecmaticConfig()
+        }
 
     val specToBaseUrlMap: Map<String, String> = getValidatedBaseUrlsOrExit(
         features.associate {
@@ -274,7 +277,12 @@ class HttpStub(
                         handleSse(httpRequest, this@HttpStub, this)
                     } else {
                         val updatedHttpStubResponse = httpStubResponse.copy(response = httpResponse)
-                        respondToKtorHttpResponse(call, updatedHttpStubResponse.response, updatedHttpStubResponse.delayInMilliSeconds, specmaticConfig)
+                        respondToKtorHttpResponse(
+                            call,
+                            updatedHttpStubResponse.response,
+                            updatedHttpStubResponse.delayInMilliSeconds,
+                            specmaticConfigInstance
+                        )
                         httpLogMessage.addResponse(updatedHttpStubResponse)
                     }
                 } catch (e: ContractException) {
@@ -394,7 +402,7 @@ class HttpStub(
 
     private fun getHostAndPortList(): List<Pair<String, Int>> {
         val defaultBaseUrl = endPointFromHostAndPort(this.host, this.port, this.keyData)
-        val specsWithMultipleBaseUrls = specmaticConfig.stubToBaseUrlList(defaultBaseUrl).groupBy(
+        val specsWithMultipleBaseUrls = specmaticConfigInstance.stubToBaseUrlList(defaultBaseUrl).groupBy(
             keySelector = { it.first }, valueTransform = { it.second }
             ).filterValues { it.size > 1 }
 
@@ -436,7 +444,7 @@ class HttpStub(
         urlPath: String
     ): HttpStubResponse {
         val url = "$baseUrl$urlPath"
-        val stubBaseUrlPath = specmaticConfig.stubBaseUrlPathAssociatedTo(url, defaultBaseUrl)
+        val stubBaseUrlPath = specmaticConfigInstance.stubBaseUrlPathAssociatedTo(url, defaultBaseUrl)
 
         return getHttpResponse(
             httpRequest = httpRequest.trimBaseUrlPath(stubBaseUrlPath),
@@ -445,7 +453,7 @@ class HttpStub(
             strictMode = strictMode,
             passThroughTargetBase = passThroughTargetBase,
             httpClientFactory = httpClientFactory,
-            specmaticConfig = specmaticConfig,
+              specmaticConfig = specmaticConfigInstance,
         ).also {
             if (it is FoundStubbedResponse) {
                 it.response.mock?.let { mock -> httpExpectations.removeTransientMock(mock) }

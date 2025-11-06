@@ -64,6 +64,27 @@ internal class HttpStubTest {
     }
 
     @Test
+    fun `should use provided specmatic config instance`() {
+        val gherkin = """
+            Feature: Greeting
+              Scenario: Say hello
+                When GET /hello
+                Then status 200
+        """.trimIndent()
+
+        val feature = parseGherkinStringToFeature(gherkin)
+        val specmaticConfig = SpecmaticConfig(stub = StubConfiguration(delayInMilliseconds = 123))
+
+        HttpStub(features = listOf(feature), specmaticConfig = specmaticConfig).use { stub ->
+            val specmaticConfigField = HttpStub::class.java.getDeclaredField("specmaticConfigInstance")
+            specmaticConfigField.isAccessible = true
+            val resolvedSpecmaticConfig = specmaticConfigField.get(stub)
+
+            assertThat(resolvedSpecmaticConfig).isSameAs(specmaticConfig)
+        }
+    }
+
+    @Test
     fun `should serve mocked data before stub`() {
         val gherkin = """
 Feature: Math API
