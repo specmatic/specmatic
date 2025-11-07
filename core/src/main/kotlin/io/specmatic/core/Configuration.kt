@@ -9,7 +9,7 @@ fun getConfigFileName(): String = getConfigFilePath()
 fun getConfigFilePath(): String {
     return getStringValue(CONFIG_FILE_PATH)?.takeIf { File(it).exists() }
         ?: getConfigFilePathFromClasspath()?.takeIf { File(it).exists() }
-        ?: getConfigFilePath(".${File.separator}")
+        ?: getConfigFilePath(".")
 }
 
 private fun getConfigFilePathFromClasspath(): String? {
@@ -18,8 +18,11 @@ private fun getConfigFilePathFromClasspath(): String? {
     }
 }
 
-private fun getConfigFilePath(filePathPrefix: String): String {
-    val configFileNameWithoutExtension = "$filePathPrefix${CONFIG_FILE_NAME_WITHOUT_EXT}"
+fun getConfigFilePath(filePathPrefix: String): String {
+    val fileSystemPathSeparator = if (filePathPrefix.endsWith(File.separator)) "" else File.separator
+
+    val configFileNameWithoutExtension = listOf(filePathPrefix, CONFIG_FILE_NAME_WITHOUT_EXT).joinToString(fileSystemPathSeparator)
+
     return CONFIG_EXTENSIONS.firstNotNullOfOrNull {
         val filePath = "$configFileNameWithoutExtension.$it"
         filePath.takeIf { File(filePath).exists() }
