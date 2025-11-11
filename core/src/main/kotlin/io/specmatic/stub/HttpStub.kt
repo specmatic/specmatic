@@ -228,6 +228,14 @@ class HttpStub(
         responseInterceptors.add(responseInterceptor)
     }
 
+    fun registerRequestTransformationHook(hook: RequestTransformationHook) {
+        requestInterceptors.add(RequestTransformationHookAdapter(hook))
+    }
+
+    fun registerResponseTransformationHook(hook: ResponseTransformationHook) {
+        responseInterceptors.add(ResponseTransformationHookAdapter(hook))
+    }
+
     private val environment = applicationEngineEnvironment {
         module {
             install(DoubleReceive)
@@ -688,6 +696,9 @@ class HttpStub(
     }
 
     init {
+        // Load transformation hooks from configuration
+        TransformationHookLoader.loadHooksFromConfig(specmaticConfigInstance, this)
+
         server.start()
     }
 
