@@ -1,17 +1,17 @@
 package io.specmatic.core.jsonoperator.value
 
-import io.specmatic.core.pattern.HasFailure
-import io.specmatic.core.pattern.HasValue
-import io.specmatic.core.pattern.ReturnValue
-import io.specmatic.core.pattern.listFold
-import io.specmatic.core.pattern.unwrapOrReturn
 import io.specmatic.core.jsonoperator.JsonPointerOperator
 import io.specmatic.core.jsonoperator.OperatorCapability
 import io.specmatic.core.jsonoperator.Optional
 import io.specmatic.core.jsonoperator.PathSegment
 import io.specmatic.core.jsonoperator.RootMutableJsonOperator
-import io.specmatic.core.jsonoperator.value.ValueOperator.Companion.nextDefaultOperator
 import io.specmatic.core.jsonoperator.takeNextAs
+import io.specmatic.core.jsonoperator.value.ValueOperator.Companion.nextDefaultOperator
+import io.specmatic.core.pattern.HasFailure
+import io.specmatic.core.pattern.HasValue
+import io.specmatic.core.pattern.ReturnValue
+import io.specmatic.core.pattern.listFold
+import io.specmatic.core.pattern.unwrapOrReturn
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.Value
 
@@ -125,11 +125,15 @@ data class ArrayValueOperator(private val value: List<Value> = emptyList()) : Ro
         tailSegments: List<PathSegment>,
         operation: (RootMutableJsonOperator<out Value>, List<PathSegment>) -> ReturnValue<RootMutableJsonOperator<out Value>>,
     ): ReturnValue<RootMutableJsonOperator<out Value>> {
-        if (headSegment.index == APPEND) {
+        if (headSegment.index == APPEND || headSegment.index == PREPEND) {
             if (!allowMissing) return HasFailure("Index ${headSegment.index} out of bounds", headSegment.parsedPath)
             return operation(tailSegments.nextDefaultOperator(), tailSegments).ifHasValue { returnValue ->
                 returnValue.value.finalize().ifHasValue { rValue ->
-                    HasValue(copy(value = listOf(rValue.value) + value))
+                    if (headSegment.index == PREPEND) {
+                        HasValue(copy(value = listOf(rValue.value).plus(value)))
+                    } else {
+                        HasValue(copy(value = value.plus(rValue.value)))
+                    }
                 }
             }
         }

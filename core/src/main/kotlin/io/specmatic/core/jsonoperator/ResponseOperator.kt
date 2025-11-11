@@ -30,7 +30,7 @@ data class ResponseOperator(
             } else {
                 HasFailure("header must stay object")
             }
-            else -> HasFailure("Unexpected key $key, must be one of header, body")
+            else -> HasFailure("Invalid key $key, must be oneof header, body")
         }
     }
 
