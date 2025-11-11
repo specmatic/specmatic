@@ -38,9 +38,9 @@ enum class PatternMatchStrategy(val value: String) {
 }
 
 class PatternMatcher(
-    private val path: BreadCrumb = BreadCrumb.from(),
-    private val pattern: Pattern = NullPattern,
-    private val strategy: PatternMatchStrategy = PatternMatchStrategy.FULL,
+    val path: BreadCrumb = BreadCrumb.from(),
+    val pattern: Pattern = NullPattern,
+    val strategy: PatternMatchStrategy = PatternMatchStrategy.FULL,
 ) : Matcher {
     override val canBeExhausted: Boolean = false
 
@@ -66,7 +66,7 @@ class PatternMatcher(
         private const val DATA_TYPE_KEY = "dataType"
         private const val PARTIAL_KEY = "partial"
 
-        override fun parse(path: BreadCrumb, value: Value, context: MatcherContext): ReturnValue<out Matcher> {
+        override fun parse(path: BreadCrumb, value: Value, context: MatcherContext): ReturnValue<PatternMatcher> {
             if (value !is StringValue) return HasFailure("Invalid '$DATA_TYPE_KEY', expected String got ${value.displayableValue()}", path.value)
             val properties = extractPropertiesIfExist(value)
             return if (properties.isNullOrEmpty() || !canParseFrom(path, properties)) {
@@ -83,7 +83,7 @@ class PatternMatcher(
             return DATA_TYPE_KEY in properties
         }
 
-        override fun parseFrom(path: BreadCrumb, properties: Map<String, Value>, context: MatcherContext): ReturnValue<out Matcher> {
+        override fun parseFrom(path: BreadCrumb, properties: Map<String, Value>, context: MatcherContext): ReturnValue<PatternMatcher> {
             if (!canParseFrom(path, properties)) return HasFailure("Missing or invalid property '$DATA_TYPE_KEY'", path.value)
 
             val dataType = properties.getValue(DATA_TYPE_KEY)

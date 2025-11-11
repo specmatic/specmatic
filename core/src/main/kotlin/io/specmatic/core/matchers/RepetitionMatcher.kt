@@ -64,9 +64,9 @@ enum class RepetitionStrategy(val value: String) : RepetitionStrategyInterface {
 }
 
 data class RepetitionMatcher(
-    private val path: BreadCrumb = BreadCrumb.from(),
-    private val times: Int = -1,
-    private val strategy: RepetitionStrategy = RepetitionStrategy.ANY,
+    val path: BreadCrumb = BreadCrumb.from(),
+    val times: Int = -1,
+    val strategy: RepetitionStrategy = RepetitionStrategy.ANY,
 ) : Matcher {
     override val canBeExhausted: Boolean = times != -1
 

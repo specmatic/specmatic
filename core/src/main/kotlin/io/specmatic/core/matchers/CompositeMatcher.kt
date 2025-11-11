@@ -9,8 +9,8 @@ import io.specmatic.core.pattern.unwrapOrReturn
 import io.specmatic.core.value.Value
 
 data class CompositeMatcher(
-    private val path: BreadCrumb = BreadCrumb.from(),
-    private val matchers: List<Matcher> = emptyList(),
+    val path: BreadCrumb = BreadCrumb.from(),
+    val matchers: List<Matcher> = emptyList(),
 ) : Matcher {
     override val canBeExhausted: Boolean = matchers.any { it.canBeExhausted }
 
@@ -39,10 +39,9 @@ data class CompositeMatcher(
         }
     }
 
-
     @MatcherKey("match")
     companion object : MatcherFactory {
-        override fun parse(path: BreadCrumb, value: Value, context: MatcherContext): ReturnValue<out Matcher> {
+        override fun parse(path: BreadCrumb, value: Value, context: MatcherContext): ReturnValue<CompositeMatcher> {
             val properties = extractPropertiesIfExist(value)
                 ?: return HasFailure("Cannot create CompositeMatcher from value '${value.displayableValue()}", path.value)
 
@@ -54,7 +53,7 @@ data class CompositeMatcher(
             return false
         }
 
-        override fun parseFrom(path: BreadCrumb, properties: Map<String, Value>, context: MatcherContext): ReturnValue<out Matcher> {
+        override fun parseFrom(path: BreadCrumb, properties: Map<String, Value>, context: MatcherContext): ReturnValue<CompositeMatcher> {
             return HasFailure("CompositeMatcher cannot be parsed from properties", path.value)
         }
 
