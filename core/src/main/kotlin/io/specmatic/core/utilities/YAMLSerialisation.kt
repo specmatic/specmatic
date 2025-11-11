@@ -23,7 +23,7 @@ private fun <T> convertToMap(data: Map<*, *>, using: (Any?) -> T): Map<String, T
     return data.entries.associate { (k, v) -> k.toString() to using(v) }
 }
 
-private fun toValue(any: Any?): Value {
+fun toValue(any: Any?): Value {
     return when (any) {
         null -> NullValue
         is Map<*, *> -> convertToMap(any, ::toValue).let(::JSONObjectValue)
