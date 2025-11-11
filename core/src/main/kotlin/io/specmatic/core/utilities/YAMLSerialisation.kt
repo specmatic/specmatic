@@ -34,3 +34,11 @@ private fun toValue(any: Any?): Value {
         else -> throw ContractException("Unknown value type: ${any::class.simpleName}")
     }
 }
+
+fun fromYamlProperties(value: String): Map<String, Value> {
+    val yamlFormat = value.split(",").joinToString("\n") { it.trim().replace(Regex(":(?! )"), ": ") }
+    return when (val parsed = yamlStringToValue(yamlFormat)) {
+        is JSONObjectValue -> parsed.jsonObject
+        else -> emptyMap()
+    }
+}

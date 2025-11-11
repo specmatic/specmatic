@@ -37,5 +37,12 @@ data class RequestResponseOperator(
                 responseOperator = ResponseOperator.from(response),
             )
         }
+
+        fun from(request: HttpRequest, scenario: Scenario): RequestResponseOperator {
+            return RequestResponseOperator(
+                requestOperator = RequestOperator.from(request, scenario.httpRequestPattern, scenario.resolver),
+                responseOperator = ResponseOperator.from(HttpResponse()),
+            )
+        }
     }
 }
