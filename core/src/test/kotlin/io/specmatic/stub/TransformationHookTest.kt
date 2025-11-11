@@ -4,11 +4,13 @@ import io.specmatic.core.*
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
-import io.specmatic.test.LegacyHttpClient
+import io.specmatic.test.HttpClient
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.DisabledOnOs
 import org.junit.jupiter.api.condition.OS
+import org.junit.jupiter.api.io.TempDir
+import java.io.File
 
 class TransformationHookTest {
     @Test
@@ -60,24 +62,50 @@ class TransformationHookTest {
     }
 
     @Test
-    @DisabledOnOs(OS.WINDOWS, disabledReason = "Shell commands work differently on Windows")
-    fun `request transformation hook should work with shell command`() {
-        val gherkin = """
-            Feature: API
-            Scenario: API
-                When GET /original
-                Then status 200
-                And response-body "original response"
+    @DisabledOnOs(OS.WINDOWS, disabledReason = "Shell scripts work differently on Windows")
+    fun `request transformation hook should work with shell command`(@TempDir tempDir: File) {
+        val openApiSpec = """
+openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /original:
+    get:
+      responses:
+        '200':
+          description: Success
+          content:
+            text/plain:
+              schema:
+                type: string
+  /transformed:
+    get:
+      responses:
+        '200':
+          description: Success
+          content:
+            text/plain:
+              schema:
+                type: string
         """.trimIndent()
 
-        // Command that transforms the path from /original to /transformed
-        val transformCommand = """
-            cat | jq '.["http-request"].path = "/transformed"'
-        """.trimIndent()
+        val specFile = tempDir.resolve("api.yaml").apply { writeText(openApiSpec) }
 
-        val feature = parseGherkinStringToFeature(gherkin)
+        // Shell script that outputs a transformed request (changes path to /transformed)
+        val transformScript = tempDir.resolve("transform_request.sh").apply {
+            writeText("""
+#!/bin/sh
+# Ignore input and output transformed JSON with path changed to /transformed
+cat > /dev/null
+printf '{"http-request":{"method":"GET","path":"/transformed"}}'
+            """.trimIndent())
+            setExecutable(true)
+        }
+
+        val feature = parseContractFileToFeature(specFile.absolutePath)
         val specmaticConfig = SpecmaticConfig(
-            hooks = mapOf("transform_stub_request" to transformCommand)
+            hooks = mapOf("transform_stub_request" to transformScript.absolutePath)
         )
 
         HttpStub(
@@ -85,36 +113,51 @@ class TransformationHookTest {
             specmaticConfigSource = SpecmaticConfigSource.fromConfig(specmaticConfig),
             timeoutMillis = 0
         ).use { stub ->
-            // The hook should transform /original to /transformed
-            // Since /transformed doesn't match the spec, we expect a 400
+            // Request to /original gets transformed to /transformed by the hook
             val request = HttpRequest(method = "GET", path = "/original")
-            val response = LegacyHttpClient(stub.endPoint).execute(request)
+            val response = HttpClient(stub.endPoint).execute(request)
 
-            // Since the path gets transformed to /transformed, it won't match /original in the spec
-            // So we'll get a contract mismatch
-            assertThat(response.status).isNotEqualTo(200)
+            // The hook transformed /original to /transformed, which matches the spec
+            assertThat(response.status).isEqualTo(200)
         }
     }
 
     @Test
-    @DisabledOnOs(OS.WINDOWS, disabledReason = "Shell commands work differently on Windows")
-    fun `response transformation hook should work with shell command`() {
-        val gherkin = """
-            Feature: API
-            Scenario: API
-                When GET /test
-                Then status 200
-                And response-body "original"
+    @DisabledOnOs(OS.WINDOWS, disabledReason = "Shell scripts work differently on Windows")
+    fun `response transformation hook should work with shell command`(@TempDir tempDir: File) {
+        val openApiSpec = """
+openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /test:
+    get:
+      responses:
+        '200':
+          description: Success
+          content:
+            text/plain:
+              schema:
+                type: string
         """.trimIndent()
 
-        // Command that transforms the response body
-        val transformCommand = """
-            cat | jq '.["http-response"].body = "transformed"'
-        """.trimIndent()
+        val specFile = tempDir.resolve("api.yaml").apply { writeText(openApiSpec) }
 
-        val feature = parseGherkinStringToFeature(gherkin)
+        // Shell script that outputs transformed response with body set to "transformed"
+        val transformScript = tempDir.resolve("transform_response.sh").apply {
+            writeText("""
+#!/bin/sh
+# Ignore input and output transformed JSON with body set to "transformed"
+cat > /dev/null
+printf '{"http-request":{"method":"GET","path":"/test"},"http-response":{"status":200,"body":"transformed"}}'
+            """.trimIndent())
+            setExecutable(true)
+        }
+
+        val feature = parseContractFileToFeature(specFile.absolutePath)
         val specmaticConfig = SpecmaticConfig(
-            hooks = mapOf("transform_stub_response" to transformCommand)
+            hooks = mapOf("transform_stub_response" to transformScript.absolutePath)
         )
 
         HttpStub(
@@ -123,7 +166,7 @@ class TransformationHookTest {
             timeoutMillis = 0
         ).use { stub ->
             val request = HttpRequest(method = "GET", path = "/test")
-            val response = LegacyHttpClient(stub.endPoint).execute(request)
+            val response = HttpClient(stub.endPoint).execute(request)
 
             assertThat(response.status).isEqualTo(200)
             assertThat(response.body.toStringLiteral()).isEqualTo("transformed")
@@ -131,29 +174,154 @@ class TransformationHookTest {
     }
 
     @Test
-    fun `hooks should be loaded from configuration`() {
-        val gherkin = """
-            Feature: API
-            Scenario: API
-                When GET /test
-                Then status 200
+    @DisabledOnOs(OS.WINDOWS, disabledReason = "Shell scripts work differently on Windows")
+    fun `transformed request should be passed to response hook`(@TempDir tempDir: File) {
+        val openApiSpec = """
+openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /original:
+    get:
+      responses:
+        '200':
+          description: Success
+          content:
+            text/plain:
+              schema:
+                type: string
+  /transformed:
+    get:
+      responses:
+        '200':
+          description: Success
+          content:
+            text/plain:
+              schema:
+                type: string
         """.trimIndent()
 
-        val feature = parseGherkinStringToFeature(gherkin)
+        val specFile = tempDir.resolve("api.yaml").apply { writeText(openApiSpec) }
+        val requestPathFile = tempDir.resolve("request_path.txt")
+
+        // Request hook transforms path from /original to /transformed
+        val requestHookScript = tempDir.resolve("request_hook.sh").apply {
+            writeText("""
+#!/bin/sh
+cat > /dev/null
+printf '{"http-request":{"method":"GET","path":"/transformed"}}'
+            """.trimIndent())
+            setExecutable(true)
+        }
+
+        // Response hook saves the entire input to a file to verify it received the transformed request
+        val responseHookScript = tempDir.resolve("response_hook.sh").apply {
+            writeText("""
+#!/bin/sh
+# Save input to file and output unchanged
+tee ${requestPathFile.absolutePath} | cat > /dev/null
+printf '{"http-request":{"method":"GET","path":"/transformed"},"http-response":{"status":200,"body":"test"}}'
+            """.trimIndent())
+            setExecutable(true)
+        }
+
+        val feature = parseContractFileToFeature(specFile.absolutePath)
         val specmaticConfig = SpecmaticConfig(
             hooks = mapOf(
-                "transform_stub_request" to "echo '{\"http-request\":{\"method\":\"GET\",\"path\":\"/test\"}}'",
-                "transform_stub_response" to "cat"
+                "transform_stub_request" to requestHookScript.absolutePath,
+                "transform_stub_response" to responseHookScript.absolutePath
             )
         )
 
-        // Just verify that the stub starts without errors when hooks are configured
         HttpStub(
             features = listOf(feature),
             specmaticConfigSource = SpecmaticConfigSource.fromConfig(specmaticConfig),
             timeoutMillis = 0
         ).use { stub ->
-            assertThat(stub).isNotNull
+            val request = HttpRequest(method = "GET", path = "/original")
+            val response = HttpClient(stub.endPoint).execute(request)
+
+            assertThat(response.status).isEqualTo(200)
+
+            // Verify the response hook received the transformed path, not the original
+            assertThat(requestPathFile).exists()
+            val receivedJson = requestPathFile.readText()
+            // The path should be /transformed (from the request hook), not /original
+            assertThat(receivedJson).contains("/transformed")
+            assertThat(receivedJson).doesNotContain("/original")
+        }
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS, disabledReason = "Shell scripts work differently on Windows")
+    fun `hooks should be loaded from configuration and execute`(@TempDir tempDir: File) {
+        val openApiSpec = """
+openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /test:
+    get:
+      responses:
+        '200':
+          description: Success
+          content:
+            text/plain:
+              schema:
+                type: string
+        """.trimIndent()
+
+        val specFile = tempDir.resolve("api.yaml").apply { writeText(openApiSpec) }
+        val requestHookExecuted = tempDir.resolve("request_hook_executed.txt")
+        val responseHookExecuted = tempDir.resolve("response_hook_executed.txt")
+
+        // Request hook that writes to file when executed
+        val requestHookScript = tempDir.resolve("request_hook.sh").apply {
+            writeText("""
+#!/bin/sh
+echo "executed" > ${requestHookExecuted.absolutePath}
+cat
+            """.trimIndent())
+            setExecutable(true)
+        }
+
+        // Response hook that writes to file when executed
+        val responseHookScript = tempDir.resolve("response_hook.sh").apply {
+            writeText("""
+#!/bin/sh
+echo "executed" > ${responseHookExecuted.absolutePath}
+cat
+            """.trimIndent())
+            setExecutable(true)
+        }
+
+        val feature = parseContractFileToFeature(specFile.absolutePath)
+        val specmaticConfig = SpecmaticConfig(
+            hooks = mapOf(
+                "transform_stub_request" to requestHookScript.absolutePath,
+                "transform_stub_response" to responseHookScript.absolutePath
+            )
+        )
+
+        HttpStub(
+            features = listOf(feature),
+            specmaticConfigSource = SpecmaticConfigSource.fromConfig(specmaticConfig),
+            timeoutMillis = 0
+        ).use { stub ->
+            // Make a request to trigger the hooks
+            val request = HttpRequest(method = "GET", path = "/test")
+            val response = HttpClient(stub.endPoint).execute(request)
+
+            assertThat(response.status).isEqualTo(200)
+
+            // Verify both hooks actually executed
+            assertThat(requestHookExecuted).exists()
+            assertThat(requestHookExecuted.readText().trim()).isEqualTo("executed")
+
+            assertThat(responseHookExecuted).exists()
+            assertThat(responseHookExecuted.readText().trim()).isEqualTo("executed")
         }
     }
 }
