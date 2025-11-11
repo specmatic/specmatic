@@ -207,6 +207,175 @@ class SpecmaticJunitSupportTest {
         ))
     }
 
+    @Test
+    fun `strict mode only runs tests for APIs with external examples`() {
+        // Create OpenAPI spec with 2 endpoints
+        val openApiSpec = """
+openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /users/{id}:
+    get:
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - name
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+  /users:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer
+        """.trimIndent()
+
+        val tempDir = createTempDir()
+        try {
+            val specFile = tempDir.resolve("api.yaml")
+            specFile.writeText(openApiSpec)
+
+            val examplesDir = tempDir.resolve("api_examples")
+            examplesDir.mkdirs()
+
+            // Create example only for GET /users/{id}
+            val exampleFile = examplesDir.resolve("get_user_example.json")
+            exampleFile.writeText("""
+{
+  "http-request": {
+    "method": "GET",
+    "path": "/users/1"
+  },
+  "http-response": {
+    "status": 200,
+    "body": {
+      "id": 1,
+      "name": "John Doe"
+    }
+  }
+}
+            """.trimIndent())
+
+            // Test with strictMode = true
+            SpecmaticJUnitSupport.settingsStaging.set(
+                ContractTestSettings(
+                    testBaseURL = "http://localhost:8080",
+                    contractPaths = specFile.absolutePath,
+                    filter = "",
+                    configFile = "",
+                    generative = false,
+                    reportBaseDirectory = null,
+                    coverageHooks = emptyList(),
+                    strictMode = true
+                )
+            )
+
+            val specmaticJunitSupportWithStrictMode = SpecmaticJUnitSupport()
+            val (testsWithStrictMode, _) = specmaticJunitSupportWithStrictMode.loadTestScenarios(
+                specFile.absolutePath,
+                "",
+                "",
+                TestConfig(emptyMap(), emptyMap()),
+                filterName = null,
+                filterNotName = null,
+                specmaticConfig = null
+            )
+
+            val testsWithStrictModeList = testsWithStrictMode.toList()
+            val testCountWithStrictMode = testsWithStrictModeList.size
+
+            // Only GET /users/{id} should generate tests (has external example)
+            assertThat(testCountWithStrictMode).isEqualTo(1)
+
+            // Verify the test name contains the correct endpoint
+            val testDescriptionsWithStrictMode = testsWithStrictModeList.map { it.testDescription() }
+            assertThat(testDescriptionsWithStrictMode).allMatch {
+                it.contains("GET /users/(id:number) -> 200")
+            }
+            assertThat(testDescriptionsWithStrictMode).noneMatch {
+                it.contains("POST")
+            }
+
+            // Test with strictMode = false
+            SpecmaticJUnitSupport.settingsStaging.set(
+                ContractTestSettings(
+                    testBaseURL = "http://localhost:8080",
+                    contractPaths = specFile.absolutePath,
+                    filter = "",
+                    configFile = "",
+                    generative = false,
+                    reportBaseDirectory = null,
+                    coverageHooks = emptyList(),
+                    strictMode = false
+                )
+            )
+
+            val specmaticJunitSupportWithoutStrictMode = SpecmaticJUnitSupport()
+            val (testsWithoutStrictMode, _) = specmaticJunitSupportWithoutStrictMode.loadTestScenarios(
+                specFile.absolutePath,
+                "",
+                "",
+                TestConfig(emptyMap(), emptyMap()),
+                filterName = null,
+                filterNotName = null,
+                specmaticConfig = null
+            )
+
+            val testsWithoutStrictModeList = testsWithoutStrictMode.toList()
+            val testCountWithoutStrictMode = testsWithoutStrictModeList.size
+
+            // Both endpoints should generate tests when strictMode is false
+            assertThat(testCountWithoutStrictMode).isGreaterThan(1)
+
+            // Verify test names include both endpoints
+            val testDescriptionsWithoutStrictMode = testsWithoutStrictModeList.map { it.testDescription() }
+            assertThat(testDescriptionsWithoutStrictMode).anyMatch {
+                it.contains("GET /users/(id:number) -> 200")
+            }
+            assertThat(testDescriptionsWithoutStrictMode).anyMatch {
+                it.contains("POST /users -> 201")
+            }
+        } finally {
+            tempDir.deleteRecursively()
+            SpecmaticJUnitSupport.settingsStaging.remove()
+        }
+    }
+
     @AfterEach
     fun tearDown() {
         System.getProperties().keys.minus(initialPropertyKeys).forEach { println("Clearing $it"); System.clearProperty(it.toString()) }
