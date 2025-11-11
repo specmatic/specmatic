@@ -769,6 +769,8 @@ data class Feature(
     private fun positiveTestScenarios(suggestions: List<Scenario>, fn: (Scenario, Row) -> Scenario = { s, _ -> s }): Sequence<Pair<Scenario, ReturnValue<Scenario>>> =
         scenarios.asSequence().filter {
             it.isA2xxScenario() || it.examples.isNotEmpty() || it.isGherkinScenario
+        }.filter {
+            !strictMode || it.hasExampleRows()
         }.map {
             it.newBasedOn(suggestions)
         }.flatMap { originalScenario ->
@@ -792,6 +794,8 @@ data class Feature(
     fun negativeTestScenarios(): Sequence<Pair<Scenario, ReturnValue<Scenario>>> {
         return scenarios.asSequence().filter {
             it.isA2xxScenario()
+        }.filter {
+            !strictMode || it.hasExampleRows()
         }.flatMap { originalScenario ->
             val negativeScenario = originalScenario.negativeBasedOn(getBadRequestsOrDefault(originalScenario))
 

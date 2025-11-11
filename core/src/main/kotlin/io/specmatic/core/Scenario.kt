@@ -790,6 +790,8 @@ data class Scenario(
 
     fun isA4xxScenario(): Boolean = this.httpResponsePattern.status in 400..499
 
+    fun hasExampleRows(): Boolean = examples.any { it.rows.isNotEmpty() }
+
     fun calculatePath(httpRequest: HttpRequest): Set<String> {
         val bodyPattern = resolvedHop(this.httpRequestPattern.body, this.resolver)
         val paths = when (bodyPattern) {

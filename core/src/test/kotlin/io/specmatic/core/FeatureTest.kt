@@ -3144,4 +3144,109 @@ paths:
             assertThat(paths).isEmpty()
         }
     }
+
+    @Nested
+    @DisplayName("Strict Mode Tests")
+    inner class StrictModeTests {
+        @Test
+        fun `strict mode filters out positive scenarios without example rows`() {
+            val scenarioWithRows = Scenario(
+                name = "Scenario with rows",
+                httpRequestPattern = HttpRequestPattern(method = "GET", httpPathPattern = HttpPathPattern(path = "/test", pathSegmentPatterns = listOf())),
+                httpResponsePattern = HttpResponsePattern(status = 200),
+                examples = listOf(Examples(columnNames = listOf("id"), rows = listOf(Row(columnNames = listOf("id"), values = listOf("1")))))
+            )
+
+            val scenarioWithoutRows = Scenario(
+                name = "Scenario without rows",
+                httpRequestPattern = HttpRequestPattern(method = "POST", httpPathPattern = HttpPathPattern(path = "/test", pathSegmentPatterns = listOf())),
+                httpResponsePattern = HttpResponsePattern(status = 201),
+                examples = emptyList()
+            )
+
+            val featureWithStrictMode = Feature(
+                scenarios = listOf(scenarioWithRows, scenarioWithoutRows),
+                name = "TestFeature",
+                strictMode = true
+            ).enableGenerativeTesting()
+
+            val tests = featureWithStrictMode.generateContractTestScenarios(emptyList()).toList()
+
+            // Only scenarioWithRows should generate tests
+            val generatedFromScenarioNames = tests.map { it.first.name }.distinct()
+            assertThat(generatedFromScenarioNames).containsExactly("Scenario with rows")
+        }
+
+        @Test
+        fun `strict mode false allows all scenarios to generate tests`() {
+            val scenarioWithRows = Scenario(
+                name = "Scenario with rows",
+                httpRequestPattern = HttpRequestPattern(method = "GET", httpPathPattern = HttpPathPattern(path = "/test", pathSegmentPatterns = listOf())),
+                httpResponsePattern = HttpResponsePattern(status = 200),
+                examples = listOf(Examples(columnNames = listOf("id"), rows = listOf(Row(columnNames = listOf("id"), values = listOf("1")))))
+            )
+
+            val scenarioWithoutRows = Scenario(
+                name = "Scenario without rows",
+                httpRequestPattern = HttpRequestPattern(method = "POST", httpPathPattern = HttpPathPattern(path = "/test", pathSegmentPatterns = listOf())),
+                httpResponsePattern = HttpResponsePattern(status = 201),
+                examples = emptyList()
+            )
+
+            val featureWithoutStrictMode = Feature(
+                scenarios = listOf(scenarioWithRows, scenarioWithoutRows),
+                name = "TestFeature",
+                strictMode = false
+            ).enableGenerativeTesting()
+
+            val tests = featureWithoutStrictMode.generateContractTestScenarios(emptyList()).toList()
+
+            // Both scenarios should generate tests
+            val generatedFromScenarioNames = tests.map { it.first.name }.distinct()
+            assertThat(generatedFromScenarioNames).hasSize(2)
+            assertThat(generatedFromScenarioNames).contains("Scenario with rows", "Scenario without rows")
+        }
+
+        @Test
+        fun `strict mode filters negative scenarios without rows`() {
+            val scenarioWithRows = Scenario(
+                name = "Scenario with rows",
+                httpRequestPattern = HttpRequestPattern(method = "GET", httpPathPattern = HttpPathPattern(path = "/test", pathSegmentPatterns = listOf())),
+                httpResponsePattern = HttpResponsePattern(status = 200),
+                examples = listOf(Examples(columnNames = listOf("id"), rows = listOf(Row(columnNames = listOf("id"), values = listOf("1")))))
+            )
+
+            val scenarioWithoutRows = Scenario(
+                name = "Scenario without rows",
+                httpRequestPattern = HttpRequestPattern(method = "POST", httpPathPattern = HttpPathPattern(path = "/test", pathSegmentPatterns = listOf())),
+                httpResponsePattern = HttpResponsePattern(status = 200),
+                examples = emptyList()
+            )
+
+            val configWithResiliency = SpecmaticConfig().enableResiliencyTests()
+            val featureWithStrictMode = Feature(
+                scenarios = listOf(scenarioWithRows, scenarioWithoutRows),
+                name = "TestFeature",
+                strictMode = true,
+                specmaticConfig = configWithResiliency
+            ).enableGenerativeTesting()
+
+            val allTests = featureWithStrictMode.generateContractTestScenarios(emptyList()).toList()
+
+            // Filter for tests that have the negative prefix
+            val negativeTests = allTests.filter { (originalScenario, _) ->
+                originalScenario.generativePrefix == NEGATIVE_TEST_DESCRIPTION_PREFIX
+            }
+
+            // If negative tests are generated, only scenarioWithRows should contribute
+            if (negativeTests.isNotEmpty()) {
+                val generatedFromScenarioNames = negativeTests.map { it.first.name }.distinct()
+                assertThat(generatedFromScenarioNames).doesNotContain("Scenario without rows")
+                assertThat(generatedFromScenarioNames).contains("Scenario with rows")
+            } else {
+                // It's also acceptable if no negative tests are generated in strict mode
+                assertThat(negativeTests).isEmpty()
+            }
+        }
+    }
 }

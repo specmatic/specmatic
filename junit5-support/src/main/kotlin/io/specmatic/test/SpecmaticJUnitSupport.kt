@@ -80,7 +80,6 @@ open class SpecmaticJUnitSupport {
         const val FILTER_NAME_ENVIRONMENT_VARIABLE = "FILTER_NAME"
         const val FILTER_NOT_NAME_ENVIRONMENT_VARIABLE = "FILTER_NOT_NAME"
         const val OVERLAY_FILE_PATH = "overlayFilePath"
-        const val STRICT_MODE = "strictMode"
         private const val ENDPOINTS_API = "endpointsAPI"
         private const val SWAGGER_UI_BASEURL = "swaggerUIBaseURL"
 
@@ -532,7 +531,7 @@ open class SpecmaticJUnitSupport {
         }
 
         val contractFile = File(path)
-        val strictMode = (System.getProperty(STRICT_MODE) ?: System.getenv(STRICT_MODE)) == "true"
+        val strictMode = settings.strictMode
         val rawSpecmaticConfig = specmaticConfig ?: SpecmaticConfig()
         val effectiveSpecmaticConfig =
             when (generative) {
