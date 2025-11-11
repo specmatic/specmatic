@@ -18,11 +18,14 @@ value class BreadCrumb(val value: String) {
         val PARAM_QUERY = PARAMETERS.plus(QUERY)
         val SOAP_ACTION = BreadCrumb("SOAPAction")
 
-        private fun combine(vararg breadCrumbs: String): String {
-            if (breadCrumbs.isEmpty()) return ""
-            return breadCrumbs.reduce { acc, breadCrumb ->
-                if (breadCrumb == WILDCARD_INDEX) "$acc$breadCrumb"
-                else "$acc.$breadCrumb"
+        fun from(vararg breadCrumbs: String): BreadCrumb = BreadCrumb(combine(*breadCrumbs))
+
+        fun combine(vararg breadCrumbs: String): String {
+            val breadCrumbsToCombine = breadCrumbs.filterNot(String::isBlank).ifEmpty { return "" }
+            return breadCrumbsToCombine.reduce { acc, breadCrumb ->
+                if (breadCrumb == WILDCARD_INDEX) return@reduce "$acc$breadCrumb"
+                if (breadCrumb.toIntOrNull() != null) return@reduce "$acc[$breadCrumb]"
+                "$acc.$breadCrumb"
             }
         }
     }
@@ -32,4 +35,19 @@ value class BreadCrumb(val value: String) {
     fun plus(key: String?): BreadCrumb = if (key == null) this else BreadCrumb(combine(value, key))
 
     fun plus(other: BreadCrumb): BreadCrumb = BreadCrumb(combine(value, other.value))
+
+    fun last(): BreadCrumb {
+        val bounds = lastSegmentBounds()
+        return BreadCrumb(if (bounds != null) value.substring(bounds) else "")
+    }
+
+    private fun lastSegmentBounds(): IntRange? {
+        val dotIndex = value.lastIndexOf('.')
+        if (dotIndex != -1) return (dotIndex + 1) until value.length
+
+        val bracketIndex = value.lastIndexOf('[')
+        if (bracketIndex != -1 && value.endsWith(']')) return bracketIndex until value.length
+
+        return if (value.isNotEmpty()) return 0 until value.length else null
+    }
 }
