@@ -1,5 +1,6 @@
 package io.specmatic.core
 
+import io.specmatic.core.matchers.Matcher
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.*
 import io.specmatic.test.ExampleProcessor
@@ -98,11 +99,12 @@ data class Resolver(
 
     private fun patternTokenMatch(pattern: Pattern, sampleData: Value): Result? {
         if (!mockMode) return null
-        if (ExampleProcessor.isSubstitutionToken(sampleData)) return Result.Success()
+        val patternFromValue = patternFromTokenBased(sampleData)
+        if (patternFromValue == null || (patternFromValue as? ExactValuePattern)?.pattern == sampleData) {
+            return Result.Success().takeIf { ExampleProcessor.isSubstitutionToken(sampleData) }
+        }
 
-        val patternFromValue = patternFromTokenBased(sampleData) ?: return null
         if (patternFromValue is AnyValuePattern) return Result.Success()
-
         return pattern.encompasses(patternFromValue, this, this)
     }
 
@@ -122,7 +124,7 @@ data class Resolver(
     }
 
     fun patternFromTokenBased(sampleValue: Value): Pattern? {
-        if (sampleValue !is StringValue || !isPatternToken(sampleValue.string)) return null
+        if (sampleValue !is StringValue || !isPatternOrMatcherToken(sampleValue.string)) return null
         return getPattern(sampleValue.string).let {
             if (it is LookupRowPattern) resolvedHop(
                 it.pattern,
@@ -135,8 +137,11 @@ data class Resolver(
 
     fun getPattern(patternValue: String): Pattern =
         when {
-            isPatternToken(patternValue) -> {
-                val resolvedPattern = patterns[patternValue] ?: parsedPattern(patternValue, null)
+            isPatternOrMatcherToken(patternValue) -> {
+                val resolvedPattern = patterns[patternValue] ?: parsedPattern(patternValue, null).let {
+                    if (it is DeferredPattern && it.pattern in patterns) patterns.getValue(it.pattern) else it
+                }
+
                 when {
                     resolvedPattern is DeferredPattern && resolvedPattern.pattern == patternValue ->
                         throw ContractException("Type $patternValue does not exist")

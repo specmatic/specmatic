@@ -22,7 +22,9 @@ class HttpExpectations private constructor (
     val stubCount: Int get() { return static.size }
     val transientStubCount: Int get() { return transient.size }
 
-    fun removeTransientMock(httpStubData: HttpStubData) {
+    fun utilizeMock(httpStubData: HttpStubData) {
+        val shouldBeRemovedFromTransient = httpStubData.utilize()
+        if (!shouldBeRemovedFromTransient) return
         transient.remove(httpStubData)
     }
 

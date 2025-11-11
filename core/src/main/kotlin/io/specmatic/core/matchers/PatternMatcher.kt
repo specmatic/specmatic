@@ -3,6 +3,7 @@ package io.specmatic.core.matchers
 import io.specmatic.core.BreadCrumb
 import io.specmatic.core.DefaultKeyCheck
 import io.specmatic.core.Resolver
+import io.specmatic.core.pattern.DeferredPattern
 import io.specmatic.core.pattern.HasException
 import io.specmatic.core.pattern.HasFailure
 import io.specmatic.core.pattern.HasValue
@@ -105,6 +106,22 @@ class PatternMatcher(
             return runCatching {
                 resolver.getPattern(withPatternDelimiters(value))
             }.map(::HasValue).getOrElse(::HasException)
+        }
+
+        override fun toPatternSimplified(value: Value): Pattern? {
+            if (value !is StringValue) return null
+            val properties = extractPropertiesIfExist(value)
+            return if (properties.isNullOrEmpty() || !canParseFrom(BreadCrumb.from(), properties)) {
+                DeferredPattern(withPatternDelimiters(value.nativeValue))
+            } else {
+                toPatternSimplified(properties)
+            }
+        }
+
+        override fun toPatternSimplified(properties: Map<String, Value>): Pattern? {
+            if (!canParseFrom(BreadCrumb.from(), properties)) return null
+            val dataType = properties.getValue(DATA_TYPE_KEY) as? StringValue ?: return null
+            return DeferredPattern(withPatternDelimiters(dataType.nativeValue))
         }
     }
 }

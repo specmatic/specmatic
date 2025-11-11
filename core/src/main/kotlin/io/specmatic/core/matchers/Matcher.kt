@@ -5,6 +5,7 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.HasFailure
 import io.specmatic.core.pattern.HasValue
+import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.ReturnValue
 import io.specmatic.core.pattern.listFold
 import io.specmatic.core.value.Value
@@ -106,6 +107,10 @@ interface Matcher {
         fun parse(path: BreadCrumb, properties: Map<String, Value>, context: MatcherContext): ReturnValue<List<Matcher>> {
             return registry.parse(path, properties, context)
         }
+
+        fun toPatternSimplified(value: Value): Pattern? = registry.toPatternSimplified(value)
+
+        fun toPatternSimplified(properties: Map<String, Value>): Pattern? = registry.toPatternSimplified(properties)
 
         fun from(value: Value, resolver: Resolver, prefix: String = ""): ReturnValue<List<Matcher>> {
             val context = MatcherContext(resolver = resolver)

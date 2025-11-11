@@ -3,6 +3,7 @@ package io.specmatic.core.matchers
 import io.specmatic.core.BreadCrumb
 import io.specmatic.core.pattern.HasFailure
 import io.specmatic.core.pattern.HasValue
+import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.ReturnValue
 import io.specmatic.core.pattern.unwrapOrReturn
 import io.specmatic.core.value.Value
@@ -53,6 +54,11 @@ data class CompositeMatcher(
 
         override fun parseFrom(path: BreadCrumb, properties: Map<String, Value>, context: MatcherContext): ReturnValue<out Matcher> {
             return HasFailure("CompositeMatcher cannot be parsed from properties", path.value)
+        }
+
+        override fun toPatternSimplified(value: Value): Pattern? {
+            val properties = extractPropertiesIfExist(value) ?: return null
+            return Matcher.toPatternSimplified(properties)
         }
     }
 }
