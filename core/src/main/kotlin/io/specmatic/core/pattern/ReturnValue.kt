@@ -68,10 +68,10 @@ fun <ValueType> List<ReturnValue<ValueType>>.listFoldException(): ReturnValue<Li
     }
 }
 
-fun <ValueType> List<ReturnValue<ValueType>>.listFold(): ReturnValue<List<ValueType>> {
+fun <ValueType> List<ReturnValue<out ValueType>>.listFold(): ReturnValue<List<ValueType>> {
     val initial: ReturnValue<List<ValueType>> = HasValue(emptyList())
 
-    return this.fold(initial) { accR: ReturnValue<List<ValueType>>, valueR: ReturnValue<ValueType> ->
+    return this.fold(initial) { accR: ReturnValue<List<ValueType>>, valueR: ReturnValue<out ValueType> ->
         accR.combine(valueR) { acc, value ->
             acc.plus(value)
         }
@@ -164,4 +164,11 @@ fun <T> ReturnValue<T>.unwrapOrContractException(): T {
         orFailure = { hasF -> throw ContractException(hasF.toFailure().toFailureReport()) },
         orException = { hasE -> throw ContractException(hasE.toHasFailure().toFailure().toFailureReport()) }
     )
+}
+
+inline fun <T> ReturnValue<T>.unwrapOrReturn(inlined: (ReturnFailure) -> Nothing): T {
+    return when (this) {
+        is HasValue -> value
+        is HasFailure, is HasException -> inlined(this as ReturnFailure)
+    }
 }
