@@ -4,6 +4,7 @@ import io.specmatic.core.ExampleDeclarations
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.*
 import io.ktor.http.*
+import io.specmatic.test.ExampleProcessor
 import org.w3c.dom.Document
 import org.w3c.dom.Node
 
@@ -18,6 +19,7 @@ data class StringValue(val string: String = "") : Value, ScalarValue, XMLValue {
     override fun exactMatchElseType(): Pattern {
         return when {
             isPatternToken() -> DeferredPattern(string)
+            isMatcherToken() -> parsedPattern(string)
             else -> ExactValuePattern(this)
         }
     }
@@ -47,6 +49,7 @@ data class StringValue(val string: String = "") : Value, ScalarValue, XMLValue {
     override fun toString() = string
 
     fun isPatternToken(): Boolean = isPatternToken(string.trim())
+    fun isMatcherToken(): Boolean = isMatcherToken(string.trim())
     fun trimmed(): StringValue = StringValue(string.trim())
 
     override fun generality(): Int {

@@ -1,10 +1,13 @@
 package io.specmatic.core.pattern
 
+import io.specmatic.core.BreadCrumb
 import io.specmatic.core.DefaultMismatchMessages
 import io.specmatic.core.MismatchMessages
 import io.specmatic.core.log.logger
+import io.specmatic.core.matchers.Matcher
 import io.specmatic.core.utilities.*
 import io.specmatic.core.value.*
+import io.specmatic.test.ExampleProcessor
 import java.io.File
 
 const val XML_ATTR_OPTIONAL_SUFFIX = ".opt"
@@ -89,12 +92,16 @@ fun isNumberPatternWithRestrictions(patternValue: String): Boolean {
     return tokens[0] == "(number)" && listOf("minLength", "maxLength").any { it in tokens }
 }
 
+fun isPatternOrMatcherToken(patternValue: Any?): Boolean = isPatternToken(patternValue) || isMatcherToken(patternValue)
+
 fun isPatternToken(patternValue: Any?) =
     when (patternValue) {
         is String -> patternValue.startsWith("(") && patternValue.endsWith(")")
         is StringValue -> patternValue.string.startsWith("(") && patternValue.string.endsWith(")")
         else -> false
     }
+
+fun isMatcherToken(patternValue: Any?) = ExampleProcessor.isSubstitutionToken(patternValue)
 
 internal fun getBuiltInPattern(patternString: String): Pattern =
     when {
@@ -181,6 +188,9 @@ fun stringToPattern(patternValue: String, key: String?): Pattern =
 fun parsedPattern(rawContent: String, key: String? = null, typeAlias: String? = null): Pattern {
     return rawContent.trim().removePrefix(UTF_BYTE_ORDER_MARK).let {
         when {
+            isMatcherToken(it) && Matcher.toPatternSimplified(StringValue(it)) != null -> {
+                Matcher.toPatternSimplified(StringValue(it))!!
+            }
             isPatternToken(it) && it.contains("/") -> {
                 val (container, type) = withoutPatternDelimiters(it).split("/")
                 if (container != "csv")

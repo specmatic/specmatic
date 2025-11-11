@@ -450,7 +450,7 @@ class HttpStub(
               specmaticConfig = specmaticConfigInstance,
         ).also {
             if (it is FoundStubbedResponse) {
-                it.response.mock?.let { mock -> httpExpectations.removeTransientMock(mock) }
+                it.response.mock?.let { mock -> httpExpectations.utilizeMock(mock) }
             }
             it.log(_logs, httpRequest)
         }.response
@@ -936,7 +936,7 @@ fun getHttpResponse(
                     httpRequest,
                     httpStubData.resolveOriginalRequest() ?: httpRequest,
                     httpStubData.data,
-                )
+                ),
             )
         }
         if (httpClientFactory != null && passThroughTargetBase.isNotBlank()) {

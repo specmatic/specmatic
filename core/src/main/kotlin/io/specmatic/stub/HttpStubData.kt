@@ -1,10 +1,19 @@
 package io.specmatic.stub
 
 import io.specmatic.core.*
+import io.specmatic.core.jsonoperator.value.ObjectValueOperator
 import io.specmatic.core.log.logger
+import io.specmatic.core.matchers.CompositeMatcher
+import io.specmatic.core.matchers.Matcher
+import io.specmatic.core.matchers.MatcherContext
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.pattern.HasValue
+import io.specmatic.core.pattern.ReturnValue
 import io.specmatic.core.pattern.attempt
+import io.specmatic.core.pattern.unwrapOrContractException
+import io.specmatic.core.pattern.unwrapOrReturn
 import io.specmatic.core.utilities.ExternalCommand
+import io.specmatic.core.utilities.Transactional
 import io.specmatic.core.utilities.jsonStringToValueMap
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.mock.ScenarioStub
@@ -25,6 +34,9 @@ data class HttpStubData(
     val data: JSONObjectValue = JSONObjectValue(),
     val partial: ScenarioStub? = null
 ) {
+    private val matcher: CompositeMatcher? by lazy { buildMatcherFromRequest() }
+    private val sharedState: Transactional<ObjectValueOperator> = Transactional(ObjectValueOperator())
+
     fun resolveOriginalRequest(): HttpRequest? {
         return partial?.request ?: originalRequest
     }
@@ -44,16 +56,23 @@ data class HttpStubData(
         else -> this.copy(response = response.copy(body = softCastValueToXML(response.body)))
     }
 
+    fun utilize(): Boolean {
+        if (matcher == null) return stubToken != null
+        sharedState.commit()
+        return false
+    }
+
     fun matches(
         httpRequest: HttpRequest,
-        mismatchMessages: MismatchMessages = StubAndRequestMismatchMessages
+        mismatchMessages: MismatchMessages = StubAndRequestMismatchMessages,
     ): Result {
-        return requestType.matches(
-            httpRequest,
-            resolver.disableOverrideUnexpectedKeycheck()
-                .copy(mismatchMessages = mismatchMessages),
-            requestBodyReqex = requestBodyRegex
-        )
+        val contractResult = matchesContract(httpRequest, mismatchMessages)
+        if (contractResult is Result.Failure) return contractResult
+
+        sharedState.rollback()
+        val updatedSharedState = matchesMatcher(httpRequest).unwrapOrReturn { return it.toFailure() }
+        sharedState.stage(updatedSharedState)
+        return Result.Success()
     }
 
     private fun invokeExternalCommand(httpRequest: HttpRequest): HttpStubData {
@@ -79,6 +98,37 @@ data class HttpStubData(
                 this.copy(response = externalCommandResponse)
             }
         }
+    }
+
+    private fun matchesContract(
+        httpRequest: HttpRequest,
+        mismatchMessages: MismatchMessages = StubAndRequestMismatchMessages,
+    ): Result {
+        return requestType.matches(
+            httpRequest,
+            resolver.disableOverrideUnexpectedKeycheck().copy(mismatchMessages = mismatchMessages),
+            requestBodyReqex = requestBodyRegex,
+        )
+    }
+
+    private fun matchesMatcher(httpRequest: HttpRequest): ReturnValue<ObjectValueOperator> {
+        val sharedState = sharedState.getCommitted()
+        val requestMatcher = matcher ?: return HasValue(sharedState)
+        val scenario = scenario ?: return HasValue(sharedState)
+
+        val context = MatcherContext.from(httpRequest, sharedState, scenario)
+        return requestMatcher.match(context).toReturnValue().realise(
+            hasValue = { it, _ -> HasValue(it.finalizeSharedState()) },
+            orFailure = { f -> f.cast() },
+            orException = { e -> e.cast() },
+        )
+    }
+
+    private fun buildMatcherFromRequest(): CompositeMatcher? {
+        val requestJson = resolveOriginalRequest()?.toJSON() ?: return null
+        val matchers = Matcher.from(requestJson, resolver, "request").unwrapOrContractException()
+        if (matchers.isEmpty()) return null
+        return CompositeMatcher(BreadCrumb.from(), matchers)
     }
 }
 

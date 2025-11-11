@@ -114,12 +114,7 @@ data class ArrayValueOperator(private val value: List<Value> = emptyList()) : Ro
     ): ReturnValue<RootMutableJsonOperator<out Value>> {
         val headSegment = segments.takeNextAs<PathSegment.Index>().unwrapOrReturn { return it.cast() }
         val tailSegments = segments.drop(1)
-        val trueHeadSegment = when (headSegment.index) {
-            APPEND -> PathSegment.Index(value.size.dec(), headSegment.parsedPath)
-            PREPEND -> PathSegment.Index(-1, headSegment.parsedPath)
-            else -> headSegment
-        }
-        return modifyAtIndex(trueHeadSegment, allowMissing, tailSegments, operation)
+        return modifyAtIndex(headSegment, allowMissing, tailSegments, operation)
     }
 
     private fun modifyAtIndex(
@@ -128,7 +123,7 @@ data class ArrayValueOperator(private val value: List<Value> = emptyList()) : Ro
         tailSegments: List<PathSegment>,
         operation: (RootMutableJsonOperator<out Value>, List<PathSegment>) -> ReturnValue<RootMutableJsonOperator<out Value>>,
     ): ReturnValue<RootMutableJsonOperator<out Value>> {
-        if (headSegment.index < 0) {
+        if (headSegment.index == APPEND) {
             if (!allowMissing) return HasFailure("Index ${headSegment.index} out of bounds", headSegment.parsedPath)
             return operation(tailSegments.nextDefaultOperator(), tailSegments).ifHasValue { returnValue ->
                 returnValue.value.finalize().ifHasValue { rValue ->
@@ -146,6 +141,7 @@ data class ArrayValueOperator(private val value: List<Value> = emptyList()) : Ro
             }
         }
 
+        if (headSegment.index < 0) return HasFailure("Index ${headSegment.index} out of bounds", headSegment.parsedPath)
         val operator = ValueOperator.from(value[headSegment.index])
         return operation(operator, tailSegments).ifHasValue { returnValue ->
             returnValue.value.finalize().ifHasValue { rValue ->

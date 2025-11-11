@@ -1,6 +1,7 @@
 package io.specmatic.core.matchers
 
 import io.specmatic.core.BreadCrumb
+import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.ReturnValue
 import io.specmatic.core.utilities.fromYamlProperties
 import io.specmatic.core.value.StringValue
@@ -12,6 +13,10 @@ interface MatcherFactory {
     fun canParseFrom(path: BreadCrumb, properties: Map<String, Value>): Boolean
 
     fun parseFrom(path: BreadCrumb, properties: Map<String, Value>, context: MatcherContext): ReturnValue<out Matcher>
+
+    fun toPatternSimplified(value: Value): Pattern? = null
+
+    fun toPatternSimplified(properties: Map<String, Value>): Pattern? = null
 
     fun extractPropertiesIfExist(value: Value): Map<String, Value>? {
         if (value !is StringValue) return null

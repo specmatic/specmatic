@@ -2,6 +2,7 @@ package io.specmatic.core.matchers
 
 import io.specmatic.core.BreadCrumb
 import io.specmatic.core.jsonoperator.value.ArrayValueOperator
+import io.specmatic.core.jsonoperator.value.ObjectValueOperator
 import io.specmatic.core.pattern.HasFailure
 import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.ReturnValue
@@ -46,7 +47,8 @@ enum class RepetitionStrategy(val value: String) : RepetitionStrategyInterface {
     EACH("each") {
         override fun isExhausted(path: BreadCrumb, value: Value, context: MatcherContext, times: Int): ReturnValue<Boolean> {
             val itemsArray = getItemsArray(path, context).unwrapOrReturn { return it.cast() }
-            return HasValue(itemsArray.list.contains(value))
+            val matchingItems = itemsArray.list.filter { it == value }
+            return HasValue(matchingItems.size >= times)
         }
 
         override fun tickAgainst(path: BreadCrumb, value: Value, context: MatcherContext): ReturnValue<MatcherContext> {

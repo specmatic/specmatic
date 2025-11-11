@@ -24,6 +24,7 @@ import io.specmatic.core.pattern.ValueDetails
 import io.specmatic.core.pattern.attempt
 import io.specmatic.core.pattern.breadCrumb
 import io.specmatic.core.pattern.isOptional
+import io.specmatic.core.pattern.isPatternOrMatcherToken
 import io.specmatic.core.pattern.isPatternToken
 import io.specmatic.core.pattern.newBasedOn
 import io.specmatic.core.pattern.newMapBasedOn
@@ -38,6 +39,7 @@ import io.specmatic.core.value.EmptyString
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.test.ExampleProcessor
 
 private const val MULTIPART_FORMDATA_BREADCRUMB = "MULTIPART-FORMDATA"
 const val METHOD_BREAD_CRUMB = "METHOD"
@@ -512,7 +514,7 @@ data class HttpRequestPattern(
 
     private fun encompassedType(valueString: String, key: String?, type: Pattern, resolver: Resolver): Pattern {
         return when {
-            isPatternToken(valueString) -> resolvedHop(parsedPattern(valueString, key), resolver)
+            isPatternOrMatcherToken(valueString) -> resolvedHop(parsedPattern(valueString, key), resolver)
             else -> runCatching { type.parseToType(valueString, resolver) }.getOrElse { StringValue(valueString).exactMatchElseType() }
         }
     }
