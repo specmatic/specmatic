@@ -36,7 +36,6 @@ import org.junit.jupiter.api.parallel.ExecutionMode
 import org.opentest4j.TestAbortedException
 import java.io.File
 import java.net.URI
-import java.time.Duration
 import java.time.Instant
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedDeque
@@ -532,6 +531,8 @@ open class SpecmaticJUnitSupport {
 
         val contractFile = File(path)
         val strictMode = settings.strictMode
+            ?: specmaticConfig?.getTestStrictMode()
+            ?: false
         val rawSpecmaticConfig = specmaticConfig ?: SpecmaticConfig()
         val effectiveSpecmaticConfig =
             when (generative) {

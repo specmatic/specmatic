@@ -478,6 +478,11 @@ data class SpecmaticConfig(
     }
 
     @JsonIgnore
+    fun getTestStrictMode(): Boolean? {
+        return test?.strictMode
+    }
+
+    @JsonIgnore
     fun copyResiliencyTestsConfig(onlyPositive: Boolean): SpecmaticConfig {
         return this.copy(
             test = test?.copy(
@@ -655,7 +660,8 @@ data class TestConfiguration(
     val resiliencyTests: ResiliencyTestsConfig? = null,
     val validateResponseValues: Boolean? = null,
     val allowExtensibleSchema: Boolean? = null,
-    val timeoutInMilliseconds: Long? = null
+    val timeoutInMilliseconds: Long? = null,
+    val strictMode: Boolean? = null
 )
 
 enum class ResiliencyTestSuite {
