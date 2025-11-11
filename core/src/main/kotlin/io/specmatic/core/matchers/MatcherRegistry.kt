@@ -64,6 +64,7 @@ data class MatcherRegistry(
         return when (patterns.size){
             0 -> null
             1 -> patterns.single()
+            // TODO: Should ideally be an allOf Pattern
             else -> AnyPattern(patterns, extensions = emptyMap())
         }
     }

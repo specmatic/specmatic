@@ -27,6 +27,7 @@ interface Matcher {
     fun rawExecute(context: MatcherContext): MatcherResult
 
     fun <T : Matcher> executeMany(matchers: List<T>, context: MatcherContext, onEach: (T, MatcherContext) -> MatcherResult): MatcherResult {
+        if (matchers.isEmpty()) return MatcherResult.Success(context)
         return matchers.fold(MatcherResult.Success(context) as MatcherResult) { accResult, matcher ->
             val result = onEach(matcher, accResult.context)
             accResult.plus(result)
@@ -34,6 +35,7 @@ interface Matcher {
     }
 
     fun <T : Matcher> executeManyAny(matchers: List<T>, context: MatcherContext, onEach: (T, MatcherContext) -> MatcherResult): MatcherResult {
+        if (matchers.isEmpty()) return MatcherResult.Success(context)
         return matchers.fold(MatcherResult.Exhausted(context) as MatcherResult) { accResult, matcher ->
             val result = onEach(matcher, accResult.context)
             accResult.plusAny(result)

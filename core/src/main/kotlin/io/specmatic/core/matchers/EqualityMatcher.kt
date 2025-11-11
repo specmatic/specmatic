@@ -28,7 +28,7 @@ enum class EqualityStrategy(val value: String) {
     }
 }
 
-data class EqualityMatcher(private val path: BreadCrumb, private val value: Value, private val strategy: EqualityStrategy) : Matcher {
+data class EqualityMatcher(val path: BreadCrumb, val value: Value, val strategy: EqualityStrategy) : Matcher {
     override val canBeExhausted: Boolean = false
 
     override fun createDynamicMatchers(context: MatcherContext): List<Matcher> {
@@ -62,7 +62,7 @@ data class EqualityMatcher(private val path: BreadCrumb, private val value: Valu
         private const val EQUALITY_KEY = "matchType"
 
         abstract class BaseEqualityFactory(private val defaultStrategy: EqualityStrategy, private val createPattern: (Value) -> Pattern?) : MatcherFactory {
-            override fun parse(path: BreadCrumb, value: Value, context: MatcherContext): ReturnValue<out Matcher> {
+            override fun parse(path: BreadCrumb, value: Value, context: MatcherContext): ReturnValue<EqualityMatcher> {
                 val properties = extractPropertiesIfExist(value)
                 return if (properties.isNullOrEmpty() || !canParseFrom(path, properties)) {
                     HasValue(EqualityMatcher(path, value, defaultStrategy))
@@ -72,10 +72,13 @@ data class EqualityMatcher(private val path: BreadCrumb, private val value: Valu
             }
 
             override fun canParseFrom(path: BreadCrumb, properties: Map<String, Value>): Boolean {
+                val strategyKey = properties.getOrDefault(EQUALITY_KEY, StringValue("eq"))
+                val parsedStrategyElseDefault = EqualityStrategy.from(strategyKey.toStringLiteral()).withDefault(EqualityStrategy.EQUALS) { it }
+                if (parsedStrategyElseDefault != defaultStrategy) return false
                 return VALUE_KEY in properties
             }
 
-            override fun parseFrom(path: BreadCrumb, properties: Map<String, Value>, context: MatcherContext): ReturnValue<out Matcher> {
+            override fun parseFrom(path: BreadCrumb, properties: Map<String, Value>, context: MatcherContext): ReturnValue<EqualityMatcher> {
                 val value = properties[VALUE_KEY] ?: return HasFailure("Expected key '$VALUE_KEY' to be present", path.value)
                 val strategyKey = properties.getOrDefault(EQUALITY_KEY, StringValue("eq"))
                 if (strategyKey !is StringValue) return HasFailure(
@@ -90,6 +93,7 @@ data class EqualityMatcher(private val path: BreadCrumb, private val value: Valu
             override fun toPatternSimplified(value: Value): Pattern? {
                 val properties = extractPropertiesIfExist(value)
                 return if (properties.isNullOrEmpty() || !canParseFrom(BreadCrumb.from(), properties)) {
+                    if (value is StringValue && value.nativeValue.contains(".")) return null
                     if (defaultStrategy == EqualityStrategy.EQUALS) createPattern(value) else null
                 } else {
                     toPatternSimplified(properties)
@@ -98,6 +102,7 @@ data class EqualityMatcher(private val path: BreadCrumb, private val value: Valu
 
             override fun toPatternSimplified(properties: Map<String, Value>): Pattern? {
                 val value = properties[VALUE_KEY] ?: return null
+                if (value is StringValue && value.nativeValue.contains(".")) return null
                 val strategyKey = properties.getOrDefault(EQUALITY_KEY, StringValue("eq"))
                 val equalityStrategy = EqualityStrategy.from(strategyKey.toStringLiteral())
                 if (equalityStrategy.withDefault(EqualityStrategy.EQUALS) { it } != defaultStrategy) return null

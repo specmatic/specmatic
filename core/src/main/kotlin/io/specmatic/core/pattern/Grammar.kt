@@ -1,6 +1,5 @@
 package io.specmatic.core.pattern
 
-import io.specmatic.core.BreadCrumb
 import io.specmatic.core.DefaultMismatchMessages
 import io.specmatic.core.MismatchMessages
 import io.specmatic.core.log.logger
