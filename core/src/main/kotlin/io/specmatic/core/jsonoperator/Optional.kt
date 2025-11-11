@@ -32,4 +32,6 @@ sealed interface Optional<out Type> {
         is Some -> value
         is None -> null
     }
+
+    fun getOrThrow(): Type = getOrNull() ?: throw IllegalStateException("Expected Optional to be present")
 }
