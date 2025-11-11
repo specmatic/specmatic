@@ -87,7 +87,9 @@ data class ArrayValueOperator(private val value: List<Value> = emptyList()) : Ro
         }
     }
 
-    override fun finalize(): ReturnValue<JSONArrayValue> = HasValue(JSONArrayValue(value))
+    override fun finalize(): HasValue<JSONArrayValue> = HasValue(JSONArrayValue(value))
+
+    fun append(appendValue: Value) = this.copy(value = this.value.plus(appendValue))
 
     private fun applyToAllElements(
         tailSegments: List<PathSegment>,

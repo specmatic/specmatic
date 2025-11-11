@@ -51,14 +51,14 @@ class PatternMatcher(
 
     override fun rawExecute(context: MatcherContext): MatcherResult {
         val valueToMatch = context.getValueToMatch(path).unwrapOrReturn {
-            return MatcherResult.from("Couldn't extract path $path", path)
+            return MatcherResult.from("Couldn't extract path $path", path, context)
         }.getOrNull()
 
-        if (valueToMatch == null) return MatcherResult.from("Couldn't find value at path $path", path)
+        if (valueToMatch == null) return MatcherResult.from("Couldn't find value at path $path", path, context)
         val updatedResolver = strategy.update(context.resolver)
 
         val returnValue = pattern.matches(valueToMatch, updatedResolver).toReturnValue(context)
-        return MatcherResult.from(returnValue.breadCrumb(path.value))
+        return MatcherResult.from(returnValue.breadCrumb(path.value), context)
     }
 
     @MatcherKey("pattern")

@@ -18,7 +18,7 @@ data class CompositeMatcher(
         val dynamicMatchers = this.createDynamicMatchers(context)
         return executeMany(dynamicMatchers, context) { matcher, accContext ->
             matcher.rawExecute(accContext)
-        }.let(MatcherResult::fromIfAny)
+        }
     }
 
     override fun createDynamicMatchers(context: MatcherContext): List<CompositeMatcher> {
@@ -30,13 +30,15 @@ data class CompositeMatcher(
         val (exhaustiveMatchers, nonExhaustiveMatchers) = matchers.partition { it.canBeExhausted }
         val nonExhaustiveResult = executeMany(nonExhaustiveMatchers, context) { matcher, accContext ->
             matcher.rawExecute(accContext)
-        }.let(MatcherResult::from)
+        }
 
         if (nonExhaustiveResult !is MatcherResult.Success) return nonExhaustiveResult
-        return executeMany(exhaustiveMatchers, nonExhaustiveResult.context) { matcher, accContext ->
+        val newContext = nonExhaustiveResult.context
+        return executeManyAny(exhaustiveMatchers, newContext) { matcher, accContext ->
             matcher.rawExecute(accContext)
-        }.let(MatcherResult::fromIfAny)
+        }
     }
+
 
     @MatcherKey("match")
     companion object : MatcherFactory {
