@@ -42,6 +42,8 @@ interface Matcher {
 
     companion object {
         private val defaultFactories: List<MatcherFactory> = buildList {
+            add(EqualityMatcher.Companion.EqualityFactory)
+            add(EqualityMatcher.Companion.NonEqualityFactory)
             add(CompositeMatcher.Companion)
             add(PatternMatcher.Companion)
             add(RepetitionMatcher.Companion)
