@@ -61,6 +61,8 @@ data class ObjectValueOperator(private val map: Map<String, Value> = emptyMap())
 
     override fun finalize(): ReturnValue<JSONObjectValue> = HasValue(JSONObjectValue(map))
 
+    fun rawInsert(key: String, value: Value) = copy(map = map.plus(key to value))
+
     private fun modifyNested(
         segments: List<PathSegment>,
         allowMissing: Boolean,

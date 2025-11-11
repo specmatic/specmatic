@@ -1,14 +1,11 @@
 package io.specmatic.core.matchers
 
 import io.specmatic.core.BreadCrumb
-import io.specmatic.core.jsonoperator.value.ArrayValueOperator
-import io.specmatic.core.jsonoperator.value.ObjectValueOperator
 import io.specmatic.core.pattern.HasFailure
 import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.ReturnValue
 import io.specmatic.core.pattern.unwrapOrReturn
 import io.specmatic.core.value.JSONArrayValue
-import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
@@ -20,27 +17,28 @@ private interface RepetitionStrategyInterface {
 
     fun getItemsArray(path: BreadCrumb, context: MatcherContext): ReturnValue<JSONArrayValue> {
         val pathToLookInto = updatePath(path)
-        val valueInShared = context.getSharedValue(pathToLookInto).unwrapOrReturn { return it.cast() }
-        return HasValue(valueInShared.getOrElse { JSONArrayValue() } as? JSONArrayValue ?: JSONArrayValue())
+        return context.getJsonArray(pathToLookInto)
     }
 
     fun storeIntoItemsArray(path: BreadCrumb, value: Value, context: MatcherContext): ReturnValue<MatcherContext> {
-        val pathToStoreInto = updatePath(path).plus(ArrayValueOperator.APPEND.toString())
-        return context.storeIntoSharedValue(pathToStoreInto, value)
+        val pathToStoreInto = updatePath(path)
+        return context.appendToJsonArray(pathToStoreInto, value)
     }
 
-    fun updatePath(path: BreadCrumb): BreadCrumb = path.plus("Repetition")
+    fun updatePath(path: BreadCrumb): BreadCrumb = path.plus("RepetitionMatcher")
 }
 
 enum class RepetitionStrategy(val value: String) : RepetitionStrategyInterface {
     ANY("any") {
+        private val markerValue = StringValue("*")
+
         override fun isExhausted(path: BreadCrumb, value: Value, context: MatcherContext, times: Int): ReturnValue<Boolean> {
             val itemsArray = getItemsArray(path, context).unwrapOrReturn { return it.cast() }
             return HasValue(itemsArray.list.size >= times)
         }
 
         override fun tickAgainst(path: BreadCrumb, value: Value, context: MatcherContext): ReturnValue<MatcherContext> {
-            return storeIntoItemsArray(path, NullValue, context)
+            return storeIntoItemsArray(path, markerValue, context.addToCurrentExhaustionChecks(path, markerValue))
         }
     },
 
@@ -52,7 +50,7 @@ enum class RepetitionStrategy(val value: String) : RepetitionStrategyInterface {
         }
 
         override fun tickAgainst(path: BreadCrumb, value: Value, context: MatcherContext): ReturnValue<MatcherContext> {
-            return storeIntoItemsArray(path, value, context)
+            return storeIntoItemsArray(path, value, context.addToCurrentExhaustionChecks(path, value))
         }
     };
 
@@ -79,17 +77,19 @@ data class RepetitionMatcher(
 
     override fun rawExecute(context: MatcherContext): MatcherResult {
         if (times == -1) return MatcherResult.Success(context)
-        val valueToMatch = context.getValueToMatch(path).unwrapOrReturn {
-            return MatcherResult.from("Couldn't extract path $path", path)
+        val updatedContext = context.withUpdatedTimes(times)
+
+        val valueToMatch = updatedContext.getValueToMatch(path).unwrapOrReturn {
+            return MatcherResult.from("Couldn't extract path $path", path, updatedContext)
         }.getOrNull()
 
-        if (valueToMatch == null) return MatcherResult.from("Couldn't find value at path $path", path)
+        if (valueToMatch == null) return MatcherResult.from("Couldn't find value at path $path", path, updatedContext)
         val isExhausted = strategy.isExhausted(path, valueToMatch, context, times).unwrapOrReturn {
-            return MatcherResult.from(it.cast())
+            return MatcherResult.from(it.cast(), updatedContext)
         }
 
-        return if (isExhausted) MatcherResult.Exhausted
-        else MatcherResult.from(strategy.tickAgainst(path, valueToMatch, context))
+        val strategyUpdatedContext = strategy.tickAgainst(path, valueToMatch, updatedContext)
+        return MatcherResult.from(strategyUpdatedContext, updatedContext, isExhausted = isExhausted)
     }
 
     @MatcherKey("repeat")

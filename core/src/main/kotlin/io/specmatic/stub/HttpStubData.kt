@@ -117,7 +117,7 @@ data class HttpStubData(
         val scenario = scenario ?: return HasValue(sharedState)
 
         val context = MatcherContext.from(httpRequest, sharedState, scenario)
-        return requestMatcher.match(context).toReturnValue().realise(
+        return requestMatcher.match(context).checkOverArchingExhaustion().toReturnValue().realise(
             hasValue = { it, _ -> HasValue(it.finalizeSharedState()) },
             orFailure = { f -> f.cast() },
             orException = { e -> e.cast() },
