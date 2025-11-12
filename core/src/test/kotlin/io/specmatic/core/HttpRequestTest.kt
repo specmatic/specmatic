@@ -455,12 +455,14 @@ internal class HttpRequestTest {
             Arguments.of("/", 0),
             Arguments.of("/persons", 0),
             Arguments.of("/(string)", 1),
+            Arguments.of("/\$eq(A.B.C)", 1),
             Arguments.of("/persons/1", 0),
             Arguments.of("/persons/(string)", 1),
             Arguments.of("/persons/group/1", 0),
             Arguments.of("/persons/(string)/1", 1),
             Arguments.of("/persons/(string)/1/(string)", 2),
             Arguments.of("/persons/group/(string)/1/(string)", 2),
+            Arguments.of("/persons/group/\$eq(A.B.C)/1/\$eq(A.B.C)", 2),
         )
 
         @JvmStatic
@@ -470,12 +472,14 @@ internal class HttpRequestTest {
             Arguments.of("/", 1),
             Arguments.of("/persons", 2),
             Arguments.of("/(string)", 1),
+            Arguments.of("/\$eq(A.B.C)", 1),
             Arguments.of("/persons/1", 3),
             Arguments.of("/persons/(string)", 2),
             Arguments.of("/persons/group/1", 4),
             Arguments.of("/persons/(string)/1", 3),
             Arguments.of("/persons/(string)/1/(string)", 3),
             Arguments.of("/persons/group/(string)/1/(string)", 4),
+            Arguments.of("/persons/group/\$eq(A.B.C)/1/\$eq(A.B.C)", 4),
         )
 
         @JvmStatic
@@ -487,7 +491,7 @@ internal class HttpRequestTest {
             Arguments.of(mapOf("param1" to "value1", "param2" to "value2"), 2),
             Arguments.of(mapOf("param1" to "(string)", "param2" to "value2"), 1),
             Arguments.of(mapOf("param1" to "value1", "param2" to "(string)"), 1),
-            Arguments.of(mapOf("param1" to "(string)", "param2" to "(number)"), 0)
+            Arguments.of(mapOf("param1" to "value1", "param2" to "\$eq(A.B.C)"), 1),
         )
 
         @JvmStatic
@@ -498,6 +502,7 @@ internal class HttpRequestTest {
             Arguments.of(mapOf("Content-Type" to "application/json", "Accept" to "application/json"), 2),
             Arguments.of(mapOf("Content-Type" to "(string)", "Accept" to "application/json"), 1),
             Arguments.of(mapOf("Content-Type" to "application/json", "Accept" to "(string)"), 1),
+            Arguments.of(mapOf("Content-Type" to "application/json", "Accept" to "\$eq(A.B.C)"), 1),
             Arguments.of(mapOf("Content-Type" to "(string)", "Accept" to "(string)"), 0)
         )
 
@@ -506,6 +511,7 @@ internal class HttpRequestTest {
             Arguments.of(parsedJSONObject("""{"id": "10", "count": "10"}"""), 2),
             Arguments.of(parsedJSONObject("""{"id": "(string)", "count": "10"}"""), 1),
             Arguments.of(parsedJSONObject("""{"id": "10", "count": "(string)"}"""), 1),
+            Arguments.of(parsedJSONObject("""{"id": "10", "count": "${"$"}eq(A.B.C)"}"""), 1),
             Arguments.of(parsedJSONObject("""{"id": "(string)", "count": "(string)"}"""), 0),
 
             Arguments.of(StringValue("regular string"), 1),
@@ -522,6 +528,7 @@ internal class HttpRequestTest {
             Arguments.of(parsedJSONArray("""["10", "20"]"""), 2),
             Arguments.of(parsedJSONArray("""["(string)", "20"]"""), 1),
             Arguments.of(parsedJSONArray("""["10", "(string)"]"""), 1),
+            Arguments.of(parsedJSONArray("""["10", "${"$"}eq(A.B.C)"]"""), 1),
             Arguments.of(parsedJSONArray("""["(string)", "(string)"]"""), 0),
 
             Arguments.of(parsedJSONObject("""{"data": {"id": "10", "count": "10"}}"""), 2),
@@ -551,6 +558,14 @@ internal class HttpRequestTest {
                 mapOf("Content-Type" to "application/json", "Accept" to "(string)"), 
                 mapOf("param1" to "value1", "param2" to "(string)"), 
                 parsedJSONObject("""{"id": "10", "count": "(string)"}"""), 
+                5
+            ),
+
+            Arguments.of(
+                "/persons/\$eq(A.B.C)",
+                mapOf("Content-Type" to "application/json", "Accept" to "\$eq(A.B.C)"),
+                mapOf("param1" to "value1", "param2" to "\$eq(A.B.C)"),
+                parsedJSONObject("""{"id": "10", "count": "${"$"}eq(A.B.C)"}"""),
                 5
             ),
 

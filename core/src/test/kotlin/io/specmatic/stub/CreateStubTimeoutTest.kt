@@ -32,7 +32,7 @@ internal class CreateStubTimeoutTest {
         val configFile = File(javaClass.getResource("/create_stub_timeout/specmatic.json").toURI())
 
         val exception = assertThrows(ContractException::class.java) {
-            createStub(host = "localhost", port = 9001, timeoutMillis = 0L, givenConfigFileName = configFile.path)
+            createStub(host = "localhost", port = 9001, timeoutMillis = 0L, givenConfigFileName = configFile.path).use {}
         }
 
         assertThat(exception.message).contains("FATAL: Specmatic stub failed to start within 0 milliseconds")

@@ -432,9 +432,9 @@ data class HttpRequest(
     }
 
     val generality: Int by lazy {
-        val pathScore: Int = path?.split(URL_PATH_DELIMITER)?.count { StringValue(it).isPatternToken() } ?: 0
-        val headerScore: Int = headers.values.sumOf { if(isPatternToken(it)) 1 as Int else 0 }
-        val queryScore: Int = queryParams.paramPairs.sumOf { if(isPatternToken(it.second)) 1 as Int else 0 }
+        val pathScore: Int = path?.split(URL_PATH_DELIMITER)?.count { StringValue(it).isPatternOrMatcherToken() } ?: 0
+        val headerScore: Int = headers.values.sumOf { if(isPatternOrMatcherToken(it)) 1 as Int else 0 }
+        val queryScore: Int = queryParams.paramPairs.sumOf { if(isPatternOrMatcherToken(it.second)) 1 as Int else 0 }
         val bodyScore: Int = body.generality()
 
         pathScore + headerScore + queryScore + bodyScore
@@ -446,12 +446,12 @@ data class HttpRequest(
 
     internal fun bodySpecificity(): Int = body.specificity()
 
-    internal fun queryParamsSpecificity(): Int = queryParams.paramPairs.count { !isPatternToken(it.second) }
+    internal fun queryParamsSpecificity(): Int = queryParams.paramPairs.count { !isPatternOrMatcherToken(it.second) }
 
-    internal fun headerSpecificity(): Int = headers.values.count { !isPatternToken(it)}
+    internal fun headerSpecificity(): Int = headers.values.count { !isPatternOrMatcherToken(it)}
 
     internal fun pathSpecificity(): Int = (if (path == "/") "" else path)
-        ?.split(URL_PATH_DELIMITER)?.count { !StringValue(it).isPatternToken() } ?: 0
+        ?.split(URL_PATH_DELIMITER)?.count { !StringValue(it).isPatternOrMatcherToken() } ?: 0
 }
 
 private fun setIfNotEmpty(dest: MutableMap<String, Value>, key: String, data: Map<String, Any>) {
