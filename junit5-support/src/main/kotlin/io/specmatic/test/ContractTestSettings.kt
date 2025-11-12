@@ -6,6 +6,7 @@ import io.specmatic.core.loadSpecmaticConfig
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.readEnvVarOrProperty
 import io.specmatic.test.reports.TestReportListener
+import java.io.File
 
 data class ContractTestSettings(
     val testBaseURL: String?,
@@ -26,6 +27,10 @@ data class ContractTestSettings(
 
     fun getAdjustedConfig(): SpecmaticConfig? {
         if (configFile.isBlank()) return null
+
+        if (File(configFile).exists().not()) {
+            return null
+        }
 
         return adjust(loadSpecmaticConfig(configFile))
     }
