@@ -2,6 +2,7 @@ package io.specmatic.test
 
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.getConfigFilePath
+import io.specmatic.core.loadSpecmaticConfig
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.readEnvVarOrProperty
 import io.specmatic.test.reports.TestReportListener
@@ -22,6 +23,12 @@ data class ContractTestSettings(
         } else {
             specmaticConfig
         }
+
+    fun getAdjustedConfig(): SpecmaticConfig? {
+        if (configFile.isBlank()) return null
+
+        return adjust(loadSpecmaticConfig(configFile))
+    }
 
     internal constructor(contractTestSettings: ThreadLocal<ContractTestSettings?>) : this(
         testBaseURL = contractTestSettings.get()?.testBaseURL ?: System.getProperty(SpecmaticJUnitSupport.TEST_BASE_URL),

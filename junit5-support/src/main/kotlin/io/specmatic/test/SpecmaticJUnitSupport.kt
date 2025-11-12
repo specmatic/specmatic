@@ -56,7 +56,8 @@ open class SpecmaticJUnitSupport {
     private var startTime: Instant? = null
 
     private val specmaticConfig: SpecmaticConfig? =
-        settings.adjust(loadSpecmaticConfigOrNull(getConfigFilePath()))
+        settings.getAdjustedConfig()
+            ?: settings.adjust(loadSpecmaticConfigOrNull(getConfigFilePath()))
 
     private val testFilter = ScenarioMetadataFilter.from(settings.filter)
 
