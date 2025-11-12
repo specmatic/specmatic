@@ -22,7 +22,6 @@ data class MatcherContext(
     val resolver: Resolver = Resolver(),
     val maxTimes: Int = -1,
     private val matchOperator: JsonPointerOperator<*, *> = ObjectValueOperator(),
-    private val contextOperator: JsonPointerOperator<*, *> = ObjectValueOperator(),
     private val sharedOperator: ObjectValueOperator = ObjectValueOperator(),
     private val runSharedOperator: ObjectValueOperator = ObjectValueOperator()
 ) {

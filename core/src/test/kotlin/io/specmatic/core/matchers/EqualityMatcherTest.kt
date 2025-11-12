@@ -30,7 +30,7 @@ class EqualityMatcherTest {
         every { mockOperator.get("/name") } returns HasValue(Optional.Some(ValueOperator.from(StringValue("John"))))
         val context = MatcherContext(mockResolver, matchOperator = mockOperator)
 
-        val result = matcher.rawExecute(context)
+        val result = matcher.execute(context)
         assertThat(result).isInstanceOf(MatcherResult.Success::class.java)
     }
 
@@ -45,7 +45,7 @@ class EqualityMatcherTest {
         every { mockOperator.get("/name") } returns HasValue(Optional.Some(ValueOperator.from(StringValue("Jane"))))
         val context = MatcherContext(mockResolver, matchOperator = mockOperator)
 
-        val result = matcher.rawExecute(context)
+        val result = matcher.execute(context)
         assertThat(result).isInstanceOf(MatcherResult.MisMatch::class.java)
         assertThat((result as MatcherResult.MisMatch).failure.reportString()).contains("equal to", "John", "Jane")
     }
@@ -61,7 +61,7 @@ class EqualityMatcherTest {
         every { mockOperator.get("/status") } returns HasValue(Optional.Some(ValueOperator.from(StringValue("active"))))
         val context = MatcherContext(mockResolver, matchOperator = mockOperator)
 
-        val result = matcher.rawExecute(context)
+        val result = matcher.execute(context)
         assertThat(result).isInstanceOf(MatcherResult.Success::class.java)
     }
 
@@ -76,7 +76,7 @@ class EqualityMatcherTest {
         every { mockOperator.get("/status") } returns HasValue(Optional.Some(ValueOperator.from(StringValue("active"))))
         val context = MatcherContext(mockResolver, matchOperator = mockOperator)
 
-        val result = matcher.rawExecute(context)
+        val result = matcher.execute(context)
         assertThat(result).isInstanceOf(MatcherResult.MisMatch::class.java)
         assertThat((result as MatcherResult.MisMatch).failure.reportString()).contains("not equal to", "active")
     }
@@ -92,7 +92,7 @@ class EqualityMatcherTest {
         every { mockOperator.get("/missing") } returns HasFailure("Path not found")
         val context = MatcherContext(mockResolver, matchOperator = mockOperator)
 
-        val result = matcher.rawExecute(context)
+        val result = matcher.execute(context)
         assertThat(result).isInstanceOf(MatcherResult.MisMatch::class.java)
         assertThat((result as MatcherResult.MisMatch).failure.reportString()).contains("Couldn't extract path")
     }
@@ -108,7 +108,7 @@ class EqualityMatcherTest {
         every { mockOperator.get("/age") } returns HasValue(Optional.Some(ValueOperator.from(NumberValue(30))))
         val context = MatcherContext(mockResolver, matchOperator = mockOperator)
 
-        val result = matcher.rawExecute(context)
+        val result = matcher.execute(context)
         assertThat(result).isInstanceOf(MatcherResult.Success::class.java)
     }
 

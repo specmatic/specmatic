@@ -36,7 +36,7 @@ data class EqualityMatcher(val path: BreadCrumb, val value: Value, val strategy:
         return listOf(this)
     }
 
-    override fun rawExecute(context: MatcherContext): MatcherResult {
+    override fun execute(context: MatcherContext): MatcherResult {
         val valueToMatch = context.getValueToMatch(path).unwrapOrReturn {
             return MatcherResult.from("Couldn't extract path $path", path, context)
         }.getOrNull()

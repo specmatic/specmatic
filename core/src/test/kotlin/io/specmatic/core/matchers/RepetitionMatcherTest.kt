@@ -28,7 +28,7 @@ class RepetitionMatcherTest {
         )
 
         val context = MatcherContext(mockResolver, matchOperator = mockOperator)
-        val result = matcher.rawExecute(context)
+        val result = matcher.execute(context)
         assertThat(result).isInstanceOf(MatcherResult.Success::class.java)
     }
 
@@ -51,7 +51,7 @@ class RepetitionMatcherTest {
             every { mockContext.addToCurrentExhaustionChecks(any(), any()) } returns mockContext
             every { mockContext.appendToJsonArray(BreadCrumb.from("/items.RepetitionMatcher"), markerValue) } returns HasValue(mockContext)
 
-            matcher.rawExecute(mockContext)
+            matcher.execute(mockContext)
             verify { mockContext.appendToJsonArray(BreadCrumb.from("/items.RepetitionMatcher"), markerValue) }
         }
 
@@ -72,7 +72,7 @@ class RepetitionMatcherTest {
             every { mockContext.addToCurrentExhaustionChecks(any(), any()) } returns mockContext
             every { mockContext.appendToJsonArray(BreadCrumb.from("/status.RepetitionMatcher"), targetValue) } returns HasValue(mockContext)
 
-            matcher.rawExecute(mockContext)
+            matcher.execute(mockContext)
             verify { mockContext.appendToJsonArray(BreadCrumb.from("/status.RepetitionMatcher"), targetValue) }
         }
 
@@ -93,7 +93,7 @@ class RepetitionMatcherTest {
             every { mockContext.addToCurrentExhaustionChecks(any(), any()) } returns mockContext
             every { mockContext.appendToJsonArray(any(), any()) } returns HasValue(mockContext)
 
-            val result = matcher.rawExecute(mockContext)
+            val result = matcher.execute(mockContext)
             verify { mockContext.getJsonArray(BreadCrumb.from("/items.RepetitionMatcher")) }
             assertThat(result).isInstanceOf(MatcherResult.Success::class.java)
         }
@@ -118,7 +118,7 @@ class RepetitionMatcherTest {
             every { mockContext.addToCurrentExhaustionChecks(BreadCrumb.from("/items"), markerValue) } returns mockContext
             every { mockContext.appendToJsonArray(any(), any()) } returns HasValue(mockContext)
 
-            matcher.rawExecute(mockContext)
+            matcher.execute(mockContext)
             verify { mockContext.addToCurrentExhaustionChecks(BreadCrumb.from("/items"), markerValue) }
         }
 
@@ -139,7 +139,7 @@ class RepetitionMatcherTest {
             every { mockContext.addToCurrentExhaustionChecks(BreadCrumb.from("/status"), targetValue) } returns mockContext
             every { mockContext.appendToJsonArray(any(), any()) } returns HasValue(mockContext)
 
-            matcher.rawExecute(mockContext)
+            matcher.execute(mockContext)
             verify { mockContext.addToCurrentExhaustionChecks(BreadCrumb.from("/status"), targetValue) }
         }
 
@@ -161,7 +161,7 @@ class RepetitionMatcherTest {
             every { mockContext.addToCurrentExhaustionChecks(BreadCrumb.from("/items"), markerValue) } returns updatedContext
             every { updatedContext.appendToJsonArray(BreadCrumb.from("/items.RepetitionMatcher"), markerValue) } returns HasValue(updatedContext)
 
-            matcher.rawExecute(mockContext)
+            matcher.execute(mockContext)
             verify(exactly = 1) { mockContext.addToCurrentExhaustionChecks(BreadCrumb.from("/items"), markerValue) }
             verify(exactly = 1) { updatedContext.appendToJsonArray(BreadCrumb.from("/items.RepetitionMatcher"), markerValue) }
         }
@@ -186,7 +186,7 @@ class RepetitionMatcherTest {
             every { mockContext.appendToJsonArray(any(), any()) } returns HasValue(mockContext)
             every { mockContext.addToCurrentExhaustionChecks(any(), any()) } returns mockContext
 
-            val result = matcher.rawExecute(mockContext)
+            val result = matcher.execute(mockContext)
             assertThat(result).isInstanceOf(MatcherResult.Exhausted::class.java)
         }
 
@@ -207,7 +207,7 @@ class RepetitionMatcherTest {
             every { mockContext.appendToJsonArray(any(), any()) } returns HasValue(mockContext)
             every { mockContext.addToCurrentExhaustionChecks(any(), any()) } returns mockContext
 
-            val result = matcher.rawExecute(mockContext)
+            val result = matcher.execute(mockContext)
             assertThat(result).isInstanceOf(MatcherResult.Success::class.java)
         }
     }
@@ -233,7 +233,7 @@ class RepetitionMatcherTest {
             every { mockContext.appendToJsonArray(any(), any()) } returns HasValue(mockContext)
             every { mockContext.addToCurrentExhaustionChecks(any(), any()) } returns mockContext
 
-            val result = matcher.rawExecute(mockContext)
+            val result = matcher.execute(mockContext)
             assertThat(result).isInstanceOf(MatcherResult.Exhausted::class.java)
         }
 
@@ -260,7 +260,7 @@ class RepetitionMatcherTest {
             every { mockContext.appendToJsonArray(any(), any()) } returns HasValue(mockContext)
             every { mockContext.addToCurrentExhaustionChecks(any(), any()) } returns mockContext
 
-            val result = matcher.rawExecute(mockContext)
+            val result = matcher.execute(mockContext)
             assertThat(result).isInstanceOf(MatcherResult.Success::class.java)
         }
     }
@@ -277,7 +277,7 @@ class RepetitionMatcherTest {
         every { mockContext.withUpdatedTimes(1) } returns mockContext
         every { mockContext.getValueToMatch(BreadCrumb.from("/missing")) } returns HasFailure("Path not found")
 
-        val result = matcher.rawExecute(mockContext)
+        val result = matcher.execute(mockContext)
         assertThat(result).isInstanceOf(MatcherResult.MisMatch::class.java)
     }
 
@@ -293,7 +293,7 @@ class RepetitionMatcherTest {
         every { mockContext.withUpdatedTimes(1) } returns mockContext
         every { mockContext.getValueToMatch(BreadCrumb.from("/field")) } returns HasValue(Optional.None)
 
-        val result = matcher.rawExecute(mockContext)
+        val result = matcher.execute(mockContext)
         assertThat(result).isInstanceOf(MatcherResult.MisMatch::class.java)
     }
 

@@ -24,8 +24,8 @@ class CompositeMatcherTest {
 
         every { matcher1.canBeExhausted } returns false
         every { matcher2.canBeExhausted } returns false
-        every { matcher1.rawExecute(any()) } returns MatcherResult.Success(MatcherContext(mockResolver))
-        every { matcher2.rawExecute(any()) } returns MatcherResult.Success(MatcherContext(mockResolver))
+        every { matcher1.execute(any()) } returns MatcherResult.Success(MatcherContext(mockResolver))
+        every { matcher2.execute(any()) } returns MatcherResult.Success(MatcherContext(mockResolver))
 
         val compositeMatcher = CompositeMatcher(
             path = BreadCrumb.from("/test"),
@@ -33,7 +33,7 @@ class CompositeMatcherTest {
         )
 
         val context = MatcherContext(mockResolver, matchOperator = mockOperator)
-        val result = compositeMatcher.rawExecute(context)
+        val result = compositeMatcher.execute(context)
         assertThat(result).isInstanceOf(MatcherResult.Success::class.java)
     }
 
@@ -44,8 +44,8 @@ class CompositeMatcherTest {
 
         every { nonExhaustiveMatcher.canBeExhausted } returns false
         every { exhaustiveMatcher.canBeExhausted } returns true
-        every { nonExhaustiveMatcher.rawExecute(any()) } returns MatcherResult.Success(MatcherContext(mockResolver))
-        every { exhaustiveMatcher.rawExecute(any()) } returns MatcherResult.Exhausted(MatcherContext(mockResolver))
+        every { nonExhaustiveMatcher.execute(any()) } returns MatcherResult.Success(MatcherContext(mockResolver))
+        every { exhaustiveMatcher.execute(any()) } returns MatcherResult.Exhausted(MatcherContext(mockResolver))
 
         val compositeMatcher = CompositeMatcher(
             path = BreadCrumb.from("/test"),
@@ -53,7 +53,7 @@ class CompositeMatcherTest {
         )
 
         val context = MatcherContext(mockResolver, matchOperator = mockOperator)
-        val result = compositeMatcher.rawExecute(context)
+        val result = compositeMatcher.execute(context)
         assertThat(result).isInstanceOf(MatcherResult.Exhausted::class.java)
     }
 
@@ -64,7 +64,7 @@ class CompositeMatcherTest {
 
         every { nonExhaustiveMatcher.canBeExhausted } returns false
         every { exhaustiveMatcher.canBeExhausted } returns true
-        every { nonExhaustiveMatcher.rawExecute(any()) } returns MatcherResult.MisMatch(
+        every { nonExhaustiveMatcher.execute(any()) } returns MatcherResult.MisMatch(
             Result.Failure("Non-exhaustive failed"), MatcherContext(mockResolver, matchOperator = mockOperator),
         )
 
@@ -74,7 +74,7 @@ class CompositeMatcherTest {
         )
 
         val context = MatcherContext(mockResolver, matchOperator = mockOperator)
-        val result = compositeMatcher.rawExecute(context)
+        val result = compositeMatcher.execute(context)
 
         assertThat(result).isInstanceOf(MatcherResult.MisMatch::class.java)
     }
@@ -86,8 +86,8 @@ class CompositeMatcherTest {
 
         every { exhaustiveMatcher1.canBeExhausted } returns true
         every { exhaustiveMatcher2.canBeExhausted } returns true
-        every { exhaustiveMatcher1.rawExecute(any()) } returns MatcherResult.Success(MatcherContext(mockResolver))
-        every { exhaustiveMatcher2.rawExecute(any()) } returns MatcherResult.Exhausted(MatcherContext(mockResolver))
+        every { exhaustiveMatcher1.execute(any()) } returns MatcherResult.Success(MatcherContext(mockResolver))
+        every { exhaustiveMatcher2.execute(any()) } returns MatcherResult.Exhausted(MatcherContext(mockResolver))
 
         val compositeMatcher = CompositeMatcher(
             path = BreadCrumb.from("/test"),
@@ -95,7 +95,7 @@ class CompositeMatcherTest {
         )
 
         val context = MatcherContext(mockResolver, matchOperator = mockOperator)
-        val result = compositeMatcher.rawExecute(context)
+        val result = compositeMatcher.execute(context)
 
         assertThat(result).isInstanceOf(MatcherResult.Exhausted::class.java)
     }
@@ -107,8 +107,8 @@ class CompositeMatcherTest {
 
         every { exhaustiveMatcher1.canBeExhausted } returns true
         every { exhaustiveMatcher2.canBeExhausted } returns true
-        every { exhaustiveMatcher1.rawExecute(any()) } returns MatcherResult.Success(MatcherContext(mockResolver))
-        every { exhaustiveMatcher2.rawExecute(any()) } returns MatcherResult.Success(MatcherContext(mockResolver))
+        every { exhaustiveMatcher1.execute(any()) } returns MatcherResult.Success(MatcherContext(mockResolver))
+        every { exhaustiveMatcher2.execute(any()) } returns MatcherResult.Success(MatcherContext(mockResolver))
 
         val compositeMatcher = CompositeMatcher(
             path = BreadCrumb.from("/test"),
@@ -116,7 +116,7 @@ class CompositeMatcherTest {
         )
 
         val context = MatcherContext(mockResolver, matchOperator = mockOperator)
-        val result = compositeMatcher.rawExecute(context)
+        val result = compositeMatcher.execute(context)
         assertThat(result).isInstanceOf(MatcherResult.Success::class.java)
     }
 

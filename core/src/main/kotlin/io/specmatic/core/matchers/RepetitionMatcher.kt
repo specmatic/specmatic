@@ -75,7 +75,7 @@ data class RepetitionMatcher(
         return listOf(this)
     }
 
-    override fun rawExecute(context: MatcherContext): MatcherResult {
+    override fun execute(context: MatcherContext): MatcherResult {
         if (times == -1) return MatcherResult.Success(context)
         val updatedContext = context.withUpdatedTimes(times)
 
