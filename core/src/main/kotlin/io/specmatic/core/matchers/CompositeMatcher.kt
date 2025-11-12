@@ -16,8 +16,8 @@ data class CompositeMatcher(
 
     override fun match(context: MatcherContext): MatcherResult {
         val dynamicMatchers = this.createDynamicMatchers(context)
-        return executeMany(dynamicMatchers, context) { matcher, accContext ->
-            matcher.rawExecute(accContext)
+        return fold(dynamicMatchers, context) { matcher, accContext ->
+            matcher.execute(accContext)
         }
     }
 
@@ -26,16 +26,16 @@ data class CompositeMatcher(
         return listOf(this)
     }
 
-    override fun rawExecute(context: MatcherContext): MatcherResult {
+    override fun execute(context: MatcherContext): MatcherResult {
         val (exhaustiveMatchers, nonExhaustiveMatchers) = matchers.partition { it.canBeExhausted }
-        val nonExhaustiveResult = executeMany(nonExhaustiveMatchers, context) { matcher, accContext ->
-            matcher.rawExecute(accContext)
+        val nonExhaustiveResult = fold(nonExhaustiveMatchers, context) { matcher, accContext ->
+            matcher.execute(accContext)
         }
 
         if (nonExhaustiveResult !is MatcherResult.Success) return nonExhaustiveResult
         val newContext = nonExhaustiveResult.context
-        return executeManyAny(exhaustiveMatchers, newContext) { matcher, accContext ->
-            matcher.rawExecute(accContext)
+        return foldAny(exhaustiveMatchers, newContext) { matcher, accContext ->
+            matcher.execute(accContext)
         }
     }
 

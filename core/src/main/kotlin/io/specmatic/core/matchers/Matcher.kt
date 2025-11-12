@@ -17,16 +17,16 @@ interface Matcher {
 
     fun match(context: MatcherContext): MatcherResult {
         val dynamicMatchers = this.createDynamicMatchers(context)
-        return executeMany(dynamicMatchers, context) { matcher, accContext ->
-            matcher.rawExecute(accContext)
+        return fold(dynamicMatchers, context) { matcher, accContext ->
+            matcher.execute(accContext)
         }
     }
 
     fun createDynamicMatchers(context: MatcherContext): List<Matcher>
 
-    fun rawExecute(context: MatcherContext): MatcherResult
+    fun execute(context: MatcherContext): MatcherResult
 
-    fun <T : Matcher> executeMany(matchers: List<T>, context: MatcherContext, onEach: (T, MatcherContext) -> MatcherResult): MatcherResult {
+    fun <T : Matcher> fold(matchers: List<T>, context: MatcherContext, onEach: (T, MatcherContext) -> MatcherResult): MatcherResult {
         if (matchers.isEmpty()) return MatcherResult.Success(context)
         return matchers.fold(MatcherResult.Success(context) as MatcherResult) { accResult, matcher ->
             val result = onEach(matcher, accResult.context)
@@ -34,7 +34,7 @@ interface Matcher {
         }
     }
 
-    fun <T : Matcher> executeManyAny(matchers: List<T>, context: MatcherContext, onEach: (T, MatcherContext) -> MatcherResult): MatcherResult {
+    fun <T : Matcher> foldAny(matchers: List<T>, context: MatcherContext, onEach: (T, MatcherContext) -> MatcherResult): MatcherResult {
         if (matchers.isEmpty()) return MatcherResult.Success(context)
         return matchers.fold(MatcherResult.Exhausted(context) as MatcherResult) { accResult, matcher ->
             val result = onEach(matcher, accResult.context)

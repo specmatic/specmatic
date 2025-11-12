@@ -30,7 +30,7 @@ class PatternMatcherTest {
         every { mockOperator.get("/email") } returns HasValue(Optional.Some(ValueOperator.from(StringValue("test@example.com"))))
         val context = MatcherContext(Resolver(), matchOperator = mockOperator)
 
-        val result = matcher.rawExecute(context)
+        val result = matcher.execute(context)
         assertThat(result).isInstanceOf(MatcherResult.Success::class.java)
     }
 
@@ -45,7 +45,7 @@ class PatternMatcherTest {
         every { mockOperator.get("/email") } returns HasValue(Optional.Some(ValueOperator.from(StringValue("invalid"))))
         val context = MatcherContext(Resolver(), matchOperator = mockOperator)
 
-        val result = matcher.rawExecute(context)
+        val result = matcher.execute(context)
         assertThat(result).isInstanceOf(MatcherResult.MisMatch::class.java)
         assertThat((result as MatcherResult.MisMatch).failure.reportString()).contains("Expected email string")
     }
@@ -67,7 +67,7 @@ class PatternMatcherTest {
         every { mockOperator.get("/field") } returns HasValue(Optional.Some(ValueOperator.from(StringValue("test"))))
         val context = MatcherContext(mockResolver, matchOperator = mockOperator)
 
-        val result = matcher.rawExecute(context)
+        val result = matcher.execute(context)
         assertThat(result).isInstanceOf(MatcherResult.Success::class.java)
     }
 
@@ -82,7 +82,7 @@ class PatternMatcherTest {
         every { mockOperator.get("/missing") } returns HasFailure("Path not found")
         val context = MatcherContext(mockResolver, matchOperator = mockOperator)
 
-        val result = matcher.rawExecute(context)
+        val result = matcher.execute(context)
         assertThat(result).isInstanceOf(MatcherResult.MisMatch::class.java)
         assertThat((result as MatcherResult.MisMatch).failure.reportString()).contains("Couldn't extract path")
     }
@@ -98,7 +98,7 @@ class PatternMatcherTest {
         every { mockOperator.get("/field") } returns HasValue(Optional.None)
         val context = MatcherContext(mockResolver, matchOperator = mockOperator)
 
-        val result = matcher.rawExecute(context)
+        val result = matcher.execute(context)
         assertThat(result).isInstanceOf(MatcherResult.MisMatch::class.java)
         assertThat((result as MatcherResult.MisMatch).failure.reportString()).contains("Couldn't find value at path")
     }

@@ -66,8 +66,8 @@ data class HttpStubData(
         httpRequest: HttpRequest,
         mismatchMessages: MismatchMessages = StubAndRequestMismatchMessages,
     ): Result {
-        val contractResult = matchesContract(httpRequest, mismatchMessages)
-        if (contractResult is Result.Failure) return contractResult
+        val exampleMatchResult = matchExample(httpRequest, mismatchMessages)
+        if (exampleMatchResult is Result.Failure) return exampleMatchResult
 
         sharedState.rollback()
         val updatedSharedState = matchesMatcher(httpRequest).unwrapOrReturn { return it.toFailure() }
@@ -100,7 +100,7 @@ data class HttpStubData(
         }
     }
 
-    private fun matchesContract(
+    private fun matchExample(
         httpRequest: HttpRequest,
         mismatchMessages: MismatchMessages = StubAndRequestMismatchMessages,
     ): Result {
