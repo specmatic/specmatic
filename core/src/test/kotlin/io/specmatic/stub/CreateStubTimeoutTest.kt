@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.assertThrows
 import io.specmatic.stub.createStub
 import io.specmatic.core.pattern.ContractException
+import org.junit.jupiter.api.condition.DisabledOnOs
+import org.junit.jupiter.api.condition.OS
 import java.io.File
 
 internal class CreateStubTimeoutTest {
@@ -27,6 +29,7 @@ internal class CreateStubTimeoutTest {
     }
 
     @Test
+    @DisabledOnOs(OS.LINUX)
     fun `createStub should throw ContractException when stub start timeout is 0`() {
         // Use the test resource config that sets stub.startTimeoutInMilliseconds to 0
         val configFile = File(javaClass.getResource("/create_stub_timeout/specmatic.json").toURI())

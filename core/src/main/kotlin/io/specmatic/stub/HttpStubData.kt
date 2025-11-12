@@ -6,7 +6,9 @@ import io.specmatic.core.log.logger
 import io.specmatic.core.matchers.CompositeMatcher
 import io.specmatic.core.matchers.Matcher
 import io.specmatic.core.matchers.MatcherContext
+import io.specmatic.core.matchers.MatcherResult
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.pattern.HasFailure
 import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.ReturnValue
 import io.specmatic.core.pattern.attempt
@@ -117,11 +119,15 @@ data class HttpStubData(
         val scenario = scenario ?: return HasValue(sharedState)
 
         val context = MatcherContext.from(httpRequest, sharedState, scenario)
-        return requestMatcher.match(context).checkOverArchingExhaustion().toReturnValue().realise(
-            hasValue = { it, _ -> HasValue(it.finalizeSharedState()) },
-            orFailure = { f -> f.cast() },
-            orException = { e -> e.cast() },
-        )
+        return when (val result = requestMatcher.match(context).checkOverArchingExhaustion()) {
+            is MatcherResult.Success -> HasValue(result.context.finalizeSharedState())
+            is MatcherResult.MisMatch -> HasFailure(result.failure)
+            is MatcherResult.Exhausted -> if (this.stubToken != null) {
+                HasFailure("transient http mock data matchers have been exhausted")
+            } else {
+                HasValue(result.context.finalizeSharedState())
+            }
+        }
     }
 
     private fun buildMatcherFromRequest(): CompositeMatcher? {

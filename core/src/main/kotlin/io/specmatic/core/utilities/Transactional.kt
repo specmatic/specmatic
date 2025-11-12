@@ -2,7 +2,7 @@ package io.specmatic.core.utilities
 
 import java.util.concurrent.atomic.AtomicReference
 
-data class TransactionalState<T>(val committed: T, val working: T, val isDirty: Boolean)
+private data class TransactionalState<T>(val committed: T, val working: T, val isDirty: Boolean)
 
 class Transactional<T>(initial: T) {
     private val state = AtomicReference(TransactionalState(committed = initial, working = initial, isDirty = false))
