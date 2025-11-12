@@ -61,7 +61,7 @@ jobs:
             -H "Authorization: Bearer ${SPECMATIC_GITHUB_TOKEN}" \
             -H "Accept: application/vnd.github+json" \
               https://api.github.com/repos/specmatic/specmatic-node/actions/workflows/update-specmatic-version-and-publish.yml/dispatches \
-              -d '{"ref":"main","inputs":{"specmatic-core-version":"'"${RELEASE_VERSION}"'"}}'
+              -d '{"ref":"master","inputs":{"specmatic-core-version":"'"${RELEASE_VERSION}"'"}}'
 
           echo "Bumping version to $RELEASE_VERSION in specmatic-python-extensions (python wrapper for specmatic)"
 
