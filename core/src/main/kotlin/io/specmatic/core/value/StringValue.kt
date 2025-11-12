@@ -4,7 +4,6 @@ import io.specmatic.core.ExampleDeclarations
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.*
 import io.ktor.http.*
-import io.specmatic.test.ExampleProcessor
 import org.w3c.dom.Document
 import org.w3c.dom.Node
 
@@ -50,13 +49,14 @@ data class StringValue(val string: String = "") : Value, ScalarValue, XMLValue {
 
     fun isPatternToken(): Boolean = isPatternToken(string.trim())
     fun isMatcherToken(): Boolean = isMatcherToken(string.trim())
+    fun isPatternOrMatcherToken(): Boolean = isPatternToken() || isMatcherToken()
     fun trimmed(): StringValue = StringValue(string.trim())
 
     override fun generality(): Int {
-        return if(isPatternToken(string)) 1 else 0
+        return if(isPatternOrMatcherToken(string)) 1 else 0
     }
 
     override fun specificity(): Int {
-        return if(!isPatternToken(string)) 1 else 0
+        return if(!isPatternOrMatcherToken(string)) 1 else 0
     }
 }
