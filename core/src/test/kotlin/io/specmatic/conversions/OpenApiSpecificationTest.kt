@@ -3084,7 +3084,7 @@ Scenario: Get product by id
                     content:
                       application/json:
                         schema:
-                          ${"$"}ref: '#/components/schemas/Data1_RequestBody'
+                          ${"$"}ref: '#/components/schemas/Data1_POST_RequestBody'
                     required: true
                   responses:
                     200:
@@ -3097,21 +3097,21 @@ Scenario: Get product by id
                     content:
                       application/json:
                         schema:
-                          ${"$"}ref: '#/components/schemas/Data2_RequestBody'
+                          ${"$"}ref: '#/components/schemas/Data2_POST_RequestBody'
                     required: true
                   responses:
                     200:
                       description: API 2
             components:
               schemas:
-                Data1_RequestBody:
+                Data1_POST_RequestBody:
                   required:
                   - hello
                   type: object
                   properties:
                     hello:
                       type: string
-                Data2_RequestBody:
+                Data2_POST_RequestBody:
                   required:
                   - world
                   type: object
@@ -3184,14 +3184,14 @@ Scenario: Get product by id
                     content:
                       application/json:
                         schema:
-                          ${"$"}ref: '#/components/schemas/Data_RequestBody'
+                          ${"$"}ref: '#/components/schemas/Data_POST_RequestBody'
                     required: true
                   responses:
                     200:
                       description: API 1
             components:
               schemas:
-                Data_RequestBody:
+                Data_POST_RequestBody:
                   required:
                   - hello
                   type: object
@@ -3267,7 +3267,7 @@ Scenario: Get product by id
                     content:
                       application/json:
                         schema:
-                          ${"$"}ref: '#/components/schemas/Data_RequestBody'
+                          ${"$"}ref: '#/components/schemas/Data_POST_RequestBody'
                     required: true
                   responses:
                     200:
@@ -3281,7 +3281,7 @@ Scenario: Get product by id
                   properties:
                     world:
                       type: string
-                Data_RequestBody:
+                Data_POST_RequestBody:
                   required:
                   - hello
                   type: object
@@ -3359,7 +3359,7 @@ Scenario: Get product by id
                     content:
                       application/json:
                         schema:
-                          ${"$"}ref: '#/components/schemas/Data_RequestBody'
+                          ${"$"}ref: '#/components/schemas/Data_POST_RequestBody'
                     required: true
                   responses:
                     200:
@@ -3373,7 +3373,7 @@ Scenario: Get product by id
                   properties:
                     world:
                       type: string
-                Data_RequestBody:
+                Data_POST_RequestBody:
                   required:
                   - hello
                   type: object
@@ -6206,14 +6206,14 @@ paths:
                     content:
                       application/json:
                         schema:
-                          ${"$"}ref: '#/components/schemas/1_RequestBody'
+                          ${"$"}ref: '#/components/schemas/Data_ID_POST_RequestBody'
                     required: true
                   responses:
                     200:
                       description: API 1
             components:
               schemas:
-                1_RequestBody:
+                Data_ID_POST_RequestBody:
                   required:
                   - hello
                   type: object
@@ -6276,14 +6276,14 @@ paths:
                     content:
                       application/json:
                         schema:
-                          ${"$"}ref: '#/components/schemas/1_RequestBody'
+                          ${"$"}ref: '#/components/schemas/Data_ID_POST_RequestBody'
                     required: true
                   responses:
                     200:
                       description: API 1
             components:
               schemas:
-                1_RequestBody:
+                Data_ID_POST_RequestBody:
                   required:
                   - hello
                   type: object

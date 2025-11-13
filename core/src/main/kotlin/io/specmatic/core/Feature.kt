@@ -1136,34 +1136,14 @@ data class Feature(
     }
 
     private fun toOpenAPIURLPrefixMap(urls: List<String>): Map<String, String> {
-        val normalisedURL = urls.map { url ->
-            val path =
-                url.removeSuffix("/").removePrefix("http://").removePrefix("https://").split("/").joinToString("/") {
-                    if (it.toIntOrNull() != null)
-                        "1"
-                    else
-                        it
+        return urls.associateWith { url ->
+            url.removeSuffix("/").removePrefix("http://").removePrefix("https://")
+                .split("/").filterNot { it.isEmpty() }
+                .joinToString("_") { segment ->
+                    if (segment.toIntOrNull() != null) "ID"
+                    else segment.capitalizeFirstChar()
                 }
-            path.let { if(it.startsWith("/")) it else "/$it"}
-        }.distinct()
-
-        val minLength = normalisedURL.minOfOrNull {
-            it.split("/").size
-        } ?: throw ContractException("No schema namespaces found")
-
-        val segmentCount = 1.until(minLength + 1).first { length ->
-            val segments = normalisedURL.map { url ->
-                url.split("/").filterNot { it.isEmpty() }.takeLast(length).joinToString("_")
-            }
-
-            segments.toSet().size == urls.size
         }
-
-        val prefixes = normalisedURL.map { url ->
-            url.split("/").filterNot { it.isEmpty() }.takeLast(segmentCount).joinToString("_") { it.capitalizeFirstChar() }
-        }
-
-        return urls.zip(prefixes).toMap()
     }
 
     fun toOpenApi(): OpenAPI {
@@ -1183,7 +1163,7 @@ data class Feature(
 
         fun normalize(url: String): String = url.replace('{', '_').replace('}', '_').split("/").joinToString("/") {
             if(it.toIntOrNull() != null)
-                "1"
+                "ID"
             else
                 it
         }.let { if(it.startsWith("/")) it else "/$it"}
@@ -1196,70 +1176,72 @@ data class Feature(
 
         val payloadAdjustedScenarios: List<Scenario> = scenarios.map { rawScenario ->
             val prefix = urlPrefixMap.getValue(normalize(rawScenario.httpRequestPattern.httpPathPattern?.path!!))
+            var scenario = updateScenarioContentTypeFromPattern(rawScenario)
 
-            var scenario = rawScenario
+            if (hasBodyJsonPattern(scenario.httpRequestPattern.body, scenario.resolver)) {
+                val requestBody = scenario.httpRequestPattern.body
+                val oldTypeName = requestBody.typeAlias ?: "(RequestBody)"
+                val newTypeName = jsonPatternToUniqueName(
+                    prefix = prefix,
+                    pattern = requestBody,
+                    method = scenario.method,
+                    contentType = scenario.httpRequestPattern.headersPattern.contentType,
+                ).let(::withPatternDelimiters)
 
-            if (
-                scenario.httpRequestPattern.body.let {
-                    it is DeferredPattern && it.pattern == "(RequestBody)" && isJSONPayload(
-                        it.resolvePattern(scenario.resolver)
-                    )
-                }) {
-                val requestBody = scenario.httpRequestPattern.body as DeferredPattern
-                val oldTypeName = requestBody.pattern
-                val newTypeName = "(${prefix}_${withoutPatternDelimiters(oldTypeName)})"
-                val newRequestBody = requestBody.copy(pattern = newTypeName)
-
-                val type = scenario.patterns.getValue(oldTypeName)
-                val newTypes = scenario.patterns.minus(oldTypeName).plus(newTypeName to type)
-
-                scenario = scenario.copy(
-                    patterns = newTypes,
-                    httpRequestPattern = scenario.httpRequestPattern.copy(
-                        body = newRequestBody,
-                        httpPathPattern = toPathPatternWithId(scenario.httpRequestPattern.httpPathPattern)
-                    )
-                )
-            }
-
-            if (
-                scenario.httpResponsePattern.body.let {
-                    it is DeferredPattern && it.pattern == "(ResponseBody)" && isJSONPayload(
-                        it.resolvePattern(scenario.resolver)
-                    )
-                }) {
-                val responseBody = scenario.httpResponsePattern.body as DeferredPattern
-                val oldTypeName = responseBody.pattern
-                val newTypeName = "(${prefix}_${withoutPatternDelimiters(oldTypeName)})"
-                val newResponseBody = responseBody.copy(pattern = newTypeName)
-
-                val type = scenario.patterns.getValue(oldTypeName)
-                val newTypes = scenario.patterns.minus(oldTypeName).plus(newTypeName to type)
-
+                val newRequestBody = updateJsonPatternName(requestBody, newTypeName)
+                val newTypes = scenario.patterns[oldTypeName]?.let {
+                    scenario.patterns.minus(oldTypeName).plus(newTypeName to it)
+                } ?: scenario.patterns
 
                 scenario = scenario.copy(
                     patterns = newTypes,
-                    httpResponsePattern = scenario.httpResponsePattern.copy(
-                        body = newResponseBody
-                    )
+                    httpRequestPattern = scenario.httpRequestPattern.copy(body = newRequestBody),
                 )
             }
 
-            updateScenarioContentTypeFromPattern(scenario)
+            if (hasBodyJsonPattern(scenario.httpResponsePattern.body, scenario.resolver)) {
+                val responseBody = scenario.httpResponsePattern.body
+                val oldTypeName = responseBody.typeAlias ?: "(ResponseBody)"
+                val newTypeName = jsonPatternToUniqueName(
+                    prefix = prefix,
+                    pattern = responseBody,
+                    status = scenario.status,
+                    method = scenario.method,
+                    contentType = scenario.httpResponsePattern.headersPattern.contentType,
+                ).let(::withPatternDelimiters)
+
+                val newResponseBody = updateJsonPatternName(responseBody, newTypeName)
+                val newTypes = scenario.patterns[oldTypeName]?.let {
+                    scenario.patterns.minus(oldTypeName).plus(newTypeName to it)
+                } ?: scenario.patterns
+
+                scenario = scenario.copy(
+                    patterns = newTypes,
+                    httpResponsePattern = scenario.httpResponsePattern.copy(body = newResponseBody),
+                )
+            }
+
+            scenario.copy(
+                httpRequestPattern = scenario.httpRequestPattern.copy(
+                    httpPathPattern = scenario.httpRequestPattern.httpPathPattern?.let(::toPathPatternWithId)
+                )
+            )
         }
 
         val rawCombinedScenarios = payloadAdjustedScenarios.fold(emptyList<Scenario>()) { acc, payloadAdjustedScenario ->
-            val scenarioWithSameURLAndPath = acc.find { alreadyCombinedScenario: Scenario ->
+            val scenarioWithSameIdentifiers = acc.find { alreadyCombinedScenario: Scenario ->
                 similarURLPath(alreadyCombinedScenario, payloadAdjustedScenario)
-                        && alreadyCombinedScenario.httpRequestPattern.method == payloadAdjustedScenario.httpRequestPattern.method
-                        && alreadyCombinedScenario.httpResponsePattern.status == payloadAdjustedScenario.httpResponsePattern.status
+                    && alreadyCombinedScenario.httpRequestPattern.method == payloadAdjustedScenario.httpRequestPattern.method
+                    && alreadyCombinedScenario.httpResponsePattern.status == payloadAdjustedScenario.httpResponsePattern.status
+                    && alreadyCombinedScenario.requestContentType == payloadAdjustedScenario.requestContentType
+                    && alreadyCombinedScenario.responseContentType == payloadAdjustedScenario.responseContentType
             }
 
-            if (scenarioWithSameURLAndPath == null)
+            if (scenarioWithSameIdentifiers == null)
                 acc.plus(payloadAdjustedScenario)
             else {
-                val combined = combine(scenarioWithSameURLAndPath, payloadAdjustedScenario)
-                acc.minus(scenarioWithSameURLAndPath).plus(combined)
+                val combined = combine(scenarioWithSameIdentifiers, payloadAdjustedScenario)
+                acc.minus(scenarioWithSameIdentifiers).plus(combined)
             }
         }
 
@@ -1274,6 +1256,7 @@ data class Feature(
                 "POST" -> pathItem.post
                 "PUT" -> pathItem.put
                 "DELETE" -> pathItem.delete
+                "PATCH" -> pathItem.patch
                 else -> TODO("Method \"${scenario.httpRequestPattern.method}\" in scenario ${scenario.name}")
             } ?: Operation().apply {
                 this.summary = withoutQueryParams(scenario.name)
@@ -1307,22 +1290,19 @@ data class Feature(
             val requestBodySchema: Pair<String, MediaType>? = requestBodySchema(requestBodyType, scenario)
 
             if (requestBodySchema != null) {
-                operation.requestBody = RequestBody().apply {
+                operation.requestBody = (operation.requestBody ?: RequestBody()).apply {
                     this.required = true
-                    this.content = Content().apply {
+                    this.content = (this.content ?: Content()).apply {
                         this[requestBodySchema.first] = requestBodySchema.second
                     }
                 }
             }
 
-            operation.parameters = openApiPathParameters + openApiQueryParameters + openApiRequestHeaders
-
+            operation.parameters = operation.parameters.orEmpty().plus(openApiPathParameters + openApiQueryParameters + openApiRequestHeaders).distinct()
             val responses = operation.responses ?: ApiResponses()
-
-            val apiResponse = ApiResponse()
+            val apiResponse = responses[scenario.httpResponsePattern.status.toString()] ?: ApiResponse()
 
             apiResponse.description = withoutQueryParams(scenario.name)
-
             val openApiResponseHeaders = scenario.httpResponsePattern.headersPattern.pattern.map { (key, pattern) ->
                 val header = Header()
                 header.schema = toOpenApiSchema(pattern)
@@ -1332,49 +1312,27 @@ data class Feature(
             }.toMap()
 
             if (openApiResponseHeaders.isNotEmpty()) {
-                apiResponse.headers = openApiResponseHeaders
+                apiResponse.headers = apiResponse.headers.orEmpty().plus(openApiResponseHeaders)
             }
 
             if (scenario.httpResponsePattern.body !is EmptyStringPattern) {
-                apiResponse.content = Content().apply {
+                apiResponse.content = (apiResponse.content ?: Content()).apply {
                     val responseBodyType = scenario.httpResponsePattern.body
-
-                    val responseBodySchema: Pair<String, MediaType> = when {
-                        isJSONPayload(responseBodyType) || responseBodyType is DeferredPattern && isJSONPayload(
-                            responseBodyType.resolvePattern(scenario.resolver)
-                        ) -> {
-                            jsonMediaType(responseBodyType)
-                        }
-                        responseBodyType is XMLPattern || responseBodyType is DeferredPattern && responseBodyType.resolvePattern(
-                            scenario.resolver
-                        ) is XMLPattern -> {
-                            throw ContractException("XML not supported yet")
-                        }
-                        else -> {
-                            val mediaType = MediaType()
-                            mediaType.schema = toOpenApiSchema(responseBodyType)
-
-                            val responseContentType = scenario.httpResponsePattern.headersPattern.contentType ?: "text/plain"
-
-                            Pair(responseContentType, mediaType)
-                        }
-                    }
-
+                    val responseBodySchema: Pair<String, MediaType> = responseBodySchema(responseBodyType, scenario)
                     this.addMediaType(responseBodySchema.first, responseBodySchema.second)
                 }
             }
-
-            responses.addApiResponse(scenario.httpResponsePattern.status.toString(), apiResponse)
-
-            operation.responses = responses
 
             when (scenario.httpRequestPattern.method) {
                 "GET" -> pathItem.get = operation
                 "POST" -> pathItem.post = operation
                 "PUT" -> pathItem.put = operation
                 "DELETE" -> pathItem.delete = operation
+                "PATCH" -> pathItem.patch = operation
             }
 
+            responses.addApiResponse(scenario.httpResponsePattern.status.toString(), apiResponse)
+            operation.responses = responses
             acc.plus(pathName to pathItem)
         }
 
@@ -1409,6 +1367,32 @@ data class Feature(
         }
 
         return openAPI
+    }
+
+    private fun hasBodyJsonPattern(body: Pattern, resolver: Resolver): Boolean {
+        return when (body) {
+            is DeferredPattern -> body.pattern in listOf("(RequestBody)", "(ResponseBody)") && isJSONPayload(body.resolvePattern(resolver))
+            else -> isJSONPayload(body)
+        }
+    }
+
+    private fun jsonPatternToUniqueName(pattern: Pattern, method: String, status: Int? = null, contentType: String? = null, prefix: String? = null): String {
+        val patternTypeAlias = if (pattern is ListPattern) pattern.pattern.typeAlias else pattern.typeAlias
+        return listOfNotNull(prefix, method, status?.toString(), contentType, patternTypeAlias?.let(::withoutPatternDelimiters))
+            .joinToString(separator = "_")
+            .replace(OPENAPI_MAP_KEY_NEGATED_PATTERN, "_")
+            .replace(Regex("_{2,}"), "_")
+    }
+
+    private fun updateJsonPatternName(pattern: Pattern, name: String): Pattern {
+        return when (pattern) {
+            is DeferredPattern -> pattern.copy(pattern = name)
+            is TabularPattern -> pattern.copy(typeAlias = name)
+            is JSONArrayPattern -> pattern.copy(typeAlias = name)
+            is JSONObjectPattern -> pattern.copy(typeAlias = name)
+            is ListPattern -> pattern.copy(typeAlias = name, pattern = updateJsonPatternName(pattern.pattern, name))
+            else -> pattern
+        }
     }
 
     private fun updateScenarioContentTypeFromPattern(scenario: Scenario): Scenario {
@@ -1457,18 +1441,16 @@ data class Feature(
         return httpPathPattern.copy(pathSegmentPatterns = pathSegmentPatternsWithIds, path = pathWithIds)
     }
 
-    private fun requestBodySchema(
-        requestBodyType: Pattern,
-        scenario: Scenario
-    ): Pair<String, MediaType>? = when {
+    private fun requestBodySchema(requestBodyType: Pattern, scenario: Scenario): Pair<String, MediaType>? = when {
+        scenario.requestContentType?.takeUnless(String::isNullOrBlank) != null-> {
+            val mediaType = MediaType()
+            mediaType.schema = toOpenApiSchema(requestBodyType)
+            Pair(scenario.requestContentType.orEmpty(), mediaType)
+        }
         requestBodyType is LookupRowPattern -> {
             requestBodySchema(requestBodyType.pattern, scenario)
         }
-        isJSONPayload(requestBodyType) || requestBodyType is DeferredPattern && isJSONPayload(
-            requestBodyType.resolvePattern(
-                scenario.resolver
-            )
-        ) -> {
+        isJSONPayload(requestBodyType) || requestBodyType is DeferredPattern && isJSONPayload(requestBodyType.resolvePattern(scenario.resolver)) -> {
             jsonMediaType(requestBodyType)
         }
         requestBodyType is XMLPattern || requestBodyType is DeferredPattern && requestBodyType.resolvePattern(scenario.resolver) is XMLPattern -> {
@@ -1527,6 +1509,29 @@ data class Feature(
             } else {
                 null
             }
+        }
+    }
+
+    private fun responseBodySchema(responseBodyType: Pattern, scenario: Scenario): Pair<String, MediaType> = when {
+        scenario.responseContentType?.takeUnless(String::isNullOrBlank) != null-> {
+            val mediaType = MediaType()
+            mediaType.schema = toOpenApiSchema(responseBodyType)
+            Pair(scenario.responseContentType.orEmpty(), mediaType)
+        }
+        responseBodyType is LookupRowPattern -> {
+            responseBodySchema(responseBodyType.pattern, scenario)
+        }
+        isJSONPayload(responseBodyType) || responseBodyType is DeferredPattern && isJSONPayload(responseBodyType.resolvePattern(scenario.resolver)) -> {
+            jsonMediaType(responseBodyType)
+        }
+        responseBodyType is XMLPattern || responseBodyType is DeferredPattern && responseBodyType.resolvePattern(scenario.resolver) is XMLPattern -> {
+            throw ContractException("XML not supported yet")
+        }
+        else -> {
+            val mediaType = MediaType()
+            mediaType.schema = toOpenApiSchema(responseBodyType)
+            val responseContentType = scenario.httpResponsePattern.headersPattern.contentType ?: "text/plain"
+            Pair(responseContentType, mediaType)
         }
     }
 
@@ -2033,6 +2038,7 @@ data class Feature(
 
 
     companion object {
+        private val OPENAPI_MAP_KEY_NEGATED_PATTERN = Regex("[^a-zA-Z0-9._-]")
 
         private fun getTestsDirectory(contractFile: File): File? {
             val testDirectory = testDirectoryFileFromSpecificationPath(contractFile.path) ?: testDirectoryFileFromEnvironmentVariable()
