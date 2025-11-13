@@ -120,18 +120,28 @@ internal class StubStrictModeTest {
             tempDir.mkdir()
 
             try {
+                // Copy the API spec file to temp directory (needed for Windows cross-drive support)
+                val tempApiFile = File(tempDir, "api.yaml")
+                tempApiFile.writeText(apiFile.readText())
+
+                // Copy the config file to temp directory
+                val tempConfigFile = File(tempDir, "specmatic_strict_true.yaml")
+                tempConfigFile.writeText(configFile.readText())
+
                 // Copy only the valid stub
                 val validStub = File(validStubDir, "valid_stub.json")
-                val targetFile = File(tempDir, "valid_stub.json")
+                val stubsDir = File(tempDir, "stubs")
+                stubsDir.mkdir()
+                val targetFile = File(stubsDir, "valid_stub.json")
                 targetFile.writeText(validStub.readText())
 
                 val stub = createStubFromContracts(
-                    contractPaths = listOf(apiFile.path),
-                    dataDirPaths = listOf(tempDir.path),
+                    contractPaths = listOf(tempApiFile.path),
+                    dataDirPaths = listOf(stubsDir.path),
                     host = "localhost",
                     port = 9003,
                     timeoutMillis = HTTP_STUB_SHUTDOWN_TIMEOUT,
-                    specmaticConfigPath = configFile.path
+                    specmaticConfigPath = tempConfigFile.path
                 )
 
                 try {
