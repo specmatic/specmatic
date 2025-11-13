@@ -706,6 +706,286 @@ paths:
         }
     }
 
+    @Nested
+    inner class FeatureToOpenAPI {
+        @Test
+        fun `should provide unique names to body schemas under the same endpoint`() {
+            val requestPattern = HttpRequestPattern(
+                httpPathPattern = HttpPathPattern.from("/orders/(id:string)"), method = "POST",
+                headersPattern = HttpHeadersPattern(mapOf("headerKey" to StringPattern())),
+                httpQueryParamPattern = HttpQueryParamPattern(mapOf("queryKey" to StringPattern())),
+                body = DeferredPattern("(RequestBody)"),
+            )
+
+            val orderPostOk = Scenario(ScenarioInfo(
+                httpRequestPattern = requestPattern,
+                httpResponsePattern = HttpResponsePattern(status = 201, body = DeferredPattern("(ResponseBody)")),
+                patterns = mapOf(
+                    "(RequestBody)" to toJSONObjectPattern("""{"name": "(string)"}""", "(RequestBody"),
+                    "(ResponseBody)" to toJSONObjectPattern("""{"id": "(uuid)"}""", "(ResponseBody)")
+                ),
+            ))
+
+            val orderPostBadRequest = Scenario(ScenarioInfo(
+                httpRequestPattern = requestPattern,
+                httpResponsePattern = HttpResponsePattern(status = 400, body = DeferredPattern("(ResponseBody)")),
+                patterns = mapOf(
+                    "(RequestBody)" to toJSONObjectPattern("""{"name": "(string)"}""", "(RequestBody"),
+                    "(ResponseBody)" to toJSONObjectPattern("""{"error": "(string)"}""", "(ResponseBody)")
+                ),
+            ))
+
+            val feature = Feature(name = "TEST", scenarios = listOf(orderPostOk, orderPostBadRequest))
+            val openAPI = feature.toOpenApi()
+
+            val parsedSpecification = OpenApiSpecification(parsedOpenApi = openAPI, openApiFilePath = "TEST")
+            val parsedFeature = parsedSpecification.toFeature()
+            val parsedOkScenario = parsedFeature.scenarios.first { it.isA2xxScenario() }
+            val parsedBadRequestScenario = parsedFeature.scenarios.first { it.isA4xxScenario() }
+
+            assertThat(parsedOkScenario.httpRequestPattern).isEqualTo(parsedBadRequestScenario.httpRequestPattern)
+            assertThat(parsedOkScenario.httpResponsePattern).isNotEqualTo(parsedBadRequestScenario.httpResponsePattern)
+
+            val okResponseBody = resolvedHop(parsedOkScenario.httpResponsePattern.body, parsedOkScenario.resolver) as JSONObjectPattern
+            val badRequestResponseBody = resolvedHop(parsedBadRequestScenario.httpResponsePattern.body, parsedOkScenario.resolver) as JSONObjectPattern
+
+            assertThat(okResponseBody == orderPostOk.patterns["(ResponseBody)"]).isTrue
+            assertThat(badRequestResponseBody == orderPostBadRequest.patterns["(ResponseBody)"]).isTrue
+        }
+
+        @Test
+        fun `should handle multiple JSON request content types for same endpoint`() {
+            val jsonRequestPattern = HttpRequestPattern(
+                httpPathPattern = HttpPathPattern.from("/orders/(id:string)"),
+                method = "PATCH",
+                headersPattern = HttpHeadersPattern(mapOf("Content-Type" to ExactValuePattern(StringValue("application/json")))),
+                body = DeferredPattern("(RequestBody)"),
+            )
+
+            val jsonPatchRequestPattern = HttpRequestPattern(
+                httpPathPattern = HttpPathPattern.from("/orders/(id:string)"),
+                method = "PATCH",
+                headersPattern = HttpHeadersPattern(mapOf("Content-Type" to ExactValuePattern(StringValue("application/json-patch+json")))),
+                body = DeferredPattern("(RequestBody)"),
+            )
+
+            val mergePatchRequestPattern = HttpRequestPattern(
+                httpPathPattern = HttpPathPattern.from("/orders/(id:string)"),
+                method = "PATCH",
+                headersPattern = HttpHeadersPattern(mapOf("Content-Type" to ExactValuePattern(StringValue("application/merge-patch+json")))),
+                body = DeferredPattern("(RequestBody)"),
+            )
+
+            val jsonScenario = Scenario(ScenarioInfo(
+                httpRequestPattern = jsonRequestPattern,
+                httpResponsePattern = HttpResponsePattern(status = 200, body = DeferredPattern("(ResponseBody)")),
+                patterns = mapOf(
+                    "(RequestBody)" to toJSONObjectPattern("""{"name": "(string)", "status": "(string)"}""", "(RequestBody)"),
+                    "(ResponseBody)" to toJSONObjectPattern("""{"updated": "(boolean)"}""", "(ResponseBody)"),
+                ),
+            ))
+
+            val jsonPatchScenario = Scenario(ScenarioInfo(
+                httpRequestPattern = jsonPatchRequestPattern,
+                httpResponsePattern = HttpResponsePattern(status = 200, body = DeferredPattern("(ResponseBody)")),
+                patterns = mapOf(
+                    "(RequestBody)" to JSONArrayPattern("""[{"op": "(string)", "path": "(string)", "value": "(string)"}]""", "(RequestBody)"),
+                    "(ResponseBody)" to toJSONObjectPattern("""{"updated": "(boolean)"}""", "(ResponseBody)"),
+                ),
+            ))
+
+            val mergePatchScenario = Scenario(ScenarioInfo(
+                httpRequestPattern = mergePatchRequestPattern,
+                httpResponsePattern = HttpResponsePattern(status = 200, body = DeferredPattern("(ResponseBody)")),
+                patterns = mapOf(
+                    "(RequestBody)" to toJSONObjectPattern("""{"status": "(string)"}""", "(RequestBody)"),
+                    "(ResponseBody)" to toJSONObjectPattern("""{"updated": "(boolean)"}""", "(ResponseBody)"),
+                ),
+            ))
+
+            val feature = Feature(name = "TEST", scenarios = listOf(jsonScenario, jsonPatchScenario, mergePatchScenario))
+            val openAPI = feature.toOpenApi()
+            val parsedSpecification = OpenApiSpecification(parsedOpenApi = openAPI, openApiFilePath = "TEST")
+            val parsedFeature = parsedSpecification.toFeature()
+
+            assertThat(parsedFeature.scenarios).hasSize(3)
+
+            val parsedScenarios = parsedFeature.scenarios
+            val allPatterns = parsedScenarios.fold(emptyMap<String, Pattern>()) { acc, it -> acc + it.patterns }
+            assertThat(parsedScenarios[0].httpRequestPattern.body).isNotEqualTo(parsedScenarios[1].httpRequestPattern.body)
+            assertThat(parsedScenarios[1].httpRequestPattern.body).isNotEqualTo(parsedScenarios[2].httpRequestPattern.body)
+            assertThat(parsedScenarios[0].httpRequestPattern.body).isNotEqualTo(parsedScenarios[2].httpRequestPattern.body)
+            assertThat(allPatterns).hasSize(4)
+        }
+
+        @Test
+        fun `should handle multiple response content types with different status codes`() {
+            val requestPattern = HttpRequestPattern(
+                httpPathPattern = HttpPathPattern.from("/orders/(id:string)"),
+                method = "GET"
+            )
+
+            val success200Json = Scenario(ScenarioInfo(
+                httpRequestPattern = requestPattern,
+                httpResponsePattern = HttpResponsePattern(
+                    status = 200,
+                    headersPattern = HttpHeadersPattern(mapOf("Content-Type" to ExactValuePattern(StringValue("application/json")))),
+                    body = DeferredPattern("(ResponseBody)")
+                ),
+                patterns = mapOf(
+                    "(ResponseBody)" to toJSONObjectPattern("""{"order": {"id": "(uuid)", "status": "(string)"}}""", "(ResponseBody)")
+                )
+            ))
+
+            val success200HalJson = Scenario(ScenarioInfo(
+                httpRequestPattern = requestPattern,
+                httpResponsePattern = HttpResponsePattern(
+                    status = 200,
+                    headersPattern = HttpHeadersPattern(mapOf("Content-Type" to ExactValuePattern(StringValue("application/hal+json")))),
+                    body = DeferredPattern("(ResponseBody)")
+                ),
+                patterns = mapOf(
+                    "(ResponseBody)" to toJSONObjectPattern("""{"id": "(uuid)", "_links": {"self": {"href": "(string)"}}}""", "(ResponseBody)")
+                )
+            ))
+
+            val notFound404Json = Scenario(ScenarioInfo(
+                httpRequestPattern = requestPattern,
+                httpResponsePattern = HttpResponsePattern(
+                    status = 404,
+                    headersPattern = HttpHeadersPattern(mapOf("Content-Type" to ExactValuePattern(StringValue("application/json")))),
+                    body = DeferredPattern("(ResponseBody)")
+                ),
+                patterns = mapOf(
+                    "(ResponseBody)" to toJSONObjectPattern("""{"error": "(string)", "code": "(number)"}""", "(ResponseBody)")
+                )
+            ))
+
+            val notFound404ProblemJson = Scenario(ScenarioInfo(
+                httpRequestPattern = requestPattern,
+                httpResponsePattern = HttpResponsePattern(
+                    status = 404,
+                    headersPattern = HttpHeadersPattern(mapOf("Content-Type" to ExactValuePattern(StringValue("application/problem+json")))),
+                    body = DeferredPattern("(ResponseBody)")
+                ),
+                patterns = mapOf(
+                    "(ResponseBody)" to toJSONObjectPattern("""{"type": "(string)", "title": "(string)", "status": "(number)", "detail": "(string)"}""", "(ResponseBody)")
+                )
+            ))
+
+            val feature = Feature(name = "TEST", scenarios = listOf(success200Json, success200HalJson, notFound404Json, notFound404ProblemJson))
+            val openAPI = feature.toOpenApi()
+            val parsedSpecification = OpenApiSpecification(parsedOpenApi = openAPI, openApiFilePath = "TEST")
+            val parsedFeature = parsedSpecification.toFeature()
+
+            val allPatterns = parsedFeature.scenarios.fold(emptyMap<String, Pattern>()) { acc, it -> acc + it.patterns }
+            val parsed200Scenarios = parsedFeature.scenarios.filter { it.isA2xxScenario() }
+            val parsed404Scenarios = parsedFeature.scenarios.filter { it.isA4xxScenario() }
+
+            assertThat(parsed200Scenarios).hasSize(2)
+            assertThat(parsed404Scenarios).hasSize(2)
+
+            assertThat(allPatterns).hasSize(4)
+            assertThat(parsed200Scenarios[0].httpResponsePattern.body).isNotEqualTo(parsed200Scenarios[1].httpResponsePattern.body)
+            assertThat(parsed404Scenarios[0].httpResponsePattern.body).isNotEqualTo(parsed404Scenarios[1].httpResponsePattern.body)
+        }
+
+        @Test
+        fun `should handle complex mix of multiple JSON content types across requests and responses`() {
+            val path = "/products"
+
+            val jsonToJson200 = Scenario(ScenarioInfo(
+                httpRequestPattern = HttpRequestPattern(
+                    httpPathPattern = HttpPathPattern.from(path),
+                    method = "POST",
+                    headersPattern = HttpHeadersPattern(mapOf("Content-Type" to ExactValuePattern(StringValue("application/json")))),
+                    body = DeferredPattern("(RequestBody)")
+                ),
+                httpResponsePattern = HttpResponsePattern(
+                    status = 200,
+                    headersPattern = HttpHeadersPattern(mapOf("Content-Type" to ExactValuePattern(StringValue("application/json")))),
+                    body = DeferredPattern("(ResponseBody)")
+                ),
+                patterns = mapOf(
+                    "(RequestBody)" to toJSONObjectPattern("""{"name": "(string)", "price": "(number)"}""", "(RequestBody)"),
+                    "(ResponseBody)" to toJSONObjectPattern("""{"productId": "(uuid)", "created": "(boolean)"}""", "(ResponseBody)")
+                )
+            ))
+
+            val jsonToHal201 = Scenario(ScenarioInfo(
+                httpRequestPattern = HttpRequestPattern(
+                    httpPathPattern = HttpPathPattern.from(path),
+                    method = "POST",
+                    headersPattern = HttpHeadersPattern(mapOf("Content-Type" to ExactValuePattern(StringValue("application/json")))),
+                    body = DeferredPattern("(RequestBody)")
+                ),
+                httpResponsePattern = HttpResponsePattern(
+                    status = 201,
+                    headersPattern = HttpHeadersPattern(mapOf("Content-Type" to ExactValuePattern(StringValue("application/hal+json")))),
+                    body = DeferredPattern("(ResponseBody)")
+                ),
+                patterns = mapOf(
+                    "(RequestBody)" to toJSONObjectPattern("""{"name": "(string)", "price": "(number)"}""", "(RequestBody)"),
+                    "(ResponseBody)" to toJSONObjectPattern("""{"productId": "(uuid)", "_links": {"self": {"href": "(string)"}}}""", "(ResponseBody)")
+                )
+            ))
+
+            val jsonPatchTo200 = Scenario(ScenarioInfo(
+                httpRequestPattern = HttpRequestPattern(
+                    httpPathPattern = HttpPathPattern.from(path + "/(id:string)"),
+                    method = "PATCH",
+                    headersPattern = HttpHeadersPattern(mapOf("Content-Type" to ExactValuePattern(StringValue("application/json-patch+json")))),
+                    body = DeferredPattern("(RequestBody)")
+                ),
+                httpResponsePattern = HttpResponsePattern(
+                    status = 200,
+                    headersPattern = HttpHeadersPattern(mapOf("Content-Type" to ExactValuePattern(StringValue("application/json")))),
+                    body = DeferredPattern("(ResponseBody)")
+                ),
+                patterns = mapOf(
+                    "(RequestBody)" to JSONArrayPattern("""[{"op": "(string)", "path": "(string)", "value": "(string)"}]""", "(RequestBody)"),
+                    "(ResponseBody)" to toJSONObjectPattern("""{"updated": "(boolean)", "productId": "(uuid)"}""", "(ResponseBody)")
+                )
+            ))
+
+            val jsonToProblem400 = Scenario(ScenarioInfo(
+                httpRequestPattern = HttpRequestPattern(
+                    httpPathPattern = HttpPathPattern.from(path),
+                    method = "POST",
+                    headersPattern = HttpHeadersPattern(mapOf("Content-Type" to ExactValuePattern(StringValue("application/json")))),
+                    body = DeferredPattern("(RequestBody)")
+                ),
+                httpResponsePattern = HttpResponsePattern(
+                    status = 400,
+                    headersPattern = HttpHeadersPattern(mapOf("Content-Type" to ExactValuePattern(StringValue("application/problem+json")))),
+                    body = DeferredPattern("(ResponseBody)")
+                ),
+                patterns = mapOf(
+                    "(RequestBody)" to toJSONObjectPattern("""{"name": "(string)", "price": "(number)"}""", "(RequestBody)"),
+                    "(ResponseBody)" to toJSONObjectPattern("""{"type": "(string)", "detail": "(string)"}""", "(ResponseBody)")
+                )
+            ))
+
+            val feature = Feature(name = "TEST", scenarios = listOf(jsonToJson200, jsonToHal201, jsonPatchTo200, jsonToProblem400))
+            val openAPI = feature.toOpenApi()
+            val parsedSpecification = OpenApiSpecification(parsedOpenApi = openAPI, openApiFilePath = "TEST")
+            val parsedFeature = parsedSpecification.toFeature()
+
+            assertThat(parsedFeature.scenarios).hasSize(4)
+            val parsed2xxScenarios = parsedFeature.scenarios.filter { it.isA2xxScenario() }
+            val parsed4xxScenarios = parsedFeature.scenarios.filter { it.isA4xxScenario() }
+
+            assertThat(parsed2xxScenarios).hasSize(3)
+            assertThat(parsed4xxScenarios).hasSize(1)
+
+            val requestBodies = parsedFeature.scenarios.map { it.httpRequestPattern.body }.distinct()
+            assertThat(requestBodies).hasSize(2)
+
+            val responseBodies = parsedFeature.scenarios.map { it.httpResponsePattern.body }.distinct()
+            assertThat(responseBodies).hasSize(4)
+        }
+    }
+
     @Test
     fun `should generate all required negative tests`() {
         val contract = OpenApiSpecification.fromYAML(
