@@ -109,7 +109,7 @@ internal class StubStrictModeTest {
 
         @Test
         fun `createStubFromContracts should succeed with valid stub in strict mode`() {
-            val resourcesDir = File(javaClass.getResource("${File.separator}stub_strict_mode")!!.toURI())
+            val resourcesDir = File(javaClass.getResource("/stub_strict_mode")!!.toURI())
             val apiFile = File(resourcesDir, "api.yaml")
             val validStubDir = File(resourcesDir, "api_data")
             val configFile = File(resourcesDir, "specmatic_strict_true.yaml")
@@ -122,7 +122,8 @@ internal class StubStrictModeTest {
             try {
                 // Copy only the valid stub
                 val validStub = File(validStubDir, "valid_stub.json")
-                validStub.copyTo(File(tempDir, "valid_stub.json"))
+                val targetFile = File(tempDir, "valid_stub.json")
+                targetFile.writeText(validStub.readText())
 
                 val stub = createStubFromContracts(
                     contractPaths = listOf(apiFile.path),
