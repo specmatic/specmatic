@@ -27,8 +27,7 @@ data class OpenAPISpecificationOperation(
 
 @Serializable
 data class AsyncAPISpecificationOperation(
-    val operationId: String,
+    val operation: String,
     val channel: String,
-    val replyChannel: String? = null,
     val action: String
 ) : SpecificationOperation

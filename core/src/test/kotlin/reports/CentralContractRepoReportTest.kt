@@ -60,16 +60,24 @@ class CentralContractRepoReportTest {
                         "ASYNCAPI",
                         listOf(
                             io.specmatic.reports.AsyncAPISpecificationOperation(
-                                operationId = "placeOrder",
+                                operation = "placeOrder",
                                 channel = "NewOrderPlaced",
-                                replyChannel = "OrderInitiated",
                                 action = "receive"
                             ),
                             io.specmatic.reports.AsyncAPISpecificationOperation(
-                                operationId = "cancelOrder",
+                                operation = "placeOrder",
+                                channel = "OrderInitiated",
+                                action = "send"
+                            ),
+                            io.specmatic.reports.AsyncAPISpecificationOperation(
+                                operation = "cancelOrder",
                                 channel = "OrderCancellationRequested",
-                                replyChannel = "OrderCancelled",
                                 action = "receive"
+                            ),
+                            io.specmatic.reports.AsyncAPISpecificationOperation(
+                                operation = "cancelOrder",
+                                channel = "OrderCancelled",
+                                action = "send"
                             )
                         )
                     )
@@ -90,16 +98,14 @@ class CentralContractRepoReportTest {
                         "ASYNCAPI",
                         listOf(
                             io.specmatic.reports.AsyncAPISpecificationOperation(
-                                operationId = "placeOrder",
+                                operation = "placeOrder",
                                 channel = "place-order",
-                                replyChannel = null,
-                                action = "publish"
+                                action = "receive"
                             ),
                             io.specmatic.reports.AsyncAPISpecificationOperation(
-                                operationId = "processOrder",
+                                operation = "processOrder",
                                 channel = "process-order",
-                                replyChannel = null,
-                                action = "subscribe"
+                                action = "send"
                             )
                         )
                     )

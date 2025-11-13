@@ -61,15 +61,21 @@ private fun asyncAPIV3OperationsFrom(file: File): List<AsyncAPISpecificationOper
     }
     if(asyncAPI == null) return emptyList()
 
-    return asyncAPI.operations.orEmpty().map { (name, op) ->
+    return asyncAPI.operations.orEmpty().flatMap { (name, op) ->
         op as com.asyncapi.v3._0_0.model.operation.Operation
-        val replyOp = (op.reply as? OperationReply).takeIf { op.reply != null }
-        AsyncAPISpecificationOperation(
-            operationId = name,
+        val opBasedOperation = AsyncAPISpecificationOperation(
+            operation = name,
             channel = op.channel.name(),
-            replyChannel = replyOp?.channel?.name(),
             action = op.action.name.lowercase()
         )
+        val replyOp = (op.reply as? OperationReply).takeIf { op.reply != null }
+        val replyOpBasedOperation = AsyncAPISpecificationOperation(
+            operation = name,
+            channel = replyOp?.channel?.name().orEmpty(),
+            action = "send"
+        ).takeIf { replyOp != null && replyOp.channel != null }
+
+        listOfNotNull(opBasedOperation, replyOpBasedOperation)
     }
 }
 
@@ -89,15 +95,15 @@ private fun asyncAPIV2OperationsFrom(file: File): List<AsyncAPISpecificationOper
     return asyncAPI.channels.map { (channelName, channel) ->
         channel.publish?.let { op ->
             AsyncAPISpecificationOperation(
-                operationId = op.operationId.orEmpty(),
+                operation = op.operationId.orEmpty(),
                 channel = channelName,
-                action = "publish"
+                action = "receive"
             )
         } ?: channel.subscribe?.let { op ->
             AsyncAPISpecificationOperation(
-                operationId = op.operationId.orEmpty(),
+                operation = op.operationId.orEmpty(),
                 channel = channelName,
-                action = "subscribe"
+                action = "send"
             )
         }
     }.filterNotNull()
