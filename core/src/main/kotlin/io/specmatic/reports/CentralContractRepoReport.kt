@@ -53,6 +53,7 @@ class CentralContractRepoReport {
             SpecificationRow(
                 spec.relativeTo(File("").canonicalFile).path,
                 feature.serviceType,
+                SpecType.OPENAPI.name,
                 feature.scenarios.map {
                     OpenAPISpecificationOperation(
                         convertPathParameterStyle(it.path),
@@ -88,9 +89,9 @@ class CentralContractRepoReport {
             SpecType.ASYNCAPI to asyncApiSpecifications
         )
     }
+}
 
-    private enum class SpecType {
-        OPENAPI,
-        ASYNCAPI
-    }
+enum class SpecType {
+    OPENAPI,
+    ASYNCAPI
 }

@@ -11,6 +11,7 @@ data class CentralContractRepoReportJson(
 data class SpecificationRow(
     val specification: String,
     val serviceType: String?,
+    val specType: String?,
     val operations: List<SpecificationOperation>
 )
 

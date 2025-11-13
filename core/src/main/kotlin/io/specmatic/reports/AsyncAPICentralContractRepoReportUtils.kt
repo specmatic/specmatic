@@ -18,7 +18,8 @@ fun getAsyncAPISpecificationRows(
     return specifications.map { file ->
         SpecificationRow(
             specification = file.relativeTo(File("").canonicalFile).path,
-            serviceType = "AsyncAPI",
+            serviceType = SpecType.ASYNCAPI.name,
+            specType = SpecType.ASYNCAPI.name,
             operations = asyncAPIOperationsFrom(file)
         )
     }

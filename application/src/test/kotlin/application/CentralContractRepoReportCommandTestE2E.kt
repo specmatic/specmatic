@@ -24,6 +24,7 @@ class CentralContractRepoReportCommandTestE2E {
         val expectedSpecificationRow = SpecificationRow(
             osAgnosticPath("specifications/service1/service1.yaml"),
             "HTTP",
+            "OPENAPI",
             listOf(
                 OpenAPISpecificationOperation(
                     "/hello/{id}",
@@ -56,6 +57,7 @@ class CentralContractRepoReportCommandTestE2E {
         val expectedSpecificationRow = SpecificationRow(
             osAgnosticPath("specifications/service2/service2.yaml"),
             "HTTP",
+            "OPENAPI",
             listOf(
                 OpenAPISpecificationOperation(
                     "/hello/{id}",

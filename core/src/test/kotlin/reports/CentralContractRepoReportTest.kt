@@ -23,6 +23,7 @@ class CentralContractRepoReportTest {
                         SpecificationRow(
                             "specifications/service1/service1.yaml",
                             "HTTP",
+                            "OPENAPI",
                             listOf(
                                 OpenAPISpecificationOperation(
                                     "/hello/{id}",
@@ -55,7 +56,8 @@ class CentralContractRepoReportTest {
                 listOf(
                     SpecificationRow(
                         "specifications/asyncapi3spec/asyncapi3spec.yaml",
-                        "AsyncAPI",
+                        "ASYNCAPI",
+                        "ASYNCAPI",
                         listOf(
                             io.specmatic.reports.AsyncAPISpecificationOperation(
                                 operationId = "placeOrder",
@@ -84,7 +86,8 @@ class CentralContractRepoReportTest {
                 listOf(
                     SpecificationRow(
                         "specifications/asyncapi2spec/asyncapi2spec.yaml",
-                        "AsyncAPI",
+                        "ASYNCAPI",
+                        "ASYNCAPI",
                         listOf(
                             io.specmatic.reports.AsyncAPISpecificationOperation(
                                 operationId = "placeOrder",
