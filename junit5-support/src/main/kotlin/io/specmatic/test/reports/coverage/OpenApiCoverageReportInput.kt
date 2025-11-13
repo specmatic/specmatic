@@ -44,8 +44,15 @@ class OpenApiCoverageReportInput(
     }
 
     fun addAPIs(apis: List<API>) {
-        coverageHooks.onEachListener { onActuatorApis(apis) }
         applicationAPIs.addAll(apis)
+        if (coverageHooks.isEmpty()) return
+        val parsedFilterExpression = ExpressionStandardizer.filterToEvalEx(filterExpression)
+        val filteredApis = apis.filter { api ->
+            val testResult = TestResultRecord(api.path, api.method, 0, TestResult.MissingInSpec, serviceType = SERVICE_TYPE_HTTP)
+            val filterEval = parsedFilterExpression.with("context", TestRecordFilter(testResult)).evaluate().booleanValue
+            filterEval && api.path !in excludedAPIs
+        }
+        coverageHooks.onEachListener { onActuatorApis(filteredApis) }
     }
 
     fun addExcludedAPIs(apis: List<String>) {
