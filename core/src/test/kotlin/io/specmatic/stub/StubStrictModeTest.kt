@@ -109,7 +109,7 @@ internal class StubStrictModeTest {
 
         @Test
         fun `createStubFromContracts should succeed with valid stub in strict mode`() {
-            val resourcesDir = File(javaClass.getResource("/stub_strict_mode")!!.toURI())
+            val resourcesDir = File(javaClass.getResource("${File.separator}stub_strict_mode")!!.toURI())
             val apiFile = File(resourcesDir, "api.yaml")
             val validStubDir = File(resourcesDir, "api_data")
             val configFile = File(resourcesDir, "specmatic_strict_true.yaml")
