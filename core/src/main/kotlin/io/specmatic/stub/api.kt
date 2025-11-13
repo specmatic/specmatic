@@ -157,6 +157,7 @@ fun createStub(
     val specmaticConfig = loadSpecmaticConfigOrDefault(configFileName)
     val useCurrentBranchForCentralRepo =
         specmaticConfig.getMatchBranch() == true || Flags.getBooleanValue(Flags.MATCH_BRANCH)
+    val effectiveStrictMode = if (strict) true else (specmaticConfig.getStubStrictMode() ?: false)
 
     val timeoutMessage =
         "FATAL: Specmatic stub failed to start within ${specmaticConfig.getStubStartTimeoutInMilliseconds()} milliseconds. You can configure the stub start timeout from Specmatic configuration. The default timeout is 20 seconds."
@@ -176,7 +177,7 @@ fun createStub(
                         contractStubPaths,
                         dataDirPaths,
                         specmaticConfig,
-                        strict,
+                        effectiveStrictMode,
                         withImplicitStubs = true,
                     )
                 }
@@ -200,7 +201,7 @@ fun createStub(
         workingDirectory = stubValues.workingDirectory,
         specmaticConfigSource = SpecmaticConfigSource.fromPath(File(configFileName).canonicalPath),
         timeoutMillis = timeoutMillis,
-        strictMode = strict,
+        strictMode = effectiveStrictMode,
         specToStubBaseUrlMap = stubValues.contractStubPaths.specToBaseUrlMap(),
     )
 }
