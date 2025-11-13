@@ -1,0 +1,13 @@
+{
+  "http-request": {
+    "method": "GET",
+    "path": "/users/123"
+  },
+  "http-response": {
+    "status": 200,
+    "body": {
+      "id": 123,
+      "name": "John Doe"
+    }
+  }
+}

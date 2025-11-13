@@ -232,7 +232,8 @@ internal fun createStubFromContracts(
     specmaticConfig: SpecmaticConfig,
 ): HttpStub {
     val contractPathData = contractPaths.map { ContractPathData("", it) }
-    val contractInfo = loadContractStubsFromFiles(contractPathData, dataDirPaths, specmaticConfig)
+    val strictMode = specmaticConfig.getStubStrictMode() ?: false
+    val contractInfo = loadContractStubsFromFiles(contractPathData, dataDirPaths, specmaticConfig, strictMode)
     val features = contractInfo.map { it.first }
     val httpExpectations = contractInfoToHttpExpectations(contractInfo)
 
@@ -245,6 +246,7 @@ internal fun createStubFromContracts(
         specmaticConfigSource = SpecmaticConfigSource.fromPath(File(getConfigFilePath()).canonicalPath),
         timeoutMillis = timeoutMillis,
         specToStubBaseUrlMap = contractPathData.specToBaseUrlMap(),
+        strictMode = strictMode,
     )
 }
 
