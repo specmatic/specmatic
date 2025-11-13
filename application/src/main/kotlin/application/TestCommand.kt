@@ -12,7 +12,7 @@ import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_PARALLELISM
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_TIMEOUT
 import io.specmatic.core.utilities.Flags.Companion.MATCH_BRANCH
-import io.specmatic.core.utilities.Flags.Companion.STRICT_MODE
+import io.specmatic.core.utilities.Flags.Companion.TEST_STRICT_MODE
 import io.specmatic.core.utilities.Flags.Companion.getStringValue
 import io.specmatic.core.utilities.exitWithMessage
 import io.specmatic.core.loadSpecmaticConfigOrNull
@@ -49,7 +49,6 @@ import java.io.File
 import java.io.PrintWriter
 import java.io.StringReader
 import java.nio.file.Paths
-import java.util.*
 import java.util.concurrent.Callable
 
 private const val SYSTEM_OUT_TESTCASE_TAG = "system-out"
@@ -183,7 +182,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         System.setProperty("protocol", protocol)
         System.setProperty(FILTER, filter)
         System.setProperty(OVERLAY_FILE_PATH, overlayFilePath.orEmpty())
-        System.setProperty(STRICT_MODE, strictMode.toString())
+        System.setProperty(TEST_STRICT_MODE, strictMode.toString())
 
         val configMatchBranch = loadSpecmaticConfigOrNull(Configuration.configFilePath)?.getMatchBranch() ?: false
         val matchBranchEnabled = useCurrentBranchForCentralRepo || Flags.getBooleanValue(MATCH_BRANCH, false) || configMatchBranch
