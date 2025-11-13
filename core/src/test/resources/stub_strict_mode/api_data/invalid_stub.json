@@ -1,0 +1,10 @@
+{
+  "http-request": {
+    "method": "POST",
+    "path": "/invalid"
+  },
+  "http-response": {
+    "status": 200,
+    "body": {}
+  }
+}
