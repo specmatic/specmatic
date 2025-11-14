@@ -8,7 +8,7 @@ data class SOAPTypes(val types: Map<String, XMLPattern>) {
             type.toGherkinStatement(typeName)
         }
 
-        return firstLineShouldBeGiven(typeStrings)
+        return firstLineShouldBeGiven(typeStrings).map { it.trimEnd() }
     }
 }
 

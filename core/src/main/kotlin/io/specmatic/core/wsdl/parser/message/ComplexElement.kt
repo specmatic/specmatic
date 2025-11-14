@@ -32,7 +32,7 @@ data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, v
 
         val qualification = namespaceQualification ?: wsdl.getQualification(element, wsdlTypeReference)
 
-        val inPlaceNode = toXMLNode("<${qualification.nodeName} $TYPE_ATTRIBUTE_NAME=\"$specmaticTypeName\"/>").let {
+        val inPlaceNode = toXMLNode("<${qualification.nodeName} $TYPE_ATTRIBUTE_NAME=\"${specmaticTypeName.trim()}\"/>").let {
             it.copy(attributes = it.attributes.plus(deriveSpecmaticAttributes(element)))
         }
 
