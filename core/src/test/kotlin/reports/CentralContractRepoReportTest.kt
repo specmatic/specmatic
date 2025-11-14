@@ -3,7 +3,7 @@ package reports
 import io.specmatic.osAgnosticPath
 import io.specmatic.reports.CentralContractRepoReport
 import io.specmatic.reports.CentralContractRepoReportJson
-import io.specmatic.reports.SpecificationOperation
+import io.specmatic.reports.OpenAPISpecificationOperation
 import io.specmatic.reports.SpecificationRow
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterAll
@@ -23,21 +23,92 @@ class CentralContractRepoReportTest {
                         SpecificationRow(
                             "specifications/service1/service1.yaml",
                             "HTTP",
+                            "OPENAPI",
                             listOf(
-                                SpecificationOperation(
+                                OpenAPISpecificationOperation(
                                     "/hello/{id}",
                                     "GET",
                                     200
                                 ),
-                                SpecificationOperation(
+                                OpenAPISpecificationOperation(
                                     "/hello/{id}",
                                     "GET",
                                     404
                                 ),
-                                SpecificationOperation(
+                                OpenAPISpecificationOperation(
                                     "/hello/{id}",
                                     "GET",
                                     400
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `test generates report based on asyncapi 3_0_0 spec with operations section`() {
+        val report = CentralContractRepoReport().generate("./specifications/asyncapi3spec")
+        assertThat(osAgnosticPaths(report)).isEqualTo(
+            osAgnosticPaths(
+                CentralContractRepoReportJson(
+                    listOf(
+                        SpecificationRow(
+                            "specifications/asyncapi3spec/asyncapi3spec.yaml",
+                            "ASYNCAPI",
+                            "ASYNCAPI",
+                            listOf(
+                                io.specmatic.reports.AsyncAPISpecificationOperation(
+                                    operation = "placeOrder",
+                                    channel = "NewOrderPlaced",
+                                    action = "receive"
+                                ),
+                                io.specmatic.reports.AsyncAPISpecificationOperation(
+                                    operation = "placeOrder",
+                                    channel = "OrderInitiated",
+                                    action = "send"
+                                ),
+                                io.specmatic.reports.AsyncAPISpecificationOperation(
+                                    operation = "cancelOrder",
+                                    channel = "OrderCancellationRequested",
+                                    action = "receive"
+                                ),
+                                io.specmatic.reports.AsyncAPISpecificationOperation(
+                                    operation = "cancelOrder",
+                                    channel = "OrderCancelled",
+                                    action = "send"
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `test generates report based on asyncapi 2 6 0 spec with publish and subscribe operations`() {
+        val report = CentralContractRepoReport().generate("./specifications/asyncapi2spec")
+        assertThat(osAgnosticPaths(report)).isEqualTo(
+            osAgnosticPaths(
+                CentralContractRepoReportJson(
+                    listOf(
+                        SpecificationRow(
+                            "specifications/asyncapi2spec/asyncapi2spec.yaml",
+                            "ASYNCAPI",
+                            "ASYNCAPI",
+                            listOf(
+                                io.specmatic.reports.AsyncAPISpecificationOperation(
+                                    operation = "placeOrder",
+                                    channel = "place-order",
+                                    action = "receive"
+                                ),
+                                io.specmatic.reports.AsyncAPISpecificationOperation(
+                                    operation = "processOrder",
+                                    channel = "process-order",
+                                    action = "send"
                                 )
                             )
                         )
@@ -217,6 +288,87 @@ paths:
             val commonFile = File("./specifications/service2/common.yaml")
             commonFile.writeText(commonSpec)
 
+            createAsyncAPI3_0_0Spec()
+            createAsyncAPI2_6_0Spec()
+        }
+
+        private fun createAsyncAPI3_0_0Spec() {
+            val asyncapi3Spec = """
+                        asyncapi: 3.0.0
+                        info:
+                          title: Order API
+                          version: 1.0.0
+                        channels:
+                          NewOrderPlaced:
+                            address: new-orders
+                            messages:
+                              placeOrder.message:
+                                ${'$'}ref: '#/components/messages/OrderRequest'
+                          OrderInitiated:
+                            address: wip-orders
+                            messages:
+                              processOrder.message:
+                                ${'$'}ref: '#/components/messages/Order'
+                          OrderCancellationRequested:
+                            address: to-be-cancelled-orders
+                            messages:
+                              cancelOrder.message:
+                                ${'$'}ref: '#/components/messages/CancelOrderRequest'
+                          OrderCancelled:
+                            address: cancelled-orders
+                            messages:
+                              processCancellation.message:
+                                ${'$'}ref: '#/components/messages/CancellationReference'
+                        operations:
+                          placeOrder:
+                            action: receive
+                            channel:
+                              ${'$'}ref: '#/channels/NewOrderPlaced'
+                            messages:
+                              - ${'$'}ref: '#/channels/NewOrderPlaced/messages/placeOrder.message'
+                            reply:
+                              channel:
+                                ${'$'}ref: '#/channels/OrderInitiated'
+                              messages:
+                                - ${'$'}ref: '#/channels/OrderInitiated/messages/processOrder.message'
+                          cancelOrder:
+                            action: receive
+                            channel:
+                              ${'$'}ref: '#/channels/OrderCancellationRequested'
+                            messages:
+                              - ${'$'}ref: '#/channels/OrderCancellationRequested/messages/cancelOrder.message'
+                            reply:
+                              channel:
+                                ${'$'}ref: '#/channels/OrderCancelled'
+                              messages:
+                                - ${'$'}ref: '#/channels/OrderCancelled/messages/processCancellation.message'
+                        """
+            val asyncapi3File = File("./specifications/asyncapi3spec/asyncapi3spec.yaml")
+            asyncapi3File.parentFile.mkdirs()
+            asyncapi3File.writeText(asyncapi3Spec)
+        }
+
+        private fun createAsyncAPI2_6_0Spec() {
+            val asyncapi2Spec = """
+                asyncapi: 2.6.0
+                info:
+                  title: Order API
+                  version: '1.0.0'
+                channels:
+                  place-order:
+                    publish:
+                      operationId: placeOrder
+                      message:
+                        ${'$'}ref: "#/components/messages/OrderRequest"
+                  process-order:
+                    subscribe:
+                      operationId: processOrder
+                      message:
+                        ${'$'}ref: "#/components/messages/Order"
+                        """
+            val asyncapi2File = File("./specifications/asyncapi2spec/asyncapi2spec.yaml")
+            asyncapi2File.parentFile.mkdirs()
+            asyncapi2File.writeText(asyncapi2Spec)
         }
     }
 }

@@ -1,6 +1,7 @@
 package application
 
 import io.specmatic.reports.CentralContractRepoReportJson
+import io.specmatic.reports.OpenAPISpecificationOperation
 import io.specmatic.reports.SpecificationOperation
 import io.specmatic.reports.SpecificationRow
 import kotlinx.serialization.json.Json
@@ -23,18 +24,19 @@ class CentralContractRepoReportCommandTestE2E {
         val expectedSpecificationRow = SpecificationRow(
             osAgnosticPath("specifications/service1/service1.yaml"),
             "HTTP",
+            "OPENAPI",
             listOf(
-                SpecificationOperation(
+                OpenAPISpecificationOperation(
                     "/hello/{id}",
                     "GET",
                     200
                 ),
-                SpecificationOperation(
+                OpenAPISpecificationOperation(
                     "/hello/{id}",
                     "GET",
                     404
                 ),
-                SpecificationOperation(
+                OpenAPISpecificationOperation(
                     "/hello/{id}",
                     "GET",
                     400
@@ -55,18 +57,19 @@ class CentralContractRepoReportCommandTestE2E {
         val expectedSpecificationRow = SpecificationRow(
             osAgnosticPath("specifications/service2/service2.yaml"),
             "HTTP",
+            "OPENAPI",
             listOf(
-                SpecificationOperation(
+                OpenAPISpecificationOperation(
                     "/hello/{id}",
                     "GET",
                     200
                 ),
-                SpecificationOperation(
+                OpenAPISpecificationOperation(
                     "/hello/{id}",
                     "GET",
                     404
                 ),
-                SpecificationOperation(
+                OpenAPISpecificationOperation(
                     "/hello/{id}",
                     "GET",
                     400

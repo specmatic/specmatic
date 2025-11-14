@@ -4,8 +4,8 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.exceptionCauseMessage
-import io.specmatic.stub.isOpenAPI
 import io.specmatic.stub.hasOpenApiFileExtension
+import io.specmatic.stub.isOpenAPI
 import java.io.File
 
 class CentralContractRepoReport {
@@ -13,10 +13,24 @@ class CentralContractRepoReport {
         val searchPath = File(currentWorkingDir).canonicalPath
         logger.log("Searching for specification files at: $searchPath")
         val specifications = findSpecifications(searchPath)
-        return CentralContractRepoReportJson(getSpecificationRows(specifications.sorted(), searchPath))
+
+        val openAPISpecificationRows = getOpenAPISpecificationRows(
+            specifications[SpecType.OPENAPI].orEmpty(),
+            searchPath
+        )
+        val asyncAPISpecificationRows = getAsyncAPISpecificationRows(
+            specifications[SpecType.ASYNCAPI].orEmpty(),
+            searchPath
+        )
+        return CentralContractRepoReportJson(
+            openAPISpecificationRows + asyncAPISpecificationRows
+        )
     }
 
-    private fun getSpecificationRows(specifications: List<File>, currentWorkingDir: String): List<SpecificationRow> {
+    private fun getOpenAPISpecificationRows(
+        specifications: List<File>,
+        currentWorkingDir: String
+    ): List<SpecificationRow> {
         val currentWorkingDirPath = File(currentWorkingDir).absoluteFile
 
         return specifications.mapNotNull {
@@ -39,8 +53,9 @@ class CentralContractRepoReport {
             SpecificationRow(
                 spec.relativeTo(File("").canonicalFile).path,
                 feature.serviceType,
+                SpecType.OPENAPI.name,
                 feature.scenarios.map {
-                    SpecificationOperation(
+                    OpenAPISpecificationOperation(
                         convertPathParameterStyle(it.path),
                         it.method,
                         it.httpResponsePattern.status
@@ -50,18 +65,33 @@ class CentralContractRepoReport {
         }
     }
 
-
-    private fun findSpecifications(currentDirectoryPath: String): List<File> {
+    private fun findSpecifications(currentDirectoryPath: String): Map<SpecType, List<File>> {
         val currentDirectory = File(currentDirectoryPath)
-        val specifications = mutableListOf<File>()
+        val openApiSpecifications = mutableListOf<File>()
+        val asyncApiSpecifications = mutableListOf<File>()
         val allFiles = currentDirectory.listFiles() ?: emptyArray()
         for (file in allFiles) {
             if (file.isDirectory) {
-                specifications.addAll(findSpecifications(file.canonicalPath))
-            } else if (hasOpenApiFileExtension(file.canonicalPath) && isOpenAPI(file.canonicalPath)) {
-                specifications.add(file)
+                val specMap = findSpecifications(file.canonicalPath)
+                openApiSpecifications.addAll(specMap[SpecType.OPENAPI].orEmpty())
+                asyncApiSpecifications.addAll(specMap[SpecType.ASYNCAPI].orEmpty())
+            } else {
+                if (hasOpenApiFileExtension(file.canonicalPath) && isOpenAPI(file.canonicalPath)) {
+                    openApiSpecifications.add(file)
+                }
+                 if (hasAsyncApiFileExtension(file.canonicalPath) && isAsyncAPI(file.canonicalPath)) {
+                     asyncApiSpecifications.add(file)
+                 }
             }
         }
-        return specifications
+        return mapOf(
+            SpecType.OPENAPI to openApiSpecifications,
+            SpecType.ASYNCAPI to asyncApiSpecifications
+        )
     }
+}
+
+enum class SpecType {
+    OPENAPI,
+    ASYNCAPI
 }
