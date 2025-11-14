@@ -57,7 +57,7 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
             path,
             operationName,
             soapAction,
-            responseTypeInfo.types,
+            responseTypeInfo.types.mapKeys { it.key.trim() },
             requestTypeInfo.soapPayload,
             responseTypeInfo.soapPayload
         )

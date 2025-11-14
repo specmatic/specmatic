@@ -29,5 +29,5 @@ fun buildXmlDataForComplexElement(
         "${it.nameWithOptionality}=\"${it.type}\""
     }
 
-    return "<${nodeName} $TYPE_ATTRIBUTE_NAME=\"$specmaticTypeName\" $attributeString />"
+    return "<${nodeName} $TYPE_ATTRIBUTE_NAME=\"${specmaticTypeName.trim()}\" $attributeString />"
 }

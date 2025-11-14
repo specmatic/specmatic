@@ -20,4 +20,16 @@ internal class SOAPTypesTest {
         assertThat(statements).hasSize(2)
         assertThat(statements.first()).startsWith("Given ")
     }
+
+    @Test
+    fun `trims trailing whitespace from generated gherkin statements`() {
+        val types = SOAPTypes(mapOf("Name" to XMLPattern("<name>(string)</name>")))
+        val statements = types.statements()
+        assertThat(statements).hasSize(1)
+        // Verify no trailing whitespace exists
+        statements.forEach { statement ->
+            assertThat(statement).isEqualTo(statement.trimEnd())
+            assertThat(statement).doesNotEndWith(" ")
+        }
+    }
 }
