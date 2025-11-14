@@ -1,6 +1,6 @@
 package io.specmatic.test
 
-import io.specmatic.core.TestResult
+import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.reports.coverage.Endpoint
 import io.specmatic.test.reports.coverage.OpenApiCoverageReportInput
 import io.specmatic.test.reports.coverage.console.OpenApiCoverageConsoleRow

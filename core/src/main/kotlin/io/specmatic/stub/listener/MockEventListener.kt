@@ -3,8 +3,8 @@ package io.specmatic.stub.listener
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Scenario
-import io.specmatic.core.TestResult
 import io.specmatic.core.log.HttpLogMessage
+import io.specmatic.reporter.model.TestResult
 
 interface MockEventListener {
     fun onRespond(data: MockEvent)
