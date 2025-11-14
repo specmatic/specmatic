@@ -18,14 +18,8 @@ fun getAsyncAPISpecificationRows(
 ): List<SpecificationRow> {
     val basePath = Paths.get("").toAbsolutePath().normalize()
     return specifications.map { file ->
-        val specPath = try {
-            val relPath = basePath.relativize(file.toPath().toAbsolutePath().normalize())
-            relPath.joinToString("/") { it.toString() }
-        } catch (e: IllegalArgumentException) {
-            file.toPath().toAbsolutePath().normalize().joinToString("/") { it.toString() }
-        }
         SpecificationRow(
-            specification = specPath,
+            specification = file.relativeTo(File("").canonicalFile).path,
             serviceType = SpecType.ASYNCAPI.name,
             specType = SpecType.ASYNCAPI.name,
             operations = asyncAPIOperationsFrom(file)
