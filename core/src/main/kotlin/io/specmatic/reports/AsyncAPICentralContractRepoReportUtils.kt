@@ -8,6 +8,7 @@ import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.exceptionCauseMessage
 import org.yaml.snakeyaml.Yaml
 import java.io.File
+import java.nio.file.Paths
 import com.asyncapi.v2._6_0.model.AsyncAPI as AsyncAPI_2_6_0
 import com.asyncapi.v3._0_0.model.AsyncAPI as AsyncAPI_3_0_0
 
@@ -15,9 +16,16 @@ fun getAsyncAPISpecificationRows(
     specifications: List<File>,
     currentWorkingDir: String
 ): List<SpecificationRow> {
+    val basePath = Paths.get("").toAbsolutePath().normalize()
     return specifications.map { file ->
+        val specPath = try {
+            val relPath = basePath.relativize(file.toPath().toAbsolutePath().normalize())
+            relPath.joinToString("/") { it.toString() }
+        } catch (e: IllegalArgumentException) {
+            file.toPath().toAbsolutePath().normalize().joinToString("/") { it.toString() }
+        }
         SpecificationRow(
-            specification = file.relativeTo(File("").canonicalFile).path,
+            specification = specPath,
             serviceType = SpecType.ASYNCAPI.name,
             specType = SpecType.ASYNCAPI.name,
             operations = asyncAPIOperationsFrom(file)
