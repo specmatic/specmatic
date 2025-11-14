@@ -2,14 +2,16 @@ package io.specmatic.stub
 
 import io.specmatic.core.loadSpecmaticConfig
 import io.specmatic.core.utilities.Flags
+import io.specmatic.osAgnosticPath
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
+import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
 internal class StubStrictModeTest {
-
     @Nested
     inner class StubConfigurationTests {
         @Test
@@ -108,50 +110,12 @@ internal class StubStrictModeTest {
         }
 
         @Test
-        fun `createStubFromContracts should succeed with valid stub in strict mode`() {
-            val resourcesDir = File(javaClass.getResource("/stub_strict_mode")!!.toURI())
-            val apiFile = File(resourcesDir, "api.yaml")
-            val validStubDir = File(resourcesDir, "api_data")
-            val configFile = File(resourcesDir, "specmatic_strict_true.yaml")
+        fun `createStubFromContracts should succeed with valid stub in strict mode`(@TempDir tempDir: File) {
+            val configFile = File(osAgnosticPath("src/test/resources/stub_strict_mode/specmatic_strict_true_with_spec.yaml"))
 
-            // Create a directory with only valid stub
-            val tempDir = File.createTempFile("specmatic_test", "")
-            tempDir.delete()
-            tempDir.mkdir()
-
-            try {
-                // Copy the API spec file to temp directory (needed for Windows cross-drive support)
-                val tempApiFile = File(tempDir, "api.yaml")
-                tempApiFile.writeText(apiFile.readText())
-
-                // Copy the config file to temp directory
-                val tempConfigFile = File(tempDir, "specmatic_strict_true.yaml")
-                tempConfigFile.writeText(configFile.readText())
-
-                // Copy only the valid stub
-                val validStub = File(validStubDir, "valid_stub.json")
-                val stubsDir = File(tempDir, "stubs")
-                stubsDir.mkdir()
-                val targetFile = File(stubsDir, "valid_stub.json")
-                targetFile.writeText(validStub.readText())
-
-                val stub = createStubFromContracts(
-                    contractPaths = listOf(tempApiFile.path),
-                    dataDirPaths = listOf(stubsDir.path),
-                    host = "localhost",
-                    port = 9003,
-                    timeoutMillis = HTTP_STUB_SHUTDOWN_TIMEOUT,
-                    specmaticConfigPath = tempConfigFile.path
-                )
-
-                try {
-                    // Valid stub should work in strict mode
-                    assertThat(stub).isNotNull()
-                } finally {
-                    stub.close()
-                }
-            } finally {
-                tempDir.deleteRecursively()
+            assertDoesNotThrow {
+                val stub = createStub(timeoutMillis = HTTP_STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = configFile.canonicalPath)
+                stub.close()
             }
         }
     }
