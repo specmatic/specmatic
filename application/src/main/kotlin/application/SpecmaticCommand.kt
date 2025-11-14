@@ -13,8 +13,6 @@ import java.util.concurrent.Callable
     mixinStandardHelpOptions = true,
     versionProvider = VersionProvider::class,
     scope = CommandLine.ScopeType.INHERIT,
-    subcommands = [
-    ]
 )
 class SpecmaticCommand : Callable<Int> {
     override fun call(): Int {
@@ -24,7 +22,9 @@ class SpecmaticCommand : Callable<Int> {
 
 
 object SpecmaticCoreSubcommands : CliConfigurer {
-    override fun subcommands() = arrayOf(
+    override fun mainCommand(): Any = SpecmaticCommand()
+
+    override fun subcommands() = arrayOf<Any>(
         BackwardCompatibilityCheckCommandV2(),
         CompareCommand(),
         ImportCommand(),
