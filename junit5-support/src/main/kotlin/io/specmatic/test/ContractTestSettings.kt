@@ -47,6 +47,6 @@ data class ContractTestSettings(
         generative = contractTestSettings.get()?.generative,
         reportBaseDirectory = contractTestSettings.get()?.reportBaseDirectory,
         coverageHooks = contractTestSettings.get()?.coverageHooks ?: emptyList(),
-        strictMode = contractTestSettings.get()?.strictMode ?: Flags.getStringValue(Flags.STRICT_MODE)?.toBoolean(),
+        strictMode = contractTestSettings.get()?.strictMode ?: Flags.getStringValue(Flags.TEST_STRICT_MODE)?.toBoolean(),
     )
 }

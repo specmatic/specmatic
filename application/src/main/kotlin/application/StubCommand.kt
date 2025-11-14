@@ -53,7 +53,7 @@ class StubCommand(
     var port: Int = 0
 
     @Option(names = ["--strict"], description = ["Start HTTP stub in strict mode"], required = false)
-    var strictMode: Boolean = false
+    var strictMode: Boolean? = null
 
     @Option(names = ["--passThroughTargetBase"], description = ["All requests that did not match a url in any contract will be forwarded to this service"])
     var passThroughTargetBase: String = ""
@@ -207,6 +207,11 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             ?: loadSpecmaticConfigOrDefault(specmaticConfigPath ?: getConfigFilePath()).getHotReload()
             ?: Switch.enabled
 
+    private fun configuredStrictMode(): Boolean =
+        strictMode
+            ?: loadSpecmaticConfigOrDefault(specmaticConfigPath ?: getConfigFilePath()).getStubStrictMode()
+            ?: false
+
     private fun configureLogPrinters(): List<LogPrinter> {
         val consoleLogPrinter = configureConsoleLogPrinter()
         val textLogPrinter = configureTextLogPrinter()
@@ -235,12 +240,13 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 
     private fun startServer() {
         val workingDirectory = WorkingDirectory()
-        if(strictMode) throwExceptionIfDirectoriesAreInvalid(exampleDirs, "example directories")
+        val resolvedStrictMode = configuredStrictMode()
+        if(resolvedStrictMode) throwExceptionIfDirectoriesAreInvalid(exampleDirs, "example directories")
         val stubData = stubLoaderEngine.loadStubs(
             contractPathDataList = contractSources,
             dataDirs = exampleDirs,
             specmaticConfigPath = specmaticConfigPath,
-            strictMode = strictMode,
+            strictMode = resolvedStrictMode,
         )
 
         logStubLoadingSummary(stubData)
@@ -281,7 +287,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             host = host,
             port = port,
             certInfo = certInfo,
-            strictMode = strictMode,
+            strictMode = resolvedStrictMode,
             passThroughTargetBase = passThroughTargetBase,
             specmaticConfigPath = specmaticConfigPath,
             httpClientFactory = httpClientFactory,

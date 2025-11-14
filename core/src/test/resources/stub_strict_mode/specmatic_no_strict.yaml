@@ -1,0 +1,3 @@
+version: 2
+stub:
+  startTimeoutInMilliseconds: 20000

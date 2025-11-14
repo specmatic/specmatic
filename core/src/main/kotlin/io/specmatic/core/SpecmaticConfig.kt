@@ -110,7 +110,8 @@ data class StubConfiguration(
     private val dictionary: String? = null,
     private val includeMandatoryAndRequestedKeysInResponse: Boolean? = null,
     private val startTimeoutInMilliseconds: Long? = null,
-    private val hotReload: Switch? = null
+    private val hotReload: Switch? = null,
+    private val strictMode: Boolean? = null
 ) {
     fun getGenerative(): Boolean? {
         return generative
@@ -134,6 +135,10 @@ data class StubConfiguration(
 
     fun getHotReload(): Switch? {
         return hotReload
+    }
+
+    fun getStrictMode(): Boolean? {
+        return strictMode ?: getBooleanValue(Flags.STUB_STRICT_MODE, false)
     }
 }
 
@@ -511,6 +516,11 @@ data class SpecmaticConfig(
     @JsonIgnore
     fun getStubDictionary(): String? {
         return stub.getDictionary()
+    }
+
+    @JsonIgnore
+    fun getStubStrictMode(): Boolean? {
+        return stub.getStrictMode()
     }
 
     @JsonIgnore

@@ -99,12 +99,20 @@ fun WSDL(rootDefinition: XMLNode, wsdlPath: String): WSDL {
 
     val typesNode = rootDefinition.findFirstChildByName("types") ?: toXMLNode("<types/>")
 
-    val schemaPrefixes = schemaPrefixesFrom(schemas)
-    val reversedSchemaPrefixes = schemaPrefixes.entries.associate { it.value to it.key }
-    return WSDL(rootDefinition, definitions, populatedSchemas, typesNode, namespaceToPrefixMap(rootDefinition).plus(schemaPrefixes), reversedSchemaPrefixes, prefixToNamespaceMap(rootDefinition))
+    val schemaPrefixes: Map<String, String> = schemaPrefixesFrom(schemas)
+    val reversedSchemaPrefixes: Map<String, String> = schemaPrefixes.entries.associate { it.value to it.key }
+    val rootPrefixes: Map<String, String> = rootDefinition.attributes.filterKeys { it.startsWith("xmlns:") }.map {
+        it.key.split(":")[1] to it.value.string
+    }.toMap()
+
+    return WSDL(rootDefinition, definitions, populatedSchemas, typesNode, namespaceToPrefixMap(rootDefinition).plus(schemaPrefixes), reversedSchemaPrefixes.plus(rootPrefixes), prefixToNamespaceMap(rootDefinition))
 }
 
 fun schemaPrefixesFrom(schemas: Map<String, XMLNode>): Map<String, String> {
+    if (schemas.isEmpty()) {
+        return emptyMap()
+    }
+
     val namespaces = schemas.keys.toSet().toList()
 
     return toURLPrefixMap(namespaces, MappedURLType.INCLUDES_DOMAIN)
@@ -123,7 +131,8 @@ fun toURLPrefixMap(urls: List<String>, mappedURLType: MappedURLType): Map<String
 
     val minLength = normalisedURL.minOfOrNull {
         it.split("/").size
-    } ?: throw ContractException("No schema namespaces found")
+    }
+        ?: throw ContractException("No schema namespaces found")
 
     val segmentCount = 1.until(minLength + 1).first { length ->
         val segments = normalisedURL.map { url ->
