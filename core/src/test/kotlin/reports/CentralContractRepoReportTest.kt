@@ -52,32 +52,34 @@ class CentralContractRepoReportTest {
     fun `test generates report based on asyncapi 3_0_0 spec with operations section`() {
         val report = CentralContractRepoReport().generate("./specifications/asyncapi3spec")
         assertThat(osAgnosticPaths(report)).isEqualTo(
-            CentralContractRepoReportJson(
-                listOf(
-                    SpecificationRow(
-                        "specifications/asyncapi3spec/asyncapi3spec.yaml",
-                        "ASYNCAPI",
-                        "ASYNCAPI",
-                        listOf(
-                            io.specmatic.reports.AsyncAPISpecificationOperation(
-                                operation = "placeOrder",
-                                channel = "NewOrderPlaced",
-                                action = "receive"
-                            ),
-                            io.specmatic.reports.AsyncAPISpecificationOperation(
-                                operation = "placeOrder",
-                                channel = "OrderInitiated",
-                                action = "send"
-                            ),
-                            io.specmatic.reports.AsyncAPISpecificationOperation(
-                                operation = "cancelOrder",
-                                channel = "OrderCancellationRequested",
-                                action = "receive"
-                            ),
-                            io.specmatic.reports.AsyncAPISpecificationOperation(
-                                operation = "cancelOrder",
-                                channel = "OrderCancelled",
-                                action = "send"
+            osAgnosticPaths(
+                CentralContractRepoReportJson(
+                    listOf(
+                        SpecificationRow(
+                            "specifications/asyncapi3spec/asyncapi3spec.yaml",
+                            "ASYNCAPI",
+                            "ASYNCAPI",
+                            listOf(
+                                io.specmatic.reports.AsyncAPISpecificationOperation(
+                                    operation = "placeOrder",
+                                    channel = "NewOrderPlaced",
+                                    action = "receive"
+                                ),
+                                io.specmatic.reports.AsyncAPISpecificationOperation(
+                                    operation = "placeOrder",
+                                    channel = "OrderInitiated",
+                                    action = "send"
+                                ),
+                                io.specmatic.reports.AsyncAPISpecificationOperation(
+                                    operation = "cancelOrder",
+                                    channel = "OrderCancellationRequested",
+                                    action = "receive"
+                                ),
+                                io.specmatic.reports.AsyncAPISpecificationOperation(
+                                    operation = "cancelOrder",
+                                    channel = "OrderCancelled",
+                                    action = "send"
+                                )
                             )
                         )
                     )
@@ -90,22 +92,24 @@ class CentralContractRepoReportTest {
     fun `test generates report based on asyncapi 2 6 0 spec with publish and subscribe operations`() {
         val report = CentralContractRepoReport().generate("./specifications/asyncapi2spec")
         assertThat(osAgnosticPaths(report)).isEqualTo(
-            CentralContractRepoReportJson(
-                listOf(
-                    SpecificationRow(
-                        "specifications/asyncapi2spec/asyncapi2spec.yaml",
-                        "ASYNCAPI",
-                        "ASYNCAPI",
-                        listOf(
-                            io.specmatic.reports.AsyncAPISpecificationOperation(
-                                operation = "placeOrder",
-                                channel = "place-order",
-                                action = "receive"
-                            ),
-                            io.specmatic.reports.AsyncAPISpecificationOperation(
-                                operation = "processOrder",
-                                channel = "process-order",
-                                action = "send"
+            osAgnosticPaths(
+                CentralContractRepoReportJson(
+                    listOf(
+                        SpecificationRow(
+                            "specifications/asyncapi2spec/asyncapi2spec.yaml",
+                            "ASYNCAPI",
+                            "ASYNCAPI",
+                            listOf(
+                                io.specmatic.reports.AsyncAPISpecificationOperation(
+                                    operation = "placeOrder",
+                                    channel = "place-order",
+                                    action = "receive"
+                                ),
+                                io.specmatic.reports.AsyncAPISpecificationOperation(
+                                    operation = "processOrder",
+                                    channel = "process-order",
+                                    action = "send"
+                                )
                             )
                         )
                     )

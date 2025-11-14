@@ -16,7 +16,6 @@ fun getAsyncAPISpecificationRows(
     specifications: List<File>,
     currentWorkingDir: String
 ): List<SpecificationRow> {
-    val basePath = Paths.get("").toAbsolutePath().normalize()
     return specifications.map { file ->
         SpecificationRow(
             specification = file.relativeTo(File("").canonicalFile).path,
