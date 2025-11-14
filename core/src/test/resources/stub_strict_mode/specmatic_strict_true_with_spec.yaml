@@ -1,0 +1,6 @@
+version: 2
+contracts:
+  - consumes:
+      - src/test/resources/specmatic_strict_mode/api.yaml
+stub:
+  strictMode: true
