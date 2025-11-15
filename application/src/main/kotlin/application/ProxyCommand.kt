@@ -99,6 +99,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         addShutdownHook()
 
         consoleLog(StringLog("Proxy server is running on ${consolePrintableURL(host, port, keyStoreData)}. Ctrl + C to stop."))
+        logger.boundary()
         while(true) sleep(10000)
     }
 
