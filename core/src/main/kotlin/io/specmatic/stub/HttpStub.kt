@@ -254,6 +254,12 @@ class HttpStub(
                         requestInterceptor.interceptRequest(request) ?: request
                     }
 
+                    // Log the decoded request if it was transformed
+                    if (httpRequest != rawHttpRequest) {
+                        logger.log("Stub: Request was decoded by codec hook")
+                        logger.log("Decoded request: ${httpRequest.toLogString()}")
+                    }
+
                     val responseFromRequestHandler = requestHandlers.firstNotNullOfOrNull { it.handleRequest(httpRequest) }
                     val httpStubResponse: HttpStubResponse = when {
                         isFetchLogRequest(httpRequest) -> handleFetchLogRequest()
@@ -274,6 +280,12 @@ class HttpStub(
 
                     val httpResponse = responseInterceptors.fold(httpStubResponse.response) { response, responseInterceptor ->
                         responseInterceptor.interceptResponse(httpRequest, response) ?: response
+                    }
+
+                    // Log the encoded response if it was transformed
+                    if (httpResponse != httpStubResponse.response) {
+                        logger.log("Stub: Response was encoded by codec hook")
+                        logger.log("Encoded response: ${httpResponse.toLogString()}")
                     }
                     if (httpRequest.path!!.startsWith("""/features/default""")) {
                         handleSse(httpRequest, this@HttpStub, this)
