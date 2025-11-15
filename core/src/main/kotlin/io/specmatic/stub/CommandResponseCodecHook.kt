@@ -44,7 +44,7 @@ class CommandResponseCodecHook(
             val exitCode = process.exitValue()
             if (exitCode != 0) {
                 val error = BufferedReader(InputStreamReader(process.errorStream)).use { it.readText() }
-                logger.log("Response codec hook failed with exit code $exitCode: $error")
+                logger.log("Response codec hook failed with exit code $exitCode, continuing with original response.\nError output:\n$error")
                 return null
             }
 
