@@ -16,10 +16,7 @@ import io.specmatic.core.route.modules.HealthCheckModule.Companion.isHealthCheck
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.utilities.uniqueNameForApiOperation
 import io.specmatic.mock.ScenarioStub
-import io.specmatic.stub.httpRequestLog
-import io.specmatic.stub.httpResponseLog
-import io.specmatic.stub.ktorHttpRequestToHttpRequest
-import io.specmatic.stub.respondToKtorHttpResponse
+import io.specmatic.stub.*
 import io.specmatic.test.LegacyHttpClient
 import io.swagger.v3.core.util.Yaml
 import kotlinx.coroutines.Dispatchers
@@ -47,6 +44,7 @@ class Proxy(
     timeoutInMilliseconds: Long = DEFAULT_TIMEOUT_IN_MILLISECONDS,
     filter: String? = "",
     private val requestObserver: RequestObserver? = null,
+    specmaticConfigSource: SpecmaticConfigSource = SpecmaticConfigSource.None,
 ) : Closeable {
     constructor(
         host: String,
@@ -57,9 +55,24 @@ class Proxy(
         timeoutInMilliseconds: Long,
         filter: String,
         requestObserver: RequestObserver? = null,
-    ) : this(host, port, baseURL, RealFileWriter(proxySpecmaticDataDir), keyData, timeoutInMilliseconds, filter)
+        specmaticConfigSource: SpecmaticConfigSource = SpecmaticConfigSource.None,
+    ) : this(host, port, baseURL, RealFileWriter(proxySpecmaticDataDir), keyData, timeoutInMilliseconds, filter, requestObserver, specmaticConfigSource)
 
     private val stubs = mutableListOf<NamedStub>()
+
+    private val requestInterceptors: MutableList<RequestInterceptor> = mutableListOf()
+    private val responseInterceptors: MutableList<ResponseInterceptor> = mutableListOf()
+
+    fun registerRequestTransformationHook(hook: RequestTransformationHook) {
+        requestInterceptors.add(RequestTransformationHookAdapter(hook))
+    }
+
+    fun registerResponseTransformationHook(hook: ResponseTransformationHook) {
+        responseInterceptors.add(ResponseTransformationHookAdapter(hook))
+    }
+
+    private val loadedSpecmaticConfig = specmaticConfigSource.load()
+    private val specmaticConfigInstance: SpecmaticConfig = loadedSpecmaticConfig.config
 
     private val targetHost =
         baseURL.let {
@@ -97,6 +110,11 @@ class Proxy(
                                         return@intercept
                                     }
 
+                                    // Apply request transformation hooks to get the tracked request
+                                    val trackedRequest = requestInterceptors.fold(httpRequest) { request, requestInterceptor ->
+                                        requestInterceptor.interceptRequest(request) ?: request
+                                    }
+
                                     // continue as before, if not matching filter
                                     val client =
                                         LegacyHttpClient(
@@ -104,6 +122,7 @@ class Proxy(
                                             timeoutInMilliseconds = timeoutInMilliseconds,
                                         )
 
+                                    // Send the ORIGINAL request to the target (not the tracked one)
                                     val requestToSend =
                                         targetHost?.let {
                                             httpRequest.withHost(targetHost)
@@ -119,22 +138,28 @@ class Proxy(
                                         return@intercept
                                     }
 
+                                    // Apply response transformation hooks to get the tracked response
+                                    val trackedResponse = responseInterceptors.fold(httpResponse) { response, responseInterceptor ->
+                                        responseInterceptor.interceptResponse(trackedRequest, response) ?: response
+                                    }
+
                                     // check response for matching filter. if matches, bail!
                                     val name =
-                                        "${httpRequest.method} ${httpRequest.path}${toQueryString(httpRequest.queryParams.asMap())}"
+                                        "${trackedRequest.method} ${trackedRequest.path}${toQueryString(trackedRequest.queryParams.asMap())}"
                                     stubs.add(
                                         NamedStub(
                                             name,
-                                            uniqueNameForApiOperation(httpRequest, baseURL, httpResponse.status),
+                                            uniqueNameForApiOperation(trackedRequest, baseURL, trackedResponse.status),
                                             ScenarioStub(
-                                                httpRequest.dropIrrelevantHeaders(),
-                                                httpResponse.dropIrrelevantHeaders(),
+                                                trackedRequest.dropIrrelevantHeaders(),
+                                                trackedResponse.dropIrrelevantHeaders(),
                                             ),
                                         ),
                                     )
 
-                                    requestObserver?.onRequestHandled(httpRequest, httpResponse)
+                                    requestObserver?.onRequestHandled(trackedRequest, trackedResponse)
 
+                                    // Send the ORIGINAL response back to consumer (not the tracked one)
                                     respondToKtorHttpResponse(call, withoutContentEncodingGzip(httpResponse))
                                 } catch (e: Throwable) {
                                     logger.log(e)
@@ -234,6 +259,9 @@ class Proxy(
             }
 
     init {
+        // Load transformation hooks from configuration
+        TransformationHookLoader.loadHooksFromConfigForProxy(specmaticConfigInstance, this)
+
         server.start()
     }
 
