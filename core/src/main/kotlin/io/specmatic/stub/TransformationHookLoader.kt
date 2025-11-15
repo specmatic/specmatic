@@ -10,8 +10,8 @@ import io.specmatic.core.log.logger
  * with the HttpStub instance.
  */
 object TransformationHookLoader {
-    private const val REQUEST_HOOK_KEY = "transform_stub_request"
-    private const val RESPONSE_HOOK_KEY = "transform_stub_response"
+    private const val REQUEST_HOOK_KEY = "decode_request_from_consumer"
+    private const val RESPONSE_HOOK_KEY = "encode_response_to_consumer"
 
     /**
      * Load and register transformation hooks from configuration.
@@ -19,8 +19,8 @@ object TransformationHookLoader {
      * The hooks are expected to be in the format:
      * ```yaml
      * hooks:
-     *   transform_stub_request: <shell command>
-     *   transform_stub_response: <shell command>
+     *   decode_request_from_consumer: <shell command>
+     *   encode_response_to_consumer: <shell command>
      * ```
      *
      * @param config The Specmatic configuration

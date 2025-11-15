@@ -105,7 +105,7 @@ printf '{"http-request":{"method":"GET","path":"/transformed"}}'
 
         val feature = parseContractFileToFeature(specFile.absolutePath)
         val specmaticConfig = SpecmaticConfig(
-            hooks = mapOf("transform_stub_request" to transformScript.absolutePath)
+            hooks = mapOf("decode_request_from_consumer" to transformScript.absolutePath)
         )
 
         HttpStub(
@@ -157,7 +157,7 @@ printf '{"http-request":{"method":"GET","path":"/test"},"http-response":{"status
 
         val feature = parseContractFileToFeature(specFile.absolutePath)
         val specmaticConfig = SpecmaticConfig(
-            hooks = mapOf("transform_stub_response" to transformScript.absolutePath)
+            hooks = mapOf("encode_response_to_consumer" to transformScript.absolutePath)
         )
 
         HttpStub(
@@ -229,8 +229,8 @@ printf '{"http-request":{"method":"GET","path":"/transformed"},"http-response":{
         val feature = parseContractFileToFeature(specFile.absolutePath)
         val specmaticConfig = SpecmaticConfig(
             hooks = mapOf(
-                "transform_stub_request" to requestHookScript.absolutePath,
-                "transform_stub_response" to responseHookScript.absolutePath
+                "decode_request_from_consumer" to requestHookScript.absolutePath,
+                "encode_response_to_consumer" to responseHookScript.absolutePath
             )
         )
 
@@ -300,8 +300,8 @@ cat
         val feature = parseContractFileToFeature(specFile.absolutePath)
         val specmaticConfig = SpecmaticConfig(
             hooks = mapOf(
-                "transform_stub_request" to requestHookScript.absolutePath,
-                "transform_stub_response" to responseHookScript.absolutePath
+                "decode_request_from_consumer" to requestHookScript.absolutePath,
+                "encode_response_to_consumer" to responseHookScript.absolutePath
             )
         )
 
