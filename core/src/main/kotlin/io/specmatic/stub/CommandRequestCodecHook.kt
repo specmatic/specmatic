@@ -45,8 +45,13 @@ class CommandRequestCodecHook(
             val exitCode = process.exitValue()
             if (exitCode != 0) {
                 val error = BufferedReader(InputStreamReader(process.errorStream)).use { it.readText() }
-                logger.log("  Request codec hook failed with exit code $exitCode, continuing with original request.\nError output:\n$error")
+
+                logger.log("  Request codec hook failed with exit code $exitCode, continuing with original request.")
+                logger.log("  Error output:")
+                logger.log(error.prependIndent("    "))
+
                 logger.boundary()
+
                 return null
             }
 
@@ -64,7 +69,7 @@ class CommandRequestCodecHook(
             return try {
                 parsedJSONObject(output)
             } catch (e: Throwable) {
-                logger.log(e, "  Error parsing JSON output from request codec hook")
+                logger.log(e, "Error parsing JSON output from request codec hook")
                 logger.boundary()
                 null
             }

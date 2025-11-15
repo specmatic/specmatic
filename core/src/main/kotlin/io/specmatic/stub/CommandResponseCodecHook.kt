@@ -37,14 +37,16 @@ class CommandResponseCodecHook(
             val completed = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
             if (!completed) {
                 process.destroyForcibly()
-                logger.log("Response codec hook timed out: $command")
+                logger.log("  Response codec hook timed out: $command")
                 return null
             }
 
             val exitCode = process.exitValue()
             if (exitCode != 0) {
                 val error = BufferedReader(InputStreamReader(process.errorStream)).use { it.readText() }
-                logger.log("Response codec hook failed with exit code $exitCode, continuing with original response.\nError output:\n$error")
+                logger.log("  Response codec hook failed with exit code $exitCode, continuing with original response.")
+                logger.log("  Error output:")
+                logger.log(error.prependIndent("    "))
                 return null
             }
 
@@ -54,18 +56,18 @@ class CommandResponseCodecHook(
             }
 
             if (output.isBlank()) {
-                logger.log("Response codec hook returned empty output")
+                logger.log("  Response codec hook returned empty output")
                 return null
             }
 
             return try {
                 parsedJSONObject(output)
             } catch (e: Throwable) {
-                logger.log(e, "Error parsing JSON output from response codec hook")
+                logger.log(e, "  Error parsing JSON output from response codec hook")
                 null
             }
         } catch (e: Throwable) {
-            logger.log(e, "Error executing response codec hook: $command")
+            logger.log(e, "  Error executing response codec hook: $command")
             return null
         }
     }

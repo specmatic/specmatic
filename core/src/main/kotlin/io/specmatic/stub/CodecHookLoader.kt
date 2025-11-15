@@ -30,6 +30,7 @@ object CodecHookLoader {
     fun loadCodecHooksFromConfig(config: SpecmaticConfig, httpStub: HttpStub) {
         val hooks = config.getHooks()
 
+        logger.boundary()
         // Load request codec hook
         hooks[DECODE_REQUEST_FROM_CONSUMER]?.let { command ->
             if (command.isNotBlank()) {
@@ -55,6 +56,8 @@ object CodecHookLoader {
                 }
             }
         }
+
+        logger.boundary()
     }
 
     /**
@@ -72,6 +75,8 @@ object CodecHookLoader {
      */
     fun loadCodecHooksFromConfigForProxy(config: SpecmaticConfig, proxy: io.specmatic.proxy.Proxy) {
         val hooks = SpecmaticConfig.getHooks(config)
+
+        logger.boundary()
 
         // Load request codec hook
         hooks[DECODE_REQUEST_FROM_CONSUMER]?.let { command ->
@@ -98,5 +103,7 @@ object CodecHookLoader {
                 }
             }
         }
+
+        logger.boundary()
     }
 }
