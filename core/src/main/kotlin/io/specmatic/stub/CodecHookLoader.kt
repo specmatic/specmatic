@@ -28,7 +28,7 @@ object CodecHookLoader {
      * @param httpStub The HttpStub instance to register the hooks with
      */
     fun loadCodecHooksFromConfig(config: SpecmaticConfig, httpStub: HttpStub) {
-        val hooks = SpecmaticConfig.getHooks(config)
+        val hooks = config.getHooks()
 
         // Load request codec hook
         hooks[DECODE_REQUEST_FROM_CONSUMER]?.let { command ->
