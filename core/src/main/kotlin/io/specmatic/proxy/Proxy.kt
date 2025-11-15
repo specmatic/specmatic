@@ -117,8 +117,9 @@ class Proxy(
 
                                     // Log the decoded request if it was transformed
                                     if (trackedRequest != httpRequest) {
-                                        logger.log("Proxy: Request was decoded by codec hook")
-                                        logger.log("Decoded request: ${trackedRequest.toLogString()}")
+                                        logger.log("  Proxy: Request was decoded by codec hook")
+                                        logger.log("  Decoded request: ${System.lineSeparator()}${trackedRequest.toLogString().prependIndent("    ")}")
+                                        logger.boundary()
                                     }
 
                                     // continue as before, if not matching filter
@@ -151,8 +152,9 @@ class Proxy(
 
                                     // Log the decoded response if it was transformed
                                     if (trackedResponse != httpResponse) {
-                                        logger.log("Proxy: Response was decoded by codec hook")
-                                        logger.log("Decoded response: ${trackedResponse.toLogString()}")
+                                        logger.log("  Proxy: Response was decoded by codec hook")
+                                        logger.log("  Decoded response: ${System.lineSeparator()}${trackedResponse.toLogString().prependIndent("    ")}")
+                                        logger.boundary()
                                     }
 
                                     // check response for matching filter. if matches, bail!

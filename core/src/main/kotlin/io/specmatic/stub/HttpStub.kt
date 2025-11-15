@@ -256,8 +256,9 @@ class HttpStub(
 
                     // Log the decoded request if it was transformed
                     if (httpRequest != rawHttpRequest) {
-                        logger.log("Stub: Request was decoded by codec hook")
-                        logger.log("Decoded request: ${httpRequest.toLogString()}")
+                        logger.log("  Stub: Request was decoded by codec hook")
+                        logger.log("  Decoded request: ${System.lineSeparator()}${httpRequest.toLogString().prependIndent("    ")}")
+                        logger.boundary()
                     }
 
                     val responseFromRequestHandler = requestHandlers.firstNotNullOfOrNull { it.handleRequest(httpRequest) }
@@ -284,8 +285,9 @@ class HttpStub(
 
                     // Log the encoded response if it was transformed
                     if (httpResponse != httpStubResponse.response) {
-                        logger.log("Stub: Response was encoded by codec hook")
-                        logger.log("Encoded response: ${httpResponse.toLogString()}")
+                        logger.log("  Stub: Response was encoded by codec hook")
+                        logger.log("  Encoded response: ${System.lineSeparator()}${httpResponse.toLogString().prependIndent("    ")}")
+                        logger.boundary()
                     }
                     if (httpRequest.path!!.startsWith("""/features/default""")) {
                         handleSse(httpRequest, this@HttpStub, this)
