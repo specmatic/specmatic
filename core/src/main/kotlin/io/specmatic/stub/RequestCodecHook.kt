@@ -3,7 +3,7 @@ package io.specmatic.stub
 import io.specmatic.core.value.JSONObjectValue
 
 /**
- * Hook for transforming incoming requests to the stub before they are processed.
+ * Hook for decoding incoming requests before they are processed by Specmatic.
  *
  * The hook receives the request in Specmatic-style JSON format with only the "http-request" field:
  * ```json
@@ -18,15 +18,15 @@ import io.specmatic.core.value.JSONObjectValue
  * }
  * ```
  *
- * The hook should return the transformed JSON in the same format.
+ * The hook should return the decoded JSON in the same format.
  * If null is returned, the original request is used unchanged.
  */
-interface RequestTransformationHook {
+interface RequestCodecHook {
     /**
-     * Transform the incoming request.
+     * Decode the incoming request.
      *
      * @param requestJson The request in Specmatic JSON format with "http-request" field
-     * @return The transformed request JSON, or null to use the original request unchanged
+     * @return The decoded request JSON, or null to use the original request unchanged
      */
-    fun transformRequest(requestJson: JSONObjectValue): JSONObjectValue?
+    fun codecRequest(requestJson: JSONObjectValue): JSONObjectValue?
 }

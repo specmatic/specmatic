@@ -12,12 +12,12 @@ import org.junit.jupiter.api.condition.OS
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
-class TransformationHookTest {
+class CodecHookTest {
     @Test
-    fun `request transformation hook adapter should transform request`() {
-        // Create a simple request transformation hook that modifies the path
-        val hook = object : RequestTransformationHook {
-            override fun transformRequest(requestJson: JSONObjectValue): JSONObjectValue {
+    fun `request codec hook adapter should transform request`() {
+        // Create a simple request codec hook that modifies the path
+        val hook = object : RequestCodecHook {
+            override fun codecRequest(requestJson: JSONObjectValue): JSONObjectValue {
                 val requestMap = requestJson.jsonObject["http-request"] as JSONObjectValue
                 val modifiedRequest = requestMap.copy(
                     jsonObject = requestMap.jsonObject.plus("path" to StringValue("/transformed"))
@@ -26,7 +26,7 @@ class TransformationHookTest {
             }
         }
 
-        val adapter = RequestTransformationHookAdapter(hook)
+        val adapter = RequestCodecHookAdapter(hook)
         val originalRequest = HttpRequest(method = "GET", path = "/original")
         val transformedRequest = adapter.interceptRequest(originalRequest)
 
@@ -35,10 +35,10 @@ class TransformationHookTest {
     }
 
     @Test
-    fun `response transformation hook adapter should transform response`() {
-        // Create a simple response transformation hook that modifies the status
-        val hook = object : ResponseTransformationHook {
-            override fun transformResponse(requestResponseJson: JSONObjectValue): JSONObjectValue {
+    fun `response codec hook adapter should transform response`() {
+        // Create a simple response codec hook that modifies the status
+        val hook = object : ResponseCodecHook {
+            override fun codecResponse(requestResponseJson: JSONObjectValue): JSONObjectValue {
                 val responseMap = requestResponseJson.jsonObject["http-response"] as JSONObjectValue
                 val modifiedResponse = responseMap.copy(
                     jsonObject = responseMap.jsonObject.plus("status" to NumberValue(201))
@@ -52,7 +52,7 @@ class TransformationHookTest {
             }
         }
 
-        val adapter = ResponseTransformationHookAdapter(hook)
+        val adapter = ResponseCodecHookAdapter(hook)
         val request = HttpRequest(method = "GET", path = "/test")
         val originalResponse = HttpResponse(200, body = StringValue("original"))
         val transformedResponse = adapter.interceptResponse(request, originalResponse)
@@ -63,7 +63,7 @@ class TransformationHookTest {
 
     @Test
     @DisabledOnOs(OS.WINDOWS, disabledReason = "Shell scripts work differently on Windows")
-    fun `request transformation hook should work with shell command`(@TempDir tempDir: File) {
+    fun `request codec hook should work with shell command`(@TempDir tempDir: File) {
         val openApiSpec = """
 openapi: 3.0.0
 info:
@@ -124,7 +124,7 @@ printf '{"http-request":{"method":"GET","path":"/transformed"}}'
 
     @Test
     @DisabledOnOs(OS.WINDOWS, disabledReason = "Shell scripts work differently on Windows")
-    fun `response transformation hook should work with shell command`(@TempDir tempDir: File) {
+    fun `response codec hook should work with shell command`(@TempDir tempDir: File) {
         val openApiSpec = """
 openapi: 3.0.0
 info:

@@ -4,8 +4,8 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
-import io.specmatic.stub.RequestTransformationHook
-import io.specmatic.stub.ResponseTransformationHook
+import io.specmatic.stub.RequestCodecHook
+import io.specmatic.stub.ResponseCodecHook
 import io.specmatic.stub.SpecmaticConfigSource
 import io.specmatic.test.HttpClient
 import org.assertj.core.api.Assertions.assertThat
@@ -15,7 +15,7 @@ import org.junit.jupiter.api.condition.OS
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
-class ProxyTransformationHookTest {
+class ProxyCodecHookTest {
     @Test
     fun `proxy should track transformed request and original response`() {
         var trackedRequest: HttpRequest? = null
@@ -53,9 +53,9 @@ paths:
         )
 
         try {
-            // Create a request transformation hook that adds a header for tracking
-            val requestHook = object : RequestTransformationHook {
-                override fun transformRequest(requestJson: JSONObjectValue): JSONObjectValue {
+            // Create a request codec hook that adds a header for tracking
+            val requestHook = object : RequestCodecHook {
+                override fun codecRequest(requestJson: JSONObjectValue): JSONObjectValue {
                     val requestMap = requestJson.jsonObject["http-request"] as JSONObjectValue
                     val headers = (requestMap.jsonObject["headers"] as? JSONObjectValue)?.jsonObject ?: emptyMap()
                     val modifiedRequest = requestMap.copy(
@@ -67,9 +67,9 @@ paths:
                 }
             }
 
-            // Create a response transformation hook that adds tracking info to body
-            val responseHook = object : ResponseTransformationHook {
-                override fun transformResponse(requestResponseJson: JSONObjectValue): JSONObjectValue {
+            // Create a response codec hook that adds tracking info to body
+            val responseHook = object : ResponseCodecHook {
+                override fun codecResponse(requestResponseJson: JSONObjectValue): JSONObjectValue {
                     val responseMap = requestResponseJson.jsonObject["http-response"] as JSONObjectValue
                     val modifiedResponse = responseMap.copy(
                         jsonObject = responseMap.jsonObject.plus("body" to StringValue("tracked_response"))
@@ -93,8 +93,8 @@ paths:
             )
 
             // Register the hooks
-            proxy.registerRequestTransformationHook(requestHook)
-            proxy.registerResponseTransformationHook(responseHook)
+            proxy.registerRequestCodecHook(requestHook)
+            proxy.registerResponseCodecHook(responseHook)
 
             try {
                 // Make a request through the proxy

@@ -228,12 +228,12 @@ class HttpStub(
         responseInterceptors.add(responseInterceptor)
     }
 
-    fun registerRequestTransformationHook(hook: RequestTransformationHook) {
-        requestInterceptors.add(RequestTransformationHookAdapter(hook))
+    fun registerRequestCodecHook(hook: RequestCodecHook) {
+        requestInterceptors.add(RequestCodecHookAdapter(hook))
     }
 
-    fun registerResponseTransformationHook(hook: ResponseTransformationHook) {
-        responseInterceptors.add(ResponseTransformationHookAdapter(hook))
+    fun registerResponseCodecHook(hook: ResponseCodecHook) {
+        responseInterceptors.add(ResponseCodecHookAdapter(hook))
     }
 
     private val environment = applicationEngineEnvironment {
@@ -696,8 +696,8 @@ class HttpStub(
     }
 
     init {
-        // Load transformation hooks from configuration
-        TransformationHookLoader.loadHooksFromConfig(specmaticConfigInstance, this)
+        // Load codec hooks from configuration
+        CodecHookLoader.loadCodecHooksFromConfig(specmaticConfigInstance, this)
 
         server.start()
     }
