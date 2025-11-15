@@ -228,6 +228,14 @@ class HttpStub(
         responseInterceptors.add(responseInterceptor)
     }
 
+    fun registerRequestCodecHook(hook: RequestCodecHook) {
+        requestInterceptors.add(RequestCodecHookAdapter(hook))
+    }
+
+    fun registerResponseCodecHook(hook: ResponseCodecHook) {
+        responseInterceptors.add(ResponseCodecHookAdapter(hook))
+    }
+
     private val environment = applicationEngineEnvironment {
         module {
             install(DoubleReceive)
@@ -244,6 +252,13 @@ class HttpStub(
 
                     val httpRequest = requestInterceptors.fold(rawHttpRequest) { request, requestInterceptor ->
                         requestInterceptor.interceptRequest(request) ?: request
+                    }
+
+                    // Log the decoded request if it was transformed
+                    if (httpRequest != rawHttpRequest) {
+                        logger.log("  Request was decoded by codec hook:")
+                        logger.log(httpRequest.toLogString().prependIndent("    "))
+                        logger.boundary()
                     }
 
                     val responseFromRequestHandler = requestHandlers.firstNotNullOfOrNull { it.handleRequest(httpRequest) }
@@ -266,6 +281,13 @@ class HttpStub(
 
                     val httpResponse = responseInterceptors.fold(httpStubResponse.response) { response, responseInterceptor ->
                         responseInterceptor.interceptResponse(httpRequest, response) ?: response
+                    }
+
+                    // Log the encoded response if it was transformed
+                    if (httpResponse != httpStubResponse.response) {
+                        logger.log("  Response was encoded by codec hook:")
+                        logger.log(httpResponse.toLogString().prependIndent("    "))
+                        logger.boundary()
                     }
                     if (httpRequest.path!!.startsWith("""/features/default""")) {
                         handleSse(httpRequest, this@HttpStub, this)
@@ -688,6 +710,9 @@ class HttpStub(
     }
 
     init {
+        // Load codec hooks from configuration
+        CodecHookLoader.loadCodecHooksFromConfig(specmaticConfigInstance, this)
+
         server.start()
     }
 

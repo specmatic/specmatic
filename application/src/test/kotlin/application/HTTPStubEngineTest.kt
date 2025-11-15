@@ -74,6 +74,7 @@ class HTTPStubEngineTest {
         |\t1. api.yaml
         |
         |Press Ctrl + C to stop.
+        |Saving Stub Usage Report json to ./build/reports/specmatic ...
         """.trimMargin().replace("\\t", "\t"))
     }
 
@@ -94,6 +95,7 @@ class HTTPStubEngineTest {
         |\t2. uuid.yaml
         |
         |Press Ctrl + C to stop.
+        |Saving Stub Usage Report json to ./build/reports/specmatic ...
         """.trimMargin().replace("\\t", "\t"))
     }
 }

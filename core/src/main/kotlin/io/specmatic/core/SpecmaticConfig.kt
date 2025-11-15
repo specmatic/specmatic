@@ -296,6 +296,11 @@ data class SpecmaticConfig(
         fun getEnvironments(specmaticConfig: SpecmaticConfig): Map<String, Environment>? {
             return specmaticConfig.environments
         }
+
+        @JsonIgnore
+        fun getHooks(specmaticConfig: SpecmaticConfig): Map<String, String> {
+            return specmaticConfig.hooks
+        }
     }
 
     @JsonIgnore

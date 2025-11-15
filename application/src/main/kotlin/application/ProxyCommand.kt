@@ -5,12 +5,14 @@ import io.specmatic.core.APPLICATION_NAME_LOWER_CASE
 import io.specmatic.core.Configuration.Companion.DEFAULT_PROXY_HOST
 import io.specmatic.core.Configuration.Companion.DEFAULT_PROXY_PORT
 import io.specmatic.core.DEFAULT_TIMEOUT_IN_MILLISECONDS
+import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.log.*
 import io.specmatic.core.utilities.consolePrintableURL
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.utilities.exitWithMessage
 import io.specmatic.license.core.cli.Category
 import io.specmatic.proxy.Proxy
+import io.specmatic.stub.SpecmaticConfigSource
 import java.io.File
 import java.lang.Thread.sleep
 import java.util.concurrent.Callable
@@ -83,10 +85,21 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         val certInfo = CertInfo(keyStoreFile, keyStoreDir, keyStorePassword, keyStoreAlias, keyPassword)
         val keyStoreData = certInfo.getHttpsCert()
 
-        proxy = Proxy(host, port, targetBaseURL, proxySpecmaticDataDir, keyStoreData, timeoutInMs, filter)
+        // Load specmatic.yaml config from current working directory
+        val specmaticConfigPath = getConfigFilePath()
+        val specmaticConfigSource = if (File(specmaticConfigPath).exists()) {
+            logger.log("Loading configuration from $specmaticConfigPath")
+            SpecmaticConfigSource.fromPath(specmaticConfigPath)
+        } else {
+            logger.log("No specmatic.yaml found in current directory")
+            SpecmaticConfigSource.None
+        }
+
+        proxy = Proxy(host, port, targetBaseURL, proxySpecmaticDataDir, keyStoreData, timeoutInMs, filter, requestObserver = null, specmaticConfigSource = specmaticConfigSource)
         addShutdownHook()
 
         consoleLog(StringLog("Proxy server is running on ${consolePrintableURL(host, port, keyStoreData)}. Ctrl + C to stop."))
+        logger.boundary()
         while(true) sleep(10000)
     }
 
