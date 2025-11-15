@@ -10,16 +10,16 @@ import java.io.OutputStreamWriter
 import java.util.concurrent.TimeUnit
 
 /**
- * Request transformation hook that executes a shell command.
+ * Response codec hook that executes a shell command.
  *
- * The hook sends the request JSON to the command's stdin and reads the
- * transformed JSON from the command's stdout.
+ * The hook sends the request and response JSON to the command's stdin and reads the
+ * decoded JSON from the command's stdout.
  */
-class CommandRequestTransformationHook(
+class CommandResponseCodecHook(
     private val command: String,
     private val timeoutSeconds: Long = 10
-) : RequestTransformationHook {
-    override fun transformRequest(requestJson: JSONObjectValue): JSONObjectValue? {
+) : ResponseCodecHook {
+    override fun codecResponse(requestResponseJson: JSONObjectValue): JSONObjectValue? {
         try {
             // Execute the command
             val process = ProcessBuilder()
@@ -29,7 +29,7 @@ class CommandRequestTransformationHook(
 
             // Write JSON to stdin
             OutputStreamWriter(process.outputStream, Charsets.UTF_8).use { writer ->
-                writer.write(requestJson.toStringLiteral())
+                writer.write(requestResponseJson.toStringLiteral())
                 writer.flush()
             }
 
@@ -37,35 +37,35 @@ class CommandRequestTransformationHook(
             val completed = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
             if (!completed) {
                 process.destroyForcibly()
-                logger.log("Request transformation hook timed out: $command")
+                logger.log("Response codec hook timed out: $command")
                 return null
             }
 
             val exitCode = process.exitValue()
             if (exitCode != 0) {
                 val error = BufferedReader(InputStreamReader(process.errorStream)).use { it.readText() }
-                logger.log("Request transformation hook failed with exit code $exitCode: $error")
+                logger.log("Response codec hook failed with exit code $exitCode: $error")
                 return null
             }
 
-            // Read transformed JSON from stdout
+            // Read decoded JSON from stdout
             val output = BufferedReader(InputStreamReader(process.inputStream, Charsets.UTF_8)).use {
                 it.readText()
             }
 
             if (output.isBlank()) {
-                logger.log("Request transformation hook returned empty output")
+                logger.log("Response codec hook returned empty output")
                 return null
             }
 
             return try {
                 parsedJSONObject(output)
             } catch (e: Throwable) {
-                logger.log(e, "Error parsing JSON output from request transformation hook")
+                logger.log(e, "Error parsing JSON output from response codec hook")
                 null
             }
         } catch (e: Throwable) {
-            logger.log(e, "Error executing request transformation hook: $command")
+            logger.log(e, "Error executing response codec hook: $command")
             return null
         }
     }

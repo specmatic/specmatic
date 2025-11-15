@@ -5,13 +5,13 @@ import io.specmatic.core.HttpResponse
 import io.specmatic.core.value.JSONObjectValue
 
 /**
- * Adapter that converts a ResponseTransformationHook into a ResponseInterceptor.
+ * Adapter that converts a ResponseCodecHook into a ResponseInterceptor.
  *
  * This allows hooks that work with JSON format to be integrated into the
  * existing response interceptor chain.
  */
-class ResponseTransformationHookAdapter(
-    private val hook: ResponseTransformationHook
+class ResponseCodecHookAdapter(
+    private val hook: ResponseCodecHook
 ) : ResponseInterceptor {
     override fun interceptResponse(httpRequest: HttpRequest, httpResponse: HttpResponse): HttpResponse? {
         try {
@@ -23,26 +23,26 @@ class ResponseTransformationHookAdapter(
                 )
             )
 
-            // Call the transformation hook
-            val transformedJson = hook.transformResponse(requestResponseJson)
+            // Call the codec hook
+            val decodedJson = hook.codecResponse(requestResponseJson)
 
             // If null returned, use original response
-            if (transformedJson == null) {
+            if (decodedJson == null) {
                 return httpResponse
             }
 
-            // Extract the transformed "http-response" and convert back to HttpResponse
-            val transformedResponseJson = transformedJson.jsonObject["http-response"]
+            // Extract the decoded "http-response" and convert back to HttpResponse
+            val decodedResponseJson = decodedJson.jsonObject["http-response"]
                 ?: return httpResponse
 
-            if (transformedResponseJson !is JSONObjectValue) {
+            if (decodedResponseJson !is JSONObjectValue) {
                 return httpResponse
             }
 
-            return HttpResponse.fromJSON(transformedResponseJson.jsonObject)
+            return HttpResponse.fromJSON(decodedResponseJson.jsonObject)
         } catch (e: Throwable) {
             // Log error and return original response to avoid breaking the stub
-            io.specmatic.core.log.logger.log(e, "Error in response transformation hook")
+            io.specmatic.core.log.logger.log(e, "Error in response codec hook")
             return httpResponse
         }
     }

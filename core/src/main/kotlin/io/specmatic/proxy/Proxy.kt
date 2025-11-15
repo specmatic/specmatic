@@ -63,12 +63,12 @@ class Proxy(
     private val requestInterceptors: MutableList<RequestInterceptor> = mutableListOf()
     private val responseInterceptors: MutableList<ResponseInterceptor> = mutableListOf()
 
-    fun registerRequestTransformationHook(hook: RequestTransformationHook) {
-        requestInterceptors.add(RequestTransformationHookAdapter(hook))
+    fun registerRequestCodecHook(hook: RequestCodecHook) {
+        requestInterceptors.add(RequestCodecHookAdapter(hook))
     }
 
-    fun registerResponseTransformationHook(hook: ResponseTransformationHook) {
-        responseInterceptors.add(ResponseTransformationHookAdapter(hook))
+    fun registerResponseCodecHook(hook: ResponseCodecHook) {
+        responseInterceptors.add(ResponseCodecHookAdapter(hook))
     }
 
     private val loadedSpecmaticConfig = specmaticConfigSource.load()
@@ -110,7 +110,7 @@ class Proxy(
                                         return@intercept
                                     }
 
-                                    // Apply request transformation hooks to get the tracked request
+                                    // Apply request codec hooks to get the tracked request
                                     val trackedRequest = requestInterceptors.fold(httpRequest) { request, requestInterceptor ->
                                         requestInterceptor.interceptRequest(request) ?: request
                                     }
@@ -138,7 +138,7 @@ class Proxy(
                                         return@intercept
                                     }
 
-                                    // Apply response transformation hooks to get the tracked response
+                                    // Apply response codec hooks to get the tracked response
                                     val trackedResponse = responseInterceptors.fold(httpResponse) { response, responseInterceptor ->
                                         responseInterceptor.interceptResponse(trackedRequest, response) ?: response
                                     }
@@ -259,8 +259,8 @@ class Proxy(
             }
 
     init {
-        // Load transformation hooks from configuration
-        TransformationHookLoader.loadHooksFromConfigForProxy(specmaticConfigInstance, this)
+        // Load codec hooks from configuration
+        CodecHookLoader.loadCodecHooksFromConfigForProxy(specmaticConfigInstance, this)
 
         server.start()
     }
