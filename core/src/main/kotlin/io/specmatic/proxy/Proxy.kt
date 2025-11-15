@@ -115,6 +115,12 @@ class Proxy(
                                         requestInterceptor.interceptRequest(request) ?: request
                                     }
 
+                                    // Log the decoded request if it was transformed
+                                    if (trackedRequest != httpRequest) {
+                                        logger.log("Proxy: Request was decoded by codec hook")
+                                        logger.log("Decoded request: ${trackedRequest.toLogString()}")
+                                    }
+
                                     // continue as before, if not matching filter
                                     val client =
                                         LegacyHttpClient(
@@ -141,6 +147,12 @@ class Proxy(
                                     // Apply response codec hooks to get the tracked response
                                     val trackedResponse = responseInterceptors.fold(httpResponse) { response, responseInterceptor ->
                                         responseInterceptor.interceptResponse(trackedRequest, response) ?: response
+                                    }
+
+                                    // Log the decoded response if it was transformed
+                                    if (trackedResponse != httpResponse) {
+                                        logger.log("Proxy: Response was decoded by codec hook")
+                                        logger.log("Decoded response: ${trackedResponse.toLogString()}")
                                     }
 
                                     // check response for matching filter. if matches, bail!
