@@ -1,6 +1,7 @@
 package io.specmatic.stub
 
 import io.specmatic.core.HttpRequest
+import io.specmatic.core.log.logger
 import io.specmatic.core.requestFromJSON
 import io.specmatic.core.value.JSONObjectValue
 
@@ -15,8 +16,6 @@ class RequestCodecHookAdapter(
 ) : RequestInterceptor {
     override fun interceptRequest(httpRequest: HttpRequest): HttpRequest? {
         try {
-            io.specmatic.core.log.logger.log("  Request codec hook: Decoding request for ${httpRequest.method} ${httpRequest.path}")
-
             // Convert HttpRequest to Specmatic JSON format with "http-request" field
             val requestJson = JSONObjectValue(
                 mapOf("http-request" to httpRequest.toJSON())
@@ -27,7 +26,8 @@ class RequestCodecHookAdapter(
 
             // If null returned, use original request
             if (decodedJson == null) {
-                io.specmatic.core.log.logger.log("  Request codec hook returned null, using original request")
+                logger.log("  Request codec hook encountered an error, using original request")
+                logger.boundary()
                 return httpRequest
             }
 
@@ -40,11 +40,13 @@ class RequestCodecHookAdapter(
             }
 
             val decodedRequest = requestFromJSON(decodedRequestJson.jsonObject)
-            io.specmatic.core.log.logger.log("  Request codec hook: Successfully decoded request")
+            logger.log("  Request codec hook: Successfully decoded request")
+            logger.boundary()
             return decodedRequest
         } catch (e: Throwable) {
             // Log error and return original request to avoid breaking the stub
-            io.specmatic.core.log.logger.log(e, "  Error in request codec hook")
+            logger.log(e, "  Error in request codec hook")
+            logger.boundary()
             return httpRequest
         }
     }

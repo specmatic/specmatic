@@ -256,8 +256,8 @@ class HttpStub(
 
                     // Log the decoded request if it was transformed
                     if (httpRequest != rawHttpRequest) {
-                        logger.log("  Stub: Request was decoded by codec hook")
-                        logger.log("  Decoded request: ${System.lineSeparator()}${httpRequest.toLogString().prependIndent("    ")}")
+                        logger.log("  Request was decoded by codec hook:")
+                        logger.log(httpRequest.toLogString().prependIndent("    "))
                         logger.boundary()
                     }
 
@@ -285,8 +285,8 @@ class HttpStub(
 
                     // Log the encoded response if it was transformed
                     if (httpResponse != httpStubResponse.response) {
-                        logger.log("  Stub: Response was encoded by codec hook")
-                        logger.log("  Encoded response: ${System.lineSeparator()}${httpResponse.toLogString().prependIndent("    ")}")
+                        logger.log("  Response was encoded by codec hook:")
+                        logger.log(httpResponse.toLogString().prependIndent("    "))
                         logger.boundary()
                     }
                     if (httpRequest.path!!.startsWith("""/features/default""")) {

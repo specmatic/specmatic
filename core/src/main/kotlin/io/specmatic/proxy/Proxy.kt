@@ -111,14 +111,14 @@ class Proxy(
                                     }
 
                                     // Apply request codec hooks to get the tracked request
-                                    val trackedRequest = requestInterceptors.fold(httpRequest) { request, requestInterceptor ->
+                                    val recordedRequest = requestInterceptors.fold(httpRequest) { request, requestInterceptor ->
                                         requestInterceptor.interceptRequest(request) ?: request
                                     }
 
                                     // Log the decoded request if it was transformed
-                                    if (trackedRequest != httpRequest) {
-                                        logger.log("  Proxy: Request was decoded by codec hook")
-                                        logger.log("  Decoded request: ${System.lineSeparator()}${trackedRequest.toLogString().prependIndent("    ")}")
+                                    if (recordedRequest != httpRequest) {
+                                        logger.log("  Request was decoded by codec hook:")
+                                        logger.log(recordedRequest.toLogString().prependIndent("    "))
                                         logger.boundary()
                                     }
 
@@ -146,32 +146,32 @@ class Proxy(
                                     }
 
                                     // Apply response codec hooks to get the tracked response
-                                    val trackedResponse = responseInterceptors.fold(httpResponse) { response, responseInterceptor ->
-                                        responseInterceptor.interceptResponse(trackedRequest, response) ?: response
+                                    val recordedResponse = responseInterceptors.fold(httpResponse) { response, responseInterceptor ->
+                                        responseInterceptor.interceptResponse(recordedRequest, response) ?: response
                                     }
 
                                     // Log the decoded response if it was transformed
-                                    if (trackedResponse != httpResponse) {
-                                        logger.log("  Proxy: Response was decoded by codec hook")
-                                        logger.log("  Decoded response: ${System.lineSeparator()}${trackedResponse.toLogString().prependIndent("    ")}")
+                                    if (recordedResponse != httpResponse) {
+                                        logger.log("  Response was decoded by codec hook:")
+                                        logger.log(recordedResponse.toLogString().prependIndent("    "))
                                         logger.boundary()
                                     }
 
                                     // check response for matching filter. if matches, bail!
                                     val name =
-                                        "${trackedRequest.method} ${trackedRequest.path}${toQueryString(trackedRequest.queryParams.asMap())}"
+                                        "${recordedRequest.method} ${recordedRequest.path}${toQueryString(recordedRequest.queryParams.asMap())}"
                                     stubs.add(
                                         NamedStub(
                                             name,
-                                            uniqueNameForApiOperation(trackedRequest, baseURL, trackedResponse.status),
+                                            uniqueNameForApiOperation(recordedRequest, baseURL, recordedResponse.status),
                                             ScenarioStub(
-                                                trackedRequest.dropIrrelevantHeaders(),
-                                                trackedResponse.dropIrrelevantHeaders(),
+                                                recordedRequest.dropIrrelevantHeaders(),
+                                                recordedResponse.dropIrrelevantHeaders(),
                                             ),
                                         ),
                                     )
 
-                                    requestObserver?.onRequestHandled(trackedRequest, trackedResponse)
+                                    requestObserver?.onRequestHandled(recordedRequest, recordedResponse)
 
                                     // Send the ORIGINAL response back to consumer (not the tracked one)
                                     respondToKtorHttpResponse(call, withoutContentEncodingGzip(httpResponse))
