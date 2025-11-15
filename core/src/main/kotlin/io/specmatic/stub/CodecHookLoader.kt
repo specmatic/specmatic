@@ -10,13 +10,9 @@ import io.specmatic.core.log.logger
  * with the HttpStub or Proxy instance.
  */
 object CodecHookLoader {
-    // Stub hooks
-    private const val STUB_REQUEST_HOOK_KEY = "decode_request_from_consumer"
-    private const val STUB_RESPONSE_HOOK_KEY = "encode_response_to_consumer"
-
-    // Proxy hooks
-    private const val PROXY_REQUEST_HOOK_KEY = "decode_request_from_consumer"
-    private const val PROXY_RESPONSE_HOOK_KEY = "decode_response_from_provider"
+    private const val DECODE_REQUEST_FROM_CONSUMER = "decode_request_from_consumer"
+    private const val ENCODE_RESPONSE_TO_CONSUMER = "encode_response_to_consumer"
+    private const val DECODE_RESPONSE_FROM_PROVIDER = "decode_response_from_provider"
 
     /**
      * Load and register codec hooks from configuration for HttpStub.
@@ -35,7 +31,7 @@ object CodecHookLoader {
         val hooks = SpecmaticConfig.getHooks(config)
 
         // Load request codec hook
-        hooks[STUB_REQUEST_HOOK_KEY]?.let { command ->
+        hooks[DECODE_REQUEST_FROM_CONSUMER]?.let { command ->
             if (command.isNotBlank()) {
                 try {
                     val hook = CommandRequestCodecHook(command)
@@ -48,7 +44,7 @@ object CodecHookLoader {
         }
 
         // Load response codec hook
-        hooks[STUB_RESPONSE_HOOK_KEY]?.let { command ->
+        hooks[ENCODE_RESPONSE_TO_CONSUMER]?.let { command ->
             if (command.isNotBlank()) {
                 try {
                     val hook = CommandResponseCodecHook(command)
@@ -78,7 +74,7 @@ object CodecHookLoader {
         val hooks = SpecmaticConfig.getHooks(config)
 
         // Load request codec hook
-        hooks[PROXY_REQUEST_HOOK_KEY]?.let { command ->
+        hooks[DECODE_REQUEST_FROM_CONSUMER]?.let { command ->
             if (command.isNotBlank()) {
                 try {
                     val hook = CommandRequestCodecHook(command)
@@ -91,7 +87,7 @@ object CodecHookLoader {
         }
 
         // Load response codec hook
-        hooks[PROXY_RESPONSE_HOOK_KEY]?.let { command ->
+        hooks[DECODE_RESPONSE_FROM_PROVIDER]?.let { command ->
             if (command.isNotBlank()) {
                 try {
                     val hook = CommandResponseCodecHook(command)
