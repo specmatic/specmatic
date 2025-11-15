@@ -48,7 +48,7 @@ dependencies {
 
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.13.4")
 
-    testImplementation("io.mockk:mockk:1.13.11")
+    testImplementation("io.mockk:mockk:1.14.6")
     testImplementation("org.assertj:assertj-core:3.27.6")
     testImplementation("com.ginsberg:junit5-system-exit:2.0.2")
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.13.4")
