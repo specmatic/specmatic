@@ -43,8 +43,6 @@ class ResponseCodecHookAdapter(
             }
 
             val decodedResponse = HttpResponse.fromJSON(decodedResponseJson.jsonObject)
-            logger.log("  Response codec hook: Successfully decoded response")
-            logger.boundary()
 
             return decodedResponse
         } catch (e: Throwable) {
