@@ -47,7 +47,7 @@ class ResponseCodecHookAdapter(
             return InterceptorResult.success(decodedResponse)
         } catch (e: Throwable) {
             // Return error instead of throwing
-            val error = CodecError(
+            val error = InterceptorError(
                 exitCode = -1,
                 stdout = "",
                 stderr = "Error in response hook adapter: ${e.message}",

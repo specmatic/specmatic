@@ -1,0 +1,71 @@
+openapi: 3.0.1
+info:
+  title: New feature
+  version: "1"
+paths:
+  /users:
+    post:
+      summary: POST /users
+      parameters:
+      - name: Accept
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Users_RequestBody"
+        required: true
+      responses:
+        "200":
+          description: POST /users
+          headers:
+            X-Powered-By:
+              required: true
+              schema:
+                type: string
+            Connection:
+              required: true
+              schema:
+                type: string
+            Keep-Alive:
+              required: true
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Users_ResponseBody"
+components:
+  schemas:
+    Users_RequestBody:
+      required:
+      - email
+      - name
+      - role
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+    Users_ResponseBody:
+      required:
+      - email
+      - id
+      - name
+      - role
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
