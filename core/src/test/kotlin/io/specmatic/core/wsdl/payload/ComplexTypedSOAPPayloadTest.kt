@@ -23,4 +23,25 @@ internal class ComplexTypedSOAPPayloadTest {
             </soapenv:Envelope>
             ""${'"'}""".trimIndent().trimmedLinesList())
     }
+
+    @Test
+    fun `trims whitespace from specmatic type name in generated payload`() {
+        // Create payload with type name that has trailing whitespace
+        val type = ComplexTypedSOAPPayload(SOAPMessageType.Input, "person", "Person  ", mapOf("ns0" to "http://ns"))
+        val statement = type.specmaticStatement().first().trim()
+
+        // Verify the generated XML has trimmed type name (no whitespace)
+        assertThat(statement).contains("specmatic_type=\"Person\"")
+        assertThat(statement).doesNotContain("specmatic_type=\"Person  \"")
+        assertThat(statement).doesNotContain("Person \"")
+    }
+
+    @Test
+    fun `buildXmlDataForComplexElement trims whitespace from type name`() {
+        val xml = buildXmlDataForComplexElement("person", "  PersonType  ", emptyList())
+
+        // Verify the type attribute has no leading or trailing whitespace
+        assertThat(xml).contains("specmatic_type=\"PersonType\"")
+        assertThat(xml).doesNotContain("  PersonType  ")
+    }
 }
