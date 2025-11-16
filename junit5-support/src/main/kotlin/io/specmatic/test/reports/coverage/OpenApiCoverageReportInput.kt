@@ -1,10 +1,10 @@
 package io.specmatic.test.reports.coverage
 
 import io.specmatic.conversions.SERVICE_TYPE_HTTP
-import io.specmatic.core.TestResult
 import io.specmatic.core.filters.ExpressionStandardizer
 import io.specmatic.core.filters.TestRecordFilter
 import io.specmatic.core.log.HttpLogMessage
+import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.API
 import io.specmatic.test.HttpInteractionsLog
 import io.specmatic.test.TestResultRecord

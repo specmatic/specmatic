@@ -1,7 +1,7 @@
 package io.specmatic.test.reports.coverage.console
 
-import io.specmatic.core.TestResult
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.TestResultRecord
 
 enum class Remarks(val value: String) {

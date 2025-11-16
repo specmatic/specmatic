@@ -3,8 +3,8 @@ package io.specmatic.test.reports
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Scenario
-import io.specmatic.core.TestResult
 import io.specmatic.core.log.HttpLogMessage
+import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.API
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.reports.coverage.Endpoint

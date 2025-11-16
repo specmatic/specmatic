@@ -1,9 +1,9 @@
 package io.specmatic.stub.listener
 
-import io.specmatic.core.TestResult
 import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.value.NullValue
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.reporter.model.TestResult
 import io.specmatic.stub.HttpStub
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test

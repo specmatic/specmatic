@@ -1,8 +1,6 @@
 package io.specmatic.test
 
-import io.specmatic.core.TestResult
-import io.specmatic.core.filters.ScenarioMetadata
-import org.assertj.core.api.Assertions.assertThat
+import io.specmatic.reporter.model.TestResult
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test

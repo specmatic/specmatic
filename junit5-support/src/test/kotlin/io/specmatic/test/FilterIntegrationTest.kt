@@ -1,8 +1,8 @@
 package io.specmatic.test
 
-import io.specmatic.core.TestResult
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.Flags
+import io.specmatic.reporter.model.TestResult
 import io.specmatic.stub.ContractStub
 import io.specmatic.stub.createStub
 import org.assertj.core.api.Assertions.assertThat

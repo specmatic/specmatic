@@ -4,6 +4,7 @@ import io.specmatic.core.Result.Failure
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.value.Value
+import io.specmatic.reporter.model.TestResult
 
 sealed class Result {
     var scenario: ScenarioDetailsForResult? = null
@@ -326,15 +327,6 @@ sealed class Result {
             return function()
         }
     }
-}
-
-enum class TestResult {
-    Success,
-    Error,
-    Failed,
-    NotImplemented,
-    MissingInSpec,
-    NotCovered
 }
 
 enum class FailureReason(val fluffLevel: Int, val objectMatchOccurred: Boolean) {
