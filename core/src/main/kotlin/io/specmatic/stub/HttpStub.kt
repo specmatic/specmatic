@@ -244,7 +244,7 @@ class HttpStub(
             intercept(ApplicationCallPipeline.Call) {
                 val httpLogMessage = HttpLogMessage(targetServer = "port '${call.request.local.localPort}'")
                 var transformedResponse: HttpResponse? = null
-                var responseErrors: List<CodecError> = emptyList()
+                var responseErrors: List<InterceptorError> = emptyList()
 
                 try {
                     val rawHttpRequest = ktorHttpRequestToHttpRequest(call).also {
@@ -252,7 +252,7 @@ class HttpStub(
                     }
 
                     val (httpRequest, requestErrors) = requestInterceptors.fold(
-                        rawHttpRequest to emptyList<CodecError>()
+                        rawHttpRequest to emptyList<InterceptorError>()
                     ) { (request, errors), requestInterceptor ->
                         val result = requestInterceptor.interceptRequestWithErrors(request)
                         (result.value ?: request) to (errors + result.errors)
@@ -265,7 +265,7 @@ class HttpStub(
                     if (httpRequest != rawHttpRequest) {
                         logger.log("")
                         logger.log("--------------------")
-                        logger.log("Original request before decoding:")
+                        logger.log("Request before hook processing:")
                         logger.log(rawHttpRequest.toLogString().prependIndent("  "))
                     }
 
@@ -274,7 +274,7 @@ class HttpStub(
                         logger.boundary()
                         logger.log("--------------------")
                         logger.log("Request hook errors:")
-                        logger.log(CodecErrors(requestErrors).toString().prependIndent("  "))
+                        logger.log(InterceptorErrors(requestErrors).toString().prependIndent("  "))
                     }
 
                     val responseFromRequestHandler = requestHandlers.firstNotNullOfOrNull { it.handleRequest(httpRequest) }
@@ -296,7 +296,7 @@ class HttpStub(
                     }
 
                     val (httpResponse, errors) = responseInterceptors.fold(
-                        httpStubResponse.response to emptyList<CodecError>()
+                        httpStubResponse.response to emptyList<InterceptorError>()
                     ) { (response, errors), responseInterceptor ->
                         val result = responseInterceptor.interceptResponseWithErrors(httpRequest, response)
                         (result.value ?: response) to (errors + result.errors)
@@ -340,11 +340,11 @@ class HttpStub(
 
                 log(httpLogMessage)
 
-                // Log the encoded response if it was transformed
+                // Log the response after hook processing if it was transformed
                 transformedResponse?.let {
                     logger.log("")
                     logger.log("--------------------")
-                    logger.log("Encoded response:")
+                    logger.log("Response after hook processing:")
                     logger.log(it.toLogString().prependIndent("  "))
                 }
 
@@ -353,7 +353,7 @@ class HttpStub(
                     logger.boundary()
                     logger.log("--------------------")
                     logger.log("Response hook errors:")
-                    logger.log(CodecErrors(responseErrors).toString().prependIndent("  "))
+                    logger.log(InterceptorErrors(responseErrors).toString().prependIndent("  "))
                 }
 
                 MockEvent(httpLogMessage).let { event -> listeners.forEach { it.onRespond(event) } }

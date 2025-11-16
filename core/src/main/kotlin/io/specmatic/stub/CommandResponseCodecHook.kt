@@ -38,7 +38,7 @@ class CommandResponseCodecHook(
             val completed = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
             if (!completed) {
                 process.destroyForcibly()
-                val error = CodecError(
+                val error = InterceptorError(
                     exitCode = -1,
                     stdout = "",
                     stderr = "Process timed out after $timeoutSeconds seconds",
@@ -58,7 +58,7 @@ class CommandResponseCodecHook(
             }
 
             if (exitCode != 0) {
-                val error = CodecError(
+                val error = InterceptorError(
                     exitCode = exitCode,
                     stdout = output,
                     stderr = errorOutput,
@@ -68,7 +68,7 @@ class CommandResponseCodecHook(
             }
 
             if (output.isBlank()) {
-                val error = CodecError(
+                val error = InterceptorError(
                     exitCode = 0,
                     stdout = "",
                     stderr = "Hook returned empty output",
@@ -81,7 +81,7 @@ class CommandResponseCodecHook(
                 val decodedJson = parsedJSONObject(output)
                 InterceptorResult.success(decodedJson)
             } catch (e: Throwable) {
-                val error = CodecError(
+                val error = InterceptorError(
                     exitCode = 0,
                     stdout = output,
                     stderr = "Error parsing JSON output: ${e.message}",
@@ -90,7 +90,7 @@ class CommandResponseCodecHook(
                 InterceptorResult.failure(error)
             }
         } catch (e: Throwable) {
-            val error = CodecError(
+            val error = InterceptorError(
                 exitCode = -1,
                 stdout = "",
                 stderr = "Error executing command: ${e.message}",
