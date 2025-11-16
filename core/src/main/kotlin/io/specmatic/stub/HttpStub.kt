@@ -271,8 +271,10 @@ class HttpStub(
 
                     // Log request hook errors if any occurred
                     if (requestErrors.isNotEmpty()) {
-                        logger.log("  Hook errors:")
-                        logger.log(CodecErrors(requestErrors).toString().prependIndent("    "))
+                        logger.boundary()
+                        logger.log("--------------------")
+                        logger.log("Request hook errors:")
+                        logger.log(CodecErrors(requestErrors).toString().prependIndent("  "))
                     }
 
                     val responseFromRequestHandler = requestHandlers.firstNotNullOfOrNull { it.handleRequest(httpRequest) }
@@ -348,8 +350,10 @@ class HttpStub(
 
                 // Log response hook errors if any occurred
                 if (responseErrors.isNotEmpty()) {
-                    logger.log("  Hook errors:")
-                    logger.log(CodecErrors(responseErrors).toString().prependIndent("    "))
+                    logger.boundary()
+                    logger.log("--------------------")
+                    logger.log("Response hook errors:")
+                    logger.log(CodecErrors(responseErrors).toString().prependIndent("  "))
                 }
 
                 MockEvent(httpLogMessage).let { event -> listeners.forEach { it.onRespond(event) } }
