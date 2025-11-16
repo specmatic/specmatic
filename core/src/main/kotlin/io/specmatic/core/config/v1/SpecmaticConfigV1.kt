@@ -9,13 +9,13 @@ import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.Flags.Companion.getStringValue
 
-data class SpecmaticConfigV1 (
+data class SpecmaticConfigV1(
 	@field:JsonAlias("contract_repositories")
 	val sources: List<Source> = emptyList(),
 	val auth: Auth? = null,
 	val pipeline: Pipeline? = null,
 	val environments: Map<String, Environment>? = null,
-	val hooks: Map<String, String> = emptyMap(),
+	val hooks: Map<String, String>? = null,
 	val repository: RepositoryInfo? = null,
 	val report: ReportConfigurationDetails? = null,
 	val security: SecurityConfiguration? = null,
