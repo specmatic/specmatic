@@ -243,10 +243,10 @@ class HttpStub(
 
             intercept(ApplicationCallPipeline.Call) {
                 val httpLogMessage = HttpLogMessage(targetServer = "port '${call.request.local.localPort}'")
+                var transformedResponse: HttpResponse? = null
 
                 try {
                     val rawHttpRequest = ktorHttpRequestToHttpRequest(call).also {
-                        httpLogMessage.addRequestWithCurrentTime(it)
                         if (it.isHealthCheckRequest()) return@intercept
                     }
 
@@ -254,11 +254,15 @@ class HttpStub(
                         requestInterceptor.interceptRequest(request) ?: request
                     }
 
-                    // Log the decoded request if it was transformed
+                    // Add the decoded request to the log message
+                    httpLogMessage.addRequestWithCurrentTime(httpRequest)
+
+                    // Log the original request if it was transformed
                     if (httpRequest != rawHttpRequest) {
-                        logger.log("  Request was decoded by codec hook:")
-                        logger.log(httpRequest.toLogString().prependIndent("    "))
-                        logger.boundary()
+                        logger.log("")
+                        logger.log("--------------------")
+                        logger.log("Original request before decoding:")
+                        logger.log(rawHttpRequest.toLogString().prependIndent("  "))
                     }
 
                     val responseFromRequestHandler = requestHandlers.firstNotNullOfOrNull { it.handleRequest(httpRequest) }
@@ -283,12 +287,9 @@ class HttpStub(
                         responseInterceptor.interceptResponse(httpRequest, response) ?: response
                     }
 
-                    // Log the encoded response if it was transformed
-                    if (httpResponse != httpStubResponse.response) {
-                        logger.log("  Response was encoded by codec hook:")
-                        logger.log(httpResponse.toLogString().prependIndent("    "))
-                        logger.boundary()
-                    }
+                    // Store encoded response for later logging if different
+                    transformedResponse = if (httpResponse != httpStubResponse.response) httpResponse else null
+
                     if (httpRequest.path!!.startsWith("""/features/default""")) {
                         handleSse(httpRequest, this@HttpStub, this)
                     } else {
@@ -299,7 +300,8 @@ class HttpStub(
                             updatedHttpStubResponse.delayInMilliSeconds,
                             specmaticConfigInstance
                         )
-                        httpLogMessage.addResponse(updatedHttpStubResponse)
+                        // Add the original response (before encoding) to the log message
+                        httpLogMessage.addResponse(httpStubResponse)
                     }
                 } catch (e: ContractException) {
                     val response = badRequest(e.report())
@@ -321,6 +323,15 @@ class HttpStub(
                 }
 
                 log(httpLogMessage)
+
+                // Log the encoded response if it was transformed
+                transformedResponse?.let {
+                    logger.log("")
+                    logger.log("--------------------")
+                    logger.log("Encoded response:")
+                    logger.log(it.toLogString().prependIndent("  "))
+                }
+
                 MockEvent(httpLogMessage).let { event -> listeners.forEach { it.onRespond(event) } }
             }
 
