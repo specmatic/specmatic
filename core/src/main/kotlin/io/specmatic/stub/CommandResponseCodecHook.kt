@@ -17,9 +17,10 @@ import java.util.concurrent.TimeUnit
  */
 class CommandResponseCodecHook(
     private val command: String,
+    private val hookName: String,
     private val timeoutSeconds: Long = 10
 ) : ResponseCodecHook {
-    override fun codecResponse(requestResponseJson: JSONObjectValue): JSONObjectValue? {
+    override fun codecResponseWithResult(requestResponseJson: JSONObjectValue): InterceptorResult<JSONObjectValue> {
         try {
             // Execute the command
             val process = ProcessBuilder()
@@ -37,38 +38,69 @@ class CommandResponseCodecHook(
             val completed = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
             if (!completed) {
                 process.destroyForcibly()
-                logger.log("  Response codec hook timed out: $command")
-                return null
+                val error = CodecError(
+                    exitCode = -1,
+                    stdout = "",
+                    stderr = "Process timed out after $timeoutSeconds seconds",
+                    hookType = hookName
+                )
+                return InterceptorResult.failure(error)
             }
 
             val exitCode = process.exitValue()
-            if (exitCode != 0) {
-                val error = BufferedReader(InputStreamReader(process.errorStream)).use { it.readText() }
-                logger.log("  Response codec hook failed with exit code $exitCode, continuing with original response.")
-                logger.log("  Error output:")
-                logger.log(error.prependIndent("    "))
-                return null
-            }
 
-            // Read decoded JSON from stdout
+            // Read output and error streams
             val output = BufferedReader(InputStreamReader(process.inputStream, Charsets.UTF_8)).use {
                 it.readText()
             }
+            val errorOutput = BufferedReader(InputStreamReader(process.errorStream)).use {
+                it.readText()
+            }
+
+            if (exitCode != 0) {
+                val error = CodecError(
+                    exitCode = exitCode,
+                    stdout = output,
+                    stderr = errorOutput,
+                    hookType = hookName
+                )
+                return InterceptorResult.failure(error)
+            }
 
             if (output.isBlank()) {
-                logger.log("  Response codec hook returned empty output")
-                return null
+                val error = CodecError(
+                    exitCode = 0,
+                    stdout = "",
+                    stderr = "Hook returned empty output",
+                    hookType = hookName
+                )
+                return InterceptorResult.failure(error)
             }
 
             return try {
-                parsedJSONObject(output)
+                val decodedJson = parsedJSONObject(output)
+                InterceptorResult.success(decodedJson)
             } catch (e: Throwable) {
-                logger.log(e, "  Error parsing JSON output from response codec hook")
-                null
+                val error = CodecError(
+                    exitCode = 0,
+                    stdout = output,
+                    stderr = "Error parsing JSON output: ${e.message}",
+                    hookType = hookName
+                )
+                InterceptorResult.failure(error)
             }
         } catch (e: Throwable) {
-            logger.log(e, "  Error executing response codec hook: $command")
-            return null
+            val error = CodecError(
+                exitCode = -1,
+                stdout = "",
+                stderr = "Error executing command: ${e.message}",
+                hookType = hookName
+            )
+            return InterceptorResult.failure(error)
         }
+    }
+
+    override fun codecResponse(requestResponseJson: JSONObjectValue): JSONObjectValue? {
+        return codecResponseWithResult(requestResponseJson).value
     }
 }

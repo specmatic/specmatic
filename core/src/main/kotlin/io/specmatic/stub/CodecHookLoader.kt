@@ -35,7 +35,7 @@ object CodecHookLoader {
         hooks[DECODE_REQUEST_FROM_CONSUMER]?.let { command ->
             if (command.isNotBlank()) {
                 try {
-                    val hook = CommandRequestCodecHook(command)
+                    val hook = CommandRequestCodecHook(command, hookName = DECODE_REQUEST_FROM_CONSUMER)
                     httpStub.registerRequestCodecHook(hook)
                     logger.log("Loaded stub request codec hook: $command")
                 } catch (e: Throwable) {
@@ -48,7 +48,7 @@ object CodecHookLoader {
         hooks[ENCODE_RESPONSE_TO_CONSUMER]?.let { command ->
             if (command.isNotBlank()) {
                 try {
-                    val hook = CommandResponseCodecHook(command)
+                    val hook = CommandResponseCodecHook(command, hookName = ENCODE_RESPONSE_TO_CONSUMER)
                     httpStub.registerResponseCodecHook(hook)
                     logger.log("Loaded stub response codec hook: $command")
                 } catch (e: Throwable) {
@@ -82,7 +82,7 @@ object CodecHookLoader {
         hooks[DECODE_REQUEST_FROM_CONSUMER]?.let { command ->
             if (command.isNotBlank()) {
                 try {
-                    val hook = CommandRequestCodecHook(command)
+                    val hook = CommandRequestCodecHook(command, hookName = DECODE_REQUEST_FROM_CONSUMER)
                     proxy.registerRequestCodecHook(hook)
                     logger.log("Loaded proxy request codec hook: $command")
                 } catch (e: Throwable) {
@@ -95,7 +95,7 @@ object CodecHookLoader {
         hooks[DECODE_RESPONSE_FROM_PROVIDER]?.let { command ->
             if (command.isNotBlank()) {
                 try {
-                    val hook = CommandResponseCodecHook(command)
+                    val hook = CommandResponseCodecHook(command, hookName = DECODE_RESPONSE_FROM_PROVIDER)
                     proxy.registerResponseCodecHook(hook)
                     logger.log("Loaded proxy response codec hook: $command")
                 } catch (e: Throwable) {

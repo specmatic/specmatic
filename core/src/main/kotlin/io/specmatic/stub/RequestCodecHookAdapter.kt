@@ -14,40 +14,47 @@ import io.specmatic.core.value.JSONObjectValue
 class RequestCodecHookAdapter(
     private val hook: RequestCodecHook
 ) : RequestInterceptor {
-    override fun interceptRequest(httpRequest: HttpRequest): HttpRequest? {
+    override fun interceptRequestWithErrors(httpRequest: HttpRequest): InterceptorResult<HttpRequest> {
         try {
             // Convert HttpRequest to Specmatic JSON format with "http-request" field
             val requestJson = JSONObjectValue(
                 mapOf("http-request" to httpRequest.toJSON())
             )
 
-            // Call the codec hook
-            val decodedJson = hook.codecRequest(requestJson)
+            // Call the codec hook with result
+            val result = hook.codecRequestWithResult(requestJson)
 
-            // If null returned, use original request
-            if (decodedJson == null) {
-                logger.log("  Request codec hook encountered an error, using original request")
-                logger.boundary()
-                return httpRequest
+            // If errors occurred, return them
+            if (result.errors.isNotEmpty()) {
+                return InterceptorResult(null, result.errors)
             }
+
+            // If no value returned (passthrough), use original
+            val decodedJson = result.value ?: return InterceptorResult.success(httpRequest)
 
             // Extract the decoded "http-request" and convert back to HttpRequest
             val decodedRequestJson = decodedJson.jsonObject["http-request"]
-                ?: return httpRequest
+                ?: return InterceptorResult.success(httpRequest)
 
             if (decodedRequestJson !is JSONObjectValue) {
-                return httpRequest
+                return InterceptorResult.success(httpRequest)
             }
 
             val decodedRequest = requestFromJSON(decodedRequestJson.jsonObject)
-            logger.log("  Request codec hook: Successfully decoded request")
-            logger.boundary()
-            return decodedRequest
+            return InterceptorResult.success(decodedRequest)
         } catch (e: Throwable) {
-            // Log error and return original request to avoid breaking the stub
-            logger.log(e, "  Error in request codec hook")
-            logger.boundary()
-            return httpRequest
+            // Return error instead of throwing
+            val error = CodecError(
+                exitCode = -1,
+                stdout = "",
+                stderr = "Error in request hook adapter: ${e.message}",
+                hookType = "request_hook_adapter"
+            )
+            return InterceptorResult.failure(error)
         }
+    }
+
+    override fun interceptRequest(httpRequest: HttpRequest): HttpRequest? {
+        return interceptRequestWithErrors(httpRequest).value ?: httpRequest
     }
 }

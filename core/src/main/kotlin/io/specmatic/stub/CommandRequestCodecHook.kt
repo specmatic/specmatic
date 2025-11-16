@@ -17,9 +17,10 @@ import java.util.concurrent.TimeUnit
  */
 class CommandRequestCodecHook(
     private val command: String,
+    private val hookName: String,
     private val timeoutSeconds: Long = 10
 ) : RequestCodecHook {
-    override fun codecRequest(requestJson: JSONObjectValue): JSONObjectValue? {
+    override fun codecRequestWithResult(requestJson: JSONObjectValue): InterceptorResult<JSONObjectValue> {
         try {
             // Execute the command
             val process = ProcessBuilder()
@@ -37,46 +38,69 @@ class CommandRequestCodecHook(
             val completed = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
             if (!completed) {
                 process.destroyForcibly()
-                logger.log("  Request codec hook timed out: $command")
-                logger.boundary()
-                return null
+                val error = CodecError(
+                    exitCode = -1,
+                    stdout = "",
+                    stderr = "Process timed out after $timeoutSeconds seconds",
+                    hookType = hookName
+                )
+                return InterceptorResult.failure(error)
             }
 
             val exitCode = process.exitValue()
-            if (exitCode != 0) {
-                val error = BufferedReader(InputStreamReader(process.errorStream)).use { it.readText() }
 
-                logger.log("  Request codec hook failed with exit code $exitCode, continuing with original request.")
-                logger.log("  Error output:")
-                logger.log(error.prependIndent("    "))
-
-                logger.boundary()
-
-                return null
-            }
-
-            // Read decoded JSON from stdout
+            // Read output and error streams
             val output = BufferedReader(InputStreamReader(process.inputStream, Charsets.UTF_8)).use {
                 it.readText()
             }
+            val errorOutput = BufferedReader(InputStreamReader(process.errorStream)).use {
+                it.readText()
+            }
+
+            if (exitCode != 0) {
+                val error = CodecError(
+                    exitCode = exitCode,
+                    stdout = output,
+                    stderr = errorOutput,
+                    hookType = hookName
+                )
+                return InterceptorResult.failure(error)
+            }
 
             if (output.isBlank()) {
-                logger.log("  Request codec hook returned empty output")
-                logger.boundary()
-                return null
+                val error = CodecError(
+                    exitCode = 0,
+                    stdout = "",
+                    stderr = "Hook returned empty output",
+                    hookType = hookName
+                )
+                return InterceptorResult.failure(error)
             }
 
             return try {
-                parsedJSONObject(output)
+                val decodedJson = parsedJSONObject(output)
+                InterceptorResult.success(decodedJson)
             } catch (e: Throwable) {
-                logger.log(e, "Error parsing JSON output from request codec hook")
-                logger.boundary()
-                null
+                val error = CodecError(
+                    exitCode = 0,
+                    stdout = output,
+                    stderr = "Error parsing JSON output: ${e.message}",
+                    hookType = hookName
+                )
+                InterceptorResult.failure(error)
             }
         } catch (e: Throwable) {
-            logger.log(e, "  Error executing request codec hook: $command")
-            logger.boundary()
-            return null
+            val error = CodecError(
+                exitCode = -1,
+                stdout = "",
+                stderr = "Error executing command: ${e.message}",
+                hookType = hookName
+            )
+            return InterceptorResult.failure(error)
         }
+    }
+
+    override fun codecRequest(requestJson: JSONObjectValue): JSONObjectValue? {
+        return codecRequestWithResult(requestJson).value
     }
 }

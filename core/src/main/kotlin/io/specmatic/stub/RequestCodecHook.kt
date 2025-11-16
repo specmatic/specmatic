@@ -29,4 +29,19 @@ interface RequestCodecHook {
      * @return The decoded request JSON, or null to use the original request unchanged
      */
     fun codecRequest(requestJson: JSONObjectValue): JSONObjectValue?
+
+    /**
+     * Decode the incoming request with detailed error information.
+     *
+     * @param requestJson The request in Specmatic JSON format with "http-request" field
+     * @return InterceptorResult containing the decoded request and any errors that occurred
+     */
+    fun codecRequestWithResult(requestJson: JSONObjectValue): InterceptorResult<JSONObjectValue> {
+        val result = codecRequest(requestJson)
+        return if (result != null) {
+            InterceptorResult.success(result)
+        } else {
+            InterceptorResult.passthrough()
+        }
+    }
 }

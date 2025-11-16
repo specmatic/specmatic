@@ -14,7 +14,7 @@ import io.specmatic.core.value.JSONObjectValue
 class ResponseCodecHookAdapter(
     private val hook: ResponseCodecHook
 ) : ResponseInterceptor {
-    override fun interceptResponse(httpRequest: HttpRequest, httpResponse: HttpResponse): HttpResponse? {
+    override fun interceptResponseWithErrors(httpRequest: HttpRequest, httpResponse: HttpResponse): InterceptorResult<HttpResponse> {
         try {
             // Convert HttpRequest and HttpResponse to Specmatic JSON format
             val requestResponseJson = JSONObjectValue(
@@ -24,33 +24,40 @@ class ResponseCodecHookAdapter(
                 )
             )
 
-            // Call the codec hook
-            val decodedJson = hook.codecResponse(requestResponseJson)
+            // Call the codec hook with result
+            val result = hook.codecResponseWithResult(requestResponseJson)
 
-            // If null returned, use original response
-            if (decodedJson == null) {
-                logger.log("  Response codec hook encountered an error, using original response")
-                logger.boundary()
-                return httpResponse
+            // If errors occurred, return them
+            if (result.errors.isNotEmpty()) {
+                return InterceptorResult(null, result.errors)
             }
+
+            // If no value returned (passthrough), use original
+            val decodedJson = result.value ?: return InterceptorResult.success(httpResponse)
 
             // Extract the decoded "http-response" and convert back to HttpResponse
             val decodedResponseJson = decodedJson.jsonObject["http-response"]
-                ?: return httpResponse
+                ?: return InterceptorResult.success(httpResponse)
 
             if (decodedResponseJson !is JSONObjectValue) {
-                return httpResponse
+                return InterceptorResult.success(httpResponse)
             }
 
             val decodedResponse = HttpResponse.fromJSON(decodedResponseJson.jsonObject)
-
-            return decodedResponse
+            return InterceptorResult.success(decodedResponse)
         } catch (e: Throwable) {
-            // Log error and return original response to avoid breaking the stub
-            logger.log(e, "  Error in response codec hook")
-            logger.boundary()
-
-            return httpResponse
+            // Return error instead of throwing
+            val error = CodecError(
+                exitCode = -1,
+                stdout = "",
+                stderr = "Error in response hook adapter: ${e.message}",
+                hookType = "response_hook_adapter"
+            )
+            return InterceptorResult.failure(error)
         }
+    }
+
+    override fun interceptResponse(httpRequest: HttpRequest, httpResponse: HttpResponse): HttpResponse? {
+        return interceptResponseWithErrors(httpRequest, httpResponse).value ?: httpResponse
     }
 }
