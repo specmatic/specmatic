@@ -127,8 +127,10 @@ class Proxy(
 
                                     // Log request hook errors if any occurred
                                     if (requestErrors.isNotEmpty()) {
-                                        logger.log("  Hook errors:")
-                                        logger.log(CodecErrors(requestErrors).toString().prependIndent("    "))
+                                        logger.boundary()
+                                        logger.log("--------------------")
+                                        logger.log("Request hook errors:")
+                                        logger.log(CodecErrors(requestErrors).toString().prependIndent("  "))
                                     }
 
                                     // continue as before, if not matching filter
@@ -171,8 +173,10 @@ class Proxy(
 
                                     // Log response hook errors if any occurred
                                     if (responseErrors.isNotEmpty()) {
-                                        logger.log("  Hook errors:")
-                                        logger.log(CodecErrors(responseErrors).toString().prependIndent("    "))
+                                        logger.boundary()
+                                        logger.log("--------------------")
+                                        logger.log("Response hook errors:")
+                                        logger.log(CodecErrors(responseErrors).toString().prependIndent("  "))
                                     }
 
                                     // check response for matching filter. if matches, bail!
