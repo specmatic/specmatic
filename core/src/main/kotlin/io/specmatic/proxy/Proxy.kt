@@ -111,8 +111,11 @@ class Proxy(
                                     }
 
                                     // Apply request codec hooks to get the tracked request
-                                    val recordedRequest = requestInterceptors.fold(httpRequest) { request, requestInterceptor ->
-                                        requestInterceptor.interceptRequest(request) ?: request
+                                    val (recordedRequest, requestErrors) = requestInterceptors.fold(
+                                        httpRequest to emptyList<CodecError>()
+                                    ) { (request, errors), requestInterceptor ->
+                                        val result = requestInterceptor.interceptRequestWithErrors(request)
+                                        (result.value ?: request) to (errors + result.errors)
                                     }
 
                                     // Log the decoded request if it was transformed
@@ -120,6 +123,12 @@ class Proxy(
                                         logger.log("  Request was decoded by codec hook:")
                                         logger.log(recordedRequest.toLogString().prependIndent("    "))
                                         logger.boundary()
+                                    }
+
+                                    // Log request hook errors if any occurred
+                                    if (requestErrors.isNotEmpty()) {
+                                        logger.log("  Hook errors:")
+                                        logger.log(CodecErrors(requestErrors).toString().prependIndent("    "))
                                     }
 
                                     // continue as before, if not matching filter
@@ -146,8 +155,11 @@ class Proxy(
                                     }
 
                                     // Apply response codec hooks to get the tracked response
-                                    val recordedResponse = responseInterceptors.fold(httpResponse) { response, responseInterceptor ->
-                                        responseInterceptor.interceptResponse(recordedRequest, response) ?: response
+                                    val (recordedResponse, responseErrors) = responseInterceptors.fold(
+                                        httpResponse to emptyList<CodecError>()
+                                    ) { (response, errors), responseInterceptor ->
+                                        val result = responseInterceptor.interceptResponseWithErrors(recordedRequest, response)
+                                        (result.value ?: response) to (errors + result.errors)
                                     }
 
                                     // Log the decoded response if it was transformed
@@ -155,6 +167,12 @@ class Proxy(
                                         logger.log("  Response was decoded by codec hook:")
                                         logger.log(recordedResponse.toLogString().prependIndent("    "))
                                         logger.boundary()
+                                    }
+
+                                    // Log response hook errors if any occurred
+                                    if (responseErrors.isNotEmpty()) {
+                                        logger.log("  Hook errors:")
+                                        logger.log(CodecErrors(responseErrors).toString().prependIndent("    "))
                                     }
 
                                     // check response for matching filter. if matches, bail!
