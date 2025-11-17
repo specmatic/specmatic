@@ -142,8 +142,8 @@
             <p>All Rights Reserved</p>
         </div>
     </footer>
-    <script id="json-data"  type="application/json">
-        [(${jsonTestData})]
+    <script id="json-data" type="application/json" th:inline="javascript">
+        [[${testData}]]
     </script>
     <script defer type="text/javascript" src="assets/utils.js"></script>
     <script defer type="text/javascript" src="assets/summaryUpdater.js"></script>
