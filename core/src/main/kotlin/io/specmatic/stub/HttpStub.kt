@@ -251,10 +251,10 @@ class HttpStub(
                         if (it.isHealthCheckRequest()) return@intercept
                     }
 
-                    val (httpRequest, requestErrors) = requestInterceptors.fold(
+                    val (httpRequest, requestInterceptorErrors) = requestInterceptors.fold(
                         rawHttpRequest to emptyList<InterceptorError>()
                     ) { (request, errors), requestInterceptor ->
-                        val result = requestInterceptor.interceptRequestWithErrors(request)
+                        val result = requestInterceptor.interceptRequestAndReturnErrors(request)
                         (result.value ?: request) to (errors + result.errors)
                     }
 
@@ -269,12 +269,12 @@ class HttpStub(
                         logger.log(rawHttpRequest.toLogString().prependIndent("  "))
                     }
 
-                    // Log request hook errors if any occurred
-                    if (requestErrors.isNotEmpty()) {
+                    // Log request hook responseInterceeptorErrors if any occurred
+                    if (requestInterceptorErrors.isNotEmpty()) {
                         logger.boundary()
                         logger.log("--------------------")
-                        logger.log("Request hook errors:")
-                        logger.log(InterceptorErrors(requestErrors).toString().prependIndent("  "))
+                        logger.log("Request hook responseInterceeptorErrors:")
+                        logger.log(InterceptorErrors(requestInterceptorErrors).toString().prependIndent("  "))
                     }
 
                     val responseFromRequestHandler = requestHandlers.firstNotNullOfOrNull { it.handleRequest(httpRequest) }
@@ -295,13 +295,13 @@ class HttpStub(
                         )
                     }
 
-                    val (httpResponse, errors) = responseInterceptors.fold(
+                    val (httpResponse, responseInterceptorErrors) = responseInterceptors.fold(
                         httpStubResponse.response to emptyList<InterceptorError>()
                     ) { (response, errors), responseInterceptor ->
-                        val result = responseInterceptor.interceptResponseWithErrors(httpRequest, response)
+                        val result = responseInterceptor.interceptResponseAndReturnErrors(httpRequest, response)
                         (result.value ?: response) to (errors + result.errors)
                     }
-                    responseErrors = errors
+                    responseErrors = responseInterceptorErrors
 
                     // Store encoded response for later logging if different
                     transformedResponse = if (httpResponse != httpStubResponse.response) httpResponse else null

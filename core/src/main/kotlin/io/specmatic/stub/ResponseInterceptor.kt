@@ -6,7 +6,7 @@ import io.specmatic.core.HttpResponse
 interface ResponseInterceptor {
     fun interceptResponse(httpRequest: HttpRequest, httpResponse: HttpResponse): HttpResponse?
 
-    fun interceptResponseWithErrors(httpRequest: HttpRequest, httpResponse: HttpResponse): InterceptorResult<HttpResponse> {
+    fun interceptResponseAndReturnErrors(httpRequest: HttpRequest, httpResponse: HttpResponse): InterceptorResult<HttpResponse> {
         val result = interceptResponse(httpRequest, httpResponse)
         return if (result != null) {
             InterceptorResult.success(result)

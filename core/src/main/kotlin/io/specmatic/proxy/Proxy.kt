@@ -111,10 +111,10 @@ class Proxy(
                                     }
 
                                     // Apply request codec hooks to get the tracked request
-                                    val (recordedRequest, requestErrors) = requestInterceptors.fold(
+                                    val (recordedRequest, requestInterceptorErrors) = requestInterceptors.fold(
                                         httpRequest to emptyList<InterceptorError>()
                                     ) { (request, errors), requestInterceptor ->
-                                        val result = requestInterceptor.interceptRequestWithErrors(request)
+                                        val result = requestInterceptor.interceptRequestAndReturnErrors(request)
                                         (result.value ?: request) to (errors + result.errors)
                                     }
 
@@ -126,11 +126,11 @@ class Proxy(
                                     }
 
                                     // Log request hook errors if any occurred
-                                    if (requestErrors.isNotEmpty()) {
+                                    if (requestInterceptorErrors.isNotEmpty()) {
                                         logger.boundary()
                                         logger.log("--------------------")
                                         logger.log("Request hook errors:")
-                                        logger.log(InterceptorErrors(requestErrors).toString().prependIndent("  "))
+                                        logger.log(InterceptorErrors(requestInterceptorErrors).toString().prependIndent("  "))
                                     }
 
                                     // continue as before, if not matching filter
@@ -157,10 +157,10 @@ class Proxy(
                                     }
 
                                     // Apply response codec hooks to get the tracked response
-                                    val (recordedResponse, responseErrors) = responseInterceptors.fold(
+                                    val (recordedResponse, responseInterceptorErrors) = responseInterceptors.fold(
                                         httpResponse to emptyList<InterceptorError>()
                                     ) { (response, errors), responseInterceptor ->
-                                        val result = responseInterceptor.interceptResponseWithErrors(recordedRequest, response)
+                                        val result = responseInterceptor.interceptResponseAndReturnErrors(recordedRequest, response)
                                         (result.value ?: response) to (errors + result.errors)
                                     }
 
@@ -172,11 +172,11 @@ class Proxy(
                                     }
 
                                     // Log response hook errors if any occurred
-                                    if (responseErrors.isNotEmpty()) {
+                                    if (responseInterceptorErrors.isNotEmpty()) {
                                         logger.boundary()
                                         logger.log("--------------------")
                                         logger.log("Response hook errors:")
-                                        logger.log(InterceptorErrors(responseErrors).toString().prependIndent("  "))
+                                        logger.log(InterceptorErrors(responseInterceptorErrors).toString().prependIndent("  "))
                                     }
 
                                     // check response for matching filter. if matches, bail!
