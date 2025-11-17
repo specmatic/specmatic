@@ -1,7 +1,6 @@
 package io.specmatic.stub
 
 import io.specmatic.core.HttpRequest
-import io.specmatic.core.log.logger
 import io.specmatic.core.requestFromJSON
 import io.specmatic.core.value.JSONObjectValue
 
@@ -14,7 +13,7 @@ import io.specmatic.core.value.JSONObjectValue
 class RequestCodecHookAdapter(
     private val hook: RequestCodecHook
 ) : RequestInterceptor {
-    override fun interceptRequestWithErrors(httpRequest: HttpRequest): InterceptorResult<HttpRequest> {
+    override fun interceptRequestAndReturnErrors(httpRequest: HttpRequest): InterceptorResult<HttpRequest> {
         try {
             // Convert HttpRequest to Specmatic JSON format with "http-request" field
             val requestJson = JSONObjectValue(
@@ -55,6 +54,6 @@ class RequestCodecHookAdapter(
     }
 
     override fun interceptRequest(httpRequest: HttpRequest): HttpRequest? {
-        return interceptRequestWithErrors(httpRequest).value ?: httpRequest
+        return interceptRequestAndReturnErrors(httpRequest).value ?: httpRequest
     }
 }

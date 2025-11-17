@@ -2,7 +2,6 @@ package io.specmatic.stub
 
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
-import io.specmatic.core.log.logger
 import io.specmatic.core.value.JSONObjectValue
 
 /**
@@ -14,7 +13,7 @@ import io.specmatic.core.value.JSONObjectValue
 class ResponseCodecHookAdapter(
     private val hook: ResponseCodecHook
 ) : ResponseInterceptor {
-    override fun interceptResponseWithErrors(httpRequest: HttpRequest, httpResponse: HttpResponse): InterceptorResult<HttpResponse> {
+    override fun interceptResponseAndReturnErrors(httpRequest: HttpRequest, httpResponse: HttpResponse): InterceptorResult<HttpResponse> {
         try {
             // Convert HttpRequest and HttpResponse to Specmatic JSON format
             val requestResponseJson = JSONObjectValue(
@@ -58,6 +57,6 @@ class ResponseCodecHookAdapter(
     }
 
     override fun interceptResponse(httpRequest: HttpRequest, httpResponse: HttpResponse): HttpResponse? {
-        return interceptResponseWithErrors(httpRequest, httpResponse).value ?: httpResponse
+        return interceptResponseAndReturnErrors(httpRequest, httpResponse).value ?: httpResponse
     }
 }
