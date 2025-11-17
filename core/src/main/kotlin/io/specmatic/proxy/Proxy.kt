@@ -120,6 +120,8 @@ class Proxy(
 
                                     // Log the transformed request if it was changed by hooks
                                     if (recordedRequest != httpRequest) {
+                                        logger.log("")
+                                        logger.log("--------------------")
                                         logger.log("  Request after hook processing:")
                                         logger.log(recordedRequest.toLogString().prependIndent("    "))
                                         logger.boundary()
@@ -166,6 +168,8 @@ class Proxy(
 
                                     // Log the transformed response if it was changed by hooks
                                     if (recordedResponse != httpResponse) {
+                                        logger.log("")
+                                        logger.log("--------------------")
                                         logger.log("  Response after hook processing:")
                                         logger.log(recordedResponse.toLogString().prependIndent("    "))
                                         logger.boundary()
