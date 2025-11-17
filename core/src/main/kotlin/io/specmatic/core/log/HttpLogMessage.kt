@@ -5,6 +5,7 @@ import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
+import io.specmatic.reporter.model.TestResult
 import io.specmatic.stub.HttpStubResponse
 import java.io.File
 

@@ -1,4 +1,5 @@
 import io.specmatic.core.filters.TestRecordFilter
+import io.specmatic.reporter.model.TestResult
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -11,7 +12,7 @@ class TestRecordFilterTest {
         path = path,
         method = method,
         responseStatus = responseStatus,
-        result = io.specmatic.core.TestResult.Success
+        result = TestResult.Success
     )
 
     @Test
