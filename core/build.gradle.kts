@@ -14,7 +14,7 @@ dependencies {
 
     implementation("com.ezylang:EvalEx:3.5.0")
     implementation("org.apache.commons:commons-lang3:3.20.0")
-    implementation("io.cucumber:gherkin:33.0.0")
+    implementation("io.cucumber:gherkin:36.1.0")
     implementation("io.ktor:ktor-server-netty:2.3.13")
     implementation("io.ktor:ktor-server-core:2.3.13")
     implementation("io.ktor:ktor-client-core-jvm:2.3.13")
