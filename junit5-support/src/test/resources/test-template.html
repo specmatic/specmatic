@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Test Inline JavaScript</title>
+</head>
+<body>
+<h1>Thymeleaf Inline JavaScript Test</h1>
+
+<script id="json-data" type="application/json" th:inline="javascript">
+    [[${testData}]]
+</script>
+
+</body>
+</html>

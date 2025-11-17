@@ -45,6 +45,7 @@ class HtmlReport(private val htmlReportInformation: HtmlReportInformation, priva
         // NOTE: Scenarios should be updated before updating TableRows
         val updatedScenarios = updateScenarioData(reportData.scenarioData)
         val updatedTableRows = updateTableRows(reportData.tableRows)
+        dumpTestData(updatedScenarios)
 
         val templateVariables = mapOf(
             "lite" to reportFormat.getLiteOrDefault(),
@@ -70,12 +71,12 @@ class HtmlReport(private val htmlReportInformation: HtmlReportInformation, priva
             "specmaticVersion" to htmlReportInformation.specmaticVersion,
             "generatedOn" to generatedOnTimestamp(),
             "isGherkinReport" to htmlReportInformation.isGherkinReport,
-            "jsonTestData" to dumpTestData(updatedScenarios)
+            "testData" to updatedScenarios,
         )
 
         return configureTemplateEngine().process(
             "report",
-            Context().apply { setVariables(templateVariables) }
+            Context().apply { setVariables(templateVariables) },
         )
     }
 
@@ -186,12 +187,10 @@ class HtmlReport(private val htmlReportInformation: HtmlReportInformation, priva
         }
     }
 
-    private fun dumpTestData(testData: GroupedScenarioData): String {
+    private fun dumpTestData(testData: GroupedScenarioData) {
         val mapper = ObjectMapper()
-        val json = mapper.writeValueAsString(testData)
         mapper.enable(SerializationFeature.INDENT_OUTPUT)
         writeToFileToAssets(outputDirectory, "test_data.json", mapper.writeValueAsString(testData))
-        return json
     }
 }
 
