@@ -228,6 +228,14 @@ class HttpStub(
         responseInterceptors.add(responseInterceptor)
     }
 
+    fun registerRequestCodecHook(hook: RequestCodecHook) {
+        requestInterceptors.add(RequestCodecHookAdapter(hook))
+    }
+
+    fun registerResponseCodecHook(hook: ResponseCodecHook) {
+        responseInterceptors.add(ResponseCodecHookAdapter(hook))
+    }
+
     private val environment = applicationEngineEnvironment {
         module {
             install(DoubleReceive)
@@ -235,15 +243,38 @@ class HttpStub(
 
             intercept(ApplicationCallPipeline.Call) {
                 val httpLogMessage = HttpLogMessage(targetServer = "port '${call.request.local.localPort}'")
+                var transformedResponse: HttpResponse? = null
+                var responseErrors: List<InterceptorError> = emptyList()
 
                 try {
                     val rawHttpRequest = ktorHttpRequestToHttpRequest(call).also {
-                        httpLogMessage.addRequestWithCurrentTime(it)
                         if (it.isHealthCheckRequest()) return@intercept
                     }
 
-                    val httpRequest = requestInterceptors.fold(rawHttpRequest) { request, requestInterceptor ->
-                        requestInterceptor.interceptRequest(request) ?: request
+                    val (httpRequest, requestInterceptorErrors) = requestInterceptors.fold(
+                        rawHttpRequest to emptyList<InterceptorError>()
+                    ) { (request, errors), requestInterceptor ->
+                        val result = requestInterceptor.interceptRequestAndReturnErrors(request)
+                        (result.value ?: request) to (errors + result.errors)
+                    }
+
+                    // Add the decoded request to the log message
+                    httpLogMessage.addRequestWithCurrentTime(httpRequest)
+
+                    // Log the original request if it was transformed
+                    if (httpRequest != rawHttpRequest) {
+                        logger.log("")
+                        logger.log("--------------------")
+                        logger.log("Request before hook processing:")
+                        logger.log(rawHttpRequest.toLogString().prependIndent("  "))
+                    }
+
+                    // Log request hook responseInterceeptorErrors if any occurred
+                    if (requestInterceptorErrors.isNotEmpty()) {
+                        logger.boundary()
+                        logger.log("--------------------")
+                        logger.log("Request hook responseInterceeptorErrors:")
+                        logger.log(InterceptorErrors(requestInterceptorErrors).toString().prependIndent("  "))
                     }
 
                     val responseFromRequestHandler = requestHandlers.firstNotNullOfOrNull { it.handleRequest(httpRequest) }
@@ -264,9 +295,17 @@ class HttpStub(
                         )
                     }
 
-                    val httpResponse = responseInterceptors.fold(httpStubResponse.response) { response, responseInterceptor ->
-                        responseInterceptor.interceptResponse(httpRequest, response) ?: response
+                    val (httpResponse, responseInterceptorErrors) = responseInterceptors.fold(
+                        httpStubResponse.response to emptyList<InterceptorError>()
+                    ) { (response, errors), responseInterceptor ->
+                        val result = responseInterceptor.interceptResponseAndReturnErrors(httpRequest, response)
+                        (result.value ?: response) to (errors + result.errors)
                     }
+                    responseErrors = responseInterceptorErrors
+
+                    // Store encoded response for later logging if different
+                    transformedResponse = if (httpResponse != httpStubResponse.response) httpResponse else null
+
                     if (httpRequest.path!!.startsWith("""/features/default""")) {
                         handleSse(httpRequest, this@HttpStub, this)
                     } else {
@@ -277,7 +316,8 @@ class HttpStub(
                             updatedHttpStubResponse.delayInMilliSeconds,
                             specmaticConfigInstance
                         )
-                        httpLogMessage.addResponse(updatedHttpStubResponse)
+                        // Add the original response (before encoding) to the log message
+                        httpLogMessage.addResponse(httpStubResponse)
                     }
                 } catch (e: ContractException) {
                     val response = badRequest(e.report())
@@ -299,6 +339,23 @@ class HttpStub(
                 }
 
                 log(httpLogMessage)
+
+                // Log the response after hook processing if it was transformed
+                transformedResponse?.let {
+                    logger.log("")
+                    logger.log("--------------------")
+                    logger.log("Response after hook processing:")
+                    logger.log(it.toLogString().prependIndent("  "))
+                }
+
+                // Log response hook errors if any occurred
+                if (responseErrors.isNotEmpty()) {
+                    logger.boundary()
+                    logger.log("--------------------")
+                    logger.log("Response hook errors:")
+                    logger.log(InterceptorErrors(responseErrors).toString().prependIndent("  "))
+                }
+
                 MockEvent(httpLogMessage).let { event -> listeners.forEach { it.onRespond(event) } }
             }
 
@@ -688,6 +745,9 @@ class HttpStub(
     }
 
     init {
+        // Load codec hooks from configuration
+        CodecHookLoader.loadCodecHooksFromConfig(specmaticConfigInstance, this)
+
         server.start()
     }
 

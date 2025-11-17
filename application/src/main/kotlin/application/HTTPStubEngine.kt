@@ -2,6 +2,7 @@ package application
 
 import io.specmatic.core.Feature
 import io.specmatic.core.WorkingDirectory
+import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.log.consoleLog
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpClientFactory
@@ -38,7 +39,7 @@ class HTTPStubEngine {
             passThroughTargetBase = passThroughTargetBase,
             httpClientFactory = httpClientFactory,
             workingDirectory = workingDirectory,
-            specmaticConfigSource = SpecmaticConfigSource.fromPath(specmaticConfigPath),
+            specmaticConfigSource = SpecmaticConfigSource.fromPath(specmaticConfigPath ?: getConfigFilePath()),
             timeoutMillis = gracefulRestartTimeoutInMs,
             specToStubBaseUrlMap = specToBaseUrlMap,
             listeners = listeners

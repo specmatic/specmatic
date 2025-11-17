@@ -16,10 +16,7 @@ import io.specmatic.core.route.modules.HealthCheckModule.Companion.isHealthCheck
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.utilities.uniqueNameForApiOperation
 import io.specmatic.mock.ScenarioStub
-import io.specmatic.stub.httpRequestLog
-import io.specmatic.stub.httpResponseLog
-import io.specmatic.stub.ktorHttpRequestToHttpRequest
-import io.specmatic.stub.respondToKtorHttpResponse
+import io.specmatic.stub.*
 import io.specmatic.test.LegacyHttpClient
 import io.swagger.v3.core.util.Yaml
 import kotlinx.coroutines.Dispatchers
@@ -47,6 +44,7 @@ class Proxy(
     timeoutInMilliseconds: Long = DEFAULT_TIMEOUT_IN_MILLISECONDS,
     filter: String? = "",
     private val requestObserver: RequestObserver? = null,
+    specmaticConfigSource: SpecmaticConfigSource = SpecmaticConfigSource.None,
 ) : Closeable {
     constructor(
         host: String,
@@ -57,9 +55,24 @@ class Proxy(
         timeoutInMilliseconds: Long,
         filter: String,
         requestObserver: RequestObserver? = null,
-    ) : this(host, port, baseURL, RealFileWriter(proxySpecmaticDataDir), keyData, timeoutInMilliseconds, filter)
+        specmaticConfigSource: SpecmaticConfigSource = SpecmaticConfigSource.None,
+    ) : this(host, port, baseURL, RealFileWriter(proxySpecmaticDataDir), keyData, timeoutInMilliseconds, filter, requestObserver, specmaticConfigSource)
 
     private val stubs = mutableListOf<NamedStub>()
+
+    private val requestInterceptors: MutableList<RequestInterceptor> = mutableListOf()
+    private val responseInterceptors: MutableList<ResponseInterceptor> = mutableListOf()
+
+    fun registerRequestCodecHook(hook: RequestCodecHook) {
+        requestInterceptors.add(RequestCodecHookAdapter(hook))
+    }
+
+    fun registerResponseCodecHook(hook: ResponseCodecHook) {
+        responseInterceptors.add(ResponseCodecHookAdapter(hook))
+    }
+
+    private val loadedSpecmaticConfig = specmaticConfigSource.load()
+    private val specmaticConfigInstance: SpecmaticConfig = loadedSpecmaticConfig.config
 
     private val targetHost =
         baseURL.let {
@@ -97,6 +110,29 @@ class Proxy(
                                         return@intercept
                                     }
 
+                                    // Apply request codec hooks to get the tracked request
+                                    val (recordedRequest, requestInterceptorErrors) = requestInterceptors.fold(
+                                        httpRequest to emptyList<InterceptorError>()
+                                    ) { (request, errors), requestInterceptor ->
+                                        val result = requestInterceptor.interceptRequestAndReturnErrors(request)
+                                        (result.value ?: request) to (errors + result.errors)
+                                    }
+
+                                    // Log the transformed request if it was changed by hooks
+                                    if (recordedRequest != httpRequest) {
+                                        logger.log("  Request after hook processing:")
+                                        logger.log(recordedRequest.toLogString().prependIndent("    "))
+                                        logger.boundary()
+                                    }
+
+                                    // Log request hook errors if any occurred
+                                    if (requestInterceptorErrors.isNotEmpty()) {
+                                        logger.boundary()
+                                        logger.log("--------------------")
+                                        logger.log("Request hook errors:")
+                                        logger.log(InterceptorErrors(requestInterceptorErrors).toString().prependIndent("  "))
+                                    }
+
                                     // continue as before, if not matching filter
                                     val client =
                                         LegacyHttpClient(
@@ -104,6 +140,7 @@ class Proxy(
                                             timeoutInMilliseconds = timeoutInMilliseconds,
                                         )
 
+                                    // Send the ORIGINAL request to the target (not the tracked one)
                                     val requestToSend =
                                         targetHost?.let {
                                             httpRequest.withHost(targetHost)
@@ -119,22 +156,46 @@ class Proxy(
                                         return@intercept
                                     }
 
+                                    // Apply response codec hooks to get the tracked response
+                                    val (recordedResponse, responseInterceptorErrors) = responseInterceptors.fold(
+                                        httpResponse to emptyList<InterceptorError>()
+                                    ) { (response, errors), responseInterceptor ->
+                                        val result = responseInterceptor.interceptResponseAndReturnErrors(recordedRequest, response)
+                                        (result.value ?: response) to (errors + result.errors)
+                                    }
+
+                                    // Log the transformed response if it was changed by hooks
+                                    if (recordedResponse != httpResponse) {
+                                        logger.log("  Response after hook processing:")
+                                        logger.log(recordedResponse.toLogString().prependIndent("    "))
+                                        logger.boundary()
+                                    }
+
+                                    // Log response hook errors if any occurred
+                                    if (responseInterceptorErrors.isNotEmpty()) {
+                                        logger.boundary()
+                                        logger.log("--------------------")
+                                        logger.log("Response hook errors:")
+                                        logger.log(InterceptorErrors(responseInterceptorErrors).toString().prependIndent("  "))
+                                    }
+
                                     // check response for matching filter. if matches, bail!
                                     val name =
-                                        "${httpRequest.method} ${httpRequest.path}${toQueryString(httpRequest.queryParams.asMap())}"
+                                        "${recordedRequest.method} ${recordedRequest.path}${toQueryString(recordedRequest.queryParams.asMap())}"
                                     stubs.add(
                                         NamedStub(
                                             name,
-                                            uniqueNameForApiOperation(httpRequest, baseURL, httpResponse.status),
+                                            uniqueNameForApiOperation(recordedRequest, baseURL, recordedResponse.status),
                                             ScenarioStub(
-                                                httpRequest.dropIrrelevantHeaders(),
-                                                httpResponse.dropIrrelevantHeaders(),
+                                                recordedRequest.dropIrrelevantHeaders(),
+                                                recordedResponse.dropIrrelevantHeaders(),
                                             ),
                                         ),
                                     )
 
-                                    requestObserver?.onRequestHandled(httpRequest, httpResponse)
+                                    requestObserver?.onRequestHandled(recordedRequest, recordedResponse)
 
+                                    // Send the ORIGINAL response back to consumer (not the tracked one)
                                     respondToKtorHttpResponse(call, withoutContentEncodingGzip(httpResponse))
                                 } catch (e: Throwable) {
                                     logger.log(e)
@@ -234,6 +295,9 @@ class Proxy(
             }
 
     init {
+        // Load codec hooks from configuration
+        CodecHookLoader.loadCodecHooksFromConfigForProxy(specmaticConfigInstance, this)
+
         server.start()
     }
 
