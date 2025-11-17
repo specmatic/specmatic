@@ -121,6 +121,20 @@ class HttpStub(
         const val JSON_REPORT_PATH = "./build/reports/specmatic"
         const val JSON_REPORT_FILE_NAME = "stub_usage_report.json"
 
+        private val initializers: MutableList<(SpecmaticConfig, HttpStub) -> Unit> = mutableListOf()
+
+        @JvmStatic
+        fun registerInitializer(initializer: (SpecmaticConfig, HttpStub) -> Unit) {
+            initializers.add(initializer)
+        }
+
+        @JvmStatic
+        fun clearInitializers() {
+            initializers.clear()
+        }
+
+        internal fun getInitializers(): List<(SpecmaticConfig, HttpStub) -> Unit> = initializers.toList()
+
         fun setExpectation(
             stub: ScenarioStub,
             feature: Feature,
@@ -226,14 +240,6 @@ class HttpStub(
 
     fun registerResponseInterceptor(responseInterceptor: ResponseInterceptor) {
         responseInterceptors.add(responseInterceptor)
-    }
-
-    fun registerRequestCodecHook(hook: RequestCodecHook) {
-        requestInterceptors.add(RequestCodecHookAdapter(hook))
-    }
-
-    fun registerResponseCodecHook(hook: ResponseCodecHook) {
-        responseInterceptors.add(ResponseCodecHookAdapter(hook))
     }
 
     private val environment = applicationEngineEnvironment {
@@ -745,8 +751,8 @@ class HttpStub(
     }
 
     init {
-        // Load codec hooks from configuration
-        CodecHookLoader.loadCodecHooksFromConfig(specmaticConfigInstance, this)
+        // Apply any registered initializers
+        getInitializers().forEach { it.invoke(specmaticConfigInstance, this) }
 
         server.start()
     }

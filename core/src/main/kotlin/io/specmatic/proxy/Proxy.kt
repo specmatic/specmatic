@@ -63,12 +63,12 @@ class Proxy(
     private val requestInterceptors: MutableList<RequestInterceptor> = mutableListOf()
     private val responseInterceptors: MutableList<ResponseInterceptor> = mutableListOf()
 
-    fun registerRequestCodecHook(hook: RequestCodecHook) {
-        requestInterceptors.add(RequestCodecHookAdapter(hook))
+    fun registerRequestInterceptor(requestInterceptor: RequestInterceptor) {
+        requestInterceptors.add(requestInterceptor)
     }
 
-    fun registerResponseCodecHook(hook: ResponseCodecHook) {
-        responseInterceptors.add(ResponseCodecHookAdapter(hook))
+    fun registerResponseInterceptor(responseInterceptor: ResponseInterceptor) {
+        responseInterceptors.add(responseInterceptor)
     }
 
     private val loadedSpecmaticConfig = specmaticConfigSource.load()
@@ -295,8 +295,8 @@ class Proxy(
             }
 
     init {
-        // Load codec hooks from configuration
-        CodecHookLoader.loadCodecHooksFromConfigForProxy(specmaticConfigInstance, this)
+        // Apply any registered initializers
+        getInitializers().forEach { it.invoke(specmaticConfigInstance, this) }
 
         server.start()
     }
@@ -375,6 +375,20 @@ class Proxy(
 
     companion object {
         private const val DUMP_ENDPOINT = "/_specmatic/proxy/dump"
+
+        private val initializers: MutableList<(SpecmaticConfig, Proxy) -> Unit> = mutableListOf()
+
+        @JvmStatic
+        fun registerInitializer(initializer: (SpecmaticConfig, Proxy) -> Unit) {
+            initializers.add(initializer)
+        }
+
+        @JvmStatic
+        fun clearInitializers() {
+            initializers.clear()
+        }
+
+        internal fun getInitializers(): List<(SpecmaticConfig, Proxy) -> Unit> = initializers.toList()
 
         private fun HttpRequest.isDumpRequest(): Boolean = (this.path == DUMP_ENDPOINT) && (this.method == HttpMethod.Post.value)
     }
