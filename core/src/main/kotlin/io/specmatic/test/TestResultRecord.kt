@@ -22,7 +22,7 @@ data class TestResultRecord(
     val isGherkin: Boolean = false,
     override val duration: Long = 0,
     override val rawStatus: String? = result.toString(),
-    override val testType: String = "contractTest"
+    override val testType: String = "ContractTest"
 ): io.specmatic.reporter.model.TestResultRecord {
     val isExercised = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
     val isCovered = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
