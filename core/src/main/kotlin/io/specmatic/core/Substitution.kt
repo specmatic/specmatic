@@ -136,7 +136,7 @@ class Substitution(
 
                 (patternMap[key] ?: patternMap["$key?"])?.let { pattern ->
                     try {
-                        HasValue(pattern.parse(substituteValue, resolver).toStringLiteral())
+                        HasValue(pattern.parse(substituteValue, resolver).toUnformattedString())
                     } catch (e: Throwable) {
                         HasException(e)
                     }

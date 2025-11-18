@@ -6,6 +6,17 @@ paths:
   /pets:
     post:
       summary: Add a new pet
+      parameters:
+        - name: my-req-header
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: my-req-query
+          in: query
+          required: false
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -15,6 +26,10 @@ paths:
       responses:
         '201':
           description: Pet added successfully
+          headers:
+            my-res-header:
+              schema:
+                type: string
           content:
             application/json:
               schema:

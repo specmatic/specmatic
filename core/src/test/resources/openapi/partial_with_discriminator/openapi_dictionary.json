@@ -6,5 +6,18 @@
   "Dog": {
     "breed": "Golden Retriever",
     "barkVolume": 10
+  },
+  "PARAMETERS": {
+    "HEADER": {
+      "my-req-header": "{\"type\": \"string\", \"example\": \"header-value\"}"
+    },
+    "QUERY": {
+      "my-req-query": "{\"type\": \"string\", \"example\": \"query-value\"}"
+    }
+  },
+  "RESPONSE": {
+    "HEADER": {
+      "my-res-header": "{\"type\": \"string\", \"example\": \"header-value\"}"
+    }
   }
 }

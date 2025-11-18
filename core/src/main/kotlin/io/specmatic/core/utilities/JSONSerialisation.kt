@@ -25,6 +25,12 @@ fun valueArrayToJsonString(value: List<Value>): String {
     return indentedJson.encodeToString(data)
 }
 
+fun valueArrayToUnformattedJsonString(value: List<Value>): String {
+    val data = valueListToElements(value)
+
+    return unformattedJson.encodeToString(data)
+}
+
 fun toMap(value: Value?) = jsonStringToValueMap(value.toString())
 
 fun stringToPatternMap(stringContent: String): Map<String, Pattern>  {

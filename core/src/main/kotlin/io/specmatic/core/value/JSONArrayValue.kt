@@ -5,6 +5,7 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.valueArrayToJsonString
+import io.specmatic.core.utilities.valueArrayToUnformattedJsonString
 
 typealias TypeDeclarationsCallType = (Value, String, Map<String, Pattern>, ExampleDeclarations) -> Pair<TypeDeclaration, ExampleDeclarations>
 
@@ -101,5 +102,9 @@ data class JSONArrayValue(override val list: List<Value> = emptyList()) : Value,
 
     override fun specificity(): Int {
         return list.sumOf { it.specificity() }
+    }
+
+    override fun toUnformattedString(): String {
+        return valueArrayToUnformattedJsonString(list)
     }
 }

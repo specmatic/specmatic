@@ -128,6 +128,10 @@ data class JSONObjectValue(val jsonObject: Map<String, Value> = emptyMap()) : Va
     override fun specificity(): Int {
         return jsonObject.values.sumOf { it.specificity() }
     }
+
+    override fun toUnformattedString(): String {
+        return valueMapToUnindentedJsonString(jsonObject)
+    }
 }
 
 internal fun dictionaryToDeclarations(jsonObject: Map<String, Value>, types: Map<String, Pattern>, exampleDeclarations: ExampleDeclarations): Triple<Map<String, DeferredPattern>, Map<String, Pattern>, ExampleDeclarations> {
