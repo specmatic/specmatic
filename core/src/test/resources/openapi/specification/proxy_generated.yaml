@@ -1,0 +1,36 @@
+openapi: 3.0.1
+info:
+  title: New feature
+  version: "1"
+paths:
+  /todos/1:
+    get:
+      summary: GET /todos/1
+      responses:
+        "200":
+          description: GET /todos/1
+          headers:
+            Nel:
+              required: true
+              schema:
+                type: object
+                properties:
+                  report_to:
+                    type: string
+                  success_fraction:
+                    type: number
+                  max_age:
+                    type: integer
+                required:
+                  - max_age
+                  - report_to
+                  - success_fraction
+          content:
+            application/json:
+              schema:
+                required:
+                  - id
+                type: object
+                properties:
+                  id:
+                    type: integer

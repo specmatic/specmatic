@@ -11654,6 +11654,29 @@ paths:
     }
 
     @Test
+    fun `should handle stringified json in response header value`() {
+        val spec = OpenApiSpecification.fromFile("src/test/resources/openapi/specification/proxy_generated.yaml")
+        val feature = spec.toFeature()
+        HttpStub(feature).use { stub ->
+            stub.setExpectation(
+                ScenarioStub(
+                    HttpRequest("GET", "/todos/1"),
+                    HttpResponse(
+                        status = 200,
+                        headers = mapOf(
+                            "Nel" to """{"success_fraction":0.0,"report_to":"default","max_age":604800}"""
+                        ),
+                        body = JSONObjectValue(mapOf(
+                            "id" to NumberValue(1)
+                        ))
+                    )
+            ))
+            val response = stub.client.execute(HttpRequest("GET", "/todos/1"))
+            assertThat(response.headers["Nel"]).isNotNull
+        }
+    }
+
+    @Test
     fun `should generate tests with different combinations of the query params`() {
         val spec = OpenApiSpecification.fromFile("src/test/resources/openapi/spec_with_query_params.yaml")
         val feature = spec.toFeature().enableGenerativeTesting()

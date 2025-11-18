@@ -10,6 +10,8 @@ import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.stub.HttpStub
 import io.ktor.util.*
+import io.specmatic.core.pattern.QueryParameterScalarPattern
+import io.specmatic.core.pattern.StringPattern
 import io.specmatic.mock.DELAY_IN_MILLISECONDS
 import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
 import io.specmatic.test.HttpClient
@@ -17,6 +19,7 @@ import org.assertj.core.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.fail
 import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.web.client.RestTemplate
 import org.springframework.web.client.postForEntity
@@ -422,7 +425,7 @@ internal class ProxyTest {
     }
 
     @Test
-    fun `dumped specification headers should be in-sync with dumped examples`() {
+    fun `dumped specification headers and query params should be in-sync with dumped examples and also scalar type`() {
         val openApiFile = File("src/test/resources/openapi/partial_with_discriminator/openapi.yaml")
         val feature = OpenApiSpecification.fromFile(openApiFile.canonicalPath).toFeature()
 
@@ -443,6 +446,25 @@ internal class ProxyTest {
 
         assertThat(fakeFileWriter.receivedContract).doesNotContainIgnoringCase("Specmatic", "Content-Type", HttpHeaders.AccessControlAllowOrigin, HttpHeaders.ContentDisposition)
         assertThat(fakeFileWriter.receivedStub).doesNotContainIgnoringCase("Specmatic").containsIgnoringCase("Content-Type")
+        val scenario = OpenApiSpecification.fromYAML(fakeFileWriter.receivedContract!!, "").toFeature().scenarios.first()
+        val reqHeader = scenario.httpRequestPattern.headersPattern.pattern["my-req-header"]
+        if (reqHeader == null) {
+            fail("Expected request header 'my-req-header' to be of type StringPattern but did not get it")
+        }
+        assertThat(reqHeader).isInstanceOf(StringPattern::class.java)
+
+        val queryParam = scenario.httpRequestPattern.httpQueryParamPattern.queryPatterns["my-req-query?"]
+        if (queryParam == null) {
+            fail("Expected query param 'my-req-query' to be of type StringPattern but did not get it")
+        }
+        assertThat(queryParam).isInstanceOf(QueryParameterScalarPattern::class.java)
+        assertThat(queryParam.pattern).isInstanceOf(StringPattern::class.java)
+
+        val resHeader = scenario.httpResponsePattern.headersPattern.pattern["my-res-header"]
+        if (resHeader == null) {
+            fail("Expected response header 'my-res-header' to be of type StringPattern but did not get it")
+        }
+        assertThat(resHeader).isInstanceOf(StringPattern::class.java)
     }
 }
 

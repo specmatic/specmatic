@@ -622,8 +622,11 @@ fun toGherkinClauses(request: HttpRequest): Triple<List<GherkinClause>, Map<Stri
 fun stringMapToValueMap(stringStringMap: Map<String, String>) =
     stringStringMap.mapValues { guessType(parsedValue(it.value)) }
 
-fun queryParamsToValueMap(queryParams: QueryParameters) =
-    queryParams.paramPairs.associate { (key, value) -> key to guessType(parsedValue(value)) }
+fun stringMapToScalarMap(stringStringMap: Map<String, String>) =
+    stringStringMap.mapValues { parsedScalarValue(it.value) }
+
+fun queryParamsToScalarMap(queryParams: QueryParameters) =
+    queryParams.paramPairs.associate { (key, value) -> key to parsedScalarValue(value) }
 
 fun bodyToGherkin(
     request: HttpRequest,
@@ -671,7 +674,7 @@ fun firstLineToGherkin(
     val (query, newTypes, newExamples) = when {
         request.queryParams.isNotEmpty() -> {
             val (dictionaryType, newTypes, examples) = dictionaryToDeclarations(
-                queryParamsToValueMap(request.queryParams),
+                queryParamsToScalarMap(request.queryParams),
                 types,
                 exampleDeclarationsStore
             )

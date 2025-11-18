@@ -15,6 +15,10 @@ interface Value {
         return StringValue(toStringLiteral())
     }
 
+    fun toUnformattedString(): String {
+        return this.toStringLiteral()
+    }
+
     fun displayableType(): String
     fun exactMatchElseType(): Pattern
     fun type(): Pattern
