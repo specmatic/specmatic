@@ -21,8 +21,7 @@ open class SpecmaticApplication {
 
             val commandLine = CommandLine(SpecmaticCommand())
             SpecmaticCoreSubcommands.configure(commandLine)
-            if (args.none { it == "-V" || it == "--version" }) {
-                print("Specmatic Version: ")
+            if (args.none { it == "-V" || it == "--version" || it == "generate-completion" }) {
                 commandLine.printVersionHelp(System.out)
                 println()
             }

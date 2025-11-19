@@ -5,6 +5,6 @@ import picocli.CommandLine
 
 class VersionProvider : CommandLine.IVersionProvider {
     override fun getVersion(): Array<String> {
-        return arrayOf(VersionInfo.describe())
+        return arrayOf("Specmatic Core ${VersionInfo.describe()}")
     }
 }
