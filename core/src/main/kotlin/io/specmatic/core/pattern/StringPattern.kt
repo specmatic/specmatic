@@ -92,7 +92,12 @@ data class StringPattern (
             return it
         }
 
-        return resolver.provideString(this) ?: regExSpec.generateRandomString(effectiveMinLength, maxLength)
+        return resolver.provideString(this)
+            ?: if (downsampledMax && maxLength?.let { it > ((minLength ?: 0) + 100) } == true) {
+                regExSpec.generateRandomString(effectiveMinLength, (minLength ?: 0) + 100)
+            } else {
+                regExSpec.generateRandomString(effectiveMinLength, maxLength)
+            }
     }
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> = sequence {
@@ -104,7 +109,12 @@ data class StringPattern (
         }
 
         maxLength?.let { maxLen ->
-            val exampleString = regExSpec.generateLongestStringOrRandom(maxLen)
+            val exampleString = if (downsampledMax && maxLen > (minLength ?: 0) + 100) {
+                regExSpec.generateLongestStringOrRandom((minLength ?: 0) + 100)
+            } else {
+                regExSpec.generateLongestStringOrRandom(maxLen)
+            }
+
             yield(HasValue(ExactValuePattern(StringValue(exampleString)), "is set to the longest possible string"))
         }
     }

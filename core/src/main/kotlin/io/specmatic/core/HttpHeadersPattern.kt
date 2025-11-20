@@ -260,8 +260,20 @@ data class HttpHeadersPattern(
     fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<HttpHeadersPattern>> {
         val withoutEscapedSoapAction = withModifiedSoapActionIfNotInRow(row, resolver).pattern
         val filteredPattern = row.withoutOmittedKeys(withoutEscapedSoapAction, resolver.defaultExampleResolver)
+
+        val contentTypePattern = filteredPattern["Content-Type"] ?: filteredPattern["Content-Type?"]
+        val filteredPatternMapWithUpdatedContentTypeHeader =
+            if (contentTypePattern != null &&
+                contentType != null &&
+                contentTypePattern.matches(StringValue(contentType), resolver).isSuccess()) {
+                val key = if ("Content-Type" in filteredPattern) "Content-Type" else "Content-Type?"
+                filteredPattern.plus(key to contentTypePattern)
+            } else {
+                filteredPattern
+            }
+
         val additionalHeadersPattern = extractFromExampleHeadersNotInSpec(filteredPattern, row)
-        val patternMap = filteredPattern + additionalHeadersPattern
+        val patternMap = filteredPatternMapWithUpdatedContentTypeHeader + additionalHeadersPattern
 
         return allOrNothingCombinationIn(patternMap, resolver.resolveRow(row)) { pattern ->
             newMapBasedOn(pattern, row, withNullPattern(resolver))
