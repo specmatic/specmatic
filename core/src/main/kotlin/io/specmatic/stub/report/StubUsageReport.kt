@@ -1,9 +1,10 @@
 package io.specmatic.stub.report
 
 import io.specmatic.conversions.convertPathParameterStyle
-import io.specmatic.reporter.internal.dto.stub.usage.HTTPStubUsageOperation
-import io.specmatic.reporter.internal.dto.stub.usage.SpecmaticStubUsageReport
-import io.specmatic.reporter.internal.dto.stub.usage.StubUsageEntry
+import io.specmatic.reporter.generated.dto.stub.usage.HTTPStubUsageOperation
+import io.specmatic.reporter.generated.dto.stub.usage.SpecmaticStubUsageReport
+import io.specmatic.reporter.generated.dto.stub.usage.StubUsageEntry
+import io.specmatic.reporter.internal.dto.stub.usage.StubUsageOperation
 
 class StubUsageReport(
     private val configFilePath: String,
@@ -20,31 +21,33 @@ class StubUsageReport(
                 it.serviceType
             )
         }.map { (key, recordsOfGroup) ->
+            val operations = recordsOfGroup.groupBy {
+                Triple(it.path, it.method, it.responseCode)
+            }.map { (operationGroup, _) ->
+                HTTPStubUsageOperation(
+                    operationGroup.first?.let { convertPathParameterStyle(it) }.orEmpty(),
+                    operationGroup.second.orEmpty(),
+                    operationGroup.third,
+                    stubLogs.count {
+                        it.path == operationGroup.first
+                                && it.method == operationGroup.second
+                                && it.responseCode == operationGroup.third
+                                && it.sourceProvider == key.sourceProvider
+                                && it.sourceRepository == key.sourceRepository
+                                && it.sourceRepositoryBranch == key.sourceRepositoryBranch
+                                && it.specification == key.specification
+                                && it.serviceType == key.serviceType
+                    }
+                )
+            }
             StubUsageEntry(
-                _type = key.sourceProvider,
-                _repository = key.sourceRepository,
-                _branch = key.sourceRepositoryBranch,
-                specification = key.specification.orEmpty(),
-                _serviceType = key.serviceType,
-                _operations = recordsOfGroup.groupBy {
-                    Triple(it.path, it.method, it.responseCode)
-                }.map { (operationGroup, _) ->
-                    HTTPStubUsageOperation(
-                        path = operationGroup.first?.let { convertPathParameterStyle(it) }.orEmpty(),
-                        method = operationGroup.second.orEmpty(),
-                        responseCode = operationGroup.third,
-                        count = stubLogs.count {
-                            it.path == operationGroup.first
-                                    && it.method == operationGroup.second
-                                    && it.responseCode == operationGroup.third
-                                    && it.sourceProvider == key.sourceProvider
-                                    && it.sourceRepository == key.sourceRepository
-                                    && it.sourceRepositoryBranch == key.sourceRepositoryBranch
-                                    && it.specification == key.specification
-                                    && it.serviceType == key.serviceType
-                        }
-                    )
-                }
+                key.sourceProvider,
+                key.sourceRepository,
+                key.specification,
+                key.sourceRepositoryBranch,
+                key.serviceType,
+                "OPENAPI",
+                operations
             )
         }
         return SpecmaticStubUsageReport(configFilePath, stubUsageJsonRows)

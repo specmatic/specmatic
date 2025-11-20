@@ -1,8 +1,8 @@
 package io.specmatic.stub
 
-import io.specmatic.reporter.internal.dto.stub.usage.HTTPStubUsageOperation
-import io.specmatic.reporter.internal.dto.stub.usage.SpecmaticStubUsageReport
-import io.specmatic.reporter.internal.dto.stub.usage.StubUsageEntry
+import io.specmatic.reporter.generated.dto.stub.usage.HTTPStubUsageOperation
+import io.specmatic.reporter.generated.dto.stub.usage.SpecmaticStubUsageReport
+import io.specmatic.reporter.generated.dto.stub.usage.StubUsageEntry
 import io.specmatic.stub.report.StubEndpoint
 import io.specmatic.stub.report.StubUsageReport
 import org.assertj.core.api.Assertions
@@ -42,7 +42,8 @@ class StubUsageReportTest {
                         "in/specmatic/examples/store/route1.yaml",
                         "main",
                         "HTTP",
-                        _operations = listOf(
+                        "OPENAPI",
+                        listOf(
                             HTTPStubUsageOperation("/route1", "GET",200, 2),
                             HTTPStubUsageOperation( "/route1", "POST",200, 2)
                         )
@@ -53,7 +54,8 @@ class StubUsageReportTest {
                         "in/specmatic/examples/store/route2.yaml",
                         "main",
                         "HTTP",
-                        _operations = listOf(
+                        "OPENAPI",
+                        listOf(
                             HTTPStubUsageOperation( "/route2", "GET",200, 2),
                             HTTPStubUsageOperation( "/route2", "POST",200, 0)
                         )

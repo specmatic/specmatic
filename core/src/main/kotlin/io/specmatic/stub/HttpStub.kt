@@ -69,7 +69,8 @@ import io.specmatic.mock.ScenarioStub
 import io.specmatic.mock.TRANSIENT_MOCK
 import io.specmatic.mock.mockFromJSON
 import io.specmatic.mock.validateMock
-import io.specmatic.reporter.internal.dto.stub.usage.SpecmaticStubUsageReport
+import io.specmatic.reporter.generated.dto.stub.usage.SpecmaticStubUsageReport
+import io.specmatic.reporter.internal.dto.stub.usage.merge
 import io.specmatic.stub.listener.MockEvent
 import io.specmatic.stub.listener.MockEventListener
 import io.specmatic.stub.report.StubEndpoint
