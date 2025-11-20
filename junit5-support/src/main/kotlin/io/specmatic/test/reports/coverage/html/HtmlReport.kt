@@ -5,8 +5,8 @@ import com.fasterxml.jackson.databind.SerializationFeature
 import io.specmatic.core.ReportFormatter
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.SuccessCriteria
+import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.TestResult
-import io.specmatic.test.reports.coverage.console.Remarks
 import io.specmatic.test.reports.coverage.html.HtmlTemplateConfiguration.Companion.configureTemplateEngine
 import io.specmatic.test.reports.renderers.GroupedScenarioData
 import org.thymeleaf.context.Context
@@ -249,7 +249,7 @@ data class TableRow(
     val requestContentType: String,
     val response: String,
     val exercised: Int,
-    val result: Remarks,
+    val result: CoverageStatus,
     var htmlResult: HtmlResult? = null,
     var badgeColor: String? = null
 )
