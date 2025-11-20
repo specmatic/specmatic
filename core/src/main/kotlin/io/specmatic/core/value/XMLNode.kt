@@ -16,7 +16,7 @@ fun toXMLNode(document: Document, parentNamespaces: Map<String, String> = emptyM
 
 fun toXMLNode(node: Node, parentNamespaces: Map<String, String> = emptyMap()): XMLValue {
     return when (node.nodeType) {
-        Node.TEXT_NODE -> StringValue(node.textContent)
+        Node.TEXT_NODE, Node.CDATA_SECTION_NODE -> StringValue(node.textContent)
         else -> nonTextXMLNode(node, parentNamespaces)
     }
 }
