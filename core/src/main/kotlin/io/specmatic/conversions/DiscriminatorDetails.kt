@@ -8,7 +8,7 @@ import io.swagger.v3.oas.models.media.Schema
 
 private typealias PropertyName = String
 private typealias SchemaName = String
-private typealias DiscriminatorData = Map<PropertyName, Map<SchemaName, Pair<SchemaName, List<Schema<Any>>>>>
+private typealias DiscriminatorData = Map<PropertyName, Map<SchemaName, Pair<SchemaName, List<Schema<*>>>>>
 
 data class DiscriminatorDetails(private val discriminatorData: DiscriminatorData = emptyMap()) {
     fun isNotEmpty(): Boolean {
@@ -30,7 +30,7 @@ data class DiscriminatorDetails(private val discriminatorData: DiscriminatorData
             return discriminatorData.entries.firstOrNull()?.key
         }
 
-    val schemas: List<Schema<Any>>
+    val schemas: List<Schema<*>>
         get() {
             return discriminatorData.entries.flatMap {
                 it.value.values.flatMap {
@@ -39,11 +39,11 @@ data class DiscriminatorDetails(private val discriminatorData: DiscriminatorData
             }
         }
 
-    fun plus(newDiscriminatorDetailsDetails: Triple<PropertyName, Map<SchemaName, Pair<SchemaName, List<Schema<Any>>>>, DiscriminatorDetails>?): DiscriminatorDetails {
+    fun plus(newDiscriminatorDetailsDetails: Triple<PropertyName, Map<SchemaName, Pair<SchemaName, List<Schema<*>>>>, DiscriminatorDetails>?): DiscriminatorDetails {
         if(newDiscriminatorDetailsDetails == null)
             return this
 
-        val (propertyName, valuesAndSchemas: Map<SchemaName, Pair<SchemaName, List<Schema<Any>>>>, newDiscriminator) = newDiscriminatorDetailsDetails
+        val (propertyName, valuesAndSchemas: Map<SchemaName, Pair<SchemaName, List<Schema<*>>>>, newDiscriminator) = newDiscriminatorDetailsDetails
 
         val updatedDiscriminatorData: DiscriminatorData =
             discriminatorData.plus(propertyName to valuesAndSchemas)
@@ -94,7 +94,7 @@ data class DiscriminatorDetails(private val discriminatorData: DiscriminatorData
 
         val valueOptionsWithSchemasForProperty = discriminatorData.getValue(propertyName)
 
-        return valueOptionsWithSchemasForProperty.flatMap { valueOption: Map.Entry<String, Pair<String, List<Schema<Any>>>> ->
+        return valueOptionsWithSchemasForProperty.flatMap { valueOption: Map.Entry<String, Pair<String, List<Schema<*>>>> ->
             explode(discriminatorDetailsWithOneKeyLess).map { discriminator ->
                 discriminator.plus(Triple(propertyName, mapOf(valueOption.toPair()), DiscriminatorDetails()))
             }

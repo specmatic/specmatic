@@ -1,5 +1,6 @@
 package io.specmatic.core.utilities
 
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
@@ -24,14 +25,15 @@ private fun <T> convertToMap(data: Map<*, *>, using: (Any?) -> T): Map<String, T
 }
 
 fun toValue(any: Any?): Value {
-    return when (any) {
+    val rawValue = if (any is JsonNode) yamlMapper.convertValue(any, Any::class.java) else any
+    return when (rawValue) {
         null -> NullValue
-        is Map<*, *> -> convertToMap(any, ::toValue).let(::JSONObjectValue)
-        is List<*> -> any.map(::toValue).let(::JSONArrayValue)
-        is String -> StringValue(any)
-        is Boolean -> BooleanValue(any)
-        is Number -> NumberValue(any)
-        else -> throw ContractException("Unknown value type: ${any::class.simpleName}")
+        is Map<*, *> -> convertToMap(rawValue, ::toValue).let(::JSONObjectValue)
+        is List<*> -> rawValue.map(::toValue).let(::JSONArrayValue)
+        is String -> StringValue(rawValue)
+        is Boolean -> BooleanValue(rawValue)
+        is Number -> NumberValue(rawValue)
+        else -> throw ContractException("Unknown value type: ${rawValue::class.simpleName}")
     }
 }
 

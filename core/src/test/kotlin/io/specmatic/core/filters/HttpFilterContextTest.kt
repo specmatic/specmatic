@@ -69,9 +69,11 @@ paths:
             application/vnd.acme+foo:
               schema:
                 type: array
-                vendor_items:
-                  type:
-                    string
+                items:
+                  type: object
+                  properties:
+                    vendor_items:
+                      type: string
               examples:
                 QUERY_SUCCESS:
                   value: ["one", "two"]

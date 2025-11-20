@@ -4803,9 +4803,6 @@ paths:
                           properties:
                             user:
                               ${'$'}ref: '#/components/schemas/UserArray'
-                              type: array
-                              items:
-                                ${"$"}ref: '#/components/schemas/UserData'
             components:
               schemas:
                 UserData:
@@ -4843,7 +4840,6 @@ paths:
                             name: users
                           properties:
                             user:
-                              ${'$'}ref: '#/components/schemas/UserArray'
                               type: array
                               xml:
                                 name: user
@@ -4858,10 +4854,6 @@ paths:
                       type: number
                     name:
                       type: string
-                UserArray:
-                  type: array
-                  items:
-                    ${"$"}ref: '#/components/schemas/UserData'
         """.trimIndent()
 
             for (xmlContract in listOf(xmlContract1, xmlContract2)) {
