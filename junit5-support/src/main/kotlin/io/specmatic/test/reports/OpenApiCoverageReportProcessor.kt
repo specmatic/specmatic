@@ -5,7 +5,7 @@ import io.specmatic.core.ReportConfiguration
 import io.specmatic.core.ReportFormatterType
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.log.logger
-import io.specmatic.reporter.internal.dto.coverage.SpecmaticCoverageReport
+import io.specmatic.reporter.generated.dto.coverage.SpecmaticCoverageReport
 import io.specmatic.test.reports.coverage.OpenApiCoverageReportInput
 import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
 import io.specmatic.test.reports.renderers.CoverageReportHtmlRenderer

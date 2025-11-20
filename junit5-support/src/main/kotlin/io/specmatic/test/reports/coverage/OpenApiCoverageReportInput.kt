@@ -5,10 +5,10 @@ import io.specmatic.core.filters.ExpressionStandardizer
 import io.specmatic.core.filters.TestRecordFilter
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.pattern.ContractException
-import io.specmatic.reporter.internal.dto.coverage.CoverageEntry
+import io.specmatic.reporter.generated.dto.coverage.CoverageEntry
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
-import io.specmatic.reporter.internal.dto.coverage.OpenAPICoverageOperation
-import io.specmatic.reporter.internal.dto.coverage.SpecmaticCoverageReport
+import io.specmatic.reporter.generated.dto.coverage.OpenAPICoverageOperation
+import io.specmatic.reporter.generated.dto.coverage.SpecmaticCoverageReport
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.API
 import io.specmatic.test.HttpInteractionsLog
@@ -188,12 +188,13 @@ class OpenApiCoverageReportInput(
             )
         }.map { (key, recordsOfGroup) ->
             CoverageEntry(
-                _type = key.sourceProvider,
-                _repository = key.sourceRepository,
-                _branch = key.sourceRepositoryBranch,
-                specification = key.specification.orEmpty(),
-                _serviceType = key.serviceType,
-                _operations = recordsOfGroup.toOpenAPICoverageOperations()
+                key.specification,
+                key.sourceProvider,
+                key.sourceRepository,
+                key.sourceRepositoryBranch,
+                key.serviceType,
+                "OPENAPI",
+                recordsOfGroup.toOpenAPICoverageOperations()
             )
         }
     }
@@ -203,11 +204,11 @@ class OpenApiCoverageReportInput(
             Triple(it.path, it.method, it.responseStatus)
         }.map { (operationGroup, operationRows) ->
             OpenAPICoverageOperation(
-                path = operationGroup.first,
-                method = operationGroup.second,
-                responseCode = operationGroup.third,
-                count = operationRows.count { it.isExercised },
-                coverageStatus = operationRows.getCoverageStatus()
+                operationGroup.first,
+                operationGroup.second,
+                operationGroup.third,
+                operationRows.getCoverageStatus(),
+                operationRows.count { it.isExercised },
             )
         }
     }
