@@ -4,6 +4,10 @@ import io.specmatic.conversions.SERVICE_TYPE_HTTP
 import io.specmatic.core.filters.ExpressionStandardizer
 import io.specmatic.core.filters.TestRecordFilter
 import io.specmatic.core.log.HttpLogMessage
+import io.specmatic.reporter.internal.dto.coverage.CoverageEntry
+import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
+import io.specmatic.reporter.internal.dto.coverage.OpenAPICoverageOperation
+import io.specmatic.reporter.internal.dto.coverage.SpecmaticCoverageReport
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.API
 import io.specmatic.test.HttpInteractionsLog
@@ -13,7 +17,6 @@ import io.specmatic.test.reports.coverage.console.GroupedTestResultRecords
 import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
 import io.specmatic.test.reports.coverage.console.OpenApiCoverageConsoleRow
 import io.specmatic.test.reports.coverage.console.Remarks
-import io.specmatic.test.reports.coverage.json.OpenApiCoverageJsonReport
 import io.specmatic.test.reports.onEachListener
 import io.specmatic.test.reports.onTestResult
 import kotlinx.serialization.Serializable
@@ -166,12 +169,49 @@ class OpenApiCoverageReportInput(
         )
     }
 
-    fun generateJsonReport(): OpenApiCoverageJsonReport {
+    fun generateJsonReport(): SpecmaticCoverageReport {
         val testResults = testResultRecords.filter { testResult -> excludedAPIs.none { it == testResult.path } }
         val testResultsWithNotImplementedEndpoints =
             identifyFailedTestsDueToUnimplementedEndpointsAddMissingTests(testResults)
         val allTests = addTestResultsForMissingEndpoints(testResultsWithNotImplementedEndpoints)
-        return OpenApiCoverageJsonReport(configFilePath, allTests)
+        return SpecmaticCoverageReport(configFilePath, allTests.toCoverageEntries())
+    }
+
+    private fun List<TestResultRecord>.toCoverageEntries(): List<CoverageEntry> {
+        return this.groupBy {
+            CoverageGroupKey(
+                it.sourceProvider,
+                it.sourceRepository,
+                it.sourceRepositoryBranch,
+                it.specification,
+                it.serviceType
+            )
+        }.map { (key, recordsOfGroup) ->
+            CoverageEntry(
+                _type = key.sourceProvider,
+                _repository = key.sourceRepository,
+                _branch = key.sourceRepositoryBranch,
+                specification = key.specification.orEmpty(),
+                _serviceType = key.serviceType,
+                _operations = recordsOfGroup.toOpenAPICoverageOperations()
+            )
+        }
+    }
+
+    private fun List<TestResultRecord>.toOpenAPICoverageOperations(): List<OpenAPICoverageOperation> {
+        return this.groupBy {
+            Triple(it.path, it.method, it.responseStatus)
+        }.map { (operationGroup, operationRows) ->
+            OpenAPICoverageOperation(
+                path = operationGroup.first,
+                method = operationGroup.second,
+                responseCode = operationGroup.third,
+                count = operationRows.count { it.isExercised },
+                coverageStatus = CoverageStatus.valueOf(
+                    Remarks.resolve(operationRows).toString()
+                )
+            )
+        }
     }
 
     private fun List<TestResultRecord>.groupRecords(): GroupedTestResultRecords {

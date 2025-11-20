@@ -1,6 +1,10 @@
 package io.specmatic.stub
 
-import io.specmatic.stub.report.*
+import io.specmatic.reporter.internal.dto.stub.usage.HTTPStubUsageOperation
+import io.specmatic.reporter.internal.dto.stub.usage.SpecmaticStubUsageReport
+import io.specmatic.reporter.internal.dto.stub.usage.StubUsageEntry
+import io.specmatic.stub.report.StubEndpoint
+import io.specmatic.stub.report.StubUsageReport
 import org.assertj.core.api.Assertions
 import org.junit.jupiter.api.Test
 
@@ -30,28 +34,28 @@ class StubUsageReportTest {
 
         val stubUsageJsonReport = StubUsageReport(CONFIG_FILE_PATH, allEndpoints, stubLogs).generate()
         Assertions.assertThat(stubUsageJsonReport).isEqualTo(
-            StubUsageReportJson(
+            SpecmaticStubUsageReport(
                 CONFIG_FILE_PATH, listOf(
-                    StubUsageReportRow(
+                    StubUsageEntry(
                         "git",
                         "https://github.com/specmatic/specmatic-order-contracts.git",
-                        "main",
                         "in/specmatic/examples/store/route1.yaml",
+                        "main",
                         "HTTP",
-                        listOf(
-                            StubUsageReportOperation("/route1", "GET",200, 2),
-                            StubUsageReportOperation( "/route1", "POST",200, 2)
+                        _operations = listOf(
+                            HTTPStubUsageOperation("/route1", "GET",200, 2),
+                            HTTPStubUsageOperation( "/route1", "POST",200, 2)
                         )
                     ),
-                    StubUsageReportRow(
+                    StubUsageEntry(
                         "git",
                         "https://github.com/specmatic/specmatic-order-contracts.git",
-                        "main",
                         "in/specmatic/examples/store/route2.yaml",
+                        "main",
                         "HTTP",
-                        listOf(
-                            StubUsageReportOperation( "/route2", "GET",200, 2),
-                            StubUsageReportOperation( "/route2", "POST",200, 0)
+                        _operations = listOf(
+                            HTTPStubUsageOperation( "/route2", "GET",200, 2),
+                            HTTPStubUsageOperation( "/route2", "POST",200, 0)
                         )
                     )
                 )

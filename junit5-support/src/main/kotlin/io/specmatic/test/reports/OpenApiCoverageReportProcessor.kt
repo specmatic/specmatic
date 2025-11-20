@@ -1,17 +1,16 @@
 package io.specmatic.test.reports
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.specmatic.core.ReportConfiguration
 import io.specmatic.core.ReportFormatterType
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.log.logger
+import io.specmatic.reporter.internal.dto.coverage.SpecmaticCoverageReport
 import io.specmatic.test.reports.coverage.OpenApiCoverageReportInput
 import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
-import io.specmatic.test.reports.coverage.json.OpenApiCoverageJsonReport
 import io.specmatic.test.reports.renderers.CoverageReportHtmlRenderer
 import io.specmatic.test.reports.renderers.CoverageReportTextRenderer
 import io.specmatic.test.reports.renderers.ReportRenderer
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import org.assertj.core.api.Assertions.assertThat
 import java.io.File
 
@@ -53,12 +52,9 @@ class OpenApiCoverageReportProcessor(private val openApiCoverageReportInput: Ope
         excludedEndpoints.split(",").map { it.trim() }
     } ?: emptyList()
 
-    private fun saveAsJson(openApiCoverageJsonReport: OpenApiCoverageJsonReport) {
+    private fun saveAsJson(openApiCoverageJsonReport: SpecmaticCoverageReport) {
         println("Saving Coverage Report json to $JSON_REPORT_PATH ...")
-        val json = Json {
-            encodeDefaults = false
-        }
-        val reportJson = json.encodeToString(openApiCoverageJsonReport)
+        val reportJson = ObjectMapper().writeValueAsString(openApiCoverageJsonReport)
         val directory = File(reportBaseDirectory).resolve(JSON_REPORT_PATH)
         directory.mkdirs()
         val file = File(directory, JSON_REPORT_FILE_NAME)
