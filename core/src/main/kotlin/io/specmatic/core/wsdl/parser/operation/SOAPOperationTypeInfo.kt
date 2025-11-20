@@ -1,6 +1,8 @@
 package io.specmatic.core.wsdl.parser.operation
 
 import io.specmatic.core.pattern.XMLPattern
+import io.specmatic.core.value.XMLNode
+import io.specmatic.core.wsdl.payload.RequestHeaders
 import io.specmatic.core.wsdl.payload.SOAPPayload
 
 data class SOAPOperationTypeInfo(val operationName: String, val request: SOAPRequest, val response: SOAPResponse, val types: SOAPTypes) {
@@ -10,8 +12,9 @@ data class SOAPOperationTypeInfo(val operationName: String, val request: SOAPReq
         soapAction: String,
         types: Map<String, XMLPattern>,
         requestPayload: SOAPPayload,
+        requestHeaders: RequestHeaders,
         responsePayload: SOAPPayload
-    ) : this(operationName, SOAPRequest(path, operationName, soapAction, requestPayload), SOAPResponse(responsePayload), SOAPTypes(types))
+    ) : this(operationName, SOAPRequest(path, operationName, soapAction, requestHeaders, requestPayload), SOAPResponse(responsePayload), SOAPTypes(types))
 
     fun toGherkinScenario(scenarioIndent: String = "", incrementalIndent: String = "  "): String {
         val titleStatement = listOf("Scenario: $operationName".prependIndent(scenarioIndent))

@@ -36,7 +36,7 @@ private fun childNodes(node: Node, parentNamespaces: Map<String, String>): List<
 }
 
 private fun attributes(node: Node): Map<String, StringValue> {
-    return 0.until(node.attributes.length).map {
+    return 0.until(node.attributes?.length ?: 0).map {
         node.attributes.item(it) as Attr
     }.fold(mapOf()) { acc, item ->
         acc.plus(item.name to StringValue(item.value))

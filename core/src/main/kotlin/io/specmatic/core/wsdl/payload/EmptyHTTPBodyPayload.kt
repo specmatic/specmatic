@@ -1,7 +1,7 @@
 package io.specmatic.core.wsdl.payload
 
 class EmptyHTTPBodyPayload : SOAPPayload {
-    override fun specmaticStatement(): List<String> {
+    override fun specmaticStatement(requestHeaders: RequestHeaders): List<String> {
         return emptyList()
     }
 }
