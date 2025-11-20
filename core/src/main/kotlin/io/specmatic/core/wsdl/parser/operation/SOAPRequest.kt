@@ -1,8 +1,15 @@
 package io.specmatic.core.wsdl.parser.operation
 
+import io.specmatic.core.wsdl.payload.RequestHeaders
 import io.specmatic.core.wsdl.payload.SOAPPayload
 
-data class SOAPRequest(val path: String, val operationName: String, val soapAction: String, val requestPayload: SOAPPayload) {
+data class SOAPRequest(
+    val path: String,
+    val operationName: String,
+    val soapAction: String,
+    val requestHeaders: RequestHeaders,
+    val requestPayload: SOAPPayload
+) {
     fun statements(): List<String> {
         val pathStatement = listOf("When POST $path")
         val soapActionHeaderStatement = when {
@@ -13,7 +20,7 @@ data class SOAPRequest(val path: String, val operationName: String, val soapActi
             else -> emptyList()
         }
 
-        val requestBodyStatement = requestPayload.specmaticStatement()
+        val requestBodyStatement = requestPayload.specmaticStatement(requestHeaders)
         return pathStatement.plus(soapActionHeaderStatement).plus(requestBodyStatement)
     }
 }

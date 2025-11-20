@@ -9,7 +9,13 @@ import io.specmatic.core.wsdl.payload.EmptySOAPPayload
 internal class SOAPRequestTest {
     @Test
     fun `generates gherkin statements for a request with a soap action`() {
-        val soapRequest = SOAPRequest("/customer", "add", "/add", EmptySOAPPayload(SOAPMessageType.Input))
+        val soapRequest = SOAPRequest(
+            "/customer",
+            "add",
+            "/add",
+            EmptySOAPPayload(SOAPMessageType.Input),
+            requestPayload
+        )
 
         val statements = soapRequest.statements()
         assertThat(statements).hasSize(4)
@@ -30,7 +36,7 @@ internal class SOAPRequestTest {
 
     @Test
     fun `generates gherkin statements for a request without a soap action`() {
-        val soapRequest = SOAPRequest("/customer", "add", "", EmptySOAPPayload(SOAPMessageType.Input))
+        val soapRequest = SOAPRequest("/customer", "add", "", EmptySOAPPayload(SOAPMessageType.Input), requestPayload)
 
         val statements = soapRequest.statements()
         assertThat(statements).hasSize(2)

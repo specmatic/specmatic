@@ -9,7 +9,13 @@ import io.specmatic.core.wsdl.payload.EmptySOAPPayload
 internal class SOAPOperationTypeInfoTest {
     @Test
     fun `generates a gherkin scenario given operation info`() {
-        val info = SOAPOperationTypeInfo("customer", SOAPRequest("/get", "getDetails", "/getDetails", EmptySOAPPayload(SOAPMessageType.Input)), SOAPResponse(EmptySOAPPayload(SOAPMessageType.Output)), SOAPTypes(emptyMap()))
+        val info = SOAPOperationTypeInfo("customer", SOAPRequest(
+            "/get",
+            "getDetails",
+            "/getDetails",
+            EmptySOAPPayload(SOAPMessageType.Input),
+            requestPayload
+        ), SOAPResponse(EmptySOAPPayload(SOAPMessageType.Output)), SOAPTypes(emptyMap()))
         val expectedSOAPPayload = """
             Scenario: customer
               When POST /get
