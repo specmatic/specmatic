@@ -845,12 +845,15 @@ suspend fun ktorHttpRequestToHttpRequest(call: ApplicationCall): HttpRequest {
     try {
         val (body, formFields, multiPartFormData) = bodyFromCall(call)
 
-        val requestHeaders = call.request.headers.toMap().mapValues { it.value[0] }
+        val requestHeaders: Map<String, String> = call.request.headers.toMap().mapValues { it.value[0] }
+
+        val transformedSOAPActionHeader: Map<String, String> =
+            transformSOAP1_2ActionToSOAP1_1Header(call)
 
         return HttpRequest(
             method = call.request.httpMethod.value,
             path = urlDecodePathSegments(call.request.path()),
-            headers = requestHeaders,
+            headers = requestHeaders + transformedSOAPActionHeader,
             body = body,
             queryParams = QueryParameters(paramPairs = toParams(call.request.queryParameters)),
             formFields = formFields,
@@ -859,6 +862,18 @@ suspend fun ktorHttpRequestToHttpRequest(call: ApplicationCall): HttpRequest {
     } catch (e: Throwable) {
         throw CouldNotParseRequest(e)
     }
+}
+
+private fun transformSOAP1_2ActionToSOAP1_1Header(call: ApplicationCall): Map<String, String> {
+    val soapAction =
+        ContentType.parse(call.request.headers["Content-Type"].orEmpty()).parameters.find { it.name == "action" }
+    val transformedSOAPActionHeader: Map<String, String> =
+        if (soapAction != null) {
+            mapOf("SOAPAction" to soapAction.value)
+        } else {
+            emptyMap()
+        }
+    return transformedSOAPActionHeader
 }
 
 private suspend fun bodyFromCall(call: ApplicationCall): Triple<Value, Map<String, String>, List<MultiPartFormDataValue>> {
