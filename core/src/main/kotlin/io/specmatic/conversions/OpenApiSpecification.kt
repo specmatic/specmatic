@@ -1562,6 +1562,7 @@ class OpenApiSpecification(
             JsonSchemaType.NUMBER -> numberPattern(classified.schema, true, classified.firstExampleString)
             JsonSchemaType.BOOLEAN -> BooleanPattern(example = classified.firstExampleString)
             JsonSchemaType.ENUMERABLE -> enumPattern(classified, patternName)
+            JsonSchemaType.CONST -> exactPattern(classified, patternName)
             JsonSchemaType.NULL -> NullPattern
 
             // Formats
@@ -1620,7 +1621,7 @@ class OpenApiSpecification(
                 }
             }
 
-            return toEnum(JsonSchema(multiSchema.schema, JsonSchemaType.ENUMERABLE), patternName, multiTypeValues = true) { enumValue ->
+            return toEnum(JsonSchema(multiSchema.schema, JsonSchemaType.ENUMERABLE), patternName, multiType = true) { enumValue ->
                 converter(enumValue.toString())
             }.withExample(multiSchema.firstExampleString)
         }
@@ -1797,6 +1798,11 @@ class OpenApiSpecification(
         val componentPattern = overrideToPattern(resolvedSchema, typeStack.plus(componentName), componentName)
         cacheComponentPattern(componentName, componentPattern)
         return DeferredPattern("($componentName)")
+    }
+
+    private fun exactPattern(classified: JsonSchema, patterName: String): ExactValuePattern {
+        val constSchema = classified as? ConstValueSchema ?: throw ContractException("Schema with type CONST must be an instance of ConstValueSchema")
+        return ExactValuePattern(pattern = constSchema.value, typeAlias = patterName, isConst = true)
     }
 
     private fun stringPattern(classified: JsonSchema, patternName: String, breadCrumb: String): StringPattern {
@@ -2024,8 +2030,8 @@ class OpenApiSpecification(
                     }
 
                     else -> {
-                        val classifiedRepetingSchema = repeatingSchema.classifyXml()
-                        toXMLPattern(classifiedRepetingSchema, name, typeStack)
+                        val classifiedRepeatingSchema = repeatingSchema.classifyXml()
+                        toXMLPattern(classifiedRepeatingSchema, name, typeStack)
                     }
                 }.let { repeatingType ->
                     repeatingType.copy(
@@ -2147,7 +2153,7 @@ class OpenApiSpecification(
         return patternMap
     }
 
-    private fun toEnum(classified: JsonSchema, patternName: String, multiTypeValues: Boolean = false, toSpecmaticValue: (Any) -> Value): EnumPattern {
+    private fun toEnum(classified: JsonSchema, patternName: String, multiType: Boolean = false, toSpecmaticValue: (Any) -> Value): EnumPattern {
         val specmaticValues = classified.schema.enum.map<Any?, Value> { enumValue ->
             when (enumValue) {
                 null -> NullValue
@@ -2161,7 +2167,7 @@ class OpenApiSpecification(
         if (parsedOpenApi.specVersion != SpecVersion.V31 && classified.isNullable && NullValue !in specmaticValues)
             throw ContractException("Enum values must contain null since the schema $patternName is nullable")
 
-        return EnumPattern(specmaticValues, nullable = classified.isNullable, typeAlias = patternName, multiTypeValues = multiTypeValues).also {
+        return EnumPattern(specmaticValues, nullable = classified.isNullable, typeAlias = patternName, multiType = multiType).also {
             cacheComponentPattern(patternName, it)
         }
     }

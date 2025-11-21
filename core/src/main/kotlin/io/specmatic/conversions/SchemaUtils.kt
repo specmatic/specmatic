@@ -8,16 +8,16 @@ object SchemaUtils {
     fun mergeResolvedSchema(resolvedSchema: Schema<*>, refSchema: Schema<*>): Schema<*> {
         val clone = createNewInstance(resolvedSchema)
         for (field in Schema::class.java.declaredFields) {
-            if (shouldSkipField(field)) continue
+            if (shouldSkipField(field) || field.name == "\$ref") continue
             field.isAccessible = true
             copyOrMergeField(field, clone, resolvedSchema, refSchema)
         }
 
-        clone.`$ref` = null
+        clone.`$ref` = resolvedSchema.`$ref`
         return clone
     }
 
-    fun cloneWithType(schema: io.swagger.v3.oas.models.media.JsonSchema, targetType: String): Schema<*> {
+    fun cloneWithType(schema: Schema<*>, targetType: String): Schema<*> {
         val clone = createNewInstance(schema)
         for (field in Schema::class.java.declaredFields) {
             if (shouldSkipField(field)) continue
@@ -27,7 +27,7 @@ object SchemaUtils {
         }
 
         clone.type = targetType
-        clone.types = null
+        clone.types = setOf(targetType)
         return clone
     }
 
