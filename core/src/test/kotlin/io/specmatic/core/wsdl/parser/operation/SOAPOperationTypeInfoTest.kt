@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test
 import io.specmatic.core.wsdl.parser.SOAPMessageType
 import io.specmatic.core.wsdl.parser.message.OCCURS_ATTRIBUTE_NAME
 import io.specmatic.core.wsdl.payload.EmptySOAPPayload
+import io.specmatic.core.wsdl.payload.RequestHeaders
 
 internal class SOAPOperationTypeInfoTest {
     @Test
@@ -13,8 +14,8 @@ internal class SOAPOperationTypeInfoTest {
             "/get",
             "getDetails",
             "/getDetails",
+            RequestHeaders(),
             EmptySOAPPayload(SOAPMessageType.Input),
-            requestPayload
         ), SOAPResponse(EmptySOAPPayload(SOAPMessageType.Output)), SOAPTypes(emptyMap()))
         val expectedSOAPPayload = """
             Scenario: customer

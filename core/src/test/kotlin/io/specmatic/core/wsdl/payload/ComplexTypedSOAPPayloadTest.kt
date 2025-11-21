@@ -9,7 +9,7 @@ internal class ComplexTypedSOAPPayloadTest {
     @Test
     fun `generates a complex payload with a single namespace`() {
         val type = ComplexTypedSOAPPayload(SOAPMessageType.Input, "person", "Person", mapOf("ns0" to "http://ns"))
-        val statement = type.specmaticStatement(requestHeaders).first().trim()
+        val statement = type.specmaticStatement(RequestHeaders()).first().trim()
 
         println(statement)
         assertThat(statement.trimmedLinesList()).isEqualTo("""
@@ -28,7 +28,7 @@ internal class ComplexTypedSOAPPayloadTest {
     fun `trims whitespace from specmatic type name in generated payload`() {
         // Create payload with type name that has trailing whitespace
         val type = ComplexTypedSOAPPayload(SOAPMessageType.Input, "person", "Person  ", mapOf("ns0" to "http://ns"))
-        val statement = type.specmaticStatement(requestHeaders).first().trim()
+        val statement = type.specmaticStatement(RequestHeaders()).first().trim()
 
         // Verify the generated XML has trimmed type name (no whitespace)
         assertThat(statement).contains("specmatic_type=\"Person\"")

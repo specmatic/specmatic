@@ -39,6 +39,8 @@ import io.specmatic.core.value.EmptyString
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.value.XMLNode
+import io.specmatic.core.value.XMLValue
 import io.specmatic.test.ExampleProcessor
 
 private const val MULTIPART_FORMDATA_BREADCRUMB = "MULTIPART-FORMDATA"
@@ -271,9 +273,11 @@ data class HttpRequestPattern(
             val bodyValue =
                 if (isPatternToken(httpRequest.bodyString))
                     StringValue(httpRequest.bodyString)
-                else if (httpRequest.body is JSONObjectValue || httpRequest.body is JSONArrayValue) {
+                else if (httpRequest.body is JSONObjectValue || httpRequest.body is JSONArrayValue || httpRequest.body is XMLNode) {
                     httpRequest.body
-                } else body.parse(httpRequest.bodyString, resolver)
+                } else {
+                    body.parse(httpRequest.bodyString, resolver)
+                }
 
             resolver.matchesPattern(null, body, bodyValue).breadCrumb("BODY")
         } catch (e: ContractException) {
