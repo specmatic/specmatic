@@ -252,8 +252,12 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
         val patternAttributesWithoutXmlns = pattern.attributes.filterNot {
             it.key == "xmlns" || it.key.startsWith("xmlns:") || it.key.startsWith(SPECMATIC_XML_ATTRIBUTE_PREFIX)
         }
-        val sampleAttributesWithoutXmlns = sampleData.attributes.filterNot {
-            it.key == "xmlns" || it.key.startsWith("xmlns:") || it.key.startsWith(SPECMATIC_XML_ATTRIBUTE_PREFIX)
+        val sampleAttributesWithoutXmlns: Map<String, StringValue> = sampleData.attributes.filterNot {
+            it.key == "xmlns" ||
+                it.key.startsWith("xmlns:") ||
+                it.key.startsWith(SPECMATIC_XML_ATTRIBUTE_PREFIX)
+        }.let { attributesWithoutXmlns ->
+            dropSOAP11Info(sampleData, attributesWithoutXmlns)
         }
 
         val missingKey = resolver.findKeyError(
@@ -264,6 +268,26 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
             return missingKey.missingKeyToResult("attribute", resolver.mismatchMessages)
 
         return matchAttributes(patternAttributesWithoutXmlns, sampleAttributesWithoutXmlns, resolver)
+    }
+
+    private fun dropSOAP11Info(
+        sampleData: XMLNode,
+        attributes: Map<String, StringValue>,
+    ): Map<String, StringValue> {
+        val withoutEncoding = attributes.filterNot { (key, _) ->
+            val prefix = key.substringBefore(":")
+            val name = key.substringAfter(":")
+            name == "encodingStyle" && sampleData.namespaces[prefix] == "http://schemas.xmlsoap.org/soap/envelope/"
+        }
+
+        val withoutRPCType = withoutEncoding.filterNot { (key, _) ->
+            val prefix = key.substringBefore(":")
+            val name = key.substringAfter(":")
+
+            name == "type" && sampleData.namespaces[prefix] == "http://www.w3.org/2001/XMLSchema-instance"
+        }
+
+        return withoutRPCType
     }
 
     private fun matchName(sampleData: XMLNode, resolver: Resolver): Result {
