@@ -3,14 +3,16 @@ package io.specmatic.conversions
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.toValue
+import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.Value
 import io.swagger.v3.oas.models.media.Schema
 
 enum class JsonSchemaType {
     // Primitives
-    STRING, INTEGER, NUMBER, BOOLEAN, ENUMERABLE,
+    STRING, INTEGER, NUMBER, BOOLEAN, ENUMERABLE, CONST, NULL,
 
     // Formats
     EMAIL, PASSWORD, UUID, DATE, DATE_TIME, BINARY, BYTE_ARRAY,
@@ -22,7 +24,7 @@ enum class JsonSchemaType {
     ALL_OF, ONE_OF, ANY_OF, MULTI_TYPE,
 
     // Special
-    REFERENCE, NULL,
+    REFERENCE,
 
     // Fallback
     ANY_VALUE, UNRECOGNIZABLE
@@ -41,7 +43,7 @@ open class JsonSchema(open val schema: Schema<*>, open val type: JsonSchemaType)
 
     val firstExampleString: String?
         get() {
-            val example = schema.examples?.firstOrNull() ?: schema.example ?: return null
+            val example = schema.examples?.firstNotNullOfOrNull { it } ?: schema.example ?: return null
             return example.let(::toValue).let(Value::toUnformattedString)
         }
 
@@ -97,6 +99,7 @@ open class JsonSchema(open val schema: Schema<*>, open val type: JsonSchemaType)
             if (schema.allOf != null) return JsonSchema(schema, JsonSchemaType.ALL_OF)
             if (schema.oneOf != null) return JsonSchema(schema, JsonSchemaType.ONE_OF)
             if (schema.anyOf != null) return JsonSchema(schema, JsonSchemaType.ANY_OF)
+            if (schema.const != null) return ConstValueSchema(schema, toValue(schema.const))
 
             val declaredTypes = schema.types ?: setOfNotNull(schema.type)
             val effectiveTypes = declaredTypes.filter { it != NULL_TYPE }
@@ -141,8 +144,14 @@ open class JsonSchema(open val schema: Schema<*>, open val type: JsonSchemaType)
             val hasAdditionalProps = schema.additionalProperties != null && schema.additionalProperties != false
             if (hasProperties || hasAdditionalProps) return JsonSchema(schema, JsonSchemaType.OBJECT)
 
-            return if (schema::class == Schema::class) JsonSchema(schema, JsonSchemaType.ANY_VALUE)
-            else JsonSchema(schema, JsonSchemaType.UNRECOGNIZABLE)
+            return when {
+                // TODO: Add explicit extension while pre-processing to guarantee a const: null
+                schema is io.swagger.v3.oas.models.media.JsonSchema -> ConstValueSchema(schema, NullValue)
+                else -> {
+                    logger.log("Unrecognized schema type: ${schema::class}, defaulting to AnyValue")
+                    JsonSchema(schema, JsonSchemaType.ANY_VALUE)
+                }
+            }
         }
 
         private fun Any.toJsonNode(): JsonNode {
@@ -152,6 +161,7 @@ open class JsonSchema(open val schema: Schema<*>, open val type: JsonSchemaType)
 }
 
 class ReferenceJsonSchema(schema: Schema<*>, val ref: String) : JsonSchema(schema, JsonSchemaType.REFERENCE)
+class ConstValueSchema(schema: Schema<*>, val value: Value) : JsonSchema(schema, JsonSchemaType.CONST)
 class MultiTypeJsonSchema(override val schema: io.swagger.v3.oas.models.media.JsonSchema, val types: List<String>) : JsonSchema(schema, JsonSchemaType.MULTI_TYPE)
 
 fun Schema<*>.classify(): JsonSchema = JsonSchema.from(this)
