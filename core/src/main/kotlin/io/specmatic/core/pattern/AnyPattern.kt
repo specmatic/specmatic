@@ -287,7 +287,7 @@ data class AnyPattern(
         val negativeTypeResults = pattern.asSequence().map {
             try {
                 val patterns: Sequence<ReturnValue<Pattern>> =
-                    it.negativeBasedOn(row, resolver)
+                    it.negativeBasedOn(row, resolver, config)
                 Pair(patterns, null)
             } catch(e: Throwable) {
                 Pair(null, e)
