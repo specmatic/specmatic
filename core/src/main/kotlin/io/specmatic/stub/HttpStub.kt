@@ -16,6 +16,7 @@ import io.ktor.util.pipeline.*
 import io.specmatic.core.*
 import io.specmatic.core.log.*
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.configureHealthCheckModule
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.isHealthCheckRequest
@@ -928,10 +929,33 @@ private suspend fun bodyFromCall(call: ApplicationCall): Triple<Value, Map<Strin
         }
 
         else -> {
-            if(call.request.headers.contains("Content-Type"))
-                Triple(parsedValue(receiveText(call)), emptyMap(), emptyList())
-            else
-                Triple(NoBodyValue, emptyMap(), emptyList())
+            val rawContentType = call.request.headers["Content-Type"]
+
+            val bodyValue: Value =
+                if(rawContentType != null) {
+                    val contentType = ContentType.parse(rawContentType)
+                    val contentSubtype = contentType.contentSubtype.lowercase()
+
+                    val rawContent = receiveText(call)
+
+                    try {
+                        if (contentSubtype == "json" || contentSubtype.substringAfter("+") == "json") {
+                            parsedJSON(rawContent)
+                        } else if (contentSubtype == "xml" || contentSubtype.substringAfter("+") == "xml") {
+                            toXMLNode(rawContent)
+                        } else {
+                            StringValue(rawContent)
+                        }
+                    } catch(e: Throwable) {
+                        StringValue(rawContent)
+                    }
+                }
+                else {
+                    NoBodyValue
+                }
+
+            Triple(bodyValue, emptyMap(), emptyList())
+
         }
     }
 }
