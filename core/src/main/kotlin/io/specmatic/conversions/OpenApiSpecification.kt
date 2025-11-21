@@ -11,8 +11,6 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.cucumber.messages.types.Step
 import io.ktor.util.reflect.*
-import io.specmatic.conversions.JsonSchema.Companion.classify
-import io.specmatic.conversions.JsonSchema.Companion.classifyXml
 import io.specmatic.conversions.SchemaUtils.mergeResolvedSchema
 import io.specmatic.core.*
 import io.specmatic.core.Result.Failure
@@ -1232,7 +1230,7 @@ class OpenApiSpecification(
                             else
                                 "$partName?"
 
-                            if (partSchema.classify() is BinarySchema) {
+                            if (partSchema.classify().type == JsonSchemaType.BINARY) {
                                 MultiPartFilePattern(
                                     partNameWithPresence,
                                     toSpecmaticPattern(partSchema, emptyList()),
@@ -1555,43 +1553,43 @@ class OpenApiSpecification(
         if (typeStack.filter { it == patternName }.size > 1) return DeferredPattern("($patternName)")
 
         val classified = schema.classify()
-        val pattern = when (classified) {
-            is ReferenceSchema -> handleReference(classified, typeStack, patternName, breadCrumb)
+        val pattern = when (classified.type) {
+            JsonSchemaType.REFERENCE -> handleReference(classified as ReferenceJsonSchema, typeStack, patternName, breadCrumb)
 
             // Primitives
-            is StringSchema -> stringPattern(classified, patternName, breadCrumb)
-            is IntegerSchema -> numberPattern(classified.schema, false, classified.firstExampleString)
-            is NumberSchema -> numberPattern(classified.schema, true, classified.firstExampleString)
-            is BooleanSchema -> BooleanPattern(example = classified.firstExampleString)
-            is EnumerableSchema -> enumPattern(classified, patternName)
-            NullSchema -> NullPattern
+            JsonSchemaType.STRING -> stringPattern(classified, patternName, breadCrumb)
+            JsonSchemaType.INTEGER -> numberPattern(classified.schema, false, classified.firstExampleString)
+            JsonSchemaType.NUMBER -> numberPattern(classified.schema, true, classified.firstExampleString)
+            JsonSchemaType.BOOLEAN -> BooleanPattern(example = classified.firstExampleString)
+            JsonSchemaType.ENUMERABLE -> enumPattern(classified, patternName)
+            JsonSchemaType.NULL -> NullPattern
 
             // Formats
-            is EmailSchema -> EmailPattern(example = classified.firstExampleString)
-            is PasswordSchema -> StringPattern(example = classified.firstExampleString)
-            is UUIDSchema -> UUIDPattern
-            is DateSchema -> DatePattern
-            is DateTimeSchema -> DateTimePattern
-            is BinarySchema -> BinaryPattern()
-            is ByteArraySchema -> Base64StringPattern()
+            JsonSchemaType.EMAIL -> EmailPattern(example = classified.firstExampleString)
+            JsonSchemaType.PASSWORD -> StringPattern(example = classified.firstExampleString)
+            JsonSchemaType.UUID -> UUIDPattern
+            JsonSchemaType.DATE -> DatePattern
+            JsonSchemaType.DATE_TIME -> DateTimePattern
+            JsonSchemaType.BINARY -> BinaryPattern()
+            JsonSchemaType.BYTE_ARRAY -> Base64StringPattern()
 
             // Structural
-            is XmlObjectSchema, is XmlArraySchema -> toXMLPattern(classified, typeStack = typeStack)
-            is ObjectSchema -> toJsonObjectPattern(classified.schema, patternName, typeStack, breadCrumb)
-            is ArraySchema -> ListPattern(
+            JsonSchemaType.XML_OBJECT, JsonSchemaType.XML_ARRAY -> toXMLPattern(classified, typeStack = typeStack)
+            JsonSchemaType.OBJECT -> toJsonObjectPattern(classified.schema, patternName, typeStack, breadCrumb)
+            JsonSchemaType.ARRAY -> ListPattern(
                 toSpecmaticPattern(classified.schema.items, typeStack, breadCrumb = "$breadCrumb[]"),
                 example = toListExample(classified.firstExampleAsJsonNode),
             )
 
             // Composite
-            is MultiTypeSchema -> handleMultiType(classified, typeStack, patternName)
-            is AllOfSchema -> handleAllOf(classified.schema, typeStack, patternName)
-            is OneOfSchema -> handleOneOf(classified.schema, typeStack, patternName)
-            is AnyOfSchema -> handleAnyOf(classified.schema, typeStack, patternName)
+            JsonSchemaType.MULTI_TYPE -> handleMultiType(classified, typeStack, patternName)
+            JsonSchemaType.ALL_OF -> handleAllOf(classified.schema, typeStack, patternName)
+            JsonSchemaType.ONE_OF -> handleOneOf(classified.schema, typeStack, patternName)
+            JsonSchemaType.ANY_OF -> handleAnyOf(classified.schema, typeStack, patternName)
 
             // Fallback
-            is AnyValueSchema -> AnyNonNullJSONValue()
-            is UnrecognizableSchema -> {
+            JsonSchemaType.ANY_VALUE -> AnyNonNullJSONValue()
+            JsonSchemaType.UNRECOGNIZABLE -> {
                 val schemaFragment = if (patternName.isNotBlank()) " in schema $patternName" else " in the schema"
                 throw ContractException("${schemaFragment.capitalizeFirstChar()} is not yet supported, please raise an issue on https://github.com/specmatic/specmatic/issues")
             }
@@ -1609,25 +1607,26 @@ class OpenApiSpecification(
         }
     }
 
-    private fun handleMultiType(classified: MultiTypeSchema, typeStack: List<String>, patternName: String): Pattern {
-        if (classified.schema.enum != null) {
+    private fun handleMultiType(classified: JsonSchema, typeStack: List<String>, patternName: String): Pattern {
+        val multiSchema = classified as? MultiTypeJsonSchema ?: throw ContractException("Schema with type MULTI_TYPE must be an instance of MultiTypeJsonSchema")
+        if (multiSchema.schema.enum != null) {
             val converter: (String) -> Value = { value ->
-                classified.types.map(::withPatternDelimiters).firstNotNullOfOrNull {
+                multiSchema.types.map(::withPatternDelimiters).firstNotNullOfOrNull {
                     val pattern = builtInPatterns[it] ?: return@firstNotNullOfOrNull null
                     runCatching { pattern.parse(value, Resolver()) }.getOrNull()
                 } ?: run {
-                    logger.log("Failed to validate enum value $value against provided list of types ${classified.types}")
+                    logger.log("Failed to validate enum value $value against provided list of types ${multiSchema.types}")
                     parsedScalarValue(value)
                 }
             }
 
-            return toEnum(EnumerableSchema(classified.schema), patternName, multiTypeValues = true) { enumValue ->
+            return toEnum(JsonSchema(multiSchema.schema, JsonSchemaType.ENUMERABLE), patternName, multiTypeValues = true) { enumValue ->
                 converter(enumValue.toString())
-            }.withExample(classified.firstExampleString)
+            }.withExample(multiSchema.firstExampleString)
         }
 
-        val patterns = classified.types.map { singleType ->
-            val singleTypeSchema = SchemaUtils.cloneWithType(classified.schema, singleType)
+        val patterns = multiSchema.types.map { singleType ->
+            val singleTypeSchema = SchemaUtils.cloneWithType(multiSchema.schema, singleType)
             toSpecmaticPattern(singleTypeSchema, typeStack)
         }
         return AnyOfPattern(pattern = patterns, typeAlias = "($patternName)")
@@ -1774,21 +1773,23 @@ class OpenApiSpecification(
     }
 
     private fun handleReference(
-        classified: ReferenceSchema,
+        classified: JsonSchema,
         typeStack: List<String>, patternName: String, breadCrumb: String = "",
+        onResolve: (String, Schema<*>) -> Unit = { _, _ -> },
         overrideToPattern: (Schema<*>, List<String>, String) -> Pattern = { schema, typeStack, patternName -> toSpecmaticPattern(schema, typeStack, patternName) }
     ): DeferredPattern {
-        val schema = classified.schema
-        val (componentName, referredSchema) = resolveReferenceToSchema(classified.ref)
+        val refSchema = classified as? ReferenceJsonSchema ?: throw ContractException("Schema with type REFERENCE must be an instance of ReferenceJsonSchema")
+        val (componentName, referredSchema) = resolveReferenceToSchema(refSchema.ref)
         val resolvedSchema = if (parsedOpenApi.specVersion == SpecVersion.V31) {
             mergeResolvedSchema(referredSchema, classified.schema)
         } else {
             referredSchema
         }
 
-        if (schema.type != null || schema.types != null) {
+        onResolve(componentName, resolvedSchema)
+        if (refSchema.schema.type != null || refSchema.schema.types != null) {
             val descriptor = if (patternName.isNotEmpty()) withoutPatternDelimiters(patternName) else breadCrumb
-            logger.log(createWarningForRefAndSchemaSiblings(descriptor, classified.ref, schema.type ?: schema.types.toString()))
+            logger.log(createWarningForRefAndSchemaSiblings(descriptor, classified.ref, refSchema.schema.type ?: refSchema.schema.types.toString()))
             logger.boundary()
         }
 
@@ -1798,7 +1799,7 @@ class OpenApiSpecification(
         return DeferredPattern("($componentName)")
     }
 
-    private fun stringPattern(classified: StringSchema, patternName: String, breadCrumb: String): StringPattern {
+    private fun stringPattern(classified: JsonSchema, patternName: String, breadCrumb: String): StringPattern {
         val stringConstraints = StringConstraints(classified.schema, patternName, breadCrumb)
         return StringPattern(
             minLength = stringConstraints.resolvedMinLength,
@@ -1826,7 +1827,7 @@ class OpenApiSpecification(
         )
     }
 
-    private fun enumPattern(classified: EnumerableSchema, patternName: String): EnumPattern {
+    private fun enumPattern(classified: JsonSchema, patternName: String): EnumPattern {
         val converter: (String) -> Value = if (classified.schema.type == "number" || classified.schema.type == "integer") {
             { NumberValue(it.toInt()) }
         } else {
@@ -1939,7 +1940,7 @@ class OpenApiSpecification(
 
     private fun nullableEmptyObject(schema: Schema<*>): Boolean {
         val classified = schema.classify()
-        return classified is ObjectSchema && classified.isNullable
+        return classified.type == JsonSchemaType.OBJECT && classified.isNullable
     }
 
     private fun toXMLPattern(mediaType: MediaType): Pattern {
@@ -1950,8 +1951,8 @@ class OpenApiSpecification(
 
     private fun toXMLPattern(classified: JsonSchema, nodeNameFromProperty: String? = null, typeStack: List<String>): XMLPattern {
         val name = classified.schema.xml?.name ?: nodeNameFromProperty
-        return when (classified) {
-            is XmlObjectSchema -> {
+        return when (classified.type) {
+            JsonSchemaType.XML_OBJECT -> {
                 if(classified.schema.properties == null) {
                     throw ContractException("XML schema named $name does not have properties.")
                 }
@@ -2007,7 +2008,7 @@ class OpenApiSpecification(
                 XMLPattern(xmlTypeData)
             }
 
-            is XmlArraySchema -> {
+            JsonSchemaType.XML_ARRAY -> {
                 val repeatingSchema = classified.schema.items as Schema<Any>
 
                 val repeatingType = when (repeatingSchema.type) {
@@ -2048,12 +2049,14 @@ class OpenApiSpecification(
                 } else repeatingType
             }
 
-            is ReferenceSchema -> {
+            JsonSchemaType.REFERENCE -> {
                 var nodeName = name.orEmpty()
                 val deferredPattern = handleReference(
                     classified = classified, typeStack = typeStack, patternName = name.orEmpty(),
-                    overrideToPattern = { schema, typeStack, componentName ->
+                    onResolve = { componentName, schema ->
                         nodeName = schema.xml?.name ?: name ?: componentName
+                    },
+                    overrideToPattern = { schema, typeStack, componentName ->
                         val classifiedSchema = schema.classifyXml()
                         toXMLPattern(classifiedSchema, componentName, typeStack)
                     }
@@ -2067,7 +2070,7 @@ class OpenApiSpecification(
                 ))
             }
 
-            else -> throw ContractException("Node not recognized as XML type: ${classified.schema.type}")
+            else -> throw ContractException("Node not recognized as XML type: ${classified.schema.type ?: classified.type}")
         }
     }
 
@@ -2144,7 +2147,7 @@ class OpenApiSpecification(
         return patternMap
     }
 
-    private fun toEnum(classified: EnumerableSchema, patternName: String, multiTypeValues: Boolean = false, toSpecmaticValue: (Any) -> Value): EnumPattern {
+    private fun toEnum(classified: JsonSchema, patternName: String, multiTypeValues: Boolean = false, toSpecmaticValue: (Any) -> Value): EnumPattern {
         val specmaticValues = classified.schema.enum.map<Any?, Value> { enumValue ->
             when (enumValue) {
                 null -> NullValue
