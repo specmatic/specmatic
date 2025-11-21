@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test
 import io.specmatic.core.wsdl.parser.SOAPMessageType
 import io.specmatic.core.wsdl.parser.message.OCCURS_ATTRIBUTE_NAME
 import io.specmatic.core.wsdl.payload.EmptySOAPPayload
+import io.specmatic.core.wsdl.payload.RequestHeaders
 
 internal class SOAPRequestTest {
     @Test
@@ -13,8 +14,8 @@ internal class SOAPRequestTest {
             "/customer",
             "add",
             "/add",
+            RequestHeaders(),
             EmptySOAPPayload(SOAPMessageType.Input),
-            requestPayload
         )
 
         val statements = soapRequest.statements()
@@ -36,7 +37,7 @@ internal class SOAPRequestTest {
 
     @Test
     fun `generates gherkin statements for a request without a soap action`() {
-        val soapRequest = SOAPRequest("/customer", "add", "", EmptySOAPPayload(SOAPMessageType.Input), requestPayload)
+        val soapRequest = SOAPRequest("/customer", "add", "", RequestHeaders(), EmptySOAPPayload(SOAPMessageType.Input))
 
         val statements = soapRequest.statements()
         assertThat(statements).hasSize(2)
