@@ -8,9 +8,27 @@ import io.specmatic.core.utilities.toValue
 import io.specmatic.core.value.Value
 import io.swagger.v3.oas.models.media.Schema
 
-sealed interface JsonSchema {
-    val schema: Schema<*>
+enum class JsonSchemaType {
+    // Primitives
+    STRING, INTEGER, NUMBER, BOOLEAN, ENUMERABLE,
 
+    // Formats
+    EMAIL, PASSWORD, UUID, DATE, DATE_TIME, BINARY, BYTE_ARRAY,
+
+    // Structural
+    ARRAY, OBJECT, XML_ARRAY, XML_OBJECT,
+
+    // Composite
+    ALL_OF, ONE_OF, ANY_OF, MULTI_TYPE,
+
+    // Special
+    REFERENCE, NULL,
+
+    // Fallback
+    ANY_VALUE, UNRECOGNIZABLE
+}
+
+open class JsonSchema(open val schema: Schema<*>, open val type: JsonSchemaType) {
     val isNullable: Boolean
         get() {
             if (schema.nullable != null) return schema.nullable
@@ -19,9 +37,7 @@ sealed interface JsonSchema {
         }
 
     val firstExampleAsJsonNode: JsonNode?
-        get() {
-            return schema.examples?.firstOrNull()?.toJsonNode() ?: schema.example?.toJsonNode()
-        }
+        get() = schema.examples?.firstOrNull()?.toJsonNode() ?: schema.example?.toJsonNode()
 
     val firstExampleString: String?
         get() {
@@ -34,139 +50,116 @@ sealed interface JsonSchema {
         const val NULL_TYPE = "null"
 
         fun from(schema: Schema<*>): JsonSchema {
-            if (schema.`$ref` != null) return ReferenceSchema(schema, schema.`$ref`)
-            if (schema.enum != null) return EnumerableSchema(schema)
+            if (schema.`$ref` != null) return ReferenceJsonSchema(schema, schema.`$ref`)
+            if (schema.enum != null) return JsonSchema(schema, JsonSchemaType.ENUMERABLE)
+
             return when (schema) {
-                // PRIMITIVES
-                is io.swagger.v3.oas.models.media.StringSchema -> StringSchema(schema)
-                is io.swagger.v3.oas.models.media.IntegerSchema -> IntegerSchema(schema)
-                is io.swagger.v3.oas.models.media.NumberSchema -> NumberSchema(schema)
-                is io.swagger.v3.oas.models.media.BooleanSchema -> BooleanSchema(schema)
+                // Primitives
+                is io.swagger.v3.oas.models.media.StringSchema -> JsonSchema(schema, JsonSchemaType.STRING)
+                is io.swagger.v3.oas.models.media.IntegerSchema -> JsonSchema(schema, JsonSchemaType.INTEGER)
+                is io.swagger.v3.oas.models.media.NumberSchema -> JsonSchema(schema, JsonSchemaType.NUMBER)
+                is io.swagger.v3.oas.models.media.BooleanSchema -> JsonSchema(schema, JsonSchemaType.BOOLEAN)
 
-                // FORMATS
-                is io.swagger.v3.oas.models.media.EmailSchema -> EmailSchema(schema)
-                is io.swagger.v3.oas.models.media.PasswordSchema -> PasswordSchema(schema)
-                is io.swagger.v3.oas.models.media.UUIDSchema -> UUIDSchema(schema)
-                is io.swagger.v3.oas.models.media.DateSchema -> DateSchema(schema)
-                is io.swagger.v3.oas.models.media.DateTimeSchema -> DateTimeSchema(schema)
-                is io.swagger.v3.oas.models.media.BinarySchema -> BinarySchema(schema)
-                is io.swagger.v3.oas.models.media.ByteArraySchema -> ByteArraySchema(schema)
+                // Formats
+                is io.swagger.v3.oas.models.media.EmailSchema -> JsonSchema(schema, JsonSchemaType.EMAIL)
+                is io.swagger.v3.oas.models.media.PasswordSchema -> JsonSchema(schema, JsonSchemaType.PASSWORD)
+                is io.swagger.v3.oas.models.media.UUIDSchema -> JsonSchema(schema, JsonSchemaType.UUID)
+                is io.swagger.v3.oas.models.media.DateSchema -> JsonSchema(schema, JsonSchemaType.DATE)
+                is io.swagger.v3.oas.models.media.DateTimeSchema -> JsonSchema(schema, JsonSchemaType.DATE_TIME)
+                is io.swagger.v3.oas.models.media.BinarySchema -> JsonSchema(schema, JsonSchemaType.BINARY)
+                is io.swagger.v3.oas.models.media.ByteArraySchema -> JsonSchema(schema, JsonSchemaType.BYTE_ARRAY)
 
-                // STRUCTURAL
-                is io.swagger.v3.oas.models.media.ObjectSchema, is io.swagger.v3.oas.models.media.MapSchema -> {
-                    if (schema.xml?.name != null) XmlObjectSchema(schema) else ObjectSchema(schema)
+                // Structural
+                is io.swagger.v3.oas.models.media.ObjectSchema,
+                is io.swagger.v3.oas.models.media.MapSchema -> {
+                    resolveXmlOrSelf(schema, JsonSchemaType.OBJECT, JsonSchemaType.XML_OBJECT)
                 }
                 is io.swagger.v3.oas.models.media.ArraySchema -> {
-                    if (schema.xml?.name != null) XmlArraySchema(schema) else ArraySchema(schema)
+                    resolveXmlOrSelf(schema, JsonSchemaType.ARRAY, JsonSchemaType.XML_ARRAY)
                 }
 
-                // COMPOSITE
+                // Composite
                 is io.swagger.v3.oas.models.media.JsonSchema -> fromJsonSchema(schema)
                 is io.swagger.v3.oas.models.media.ComposedSchema -> {
-                    if (schema.allOf != null) return AllOfSchema(schema)
-                    if (schema.oneOf != null) return OneOfSchema(schema)
-                    if (schema.anyOf != null) return AnyOfSchema(schema)
-                    throw ContractException("Invalid Composed Schema, must have oneOf, allOf or anyOf defined")
+                    when {
+                        schema.allOf != null -> JsonSchema(schema, JsonSchemaType.ALL_OF)
+                        schema.oneOf != null -> JsonSchema(schema, JsonSchemaType.ONE_OF)
+                        schema.anyOf != null -> JsonSchema(schema, JsonSchemaType.ANY_OF)
+                        else -> throw ContractException("Invalid Composed Schema, must have oneOf, allOf or anyOf defined")
+                    }
                 }
-
                 else -> fromUnspecified(schema, emptySet())
             }
         }
 
-        fun fromJsonSchema(schema: io.swagger.v3.oas.models.media.JsonSchema): JsonSchema {
-            if (schema.`$ref` != null) return ReferenceSchema(schema, schema.`$ref`)
-            if (schema.allOf != null) return AllOfSchema(schema)
-            if (schema.oneOf != null) return OneOfSchema(schema)
-            if (schema.anyOf != null) return AnyOfSchema(schema)
+        private fun fromJsonSchema(schema: io.swagger.v3.oas.models.media.JsonSchema): JsonSchema {
+            if (schema.`$ref` != null) return ReferenceJsonSchema(schema, schema.`$ref`)
+            if (schema.allOf != null) return JsonSchema(schema, JsonSchemaType.ALL_OF)
+            if (schema.oneOf != null) return JsonSchema(schema, JsonSchemaType.ONE_OF)
+            if (schema.anyOf != null) return JsonSchema(schema, JsonSchemaType.ANY_OF)
 
             val declaredTypes = schema.types ?: setOfNotNull(schema.type)
             val effectiveTypes = declaredTypes.filter { it != NULL_TYPE }
 
-            if (effectiveTypes.size > 1) return MultiTypeSchema(schema, effectiveTypes.toList())
-            if (schema.enum != null) return EnumerableSchema(schema)
+            if (effectiveTypes.size > 1) return MultiTypeJsonSchema(schema, effectiveTypes.toList())
+            if (schema.enum != null) return JsonSchema(schema, JsonSchemaType.ENUMERABLE)
 
             return when (effectiveTypes.firstOrNull()) {
-                // PRIMITIVES
+                // Primitives
                 "string" -> when (schema.format) {
-                    "email" -> EmailSchema(schema)
-                    "password" -> PasswordSchema(schema)
-                    "uuid" -> UUIDSchema(schema)
-                    "date" -> DateSchema(schema)
-                    "date-time" -> DateTimeSchema(schema)
-                    "binary" -> BinarySchema(schema)
-                    "byte" -> ByteArraySchema(schema)
-                    else -> StringSchema(schema)
+                    "email" -> JsonSchema(schema, JsonSchemaType.EMAIL)
+                    "password" -> JsonSchema(schema, JsonSchemaType.PASSWORD)
+                    "uuid" -> JsonSchema(schema, JsonSchemaType.UUID)
+                    "date" -> JsonSchema(schema, JsonSchemaType.DATE)
+                    "date-time" -> JsonSchema(schema, JsonSchemaType.DATE_TIME)
+                    "binary" -> JsonSchema(schema, JsonSchemaType.BINARY)
+                    "byte" -> JsonSchema(schema, JsonSchemaType.BYTE_ARRAY)
+                    else -> JsonSchema(schema, JsonSchemaType.STRING)
                 }
-                "integer" -> IntegerSchema(schema)
-                "number" -> NumberSchema(schema)
-                "boolean" -> BooleanSchema(schema)
+                "integer" -> JsonSchema(schema, JsonSchemaType.INTEGER)
+                "number" -> JsonSchema(schema, JsonSchemaType.NUMBER)
+                "boolean" -> JsonSchema(schema, JsonSchemaType.BOOLEAN)
 
-                // STRUCTURAL
-                "array" -> if (schema.xml?.name != null) XmlArraySchema(schema) else ArraySchema(schema)
-                "object" -> if (schema.xml?.name != null) XmlObjectSchema(schema) else ObjectSchema(schema)
+                // Structural
+                "array" -> resolveXmlOrSelf(schema, JsonSchemaType.ARRAY, JsonSchemaType.XML_ARRAY)
+                "object" -> resolveXmlOrSelf(schema, JsonSchemaType.OBJECT, JsonSchemaType.XML_OBJECT)
                 else -> fromUnspecified(schema, declaredTypes)
             }
         }
 
-        fun Schema<*>.classify(): JsonSchema = from(this)
-
-        fun Schema<*>.classifyXml(): JsonSchema = when (val type = from(this)) {
-            is ObjectSchema -> XmlObjectSchema(type.schema)
-            is ArraySchema -> XmlArraySchema(type.schema)
-            else -> type
+        private fun resolveXmlOrSelf(schema: Schema<*>, default: JsonSchemaType, xmlType: JsonSchemaType): JsonSchema {
+            val type = if (schema.xml?.name != null) xmlType else default
+            return JsonSchema(schema, type)
         }
 
         private fun fromUnspecified(schema: Schema<*>, types: Set<String>): JsonSchema {
             val isSchemaNullable = schema.nullable == true && schema.additionalProperties == null && schema.`$ref` == null
             val schemaHasNullableType = types.contains(NULL_TYPE)
-            if (isSchemaNullable || schemaHasNullableType) return NullSchema
+            if (isSchemaNullable || schemaHasNullableType) return JsonSchema(Schema<Any>(), JsonSchemaType.NULL)
 
             val hasProperties = !schema.properties.isNullOrEmpty()
             val hasAdditionalProps = schema.additionalProperties != null && schema.additionalProperties != false
-            if (hasProperties || hasAdditionalProps) return ObjectSchema(schema)
+            if (hasProperties || hasAdditionalProps) return JsonSchema(schema, JsonSchemaType.OBJECT)
 
-            return if (schema.javaClass.simpleName == "Schema") AnyValueSchema(schema)
-            else UnrecognizableSchema(schema)
+            return if (schema::class == Schema::class) JsonSchema(schema, JsonSchemaType.ANY_VALUE)
+            else JsonSchema(schema, JsonSchemaType.UNRECOGNIZABLE)
         }
 
         private fun Any.toJsonNode(): JsonNode {
-            return this as? JsonNode ?: jsonMapper.valueToTree(this)
+            return jsonMapper.valueToTree(this)
         }
     }
 }
 
-// Reference
-data class ReferenceSchema(override val schema: Schema<*>, val ref: String) : JsonSchema
+class ReferenceJsonSchema(schema: Schema<*>, val ref: String) : JsonSchema(schema, JsonSchemaType.REFERENCE)
+class MultiTypeJsonSchema(override val schema: io.swagger.v3.oas.models.media.JsonSchema, val types: List<String>) : JsonSchema(schema, JsonSchemaType.MULTI_TYPE)
 
-// Primitive
-object NullSchema : JsonSchema { override val schema = Schema<Any>() }
-data class StringSchema(override val schema: Schema<*>) : JsonSchema
-data class IntegerSchema(override val schema: Schema<*>) : JsonSchema
-data class NumberSchema(override val schema: Schema<*>) : JsonSchema
-data class BooleanSchema(override val schema: Schema<*>) : JsonSchema
-data class EnumerableSchema(override val schema: Schema<*>) : JsonSchema
-
-// Formats
-data class EmailSchema(override val schema: Schema<*>) : JsonSchema
-data class PasswordSchema(override val schema: Schema<*>) : JsonSchema
-data class UUIDSchema(override val schema: Schema<*>) : JsonSchema
-data class DateSchema(override val schema: Schema<*>) : JsonSchema
-data class DateTimeSchema(override val schema: Schema<*>) : JsonSchema
-data class BinarySchema(override val schema: Schema<*>) : JsonSchema
-data class ByteArraySchema(override val schema: Schema<*>) : JsonSchema
-
-// Structural
-data class ArraySchema(override val schema: Schema<*>) : JsonSchema
-data class ObjectSchema(override val schema: Schema<*>) : JsonSchema
-data class XmlObjectSchema(override val schema: Schema<*>) : JsonSchema
-data class XmlArraySchema(override val schema: Schema<*>) : JsonSchema
-
-// Composite
-data class AllOfSchema(override val schema: Schema<*>) : JsonSchema
-data class OneOfSchema(override val schema: Schema<*>) : JsonSchema
-data class AnyOfSchema(override val schema: Schema<*>) : JsonSchema
-data class MultiTypeSchema(override val schema: io.swagger.v3.oas.models.media.JsonSchema, val types: List<String>) : JsonSchema
-
-// Fallbacks
-data class AnyValueSchema(override val schema: Schema<*>) : JsonSchema
-data class UnrecognizableSchema(override val schema: Schema<*>) : JsonSchema
+fun Schema<*>.classify(): JsonSchema = JsonSchema.from(this)
+fun Schema<*>.classifyXml(): JsonSchema {
+    val classified = JsonSchema.from(this)
+    return when (classified.type) {
+        JsonSchemaType.OBJECT -> JsonSchema(classified.schema, JsonSchemaType.XML_OBJECT)
+        JsonSchemaType.ARRAY -> JsonSchema(classified.schema, JsonSchemaType.XML_ARRAY)
+        else -> classified
+    }
+}
