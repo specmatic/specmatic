@@ -69,7 +69,7 @@ data class AnyPattern(
 
         if (discBasedFixedValue != null) return discBasedFixedValue
 
-        val updatedPatterns = getUpdatedPattern(resolver).sortedBy { it is NullPattern }
+        val updatedPatterns = getUpdatedPattern(resolver).sortedBy(::isEmpty)
         val patternMatches = updatedPatterns.map { pattern ->
             AnyPatternMatch(pattern, pattern.matches(value, resolver))
         }
@@ -91,7 +91,7 @@ data class AnyPattern(
     override fun jsonObjectPattern(resolver: Resolver): JSONObjectPattern? {
         if (this.hasNoAmbiguousPatterns().not()) return null
 
-        val pattern = this.pattern.first { it !is NullPattern }
+        val pattern = this.pattern.first(::isEmpty)
         if (pattern is JSONObjectPattern) return pattern
         if (pattern is PossibleJsonObjectPatternContainer) return pattern.jsonObjectPattern(resolver)
         return null
@@ -202,7 +202,7 @@ data class AnyPattern(
 
         val resolvedPatterns = pattern.map { resolvedHop(it, resolver) }
 
-        if(resolvedPatterns.any { it is NullPattern } || resolvedPatterns.all { it is ExactValuePattern })
+        if(resolvedPatterns.any(::isEmpty) || resolvedPatterns.all { it is ExactValuePattern })
             return when {
                 sampleData is ScalarValue && anyPatternIsEnum() -> {
                     FailedToFindAnyUsingTypeValueDescription(sampleData)
@@ -235,14 +235,13 @@ data class AnyPattern(
         val updatedPatterns = discriminator?.let {
             it.updatePatternsWithDiscriminator(pattern, resolver).let { updatedPatterns ->
                 if(updatedPatterns.any { it !is HasValue<Pattern> }) {
-                    val failures = updatedPatterns.map { pattern ->
-                        when(pattern) {
+                    val failures = updatedPatterns.mapNotNull { pattern ->
+                        when (pattern) {
                             is HasValue -> null
                             is HasFailure -> pattern.failure
                             is HasException -> pattern.toFailure()
                         }
-                    }.filterNotNull()
-
+                    }
                     return sequenceOf(HasFailure(Failure.fromFailures(failures)))
                 }
 
@@ -254,9 +253,9 @@ data class AnyPattern(
             return sequenceOf(HasValue(ExactValuePattern(it)))
         }
 
-        val isNullable = updatedPatterns.any { it is NullPattern }
+        val isNullable = updatedPatterns.any(::isEmpty)
         val patternResults: Sequence<Pair<Sequence<ReturnValue<Pattern>>?, Throwable?>> =
-            updatedPatterns.asSequence().sortedBy { it is NullPattern }.map { innerPattern ->
+            updatedPatterns.asSequence().sortedBy(::isEmpty).map { innerPattern ->
                 try {
                     val patterns =
                         resolver.withCyclePrevention(innerPattern, isNullable) { cyclePreventedResolver ->
@@ -273,7 +272,7 @@ data class AnyPattern(
     }
 
     override fun newBasedOn(resolver: Resolver): Sequence<Pattern> {
-        val isNullable = pattern.any {it is NullPattern}
+        val isNullable = isNullablePattern()
         return pattern.asSequence().flatMap { innerPattern ->
             resolver.withCyclePrevention(innerPattern, isNullable) { cyclePreventedResolver ->
                 innerPattern.newBasedOn(cyclePreventedResolver)
@@ -282,9 +281,8 @@ data class AnyPattern(
     }
 
     override fun negativeBasedOn(row: Row, resolver: Resolver, config: NegativePatternConfiguration): Sequence<ReturnValue<Pattern>> {
-        val nullable = pattern.any { it is NullPattern }
-
-        val negativeTypeResults = pattern.filterNot { it is NullPattern }.asSequence().map {
+        val nullable = isNullablePattern()
+        val negativeTypeResults = pattern.filterNot(::isEmpty).asSequence().map {
             try {
                 val patterns: Sequence<ReturnValue<Pattern>> = it.negativeBasedOn(row, resolver, config)
                 Pair(patterns, null)
@@ -298,7 +296,7 @@ data class AnyPattern(
             "Could not get negative tests"
         ).let { patterns: Sequence<ReturnValue<Pattern>> ->
             if (nullable)
-                patterns.filterValueIsNot { it is NullPattern }
+                patterns.filterValueIsNot(::isEmpty)
             else
                 patterns
         }
@@ -312,9 +310,9 @@ data class AnyPattern(
 
     override fun parse(value: String, resolver: Resolver): Value {
         val resolvedTypes = pattern.map { resolvedHop(it, resolver) }
-        val nonNullTypesFirst = resolvedTypes.filterNot { it is NullPattern }.plus(resolvedTypes.filterIsInstance<NullPattern>())
+        val nonNullTypesLast = resolvedTypes.sortedBy(::isEmpty)
 
-        return nonNullTypesFirst.asSequence().map {
+        return nonNullTypesLast.asSequence().map {
             try {
                 it.parse(value, resolver)
             } catch (e: Throwable) {
@@ -356,16 +354,15 @@ data class AnyPattern(
     override val typeName: String
         get() {
             return if (pattern.size == 2 && isNullablePattern()) {
-                val concreteTypeName =
-                    withoutPatternDelimiters(pattern.filterNot { it is NullPattern || it.typeAlias == "(empty)" }
-                        .first().typeName)
+                val concreteTypeName = withoutPatternDelimiters(pattern.filterNot(::isEmpty).first().typeName)
                 "($concreteTypeName?)"
             } else
                 "(${pattern.joinToString(" or ") { inner -> withoutPatternDelimiters(inner.typeName).let { if(it == "null") "\"null\"" else it}  }})"
         }
 
-    override fun toNullable(defaultValue: String?): Pattern {
-        return this
+    override fun toNullable(defaultValue: String?): AnyPattern {
+        if (isNullablePattern()) return this
+        return this.copy(pattern = pattern.plus(NullPattern), example = example ?: defaultValue)
     }
 
     override fun isDiscriminatorPresent() = discriminator?.isNotEmpty() == true
@@ -439,7 +436,7 @@ data class AnyPattern(
         val chosenByDiscriminator = getDiscriminatorBasedPattern(updatedPatterns, discriminatorValue, resolver)
         if (chosenByDiscriminator != null) return generate(resolver, chosenByDiscriminator)
 
-        val generationResults = updatedPatterns.sortedBy { it is NullPattern }.asSequence().map { chosenPattern ->
+        val generationResults = updatedPatterns.sortedBy(::isEmpty).asSequence().map { chosenPattern ->
             try {
                 GenerationResult(value = generate(resolver, chosenPattern))
             } catch (e: Throwable) {
@@ -460,7 +457,7 @@ data class AnyPattern(
         resolver: Resolver,
         chosenPattern: Pattern
     ): Value {
-        val isNullable = pattern.any { it is NullPattern }
+        val isNullable = isNullablePattern()
         return resolver.withCyclePrevention(chosenPattern, isNullable) { cyclePreventedResolver ->
             when (key) {
                 null -> chosenPattern.generate(cyclePreventedResolver)
@@ -471,7 +468,7 @@ data class AnyPattern(
 
     @Suppress("unused") // Being used in openapi
     fun isNullableScalarPattern(): Boolean {
-        return pattern.size == 2 && pattern.count { it is NullPattern } == 1 && pattern.count { it is ScalarType } == 2
+        return pattern.all { it is ScalarType || (it is ExactValuePattern && it.pattern is ScalarValue) } && isNullablePattern()
     }
 
     override fun getDiscriminatorBasedPattern(updatedPatterns: List<Pattern>, discriminatorValue: String, resolver: Resolver): JSONObjectPattern? {
@@ -581,7 +578,7 @@ data class AnyPattern(
     private fun allValuesAreScalar() = pattern.all { it is ExactValuePattern && it.pattern is ScalarValue }
 
     private fun hasNoAmbiguousPatterns(): Boolean {
-        return this.pattern.count { it !is NullPattern } == 1
+        return this.pattern.count(::isEmpty) == 1
     }
 
     private fun addTypeInfoBreadCrumbs(matchResults: List<AnyPatternMatch>): List<Failure> {
@@ -612,9 +609,9 @@ data class AnyPattern(
         else -> failures
     }
 
-    private fun isNullablePattern() = pattern.size == 2 && pattern.any { isEmpty(it) }
+    private fun isNullablePattern() = pattern.any(::isEmpty)
 
-    private fun isEmpty(it: Pattern) = it.typeAlias == "(empty)" || it is NullPattern
+    private fun isEmpty(it: Pattern) = it.typeAlias == "(empty)" || it is NullPattern || (it is ExactValuePattern && it.pattern is NullValue)
 }
 
 private interface FailedToFindAny {

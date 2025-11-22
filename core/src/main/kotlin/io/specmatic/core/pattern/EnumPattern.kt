@@ -119,7 +119,8 @@ data class EnumPattern(override val pattern: AnyPattern, val nullable: Boolean, 
 
     override fun hashCode(): Int = pattern.hashCode()
 
-    override fun toNullable(defaultValue: String?): Pattern {
-        return this
+    override fun toNullable(defaultValue: String?): EnumPattern {
+        if (nullable) return this
+        return copy(nullable = true, pattern = pattern.copy(pattern = pattern.pattern.plus(ExactValuePattern(NullValue, isConst = true))))
     }
 }
