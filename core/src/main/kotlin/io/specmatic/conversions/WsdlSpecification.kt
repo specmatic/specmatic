@@ -99,7 +99,7 @@ class WsdlSpecification(private val wsdlFile: WSDLContent) : IncludedSpecificati
     }
 
     override fun toScenarioInfos(): Pair<List<ScenarioInfo>, Map<String, List<Pair<HttpRequest, HttpResponse>>>> {
-        return scenarioInfos(wsdlToFeatureChildren(wsdlFile), "") to emptyMap()
+        return scenarioInfos(wsdlToFeatureChildren(wsdlFile), "", true) to emptyMap()
     }
 
     private fun wsdlToFeatureChildren(wsdlFile: WSDLContent): List<FeatureChild> {
@@ -129,5 +129,5 @@ fun wsdlContentToFeature(
 ): Feature {
     val wsdl = WSDL(toXMLNode(wsdlContent), path)
     val gherkin = wsdl.convertToGherkin().trim()
-    return parseGherkinStringToFeature(gherkin, path)
+    return parseGherkinStringToFeature(gherkin, path, true)
 }

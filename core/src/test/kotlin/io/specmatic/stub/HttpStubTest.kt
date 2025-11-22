@@ -18,7 +18,6 @@ import io.specmatic.mock.ScenarioStub
 import io.specmatic.osAgnosticPath
 import io.specmatic.shouldMatch
 import io.specmatic.test.LegacyHttpClient
-import io.specmatic.stub.SpecmaticConfigSource
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -234,17 +233,18 @@ Then status 200
 And response-body (string)
         """.trim()
 
-        val request = HttpRequest("POST", "/date", emptyMap(), parsedValue("""{"date": "(datetime)"}"""))
-        val mock = ScenarioStub(request, HttpResponse(200, "done"))
+        val mockRequest = HttpRequest("POST", "/date", mapOf("Content-Type" to "application/json"), parsedValue("""{"date": "(datetime)"}"""))
+        val mock = ScenarioStub(mockRequest, HttpResponse(200, "done"))
 
         HttpStub(gherkin, listOf(mock)).use { fake ->
-            val postResponse =
-                RestTemplate().postForEntity<String>(
-                    fake.endPoint + "/date",
-                    """{"date": "2020-04-12T00:00:00+05:00"}"""
-                )
-            assertThat(postResponse.statusCode.value()).isEqualTo(200)
-            assertThat(postResponse.body).isEqualTo("done")
+            val request = HttpRequest(
+                "POST",
+                "/date",
+                mapOf("Content-Type" to "application/json"),
+                parsedValue("""{"date": "2020-04-12T00:00:00+05:00"}""")
+            )
+            val response = fake.client.execute(request)
+            assertThat(response.body.toStringLiteral()).isEqualTo("done")
         }
     }
 

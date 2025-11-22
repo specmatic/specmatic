@@ -16,7 +16,6 @@ internal class ComplexTypedSOAPPayloadTest {
             And request-body
             ""${'"'}
             <soapenv:Envelope xmlns:ns0="http://ns" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-              <soapenv:Header specmatic_occurs="optional"/>
               <soapenv:Body>
                 <person specmatic_type="Person"/>
               </soapenv:Body>
