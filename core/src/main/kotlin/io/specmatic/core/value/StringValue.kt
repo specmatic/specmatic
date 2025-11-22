@@ -10,6 +10,15 @@ import org.w3c.dom.Node
 data class StringValue(val string: String = "") : Value, ScalarValue, XMLValue {
     override val httpContentType = "text/plain"
 
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other is CDATAValue) return other.stringValue.string == this.string
+
+        if (other !is StringValue) return false
+
+        return string == other.string
+    }
+
     override fun valueErrorSnippet(): String = displayableValue()
 
     override fun displayableValue(): String = toStringLiteral().quote()
