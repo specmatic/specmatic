@@ -1,0 +1,190 @@
+openapi: 3.1.0
+
+info:
+  title: Simple API
+  version: 1.0.0
+
+paths:
+  /multiTypeSchema:
+    post:
+      summary: Handle multi-type multi-value schema property
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MultiTypeSchema'
+      responses:
+        '201':
+          description: Successfully created Multi-Value Schema
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MultiTypeSchema'
+        '400':
+          description: Bad Request
+
+  /multiTypeEnumSchema:
+    post:
+      summary: Handle multi-type multi-value enum schema property
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MultiTypeEnumSchema'
+      responses:
+        '201':
+          description: Successfully created Multi-Value Enum
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MultiTypeEnumSchema'
+        '400':
+          description: Bad Request
+
+  /refUnifiedSchema:
+    post:
+      summary: Handle ref-unified schema
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefedUnifiedSchema'
+      responses:
+        '201':
+          description: Successfully created Unified-Email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefedUnifiedSchema'
+        '400':
+          description: Bad Request
+
+  /exclusiveMinMaxValueSchema:
+    post:
+      summary: Handle ExclusiveMinMaxValueSchema property
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExclusiveMinMaxValueSchema'
+      responses:
+        '201':
+          description: Successfully created exclusiveMinMaxValue
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExclusiveMinMaxValueSchema'
+        '400':
+          description: Bad Request
+
+  /contValueSchema:
+    post:
+      summary: Handle ConstValueSchema property
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConstValueSchema'
+      responses:
+        '201':
+          description: Successfully created constValue
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConstValueSchema'
+        '400':
+          description: Bad Request
+
+  /contNullValueSchema:
+    post:
+      summary: Handle ConstValue Null Schema property
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConstNullValueSchema'
+      responses:
+        '201':
+          description: Successfully created constValue Null
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConstNullValueSchema'
+        '400':
+          description: Bad Request
+
+components:
+  schemas:
+    MultiTypeSchema:
+      type: object
+      properties:
+        key:
+          type:
+            - string
+            - integer
+            - 'null'
+      required:
+        - key
+
+    MultiTypeEnumSchema:
+      type: object
+      properties:
+        key:
+          type:
+            - string
+            - integer
+            - 'null'
+          enum:
+            - 1234
+            - ABCD
+            - null
+      required:
+        - key
+
+    RefedUnifiedSchema:
+      type: object
+      properties:
+        key:
+          $ref: '#/components/schemas/RandomStringSchema'
+          format: email
+          examples:
+            - Specmatic@mail.com
+            - INeverGetPicked@mail.com
+      required:
+        - key
+
+    ExclusiveMinMaxValueSchema:
+      type: object
+      properties:
+        key:
+          type: integer
+          exclusiveMinimum: 0
+          exclusiveMaximum: 100
+      required:
+        - key
+
+    ConstValueSchema:
+      type: object
+      properties:
+        key:
+          const: 100
+      required:
+        - key
+
+    ConstNullValueSchema:
+      type: object
+      properties:
+        key:
+          const: null
+          x-const-explicit: true
+      required:
+        - key
+
+    RandomStringSchema:
+      type: string

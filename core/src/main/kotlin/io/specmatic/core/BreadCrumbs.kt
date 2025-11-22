@@ -30,6 +30,8 @@ value class BreadCrumb(val value: String) {
         }
     }
 
+    override fun toString(): String = value
+
     fun with(key: String?): String = if (key == null) value else combine(value, key)
 
     fun plus(key: String?): BreadCrumb = if (key == null) this else BreadCrumb(combine(value, key))

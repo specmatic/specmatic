@@ -6,7 +6,6 @@ import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.toValue
-import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.Value
 import io.swagger.v3.oas.models.media.Schema
 
@@ -49,11 +48,14 @@ open class JsonSchema(open val schema: Schema<*>, open val type: JsonSchemaType)
 
     companion object {
         private val jsonMapper = ObjectMapper().registerKotlinModule()
+        const val X_CONST_EXPLICIT = "x-const-explicit"
         const val NULL_TYPE = "null"
 
         fun from(schema: Schema<*>): JsonSchema {
             if (schema.`$ref` != null) return ReferenceJsonSchema(schema, schema.`$ref`)
-            if (schema.enum != null) return JsonSchema(schema, JsonSchemaType.ENUMERABLE)
+            if (schema.enum != null && schema !is io.swagger.v3.oas.models.media.JsonSchema) {
+                return JsonSchema(schema, JsonSchemaType.ENUMERABLE)
+            }
 
             return when (schema) {
                 // Primitives
@@ -99,7 +101,11 @@ open class JsonSchema(open val schema: Schema<*>, open val type: JsonSchemaType)
             if (schema.allOf != null) return JsonSchema(schema, JsonSchemaType.ALL_OF)
             if (schema.oneOf != null) return JsonSchema(schema, JsonSchemaType.ONE_OF)
             if (schema.anyOf != null) return JsonSchema(schema, JsonSchemaType.ANY_OF)
-            if (schema.const != null) return ConstValueSchema(schema, toValue(schema.const))
+
+            val schemaExtensions = schema.extensions.orEmpty()
+            if (schema.const != null || schemaExtensions[X_CONST_EXPLICIT]?.toString().toBoolean()) {
+                return ConstValueSchema(schema, toValue(schema.const))
+            }
 
             val declaredTypes = schema.types ?: setOfNotNull(schema.type)
             val effectiveTypes = declaredTypes.filter { it != NULL_TYPE }
@@ -144,14 +150,8 @@ open class JsonSchema(open val schema: Schema<*>, open val type: JsonSchemaType)
             val hasAdditionalProps = schema.additionalProperties != null && schema.additionalProperties != false
             if (hasProperties || hasAdditionalProps) return JsonSchema(schema, JsonSchemaType.OBJECT)
 
-            return when {
-                // TODO: Add explicit extension while pre-processing to guarantee a const: null
-                schema is io.swagger.v3.oas.models.media.JsonSchema -> ConstValueSchema(schema, NullValue)
-                else -> {
-                    logger.log("Unrecognized schema type: ${schema::class}, defaulting to AnyValue")
-                    JsonSchema(schema, JsonSchemaType.ANY_VALUE)
-                }
-            }
+            logger.log("Unrecognized schema type: ${schema::class}, defaulting to AnyValue")
+            return JsonSchema(schema, JsonSchemaType.ANY_VALUE)
         }
 
         private fun Any.toJsonNode(): JsonNode {

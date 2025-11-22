@@ -1,9 +1,7 @@
 package io.specmatic.conversions
 
-import io.swagger.v3.oas.models.media.IntegerSchema
 import io.swagger.v3.oas.models.media.JsonSchema
 import io.swagger.v3.oas.models.media.Schema
-import io.swagger.v3.oas.models.media.StringSchema
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.math.BigDecimal
@@ -11,17 +9,17 @@ import java.math.BigDecimal
 class SchemaUtilsTest {
     @Test
     fun `mergeResolvedSchema should prioritize refSchema values over resolvedSchema values on merge`() {
-        val resolved = StringSchema().apply {
+        val resolved = JsonSchema().apply {
             description = "Base Description"
             title = "Base Title"
             example = "Base Example"
         }
 
-        val ref = Schema<String>().apply {
+        val ref = JsonSchema().apply {
             description = "Override Description"
         }
 
-        val result = SchemaUtils.mergeResolvedSchema(resolved, ref)
+        val result = SchemaUtils.mergeSchemas(resolved, ref)
         assertThat(result.description).isEqualTo("Override Description")
         assertThat(result.title).isEqualTo("Base Title")
         assertThat(result.example).isEqualTo("Base Example")
@@ -29,42 +27,42 @@ class SchemaUtilsTest {
 
     @Test
     fun `mergeResolvedSchema should not copy over the $ref field`() {
-        val resolved = StringSchema()
-        val ref = Schema<String>().apply {
+        val resolved = JsonSchema()
+        val ref = JsonSchema().apply {
             `$ref` = "#/components/schemas/SomeRef"
         }
 
-        val result = SchemaUtils.mergeResolvedSchema(resolved, ref)
+        val result = SchemaUtils.mergeSchemas(resolved, ref)
         assertThat(result.`$ref`).isNull()
     }
 
     @Test
     fun `mergeResolvedSchema should retain resolved schema's ref field if there was one`() {
-        val resolved = Schema<String>().apply {
+        val resolved = JsonSchema().apply {
             `$ref` = "#/components/schemas/AnotherRef"
         }
 
-        val ref = Schema<String>().apply {
+        val ref = JsonSchema().apply {
             `$ref` = "#/components/schemas/SomeRef"
         }
 
-        val result = SchemaUtils.mergeResolvedSchema(resolved, ref)
+        val result = SchemaUtils.mergeSchemas(resolved, ref)
         assertThat(result.`$ref`).isEqualTo("#/components/schemas/AnotherRef")
     }
 
     @Test
     fun `mergeResolvedSchema should merge extensions correctly`() {
-        val resolved = StringSchema().apply {
+        val resolved = JsonSchema().apply {
             addExtension("x-base-only", "value1")
             addExtension("x-conflict", "base-value")
         }
 
-        val ref = Schema<String>().apply {
+        val ref = JsonSchema().apply {
             addExtension("x-ref-only", "value2")
             addExtension("x-conflict", "ref-value")
         }
 
-        val result = SchemaUtils.mergeResolvedSchema(resolved, ref)
+        val result = SchemaUtils.mergeSchemas(resolved, ref)
         val extensions = result.extensions
         assertThat(extensions).containsEntry("x-base-only", "value1")
         assertThat(extensions).containsEntry("x-ref-only", "value2")
@@ -73,23 +71,17 @@ class SchemaUtilsTest {
 
     @Test
     fun `mergeResolvedSchema should deep clone mutable fields to prevent side effects`() {
-        val originalList = mutableListOf("A", "B")
-        val resolved = StringSchema().apply { enum = originalList }
-        val ref = Schema<String>()
-        val result = SchemaUtils.mergeResolvedSchema(resolved, ref) as StringSchema
+        val originalList: MutableList<Any> = mutableListOf("A", "B")
+        val resolved = JsonSchema().apply { enum = originalList }
+        val ref = JsonSchema()
+
+        @Suppress("UNCHECKED_CAST")
+        val result = SchemaUtils.mergeSchemas(resolved, ref) as Schema<Any>
 
         result.enum.add("C")
         assertThat(resolved.enum).containsExactly("A", "B")
         assertThat(result.enum).containsExactly("A", "B", "C")
         assertThat(result.enum).isNotSameAs(resolved.enum)
-    }
-
-    @Test
-    fun `mergeResolvedSchema should return an instance of the resolved schema class`() {
-        val resolved = IntegerSchema()
-        val ref = Schema<Int>()
-        val result = SchemaUtils.mergeResolvedSchema(resolved, ref)
-        assertThat(result).isInstanceOf(IntegerSchema::class.java)
     }
 
     @Test
