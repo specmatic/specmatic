@@ -25,7 +25,7 @@ private fun nodeTypes(node: XMLNode, isSOAP: Boolean): List<Pattern> {
     return node.childNodes.map { value ->
         when (value) {
             is XMLNode -> XMLPattern(value, isSOAP = isSOAP)
-            is StringValue, is BinaryValue -> value.exactMatchElseType()
+            is StringValue, is CDATAValue, is BinaryValue -> value.exactMatchElseType()
         }
     }
 }

@@ -5,6 +5,7 @@ import io.specmatic.core.Result
 import io.specmatic.core.log.logger
 import io.specmatic.core.mismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.value.CDATAValue
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
@@ -40,8 +41,12 @@ data class StringPattern (
         if (sampleData?.hasTemplate() == true)
             return Result.Success()
 
-        if (sampleData !is StringValue)
-            return mismatchResult("string", sampleData, resolver.mismatchMessages)
+        val sampleData =
+            when (sampleData) {
+                is StringValue -> sampleData
+                is CDATAValue -> StringValue(sampleData.toStringLiteral())
+                else -> return mismatchResult("string", sampleData, resolver.mismatchMessages)
+            }
 
         if (lengthBelowLowerBound(sampleData)) return mismatchResult(
             "string with minLength $effectiveMinLength",

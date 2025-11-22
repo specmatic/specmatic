@@ -16,7 +16,8 @@ fun toXMLNode(document: Document, parentNamespaces: Map<String, String> = emptyM
 
 fun toXMLNode(node: Node, parentNamespaces: Map<String, String> = emptyMap()): XMLValue {
     return when (node.nodeType) {
-        Node.TEXT_NODE, Node.CDATA_SECTION_NODE -> StringValue(node.textContent)
+        Node.TEXT_NODE -> StringValue(node.textContent)
+        Node.CDATA_SECTION_NODE -> CDATAValue(node.textContent)
         else -> nonTextXMLNode(node, parentNamespaces)
     }
 }
@@ -198,6 +199,7 @@ data class XMLNode(val name: String, val realName: String, val attributes: Map<S
                 val linesBetween = childNodes.map {
                     when(it) {
                         is XMLNode -> it.nodeToString(indent, lineSeparator)
+                        is CDATAValue -> it.nodeToString(indent, lineSeparator)
                         else -> it.toString()
                     }
                 }
