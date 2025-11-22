@@ -15,6 +15,7 @@ import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.stub
 import io.specmatic.stub.HttpStub
 import io.specmatic.trimmedLinesString
 import org.apache.http.HttpHeaders.AUTHORIZATION
@@ -511,13 +512,19 @@ Scenario: JSON API to get account details with fact check
                 .updateBody(JSONObjectValue(mapOf("one" to NumberValue(1), "two" to NumberValue(2))))
             val expectedResponse = HttpResponse.OK
             mock.setExpectation(ScenarioStub(expectedRequest, expectedResponse))
-            val restTemplate = RestTemplate()
+
             try {
-                val response = restTemplate.postForEntity<String>(
-                    URI.create("${mock.endPoint}/variables"),
-                    """{"one": 1, "two": 2}"""
-                )
-                assertThat(response.statusCode.value()).isEqualTo(200)
+                val request =
+                    HttpRequest(
+                        method = "POST",
+                        headers = mapOf("Content-Type" to "application/json"),
+                        path = "/variables",
+                        body = parsedJSONObject("""{"one": 1, "two": 2}"""),
+                    )
+
+                val response = mock.client.execute(request)
+
+                assertThat(response.status).isEqualTo(200)
             } catch (e: HttpClientErrorException) {
                 fail("Throw exception: ${e.localizedMessage}")
             }
@@ -570,17 +577,26 @@ Scenario: JSON API to get account details with fact check
                 HttpRequest().updateMethod("POST").updatePath("/variables").updateBody("""{"number": "10"}""")
             val expectedResponse = HttpResponse(200, """{"number": "20"}""")
             mock.setExpectation(ScenarioStub(expectedRequest, expectedResponse))
-            val restTemplate = RestTemplate()
+
             try {
-                val response =
-                    restTemplate.postForEntity<String>(URI.create("${mock.endPoint}/variables"), """{"number": "10"}""")
-                assertThat(response.statusCode.value()).isEqualTo(200)
-                val responseBody = parsedJSON(response.body ?: "")
+                val request =
+                    HttpRequest(
+                        method = "POST",
+                        headers = mapOf("Content-Type" to "application/json"),
+                        path = "/variables",
+                        body = parsedJSONObject("""{"number": "10"}"""),
+                    )
+                val response = mock.client.execute(request)
+
+                assertThat(response.status).isEqualTo(200)
+                val responseBody = response.body
                 if (responseBody !is JSONObjectValue) fail("Expected json object")
 
                 assertThat(responseBody.jsonObject.getValue("number")).isEqualTo(StringValue("20"))
             } catch (e: HttpClientErrorException) {
                 fail("Throw exception: ${e.localizedMessage}")
+            } catch (e: Throwable) {
+                fail("Excpetion thrown: ${e.localizedMessage}")
             }
         }
     }

@@ -944,34 +944,36 @@ private suspend fun bodyFromCall(call: ApplicationCall): Triple<Value, Map<Strin
         }
 
         else -> {
-            val rawContentType = call.request.headers["Content-Type"]
-
-            val bodyValue: Value =
-                if(rawContentType != null) {
-                    val contentType = ContentType.parse(rawContentType)
-                    val contentSubtype = contentType.contentSubtype.lowercase()
-
-                    val rawContent = receiveText(call)
-
-                    try {
-                        if (contentSubtype == "json" || contentSubtype.substringAfter("+") == "json") {
-                            parsedJSON(rawContent)
-                        } else if (contentSubtype == "xml" || contentSubtype.substringAfter("+") == "xml") {
-                            toXMLNode(rawContent)
-                        } else {
-                            StringValue(rawContent)
-                        }
-                    } catch(e: Throwable) {
-                        StringValue(rawContent)
-                    }
-                }
-                else {
-                    NoBodyValue
-                }
+            val bodyValue: Value = getBodyPayloadValue(call)
 
             Triple(bodyValue, emptyMap(), emptyList())
 
         }
+    }
+}
+
+private suspend fun getBodyPayloadValue(
+    call: ApplicationCall
+): Value {
+    val rawContentType = call.request.headers["Content-Type"]
+
+    if (rawContentType == null) return NoBodyValue
+
+    val contentType = ContentType.parse(rawContentType)
+    val contentSubtype = contentType.contentSubtype.lowercase()
+
+    val rawContent = receiveText(call)
+
+    return try {
+        if (contentSubtype == "json" || contentSubtype.substringAfter("+") == "json") {
+            parsedJSON(rawContent)
+        } else if (contentSubtype == "xml" || contentSubtype.substringAfter("+") == "xml") {
+            toXMLNode(rawContent)
+        } else {
+            StringValue(rawContent)
+        }
+    } catch (e: Throwable) {
+        parsedValue(rawContent)
     }
 }
 

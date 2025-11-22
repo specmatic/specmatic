@@ -18,10 +18,10 @@ Feature: StockQuoteService
         And request-header SOAPAction (SoapAction)
         And request-body
         """
-        <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header specmatic_occurs="optional"/><soapenv:Body><TradePriceRequest specmatic_type="GetLastTradePrice_SOAPPayload_Input"/></soapenv:Body></soapenv:Envelope>
+        <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Body><TradePriceRequest specmatic_type="GetLastTradePrice_SOAPPayload_Input"/></soapenv:Body></soapenv:Envelope>
         """
         Then status 200
         And response-body
         """
-        <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header specmatic_occurs="optional"/><soapenv:Body><TradePrice specmatic_type="GetLastTradePrice_SOAPPayload_Output"/></soapenv:Body></soapenv:Envelope>
+        <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Body><TradePrice specmatic_type="GetLastTradePrice_SOAPPayload_Output"/></soapenv:Body></soapenv:Envelope>
         """

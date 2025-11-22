@@ -10,7 +10,7 @@ internal class SoapMessageKtTest {
     fun `generate a soap message with no namespaces`() {
         val message = toXMLNode(soapMessage(toXMLNode("<person/>"), emptyMap(), RequestHeaders()).toStringLiteral())
         val expected =
-            toXMLNode("""<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header $OCCURS_ATTRIBUTE_NAME="optional"/><soapenv:Body><person/></soapenv:Body></soapenv:Envelope>""")
+            toXMLNode("""<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Body><person/></soapenv:Body></soapenv:Envelope>""")
 
         assertThat(message).isEqualTo(expected)
     }
@@ -19,7 +19,7 @@ internal class SoapMessageKtTest {
     fun `generate a soap message with one namespace`() {
         val message = toXMLNode(soapMessage(toXMLNode("<person/>"), mapOf("ns" to "http://namespace.com"), RequestHeaders()).toStringLiteral())
         val expected =
-            toXMLNode("""<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns="http://namespace.com" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header $OCCURS_ATTRIBUTE_NAME="optional"/><soapenv:Body><person/></soapenv:Body></soapenv:Envelope>""")
+            toXMLNode("""<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns="http://namespace.com" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Body><person/></soapenv:Body></soapenv:Envelope>""")
 
         assertThat(message).isEqualTo(expected)
     }

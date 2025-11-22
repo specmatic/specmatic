@@ -24,12 +24,12 @@ internal class SOAPOperationTypeInfoTest {
               And request-header SOAPAction (SoapAction)
               And request-body
               ""${'"'}
-              <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header $OCCURS_ATTRIBUTE_NAME="optional"/><soapenv:Body/></soapenv:Envelope>
+              <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Body/></soapenv:Envelope>
               ""${'"'}
               Then status 200
               And response-body
               ""${'"'}
-              <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header $OCCURS_ATTRIBUTE_NAME="optional"/><soapenv:Body/></soapenv:Envelope>
+              <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Body/></soapenv:Envelope>
               ""${'"'}
         """.trimIndent().trim()
 

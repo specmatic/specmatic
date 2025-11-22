@@ -322,6 +322,11 @@ data class XMLNode(val name: String, val realName: String, val attributes: Map<S
     override fun specificity(): Int {
         TODO("Not yet implemented")
     }
+
+    fun remove(header: XMLNode): XMLNode {
+        val updatedChildNodes = childNodes.filterNot { it == header }
+        return this.copy(childNodes = updatedChildNodes)
+    }
 }
 
 fun xmlNode(name: String, attributes: Map<String, String> = emptyMap(), childrenFn: XMLNodeBuilder.() -> Unit = {}): XMLNode {

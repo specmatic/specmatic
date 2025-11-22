@@ -184,7 +184,7 @@ fun stringToPattern(patternValue: String, key: String?): Pattern =
         else -> ExactValuePattern(StringValue(patternValue))
     }
 
-fun parsedPattern(rawContent: String, key: String? = null, typeAlias: String? = null): Pattern {
+fun parsedPattern(rawContent: String, key: String? = null, typeAlias: String? = null, isWSDL: Boolean = false): Pattern {
     return rawContent.trim().removePrefix(UTF_BYTE_ORDER_MARK).let {
         when {
             isMatcherToken(it) && Matcher.toPatternSimplified(StringValue(it)) != null -> {
@@ -203,7 +203,7 @@ fun parsedPattern(rawContent: String, key: String? = null, typeAlias: String? = 
             it.isEmpty() -> EmptyStringPattern
             it.startsWith("{") -> toJSONObjectPattern(it, typeAlias = typeAlias)
             it.startsWith("[") -> JSONArrayPattern(it, typeAlias = typeAlias)
-            it.startsWith("<") -> XMLPattern(it, typeAlias = typeAlias)
+            it.startsWith("<") -> XMLPattern(it, typeAlias = typeAlias, isSOAP = isWSDL)
             isStringPatternWithRestrictions(it) -> {
                 val tokens = it.split(" ")
 

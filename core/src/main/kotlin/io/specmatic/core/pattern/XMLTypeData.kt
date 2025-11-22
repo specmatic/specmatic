@@ -4,7 +4,13 @@ import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.wsdl.parser.message.*
 
-data class XMLTypeData(val name: String = "", val realName: String, val attributes: Map<String, Pattern> = emptyMap(), val nodes: List<Pattern> = emptyList()) {
+data class XMLTypeData(
+    val name: String = "",
+    val realName: String,
+    val attributes: Map<String, Pattern> = emptyMap(),
+    val nodes: List<Pattern> = emptyList(),
+    val isSOAP: Boolean = false,
+) {
     fun hasType(): Boolean = attributes.containsKey(TYPE_ATTRIBUTE_NAME)
     fun hasBeenDereferenced(): Boolean = hasType() && nodes.isNotEmpty()
 

@@ -109,9 +109,9 @@ fun unsupportedFileExtensionContractException(
         }."
     )
 
-fun parseGherkinStringToFeature(gherkinData: String, sourceFilePath: String = ""): Feature {
+fun parseGherkinStringToFeature(gherkinData: String, sourceFilePath: String = "", isWSDL: Boolean = false): Feature {
     val gherkinDocument = parseGherkinString(gherkinData, sourceFilePath)
-    val (name, scenarios) = lex(gherkinDocument, sourceFilePath)
+    val (name, scenarios) = lex(gherkinDocument, sourceFilePath, isWSDL)
     return Feature(scenarios = scenarios, name = name, path = sourceFilePath)
 }
 
@@ -2124,7 +2124,7 @@ internal fun stringOrDocString(string: String?, step: StepInfo): String {
     return trimmed.ifEmpty { step.docString }
 }
 
-private fun toPatternInfo(step: StepInfo, rowsList: List<TableRow>): Pair<String, Pattern> {
+private fun toPatternInfo(step: StepInfo, rowsList: List<TableRow>, isWSDL: Boolean = false): Pair<String, Pattern> {
     val tokens = breakIntoPartsMaxLength(step.rest, 2)
 
     val patternName = withPatternDelimiters(tokens[0])
@@ -2133,7 +2133,7 @@ private fun toPatternInfo(step: StepInfo, rowsList: List<TableRow>): Pair<String
 
     val pattern = when {
         patternDefinition.isEmpty() -> rowsToTabularPattern(rowsList, typeAlias = patternName)
-        else -> parsedPattern(patternDefinition, typeAlias = patternName)
+        else -> parsedPattern(patternDefinition, typeAlias = patternName, isWSDL = isWSDL)
     }
 
     return Pair(patternName, pattern)
@@ -2157,7 +2157,8 @@ private fun lexScenario(
     featureTags: List<Tag>,
     backgroundScenarioInfo: ScenarioInfo?,
     filePath: String,
-    includedSpecifications: List<IncludedSpecification?>
+    includedSpecifications: List<IncludedSpecification?>,
+    isWSDL: Boolean,
 ): ScenarioInfo {
     val filteredSteps =
         steps.map { step -> StepInfo(step.text, listOfDatatableRows(step), step) }.filterNot { it.isEmpty }
@@ -2214,9 +2215,9 @@ private fun lexScenario(
                     )
                 )
             "REQUEST-BODY" ->
-                scenarioInfo.copy(httpRequestPattern = scenarioInfo.httpRequestPattern.copy(body = toPattern(step)))
+                scenarioInfo.copy(httpRequestPattern = scenarioInfo.httpRequestPattern.copy(body = toPattern(step, isWSDL)))
             "RESPONSE-BODY" ->
-                scenarioInfo.copy(httpResponsePattern = scenarioInfo.httpResponsePattern.bodyPattern(toPattern(step)))
+                scenarioInfo.copy(httpResponsePattern = scenarioInfo.httpResponsePattern.bodyPattern(toPattern(step, isWSDL)))
             "FACT" ->
                 scenarioInfo.copy(
                     expectedServerState = scenarioInfo.expectedServerState.plus(
@@ -2227,7 +2228,7 @@ private fun lexScenario(
                     )
                 )
             "TYPE", "PATTERN", "JSON" ->
-                scenarioInfo.copy(patterns = scenarioInfo.patterns.plus(toPatternInfo(step, step.rowsList)))
+                scenarioInfo.copy(patterns = scenarioInfo.patterns.plus(toPatternInfo(step, step.rowsList, isWSDL)))
             "ENUM" ->
                 scenarioInfo.copy(patterns = scenarioInfo.patterns.plus(parseEnum(step)))
             "FIXTURE" ->
@@ -2430,13 +2431,13 @@ fun toFormDataPart(step: StepInfo, contractFilePath: String): MultiPartFormDataP
     }
 }
 
-fun toPattern(step: StepInfo): Pattern {
+fun toPattern(step: StepInfo, isWSDL: Boolean = false): Pattern {
     return when (val stringData = stringOrDocString(step.rest, step)) {
         "" -> {
             if (step.rowsList.isEmpty()) throw ContractException("Not enough information to describe a type in $step")
             rowsToTabularPattern(step.rowsList)
         }
-        else -> parsedPattern(stringData)
+        else -> parsedPattern(stringData, isWSDL = isWSDL)
     }
 }
 
@@ -2480,18 +2481,19 @@ internal fun parseGherkinString(gherkinData: String, sourceFilePath: String): Gh
     return gherkinDocument ?: throw ContractException("There was no contract in the file $sourceFilePath.")
 }
 
-internal fun lex(gherkinDocument: GherkinDocument, filePath: String = ""): Pair<String, List<Scenario>> {
+internal fun lex(gherkinDocument: GherkinDocument, filePath: String = "", isWSDL: Boolean = false): Pair<String, List<Scenario>> {
     val feature = gherkinDocument.unwrapFeature()
-    return Pair(feature.name, lex(feature.children, filePath))
+    return Pair(feature.name, lex(feature.children, filePath, isWSDL))
 }
 
-internal fun lex(featureChildren: List<FeatureChild>, filePath: String): List<Scenario> {
-    return scenarioInfos(featureChildren, filePath).map { scenarioInfo -> Scenario(scenarioInfo) }
+internal fun lex(featureChildren: List<FeatureChild>, filePath: String, isWSDL: Boolean = false): List<Scenario> {
+    return scenarioInfos(featureChildren, filePath, isWSDL).map { scenarioInfo -> Scenario(scenarioInfo) }
 }
 
 fun scenarioInfos(
     featureChildren: List<FeatureChild>,
-    filePath: String
+    filePath: String,
+    isWSDL: Boolean = false,
 ): List<ScenarioInfo> {
     val openApiSpecification =
         toIncludedSpecification(featureChildren, { backgroundOpenApi(it) }) {
@@ -2518,7 +2520,8 @@ fun scenarioInfos(
             emptyList(),
             null,
             filePath,
-            includedSpecifications
+            includedSpecifications,
+            isWSDL
         )
     } ?: ScenarioInfo()
 
@@ -2537,7 +2540,8 @@ fun scenarioInfos(
             scenario.tags,
             backgroundInfoCopy,
             filePath,
-            includedSpecifications
+            includedSpecifications,
+            isWSDL,
         )
     }
 

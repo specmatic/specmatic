@@ -405,7 +405,7 @@ Scenario: test spec with mandatory attributes without examples
             }
         )
         assertTrue(results.success(), results.report())
-        assertThat(countOfTestsWithAgeAttributeSetToRandomValue).isEqualTo(2)
+        assertThat(countOfTestsWithAgeAttributeSetToRandomValue).isEqualTo(1)
     }
 
     @Test
@@ -520,7 +520,7 @@ Scenario: test request returns test response
             }
         )
         assertTrue(results.success(), results.report())
-        assertThat(countOfTestsWithAgeAttributeSetToRandomValue).isGreaterThanOrEqualTo(2)
+        assertThat(countOfTestsWithAgeAttributeSetToRandomValue).isGreaterThanOrEqualTo(1)
     }
 
 
@@ -721,7 +721,7 @@ Scenario: test spec with mandatory attributes without examples
         }
 
         assertTrue(results.success(), results.report())
-        assertThat(countWithEscapedAction).isEqualTo(2)
+        assertThat(countWithEscapedAction).isEqualTo(1)
     }
 
     @AfterEach
