@@ -27,6 +27,10 @@ data class BooleanValue(val booleanValue: Boolean) : Value, ScalarValue {
     override val nativeValue: Boolean
         get() = booleanValue
 
+    override fun alterValue(): BooleanValue {
+        return copy(booleanValue = !booleanValue)
+    }
+
     override fun specificity(): Int = 1
 
     override fun toString() = booleanValue.toString()
