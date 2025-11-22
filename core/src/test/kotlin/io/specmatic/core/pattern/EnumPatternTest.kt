@@ -486,4 +486,30 @@ class EnumPatternTest {
 
         assertThat(result).isInstanceOf(HasFailure::class.java)
     }
+
+    @Test
+    fun `toNullable should return self with no modifications if already nullable`() {
+        val patterns = listOf(
+            EnumPattern(listOf("A", "B").map(::StringValue).plus(NullValue), nullable = true),
+            toMultiValueEnum("One", 1, true, null, nullable = true),
+        )
+
+        assertThat(patterns).allSatisfy { pattern ->
+            assertThat(pattern.toNullable(null)).isEqualTo(pattern)
+        }
+    }
+
+    @Test
+    fun `toNullable should add NullValue and set nullable if pattern wasn't already nullable`() {
+        val patterns = listOf(
+            EnumPattern(listOf("A", "B").map(::StringValue)),
+            toMultiValueEnum("One", 1, true),
+        )
+
+        assertThat(patterns).allSatisfy { pattern ->
+            val nullablePattern = pattern.toNullable(null)
+            assertThat(nullablePattern.nullable).isTrue
+            assertThat(nullablePattern.pattern.pattern).contains(ExactValuePattern(NullValue, isConst = true))
+        }
+    }
 }
