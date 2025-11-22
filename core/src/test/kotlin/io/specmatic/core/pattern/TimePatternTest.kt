@@ -1,10 +1,12 @@
 package io.specmatic.core.pattern
 
+import io.specmatic.GENERATION
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.value.StringValue
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
@@ -31,6 +33,13 @@ class TimePatternTest {
             val match = TimePattern.matches(time, Resolver())
             assertThat(match).isInstanceOf(Result.Success::class.java)
         }
+    }
+
+    @Test
+    @Tag(GENERATION)
+    fun `negative patterns should be generated`() {
+        val result = TimePattern.negativeBasedOn(Row(), Resolver()).map { it.value }.toList()
+        assertThat(result.map { it.typeName }).containsExactlyInAnyOrder("string", "number", "boolean", "null")
     }
 
     @ParameterizedTest

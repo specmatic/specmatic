@@ -61,9 +61,7 @@ internal class DatePatternTest {
     @Test
     @Tag(GENERATION)
     fun `negative patterns should be generated`() {
-        val result = BooleanPattern().negativeBasedOn(Row(), Resolver()).map { it.value }.toList()
-        assertThat(result.map { it.typeName }).containsExactlyInAnyOrder(
-            "null"
-        )
+        val result = DatePattern.negativeBasedOn(Row(), Resolver()).map { it.value }.toList()
+        assertThat(result.map { it.typeName }).containsExactlyInAnyOrder("string", "number", "boolean", "null")
     }
 }
