@@ -11,7 +11,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.cucumber.messages.types.Step
 import io.ktor.util.reflect.*
-import io.specmatic.conversions.SchemaUtils.mergeResolvedSchema
+import io.specmatic.conversions.SchemaUtils.mergeResolvedIfJsonSchema
 import io.specmatic.core.*
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.filters.HTTPFilterKeys
@@ -49,6 +49,7 @@ import io.swagger.v3.oas.models.servers.Server
 import io.swagger.v3.parser.OpenAPIV3Parser
 import io.swagger.v3.parser.core.models.ParseOptions
 import io.swagger.v3.parser.core.models.SwaggerParseResult
+import io.swagger.v3.parser.util.ClasspathHelper
 import java.io.File
 
 private const val BEARER_SECURITY_SCHEME = "bearer"
@@ -169,7 +170,28 @@ class OpenApiSpecification(
         }
 
         fun fromFile(openApiFilePath: String, specmaticConfig: SpecmaticConfig): OpenApiSpecification {
-            return OpenApiSpecification(openApiFilePath, getParsedOpenApi(openApiFilePath), specmaticConfig = specmaticConfig)
+            val specContent = sequenceOf(
+                { File(openApiFilePath).readText() },
+                { ClasspathHelper.loadFileFromClasspath(openApiFilePath) },
+            ).firstNotNullOfOrNull {
+                runCatching { it.invoke() }.getOrElse { e ->
+                    logger.debug(e, "Failed to read OpenApi Specification")
+                    null
+                }
+            }
+
+            if (specContent == null) throw ContractException(
+                errorMessage = "Failed to read OpenApi Specification from $openApiFilePath",
+                breadCrumb = openApiFilePath,
+            )
+
+            return runCatching {
+                fromYAML(specContent, openApiFilePath, specmaticConfig = specmaticConfig)
+            }.getOrElse { e ->
+                // TODO: Fix BackwardCompatibilityCheck to not pass example json as OpenAPI files to avoid fallback here
+                logger.debug(e, "Failed to parse specification $openApiFilePath using fromYAML")
+                OpenApiSpecification(openApiFilePath, getParsedOpenApi(openApiFilePath), specmaticConfig = specmaticConfig)
+            }
         }
 
         fun getParsedOpenApi(openApiFilePath: String): OpenAPI {
@@ -237,7 +259,7 @@ class OpenApiSpecification(
                     preprocessedYaml,
                     null,
                     resolveExternalReferences(),
-                    openApiFilePath
+                    openApiFilePath.replace("\\", "/")
                 )
             val parsedOpenApi: OpenAPI? = parseResult.openAPI
 
@@ -1611,12 +1633,13 @@ class OpenApiSpecification(
     private fun handleMultiType(classified: JsonSchema, typeStack: List<String>, patternName: String): Pattern {
         val multiSchema = classified as? MultiTypeJsonSchema ?: throw ContractException("Schema with type MULTI_TYPE must be an instance of MultiTypeJsonSchema")
         if (multiSchema.schema.enum != null) {
+            val enumDataTypes = multiSchema.types.sortedWith(compareBy { it == "string" }).map(::withPatternDelimiters)
             val converter: (String) -> Value = { value ->
-                multiSchema.types.map(::withPatternDelimiters).firstNotNullOfOrNull {
+                enumDataTypes.firstNotNullOfOrNull {
                     val pattern = builtInPatterns[it] ?: return@firstNotNullOfOrNull null
                     runCatching { pattern.parse(value, Resolver()) }.getOrNull()
                 } ?: run {
-                    logger.log("Failed to validate enum value $value against provided list of types ${multiSchema.types}")
+                    logger.log("Failed to validate enum value $value against provided list of types $enumDataTypes")
                     parsedScalarValue(value)
                 }
             }
@@ -1782,7 +1805,7 @@ class OpenApiSpecification(
         val refSchema = classified as? ReferenceJsonSchema ?: throw ContractException("Schema with type REFERENCE must be an instance of ReferenceJsonSchema")
         val (componentName, referredSchema) = resolveReferenceToSchema(refSchema.ref)
         val resolvedSchema = if (parsedOpenApi.specVersion == SpecVersion.V31) {
-            mergeResolvedSchema(referredSchema, classified.schema)
+            mergeResolvedIfJsonSchema(referredSchema, classified.schema)
         } else {
             referredSchema
         }
