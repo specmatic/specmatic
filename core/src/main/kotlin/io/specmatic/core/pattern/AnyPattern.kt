@@ -284,10 +284,9 @@ data class AnyPattern(
     override fun negativeBasedOn(row: Row, resolver: Resolver, config: NegativePatternConfiguration): Sequence<ReturnValue<Pattern>> {
         val nullable = pattern.any { it is NullPattern }
 
-        val negativeTypeResults = pattern.asSequence().map {
+        val negativeTypeResults = pattern.filterNot { it is NullPattern }.asSequence().map {
             try {
-                val patterns: Sequence<ReturnValue<Pattern>> =
-                    it.negativeBasedOn(row, resolver, config)
+                val patterns: Sequence<ReturnValue<Pattern>> = it.negativeBasedOn(row, resolver, config)
                 Pair(patterns, null)
             } catch(e: Throwable) {
                 Pair(null, e)

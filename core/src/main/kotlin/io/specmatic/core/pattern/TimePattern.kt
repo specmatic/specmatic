@@ -33,7 +33,7 @@ object TimePattern : Pattern, ScalarType {
         resolver: Resolver,
         config: NegativePatternConfiguration
     ): Sequence<ReturnValue<Pattern>> {
-        return scalarAnnotation(this, sequenceOf(NullPattern))
+        return scalarAnnotation(this, sequenceOf(StringPattern(), NumberPattern(), BooleanPattern(), NullPattern))
     }
 
     override fun parse(value: String, resolver: Resolver): StringValue {
