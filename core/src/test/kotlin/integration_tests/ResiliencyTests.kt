@@ -103,7 +103,7 @@ class GenerativeTests {
             }
         })
 
-        assertThat(statusesSeen).isEqualTo(setOf("active", "inactive", "null", "boolean", "number"))
+        assertThat(statusesSeen).isEqualTo(setOf("active", "inactive", "active_", "null", "boolean", "number"))
     }
 
     @Test
@@ -746,7 +746,7 @@ class GenerativeTests {
 
         try {
             val results = runGenerativeTests(feature)
-            assertThat(results.results).hasSize(5)
+            assertThat(results.results).hasSize(6)
         } catch (e: ContractException) {
             println(e.report())
             throw e
@@ -802,7 +802,7 @@ class GenerativeTests {
 
         try {
             val results = runGenerativeTests(feature)
-            assertThat(results.results).hasSize(5)
+            assertThat(results.results).hasSize(6)
         } catch (e: ContractException) {
             println(e.report())
             throw e
@@ -843,7 +843,7 @@ class GenerativeTests {
 
         try {
             val results = runGenerativeTests(feature)
-            assertThat(results.results).hasSize(5)
+            assertThat(results.results).hasSize(6)
         } catch (e: ContractException) {
             println(e.report())
             throw e
@@ -899,7 +899,7 @@ class GenerativeTests {
 
         try {
             val results = runGenerativeTests(feature)
-            assertThat(results.results).hasSize(5)
+            assertThat(results.results).hasSize(6)
         } catch (e: ContractException) {
             println(e.report())
             throw e
@@ -1480,7 +1480,8 @@ class GenerativeTests {
                     if (it == StringValue("residential") || it == StringValue("commercial")) {
                         notes.add("address.propertyType is ${it.toStringLiteral()}")
                     } else {
-                        notes.add("address.propertyType mutated to ${it.displayableType()}")
+                        if (it is StringValue) notes.add("address.propertyType mutated to ${it.displayableValue()}")
+                        else notes.add("address.propertyType mutated to ${it.displayableType()}")
                         return HttpResponse.ERROR_400
                     }
                 }
@@ -1534,6 +1535,8 @@ class GenerativeTests {
                 "address.propertyType is commercial",
                 "address.propertyType is residential",
                 "address.propertyType is residential",
+                "address.propertyType mutated to \"residential_\"",
+                "address.propertyType mutated to \"residential_\"",
                 "address.propertyType mutated to boolean",
                 "address.propertyType mutated to boolean",
                 "address.propertyType mutated to null",
@@ -1775,7 +1778,7 @@ class GenerativeTests {
             }
         })
 
-        assertThat(results.testCount).isEqualTo(7)
+        assertThat(results.testCount).isEqualTo(8)
         assertThat(testsSeen).doesNotContain("-ve" to "BAD_REQUEST")
         assertThat(testsSeen).doesNotContain("-ve" to "SERVER_ERROR")
     }
@@ -1944,7 +1947,7 @@ class GenerativeTests {
 
         assertThat(testsSeen).doesNotContain("-ve" to "BAD_REQUEST")
         assertThat(testsSeen).doesNotContain("-ve" to "SERVER_ERROR")
-        assertThat(results.testCount).isEqualTo(7)
+        assertThat(results.testCount).isEqualTo(8)
     }
 
     @Test
@@ -2029,7 +2032,7 @@ class GenerativeTests {
 
         assertThat(testsSeen).doesNotContain("-ve" to "BAD_REQUEST")
         assertThat(testsSeen).doesNotContain("-ve" to "SERVER_ERROR")
-        assertThat(results.testCount).isEqualTo(7)
+        assertThat(results.testCount).isEqualTo(8)
     }
 
     @Test
@@ -2194,7 +2197,7 @@ class GenerativeTests {
             }
         })
 
-        assertThat(results.testCount).isEqualTo(6)
+        assertThat(results.testCount).isEqualTo(7)
 
         assertThat(testsSeen).doesNotContain("-ve" to "BAD_REQUEST")
         assertThat(testsSeen).doesNotContain("-ve" to "SERVER_ERROR")

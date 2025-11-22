@@ -43,6 +43,7 @@ class NegativeNonStringlyPatternsTest {
         val negativePatterns: List<Map<String, Pattern>> =
             NegativeNonStringlyPatterns().negativeBasedOn(patternMap, row, resolver).map { it.value }.toList()
         assertThat(negativePatterns).containsExactlyInAnyOrder(
+            mapOf("key" to ExactValuePattern(StringValue("one_"))),
             mapOf("key" to NumberPattern()),
             mapOf("key" to BooleanPattern())
         )
