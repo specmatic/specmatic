@@ -47,6 +47,19 @@ data class NumberValue(val number: Number) : Value, ScalarValue {
     override val nativeValue: Number
         get() = number
 
+    override fun alterValue(): NumberValue {
+        val incrementedNumber = when (number) {
+            is Short -> number.inc()
+            is Int -> number.inc()
+            is Long -> number.inc()
+            is Float -> number.inc()
+            is Double -> number.inc()
+            is Byte -> number.inc()
+            else -> number.toDouble().inc()
+        }
+        return copy(number = incrementedNumber)
+    }
+
     override fun specificity(): Int = 1
 
     override fun toString() = number.toString()

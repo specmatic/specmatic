@@ -10,7 +10,7 @@ object NullValue : Value, ScalarValue {
     override fun valueErrorSnippet(): String = this.displayableType()
 
     override fun displayableValue(): String = "null"
-    override fun toStringLiteral() = ""
+    override fun toStringLiteral() = "(null)"
     override fun displayableType(): String = "null"
     override fun exactMatchElseType(): Pattern = NullPattern
     override fun type(): Pattern = NullPattern
@@ -26,6 +26,10 @@ object NullValue : Value, ScalarValue {
 
     override val nativeValue: Any?
         get() = null
+
+    override fun alterValue(): NullValue {
+        return NullValue
+    }
 
     override fun specificity(): Int = 1
 
