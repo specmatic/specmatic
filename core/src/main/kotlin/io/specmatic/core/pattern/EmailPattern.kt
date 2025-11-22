@@ -8,7 +8,7 @@ import java.util.*
 
 private const val EMAIL_REGEX = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}\$"
 
-class EmailPattern (private val stringPatternDelegate: StringPattern) :
+class EmailPattern (private val stringPatternDelegate: StringPattern, private val example: String? = null) :
     Pattern by stringPatternDelegate, ScalarType {
 
     constructor(
@@ -16,7 +16,7 @@ class EmailPattern (private val stringPatternDelegate: StringPattern) :
         minLength: Int? = null,
         maxLength: Int? = null,
         example: String? = null
-    ) : this(StringPattern(typeAlias, minLength, maxLength, example))
+    ) : this(StringPattern(typeAlias, minLength, maxLength, example), example)
 
     companion object {
         val emailRegex = Regex(EMAIL_REGEX)
@@ -53,6 +53,12 @@ class EmailPattern (private val stringPatternDelegate: StringPattern) :
     }
 
     override fun generate(resolver: Resolver): Value {
+        resolver.resolveExample(example, this)?.let {
+            val result = matches(it, resolver)
+            result.throwOnFailure()
+            return it
+        }
+
         val localPart = randomString(5).lowercase(Locale.getDefault())
         val domain = randomString(5).lowercase(Locale.getDefault())
         return resolver.provideString(this) ?: StringValue("$localPart@$domain.com")

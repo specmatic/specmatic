@@ -3,13 +3,13 @@ package io.specmatic.core.pattern
 import io.specmatic.GENERATION
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
-import io.specmatic.core.pattern.*
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpStub
 import io.specmatic.core.value.*
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import java.io.File
 
 class EmailPatternTest {
@@ -268,5 +268,24 @@ class EmailPatternTest {
             assertThat(generated.toStringLiteral()).isNotEqualTo("123")
             assertThat(generated).isInstanceOf(StringValue::class.java)
         }
+    }
+
+    @Test
+    fun `should use the example provided given the value is a valid email`() {
+        val pattern = EmailPattern(example = "specmatic@test.io")
+        val value = pattern.generate(Resolver(defaultExampleResolver = UseDefaultExample))
+        assertThat(value).isEqualTo(StringValue("specmatic@test.io"))
+    }
+
+    @Test
+    fun `should return a failure if provided example is an invalid-email`() {
+        val pattern = EmailPattern(example = "https://specmatic.io")
+        val exception = assertThrows<ContractException> {
+            pattern.generate(Resolver(defaultExampleResolver = UseDefaultExample))
+        }
+
+        assertThat(exception.report()).isEqualToIgnoringWhitespace("""
+        Example "https://specmatic.io" does not match email type
+        """.trimIndent())
     }
 }
