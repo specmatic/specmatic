@@ -1,5 +1,6 @@
 package io.specmatic.conversions
 
+import io.specmatic.conversions.JsonSchema.Companion.X_CONST_EXPLICIT
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.value.BooleanValue
 import io.specmatic.core.value.NullValue
@@ -9,7 +10,6 @@ import io.specmatic.core.value.StringValue
 import io.swagger.v3.oas.models.media.*
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
@@ -153,7 +153,6 @@ class JsonSchemaTest {
         }
 
         @Test
-        @Disabled // TODO: Fix this test by adding pre-process to spec and expecting a extension if const is explicitly null
         fun `should fallback to ANY_VALUE for unrecognisable schemas`() {
             assertClassification(JsonSchema(), JsonSchemaType.ANY_VALUE)
         }
@@ -211,7 +210,11 @@ class JsonSchemaTest {
     }
 
     private fun assertConst(const: Any?, expected: ScalarValue) {
-        val schema = JsonSchema().apply { this.const = const }
+        val schema = JsonSchema().apply {
+            this.const = const
+            if (const == null) addExtension(X_CONST_EXPLICIT, true)
+        }
+
         val classification = JsonSchema.from(schema)
 
         assertThat(classification.type).isEqualTo(JsonSchemaType.CONST)
