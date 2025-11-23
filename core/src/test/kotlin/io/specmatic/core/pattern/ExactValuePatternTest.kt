@@ -2,6 +2,7 @@ package io.specmatic.core.pattern
 
 import io.specmatic.GENERATION
 import io.specmatic.core.Resolver
+import io.specmatic.core.Result
 import io.specmatic.core.value.BooleanValue
 import org.junit.jupiter.api.Test
 import io.specmatic.core.value.NullValue
@@ -50,6 +51,31 @@ internal class ExactValuePatternTest {
         val negativePatterns = pattern.negativeBasedOn(Row(), Resolver()).toList()
         val filteredExpectations = expectations.filter { it != value.alterValue().displayableValue() }
         assertThat(negativePatterns.map { it.value.typeName }).containsExactlyInAnyOrderElementsOf(filteredExpectations)
+    }
+
+    @Test
+    fun `should encompass an any-value pattern with only one pattern that matches self`() {
+        val constPattern = ExactValuePattern(NumberValue(100))
+        val anyValueOneOf = AnyPattern(pattern = listOf(constPattern), extensions = emptyMap())
+        val result = constPattern.encompasses(anyValueOneOf, Resolver(), Resolver())
+
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `should not encompass an any-value pattern with more than one pattern that does not matches self`() {
+        val constPattern = ExactValuePattern(NumberValue(100))
+        val anyValueOneOf = AnyPattern(
+            pattern = listOf(ExactValuePattern(NumberValue(99)), constPattern, ExactValuePattern(NumberValue(101))),
+            extensions = emptyMap()
+        )
+
+        val result = constPattern.encompasses(anyValueOneOf, Resolver(), Resolver())
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
+        Expected 100 (number), actual was 99 (number)
+        Expected 100 (number), actual was 101 (number)
+        """.trimIndent())
     }
 
     companion object {
