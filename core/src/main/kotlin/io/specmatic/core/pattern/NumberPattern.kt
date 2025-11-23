@@ -205,7 +205,6 @@ fun encompasses(
     typeStack: TypeStack
 ): Result =
     when {
-        otherPattern::class == thisPattern::class -> Result.Success()
         otherPattern is ExactValuePattern -> otherPattern.fitsWithin(
             thisPattern.patternSet(thisResolver),
             otherResolver,
@@ -233,6 +232,8 @@ fun encompasses(
                 otherResolver
             ), thisResolver
         ) is Result.Success -> Result.Success()
+
+        otherPattern::class == thisPattern::class -> Result.Success()
 
         else -> mismatchResult(thisPattern, otherPattern, thisResolver.mismatchMessages)
     }

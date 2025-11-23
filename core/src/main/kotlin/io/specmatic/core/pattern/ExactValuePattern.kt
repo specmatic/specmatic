@@ -26,10 +26,7 @@ data class ExactValuePattern(override val pattern: Value, override val typeAlias
     }
 
     override fun encompasses(otherPattern: Pattern, thisResolver: Resolver, otherResolver: Resolver, typeStack: TypeStack): Result {
-        if(otherPattern !is ExactValuePattern || this.pattern != otherPattern.pattern)
-            return Result.Failure("Expected ${this.typeName}, got ${otherPattern.typeName}")
-
-        return Result.Success()
+        return encompasses(this, otherPattern, thisResolver, otherResolver, typeStack)
     }
 
     override fun fitsWithin(otherPatterns: List<Pattern>, thisResolver: Resolver, otherResolver: Resolver, typeStack: TypeStack): Result {
