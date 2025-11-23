@@ -375,14 +375,14 @@ data class Feature(
 
     private fun lookupAllSuccessfulScenarios(resultList: List<Pair<Scenario, Result>>): List<Pair<Scenario, Result>> {
         return resultList.filter { (_, result) ->
-            result is Result.Success
+            result is Success
         }
     }
 
     private fun allDeeplyMatchingScenarios(resultList: List<Pair<Scenario, Result>>): List<Pair<Scenario, Result>> {
         return resultList.filter {
             when (val result = it.second) {
-                is Result.Success -> true
+                is Success -> true
                 is Result.Failure -> !result.isFluffy()
             }
         }
@@ -390,12 +390,12 @@ data class Feature(
 
     private fun matchingScenario(resultList: Sequence<Pair<Scenario, Result>>): Scenario? {
         return resultList.find {
-            it.second is Result.Success
+            it.second is Success
         }?.first
     }
 
     private fun matchingScenarios(resultList: Sequence<Pair<Scenario, Result>>): Sequence<Pair<Int, Scenario>> {
-        return resultList.filter { it.second is Result.Success }.map {
+        return resultList.filter { it.second is Success }.map {
             Pair(it.first.status, it.first)
         }
     }
@@ -451,7 +451,7 @@ data class Feature(
             it.matches(
                 request,
                 serverState
-            ) is Result.Success && it.matches(response) is Result.Success
+            ) is Success && it.matches(response) is Success
         } != null
     }
 
@@ -579,9 +579,9 @@ data class Feature(
         }
 
         if (matchResults.any {
-            it.first is Result.Success && it.second is Result.Success
+            it.first is Success && it.second is Success
         })
-            return Result.Success()
+            return Success()
 
         return Result.fromResults(matchResults.flatMap { it.toList() })
     }
@@ -610,7 +610,7 @@ data class Feature(
     fun matchingHttpPathPatternFor(path: String): HttpPathPattern? {
         return scenarios.firstOrNull {
             if(it.httpRequestPattern.httpPathPattern == null) return@firstOrNull false
-            it.httpRequestPattern.matchesPath(path, it.resolver) is Result.Success
+            it.httpRequestPattern.matchesPath(path, it.resolver) is Success
         }?.httpRequestPattern?.httpPathPattern
     }
 
@@ -632,12 +632,12 @@ data class Feature(
                     mismatchMessages,
                     keyCheck
                 )) {
-                    is Result.Success -> Pair(
+                    is Success -> Pair(
                         scenario.resolverAndResponseForExpectation(response).let { (resolver, resolvedResponse) ->
                             val newRequestType = scenario.httpRequestPattern.generate(request, resolver)
                             HttpStubData(
                                 requestType = newRequestType,
-                                response = resolvedResponse.copy(externalisedResponseCommand = response.externalisedResponseCommand),
+                                response = resolvedResponse.adjustRequestForContentType(request.headers).copy(externalisedResponseCommand = response.externalisedResponseCommand),
                                 resolver = resolver,
                                 responsePattern = scenario.httpResponsePattern,
                                 contractPath = this.path,
@@ -645,7 +645,7 @@ data class Feature(
                                 scenario = scenario,
                                 originalRequest = request
                             )
-                        }, Result.Success()
+                        }, Success()
                     )
 
                     is Result.Failure -> {
@@ -854,7 +854,7 @@ data class Feature(
             scenario.matchesPartial(scenarioStub.partial).updateScenario(scenario).updatePath(path) to scenario
         }
 
-        val matchingScenario = results.filter { it.first is Result.Success }.map { it.second }.firstOrNull()
+        val matchingScenario = results.filter { it.first is Success }.map { it.second }.firstOrNull()
         if(matchingScenario == null) {
             val failures = Results(results.map { it.first }.filterIsInstance<Result.Failure>().toList()).withoutFluff()
             throw NoMatchingScenario(failures, msg = "Could not load partial example ${scenarioStub.filePath}")
@@ -943,7 +943,7 @@ data class Feature(
                 newScenario.httpRequestPattern.httpPathPattern!!,
                 baseScenario.resolver,
                 newScenario.resolver
-            ) is Result.Success
+            ) is Success
         )
             return baseScenario
 
@@ -951,7 +951,7 @@ data class Feature(
         val newPathParts = newScenario.httpRequestPattern.httpPathPattern.pathSegmentPatterns
 
         val convergedPathPattern: List<URLPathSegmentPattern> = basePathParts.zip(newPathParts).map { (base, new) ->
-            if(base.pattern.encompasses(new.pattern, baseScenario.resolver, newScenario.resolver) is Result.Success)
+            if(base.pattern.encompasses(new.pattern, baseScenario.resolver, newScenario.resolver) is Success)
                 base
             else {
                 if(isInteger(base) && isInteger(new))
@@ -2625,7 +2625,7 @@ private fun List<String>.second(): String {
 }
 
 fun similarURLPath(baseScenario: Scenario, newScenario: Scenario): Boolean {
-    if(baseScenario.httpRequestPattern.httpPathPattern?.encompasses(newScenario.httpRequestPattern.httpPathPattern!!, baseScenario.resolver, newScenario.resolver) is Result.Success)
+    if(baseScenario.httpRequestPattern.httpPathPattern?.encompasses(newScenario.httpRequestPattern.httpPathPattern!!, baseScenario.resolver, newScenario.resolver) is Success)
         return true
 
     val basePathParts = baseScenario.httpRequestPattern.httpPathPattern!!.pathSegmentPatterns
@@ -2636,7 +2636,7 @@ fun similarURLPath(baseScenario: Scenario, newScenario: Scenario): Boolean {
 
     return basePathParts.zip(newPathParts).all { (base, new) ->
         isInteger(base) && isInteger(new) ||
-                base.pattern.encompasses(new.pattern, baseScenario.resolver, newScenario.resolver) is Result.Success
+                base.pattern.encompasses(new.pattern, baseScenario.resolver, newScenario.resolver) is Success
     }
 }
 

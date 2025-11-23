@@ -311,7 +311,7 @@ class HttpStub(
                     responseErrors = responseInterceptorErrors
 
                     // Store encoded response for later logging if different
-                    transformedResponse = if (httpResponse != httpStubResponse.response) httpResponse else null
+                    transformedResponse = if (httpResponse != httpStubResponse.response) httpResponse.adjustRequestForContentType(httpRequest.headers) else null
 
                     if (httpRequest.path!!.startsWith("""/features/default""")) {
                         handleSse(httpRequest, this@HttpStub, this)

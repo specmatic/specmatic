@@ -14,6 +14,7 @@ import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_PRETTY_PRINT
 import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
 import io.specmatic.core.utilities.URIUtils
+import io.specmatic.core.utilities.isXML
 import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
 import org.apache.http.client.utils.URLEncodedUtils
 import org.apache.http.message.BasicNameValuePair
@@ -67,12 +68,12 @@ data class HttpRequest(
         queryParams = QueryParameters(queryParametersMap),
         formFields = formFields,
         multiPartFormData = multiPartFormData,
-        metadata = metadata
+        metadata = metadata,
     )
 
     fun trimBaseUrlPath(baseUrlPath: String): HttpRequest {
         return this.copy(
-            path = this.path?.replaceFirst(baseUrlPath, "").orEmpty()
+            path = this.path?.replaceFirst(baseUrlPath, "").orEmpty(),
         )
     }
 
@@ -87,8 +88,7 @@ data class HttpRequest(
         return headers[SPECMATIC_RESPONSE_CODE_HEADER] == HttpStatusCode.Accepted.value.toString()
     }
 
-    fun updateQueryParams(otherQueryParams: Map<String, String>): HttpRequest =
-        copy(queryParams = queryParams.plus(otherQueryParams))
+    fun updateQueryParams(otherQueryParams: Map<String, String>): HttpRequest = copy(queryParams = queryParams.plus(otherQueryParams))
 
     fun withHost(host: String) = this.copy(headers = this.headers.plus("Host" to host))
 
@@ -99,25 +99,21 @@ data class HttpRequest(
         } catch (e: URISyntaxException) {
             val pieces = path.split("?", limit = 2)
             updateWithPathAndQuery(pieces[0], pieces.getOrNull(1))
-//            copy(path = path)
         } catch (e: UnsupportedEncodingException) {
             val pieces = path.split("?", limit = 2)
             updateWithPathAndQuery(pieces[0], pieces.getOrNull(1))
-//            copy(path = path)
         }
     }
 
     fun updateQueryParam(key: String, value: String): HttpRequest = copy(queryParams = queryParams.plus(key to value))
 
-    fun updateBody(body: Value): HttpRequest = copy(body = body)
+    fun updateBody(body: Value): HttpRequest {
+        return copy(body = body)
+    }
 
     fun updateBody(body: String?): HttpRequest = copy(body = parsedValue(body))
 
     fun updateWith(url: URI): HttpRequest {
-//        val path = url.path
-//        val queryParams = parseQuery(url.query)
-//        return copy(path = path, queryParams = QueryParameters(queryParams))
-
         return updateWithPathAndQuery(url.path, url.query)
     }
 
@@ -452,6 +448,14 @@ data class HttpRequest(
 
     internal fun pathSpecificity(): Int = (if (path == "/") "" else path)
         ?.split(URL_PATH_DELIMITER)?.count { !StringValue(it).isPatternOrMatcherToken() } ?: 0
+
+    fun adjustRequestForContentType(): HttpRequest {
+        if (!isXML(headers)) {
+            return this
+        }
+
+        return copy(body = body.adjustValueForXMLContentType())
+    }
 }
 
 private fun setIfNotEmpty(dest: MutableMap<String, Value>, key: String, data: Map<String, Any>) {
@@ -518,7 +522,8 @@ fun requestFromJSON(json: Map<String, Value>) =
                         json.getOrDefault("body", NullValue),
                         "Either body should have a value or the key should be absent from http-request"
                     )
-                    httpRequest.updateBody(body)
+
+                    httpRequest.updateBody(body).adjustRequestForContentType()
                 }
 
                 else -> httpRequest

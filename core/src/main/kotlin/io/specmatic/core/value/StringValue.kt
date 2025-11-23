@@ -4,10 +4,11 @@ import io.specmatic.core.ExampleDeclarations
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.*
 import io.ktor.http.*
+import org.apache.commons.lang3.StringEscapeUtils
 import org.w3c.dom.Document
 import org.w3c.dom.Node
 
-data class StringValue(val string: String = "") : Value, ScalarValue, XMLValue {
+data class StringValue(val string: String = "", private val xml: Boolean = false) : Value, ScalarValue, XMLValue {
     override val httpContentType = "text/plain"
 
     override fun equals(other: Any?): Boolean {
@@ -22,8 +23,17 @@ data class StringValue(val string: String = "") : Value, ScalarValue, XMLValue {
     override fun valueErrorSnippet(): String = displayableValue()
 
     override fun displayableValue(): String = toStringLiteral().quote()
-    override fun toStringLiteral() = string
+
+    override fun toStringLiteral(): String {
+        if (xml) {
+            return StringEscapeUtils.escapeXml11(string)
+        }
+
+        return string
+    }
+
     override fun displayableType(): String = "string"
+
     override fun exactMatchElseType(): Pattern {
         return when {
             isPatternToken() -> DeferredPattern(string)

@@ -200,7 +200,7 @@ data class XMLNode(val name: String, val realName: String, val attributes: Map<S
                     when(it) {
                         is XMLNode -> it.nodeToString(indent, lineSeparator)
                         is CDATAValue -> it.nodeToString(indent, lineSeparator)
-                        else -> it.toString()
+                        else -> it.toStringLiteral()
                     }
                 }
 

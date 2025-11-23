@@ -8,6 +8,7 @@ import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.isPatternToken
 import io.specmatic.core.pattern.parsedValue
+import io.specmatic.core.utilities.isXML
 import io.specmatic.core.value.*
 
 private const val SPECMATIC_HEADER_PREFIX = "X-$APPLICATION_NAME-"
@@ -166,6 +167,14 @@ data class HttpResponse(
                 jsonObject.getOrDefault("externalisedResponseCommand", "").toString()
             )
         }
+    }
+
+    fun adjustRequestForContentType(requestHeaders: Map<String, String> = emptyMap()): HttpResponse {
+        if (!isXML(headers) && !isXML(requestHeaders)) {
+            return this
+        }
+
+        return copy(body = body.adjustValueForXMLContentType())
     }
 
     fun dropIrrelevantHeaders(): HttpResponse = withoutTransportHeaders().withoutConversionHeaders().withoutSpecmaticHeaders()
