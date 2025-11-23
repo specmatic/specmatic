@@ -46,6 +46,22 @@ interface Value {
     }
 
     fun specificity(): Int
+
+    fun adjustValueForXMLContentType(): Value {
+        if (this !is XMLValue) return this
+
+        return when (this) {
+            is StringValue -> this.copy(xml = true)
+            is XMLNode -> {
+                this.copy(
+                    childNodes = this.childNodes.mapNotNull { it.adjustValueForXMLContentType() as? XMLValue },
+                )
+            }
+
+            else -> this
+        }
+    }
+
 }
 
 fun Value.mergeWith(other: Value): Value {

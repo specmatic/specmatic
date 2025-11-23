@@ -2,24 +2,16 @@
 
 package io.specmatic.core.utilities
 
-import io.specmatic.core.CONTENT_TYPE
+import io.ktor.http.*
+import io.specmatic.core.*
 import io.specmatic.core.Configuration.Companion.DEFAULT_HTTP_STUB_HOST
 import io.specmatic.core.Configuration.Companion.configFilePath
-import io.specmatic.core.DEFAULT_WORKING_DIRECTORY
-import io.specmatic.core.EXAMPLES_DIR_SUFFIX
-import io.specmatic.core.HttpRequest
-import io.specmatic.core.KeyData
-import io.specmatic.core.ResiliencyTestSuite
-import io.specmatic.core.Resolver
-import io.specmatic.core.Result
 import io.specmatic.core.azure.AzureAuthCredentials
 import io.specmatic.core.git.GitCommand
 import io.specmatic.core.git.SystemGit
-import io.specmatic.core.loadSpecmaticConfig
 import io.specmatic.core.log.consoleDebug
 import io.specmatic.core.log.consoleLog
 import io.specmatic.core.log.logger
-import io.specmatic.core.nativeString
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
@@ -31,9 +23,7 @@ import org.eclipse.jgit.transport.TransportHttp
 import org.eclipse.jgit.transport.sshd.SshdSessionFactory
 import org.w3c.dom.Document
 import org.w3c.dom.Node
-import org.w3c.dom.Node.COMMENT_NODE
-import org.w3c.dom.Node.ELEMENT_NODE
-import org.w3c.dom.Node.TEXT_NODE
+import org.w3c.dom.Node.*
 import org.xml.sax.InputSource
 import java.io.File
 import java.io.StringReader
@@ -569,4 +559,20 @@ fun validateTestOrStubUri(uri: String): URIValidationResult {
         parsedURI.port != -1 && !validPorts.contains(parsedURI.port) -> URIValidationResult.InvalidPortError
         else -> URIValidationResult.Success
     }
+}
+
+fun isXML(headers: Map<String, String>): Boolean {
+    if (headers.any { it.key.equals("SOAPAction", ignoreCase = true) }) {
+        return true
+    }
+
+    val rawContentType = headers[CONTENT_TYPE] ?: return false
+    val contentType =
+        try {
+            ContentType.parse(rawContentType)
+        } catch (_: Throwable) {
+            return false
+        }
+
+    return contentType.contentSubtype.let { it == "xml" || it.endsWith("+xml") }
 }

@@ -25,7 +25,7 @@ data class CDATAValue(
         indent: String,
         lineSeparator: String,
     ): String {
-        return "$indent<![CDATA[${stringValue.string}]]>$lineSeparator"
+        return "$indent<![CDATA[${stringValue.string.replace("]]>", "]]&gt;")}]]>$lineSeparator"
     }
 
     override val nativeValue: String
