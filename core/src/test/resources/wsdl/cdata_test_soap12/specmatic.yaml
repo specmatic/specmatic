@@ -1,0 +1,4 @@
+version: 2
+contracts:
+- consumes:
+  - src/test/resources/wsdl/cdata_test_soap12/data_api.wsdl

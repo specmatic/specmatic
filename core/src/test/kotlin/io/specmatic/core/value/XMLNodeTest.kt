@@ -3,6 +3,10 @@ package io.specmatic.core.value
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Nested
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.trimmedLinesList
 
@@ -334,5 +338,35 @@ internal class XMLNodeTest {
         assertThat(fqn.namespace).isEqualTo(targetNamespace)
         assertThat(fqn.prefix).isEqualTo("ns0")
         assertThat(fqn.localName).isEqualTo("helloworld")
+    }
+
+    @Nested
+    @DisplayName("XML Node Attributes Handling Tests")
+    inner class AttributesHandlingTests {
+        @Test
+        fun `should parse XML node with no attributes`() {
+            val node = toXMLNode("<person></person>")
+            assertThat(node.attributes).isEmpty()
+        }
+
+        @Test
+        fun `should parse node with text content and no attributes`() {
+            val node = toXMLNode("<person>John Doe</person>")
+
+            assertThat(node.attributes).isEmpty()
+            assertThat(node.childNodes).hasSize(1)
+            assertThat(node.childNodes[0]).isEqualTo(StringValue("John Doe"))
+        }
+
+        @Test
+        fun `should parse node with CDATA content and no attributes`() {
+            val xml = "<description><![CDATA[Some <b>bold</b> text]]></description>"
+
+            val node = toXMLNode(xml)
+
+            assertThat(node.attributes).isEmpty()
+            assertThat(node.childNodes).hasSize(1)
+            assertThat(node.childNodes[0]).isInstanceOf(CDATAValue::class.java)
+        }
     }
 }

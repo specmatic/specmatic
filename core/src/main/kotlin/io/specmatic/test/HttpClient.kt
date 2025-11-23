@@ -60,10 +60,12 @@ data class HttpClient(
                 val outboundRequest: HttpRequest = ktorHttpRequestToHttpRequestForLogging(ktorResponse.request, requestWithFileContent)
                 httpLogMessage.request = outboundRequest
 
-                ktorResponseToHttpResponse(ktorResponse).also {
-                    httpLogMessage.addResponseWithCurrentTime(it)
-                    log(httpLogMessage)
-                }
+                ktorResponseToHttpResponse(ktorResponse)
+                    .adjustPayloadForContentType(request.headers)
+                    .also {
+                        httpLogMessage.addResponseWithCurrentTime(it)
+                        log(httpLogMessage)
+                    }
             }
         } catch (e: Exception) {
             httpLogMessage.addException(e)

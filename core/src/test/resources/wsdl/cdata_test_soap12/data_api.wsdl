@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions name="DataAPI"
+             targetNamespace="http://www.example.com/data"
+             xmlns:tns="http://www.example.com/data"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             xmlns:soap12="http://schemas.xmlsoap.org/wsdl/soap12/"
+             xmlns="http://schemas.xmlsoap.org/wsdl/">
+
+    <types>
+        <xsd:schema targetNamespace="http://www.example.com/data">
+            <xsd:complexType name="StoreData">
+                <xsd:sequence>
+                    <xsd:element name="xmlData" type="xsd:string"/>
+                </xsd:sequence>
+            </xsd:complexType>
+
+            <xsd:element name="StoreData" type="tns:StoreData"/>
+
+            <xsd:complexType name="DataResponse">
+                <xsd:sequence>
+                    <xsd:element name="output" type="xsd:string"/>
+                </xsd:sequence>
+            </xsd:complexType>
+
+            <xsd:element name="DataResponse" type="tns:DataResponse"/>
+        </xsd:schema>
+    </types>
+
+    <message name="StoreDataRequest">
+        <part name="parameters" element="tns:StoreData"/>
+    </message>
+
+    <message name="StoreDataResponse">
+        <part name="parameters" element="tns:DataResponse"/>
+    </message>
+
+    <portType name="DataAPIPortType">
+        <operation name="storeData">
+            <input message="tns:StoreDataRequest"/>
+            <output message="tns:StoreDataResponse"/>
+        </operation>
+    </portType>
+
+    <binding name="DataAPIBinding" type="tns:DataAPIPortType">
+        <soap12:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+        <operation name="storeData">
+            <soap12:operation soapAction="http://www.example.com/data/store"/>
+            <input>
+                <soap12:body use="literal"/>
+            </input>
+            <output>
+                <soap12:body use="literal"/>
+            </output>
+        </operation>
+    </binding>
+
+    <service name="DataAPIService">
+        <port name="DataAPIPort" binding="tns:DataAPIBinding">
+            <soap12:address location="http://localhost:8080/"/>
+        </port>
+    </service>
+</definitions>

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions name="MessageAPI"
+             targetNamespace="http://www.example.com/messages"
+             xmlns:tns="http://www.example.com/messages"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns="http://schemas.xmlsoap.org/wsdl/">
+
+    <types>
+        <xsd:schema targetNamespace="http://www.example.com/messages">
+            <xsd:complexType name="ProcessMessage">
+                <xsd:sequence>
+                    <xsd:element name="content" type="xsd:string"/>
+                </xsd:sequence>
+            </xsd:complexType>
+
+            <xsd:element name="ProcessMessage" type="tns:ProcessMessage"/>
+
+            <xsd:complexType name="MessageResult">
+                <xsd:sequence>
+                    <xsd:element name="result" type="xsd:string"/>
+                </xsd:sequence>
+            </xsd:complexType>
+
+            <xsd:element name="MessageResult" type="tns:MessageResult"/>
+        </xsd:schema>
+    </types>
+
+    <message name="ProcessMessageRequest">
+        <part name="parameters" element="tns:ProcessMessage"/>
+    </message>
+
+    <message name="ProcessMessageResponse">
+        <part name="parameters" element="tns:MessageResult"/>
+    </message>
+
+    <portType name="MessageAPIPortType">
+        <operation name="processMessage">
+            <input message="tns:ProcessMessageRequest"/>
+            <output message="tns:ProcessMessageResponse"/>
+        </operation>
+    </portType>
+
+    <binding name="MessageAPIBinding" type="tns:MessageAPIPortType">
+        <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+        <operation name="processMessage">
+            <soap:operation soapAction="/messages/process"/>
+            <input>
+                <soap:body use="literal"/>
+            </input>
+            <output>
+                <soap:body use="literal"/>
+            </output>
+        </operation>
+    </binding>
+
+    <service name="MessageAPIService">
+        <port name="MessageAPIPort" binding="tns:MessageAPIBinding">
+            <soap:address location="http://localhost:8080/"/>
+        </port>
+    </service>
+</definitions>

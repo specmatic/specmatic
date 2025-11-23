@@ -637,7 +637,7 @@ data class Feature(
                             val newRequestType = scenario.httpRequestPattern.generate(request, resolver)
                             HttpStubData(
                                 requestType = newRequestType,
-                                response = resolvedResponse.adjustRequestForContentType(request.headers).copy(externalisedResponseCommand = response.externalisedResponseCommand),
+                                response = resolvedResponse.adjustPayloadForContentType(request.headers).copy(externalisedResponseCommand = response.externalisedResponseCommand),
                                 resolver = resolver,
                                 responsePattern = scenario.httpResponsePattern,
                                 contractPath = this.path,

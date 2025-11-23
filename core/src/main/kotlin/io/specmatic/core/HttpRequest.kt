@@ -449,7 +449,7 @@ data class HttpRequest(
     internal fun pathSpecificity(): Int = (if (path == "/") "" else path)
         ?.split(URL_PATH_DELIMITER)?.count { !StringValue(it).isPatternOrMatcherToken() } ?: 0
 
-    fun adjustRequestForContentType(): HttpRequest {
+    fun adjustPayloadForContentType(): HttpRequest {
         if (!isXML(headers)) {
             return this
         }
@@ -488,7 +488,7 @@ fun requestFromJSON(json: Map<String, Value>) =
         )
         .updatePath(nativeString(json, "path") ?: "/")
         .updateQueryParams(nativeStringStringMap(json, "query"))
-        .setHeaders(nativeStringStringMap(json, "headers"))
+        .setHeaders(adjustForSOAP(nativeStringStringMap(json, "headers")))
         .let { httpRequest ->
             when {
                 FORM_FIELDS_JSON_KEY in json -> httpRequest.copy(
@@ -523,12 +523,24 @@ fun requestFromJSON(json: Map<String, Value>) =
                         "Either body should have a value or the key should be absent from http-request"
                     )
 
-                    httpRequest.updateBody(body).adjustRequestForContentType()
+                    httpRequest.updateBody(body).adjustPayloadForContentType()
                 }
 
                 else -> httpRequest
             }
         }
+
+fun adjustForSOAP(headers: Map<String, String>): Map<String, String> {
+    if (headers.containsKey("SOAPAction")) return headers
+
+    val rawContentType = headers["Content-Type"] ?: return headers
+
+    val contentType = try { ContentType.parse(rawContentType) } catch (_: Throwable) { return headers }
+
+    val soapActionParameter = contentType.parameters.find { it.name.equals("action", ignoreCase = true) } ?: return headers
+
+    return headers + ("SOAPAction" to soapActionParameter.value)
+}
 
 private fun parsePartType(multiPartSpec: Map<String, Value>, name: String): MultiPartFormDataValue {
     return when {
