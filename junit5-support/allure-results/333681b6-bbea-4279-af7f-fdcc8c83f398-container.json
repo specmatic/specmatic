@@ -1,0 +1,1 @@
+{"uuid":"333681b6-bbea-4279-af7f-fdcc8c83f398","name":"identifies endpoint as 'Not Covered' when contract test is not generated for an endpoint present in the spec()","children":["7bba4e25-7262-4ccc-9a89-7fe26cf75488"],"befores":[],"afters":[],"start":1763883612002,"stop":1763883612013}

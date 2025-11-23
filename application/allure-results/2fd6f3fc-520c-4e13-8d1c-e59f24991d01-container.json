@@ -1,0 +1,1 @@
+{"uuid":"2fd6f3fc-520c-4e13-8d1c-e59f24991d01","name":"should factor in the life cycle hook for validate when spec file and example file is provided(AfterLoadingStaticExamples, int)","children":["5e594662-eb9d-487f-a268-8e1a0930502f","c8fa1bd9-2073-4c41-9f80-9c5500650d7c"],"befores":[],"afters":[],"start":1763883700458,"stop":1763883700537}

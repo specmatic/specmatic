@@ -1,0 +1,1 @@
+{"uuid":"42e15257-b471-4760-91d8-87c07cbc2e6a","name":"should call the life cycle hook for validate if both spec dir and examples dir is provided()","children":["b703efdc-7beb-4876-810b-2ab9a2b4f14a"],"befores":[],"afters":[],"start":1763883701241,"stop":1763883701327}

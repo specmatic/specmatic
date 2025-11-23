@@ -1,0 +1,1 @@
+{"uuid":"35f6083d-3e80-4a6a-9fa5-508fb9712e4f","name":"test generates empty api coverage report when no paths are documented in the open api spec and endpoints api is not defined()","children":["a785608f-379f-45f4-bca8-4ddc042291d8"],"befores":[],"afters":[],"start":1763883611709,"stop":1763883611720}

@@ -1,0 +1,1 @@
+{"uuid":"6b910f92-548b-4886-bee9-04aa41aa7b66","name":"when junit report directory is set it should also register legacy XML test execution listener()","children":["1cfd0b66-1f69-48a9-9b17-3d41168760d2"],"befores":[],"afters":[],"start":1763883704261,"stop":1763883704335}

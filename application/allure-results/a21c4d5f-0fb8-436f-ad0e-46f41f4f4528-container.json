@@ -1,0 +1,1 @@
+{"uuid":"a21c4d5f-0fb8-436f-ad0e-46f41f4f4528","name":"should validate external only when the examplesToValidate flag is set to external()","children":["f6f7c87e-8844-4d2a-94d7-c6796deb9256"],"befores":[],"afters":[],"start":1763883701403,"stop":1763883701415}

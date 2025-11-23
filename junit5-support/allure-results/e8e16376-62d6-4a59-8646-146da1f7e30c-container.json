@@ -1,0 +1,1 @@
+{"uuid":"e8e16376-62d6-4a59-8646-146da1f7e30c","name":"identifies endpoint as 'covered' when contract test fails and actuator is not available()","children":["8f0c4a80-5372-4e0e-926c-7f123001c244"],"befores":[],"afters":[],"start":1763883611982,"stop":1763883611986}

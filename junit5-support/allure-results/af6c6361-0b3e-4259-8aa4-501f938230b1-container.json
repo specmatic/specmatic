@@ -1,0 +1,1 @@
+{"uuid":"af6c6361-0b3e-4259-8aa4-501f938230b1","name":"test generates empty api coverage report when all endpoints are marked as excluded()","children":["75cbebca-1fca-4ac7-92b8-7a43f16d8161"],"befores":[],"afters":[],"start":1763883610976,"stop":1763883611629}

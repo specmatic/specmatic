@@ -1,14 +1,11 @@
 package io.specmatic.test
 
-import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.*
 import io.specmatic.core.SpecmaticConfig.Companion.getSecurityConfiguration
 import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.filters.ScenarioMetadataFilter.Companion.filterUsing
-import io.specmatic.core.log.LogMessage
-import io.specmatic.core.log.ignoreLog
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Examples
@@ -108,70 +105,6 @@ open class SpecmaticJUnitSupport {
 
     enum class ActuatorSetupResult(val failed: Boolean) {
         Success(false), Failure(true)
-    }
-
-    fun actuatorFromSwagger(testBaseURL: String, client: TestExecutor? = null): ActuatorSetupResult {
-        val baseURL = Flags.getStringValue(SWAGGER_UI_BASEURL) ?: testBaseURL
-        val httpClient = client ?: LegacyHttpClient(baseURL, log = ignoreLog)
-
-        val request = HttpRequest(path = "/swagger/v1/swagger.yaml", method = "GET")
-        val response = httpClient.execute(request)
-
-        if (response.status != 200) {
-            logger.log("Failed to query swaggerUI, status code: ${response.status}")
-            return ActuatorSetupResult.Failure
-        }
-
-        val featureFromJson = OpenApiSpecification.fromYAML(response.body.toStringLiteral(), "").toFeature()
-        val apis = featureFromJson.scenarios.map { scenario ->
-            API(method = scenario.method, path = convertPathParameterStyle(scenario.path))
-        }
-
-        openApiCoverageReportInput.addAPIs(apis.distinct())
-        openApiCoverageReportInput.setEndpointsAPIFlag(true)
-
-        return ActuatorSetupResult.Success
-    }
-
-    fun queryActuator(): ActuatorSetupResult {
-        val endpointsAPI: String = Flags.getStringValue(ENDPOINTS_API) ?: return ActuatorSetupResult.Failure
-        val request = HttpRequest("GET")
-        val response = LegacyHttpClient(endpointsAPI, log = ignoreLog).execute(request)
-
-        if (response.status != 200) {
-            logger.log("Failed to query actuator, status code: ${response.status}")
-            return ActuatorSetupResult.Failure
-        }
-
-        logger.debug(response.toLogString())
-        openApiCoverageReportInput.setEndpointsAPIFlag(true)
-        val endpointData = response.body as JSONObjectValue
-        val apis: List<API> = endpointData.getJSONObject("contexts").entries.flatMap { entry ->
-            val mappings: JSONArrayValue =
-                (entry.value as JSONObjectValue).findFirstChildByPath("mappings.dispatcherServlets.dispatcherServlet") as JSONArrayValue
-            mappings.list.map { it as JSONObjectValue }.filter {
-                it.findFirstChildByPath("details.handlerMethod.className")?.toStringLiteral()
-                    ?.contains("springframework") != true
-            }.flatMap {
-                val methods: JSONArrayValue? =
-                    it.findFirstChildByPath("details.requestMappingConditions.methods") as JSONArrayValue?
-                val paths: JSONArrayValue? =
-                    it.findFirstChildByPath("details.requestMappingConditions.patterns") as JSONArrayValue?
-
-                if(methods != null && paths != null) {
-                    methods.list.flatMap { method ->
-                        paths.list.map { path ->
-                            API(method.toStringLiteral(), path.toStringLiteral())
-                        }
-                    }
-                } else {
-                    emptyList()
-                }
-            }
-        }
-        openApiCoverageReportInput.addAPIs(apis)
-
-        return ActuatorSetupResult.Success
     }
 
     private fun getConfigFileWithAbsolutePath() = File(settings.configFile).canonicalPath
@@ -387,7 +320,13 @@ open class SpecmaticJUnitSupport {
         }
 
         return try {
-            dynamicTestStream(firstNScenarios(testScenariosWithUrls), actuatorBaseURL, timeoutInMilliseconds)
+            SpecmaticDynamicTestStream(
+                openApiCoverageReportInput, httpInteractionsLog, threads, startTime
+            ).dynamicTestStream(
+                firstNScenarios(testScenariosWithUrls),
+                actuatorBaseURL,
+                timeoutInMilliseconds
+            )
         } catch(e: Throwable) {
             logger.logError(e)
             loadExceptionAsTestError(e)
@@ -397,79 +336,6 @@ open class SpecmaticJUnitSupport {
     private fun firstNScenarios(testScenarios: Sequence<Pair<ContractTest, String>>): Sequence<Pair<ContractTest, String>> {
         val maxTestCount = Flags.getIntValue(Flags.MAX_TEST_COUNT) ?: return testScenarios
         return testScenarios.take(maxTestCount)
-    }
-
-    private fun dynamicTestStream(
-        testScenarios: Sequence<Pair<ContractTest, String>>,
-        actuatorBaseURL: String,
-        timeoutInMilliseconds: Long,
-    ): Stream<DynamicTest> {
-        try {
-            if (queryActuator().failed && actuatorFromSwagger(actuatorBaseURL).failed) {
-                openApiCoverageReportInput.setEndpointsAPIFlag(false)
-                logger.log("EndpointsAPI and SwaggerUI URL missing; cannot calculate actual coverage")
-            }
-        } catch (exception: Throwable) {
-            openApiCoverageReportInput.setEndpointsAPIFlag(false)
-            logger.log(exception, "Failed to query actuator with error")
-        }
-
-        logger.newLine()
-
-        startTime = Instant.now()
-        return testScenarios.map { (contractTest, baseURL) ->
-            DynamicTest.dynamicTest(contractTest.testDescription()) {
-                threads.add(Thread.currentThread().name)
-
-                var testResult: Pair<Result, HttpResponse?>? = null
-
-                try {
-                    val log: (LogMessage) -> Unit = { logMessage ->
-                        logger.log(logMessage)
-                    }
-
-                    val httpClient = HttpClient(
-                        baseURL,
-                        log = log,
-                        timeoutInMilliseconds = timeoutInMilliseconds,
-                        httpInteractionsLog = httpInteractionsLog
-                    )
-
-                    try {
-                        testResult = contractTest.runTest(httpClient)
-                    } finally {
-                        httpClient.close()
-                    }
-                    val (result) = testResult!!
-
-                    if (result is Result.Success && result.isPartialSuccess()) {
-                        partialSuccesses.add(result)
-                    }
-
-                    when {
-                        result.shouldBeIgnored() -> {
-                            val message =
-                                "Test FAILED, ignoring since the scenario is tagged @WIP${System.lineSeparator()}${
-                                    result.toReport().toText().prependIndent("  ")
-                                }"
-                            throw TestAbortedException(message)
-                        }
-
-                        else -> ResultAssert.assertThat(result).isSuccess()
-                    }
-
-                } catch (e: Throwable) {
-                    throw e
-                } finally {
-                    if (testResult != null) {
-                        val (result, response) = testResult
-                        contractTest.testResultRecord(result, response)?.let { testREsultRecord ->
-                            openApiCoverageReportInput.addTestReportRecords(testREsultRecord)
-                        }
-                    }
-                }
-            }
-        }.asStream()
     }
 
     fun constructTestBaseURL(): String {
@@ -507,8 +373,6 @@ open class SpecmaticJUnitSupport {
     private fun isNumeric(port: String?): Boolean {
         return port?.toIntOrNull() != null
     }
-
-    private fun portNotSpecified(parsedURI: URI) = parsedURI.port == -1
 
     fun loadTestScenarios(
         path: String,

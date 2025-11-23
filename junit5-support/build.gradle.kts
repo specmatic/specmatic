@@ -29,4 +29,6 @@ dependencies {
     implementation("org.junit.platform:junit-platform-reporting:1.13.4")
 
     implementation("org.fusesource.jansi:jansi:2.4.2")
+
+    implementation("io.qameta.allure:allure-java-commons:2.31.0")
 }

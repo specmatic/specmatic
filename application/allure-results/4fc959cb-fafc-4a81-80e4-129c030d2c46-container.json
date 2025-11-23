@@ -1,0 +1,1 @@
+{"uuid":"4fc959cb-fafc-4a81-80e4-129c030d2c46","name":"timeout policy should set the socket and request timeouts in the TimeoutPolicy ktor plugin as configured()","children":["2bd86ef0-1cf8-422b-8e56-f22e24032905"],"befores":[],"afters":[],"start":1763883710253,"stop":1763883710256}

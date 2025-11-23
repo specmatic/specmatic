@@ -1,0 +1,1 @@
+{"uuid":"a9ae0abc-5d57-42ea-8f8f-463e59bf10d8","name":"identifies endpoint as 'covered' when contract test passes and route+method is present in actuator()","children":["29c20d3d-1bd0-4b21-b18c-68a4780087e8"],"befores":[],"afters":[],"start":1763883611968,"stop":1763883611974}

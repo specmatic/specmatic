@@ -1,0 +1,1 @@
+{"uuid":"f3c6da5f-9c27-44e7-8c75-b24f10fef8ce","name":"should validate both inline and external examples when --specs-dir and --examples-base-dir is provided()","children":["5c626a8e-fefd-4873-acfb-ff22d0117a42"],"befores":[],"afters":[],"start":1763883700419,"stop":1763883700455}

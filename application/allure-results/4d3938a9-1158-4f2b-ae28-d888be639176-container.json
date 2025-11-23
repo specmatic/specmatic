@@ -1,0 +1,1 @@
+{"uuid":"4d3938a9-1158-4f2b-ae28-d888be639176","name":"should validate all oas files from --specs-dir even if no external examples exist for said oas()","children":["8e76fafa-3805-4a67-bbfa-91d88efb7a17"],"befores":[],"afters":[],"start":1763883700296,"stop":1763883700331}

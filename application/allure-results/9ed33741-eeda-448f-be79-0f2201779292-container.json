@@ -1,0 +1,1 @@
+{"uuid":"9ed33741-eeda-448f-be79-0f2201779292","name":"when a contract with the correct extension is given it should be loaded(String, Path)","children":["db34afb2-77b8-49c8-b0e3-3d8d8f6ee837"],"befores":[],"afters":[],"start":1763883702879,"stop":1763883703259}

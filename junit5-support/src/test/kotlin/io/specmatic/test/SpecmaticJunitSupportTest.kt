@@ -151,61 +151,6 @@ class SpecmaticJunitSupportTest {
         assertThat(registeredListeners).contains(ContractExecutionListener::class.java.name)
     }
 
-    @Test
-    fun `should be able to get actuator endpoints from swaggerUI`() {
-        val contractTestHarness = SpecmaticJUnitSupport()
-
-        contractTestHarness.actuatorFromSwagger("", object: TestExecutor {
-            override fun execute(request: HttpRequest): HttpResponse {
-                return HttpResponse(
-                    200,
-                    body = """
-                    openapi: 3.0.1
-                    info:
-                      title: Order BFF
-                      version: '1.0'
-                    paths:
-                      /orders:
-                        post:
-                          responses:
-                            '200':
-                              description: OK
-                      /products:
-                        post:
-                          responses:
-                            '200':
-                              description: OK
-                      /findAvailableProducts/{date_time}:
-                        get:
-                          parameters:
-                            - ${"$"}ref: '#/components/parameters/DateTimeParameter'
-                          responses:
-                            '200':
-                              description: OK
-                    components:
-                        schemas:
-                            DateTime:
-                                type: string
-                                format: date-time
-                        parameters:
-                            DateTimeParameter:
-                                name: date_time
-                                in: path
-                                required: true
-                                schema:
-                                    ${"$"}ref: '#/components/schemas/DateTime'
-                    """.trimIndent()
-                )
-            }
-        })
-
-        assertThat(contractTestHarness.openApiCoverageReportInput.endpointsAPISet).isTrue()
-        assertThat(contractTestHarness.openApiCoverageReportInput.getApplicationAPIs()).isEqualTo(listOf(
-            API("POST", "/orders"),
-            API("POST", "/products"),
-            API("GET", "/findAvailableProducts/{date_time}")
-        ))
-    }
 
     @Test
     fun `strict mode only runs tests for APIs with external examples`() {
