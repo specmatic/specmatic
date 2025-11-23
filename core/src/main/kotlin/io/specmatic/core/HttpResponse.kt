@@ -169,7 +169,7 @@ data class HttpResponse(
         }
     }
 
-    fun adjustRequestForContentType(requestHeaders: Map<String, String> = emptyMap()): HttpResponse {
+    fun adjustPayloadForContentType(requestHeaders: Map<String, String> = emptyMap()): HttpResponse {
         if (!isXML(headers) && !isXML(requestHeaders)) {
             return this
         }

@@ -20,6 +20,7 @@ import io.specmatic.core.utilities.Flags
 import io.specmatic.core.value.*
 import java.util.stream.Stream
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.params.provider.CsvSource
 
 internal class HttpRequestTest {
@@ -585,5 +586,73 @@ internal class HttpRequestTest {
                 4
             )
         )
+
+        @JvmStatic
+        fun xmlContentTypeHeaders(): Stream<Arguments> = Stream.of(
+            Arguments.of(mapOf("Content-Type" to "application/xml")),
+            Arguments.of(mapOf("Content-Type" to "text/xml")),
+            Arguments.of(mapOf("Content-Type" to "application/soap+xml")),
+            Arguments.of(mapOf("Content-Type" to "application/xml; charset=utf-8")),
+            Arguments.of(mapOf("SOAPAction" to "someAction")),
+        )
+
+        @JvmStatic
+        fun nonXmlContentTypeHeaders(): Stream<Arguments> = Stream.of(
+            Arguments.of(mapOf("Content-Type" to "application/json")),
+            Arguments.of(emptyMap<String, String>()),
+        )
+    }
+
+    @Nested
+    inner class AdjustRequestForContentTypeTests {
+        @ParameterizedTest
+        @MethodSource("io.specmatic.core.HttpRequestTest#xmlContentTypeHeaders")
+        fun `should adjust body for XML content type headers`(headers: Map<String, String>) {
+            val xmlBody = StringValue("<data>test</data>")
+            val request = HttpRequest(
+                method = "POST",
+                path = "/test",
+                headers = headers,
+                body = xmlBody,
+            )
+
+            val adjustedRequest = request.adjustPayloadForContentType()
+
+            assertThat(adjustedRequest.body).isInstanceOf(StringValue::class.java)
+            val adjustedStringValue = adjustedRequest.body as StringValue
+            assertThat(adjustedStringValue.toStringLiteral()).contains("&lt;data&gt;")
+        }
+
+        @ParameterizedTest
+        @MethodSource("io.specmatic.core.HttpRequestTest#nonXmlContentTypeHeaders")
+        fun `should not adjust body for non-XML content type headers`(headers: Map<String, String>) {
+            val body = StringValue("<data>test</data>")
+            val request = HttpRequest(
+                method = "POST",
+                path = "/test",
+                headers = headers,
+                body = body,
+            )
+
+            val adjustedRequest = request.adjustPayloadForContentType()
+
+            assertThat(adjustedRequest.body).isEqualTo(body)
+            assertThat(adjustedRequest.body.toStringLiteral()).isEqualTo("<data>test</data>")
+        }
+
+        @Test
+        fun `should not adjust non-XML value types`() {
+            val jsonBody = parsedJSONObject("""{"key": "value"}""")
+            val request = HttpRequest(
+                method = "POST",
+                path = "/test",
+                headers = mapOf("Content-Type" to "application/xml"),
+                body = jsonBody
+            )
+
+            val adjustedRequest = request.adjustPayloadForContentType()
+
+            assertThat(adjustedRequest.body).isEqualTo(jsonBody)
+        }
     }
 }

@@ -1,0 +1,17 @@
+{
+  "http-request": {
+    "method": "POST",
+    "path": "/",
+    "headers": {
+      "Content-Type": "application/soap+xml; action=\"http://www.example.com/data/store\""
+    },
+    "body": "<env:Envelope xmlns:env=\"http://www.w3.org/2003/05/soap-envelope\"><env:Body><ns0:StoreData xmlns:ns0=\"http://www.example.com/data\"><xmlData><![CDATA[<xml>nested & special</xml>]]></xmlData></ns0:StoreData></env:Body></env:Envelope>"
+  },
+  "http-response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/soap+xml"
+    },
+    "body": "<env:Envelope xmlns:env=\"http://www.w3.org/2003/05/soap-envelope\"><env:Body><DataResponse><output>&lt;result&gt;OK&lt;/result&gt;</output></DataResponse></env:Body></env:Envelope>"
+  }
+}

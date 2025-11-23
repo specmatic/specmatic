@@ -1,0 +1,18 @@
+{
+  "http-request": {
+    "method": "POST",
+    "path": "/",
+    "headers": {
+      "SOAPAction": "\"/messages/process\"",
+      "Content-Type": "text/xml"
+    },
+    "body": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"><soapenv:Body><ns0:ProcessMessage xmlns:ns0=\"http://www.example.com/messages\"><content><![CDATA[<data>test & special chars</data>]]></content></ns0:ProcessMessage></soapenv:Body></soapenv:Envelope>"
+  },
+  "http-response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/xml"
+    },
+    "body": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"><soapenv:Body><MessageResult><result>&lt;response&gt;success &amp; processed&lt;/response&gt;</result></MessageResult></soapenv:Body></soapenv:Envelope>"
+  }
+}
