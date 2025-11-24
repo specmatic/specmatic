@@ -1,0 +1,40 @@
+openapi: 3.1.0
+
+info:
+  title: Simple API
+  version: 1.0.0
+
+paths:
+  /containsUnimplementedSchema:
+    post:
+      summary: Handle unimplemented schema property
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContainsUnimplementedSchema'
+      responses:
+        '201':
+          description: Successfully handle unimplemented schema property
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContainsUnimplementedSchema'
+        '400':
+          description: Bad Request
+
+components:
+  schemas:
+    ContainsUnimplementedSchema:
+      type: object
+      properties:
+        iHaveAnIdea:
+          type:
+            - string
+            - number
+        noIdea:
+          type: NoIdeaWhatThisTypeIs
+      required:
+        - iHaveAnIdea
+        - noIdea
