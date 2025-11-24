@@ -869,7 +869,7 @@ private fun transformSOAP1_2ActionToSOAP1_1Header(call: ApplicationCall): Map<St
         ContentType.parse(call.request.headers["Content-Type"].orEmpty()).parameters.find { it.name == "action" }
     val transformedSOAPActionHeader: Map<String, String> =
         if (soapAction != null) {
-            mapOf("SOAPAction" to soapAction.value)
+            mapOf("SOAPAction" to "\"${soapAction.value}\"")
         } else {
             emptyMap()
         }

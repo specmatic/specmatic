@@ -539,7 +539,7 @@ fun adjustForSOAP(headers: Map<String, String>): Map<String, String> {
 
     val soapActionParameter = contentType.parameters.find { it.name.equals("action", ignoreCase = true) } ?: return headers
 
-    return headers + ("SOAPAction" to soapActionParameter.value)
+    return headers + ("SOAPAction" to "\"${soapActionParameter.value}\"")
 }
 
 private fun parsePartType(multiPartSpec: Map<String, Value>, name: String): MultiPartFormDataValue {
