@@ -1067,7 +1067,9 @@ fun isInvalidOpenAPISpecification(specPath: String): Boolean = hasOpenApiFileExt
 
 fun isOpenAPI(path: String): Boolean =
     try {
-        Yaml().load<MutableMap<String, Any?>>(File(path).reader()).contains("openapi")
+        File(path).reader().use { reader ->
+            Yaml().load<MutableMap<String, Any?>>(reader).contains("openapi")
+        }
     } catch (e: Throwable) {
         logger.log(e, "Could not parse $path")
         false
