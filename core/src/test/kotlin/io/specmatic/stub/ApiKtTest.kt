@@ -592,7 +592,7 @@ Feature: Math API
         }
 
         val contractPathData = ContractPathData("", file.path)
-        val (output, result) = captureStandardOutput {  loadIfSupportedAPISpecification(contractPathData, SpecmaticConfig()) }
+        val (output, result) = captureStandardOutput { loadIfSupportedAPISpecification(contractPathData, SpecmaticConfig()) }
         assertThat(result).isNull()
         assertThat(output).contains("Skipping the file")
         assertThat(output).endsWith(expectedOutput)
