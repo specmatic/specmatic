@@ -1801,7 +1801,7 @@ class OpenApiSpecification(
         typeStack: List<String>, patternName: String, breadCrumb: String = "",
         onResolve: (String, Schema<*>) -> Unit = { _, _ -> },
         overrideToPattern: (Schema<*>, List<String>, String) -> Pattern = { schema, typeStack, patternName -> toSpecmaticPattern(schema, typeStack, patternName) }
-    ): DeferredPattern {
+    ): Pattern {
         val refSchema = classified as? ReferenceJsonSchema ?: throw ContractException("Schema with type REFERENCE must be an instance of ReferenceJsonSchema")
         val (componentName, referredSchema) = resolveReferenceToSchema(refSchema.ref)
         val resolvedSchema = if (parsedOpenApi.specVersion == SpecVersion.V31) {
@@ -1811,12 +1811,13 @@ class OpenApiSpecification(
         }
 
         onResolve(componentName, resolvedSchema)
-        if (refSchema.schema.type != null || refSchema.schema.types != null) {
+        if (parsedOpenApi.specVersion != SpecVersion.V31 && refSchema.schema.type != null) {
             val descriptor = if (patternName.isNotEmpty()) withoutPatternDelimiters(patternName) else breadCrumb
             logger.log(createWarningForRefAndSchemaSiblings(descriptor, classified.ref, refSchema.schema.type ?: refSchema.schema.types.toString()))
             logger.boundary()
         }
 
+        if (resolvedSchema != referredSchema) return overrideToPattern(resolvedSchema, typeStack, patternName)
         if (typeStack.contains(componentName)) return DeferredPattern("($componentName)")
         val componentPattern = overrideToPattern(resolvedSchema, typeStack.plus(componentName), componentName)
         cacheComponentPattern(componentName, componentPattern)
@@ -2091,7 +2092,7 @@ class OpenApiSpecification(
                     }
                 )
 
-                val componentName = withoutPatternDelimiters(deferredPattern.pattern)
+                val componentName = withoutPatternDelimiters(deferredPattern.typeAlias.orEmpty())
                 XMLPattern(XMLTypeData(
                     nodeName,
                     nodeName,
