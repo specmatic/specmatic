@@ -15,9 +15,6 @@ import org.junit.jupiter.params.provider.CsvSource
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.PrintStream
-import java.nio.file.Files
-import java.nio.file.Path
-import kotlin.io.path.createFile
 
 internal class ApiKtTest {
     @Test
@@ -595,7 +592,7 @@ Feature: Math API
         }
 
         val contractPathData = ContractPathData("", file.path)
-        val (output, result) = captureStandardOutput {  loadIfOpenAPISpecification(contractPathData, SpecmaticConfig()) }
+        val (output, result) = captureStandardOutput {  loadIfSupportedAPISpecification(contractPathData, SpecmaticConfig()) }
         assertThat(result).isNull()
         assertThat(output).contains(expectedOutput)
     }

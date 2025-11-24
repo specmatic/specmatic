@@ -281,14 +281,14 @@ fun loadContractStubsFromImplicitPathsAsResults(
         }.map { Pair(File(it.path), it) }
         .flatMap { (specFile, contractSource) ->
             when {
-                specFile.isFile && specFile.extension in CONTRACT_EXTENSIONS -> {
+                specFile.isFile -> {
                     val cachedFeature = cachedFeatures.firstOrNull { it.path == specFile.path }
                     if (cachedFeature == null) {
                         logger.newLine()
                         consoleLog(StringLog("Loading the spec file: $specFile${System.lineSeparator()}"))
                     }
                     val feature =
-                        cachedFeature ?: loadIfOpenAPISpecification(
+                        cachedFeature ?: loadIfSupportedAPISpecification(
                             contractSource,
                             specmaticConfig,
                         )?.second
@@ -448,7 +448,7 @@ fun loadContractStubsFromFilesAsResults(
     val features =
         contractPathDataList
             .mapNotNull { contractPathData ->
-                loadIfOpenAPISpecification(contractPathData, specmaticConfig)
+                loadIfSupportedAPISpecification(contractPathData, specmaticConfig)
             }.overrideInlineExamplesWithSameNameFrom(dataDirFiles(dataDirPaths))
 
     dataDirPaths.forEach { dataDirPath ->
@@ -1032,12 +1032,16 @@ fun implicitContractDataDir(
     }
 }
 
-fun loadIfOpenAPISpecification(
+fun loadIfSupportedAPISpecification(
     contractPathData: ContractPathData,
     specmaticConfig: SpecmaticConfig,
 ): Pair<String, Feature>? {
     if (!File(contractPathData.path).exists()) {
         logger.log("Skipping the file '${contractPathData.path}' as it does not exist")
+        return null
+    }
+    if (!isSupportedAPISpecification(contractPathData.path)) {
+        logger.log("Skipping the file '${contractPathData.path}' as it is not a supported API specification")
         return null
     }
 
@@ -1068,3 +1072,16 @@ fun isOpenAPI(path: String): Boolean =
         logger.log(e, "Could not parse $path")
         false
     }
+
+fun isSupportedAPISpecification(path: String): Boolean {
+    val specFile = File(path)
+    if (!specFile.isFile) return false
+    val specFileExtension = specFile.extension.lowercase()
+    if (specFileExtension !in CONTRACT_EXTENSIONS) return false
+    return when (specFileExtension)
+    {
+        in OPENAPI_FILE_EXTENSIONS -> isOpenAPI(path)
+        "wsdl", "spec" -> true
+        else -> false
+    }
+}
