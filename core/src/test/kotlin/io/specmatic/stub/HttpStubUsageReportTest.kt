@@ -145,35 +145,54 @@ paths:
         )
 
         assertThat(stubUsageReport).isEqualTo(
-            SpecmaticStubUsageReport(
-                StubUsageReportTest.CONFIG_FILE_PATH,
-                listOf(
-                    StubUsageEntry(
-                        "git",
-                        "https://github.com/specmatic/specmatic-order-contracts.git",
-                        "in/specmatic/examples/store/helloAndDataSpec.yaml",
-                        "main",
-                        "HTTP",
-                        "OPENAPI",
-                        listOf(
-                            HTTPStubUsageOperation("/data", "GET", 200, 1),
-                            HTTPStubUsageOperation("/hello", "GET", 200, 1)
-                        )
-                    ),
-                    StubUsageEntry(
-                        "git",
-                        "https://github.com/specmatic/specmatic-order-contracts.git",
-                        "in/specmatic/examples/store/hello2AndData2Spec.yaml",
-                        "main",
-                        "HTTP",
-                        "OPENAPI",
-                        listOf(
-                            HTTPStubUsageOperation("/data2", "GET", 200, 2),
-                            HTTPStubUsageOperation("/hello2", "GET", 200, 2)
-                        )
+            SpecmaticStubUsageReport()
+                .withSpecmaticConfigPath(StubUsageReportTest.CONFIG_FILE_PATH)
+                .withStubUsage(
+                    listOf(
+                        StubUsageEntry()
+                            .withType("git")
+                            .withRepository("https://github.com/specmatic/specmatic-order-contracts.git")
+                            .withSpecification("in/specmatic/examples/store/helloAndDataSpec.yaml")
+                            .withBranch("main")
+                            .withServiceType("HTTP")
+                            .withSpecType("OPENAPI")
+                            .withOperations(
+                                listOf(
+                                    HTTPStubUsageOperation()
+                                        .withPath("/data")
+                                        .withMethod("GET")
+                                        .withResponseCode(200)
+                                        .withCount(1),
+                                    HTTPStubUsageOperation()
+                                        .withPath("/hello")
+                                        .withMethod("GET")
+                                        .withResponseCode(200)
+                                        .withCount(1)
+                                )
+                            ),
+                        StubUsageEntry()
+                            .withType("git")
+                            .withRepository("https://github.com/specmatic/specmatic-order-contracts.git")
+                            .withSpecification("in/specmatic/examples/store/hello2AndData2Spec.yaml")
+                            .withBranch("main")
+                            .withServiceType("HTTP")
+                            .withSpecType("OPENAPI")
+                            .withOperations(
+                                listOf(
+                                    HTTPStubUsageOperation()
+                                        .withPath("/data2")
+                                        .withMethod("GET")
+                                        .withResponseCode(200)
+                                        .withCount(2),
+                                    HTTPStubUsageOperation()
+                                        .withPath("/hello2")
+                                        .withMethod("GET")
+                                        .withResponseCode(200)
+                                        .withCount(2)
+                                )
+                            )
                     )
                 )
-            )
         )
     }
 

@@ -34,34 +34,54 @@ class StubUsageReportTest {
 
         val stubUsageJsonReport = StubUsageReport(CONFIG_FILE_PATH, allEndpoints, stubLogs).generate()
         Assertions.assertThat(stubUsageJsonReport).isEqualTo(
-            SpecmaticStubUsageReport(
-                CONFIG_FILE_PATH, listOf(
-                    StubUsageEntry(
-                        "git",
-                        "https://github.com/specmatic/specmatic-order-contracts.git",
-                        "in/specmatic/examples/store/route1.yaml",
-                        "main",
-                        "HTTP",
-                        "OPENAPI",
-                        listOf(
-                            HTTPStubUsageOperation("/route1", "GET",200, 2),
-                            HTTPStubUsageOperation( "/route1", "POST",200, 2)
-                        )
-                    ),
-                    StubUsageEntry(
-                        "git",
-                        "https://github.com/specmatic/specmatic-order-contracts.git",
-                        "in/specmatic/examples/store/route2.yaml",
-                        "main",
-                        "HTTP",
-                        "OPENAPI",
-                        listOf(
-                            HTTPStubUsageOperation( "/route2", "GET",200, 2),
-                            HTTPStubUsageOperation( "/route2", "POST",200, 0)
-                        )
+            SpecmaticStubUsageReport()
+                .withSpecmaticConfigPath(CONFIG_FILE_PATH)
+                .withStubUsage(
+                    listOf(
+                        StubUsageEntry()
+                            .withType("git")
+                            .withRepository("https://github.com/specmatic/specmatic-order-contracts.git")
+                            .withSpecification("in/specmatic/examples/store/route1.yaml")
+                            .withBranch("main")
+                            .withServiceType("HTTP")
+                            .withSpecType("OPENAPI")
+                            .withOperations(
+                                listOf(
+                                    HTTPStubUsageOperation()
+                                        .withPath("/route1")
+                                        .withMethod("GET")
+                                        .withResponseCode(200)
+                                        .withCount(2),
+                                    HTTPStubUsageOperation()
+                                        .withPath("/route1")
+                                        .withMethod("POST")
+                                        .withResponseCode(200)
+                                        .withCount(2)
+                                )
+                            ),
+                        StubUsageEntry()
+                            .withType("git")
+                            .withRepository("https://github.com/specmatic/specmatic-order-contracts.git")
+                            .withSpecification("in/specmatic/examples/store/route2.yaml")
+                            .withBranch("main")
+                            .withServiceType("HTTP")
+                            .withSpecType("OPENAPI")
+                            .withOperations(
+                                listOf(
+                                    HTTPStubUsageOperation()
+                                        .withPath("/route2")
+                                        .withMethod("GET")
+                                        .withResponseCode(200)
+                                        .withCount(2),
+                                    HTTPStubUsageOperation()
+                                        .withPath("/route2")
+                                        .withMethod("POST")
+                                        .withResponseCode(200)
+                                        .withCount(0)
+                                )
+                            )
                     )
                 )
-            )
         )
     }
 }
