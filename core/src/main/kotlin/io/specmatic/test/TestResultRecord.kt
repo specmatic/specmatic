@@ -23,7 +23,7 @@ data class TestResultRecord(
     override val duration: Long = 0,
     override val rawStatus: String? = result.toString(),
     override val testType: String = "ContractTest"
-): io.specmatic.reporter.model.TestResultRecord {
+): io.specmatic.reporter.ctrf.model.TestResultRecord {
     val isExercised = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
     val isCovered = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
 

@@ -1,13 +1,14 @@
 package io.specmatic.test
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.FILTER
 import io.specmatic.test.reports.coverage.Endpoint
 import io.specmatic.test.reports.coverage.OpenApiCoverageReportInput
 import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
 import io.specmatic.test.reports.coverage.console.OpenApiCoverageConsoleRow
-import io.specmatic.test.reports.coverage.console.Remarks
 import io.specmatic.test.reports.renderers.CoverageReportTextRenderer
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -46,10 +47,10 @@ class ApiCoverageReportInputTest {
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
                 listOf(
-                    OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 100, Remarks.Covered),
-                    OpenApiCoverageConsoleRow("POST", "/route1", "200", "1", 100, Remarks.Covered, showPath=false, showMethod=true),
-                    OpenApiCoverageConsoleRow("POST", "/route1", "401", "1", 100, Remarks.Covered, showPath = false, showMethod = false),
-                    OpenApiCoverageConsoleRow("GET", "/route2", 200, 1, 100, Remarks.Covered)
+                    OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 100, CoverageStatus.COVERED),
+                    OpenApiCoverageConsoleRow("POST", "/route1", "200", "1", 100, CoverageStatus.COVERED, showPath=false, showMethod=true),
+                    OpenApiCoverageConsoleRow("POST", "/route1", "401", "1", 100, CoverageStatus.COVERED, showPath = false, showMethod = false),
+                    OpenApiCoverageConsoleRow("GET", "/route2", 200, 1, 100, CoverageStatus.COVERED)
                 ),
                 apiCoverageReport.testResultRecords,
                 totalEndpointsCount = 2, missedEndpointsCount = 0, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 0, partiallyNotImplementedAPICount = 0
@@ -87,13 +88,13 @@ class ApiCoverageReportInputTest {
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
                 listOf(
-                    OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 100, Remarks.Covered),
-                    OpenApiCoverageConsoleRow("POST", "/route1", 200, 1, 100, Remarks.Covered, showPath = false),
-                    OpenApiCoverageConsoleRow("POST", "/route1", 401, 1, 100, Remarks.Covered, showPath = false, showMethod = false),
-                    OpenApiCoverageConsoleRow("GET", "/route2", 200, 1, 50, Remarks.Covered),
-                    OpenApiCoverageConsoleRow("POST", "/route2", 0, 0, 50, Remarks.Missed, showPath = false),
-                    OpenApiCoverageConsoleRow("GET", "/route3", 0, 0, 0, Remarks.Missed),
-                    OpenApiCoverageConsoleRow("POST", "/route3", 0, 0, 0, Remarks.Missed, showPath = false)
+                    OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 100, CoverageStatus.COVERED),
+                    OpenApiCoverageConsoleRow("POST", "/route1", 200, 1, 100, CoverageStatus.COVERED, showPath = false),
+                    OpenApiCoverageConsoleRow("POST", "/route1", 401, 1, 100, CoverageStatus.COVERED, showPath = false, showMethod = false),
+                    OpenApiCoverageConsoleRow("GET", "/route2", 200, 1, 50, CoverageStatus.COVERED),
+                    OpenApiCoverageConsoleRow("POST", "/route2", 0, 0, 50, CoverageStatus.MISSING_IN_SPEC, showPath = false),
+                    OpenApiCoverageConsoleRow("GET", "/route3", 0, 0, 0, CoverageStatus.MISSING_IN_SPEC),
+                    OpenApiCoverageConsoleRow("POST", "/route3", 0, 0, 0, CoverageStatus.MISSING_IN_SPEC, showPath = false)
                 ),
                 apiCoverageReport.testResultRecords,
                 totalEndpointsCount = 3, missedEndpointsCount = 1, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 1, partiallyNotImplementedAPICount = 0
@@ -138,11 +139,11 @@ class ApiCoverageReportInputTest {
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
                 listOf(
-                    OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 100, Remarks.Covered),
-                    OpenApiCoverageConsoleRow("POST", "/route1", 200, 1, 100,  Remarks.Covered, showPath = false),
-                    OpenApiCoverageConsoleRow("POST", "/route1", 401, 1, 100,  Remarks.Covered, showPath = false, showMethod = false),
-                    OpenApiCoverageConsoleRow("GET", "/route2", 200, 1, 100,  Remarks.Covered),
-                    OpenApiCoverageConsoleRow("POST", "/route2", 200, 1, 100,  Remarks.Covered, showPath = false)
+                    OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 100, CoverageStatus.COVERED),
+                    OpenApiCoverageConsoleRow("POST", "/route1", 200, 1, 100,  CoverageStatus.COVERED, showPath = false),
+                    OpenApiCoverageConsoleRow("POST", "/route1", 401, 1, 100,  CoverageStatus.COVERED, showPath = false, showMethod = false),
+                    OpenApiCoverageConsoleRow("GET", "/route2", 200, 1, 100,  CoverageStatus.COVERED),
+                    OpenApiCoverageConsoleRow("POST", "/route2", 200, 1, 100,  CoverageStatus.COVERED, showPath = false)
                 ),
                 apiCoverageReport.testResultRecords,
                 totalEndpointsCount = 2,  missedEndpointsCount = 0, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 0, partiallyNotImplementedAPICount = 0
@@ -225,12 +226,12 @@ class ApiCoverageReportInputTest {
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
                 listOf(
-                    OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 100, Remarks.Covered),
-                    OpenApiCoverageConsoleRow("POST", "/route1", 200, 1, 100, Remarks.Covered, showPath = false),
-                    OpenApiCoverageConsoleRow("GET", "/route2", 200, 1, 50, Remarks.NotImplemented),
-                    OpenApiCoverageConsoleRow("GET", "/route2", 404, 0, 50, Remarks.Missed, showPath = false, showMethod = false),
-                    OpenApiCoverageConsoleRow("POST", "/route2", 200, 1, 50, Remarks.NotImplemented, showPath = false),
-                    OpenApiCoverageConsoleRow("POST", "/route2", 404, 0, 50, Remarks.Missed, showPath = false, showMethod = false)
+                    OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 100, CoverageStatus.COVERED),
+                    OpenApiCoverageConsoleRow("POST", "/route1", 200, 1, 100, CoverageStatus.COVERED, showPath = false),
+                    OpenApiCoverageConsoleRow("GET", "/route2", 200, 1, 50, CoverageStatus.NOT_IMPLEMENTED),
+                    OpenApiCoverageConsoleRow("GET", "/route2", 404, 0, 50, CoverageStatus.MISSING_IN_SPEC, showPath = false, showMethod = false),
+                    OpenApiCoverageConsoleRow("POST", "/route2", 200, 1, 50, CoverageStatus.NOT_IMPLEMENTED, showPath = false),
+                    OpenApiCoverageConsoleRow("POST", "/route2", 404, 0, 50, CoverageStatus.MISSING_IN_SPEC, showPath = false, showMethod = false)
                 ),
                 apiCoverageReport.testResultRecords,
                 totalEndpointsCount = 2, missedEndpointsCount = 0, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 1, partiallyNotImplementedAPICount = 1
@@ -267,13 +268,13 @@ class ApiCoverageReportInputTest {
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
                 listOf(
-                    OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 100, Remarks.Covered),
-                    OpenApiCoverageConsoleRow("POST", "/route1", 200, 1, 100, Remarks.Covered, showPath = false),
-                    OpenApiCoverageConsoleRow("GET", "/route2", 200, 1, 67, Remarks.Covered),
-                    OpenApiCoverageConsoleRow("POST", "/route2", 200, 1, 67, Remarks.NotImplemented, showPath = false),
-                    OpenApiCoverageConsoleRow("POST", "/route2", 404, 0, 67, Remarks.Missed, showPath = false, showMethod = false),
-                    OpenApiCoverageConsoleRow("GET", "/route3/{route_id}", 0, 0, 0, Remarks.Missed),
-                    OpenApiCoverageConsoleRow("POST", "/route3/{route_id}", 0, 0, 0, Remarks.Missed, showPath = false)
+                    OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 100, CoverageStatus.COVERED),
+                    OpenApiCoverageConsoleRow("POST", "/route1", 200, 1, 100, CoverageStatus.COVERED, showPath = false),
+                    OpenApiCoverageConsoleRow("GET", "/route2", 200, 1, 67, CoverageStatus.COVERED),
+                    OpenApiCoverageConsoleRow("POST", "/route2", 200, 1, 67, CoverageStatus.NOT_IMPLEMENTED, showPath = false),
+                    OpenApiCoverageConsoleRow("POST", "/route2", 404, 0, 67, CoverageStatus.MISSING_IN_SPEC, showPath = false, showMethod = false),
+                    OpenApiCoverageConsoleRow("GET", "/route3/{route_id}", 0, 0, 0, CoverageStatus.MISSING_IN_SPEC),
+                    OpenApiCoverageConsoleRow("POST", "/route3/{route_id}", 0, 0, 0, CoverageStatus.MISSING_IN_SPEC, showPath = false)
                 ),
                 apiCoverageReport.testResultRecords,
                 totalEndpointsCount = 3, missedEndpointsCount = 1, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 1, partiallyNotImplementedAPICount = 1
@@ -306,12 +307,9 @@ class ApiCoverageReportInputTest {
         )
 
         val openApiCoverageJsonReport = OpenApiCoverageReportInput(CONFIG_FILE_PATH, testReportRecords, applicationAPIs, allEndpoints = endpointsInSpec, endpointsAPISet = true).generateJsonReport()
-        val json = Json {
-            encodeDefaults = false
-        }
-        val reportJson = json.encodeToString(openApiCoverageJsonReport)
+        val reportJson = ObjectMapper().writeValueAsString(openApiCoverageJsonReport)
         assertThat(reportJson.trimIndent()).isEqualTo(
-            """{"specmaticConfigPath":"./specmatic.json","apiCoverage":[{"type":"git","repository":"https://github.com/specmatic/specmatic-order-contracts.git","branch":"main","specification":"in/specmatic/examples/store/route1.yaml","serviceType":"HTTP","operations":[{"path":"/route1","method":"GET","responseCode":200,"count":1,"coverageStatus":"covered"},{"path":"/route1","method":"POST","responseCode":200,"count":1,"coverageStatus":"covered"}]},{"type":"git","repository":"https://github.com/specmatic/specmatic-order-contracts.git","branch":"main","specification":"in/specmatic/examples/store/route2.yaml","serviceType":"HTTP","operations":[{"path":"/route2","method":"GET","responseCode":200,"count":1,"coverageStatus":"covered"},{"path":"/route2","method":"POST","responseCode":404,"coverageStatus":"missing in spec"},{"path":"/route2","method":"POST","responseCode":200,"count":1,"coverageStatus":"not implemented"}]},{"type":null,"repository":null,"branch":null,"specification":null,"serviceType":"HTTP","operations":[{"path":"/route3/{route_id}","method":"GET","coverageStatus":"missing in spec"},{"path":"/route3/{route_id}","method":"POST","coverageStatus":"missing in spec"}]}]}"""
+            """{"specmaticConfigPath":"./specmatic.json","apiCoverage":[{"specification":"in/specmatic/examples/store/route1.yaml","type":"git","repository":"https://github.com/specmatic/specmatic-order-contracts.git","branch":"main","serviceType":"HTTP","specType":"OPENAPI","operations":[{"path":"/route1","method":"GET","responseCode":200,"coverageStatus":"covered","count":1},{"path":"/route1","method":"POST","responseCode":200,"coverageStatus":"covered","count":1}]},{"specification":"in/specmatic/examples/store/route2.yaml","type":"git","repository":"https://github.com/specmatic/specmatic-order-contracts.git","branch":"main","serviceType":"HTTP","specType":"OPENAPI","operations":[{"path":"/route2","method":"GET","responseCode":200,"coverageStatus":"covered","count":1},{"path":"/route2","method":"POST","responseCode":404,"coverageStatus":"missing in spec","count":0},{"path":"/route2","method":"POST","responseCode":200,"coverageStatus":"not implemented","count":1}]},{"type":"git","repository":"","branch":"","serviceType":"HTTP","specType":"OPENAPI","operations":[{"path":"/route3/{route_id}","method":"GET","responseCode":0,"coverageStatus":"missing in spec","count":0},{"path":"/route3/{route_id}","method":"POST","responseCode":0,"coverageStatus":"missing in spec","count":0}]}]}"""
         )
     }
 
@@ -344,13 +342,13 @@ class ApiCoverageReportInputTest {
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
                 listOf(
-                    OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 100, Remarks.Covered),
-                    OpenApiCoverageConsoleRow("POST", "/route1", "200", "1", 100, Remarks.Covered, showPath = false),
-                    OpenApiCoverageConsoleRow("POST", "/route1", "401", "1", 100, Remarks.Covered, showPath = false, showMethod = false),
-                    OpenApiCoverageConsoleRow("GET", "/route2", 200, 1, 75, Remarks.Covered),
-                    OpenApiCoverageConsoleRow("GET", "/route2", 400, 0, 75, Remarks.NotCovered, showPath = false, showMethod = false),
-                    OpenApiCoverageConsoleRow("GET", "/route2", 404, 1, 75, Remarks.Invalid, showPath = false, showMethod = false),
-                    OpenApiCoverageConsoleRow("POST", "/route2", 500, 1, 75, Remarks.Covered, showPath = false)
+                    OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 100, CoverageStatus.COVERED),
+                    OpenApiCoverageConsoleRow("POST", "/route1", "200", "1", 100, CoverageStatus.COVERED, showPath = false),
+                    OpenApiCoverageConsoleRow("POST", "/route1", "401", "1", 100, CoverageStatus.COVERED, showPath = false, showMethod = false),
+                    OpenApiCoverageConsoleRow("GET", "/route2", 200, 1, 75, CoverageStatus.COVERED),
+                    OpenApiCoverageConsoleRow("GET", "/route2", 400, 0, 75, CoverageStatus.NOT_COVERED, showPath = false, showMethod = false),
+                    OpenApiCoverageConsoleRow("GET", "/route2", 404, 1, 75, CoverageStatus.INVALID, showPath = false, showMethod = false),
+                    OpenApiCoverageConsoleRow("POST", "/route2", 500, 1, 75, CoverageStatus.COVERED, showPath = false)
                 ),
                 apiCoverageReport.testResultRecords,
                 totalEndpointsCount = 2, missedEndpointsCount = 0, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 0, partiallyNotImplementedAPICount = 0

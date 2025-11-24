@@ -4,6 +4,11 @@ import io.specmatic.conversions.SERVICE_TYPE_HTTP
 import io.specmatic.core.filters.ExpressionStandardizer
 import io.specmatic.core.filters.TestRecordFilter
 import io.specmatic.core.log.HttpLogMessage
+import io.specmatic.core.pattern.ContractException
+import io.specmatic.reporter.generated.dto.coverage.CoverageEntry
+import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
+import io.specmatic.reporter.generated.dto.coverage.OpenAPICoverageOperation
+import io.specmatic.reporter.generated.dto.coverage.SpecmaticCoverageReport
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.API
 import io.specmatic.test.HttpInteractionsLog
@@ -12,8 +17,6 @@ import io.specmatic.test.reports.TestReportListener
 import io.specmatic.test.reports.coverage.console.GroupedTestResultRecords
 import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
 import io.specmatic.test.reports.coverage.console.OpenApiCoverageConsoleRow
-import io.specmatic.test.reports.coverage.console.Remarks
-import io.specmatic.test.reports.coverage.json.OpenApiCoverageJsonReport
 import io.specmatic.test.reports.onEachListener
 import io.specmatic.test.reports.onTestResult
 import kotlinx.serialization.Serializable
@@ -102,7 +105,7 @@ class OpenApiCoverageReportInput(
                                 requestContentType = requestContentType,
                                 responseStatus = responseStatus,
                                 count = testResults.count { it.isExercised }.toString(),
-                                remarks = Remarks.resolve(testResults),
+                                remarks = testResults.getCoverageStatus(),
                                 coveragePercentage = totalCoveragePercentage,
                             ),
                         )
@@ -166,12 +169,72 @@ class OpenApiCoverageReportInput(
         )
     }
 
-    fun generateJsonReport(): OpenApiCoverageJsonReport {
+    fun generateJsonReport(): SpecmaticCoverageReport {
         val testResults = testResultRecords.filter { testResult -> excludedAPIs.none { it == testResult.path } }
         val testResultsWithNotImplementedEndpoints =
             identifyFailedTestsDueToUnimplementedEndpointsAddMissingTests(testResults)
         val allTests = addTestResultsForMissingEndpoints(testResultsWithNotImplementedEndpoints)
-        return OpenApiCoverageJsonReport(configFilePath, allTests)
+        return SpecmaticCoverageReport()
+            .withSpecmaticConfigPath(configFilePath)
+            .withApiCoverage(allTests.toCoverageEntries())
+    }
+
+    private fun List<TestResultRecord>.toCoverageEntries(): List<CoverageEntry> {
+        return this.groupBy {
+            CoverageGroupKey(
+                it.sourceProvider,
+                it.sourceRepository,
+                it.sourceRepositoryBranch,
+                it.specification,
+                it.serviceType
+            )
+        }.map { (key, recordsOfGroup) ->
+            CoverageEntry()
+                .withSpecification(key.specification)
+                .withType(key.sourceProvider)
+                .withRepository(key.sourceRepository)
+                .withBranch(key.sourceRepositoryBranch)
+                .withServiceType(key.serviceType)
+                .withSpecType("OPENAPI")
+                .withOperations(recordsOfGroup.toOpenAPICoverageOperations())
+        }
+    }
+
+    private fun List<TestResultRecord>.toOpenAPICoverageOperations(): List<OpenAPICoverageOperation> {
+        return this.groupBy {
+            Triple(it.path, it.method, it.responseStatus)
+        }.map { (operationGroup, operationRows) ->
+            OpenAPICoverageOperation()
+                .withPath(operationGroup.first)
+                .withMethod(operationGroup.second)
+                .withResponseCode(operationGroup.third)
+                .withCoverageStatus(operationRows.getCoverageStatus())
+                .withCount(operationRows.count { it.isExercised })
+        }
+    }
+
+    private fun List<TestResultRecord>.getCoverageStatus(): CoverageStatus {
+        if(this.any { it.isWip }) return CoverageStatus.WIP
+
+        if(!this.any { it.isValid }) {
+            return when (this.first().result) {
+                TestResult.MissingInSpec -> CoverageStatus.MISSING_IN_SPEC
+                else -> CoverageStatus.INVALID
+            }
+        }
+
+        if (this.any { it.isExercised }) {
+            return when (this.first().result) {
+                TestResult.NotImplemented -> CoverageStatus.NOT_IMPLEMENTED
+                else -> CoverageStatus.COVERED
+            }
+        }
+
+        return when (val result = this.first().result) {
+            TestResult.NotCovered -> CoverageStatus.NOT_COVERED
+            TestResult.MissingInSpec -> CoverageStatus.MISSING_IN_SPEC
+            else -> throw ContractException("Cannot determine remarks for unknown test result: $result")
+        }
     }
 
     private fun List<TestResultRecord>.groupRecords(): GroupedTestResultRecords {

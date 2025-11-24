@@ -1,12 +1,14 @@
 package io.specmatic.test.reports.coverage.console
 
+import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
+
 data class OpenApiCoverageConsoleRow(
     val method: String,
     val path: String,
     val responseStatus: String,
     val count: String,
     val coveragePercentage: Int = 0,
-    val remarks: Remarks,
+    val remarks: CoverageStatus,
     val showPath: Boolean = true,
     val showMethod: Boolean = true,
     val requestContentType: String? = null
@@ -17,7 +19,7 @@ data class OpenApiCoverageConsoleRow(
         responseStatus: Int,
         count: Int,
         coveragePercentage: Int,
-        remarks: Remarks,
+        remarks: CoverageStatus,
         showPath: Boolean = true,
         showMethod: Boolean = true,
         requestContentType: String? = null

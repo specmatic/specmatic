@@ -7,20 +7,57 @@ import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.plugins.cors.*
-import io.ktor.server.plugins.cors.CORS
 import io.ktor.server.plugins.doublereceive.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.util.*
 import io.ktor.util.pipeline.*
-import io.specmatic.core.*
-import io.specmatic.core.log.*
+import io.specmatic.core.APPLICATION_NAME
+import io.specmatic.core.APPLICATION_NAME_LOWER_CASE
+import io.specmatic.core.ContractAndStubMismatchMessages
+import io.specmatic.core.Feature
+import io.specmatic.core.HttpRequest
+import io.specmatic.core.HttpResponse
+import io.specmatic.core.KeyData
+import io.specmatic.core.MismatchMessages
+import io.specmatic.core.MissingDataException
+import io.specmatic.core.MultiPartContent
+import io.specmatic.core.MultiPartContentValue
+import io.specmatic.core.MultiPartFileValue
+import io.specmatic.core.MultiPartFormDataValue
+import io.specmatic.core.NoBodyValue
+import io.specmatic.core.QueryParameters
+import io.specmatic.core.ResponseBuilder
+import io.specmatic.core.Result
+import io.specmatic.core.Results
+import io.specmatic.core.SPECMATIC_RESULT_HEADER
+import io.specmatic.core.Scenario
+import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.WorkingDirectory
+import io.specmatic.core.listOfExcludedHeaders
+import io.specmatic.core.log.HttpLogMessage
+import io.specmatic.core.log.LogMessage
+import io.specmatic.core.log.LogTail
+import io.specmatic.core.log.NewLineLogMessage
+import io.specmatic.core.log.StringLog
+import io.specmatic.core.log.consoleLog
+import io.specmatic.core.log.dontPrintToConsole
+import io.specmatic.core.log.logger
+import io.specmatic.core.parseGherkinStringToFeature
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.configureHealthCheckModule
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.isHealthCheckRequest
-import io.specmatic.core.utilities.*
+import io.specmatic.core.urlDecodePathSegments
+import io.specmatic.core.utilities.URIValidationResult
+import io.specmatic.core.utilities.capitalizeFirstChar
+import io.specmatic.core.utilities.exceptionCauseMessage
+import io.specmatic.core.utilities.exitWithMessage
+import io.specmatic.core.utilities.jsonStringToValueMap
+import io.specmatic.core.utilities.saveJsonFile
+import io.specmatic.core.utilities.toMap
+import io.specmatic.core.utilities.validateTestOrStubUri
 import io.specmatic.core.value.EmptyString
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
@@ -32,11 +69,12 @@ import io.specmatic.mock.ScenarioStub
 import io.specmatic.mock.TRANSIENT_MOCK
 import io.specmatic.mock.mockFromJSON
 import io.specmatic.mock.validateMock
+import io.specmatic.reporter.generated.dto.stub.usage.SpecmaticStubUsageReport
+import io.specmatic.reporter.internal.dto.stub.usage.merge
 import io.specmatic.stub.listener.MockEvent
 import io.specmatic.stub.listener.MockEventListener
 import io.specmatic.stub.report.StubEndpoint
 import io.specmatic.stub.report.StubUsageReport
-import io.specmatic.stub.report.StubUsageReportJson
 import io.specmatic.test.LegacyHttpClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BroadcastChannel
@@ -46,8 +84,6 @@ import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.broadcast
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.SerializationException
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -789,16 +825,17 @@ class HttpStub(
             val generatedReport = stubUsageReport.generate()
             val reportPath = File(reportBaseDirectoryPath).resolve(JSON_REPORT_PATH).canonicalFile
             val reportJson: String = reportPath.resolve(JSON_REPORT_FILE_NAME).let { reportFile ->
+                val objectMapper = ObjectMapper()
                 if (reportFile.exists()) {
                     try {
-                        val existingReport = Json.decodeFromString<StubUsageReportJson>(reportFile.readText())
-                        json.encodeToString(generatedReport.merge(existingReport))
-                    } catch (exception: SerializationException) {
+                        val existingReport = objectMapper.readValue(reportFile.readText(), SpecmaticStubUsageReport::class.java)
+                        objectMapper.writeValueAsString(generatedReport.merge(existingReport))
+                    } catch (exception: Throwable) {
                         logger.log("The existing report file is not a valid Stub Usage Report. ${exception.message}")
-                        json.encodeToString(generatedReport)
+                        objectMapper.writeValueAsString(generatedReport)
                     }
                 } else {
-                    json.encodeToString(generatedReport)
+                    objectMapper.writeValueAsString(generatedReport)
                 }
             }
 

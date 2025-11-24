@@ -1,12 +1,12 @@
 package io.specmatic.stub
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.HttpRequest
+import io.specmatic.reporter.generated.dto.stub.usage.HTTPStubUsageOperation
+import io.specmatic.reporter.generated.dto.stub.usage.SpecmaticStubUsageReport
+import io.specmatic.reporter.generated.dto.stub.usage.StubUsageEntry
 import io.specmatic.stub.report.StubEndpoint
-import io.specmatic.stub.report.StubUsageReportJson
-import io.specmatic.stub.report.StubUsageReportOperation
-import io.specmatic.stub.report.StubUsageReportRow
-import kotlinx.serialization.json.Json
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
@@ -107,8 +107,22 @@ paths:
 
     @Test
     fun `should generate stub usage report when stub is stopped`() {
-        val stubContract1 = OpenApiSpecification.fromYAML(helloAndDataSpec, "", sourceProvider = "git", sourceRepository = "https://github.com/specmatic/specmatic-order-contracts.git", sourceRepositoryBranch = "main", specificationPath = "in/specmatic/examples/store/helloAndDataSpec.yaml").toFeature()
-        val stubContract2 = OpenApiSpecification.fromYAML(hello2AndData2Spec, "", sourceProvider = "git", sourceRepository = "https://github.com/specmatic/specmatic-order-contracts.git", sourceRepositoryBranch = "main", specificationPath = "in/specmatic/examples/store/hello2AndData2Spec.yaml").toFeature()
+        val stubContract1 = OpenApiSpecification.fromYAML(
+            helloAndDataSpec,
+            "",
+            sourceProvider = "git",
+            sourceRepository = "https://github.com/specmatic/specmatic-order-contracts.git",
+            sourceRepositoryBranch = "main",
+            specificationPath = "in/specmatic/examples/store/helloAndDataSpec.yaml"
+        ).toFeature()
+        val stubContract2 = OpenApiSpecification.fromYAML(
+            hello2AndData2Spec,
+            "",
+            sourceProvider = "git",
+            sourceRepository = "https://github.com/specmatic/specmatic-order-contracts.git",
+            sourceRepositoryBranch = "main",
+            specificationPath = "in/specmatic/examples/store/hello2AndData2Spec.yaml"
+        ).toFeature()
 
         HttpStub(
             listOf(stubContract1, stubContract2),
@@ -125,35 +139,60 @@ paths:
             stub.client.execute(HttpRequest("GET", "/data2"))
         }
 
-        val stubUsageReport: StubUsageReportJson = Json.decodeFromString(stubUsageReportFile.readText())
+        val stubUsageReport: SpecmaticStubUsageReport = ObjectMapper().readValue(
+            stubUsageReportFile.readText(),
+            SpecmaticStubUsageReport::class.java
+        )
 
         assertThat(stubUsageReport).isEqualTo(
-            StubUsageReportJson(
-            StubUsageReportTest.CONFIG_FILE_PATH, listOf(
-                StubUsageReportRow(
-                    "git",
-                    "https://github.com/specmatic/specmatic-order-contracts.git",
-                    "main",
-                    "in/specmatic/examples/store/helloAndDataSpec.yaml",
-                    "HTTP",
+            SpecmaticStubUsageReport()
+                .withSpecmaticConfigPath(StubUsageReportTest.CONFIG_FILE_PATH)
+                .withStubUsage(
                     listOf(
-                        StubUsageReportOperation("/data", "GET",200, 1),
-                        StubUsageReportOperation( "/hello", "GET",200, 1)
-                    )
-                ),
-                StubUsageReportRow(
-                    "git",
-                    "https://github.com/specmatic/specmatic-order-contracts.git",
-                    "main",
-                    "in/specmatic/examples/store/hello2AndData2Spec.yaml",
-                    "HTTP",
-                    listOf(
-                        StubUsageReportOperation( "/data2", "GET",200, 2),
-                        StubUsageReportOperation( "/hello2", "GET",200, 2)
+                        StubUsageEntry()
+                            .withType("git")
+                            .withRepository("https://github.com/specmatic/specmatic-order-contracts.git")
+                            .withSpecification("in/specmatic/examples/store/helloAndDataSpec.yaml")
+                            .withBranch("main")
+                            .withServiceType("HTTP")
+                            .withSpecType("OPENAPI")
+                            .withOperations(
+                                listOf(
+                                    HTTPStubUsageOperation()
+                                        .withPath("/data")
+                                        .withMethod("GET")
+                                        .withResponseCode(200)
+                                        .withCount(1),
+                                    HTTPStubUsageOperation()
+                                        .withPath("/hello")
+                                        .withMethod("GET")
+                                        .withResponseCode(200)
+                                        .withCount(1)
+                                )
+                            ),
+                        StubUsageEntry()
+                            .withType("git")
+                            .withRepository("https://github.com/specmatic/specmatic-order-contracts.git")
+                            .withSpecification("in/specmatic/examples/store/hello2AndData2Spec.yaml")
+                            .withBranch("main")
+                            .withServiceType("HTTP")
+                            .withSpecType("OPENAPI")
+                            .withOperations(
+                                listOf(
+                                    HTTPStubUsageOperation()
+                                        .withPath("/data2")
+                                        .withMethod("GET")
+                                        .withResponseCode(200)
+                                        .withCount(2),
+                                    HTTPStubUsageOperation()
+                                        .withPath("/hello2")
+                                        .withMethod("GET")
+                                        .withResponseCode(200)
+                                        .withCount(2)
+                                )
+                            )
                     )
                 )
-            )
-        )
         )
     }
 
