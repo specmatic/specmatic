@@ -579,13 +579,13 @@ Feature: Math API
     @ParameterizedTest
     @CsvSource(
         "Filename, Should Create, Expected output",
-        "missing_file.yaml, false, Skipping the file",
-        "invalid_spec.yaml, true, Could not parse contract",
-        "not_a_spec.txt, true, Could not parse contract",
+        "missing_file.yaml, false, as it does not exist",
+        "invalid_spec.yaml, true, as it is not a supported API specification",
+        "not_a_spec.txt, true, as it is not a supported API specification",
         useHeadersInDisplayName = true
     )
     fun `loadIfOpenAPISpecification should handle invalid files gracefully by catching exceptions`(fileName: String, shouldCreate: Boolean, expectedOutput: String, @TempDir tempDir: File) {
-        val file = tempDir.resolve("invalid.yaml")
+        val file = tempDir.resolve(fileName)
 
         if(shouldCreate) {
             file.createNewFile()
@@ -594,7 +594,61 @@ Feature: Math API
         val contractPathData = ContractPathData("", file.path)
         val (output, result) = captureStandardOutput {  loadIfSupportedAPISpecification(contractPathData, SpecmaticConfig()) }
         assertThat(result).isNull()
-        assertThat(output).contains(expectedOutput)
+        assertThat(output).contains("Skipping the file")
+        assertThat(output).endsWith(expectedOutput)
+    }
+
+    @Test
+    fun `loadIfOpenAPISpecification should load a valid OpenAPI specification file`() {
+        val specContent = """
+            openapi: 3.0.0
+            info:
+              title: Sample API
+              version: 0.1.0
+            paths:
+              /hello:
+                get:
+                  responses:
+                    '200':
+                      description: Successful response
+        """.trimIndent()
+
+        val validSpecFile = File.createTempFile("valid_spec", ".yaml")
+        validSpecFile.writeText(specContent)
+
+        val contractPathData = ContractPathData("", validSpecFile.path)
+        val (_, result) = captureStandardOutput { loadIfSupportedAPISpecification(contractPathData, SpecmaticConfig()) }
+        validSpecFile.deleteOnExit()
+
+        assertThat(result).isNotNull()
+        assertThat(result?.second).isInstanceOf(Feature::class.java)
+    }
+
+    @Test
+    fun `loadIfOpenAPISpecification should not load a valid AsyncAPI specification file`() {
+        val specContent = """
+            asyncapi: '2.0.0'
+            info:
+              title: Sample API
+              version: 0.1.0
+            channels:
+              hello:
+                subscribe:
+                  message:
+                    payload:
+                      type: object
+        """.trimIndent()
+
+        val validAsyncAPISpecFile = File.createTempFile("valid_asyncapi_spec", ".yaml")
+        validAsyncAPISpecFile.writeText(specContent)
+
+        val contractPathData = ContractPathData("", validAsyncAPISpecFile.path)
+        val (output, result) = captureStandardOutput { loadIfSupportedAPISpecification(contractPathData, SpecmaticConfig()) }
+        validAsyncAPISpecFile.deleteOnExit()
+
+        assertThat(result).isNull()
+        assertThat(output).contains("Skipping the file")
+        assertThat(output).endsWith("as it is not a supported API specification")
     }
 }
 
