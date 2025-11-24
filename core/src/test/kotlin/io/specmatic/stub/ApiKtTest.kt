@@ -618,7 +618,6 @@ Feature: Math API
 
         val contractPathData = ContractPathData("", validSpecFile.path)
         val (_, result) = captureStandardOutput { loadIfSupportedAPISpecification(contractPathData, SpecmaticConfig()) }
-        validSpecFile.deleteOnExit()
 
         assertThat(result).isNotNull()
         assertThat(result?.second).isInstanceOf(Feature::class.java)
@@ -644,7 +643,6 @@ Feature: Math API
 
         val contractPathData = ContractPathData("", validAsyncAPISpecFile.path)
         val (output, result) = captureStandardOutput { loadIfSupportedAPISpecification(contractPathData, SpecmaticConfig()) }
-        validAsyncAPISpecFile.deleteOnExit()
 
         assertThat(result).isNull()
         assertThat(output).contains("Skipping the file")
