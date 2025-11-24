@@ -24,11 +24,11 @@ class StubUsageReport(
             val operations = recordsOfGroup.groupBy {
                 Triple(it.path, it.method, it.responseCode)
             }.map { (operationGroup, _) ->
-                HTTPStubUsageOperation(
-                    operationGroup.first?.let { convertPathParameterStyle(it) }.orEmpty(),
-                    operationGroup.second.orEmpty(),
-                    operationGroup.third,
-                    stubLogs.count {
+                HTTPStubUsageOperation().withPath(
+                    operationGroup.first?.let { convertPathParameterStyle(it) }.orEmpty()
+                ).withMethod(operationGroup.second.orEmpty())
+                    .withResponseCode(operationGroup.third)
+                    .withCount(stubLogs.count {
                         it.path == operationGroup.first
                                 && it.method == operationGroup.second
                                 && it.responseCode == operationGroup.third
@@ -37,20 +37,20 @@ class StubUsageReport(
                                 && it.sourceRepositoryBranch == key.sourceRepositoryBranch
                                 && it.specification == key.specification
                                 && it.serviceType == key.serviceType
-                    }
-                )
+                    })
             }
-            StubUsageEntry(
-                key.sourceProvider,
-                key.sourceRepository,
-                key.specification,
-                key.sourceRepositoryBranch,
-                key.serviceType,
-                "OPENAPI",
-                operations
-            )
+            StubUsageEntry()
+                .withType(key.sourceProvider)
+                .withRepository(key.sourceRepository)
+                .withSpecification(key.specification)
+                .withBranch(key.sourceRepositoryBranch)
+                .withServiceType(key.serviceType)
+                .withSpecType("OPENAPI")
+                .withOperations(operations)
         }
-        return SpecmaticStubUsageReport(configFilePath, stubUsageJsonRows)
+        return SpecmaticStubUsageReport()
+            .withSpecmaticConfigPath(configFilePath)
+            .withStubUsage(stubUsageJsonRows)
     }
 }
 

@@ -174,7 +174,9 @@ class OpenApiCoverageReportInput(
         val testResultsWithNotImplementedEndpoints =
             identifyFailedTestsDueToUnimplementedEndpointsAddMissingTests(testResults)
         val allTests = addTestResultsForMissingEndpoints(testResultsWithNotImplementedEndpoints)
-        return SpecmaticCoverageReport(configFilePath, allTests.toCoverageEntries())
+        return SpecmaticCoverageReport()
+            .withSpecmaticConfigPath(configFilePath)
+            .withApiCoverage(allTests.toCoverageEntries())
     }
 
     private fun List<TestResultRecord>.toCoverageEntries(): List<CoverageEntry> {
@@ -187,15 +189,14 @@ class OpenApiCoverageReportInput(
                 it.serviceType
             )
         }.map { (key, recordsOfGroup) ->
-            CoverageEntry(
-                key.specification,
-                key.sourceProvider,
-                key.sourceRepository,
-                key.sourceRepositoryBranch,
-                key.serviceType,
-                "OPENAPI",
-                recordsOfGroup.toOpenAPICoverageOperations()
-            )
+            CoverageEntry()
+                .withSpecification(key.specification)
+                .withType(key.sourceProvider)
+                .withRepository(key.sourceRepository)
+                .withBranch(key.sourceRepositoryBranch)
+                .withServiceType(key.serviceType)
+                .withSpecType("OPENAPI")
+                .withOperations(recordsOfGroup.toOpenAPICoverageOperations())
         }
     }
 
@@ -203,13 +204,12 @@ class OpenApiCoverageReportInput(
         return this.groupBy {
             Triple(it.path, it.method, it.responseStatus)
         }.map { (operationGroup, operationRows) ->
-            OpenAPICoverageOperation(
-                operationGroup.first,
-                operationGroup.second,
-                operationGroup.third,
-                operationRows.getCoverageStatus(),
-                operationRows.count { it.isExercised },
-            )
+            OpenAPICoverageOperation()
+                .withPath(operationGroup.first)
+                .withMethod(operationGroup.second)
+                .withResponseCode(operationGroup.third)
+                .withCoverageStatus(operationRows.getCoverageStatus())
+                .withCount(operationRows.count { it.isExercised })
         }
     }
 
