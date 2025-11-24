@@ -87,9 +87,9 @@ data class EnumPattern(override val pattern: AnyPattern, val nullable: Boolean, 
 
         val enumValues = pattern.pattern.mapNotNull { (it as? ExactValuePattern)?.pattern }.toSet()
         val enumDataTypes = enumValues.map { it.deepPattern() }.toSet()
-        return pattern.negativeBasedOn(row, resolver).filter { it: ReturnValue<Pattern> ->
-            if (it !is HasValue) return@filter true
-            when (val candidate = it.value) {
+        return pattern.negativeBasedOn(row, resolver).filter { negativePattern: ReturnValue<Pattern> ->
+            if (negativePattern !is HasValue) return@filter true
+            when (val candidate = negativePattern.value) {
                 is ExactValuePattern -> candidate.pattern !in enumValues
                 else -> candidate !in enumDataTypes
             }
