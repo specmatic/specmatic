@@ -181,6 +181,17 @@ class EnumPatternTest {
 
             assertThat(negativeTypes).containsExactlyInAnyOrder("3", "\"One_\"")
         }
+
+        @Test
+        @Tag(GENERATION)
+        fun `should be able to generate patterns from const enum null`() {
+            val enum = EnumPattern(listOf(NullValue), nullable = true)
+            val newBasedOn = enum.newBasedOn(Resolver()).toList()
+            val negativeBasedOn = enum.negativeBasedOn(Row(), Resolver()).map { it.value.typeName }.toList()
+
+            assertThat(newBasedOn).containsExactlyInAnyOrder(ExactValuePattern(NullValue, isConst = true))
+            assertThat(negativeBasedOn).containsExactlyInAnyOrder("string", "number", "boolean")
+        }
     }
 
     private fun toStringEnum(vararg items: String): EnumPattern {

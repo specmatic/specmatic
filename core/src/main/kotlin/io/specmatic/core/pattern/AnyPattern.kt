@@ -604,7 +604,7 @@ data class AnyPattern(
     private fun getResult(failures: List<Failure>): List<Failure> = when {
         isNullablePattern() -> {
             val index = pattern.indexOfFirst { !isEmpty(it) }
-            listOf(failures[index])
+            failures.getOrNull(index)?.let(::listOf) ?: failures
         }
         else -> failures
     }
