@@ -150,7 +150,7 @@ open class JsonSchema(open val schema: Schema<*>, open val type: JsonSchemaType)
             val hasAdditionalProps = schema.additionalProperties != null && schema.additionalProperties != false
             if (hasProperties || hasAdditionalProps) return JsonSchema(schema, JsonSchemaType.OBJECT)
 
-            logger.log("Unrecognized schema type: ${schema::class}, defaulting to AnyValue")
+            logger.log("Unrecognized schema type: ${schema::class} with types: ${schema.types}, defaulting to AnyValue")
             return JsonSchema(schema, JsonSchemaType.ANY_VALUE)
         }
 

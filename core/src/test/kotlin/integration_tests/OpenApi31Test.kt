@@ -8,6 +8,7 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.StubConfiguration
 import io.specmatic.core.TestConfiguration
 import io.specmatic.core.examples.server.ScenarioFilter
+import io.specmatic.core.pattern.AnyNonNullJSONValue
 import io.specmatic.core.pattern.AnyOfPattern
 import io.specmatic.core.pattern.AnyPattern
 import io.specmatic.core.pattern.BooleanPattern
@@ -31,6 +32,7 @@ import io.specmatic.stub.HttpStub
 import io.specmatic.stub.SpecmaticConfigSource
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
 import java.io.File
 import java.math.BigDecimal
 
@@ -259,5 +261,23 @@ class OpenApi31Test {
         assertThat(Result.fromResults(openApi31To30.results))
             .withFailMessage { Result.fromResults(openApi31To30.results).reportString() }
             .isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `should not throw and exit for unimplemented schemes from and openAPI Specification`() {
+        val openApi31File = File("src/test/resources/openapi/3_1/unimplemented/openapi.yaml")
+        val openApiSpecification = assertDoesNotThrow { OpenApiSpecification.fromFile(openApi31File.canonicalPath) }
+        val feature = assertDoesNotThrow { openApiSpecification.toFeature() }
+
+        val scenario = feature.scenarios.first()
+        val requestBody = resolvedHop(scenario.httpRequestPattern.body, scenario.resolver)
+        val responseBody = resolvedHop(scenario.httpResponsePattern.body, scenario.resolver)
+
+        assertThat(requestBody).isEqualTo(responseBody)
+        assertThat(requestBody).isInstanceOf(JSONObjectPattern::class.java); requestBody as JSONObjectPattern
+        assertThat(requestBody.pattern["iHaveAnIdea"]).isInstanceOf(AnyOfPattern::class.java)
+        assertThat(requestBody.pattern["noIdea"]).isInstanceOf(AnyNonNullJSONValue::class.java) // Unimplemented type
+        assertThat((requestBody.pattern.getValue("iHaveAnIdea") as AnyOfPattern).pattern.map { it::class.java })
+            .containsExactlyInAnyOrder(StringPattern::class.java, NumberPattern::class.java)
     }
 }
