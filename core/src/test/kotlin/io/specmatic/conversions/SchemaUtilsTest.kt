@@ -98,4 +98,45 @@ class SchemaUtilsTest {
         assertThat(result.description).isEqualTo("An integer")
         assertThat(result.minimum).isEqualTo(BigDecimal("10"))
     }
+
+    @Test
+    fun `mergeResolvedIfJsonSchema should return original instance (optimization) when refSchema has no siblings`() {
+        val resolved = JsonSchema().apply { description = "Base Description" }
+        val refWrapper = JsonSchema().apply { `$ref` = "#/components/schemas/SomeRef" }
+        val result = SchemaUtils.mergeResolvedIfJsonSchema(resolved, refWrapper)
+        assertThat(result).isSameAs(resolved)
+        assertThat(result.description).isEqualTo("Base Description")
+    }
+
+    @Test
+    fun `mergeResolvedIfJsonSchema should create new instance when refSchema has siblings`() {
+        val resolved = JsonSchema().apply {
+            description = "Base Description"
+        }
+
+        val refWrapper = JsonSchema().apply {
+            `$ref` = "#/components/schemas/SomeRef"
+            description = "Override Description"
+        }
+
+        val result = SchemaUtils.mergeResolvedIfJsonSchema(resolved, refWrapper)
+        assertThat(result).isNotSameAs(resolved)
+        assertThat(result.description).isEqualTo("Override Description")
+    }
+
+    @Test
+    fun `mergeResolvedIfJsonSchema should ignore empty collections when checking for siblings`() {
+        val resolved = JsonSchema().apply {
+            description = "Base Description"
+        }
+
+        val refWrapper = JsonSchema().apply {
+            `$ref` = "#/components/schemas/SomeRef"
+            required = emptyList()
+            extensions = emptyMap()
+        }
+
+        val result = SchemaUtils.mergeResolvedIfJsonSchema(resolved, refWrapper)
+        assertThat(result).isSameAs(resolved)
+    }
 }

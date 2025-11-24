@@ -8,14 +8,18 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.StubConfiguration
 import io.specmatic.core.TestConfiguration
 import io.specmatic.core.examples.server.ScenarioFilter
+import io.specmatic.core.pattern.AnyOfPattern
 import io.specmatic.core.pattern.AnyPattern
+import io.specmatic.core.pattern.BooleanPattern
 import io.specmatic.core.pattern.EmailPattern
 import io.specmatic.core.pattern.EnumPattern
 import io.specmatic.core.pattern.ExactValuePattern
 import io.specmatic.core.pattern.JSONObjectPattern
+import io.specmatic.core.pattern.ListPattern
 import io.specmatic.core.pattern.NullPattern
 import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.pattern.StringPattern
+import io.specmatic.core.pattern.UUIDPattern
 import io.specmatic.core.pattern.resolvedHop
 import io.specmatic.core.testBackwardCompatibility
 import io.specmatic.core.utilities.Flags
@@ -33,7 +37,7 @@ import java.math.BigDecimal
 class OpenApi31Test {
     private val openApi31File = File("src/test/resources/openapi/3_1/mixed/openapi31.yaml")
     private val openApi30File = File("src/test/resources/openapi/3_1/mixed/openapi30.yaml")
-    private val openApi31TestFilter = "PATH!='/multiTypeEnumSchema,/contNullValueSchema'"
+    private val backwardCompatibilityFilter = "PATH!='/multiTypeEnumSchema'"
     private val specmaticConfig = SpecmaticConfig(
         test = TestConfiguration(resiliencyTests = ResiliencyTestsConfig(enable = ResiliencyTestSuite.all)),
         stub = StubConfiguration(generative = true),
@@ -114,6 +118,69 @@ class OpenApi31Test {
         assertThat(nullConstKeySchema).isInstanceOf(ExactValuePattern::class.java); nullConstKeySchema as ExactValuePattern
         assertThat(nullConstKeySchema.pattern).isEqualTo(NullValue)
         assertThat(nullConstKeySchema.isConst).isTrue
+
+        // Nullable Object Schema [object null]
+        val nullableObjectScenario = feature.scenarios.elementAt(12)
+        val nullableObjectRequestBody = resolvedHop(nullableObjectScenario.httpRequestPattern.body, nullableObjectScenario.resolver)
+        val nullableObjectResponseBody = resolvedHop(nullableObjectScenario.httpResponsePattern.body, nullableObjectScenario.resolver)
+
+        assertThat(nullableObjectRequestBody).isEqualTo(nullableObjectResponseBody)
+        assertThat(nullableObjectRequestBody).isInstanceOf(AnyPattern::class.java); nullableObjectRequestBody as AnyPattern
+        assertThat(nullableObjectRequestBody.pattern).hasSize(2)
+        assertThat(nullableObjectRequestBody.pattern.map { it::class.java })
+            .containsExactlyInAnyOrder(JSONObjectPattern::class.java, NullPattern::class.java)
+        assertThat(nullableObjectRequestBody.pattern.filterIsInstance<JSONObjectPattern>().first().pattern)
+            .containsExactlyInAnyOrderEntriesOf(mapOf("key" to StringPattern()))
+
+        // Nullable Array Schema [array null]
+        val nullableArrayScenario = feature.scenarios.elementAt(14)
+        val nullableArrayRequestBody = resolvedHop(nullableArrayScenario.httpRequestPattern.body, nullableArrayScenario.resolver)
+        val nullableArrayResponseBody = resolvedHop(nullableArrayScenario.httpResponsePattern.body, nullableArrayScenario.resolver)
+
+        assertThat(nullableArrayRequestBody).isEqualTo(nullableArrayResponseBody)
+        assertThat(nullableArrayRequestBody).isInstanceOf(AnyPattern::class.java); nullableArrayRequestBody as AnyPattern
+        assertThat(nullableArrayRequestBody.pattern).hasSize(2)
+        assertThat(nullableArrayRequestBody.pattern.map { it::class.java })
+            .containsExactlyInAnyOrder(ListPattern::class.java, NullPattern::class.java)
+        assertThat(nullableArrayRequestBody.pattern.filterIsInstance<ListPattern>().first().pattern)
+            .isInstanceOf(StringPattern::class.java)
+
+        // OneOf Schema [String(ref), Integer, Object]
+        val oneOfScenario = feature.scenarios.elementAt(16)
+        val oneOfRequestBody = resolvedHop(oneOfScenario.httpRequestPattern.body, oneOfScenario.resolver)
+        val oneOfResponseBody = resolvedHop(oneOfScenario.httpResponsePattern.body, oneOfScenario.resolver)
+
+        assertThat(oneOfRequestBody).isEqualTo(oneOfResponseBody)
+        assertThat(oneOfRequestBody).isInstanceOf(AnyPattern::class.java); oneOfRequestBody as AnyPattern
+        assertThat(oneOfRequestBody.pattern).hasSize(3)
+        assertThat(oneOfRequestBody.pattern.map { it::class.java })
+            .containsExactlyInAnyOrder(StringPattern::class.java, NumberPattern::class.java, JSONObjectPattern::class.java)
+
+        val oneOfObjectComponent = oneOfRequestBody.pattern.filterIsInstance<JSONObjectPattern>().first()
+        assertThat(oneOfObjectComponent.pattern).containsKey("id?")
+        assertThat(oneOfObjectComponent.pattern["id?"]).isInstanceOf(NumberPattern::class.java)
+
+        // AllOf Schema (Merged properties: baseId + details)
+        val allOfScenario = feature.scenarios.elementAt(18)
+        val allOfRequestBody = resolvedHop(allOfScenario.httpRequestPattern.body, allOfScenario.resolver)
+        val allOfResponseBody = resolvedHop(allOfScenario.httpResponsePattern.body, allOfScenario.resolver)
+
+        assertThat(allOfRequestBody).isEqualTo(allOfResponseBody)
+        assertThat(allOfRequestBody).isInstanceOf(JSONObjectPattern::class.java); allOfRequestBody as JSONObjectPattern
+        assertThat(allOfRequestBody.pattern.keys).containsExactlyInAnyOrder("baseId?", "details?")
+        assertThat(allOfRequestBody.pattern["baseId?"]).isInstanceOf(UUIDPattern::class.java)
+        assertThat(allOfRequestBody.pattern["details?"]).isInstanceOf(StringPattern::class.java)
+
+        // AnyOf Schema [String, Integer, Boolean]
+        val anyOfScenario = feature.scenarios.elementAt(20)
+        val anyOfRequestBody = resolvedHop(anyOfScenario.httpRequestPattern.body, anyOfScenario.resolver)
+        val anyOfResponseBody = resolvedHop(anyOfScenario.httpResponsePattern.body, anyOfScenario.resolver)
+
+        assertThat(anyOfRequestBody).isEqualTo(anyOfResponseBody)
+        assertThat(anyOfRequestBody).isInstanceOf(AnyOfPattern::class.java); anyOfRequestBody as AnyOfPattern
+        assertThat(anyOfRequestBody.pattern).hasSize(3)
+        assertThat(anyOfRequestBody.pattern.map { it::class.java })
+            .containsExactlyInAnyOrder(StringPattern::class.java, NumberPattern::class.java, BooleanPattern::class.java)
     }
 
     @Test
@@ -130,11 +197,10 @@ class OpenApi31Test {
             feature.executeTests(stub.client)
         }.results
 
-        assertThat(results.size).isEqualTo(32)
+        assertThat(results.size).isEqualTo(61)
         assertThat(Result.fromResults(results))
             .withFailMessage { Result.fromResults(results).reportString() }
             .isInstanceOf(Result.Success::class.java)
-
     }
 
     @Test
@@ -149,7 +215,7 @@ class OpenApi31Test {
             openApi30Specification.toFeature().copy(specmaticConfig = specmaticConfig).executeTests(stub.client)
         }.results
 
-        assertThat(results.size).isEqualTo(22)
+        assertThat(results.size).isEqualTo(61 + 2) // +2 Due to multiTypEnum representation
         assertThat(Result.fromResults(results))
             .withFailMessage { Result.fromResults(results).reportString() }
             .isInstanceOf(Result.Success::class.java)
@@ -159,16 +225,15 @@ class OpenApi31Test {
     fun `openapi 31 specification should be able to test a similar 30 stub`() {
         val openApi31Specification = OpenApiSpecification.fromFile(openApi31File.canonicalPath)
         val openApi30Specification = OpenApiSpecification.fromFile(openApi30File.canonicalPath)
-        val filtered31Feature = ScenarioFilter(filterClauses = openApi31TestFilter).filter(openApi31Specification.toFeature())
 
         val results = HttpStub(
             features = listOf(openApi30Specification.toFeature()),
             specmaticConfigSource = SpecmaticConfigSource.fromConfig(specmaticConfig)
         ).use { stub ->
-            filtered31Feature.copy(specmaticConfig = specmaticConfig).executeTests(stub.client)
+            openApi31Specification.toFeature().copy(specmaticConfig = specmaticConfig).executeTests(stub.client)
         }.results
 
-        assertThat(results.size).isEqualTo(22)
+        assertThat(results.size).isEqualTo(61)
         assertThat(Result.fromResults(results))
             .withFailMessage { Result.fromResults(results).reportString() }
             .isInstanceOf(Result.Success::class.java)
@@ -179,18 +244,18 @@ class OpenApi31Test {
         val openApi31Specification = OpenApiSpecification.fromFile(openApi31File.canonicalPath)
         val openApi30Specification = OpenApiSpecification.fromFile(openApi30File.canonicalPath)
 
-        val openApi30Feature = openApi30Specification.toFeature()
-        val openApi31Feature = openApi31Specification.toFeature()
-        val filtered31Feature = ScenarioFilter(filterClauses = openApi31TestFilter).filter(openApi31Feature)
+        // TODO: MultiType Enum just doesn't work in 30 context for backward-compat test
+        val openApi30Feature = ScenarioFilter(filterClauses = backwardCompatibilityFilter).filter(openApi30Specification.toFeature())
+        val openApi31Feature = ScenarioFilter(filterClauses = backwardCompatibilityFilter).filter(openApi31Specification.toFeature())
 
-        val openApi30To31 = testBackwardCompatibility(openApi30Feature, filtered31Feature)
-        assertThat(openApi30To31.results).hasSize(12)
+        val openApi30To31 = testBackwardCompatibility(openApi30Feature, openApi31Feature)
+        assertThat(openApi30To31.results).hasSize(40)
         assertThat(Result.fromResults(openApi30To31.results))
             .withFailMessage { Result.fromResults(openApi30To31.results).reportString() }
             .isInstanceOf(Result.Success::class.java)
 
-        val openApi31To30 = testBackwardCompatibility(filtered31Feature, openApi30Feature)
-        assertThat(openApi31To30.results).hasSize(12)
+        val openApi31To30 = testBackwardCompatibility(openApi31Feature, openApi30Feature)
+        assertThat(openApi31To30.results).hasSize(40)
         assertThat(Result.fromResults(openApi31To30.results))
             .withFailMessage { Result.fromResults(openApi31To30.results).reportString() }
             .isInstanceOf(Result.Success::class.java)

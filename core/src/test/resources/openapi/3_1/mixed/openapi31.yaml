@@ -119,6 +119,101 @@ paths:
         '400':
           description: Bad Request
 
+  /nullableObjectSchema:
+    post:
+      summary: Handle nullable object schema
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NullableObjectSchema'
+      responses:
+        '201':
+          description: Successfully created Nullable Object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NullableObjectSchema'
+        '400':
+          description: Bad Request
+
+  /nullableArraySchema:
+    post:
+      summary: Handle nullable array schema
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NullableArraySchema'
+      responses:
+        '201':
+          description: Successfully created Nullable Array
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NullableArraySchema'
+        '400':
+          description: Bad Request
+
+  /oneOfSchema:
+    post:
+      summary: Handle oneOf schema
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OneOfSchema'
+      responses:
+        '201':
+          description: Successfully created oneOf
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OneOfSchema'
+        '400':
+          description: Bad Request
+
+  /allOfSchema:
+    post:
+      summary: Handle allOf schema
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AllOfSchema'
+      responses:
+        '201':
+          description: Successfully created allOf
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AllOfSchema'
+        '400':
+          description: Bad Request
+
+  /anyOfSchema:
+    post:
+      summary: Handle anyOf schema
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnyOfSchema'
+      responses:
+        '201':
+          description: Successfully created anyOf
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnyOfSchema'
+        '400':
+          description: Bad Request
+
 components:
   schemas:
     MultiTypeSchema:
@@ -188,3 +283,47 @@ components:
 
     RandomStringSchema:
       type: string
+
+    NullableObjectSchema:
+      type:
+        - object
+        - 'null'
+      properties:
+        key:
+          type: string
+      required:
+        - key
+
+    NullableArraySchema:
+      type:
+        - array
+        - 'null'
+      items:
+        type: string
+
+    OneOfSchema:
+      oneOf:
+        - $ref: '#/components/schemas/RandomStringSchema'
+        - type: integer
+        - type: object
+          properties:
+            id:
+              type: integer
+
+    AllOfSchema:
+      allOf:
+        - type: object
+          properties:
+            baseId:
+              type: string
+              format: uuid
+        - type: object
+          properties:
+            details:
+              type: string
+
+    AnyOfSchema:
+      anyOf:
+        - type: string
+        - type: integer
+        - type: boolean
