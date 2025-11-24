@@ -31,7 +31,5 @@ data class CDATAValue(
     override val nativeValue: String
         get() = stringValue.string
 
-    override fun alterValue(): ScalarValue {
-        return this
-    }
+    override fun alterValue(): ScalarValue = stringValue.alterValue()
 }
