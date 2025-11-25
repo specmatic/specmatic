@@ -1073,6 +1073,36 @@ data class Feature(
             }
 
             ListPattern(convergedNewPattern)
+        } else if (basePayload is JSONArrayPattern && basePayload.pattern.isEmpty() && newPayload is JSONArrayPattern && newPayload.pattern.isEmpty()) {
+            val baseTypeAlias = basePayload.typeAlias
+            val newTypeAlias = newPayload.typeAlias
+
+            if (baseTypeAlias != null)
+                ListPattern(DeferredPattern(baseTypeAlias))
+            else if (newTypeAlias != null)
+                ListPattern(DeferredPattern(newTypeAlias))
+            else
+                basePayload
+        } else if (basePayload is JSONArrayPattern && newPayload is JSONArrayPattern && (basePayload.pattern.isNotEmpty() || newPayload.pattern.isNotEmpty())) {
+            val allPatterns = basePayload.pattern + newPayload.pattern
+            val convergedPattern: Pattern =
+                allPatterns.reduce { acc, newPattern ->
+                    converge(acc, newPattern, scenarioName)
+                }
+
+            ListPattern(convergedPattern)
+        } else if (basePayload is JSONArrayPattern && newPayload is ListPattern) {
+            if (basePayload.pattern.isEmpty()) {
+                newPayload
+            } else {
+                val allPatterns = basePayload.pattern + newPayload.pattern
+                val convergedPattern: Pattern =
+                    allPatterns.reduce { acc, newPattern ->
+                        converge(acc, newPattern, scenarioName)
+                    }
+
+                ListPattern(convergedPattern)
+            }
         } else if (basePayload is ListPattern && newPayload is ListPattern) {
             val convergedNewPattern: Pattern = converge(basePayload.pattern, newPayload.pattern, scenarioName)
 
@@ -1233,8 +1263,8 @@ data class Feature(
                 similarURLPath(alreadyCombinedScenario, payloadAdjustedScenario)
                     && alreadyCombinedScenario.httpRequestPattern.method == payloadAdjustedScenario.httpRequestPattern.method
                     && alreadyCombinedScenario.httpResponsePattern.status == payloadAdjustedScenario.httpResponsePattern.status
-                    && alreadyCombinedScenario.requestContentType == payloadAdjustedScenario.requestContentType
-                    && alreadyCombinedScenario.responseContentType == payloadAdjustedScenario.responseContentType
+                    && (alreadyCombinedScenario.requestContentType == payloadAdjustedScenario.requestContentType || (alreadyCombinedScenario.requestContentType == null || payloadAdjustedScenario.requestContentType == null))
+                    && (alreadyCombinedScenario.responseContentType == payloadAdjustedScenario.responseContentType || (alreadyCombinedScenario.responseContentType == null || payloadAdjustedScenario.responseContentType == null))
             }
 
             if (scenarioWithSameIdentifiers == null)
@@ -1341,14 +1371,71 @@ data class Feature(
         }.flatten().fold(emptyMap<String, Pattern>()) { acc, entry ->
             val key = withoutPatternDelimiters(entry.key)
 
-            if (acc.contains(key) && isObjectType(acc.getValue(key))) {
-                val converged: Map<String, Pattern> = objectStructure(acc.getValue(key))
+            val accPattern = acc[key] ?: return@fold acc.plus(key to entry.value)
+
+            if (isObjectType(accPattern)) {
+                if (!isObjectType(entry.value)) {
+                    return@fold acc
+                }
+
+                val converged: Map<String, Pattern> = objectStructure(accPattern)
                 val new: Map<String, Pattern> = objectStructure(entry.value)
 
-                acc.plus(key to TabularPattern(convergePatternMap(converged, new)))
-            } else {
-                acc.plus(key to entry.value)
+                return@fold acc.plus(key to TabularPattern(convergePatternMap(converged, new)))
             }
+
+            if (accPattern is ListPattern && isObjectType(accPattern.pattern)) {
+                val entryPattern = entry.value
+
+                val new: Map<String, Pattern> =
+                    if (entryPattern is ListPattern && isObjectType(entryPattern.pattern)) {
+                        objectStructure(entryPattern)
+                    } else if (entryPattern is JSONArrayPattern && entryPattern.pattern.isNotEmpty()) {
+                        if (entryPattern.pattern.any { !isObjectType(it) }) {
+                            return@fold acc
+                        }
+
+                        entryPattern.pattern.fold(emptyMap()) { acc, pattern ->
+                            val patternStruct = objectStructure(pattern)
+                            convergePatternMap(acc, patternStruct)
+                        }
+                    } else {
+                        return@fold acc
+                    }
+
+                val converged: Map<String, Pattern> = objectStructure(accPattern.pattern)
+
+                return@fold acc.plus(key to ListPattern(JSONObjectPattern(convergePatternMap(converged, new))))
+            }
+
+            if (accPattern is JSONArrayPattern && accPattern.pattern.isNotEmpty() && accPattern.pattern.all { isObjectType(it) }) {
+                val entryPattern = entry.value
+
+                val new: Map<String, Pattern> =
+                    if (entryPattern is ListPattern && isObjectType(entryPattern.pattern)) {
+                        objectStructure(entryPattern)
+                    } else if (entryPattern is JSONArrayPattern && entryPattern.pattern.isNotEmpty()) {
+                        if (entryPattern.pattern.any { !isObjectType(it) }) {
+                            return@fold acc
+                        }
+
+                        entryPattern.pattern.fold(emptyMap()) { acc, pattern ->
+                            val patternStruct = objectStructure(pattern)
+                            convergePatternMap(acc, patternStruct)
+                        }
+                    } else {
+                        return@fold acc
+                    }
+
+                val converged: Map<String, Pattern> = accPattern.pattern.fold(emptyMap()) { acc, pattern ->
+                    val patternStruct = objectStructure(pattern)
+                    convergePatternMap(acc, patternStruct)
+                }
+
+                return@fold acc.plus(key to JSONObjectPattern(convergePatternMap(converged, new)))
+            }
+
+            return@fold acc.plus(key to entry.value)
         }.mapKeys {
             withoutPatternDelimiters(it.key)
         }
