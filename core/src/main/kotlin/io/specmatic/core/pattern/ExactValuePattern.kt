@@ -9,7 +9,7 @@ import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.ScalarValue
 import io.specmatic.core.value.Value
 
-data class ExactValuePattern(override val pattern: Value, override val typeAlias: String? = null, val discriminator: Boolean = false, val isConst: Boolean = false) : Pattern {
+data class ExactValuePattern(override val pattern: Value, override val typeAlias: String? = null, val discriminator: Boolean = false) : Pattern {
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         return when (pattern == sampleData) {
             true -> Result.Success()
@@ -45,7 +45,7 @@ data class ExactValuePattern(override val pattern: Value, override val typeAlias
 
     override fun newBasedOn(resolver: Resolver): Sequence<Pattern> = sequenceOf(this)
     override fun negativeBasedOn(row: Row, resolver: Resolver, config: NegativePatternConfiguration): Sequence<ReturnValue<Pattern>> = sequence {
-        if (isConst && pattern is ScalarValue && pattern !is NullValue) {
+        if (pattern is ScalarValue && pattern !is NullValue) {
             val alteredValue = pattern.alterValue()
             yield(HasValue(ExactValuePattern(alteredValue), "is mutated from ${pattern.displayableValue()} to ${alteredValue.displayableValue()}"))
         }

@@ -91,7 +91,7 @@ data class AnyPattern(
     override fun jsonObjectPattern(resolver: Resolver): JSONObjectPattern? {
         if (this.hasNoAmbiguousPatterns().not()) return null
 
-        val pattern = this.pattern.first(::isEmpty)
+        val pattern = this.pattern.first { !isEmpty(it) }
         if (pattern is JSONObjectPattern) return pattern
         if (pattern is PossibleJsonObjectPatternContainer) return pattern.jsonObjectPattern(resolver)
         return null
@@ -310,9 +310,9 @@ data class AnyPattern(
 
     override fun parse(value: String, resolver: Resolver): Value {
         val resolvedTypes = pattern.map { resolvedHop(it, resolver) }
-        val nonNullTypesLast = resolvedTypes.sortedBy(::isEmpty)
+        val nonNullTypesFirst = resolvedTypes.sortedBy(::isEmpty)
 
-        return nonNullTypesLast.asSequence().map {
+        return nonNullTypesFirst.asSequence().map {
             try {
                 it.parse(value, resolver)
             } catch (e: Throwable) {
@@ -578,7 +578,7 @@ data class AnyPattern(
     private fun allValuesAreScalar() = pattern.all { it is ExactValuePattern && it.pattern is ScalarValue }
 
     private fun hasNoAmbiguousPatterns(): Boolean {
-        return this.pattern.count(::isEmpty) == 1
+        return this.pattern.count { !isEmpty(it) } == 1
     }
 
     private fun addTypeInfoBreadCrumbs(matchResults: List<AnyPatternMatch>): List<Failure> {
