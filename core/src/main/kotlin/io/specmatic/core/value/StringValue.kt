@@ -8,7 +8,9 @@ import org.apache.commons.lang3.StringEscapeUtils
 import org.w3c.dom.Document
 import org.w3c.dom.Node
 
-data class StringValue(val string: String = "", private val xml: Boolean = false) : Value, ScalarValue, XMLValue {
+data class StringValue(val string: String = "", private val xml: Boolean) : Value, ScalarValue, XMLValue {
+    constructor(string: String = "") : this(string, false)
+
     override val httpContentType = "text/plain"
 
     override fun equals(other: Any?): Boolean {
