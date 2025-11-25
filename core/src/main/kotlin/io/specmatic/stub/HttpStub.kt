@@ -158,20 +158,6 @@ class HttpStub(
         const val JSON_REPORT_PATH = "./build/reports/specmatic"
         const val JSON_REPORT_FILE_NAME = "stub_usage_report.json"
 
-        private val initializers: MutableList<(SpecmaticConfig, HttpStub) -> Unit> = mutableListOf()
-
-        @JvmStatic
-        fun registerInitializer(initializer: (SpecmaticConfig, HttpStub) -> Unit) {
-            initializers.add(initializer)
-        }
-
-        @JvmStatic
-        fun clearInitializers() {
-            initializers.clear()
-        }
-
-        internal fun getInitializers(): List<(SpecmaticConfig, HttpStub) -> Unit> = initializers.toList()
-
         fun setExpectation(
             stub: ScenarioStub,
             feature: Feature,
@@ -272,11 +258,15 @@ class HttpStub(
     private val responseInterceptors: MutableList<ResponseInterceptor> = mutableListOf()
 
     fun registerRequestInterceptor(requestInterceptor: RequestInterceptor) {
-        requestInterceptors.add(requestInterceptor)
+        if (!requestInterceptors.contains(requestInterceptor)) {
+            requestInterceptors.add(requestInterceptor)
+        }
     }
 
     fun registerResponseInterceptor(responseInterceptor: ResponseInterceptor) {
-        responseInterceptors.add(responseInterceptor)
+        if (!responseInterceptors.contains(responseInterceptor)) {
+            responseInterceptors.add(responseInterceptor)
+        }
     }
 
     private val environment = applicationEngineEnvironment {
@@ -788,8 +778,11 @@ class HttpStub(
     }
 
     init {
-        // Apply any registered initializers
-        getInitializers().forEach { it.invoke(specmaticConfigInstance, this) }
+        val initializers = ServiceLoader.load(StubInitializer::class.java)
+
+        initializers.forEach { initializer ->
+            initializer.initialize(this.specmaticConfigInstance, this)
+        }
 
         server.start()
     }
