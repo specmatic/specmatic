@@ -19,6 +19,7 @@ data class TestExecutionResult(
     val request: List<HttpRequest>,
     val requestTime: Long,
     val response: List<HttpResponse?>,
+    val actualResponseStatus: Int,
     val responseTime: Long?
 )
 
@@ -57,6 +58,7 @@ internal fun List<TestReportListener>.onTestResult(testResultRecord: TestResultR
         requestTime = firstHttpLogMessage.requestTime.toEpochMillis(),
         response = httpLogMessages.map(HttpLogMessage::response),
         responseTime = lastHttpLogMessage.responseTime?.toEpochMillis(),
+        actualResponseStatus = testResultRecord.actualResponseStatus,
         details = testResultRecord.scenarioResult?.reportString() ?: "No details found for this test",
     )
     onEachListener { onTestResult(testExecutionResult) }
