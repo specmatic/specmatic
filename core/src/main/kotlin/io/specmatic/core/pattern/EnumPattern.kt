@@ -11,7 +11,7 @@ import io.specmatic.core.value.Value
 private fun validEnumValues(values: List<Value>, key: String?, typeAlias: String?, example: String?, nullable: Boolean, multiType: Boolean): AnyPattern {
     assertThatAllValuesHaveTheSameType(values, nullable, multiType)
     val sortedValues = values.sortedWith(compareBy { it is StringValue })
-    val patterns = sortedValues.map { ExactValuePattern(it, isConst = true) }
+    val patterns = sortedValues.map { ExactValuePattern(it) }
     return AnyPattern(
         patterns,
         key,
@@ -126,6 +126,6 @@ data class EnumPattern(override val pattern: AnyPattern, val nullable: Boolean, 
 
     override fun toNullable(defaultValue: String?): EnumPattern {
         if (nullable) return this
-        return copy(nullable = true, pattern = pattern.copy(pattern = pattern.pattern.plus(ExactValuePattern(NullValue, isConst = true))))
+        return copy(nullable = true, pattern = pattern.copy(pattern = pattern.pattern.plus(ExactValuePattern(NullValue))))
     }
 }

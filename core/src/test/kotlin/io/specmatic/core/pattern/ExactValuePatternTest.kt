@@ -7,7 +7,6 @@ import io.specmatic.core.value.BooleanValue
 import org.junit.jupiter.api.Test
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.NumberValue
-import io.specmatic.core.value.ScalarValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.specmatic.shouldNotMatch
@@ -27,30 +26,16 @@ internal class ExactValuePatternTest {
     @Test
     @Tag(GENERATION)
     fun `negative patterns should be generated`() {
-        val result =
-            ExactValuePattern(StringValue("data")).negativeBasedOn(Row(), Resolver()).map { it.value }.toList()
-        assertThat(result.map { it.typeName }).containsExactlyInAnyOrder(
-            "null",
-            "number",
-            "boolean"
-        )
+        val result = ExactValuePattern(StringValue("data")).negativeBasedOn(Row(), Resolver()).map { it.value }.toList()
+        assertThat(result.map { it.typeName }).containsExactlyInAnyOrder("\"data_\"", "null", "number", "boolean")
     }
 
     @ParameterizedTest
     @MethodSource("constValuesToNegativeExpectations")
-    fun `should generate altered version of the value when marked as constant`(value: Value, expectations: List<String>) {
-        val pattern = ExactValuePattern(value, isConst = true)
-        val negativePatterns = pattern.negativeBasedOn(Row(), Resolver()).toList()
-        assertThat(negativePatterns.map { it.value.typeName }).containsExactlyInAnyOrderElementsOf(expectations)
-    }
-
-    @ParameterizedTest
-    @MethodSource("constValuesToNegativeExpectations")
-    fun `should not generate altered version of the value when not marked as constant`(value: ScalarValue, expectations: List<String>) {
+    fun `should generate altered version of the value when executing negativeBasedOn`(value: Value, expectations: List<String>) {
         val pattern = ExactValuePattern(value)
         val negativePatterns = pattern.negativeBasedOn(Row(), Resolver()).toList()
-        val filteredExpectations = expectations.filter { it != value.alterValue().displayableValue() }
-        assertThat(negativePatterns.map { it.value.typeName }).containsExactlyInAnyOrderElementsOf(filteredExpectations)
+        assertThat(negativePatterns.map { it.value.typeName }).containsExactlyInAnyOrderElementsOf(expectations)
     }
 
     @Test
