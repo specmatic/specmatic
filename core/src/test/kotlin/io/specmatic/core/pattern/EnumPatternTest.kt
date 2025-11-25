@@ -87,8 +87,8 @@ class EnumPatternTest {
             val newPatterns = enum.newBasedOn(Row(), Resolver()).map { it.value }.toList()
 
             assertThat(newPatterns).containsExactlyInAnyOrder(
-                ExactValuePattern(StringValue("01"), isConst = true),
-                ExactValuePattern(StringValue("02"), isConst = true)
+                ExactValuePattern(StringValue("01")),
+                ExactValuePattern(StringValue("02"))
             )
         }
 
@@ -98,9 +98,9 @@ class EnumPatternTest {
             val newPatterns = enum.newBasedOn(Row(), Resolver()).map { it.value }.toList()
 
             assertThat(newPatterns).containsExactlyInAnyOrder(
-                ExactValuePattern(StringValue("Three"), isConst = true),
-                ExactValuePattern(NumberValue(3), isConst = true),
-                ExactValuePattern(BooleanValue(true), isConst = true),
+                ExactValuePattern(StringValue("Three")),
+                ExactValuePattern(NumberValue(3)),
+                ExactValuePattern(BooleanValue(true)),
             )
         }
 
@@ -189,8 +189,60 @@ class EnumPatternTest {
             val newBasedOn = enum.newBasedOn(Resolver()).toList()
             val negativeBasedOn = enum.negativeBasedOn(Row(), Resolver()).map { it.value.typeName }.toList()
 
-            assertThat(newBasedOn).containsExactlyInAnyOrder(ExactValuePattern(NullValue, isConst = true))
+            assertThat(newBasedOn).containsExactlyInAnyOrder(ExactValuePattern(NullValue))
             assertThat(negativeBasedOn).containsExactlyInAnyOrder("string", "number", "boolean")
+        }
+
+        @Test
+        @Tag(GENERATION)
+        fun `should retain the correct enum newBasedOn return value details`() {
+            val pattern = toMultiValueEnum("One", 1)
+            val newPatterns = pattern.newBasedOn(Row(), Resolver()).toList()
+
+            assertThat(newPatterns).allSatisfy {
+                assertThat(it).isInstanceOf(HasValue::class.java); it as HasValue<Pattern>
+                val details = it.valueDetails.singleLineDescription()
+                assertThat(it.value).satisfiesAnyOf(
+                    { pattern ->
+                        assertThat(pattern).isEqualTo(ExactValuePattern(StringValue("One")))
+                        assertThat(details).isEqualToIgnoringWhitespace("is set to 'One' from enum")
+                    },
+                    { pattern ->
+                        assertThat(pattern).isEqualTo(ExactValuePattern(NumberValue(1)))
+                        assertThat(details).isEqualToIgnoringWhitespace("is set to '1' from enum")
+                    }
+                )
+            }
+        }
+
+        @Test
+        @Tag(GENERATION)
+        fun `should retain the correct enum negativeBasedOn return value details`() {
+            val pattern = toMultiValueEnum("One", 1)
+            val newPatterns = pattern.negativeBasedOn(Row(), Resolver()).toList()
+
+            assertThat(newPatterns).allSatisfy {
+                assertThat(it).isInstanceOf(HasValue::class.java); it as HasValue<Pattern>
+                val details = it.valueDetails.singleLineDescription()
+                assertThat(it.value).satisfiesAnyOf(
+                    { pattern ->
+                        assertThat(pattern).isEqualTo(ExactValuePattern(StringValue("One_")))
+                        assertThat(details).isEqualToIgnoringWhitespace("is mutated from (1 or \"One\") to \"One_\"")
+                    },
+                    { pattern ->
+                        assertThat(pattern).isEqualTo(ExactValuePattern(NumberValue(2)))
+                        assertThat(details).isEqualToIgnoringWhitespace("is mutated from (1 or \"One\") to 2")
+                    },
+                    { pattern ->
+                        assertThat(pattern).isEqualTo(BooleanPattern())
+                        assertThat(details).isEqualToIgnoringWhitespace("is mutated from (1 or \"One\") to boolean")
+                    },
+                    { pattern ->
+                        assertThat(pattern).isEqualTo(NullPattern)
+                        assertThat(details).isEqualToIgnoringWhitespace("is mutated from (1 or \"One\") to null")
+                    }
+                )
+            }
         }
     }
 
@@ -299,7 +351,7 @@ class EnumPatternTest {
         )
 
         assertThat(testCases).allSatisfy { (dictValue, expectedValue) ->
-            val dictionaryYaml = "Test: { type: $dictValue }"
+            val dictionaryYaml = "AnimalType: $dictValue"
             val dictionary = Dictionary.fromYaml(dictionaryYaml)
             val resolver = Resolver(newPatterns = mapOf("(AnimalType)" to enumPattern), dictionary = dictionary)
             val value = JSONObjectValue(mapOf("type" to StringValue("(AnimalType)")))
@@ -520,7 +572,7 @@ class EnumPatternTest {
         assertThat(patterns).allSatisfy { pattern ->
             val nullablePattern = pattern.toNullable(null)
             assertThat(nullablePattern.nullable).isTrue
-            assertThat(nullablePattern.pattern.pattern).contains(ExactValuePattern(NullValue, isConst = true))
+            assertThat(nullablePattern.pattern.pattern).contains(ExactValuePattern(NullValue))
         }
     }
 }
