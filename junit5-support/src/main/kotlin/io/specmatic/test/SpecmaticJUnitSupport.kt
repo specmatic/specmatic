@@ -86,11 +86,12 @@ open class SpecmaticJUnitSupport {
         val partialSuccesses: ConcurrentLinkedDeque<Result.Success> = ConcurrentLinkedDeque()
     }
 
-    internal var openApiCoverageReportInput: OpenApiCoverageReportInput =
+    internal val openApiCoverageReportInput: OpenApiCoverageReportInput =
         OpenApiCoverageReportInput(
             getConfigFileWithAbsolutePath(),
             coverageHooks = settings.coverageHooks,
             httpInteractionsLog = httpInteractionsLog,
+            previousTestResultRecord = settings.previousTestRuns
         )
 
     private val threads: Vector<String> = Vector<String>()
@@ -242,9 +243,6 @@ open class SpecmaticJUnitSupport {
         val overlayFilePath: String? = System.getProperty(OVERLAY_FILE_PATH) ?: System.getenv(OVERLAY_FILE_PATH)
         val overlayContent = if(overlayFilePath.isNullOrBlank()) "" else readFrom(overlayFilePath, "overlay")
         val useCurrentBranchForCentralRepo = specmaticConfig?.getMatchBranch() ?: Flags.getBooleanValue(Flags.MATCH_BRANCH) ?: false
-
-        openApiCoverageReportInput = OpenApiCoverageReportInput(getConfigFileWithAbsolutePath(), filterExpression = settings.filter, coverageHooks = settings.coverageHooks, httpInteractionsLog = httpInteractionsLog)
-
         val timeoutInMilliseconds = specmaticConfig?.getTestTimeoutInMilliseconds() ?: try {
             getLongValue(SPECMATIC_TEST_TIMEOUT)
         } catch (e: NumberFormatException) {

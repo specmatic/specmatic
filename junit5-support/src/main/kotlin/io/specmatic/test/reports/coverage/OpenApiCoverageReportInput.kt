@@ -31,7 +31,8 @@ class OpenApiCoverageReportInput(
     internal var endpointsAPISet: Boolean = false,
     private val filterExpression: String = "",
     private val coverageHooks: List<TestReportListener> = emptyList(),
-    private val httpInteractionsLog: HttpInteractionsLog = HttpInteractionsLog()
+    private val httpInteractionsLog: HttpInteractionsLog = HttpInteractionsLog(),
+    private val previousTestResultRecord: List<TestResultRecord> = emptyList(),
 ) {
     fun totalDuration(): Long {
         return httpInteractionsLog.totalDuration()
@@ -70,7 +71,10 @@ class OpenApiCoverageReportInput(
     }
 
     fun testResultRecords(): List<TestResultRecord> {
-        val testResults = testResultRecords.filter { testResult -> excludedAPIs.none { it == testResult.path } }
+        val testResults = testResultRecords
+            .plus(previousTestResultRecord)
+            .filter { testResult -> excludedAPIs.none { it == testResult.path } }
+
         val testResultsWithNotImplementedEndpoints =
             identifyFailedTestsDueToUnimplementedEndpointsAddMissingTests(testResults)
 
