@@ -709,7 +709,7 @@ paths:
     @Nested
     inner class FeatureToOpenAPI {
         @Test
-        fun `should provide unique names to body schemas under the same endpoint`() {
+        fun `should provide unique names to body schemas under the same endpoint`()     {
             val requestPattern = HttpRequestPattern(
                 httpPathPattern = HttpPathPattern.from("/orders/(id:string)"), method = "POST",
                 headersPattern = HttpHeadersPattern(mapOf("headerKey" to StringPattern())),
@@ -1123,5 +1123,61 @@ paths:
         }
 
         assertThat(stdout).doesNotContain("Could not find the Specmatic configuration at path")
+    }
+
+    @Test
+    fun `should filter out scenario when 4xx definitions are missing from Feature but present in originalScenarios`() {
+        val path = "/orders/(id:string)"
+        val orderPostOk = Scenario(ScenarioInfo(
+            httpRequestPattern = HttpRequestPattern(httpPathPattern = HttpPathPattern.from(path), method = "POST", body = DeferredPattern("(RequestBody)")),
+            httpResponsePattern = HttpResponsePattern(status = 201),
+            patterns = mapOf("(RequestBody)" to toJSONObjectPattern("""{"digit": "(number)"}""", "(RequestBody"))
+        ))
+
+        val orderPostBadRequest = Scenario(ScenarioInfo(
+            httpRequestPattern = HttpRequestPattern(httpPathPattern = HttpPathPattern.from(path), method = "POST"),
+            httpResponsePattern = HttpResponsePattern(status = 400)
+        ))
+
+        val allScenarios = listOf(orderPostOk, orderPostBadRequest)
+        val featureSubset = Feature(name = "Orders Subset", scenarios = listOf(orderPostOk))
+
+        val results = featureSubset.negativeTestScenarios(originalScenarios = allScenarios).toList()
+        assertThat(results)
+            .withFailMessage("Expected no negative scenarios because the required 4xx definition was filtered out of the feature")
+            .isEmpty()
+    }
+
+    @Test
+    fun `should NOT filter out scenario when 4xx definitions are present in the Feature`() {
+        val path = "/orders/(id:string)"
+        val orderPostOk = Scenario(ScenarioInfo(
+            httpRequestPattern = HttpRequestPattern(httpPathPattern = HttpPathPattern.from(path), method = "POST", body = DeferredPattern("(RequestBody)")),
+            httpResponsePattern = HttpResponsePattern(status = 201),
+            patterns = mapOf("(RequestBody)" to toJSONObjectPattern("""{"digit": "(number)"}""", "(RequestBody"))
+        ))
+
+        val orderPostBadRequest = Scenario(ScenarioInfo(
+            httpRequestPattern = HttpRequestPattern(httpPathPattern = HttpPathPattern.from(path), method = "POST"),
+            httpResponsePattern = HttpResponsePattern(status = 400)
+        ))
+
+        val featureComplete = Feature(name = "Orders Complete", scenarios = listOf(orderPostOk, orderPostBadRequest))
+        val results = featureComplete.negativeTestScenarios(originalScenarios = featureComplete.scenarios).toList()
+        assertThat(results).hasSize(3)
+    }
+
+    @Test
+    fun `should NOT filter out scenario when 4xx definitions are missing from the Feature as well as originalScenarios`() {
+        val path = "/orders/(id:string)"
+        val orderPostOk = Scenario(ScenarioInfo(
+            httpRequestPattern = HttpRequestPattern(httpPathPattern = HttpPathPattern.from(path), method = "POST", body = DeferredPattern("(RequestBody)")),
+            httpResponsePattern = HttpResponsePattern(status = 201),
+            patterns = mapOf("(RequestBody)" to toJSONObjectPattern("""{"digit": "(number)"}""", "(RequestBody"))
+        ))
+
+        val featureComplete = Feature(name = "Orders Complete", scenarios = listOf(orderPostOk))
+        val results = featureComplete.negativeTestScenarios(originalScenarios = featureComplete.scenarios).toList()
+        assertThat(results).hasSize(3)
     }
 }

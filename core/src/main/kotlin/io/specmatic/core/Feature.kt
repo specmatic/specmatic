@@ -662,10 +662,10 @@ data class Feature(
     private fun failureResults(results: List<Pair<HttpStubData?, Result>>): Results =
         Results(results.map { it.second }.filterIsInstance<Result.Failure>().toMutableList())
 
-    fun generateContractTests(suggestions: List<Scenario>, originalScenarios: List<Scenario> = emptyList(), fn: (Scenario, Row) -> Scenario = { s, _ -> s }): Sequence<ContractTest> {
+    fun generateContractTests(suggestions: List<Scenario>, originalScenarios: List<Scenario> = scenarios, fn: (Scenario, Row) -> Scenario = { s, _ -> s }): Sequence<ContractTest> {
         val workflow = Workflow(specmaticConfig.getWorkflowDetails() ?: WorkflowDetails.default)
 
-        return generateContractTestScenarios(suggestions, fn).map { (originalScenario, returnValue) ->
+        return generateContractTestScenarios(suggestions, fn, originalScenarios).map { (originalScenario, returnValue) ->
             returnValue.realise(
                 hasValue = { concreteTestScenario, comment ->
                     scenarioAsTest(concreteTestScenario, comment, workflow, originalScenario, originalScenarios)
@@ -740,13 +740,13 @@ data class Feature(
         ) != null
     }
 
-    private fun getBadRequestsOrDefault(scenario: Scenario): BadRequestOrDefault? {
-        val badRequestResponses = scenarios.filter {
+    private fun getBadRequestsOrDefault(scenario: Scenario, scenariosToLookInto: List<Scenario> = scenarios): BadRequestOrDefault? {
+        val badRequestResponses = scenariosToLookInto.filter {
             it.httpRequestPattern.httpPathPattern!!.path == scenario.httpRequestPattern.httpPathPattern!!.path
                     && it.httpResponsePattern.status.toString().startsWith("4")
         }.associate { it.httpResponsePattern.status to it.httpResponsePattern }
 
-        val defaultResponse: HttpResponsePattern? = scenarios.find {
+        val defaultResponse: HttpResponsePattern? = scenariosToLookInto.find {
             it.httpRequestPattern.httpPathPattern!!.path == scenario.httpRequestPattern.httpPathPattern!!.path
                     && it.httpResponsePattern.status == DEFAULT_RESPONSE_CODE
         }?.httpResponsePattern
@@ -757,13 +757,13 @@ data class Feature(
         return BadRequestOrDefault(badRequestResponses, defaultResponse)
     }
 
-    fun generateContractTestScenarios(suggestions: List<Scenario>, fn: (Scenario, Row) -> Scenario = { s, _ -> s }): Sequence<Pair<Scenario, ReturnValue<Scenario>>> {
+    fun generateContractTestScenarios(suggestions: List<Scenario>, fn: (Scenario, Row) -> Scenario = { s, _ -> s }, originalScenarios: List<Scenario> = scenarios): Sequence<Pair<Scenario, ReturnValue<Scenario>>> {
         val positiveTestScenarios = positiveTestScenarios(suggestions, fn)
 
         return if (!specmaticConfig.isResiliencyTestingEnabled() || specmaticConfig.isOnlyPositiveTestingEnabled())
             positiveTestScenarios
         else
-            positiveTestScenarios + negativeTestScenarios()
+            positiveTestScenarios + negativeTestScenarios(originalScenarios)
     }
 
     private fun positiveTestScenarios(suggestions: List<Scenario>, fn: (Scenario, Row) -> Scenario = { s, _ -> s }): Sequence<Pair<Scenario, ReturnValue<Scenario>>> =
@@ -791,14 +791,18 @@ data class Feature(
             }
         }
 
-    fun negativeTestScenarios(): Sequence<Pair<Scenario, ReturnValue<Scenario>>> {
-        return scenarios.asSequence().filter {
+    fun negativeTestScenarios(originalScenarios: List<Scenario> = scenarios): Sequence<Pair<Scenario, ReturnValue<Scenario>>> {
+        return originalScenarios.asSequence().filter {
             it.isA2xxScenario()
         }.filter {
             !strictMode || it.hasExampleRows()
         }.flatMap { originalScenario ->
-            val negativeScenario = originalScenario.negativeBasedOn(getBadRequestsOrDefault(originalScenario))
+            val badRequestOrDefault = getBadRequestsOrDefault(originalScenario)
+            if (badRequestOrDefault == null && getBadRequestsOrDefault(originalScenario, originalScenarios) != null) {
+                return@flatMap emptySequence()
+            }
 
+            val negativeScenario = originalScenario.negativeBasedOn(badRequestOrDefault)
             val negativeTestScenarios =
                 negativeScenario.generateTestScenarios(flagsBased, testVariables, testBaseURLs).map {
                     getScenarioWithDescription(it)
