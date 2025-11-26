@@ -33,6 +33,7 @@ class OpenApiCoverageReportInput(
     private val coverageHooks: List<TestReportListener> = emptyList(),
     private val httpInteractionsLog: HttpInteractionsLog = HttpInteractionsLog(),
     private val previousTestResultRecord: List<TestResultRecord> = emptyList(),
+    private val filteredEndpoints: MutableList<Endpoint> = mutableListOf(),
 ) {
     fun totalDuration(): Long {
         return httpInteractionsLog.totalDuration()
@@ -56,9 +57,10 @@ class OpenApiCoverageReportInput(
         excludedAPIs.addAll(apis)
     }
 
-    fun addEndpoints(endpoints: List<Endpoint>) {
-        coverageHooks.onEachListener { onEndpointApis(endpoints) }
-        allEndpoints.addAll(endpoints)
+    fun addEndpoints(allEndpoints: List<Endpoint>, filteredEndpoints: List<Endpoint>) {
+        this.allEndpoints.addAll(allEndpoints)
+        coverageHooks.onEachListener { onEndpointApis(allEndpoints) }
+        this.filteredEndpoints.addAll(filteredEndpoints)
     }
 
     fun setEndpointsAPIFlag(isSet: Boolean) {
@@ -79,7 +81,7 @@ class OpenApiCoverageReportInput(
             identifyFailedTestsDueToUnimplementedEndpointsAddMissingTests(testResults)
 
         return addTestResultsForMissingEndpoints(testResultsWithNotImplementedEndpoints)
-            .addTestResultsForTestsNotGeneratedBySpecmatic(allEndpoints)
+            .addTestResultsForTestsNotGeneratedBySpecmatic(filteredEndpoints)
             .identifyWipTestsAndUpdateResult()
             .checkForInvalidTestsAndUpdateResult()
     }
@@ -150,9 +152,9 @@ class OpenApiCoverageReportInput(
         )
     }
 
-    private fun List<TestResultRecord>.addTestResultsForTestsNotGeneratedBySpecmatic(allEndpoints: List<Endpoint>): List<TestResultRecord> {
+    private fun List<TestResultRecord>.addTestResultsForTestsNotGeneratedBySpecmatic(endpoints: List<Endpoint>): List<TestResultRecord> {
         val endpointsWithoutTests =
-            allEndpoints.filter { endpoint ->
+            endpoints.filter { endpoint ->
                 this.none { it.path == endpoint.path && it.method == endpoint.method && it.responseStatus == endpoint.responseStatus }
                         && excludedAPIs.none { it == endpoint.path }
             }
@@ -258,7 +260,6 @@ class OpenApiCoverageReportInput(
         val testResultsForMissingAPIs = applicationAPIs.filter { api ->
             val noTestResultFoundForThisAPI = allEndpoints.none { it.path == api.path && it.method == api.method }
             val isNotExcluded = api.path !in excludedAPIs
-
             noTestResultFoundForThisAPI && isNotExcluded
         }.map { api ->
             TestResultRecord(
@@ -298,7 +299,6 @@ class OpenApiCoverageReportInput(
         val failedTestResults = testResults.filter { it.result == TestResult.Failed }
 
         for (failedTestResult in failedTestResults) {
-
             val pathHasErrorResponse = allEndpoints.any {
                 it.path == failedTestResult.path && it.method == failedTestResult.method && it.responseStatus == failedTestResult.actualResponseStatus
             }
@@ -318,8 +318,7 @@ class OpenApiCoverageReportInput(
                 continue
             }
 
-            val isInApplicationAPI =
-                applicationAPIs.any { api -> api.path == failedTestResult.path && api.method == failedTestResult.method }
+            val isInApplicationAPI = applicationAPIs.any { api -> api.path == failedTestResult.path && api.method == failedTestResult.method }
             notImplementedAndMissingTests.add(failedTestResult.copy(result = if (isInApplicationAPI) TestResult.Failed else TestResult.NotImplemented))
         }
 

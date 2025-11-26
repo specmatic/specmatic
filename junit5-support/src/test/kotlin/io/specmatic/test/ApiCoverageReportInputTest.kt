@@ -337,7 +337,7 @@ class ApiCoverageReportInputTest {
             Endpoint("/route2", "GET", 400)
         )
 
-        val apiCoverageReport = OpenApiCoverageReportInput(CONFIG_FILE_PATH, testReportRecords, applicationAPIs, allEndpoints = allEndpoints, endpointsAPISet = true).generate()
+        val apiCoverageReport = OpenApiCoverageReportInput(CONFIG_FILE_PATH, testReportRecords, applicationAPIs, allEndpoints = allEndpoints, filteredEndpoints = allEndpoints, endpointsAPISet = true).generate()
         println(CoverageReportTextRenderer().render(apiCoverageReport, specmaticConfig))
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
