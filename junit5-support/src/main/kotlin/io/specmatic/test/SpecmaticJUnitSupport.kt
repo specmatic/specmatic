@@ -88,10 +88,11 @@ open class SpecmaticJUnitSupport {
 
     internal val openApiCoverageReportInput: OpenApiCoverageReportInput =
         OpenApiCoverageReportInput(
-            getConfigFileWithAbsolutePath(),
+            configFilePath = getConfigFileWithAbsolutePath(),
+            filterExpression = settings.filter,
             coverageHooks = settings.coverageHooks,
             httpInteractionsLog = httpInteractionsLog,
-            previousTestResultRecord = settings.previousTestRuns
+            previousTestResultRecord = settings.previousTestRuns,
         )
 
     private val threads: Vector<String> = Vector<String>()
