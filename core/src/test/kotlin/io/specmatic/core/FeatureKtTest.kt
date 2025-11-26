@@ -709,7 +709,7 @@ paths:
     @Nested
     inner class FeatureToOpenAPI {
         @Test
-        fun `should provide unique names to body schemas under the same endpoint`()     {
+        fun `should provide unique names to body schemas under the same endpoint`() {
             val requestPattern = HttpRequestPattern(
                 httpPathPattern = HttpPathPattern.from("/orders/(id:string)"), method = "POST",
                 headersPattern = HttpHeadersPattern(mapOf("headerKey" to StringPattern())),
