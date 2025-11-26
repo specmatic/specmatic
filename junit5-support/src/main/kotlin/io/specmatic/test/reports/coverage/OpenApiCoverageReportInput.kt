@@ -61,7 +61,6 @@ class OpenApiCoverageReportInput(
         this.allEndpoints.addAll(allEndpoints)
         coverageHooks.onEachListener { onEndpointApis(allEndpoints) }
         this.filteredEndpoints.addAll(filteredEndpoints)
-        coverageHooks.onEachListener { onFilteredEndpointApis(allEndpoints) }
     }
 
     fun setEndpointsAPIFlag(isSet: Boolean) {

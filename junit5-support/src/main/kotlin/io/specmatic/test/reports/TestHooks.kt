@@ -27,7 +27,6 @@ interface TestReportListener {
     fun onActuator(enabled: Boolean)
     fun onActuatorApis(apis: List<API>)
     fun onEndpointApis(apis: List<Endpoint>)
-    fun onFilteredEndpointApis(apis: List<Endpoint>)
     fun onTestResult(result: TestExecutionResult)
     fun onTestsComplete()
     fun onCoverageCalculated(coverage: Int)
