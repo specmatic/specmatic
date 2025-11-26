@@ -798,7 +798,7 @@ data class Feature(
             !strictMode || it.hasExampleRows()
         }.flatMap { originalScenario ->
             val badRequestOrDefault = getBadRequestsOrDefault(originalScenario)
-            if (badRequestOrDefault == null && getBadRequestsOrDefault(originalScenario, originalScenarios) != null) {
+            if (badRequestOrDefaultWasFilteredOut(badRequestOrDefault, originalScenario, originalScenarios)) {
                 return@flatMap emptySequence()
             }
 
@@ -823,6 +823,12 @@ data class Feature(
             }
         }
     }
+
+    private fun badRequestOrDefaultWasFilteredOut(
+        badRequestOrDefault: BadRequestOrDefault?,
+        originalScenario: Scenario,
+        originalScenarios: List<Scenario>
+    ): Boolean = badRequestOrDefault == null && getBadRequestsOrDefault(originalScenario, originalScenarios) != null
 
     fun negativeScenarioFor(scenario: Scenario): Scenario {
         return scenario.negativeBasedOn(getBadRequestsOrDefault(scenario))

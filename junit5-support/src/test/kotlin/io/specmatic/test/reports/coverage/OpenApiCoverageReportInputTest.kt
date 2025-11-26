@@ -236,7 +236,7 @@ class OpenApiCoverageReportInputTest {
     }
 
     @Test
-    fun `filtered endpoints should be used to find not-implemented endpoints instead of all endpoints`() {
+    fun `not-implemented endpoints should be identified using filtered endpoints instead of all endpoints`() {
         val allEndpoints = mutableListOf(Endpoint("/test", "POST", 200), Endpoint("/filtered", "POST", 200))
         val filtered = mutableListOf(Endpoint("/test", "POST", 200))
         val testResultRecords = mutableListOf(TestResultRecord("/test", "POST", 200, TestResult.Failed, actualResponseStatus = 0))
