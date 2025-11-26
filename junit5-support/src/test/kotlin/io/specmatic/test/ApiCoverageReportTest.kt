@@ -17,6 +17,7 @@ class ApiCoverageReportTest {
             testResultRecords: MutableList<TestResultRecord>,
             allEndpoints: MutableList<Endpoint>,
             applicationAPIS: MutableList<API>? = null,
+            filteredEndpoints: MutableList<Endpoint> = mutableListOf(),
         ): OpenAPICoverageConsoleReport {
             if (applicationAPIS != null) {
                 return OpenApiCoverageReportInput(
@@ -24,11 +25,12 @@ class ApiCoverageReportTest {
                     testResultRecords,
                     applicationAPIS,
                     allEndpoints = allEndpoints,
+                    filteredEndpoints = filteredEndpoints,
                     endpointsAPISet = true
                 ).generate()
             }
             return OpenApiCoverageReportInput(
-                CONFIG_FILE_PATH, testResultRecords, allEndpoints = allEndpoints
+                CONFIG_FILE_PATH, testResultRecords, allEndpoints = allEndpoints, filteredEndpoints = filteredEndpoints,
             ).generate()
         }
     }
@@ -132,7 +134,7 @@ class ApiCoverageReportTest {
         val testResultRecords = mutableListOf(
             TestResultRecord("/order/{id}", "GET", 200, TestResult.Failed, actualResponseStatus = 404)
         )
-        val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, applicationAPIs)
+        val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, applicationAPIs, filteredEndpoints = endpointsInSpec)
 
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
@@ -156,7 +158,7 @@ class ApiCoverageReportTest {
             TestResultRecord("/order/{id}", "POST", 201, TestResult.Failed, actualResponseStatus = 404),
             TestResultRecord("/order/{id}", "POST", 400, TestResult.Failed, actualResponseStatus = 404)
         )
-        val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, applicationAPIS)
+        val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, applicationAPIS, filteredEndpoints = endpointsInSpec)
 
 
         assertThat(apiCoverageReport).isEqualTo(
@@ -178,7 +180,7 @@ class ApiCoverageReportTest {
         val testResultRecords = mutableListOf(
             TestResultRecord("/order/{id}", "GET", 200, TestResult.Failed, actualResponseStatus = 404)
         )
-        val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec)
+        val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, filteredEndpoints = endpointsInSpec)
 
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
@@ -201,7 +203,7 @@ class ApiCoverageReportTest {
             TestResultRecord("/order/{id}", "POST", 201, TestResult.Failed, actualResponseStatus = 404),
             TestResultRecord("/order/{id}", "POST", 400, TestResult.Failed, actualResponseStatus = 404)
         )
-        val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec)
+        val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, filteredEndpoints = endpointsInSpec)
 
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
@@ -225,7 +227,7 @@ class ApiCoverageReportTest {
         val testResultRecords = mutableListOf(
             TestResultRecord("/order/{id}", "GET", 200, TestResult.Success, actualResponseStatus = 200)
         )
-        val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, applicationAPIs)
+        val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, applicationAPIs, filteredEndpoints = endpointsInSpec)
 
 
         assertThat(apiCoverageReport).isEqualTo(
@@ -252,7 +254,7 @@ class ApiCoverageReportTest {
             TestResultRecord("/order/{id}", "POST", 201, TestResult.Success, actualResponseStatus = 201),
             TestResultRecord("/order/{id}", "POST", 400, TestResult.Success, actualResponseStatus = 400)
         )
-        val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, applicationAPIs)
+        val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, applicationAPIs, filteredEndpoints = endpointsInSpec)
 
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
@@ -274,7 +276,7 @@ class ApiCoverageReportTest {
         val testResultRecords = mutableListOf(
             TestResultRecord("/order/{id}", "GET", 200, TestResult.Success, actualResponseStatus = 200)
         )
-        val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec)
+        val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, filteredEndpoints = endpointsInSpec)
 
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
@@ -297,7 +299,7 @@ class ApiCoverageReportTest {
             TestResultRecord("/order/{id}", "POST", 201, TestResult.Success, actualResponseStatus = 201),
             TestResultRecord("/order/{id}", "POST", 400, TestResult.Success, actualResponseStatus = 400)
         )
-        val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec)
+        val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, filteredEndpoints = endpointsInSpec)
 
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
@@ -366,7 +368,7 @@ class ApiCoverageReportTest {
         val testResultRecords = mutableListOf(
             TestResultRecord("/order/{id}", "GET", 200, TestResult.Failed, actualResponseStatus = 404)
         )
-        val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, applicationAPIs)
+        val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, applicationAPIs, filteredEndpoints = endpointsInSpec)
 
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
@@ -386,7 +388,7 @@ class ApiCoverageReportTest {
         val testResultRecords = mutableListOf(
             TestResultRecord("/order/{id}", "GET", 200, TestResult.Failed, actualResponseStatus = 404)
         )
-        val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec)
+        val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, filteredEndpoints = endpointsInSpec)
 
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
@@ -431,7 +433,7 @@ class ApiCoverageReportTest {
         val testResultRecords = mutableListOf(
             TestResultRecord("/orders", "GET", 200, TestResult.Failed, actualResponseStatus = 404)
         )
-        val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec)
+        val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, filteredEndpoints = endpointsInSpec)
 
         assertThat(
             apiCoverageReport
@@ -457,7 +459,7 @@ class ApiCoverageReportTest {
         val testResultRecords = mutableListOf(
             TestResultRecord("/orders", "GET", 200, TestResult.Success, actualResponseStatus = 200)
         )
-        val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, applicationAPIs)
+        val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, applicationAPIs, filteredEndpoints = endpointsInSpec)
 
         assertThat(
             apiCoverageReport

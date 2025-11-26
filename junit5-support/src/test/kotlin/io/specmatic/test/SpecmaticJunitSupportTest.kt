@@ -3,6 +3,7 @@ package io.specmatic.test
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.TestConfig
+import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.HOST
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.PORT
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.PROTOCOL
@@ -18,6 +19,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import org.junit.platform.launcher.TestExecutionListener
 import org.opentest4j.TestAbortedException
+import java.io.File
 import java.util.*
 
 class SpecmaticJunitSupportTest {
@@ -27,15 +29,16 @@ class SpecmaticJunitSupportTest {
 
     @Test
     fun `should retain open api path parameter convention for parameterized endpoints`() {
-        val result: Pair<Sequence<ContractTest>, List<Endpoint>> = SpecmaticJUnitSupport().loadTestScenarios(
+        val result = SpecmaticJUnitSupport().loadTestScenarios(
             "./src/test/resources/spec_with_parameterized_paths.yaml",
             "",
             "",
             TestConfig(emptyMap(), emptyMap()),
             filterName = null,
-            filterNotName = null
+            filterNotName = null,
+            filter = ScenarioMetadataFilter.from("")
         )
-        val specEndpoints = result.second
+        val specEndpoints = result.allEndpoints
         assertThat(specEndpoints.count()).isEqualTo(2)
         assertThat(specEndpoints.all { it.path == "/sayHello/{name}" })
     }
@@ -313,7 +316,8 @@ paths:
                 TestConfig(emptyMap(), emptyMap()),
                 filterName = null,
                 filterNotName = null,
-                specmaticConfig = null
+                specmaticConfig = null,
+                filter = ScenarioMetadataFilter.from("")
             )
 
             val testsWithStrictModeList = testsWithStrictMode.toList()
@@ -353,7 +357,8 @@ paths:
                 TestConfig(emptyMap(), emptyMap()),
                 filterName = null,
                 filterNotName = null,
-                specmaticConfig = null
+                specmaticConfig = null,
+                filter = ScenarioMetadataFilter.from("")
             )
 
             val testsWithoutStrictModeList = testsWithoutStrictMode.toList()
@@ -374,6 +379,40 @@ paths:
             tempDir.deleteRecursively()
             SpecmaticJUnitSupport.settingsStaging.remove()
         }
+    }
+
+    @Test
+    fun `filtered endpoints should not appear in the return value of loadTestScenarios`() {
+        val specFile = File("src/test/resources/filter_test/product_search_bff_v4.yaml")
+        val testData = SpecmaticJUnitSupport().loadTestScenarios(
+            path = specFile.canonicalPath,
+            suggestionsPath = "", suggestionsData = "",
+            config = TestConfig(emptyMap(), emptyMap()),
+            filterName = "", filterNotName = "",
+            filter = ScenarioMetadataFilter.from("!(PATH='/products' && METHOD='POST' && STATUS='201')")
+        )
+
+        assertThat(testData.scenarios.map { it.testDescription() }.toList()).doesNotContain(" Scenario: POST /products -> 201 with the request from the example 'SUCCESS'")
+        assertThat(testData.allEndpoints).contains(
+            Endpoint(
+                path = "/products",
+                method = "POST",
+                responseStatus = 201,
+                serviceType = "HTTP",
+                requestContentType = "application/json",
+                responseContentType = "application/json"
+            )
+        )
+        assertThat(testData.filteredEndpoints).doesNotContain(
+            Endpoint(
+                path = "/products",
+                method = "POST",
+                responseStatus = 201,
+                serviceType = "HTTP",
+                requestContentType = "application/json",
+                responseContentType = "application/json"
+            )
+        )
     }
 
     @AfterEach

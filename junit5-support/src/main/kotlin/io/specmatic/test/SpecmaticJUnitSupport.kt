@@ -269,7 +269,7 @@ open class SpecmaticJUnitSupport {
                     val testScenariosAndEndpointsPairList = settings.contractPaths.split(",").filter {
                         File(it).extension in CONTRACT_EXTENSIONS
                     }.map {
-                        val (tests, endpoints) = loadTestScenarios(
+                        val (tests, endpoints, filteredEndpoints) = loadTestScenarios(
                             it,
                             suggestionsPath,
                             suggestionsData,
@@ -278,16 +278,18 @@ open class SpecmaticJUnitSupport {
                             filterName = filterName,
                             filterNotName = filterNotName,
                             specmaticConfig = specmaticConfig,
-                            overlayContent = overlayContent
+                            overlayContent = overlayContent,
+                            filter = testFilter
                         )
 
-                        Pair(tests.map { test -> Pair(test, defaultBaseURL) }, endpoints)
+                        Triple(tests.map { test -> Pair(test, defaultBaseURL) }, endpoints, filteredEndpoints)
                     }
 
                     val testsWithUrls: Sequence<Pair<ContractTest, String>> = testScenariosAndEndpointsPairList.asSequence().flatMap { it.first }
                     val endpoints: List<Endpoint> = testScenariosAndEndpointsPairList.flatMap { it.second }
+                    val filteredEndpoints: List<Endpoint> = testScenariosAndEndpointsPairList.flatMap { it.third }
 
-                    Triple(testsWithUrls, endpoints, defaultBaseURL)
+                    TestData(testsWithUrls, endpoints, filteredEndpoints, defaultBaseURL)
                 }
                 else -> {
                     if (File(settings.configFile).exists().not()) exitWithMessage(MISSING_CONFIG_FILE_MESSAGE)
@@ -305,7 +307,7 @@ open class SpecmaticJUnitSupport {
                     val testScenariosAndEndpointsPairList = contractFilePaths.filter {
                         File(it.path).extension in CONTRACT_EXTENSIONS
                     }.map { contractPathData ->
-                        val (tests, endpoints) = loadTestScenarios(
+                        val (tests, endpoints, filteredEndpoints) = loadTestScenarios(
                             contractPathData.path,
                             "",
                             "",
@@ -319,22 +321,24 @@ open class SpecmaticJUnitSupport {
                             filterNotName,
                             specmaticConfig = specmaticConfig,
                             generative = contractPathData.generative,
-                            overlayContent = overlayContent
+                            overlayContent = overlayContent,
+                            filter = testFilter
                         )
 
                         val resolvedBaseURL = contractPathData.baseUrl ?: defaultBaseURL
-                        Pair(tests.map { test -> Pair(test, resolvedBaseURL) }, endpoints)
+                        Triple(tests.map { test -> Pair(test, resolvedBaseURL) }, endpoints, filteredEndpoints)
                     }
 
                     val testsWithUrls: Sequence<Pair<ContractTest, String>> = testScenariosAndEndpointsPairList.asSequence().flatMap { it.first }
                     val endpoints: List<Endpoint> = testScenariosAndEndpointsPairList.flatMap { it.second }
+                    val filteredEndpoints: List<Endpoint> = testScenariosAndEndpointsPairList.flatMap { it.third }
 
                     // Prefer settings.testBaseURL for actuator; else first provides; else default
                     val actuatorBaseURL = settings.testBaseURL
                         ?: contractFilePaths.firstNotNullOfOrNull { it.baseUrl }
                         ?: if (needsDefaultBase) defaultBaseURL else constructTestBaseURL()
 
-                    Triple(testsWithUrls, endpoints, actuatorBaseURL)
+                    TestData(testsWithUrls, endpoints, filteredEndpoints, defaultBaseURL)
                 }
             }
         } catch (e: ContractException) {
@@ -343,13 +347,10 @@ open class SpecmaticJUnitSupport {
             return loadExceptionAsTestError(e)
         }
 
-        val (allTestsWithUrls, allEndpoints, actuatorBaseURL) = testBuildResult
-
-        openApiCoverageReportInput.addEndpoints(allEndpoints)
-
+        openApiCoverageReportInput.addEndpoints(testBuildResult.allEndpoints, testBuildResult.filteredEndpoints)
         val testScenariosWithUrls = try {
             val filteredPairsBasedOnName = selectTestsToRun(
-                allTestsWithUrls,
+                testBuildResult.scenarios,
                 filterName,
                 filterNotName
             ) { it.first.testDescription() }
@@ -385,7 +386,7 @@ open class SpecmaticJUnitSupport {
         }
 
         return try {
-            dynamicTestStream(firstNScenarios(testScenariosWithUrls), actuatorBaseURL, timeoutInMilliseconds)
+            dynamicTestStream(firstNScenarios(testScenariosWithUrls), testBuildResult.testBaseURL, timeoutInMilliseconds)
         } catch(e: Throwable) {
             logger.logError(e)
             loadExceptionAsTestError(e)
@@ -522,10 +523,11 @@ open class SpecmaticJUnitSupport {
         filterNotName: String?,
         specmaticConfig: SpecmaticConfig? = null,
         generative: ResiliencyTestSuite? = null,
-        overlayContent: String = ""
-    ): Pair<Sequence<ContractTest>, List<Endpoint>> {
+        overlayContent: String = "",
+        filter: ScenarioMetadataFilter,
+    ): LoadedTestScenarios {
         if(hasOpenApiFileExtension(path) && !isOpenAPI(path)) {
-            return Pair(emptySequence(), emptyList())
+            return LoadedTestScenarios(emptySequence(), emptyList(), emptyList())
         }
 
         val contractFile = File(path)
@@ -562,7 +564,7 @@ open class SpecmaticJUnitSupport {
             else -> emptyList()
         }
 
-        val allEndpoints: List<Endpoint> = feature.scenarios.map { scenario ->
+        val allEndpoints = feature.scenarios.map { scenario ->
             Endpoint(
                 convertPathParameterStyle(scenario.path),
                 scenario.method,
@@ -587,18 +589,24 @@ open class SpecmaticJUnitSupport {
 
         val filteredScenarios = filterUsing(
             filteredScenariosBasedOnName,
-            testFilter
+            filter
         )
 
-        val filteredScenarioPaths = filteredScenarios.map { convertPathParameterStyle(it.path) }
+        val filteredEndpoints = filteredScenarios.map { scenario ->
+            Endpoint(
+                convertPathParameterStyle(scenario.path),
+                scenario.method,
+                scenario.httpResponsePattern.status,
+                scenario.sourceProvider,
+                scenario.sourceRepository,
+                scenario.sourceRepositoryBranch,
+                scenario.specification,
+                scenario.serviceType,
+                scenario.requestContentType,
+                scenario.httpResponsePattern.headersPattern.contentType
+            )
+        }.toList()
 
-        val filteredOutScenarios = feature.scenarios.filter { scenario -> scenario !in filteredScenarios }
-
-        val filteredOutScenarioPaths = filteredOutScenarios.map { convertPathParameterStyle(it.path) }
-
-        val excludedEndpoints = filteredOutScenarioPaths.filter { it !in filteredScenarioPaths }
-
-        openApiCoverageReportInput.addExcludedAPIs(excludedEndpoints);
         val tests: Sequence<ContractTest> = feature
             .copy(scenarios = filteredScenarios.toList())
             .also {
@@ -611,7 +619,7 @@ open class SpecmaticJUnitSupport {
             }
             .generateContractTests(suggestions, originalScenarios = feature.scenarios)
 
-        return Pair(tests, allEndpoints)
+        return LoadedTestScenarios(tests, allEndpoints, filteredEndpoints)
     }
 
     private fun suggestionsFromFile(suggestionsPath: String): List<Scenario> {
@@ -662,6 +670,14 @@ open class SpecmaticJUnitSupport {
         return File(path).readText()
     }
 }
+
+data class LoadedTestScenarios(val scenarios: Sequence<ContractTest>, val allEndpoints: List<Endpoint>, val filteredEndpoints: List<Endpoint>)
+private data class TestData(
+    val scenarios: Sequence<Pair<ContractTest, String>>,
+    val allEndpoints: List<Endpoint>,
+    val filteredEndpoints: List<Endpoint>,
+    val testBaseURL: String
+)
 
 private fun columnsFromExamples(exampleData: JSONArrayValue): List<String> {
     val firstRow = exampleData.list[0]

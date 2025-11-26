@@ -206,6 +206,7 @@ class ApiCoverageReportStatusTest {
             contractTestResults,
             applicationAPIs,
             allEndpoints = endpointsInSpec,
+            filteredEndpoints = endpointsInSpec,
             endpointsAPISet = true
         ).generate()
         assertThat(apiCoverageReport.coverageRows).isEqualTo(

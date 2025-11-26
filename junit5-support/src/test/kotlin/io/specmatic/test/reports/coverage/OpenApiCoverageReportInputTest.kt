@@ -1,6 +1,8 @@
 package io.specmatic.test.reports.coverage
 
+import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.TestResult
+import io.specmatic.test.API
 import io.specmatic.test.TestResultRecord
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -71,7 +73,8 @@ class OpenApiCoverageReportInputTest {
             configFilePath = "specmatic.yaml",
             testResultRecords = mutableListOf(currentRecord),
             previousTestResultRecord = emptyList(),
-            allEndpoints = allEndpoints
+            allEndpoints = allEndpoints,
+            filteredEndpoints = allEndpoints
         )
 
         val report = input.generate()
@@ -106,7 +109,8 @@ class OpenApiCoverageReportInputTest {
             configFilePath = "specmatic.yaml",
             testResultRecords = mutableListOf(currentRecord),
             previousTestResultRecord = listOf(previousRecord),
-            allEndpoints = allEndpoints
+            allEndpoints = allEndpoints,
+            filteredEndpoints = allEndpoints
         )
 
         val report = input.generate()
@@ -117,7 +121,7 @@ class OpenApiCoverageReportInputTest {
     }
 
     @Test
-    fun `should calculate coverage for a single path with mixed results excluding previous runs`() {
+    fun `should calculate coverage for a single path with mixed results when no previous runs`() {
         val endpoint1 = Endpoint(path = "/resource", method = "GET", responseStatus = 200)
         val endpoint2 = Endpoint(path = "/resource", method = "POST", responseStatus = 201)
         val endpoint3 = Endpoint(path = "/resource", method = "DELETE", responseStatus = 204)
@@ -134,7 +138,8 @@ class OpenApiCoverageReportInputTest {
             configFilePath = "specmatic.yaml",
             testResultRecords = mutableListOf(currentRecord),
             previousTestResultRecord = emptyList(),
-            allEndpoints = allEndpoints
+            allEndpoints = allEndpoints,
+            filteredEndpoints = allEndpoints
         )
 
         val report = input.generate()
@@ -151,7 +156,7 @@ class OpenApiCoverageReportInputTest {
     }
 
     @Test
-    fun `should calculate coverage for a single path with mixed results including previous runs`() {
+    fun `should calculate coverage for a single path with mixed results including previous runs when provided`() {
         val endpoint1 = Endpoint(path = "/resource", method = "GET", responseStatus = 200)
         val endpoint2 = Endpoint(path = "/resource", method = "POST", responseStatus = 201)
         val endpoint3 = Endpoint(path = "/resource", method = "DELETE", responseStatus = 204)
@@ -175,7 +180,8 @@ class OpenApiCoverageReportInputTest {
             configFilePath = "specmatic.yaml",
             testResultRecords = mutableListOf(currentRecord),
             previousTestResultRecord = listOf(previousRecord),
-            allEndpoints = allEndpoints
+            allEndpoints = allEndpoints,
+            filteredEndpoints = allEndpoints
         )
 
         val report = input.generate()
@@ -189,5 +195,61 @@ class OpenApiCoverageReportInputTest {
         assertThat(report.coverageRows).anyMatch {
             it.path == "/resource" && it.method == "DELETE" && it.remarks.toString() == "not covered" && it.coveragePercentage == 67
         }
+    }
+
+    @Test
+    fun `endpoint should not be counted towards the final report if it has been filtered out`() {
+        val allEndpoints = mutableListOf(Endpoint("/test", "POST", 200), Endpoint("/filtered", "POST", 200))
+        val filtered = mutableListOf(Endpoint("/test", "POST", 200))
+        val testResultRecords = mutableListOf(
+            TestResultRecord("/test", "POST", 200, TestResult.Failed, actualResponseStatus = 200),
+        )
+
+        val reportInput = OpenApiCoverageReportInput(
+            testResultRecords = testResultRecords, configFilePath = "",
+            allEndpoints = allEndpoints, filteredEndpoints = filtered
+        )
+        val report = reportInput.generate()
+
+        assertThat(report.testResultRecords).noneMatch { it.path == "/filtered" }
+        assertThat(report.coverageRows).noneMatch { it.path == "/filtered" }
+        assertThat(report.totalCoveragePercentage).isEqualTo(100)
+    }
+
+    @Test
+    fun `should not be marked missing-in-spec if the endpoint is filtered out but actuator shows it`() {
+        val allEndpoints = mutableListOf(Endpoint("/test", "POST", 200), Endpoint("/filtered", "POST", 200))
+        val filtered = mutableListOf(Endpoint("/test", "POST", 200))
+        val applicationAPIs = mutableListOf(API("POST", "/test"), API("POST", "/filtered"))
+        val testResultRecords = mutableListOf(
+            TestResultRecord("/test", "POST", 200, TestResult.Failed, actualResponseStatus = 200),
+        )
+
+        val reportInput = OpenApiCoverageReportInput(
+            testResultRecords = testResultRecords, applicationAPIs = applicationAPIs,
+            allEndpoints = allEndpoints, filteredEndpoints = filtered, configFilePath = ""
+        )
+        val report = reportInput.generate()
+
+        assertThat(report.testResultRecords).noneMatch { it.path == "/filtered" }
+        assertThat(report.coverageRows).noneMatch { it.path == "/filtered" }
+    }
+
+    @Test
+    fun `filtered endpoints should be used to find not-implemented endpoints instead of all endpoints`() {
+        val allEndpoints = mutableListOf(Endpoint("/test", "POST", 200), Endpoint("/filtered", "POST", 200))
+        val filtered = mutableListOf(Endpoint("/test", "POST", 200))
+        val testResultRecords = mutableListOf(TestResultRecord("/test", "POST", 200, TestResult.Failed, actualResponseStatus = 0))
+
+        val reportInput = OpenApiCoverageReportInput(
+            testResultRecords = testResultRecords, configFilePath = "", endpointsAPISet = true,
+            allEndpoints = allEndpoints, filteredEndpoints = filtered
+        )
+        val report = reportInput.generate()
+
+        assertThat(report.coverageRows).anyMatch { it.path == "/test" && it.remarks == CoverageStatus.NOT_IMPLEMENTED }
+        assertThat(report.testResultRecords).noneMatch { it.path == "/filtered" }
+        assertThat(report.coverageRows).noneMatch { it.path == "/filtered" }
+        assertThat(report.totalCoveragePercentage).isEqualTo(100)
     }
 }
