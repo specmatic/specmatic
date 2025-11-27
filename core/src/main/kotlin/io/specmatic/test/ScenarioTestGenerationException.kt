@@ -29,16 +29,19 @@ class ScenarioTestGenerationException(
 
     override fun toScenarioMetadata() = scenario.toScenarioMetadata()
 
-    override fun testResultRecord(result: Result, response: HttpResponse?): TestResultRecord {
+    override fun testResultRecord(executionResult: ContractTestExecutionResult): TestResultRecord {
+        val (result, request, response) = executionResult
         return TestResultRecord(
             path = convertPathParameterStyle(scenario.path),
             method = scenario.method,
             requestContentType = scenario.requestContentType,
             responseStatus = scenario.status,
+            request = request,
+            response = response,
             result = result.testResult(),
             sourceProvider = scenario.sourceProvider,
-            sourceRepository = scenario.sourceRepository,
-            sourceRepositoryBranch = scenario.sourceRepositoryBranch,
+            repository = scenario.sourceRepository,
+            branch = scenario.sourceRepositoryBranch,
             specification = scenario.specification,
             serviceType = scenario.serviceType,
             actualResponseStatus = 0,
@@ -52,13 +55,13 @@ class ScenarioTestGenerationException(
         return scenario.testDescription()
     }
 
-    override fun runTest(testBaseURL: String, timeoutInMilliseconds: Long): Pair<Result, HttpResponse?> {
+    override fun runTest(testBaseURL: String, timeoutInMilliseconds: Long): ContractTestExecutionResult {
         val log: (LogMessage) -> Unit = { logMessage -> logger.log(logMessage) }
         val httpClient = LegacyHttpClient(testBaseURL, log = log, timeoutInMilliseconds = timeoutInMilliseconds)
         return runTest(httpClient)
     }
 
-    override fun runTest(testExecutor: TestExecutor): Pair<Result, HttpResponse?> {
+    override fun runTest(testExecutor: TestExecutor): ContractTestExecutionResult {
         testExecutor.preExecuteScenario(scenario, httpRequest)
         return error()
     }
@@ -67,12 +70,12 @@ class ScenarioTestGenerationException(
         return this
     }
 
-    fun error(): Pair<Result, HttpResponse?> {
+    fun error(): ContractTestExecutionResult {
         val result: Result = when(e) {
             is ContractException -> Result.Failure(errorMessage, e.failure(), breadCrumb = breadCrumb ?: "").updateScenario(scenario)
             else -> Result.Failure(errorMessage + " - " + exceptionCauseMessage(e), breadCrumb = breadCrumb ?: "").updateScenario(scenario)
         }
 
-        return Pair(result, null)
+        return ContractTestExecutionResult(result = result)
     }
 }

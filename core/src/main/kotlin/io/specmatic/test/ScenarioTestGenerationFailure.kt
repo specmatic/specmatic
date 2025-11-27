@@ -26,16 +26,19 @@ class ScenarioTestGenerationFailure(
 
     override fun toScenarioMetadata() = scenario.toScenarioMetadata()
 
-    override fun testResultRecord(result: Result, response: HttpResponse?): TestResultRecord {
+    override fun testResultRecord(executionResult: ContractTestExecutionResult): TestResultRecord {
+        val (result, request, response) = executionResult
         return TestResultRecord(
             path = convertPathParameterStyle(scenario.path),
             method = scenario.method,
             requestContentType = scenario.requestContentType,
             responseStatus = scenario.status,
+            request = request,
+            response = response,
             result = result.testResult(),
             sourceProvider = scenario.sourceProvider,
-            sourceRepository = scenario.sourceRepository,
-            sourceRepositoryBranch = scenario.sourceRepositoryBranch,
+            repository = scenario.sourceRepository,
+            branch = scenario.sourceRepositoryBranch,
             specification = scenario.specification,
             serviceType = scenario.serviceType,
             actualResponseStatus = 0,
@@ -49,15 +52,17 @@ class ScenarioTestGenerationFailure(
         return scenario.testDescription()
     }
 
-    override fun runTest(testBaseURL: String, timeoutInMilliseconds: Long): Pair<Result, HttpResponse?> {
+    override fun runTest(testBaseURL: String, timeoutInMilliseconds: Long): ContractTestExecutionResult {
         val log: (LogMessage) -> Unit = { logMessage -> logger.log(logMessage) }
         val httpClient = LegacyHttpClient(testBaseURL, log = log, timeoutInMilliseconds = timeoutInMilliseconds)
         return runTest(httpClient)
     }
 
-    override fun runTest(testExecutor: TestExecutor): Pair<Result, HttpResponse?> {
+    override fun runTest(testExecutor: TestExecutor): ContractTestExecutionResult {
         testExecutor.preExecuteScenario(scenario, httpRequest)
-        return Pair(failureCause.updateScenario(scenario), null)
+        return ContractTestExecutionResult(
+            result = failureCause.updateScenario(scenario)
+        )
     }
 
     override fun plusValidator(validator: ResponseValidator): ContractTest {

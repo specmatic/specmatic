@@ -1,7 +1,15 @@
 package io.specmatic.test
 
 import io.specmatic.conversions.convertPathParameterStyle
-import io.specmatic.core.*
+import io.specmatic.core.ContractAndResponseMismatch
+import io.specmatic.core.Feature
+import io.specmatic.core.FlagsBased
+import io.specmatic.core.HttpRequest
+import io.specmatic.core.HttpResponse
+import io.specmatic.core.Result
+import io.specmatic.core.Scenario
+import io.specmatic.core.ValidateUnexpectedKeys
+import io.specmatic.core.Workflow
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.logger
@@ -11,7 +19,6 @@ import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
 import io.specmatic.test.handlers.ResponseHandler
 import io.specmatic.test.handlers.ResponseHandlerRegistry
 import io.specmatic.test.handlers.ResponseHandlingResult
-import java.time.Duration
 import java.time.Instant
 
 data class ScenarioAsTest(
@@ -39,7 +46,8 @@ data class ScenarioAsTest(
 
     override fun toScenarioMetadata() = scenario.toScenarioMetadata()
 
-    override fun testResultRecord(result: Result, response: HttpResponse?): TestResultRecord {
+    override fun testResultRecord(executionResult: ContractTestExecutionResult): TestResultRecord {
+        val (result, request, response) = executionResult
         val resultStatus = result.testResult()
 
         return TestResultRecord(
@@ -47,17 +55,20 @@ data class ScenarioAsTest(
             method = scenario.method,
             requestContentType = scenario.requestContentType,
             responseStatus = scenario.status,
+            request = request,
+            response = response,
             result = resultStatus,
             sourceProvider = sourceProvider,
-            sourceRepository = sourceRepository,
-            sourceRepositoryBranch = sourceRepositoryBranch,
+            repository = sourceRepository,
+            branch = sourceRepositoryBranch,
             specification = specification,
             serviceType = serviceType,
             actualResponseStatus = response?.status ?: 0,
             scenarioResult = result,
             soapAction = scenario.httpRequestPattern.getSOAPAction().takeIf { scenario.isGherkinScenario },
             isGherkin = scenario.isGherkinScenario,
-            duration = Duration.between(startTime, Instant.now()).toMillis()
+            requestTime = startTime,
+            responseTime = Instant.now()
         )
     }
 
@@ -65,7 +76,7 @@ data class ScenarioAsTest(
         return scenario.testDescription()
     }
 
-    override fun runTest(testBaseURL: String, timeoutInMilliseconds: Long): Pair<Result, HttpResponse?> {
+    override fun runTest(testBaseURL: String, timeoutInMilliseconds: Long): ContractTestExecutionResult {
         val log: (LogMessage) -> Unit = { logMessage ->
             logger.log(logMessage.withComment(this.annotations))
         }
@@ -75,7 +86,7 @@ data class ScenarioAsTest(
         return runTest(httpClient)
     }
 
-    override fun runTest(testExecutor: TestExecutor): Pair<Result, HttpResponse?> {
+    override fun runTest(testExecutor: TestExecutor): ContractTestExecutionResult {
         startTime = Instant.now()
         val newExecutor = if (testExecutor is HttpClient) {
             val log: (LogMessage) -> Unit = { logMessage ->
@@ -87,9 +98,9 @@ data class ScenarioAsTest(
             testExecutor
         }
 
-        val (result, response) = executeTestAndReturnResultAndResponse(scenario, newExecutor, flagsBased)
+        val executionResult = executeTestAndReturnResultAndResponse(scenario, newExecutor, flagsBased)
         endTime = Instant.now()
-        return Pair(result.updateScenario(scenario), response)
+        return executionResult.copy(result = executionResult.result.updateScenario(scenario))
     }
 
     override fun plusValidator(validator: ResponseValidator): ScenarioAsTest {
@@ -102,7 +113,7 @@ data class ScenarioAsTest(
         testScenario: Scenario,
         testExecutor: TestExecutor,
         flagsBased: FlagsBased
-    ): Pair<Result, HttpResponse?> {
+    ): ContractTestExecutionResult {
         try {
             val request = testScenario.generateHttpRequest(flagsBased).let {
                 workflow.updateRequest(it, originalScenario).adjustPayloadForContentType()
@@ -116,13 +127,21 @@ data class ScenarioAsTest(
             workflow.extractDataFrom(response, originalScenario)
             val validatorResult = validators.asSequence().map { it.validate(scenario, response) }.filterNotNull().firstOrNull()
             if (validatorResult is Result.Failure) {
-                return Pair(validatorResult.withBindings(testScenario.bindings, response), response)
+                return ContractTestExecutionResult(
+                    result = validatorResult.withBindings(testScenario.bindings, response),
+                    request = request,
+                    response = response
+                )
             }
 
             val testResult = validatorResult ?: testResult(request, response, testScenario, flagsBased)
             val responseHandler = response.getResponseHandlerIfExists()
             if (testResult is Result.Failure && responseHandler == null) {
-                return Pair(testResult.withBindings(testScenario.bindings, response), response)
+                return ContractTestExecutionResult(
+                    result = testResult.withBindings(testScenario.bindings, response),
+                    request = request,
+                    response = response
+                )
             }
 
             val responseToCheckAndStore = when (responseHandler) {
@@ -133,7 +152,11 @@ data class ScenarioAsTest(
                         is ResponseHandlingResult.Continue -> handlerResult.response
                         is ResponseHandlingResult.Stop -> {
                             val bindingResponse = handlerResult.response ?: response
-                            return Pair(handlerResult.result.withBindings(testScenario.bindings, bindingResponse), bindingResponse)
+                            return ContractTestExecutionResult(
+                                result = handlerResult.result.withBindings(testScenario.bindings, bindingResponse),
+                                request = request,
+                                response = bindingResponse
+                            )
                         }
                     }
                 }
@@ -144,11 +167,16 @@ data class ScenarioAsTest(
             }.firstOrNull() ?: Result.Success()
 
             testScenario.exampleRow?.let { ExampleProcessor.store(it, request, responseToCheckAndStore) }
-            return Pair(result.withBindings(testScenario.bindings, response), response)
+
+            return ContractTestExecutionResult(
+                result = result.withBindings(testScenario.bindings, response),
+                request = request,
+                response = response
+            )
         } catch (exception: Throwable) {
-            return Pair(
-                Result.Failure(exceptionCauseMessage(exception))
-                    .also { failure -> failure.updateScenario(testScenario) }, null
+            return ContractTestExecutionResult(
+                result = Result.Failure(exceptionCauseMessage(exception))
+                    .also { failure -> failure.updateScenario(testScenario) }
             )
         }
     }

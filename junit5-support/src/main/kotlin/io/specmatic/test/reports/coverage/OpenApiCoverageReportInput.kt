@@ -13,6 +13,7 @@ import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.API
 import io.specmatic.test.HttpInteractionsLog
 import io.specmatic.test.TestResultRecord
+import io.specmatic.test.TestResultRecord.Companion.getCoverageStatus
 import io.specmatic.test.reports.TestReportListener
 import io.specmatic.test.reports.coverage.console.GroupedTestResultRecords
 import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
@@ -35,6 +36,8 @@ class OpenApiCoverageReportInput(
     private val previousTestResultRecord: List<TestResultRecord> = emptyList(),
     private val filteredEndpoints: MutableList<Endpoint> = mutableListOf(),
 ) {
+    fun endpoints() = allEndpoints.toList()
+
     fun totalDuration(): Long {
         return httpInteractionsLog.totalDuration()
     }
@@ -161,15 +164,17 @@ class OpenApiCoverageReportInput(
         return this.plus(
             endpointsWithoutTests.map { endpoint ->
                 TestResultRecord(
-                    endpoint.path,
-                    endpoint.method,
-                    endpoint.responseStatus,
-                    TestResult.NotCovered,
-                    endpoint.sourceProvider,
-                    endpoint.sourceRepository,
-                    endpoint.sourceRepositoryBranch,
-                    endpoint.specification,
-                    endpoint.serviceType
+                    path = endpoint.path,
+                    method = endpoint.method,
+                    responseStatus = endpoint.responseStatus,
+                    request = null,
+                    response = null,
+                    result = TestResult.NotCovered,
+                    sourceProvider = endpoint.sourceProvider,
+                    repository = endpoint.sourceRepository,
+                    branch = endpoint.sourceRepositoryBranch,
+                    specification = endpoint.specification,
+                    serviceType = endpoint.serviceType
                 )
             }
         )
@@ -189,8 +194,8 @@ class OpenApiCoverageReportInput(
         return this.groupBy {
             CoverageGroupKey(
                 it.sourceProvider,
-                it.sourceRepository,
-                it.sourceRepositoryBranch,
+                it.repository,
+                it.branch,
                 it.specification,
                 it.serviceType
             )
@@ -219,30 +224,6 @@ class OpenApiCoverageReportInput(
         }
     }
 
-    private fun List<TestResultRecord>.getCoverageStatus(): CoverageStatus {
-        if(this.any { it.isWip }) return CoverageStatus.WIP
-
-        if(!this.any { it.isValid }) {
-            return when (this.first().result) {
-                TestResult.MissingInSpec -> CoverageStatus.MISSING_IN_SPEC
-                else -> CoverageStatus.INVALID
-            }
-        }
-
-        if (this.any { it.isExercised }) {
-            return when (this.first().result) {
-                TestResult.NotImplemented -> CoverageStatus.NOT_IMPLEMENTED
-                else -> CoverageStatus.COVERED
-            }
-        }
-
-        return when (val result = this.first().result) {
-            TestResult.NotCovered -> CoverageStatus.NOT_COVERED
-            TestResult.MissingInSpec -> CoverageStatus.MISSING_IN_SPEC
-            else -> throw ContractException("Cannot determine remarks for unknown test result: $result")
-        }
-    }
-
     private fun List<TestResultRecord>.groupRecords(): GroupedTestResultRecords {
         return groupBy { it.path }.mapValues { (_, pathMap) ->
             pathMap.groupBy { it.soapAction ?: it.method }.mapValues { (_, methodMap) ->
@@ -263,10 +244,12 @@ class OpenApiCoverageReportInput(
             noTestResultFoundForThisAPI && isNotExcluded
         }.map { api ->
             TestResultRecord(
-                api.path,
-                api.method,
-                0,
-                TestResult.MissingInSpec,
+                path = api.path,
+                method = api.method,
+                responseStatus = 0,
+                request = null,
+                response = null,
+                result = TestResult.MissingInSpec,
                 serviceType = SERVICE_TYPE_HTTP
             )
         }
