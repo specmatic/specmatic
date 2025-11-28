@@ -13,15 +13,15 @@ fun testBackwardCompatibility(older: Feature, newer: Feature): Results {
         .generateBackwardCompatibilityTestScenarios()
         .filter { !it.ignoreFailure }
         .fold(Results() to emptySet<String>()) { (results, olderScenariosTested), olderScenario ->
-        val olderScenarioDescription = olderScenario.testDescription()
-        if (olderScenarioDescription !in olderScenariosTested) {
-            logger.log("[Compatibility Check] ${olderScenarioDescription.trim()}")
-            logger.boundary()
-        }
+            val olderScenarioDescription = olderScenario.testDescription()
+            if (olderScenarioDescription !in olderScenariosTested) {
+                logger.log("[Compatibility Check] ${olderScenarioDescription.trim()}")
+                logger.boundary()
+            }
 
-        val scenarioResults: List<Result> = testBackwardCompatibility(olderScenario, newer)
-        results.copy(results = results.results.plus(scenarioResults)) to olderScenariosTested.plus(olderScenarioDescription)
-    }
+            val scenarioResults: List<Result> = testBackwardCompatibility(olderScenario, newer)
+            results.copy(results = results.results.plus(scenarioResults)) to olderScenariosTested.plus(olderScenarioDescription)
+        }
 
     logger.boundary()
 

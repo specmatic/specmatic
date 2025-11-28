@@ -9,8 +9,10 @@ import io.specmatic.core.utilities.SystemExit
 import picocli.CommandLine.Option
 import java.io.File
 import java.nio.file.Paths
+import java.util.ServiceLoader
 import java.util.concurrent.Callable
 import java.util.regex.Pattern
+import kotlin.collections.ArrayDeque
 import kotlin.io.path.Path
 import kotlin.io.path.absolutePathString
 
@@ -65,7 +67,7 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
                 files = filteredSpecs,
                 baseBranch = baseBranch()
             )
-        } catch(e: Throwable) {
+        } catch (e: Throwable) {
             logger.newLine()
             logger.newLine()
             logger.log(e)
@@ -83,8 +85,8 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
 
         val untrackedFiles = gitCommand.getUntrackedFiles().filter {
             it.contains(Path(targetPath).toString())
-            && File(it).isValidSpec()
-            && getSpecsReferringTo(setOf(it)).isEmpty()
+                    && File(it).isValidSpec()
+                    && getSpecsReferringTo(setOf(it)).isEmpty()
         }.toSet()
 
         if (filesChangedInCurrentBranch.isEmpty() && untrackedFiles.isEmpty()) {
@@ -175,7 +177,7 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
     }
 
     private fun Set<String>.printSummaryOfChangedSpecs(message: String) {
-        if(this.isNotEmpty()) {
+        if (this.isNotEmpty()) {
             logger.log("${ONE_INDENT}- $message: ")
             this.forEachIndexed { index, it ->
                 logger.log(it.prependIndent("$TWO_INDENTS${index.inc()}. "))
@@ -229,7 +231,8 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
                         backwardCompatibilityResult,
                         specFilePath,
                         newer,
-                        unusedExamples
+                        unusedExamples,
+                        gitCommand.getRemoteUrl()
                     )
                 } finally {
                     gitCommand.checkout(treeishWithChanges)
@@ -252,9 +255,13 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
         backwardCompatibilityResult: Results,
         specFilePath: String,
         newer: IFeature,
-        unusedExamples: Set<String>
+        unusedExamples: Set<String>,
+        centralRepoUrl: String
     ): CompatibilityResult {
-        if(backwardCompatibilityResult.success().not()) {
+        if (backwardCompatibilityResult.success().not()) {
+
+            val loader = ServiceLoader.load(BackwardCompatibilityCheckHook::class.java)
+
             logger.log("_".repeat(40).prependIndent(ONE_INDENT))
             logger.log("The Incompatibility Report:$newLine".prependIndent(ONE_INDENT))
             logger.log(backwardCompatibilityResult.report().prependIndent(TWO_INDENTS))
@@ -262,12 +269,24 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
                 specFilePath,
                 "(INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from ${baseBranch()}".prependIndent(ONE_INDENT)
             )
+
+            val compatibilityResult = loader.firstNotNullOf {
+                it.check(
+                    logger, backwardCompatibilityResult,
+                    centralRepoUrl,
+                    specFilePath,
+                    ONE_INDENT,
+                )
+            }
+            if (compatibilityResult == CompatibilityResult.PASSED) {
+                return CompatibilityResult.PASSED
+            }
             return CompatibilityResult.FAILED
         }
 
         val errorsFound = printExampleValiditySummaryAndReturnResult(newer, unusedExamples, specFilePath)
 
-        val message = if(errorsFound) {
+        val message = if (errorsFound) {
             "(INCOMPATIBLE) The spec is backward compatible but the examples are NOT backward compatible or are INVALID."
         } else {
             "(COMPATIBLE) The spec is backward compatible with the corresponding spec from ${baseBranch()}"
@@ -295,7 +314,7 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
         var errorsFound = false
         val areExamplesInvalid = areExamplesValid(newer, "newer").not()
 
-        if(areExamplesInvalid || unusedExamples.isNotEmpty()) {
+        if (areExamplesInvalid || unusedExamples.isNotEmpty()) {
             logger.log("_".repeat(40).prependIndent(ONE_INDENT))
             logger.log("The Examples Validity Summary:$newLine".prependIndent(ONE_INDENT))
         }
@@ -312,11 +331,11 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
     }
 
     private fun addShutdownHook() {
-        Runtime.getRuntime().addShutdownHook(object: Thread() {
+        Runtime.getRuntime().addShutdownHook(object : Thread() {
             override fun run() {
                 runCatching {
                     gitCommand.checkout(getCurrentBranch())
-                    if(areLocalChangesStashed) gitCommand.stashPop()
+                    if (areLocalChangesStashed) gitCommand.stashPop()
                 }
             }
         })
