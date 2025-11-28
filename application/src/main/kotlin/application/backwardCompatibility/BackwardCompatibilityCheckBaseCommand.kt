@@ -272,9 +272,10 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
 
             val compatibilityResult = loader.firstNotNullOf {
                 it.check(
-                    logger, backwardCompatibilityResult,
+                    logger,
+                    backwardCompatibilityResult,
                     centralRepoUrl,
-                    specFilePath,
+                    File(specFilePath).relativeTo(File(repoDir).canonicalFile).path,
                     ONE_INDENT,
                 )
             }
