@@ -166,7 +166,7 @@ class SystemGit(override val workingDirectory: String = ".", private val prefix:
         return execute(Configuration.gitCommand, "diff", "--name-only", mainBranch).split(System.lineSeparator())
     }
 
-    override fun getRemoteUrl(name: String): String = execute(Configuration.gitCommand, "remote", "get-url", name)
+    override fun getRemoteUrl(name: String): String = execute(Configuration.gitCommand, "remote", "get-url", name).trim()
 
     override fun currentBranch(): String {
         return execute(Configuration.gitCommand, "rev-parse", "--abbrev-ref", "HEAD").trim()

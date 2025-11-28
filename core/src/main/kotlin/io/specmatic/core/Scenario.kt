@@ -56,6 +56,9 @@ interface ScenarioDetailsForResult {
     val method: String
     val path: String
 
+    val operation: Operation
+        get() = Operation(method = method, path = path, responseCode = status)
+
     fun testDescription(): String
 }
 
