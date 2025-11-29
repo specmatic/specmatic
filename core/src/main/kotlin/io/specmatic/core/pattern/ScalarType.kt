@@ -8,4 +8,6 @@ fun scalarAnnotation(pattern: Pattern, negativePatterns: Sequence<Pattern>): Seq
     }
 }
 
-
+fun scalarAnnotation(pattern: Pattern, negativePattern: Pattern): ReturnValue<Pattern> {
+    return HasValue(negativePattern, "is mutated from ${pattern.typeName} to ${negativePattern.typeName}")
+}

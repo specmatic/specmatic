@@ -27,8 +27,9 @@ object NullPattern : Pattern, ScalarType {
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> = sequenceOf(HasValue(this))
     override fun newBasedOn(resolver: Resolver): Sequence<Pattern> = sequenceOf(this)
+
     override fun negativeBasedOn(row: Row, resolver: Resolver, config: NegativePatternConfiguration): Sequence<ReturnValue<Pattern>> {
-        return newBasedOn(row, resolver).map { it.value }.map { HasValue(it) }
+        return scalarAnnotation(this, sequenceOf(StringPattern(), NumberPattern(), BooleanPattern()))
     }
 
     override fun parse(value: String, resolver: Resolver): Value {
