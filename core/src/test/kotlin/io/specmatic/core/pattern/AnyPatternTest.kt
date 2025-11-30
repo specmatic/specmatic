@@ -497,6 +497,25 @@ internal class AnyPatternTest {
         }
     }
 
+    @Test
+    fun `toNullable should return self with no modifications if already nullable`() {
+        val patterns = listOf(
+            AnyPattern(pattern = listOf(StringPattern(), NullPattern), extensions = emptyMap()),
+            AnyPattern(pattern = listOf(StringPattern(), ExactValuePattern(NullValue)), extensions = emptyMap())
+        )
+
+        assertThat(patterns).allSatisfy { pattern ->
+            assertThat(pattern.toNullable(null)).isEqualTo(pattern)
+        }
+    }
+
+    @Test
+    fun `toNullable should add NullPattern if pattern wasn't already nullable`() {
+        val pattern = AnyPattern(pattern = listOf(StringPattern()), extensions = emptyMap())
+        val nullablePattern = pattern.toNullable(null)
+        assertThat(nullablePattern.pattern).contains(NullPattern)
+    }
+
     @Nested
     inner class GenerateForEveryDiscriminatorDetailsValueTests {
         @Test

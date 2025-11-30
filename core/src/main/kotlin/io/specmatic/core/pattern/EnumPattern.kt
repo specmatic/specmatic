@@ -8,9 +8,10 @@ import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
-private fun validEnumValues(values: List<Value>, key: String?, typeAlias: String?, example: String?, nullable: Boolean): AnyPattern {
-    assertThatAllValuesHaveTheSameType(values, nullable)
-    val patterns = values.map { ExactValuePattern(it) }
+private fun validEnumValues(values: List<Value>, key: String?, typeAlias: String?, example: String?, nullable: Boolean, multiType: Boolean): AnyPattern {
+    assertThatAllValuesHaveTheSameType(values, nullable, multiType)
+    val sortedValues = values.sortedWith(compareBy { it is StringValue })
+    val patterns = sortedValues.map { ExactValuePattern(it) }
     return AnyPattern(
         patterns,
         key,
@@ -21,16 +22,15 @@ private fun validEnumValues(values: List<Value>, key: String?, typeAlias: String
 }
 
 fun not(boolean: Boolean) = !boolean
-fun assertThatAllValuesHaveTheSameType(values: List<Value>, enumIsNullable: Boolean) {
+fun assertThatAllValuesHaveTheSameType(values: List<Value>, enumIsNullable: Boolean, multiType: Boolean) {
     val enumOptionsContainNull = values.any { it is NullValue }
-
     if(not(enumIsNullable) yet enumOptionsContainNull)
         throw ContractException("Enum values cannot be null as the enum is not nullable")
 
     val types = values.filterNot { it is NullValue }.map { it.javaClass }
     val distinctTypes = types.distinct()
 
-    if(distinctTypes.size > 1)
+    if(distinctTypes.size > 1 && !multiType)
         throw ContractException("Enum values must all be of the same type. Found types: ${distinctTypes.joinToString(", ")}")
 }
 
@@ -38,16 +38,15 @@ private infix fun Boolean.yet(otherBooleanValue: Boolean): Boolean {
     return this && otherBooleanValue
 }
 
-data class EnumPattern(
-    override val pattern: AnyPattern,
-    val nullable: Boolean
-) : Pattern by pattern, ScalarType {
-    constructor(values: List<Value>,
-                key: String? = null,
-                typeAlias: String? = null,
-                example: String? = null,
-                nullable: Boolean = false
-    ) : this(validEnumValues(values, key, typeAlias, example, nullable), nullable)
+data class EnumPattern(override val pattern: AnyPattern, val nullable: Boolean, val multiType: Boolean = false) : Pattern by pattern, ScalarType {
+    constructor(
+        values: List<Value>,
+        key: String? = null,
+        typeAlias: String? = null,
+        example: String? = null,
+        nullable: Boolean = false,
+        multiType: Boolean = false
+    ) : this (validEnumValues(values, key, typeAlias, example, nullable, multiType), nullable, multiType)
 
     override fun resolveSubstitutions(
         substitution: Substitution,
@@ -79,10 +78,30 @@ data class EnumPattern(
     }
 
     override fun negativeBasedOn(row: Row, resolver: Resolver, config: NegativePatternConfiguration): Sequence<ReturnValue<Pattern>> {
-        val current = this
-        return sequence {
-            if(config.withDataTypeNegatives) {
-                yieldAll(scalarAnnotation(current, pattern.negativeBasedOn(row, resolver).map { it.value }))
+        if (!config.withDataTypeNegatives) return emptySequence()
+        if (nullable && pattern.pattern.size == 1) {
+            return pattern.pattern.single().negativeBasedOn(row, resolver).map { it: ReturnValue<Pattern> ->
+                it.ifHasValue {scalarAnnotation(this@EnumPattern, it.value)}
+            }
+        }
+
+        val enumValues = pattern.pattern.mapNotNull { (it as? ExactValuePattern)?.pattern }.toSet()
+        val enumDataTypes = enumValues.map { it.deepPattern() }.toSet()
+        return pattern.negativeBasedOn(row, resolver).filter { negativePattern: ReturnValue<Pattern> ->
+            if (negativePattern !is HasValue) return@filter true
+            when (val candidate = negativePattern.value) {
+                is ExactValuePattern -> candidate.pattern !in enumValues
+                else -> candidate !in enumDataTypes
+            }
+        }.distinctBy { it: ReturnValue<Pattern> ->
+            if (it !is HasValue) return@distinctBy it
+            when (val candidate = it.value) {
+                is ExactValuePattern -> candidate.pattern.deepPattern()
+                else -> candidate
+            }
+        }.map { it: ReturnValue<Pattern> ->
+            it.ifHasValue {
+                scalarAnnotation(this@EnumPattern, it.value)
             }
         }
     }
@@ -105,7 +124,8 @@ data class EnumPattern(
 
     override fun hashCode(): Int = pattern.hashCode()
 
-    override fun toNullable(defaultValue: String?): Pattern {
-        return this
+    override fun toNullable(defaultValue: String?): EnumPattern {
+        if (nullable) return this
+        return copy(nullable = true, pattern = pattern.copy(pattern = pattern.pattern.plus(ExactValuePattern(NullValue))))
     }
 }

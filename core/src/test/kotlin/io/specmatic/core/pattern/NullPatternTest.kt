@@ -6,6 +6,7 @@ import io.specmatic.core.pattern.NullPattern.newBasedOn
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.shouldMatch
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.assertEquals
 
 internal class NullPatternTest {
@@ -33,5 +34,15 @@ internal class NullPatternTest {
     @Test
     fun `should create a new array of patterns containing itself`() {
         assertEquals(listOf(NullPattern), newBasedOn(Row(), Resolver()).map { it.value }.toList())
+    }
+
+    @Test
+    fun `should generate a list of non-null scalars on negativeBasedOn`() {
+        val patterns = NullPattern.negativeBasedOn(Row(), Resolver()).toList()
+        assertThat(patterns).allSatisfy { returnValue ->
+            assertThat(returnValue).isInstanceOf(HasValue::class.java)
+            assertThat(returnValue.value).isNotInstanceOf(NullPattern::class.java)
+            assertThat(returnValue.value).isInstanceOf(ScalarType::class.java)
+        }
     }
 }

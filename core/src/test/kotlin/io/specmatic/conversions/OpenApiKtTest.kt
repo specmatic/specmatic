@@ -1235,7 +1235,7 @@ Background:
               
                  ${
             ContractAndResponseMismatch.mismatchMessage(
-                """("labrador" or "retriever" or "null")""",
+                """("null" or "labrador" or "retriever")""",
                 "\"malinois\""
             )
         }
