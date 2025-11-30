@@ -256,10 +256,9 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
         specFilePath: String,
         newer: IFeature,
         unusedExamples: Set<String>,
-        centralRepoUrl: String
+        centralRepoUrl: String,
     ): CompatibilityResult {
         if (backwardCompatibilityResult.success().not()) {
-
             val loader = ServiceLoader.load(BackwardCompatibilityCheckHook::class.java)
 
             logger.log("_".repeat(40).prependIndent(ONE_INDENT))
@@ -267,18 +266,20 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
             logger.log(backwardCompatibilityResult.report().prependIndent(TWO_INDENTS))
             logVerdictFor(
                 specFilePath,
-                "(INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from ${baseBranch()}".prependIndent(ONE_INDENT)
+                "(INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from ${baseBranch()}".prependIndent(ONE_INDENT),
             )
 
-            val compatibilityResult = loader.firstNotNullOf {
-                it.check(
-                    logger,
-                    backwardCompatibilityResult,
-                    centralRepoUrl,
-                    File(specFilePath).relativeTo(File(repoDir).canonicalFile).path,
-                    ONE_INDENT,
-                )
-            }
+            val compatibilityResult =
+                loader.firstNotNullOfOrNull {
+                    it.check(
+                        logger,
+                        backwardCompatibilityResult,
+                        centralRepoUrl,
+                        File(specFilePath).relativeTo(File(repoDir).canonicalFile).path,
+                        ONE_INDENT,
+                    )
+                }
+
             if (compatibilityResult == CompatibilityResult.PASSED) {
                 return CompatibilityResult.PASSED
             }
