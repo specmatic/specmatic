@@ -71,6 +71,7 @@ internal class StubCommandTest {
         verify(exactly = 0) { specmaticConfig.contractStubPathData() }
     }
 
+
     @Test
     fun `should attempt to start a HTTP stub`(@TempDir tempDir: File) {
         val contractPath = osAgnosticPath("${tempDir.path}/contract.$CONTRACT_EXTENSION")
@@ -283,4 +284,9 @@ internal class StubCommandTest {
             System.clearProperty(Flags.SPECMATIC_BASE_URL)
         }
     }
+
+    fun osAgnosticPath(path: String): String {
+        return path.replace("/", File.separator)
+    }
 }
+

@@ -32,7 +32,6 @@ object SpecmaticCoreSubcommands : CliConfigurer {
         ExamplesCommand(),
         StubCommand(),
         TestCommand(),
-        CentralContractRepoReportCommand(),
         ConfigCommand(),
         McpBaseCommand(),
         *ReporterSubcommands.subcommands(),
