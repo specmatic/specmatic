@@ -6,10 +6,10 @@ import io.specmatic.core.Result
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.reporter.ctrf.model.CtrfTestMetadata
 import io.specmatic.reporter.ctrf.model.CtrfTestResultRecord
-import io.specmatic.reporter.ctrf.model.operation.OpenAPICtrfOperation
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
-import io.specmatic.reporter.internal.dto.ctrf.CtrfOperation
+import io.specmatic.reporter.internal.dto.spec.operation.APIOperation
 import io.specmatic.reporter.model.TestResult
+import io.specmatic.reporter.spec.model.OpenAPIOperation
 import java.time.Duration
 import java.time.Instant
 
@@ -37,7 +37,7 @@ data class TestResultRecord(
     override val duration: Long = durationFrom(requestTime, responseTime),
     override val rawStatus: String? = result.toString(),
     override val testType: String = "ContractTest",
-    override val operation: CtrfOperation = OpenAPICtrfOperation(
+    override val operation: APIOperation = OpenAPIOperation(
         path = path,
         method = method,
         contentType = requestContentType.orEmpty(),
@@ -56,8 +56,7 @@ data class TestResultRecord(
             input = request?.toLogString().orEmpty(),
             output = response?.toLogString().orEmpty(),
             inputTime = requestTime?.toEpochMilli() ?: 0L,
-            outputTime = responseTime?.toEpochMilli() ?: 0L,
-            operation = operation
+            outputTime = responseTime?.toEpochMilli() ?: 0L
         )
     }
 
