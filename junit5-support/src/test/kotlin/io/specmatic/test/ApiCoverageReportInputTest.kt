@@ -24,10 +24,10 @@ class ApiCoverageReportInputTest {
     @Test
     fun `test generates api coverage report when all endpoints are covered`() {
         val testReportRecords = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, TestResult.Success),
-            TestResultRecord("/route1", "POST", 200, TestResult.Success),
-            TestResultRecord("/route1", "POST", 401, TestResult.Success),
-            TestResultRecord("/route2", "GET", 200, TestResult.Success),
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success),
+            TestResultRecord("/route1", "POST", 200, request = null, response = null, result = TestResult.Success),
+            TestResultRecord("/route1", "POST", 401, request = null, response = null, result = TestResult.Success),
+            TestResultRecord("/route2", "GET", 200, request = null, response = null, result = TestResult.Success),
         )
         val applicationAPIs = mutableListOf(
             API("GET", "/route1"),
@@ -70,10 +70,10 @@ class ApiCoverageReportInputTest {
         )
 
         val testReportRecords = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, TestResult.Success),
-            TestResultRecord("/route1", "POST", 200, TestResult.Success),
-            TestResultRecord("/route1", "POST", 401, TestResult.Success),
-            TestResultRecord("/route2", "GET", 200, TestResult.Success)
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success),
+            TestResultRecord("/route1", "POST", 200, request = null, response = null, result = TestResult.Success),
+            TestResultRecord("/route1", "POST", 401, request = null, response = null, result = TestResult.Success),
+            TestResultRecord("/route2", "GET", 200, request = null, response = null, result = TestResult.Success)
         )
 
         val endpointsInSpec = mutableListOf(
@@ -105,11 +105,11 @@ class ApiCoverageReportInputTest {
     @Test
     fun `test generates api coverage report when some endpoints are marked as excluded`() {
         val testReportRecords = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, TestResult.Success),
-            TestResultRecord("/route1", "POST", 200, TestResult.Success),
-            TestResultRecord("/route1", "POST", 401, TestResult.Success),
-            TestResultRecord("/route2", "GET", 200, TestResult.Success),
-            TestResultRecord("/route2", "POST", 200, TestResult.Success)
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success),
+            TestResultRecord("/route1", "POST", 200, request = null, response = null, result = TestResult.Success),
+            TestResultRecord("/route1", "POST", 401, request = null, response = null, result = TestResult.Success),
+            TestResultRecord("/route2", "GET", 200, request = null, response = null, result = TestResult.Success),
+            TestResultRecord("/route2", "POST", 200, request = null, response = null, result = TestResult.Success)
         )
         val applicationAPIs = mutableListOf(
             API("GET", "/route1"),
@@ -154,11 +154,11 @@ class ApiCoverageReportInputTest {
     @Test
     fun `test generates empty api coverage report when all endpoints are marked as excluded`() {
         val testReportRecords = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, TestResult.Success),
-            TestResultRecord("/route1", "POST", 200, TestResult.Success),
-            TestResultRecord("/route1", "POST", 401, TestResult.Success),
-            TestResultRecord("/route2", "GET", 200, TestResult.Success),
-            TestResultRecord("/route2", "POST", 200, TestResult.Success)
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success),
+            TestResultRecord("/route1", "POST", 200, request = null, response = null, result = TestResult.Success),
+            TestResultRecord("/route1", "POST", 401, request = null, response = null, result = TestResult.Success),
+            TestResultRecord("/route2", "GET", 200, request = null, response = null, result = TestResult.Success),
+            TestResultRecord("/route2", "POST", 200, request = null, response = null, result = TestResult.Success)
         )
         val applicationAPIs = mutableListOf(
             API("GET", "/route1"),
@@ -208,10 +208,10 @@ class ApiCoverageReportInputTest {
         )
 
         val testReportRecords = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, TestResult.Success),
-            TestResultRecord("/route1", "POST", 200, TestResult.Success),
-            TestResultRecord("/route2", "GET", 200, TestResult.Failed, actualResponseStatus = 404),
-            TestResultRecord("/route2", "POST", 200, TestResult.Failed, actualResponseStatus = 404)
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success),
+            TestResultRecord("/route1", "POST", 200, request = null, response = null, result = TestResult.Success),
+            TestResultRecord("/route2", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404),
+            TestResultRecord("/route2", "POST", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404)
         )
 
         val endpointsInSpec = mutableListOf(
@@ -250,10 +250,10 @@ class ApiCoverageReportInputTest {
         )
 
         val testReportRecords = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, TestResult.Success),
-            TestResultRecord("/route1", "POST", 200, TestResult.Success),
-            TestResultRecord("/route2", "GET", 200, TestResult.Success),
-            TestResultRecord("/route2", "POST", 200, TestResult.Failed, actualResponseStatus = 404)
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success),
+            TestResultRecord("/route1", "POST", 200, request = null, response = null, result = TestResult.Success),
+            TestResultRecord("/route2", "GET", 200, request = null, response = null, result = TestResult.Success),
+            TestResultRecord("/route2", "POST", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404)
         )
 
         val endpointsInSpec = mutableListOf(
@@ -293,10 +293,10 @@ class ApiCoverageReportInputTest {
         )
 
         val testReportRecords = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, TestResult.Success, "git", "https://github.com/specmatic/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route1.yaml", "HTTP"),
-            TestResultRecord("/route1", "POST", 200, TestResult.Success, "git", "https://github.com/specmatic/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route1.yaml", "HTTP"),
-            TestResultRecord("/route2", "GET", 200, TestResult.Success, "git", "https://github.com/specmatic/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route2.yaml", "HTTP"),
-            TestResultRecord("/route2", "POST", 200, TestResult.Failed, "git", "https://github.com/specmatic/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route2.yaml", "HTTP", actualResponseStatus = 404)
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, "git", "https://github.com/specmatic/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route1.yaml", "HTTP"),
+            TestResultRecord("/route1", "POST", 200, request = null, response = null, result = TestResult.Success, "git", "https://github.com/specmatic/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route1.yaml", "HTTP"),
+            TestResultRecord("/route2", "GET", 200, request = null, response = null, result = TestResult.Success, "git", "https://github.com/specmatic/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route2.yaml", "HTTP"),
+            TestResultRecord("/route2", "POST", 200, request = null, response = null, result = TestResult.Failed, "git", "https://github.com/specmatic/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route2.yaml", "HTTP", actualResponseStatus = 404)
         )
 
         val endpointsInSpec = mutableListOf(
@@ -316,12 +316,12 @@ class ApiCoverageReportInputTest {
     @Test
     fun `test generates api coverage report with endpoints present in spec but not tested`() {
         val testReportRecords = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, TestResult.Success),
-            TestResultRecord("/route1", "POST", 200, TestResult.Success),
-            TestResultRecord("/route1", "POST", 401, TestResult.Success),
-            TestResultRecord("/route2", "GET", 200, TestResult.Success),
-            TestResultRecord("/route2", "GET", 404, TestResult.Success),
-            TestResultRecord("/route2", "POST", 500, TestResult.Success),
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success),
+            TestResultRecord("/route1", "POST", 200, request = null, response = null, result = TestResult.Success),
+            TestResultRecord("/route1", "POST", 401, request = null, response = null, result = TestResult.Success),
+            TestResultRecord("/route2", "GET", 200, request = null, response = null, result = TestResult.Success),
+            TestResultRecord("/route2", "GET", 404, request = null, response = null, result = TestResult.Success),
+            TestResultRecord("/route2", "POST", 500, request = null, response = null, result = TestResult.Success),
         )
         val applicationAPIs = mutableListOf(
             API("GET", "/route1"),
