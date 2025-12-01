@@ -15,7 +15,7 @@ fun testBackwardCompatibility(older: Feature, newer: Feature): Results {
         .fold(Results() to emptySet<String>()) { (results, olderScenariosTested), olderScenario ->
             val olderScenarioDescription = olderScenario.testDescription()
             if (olderScenarioDescription !in olderScenariosTested) {
-                logger.log("[Compatibility Check] ${olderScenarioDescription.trim()}")
+                logger.debug("[Compatibility Check] ${olderScenarioDescription.trim()}")
                 logger.boundary()
             }
 

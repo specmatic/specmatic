@@ -4,6 +4,7 @@ import io.specmatic.core.IFeature
 import io.specmatic.core.Results
 import io.specmatic.core.git.GitCommand
 import io.specmatic.core.git.SystemGit
+import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.SystemExit
 import picocli.CommandLine.Option
@@ -45,6 +46,9 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
     )
     var repoDir: String = "."
 
+    @Option(names = ["--debug"], description = ["Write verbose logs to console for debugging"])
+    var debugLog = false
+
     abstract fun checkBackwardCompatibility(oldFeature: IFeature, newFeature: IFeature): Results
     abstract fun File.isValidFileFormat(): Boolean
     abstract fun File.isValidSpec(): Boolean
@@ -59,7 +63,11 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
     open fun getUnusedExamples(feature: IFeature): Set<String> = emptySet()
 
     final override fun call() {
+        if(debugLog)
+            logger = Verbose()
+
         gitCommand = SystemGit(workingDirectory = Paths.get(repoDir).absolutePathString())
+
         addShutdownHook()
         val filteredSpecs = getChangedSpecs()
         val result = try {
@@ -130,7 +138,8 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
         val queue = ArrayDeque(specFiles)
 
         while (queue.isNotEmpty()) {
-            val combinedPattern = Pattern.compile(queue.toSet().joinToString(prefix = "\\b(?:", separator = "|", postfix = ")\\b") { specFile ->
+            val combinedPattern = Pattern.compile(
+                queue.toSet().joinToString(prefix = "\\b(?:", separator = "|", postfix = ")\\b") { specFile ->
                     regexForMatchingReferred(specFile.name).let { Regex.escape(it) }
                 })
 
@@ -266,7 +275,9 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
             logger.log(backwardCompatibilityResult.report().prependIndent(TWO_INDENTS))
             logVerdictFor(
                 specFilePath,
-                "(INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from ${baseBranch()}".prependIndent(ONE_INDENT),
+                "(INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from ${baseBranch()}".prependIndent(
+                    ONE_INDENT
+                ),
             )
 
             val compatibilityResult =
