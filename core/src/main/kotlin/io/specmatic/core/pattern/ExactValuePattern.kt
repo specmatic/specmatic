@@ -5,9 +5,11 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.mismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.value.NullValue
+import io.specmatic.core.value.ScalarValue
 import io.specmatic.core.value.Value
 
-data class ExactValuePattern(override val pattern: Value, override val typeAlias: String? = null, val discriminator: Boolean = false) : Pattern {
+data class ExactValuePattern(override val pattern: Value, override val typeAlias: String? = null, val discriminator: Boolean = false, val isConst: Boolean = false) : Pattern {
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         return when (pattern == sampleData) {
             true -> Result.Success()
@@ -24,10 +26,7 @@ data class ExactValuePattern(override val pattern: Value, override val typeAlias
     }
 
     override fun encompasses(otherPattern: Pattern, thisResolver: Resolver, otherResolver: Resolver, typeStack: TypeStack): Result {
-        if(otherPattern !is ExactValuePattern || this.pattern != otherPattern.pattern)
-            return Result.Failure("Expected ${this.typeName}, got ${otherPattern.typeName}")
-
-        return Result.Success()
+        return encompasses(this, otherPattern, thisResolver, otherResolver, typeStack)
     }
 
     override fun fitsWithin(otherPatterns: List<Pattern>, thisResolver: Resolver, otherResolver: Resolver, typeStack: TypeStack): Result {
@@ -40,11 +39,18 @@ data class ExactValuePattern(override val pattern: Value, override val typeAlias
     }
 
     override fun generate(resolver: Resolver) = pattern
-    override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> = sequenceOf(HasValue(this))
+    override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> {
+        return sequenceOf(HasValue(this, "is set to exact value of ${pattern.displayableValue()}"))
+    }
+
     override fun newBasedOn(resolver: Resolver): Sequence<Pattern> = sequenceOf(this)
-    override fun negativeBasedOn(row: Row, resolver: Resolver, config: NegativePatternConfiguration): Sequence<ReturnValue<Pattern>> {
-        val nullPattern: ReturnValue<Pattern> = HasValue(NullPattern)
-        return sequenceOf(nullPattern).plus(pattern.type().negativeBasedOn(Row(), resolver).filterValueIsNot { it == NullPattern })
+    override fun negativeBasedOn(row: Row, resolver: Resolver, config: NegativePatternConfiguration): Sequence<ReturnValue<Pattern>> = sequence {
+        if (isConst && pattern is ScalarValue && pattern !is NullValue) {
+            val alteredValue = pattern.alterValue()
+            yield(HasValue(ExactValuePattern(alteredValue), "is mutated from ${pattern.displayableValue()} to ${alteredValue.displayableValue()}"))
+        }
+
+        yieldAll(pattern.type().negativeBasedOn(Row(), resolver))
     }
 
     override fun parse(value: String, resolver: Resolver): Value = pattern.type().parse(value, resolver)

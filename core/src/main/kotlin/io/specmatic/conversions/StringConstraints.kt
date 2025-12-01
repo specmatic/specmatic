@@ -1,12 +1,12 @@
 package io.specmatic.conversions
 
 import io.specmatic.core.log.logger
-import io.swagger.v3.oas.models.media.StringSchema
+import io.swagger.v3.oas.models.media.Schema
 
 const val REASONABLE_STRING_LENGTH = 4 * 1024 * 1024
 
 class StringConstraints(
-    schema: StringSchema,
+    schema: Schema<*>,
     patternName: String,
     breadCrumb: String,
 ) {

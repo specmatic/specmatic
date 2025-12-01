@@ -72,10 +72,8 @@ internal class DateTimePatternTest {
     @Test
     @Tag(GENERATION)
     fun `negative patterns should be generated`() {
-        val result = BooleanPattern().negativeBasedOn(Row(), Resolver()).map { it.value }.toList()
-        assertThat(result.map { it.typeName }).containsExactlyInAnyOrder(
-            "null"
-        )
+        val result = DateTimePattern.negativeBasedOn(Row(), Resolver()).map { it.value }.toList()
+        assertThat(result.map { it.typeName }).containsExactlyInAnyOrder("string", "number", "boolean", "null")
     }
 
     companion object {
