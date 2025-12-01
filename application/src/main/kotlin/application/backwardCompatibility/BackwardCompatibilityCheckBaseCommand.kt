@@ -131,8 +131,8 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
 
         while (queue.isNotEmpty()) {
             val combinedPattern = Pattern.compile(queue.toSet().joinToString(prefix = "\\b(?:", separator = "|", postfix = ")\\b") { specFile ->
-                regexForMatchingReferred(specFile.name).let { Regex.escape(it) }
-            })
+                    regexForMatchingReferred(specFile.name).let { Regex.escape(it) }
+                })
 
             queue.clear()
 
@@ -271,13 +271,14 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
 
             val compatibilityResult =
                 loader.firstNotNullOfOrNull {
-                    it.check(
-                        logger,
-                        backwardCompatibilityResult,
-                        centralRepoUrl,
-                        File(specFilePath).relativeTo(File(repoDir).canonicalFile).path,
-                        ONE_INDENT,
-                    )
+                    logger.withIndentation(ONE_INDENT.length) {
+                        it.check(
+                            backwardCompatibilityResult,
+                            centralRepoUrl,
+                            File(specFilePath).relativeTo(File(repoDir).canonicalFile).path,
+                        )
+
+                    }
                 }
 
             if (compatibilityResult == CompatibilityResult.PASSED) {
