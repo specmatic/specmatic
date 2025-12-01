@@ -2039,8 +2039,8 @@ class OpenApiSpecification(
                 val nodes = nodeProperties.map { (propertyName: String, propertySchema) ->
                     val type = when (propertySchema.type) {
                         in primitiveOpenAPITypes -> {
-                            val innerPattern = DeferredPattern(primitiveOpenAPITypes.getValue(propertySchema.type))
-                            XMLPattern(XMLTypeData(propertyName, propertyName, emptyMap(), listOf(innerPattern)))
+                            val primitivePattern = toSpecmaticPattern(propertySchema, typeStack, propertyName)
+                            XMLPattern(XMLTypeData(propertyName, propertyName, emptyMap(), listOf(primitivePattern)))
                         }
 
                         else -> {
@@ -2090,19 +2090,10 @@ class OpenApiSpecification(
 
                 val repeatingType = when (repeatingSchema.type) {
                     in primitiveOpenAPITypes -> {
-                        val innerPattern = DeferredPattern(primitiveOpenAPITypes.getValue(repeatingSchema.type))
-
-                        val innerName = repeatingSchema.xml?.name
-                            ?: if (schema.xml?.name != null && schema.xml?.wrapped == true) schema.xml.name else nodeNameFromProperty
-
-                        XMLPattern(
-                            XMLTypeData(
-                                innerName ?: throw ContractException("Could not determine name for an xml node"),
-                                innerName,
-                                emptyMap(),
-                                listOf(innerPattern)
-                            )
-                        )
+                        val innerName = repeatingSchema.xml?.name ?: if (schema.xml?.name != null && schema.xml?.wrapped == true) schema.xml.name else nodeNameFromProperty
+                        val name = innerName ?: throw ContractException("Could not determine name for an xml node")
+                        val primitivePattern = toSpecmaticPattern(repeatingSchema, typeStack, name)
+                        XMLPattern(XMLTypeData(name, name, emptyMap(), listOf(primitivePattern)))
                     }
 
                     else -> {
