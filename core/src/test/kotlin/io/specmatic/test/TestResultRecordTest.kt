@@ -14,6 +14,8 @@ class TestResultRecordTest {
                 path = "/example/path",
                 method = "GET",
                 responseStatus = 200,
+                request = null,
+                response = null,
                 result = it
             )
             assertFalse(record.isExercised, "Record should not be considered exercised for Result: $it")
@@ -27,6 +29,8 @@ class TestResultRecordTest {
                 path = "/example/path",
                 method = "GET",
                 responseStatus = 200,
+                request = null,
+                response = null,
                 result = it
             )
             assertTrue(record.isExercised, "Record should be considered exercised for Result: $it")
@@ -40,6 +44,8 @@ class TestResultRecordTest {
                 path = "/example/path",
                 method = "GET",
                 responseStatus = 200,
+                request = null,
+                response = null,
                 result = it
             )
             assertTrue(record.isCovered, "Record should be considered covered for result $it")
@@ -53,6 +59,8 @@ class TestResultRecordTest {
                 path = "/example/path",
                 method = "GET",
                 responseStatus = 200,
+                request = null,
+                response = null,
                 result = it
             )
             assertFalse(record.isCovered, "Record should not be considered covered for result $it")

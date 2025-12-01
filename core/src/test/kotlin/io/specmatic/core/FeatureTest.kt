@@ -2601,7 +2601,7 @@ paths:
                     println(it.toLogString())
                 }
             }
-        }).first
+        }).result
 
         assertThat(results.isSuccess()).isTrue()
     }
@@ -2702,7 +2702,7 @@ paths:
                         println(it.toLogString())
                     }
                 }
-            }).first
+            }).result
 
             assertThat(result.isSuccess()).withFailMessage(result.reportString()).isTrue()
         }
@@ -2806,7 +2806,7 @@ paths:
                     println(it.toLogString())
                 }
             }
-        }).first
+        }).result
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""

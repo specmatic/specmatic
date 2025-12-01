@@ -756,7 +756,7 @@ Feature: multipart file upload
 
             }
 
-        }).first
+        }).result
 
         assertThat(result).isInstanceOf(Result.Success::class.java)
     }
@@ -1519,7 +1519,7 @@ Scenario: zero should return not found
                     override fun setServerState(serverState: Map<String, Value>) {
 
                     }
-                }).first
+                }).result
 
         assertThat(result).isInstanceOf(Result.Success::class.java)
         assertThat(executed).isTrue
