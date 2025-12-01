@@ -174,7 +174,8 @@ data class HttpResponse(
             return this
         }
 
-        return copy(body = body.adjustValueForXMLContentType())
+        val parsedBody = body as? XMLNode ?: runCatching { toXMLNode(body.toStringLiteral()) }.getOrDefault(body)
+        return copy(body = parsedBody.adjustValueForXMLContentType())
     }
 
     fun dropIrrelevantHeaders(): HttpResponse = withoutTransportHeaders().withoutConversionHeaders().withoutSpecmaticHeaders()
