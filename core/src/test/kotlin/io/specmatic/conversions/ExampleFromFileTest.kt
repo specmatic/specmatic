@@ -114,7 +114,7 @@ class ExampleFromFileTest {
 
         assertThat(example).isInstanceOf(HasException::class.java); example as HasException
         assertThat(example.toFailure().reportString()).isEqualToNormalizingWhitespace("""
-        >> ${file.canonicalPath}
+        >> ${file.path}
         Error loading example due to invalid format. Please correct the format to proceed
         Example should contain http-response/mock-http-response as a top level key.
         """.trimIndent())
