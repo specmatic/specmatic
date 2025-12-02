@@ -252,9 +252,8 @@ internal class HttpResponseTest {
 
             val adjustedResponse = response.adjustPayloadForContentType(requestHeaders)
 
-            assertThat(adjustedResponse.body).isInstanceOf(StringValue::class.java)
-            val adjustedStringValue = adjustedResponse.body as StringValue
-            assertThat(adjustedStringValue.toStringLiteral()).contains("&lt;response&gt;")
+            assertThat(adjustedResponse.body).isInstanceOf(XMLNode::class.java)
+            assertThat(adjustedResponse.body.toStringLiteral()).contains("<response>")
         }
 
         @ParameterizedTest
@@ -313,9 +312,8 @@ internal class HttpResponseTest {
 
             val adjustedResponse = response.adjustPayloadForContentType(requestHeaders)
 
-            assertThat(adjustedResponse.body).isInstanceOf(StringValue::class.java)
-            val adjustedStringValue = adjustedResponse.body as StringValue
-            assertThat(adjustedStringValue.toStringLiteral()).contains("&lt;data&gt;")
+            assertThat(adjustedResponse.body).isInstanceOf(XMLNode::class.java)
+            assertThat(adjustedResponse.body.toStringLiteral()).contains("<data>")
         }
 
         @Test
@@ -330,9 +328,8 @@ internal class HttpResponseTest {
 
             val adjustedResponse = response.adjustPayloadForContentType(requestHeaders)
 
-            assertThat(adjustedResponse.body).isInstanceOf(StringValue::class.java)
-            val adjustedStringValue = adjustedResponse.body as StringValue
-            assertThat(adjustedStringValue.toStringLiteral()).contains("&lt;soap:Envelope&gt;")
+            assertThat(adjustedResponse.body).isInstanceOf(XMLNode::class.java)
+            assertThat(adjustedResponse.body.toStringLiteral()).contains("<soap:Envelope>")
         }
 
         @Test

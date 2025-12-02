@@ -620,10 +620,8 @@ internal class HttpRequestTest {
             )
 
             val adjustedRequest = request.adjustPayloadForContentType()
-
-            assertThat(adjustedRequest.body).isInstanceOf(StringValue::class.java)
-            val adjustedStringValue = adjustedRequest.body as StringValue
-            assertThat(adjustedStringValue.toStringLiteral()).contains("&lt;data&gt;")
+            assertThat(adjustedRequest.body).isInstanceOf(XMLNode::class.java)
+            assertThat(adjustedRequest.body.toStringLiteral()).contains("<data>")
         }
 
         @ParameterizedTest
