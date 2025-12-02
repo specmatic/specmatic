@@ -21,6 +21,7 @@ import picocli.CommandLine
 import java.io.File
 import java.nio.file.Path
 
+
 internal class StubCommandTest {
 
     @MockK
@@ -70,6 +71,7 @@ internal class StubCommandTest {
 
         verify(exactly = 0) { specmaticConfig.contractStubPathData() }
     }
+
 
     @Test
     fun `should attempt to start a HTTP stub`(@TempDir tempDir: File) {
@@ -283,4 +285,9 @@ internal class StubCommandTest {
             System.clearProperty(Flags.SPECMATIC_BASE_URL)
         }
     }
+
+    fun osAgnosticPath(path: String): String {
+        return path.replace("/", File.separator)
+    }
 }
+
