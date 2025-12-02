@@ -1,12 +1,16 @@
 package io.specmatic.core
 
 import io.specmatic.core.GherkinSection.Then
+import io.specmatic.core.jsonoperator.value.ObjectValueOperator
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.pattern.parsedValue
+import io.specmatic.core.pattern.readValueAs
+import io.specmatic.core.pattern.unwrapOrContractException
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.value.*
+import io.specmatic.mock.MOCK_HTTP_RESPONSE
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -15,6 +19,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
+import java.io.File
 import java.util.stream.Stream
 
 internal class HttpResponseTest {
@@ -342,6 +347,27 @@ internal class HttpResponseTest {
             val adjustedResponse = response.adjustPayloadForContentType()
 
             assertThat(adjustedResponse.body).isEqualTo(jsonBody)
+        }
+
+        @Test
+        fun `should parse stringified XML in body to XMLNode if content-type indicates xml`() {
+            val exampleFile = File("src/test/resources/openapi/has_xml_payloads/api_examples/createInventory.json")
+            val example = readValueAs<JSONObjectValue>(exampleFile)
+            val response = HttpResponse.fromJSON(example.getJSONObject(MOCK_HTTP_RESPONSE))
+            assertThat(response.body).isInstanceOf(XMLNode::class.java)
+        }
+
+        @Test
+        fun `should not parse stringified XML in body to XMLNode if content-type does not indicates xml`() {
+            val exampleFile = File("src/test/resources/openapi/has_xml_payloads/api_examples/createInventory.json")
+            val example = readValueAs<JSONObjectValue>(exampleFile)
+            val rawResponseJson = ObjectValueOperator(example.getJSONObject(MOCK_HTTP_RESPONSE)).let {
+                it.update("headers/Content-Type", StringValue("plain/text"))
+                    .unwrapOrContractException().finalize().value as JSONObjectValue
+            }
+
+            val response = HttpResponse.fromJSON(rawResponseJson.jsonObject)
+            assertThat(response.body).isInstanceOf(StringValue::class.java)
         }
     }
 

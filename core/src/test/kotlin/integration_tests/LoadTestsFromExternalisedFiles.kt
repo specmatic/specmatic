@@ -701,6 +701,30 @@ class LoadTestsFromExternalisedFiles {
         assertThat(results.testCount).isEqualTo(6)
     }
 
+    @Test
+    fun `should be able to load and run tests using xml based openAPI Specification with external example`() {
+        val openApiFile = File("src/test/resources/openapi/has_xml_payloads/api.yaml")
+        val feature = parseContractFileToFeature(openApiFile).loadExternalisedExamples()
+        assertDoesNotThrow { feature.validateExamplesOrException() }
+
+        val createScenario = feature.scenarios.first()
+        val results = feature.executeTests(object: TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                val requestBody = request.body as XMLNode
+                val productId = requestBody.findChildrenByName("productId")
+                val inventory = requestBody.findChildrenByName("inventory")
+
+                assertThat(productId).hasSize(1).containsOnly(toXMLNode("<productId>50</productId>"))
+                assertThat(inventory).hasSize(1).containsOnly(toXMLNode("<inventory>100</inventory>"))
+
+                return createScenario.generateHttpResponse(actualFacts = emptyMap())
+            }
+        })
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(results.testCount).isEqualTo(1)
+    }
+
     @Nested
     inner class AttributeSelection {
         @BeforeEach

@@ -165,8 +165,12 @@ data class HttpResponse(
                 nativeStringStringMap(jsonObject, "headers").toMutableMap(),
                 jsonObject.getOrDefault("body", NoBodyValue),
                 jsonObject.getOrDefault("externalisedResponseCommand", "").toString()
-            )
+            ).adjustPayloadForContentType()
         }
+    }
+
+    fun adjustPayloadForContentType(): HttpResponse {
+        return adjustPayloadForContentType(this.headers)
     }
 
     fun adjustPayloadForContentType(requestHeaders: Map<String, String> = emptyMap()): HttpResponse {

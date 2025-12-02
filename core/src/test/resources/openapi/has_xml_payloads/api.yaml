@@ -1,0 +1,102 @@
+openapi: 3.0.1
+
+info:
+  title: Product Inventory API
+  description: Sample Product Inventory API
+  version: "5.0"
+  contact:
+    email: devs@specmatic.io
+
+servers:
+  - url: "http://localhost:3000"
+
+tags:
+  - name: Product
+    description: Product Related APIs
+
+paths:
+  /inventory:
+    post:
+      description: Create inventory for a product
+      operationId: createInventoryGeneric
+      tags:
+        - Product
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema:
+              $ref: "#/components/schemas/InventoryCreateRequest"
+      responses:
+        "201":
+          description: Inventory created
+          content:
+            application/xml:
+              schema:
+                $ref: "#/components/schemas/Inventory"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+components:
+  schemas:
+    InventoryCreateRequest:
+      type: object
+      required:
+        - productId
+        - inventory
+      properties:
+        productId:
+          type: integer
+        inventory:
+          type: integer
+          minimum: 1
+          maximum: 101
+      xml:
+        name: InventoryCreateRequest
+
+    Inventory:
+      type: object
+      required:
+        - id
+        - productId
+        - inventory
+      properties:
+        id:
+          type: integer
+        productId:
+          type: integer
+        inventory:
+          type: integer
+          minimum: 1
+          maximum: 101
+      xml:
+        name: Inventory
+
+    Error:
+      type: object
+      properties:
+        timestamp:
+          type: string
+        status:
+          type: integer
+        error:
+          type: string
+        message:
+          type: string
+      xml:
+        name: Error
+
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/xml:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+    NotFound:
+      description: Product Not Found
+      content:
+        application/xml:
+          schema:
+            $ref: "#/components/schemas/Error"

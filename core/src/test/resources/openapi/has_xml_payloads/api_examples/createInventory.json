@@ -1,0 +1,18 @@
+{
+    "http-request": {
+        "path": "/inventory",
+        "method": "POST",
+        "headers": {
+            "Content-Type": "application/xml"
+        },
+        "body": "<InventoryCreateRequest><productId>50</productId><inventory>100</inventory></InventoryCreateRequest>"
+    },
+    "http-response": {
+        "status": 201,
+        "body": "<Inventory><id>1</id><productId>50</productId><inventory>100</inventory></Inventory>",
+        "status-text": "Created",
+        "headers": {
+            "Content-Type": "application/xml"
+        }
+    }
+}

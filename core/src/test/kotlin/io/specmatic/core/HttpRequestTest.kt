@@ -16,12 +16,15 @@ import io.ktor.http.*
 import io.mockk.every
 import io.mockk.spyk
 import io.mockk.verify
+import io.specmatic.core.jsonoperator.value.ObjectValueOperator
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.value.*
+import io.specmatic.mock.MOCK_HTTP_REQUEST
 import java.util.stream.Stream
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.params.provider.CsvSource
+import java.io.File
 
 internal class HttpRequestTest {
     @Test
@@ -653,6 +656,27 @@ internal class HttpRequestTest {
             val adjustedRequest = request.adjustPayloadForContentType()
 
             assertThat(adjustedRequest.body).isEqualTo(jsonBody)
+        }
+
+        @Test
+        fun `should parse stringified XML in body to XMLNode if content-type indicates xml`() {
+            val exampleFile = File("src/test/resources/openapi/has_xml_payloads/api_examples/createInventory.json")
+            val example = readValueAs<JSONObjectValue>(exampleFile)
+            val response = requestFromJSON(example.getJSONObject(MOCK_HTTP_REQUEST))
+            assertThat(response.body).isInstanceOf(XMLNode::class.java)
+        }
+
+        @Test
+        fun `should not parse stringified XML in body to XMLNode if content-type does not indicates xml`() {
+            val exampleFile = File("src/test/resources/openapi/has_xml_payloads/api_examples/createInventory.json")
+            val example = readValueAs<JSONObjectValue>(exampleFile)
+            val rawResponseJson = ObjectValueOperator(example.getJSONObject(MOCK_HTTP_REQUEST)).let {
+                it.update("headers/Content-Type", StringValue("plain/text"))
+                    .unwrapOrContractException().finalize().value as JSONObjectValue
+            }
+
+            val response = requestFromJSON(rawResponseJson.jsonObject)
+            assertThat(response.body).isInstanceOf(StringValue::class.java)
         }
     }
 }
