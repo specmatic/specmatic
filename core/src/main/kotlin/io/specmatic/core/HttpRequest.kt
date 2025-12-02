@@ -454,7 +454,8 @@ data class HttpRequest(
             return this
         }
 
-        return copy(body = body.adjustValueForXMLContentType())
+        val parsedBody = body as? XMLNode ?: runCatching { toXMLNode(body.toStringLiteral()) }.getOrDefault(body)
+        return copy(body = parsedBody.adjustValueForXMLContentType())
     }
 }
 

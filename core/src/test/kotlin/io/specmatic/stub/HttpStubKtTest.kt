@@ -1,5 +1,6 @@
 package io.specmatic.stub
 
+import integration_tests.testCount
 import io.mockk.InternalPlatformDsl.toStr
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.APPLICATION_NAME_LOWER_CASE
@@ -12,6 +13,7 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.SPECMATIC_RESULT_HEADER
 import io.specmatic.core.log.consoleLog
+import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.parseGherkinStringToFeature
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSON
@@ -21,11 +23,13 @@ import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.XMLValue
 import io.specmatic.core.value.toXMLNode
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stubResponse
 import io.specmatic.test.LegacyHttpClient
+import io.specmatic.test.TestExecutor
 import io.specmatic.trimmedLinesList
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
@@ -35,6 +39,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.condition.DisabledOnOs
 import org.junit.jupiter.api.condition.OS
 import org.junit.jupiter.api.fail
@@ -1084,5 +1089,36 @@ paths:
         extractPort("http://localhost/api").let {
             assertThat(it).isEqualTo(80)
         }
+    }
+
+    @Test
+    fun `should be able to load and respond to requests using xml based openAPI Specification with external example`() {
+        val openApiFile = File("src/test/resources/openapi/has_xml_payloads/api.yaml")
+        val examples = openApiFile.resolveSibling("api_examples").listFiles().orEmpty().map(ScenarioStub::readFromFile)
+
+        val feature = parseContractFileToFeature(openApiFile).loadExternalisedExamples()
+        assertDoesNotThrow { feature.validateExamplesOrException() }
+
+        val results = HttpStub(feature, examples).use { stub ->
+            feature.executeTests(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    val response = stub.client.execute(request)
+                    val responseBody = response.body as XMLNode
+
+                    val inventoryId = responseBody.findChildrenByName("id")
+                    val productId = responseBody.findChildrenByName("productId")
+                    val inventory = responseBody.findChildrenByName("inventory")
+
+                    assertThat(inventoryId).hasSize(1).containsOnly(toXMLNode("<id>1</id>"))
+                    assertThat(productId).hasSize(1).containsOnly(toXMLNode("<productId>50</productId>"))
+                    assertThat(inventory).hasSize(1).containsOnly(toXMLNode("<inventory>100</inventory>"))
+
+                    return response
+                }
+            })
+        }
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(results.testCount).isEqualTo(1)
     }
 }

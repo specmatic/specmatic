@@ -165,8 +165,12 @@ data class HttpResponse(
                 nativeStringStringMap(jsonObject, "headers").toMutableMap(),
                 jsonObject.getOrDefault("body", NoBodyValue),
                 jsonObject.getOrDefault("externalisedResponseCommand", "").toString()
-            )
+            ).adjustPayloadForContentType()
         }
+    }
+
+    fun adjustPayloadForContentType(): HttpResponse {
+        return adjustPayloadForContentType(this.headers)
     }
 
     fun adjustPayloadForContentType(requestHeaders: Map<String, String> = emptyMap()): HttpResponse {
@@ -174,7 +178,8 @@ data class HttpResponse(
             return this
         }
 
-        return copy(body = body.adjustValueForXMLContentType())
+        val parsedBody = body as? XMLNode ?: runCatching { toXMLNode(body.toStringLiteral()) }.getOrDefault(body)
+        return copy(body = parsedBody.adjustValueForXMLContentType())
     }
 
     fun dropIrrelevantHeaders(): HttpResponse = withoutTransportHeaders().withoutConversionHeaders().withoutSpecmaticHeaders()
