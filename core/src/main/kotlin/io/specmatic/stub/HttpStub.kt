@@ -797,7 +797,6 @@ class HttpStub(
                 hooks.forEach {
                     it.generateReport(
                         testResultRecords = ctrfTestResultRecords,
-                        coverage = 0,
                         startTime = startTime.toEpochMilli(),
                         endTime = Instant.now().toEpochMilli(),
                         specConfigs = ctrfSpecConfigsFrom(specmaticConfig, ctrfTestResultRecords),
