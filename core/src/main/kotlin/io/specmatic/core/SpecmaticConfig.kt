@@ -51,7 +51,9 @@ import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.utilities.readEnvVarOrProperty
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
+import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.stub.isSameBaseIgnoringHost
+import io.specmatic.test.TestResultRecord.Companion.CONTRACT_TEST_TEST_TYPE
 import java.io.File
 import java.net.URI
 
@@ -301,6 +303,24 @@ data class SpecmaticConfig(
         fun getHooks(specmaticConfig: SpecmaticConfig): Map<String, String> {
             return specmaticConfig.hooks
         }
+    }
+
+    @JsonIgnore
+    fun getCtrfSpecConfig(specification: String, testType: String, serviceType: String, specType: String): CtrfSpecConfig {
+        val specName = File(specification).name
+        val source = when (testType) {
+            CONTRACT_TEST_TEST_TYPE -> testSourceFromConfig(specName)
+            else -> stubSourceFromConfig(specName)
+        } ?: Source()
+
+        return CtrfSpecConfig(
+            serviceType = serviceType,
+            specType = specType,
+            specification = specification,
+            sourceProvider = source.provider.name,
+            repository = source.repository.orEmpty(),
+            branch = source.branch ?: "main",
+        )
     }
 
     @JsonIgnore
@@ -638,11 +658,6 @@ data class SpecmaticConfig(
         }
     }
 
-    @JsonIgnore
-    private fun String.canonicalPath(relativeTo: File): String {
-        return relativeTo.parentFile?.resolve(this)?.canonicalPath ?: File(this).canonicalPath
-    }
-
     fun updateReportConfiguration(reportConfiguration: ReportConfiguration): SpecmaticConfig {
         val reportConfigurationDetails = reportConfiguration as? ReportConfigurationDetails ?: return this
         return this.copy(report = reportConfigurationDetails)
@@ -668,6 +683,32 @@ data class SpecmaticConfig(
                         ),
                 ),
         )
+    }
+
+    @JsonIgnore
+    private fun testSourceFromConfig(specificationName: String): Source? {
+        return sources.firstOrNull { source ->
+            source.test.orEmpty().any { test ->
+                test.contains(specificationName)
+            }
+        }
+    }
+
+    @JsonIgnore
+    private fun stubSourceFromConfig(specificationName: String): Source? {
+        return sources.firstOrNull { source ->
+            source.stub.orEmpty().any { stub ->
+                when (stub) {
+                    is SpecExecutionConfig.StringValue -> stub.value.contains(specificationName)
+                    is SpecExecutionConfig.ObjectValue -> stub.specs.any { it.contains(specificationName) }
+                }
+            }
+        }
+    }
+
+    @JsonIgnore
+    private fun String.canonicalPath(relativeTo: File): String {
+        return relativeTo.parentFile?.resolve(this)?.canonicalPath ?: File(this).canonicalPath
     }
 }
 
