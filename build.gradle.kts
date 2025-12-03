@@ -2,7 +2,7 @@ import io.specmatic.gradle.extensions.RepoType
 
 plugins {
     id("io.specmatic.gradle")
-    id("base")
+    id("base") 
 }
 
 allprojects {
