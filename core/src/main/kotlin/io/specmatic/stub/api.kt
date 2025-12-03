@@ -484,7 +484,7 @@ fun loadContractStubsFromFilesAsResults(
             specmaticConfig = specmaticConfig,
             externalDataDirPaths = dataDirPaths,
             cachedFeatures = features.map { it.second },
-            processedInvalidSpecs = contractPathDataList.filter { isInvalidOpenAPISpecification(it.path) }.map { it.path },
+            processedInvalidSpecs = contractPathDataList.excludingSpecifications().map { it.path },
         )
 
     return explicitStubs.plus(implicitStubs)
@@ -1063,7 +1063,9 @@ fun loadIfSupportedAPISpecification(
     }
 }
 
-fun isInvalidOpenAPISpecification(specPath: String): Boolean = hasOpenApiFileExtension(specPath).not() || isOpenAPI(specPath).not()
+private fun List<ContractPathData>.excludingSpecifications(): List<ContractPathData> {
+    return this.filterNot { isSupportedAPISpecification(it.path) }
+}
 
 fun isOpenAPI(path: String): Boolean =
     try {
