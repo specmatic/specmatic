@@ -566,11 +566,19 @@ private fun List<String>.withAbsolutePaths(): String =
         )
     }
 
-private fun List<String>.relativePaths(): List<String> =
-    this
-        .map {
-            File(it).canonicalFile.relativeTo(File(".").canonicalFile).path
-        }.map { ".${File.separator}$it" }
+private fun List<String>.relativePaths(): List<String> {
+    val currentWorkingDirectory = File(".").canonicalFile
+    return this.map(::File).map {
+        runCatching {
+            it.canonicalFile.relativeTo(currentWorkingDirectory)
+        }.getOrElse { e ->
+            logger.debug(e, "Failed to relativize ${it.canonicalPath} against ${currentWorkingDirectory.canonicalPath}")
+            it
+        }
+    }.map {
+        ".${File.separator}${it.path}"
+    }
+}
 
 private fun List<Pair<String, Feature>>.overrideInlineExamplesWithSameNameFrom(dataFiles: List<File>): List<Pair<String, Feature>> {
     val externalExampleNames = dataFiles.map { it.nameWithoutExtension }.toSet()

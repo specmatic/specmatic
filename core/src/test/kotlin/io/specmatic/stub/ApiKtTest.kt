@@ -679,13 +679,9 @@ Feature: Math API
     }
 
     @Test
-    fun `loadContractStubsFromFilesAsResults should return failure to load WSDL specifications with invalid external examples`(@TempDir tempDir: File) {
-        File("src/test/resources/wsdl/with_examples").copyRecursively(tempDir)
-        val specFile = tempDir.resolve("order_api.wsdl")
-        val example = tempDir.resolve("order_api_examples/create_product.json")
+    fun `loadContractStubsFromFilesAsResults should return failure to load WSDL specifications with invalid external examples`() {
+        val specFile = File("src/test/resources/wsdl/with_invalid_examples/order_api.wsdl")
         val contractPathData = listOf(ContractPathData("", specFile.path))
-
-        example.writeText(example.readText().replace("orders/createProduct", "orders/createProductDoesNotExist"))
         val result = loadContractStubsFromFilesAsResults(contractPathData, emptyList(), SpecmaticConfig(), withImplicitStubs = true)
 
         assertThat(result).anySatisfy {
