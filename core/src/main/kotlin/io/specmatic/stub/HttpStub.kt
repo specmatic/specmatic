@@ -370,7 +370,7 @@ class HttpStub(
                         responseStatus = httpResponse.status,
                         request = httpRequest,
                         response = httpResponse,
-                        result = if(responseErrors.isEmpty()) TestResult.Success else TestResult.Failed,
+                        result = httpLogMessage.toResult(),
                         serviceType = "OPENAPI",
                         requestContentType = httpRequest.headers["Content-Type"],
                         specification = httpStubResponse.scenario?.specification,
