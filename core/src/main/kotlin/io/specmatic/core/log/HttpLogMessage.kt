@@ -125,7 +125,8 @@ data class HttpLogMessage(
 
     fun toResult(): TestResult {
         return when {
-            this.examplePath != null || this.scenario != null && response?.status !in invalidRequestStatuses -> TestResult.Success
+            this.examplePath != null -> TestResult.Success
+            this.scenario != null && response?.status !in invalidRequestStatuses -> TestResult.Success
             scenario == null -> TestResult.MissingInSpec
             else -> TestResult.Failed
         }
