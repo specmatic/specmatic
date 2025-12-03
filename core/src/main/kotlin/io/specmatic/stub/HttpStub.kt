@@ -12,6 +12,7 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.util.*
 import io.ktor.util.pipeline.*
+import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.APPLICATION_NAME
 import io.specmatic.core.APPLICATION_NAME_LOWER_CASE
 import io.specmatic.core.Constants.Companion.ARTIFACTS_PATH
@@ -365,14 +366,14 @@ class HttpStub(
                     }
 
                     val ctrfTestResultRecord = TestResultRecord(
-                        path = httpRequest.path,
-                        method = httpRequest.method.orEmpty(),
-                        responseStatus = httpResponse.status,
+                        path = convertPathParameterStyle(httpLogMessage.scenario?.path ?: httpRequest.path),
+                        method = httpLogMessage.scenario?.method ?: httpRequest.method.orEmpty(),
+                        responseStatus = httpLogMessage.scenario?.status ?: 0,
                         request = httpRequest,
                         response = httpResponse,
                         result = httpLogMessage.toResult(),
                         serviceType = "OPENAPI",
-                        requestContentType = httpRequest.headers["Content-Type"],
+                        requestContentType = httpLogMessage.scenario?.requestContentType ?: httpRequest.headers["Content-Type"],
                         specification = httpStubResponse.scenario?.specification,
                         testType = STUB_TEST_TYPE,
                         actualResponseStatus = httpResponse.status
