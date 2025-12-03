@@ -484,7 +484,7 @@ fun loadContractStubsFromFilesAsResults(
             specmaticConfig = specmaticConfig,
             externalDataDirPaths = dataDirPaths,
             cachedFeatures = features.map { it.second },
-            processedInvalidSpecs = contractPathDataList.excludingSpecifications().map { it.path },
+            processedInvalidSpecs = contractPathDataList.excludeUnsupportedSpecifications().map { it.path },
         )
 
     return explicitStubs.plus(implicitStubs)
@@ -1071,7 +1071,7 @@ fun loadIfSupportedAPISpecification(
     }
 }
 
-private fun List<ContractPathData>.excludingSpecifications(): List<ContractPathData> {
+private fun List<ContractPathData>.excludeUnsupportedSpecifications(): List<ContractPathData> {
     return this.filterNot { isSupportedAPISpecification(it.path) }
 }
 
