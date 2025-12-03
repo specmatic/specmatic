@@ -1,13 +1,14 @@
-package io.specmatic.test
+package io.specmatic.core.report
 
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
+import io.specmatic.test.TestResultRecord
 
 interface SpecmaticAfterAllHook {
-    fun onAfterAllTests(
+    fun generateReport(
         testResultRecords: List<TestResultRecord>?,
         startTime: Long,
         endTime: Long,
-        coverage: Int,
-        specConfigs: List<CtrfSpecConfig>
+        specConfigs: List<CtrfSpecConfig>,
+        reportFilePath: String
     )
 }
