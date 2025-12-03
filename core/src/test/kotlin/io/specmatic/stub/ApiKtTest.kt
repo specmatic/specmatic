@@ -648,6 +648,59 @@ Feature: Math API
         assertThat(output).contains("Skipping the file")
         assertThat(output).endsWith("as it is not a supported API specification")
     }
+
+    @Test
+    fun `loadIfSupportedAPISpecification should be able to load WSDL specifications`() {
+        val specFile = File("src/test/resources/wsdl/hello.wsdl")
+        val contractPathData = ContractPathData("", specFile.path)
+        val result = loadIfSupportedAPISpecification(contractPathData, SpecmaticConfig())
+
+        assertThat(result).isNotNull
+        assertThat(result!!.first).isEqualTo(specFile.path)
+        assertThat(result.second.scenarios.first().isGherkinScenario).isTrue
+    }
+
+    @Test
+    fun `loadContractStubsFromFilesAsResults should be able to load WSDL specifications with external examples`() {
+        val specFile = File("src/test/resources/wsdl/with_examples/order_api.wsdl")
+        val contractPathData = listOf(ContractPathData("", specFile.path))
+        val result = loadContractStubsFromFilesAsResults(contractPathData, emptyList(), SpecmaticConfig(), withImplicitStubs = true)
+
+        assertThat(result).allSatisfy {
+            assertThat(it).isInstanceOf(FeatureStubsResult.Success::class.java); it as FeatureStubsResult.Success
+            assertThat(it.feature.scenarios.first().isGherkinScenario).isTrue
+        }
+
+        assertThat(result).anySatisfy {
+            assertThat(it).isInstanceOf(FeatureStubsResult.Success::class.java); it as FeatureStubsResult.Success
+            assertThat(it.scenarioStubs).hasSize(1)
+            assertThat(it.scenarioStubs.single().name).isEqualTo("createProduct")
+        }
+    }
+
+    @Test
+    fun `loadContractStubsFromFilesAsResults should return failure to load WSDL specifications with invalid external examples`(@TempDir tempDir: File) {
+        File("src/test/resources/wsdl/with_examples").copyRecursively(tempDir)
+        val specFile = tempDir.resolve("order_api.wsdl")
+        val example = tempDir.resolve("order_api_examples/create_product.json")
+        val contractPathData = listOf(ContractPathData("", specFile.path))
+
+        example.writeText(example.readText().replace("orders/createProduct", "orders/createProductDoesNotExist"))
+        val result = loadContractStubsFromFilesAsResults(contractPathData, emptyList(), SpecmaticConfig(), withImplicitStubs = true)
+
+        assertThat(result).anySatisfy {
+            assertThat(it).isInstanceOf(FeatureStubsResult.Success::class.java); it as FeatureStubsResult.Success
+            assertThat(it.feature.scenarios.first().isGherkinScenario).isTrue
+        }
+
+        assertThat(result).anySatisfy {
+            assertThat(it).isInstanceOf(FeatureStubsResult.Failure::class.java); it as FeatureStubsResult.Failure
+            assertThat(it.stubFile).endsWith("create_product.json")
+            assertThat(it.errorMessage).containsIgnoringWhitespaces("""
+            No matching SOAP stub or contract found for SOAPAction "/orders/createProductDoesNotExist" and path /
+            """.trimIndent())
+        }
+    }
 }
 
 fun <ReturnType> captureStandardOutput(trim: Boolean = true, fn: () -> ReturnType): Pair<String, ReturnType> {

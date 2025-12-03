@@ -1,4 +1,5 @@
 {
+  "name": "createProduct",
   "http-request": {
     "method": "POST",
     "path": "/",
