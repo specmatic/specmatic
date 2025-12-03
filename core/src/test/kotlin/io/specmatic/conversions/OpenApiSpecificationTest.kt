@@ -5540,7 +5540,7 @@ paths:
 
                     override fun setServerState(serverState: Map<String, Value>) {
                     }
-                }).first
+                }).result
             }
 
         assertThat(results).hasSize(1)
@@ -5614,7 +5614,7 @@ paths:
 
                     override fun setServerState(serverState: Map<String, Value>) {
                     }
-                }).first
+                }).result
             }
 
         assertThat(results).hasSize(1)
@@ -5676,7 +5676,7 @@ paths:
 
                     override fun setServerState(serverState: Map<String, Value>) {
                     }
-                }).first
+                }).result
             }
 
         assertThat(results).hasSize(1)
@@ -5738,7 +5738,7 @@ paths:
 
                     override fun setServerState(serverState: Map<String, Value>) {
                     }
-                }).first
+                }).result
             }
 
         assertThat(results).hasSize(1)

@@ -17,10 +17,16 @@ interface ResponseValidator {
 }
 
 interface ContractTest : HasScenarioMetadata {
-    fun testResultRecord(result: Result, response: HttpResponse?): TestResultRecord?
+    fun testResultRecord(executionResult: ContractTestExecutionResult): TestResultRecord?
     fun testDescription(): String
-    fun runTest(testBaseURL: String, timeoutInMilliseconds: Long): Pair<Result, HttpResponse?>
-    fun runTest(testExecutor: TestExecutor): Pair<Result, HttpResponse?>
+    fun runTest(testBaseURL: String, timeoutInMilliseconds: Long): ContractTestExecutionResult
+    fun runTest(testExecutor: TestExecutor): ContractTestExecutionResult
 
     fun plusValidator(validator: ResponseValidator): ContractTest
 }
+
+data class ContractTestExecutionResult(
+    val result: Result,
+    val request: HttpRequest? = null,
+    val response: HttpResponse? = null
+)

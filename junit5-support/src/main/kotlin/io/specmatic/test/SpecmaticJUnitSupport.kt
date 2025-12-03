@@ -21,6 +21,7 @@ import io.specmatic.core.utilities.Flags.Companion.getLongValue
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
+import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.stub.hasOpenApiFileExtension
 import io.specmatic.stub.isOpenAPI
 import io.specmatic.test.reports.OpenApiCoverageReportProcessor
@@ -191,12 +192,29 @@ open class SpecmaticJUnitSupport {
             val report = openApiCoverageReportInput.generateCoverageReport(emptyList())
             val start = startTime?.toEpochMilli() ?: 0L
             val end = startTime?.let { Instant.now().toEpochMilli() } ?: 0L
+
+            val specConfigs = openApiCoverageReportInput.endpoints()
+                .groupBy {
+                    it.specification.orEmpty()
+                }.flatMap { (_, groupedEndpoints) ->
+                    groupedEndpoints.map {
+                        CtrfSpecConfig(
+                            serviceType = it.serviceType.orEmpty(),
+                            specType = "OPENAPI",
+                            specification = it.specification.orEmpty(),
+                            sourceProvider = it.sourceProvider,
+                            repository = it.sourceRepository,
+                            branch = it.sourceRepositoryBranch
+                        )
+                    }
+                }
             hooks.forEach {
                 it.onAfterAllTests(
                     testResultRecords = report.testResultRecords,
                     coverage = report.totalCoveragePercentage,
                     startTime = start,
                     endTime = end,
+                    specConfigs = specConfigs
                 )
             }
         }
@@ -421,7 +439,7 @@ open class SpecmaticJUnitSupport {
             DynamicTest.dynamicTest(contractTest.testDescription()) {
                 threads.add(Thread.currentThread().name)
 
-                var testResult: Pair<Result, HttpResponse?>? = null
+                var testResult: ContractTestExecutionResult? = null
 
                 try {
                     val log: (LogMessage) -> Unit = { logMessage ->
@@ -462,9 +480,8 @@ open class SpecmaticJUnitSupport {
                     throw e
                 } finally {
                     if (testResult != null) {
-                        val (result, response) = testResult
-                        contractTest.testResultRecord(result, response)?.let { testREsultRecord ->
-                            openApiCoverageReportInput.addTestReportRecords(testREsultRecord)
+                        contractTest.testResultRecord(testResult)?.let { testResultRecord ->
+                            openApiCoverageReportInput.addTestReportRecords(testResultRecord)
                         }
                     }
                 }

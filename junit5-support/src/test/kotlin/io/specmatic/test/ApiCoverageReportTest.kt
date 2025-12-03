@@ -42,7 +42,7 @@ class ApiCoverageReportTest {
         )
         val applicationAPIs = mutableListOf<API>()
         val testResultRecords = mutableListOf(
-            TestResultRecord("/order/{id}", "GET", 200, TestResult.Failed, actualResponseStatus = 404)
+            TestResultRecord("/order/{id}", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404)
         )
         val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, applicationAPIs)
 
@@ -65,8 +65,24 @@ class ApiCoverageReportTest {
         )
         val applicationAPIs = mutableListOf<API>()
         val testResultRecords = mutableListOf(
-            TestResultRecord("/order/{id}", "POST", 201, TestResult.Failed, actualResponseStatus = 404),
-            TestResultRecord("/order/{id}", "POST", 400, TestResult.Failed, actualResponseStatus = 404)
+            TestResultRecord(
+                "/order/{id}",
+                "POST",
+                201,
+                request = null,
+                response = null,
+                result = TestResult.Failed,
+                actualResponseStatus = 404
+            ),
+            TestResultRecord(
+                "/order/{id}",
+                "POST",
+                400,
+                request = null,
+                response = null,
+                result = TestResult.Failed,
+                actualResponseStatus = 404
+            )
         )
         val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, applicationAPIs)
 
@@ -88,7 +104,7 @@ class ApiCoverageReportTest {
     fun `GET 200 in spec not implemented without actuator`() {
         val endpointsInSpec = mutableListOf(Endpoint("/order/{id}", "GET", 200))
         val testResultRecords =
-            mutableListOf(TestResultRecord("/order/{id}", "GET", 200, TestResult.Failed, actualResponseStatus = 404))
+            mutableListOf(TestResultRecord("/order/{id}", "GET", 200,  request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404))
         val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec)
 
         assertThat(apiCoverageReport).isEqualTo(
@@ -109,8 +125,8 @@ class ApiCoverageReportTest {
             Endpoint("/order/{id}", "POST", 201), Endpoint("/order/{id}", "POST", 400)
         )
         val testResultRecords = mutableListOf(
-            TestResultRecord("/order/{id}", "POST", 201, TestResult.Failed, actualResponseStatus = 404),
-            TestResultRecord("/order/{id}", "POST", 400, TestResult.Failed, actualResponseStatus = 404)
+            TestResultRecord("/order/{id}", "POST", 201,  request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404),
+            TestResultRecord("/order/{id}", "POST", 400,   request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404)
         )
         val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec)
 
@@ -132,7 +148,7 @@ class ApiCoverageReportTest {
         )
         val applicationAPIs = mutableListOf<API>()
         val testResultRecords = mutableListOf(
-            TestResultRecord("/order/{id}", "GET", 200, TestResult.Failed, actualResponseStatus = 404)
+            TestResultRecord("/order/{id}", "GET", 200,   request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404)
         )
         val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, applicationAPIs, filteredEndpoints = endpointsInSpec)
 
@@ -155,8 +171,8 @@ class ApiCoverageReportTest {
         )
         val applicationAPIS = mutableListOf<API>()
         val testResultRecords = mutableListOf(
-            TestResultRecord("/order/{id}", "POST", 201, TestResult.Failed, actualResponseStatus = 404),
-            TestResultRecord("/order/{id}", "POST", 400, TestResult.Failed, actualResponseStatus = 404)
+            TestResultRecord("/order/{id}", "POST", 201,   request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404),
+            TestResultRecord("/order/{id}", "POST", 400,   request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404)
         )
         val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, applicationAPIS, filteredEndpoints = endpointsInSpec)
 
@@ -178,7 +194,7 @@ class ApiCoverageReportTest {
             Endpoint("/order/{id}", "GET", 200), Endpoint("/order/{id}", "GET", 404)
         )
         val testResultRecords = mutableListOf(
-            TestResultRecord("/order/{id}", "GET", 200, TestResult.Failed, actualResponseStatus = 404)
+            TestResultRecord("/order/{id}", "GET", 200,   request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404)
         )
         val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, filteredEndpoints = endpointsInSpec)
 
@@ -200,8 +216,8 @@ class ApiCoverageReportTest {
             Endpoint("/order/{id}", "POST", 404)
         )
         val testResultRecords = mutableListOf(
-            TestResultRecord("/order/{id}", "POST", 201, TestResult.Failed, actualResponseStatus = 404),
-            TestResultRecord("/order/{id}", "POST", 400, TestResult.Failed, actualResponseStatus = 404)
+            TestResultRecord("/order/{id}", "POST", 201,   request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404),
+            TestResultRecord("/order/{id}", "POST", 400,   request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404)
         )
         val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, filteredEndpoints = endpointsInSpec)
 
@@ -225,7 +241,7 @@ class ApiCoverageReportTest {
             API("GET", "/order/{id}")
         )
         val testResultRecords = mutableListOf(
-            TestResultRecord("/order/{id}", "GET", 200, TestResult.Success, actualResponseStatus = 200)
+            TestResultRecord("/order/{id}", "GET", 200,   request = null, response = null, result = TestResult.Success, actualResponseStatus = 200)
         )
         val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, applicationAPIs, filteredEndpoints = endpointsInSpec)
 
@@ -251,8 +267,8 @@ class ApiCoverageReportTest {
             API("POST", "/order/{id}")
         )
         val testResultRecords = mutableListOf(
-            TestResultRecord("/order/{id}", "POST", 201, TestResult.Success, actualResponseStatus = 201),
-            TestResultRecord("/order/{id}", "POST", 400, TestResult.Success, actualResponseStatus = 400)
+            TestResultRecord("/order/{id}", "POST", 201,   request = null, response = null, result = TestResult.Success, actualResponseStatus = 201),
+            TestResultRecord("/order/{id}", "POST", 400,   request = null, response = null, result = TestResult.Success, actualResponseStatus = 400)
         )
         val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, applicationAPIs, filteredEndpoints = endpointsInSpec)
 
@@ -274,7 +290,7 @@ class ApiCoverageReportTest {
             Endpoint("/order/{id}", "GET", 200), Endpoint("/order/{id}", "GET", 400)
         )
         val testResultRecords = mutableListOf(
-            TestResultRecord("/order/{id}", "GET", 200, TestResult.Success, actualResponseStatus = 200)
+            TestResultRecord("/order/{id}", "GET", 200,   request = null, response = null, result = TestResult.Success, actualResponseStatus = 200)
         )
         val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, filteredEndpoints = endpointsInSpec)
 
@@ -296,8 +312,8 @@ class ApiCoverageReportTest {
             Endpoint("/order/{id}", "POST", 404)
         )
         val testResultRecords = mutableListOf(
-            TestResultRecord("/order/{id}", "POST", 201, TestResult.Success, actualResponseStatus = 201),
-            TestResultRecord("/order/{id}", "POST", 400, TestResult.Success, actualResponseStatus = 400)
+            TestResultRecord("/order/{id}", "POST", 201,   request = null, response = null, result = TestResult.Success, actualResponseStatus = 201),
+            TestResultRecord("/order/{id}", "POST", 400,  request = null, response = null, result = TestResult.Success, actualResponseStatus = 400)
         )
         val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, filteredEndpoints = endpointsInSpec)
 
@@ -323,7 +339,7 @@ class ApiCoverageReportTest {
             API("GET", "/order/{id}")
         )
         val testResultRecords = mutableListOf(
-            TestResultRecord("/order/{id}", "GET", 200, TestResult.Failed, actualResponseStatus = 404)
+            TestResultRecord("/order/{id}", "GET", 200,  request = null, response = null, result =  TestResult.Failed, actualResponseStatus = 404)
         )
         val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, applicationAPIs)
 
@@ -343,7 +359,7 @@ class ApiCoverageReportTest {
             Endpoint("/order/{id}", "GET", 200)
         )
         val testResultRecords = mutableListOf(
-            TestResultRecord("/order/{id}", "GET", 200, TestResult.Failed, actualResponseStatus = 404)
+            TestResultRecord("/order/{id}", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404)
         )
         val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec)
 
@@ -366,7 +382,7 @@ class ApiCoverageReportTest {
             API("GET", "/order/{id}")
         )
         val testResultRecords = mutableListOf(
-            TestResultRecord("/order/{id}", "GET", 200, TestResult.Failed, actualResponseStatus = 404)
+            TestResultRecord("/order/{id}", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404)
         )
         val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, applicationAPIs, filteredEndpoints = endpointsInSpec)
 
@@ -386,7 +402,7 @@ class ApiCoverageReportTest {
             Endpoint("/order/{id}", "GET", 200), Endpoint("/order/{id}", "GET", 404)
         )
         val testResultRecords = mutableListOf(
-            TestResultRecord("/order/{id}", "GET", 200, TestResult.Failed, actualResponseStatus = 404)
+            TestResultRecord("/order/{id}", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404)
         )
         val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, filteredEndpoints = endpointsInSpec)
 
@@ -410,7 +426,7 @@ class ApiCoverageReportTest {
         val applicationAPIs = mutableListOf<API>()
 
         val testResultRecords = mutableListOf(
-            TestResultRecord("/orders", "GET", 200, TestResult.Failed, actualResponseStatus = 404)
+            TestResultRecord("/orders", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404)
         )
         val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, applicationAPIs)
 
@@ -431,7 +447,7 @@ class ApiCoverageReportTest {
         )
 
         val testResultRecords = mutableListOf(
-            TestResultRecord("/orders", "GET", 200, TestResult.Failed, actualResponseStatus = 404)
+            TestResultRecord("/orders", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404)
         )
         val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, filteredEndpoints = endpointsInSpec)
 
@@ -457,7 +473,7 @@ class ApiCoverageReportTest {
         )
 
         val testResultRecords = mutableListOf(
-            TestResultRecord("/orders", "GET", 200, TestResult.Success, actualResponseStatus = 200)
+            TestResultRecord("/orders", "GET", 200, request = null, response = null, result = TestResult.Success, actualResponseStatus = 200)
         )
         val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec, applicationAPIs, filteredEndpoints = endpointsInSpec)
 

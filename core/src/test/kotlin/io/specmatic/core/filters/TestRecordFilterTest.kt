@@ -12,6 +12,8 @@ class TestRecordFilterTest {
         path = path,
         method = method,
         responseStatus = responseStatus,
+        request = null,
+        response = null,
         result = TestResult.Success
     )
 

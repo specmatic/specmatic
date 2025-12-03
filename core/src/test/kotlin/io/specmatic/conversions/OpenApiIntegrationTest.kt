@@ -57,7 +57,7 @@ Examples:
 
                     }
 
-                }).first
+                }).result
 
                 assertThat(result).isInstanceOf(Result.Success::class.java)
             }
@@ -78,7 +78,7 @@ Examples:
 
                     }
 
-                }).first
+                }).result
                 assertThat(result).isInstanceOf(Result.Success::class.java)
             }
 
@@ -100,7 +100,7 @@ Examples:
                     override fun setServerState(serverState: Map<String, Value>) {
 
                     }
-                }).first
+                }).result
 
                 assertThat(result).isInstanceOf(Result.Success::class.java)
             }
@@ -124,7 +124,7 @@ Examples:
                         override fun setServerState(serverState: Map<String, Value>) {
 
                         }
-                    }).first
+                    }).result
 
                     assertThat(result).isInstanceOf(Result.Success::class.java)
                 } finally {
@@ -238,7 +238,7 @@ Feature: Authenticated
 
                     }
 
-                }).first
+                }).result
                 assertThat(result).isInstanceOf(Result.Success::class.java)
             }
 
@@ -290,7 +290,7 @@ Feature: Authenticated
 
                     }
 
-                }).first
+                }).result
                 assertThat(result).isInstanceOf(Result.Success::class.java)
             }
 
@@ -342,7 +342,7 @@ Feature: Authenticated
 
                     }
 
-                }).first
+                }).result
                 assertThat(result).isInstanceOf(Result.Success::class.java)
             }
 
@@ -395,7 +395,7 @@ Feature: Authenticated
 
                 }
 
-            }).first
+            }).result
 
             assertThat(result).isInstanceOf(Result.Success::class.java)
         }
@@ -419,7 +419,7 @@ Feature: Authenticated
                     override fun setServerState(serverState: Map<String, Value>) {
 
                     }
-                }).first
+                }).result
                 assertThat(result).isInstanceOf(Result.Success::class.java)
             }
             assertThat(requestMadeWithRandomlyGeneratedBearerToken).isTrue
@@ -448,7 +448,7 @@ Feature: Authenticated
                     override fun setServerState(serverState: Map<String, Value>) {
 
                     }
-                }).first
+                }).result
                 assertThat(result).isInstanceOf(Result.Success::class.java)
             }
             assertThat(requestMadeWithTokenFromSpecmaticJson).isTrue
@@ -485,7 +485,7 @@ Feature: Authenticated
                         override fun setServerState(serverState: Map<String, Value>) {
 
                         }
-                    }).first
+                    }).result
                     assertThat(result).isInstanceOf(Result.Success::class.java)
                 }
                 assertThat(requestMadeWithTokenFromSpecmaticJson).isTrue
@@ -745,7 +745,7 @@ Feature: Authenticated
 
                 }
 
-            }).first
+            }).result
 
             assertThat(result).isInstanceOf(Result.Success::class.java)
         }
@@ -808,7 +808,7 @@ Feature: Authenticated
 
                 }
 
-            }).first
+            }).result
 
             assertThat(result).isInstanceOf(Result.Success::class.java)
         }
@@ -836,7 +836,7 @@ Feature: Authenticated
                     override fun setServerState(serverState: Map<String, Value>) {
 
                     }
-                }).first
+                }).result
                 assertThat(result).isInstanceOf(Result.Success::class.java)
             }
             assertThat(requestMadeWithApiKeyInHeaderFromSpecmaticJson).isTrue
@@ -871,7 +871,7 @@ Feature: Authenticated
                         override fun setServerState(serverState: Map<String, Value>) {
 
                         }
-                    }).first
+                    }).result
                     assertThat(result).isInstanceOf(Result.Success::class.java)
                 }
                 assertThat(requestMadeWithApiKeyInHeaderFromSpecmaticJson).isTrue
@@ -905,7 +905,7 @@ Feature: Authenticated
                     override fun setServerState(serverState: Map<String, Value>) {
 
                     }
-                }).first
+                }).result
                 assertThat(result).isInstanceOf(Result.Success::class.java)
             }
             assertThat(requestMadeWithApiKeyInQueryFromSpecmaticJson).isTrue

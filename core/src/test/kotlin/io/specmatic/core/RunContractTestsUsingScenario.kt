@@ -529,7 +529,7 @@ paths:
 
                         override fun setServerState(serverState: Map<String, Value>) {
                         }
-                    }).first as Result.Failure
+                    }).result as Result.Failure
 
         assertThat(result.reportString()).contains("Contract expected")
         assertThat(result.reportString()).contains("response contained")

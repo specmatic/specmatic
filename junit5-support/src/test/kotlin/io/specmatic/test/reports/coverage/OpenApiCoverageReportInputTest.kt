@@ -14,6 +14,8 @@ class OpenApiCoverageReportInputTest {
             path = "/current",
             method = "GET",
             responseStatus = 200,
+            request = null,
+            response = null,
             result = TestResult.Success
         )
 
@@ -34,6 +36,8 @@ class OpenApiCoverageReportInputTest {
             path = "/current",
             method = "GET",
             responseStatus = 200,
+            request = null,
+            response = null,
             result = TestResult.Success
         )
 
@@ -41,6 +45,8 @@ class OpenApiCoverageReportInputTest {
             path = "/previous",
             method = "POST",
             responseStatus = 201,
+            request = null,
+            response = null,
             result = TestResult.Success
         )
 
@@ -66,6 +72,8 @@ class OpenApiCoverageReportInputTest {
             path = "/current",
             method = "GET",
             responseStatus = 200,
+            request = null,
+            response = null,
             result = TestResult.Success
         )
 
@@ -95,6 +103,8 @@ class OpenApiCoverageReportInputTest {
             path = "/current",
             method = "GET",
             responseStatus = 200,
+            request = null,
+            response = null,
             result = TestResult.Success
         )
 
@@ -102,6 +112,8 @@ class OpenApiCoverageReportInputTest {
             path = "/previous",
             method = "POST",
             responseStatus = 201,
+            request = null,
+            response = null,
             result = TestResult.Success
         )
 
@@ -131,6 +143,8 @@ class OpenApiCoverageReportInputTest {
             path = "/resource",
             method = "GET",
             responseStatus = 200,
+            request = null,
+            response = null,
             result = TestResult.Success
         )
 
@@ -166,6 +180,8 @@ class OpenApiCoverageReportInputTest {
             path = "/resource",
             method = "GET",
             responseStatus = 200,
+            request = null,
+            response = null,
             result = TestResult.Success
         )
 
@@ -173,6 +189,8 @@ class OpenApiCoverageReportInputTest {
             path = "/resource",
             method = "POST",
             responseStatus = 201,
+            request = null,
+            response = null,
             result = TestResult.Success
         )
 
@@ -202,7 +220,7 @@ class OpenApiCoverageReportInputTest {
         val allEndpoints = mutableListOf(Endpoint("/test", "POST", 200), Endpoint("/filtered", "POST", 200))
         val filtered = mutableListOf(Endpoint("/test", "POST", 200))
         val testResultRecords = mutableListOf(
-            TestResultRecord("/test", "POST", 200, TestResult.Failed, actualResponseStatus = 200),
+            TestResultRecord("/test", "POST", 200,request = null, response = null, result =  TestResult.Failed, actualResponseStatus = 200),
         )
 
         val reportInput = OpenApiCoverageReportInput(
@@ -222,7 +240,7 @@ class OpenApiCoverageReportInputTest {
         val filtered = mutableListOf(Endpoint("/test", "POST", 200))
         val applicationAPIs = mutableListOf(API("POST", "/test"), API("POST", "/filtered"))
         val testResultRecords = mutableListOf(
-            TestResultRecord("/test", "POST", 200, TestResult.Failed, actualResponseStatus = 200),
+            TestResultRecord("/test", "POST", 200,request = null, response = null, result =  TestResult.Failed, actualResponseStatus = 200),
         )
 
         val reportInput = OpenApiCoverageReportInput(
@@ -239,7 +257,7 @@ class OpenApiCoverageReportInputTest {
     fun `not-implemented endpoints should be identified using filtered endpoints instead of all endpoints`() {
         val allEndpoints = mutableListOf(Endpoint("/test", "POST", 200), Endpoint("/filtered", "POST", 200))
         val filtered = mutableListOf(Endpoint("/test", "POST", 200))
-        val testResultRecords = mutableListOf(TestResultRecord("/test", "POST", 200, TestResult.Failed, actualResponseStatus = 0))
+        val testResultRecords = mutableListOf(TestResultRecord("/test", "POST", 200,request = null, response = null, result =  TestResult.Failed, actualResponseStatus = 0))
 
         val reportInput = OpenApiCoverageReportInput(
             testResultRecords = testResultRecords, configFilePath = "", endpointsAPISet = true,

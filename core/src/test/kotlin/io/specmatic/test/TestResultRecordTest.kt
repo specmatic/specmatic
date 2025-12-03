@@ -1,9 +1,13 @@
 package io.specmatic.test
 
+import io.specmatic.core.HttpRequest
+import io.specmatic.core.HttpResponse
 import io.specmatic.reporter.model.TestResult
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.time.Instant
 
 class TestResultRecordTest {
 
@@ -14,6 +18,8 @@ class TestResultRecordTest {
                 path = "/example/path",
                 method = "GET",
                 responseStatus = 200,
+                request = null,
+                response = null,
                 result = it
             )
             assertFalse(record.isExercised, "Record should not be considered exercised for Result: $it")
@@ -27,6 +33,8 @@ class TestResultRecordTest {
                 path = "/example/path",
                 method = "GET",
                 responseStatus = 200,
+                request = null,
+                response = null,
                 result = it
             )
             assertTrue(record.isExercised, "Record should be considered exercised for Result: $it")
@@ -40,6 +48,8 @@ class TestResultRecordTest {
                 path = "/example/path",
                 method = "GET",
                 responseStatus = 200,
+                request = null,
+                response = null,
                 result = it
             )
             assertTrue(record.isCovered, "Record should be considered covered for result $it")
@@ -53,9 +63,71 @@ class TestResultRecordTest {
                 path = "/example/path",
                 method = "GET",
                 responseStatus = 200,
+                request = null,
+                response = null,
                 result = it
             )
             assertFalse(record.isCovered, "Record should not be considered covered for result $it")
         }
+    }
+
+    @Test
+    fun `extraFields should reflect request and response and times when present`() {
+        val request = HttpRequest(
+            method = "POST",
+            path = "/some/path",
+            headers = mapOf("Content-Type" to "application/json")
+        )
+        val response = HttpResponse.ok("{\"hello\":\"world\"}")
+
+        val requestTime = Instant.ofEpochMilli(1_000L)
+        val responseTime = Instant.ofEpochMilli(2_000L)
+
+        val record = TestResultRecord(
+            path = "/some/path",
+            method = "POST",
+            responseStatus = 200,
+            request = request,
+            response = response,
+            result = TestResult.Success,
+            isValid = true,
+            isWip = false,
+            requestTime = requestTime,
+            responseTime = responseTime
+        )
+
+        val meta = record.extraFields()
+
+        assertTrue(meta.valid)
+        assertFalse(meta.isWip)
+        assertEquals(request.toLogString().trim(), meta.input.trim())
+        assertEquals(response.toLogString().trim(), meta.output?.trim())
+        assertEquals(requestTime.toEpochMilli(), meta.inputTime)
+        assertEquals(responseTime.toEpochMilli(), meta.outputTime)
+    }
+
+    @Test
+    fun `extraFields should use defaults when request or response are null`() {
+        val record = TestResultRecord(
+            path = "/some/path",
+            method = "GET",
+            responseStatus = 200,
+            request = null,
+            response = null,
+            result = TestResult.Success,
+            isValid = false,
+            isWip = true,
+            requestTime = null,
+            responseTime = null
+        )
+
+        val meta = record.extraFields()
+
+        assertFalse(meta.valid)
+        assertTrue(meta.isWip)
+        assertEquals("", meta.input)
+        assertEquals("", meta.output)
+        assertEquals(0L, meta.inputTime)
+        assertEquals(0L, meta.outputTime)
     }
 }

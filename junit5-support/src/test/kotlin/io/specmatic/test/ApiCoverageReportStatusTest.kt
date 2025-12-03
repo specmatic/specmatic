@@ -25,7 +25,7 @@ class ApiCoverageReportStatusTest {
         )
 
         val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, TestResult.Success),
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success),
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(
@@ -51,7 +51,7 @@ class ApiCoverageReportStatusTest {
         val applicationAPIs = mutableListOf<API>()
 
         val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, TestResult.Success),
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success),
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(
@@ -79,7 +79,7 @@ class ApiCoverageReportStatusTest {
         )
 
         val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, TestResult.Failed, actualResponseStatus = 400)
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 400)
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(
@@ -106,7 +106,7 @@ class ApiCoverageReportStatusTest {
         val applicationAPIs = mutableListOf<API>()
 
         val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, TestResult.Failed, actualResponseStatus = 400),
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 400),
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(
@@ -136,8 +136,8 @@ class ApiCoverageReportStatusTest {
         )
 
         val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, TestResult.Success, actualResponseStatus = 200),
-            TestResultRecord("/route2", "GET", 200, TestResult.Failed, actualResponseStatus = 404),
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, actualResponseStatus = 200),
+            TestResultRecord("/route2", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404),
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(
@@ -168,7 +168,7 @@ class ApiCoverageReportStatusTest {
         )
 
         val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, TestResult.Success)
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success)
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(
@@ -198,7 +198,7 @@ class ApiCoverageReportStatusTest {
         )
 
         val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, TestResult.Success)
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success)
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(
