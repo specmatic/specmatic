@@ -734,7 +734,7 @@ class OpenApiSpecification(
                 acc.plus(map)
             }
 
-        logger.newLine()
+        logger.boundary()
         return scenarioInfos to examples
     }
 
