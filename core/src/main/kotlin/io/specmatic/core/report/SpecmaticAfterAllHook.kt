@@ -6,10 +6,10 @@ import io.specmatic.test.TestResultRecord
 interface SpecmaticAfterAllHook {
     fun generateReport(
         testResultRecords: List<TestResultRecord>?,
-        coverage: Int,
         startTime: Long,
         endTime: Long,
         specConfigs: List<CtrfSpecConfig>,
-        reportFilePath: String
+        reportFilePath: String,
+        coverage: Int? = null
     )
 }
