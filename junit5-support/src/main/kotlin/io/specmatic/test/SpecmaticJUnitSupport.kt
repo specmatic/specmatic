@@ -213,6 +213,7 @@ open class SpecmaticJUnitSupport {
             hooks.forEach {
                 it.generateReport(
                     testResultRecords = report.testResultRecords,
+                    coverage = report.totalCoveragePercentage,
                     startTime = start,
                     endTime = end,
                     specConfigs = specConfigs,
