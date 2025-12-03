@@ -1,6 +1,8 @@
 package io.specmatic.core
 
 import io.specmatic.conversions.OpenApiSpecification
+import io.specmatic.core.log.Verbose
+import io.specmatic.core.log.logger
 import io.specmatic.stub.captureStandardOutput
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -2788,6 +2790,9 @@ paths:
 
     @Test
     fun `should show a message when testing each API`() {
+        val oldLogger = logger
+        try {
+
         val feature: Feature =
             """
                 openapi: 3.0.0
@@ -2804,11 +2809,15 @@ paths:
                           description: Created
         """.trimIndent().openAPIToContract()
 
+            logger = Verbose()
         val (stdout, _) = captureStandardOutput {
             testBackwardCompatibility(feature, feature)
         }
 
         assertThat(stdout).contains("[Compatibility Check] Scenario: POST /products -> 201")
+        } finally {
+            logger = oldLogger
+        }
     }
 
     @Test
