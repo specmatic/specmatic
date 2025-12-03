@@ -36,7 +36,7 @@ data class TestResultRecord(
     val responseTime: Instant? = null,
     override val duration: Long = durationFrom(requestTime, responseTime),
     override val rawStatus: String? = result.toString(),
-    override val testType: String = "ContractTest",
+    override val testType: String = CONTRACT_TEST_TEST_TYPE,
     override val operation: APIOperation = OpenAPIOperation(
         path = path,
         method = method,
@@ -98,6 +98,9 @@ data class TestResultRecord(
     }
 
     companion object {
+        const val STUB_TEST_TYPE = "Mock"
+        const val CONTRACT_TEST_TEST_TYPE = "ContractTest"
+
         fun List<TestResultRecord>.getCoverageStatus(): CoverageStatus {
             if(this.any { it.isWip }) return CoverageStatus.WIP
 

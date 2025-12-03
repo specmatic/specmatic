@@ -3,6 +3,7 @@ package io.specmatic.test
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.*
+import io.specmatic.core.Constants.Companion.ARTIFACTS_PATH
 import io.specmatic.core.SpecmaticConfig.Companion.getSecurityConfiguration
 import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.filters.ScenarioMetadataFilter
@@ -14,6 +15,7 @@ import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Examples
 import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.parsedValue
+import io.specmatic.core.report.SpecmaticAfterAllHook
 import io.specmatic.core.utilities.*
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_TIMEOUT
@@ -209,12 +211,12 @@ open class SpecmaticJUnitSupport {
                     }
                 }
             hooks.forEach {
-                it.onAfterAllTests(
+                it.generateReport(
                     testResultRecords = report.testResultRecords,
-                    coverage = report.totalCoveragePercentage,
                     startTime = start,
                     endTime = end,
-                    specConfigs = specConfigs
+                    specConfigs = specConfigs,
+                    reportFilePath = "$ARTIFACTS_PATH/test/ctrf/ctrf-report.json"
                 )
             }
         }

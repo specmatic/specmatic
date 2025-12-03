@@ -14,6 +14,7 @@ import io.ktor.util.*
 import io.ktor.util.pipeline.*
 import io.specmatic.core.APPLICATION_NAME
 import io.specmatic.core.APPLICATION_NAME_LOWER_CASE
+import io.specmatic.core.Constants.Companion.ARTIFACTS_PATH
 import io.specmatic.core.ContractAndStubMismatchMessages
 import io.specmatic.core.Feature
 import io.specmatic.core.HttpRequest
@@ -35,6 +36,7 @@ import io.specmatic.core.Scenario
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.WorkingDirectory
 import io.specmatic.core.listOfExcludedHeaders
+import io.specmatic.core.loadSpecmaticConfigOrDefault
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.LogTail
@@ -47,6 +49,8 @@ import io.specmatic.core.parseGherkinStringToFeature
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.pattern.parsedValue
+import io.specmatic.core.report.SpecmaticAfterAllHook
+import io.specmatic.core.report.ctrfSpecConfigsFrom
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.configureHealthCheckModule
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.isHealthCheckRequest
 import io.specmatic.core.urlDecodePathSegments
@@ -71,11 +75,14 @@ import io.specmatic.mock.mockFromJSON
 import io.specmatic.mock.validateMock
 import io.specmatic.reporter.generated.dto.stub.usage.SpecmaticStubUsageReport
 import io.specmatic.reporter.internal.dto.stub.usage.merge
+import io.specmatic.reporter.model.TestResult
 import io.specmatic.stub.listener.MockEvent
 import io.specmatic.stub.listener.MockEventListener
 import io.specmatic.stub.report.StubEndpoint
 import io.specmatic.stub.report.StubUsageReport
 import io.specmatic.test.LegacyHttpClient
+import io.specmatic.test.TestResultRecord
+import io.specmatic.test.TestResultRecord.Companion.STUB_TEST_TYPE
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BroadcastChannel
 import kotlinx.coroutines.channels.BufferOverflow
@@ -91,6 +98,7 @@ import java.io.Writer
 import java.net.InetAddress
 import java.net.URI
 import java.nio.charset.Charset
+import java.time.Instant
 import java.util.*
 import kotlin.text.toCharArray
 
@@ -116,6 +124,7 @@ class HttpStub(
     },
     private val listeners: List<MockEventListener> = emptyList(),
     private val reportBaseDirectoryPath: String = ".",
+    private val startTime: Instant = Instant.now()
 ) : ContractStub {
     constructor(
         feature: Feature,
@@ -191,6 +200,8 @@ class HttpStub(
     private val loadedSpecmaticConfig = specmaticConfigSource.load()
     private val specmaticConfigInstance: SpecmaticConfig = loadedSpecmaticConfig.config
     val specmaticConfigPath: String? = loadedSpecmaticConfig.path
+
+    private val ctrfTestResultRecords = mutableListOf<TestResultRecord>()
 
     val specToBaseUrlMap: Map<String, String> = getValidatedBaseUrlsOrExit(
         features.associate {
@@ -352,6 +363,21 @@ class HttpStub(
                         // Add the original response (before encoding) to the log message
                         httpLogMessage.addResponse(httpStubResponse)
                     }
+
+                    val ctrfTestResultRecord = TestResultRecord(
+                        path = httpRequest.path,
+                        method = httpRequest.method.orEmpty(),
+                        responseStatus = httpResponse.status,
+                        request = httpRequest,
+                        response = httpResponse,
+                        result = if(responseErrors.isEmpty()) TestResult.Success else TestResult.Failed,
+                        serviceType = "OPENAPI",
+                        requestContentType = httpRequest.headers["Content-Type"],
+                        specification = httpStubResponse.scenario?.specification,
+                        testType = STUB_TEST_TYPE,
+                        actualResponseStatus = httpResponse.status
+                    )
+                    synchronized(ctrfTestResultRecords) { ctrfTestResultRecords.add(ctrfTestResultRecord) }
                 } catch (e: ContractException) {
                     val response = badRequest(e.report())
                     httpLogMessage.addResponseWithCurrentTime(response)
@@ -764,6 +790,20 @@ class HttpStub(
     override fun close() {
         server.stop(gracePeriodMillis = timeoutMillis, timeoutMillis = timeoutMillis)
         printUsageReport()
+        val specmaticConfig = loadSpecmaticConfigOrDefault(specmaticConfigPath)
+        synchronized(ctrfTestResultRecords) {
+            ServiceLoader.load(SpecmaticAfterAllHook::class.java).takeIf(ServiceLoader<SpecmaticAfterAllHook>::any)?.let { hooks ->
+                hooks.forEach {
+                    it.generateReport(
+                        testResultRecords = ctrfTestResultRecords,
+                        startTime = startTime.toEpochMilli(),
+                        endTime = Instant.now().toEpochMilli(),
+                        specConfigs = ctrfSpecConfigsFrom(specmaticConfig, ctrfTestResultRecords),
+                        reportFilePath = "$ARTIFACTS_PATH/stub/ctrf/ctrf-report.json"
+                    )
+                }
+            }
+        }
     }
 
     private fun handleStateSetupRequest(httpRequest: HttpRequest): HttpStubResponse {
