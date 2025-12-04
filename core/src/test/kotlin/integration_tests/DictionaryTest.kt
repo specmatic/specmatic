@@ -14,6 +14,10 @@ import io.specmatic.core.SPECMATIC_STUB_DICTIONARY
 import io.specmatic.core.Scenario
 import io.specmatic.core.ScenarioInfo
 import io.specmatic.core.buildHttpPathPattern
+import io.specmatic.core.log.Verbose
+import io.specmatic.core.log.withLogger
+import io.specmatic.core.pattern.AnyPattern
+import io.specmatic.core.pattern.BooleanPattern
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.EmailPattern
 import io.specmatic.core.pattern.JSONObjectPattern
@@ -27,6 +31,7 @@ import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.pattern.parsedJSONArray
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.pattern.parsedPattern
+import io.specmatic.core.utilities.toValue
 import io.specmatic.core.value.BooleanValue
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
@@ -35,6 +40,7 @@ import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.stub.HttpStub
 import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
+import io.specmatic.stub.captureStandardOutput
 import io.specmatic.stub.createStubFromContracts
 import io.specmatic.stub.httpRequestLog
 import io.specmatic.stub.httpResponseLog
@@ -909,6 +915,115 @@ class DictionaryTest {
                 "id": 123
             }""")
             assertEquals(expectedOrdersResponse, dictionary.getRawValue("ordersResponse"))
+        }
+    }
+
+    @Nested
+    inner class ConflictingValuesTest {
+        @Test
+        fun `should pick randomly matching value when there are conflicts in the dictionary path causing multiple types to exist`() {
+            val dictionary = "'*': { commonKey: [10, Twenty, specmatic@test.io, false] } ".let(Dictionary::fromYaml)
+            val patterns = listOf(
+                NumberPattern() to 10,
+                EmailPattern() to "specmatic@test.io",
+                BooleanPattern() to false
+            ).map { it.first to toValue(it.second) }
+
+            assertThat(patterns).allSatisfy { (pattern, expectedValue) ->
+                val pattern = JSONObjectPattern(mapOf("commonKey" to pattern))
+                val resolver = Resolver(dictionary = dictionary)
+                val value = pattern.generate(resolver).jsonObject.getValue("commonKey")
+                assertThat(value).isEqualTo(expectedValue)
+            }
+        }
+
+        @Test
+        fun `should pick randomly matching value when there are conflicts in the dictionary path under the same schema`() {
+            val dictionary = "Schema: { commonKey: [10, Twenty, specmatic@test.io, false] } ".let(Dictionary::fromYaml)
+            val patterns = listOf(
+                NumberPattern() to 10,
+                EmailPattern() to "specmatic@test.io",
+                BooleanPattern() to false
+            ).map { it.first to toValue(it.second) }
+
+            assertThat(patterns).allSatisfy { (pattern, expectedValue) ->
+                val pattern = JSONObjectPattern(mapOf("commonKey" to pattern), typeAlias = "(Schema)")
+                val resolver = Resolver(dictionary = dictionary)
+                val value = pattern.generate(resolver).jsonObject.getValue("commonKey")
+                assertThat(value).isEqualTo(expectedValue)
+            }
+        }
+
+        @Test
+        fun `should work with composite type multi-values`() {
+            val dictionary = """
+            Schema:
+                commonKey:
+                - objectKey: ObjectValue
+                - - arrayKey: FirstArrayValue
+                  - arrayKey: SecondArrayValue
+            """.let(Dictionary::fromYaml)
+
+            val pattern = JSONObjectPattern(mapOf(
+                "commonKey" to AnyPattern(
+                    extensions = emptyMap(),
+                    pattern = listOf(
+                        JSONObjectPattern(mapOf("objectKey" to StringPattern())),
+                        ListPattern(JSONObjectPattern(mapOf("arrayKey" to StringPattern())))
+                    ),
+                )
+            ), typeAlias = "(Schema)")
+
+            val resolver = Resolver(dictionary = dictionary)
+            val value = pattern.generate(resolver)
+            val commonKeyValue = value.jsonObject.getValue("commonKey")
+            assertThat(commonKeyValue).satisfiesAnyOf(
+                {
+                    assertThat(it).isInstanceOf(JSONObjectValue::class.java); it as JSONObjectValue
+                    assertThat(it.jsonObject.getValue("objectKey")).isEqualTo(StringValue("ObjectValue"))
+                },
+                {
+                    assertThat(it).isInstanceOf(JSONArrayValue::class.java) ; it as JSONArrayValue
+                    assertThat(it.list).hasSize(2).containsExactlyInAnyOrder(
+                        JSONObjectValue(mapOf("arrayKey" to StringValue("FirstArrayValue"))),
+                        JSONObjectValue(mapOf("arrayKey" to StringValue("SecondArrayValue")))
+                    )
+                }
+            )
+        }
+
+        @Test
+        fun `should log all tried values when resolving best matching dictionary value`() {
+            val dictionary = "'*': { commonKey: [10, Twenty, specmatic@test.io] } ".let(Dictionary::fromYaml)
+            val pattern = JSONObjectPattern(mapOf("commonKey" to BooleanPattern()))
+            val resolver = Resolver(dictionary = dictionary)
+            val (stdout, value) = captureStandardOutput {
+                withLogger(Verbose()) {  pattern.generate(resolver) }
+            }
+
+            val commonKeyValue = value.jsonObject.getValue("commonKey")
+            assertThat(commonKeyValue).isInstanceOf(BooleanValue::class.java)
+            assertThat(stdout).containsIgnoringWhitespaces("""
+            Invalid value Twenty from dictionary for boolean
+            Expected boolean, actual was "Twenty"
+            Invalid value specmatic@test.io from dictionary for boolean
+            Expected boolean, actual was "specmatic@test.io"
+            Invalid value 10 from dictionary for boolean
+            Expected boolean, actual was 10 (number)
+            """.trimIndent())
+        }
+
+        @Test
+        fun `should result in an exception if the value picked is invalid in strict-mode`() {
+            val dictionary = "'*': { commonKey: [10, Twenty, specmatic@test.io] } ".let(Dictionary::fromYaml)
+            val pattern = JSONObjectPattern(mapOf("commonKey" to BooleanPattern()))
+            val resolver = Resolver(dictionary = dictionary.copy(strictMode = true))
+            val exception = assertThrows<ContractException> { pattern.generate(resolver) }
+
+            assertThat(exception.report()).containsIgnoringWhitespaces("""
+            >> commonKey
+            Invalid Dictionary value at ".commonKey"
+            """.trimIndent())
         }
     }
 

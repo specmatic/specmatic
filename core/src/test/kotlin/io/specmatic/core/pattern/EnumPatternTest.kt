@@ -185,7 +185,7 @@ class EnumPatternTest {
         val enumPattern = EnumPattern(enumValues, typeAlias = "(AnimalType)")
         val jsonPattern = JSONObjectPattern(mapOf("type" to enumPattern), typeAlias = "(Test)")
 
-        val dictionary = "Test: { type: Dog }".let(Dictionary::fromYaml)
+        val dictionary = "AnimalType: Dog".let(Dictionary::fromYaml)
         val resolver = Resolver(newPatterns = mapOf("(AnimalType)" to enumPattern), dictionary = dictionary)
         val value = JSONObjectValue(mapOf("type" to StringValue("(AnimalType)")))
         val filledInValue = jsonPattern.fillInTheBlanks(value, resolver).value

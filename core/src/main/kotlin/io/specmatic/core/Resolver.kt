@@ -264,11 +264,17 @@ data class Resolver(
             focusIntoProperty(keyPattern, focusKey, this@Resolver)
         }
 
-        return this.copy(
+        val patternUpdatedResolver = this.copy(
             dictionaryLookupPath = lookupPath,
             lookupPathsSeenSoFar = lookupPathsSeenSoFar.plus(lookupPath),
             dictionary = keyFocused
         )
+
+        return if (keyWithPattern?.pattern?.typeAlias == null || builtInPatterns.contains(keyWithPattern.pattern.typeAlias)) {
+            patternUpdatedResolver
+        } else {
+            patternUpdatedResolver.updateLookupPath(keyWithPattern.pattern.typeAlias)
+        }
     }
 
     fun <T> updateLookupPath(pattern: T, childPattern: Pattern): Resolver where T: Pattern, T: SequenceType {
