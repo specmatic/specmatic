@@ -50,13 +50,33 @@ data class Dictionary(private val data: Map<String, Value>, private val focusedD
         val resolved = resolvedHop(pattern, resolver)
         val lookupKey = withPatternDelimiters(resolved.typeName)
         val defaultValue = defaultData[lookupKey] ?: return null
-        return getReturnValueFor(lookupKey, defaultValue, resolved, resolver)?.withDefault(null) { it }
+        return getReturnValueFor(lookupKey, defaultValue, resolved, resolver)?.realise(
+            hasValue = { it, _ -> it },
+            orFailure =  { f ->
+                logger.debug(f.toFailure().reportString())
+                null
+            },
+            orException = { e ->
+                logger.debug(e.toHasFailure().toFailure().reportString())
+                null
+            },
+        )
     }
 
-    fun getValueFor(lookup: String, pattern: Pattern, resolver: Resolver): ReturnValue<Value>? {
+    fun getValueFor(lookup: String, pattern: Pattern, resolver: Resolver): Value? {
         val tailEndKey = lookup.tailEndKey()
         val dictionaryValue = focusedData[tailEndKey] ?: return null
-        return getReturnValueFor(lookup, dictionaryValue, pattern, resolver)
+        return getReturnValueFor(lookup, dictionaryValue, pattern, resolver)?.realise(
+            hasValue = { it, _ -> it },
+            orFailure =  { f ->
+                logger.debug(f.toFailure().reportString())
+                null
+            },
+            orException = { e ->
+                logger.debug(e.toHasFailure().toFailure().reportString())
+                null
+            },
+        )
     }
 
     private fun focusInto(
@@ -73,7 +93,8 @@ data class Dictionary(private val data: Map<String, Value>, private val focusedD
     private fun getReturnValueFor(lookup: String, value: Value, pattern: Pattern, resolver: Resolver): ReturnValue<Value>? {
         val valueToMatch = getValueToMatch(value, pattern, resolver) ?: return null
         return runCatching {
-            val result = pattern.fillInTheBlanks(valueToMatch, resolver.copy(isNegative = false), removeExtraKeys = true)
+            val parsedValue = pattern.parse(valueToMatch.toUnformattedString(), resolver)
+            val result = pattern.fillInTheBlanks(parsedValue, resolver.copy(isNegative = false), removeExtraKeys = true)
             if (result is ReturnFailure && resolver.isNegative) return null
             result.addDetails("Invalid Dictionary value at \"$lookup\"", breadCrumb = "")
         }.getOrElse(::HasException)
@@ -82,13 +103,13 @@ data class Dictionary(private val data: Map<String, Value>, private val focusedD
     private fun getValueToMatch(value: Value, pattern: Pattern, resolver: Resolver, overrideNestedCheck: Boolean = false): Value? {
         if (value !is JSONArrayValue) return value.takeIf { pattern.isScalar(resolver) || overrideNestedCheck }
         if (pattern !is SequenceType) {
-            return if (overrideNestedCheck) value else value.list.randomOrNull()
+            return if (overrideNestedCheck) value else selectValue(pattern, value.list, resolver)
         }
 
         val patternDepth = calculateDepth<Pattern>(pattern) { (resolvedHop(it, resolver) as? SequenceType)?.memberList?.patternList() }
         val valueDepth = calculateDepth<Value>(value) { (it as? JSONArrayValue)?.list }
         return when {
-            valueDepth > patternDepth -> value.list.randomOrNull()
+            valueDepth > patternDepth -> selectValue(pattern, value.list, resolver)
             else -> value
         }
     }
@@ -105,10 +126,21 @@ data class Dictionary(private val data: Map<String, Value>, private val focusedD
 
     private fun Pattern.isScalar(resolver: Resolver): Boolean {
         val resolved = resolvedHop(this, resolver)
-        return resolved is ScalarType || resolved is URLPathSegmentPattern || resolved is QueryParameterScalarPattern
+        return resolved is ScalarType || resolved is URLPathSegmentPattern
     }
 
     private fun resetFocus(): Dictionary = copy(focusedData = emptyMap())
+
+    private fun selectValue(pattern: Pattern, values: List<Value>, resolver: Resolver): Value? {
+        return values.shuffled().firstOrNull { value ->
+            runCatching {
+                pattern.matches(value, resolver).isSuccess()
+            }.getOrElse { e ->
+                logger.debug(e, "Failed to select value $values from dictionary for ${pattern.typeName}")
+                false
+            }
+        }
+    }
 
     companion object {
         private const val SPECMATIC_CONSTANTS = "SPECMATIC_CONSTANTS"

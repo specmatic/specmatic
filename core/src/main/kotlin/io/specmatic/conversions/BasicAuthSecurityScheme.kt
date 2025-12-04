@@ -92,7 +92,7 @@ data class BasicAuthSecurityScheme(private val token: String? = null) : OpenAPIS
     private fun getTokenFromDictionary(resolver: Resolver): ReturnValue<String>? {
         val updatedResolver = resolver.updateLookupForParam(BreadCrumb.HEADER.value)
         val dictionaryValue = updatedResolver.dictionary.getValueFor(AUTHORIZATION, StringPattern(), updatedResolver)
-        val authHeader = dictionaryValue?.unwrapOrContractException() ?: return null
+        val authHeader = dictionaryValue ?: return null
 
         if (authHeader !is StringValue) return HasFailure(Result.Failure(
             breadCrumb = BreadCrumb.HEADER.with(AUTHORIZATION),

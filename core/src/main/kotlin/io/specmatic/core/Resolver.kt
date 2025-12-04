@@ -218,7 +218,7 @@ data class Resolver(
     fun generate(pattern: Pattern): Value {
         val valueFromDict = dictionary.getValueFor(dictionaryLookupPath, pattern, this)
         if (valueFromDict != null) {
-            return valueFromDict.unwrapOrContractException()
+            return valueFromDict
         }
 
         val defaultValueFromDict = dictionary.getDefaultValueFor(pattern, this)
@@ -322,11 +322,7 @@ data class Resolver(
     fun generateList(pattern: ListPattern): Value {
         val patternFocused = updateLookupPath(pattern.typeAlias)
         val valueFromDict = patternFocused.dictionary.getValueFor(patternFocused.dictionaryLookupPath, pattern, this)
-        if (valueFromDict != null) {
-            return valueFromDict.unwrapOrContractException()
-        }
-
-        return this.updateLookupPath(pattern, pattern.pattern).generateRandomList(pattern.pattern)
+        return valueFromDict ?: this.updateLookupPath(pattern, pattern.pattern).generateRandomList(pattern.pattern)
     }
 
     private fun generateRandomList(pattern: Pattern): Value {
