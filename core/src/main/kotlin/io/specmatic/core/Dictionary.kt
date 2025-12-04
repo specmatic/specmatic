@@ -12,7 +12,11 @@ import io.specmatic.test.ExampleProcessor.toFactStore
 import io.specmatic.test.asserts.WILDCARD_INDEX
 import java.io.File
 
-data class Dictionary(private val data: Map<String, Value>, private val focusedData: Map<String, Value> = emptyMap()) {
+data class Dictionary(
+    private val data: Map<String, Value>,
+    private val focusedData: Map<String, Value> = emptyMap(),
+    private val strictMode: Boolean = false
+) {
     private val defaultData: Map<String, Value> = data.filterKeys(::isPatternToken)
 
     fun plus(other: Map<String, Value>): Dictionary {
@@ -53,12 +57,10 @@ data class Dictionary(private val data: Map<String, Value>, private val focusedD
         return getReturnValueFor(lookupKey, defaultValue, resolved, resolver)?.realise(
             hasValue = { it, _ -> it },
             orFailure =  { f ->
-                logger.debug(f.toFailure().reportString())
-                null
+                logger.debug(f.toFailure().reportString()); null
             },
             orException = { e ->
-                logger.debug(e.toHasFailure().toFailure().reportString())
-                null
+                logger.debug(e.toHasFailure().toFailure().reportString()); null
             },
         )
     }
@@ -69,12 +71,12 @@ data class Dictionary(private val data: Map<String, Value>, private val focusedD
         return getReturnValueFor(lookup, dictionaryValue, pattern, resolver)?.realise(
             hasValue = { it, _ -> it },
             orFailure =  { f ->
-                logger.debug(f.toFailure().reportString())
-                null
+                if (strictMode) f.toFailure().throwOnFailure()
+                else logger.debug(f.toFailure().reportString()); null
             },
             orException = { e ->
-                logger.debug(e.toHasFailure().toFailure().reportString())
-                null
+                if (strictMode) e.toHasFailure().toFailure().throwOnFailure()
+                else logger.debug(e.toHasFailure().toFailure().reportString()); null
             },
         )
     }
@@ -91,10 +93,9 @@ data class Dictionary(private val data: Map<String, Value>, private val focusedD
     }
 
     private fun getReturnValueFor(lookup: String, value: Value, pattern: Pattern, resolver: Resolver): ReturnValue<Value>? {
-        val valueToMatch = getValueToMatch(value, pattern, resolver) ?: return null
         return runCatching {
-            val parsedValue = pattern.parse(valueToMatch.toUnformattedString(), resolver)
-            val result = pattern.fillInTheBlanks(parsedValue, resolver.copy(isNegative = false), removeExtraKeys = true)
+            val valueToMatch = getValueToMatch(value, pattern, resolver) ?: return null
+            val result = pattern.fillInTheBlanks(valueToMatch, resolver.copy(isNegative = false), removeExtraKeys = true)
             if (result is ReturnFailure && resolver.isNegative) return null
             result.addDetails("Invalid Dictionary value at \"$lookup\"", breadCrumb = "")
         }.getOrElse(::HasException)
@@ -132,11 +133,17 @@ data class Dictionary(private val data: Map<String, Value>, private val focusedD
     private fun resetFocus(): Dictionary = copy(focusedData = emptyMap())
 
     private fun selectValue(pattern: Pattern, values: List<Value>, resolver: Resolver): Value? {
+        if (strictMode) return values.randomOrNull()
         return values.shuffled().firstOrNull { value ->
             runCatching {
-                pattern.matches(value, resolver).isSuccess()
+                val result = pattern.matches(value, resolver)
+                if (result is Result.Failure) {
+                    logger.debug("Invalid value $value from dictionary for ${pattern.typeName}")
+                    logger.debug(result.reportString())
+                }
+                result.isSuccess()
             }.getOrElse { e ->
-                logger.debug(e, "Failed to select value $values from dictionary for ${pattern.typeName}")
+                logger.debug(e, "Failed to select value $value from dictionary for ${pattern.typeName}")
                 false
             }
         }
@@ -145,7 +152,7 @@ data class Dictionary(private val data: Map<String, Value>, private val focusedD
     companion object {
         private const val SPECMATIC_CONSTANTS = "SPECMATIC_CONSTANTS"
 
-        fun from(file: File): Dictionary {
+        fun from(file: File, strictMode: Boolean = false): Dictionary {
             if (!file.exists()) throw ContractException(
                 breadCrumb = file.path,
                 errorMessage = "Expected dictionary file at ${file.path}, but it does not exist"
@@ -159,7 +166,7 @@ data class Dictionary(private val data: Map<String, Value>, private val focusedD
             return runCatching {
                 logger.log("Using dictionary file ${file.path}")
                 val dictionary = readValueAs<JSONObjectValue>(file).resolveConstants()
-                from(data = dictionary.jsonObject)
+                from(data = dictionary.jsonObject, strictMode)
             }.getOrElse { e ->
                 logger.debug(e)
                 throw ContractException(
@@ -169,11 +176,11 @@ data class Dictionary(private val data: Map<String, Value>, private val focusedD
             }
         }
 
-        fun fromYaml(content: String): Dictionary {
+        fun fromYaml(content: String, strictMode: Boolean = false): Dictionary {
             return runCatching  {
                 val value = yamlStringToValue(content)
                 if (value !is JSONObjectValue) throw ContractException("Expected dictionary file to be a YAML object")
-                from(value.jsonObject)
+                from(value.jsonObject, strictMode)
             }.getOrElse { e ->
                 throw ContractException(
                     breadCrumb = "Error while parsing YAML dictionary content",
@@ -182,12 +189,12 @@ data class Dictionary(private val data: Map<String, Value>, private val focusedD
             }
         }
 
-        fun from(data: Map<String, Value>): Dictionary {
-            return Dictionary(data = data)
+        fun from(data: Map<String, Value>, strictMode: Boolean = false): Dictionary {
+            return Dictionary(data = data, strictMode = strictMode)
         }
 
-        fun empty(): Dictionary {
-            return Dictionary(data = emptyMap())
+        fun empty(strictMode: Boolean = false): Dictionary {
+            return Dictionary(data = emptyMap(), strictMode = strictMode)
         }
 
         private fun JSONObjectValue.resolveConstants(): JSONObjectValue {

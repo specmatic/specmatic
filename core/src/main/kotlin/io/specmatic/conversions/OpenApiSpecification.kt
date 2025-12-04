@@ -268,9 +268,9 @@ class OpenApiSpecification(
             )
         }
 
-        fun loadDictionary(openApiFilePath: String, dictionaryPathFromConfig: String?): Dictionary {
+        fun loadDictionary(openApiFilePath: String, dictionaryPathFromConfig: String?, strictMode: Boolean = false): Dictionary {
             val dictionaryFile = getDictionaryFile(File(openApiFilePath), dictionaryPathFromConfig)
-            return if (dictionaryFile != null) Dictionary.from(dictionaryFile) else Dictionary.empty()
+            return if (dictionaryFile != null) Dictionary.from(dictionaryFile, strictMode) else Dictionary.empty(strictMode)
         }
 
         private fun getDictionaryFile(openApiFile: File, dictionaryPathFromConfig: String?): File? {
