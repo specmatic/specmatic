@@ -916,9 +916,11 @@ internal class JSONObjectPatternTest {
         }
 
         assertThat(exception.report()).isEqualToNormalizingWhitespace("""
-        >> addresses[0]
-        Invalid Dictionary value at "Person.addresses"
-        Expected string, actual was 10 (number)
+        >> addresses
+        None of the dictionary values matched the schema.
+        This could happen due to conflicts in the dictionary at the same json path, due to conflicting dataTypes at the same json path between multiple payloads
+        strictMode enforces the presence of matching values in the dictionary if the json-path is present
+        Either ensure that a matching value exists in the dictionary or disable strictMode
         """.trimIndent())
     }
 
