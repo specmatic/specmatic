@@ -9,7 +9,7 @@ import io.specmatic.reporter.ctrf.model.CtrfTestResultRecord
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.internal.dto.spec.operation.APIOperation
 import io.specmatic.reporter.model.TestResult
-import io.specmatic.reporter.spec.model.OpenAPIOperation
+import io.specmatic.reporter.model.OpenAPIOperation
 import java.time.Duration
 import java.time.Instant
 
