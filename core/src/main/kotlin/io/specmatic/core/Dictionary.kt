@@ -150,17 +150,42 @@ data class Dictionary(
         return lenientlySelectedValue
     }
 
+    private val dictionaryMismatchMessages = object : MismatchMessages {
+        override fun mismatchMessage(expected: String, actual: String): String {
+            return "Expected $expected but got $actual in the dictionary"
+        }
+
+        override fun unexpectedKey(keyLabel: String, keyName: String): String {
+            return "Unexpected $keyLabel $keyName in the dictionary"
+        }
+
+        override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
+            return "Expected $keyLabel $keyName was missing in the dictionary"
+        }
+    }
+
     private fun selectValueLenient(pattern: Pattern, values: List<Value>, resolver: Resolver): Value? {
+        val dictionaryBreadcrumbs = ">> DICTIONARY.${resolver.dictionaryLookupPath}"
+
+        val updatedResolver = resolver.copy(
+            findKeyErrorCheck = noPatternKeyCheckDictionary,
+            mismatchMessages = dictionaryMismatchMessages,
+        )
+
         return values.shuffled().firstOrNull { value ->
             runCatching {
-                val result = pattern.matches(value, resolver.copy(findKeyErrorCheck = noPatternKeyCheckDictionary))
+                val result = pattern.matches(value, updatedResolver)
+
                 if (result is Result.Failure) {
-                    logger.debug("Invalid value $value from dictionary for ${pattern.typeName}")
+                    logger.debug(dictionaryBreadcrumbs)
                     logger.debug(result.reportString())
+                    logger.debug(System.lineSeparator())
                 }
                 result.isSuccess()
             }.getOrElse { e ->
+                logger.debug(">> DICTIONARY.${resolver.dictionaryLookupPath}")
                 logger.debug(e, "Failed to select value $value from dictionary for ${pattern.typeName}")
+                logger.debug(System.lineSeparator())
                 false
             }
         }

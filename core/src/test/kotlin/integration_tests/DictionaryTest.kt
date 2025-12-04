@@ -1024,16 +1024,16 @@ class DictionaryTest {
             val commonKeyValue = value.jsonObject.getValue("commonKey")
             assertThat(commonKeyValue).isInstanceOf(BooleanValue::class.java)
             assertThat(stdout).containsIgnoringWhitespaces("""
-            Invalid value Twenty from dictionary for boolean
-            Expected boolean, actual was "Twenty"
+            >> DICTIONARY..commonKey
+            Expected boolean but got "Twenty" in the dictionary
             """.trimIndent())
             assertThat(stdout).containsIgnoringWhitespaces("""
-            Invalid value specmatic@test.io from dictionary for boolean
-            Expected boolean, actual was "specmatic@test.io"
+            >> DICTIONARY..commonKey
+            Expected boolean but got 10 (number) in the dictionary
             """.trimIndent())
             assertThat(stdout).containsIgnoringWhitespaces("""
-            Invalid value 10 from dictionary for boolean
-            Expected boolean, actual was 10 (number)
+            >> DICTIONARY..commonKey
+            Expected boolean but got "specmatic@test.io" in the dictionary
             """.trimIndent())
         }
 
