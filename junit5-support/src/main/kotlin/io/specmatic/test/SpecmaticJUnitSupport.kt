@@ -206,7 +206,7 @@ open class SpecmaticJUnitSupport {
                             specification = it.specification.orEmpty(),
                             sourceProvider = it.sourceProvider,
                             repository = it.sourceRepository,
-                            branch = it.sourceRepositoryBranch
+                            branch = it.sourceRepositoryBranch ?: "main"
                         )
                     }
                 }
