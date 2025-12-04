@@ -1046,7 +1046,10 @@ class DictionaryTest {
 
             assertThat(exception.report()).containsIgnoringWhitespaces("""
             >> commonKey
-            Invalid Dictionary value at ".commonKey"
+            None of the dictionary values matched the schema.
+            This could happen due to conflicts in the dictionary at the same json path, due to conflicting dataTypes at the same json path between multiple payloads
+            strictMode enforces the presence of matching values in the dictionary if the json-path is present
+            Either ensure that a matching value exists in the dictionary or disable strictMode
             """.trimIndent())
         }
     }

@@ -133,7 +133,18 @@ data class Dictionary(
     private fun resetFocus(): Dictionary = copy(focusedData = emptyMap())
 
     private fun selectValue(pattern: Pattern, values: List<Value>, resolver: Resolver): Value? {
-        if (strictMode) return values.randomOrNull()
+        if (!strictMode) return selectValueLenient(pattern, values, resolver)
+        return selectValueLenient(pattern, values, resolver) ?: throw ContractException(
+            errorMessage = """
+            None of the dictionary values matched the schema.
+            This could happen due to conflicts in the dictionary at the same json path, due to conflicting dataTypes at the same json path between multiple payloads
+            strictMode enforces the presence of matching values in the dictionary if the json-path is present
+            Either ensure that a matching value exists in the dictionary or disable strictMode
+            """.trimIndent()
+        )
+    }
+
+    private fun selectValueLenient(pattern: Pattern, values: List<Value>, resolver: Resolver): Value? {
         return values.shuffled().firstOrNull { value ->
             runCatching {
                 val result = pattern.matches(value, resolver.copy(findKeyErrorCheck = noPatternKeyCheckDictionary))
