@@ -28,6 +28,68 @@ import java.util.function.Consumer
 import java.util.stream.Stream
 
 internal class JSONObjectPatternTest {
+
+    @ParameterizedTest
+    @CsvSource(
+        "true",
+        "false"
+    )
+    fun `should generate the negative patterns for a pattern where one of the optional keys has a reference to the parent object leading to a recursive cycle`(withDataTypeNegatives: Boolean) {
+        val pattern = JSONObjectPattern(
+            mapOf(
+                "children?" to DeferredPattern("(Recursive)")
+            )
+        )
+
+        val resolver = Resolver(
+            newPatterns = mapOf(
+                "(Recursive)" to pattern
+            ),
+            isNegative = true,
+            generation = GenerativeTestsEnabled(positiveOnly = false)
+        )
+
+        val patterns = pattern.negativeBasedOn(
+            Row(),
+            resolver,
+            NegativePatternConfiguration(withDataTypeNegatives = withDataTypeNegatives)
+        ).toList()
+
+        assertThat(patterns.size).isEqualTo(3)
+        assertDoesNotThrow { patterns.first().value.generate(resolver) }
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "true",
+        "false"
+    )
+    fun `should throw exception while generating the negative patterns for a pattern where one of the mandatory keys has a reference to the parent object leading to a recursive cycle`(withDataTypeNegatives: Boolean) {
+        val pattern = JSONObjectPattern(
+            mapOf(
+                "children" to DeferredPattern("(Recursive)")
+            )
+        )
+
+        val resolver = Resolver(
+            newPatterns = mapOf(
+                "(Recursive)" to pattern
+            ),
+            isNegative = true,
+            generation = GenerativeTestsEnabled(positiveOnly = false)
+        )
+
+        val exception = assertThrows<ContractException> {
+            pattern.negativeBasedOn(
+                Row(),
+                resolver,
+                NegativePatternConfiguration(withDataTypeNegatives = withDataTypeNegatives)
+            ).toList()
+        }
+
+        assertThat(exception.message).contains("Invalid pattern cycle")
+    }
+
     @Test
     fun `should filter out optional and extended keys from object and sub-objects`() {
         val pattern = parsedPattern("""{
