@@ -6,6 +6,7 @@ import io.specmatic.core.SPECMATIC_STUB_DICTIONARY
 import io.specmatic.core.log.DebugLogger
 import io.specmatic.core.log.withLogger
 import io.specmatic.core.pattern.parsedJSONObject
+import io.specmatic.core.utilities.Flags.Companion.STUB_STRICT_MODE
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
@@ -448,6 +449,7 @@ class PartialExampleTest {
     fun `partial example using invalid dictionary should throw an error at runtime`() {
         try {
             System.setProperty(SPECMATIC_STUB_DICTIONARY, "src/test/resources/openapi/substitutions/dictionary.json")
+            System.setProperty(STUB_STRICT_MODE, "true")
 
             createStubFromContracts(
                 listOf("src/test/resources/openapi/substitutions/partial_with_invalid_dictionary_value.yaml"),
@@ -466,6 +468,7 @@ class PartialExampleTest {
             }
         } finally {
             System.clearProperty(SPECMATIC_STUB_DICTIONARY)
+            System.clearProperty(STUB_STRICT_MODE)
         }
     }
 

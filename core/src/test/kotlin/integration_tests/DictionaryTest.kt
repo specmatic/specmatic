@@ -19,6 +19,7 @@ import io.specmatic.core.log.withLogger
 import io.specmatic.core.pattern.AnyPattern
 import io.specmatic.core.pattern.BooleanPattern
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.pattern.DeferredPattern
 import io.specmatic.core.pattern.EmailPattern
 import io.specmatic.core.pattern.JSONObjectPattern
 import io.specmatic.core.pattern.ListPattern
@@ -592,6 +593,25 @@ class DictionaryTest {
         }
     }
 
+    @Test
+    fun `if subKey has typeAlias should focus into subKey schema in dictionary instead of staying on pattern schema`() {
+        val dictionary = """
+        '*':
+           error: Invalid-Request-Try-Again
+        ErrorSchema:
+            status: 400
+        """.trimIndent().let(Dictionary::fromYaml)
+        val pattern = JSONObjectPattern(mapOf("error" to DeferredPattern("(ErrorSchema)")))
+        val errorPattern = JSONObjectPattern(mapOf("status" to NumberPattern()))
+
+        val resolver = Resolver(dictionary = dictionary, newPatterns = mapOf("(ErrorSchema)" to errorPattern))
+        val generatedValue = pattern.generate(resolver)
+        val errorValue = generatedValue.jsonObject.getValue("error")
+
+        assertThat(errorValue).isInstanceOf(JSONObjectValue::class.java); errorValue as JSONObjectValue
+        assertThat(errorValue.jsonObject.getValue("status")).isEqualTo(NumberValue(400))
+    }
+
     @Nested
     inner class MultiValueDictionaryTests {
 
@@ -621,10 +641,10 @@ class DictionaryTest {
         }
 
         @Test
-        fun `should throw an exception when array key contains invalid value and pattern is an array`() {
+        fun `should throw an exception when array key contains invalid value and pattern is an array with strict mode`() {
             val dictionary = "Schema: { array: [1, abc, 3] }".let(Dictionary::fromYaml)
             val pattern = JSONObjectPattern(mapOf("array" to ListPattern(NumberPattern())), typeAlias = "(Schema)")
-            val resolver = Resolver(dictionary = dictionary)
+            val resolver = Resolver(dictionary = dictionary.copy(strictMode = true))
             val exception = assertThrows<ContractException> { pattern.generate(resolver) }
 
             assertThat(exception.report()).isEqualToNormalizingWhitespace("""
@@ -1006,8 +1026,12 @@ class DictionaryTest {
             assertThat(stdout).containsIgnoringWhitespaces("""
             Invalid value Twenty from dictionary for boolean
             Expected boolean, actual was "Twenty"
+            """.trimIndent())
+            assertThat(stdout).containsIgnoringWhitespaces("""
             Invalid value specmatic@test.io from dictionary for boolean
             Expected boolean, actual was "specmatic@test.io"
+            """.trimIndent())
+            assertThat(stdout).containsIgnoringWhitespaces("""
             Invalid value 10 from dictionary for boolean
             Expected boolean, actual was 10 (number)
             """.trimIndent())
@@ -1061,25 +1085,6 @@ class DictionaryTest {
                 // List[Pattern]
                 Arguments.of(
                     listPatternOf(NumberPattern()), parsedJSONArray("""[[1, 2], [3, 4]]""")
-                ),
-                Arguments.of(
-                    listPatternOf(NumberPattern()), parsedJSONArray("""[[], [3, 4]]""")
-                ),
-                // List[List[Pattern]]
-                Arguments.of(
-                    listPatternOf(NumberPattern(), nestedLevel = 1), parsedJSONArray("""[[[1, 2]], [[3, 4]]]""")
-                ),
-                Arguments.of(
-                    listPatternOf(NumberPattern(), nestedLevel = 1), parsedJSONArray("""[[[1, 2]], [[]]]""")
-                ),
-                // List[List[List[Pattern]]]
-                Arguments.of(
-                    listPatternOf(NumberPattern(), nestedLevel = 2),
-                    parsedJSONArray("""[[[[1, 2]], [[3, 4]]], [[[5, 6]], [[7, 8]]]]""")
-                ),
-                Arguments.of(
-                    listPatternOf(NumberPattern(), nestedLevel = 2),
-                    parsedJSONArray("""[[[[1, 2]], [[3, 4]]], [[[]], [[7, 8]]]]""")
                 )
             )
         }

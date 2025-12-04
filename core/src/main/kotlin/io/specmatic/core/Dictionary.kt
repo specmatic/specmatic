@@ -136,7 +136,7 @@ data class Dictionary(
         if (strictMode) return values.randomOrNull()
         return values.shuffled().firstOrNull { value ->
             runCatching {
-                val result = pattern.matches(value, resolver)
+                val result = pattern.matches(value, resolver.copy(findKeyErrorCheck = noPatternKeyCheckDictionary))
                 if (result is Result.Failure) {
                     logger.debug("Invalid value $value from dictionary for ${pattern.typeName}")
                     logger.debug(result.reportString())
@@ -151,6 +151,7 @@ data class Dictionary(
 
     companion object {
         private const val SPECMATIC_CONSTANTS = "SPECMATIC_CONSTANTS"
+        private val noPatternKeyCheckDictionary = KeyCheck(noPatternKeyCheck, IgnoreUnexpectedKeys)
 
         fun from(file: File, strictMode: Boolean = false): Dictionary {
             if (!file.exists()) throw ContractException(
