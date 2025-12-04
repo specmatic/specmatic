@@ -10,15 +10,27 @@ data class ListPattern(
     override val pattern: Pattern,
     override val typeAlias: String? = null,
     override val example: List<String?>? = null,
+    val minItems: Int? = null,
+    val maxItems: Int? = null,
     override val extensions: Map<String, Any>  = emptyMap()
 ) : Pattern, SequenceType, HasDefaultExample, PossibleJsonObjectPatternContainer {
+
+    init {
+        minItems?.let {
+            require(it >= 0) { "minItems $it cannot be less than 0" }
+        }
+        if (minItems != null && maxItems != null) {
+            require(maxItems >= minItems) { "maxItems $maxItems cannot be less than minItems $minItems" }
+        }
+    }
     override val memberList: MemberList
         get() = MemberList(emptyList(), pattern)
 
     override fun fixValue(value: Value, resolver: Resolver): Value {
         if (resolver.matchesPattern(null, this, value).isSuccess()) return value
         if (value !is JSONArrayValue || (value.list.isEmpty() && resolver.allPatternsAreMandatory && !resolver.hasPartialKeyCheck())) {
-            return pattern.listOf(0.until(randomNumber(3)).mapIndexed { index, _ ->
+            val length = randomListLength()
+            return pattern.listOf(0.until(length).mapIndexed { index, _ ->
                 attempt(breadCrumb = "[$index (random)]") { pattern.fixValue(NullValue, resolver) }
             }, resolver)
         }
@@ -56,7 +68,7 @@ data class ListPattern(
             }
         }.pattern
 
-        val fallbackAnyValueList = List(randomNumber(3)) { StringValue("(anyvalue)") }
+        val fallbackAnyValueList = List(randomListLength()) { StringValue("(anyvalue)") }
         val valueToConsider = when {
             value is JSONArrayValue -> value.list.takeUnless { it.isEmpty() && resolver.allPatternsAreMandatory } ?: fallbackAnyValueList
             isPatternToken(value) -> fallbackAnyValueList
@@ -112,6 +124,14 @@ data class ListPattern(
             return Result.Failure(message = "List cannot be empty")
         }
 
+        if (minItems != null && sampleData.list.size < minItems) {
+            return Result.Failure("Expected at least $minItems items, got ${sampleData.list.size}")
+        }
+
+        if (maxItems != null && sampleData.list.size > maxItems) {
+            return Result.Failure("Expected at most $maxItems items, got ${sampleData.list.size}")
+        }
+
         val updatedResolver = resolverWithEmptyType.addPatternAsSeen(this)
         val failures: List<Result.Failure> = sampleData.list.map {
             updatedResolver.matchesPattern(null, pattern, it)
@@ -142,17 +162,40 @@ data class ListPattern(
         val resolverWithEmptyType = withEmptyType(pattern, resolver)
         return attempt(breadCrumb = LIST_BREAD_CRUMB) {
             resolverWithEmptyType.withCyclePrevention(pattern, true) { cyclePreventedResolver ->
-                val patterns = pattern.newBasedOn(row.stepDownIntoList(), cyclePreventedResolver)
+                val newPatterns = pattern.newBasedOn(row.stepDownIntoList(), cyclePreventedResolver)
                 try {
-                    patterns.firstOrNull()?.value
-                    patterns.map {
-                        it.ifValue { ListPattern(it) }
+                    newPatterns.firstOrNull()?.value
+                    newPatterns.flatMap { newPattern ->
+                        if (newPattern !is HasValue) {
+                            return@flatMap sequenceOf(newPattern)
+                        }
+
+                        sequence {
+                            yield(newPattern.ifValue { ListPattern(it) })
+
+                            if (minItems != null) {
+                                val minLengthPattern: ReturnValue<Pattern> =
+                                    newPattern.ifHasValue { returnValue ->
+                                        HasValue(JSONArrayPattern(List(minItems) { returnValue.value }))
+                                    }
+                                yield(minLengthPattern)
+                            }
+
+                            if (maxItems != null && maxItems != minItems) {
+                                val maxLengthPattern: ReturnValue<Pattern> =
+                                    newPattern.ifHasValue { returnValue ->
+                                        HasValue(JSONArrayPattern(List(maxItems) { returnValue.value }))
+                                    }
+                                yield(maxLengthPattern)
+                            }
+                        }
                     }
-                } catch(e: ContractException) {
-                    if(e.isCycle)
+                } catch (e: ContractException) {
+                    if (e.isCycle) {
                         null
-                    else
+                    } else {
                         throw e
+                    }
                 }
             } ?: sequenceOf(HasValue(ExactValuePattern(JSONArrayValue(emptyList()))))
         }
@@ -162,7 +205,20 @@ data class ListPattern(
         val resolverWithEmptyType = withEmptyType(pattern, resolver)
         return attempt(breadCrumb = LIST_BREAD_CRUMB) {
             resolverWithEmptyType.withCyclePrevention(pattern) { cyclePreventedResolver ->
-                pattern.newBasedOn(cyclePreventedResolver).map { ListPattern(it) }
+                pattern.newBasedOn(cyclePreventedResolver).flatMap { innerPattern ->
+                    if (minItems != null || maxItems != null) {
+                        sequence {
+                            minItems?.let { len ->
+                                yield(JSONArrayPattern(List(len) { innerPattern }))
+                            }
+                            if (maxItems != null && maxItems != minItems) {
+                                yield(JSONArrayPattern(List(maxItems!!) { innerPattern }))
+                            }
+                        }
+                    } else {
+                        sequenceOf<Pattern>(ListPattern(innerPattern, minItems = this.minItems, maxItems = this.maxItems))
+                    }
+                }
             }
         }
     }
@@ -173,12 +229,24 @@ data class ListPattern(
         config: NegativePatternConfiguration
     ): Sequence<ReturnValue<Pattern>> {
         return attempt(breadCrumb = LIST_BREAD_CRUMB) {
-            pattern.negativeBasedOn(row.stepDownIntoList(), resolver, config)
-                .map { negativePatternValue ->
-                    negativePatternValue.ifValue { pattern ->
-                        ListPattern(pattern) as Pattern
-                    }.breadCrumb(LIST_BREAD_CRUMB)
+            if (minItems != null || maxItems != null) {
+                sequence {
+                    minItems?.let { length ->
+                        val len = if (length > 0) length - 1 else 0
+                        yield(HasValue(JSONArrayPattern(List(len) { pattern })))
+                    }
+                    maxItems?.let { length ->
+                        yield(HasValue(JSONArrayPattern(List(length + 1) { pattern })))
+                    }
                 }
+            } else {
+                pattern.negativeBasedOn(row.stepDownIntoList(), resolver, config)
+                    .map { negativePatternValue ->
+                        negativePatternValue.ifValue { pattern ->
+                            ListPattern(pattern, minItems = this.minItems, maxItems = this.maxItems) as Pattern
+                        }.breadCrumb(LIST_BREAD_CRUMB)
+                    }
+            }
         }
     }
 
@@ -278,6 +346,16 @@ data class ListPattern(
         }.toSet()
     }
 }
+
+internal fun randomListLength(minItems: Int?, maxItems: Int?): Int {
+    val min = minItems ?: if (maxItems != null && maxItems == 0) 0 else 1
+    val max = maxItems ?: (min + 3)
+    val upper = if (max < min) min else max
+    return if (upper == min) min else (min..upper).random()
+}
+
+private fun ListPattern.randomListLength(): Int =
+    randomListLength(this.minItems, this.maxItems)
 
 private fun withEmptyType(pattern: Pattern, resolver: Resolver): Resolver {
     val patternSet = pattern.patternSet(resolver)

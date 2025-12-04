@@ -4,8 +4,11 @@ import com.google.common.net.HttpHeaders
 import io.specmatic.core.*
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSONObject
+import io.specmatic.core.pattern.parsedJSONArray
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.Value
+import io.specmatic.core.value.JSONArrayValue
+import io.specmatic.core.utilities.Flags
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpStub
 import io.specmatic.stub.createStubFromContracts
@@ -1047,5 +1050,142 @@ Feature: Authenticated
             "pass" -> assertThat(result).isInstanceOf(Result.Success::class.java)
             "fail" -> assertThat(result).isInstanceOf(Result.Failure::class.java)
         }
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        value = [
+        """pass | [1,2]""",
+        """fail | []""",
+        """fail | [1,2,3]""",
+        ],
+        delimiter = '|',
+        ignoreLeadingAndTrailingWhitespace = true
+    )
+    fun `minItems and maxItems should be honored`(expectedResult: String, requestBody: String) {
+        val yamlContent = """
+            openapi: 3.0.1
+            info:
+              title: API
+              version: 1
+            paths:
+              /numbers:
+                post:
+                  summary: Post numbers
+                  requestBody:
+                    content:
+                      application/json:
+                        schema:
+                          type: array
+                          items:
+                            type: number
+                          minItems: 1
+                          maxItems: 2
+                  responses:
+                    '200':
+                      description: Successful response
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            properties:
+                              message:
+                                type: string
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(yamlContent, "").toFeature()
+        val result = feature.scenarios.first().httpRequestPattern.matches(
+            HttpRequest(
+                "POST",
+                "/numbers",
+                body = parsedJSONArray(requestBody)
+            ), Resolver()
+        )
+
+        when(expectedResult) {
+            "pass" -> assertThat(result).isInstanceOf(Result.Success::class.java)
+            "fail" -> assertThat(result).isInstanceOf(Result.Failure::class.java)
+        }
+    }
+
+    @Test
+    fun `generative tests should produce arrays of min and max size`() {
+        val yamlContent = """
+            openapi: 3.0.1
+            info:
+              title: API
+              version: 1
+            paths:
+              /numbers:
+                post:
+                  requestBody:
+                    content:
+                      application/json:
+                        schema:
+                          type: array
+                          items:
+                            type: integer
+                          minItems: 1
+                          maxItems: 2
+                  responses:
+                    '200':
+                      description: ok
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(yamlContent, "").toFeature()
+
+        val lengths = mutableListOf<Int>()
+
+        Flags.using(Flags.SPECMATIC_GENERATIVE_TESTS to "true") {
+            feature.enableGenerativeTesting().executeTests(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    val array = request.body as JSONArrayValue
+                    lengths.add(array.list.size)
+                    return HttpResponse.ok("done")
+                }
+            })
+        }
+
+        assertThat(lengths).contains(1, 2)
+    }
+
+    @Test
+    fun `generative tests should handle maxItems zero`() {
+        val yamlContent = """
+            openapi: 3.0.1
+            info:
+              title: API
+              version: 1
+            paths:
+              /none:
+                post:
+                  requestBody:
+                    content:
+                      application/json:
+                        schema:
+                          type: array
+                          items:
+                            type: integer
+                          maxItems: 0
+                  responses:
+                    '200':
+                      description: ok
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(yamlContent, "").toFeature()
+
+        val lengths = mutableListOf<Int>()
+
+        Flags.using(Flags.SPECMATIC_GENERATIVE_TESTS to "true") {
+            feature.enableGenerativeTesting().executeTests(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    val array = request.body as JSONArrayValue
+                    lengths.add(array.list.size)
+                    return HttpResponse.ok("done")
+                }
+            })
+        }
+
+        assertThat(lengths).containsOnly(0)
     }
 }
