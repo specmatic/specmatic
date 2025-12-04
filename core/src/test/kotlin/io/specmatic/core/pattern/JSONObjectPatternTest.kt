@@ -893,7 +893,7 @@ internal class JSONObjectPatternTest {
     }
 
     @Test
-    fun `should throw an exception when dictionary values in an array do not match`() {
+    fun `should throw an exception when dictionary values in an array do not match with strict mode`() {
         val personTypeAlias = "(Person)"
 
         val personPattern = JSONObjectPattern(
@@ -908,7 +908,7 @@ internal class JSONObjectPatternTest {
 
         val resolver = Resolver(
             newPatterns = mapOf(personTypeAlias to personPattern),
-            dictionary = dictionary
+            dictionary = dictionary.copy(strictMode = true)
         )
 
         val exception = assertThrows<ContractException> {
@@ -1080,7 +1080,7 @@ internal class JSONObjectPatternTest {
     }
 
     @Test
-    fun `throw exception when example is found but invalid `() {
+    fun `throw exception when example is found but invalid with strict mode`() {
         val personTypeAlias = "(Person)"
 
         val personPattern = JSONObjectPattern(
@@ -1095,7 +1095,7 @@ internal class JSONObjectPatternTest {
         val dictionary = "Person: { id: $id }".let(Dictionary::fromYaml)
         val resolver = Resolver(
             newPatterns = mapOf(personTypeAlias to personPattern),
-            dictionary = dictionary
+            dictionary = dictionary.copy(strictMode = true)
         )
 
         assertThatThrownBy {

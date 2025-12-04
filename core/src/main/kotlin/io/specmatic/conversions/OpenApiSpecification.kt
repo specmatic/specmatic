@@ -88,8 +88,8 @@ class OpenApiSpecification(
     private val specificationPath: String? = null,
     private val securityConfiguration: SecurityConfiguration? = null,
     private val specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
-    private val dictionary: Dictionary = loadDictionary(openApiFilePath, specmaticConfig.getStubDictionary()),
-    private val strictMode: Boolean = false
+    private val strictMode: Boolean = false,
+    private val dictionary: Dictionary = loadDictionary(openApiFilePath, specmaticConfig.getStubDictionary(), strictMode),
 ) : IncludedSpecification, ApiSpecification {
     init {
         StringProviders // Trigger early initialization of StringProviders to ensure all providers are loaded at startup

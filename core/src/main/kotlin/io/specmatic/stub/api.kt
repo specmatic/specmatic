@@ -1063,6 +1063,7 @@ fun loadIfSupportedAPISpecification(
                 contractPathData.repository,
                 contractPathData.branch,
                 contractPathData.specificationPath,
+                strictMode = specmaticConfig.getStubStrictMode() ?: false
             ).copy(specmaticConfig = specmaticConfig),
         )
     } catch (e: Throwable) {
