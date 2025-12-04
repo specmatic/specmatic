@@ -12,8 +12,8 @@ fun ctrfSpecConfigsFrom(
 ): List<CtrfSpecConfig> {
     val specConfigs = testResultRecords.map {
         it.specification.orEmpty() to it.testType
-    }.map { (specification, testType) ->
-        specmaticConfig.getCtrfSpecConfig(specification, testType, serviceType, specType)
+    }.map { (absoluteSpecPath, testType) ->
+        specmaticConfig.getCtrfSpecConfig(absoluteSpecPath, testType, serviceType, specType)
     }
     return specConfigs
 }

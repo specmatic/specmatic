@@ -306,17 +306,21 @@ data class SpecmaticConfig(
     }
 
     @JsonIgnore
-    fun getCtrfSpecConfig(specification: String, testType: String, serviceType: String, specType: String): CtrfSpecConfig {
-        val specName = File(specification).name
+    fun getCtrfSpecConfig(absoluteSpecPath: String, testType: String, serviceType: String, specType: String): CtrfSpecConfig {
         val source = when (testType) {
-            CONTRACT_TEST_TEST_TYPE -> testSourceFromConfig(specName)
-            else -> stubSourceFromConfig(specName)
+            CONTRACT_TEST_TEST_TYPE -> testSourceFromConfig(absoluteSpecPath)
+            else -> stubSourceFromConfig(absoluteSpecPath)
         } ?: Source()
+
+        val specPathFromConfig = when(testType) {
+            CONTRACT_TEST_TEST_TYPE -> testSpecPathFromConfigFor(absoluteSpecPath)
+            else -> stubSpecPathFromConfigFor(absoluteSpecPath)
+        }
 
         return CtrfSpecConfig(
             serviceType = serviceType,
             specType = specType,
-            specification = specification,
+            specification = specPathFromConfig.orEmpty(),
             sourceProvider = source.provider.name,
             repository = source.repository.orEmpty(),
             branch = source.branch ?: "main",
@@ -686,21 +690,37 @@ data class SpecmaticConfig(
     }
 
     @JsonIgnore
-    private fun testSourceFromConfig(specificationName: String): Source? {
+    fun testSpecPathFromConfigFor(absoluteSpecPath: String): String? {
+        val source = testSourceFromConfig(absoluteSpecPath) ?: return null
+        return source.specsUsedAsTest().firstOrNull {
+            absoluteSpecPath.contains(it)
+        }
+    }
+
+    @JsonIgnore
+    fun stubSpecPathFromConfigFor(absoluteSpecPath: String): String? {
+        val source = stubSourceFromConfig(absoluteSpecPath) ?: return null
+        return source.specsUsedAsStub().firstOrNull {
+            absoluteSpecPath.contains(it)
+        }
+    }
+
+    @JsonIgnore
+    private fun testSourceFromConfig(absoluteSpecPath: String): Source? {
         return sources.firstOrNull { source ->
             source.test.orEmpty().any { test ->
-                test.contains(specificationName)
+                absoluteSpecPath.contains(test)
             }
         }
     }
 
     @JsonIgnore
-    private fun stubSourceFromConfig(specificationName: String): Source? {
+    private fun stubSourceFromConfig(absoluteSpecPath: String): Source? {
         return sources.firstOrNull { source ->
             source.stub.orEmpty().any { stub ->
                 when (stub) {
-                    is SpecExecutionConfig.StringValue -> stub.value.contains(specificationName)
-                    is SpecExecutionConfig.ObjectValue -> stub.specs.any { it.contains(specificationName) }
+                    is SpecExecutionConfig.StringValue -> absoluteSpecPath.contains(stub.value)
+                    is SpecExecutionConfig.ObjectValue -> stub.specs.any { absoluteSpecPath.contains(it) }
                 }
             }
         }
