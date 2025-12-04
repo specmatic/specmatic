@@ -85,7 +85,7 @@ data class DeferredPattern(
     }
 
     override fun negativeBasedOn(row: Row, resolver: Resolver, config: NegativePatternConfiguration): Sequence<ReturnValue<Pattern>> {
-        return resolver.getPattern(pattern).negativeBasedOn(row, resolver)
+        return resolver.getPattern(pattern).negativeBasedOn(row, resolver, config)
     }
 
     override fun encompasses(otherPattern: Pattern, thisResolver: Resolver, otherResolver: Resolver, typeStack: TypeStack): Result {

@@ -12,12 +12,13 @@ class AllNegativePatterns : NegativePatternsTemplate() {
         config: NegativePatternConfiguration
     ): Map<String, Sequence<ReturnValue<Pattern>>> {
         return patternMap.mapValues { (key, pattern) ->
-            val resolvedPattern = resolvedHop(pattern, resolver)
-            resolvedPattern.negativeBasedOn(
-                row.stepDownOneLevelInJSONHierarchy(withoutOptionality(key)),
-                resolver,
-                config
-            )
+            resolver.withCyclePrevention(pattern, isOptional(key)) { cyclePreventedResolver ->
+                pattern.negativeBasedOn(
+                    row.stepDownOneLevelInJSONHierarchy(withoutOptionality(key)),
+                    cyclePreventedResolver,
+                    config
+                )
+            } ?: emptySequence()
         }
     }
 }
