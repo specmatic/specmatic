@@ -57,6 +57,10 @@ data class BinaryValue(val byteArray: ByteArray = ByteArray(0)) : Value, ScalarV
     override val nativeValue: ByteArray
         get() = byteArray
 
+    override fun alterValue(): BinaryValue {
+        return copy(byteArray = byteArray.map { byte -> byte.inc() }.toByteArray())
+    }
+
     override fun toString() = byteArray.contentToString()
 
     override fun equals(other: Any?): Boolean {

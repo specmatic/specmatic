@@ -217,7 +217,7 @@ class ExamplePostValidatorTest {
         val failingBodyValuesToErrorMessage = listOf(
             """{"details": "Not an array"}""" to "Expected list of string, actual was Not an array",
             """{"details": 123}""" to "Expected list of string, actual was 123",
-            """{"details": null}""" to "Expected list of string, actual was",
+            """{"details": null}""" to "Expected list of string, actual was (null)",
             """{"details": {"key": "value"}}""" to """Expected list of string, actual was { "key": "value" }""",
         )
 

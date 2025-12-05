@@ -1293,7 +1293,7 @@ paths:
     }
 
     @Test
-    fun `test generates no negative tests for a boolean header parameter`() {
+    fun `test generates 2 negative tests for a boolean header parameter with string and null`() {
         val contract = OpenApiSpecification.fromYAML(
             """
 openapi: 3.0.0
@@ -1340,12 +1340,9 @@ paths:
                     type: string
 """.trimIndent(), ""
         ).toFeature()
-
-        val scenarios: List<Scenario> =
-            contract.enableGenerativeTesting().generateContractTestScenarios(emptyList()).toList()
-                .map { it.second.value }
+        val scenarios: List<Scenario> = contract.enableGenerativeTesting().generateContractTestScenarios(emptyList()).toList().map { it.second.value }
         val negativeTestScenarios = scenarios.filter { it.testDescription().contains("-ve") }
-        assertThat(negativeTestScenarios.count()).isEqualTo(0)
+        assertThat(negativeTestScenarios.count()).isEqualTo(2)
     }
 
     @Test

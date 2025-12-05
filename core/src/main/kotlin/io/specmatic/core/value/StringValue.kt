@@ -66,6 +66,10 @@ data class StringValue(val string: String = "", private val xml: Boolean) : Valu
     override val nativeValue: String
         get() = string
 
+    override fun alterValue(): StringValue {
+        return copy(string = string.plus(ALTERATION_CHARACTER))
+    }
+
     override fun toString() = string
 
     fun isPatternToken(): Boolean = isPatternToken(string.trim())
@@ -79,5 +83,9 @@ data class StringValue(val string: String = "", private val xml: Boolean) : Valu
 
     override fun specificity(): Int {
         return if(!isPatternOrMatcherToken(string)) 1 else 0
+    }
+
+    companion object {
+        private const val ALTERATION_CHARACTER = "_"
     }
 }
