@@ -793,6 +793,7 @@ class HttpStub(
         printUsageReport()
         val specmaticConfig = loadSpecmaticConfigOrDefault(specmaticConfigPath)
         synchronized(ctrfTestResultRecords) {
+            ctrfTestResultRecords.addAll(notCoveredTestResultRecords())
             ServiceLoader.load(SpecmaticAfterAllHook::class.java).takeIf(ServiceLoader<SpecmaticAfterAllHook>::any)?.let { hooks ->
                 hooks.forEach {
                     it.generateReport(
@@ -804,6 +805,24 @@ class HttpStub(
                     )
                 }
             }
+        }
+    }
+
+    private fun notCoveredTestResultRecords(): List<TestResultRecord> {
+        return _allEndpoints.filter { endpoint ->
+            ctrfTestResultRecords.none { testResultRecord ->
+                endpoint.isEqualTo(testResultRecord)
+            }
+        }.map { endpoint ->
+            TestResultRecord(
+                path = endpoint.path.orEmpty(),
+                method = endpoint.method.orEmpty(),
+                responseStatus = endpoint.responseCode,
+                request = null,
+                response = null,
+                result = TestResult.NotCovered,
+                specification = endpoint.specification.orEmpty()
+            )
         }
     }
 
