@@ -213,7 +213,7 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
         val newer: IFeature,
         val unusedExamples: Set<String>,
         val precomputedCompatibilityResult: CompatibilityResult,
-        var computedCompatibilityCheckHookResult: Pair<CompatibilityResult, List<OperationUsageResponse>?> = Pair(
+        val computedCompatibilityCheckHookResult: Pair<CompatibilityResult, List<OperationUsageResponse>?> = Pair(
             CompatibilityResult.UNKNOWN, emptyList()
         ),
         val isNewFile: Boolean
@@ -224,7 +224,6 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
 
         try {
             // FIRST PASS: collect results without logging. This includes reading newer/older features and running the lightweight compatibility check.
-
             val processedSpecs = files.mapNotNull { specFilePath ->
                 try {
                     if (with(File(specFilePath)) { exists() && isValidSpec().not() }) {
@@ -277,10 +276,10 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
             }
 
             // SECOND PASS: for all specs that failed the compatibility check, call the potentially long-running ServiceLoader hooks in batches of 5
-            validateSpecsWithHook(processedSpecs)
+            val specsValidatedByHook = validateSpecsWithHook(processedSpecs)
 
             // THIRD PASS: do the actual logging and produce final CompatibilityResult list
-            val results = processedSpecs.mapIndexed { index, processed ->
+            val results = specsValidatedByHook.mapIndexed { index, processed ->
                 logger.log("${index.inc()}. Running the check for ${processed.specFilePath}:")
 
                 if (processed.isNewFile) {
@@ -297,46 +296,48 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
         }
     }
 
-    val loader = ServiceLoader.load(BackwardCompatibilityCheckHook::class.java).firstOrNull()
+    val hook = ServiceLoader.load(BackwardCompatibilityCheckHook::class.java).firstOrNull()
 
-    private fun validateSpecsWithHook(processedSpecs: List<ProcessedSpec>) {
+    private fun validateSpecsWithHook(processedSpecs: List<ProcessedSpec>): List<ProcessedSpec> {
         val failedSpecs = processedSpecs.filter { it.backwardCompatibilityResult.success().not() }
 
-        if (failedSpecs.isNotEmpty() && loader != null) {
-            val batchSize = 5
-            loader.logStartedMessage(failedSpecs)
+        if (failedSpecs.isEmpty() || hook == null)
+            return processedSpecs
 
-            val executor = Executors.newFixedThreadPool(batchSize)
-            try {
-                val futures = failedSpecs.map { processed ->
-                    executor.submit(Callable {
-                        try {
-                            loader.check(
-                                processed.backwardCompatibilityResult,
-                                gitCommand.getRemoteUrl(),
-                                File(processed.specFilePath).relativeTo(File(repoDir).absoluteFile).path
-                            )
-                        } catch (e: Throwable) {
-                            logger.log(e)
-                            unknownResult
-                        }
-                    })
-                }
+        val poolSize = 5
+        hook.logStartedMessage(failedSpecs)
 
-                futures.forEachIndexed { index, future ->
+        val executor = Executors.newFixedThreadPool(poolSize)
+
+        try {
+            val futures = failedSpecs.map { processed ->
+                processed to executor.submit(Callable {
                     try {
-                        val compatibilityResult = future.get()
-                        failedSpecs[index].computedCompatibilityCheckHookResult = compatibilityResult
+                        hook.check(
+                            processed.backwardCompatibilityResult,
+                            gitCommand.getRemoteUrl(),
+                            File(processed.specFilePath).relativeTo(File(repoDir).absoluteFile).path
+                        )
                     } catch (e: Throwable) {
                         logger.log(e)
-                        failedSpecs[index].computedCompatibilityCheckHookResult = unknownResult
+                        unknownResult
                     }
-                }
-            } finally {
-                executor.shutdown()
-                executor.awaitTermination(10, TimeUnit.SECONDS)
-                loader.logCompletedMessage()
+                })
             }
+
+            return futures.map { (processed, future) ->
+                try {
+                    val compatibilityResult = future.get()
+                    processed.copy(computedCompatibilityCheckHookResult = compatibilityResult)
+                } catch (e: Throwable) {
+                    logger.log(e)
+                    processed.copy(computedCompatibilityCheckHookResult = unknownResult)
+                }
+            }
+        } finally {
+            executor.shutdown()
+            executor.awaitTermination(10, TimeUnit.SECONDS)
+            hook.logCompletedMessage()
         }
     }
 
@@ -353,7 +354,7 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
             logger.log("The Incompatibility Report:$newLine".prependIndent(ONE_INDENT))
             logger.log(backwardCompatibilityResult.report().prependIndent(TWO_INDENTS))
 
-            val verdict = failedVerdictMessage(processedSpec, loader, strictMode, baseBranch())
+            val verdict = failedVerdictMessage(processedSpec, hook, strictMode, baseBranch())
 
             logVerdictFor(specFilePath, verdict.second.prependIndent(ONE_INDENT))
 
