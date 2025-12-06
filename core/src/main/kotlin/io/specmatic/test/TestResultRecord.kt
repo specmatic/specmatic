@@ -41,7 +41,7 @@ data class TestResultRecord(
         path = path,
         method = method,
         contentType = requestContentType.orEmpty(),
-        responseCode = actualResponseStatus
+        responseCode = responseStatus
     )
 ): CtrfTestResultRecord {
     val isExercised = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
