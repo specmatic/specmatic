@@ -1,19 +1,21 @@
 package application
 
+import application.backwardCompatibility.BackwardCompatibilityCheckBaseCommand
 import application.backwardCompatibility.BackwardCompatibilityCheckCommandV2
+import application.backwardCompatibility.BackwardCompatibilityCheckHook
+import application.backwardCompatibility.CompatibilityResult
 import io.mockk.every
 import io.mockk.spyk
+import io.specmatic.core.IFeature
+import io.specmatic.core.Results
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.utilities.SystemExit
 import io.specmatic.core.utilities.SystemExitException
+import io.specmatic.reporter.backwardcompat.dto.OperationUsageResponse
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.Nested
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
@@ -21,8 +23,11 @@ import java.io.File
 import java.nio.file.Paths
 
 class BackwardCompatibilityCheckCommandV2Test {
-    @TempDir private lateinit var tempDir: File
-    @TempDir private lateinit var remoteDir: File
+    @TempDir
+    private lateinit var tempDir: File
+
+    @TempDir
+    private lateinit var remoteDir: File
 
     @BeforeEach
     fun setup() {
@@ -111,9 +116,24 @@ class BackwardCompatibilityCheckCommandV2Test {
                 File("c.yaml").apply { referTo("a.yaml") }
             )
 
-            assertThat(command.getSpecsReferringTo(setOf("a.yaml"))).isEqualTo(setOf("b.yaml", "c.yaml").map { File(it).canonicalPath }.toSet())
-            assertThat(command.getSpecsReferringTo(setOf("b.yaml"))).isEqualTo(setOf("c.yaml", "a.yaml").map { File(it).canonicalPath }.toSet())
-            assertThat(command.getSpecsReferringTo(setOf("c.yaml"))).isEqualTo(setOf("a.yaml", "b.yaml").map { File(it).canonicalPath }.toSet())
+            assertThat(command.getSpecsReferringTo(setOf("a.yaml"))).isEqualTo(
+                setOf(
+                    "b.yaml",
+                    "c.yaml"
+                ).map { File(it).canonicalPath }.toSet()
+            )
+            assertThat(command.getSpecsReferringTo(setOf("b.yaml"))).isEqualTo(
+                setOf(
+                    "c.yaml",
+                    "a.yaml"
+                ).map { File(it).canonicalPath }.toSet()
+            )
+            assertThat(command.getSpecsReferringTo(setOf("c.yaml"))).isEqualTo(
+                setOf(
+                    "a.yaml",
+                    "b.yaml"
+                ).map { File(it).canonicalPath }.toSet()
+            )
         }
 
         @Test
@@ -132,12 +152,16 @@ class BackwardCompatibilityCheckCommandV2Test {
             }
 
             assertThat(exception.code).isEqualTo(0)
-            assertThat(stdOut).containsIgnoringWhitespaces("""
+            assertThat(stdOut).containsIgnoringWhitespaces(
+                """
             - Specs that will be skipped (untracked specs, or schema files that are not referred to in other specs):
             1. ${tempDir.resolve("contract.yaml").toPath().toRealPath()}
-            """.trimIndent()).containsIgnoringWhitespaces("""
+            """.trimIndent()
+            ).containsIgnoringWhitespaces(
+                """
             Files checked: 0 (Passed: 0, Failed: 0)
-            """.trimIndent())
+            """.trimIndent()
+            )
         }
 
         @Test
@@ -158,14 +182,18 @@ class BackwardCompatibilityCheckCommandV2Test {
             }
 
             assertThat(exception.code).isEqualTo(0)
-            assertThat(stdOut).containsIgnoringWhitespaces("""
+            assertThat(stdOut).containsIgnoringWhitespaces(
+                """
             - Specs that have changed: 
             1. $gitApiFile
             - Specs that will be skipped (untracked specs, or schema files that are not referred to in other specs):
             1. ${tempDir.resolve("contract.yaml").canonicalFile.toPath().toRealPath()}
-            """.trimIndent()).containsIgnoringWhitespaces("""
+            """.trimIndent()
+            ).containsIgnoringWhitespaces(
+                """
             Files checked: 1 (Passed: 1, Failed: 0)
-            """.trimIndent())
+            """.trimIndent()
+            )
         }
 
         @Test
@@ -185,12 +213,16 @@ class BackwardCompatibilityCheckCommandV2Test {
             }
 
             assertThat(exception.code).isEqualTo(0)
-            assertThat(stdOut).containsIgnoringWhitespaces("""
+            assertThat(stdOut).containsIgnoringWhitespaces(
+                """
             - Specs that will be skipped (untracked specs, or schema files that are not referred to in other specs):
             1. ${tempDir.resolve("api.yaml").canonicalFile.toPath().toRealPath()}
-            """.trimIndent()).containsIgnoringWhitespaces("""
+            """.trimIndent()
+            ).containsIgnoringWhitespaces(
+                """
             Files checked: 0 (Passed: 0, Failed: 0)
-            """.trimIndent())
+            """.trimIndent()
+            )
         }
 
         @Test
@@ -239,12 +271,16 @@ class BackwardCompatibilityCheckCommandV2Test {
             }
 
             assertThat(exception.code).isEqualTo(0)
-            assertThat(stdOut).containsIgnoringWhitespaces("""
+            assertThat(stdOut).containsIgnoringWhitespaces(
+                """
             - Specs that will be skipped (untracked specs, or schema files that are not referred to in other specs):
             1. ${tempDir.resolve("other-api.yaml").canonicalFile.toPath().toRealPath()}
-            """.trimIndent()).containsIgnoringWhitespaces("""
+            """.trimIndent()
+            ).containsIgnoringWhitespaces(
+                """
             Files checked: 0 (Passed: 0, Failed: 0)
-            """.trimIndent())
+            """.trimIndent()
+            )
         }
     }
 
@@ -321,6 +357,63 @@ class BackwardCompatibilityCheckCommandV2Test {
     }
 
     @Nested
+    inner class VerdictMessageTests {
+        val processedSpec = BackwardCompatibilityCheckBaseCommand.ProcessedSpec(
+            specFilePath = "spec.yaml",
+            backwardCompatibilityResult = Results(),
+            newer = object : IFeature {},
+            unusedExamples = emptySet(),
+            precomputedCompatibilityResult = CompatibilityResult.FAILED,
+            computedCompatibilityCheckHookResult = Pair(CompatibilityResult.UNKNOWN, emptyList()),
+            isNewFile = false
+        )
+
+        @Test
+        fun `verdictMessage without hook returns base message`() {
+            val result = BackwardCompatibilityCheckBaseCommand.failedVerdictMessage(
+                processedSpec,
+                null,
+                true,
+                "some-branch"
+            )
+
+            assertThat(result.first).isEqualTo(CompatibilityResult.FAILED)
+            assertThat(result.second).isEqualTo("(INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from some-branch")
+        }
+
+        @Test
+        fun `verdictMessage with hook returns verdict from hook`() {
+            val hook = object : BackwardCompatibilityCheckHook {
+                override fun logStartedMessage(failedSpecs: List<BackwardCompatibilityCheckBaseCommand.ProcessedSpec>) {}
+                override fun check(
+                    backwardCompatibilityResult: Results,
+                    remoteUrl: String,
+                    relativePath: String
+                ): Pair<CompatibilityResult, List<OperationUsageResponse>> =
+                    Pair(CompatibilityResult.UNKNOWN, emptyList())
+
+                override fun logCompletedMessage() {}
+                override fun failedVerdictAndMessage(
+                    processedSpec: BackwardCompatibilityCheckBaseCommand.ProcessedSpec,
+                    strictMode: Boolean,
+                ): Pair<CompatibilityResult, String> {
+                    return Pair(CompatibilityResult.UNKNOWN, "(HOOK: override)")
+                }
+
+            }
+
+            val result = BackwardCompatibilityCheckBaseCommand.failedVerdictMessage(
+                processedSpec,
+                hook,
+                true,
+                "some-branch"
+            )
+
+            assertThat(result.second).isEqualTo("(HOOK: override)")
+        }
+    }
+
+    @Nested
     inner class ExternalExampleTests {
 
         @Test
@@ -341,14 +434,19 @@ class BackwardCompatibilityCheckCommandV2Test {
             }
 
             assertThat(exception.code).isEqualTo(0)
-            assertThat(stdOut).containsIgnoringWhitespaces("""
+            assertThat(stdOut).containsIgnoringWhitespaces(
+                """
             - Specs that have changed: 
             1. ${exampleFile.toPath().toRealPath()}
+
             - Specs whose externalised examples were changed:
             1. ${tempDir.resolve("api.yaml").toPath().toRealPath()}
-            """.trimIndent()).containsIgnoringWhitespaces("""
+            """.trimIndent()
+            ).containsIgnoringWhitespaces(
+                """
             Files checked: 2 (Passed: 2, Failed: 0)
-            """.trimIndent())
+            """.trimIndent()
+            )
         }
 
         @ParameterizedTest
@@ -359,7 +457,10 @@ class BackwardCompatibilityCheckCommandV2Test {
             "/api/api_config/config.json, ",
             "/example.json, "
         )
-        fun `should be able to properly resolve examples dir when by walking up the example file path`(exampleFile: String, expectedDir: String?) {
+        fun `should be able to properly resolve examples dir when by walking up the example file path`(
+            exampleFile: String,
+            expectedDir: String?
+        ) {
             val exampleDir = BackwardCompatibilityCheckCommandV2().getParentExamplesDirectory(Paths.get(exampleFile))
             assertThat(exampleDir).isEqualTo(expectedDir?.let(Paths::get))
         }
@@ -385,7 +486,7 @@ class BackwardCompatibilityCheckCommandV2Test {
     }
 
     private fun File.referTo(schemaFileName: String) {
-       val specContent = """
+        val specContent = """
            openapi: 3.1.0  # OpenAPI version specified here
            info:
              title: My API

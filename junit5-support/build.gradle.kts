@@ -5,7 +5,9 @@ plugins {
 }
 
 dependencies {
-    implementation("io.specmatic.build-reporter:specmatic-reporter:${project.ext["specmaticReporterVersion"]}")
+    implementation("io.specmatic.build-reporter:specmatic-reporter-min:${project.ext["specmaticReporterVersion"]}") {
+        exclude(group = "commons-logging", module = "commons-logging")
+    }
 
     implementation("io.netty:netty-codec-http:4.2.7.Final")
     implementation("net.minidev:json-smart:2.6.0")
