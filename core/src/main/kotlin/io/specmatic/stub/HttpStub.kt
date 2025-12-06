@@ -241,7 +241,7 @@ class HttpStub(
     }
 
     private val _logs: MutableList<StubEndpoint> = Collections.synchronizedList(ArrayList())
-    private val _allEndpoints: List<StubEndpoint> = extractALlEndpoints()
+    private val _allEndpoints: List<StubEndpoint> = extractAllEndpoints()
 
     val logs: List<StubEndpoint> get() = _logs.toList()
     val allEndpoints: List<StubEndpoint> get() = _allEndpoints.toList()
@@ -809,8 +809,8 @@ class HttpStub(
     }
 
     private fun notCoveredTestResultRecords(): List<TestResultRecord> {
-        synchronized(_allEndpoints) {
-            return _allEndpoints.filter { endpoint ->
+        synchronized(_logs) {
+            return _allEndpoints.plus(_logs).toSet().filter { endpoint ->
                 ctrfTestResultRecords.none { testResultRecord ->
                     endpoint.isEqualTo(testResultRecord)
                 }
@@ -849,25 +849,20 @@ class HttpStub(
         server.start()
     }
 
-    private fun extractALlEndpoints(): List<StubEndpoint> {
-        return features.map {
-            it.scenarios.map { scenario ->
-                if (scenario.isA2xxScenario()) {
-                    StubEndpoint(
-                        scenario.path,
-                        scenario.method,
-                        scenario.status,
-                        scenario.sourceProvider,
-                        scenario.sourceRepository,
-                        scenario.sourceRepositoryBranch,
-                        scenario.specification,
-                        scenario.serviceType
-                    )
-                } else {
-                    null
-                }
-            }
-        }.flatten().filterNotNull()
+    private fun extractAllEndpoints(): List<StubEndpoint> {
+        return features.flatMap { it.scenarios }.map { scenario ->
+            StubEndpoint(
+                scenario.path,
+                scenario.method,
+                scenario.status,
+                scenario.requestContentType,
+                scenario.sourceProvider,
+                scenario.sourceRepository,
+                scenario.sourceRepositoryBranch,
+                scenario.specification,
+                scenario.serviceType
+            )
+        }
     }
 
     private fun printUsageReport() {
