@@ -809,20 +809,22 @@ class HttpStub(
     }
 
     private fun notCoveredTestResultRecords(): List<TestResultRecord> {
-        return _allEndpoints.filter { endpoint ->
-            ctrfTestResultRecords.none { testResultRecord ->
-                endpoint.isEqualTo(testResultRecord)
+        synchronized(_allEndpoints) {
+            return _allEndpoints.filter { endpoint ->
+                ctrfTestResultRecords.none { testResultRecord ->
+                    endpoint.isEqualTo(testResultRecord)
+                }
+            }.map { endpoint ->
+                TestResultRecord(
+                    path = endpoint.path.orEmpty(),
+                    method = endpoint.method.orEmpty(),
+                    responseStatus = endpoint.responseCode,
+                    request = null,
+                    response = null,
+                    result = TestResult.NotCovered,
+                    specification = endpoint.specification.orEmpty()
+                )
             }
-        }.map { endpoint ->
-            TestResultRecord(
-                path = endpoint.path.orEmpty(),
-                method = endpoint.method.orEmpty(),
-                responseStatus = endpoint.responseCode,
-                request = null,
-                response = null,
-                result = TestResult.NotCovered,
-                specification = endpoint.specification.orEmpty()
-            )
         }
     }
 
