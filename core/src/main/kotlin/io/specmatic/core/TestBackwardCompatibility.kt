@@ -7,8 +7,6 @@ import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.Value
 
 fun testBackwardCompatibility(older: Feature, newer: Feature): Results {
-    logger.boundary()
-
     val (results, _) = older
         .generateBackwardCompatibilityTestScenarios()
         .filter { !it.ignoreFailure }
@@ -22,8 +20,6 @@ fun testBackwardCompatibility(older: Feature, newer: Feature): Results {
             val scenarioResults: List<Result> = testBackwardCompatibility(olderScenario, newer)
             results.copy(results = results.results.plus(scenarioResults)) to olderScenariosTested.plus(olderScenarioDescription)
         }
-
-    logger.boundary()
 
     return results.distinct()
 }
