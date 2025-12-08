@@ -68,7 +68,7 @@ data class ScenarioStub(
                 serializeRequestResponse(this)
             }
 
-        return JSONObjectValue(requestResponse + data.jsonObject)
+        return JSONObjectValue(data.jsonObject + requestResponse)
     }
 
     private fun serializeRequestResponse(scenarioStub: ScenarioStub): Map<String, Value> {

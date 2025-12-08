@@ -1,5 +1,6 @@
 package io.specmatic.core
 
+import io.specmatic.core.pattern.IgnoreUnexpectedKeys
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.value.StringValue
 
@@ -41,6 +42,13 @@ data class KeyCheck(val patternKeyCheck: KeyErrorCheck = CheckOnlyPatternKeys,
     fun toPartialKeyCheck(): KeyCheck {
         return this.copy(patternKeyCheck = noPatternKeyCheck)
     }
+
+    fun isIgnoreUnexpectedKeyCheck(): Boolean = when (unexpectedKeyCheck) {
+        is FuzzyUnexpectedKeyCheck -> (unexpectedKeyCheck as FuzzyUnexpectedKeyCheck).delegate is IgnoreUnexpectedKeys
+        else -> unexpectedKeyCheck is IgnoreUnexpectedKeys
+    }
+
+    fun isValidateUnexpectedKeyCheck(): Boolean = !isIgnoreUnexpectedKeyCheck()
 }
 
 private fun overrideUnexpectedKeyCheck(keyCheck: KeyCheck, unexpectedKeyCheck: UnexpectedKeyCheck): KeyCheck {
