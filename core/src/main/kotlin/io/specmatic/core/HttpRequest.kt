@@ -423,6 +423,10 @@ data class HttpRequest(
             .firstOrNull()
     }
 
+    fun contentType(): String? {
+        return getHeader("Content-Type")
+    }
+
     fun hasQueryParam(name: String): Boolean {
         return queryParams.containsKey(name)
     }
