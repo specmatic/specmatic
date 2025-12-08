@@ -393,7 +393,7 @@ Feature: Recursive test
                     "topLevelOptionalKey": 10,
                     "nested": {
                         "nestedKey": "2025-01-01",
-                        "nestedOptionalKey": "false"
+                        "nestedOptionalKey": "no"
                     }
                 }
             ]

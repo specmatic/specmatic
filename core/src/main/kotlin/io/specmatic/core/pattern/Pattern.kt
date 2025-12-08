@@ -134,7 +134,13 @@ fun fillInIfPatternToken(value: Value, pattern: Pattern, resolver: Resolver): Re
 }
 
 fun fixValue(value: Value, pattern: Pattern, resolver: Resolver): Value {
-    return value.takeIf { resolver.matchesPattern(null, pattern, value).isSuccess() } ?: resolver.generate(pattern)
+    val parsedValue = if (pattern !is StringPattern) {
+        runCatching { pattern.parse(value.toStringLiteral(), resolver) }.getOrDefault(value)
+    } else {
+        value
+    }
+
+    return parsedValue.takeIf { resolver.matchesPattern(null, pattern, parsedValue).isSuccess() } ?: resolver.generate(pattern)
 }
 
 fun scalarResolveSubstitutions(substitution: Substitution, value: Value, key: String?, pattern: Pattern, resolver: Resolver): ReturnValue<Value> {

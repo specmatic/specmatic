@@ -50,6 +50,16 @@ object FuzzyExampleJsonValidator {
         }
     }
 
+    fun fix(value: JSONObjectValue): JSONObjectValue {
+        return try {
+            val examplePattern = resolvePatternToUse(value.jsonObject)
+            examplePattern.fixValue(value, resolver) as? JSONObjectValue ?: value
+        } catch (e: Exception) {
+            logger.log(e, "Unexpected error during External Example fix")
+            value
+        }
+    }
+
     fun matchesRequest(value: Map<String, Value>): Result {
         val requestPattern = patterns["(RequestSchema)"] ?: throw IllegalStateException("CRITICAL: External Example Schema is missing the required schema named 'RequestSchema'")
         return requestPattern.matches(JSONObjectValue(value), resolver)
