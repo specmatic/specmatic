@@ -2023,7 +2023,7 @@ components:
                 "topLevelOptionalKey": 10,
                 "nested": {
                     "nestedKey": "2025-01-01",
-                    "nestedOptionalKey": "false"
+                    "nestedOptionalKey": "no"
                 }
             }
             """.trimIndent())
@@ -2066,7 +2066,7 @@ components:
             {
                 "topLevelOptionalKey": 10,
                 "nested": {
-                    "nestedOptionalKey": "false"
+                    "nestedOptionalKey": "no"
                 }
             }
             """.trimIndent())
@@ -2357,7 +2357,7 @@ components:
             )
             val value = JSONObjectValue(mapOf(
                 "name" to StringValue("John"),
-                "age" to StringValue("10"),
+                "age" to StringValue("Ten"),
                 "extraKey" to StringValue("extraValue")
             ))
             val fixedValue = pattern.fixValue(value, Resolver(dictionary = "(number): 999".let(Dictionary::fromYaml)))
@@ -2379,7 +2379,7 @@ components:
             )
             val value = JSONObjectValue(mapOf(
                 "name" to StringValue("John"),
-                "age" to StringValue("10"),
+                "age" to StringValue("Ten"),
                 "extraKey" to StringValue("extraValue")
             ))
             val dictionary = "(number): 999".let(Dictionary::fromYaml)
@@ -2409,7 +2409,7 @@ components:
             )
             val value = JSONObjectValue(mapOf(
                 "name" to StringValue("John"),
-                "age" to StringValue("10"),
+                "age" to StringValue("Ten"),
                 "extraKey" to StringValue("extraValue")
             ))
             val dictionary = "(number): 999".let(Dictionary::fromYaml)
@@ -2442,6 +2442,82 @@ components:
             val fixedValue = pattern.fixValue(partialInvalidValue, resolver)
 
             assertThat(fixedValue).isEqualTo(JSONObjectValue(mapOf("number" to NumberValue(999))))
+        }
+
+        @Test
+        fun `should fix with nearest matching key if fuzzyMatching is enabled instead of new-value`() {
+            val pattern = parsedPattern("""
+            {
+                "topLevelKey": "(string)",
+                "topLevelOptionalKey?": "(number)",
+                "nested": {
+                    "nestedKey": "(date)",
+                    "nestedOptionalKey?": "(boolean)"
+                }
+            }
+            """.trimIndent(), typeAlias = "(Test)")
+
+            val invalidValue = parsedValue("""
+            {
+                "topLvelKey": "Value",
+                "topLvelOptionKey": 10,
+                "nested": {
+                    "nstedKey": "2025-01-01",
+                    "nestdOptonalKey": false
+                }
+            }
+            """.trimIndent())
+            val keyErrorCheck = KeyCheck(unexpectedKeyCheck = FuzzyUnexpectedKeyCheck(ValidateUnexpectedKeys))
+            val fixedValue = pattern.fixValue(invalidValue, Resolver(findKeyErrorCheck = keyErrorCheck))
+
+            assertThat(fixedValue).isEqualTo(parsedValue("""
+            {
+                "topLevelKey": "Value",
+                "topLevelOptionalKey": 10,
+                "nested": {
+                    "nestedKey": "2025-01-01",
+                    "nestedOptionalKey": false
+                }
+            }
+            """.trimIndent()))
+        }
+
+        @Test
+        fun `should not fix with nearest matching key if fuzzyMatching is disabled`() {
+            val pattern = parsedPattern("""
+            {
+                "topLevelKey": "(string)",
+                "topLevelOptionalKey?": "(number)",
+                "nested": {
+                    "nestedKey": "(date)",
+                    "nestedOptionalKey?": "(boolean)"
+                }
+            }
+            """.trimIndent(), typeAlias = "(Test)")
+
+            val invalidValue = parsedValue("""
+            {
+                "topLvelKey": "Value",
+                "topLvelOptionKey": 10,
+                "nested": {
+                    "nstedKey": "2025-01-01",
+                    "nestdOptonalKey": false
+                }
+            }
+            """.trimIndent())
+            val keyErrorCheck = KeyCheck(unexpectedKeyCheck = ValidateUnexpectedKeys)
+            val fixedValue = pattern.fixValue(invalidValue, Resolver(findKeyErrorCheck = keyErrorCheck))
+
+            assertThat(fixedValue).isNotEqualTo(parsedValue("""
+            {
+                "topLevelKey": "Value",
+                "topLevelOptionalKey": 10,
+                "nested": {
+                    "nestedKey": "2025-01-01",
+                    "nestedOptionalKey": false
+                }
+            }
+            """.trimIndent()))
         }
     }
 
