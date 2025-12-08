@@ -42,13 +42,20 @@ fun strategiesFromFlags(specmaticConfig: SpecmaticConfig): FlagsBased {
         else
             Pair("", "")
 
+    val unexpectedKeyCheck = if (specmaticConfig.isExtensibleSchemaEnabled()) IgnoreUnexpectedKeys else null
+    val fuzzyWrappedKeyCheck = if (getBooleanValue(Flags.SPECMATIC_FUZZY)) {
+        FuzzyUnexpectedKeyCheck(delegate = unexpectedKeyCheck ?: ValidateUnexpectedKeys)
+    } else {
+        unexpectedKeyCheck
+    }
+
     return FlagsBased(
         defaultExampleResolver = if (getBooleanValue(SCHEMA_EXAMPLE_DEFAULT)) UseDefaultExample else DoNotUseDefaultExample,
         generation = when {
             specmaticConfig.isResiliencyTestingEnabled() -> GenerativeTestsEnabled(positiveOnly = specmaticConfig.isOnlyPositiveTestingEnabled())
             else -> NonGenerativeTests
         },
-        unexpectedKeyCheck = if (specmaticConfig.isExtensibleSchemaEnabled()) IgnoreUnexpectedKeys else null,
+        unexpectedKeyCheck = fuzzyWrappedKeyCheck,
         positivePrefix = positivePrefix,
         negativePrefix = negativePrefix,
         allPatternsAreMandatory = specmaticConfig.getAllPatternsMandatory()
