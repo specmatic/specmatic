@@ -720,7 +720,7 @@ fun fix(jsonPatternMap: Map<String, Pattern>, jsonValueMap: Map<String, Value>, 
 
     val keyToPatternValuePair = jsonValueMap.mapNotNull { (key, value) ->
         val pattern = jsonPatternMap[key] ?: jsonPatternMap["$key?"]
-        if (pattern == null && resolver.findKeyErrorCheck.unexpectedKeyCheck is ValidateUnexpectedKeys) return@mapNotNull null
+        if (pattern == null && resolver.findKeyErrorCheck.isValidateUnexpectedKeyCheck()) return@mapNotNull null
         key to Pair(pattern, value)
     }.toMap()
 
@@ -759,7 +759,7 @@ fun fill(jsonPatternMap: Map<String, Pattern>, jsonValueMap: Map<String, Value>,
 
     val resolvedValuesMap = adjustedValue.mapValues { (key, value) ->
         val pattern = jsonPatternMap[key] ?: jsonPatternMap["$key?"] ?: return@mapValues when {
-            resolver.findKeyErrorCheck.unexpectedKeyCheck is IgnoreUnexpectedKeys -> generateIfPatternToken(typeAlias, key, value, resolver)
+            resolver.findKeyErrorCheck.isIgnoreUnexpectedKeyCheck() -> generateIfPatternToken(typeAlias, key, value, resolver)
             resolver.isNegative -> generateIfPatternToken(typeAlias, key, value, resolver)
             else -> HasFailure<Value>(Result.Failure(resolver.mismatchMessages.unexpectedKey("key", key)))
         }.breadCrumb(key)

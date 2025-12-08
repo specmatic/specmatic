@@ -8,7 +8,7 @@ import io.specmatic.core.pattern.withoutOptionality
 import io.specmatic.core.value.StringValue
 
 class FuzzyUnexpectedKeyCheck(
-    private val delegate: UnexpectedKeyCheck,
+    val delegate: UnexpectedKeyCheck,
     private val treatFuzzyMatchesAsWarnings: Boolean = (delegate is IgnoreUnexpectedKeys)
 ) : UnexpectedKeyCheck {
     override fun validate(pattern: Map<String, Any>, actual: Map<String, Any>): UnexpectedKeyErrorType? {

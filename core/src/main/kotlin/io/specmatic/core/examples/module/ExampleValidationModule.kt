@@ -63,12 +63,13 @@ class ExampleValidationModule {
     }
 
     private fun validateExample(feature: Feature, example: ExampleFromFile): Result {
-        return feature.matchResultFlagBased(
+        val scenarioResult = feature.matchResultFlagBased(
             request = example.request,
             response = example.response,
             mismatchMessages = InteractiveExamplesMismatchMessages,
             isPartial = example.isPartial()
         ).toResultIfAnyWithCauses()
+        return Result.fromResults(listOf(example.validationErrors, scenarioResult))
     }
 
     private fun validateExample(feature: Feature, schemaExample: SchemaExample): Result {
@@ -86,7 +87,7 @@ class ExampleValidationModule {
     }
 
     fun validateExample(feature: Feature, exampleFile: File): Result {
-        return ExampleFromFile.fromFile(exampleFile).realise(
+        return ExampleFromFile.fromFile(exampleFile, strictMode = false).realise(
             hasValue = { example, _ -> validateExample(feature, example) },
             orFailure = { validateSchemaExample(feature, exampleFile) },
             orException = { it.toHasFailure().failure }
