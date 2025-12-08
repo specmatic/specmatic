@@ -1,0 +1,139 @@
+openapi: 3.0.3
+components:
+  schemas:
+    Example:
+      allOf:
+        - $ref: "#/components/schemas/Metadata"
+        - $ref: "#/components/schemas/RequestResponseSchema"
+
+    PartialExample:
+      allOf:
+        - $ref: "#/components/schemas/Metadata"
+        - type: object
+          properties:
+            partial:
+              allOf:
+                - $ref: "#/components/schemas/RequestResponseSchema"
+                - $ref: "#/components/schemas/Metadata"
+          required:
+            - partial
+
+    AnyValue: {}
+
+    Metadata:
+      type: object
+      properties:
+        name:
+          nullable: true
+          type: string
+        transient:
+          nullable: true
+          type: boolean
+        delay-in-seconds:
+          nullable: true
+          type: integer
+          minimum: 0
+        delay-in-milliseconds:
+          nullable: true
+          type: integer
+          minimum: 0
+        http-stub-id:
+          nullable: true
+          type: string
+
+    RequestResponseSchema:
+      type: object
+      properties:
+        http-request:
+          $ref: "#/components/schemas/RequestSchema"
+        http-response:
+          $ref: "#/components/schemas/ResponseSchema"
+      required:
+        - http-request
+        - http-response
+
+    RequestSchema:
+      type: object
+      properties:
+        path:
+          nullable: true
+          type: string
+        method:
+          type: string
+        query:
+          nullable: true
+          type: object
+        headers:
+          nullable: true
+          type: object
+        body:
+          nullable: true
+          $ref: "#/components/schemas/AnyValue"
+        form-fields:
+          nullable: true
+          type: object
+        multipart-formdata:
+          nullable: true
+          type: array
+          items:
+            $ref: "#/components/schemas/MultiPartFormData"
+        bodyRegex:
+          nullable: true
+          type: string
+      required:
+        - method
+
+    ResponseSchema:
+      type: object
+      properties:
+        status:
+          type: integer
+          minimum: 0
+        headers:
+          nullable: true
+          type: object
+        body:
+          nullable: true
+          $ref: "#/components/schemas/AnyValue"
+        externalisedResponseCommand:
+          nullable: true
+          type: string
+      required:
+        - status
+
+    MultiPartFormData:
+      oneOf:
+        - $ref: "#/components/schemas/MultiPartContent"
+        - $ref: "#/components/schemas/MultiPartFile"
+
+    MultiPartContent:
+      type: object
+      properties:
+        name:
+          type: string
+        content:
+          nullable: true
+          type: string
+        contentType:
+          nullable: true
+          type: string
+      required:
+        - name
+        - content
+
+    MultiPartFile:
+      type: object
+      properties:
+        name:
+          type: string
+        filename:
+          type: string
+        contentType:
+          nullable: true
+          type: string
+        contentEncoding:
+          nullable: true
+          type: string
+      required:
+        - name
+        - filename

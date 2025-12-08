@@ -33,7 +33,7 @@ internal class ScenarioStubKtTest {
         }
     },
     
-    "mock-http-response": {
+    "http-response": {
         "status": 200
     }
 }
@@ -58,7 +58,7 @@ internal class ScenarioStubKtTest {
     }
   },
 
-  "mock-http-response": {
+  "http-response": {
     "status": 200,
     "body": 100
   }
@@ -89,7 +89,7 @@ internal class ScenarioStubKtTest {
     ]
   },
 
-  "mock-http-response": {
+  "http-response": {
     "status": 200,
     "body": 100
   }
@@ -122,7 +122,7 @@ internal class ScenarioStubKtTest {
     ]
   },
 
-  "mock-http-response": {
+  "http-response": {
     "status": 200,
     "body": 100
   }
@@ -155,7 +155,7 @@ internal class ScenarioStubKtTest {
     ]
   },
 
-  "mock-http-response": {
+  "http-response": {
     "status": 200,
     "body": 100
   }
@@ -185,7 +185,7 @@ internal class ScenarioStubKtTest {
     ]
   },
 
-  "mock-http-response": {
+  "http-response": {
     "status": 200,
     "body": 100
   }
@@ -1041,37 +1041,53 @@ paths:
                     "supposed-to-be-http-request": { "path": "/add", "method": "POST" },
                     "http-response": { "status": 200 }
                     }""".trimIndent(),
-                    "Example should contain http-request/mock-http-request as a top level key."
+                    """
+                    >> http-request Expected key named "http-request" was missing
+                    >> supposed-to-be-http-request Key named "supposed-to-be-http-request" was unexpected, Did you mean "http-request" ?
+                    """.trimIndent()
                 ),
                 Arguments.of("""{
                     "http-request": { "path": "/add", "method": "POST" },
                     "supposed-to-be-http-response": { "status": 200 }
                     }""".trimIndent(),
-                    "Example should contain http-response/mock-http-response as a top level key."
+                    """
+                    >> http-response Expected key named "http-response" was missing
+                    >> supposed-to-be-http-response Key named "supposed-to-be-http-response" was unexpected, Did you mean "http-response" ?
+                    """.trimIndent()
                 ),
                 Arguments.of("""{
                     "http-request": { "path": "/add", "supposed-to-be-method": "POST" },
                     "http-response": { "status": 200 }
                     }""".trimIndent(),
-                    "http-request must contain a key named method whose value is the method in the request"
+                    """
+                    >> http-request.method Expected key named "method" was missing
+                    >> http-request.supposed-to-be-method Key named "supposed-to-be-method" was unexpected, Did you mean "method" ?
+                    """.trimIndent()
                 ),
                 Arguments.of("""{
                     "http-request": { "path": "/add", "method": "POST", body: null },
                     "http-response": { "status": 200 }
                     }""".trimIndent(),
-                    "Either body should have a value or the key should be absent from http-request"
+                    """
+                    >> http-request.body Expected non-null value, actual was null
+                    """.trimIndent()
                 ),
                 Arguments.of("""{
                     "http-request": { "path": "/add", "method": "POST" },
                     "http-response": { "supposed-to-be-status": 200 }
                     }""".trimIndent(),
-                    "http-response must contain a key named status, whose value is the http status in the response"
+                    """
+                    >> http-response.status Expected key named "status" was missing
+                    >> http-response.supposed-to-be-status Key named "supposed-to-be-status" was unexpected, Did you mean "status" ?
+                    """.trimIndent()
                 ),
                 Arguments.of("""{
                     "http-request": { "path": "/add", "method": "POST" },
                     "http-response": { "status": 200,  body: null }
                     }""".trimIndent(),
-                    "Either body should have a value or the key should be absent from http-response"
+                    """
+                    >> http-response.body Expected non-null value, actual was null
+                    """.trimIndent()
                 )
             )
         }

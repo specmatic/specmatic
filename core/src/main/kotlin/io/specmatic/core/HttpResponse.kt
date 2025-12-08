@@ -6,10 +6,13 @@ import io.specmatic.core.GherkinSection.Then
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Pattern
-import io.specmatic.core.pattern.isPatternToken
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.utilities.isXML
 import io.specmatic.core.value.*
+import io.specmatic.mock.FuzzyExampleJsonValidator
+import io.specmatic.mock.getIntOrNull
+import io.specmatic.mock.getJSONObjectValueOrNull
+import io.specmatic.mock.getStringOrNull
 
 private const val SPECMATIC_HEADER_PREFIX = "X-$APPLICATION_NAME-"
 const val SPECMATIC_RESULT_HEADER = "${SPECMATIC_HEADER_PREFIX}Result"
@@ -155,16 +158,21 @@ data class HttpResponse(
         }
 
         fun fromJSON(jsonObject: Map<String, Value>): HttpResponse {
-            val body = jsonObject["body"]
-            if (body is NullValue)
-                throw ContractException("Either body should have a value or the key should be absent from http-response")
+            FuzzyExampleJsonValidator.matchesResponse(jsonObject).throwOnFailure()
+            return fromJSONLenient(jsonObject)
+        }
+
+        fun fromJSONLenient(jsonObject: Map<String, Value>): HttpResponse {
+            val status = getIntOrNull("status", jsonObject)
+            val headers = getJSONObjectValueOrNull("headers", jsonObject)
+            val command = getStringOrNull("externalisedResponseCommand", jsonObject)
+            val rawBody = jsonObject["body"]
 
             return HttpResponse(
-                nativeInteger(jsonObject, "status")
-                    ?: throw ContractException("http-response must contain a key named status, whose value is the http status in the response"),
-                nativeStringStringMap(jsonObject, "headers").toMutableMap(),
-                jsonObject.getOrDefault("body", NoBodyValue),
-                jsonObject.getOrDefault("externalisedResponseCommand", "").toString()
+                status = status ?: 0,
+                headers = headers.orEmpty().mapValues { it.value.toUnformattedString() },
+                body = if (rawBody is NullValue) NoBodyValue else (rawBody ?: NoBodyValue),
+                externalisedResponseCommand = command.orEmpty()
             ).adjustPayloadForContentType()
         }
     }
@@ -211,29 +219,6 @@ data class HttpResponse(
             attributeSelectedFields,
             resolver
         ).breadCrumb("RESPONSE.BODY")
-    }
-}
-
-fun isVanillaPatternToken(token: String) = isPatternToken(token) && token.indexOf(':') < 0
-
-fun nativeInteger(json: Map<String, Value>, key: String): Int? {
-    val keyValue = json[key] ?: return null
-
-    val errorMessage = "$key must be an integer"
-    if (keyValue is StringValue)
-        return try {
-            keyValue.string.toInt()
-        } catch (e: Throwable) {
-            throw ContractException(errorMessage)
-        }
-
-    if (keyValue !is NumberValue)
-        throw ContractException("Expected $key to be a string value")
-
-    return try {
-        keyValue.number.toInt()
-    } catch (e: Throwable) {
-        throw ContractException(errorMessage)
     }
 }
 

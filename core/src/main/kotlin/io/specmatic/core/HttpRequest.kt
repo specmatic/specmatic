@@ -15,6 +15,10 @@ import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_PRETTY_PRINT
 import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
 import io.specmatic.core.utilities.URIUtils
 import io.specmatic.core.utilities.isXML
+import io.specmatic.mock.FuzzyExampleJsonValidator
+import io.specmatic.mock.getJSONObjectValueOrNull
+import io.specmatic.mock.getObjectListOrNull
+import io.specmatic.mock.getStringOrNull
 import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
 import org.apache.http.client.utils.URLEncodedUtils
 import org.apache.http.message.BasicNameValuePair
@@ -461,6 +465,55 @@ data class HttpRequest(
         val parsedBody = body as? XMLNode ?: runCatching { toXMLNode(body.toStringLiteral()) }.getOrDefault(body)
         return copy(body = parsedBody.adjustValueForXMLContentType())
     }
+
+    companion object {
+        fun fromJSONLenient(jsonObject: Map<String, Value>): HttpRequest {
+            val method = getStringOrNull("method", jsonObject)
+            val path = getStringOrNull("path", jsonObject)
+            val query = getJSONObjectValueOrNull("query", jsonObject)
+            val headers = getJSONObjectValueOrNull("headers", jsonObject)
+            val formFields = getJSONObjectValueOrNull(FORM_FIELDS_JSON_KEY, jsonObject)
+            val rawBody = jsonObject["body"]
+
+            val initialRequest = HttpRequest()
+                .updateMethod(method.orEmpty())
+                .updatePath(path.orEmpty())
+                .updateQueryParams(query?.mapValues { it.value.toUnformattedString() }.orEmpty())
+                .setHeaders(adjustForSOAP(headers?.mapValues { it.value.toUnformattedString() }.orEmpty()))
+
+            val requestWithForm = if (formFields != null) {
+                initialRequest.copy(formFields = formFields.mapValues { it.value.toStringLiteral() })
+            } else {
+                initialRequest
+            }
+
+            val multiPartData = getObjectListOrNull(MULTIPART_FORMDATA_JSON_KEY, jsonObject)?.mapNotNull { partSpec ->
+                val name = getStringOrNull("name", partSpec) ?: run {
+                    logger.debug("Missing multi-part partType in $MULTIPART_FORMDATA_JSON_KEY")
+                    return@mapNotNull null
+                }
+
+                runCatching {
+                    parsePartType(partSpec, name)
+                }.getOrElse { e ->
+                    logger.debug(e, "Failed to parse multi-part partType")
+                    null
+                }
+            }.orEmpty()
+
+            val requestWithMultipart = if (multiPartData.isNotEmpty()) {
+                requestWithForm.copy(multiPartFormData = requestWithForm.multiPartFormData + multiPartData)
+            } else {
+                requestWithForm
+            }
+
+            return if (rawBody != null && rawBody !is NullValue) {
+                requestWithMultipart.updateBody(rawBody)
+            } else {
+                requestWithMultipart
+            }.adjustPayloadForContentType()
+        }
+    }
 }
 
 private fun setIfNotEmpty(dest: MutableMap<String, Value>, key: String, data: Map<String, Any>) {
@@ -485,55 +538,10 @@ fun nativeString(json: Map<String, Value>, key: String): String? {
     return keyValue.string
 }
 
-fun requestFromJSON(json: Map<String, Value>) =
-    HttpRequest()
-        .updateMethod(
-            nativeString(json, "method")
-                ?: throw ContractException("http-request must contain a key named method whose value is the method in the request")
-        )
-        .updatePath(nativeString(json, "path") ?: "/")
-        .updateQueryParams(nativeStringStringMap(json, "query"))
-        .setHeaders(adjustForSOAP(nativeStringStringMap(json, "headers")))
-        .let { httpRequest ->
-            when {
-                FORM_FIELDS_JSON_KEY in json -> httpRequest.copy(
-                    formFields = nativeStringStringMap(
-                        json,
-                        FORM_FIELDS_JSON_KEY
-                    )
-                )
-
-                MULTIPART_FORMDATA_JSON_KEY in json -> {
-                    val parts = arrayValue(
-                        json.getValue(MULTIPART_FORMDATA_JSON_KEY),
-                        "$MULTIPART_FORMDATA_JSON_KEY must be a json array."
-                    )
-
-                    val multiPartData: List<MultiPartFormDataValue> = parts.list.map {
-                        val part = objectValue(it, "All multipart parts must be json object values.")
-
-                        val multiPartSpec = part.jsonObject
-                        val name = nativeString(multiPartSpec, "name")
-                            ?: throw ContractException("One of the multipart entries does not have a name key")
-
-                        parsePartType(multiPartSpec, name)
-                    }
-
-                    httpRequest.copy(multiPartFormData = httpRequest.multiPartFormData.plus(multiPartData))
-                }
-
-                "body" in json -> {
-                    val body = notNull(
-                        json.getOrDefault("body", NullValue),
-                        "Either body should have a value or the key should be absent from http-request"
-                    )
-
-                    httpRequest.updateBody(body).adjustPayloadForContentType()
-                }
-
-                else -> httpRequest
-            }
-        }
+fun requestFromJSON(json: Map<String, Value>): HttpRequest {
+    FuzzyExampleJsonValidator.matchesRequest(json).throwOnFailure()
+    return HttpRequest.fromJSONLenient(json)
+}
 
 fun adjustForSOAP(headers: Map<String, String>): Map<String, String> {
     if (headers.containsKey("SOAPAction")) return headers
@@ -564,36 +572,6 @@ private fun parsePartType(multiPartSpec: Map<String, Value>, name: String): Mult
 
         else -> throw ContractException("Multipart entry $name must have either a content key or a filename key")
     }
-}
-
-fun objectValue(value: Value, errorMessage: String): JSONObjectValue {
-    if (value !is JSONObjectValue)
-        throw ContractException(errorMessage)
-
-    return value
-}
-
-fun arrayValue(value: Value, errorMessage: String): JSONArrayValue {
-    if (value !is JSONArrayValue)
-        throw ContractException(errorMessage)
-
-    return value
-}
-
-fun notNull(value: Value, errorMessage: String): Value {
-    if (value is NullValue)
-        throw ContractException(errorMessage)
-
-    return value
-}
-
-internal fun nativeStringStringMap(json: Map<String, Value>, key: String): Map<String, String> {
-    val queryValue = json[key] ?: return emptyMap()
-
-    if (queryValue !is JSONObjectValue)
-        throw ContractException("Expected $key to be a json object")
-
-    return queryValue.jsonObject.mapValues { it.value.toString() }
 }
 
 internal fun startLinesWith(str: String, startValue: String) =

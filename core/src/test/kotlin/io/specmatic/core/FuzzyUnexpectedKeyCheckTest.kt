@@ -25,7 +25,7 @@ class FuzzyUnexpectedKeyCheckTest {
         assertThat(errors.single()).isInstanceOf(FuzzyKeyError::class.java)
 
         val failure = (errors.single() as FuzzyKeyError).missingOptionalKeyToResult("key", mismatchMessages)
-        assertThat(failure.message).isEqualToIgnoringWhitespace("Key named \"usrName\" was unexpected, Did you mean 'userName'?")
+        assertThat(failure.message).isEqualToIgnoringWhitespace("Key named \"usrName\" was unexpected, Did you mean \"userName\"?")
         assertThat(failure.isPartial).isTrue()
     }
 
@@ -39,7 +39,7 @@ class FuzzyUnexpectedKeyCheckTest {
         assertThat(errors.single()).isInstanceOf(FuzzyKeyError::class.java)
 
         val failure = (errors.single() as FuzzyKeyError).missingOptionalKeyToResult("key", mismatchMessages)
-        assertThat(failure.message).isEqualToIgnoringWhitespace("Key named \"usrName\" was unexpected, Did you mean 'userName'?")
+        assertThat(failure.message).isEqualToIgnoringWhitespace("Key named \"usrName\" was unexpected, Did you mean \"userName\"?")
         assertThat(failure.isPartial).isFalse()
     }
 
@@ -73,7 +73,7 @@ class FuzzyUnexpectedKeyCheckTest {
         assertThat(errors.single()).isInstanceOf(FuzzyKeyError::class.java)
 
         val failure = (errors.single() as FuzzyKeyError).missingKeyToResult("key", mismatchMessages)
-        assertThat(failure.message).isEqualToIgnoringWhitespace("Key named \"username\" was unexpected, Did you mean 'userName'?")
+        assertThat(failure.message).isEqualToIgnoringWhitespace("Key named \"username\" was unexpected, Did you mean \"userName\"?")
         assertThat(failure.isPartial).isFalse()
     }
 
@@ -95,7 +95,7 @@ class FuzzyUnexpectedKeyCheckTest {
         assertThat(errors.single()).isInstanceOf(FuzzyKeyError::class.java)
 
         val failure = (errors.single() as FuzzyKeyError).missingKeyToResult("key", mismatchMessages)
-        assertThat(failure.message).isEqualToIgnoringWhitespace("Key named \"usrname\" was unexpected, Did you mean 'userName'?")
+        assertThat(failure.message).isEqualToIgnoringWhitespace("Key named \"usrname\" was unexpected, Did you mean \"userName\"?")
         assertThat(failure.isPartial).isFalse()
     }
 

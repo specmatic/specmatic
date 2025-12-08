@@ -7,7 +7,6 @@ import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
@@ -25,21 +24,21 @@ class ScenarioStubValidatorTest {
     @ParameterizedTest
     @MethodSource("stubTyposToExpectedFailures")
     fun `should detect typos in keys and report back with appropriate error message`(stub: Map<String, Value>, vararg errors: String) {
-        val result = ScenarioStubValidator.matches(JSONObjectValue(stub))
+        val result = FuzzyExampleJsonValidator.matches(JSONObjectValue(stub))
         assertFailureContainsExactLines(result, *errors)
     }
 
     @ParameterizedTest
     @MethodSource("invalidStubToExpectedFailures")
     fun `should detect invalid values for keys and report back with appropriate error message`(stub: Map<String, Value>, vararg errors: String) {
-        val result = ScenarioStubValidator.matches(JSONObjectValue(stub))
+        val result = FuzzyExampleJsonValidator.matches(JSONObjectValue(stub))
         assertFailureContainsExactLines(result, *errors)
     }
 
     @ParameterizedTest
     @MethodSource("validStubs")
     fun `should validate correct stubs successfully`(stub: Map<String, Value>) {
-        val result = ScenarioStubValidator.matches(JSONObjectValue(stub))
+        val result = FuzzyExampleJsonValidator.matches(JSONObjectValue(stub))
         assertThat(result).isInstanceOf(Result.Success::class.java)
     }
 
@@ -124,7 +123,6 @@ class ScenarioStubValidatorTest {
                             put("paths", value)
                         }
                     },
-                    ">> $MOCK_HTTP_REQUEST.path Expected key named \"path\" was missing",
                     ">> $MOCK_HTTP_REQUEST.paths Key named \"paths\" was unexpected, Did you mean \"path\" ?"
                 ),
                 expectFailure(
@@ -173,6 +171,16 @@ class ScenarioStubValidatorTest {
                 ),
 
                 // PARTIALS
+                expectFailure(
+                    stub = stubWithPartial(
+                        rootMutation = {
+                            val value = remove(PARTIAL)!!
+                            put("partal", value)
+                        }
+                    ),
+                    ">> $PARTIAL Expected key named \"$PARTIAL\" was missing",
+                    ">> partal Key named \"partal\" was unexpected, Did you mean \"$PARTIAL\" ?"
+                ),
                 expectFailure(
                     stub = stubWithPartial {
                         val value = remove(MOCK_HTTP_REQUEST)!!
@@ -243,12 +251,6 @@ class ScenarioStubValidatorTest {
                 // $MOCK_HTTP_REQUEST failures
                 expectFailure(
                     stub = stubWith {
-                        put(OLD_MOCK_HTTP_REQUEST_KEY, StringValue("My-Request"))
-                    },
-                    ">> $OLD_MOCK_HTTP_REQUEST_KEY Expected JSON object, actual was \"My-Request\""
-                ),
-                expectFailure(
-                    stub = stubWith {
                         put(MOCK_HTTP_REQUEST, StringValue("My-Request"))
                     },
                     ">> $MOCK_HTTP_REQUEST Expected JSON object, actual was \"My-Request\""
@@ -287,12 +289,6 @@ class ScenarioStubValidatorTest {
                 ),
 
                 // $MOCK_HTTP_RESPONSE-failures
-                expectFailure(
-                    stub = stubWith {
-                        put(OLD_MOCK_HTTP_RESPONSE_KEY, StringValue("My-Response"))
-                    },
-                    ">> $OLD_MOCK_HTTP_RESPONSE_KEY Expected JSON object, actual was \"My-Response\""
-                ),
                 expectFailure(
                     stub = stubWith {
                         put(MOCK_HTTP_RESPONSE, StringValue("My-Response"))
@@ -410,13 +406,6 @@ class ScenarioStubValidatorTest {
                         put(TRANSIENT_MOCK_ID, StringValue("inner-id"))
                     }
                 )),
-
-                Arguments.of(stubWith {
-                    val req = remove(MOCK_HTTP_REQUEST)!!
-                    val res = remove(MOCK_HTTP_RESPONSE)!!
-                    put("mock-http-request", req)
-                    put("mock-http-response", res)
-                }),
             )
         }
 

@@ -116,7 +116,10 @@ class ExampleFromFileTest {
         assertThat(example.toFailure().reportString()).isEqualToNormalizingWhitespace("""
         >> ${file.path}
         Error loading example due to invalid format. Please correct the format to proceed
-        Example should contain http-response/mock-http-response as a top level key.
+        >> http-response
+        Expected key named "http-response" was missing
+        >> http-request.method
+        Expected key named "method" was missing
         """.trimIndent())
     }
 
