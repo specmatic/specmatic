@@ -44,13 +44,13 @@ class ExampleModule {
             .resolve("""${contractFile.nameWithoutExtension}$EXAMPLES_DIR_SUFFIX""")
     }
 
-    fun getExamplesFromDir(dir: File): List<ExampleFromFile> {
-        return getExamplesFromFiles(dir.listFiles().orEmpty().filter { it.extension == "json" })
+    fun getExamplesFromDir(dir: File, strictMode: Boolean = true): List<ExampleFromFile> {
+        return getExamplesFromFiles(dir.listFiles().orEmpty().filter { it.extension == "json" }, strictMode)
     }
 
-    fun getExamplesFromFiles(files: List<File>): List<ExampleFromFile> {
+    fun getExamplesFromFiles(files: List<File>, strictMode: Boolean = true): List<ExampleFromFile> {
         return files.mapNotNull {
-            ExampleFromFile.fromFile(it).realise(
+            ExampleFromFile.fromFile(it, strictMode).realise(
                 hasValue = { example, _ -> example },
                 orException = { err -> consoleDebug(exceptionCauseMessage(err.t)); null },
                 orFailure = { null }

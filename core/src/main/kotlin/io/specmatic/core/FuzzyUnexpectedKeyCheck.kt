@@ -11,11 +11,11 @@ class FuzzyUnexpectedKeyCheck(
     private val delegate: UnexpectedKeyCheck,
     private val treatFuzzyMatchesAsWarnings: Boolean = (delegate is IgnoreUnexpectedKeys)
 ) : UnexpectedKeyCheck {
-    override fun validate(pattern: Map<String, Any>, actual: Map<String, Any>): KeyError? {
+    override fun validate(pattern: Map<String, Any>, actual: Map<String, Any>): UnexpectedKeyErrorType? {
         return validateList(pattern, actual).firstOrNull()
     }
 
-    override fun validateList(pattern: Map<String, Any>, actual: Map<String, Any>): List<KeyError> {
+    override fun validateList(pattern: Map<String, Any>, actual: Map<String, Any>): List<UnexpectedKeyErrorType> {
         return performFuzzyCheck(
             pattern = pattern,
             actual = actual,
@@ -24,7 +24,7 @@ class FuzzyUnexpectedKeyCheck(
         )
     }
 
-    override fun validateListCaseInsensitive(pattern: Map<String, Pattern>, actual: Map<String, StringValue>): List<KeyError> {
+    override fun validateListCaseInsensitive(pattern: Map<String, Pattern>, actual: Map<String, StringValue>): List<UnexpectedKeyErrorType> {
         return performFuzzyCheck(
             pattern = pattern,
             actual = actual,
@@ -35,9 +35,9 @@ class FuzzyUnexpectedKeyCheck(
 
     private fun <T, U> performFuzzyCheck(
         pattern: Map<String, T>, actual: Map<String, U>,
-        unexpectedKeyStrategy: (Map<String, T>, Map<String, U>) -> List<KeyError>,
-        delegateStrategy: (Map<String, T>, Map<String, U>) -> List<KeyError>
-    ): List<KeyError> {
+        unexpectedKeyStrategy: (Map<String, T>, Map<String, U>) -> List<UnexpectedKeyErrorType>,
+        delegateStrategy: (Map<String, T>, Map<String, U>) -> List<UnexpectedKeyErrorType>
+    ): List<UnexpectedKeyErrorType> {
         val unexpectedErrors  = unexpectedKeyStrategy(pattern, actual)
         if (unexpectedErrors .isEmpty()) return delegateStrategy(pattern, actual)
 
@@ -60,7 +60,7 @@ class FuzzyUnexpectedKeyCheck(
         }
     }
 
-    private fun mergeErrors(fuzzyErrors: List<FuzzyKeyError>, delegateErrors: List<KeyError>): List<KeyError> {
+    private fun mergeErrors(fuzzyErrors: List<FuzzyKeyError>, delegateErrors: List<UnexpectedKeyErrorType>): List<UnexpectedKeyErrorType> {
         if (fuzzyErrors.isEmpty()) return delegateErrors
         val fuzzyKeyNames = fuzzyErrors.map { it.name }.toSet()
         return fuzzyErrors + delegateErrors.filter { it.name !in fuzzyKeyNames }

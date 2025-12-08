@@ -625,7 +625,7 @@ class HttpStub(
             if (httpRequest.body.toStringLiteral().isEmpty())
                 throw ContractException("Expectation payload was empty")
 
-            val mock: ScenarioStub = stringToMockScenario(httpRequest.body)
+            val mock: ScenarioStub = ScenarioStub.parse(httpRequest.body)
             val stub: HttpStubData = setExpectation(mock).first()
 
             HttpStubResponse(HttpResponse.OK, contractPath = stub.contractPath)
@@ -695,7 +695,7 @@ class HttpStub(
 
     // Java helper
     override fun setExpectation(json: String) {
-        val mock = stringToMockScenario(StringValue(json))
+        val mock = ScenarioStub.parse(json)
         setExpectation(mock)
     }
 
@@ -1535,15 +1535,6 @@ fun softCastValueToXML(body: Value): Value {
 
         else -> body
     }
-}
-
-fun stringToMockScenario(text: Value): ScenarioStub {
-    val mockSpec: Map<String, Value> =
-        jsonStringToValueMap(text.toStringLiteral()).also {
-            validateMock(it)
-        }
-
-    return mockFromJSON(mockSpec)
 }
 
 data class SseEvent(
