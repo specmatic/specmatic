@@ -42,6 +42,19 @@ class ScenarioStubValidatorTest {
         assertThat(result).isInstanceOf(Result.Success::class.java)
     }
 
+    @ParameterizedTest
+    @MethodSource("fixScenarios")
+    fun `should fix complex scenarios including typos and invalid data types`(stubWithIssues: Map<String, Value>, expectedFixedStub: Map<String, Value>) {
+        val beforeResult = FuzzyExampleJsonValidator.matches(JSONObjectValue(stubWithIssues))
+        assertThat(beforeResult).isInstanceOf(Result.Failure::class.java)
+
+        val fixedStub = FuzzyExampleJsonValidator.fix(JSONObjectValue(stubWithIssues))
+        assertThat(fixedStub).isEqualTo(JSONObjectValue(expectedFixedStub))
+
+        val afterResult = FuzzyExampleJsonValidator.matches(fixedStub)
+        assertThat(afterResult).isInstanceOf(Result.Success::class.java)
+    }
+
     companion object {
         @JvmStatic
         fun stubTyposToExpectedFailures(): Stream<Arguments> {
@@ -406,6 +419,143 @@ class ScenarioStubValidatorTest {
                         put(TRANSIENT_MOCK_ID, StringValue("inner-id"))
                     }
                 )),
+            )
+        }
+
+        @JvmStatic
+        fun fixScenarios(): Stream<Arguments> {
+            return Stream.of(
+                Arguments.of(
+                    stubWith { put("nam", StringValue("My Stub")) },
+                    stubWith { put("name", StringValue("My Stub")) }
+                ),
+                Arguments.of(
+                    stubWith { put("transent", StringValue("true")) },
+                    stubWith { put(IS_TRANSIENT_MOCK, BooleanValue(true)) }
+                ),
+                Arguments.of(
+                    stubWith { put("delay-in-secs", StringValue("5")) },
+                    stubWith { put(DELAY_IN_SECONDS, NumberValue(5)) }
+                ),
+
+                Arguments.of(
+                    stubWith {
+                        val value = remove(MOCK_HTTP_REQUEST)!!
+                        put("http-req", value)
+                    },
+                    validStub()
+                ),
+                Arguments.of(
+                    stubWith {
+                        val value = remove(MOCK_HTTP_REQUEST)!!
+                        put("request", value)
+                    },
+                    validStub()
+                ),
+                Arguments.of(
+                    stubWith {
+                        modifyNested(MOCK_HTTP_REQUEST) {
+                            val value = remove("method")!!
+                            put("mthd", value)
+                        }
+                    },
+                    validStub()
+                ),
+                Arguments.of(
+                    stubWith {
+                        modifyNested(MOCK_HTTP_REQUEST) {
+                            put("queries", JSONObjectValue(mapOf("q" to StringValue("test"))))
+                        }
+                    },
+                    stubWith {
+                        modifyNested(MOCK_HTTP_REQUEST) {
+                            put("query", JSONObjectValue(mapOf("q" to StringValue("test"))))
+                        }
+                    }
+                ),
+                Arguments.of(
+                    stubWith {
+                        modifyNested(MOCK_HTTP_REQUEST) {
+                            put("body-regex", StringValue(".+"))
+                        }
+                    },
+                    stubWith {
+                        modifyNested(MOCK_HTTP_REQUEST) {
+                            put("bodyRegex", StringValue(".+"))
+                        }
+                    }
+                ),
+
+                Arguments.of(
+                    stubWith {
+                        val value = remove(MOCK_HTTP_RESPONSE)!!
+                        put("http-res", value)
+                    },
+                    validStub()
+                ),
+                Arguments.of(
+                    stubWith {
+                        val value = remove(MOCK_HTTP_RESPONSE)!!
+                        put("response", value)
+                    },
+                    validStub()
+                ),
+                Arguments.of(
+                    stubWith {
+                        modifyNested(MOCK_HTTP_RESPONSE) {
+                            remove("status")
+                            put("stat", StringValue("201"))
+                        }
+                    },
+                    stubWith {
+                        modifyNested(MOCK_HTTP_RESPONSE) {
+                            put("status", NumberValue(201))
+                        }
+                    }
+                ),
+                Arguments.of(
+                    stubWith {
+                        modifyNested(MOCK_HTTP_RESPONSE) {
+                            remove("body")
+                            put("res-body", StringValue("Fixed"))
+                        }
+                    },
+                    stubWith {
+                        modifyNested(MOCK_HTTP_RESPONSE) {
+                            put("body", StringValue("Fixed"))
+                        }
+                    }
+                ),
+
+                Arguments.of(
+                    stubWithPartial(
+                        rootMutation = {
+                            val value = remove("partial")!!
+                            put("partal", value)
+                        }
+                    ),
+                    stubWithPartial {}
+                ),
+                Arguments.of(
+                    stubWithPartial {
+                        val value = remove(MOCK_HTTP_REQUEST)!!
+                        put("http-req", value)
+                    },
+                    stubWithPartial {}
+                ),
+                Arguments.of(
+                    stubWithPartial {
+                        modifyNested(MOCK_HTTP_REQUEST) {
+                            remove("method")
+                            put("mthd", StringValue("PUT"))
+                        }
+                    },
+                    stubWithPartial {
+                        modifyNested(MOCK_HTTP_REQUEST) {
+                            put("method", StringValue("PUT"))
+                        }
+                    }
+                )
             )
         }
 
