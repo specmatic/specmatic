@@ -2111,10 +2111,16 @@ class OpenApiSpecification(
             else -> AdditionalProperties.NoAdditionalProperties
         }
 
-        return when (additionalProperties) {
+        val resolvedAdditionalProperties = if (additionalProperties is JsonSchema && additionalProperties.booleanSchemaValue != null) {
+            additionalProperties.booleanSchemaValue
+        } else {
+            additionalProperties
+        }
+
+        return when (resolvedAdditionalProperties) {
             true -> AdditionalProperties.FreeForm
             false -> AdditionalProperties.NoAdditionalProperties
-            is Schema<*> -> processAdditionalPropertiesSchema(additionalProperties, patternName, typeStack)
+            is Schema<*> -> processAdditionalPropertiesSchema(resolvedAdditionalProperties, patternName, typeStack)
             else -> throw ContractException(
                 breadCrumb = "$patternName.additionalProperties",
                 errorMessage = "Unrecognized type for additionalProperties: expected a boolean or a schema"
@@ -2344,7 +2350,7 @@ class OpenApiSpecification(
                 toXMLPattern(this, typeStack = typeStack)
             } else {
                 ListPattern(
-                    pattern = toSpecmaticPattern(this.items, typeStack, breadCrumb = "$breadCrumb[]"),
+                    pattern = toSpecmaticPattern(this.items ?: Schema<Any>(), typeStack, breadCrumb = "$breadCrumb[]"),
                     example = toListExample(this.extractFirstExampleAsJsonNode()),
                 )
             }
@@ -2357,11 +2363,11 @@ class OpenApiSpecification(
                 else -> throw ContractException("Invalid Composed Schema, must have oneOf, allOf or anyOf defined")
             }
 
-            else -> unknownSchemaToSpecmaticPattern(this, patternName, typeStack, breadCrumb)
+            else -> this.jsonSchemaToSpecmaticPattern(patternName, typeStack, breadCrumb)
         }
     }
 
-    private fun JsonSchema.jsonSchemaToSpecmaticPattern(patternName: String, typeStack: List<String>, breadCrumb: String): Pattern {
+    private fun Schema<*>.jsonSchemaToSpecmaticPattern(patternName: String, typeStack: List<String>, breadCrumb: String): Pattern {
         if (this.`$ref` != null) return handleReference(this, typeStack, patternName, breadCrumb)
         if (this.allOf != null) return handleAllOf(this, typeStack, patternName)
         if (this.oneOf != null) return handleOneOf(this, typeStack, patternName)
@@ -2375,7 +2381,7 @@ class OpenApiSpecification(
         val example = this.extractFirstExampleAsString()
         val declaredTypes = this.types ?: setOfNotNull(this.type)
         val effectiveTypes = declaredTypes.filter { it != NULL_TYPE }
-        if (effectiveTypes.size > 1 || this.enum != null) {
+        if (this is JsonSchema && (effectiveTypes.size > 1 || this.enum != null)) {
             return handleMultiType(this, typeStack, patternName, declaredTypes.toList())
         }
 
@@ -2400,7 +2406,7 @@ class OpenApiSpecification(
                 toXMLPattern(this, typeStack = typeStack)
             } else {
                 ListPattern(
-                    pattern = toSpecmaticPattern(this.items, typeStack, breadCrumb = "$breadCrumb[]"),
+                    pattern = toSpecmaticPattern(this.items ?: Schema<Any>(), typeStack, breadCrumb = "$breadCrumb[]"),
                     example = toListExample(this.extractFirstExampleAsJsonNode()),
                 )
             }
