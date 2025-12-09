@@ -12,7 +12,7 @@ import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import java.util.stream.Stream
 
-class ScenarioStubValidatorTest {
+class FuzzyExampleJsonValidatorTest {
     private fun assertFailureContainsExactLines(result: Result, vararg expectedLines: String) {
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         val failure = result as Result.Failure
@@ -63,69 +63,69 @@ class ScenarioStubValidatorTest {
                     stub = stubWith {
                         put("nam", StringValue("My Stub"))
                     },
-                    ">> nam Key named \"nam\" is invalid. Did you mean \"name\" ?"
+                    ">> nam Key named \"nam\" is invalid as per example format. Did you mean \"name\"?"
                 ),
                 expectFailure(
                     stub = stubWith {
                         put("delay-in-secs", NumberValue(10))
                     },
-                    ">> delay-in-secs Key named \"delay-in-secs\" is invalid. Did you mean \"$DELAY_IN_SECONDS\" ?"
+                    ">> delay-in-secs Key named \"delay-in-secs\" is invalid as per example format. Did you mean \"$DELAY_IN_SECONDS\"?"
                 ),
                 expectFailure(
                     stub = stubWith {
                         put("dealy-in-seconds", NumberValue(10))
                     },
-                    ">> dealy-in-seconds Key named \"dealy-in-seconds\" is invalid. Did you mean \"$DELAY_IN_SECONDS\" ?"
+                    ">> dealy-in-seconds Key named \"dealy-in-seconds\" is invalid as per example format. Did you mean \"$DELAY_IN_SECONDS\"?"
                 ),
                 expectFailure(
                     stub = stubWith {
                         put("delay-in-milisecnds", NumberValue(10))
                     },
-                    ">> delay-in-milisecnds Key named \"delay-in-milisecnds\" is invalid. Did you mean \"$DELAY_IN_MILLISECONDS\" ?"
+                    ">> delay-in-milisecnds Key named \"delay-in-milisecnds\" is invalid as per example format. Did you mean \"$DELAY_IN_MILLISECONDS\"?"
                 ),
                 expectFailure(
                     stub = stubWith {
                         put("transent", BooleanValue(true))
                     },
-                    ">> transent Key named \"transent\" is invalid. Did you mean \"$IS_TRANSIENT_MOCK\" ?"
+                    ">> transent Key named \"transent\" is invalid as per example format. Did you mean \"$IS_TRANSIENT_MOCK\"?"
                 ),
                 expectFailure(
                     stub = stubWith {
                         put("htp-stb-id", StringValue("123"))
                     },
-                    ">> htp-stb-id Key named \"htp-stb-id\" is invalid. Did you mean \"$TRANSIENT_MOCK_ID\" ?"
+                    ">> htp-stb-id Key named \"htp-stb-id\" is invalid as per example format. Did you mean \"$TRANSIENT_MOCK_ID\"?"
                 ),
                 expectFailure(
                     stub = stubWith {
                         val value = remove(MOCK_HTTP_REQUEST)!!
                         put("http-req", value)
                     },
-                    ">> $MOCK_HTTP_REQUEST Expected Key named \"$MOCK_HTTP_REQUEST\" to be present",
-                    ">> http-req Key named \"http-req\" is invalid. Did you mean \"$MOCK_HTTP_REQUEST\" ?"
+                    ">> $MOCK_HTTP_REQUEST Key named \"$MOCK_HTTP_REQUEST\" is mandatory as per example format, but was missing in the actual example",
+                    ">> http-req Key named \"http-req\" is invalid as per example format. Did you mean \"$MOCK_HTTP_REQUEST\"?"
                 ),
                 expectFailure(
                     stub = stubWith {
                         val value = remove(MOCK_HTTP_REQUEST)!!
                         put("request", value)
                     },
-                    ">> $MOCK_HTTP_REQUEST Expected Key named \"$MOCK_HTTP_REQUEST\" to be present",
-                    ">> request Key named \"request\" is invalid. Did you mean \"$MOCK_HTTP_REQUEST\" ?"
+                    ">> $MOCK_HTTP_REQUEST Key named \"$MOCK_HTTP_REQUEST\" is mandatory as per example format, but was missing in the actual example",
+                    ">> request Key named \"request\" is invalid as per example format. Did you mean \"$MOCK_HTTP_REQUEST\"?"
                 ),
                 expectFailure(
                     stub = stubWith {
                         val value = remove(MOCK_HTTP_RESPONSE)!!
                         put("http-res", value)
                     },
-                    ">> $MOCK_HTTP_RESPONSE Expected Key named \"$MOCK_HTTP_RESPONSE\" to be present",
-                    ">> http-res Key named \"http-res\" is invalid. Did you mean \"$MOCK_HTTP_RESPONSE\" ?"
+                    ">> $MOCK_HTTP_RESPONSE Key named \"$MOCK_HTTP_RESPONSE\" is mandatory as per example format, but was missing in the actual example",
+                    ">> http-res Key named \"http-res\" is invalid as per example format. Did you mean \"$MOCK_HTTP_RESPONSE\"?"
                 ),
                 expectFailure(
                     stub = stubWith {
                         val value = remove(MOCK_HTTP_RESPONSE)!!
                         put("response", value)
                     },
-                    ">> $MOCK_HTTP_RESPONSE Expected Key named \"$MOCK_HTTP_RESPONSE\" to be present",
-                    ">> response Key named \"response\" is invalid. Did you mean \"$MOCK_HTTP_RESPONSE\" ?"
+                    ">> $MOCK_HTTP_RESPONSE Key named \"$MOCK_HTTP_RESPONSE\" is mandatory as per example format, but was missing in the actual example",
+                    ">> response Key named \"response\" is invalid as per example format. Did you mean \"$MOCK_HTTP_RESPONSE\"?"
                 ),
 
                 // $MOCK_HTTP_REQUEST failures
@@ -136,7 +136,7 @@ class ScenarioStubValidatorTest {
                             put("paths", value)
                         }
                     },
-                    ">> $MOCK_HTTP_REQUEST.paths Key named \"paths\" is invalid. Did you mean \"path\" ?"
+                    ">> $MOCK_HTTP_REQUEST.paths Key named \"paths\" is invalid as per example format. Did you mean \"path\"?"
                 ),
                 expectFailure(
                     stub = stubWith {
@@ -145,8 +145,8 @@ class ScenarioStubValidatorTest {
                             put("mthd", value)
                         }
                     },
-                    ">> $MOCK_HTTP_REQUEST.method Expected Key named \"method\" to be present",
-                    ">> $MOCK_HTTP_REQUEST.mthd Key named \"mthd\" is invalid. Did you mean \"method\" ?"
+                    ">> $MOCK_HTTP_REQUEST.method Key named \"method\" is mandatory as per example format, but was missing in the actual example",
+                    ">> $MOCK_HTTP_REQUEST.mthd Key named \"mthd\" is invalid as per example format. Did you mean \"method\"?"
                 ),
                 expectFailure(
                     stub = stubWith {
@@ -154,7 +154,7 @@ class ScenarioStubValidatorTest {
                             put("queries", JSONObjectValue())
                         }
                     },
-                    ">> $MOCK_HTTP_REQUEST.queries Key named \"queries\" is invalid. Did you mean \"query\" ?"
+                    ">> $MOCK_HTTP_REQUEST.queries Key named \"queries\" is invalid as per example format. Did you mean \"query\"?"
                 ),
                 expectFailure(
                     stub = stubWith {
@@ -162,7 +162,7 @@ class ScenarioStubValidatorTest {
                             put("header", JSONObjectValue())
                         }
                     },
-                    ">> $MOCK_HTTP_REQUEST.header Key named \"header\" is invalid. Did you mean \"headers\" ?"
+                    ">> $MOCK_HTTP_REQUEST.header Key named \"header\" is invalid as per example format. Did you mean \"headers\"?"
                 ),
                 expectFailure(
                     stub = stubWith {
@@ -170,7 +170,7 @@ class ScenarioStubValidatorTest {
                             put("requestBodyRegex", StringValue("A-Z+"))
                         }
                     },
-                    ">> $MOCK_HTTP_REQUEST.requestBodyRegex Key named \"requestBodyRegex\" is invalid. Did you mean \"bodyRegex\" ?"
+                    ">> $MOCK_HTTP_REQUEST.requestBodyRegex Key named \"requestBodyRegex\" is invalid as per example format. Did you mean \"bodyRegex\"?"
                 ),
 
                 // $MOCK_HTTP_RESPONSE-failures
@@ -180,7 +180,7 @@ class ScenarioStubValidatorTest {
                             put("header", JSONObjectValue())
                         }
                     },
-                    ">> $MOCK_HTTP_RESPONSE.header Key named \"header\" is invalid. Did you mean \"headers\" ?"
+                    ">> $MOCK_HTTP_RESPONSE.header Key named \"header\" is invalid as per example format. Did you mean \"headers\"?"
                 ),
 
                 // PARTIALS
@@ -191,22 +191,22 @@ class ScenarioStubValidatorTest {
                             put("partal", value)
                         }
                     ),
-                    ">> $PARTIAL Expected Key named \"$PARTIAL\" to be present",
-                    ">> partal Key named \"partal\" is invalid. Did you mean \"$PARTIAL\" ?"
+                    ">> $PARTIAL Key named \"$PARTIAL\" is mandatory as per example format, but was missing in the actual example",
+                    ">> partal Key named \"partal\" is invalid as per example format. Did you mean \"$PARTIAL\"?"
                 ),
                 expectFailure(
                     stub = stubWithPartial {
                         val value = remove(MOCK_HTTP_REQUEST)!!
                         put("http-req", value)
                     },
-                    ">> partial.$MOCK_HTTP_REQUEST Expected Key named \"$MOCK_HTTP_REQUEST\" to be present",
-                    ">> partial.http-req Key named \"http-req\" is invalid. Did you mean \"$MOCK_HTTP_REQUEST\" ?"
+                    ">> partial.$MOCK_HTTP_REQUEST Key named \"$MOCK_HTTP_REQUEST\" is mandatory as per example format, but was missing in the actual example",
+                    ">> partial.http-req Key named \"http-req\" is invalid as per example format. Did you mean \"$MOCK_HTTP_REQUEST\"?"
                 ),
                 expectFailure(
                     stub = stubWithPartial {
                         put("nam", StringValue("Inner Name"))
                     },
-                    ">> partial.nam Key named \"nam\" is invalid. Did you mean \"name\" ?"
+                    ">> partial.nam Key named \"nam\" is invalid as per example format. Did you mean \"name\"?"
                 ),
                 expectFailure(
                     stub = stubWithPartial {
@@ -215,8 +215,8 @@ class ScenarioStubValidatorTest {
                             put("mthd", value)
                         }
                     },
-                    ">> partial.$MOCK_HTTP_REQUEST.method Expected Key named \"method\" to be present",
-                    ">> partial.$MOCK_HTTP_REQUEST.mthd Key named \"mthd\" is invalid. Did you mean \"method\" ?"
+                    ">> partial.$MOCK_HTTP_REQUEST.method Key named \"method\" is mandatory as per example format, but was missing in the actual example",
+                    ">> partial.$MOCK_HTTP_REQUEST.mthd Key named \"mthd\" is invalid as per example format. Did you mean \"method\"?"
                 ),
             )
         }
@@ -228,37 +228,37 @@ class ScenarioStubValidatorTest {
                     stub = stubWith {
                         put("name", NumberValue(10))
                     },
-                    ">> name Expected string, but got 10 (number)"
+                    ">> name Should be string as per example format, but got 10 (number) in the actual example"
                 ),
                 expectFailure(
                     stub = stubWith {
                         put(IS_TRANSIENT_MOCK, StringValue("yes"))
                     },
-                    ">> $IS_TRANSIENT_MOCK Expected boolean, but got \"yes\""
+                    ">> $IS_TRANSIENT_MOCK Should be boolean as per example format, but got \"yes\" in the actual example"
                 ),
                 expectFailure(
                     stub = stubWith {
                         put(TRANSIENT_MOCK_ID, NumberValue(10))
                     },
-                    ">> $TRANSIENT_MOCK_ID Expected string, but got 10 (number)"
+                    ">> $TRANSIENT_MOCK_ID Should be string as per example format, but got 10 (number) in the actual example"
                 ),
                 expectFailure(
                     stub = stubWith {
                         put(DELAY_IN_SECONDS, StringValue("10Seconds"))
                     },
-                    ">> $DELAY_IN_SECONDS Expected number, but got \"10Seconds\""
+                    ">> $DELAY_IN_SECONDS Should be number as per example format, but got \"10Seconds\" in the actual example"
                 ),
                 expectFailure(
                     stub = stubWith {
                         put(DELAY_IN_SECONDS, NumberValue(-5))
                     },
-                    ">> $DELAY_IN_SECONDS Expected number >= 0, but got -5 (number)"
+                    ">> $DELAY_IN_SECONDS Should be number >= 0 as per example format, but got -5 (number) in the actual example"
                 ),
                 expectFailure(
                     stub = stubWith {
                         put(DELAY_IN_MILLISECONDS, StringValue("OneThousand"))
                     },
-                    ">> $DELAY_IN_MILLISECONDS Expected number, but got \"OneThousand\""
+                    ">> $DELAY_IN_MILLISECONDS Should be number as per example format, but got \"OneThousand\" in the actual example"
                 ),
 
                 // $MOCK_HTTP_REQUEST failures
@@ -266,7 +266,7 @@ class ScenarioStubValidatorTest {
                     stub = stubWith {
                         put(MOCK_HTTP_REQUEST, StringValue("My-Request"))
                     },
-                    ">> $MOCK_HTTP_REQUEST Expected JSON object, but got \"My-Request\""
+                    ">> $MOCK_HTTP_REQUEST Should be JSON object as per example format, but got \"My-Request\" in the actual example"
                 ),
                 expectFailure(
                     stub = stubWith {
@@ -274,7 +274,7 @@ class ScenarioStubValidatorTest {
                             put("method", NumberValue(123))
                         }
                     },
-                    ">> $MOCK_HTTP_REQUEST.method Expected string, but got 123 (number)"
+                    ">> $MOCK_HTTP_REQUEST.method Should be string as per example format, but got 123 (number) in the actual example"
                 ),
                 expectFailure(
                     stub = stubWith {
@@ -282,7 +282,7 @@ class ScenarioStubValidatorTest {
                             put("path", BooleanValue(true))
                         }
                     },
-                    ">> $MOCK_HTTP_REQUEST.path Expected string, but got true (boolean)"
+                    ">> $MOCK_HTTP_REQUEST.path Should be string as per example format, but got true (boolean) in the actual example"
                 ),
                 expectFailure(
                     stub = stubWith {
@@ -290,7 +290,7 @@ class ScenarioStubValidatorTest {
                             put("query", StringValue("param=value"))
                         }
                     },
-                    ">> $MOCK_HTTP_REQUEST.query Expected JSON object, but got \"param=value\""
+                    ">> $MOCK_HTTP_REQUEST.query Should be JSON object as per example format, but got \"param=value\" in the actual example"
                 ),
                 expectFailure(
                     stub = stubWith {
@@ -298,7 +298,7 @@ class ScenarioStubValidatorTest {
                             put("headers", NumberValue(0))
                         }
                     },
-                    ">> $MOCK_HTTP_REQUEST.headers Expected JSON object, but got 0 (number)"
+                    ">> $MOCK_HTTP_REQUEST.headers Should be JSON object as per example format, but got 0 (number) in the actual example"
                 ),
 
                 // $MOCK_HTTP_RESPONSE-failures
@@ -306,7 +306,7 @@ class ScenarioStubValidatorTest {
                     stub = stubWith {
                         put(MOCK_HTTP_RESPONSE, StringValue("My-Response"))
                     },
-                    ">> $MOCK_HTTP_RESPONSE Expected JSON object, but got \"My-Response\""
+                    ">> $MOCK_HTTP_RESPONSE Should be JSON object as per example format, but got \"My-Response\" in the actual example"
                 ),
                 expectFailure(
                     stub = stubWith {
@@ -314,7 +314,7 @@ class ScenarioStubValidatorTest {
                             put("status", StringValue("200 OK"))
                         }
                     },
-                    ">> $MOCK_HTTP_RESPONSE.status Expected number, but got \"200 OK\""
+                    ">> $MOCK_HTTP_RESPONSE.status Should be number as per example format, but got \"200 OK\" in the actual example"
                 ),
                 expectFailure(
                     stub = stubWith {
@@ -322,7 +322,7 @@ class ScenarioStubValidatorTest {
                             put("status", NumberValue(-200))
                         }
                     },
-                    ">> $MOCK_HTTP_RESPONSE.status Expected number >= 0, but got -200 (number)"
+                    ">> $MOCK_HTTP_RESPONSE.status Should be number >= 0 as per example format, but got -200 (number) in the actual example"
                 ),
                 expectFailure(
                     stub = stubWith {
@@ -330,7 +330,7 @@ class ScenarioStubValidatorTest {
                             put("headers", StringValue("Content-Type: JSON"))
                         }
                     },
-                    ">> $MOCK_HTTP_RESPONSE.headers Expected JSON object, but got \"Content-Type: JSON\""
+                    ">> $MOCK_HTTP_RESPONSE.headers Should be JSON object as per example format, but got \"Content-Type: JSON\" in the actual example"
                 ),
 
                 // PARTIALS
@@ -338,7 +338,7 @@ class ScenarioStubValidatorTest {
                     stub = stubWithPartial {
                         put("name", NumberValue(12345))
                     },
-                    ">> partial.name Expected string, but got 12345 (number)"
+                    ">> partial.name Should be string as per example format, but got 12345 (number) in the actual example"
                 ),
                 expectFailure(
                     stub = stubWithPartial {
@@ -346,7 +346,7 @@ class ScenarioStubValidatorTest {
                             put("status", StringValue("200 OK"))
                         }
                     },
-                    ">> partial.$MOCK_HTTP_RESPONSE.status Expected number, but got \"200 OK\""
+                    ">> partial.$MOCK_HTTP_RESPONSE.status Should be number as per example format, but got \"200 OK\" in the actual example"
                 ),
             )
         }

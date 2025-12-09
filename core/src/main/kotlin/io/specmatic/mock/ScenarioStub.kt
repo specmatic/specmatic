@@ -356,12 +356,7 @@ data class ScenarioStub(
 
     companion object {
         fun readFromFile(file: File, strictMode: Boolean = true): ScenarioStub {
-            return attempt(
-                breadCrumb = file.path,
-                errorMessage = "Error loading example due to invalid format. Please correct the format to proceed"
-            ) {
-                parse(file.readText(Charsets.UTF_8), strictMode).copy(filePath = file.path)
-            }
+            return parse(file.readText(Charsets.UTF_8), strictMode).copy(filePath = file.path)
         }
 
         fun parse(text: String, strictMode: Boolean = true): ScenarioStub {

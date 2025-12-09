@@ -310,6 +310,7 @@ fun loadContractStubsFromImplicitPathsAsResults(
                                         implicitDataDirs.map { it.path }.relativePaths(),
                                     ),
                                 )
+                                logger.boundary()
                             }
                             val stubData =
                                 when {
@@ -328,7 +329,11 @@ fun loadContractStubsFromImplicitPathsAsResults(
                                                 try {
                                                     Pair(it.path, ScenarioStub.readFromFile(it))
                                                 } catch (e: Throwable) {
-                                                    logger.log(e, "Could not load stub file ${it.canonicalPath}...")
+                                                    logger.withIndentation(count = 2) {
+                                                        logger.log("Could not load stub file ${it.canonicalPath}")
+                                                        logger.log(e)
+                                                        logger.boundary()
+                                                    }
                                                     null
                                                 }
                                             }
@@ -458,6 +463,7 @@ fun loadContractStubsFromFilesAsResults(
             debugLogNonExistentDataFiles(dataDirPaths)
         } else {
             consoleLog(dataFilesLogForStubScan(dataFiles, listOf(dataDirPath).relativePaths(), logger is Verbose))
+            logger.boundary()
         }
     }
 
@@ -537,7 +543,11 @@ fun loadExpectationsForFeaturesAsResults(
             try {
                 Pair(it.path, ScenarioStub.readFromFile(it))
             } catch (e: Throwable) {
-                logger.log(e, "    Could not load stub file ${it.canonicalPath}")
+                logger.withIndentation(count = 2) {
+                    logger.log("Could not load stub file ${it.canonicalPath}")
+                    logger.log(e)
+                    logger.boundary()
+                }
                 null
             }
         }
