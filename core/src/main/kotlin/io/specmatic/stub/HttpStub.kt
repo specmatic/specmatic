@@ -13,67 +13,19 @@ import io.ktor.server.response.*
 import io.ktor.util.*
 import io.ktor.util.pipeline.*
 import io.specmatic.conversions.convertPathParameterStyle
-import io.specmatic.core.APPLICATION_NAME
-import io.specmatic.core.APPLICATION_NAME_LOWER_CASE
+import io.specmatic.core.*
 import io.specmatic.core.Constants.Companion.ARTIFACTS_PATH
-import io.specmatic.core.ContractAndStubMismatchMessages
-import io.specmatic.core.Feature
-import io.specmatic.core.HttpRequest
-import io.specmatic.core.HttpResponse
-import io.specmatic.core.KeyData
-import io.specmatic.core.MismatchMessages
-import io.specmatic.core.MissingDataException
-import io.specmatic.core.MultiPartContent
-import io.specmatic.core.MultiPartContentValue
-import io.specmatic.core.MultiPartFileValue
-import io.specmatic.core.MultiPartFormDataValue
-import io.specmatic.core.NoBodyValue
-import io.specmatic.core.QueryParameters
-import io.specmatic.core.ResponseBuilder
-import io.specmatic.core.Result
-import io.specmatic.core.Results
-import io.specmatic.core.SPECMATIC_RESULT_HEADER
-import io.specmatic.core.Scenario
-import io.specmatic.core.SpecmaticConfig
-import io.specmatic.core.WorkingDirectory
-import io.specmatic.core.listOfExcludedHeaders
-import io.specmatic.core.loadSpecmaticConfigOrDefault
-import io.specmatic.core.log.HttpLogMessage
-import io.specmatic.core.log.LogMessage
-import io.specmatic.core.log.LogTail
-import io.specmatic.core.log.NewLineLogMessage
-import io.specmatic.core.log.StringLog
-import io.specmatic.core.log.consoleLog
-import io.specmatic.core.log.dontPrintToConsole
-import io.specmatic.core.log.logger
-import io.specmatic.core.parseGherkinStringToFeature
+import io.specmatic.core.log.*
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.pattern.parsedValue
-import io.specmatic.core.report.SpecmaticAfterAllHook
+import io.specmatic.core.report.ReportGenerator
 import io.specmatic.core.report.ctrfSpecConfigsFrom
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.configureHealthCheckModule
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.isHealthCheckRequest
-import io.specmatic.core.urlDecodePathSegments
-import io.specmatic.core.utilities.URIValidationResult
-import io.specmatic.core.utilities.capitalizeFirstChar
-import io.specmatic.core.utilities.exceptionCauseMessage
-import io.specmatic.core.utilities.exitWithMessage
-import io.specmatic.core.utilities.jsonStringToValueMap
-import io.specmatic.core.utilities.saveJsonFile
-import io.specmatic.core.utilities.toMap
-import io.specmatic.core.utilities.validateTestOrStubUri
-import io.specmatic.core.value.EmptyString
-import io.specmatic.core.value.JSONArrayValue
-import io.specmatic.core.value.JSONObjectValue
-import io.specmatic.core.value.StringValue
-import io.specmatic.core.value.Value
-import io.specmatic.core.value.toXMLNode
-import io.specmatic.mock.NoMatchingScenario
-import io.specmatic.mock.ScenarioStub
-import io.specmatic.mock.TRANSIENT_MOCK
-import io.specmatic.mock.mockFromJSON
-import io.specmatic.mock.validateMock
+import io.specmatic.core.utilities.*
+import io.specmatic.core.value.*
+import io.specmatic.mock.*
 import io.specmatic.reporter.generated.dto.stub.usage.SpecmaticStubUsageReport
 import io.specmatic.reporter.internal.dto.stub.usage.merge
 import io.specmatic.reporter.model.TestResult
@@ -85,11 +37,7 @@ import io.specmatic.test.LegacyHttpClient
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.TestResultRecord.Companion.STUB_TEST_TYPE
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.BroadcastChannel
-import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.channels.ReceiveChannel
-import kotlinx.coroutines.channels.broadcast
+import kotlinx.coroutines.channels.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -179,7 +127,8 @@ class HttpStub(
                     mismatchMessages
                 )
 
-                val matchedScenario = tier1Match.scenario ?: throw ContractException("Expected scenario after stub matched for:${System.lineSeparator()}${stub.toJSON()}")
+                val matchedScenario = tier1Match.scenario
+                    ?: throw ContractException("Expected scenario after stub matched for:${System.lineSeparator()}${stub.toJSON()}")
 
                 val stubWithSubstitutionsResolved = stub.resolveDataSubstitutions().map { scenarioStub ->
                     feature.matchingStub(scenarioStub, ContractAndStubMismatchMessages)
@@ -325,7 +274,8 @@ class HttpStub(
                         logger.log(InterceptorErrors(requestInterceptorErrors).toString().prependIndent("  "))
                     }
 
-                    val responseFromRequestHandler = requestHandlers.firstNotNullOfOrNull { it.handleRequest(httpRequest) }
+                    val responseFromRequestHandler =
+                        requestHandlers.firstNotNullOfOrNull { it.handleRequest(httpRequest) }
                     val httpStubResponse: HttpStubResponse = when {
                         isFetchLogRequest(httpRequest) -> handleFetchLogRequest()
                         isFetchLoadLogRequest(httpRequest) -> handleFetchLoadLogRequest()
@@ -352,7 +302,10 @@ class HttpStub(
                     responseErrors = responseInterceptorErrors
 
                     // Store encoded response for later logging if different
-                    transformedResponse = if (httpResponse != httpStubResponse.response) httpResponse.adjustPayloadForContentType(httpRequest.headers) else null
+                    transformedResponse =
+                        if (httpResponse != httpStubResponse.response) httpResponse.adjustPayloadForContentType(
+                            httpRequest.headers
+                        ) else null
 
                     if (httpRequest.path!!.startsWith("""/features/default""")) {
                         handleSse(httpRequest, this@HttpStub, this)
@@ -376,7 +329,8 @@ class HttpStub(
                         response = httpResponse,
                         result = httpLogMessage.toResult(),
                         serviceType = "OPENAPI",
-                        requestContentType = httpLogMessage.scenario?.requestContentType ?: httpRequest.headers["Content-Type"],
+                        requestContentType = httpLogMessage.scenario?.requestContentType
+                            ?: httpRequest.headers["Content-Type"],
                         specification = httpStubResponse.scenario?.specification,
                         testType = STUB_TEST_TYPE,
                         actualResponseStatus = httpResponse.status
@@ -518,7 +472,7 @@ class HttpStub(
         val defaultBaseUrl = endPointFromHostAndPort(this.host, this.port, this.keyData)
         val specsWithMultipleBaseUrls = specmaticConfigInstance.stubToBaseUrlList(defaultBaseUrl).groupBy(
             keySelector = { it.first }, valueTransform = { it.second }
-            ).filterValues { it.size > 1 }
+        ).filterValues { it.size > 1 }
 
         if (specsWithMultipleBaseUrls.isNotEmpty()) {
             logger.log("WARNING: The following specification are associated with multiple base URLs:")
@@ -567,7 +521,7 @@ class HttpStub(
             strictMode = strictMode,
             passThroughTargetBase = passThroughTargetBase,
             httpClientFactory = httpClientFactory,
-              specmaticConfig = specmaticConfigInstance,
+            specmaticConfig = specmaticConfigInstance,
         ).also {
             if (it is FoundStubbedResponse) {
                 it.response.mock?.let { mock -> httpExpectations.utilizeMock(mock) }
@@ -747,7 +701,8 @@ class HttpStub(
     fun setExpectation(stub: ScenarioStub): List<HttpStubData> {
         val results = features.asSequence().map { feature -> setExpectation(stub, feature) }
 
-        val result: Pair<Pair<Result.Success, List<HttpStubData>>?, NoMatchingScenario?>? = results.find { it.first != null }
+        val result: Pair<Pair<Result.Success, List<HttpStubData>>?, NoMatchingScenario?>? =
+            results.find { it.first != null }
         val firstResult: Pair<Result.Success, List<HttpStubData>>? = result?.first
 
         when (firstResult) {
@@ -757,7 +712,10 @@ class HttpStub(
                 }.flatten().toList()
 
                 val failureResults = Results(failures).withoutFluff()
-                throw NoMatchingScenario(failureResults, cachedMessage = failureResults.report(stub.requestElsePartialRequest()))
+                throw NoMatchingScenario(
+                    failureResults,
+                    cachedMessage = failureResults.report(stub.requestElsePartialRequest())
+                )
             }
 
             else -> {
@@ -797,17 +755,14 @@ class HttpStub(
         val specmaticConfig = loadSpecmaticConfigOrDefault(specmaticConfigPath)
         synchronized(ctrfTestResultRecords) {
             ctrfTestResultRecords.addAll(notCoveredTestResultRecords())
-            ServiceLoader.load(SpecmaticAfterAllHook::class.java).takeIf(ServiceLoader<SpecmaticAfterAllHook>::any)?.let { hooks ->
-                hooks.forEach {
-                    it.generateReport(
-                        testResultRecords = ctrfTestResultRecords,
-                        startTime = startTime.toEpochMilli(),
-                        endTime = Instant.now().toEpochMilli(),
-                        specConfigs = ctrfSpecConfigsFrom(specmaticConfig, ctrfTestResultRecords),
-                        reportFilePath = "$ARTIFACTS_PATH/stub/ctrf/ctrf-report.json"
-                    )
-                }
-            }
+            ReportGenerator.generateReport(
+                testResultRecords = ctrfTestResultRecords,
+                startTime = startTime.toEpochMilli(),
+                endTime = Instant.now().toEpochMilli(),
+                specConfigs = ctrfSpecConfigsFrom(specmaticConfig, ctrfTestResultRecords),
+                coverage = 0,
+                reportDir = File("$ARTIFACTS_PATH/stub/ctrf")
+            )
         }
     }
 
@@ -881,7 +836,8 @@ class HttpStub(
                 val objectMapper = ObjectMapper()
                 if (reportFile.exists()) {
                     try {
-                        val existingReport = objectMapper.readValue(reportFile.readText(), SpecmaticStubUsageReport::class.java)
+                        val existingReport =
+                            objectMapper.readValue(reportFile.readText(), SpecmaticStubUsageReport::class.java)
                         objectMapper.writeValueAsString(generatedReport.merge(existingReport))
                     } catch (exception: Throwable) {
                         logger.log("The existing report file is not a valid Stub Usage Report. ${exception.message}")
@@ -968,7 +924,7 @@ private fun transformSOAP1_2ActionToSOAP1_1Header(call: ApplicationCall): Map<St
 
 private suspend fun bodyFromCall(call: ApplicationCall): Triple<Value, Map<String, String>, List<MultiPartFormDataValue>> {
     return when {
-        call.request.httpMethod == HttpMethod.Get -> if(call.request.headers.contains("Content-Type")) {
+        call.request.httpMethod == HttpMethod.Get -> if (call.request.headers.contains("Content-Type")) {
             Triple(parsedValue(receiveText(call)), emptyMap(), emptyList())
         } else {
             Triple(NoBodyValue, emptyMap(), emptyList())
@@ -1126,7 +1082,7 @@ fun getHttpResponse(
 ): StubbedResponseResult {
     try {
         val (matchResults, matchingStubResponse) = stubbedResponse(httpExpectations, httpRequest)
-        if(matchingStubResponse != null) {
+        if (matchingStubResponse != null) {
             val (httpStubResponse, httpStubData) = matchingStubResponse
             return FoundStubbedResponse(
                 httpStubResponse.resolveSubstitutions(
@@ -1145,10 +1101,11 @@ fun getHttpResponse(
                 )
             )
         }
-        if (strictMode) return NotStubbed(HttpStubResponse(
-            response = strictModeHttp400Response(httpRequest, matchResults),
-            scenario = features.firstNotNullOfOrNull { it.identifierMatchingScenario(httpRequest) }
-        ))
+        if (strictMode) return NotStubbed(
+            HttpStubResponse(
+                response = strictModeHttp400Response(httpRequest, matchResults),
+                scenario = features.firstNotNullOfOrNull { it.identifierMatchingScenario(httpRequest) }
+            ))
 
         return fakeHttpResponse(features, httpRequest, specmaticConfig)
     } finally {
@@ -1245,7 +1202,7 @@ fun fakeHttpResponse(
 ): StubbedResponseResult {
 
     if (features.isEmpty())
-       return NotStubbed(HttpStubResponse(HttpResponse(400, "No valid API specifications loaded")))
+        return NotStubbed(HttpStubResponse(HttpResponse(400, "No valid API specifications loaded")))
 
     val responses: List<ResponseDetails> = responseDetailsFrom(features, httpRequest)
 
@@ -1259,13 +1216,14 @@ fun fakeHttpResponse(
 
             val firstScenarioWith400Response = failureResults.flatMap { it.results }.filter {
                 it is Result.Failure
-                    && it.failureReason == null
-                    && it.scenario?.let { it.status == 400 || it.status == 422 } == true
+                        && it.failureReason == null
+                        && it.scenario?.let { it.status == 400 || it.status == 422 } == true
             }.map { it.scenario!! }.firstOrNull()
 
             if (firstScenarioWith400Response != null && specmaticConfig.getStubGenerative()) {
                 val httpResponse = (firstScenarioWith400Response as Scenario).generateHttpResponse(emptyMap())
-                val updatedResponse: HttpResponse = dumpIntoFirstAvailableStringField(httpResponse, combinedFailureResult.report())
+                val updatedResponse: HttpResponse =
+                    dumpIntoFirstAvailableStringField(httpResponse, combinedFailureResult.report())
 
                 FoundStubbedResponse(
                     HttpStubResponse(
@@ -1311,7 +1269,7 @@ fun generateHttpResponseFrom(
     withoutSpecmaticTypeHeader: Boolean = false
 ): HttpResponse {
     return fakeResponse.successResponse?.build(RequestContext(httpRequest))?.withRandomResultHeader()!!.let {
-        if(withoutSpecmaticTypeHeader) it.withoutSpecmaticTypeHeader()
+        if (withoutSpecmaticTypeHeader) it.withoutSpecmaticTypeHeader()
         else it
     }.adjustPayloadForContentType(httpRequest.headers)
 }
@@ -1319,7 +1277,7 @@ fun generateHttpResponseFrom(
 fun dumpIntoFirstAvailableStringField(httpResponse: HttpResponse, stringValue: String): HttpResponse {
     val responseBody = httpResponse.body
 
-    if(responseBody !is JSONObjectValue)
+    if (responseBody !is JSONObjectValue)
         return httpResponse
 
     val newBody = dumpIntoFirstAvailableStringField(responseBody, stringValue)
@@ -1334,7 +1292,7 @@ fun dumpIntoFirstAvailableStringField(jsonObjectValue: JSONObjectValue, stringVa
         jsonObjectValue.jsonObject[key] is StringValue
     }
 
-    if(key != null)
+    if (key != null)
         return jsonObjectValue.copy(
             jsonObject = jsonObjectValue.jsonObject.plus(
                 key to StringValue(stringValue)
@@ -1363,7 +1321,7 @@ fun dumpIntoFirstAvailableStringField(jsonObjectValue: JSONObjectValue, stringVa
 fun dumpIntoFirstAvailableStringField(jsonArrayValue: JSONArrayValue, stringValue: String): JSONArrayValue {
     val indexOfFirstStringValue = jsonArrayValue.list.indexOfFirst { it is StringValue }
 
-    if(indexOfFirstStringValue >= 0) {
+    if (indexOfFirstStringValue >= 0) {
         val mutableList = jsonArrayValue.list.toMutableList()
         mutableList.add(indexOfFirstStringValue, StringValue(stringValue))
 
@@ -1401,7 +1359,13 @@ private fun strictModeHttp400Response(
     return HttpResponse(
         400,
         headers = mapOf(SPECMATIC_RESULT_HEADER to "failure"),
-        body = StringValue("STRICT MODE ON${System.lineSeparator()}${System.lineSeparator()}${results.strictModeReport(httpRequest)}")
+        body = StringValue(
+            "STRICT MODE ON${System.lineSeparator()}${System.lineSeparator()}${
+                results.strictModeReport(
+                    httpRequest
+                )
+            }"
+        )
     )
 }
 
@@ -1442,7 +1406,7 @@ fun contractInfoToHttpExpectations(contractInfo: List<Pair<Feature, List<Scenari
         }.flatMap { (stubData, example) ->
             val examplesWithDataSubstitutionsResolved = try {
                 example.resolveDataSubstitutions()
-            } catch(e: Throwable) {
+            } catch (e: Throwable) {
                 println()
                 logger.log("    Error resolving template data for example ${example.filePath}")
                 logger.log("    " + exceptionCauseMessage(e))

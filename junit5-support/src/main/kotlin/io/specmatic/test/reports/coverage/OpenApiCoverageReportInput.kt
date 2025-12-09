@@ -4,9 +4,7 @@ import io.specmatic.conversions.SERVICE_TYPE_HTTP
 import io.specmatic.core.filters.ExpressionStandardizer
 import io.specmatic.core.filters.TestRecordFilter
 import io.specmatic.core.log.HttpLogMessage
-import io.specmatic.core.pattern.ContractException
 import io.specmatic.reporter.generated.dto.coverage.CoverageEntry
-import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.generated.dto.coverage.OpenAPICoverageOperation
 import io.specmatic.reporter.generated.dto.coverage.SpecmaticCoverageReport
 import io.specmatic.reporter.model.TestResult

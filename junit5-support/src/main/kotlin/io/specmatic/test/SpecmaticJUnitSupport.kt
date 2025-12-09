@@ -5,7 +5,6 @@ import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.*
 import io.specmatic.core.Constants.Companion.ARTIFACTS_PATH
 import io.specmatic.core.SpecmaticConfig.Companion.getSecurityConfiguration
-import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.filters.ScenarioMetadataFilter.Companion.filterUsing
 import io.specmatic.core.log.LogMessage
@@ -15,9 +14,8 @@ import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Examples
 import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.parsedValue
-import io.specmatic.core.report.SpecmaticAfterAllHook
+import io.specmatic.core.report.ReportGenerator
 import io.specmatic.core.utilities.*
-import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_TIMEOUT
 import io.specmatic.core.utilities.Flags.Companion.getLongValue
 import io.specmatic.core.value.JSONArrayValue
@@ -162,7 +160,7 @@ open class SpecmaticJUnitSupport {
                 val paths: JSONArrayValue? =
                     it.findFirstChildByPath("details.requestMappingConditions.patterns") as JSONArrayValue?
 
-                if(methods != null && paths != null) {
+                if (methods != null && paths != null) {
                     methods.list.flatMap { method ->
                         paths.list.map { path ->
                             API(method.toStringLiteral(), path.toStringLiteral())
@@ -183,46 +181,46 @@ open class SpecmaticJUnitSupport {
     @AfterAll
     fun report() {
         settings.coverageHooks.forEach { it.onTestsComplete() }
-        val reportProcessors = listOf(OpenApiCoverageReportProcessor(openApiCoverageReportInput, settings.reportBaseDirectory ?: "."))
+        val reportProcessors =
+            listOf(OpenApiCoverageReportProcessor(openApiCoverageReportInput, settings.reportBaseDirectory ?: "."))
         val reportConfiguration = getReportConfiguration()
-        val config = specmaticConfig?.updateReportConfiguration(reportConfiguration) ?: SpecmaticConfig().updateReportConfiguration(reportConfiguration)
+        val config = specmaticConfig?.updateReportConfiguration(reportConfiguration)
+            ?: SpecmaticConfig().updateReportConfiguration(reportConfiguration)
 
         reportProcessors.forEach { it.process(config) }
 
-        ServiceLoader.load(SpecmaticAfterAllHook::class.java).takeIf(ServiceLoader<SpecmaticAfterAllHook>::any)?.let { hooks ->
-            val report = openApiCoverageReportInput.generateCoverageReport(emptyList())
-            val start = startTime?.toEpochMilli() ?: 0L
-            val end = startTime?.let { Instant.now().toEpochMilli() } ?: 0L
+        val report = openApiCoverageReportInput.generateCoverageReport(emptyList())
+        val start = startTime?.toEpochMilli() ?: 0L
+        val end = startTime?.let { Instant.now().toEpochMilli() } ?: 0L
 
-            val specConfigs = openApiCoverageReportInput.endpoints()
-                .groupBy {
-                    it.specification.orEmpty()
-                }.flatMap { (_, groupedEndpoints) ->
-                    groupedEndpoints.map {
-                        CtrfSpecConfig(
-                            serviceType = it.serviceType.orEmpty(),
-                            specType = "OPENAPI",
-                            specification = it.specification.orEmpty(),
-                            sourceProvider = it.sourceProvider,
-                            repository = it.sourceRepository,
-                            branch = it.sourceRepositoryBranch ?: "main"
-                        )
-                    }
+        val specConfigs = openApiCoverageReportInput.endpoints()
+            .groupBy {
+                it.specification.orEmpty()
+            }.flatMap { (_, groupedEndpoints) ->
+                groupedEndpoints.map {
+                    CtrfSpecConfig(
+                        serviceType = it.serviceType.orEmpty(),
+                        specType = "OPENAPI",
+                        specification = it.specification.orEmpty(),
+                        sourceProvider = it.sourceProvider,
+                        repository = it.sourceRepository,
+                        branch = it.sourceRepositoryBranch ?: "main"
+                    )
                 }
-            hooks.forEach {
-                it.generateReport(
-                    testResultRecords = report.testResultRecords,
-                    coverage = report.totalCoveragePercentage,
-                    startTime = start,
-                    endTime = end,
-                    specConfigs = specConfigs,
-                    reportFilePath = "$ARTIFACTS_PATH/test/ctrf/ctrf-report.json"
-                )
             }
-        }
+
+        ReportGenerator.generateReport(
+            testResultRecords = report.testResultRecords,
+            startTime = start,
+            endTime = end,
+            specConfigs = specConfigs,
+            coverage = report.totalCoveragePercentage,
+            reportDir = File("$ARTIFACTS_PATH/test/ctrf")
+        )
+
 
         threads.distinct().let {
-            if(it.size > 1) {
+            if (it.size > 1) {
                 logger.newLine()
                 logger.log("Executed tests in ${it.size} threads")
             }
@@ -230,11 +228,11 @@ open class SpecmaticJUnitSupport {
     }
 
     private fun getEnvConfig(envName: String?): JSONObjectValue {
-        if(envName.isNullOrBlank())
+        if (envName.isNullOrBlank())
             return JSONObjectValue()
 
         val configFileName = getConfigFilePath()
-        if(!File(configFileName).exists())
+        if (!File(configFileName).exists())
             throw ContractException("Environment name $envName was specified but config file does not exist in the project root. Either avoid setting envName, or provide the configuration file with the environment settings.")
 
         val config = loadSpecmaticConfig(configFileName)
@@ -259,11 +257,14 @@ open class SpecmaticJUnitSupport {
         partialSuccesses.clear()
 
         val givenWorkingDirectory = System.getProperty(WORKING_DIRECTORY)
-        val filterName: String? = System.getProperty(FILTER_NAME_PROPERTY) ?: System.getenv(FILTER_NAME_ENVIRONMENT_VARIABLE)
-        val filterNotName: String? = System.getProperty(FILTER_NOT_NAME_PROPERTY) ?: System.getenv(FILTER_NOT_NAME_ENVIRONMENT_VARIABLE)
+        val filterName: String? =
+            System.getProperty(FILTER_NAME_PROPERTY) ?: System.getenv(FILTER_NAME_ENVIRONMENT_VARIABLE)
+        val filterNotName: String? =
+            System.getProperty(FILTER_NOT_NAME_PROPERTY) ?: System.getenv(FILTER_NOT_NAME_ENVIRONMENT_VARIABLE)
         val overlayFilePath: String? = System.getProperty(OVERLAY_FILE_PATH) ?: System.getenv(OVERLAY_FILE_PATH)
-        val overlayContent = if(overlayFilePath.isNullOrBlank()) "" else readFrom(overlayFilePath, "overlay")
-        val useCurrentBranchForCentralRepo = specmaticConfig?.getMatchBranch() ?: Flags.getBooleanValue(Flags.MATCH_BRANCH) ?: false
+        val overlayContent = if (overlayFilePath.isNullOrBlank()) "" else readFrom(overlayFilePath, "overlay")
+        val useCurrentBranchForCentralRepo =
+            specmaticConfig?.getMatchBranch() ?: Flags.getBooleanValue(Flags.MATCH_BRANCH) ?: false
         val timeoutInMilliseconds = specmaticConfig?.getTestTimeoutInMilliseconds() ?: try {
             getLongValue(SPECMATIC_TEST_TIMEOUT)
         } catch (e: NumberFormatException) {
@@ -306,18 +307,24 @@ open class SpecmaticJUnitSupport {
                         Triple(tests.map { test -> Pair(test, defaultBaseURL) }, endpoints, filteredEndpoints)
                     }
 
-                    val testsWithUrls: Sequence<Pair<ContractTest, String>> = testScenariosAndEndpointsPairList.asSequence().flatMap { it.first }
+                    val testsWithUrls: Sequence<Pair<ContractTest, String>> =
+                        testScenariosAndEndpointsPairList.asSequence().flatMap { it.first }
                     val endpoints: List<Endpoint> = testScenariosAndEndpointsPairList.flatMap { it.second }
                     val filteredEndpoints: List<Endpoint> = testScenariosAndEndpointsPairList.flatMap { it.third }
 
                     TestData(testsWithUrls, endpoints, filteredEndpoints, defaultBaseURL)
                 }
+
                 else -> {
                     if (File(settings.configFile).exists().not()) exitWithMessage(MISSING_CONFIG_FILE_MESSAGE)
 
                     createIfDoesNotExist(workingDirectory.path)
 
-                    val contractFilePaths = contractTestPathsFrom(settings.configFile, workingDirectory.path, useCurrentBranchForCentralRepo)
+                    val contractFilePaths = contractTestPathsFrom(
+                        settings.configFile,
+                        workingDirectory.path,
+                        useCurrentBranchForCentralRepo
+                    )
 
                     exitIfAnyDoNotExist("The following specifications do not exist", contractFilePaths.map { it.path })
 
@@ -350,7 +357,8 @@ open class SpecmaticJUnitSupport {
                         Triple(tests.map { test -> Pair(test, resolvedBaseURL) }, endpoints, filteredEndpoints)
                     }
 
-                    val testsWithUrls: Sequence<Pair<ContractTest, String>> = testScenariosAndEndpointsPairList.asSequence().flatMap { it.first }
+                    val testsWithUrls: Sequence<Pair<ContractTest, String>> =
+                        testScenariosAndEndpointsPairList.asSequence().flatMap { it.first }
                     val endpoints: List<Endpoint> = testScenariosAndEndpointsPairList.flatMap { it.second }
                     val filteredEndpoints: List<Endpoint> = testScenariosAndEndpointsPairList.flatMap { it.third }
 
@@ -407,8 +415,12 @@ open class SpecmaticJUnitSupport {
         }
 
         return try {
-            dynamicTestStream(firstNScenarios(testScenariosWithUrls), testBuildResult.testBaseURL, timeoutInMilliseconds)
-        } catch(e: Throwable) {
+            dynamicTestStream(
+                firstNScenarios(testScenariosWithUrls),
+                testBuildResult.testBaseURL,
+                timeoutInMilliseconds
+            )
+        } catch (e: Throwable) {
             logger.logError(e)
             loadExceptionAsTestError(e)
         }
@@ -546,7 +558,7 @@ open class SpecmaticJUnitSupport {
         overlayContent: String = "",
         filter: ScenarioMetadataFilter,
     ): LoadedTestScenarios {
-        if(hasOpenApiFileExtension(path) && !isOpenAPI(path)) {
+        if (hasOpenApiFileExtension(path) && !isOpenAPI(path)) {
             return LoadedTestScenarios(emptySequence(), emptyList(), emptyList())
         }
 
@@ -681,17 +693,22 @@ open class SpecmaticJUnitSupport {
     }
 
     private fun readFrom(path: String, fileTag: String = ""): String {
-        if(File(path).exists().not()) {
+        if (File(path).exists().not()) {
             throw ContractException("The $fileTag file $path does not exist. Please provide a valid $fileTag file")
         }
-        if(File(path).extension != YAML && File(path).extension != JSON && File(path).extension != YML) {
+        if (File(path).extension != YAML && File(path).extension != JSON && File(path).extension != YML) {
             throw ContractException("The $fileTag file does not have a valid extension.")
         }
         return File(path).readText()
     }
 }
 
-data class LoadedTestScenarios(val scenarios: Sequence<ContractTest>, val allEndpoints: List<Endpoint>, val filteredEndpoints: List<Endpoint>)
+data class LoadedTestScenarios(
+    val scenarios: Sequence<ContractTest>,
+    val allEndpoints: List<Endpoint>,
+    val filteredEndpoints: List<Endpoint>
+)
+
 private data class TestData(
     val scenarios: Sequence<Pair<ContractTest, String>>,
     val allEndpoints: List<Endpoint>,
@@ -708,8 +725,9 @@ private fun columnsFromExamples(exampleData: JSONArrayValue): List<String> {
 }
 
 private fun asJSONObjectValue(value: Value): Map<String, Value> {
-    val errorMessage = "Each value in the list of suggestions must be a json object containing column name as key and sample value as the value"
-    if(value !is JSONObjectValue)
+    val errorMessage =
+        "Each value in the list of suggestions must be a json object containing column name as key and sample value as the value"
+    if (value !is JSONObjectValue)
         throw ContractException(errorMessage)
 
     return value.jsonObject
@@ -730,7 +748,7 @@ fun <T> selectTestsToRun(
     } else
         testScenarios
 
-    val filteredByNotName: Sequence<T> = if(!filterNotName.isNullOrBlank()) {
+    val filteredByNotName: Sequence<T> = if (!filterNotName.isNullOrBlank()) {
         val filterNotNames = filterNotName.split(",").map { it.trim() }
 
         filteredByName.filterNot { test ->
