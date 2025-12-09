@@ -131,6 +131,22 @@ class YamlToPatternTests {
     @MethodSource("nullableScenarios")
     fun nullable_schema_tests(openApiVersion: OpenApiVersion, case: PatternTestCase, info: TestInfo) = runCase(openApiVersion, case, info)
 
+    @ParameterizedTest(name = "{index}: [{0}] {1}")
+    @MethodSource("enumScenarios")
+    fun enum_schema_tests(openApiVersion: OpenApiVersion, case: PatternTestCase, info: TestInfo) = runCase(openApiVersion, case, info)
+
+    @ParameterizedTest(name = "{index}: [{0}] {1}")
+    @MethodSource("oneOfScenarios")
+    fun one_of_schema_tests(openApiVersion: OpenApiVersion, case: PatternTestCase, info: TestInfo) = runCase(openApiVersion, case, info)
+
+    @ParameterizedTest(name = "{index}: [{0}] {1}")
+    @MethodSource("allOfScenarios")
+    fun all_of_schema_tests(openApiVersion: OpenApiVersion, case: PatternTestCase, info: TestInfo) = runCase(openApiVersion, case, info)
+
+    @ParameterizedTest(name = "{index}: [{0}] {1}")
+    @MethodSource("anyOfScenarios")
+    fun any_of_schema_tests(openApiVersion: OpenApiVersion, case: PatternTestCase, info: TestInfo) = runCase(openApiVersion, case, info)
+
     companion object {
         @JvmStatic
         fun stringScenarios(): Stream<Arguments> {
@@ -665,6 +681,163 @@ class YamlToPatternTests {
                         assertSuccess(pattern.match(10))
                         assertFailure(pattern.match(true))
                         assertFailure(pattern.match(mapOf("value" to "x")))
+                    }
+                }
+            ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun enumScenarios(): Stream<Arguments> {
+            return listOf(
+                multiVersionCase("string enum", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", "string")
+                        put("enum", listOf("RED", "GREEN", "BLUE"))
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.EnumPattern::class.java)
+                        assertSuccess(pattern.match("RED"))
+                        assertSuccess(pattern.match("BLUE"))
+                        assertFailure(pattern.match("YELLOW"))
+                    }
+                },
+                multiVersionCase("number enum", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", "number")
+                        put("enum", listOf(1, 2, 3))
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.EnumPattern::class.java)
+                        assertSuccess(pattern.match(1))
+                        assertSuccess(pattern.match(3))
+                        assertFailure(pattern.match(4))
+                        assertFailure(pattern.match("1"))
+                    }
+                },
+                singleVersionCase("mixed enum with multi-type (3.1)", OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", listOf("string", "number"))
+                        put("enum", listOf("ONE", 2, 3))
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.EnumPattern::class.java)
+                        assertSuccess(pattern.match("ONE"))
+                        assertSuccess(pattern.match(2))
+                        assertSuccess(pattern.match(3))
+                        assertFailure(pattern.match("TWO"))
+                        assertFailure(pattern.match(4))
+                        assertFailure(pattern.match(true))
+                    }
+                }
+            ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun oneOfScenarios(): Stream<Arguments> {
+            return listOf(
+                multiVersionCase("oneOf simple types", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema {
+                        put("oneOf", listOf(
+                            mapOf("type" to "string"),
+                            mapOf("type" to "number")
+                        ))
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.AnyPattern::class.java)
+                        assertSuccess(pattern.match("hello"))
+                        assertSuccess(pattern.match(10))
+                        assertFailure(pattern.match(true))
+                    }
+                },
+                multiVersionCase("oneOf objects", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema {
+                        put("oneOf", listOf(
+                            mapOf(
+                                "type" to "object",
+                                "properties" to mapOf("type" to mapOf("type" to "string")),
+                                "required" to listOf("type")
+                            ),
+                            mapOf(
+                                "type" to "object",
+                                "properties" to mapOf("count" to mapOf("type" to "integer")),
+                                "required" to listOf("count")
+                            )
+                        ))
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.AnyPattern::class.java)
+                        assertSuccess(pattern.match(mapOf("type" to "A")))
+                        assertSuccess(pattern.match(mapOf("count" to 1)))
+                        assertFailure(pattern.match(mapOf("type" to "A", "count" to 1)))
+                    }
+                }
+            ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun allOfScenarios(): Stream<Arguments> {
+            return listOf(
+                multiVersionCase("allOf merge properties", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema {
+                        put("allOf", listOf(
+                            mapOf(
+                                "type" to "object",
+                                "properties" to mapOf("id" to mapOf("type" to "integer")),
+                                "required" to listOf("id")
+                            ),
+                            mapOf(
+                                "type" to "object",
+                                "properties" to mapOf("name" to mapOf("type" to "string")),
+                                "required" to listOf("name")
+                            )
+                        ))
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(JSONObjectPattern::class.java)
+                        assertSuccess(pattern.match(mapOf("id" to 1, "name" to "Alice")))
+                        assertFailure(pattern.match(mapOf("id" to 1)))
+                        assertFailure(pattern.match(mapOf("name" to "Alice")))
+                    }
+                }
+            ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun anyOfScenarios(): Stream<Arguments> {
+            return listOf(
+                multiVersionCase("anyOf simple types", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema {
+                        put("anyOf", listOf(
+                            mapOf("type" to "string"),
+                            mapOf("type" to "number")
+                        ))
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.AnyOfPattern::class.java)
+                        assertSuccess(pattern.match("hello"))
+                        assertSuccess(pattern.match(10))
+                        assertFailure(pattern.match(true))
+                    }
+                },
+                multiVersionCase("anyOf objects", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema {
+                        put("anyOf", listOf(
+                            mapOf(
+                                "type" to "object",
+                                "properties" to mapOf("name" to mapOf("type" to "string"))
+                            ),
+                            mapOf(
+                                "type" to "object",
+                                "properties" to mapOf("age" to mapOf("type" to "integer"))
+                            )
+                        ))
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.AnyOfPattern::class.java)
+                        assertSuccess(pattern.match(mapOf("name" to "Alice")))
+                        assertSuccess(pattern.match(mapOf("age" to 30)))
+                        assertSuccess(pattern.match(mapOf("name" to "Alice", "age" to 30)))
+                        assertFailure(pattern.match(mapOf("active" to true)))
                     }
                 }
             ).flatten().stream()
