@@ -71,9 +71,9 @@ class OpenApi31Test {
         assertThat(multiTypeEnumKeySchema.multiType).isTrue
         assertThat(multiTypeEnumKeySchema.nullable).isTrue
         assertThat(multiTypeEnumKeySchema.pattern.pattern).containsExactlyInAnyOrder(
-            ExactValuePattern(StringValue("ABCD"), isConst = true),
-            ExactValuePattern(NumberValue(1234), isConst = true),
-            ExactValuePattern(NullValue, isConst = true)
+            ExactValuePattern(StringValue("ABCD")),
+            ExactValuePattern(NumberValue(1234)),
+            ExactValuePattern(NullValue)
         )
 
         // Ref merged schema overrides format[email] and example
@@ -108,7 +108,6 @@ class OpenApi31Test {
         assertThat(constRequestBody).isEqualTo(constResponseBody)
         assertThat(constKeySchema).isInstanceOf(ExactValuePattern::class.java); constKeySchema as ExactValuePattern
         assertThat(constKeySchema.pattern).isEqualTo(NumberValue(100))
-        assertThat(constKeySchema.isConst).isTrue
 
         // Const value set to null
         val nullConstScenario = feature.scenarios.elementAt(10)
@@ -119,7 +118,6 @@ class OpenApi31Test {
         assertThat(nullConstRequestBody).isEqualTo(nullConstResponseBody)
         assertThat(nullConstKeySchema).isInstanceOf(ExactValuePattern::class.java); nullConstKeySchema as ExactValuePattern
         assertThat(nullConstKeySchema.pattern).isEqualTo(NullValue)
-        assertThat(nullConstKeySchema.isConst).isTrue
 
         // Nullable Object Schema [object null]
         val nullableObjectScenario = feature.scenarios.elementAt(12)
