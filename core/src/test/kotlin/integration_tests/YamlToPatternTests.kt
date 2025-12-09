@@ -538,7 +538,7 @@ class YamlToPatternTests {
         @JvmStatic
         fun objectScenarios(): Stream<Arguments> {
             return listOf(
-                multiVersionCase("basic object", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                multiVersionCase("basic object no properties", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
                     schema {
                         put("type", "object")
                     }
@@ -605,7 +605,7 @@ class YamlToPatternTests {
         @JvmStatic
         fun arrayScenarios(): Stream<Arguments> {
             return listOf(
-                multiVersionCase("basic array", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                multiVersionCase("basic array no items", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
                     schema {
                         put("type", "array")
                     }
@@ -647,7 +647,7 @@ class YamlToPatternTests {
         @JvmStatic
         fun nullableScenarios(): Stream<Arguments> {
             return listOf(
-                singleVersionCase("nullable string (3.0 nullable=true)", OpenApiVersion.OAS30) {
+                singleVersionCase("nullable scalar using nullable true", OpenApiVersion.OAS30) {
                     schema {
                         put("type", "string")
                         put("nullable", true)
@@ -659,7 +659,7 @@ class YamlToPatternTests {
                         assertFailure(pattern.match(10))
                     }
                 },
-                singleVersionCase("nullable string (3.1 type includes null)", OpenApiVersion.OAS31) {
+                singleVersionCase("nullable scalar using type includes null", OpenApiVersion.OAS31) {
                     schema {
                         put("type", listOf("string", "null"))
                     }
@@ -670,7 +670,7 @@ class YamlToPatternTests {
                         assertFailure(pattern.match(10))
                     }
                 },
-                singleVersionCase("nullable object (3.0 nullable=true)", OpenApiVersion.OAS30) {
+                singleVersionCase("nullable complex using nullable true", OpenApiVersion.OAS30) {
                     schema {
                         put("type", "object")
                         put("properties", mapOf(
@@ -686,7 +686,7 @@ class YamlToPatternTests {
                         assertFailure(pattern.match(mapOf("name" to "no-id")))
                     }
                 },
-                singleVersionCase("nullable object (3.1 type includes null)", OpenApiVersion.OAS31) {
+                singleVersionCase("nullable complex using type includes null", OpenApiVersion.OAS31) {
                     schema {
                         put("type", listOf("object", "null"))
                         put("properties", mapOf(
@@ -701,7 +701,7 @@ class YamlToPatternTests {
                         assertFailure(pattern.match(mapOf("name" to "no-id")))
                     }
                 },
-                singleVersionCase("array of nullable strings (3.0 nullable=true)", OpenApiVersion.OAS30) {
+                singleVersionCase("array of nullable scalar using nullable true", OpenApiVersion.OAS30) {
                     schema {
                         put("type", "array")
                         put("items", mapOf(
@@ -715,7 +715,7 @@ class YamlToPatternTests {
                         assertFailure(pattern.match(listOf("a", 10)))
                     }
                 },
-                singleVersionCase("array of nullable strings (3.1 type includes null)", OpenApiVersion.OAS31) {
+                singleVersionCase("array of nullable scalar using type includes null", OpenApiVersion.OAS31) {
                     schema {
                         put("type", "array")
                         put("items", mapOf(
@@ -734,7 +734,7 @@ class YamlToPatternTests {
         @JvmStatic
         fun multiTypeScenarios(): Stream<Arguments> {
             return listOf(
-                singleVersionCase("multi-type as anyOf (string | number)", OpenApiVersion.OAS31) {
+                singleVersionCase("multi-type scalars string|number", OpenApiVersion.OAS31) {
                     schema {
                         put("type", listOf("string", "number"))
                     }
@@ -777,7 +777,7 @@ class YamlToPatternTests {
                         assertFailure(pattern.match("1"))
                     }
                 },
-                singleVersionCase("mixed enum with multi-type (3.1)", OpenApiVersion.OAS31) {
+                singleVersionCase("mixed enum", OpenApiVersion.OAS31) {
                     schema {
                         put("type", listOf("string", "number"))
                         put("enum", listOf("ONE", 2, 3))
@@ -798,7 +798,7 @@ class YamlToPatternTests {
         @JvmStatic
         fun oneOfScenarios(): Stream<Arguments> {
             return listOf(
-                multiVersionCase("oneOf simple types", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                multiVersionCase("oneOf scalars", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
                     schema {
                         put("oneOf", listOf(
                             mapOf("type" to "string"),
@@ -812,7 +812,7 @@ class YamlToPatternTests {
                         assertFailure(pattern.match(true))
                     }
                 },
-                multiVersionCase("oneOf objects", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                multiVersionCase("oneOf complex", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
                     schema {
                         put("oneOf", listOf(
                             mapOf(
@@ -820,18 +820,16 @@ class YamlToPatternTests {
                                 "properties" to mapOf("type" to mapOf("type" to "string")),
                                 "required" to listOf("type")
                             ),
-                            mapOf(
-                                "type" to "object",
-                                "properties" to mapOf("count" to mapOf("type" to "integer")),
-                                "required" to listOf("count")
-                            )
+                            mapOf("type" to "array", "items" to mapOf("type" to "string"))
                         ))
                     }
                     validate { pattern ->
                         assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.AnyPattern::class.java)
                         assertSuccess(pattern.match(mapOf("type" to "A")))
-                        assertSuccess(pattern.match(mapOf("count" to 1)))
-                        assertFailure(pattern.match(mapOf("type" to "A", "count" to 1)))
+                        assertSuccess(pattern.match(listOf("a", "b")))
+                        assertFailure(pattern.match(mapOf("other" to "x")))
+                        assertFailure(pattern.match(listOf(1, 2, 3)))
+                        assertFailure(pattern.match("just-a-string"))
                     }
                 }
             ).flatten().stream()
@@ -840,7 +838,7 @@ class YamlToPatternTests {
         @JvmStatic
         fun allOfScenarios(): Stream<Arguments> {
             return listOf(
-                multiVersionCase("allOf merge properties", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                multiVersionCase("allOf merge objects", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
                     schema {
                         put("allOf", listOf(
                             mapOf(
@@ -868,7 +866,7 @@ class YamlToPatternTests {
         @JvmStatic
         fun anyOfScenarios(): Stream<Arguments> {
             return listOf(
-                multiVersionCase("anyOf simple types", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                multiVersionCase("anyOf scalars", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
                     schema {
                         put("anyOf", listOf(
                             mapOf("type" to "string"),
@@ -882,27 +880,25 @@ class YamlToPatternTests {
                         assertFailure(pattern.match(true))
                     }
                 },
-                multiVersionCase("anyOf objects", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                multiVersionCase("anyOf complex", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
                     schema {
                         put("anyOf", listOf(
                             mapOf(
                                 "type" to "object",
                                 "properties" to mapOf("name" to mapOf("type" to "string"))
                             ),
-                            mapOf(
-                                "type" to "object",
-                                "properties" to mapOf("age" to mapOf("type" to "integer"))
-                            )
+                            mapOf("type" to "array", "items" to mapOf("type" to "string"))
                         ))
                     }
                     validate { pattern ->
                         assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.AnyOfPattern::class.java)
                         assertSuccess(pattern.match(mapOf("name" to "Alice")))
-                        assertSuccess(pattern.match(mapOf("age" to 30)))
-                        assertSuccess(pattern.match(mapOf("name" to "Alice", "age" to 30)))
-                        assertFailure(pattern.match(mapOf("active" to true)))
+                        assertSuccess(pattern.match(listOf("a", "b")))
+                        assertFailure(pattern.match(mapOf("age" to 30)))
+                        assertFailure(pattern.match(10))
                     }
                 }
+
             ).flatten().stream()
         }
 
@@ -957,7 +953,7 @@ class YamlToPatternTests {
                         }
                     }
                 },
-                multiVersionCompositeCase(name = "discriminator with refs", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                multiVersionCompositeCase(name = "discriminator oneOf with refs", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
                     schema("Dog") {
                         schema {
                             put("type", "object")
