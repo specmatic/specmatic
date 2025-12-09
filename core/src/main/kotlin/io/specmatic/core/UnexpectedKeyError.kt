@@ -18,7 +18,7 @@ data class FuzzyKeyError(override val name: String, val candidate: String, val i
     }
 
     override fun missingOptionalKeyToResult(keyLabel: String, mismatchMessages: MismatchMessages): Failure {
-        val msg = mismatchMessages.unexpectedKey(keyLabel, name) + ". Did you mean \"$candidate\" ?"
+        val msg = mismatchMessages.unexpectedKey(keyLabel, name) + ". Did you mean \"$candidate\"?"
         return Failure(msg, isPartial = isWarning)
     }
 }

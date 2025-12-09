@@ -1042,8 +1042,8 @@ paths:
                     "http-response": { "status": 200 }
                     }""".trimIndent(),
                     """
-                    >> http-request Expected Key named "http-request" to be present
-                    >> supposed-to-be-http-request Key named "supposed-to-be-http-request" is invalid. Did you mean "http-request" ?
+                    >> http-request Key named "http-request" is mandatory as per example format, but was missing in the actual example
+                    >> supposed-to-be-http-request Key named "supposed-to-be-http-request" is invalid as per example format. Did you mean "http-request"?
                     """.trimIndent()
                 ),
                 Arguments.of("""{
@@ -1051,8 +1051,8 @@ paths:
                     "supposed-to-be-http-response": { "status": 200 }
                     }""".trimIndent(),
                     """
-                    >> http-response Expected Key named "http-response" to be present
-                    >> supposed-to-be-http-response Key named "supposed-to-be-http-response" is invalid. Did you mean "http-response" ?
+                    >> http-response Key named "http-response" is mandatory as per example format, but was missing in the actual example
+                    >> supposed-to-be-http-response Key named "supposed-to-be-http-response" is invalid as per example format. Did you mean "http-response"?
                     """.trimIndent()
                 ),
                 Arguments.of("""{
@@ -1060,8 +1060,8 @@ paths:
                     "http-response": { "status": 200 }
                     }""".trimIndent(),
                     """
-                    >> http-request.method Expected Key named "method" to be present
-                    >> http-request.supposed-to-be-method Key named "supposed-to-be-method" is invalid. Did you mean "method" ?
+                    >> http-request.method Key named "method" is mandatory as per example format, but was missing in the actual example
+                    >> http-request.supposed-to-be-method Key named "supposed-to-be-method" is invalid as per example format. Did you mean "method"?
                     """.trimIndent()
                 ),
                 Arguments.of("""{
@@ -1069,7 +1069,7 @@ paths:
                     "http-response": { "status": 200 }
                     }""".trimIndent(),
                     """
-                    >> http-request.body Expected non-null value, actual was null
+                    >> http-request.body Should be non-null value as per example format, but got null in the actual example
                     """.trimIndent()
                 ),
                 Arguments.of("""{
@@ -1077,8 +1077,8 @@ paths:
                     "http-response": { "supposed-to-be-status": 200 }
                     }""".trimIndent(),
                     """
-                    >> http-response.status Expected Key named "status" to be present
-                    >> http-response.supposed-to-be-status Key named "supposed-to-be-status" is invalid. Did you mean "status" ?
+                    >> http-response.status Key named "status" is mandatory as per example format, but was missing in the actual example
+                    >> http-response.supposed-to-be-status Key named "supposed-to-be-status" is invalid as per example format. Did you mean "status"?
                     """.trimIndent()
                 ),
                 Arguments.of("""{
@@ -1086,7 +1086,7 @@ paths:
                     "http-response": { "status": 200,  body: null }
                     }""".trimIndent(),
                     """
-                    >> http-response.body Expected non-null value, actual was null
+                    >> http-response.body Should be non-null value as per example format, but got null in the actual example
                     """.trimIndent()
                 )
             )

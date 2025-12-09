@@ -25,15 +25,15 @@ private class NoLogPrinter: CompositePrinter() {
 
 object FuzzyExampleMisMatchMessages : MismatchMessages {
     override fun mismatchMessage(expected: String, actual: String): String {
-        return "Expected $expected, but got $actual"
+        return "Should be $expected as per example format, but got $actual in the actual example"
     }
 
     override fun unexpectedKey(keyLabel: String, keyName: String): String {
-        return "${keyLabel.lowercase().capitalizeFirstChar()} named \"$keyName\" is invalid"
+        return "${keyLabel.lowercase().capitalizeFirstChar()} named \"$keyName\" is invalid as per example format"
     }
 
     override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
-        return "Expected ${keyLabel.lowercase().capitalizeFirstChar()} named \"$keyName\" to be present"
+        return "${keyLabel.lowercase().capitalizeFirstChar()} named \"$keyName\" is mandatory as per example format, but was missing in the actual example"
     }
 }
 
