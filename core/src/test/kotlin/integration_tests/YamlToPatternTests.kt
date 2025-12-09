@@ -123,6 +123,14 @@ class YamlToPatternTests {
     @MethodSource("arrayScenarios")
     fun array_schema_tests(openApiVersion: OpenApiVersion, case: PatternTestCase, info: TestInfo) = runCase(openApiVersion, case, info)
 
+    @ParameterizedTest(name = "{index}: [{0}] {1}")
+    @MethodSource("multiTypeScenarios")
+    fun multi_type_schema_tests(openApiVersion: OpenApiVersion, case: PatternTestCase, info: TestInfo) = runCase(openApiVersion, case, info)
+
+    @ParameterizedTest(name = "{index}: [{0}] {1}")
+    @MethodSource("nullableScenarios")
+    fun nullable_schema_tests(openApiVersion: OpenApiVersion, case: PatternTestCase, info: TestInfo) = runCase(openApiVersion, case, info)
+
     companion object {
         @JvmStatic
         fun stringScenarios(): Stream<Arguments> {
@@ -557,7 +565,112 @@ class YamlToPatternTests {
             ).flatten().stream()
         }
 
-        private fun Pattern.match(value: Any, resolver: Resolver = Resolver()): Result {
+        @JvmStatic
+        fun nullableScenarios(): Stream<Arguments> {
+            return listOf(
+                singleVersionCase("nullable string (3.0 nullable=true)", OpenApiVersion.OAS30) {
+                    schema {
+                        put("type", "string")
+                        put("nullable", true)
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.AnyPattern::class.java)
+                        assertSuccess(pattern.match("hello"))
+                        assertSuccess(pattern.match(null))
+                        assertFailure(pattern.match(10))
+                    }
+                },
+                singleVersionCase("nullable string (3.1 type includes null)", OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", listOf("string", "null"))
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.AnyPattern::class.java)
+                        assertSuccess(pattern.match("hello"))
+                        assertSuccess(pattern.match(null))
+                        assertFailure(pattern.match(10))
+                    }
+                },
+                singleVersionCase("nullable object (3.0 nullable=true)", OpenApiVersion.OAS30) {
+                    schema {
+                        put("type", "object")
+                        put("properties", mapOf(
+                            "id" to mapOf("type" to "integer")
+                        ))
+                        put("required", listOf("id"))
+                        put("nullable", true)
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.AnyPattern::class.java)
+                        assertSuccess(pattern.match(mapOf("id" to 1)))
+                        assertSuccess(pattern.match(null))
+                        assertFailure(pattern.match(mapOf("name" to "no-id")))
+                    }
+                },
+                singleVersionCase("nullable object (3.1 type includes null)", OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", listOf("object", "null"))
+                        put("properties", mapOf(
+                            "id" to mapOf("type" to "integer")
+                        ))
+                        put("required", listOf("id"))
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.AnyPattern::class.java)
+                        assertSuccess(pattern.match(mapOf("id" to 1)))
+                        assertSuccess(pattern.match(null))
+                        assertFailure(pattern.match(mapOf("name" to "no-id")))
+                    }
+                },
+                singleVersionCase("array of nullable strings (3.0 nullable=true)", OpenApiVersion.OAS30) {
+                    schema {
+                        put("type", "array")
+                        put("items", mapOf(
+                            "type" to "string",
+                            "nullable" to true
+                        ))
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(ListPattern::class.java)
+                        assertSuccess(pattern.match(listOf("a", null, "b")))
+                        assertFailure(pattern.match(listOf("a", 10)))
+                    }
+                },
+                singleVersionCase("array of nullable strings (3.1 type includes null)", OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", "array")
+                        put("items", mapOf(
+                            "type" to listOf("string", "null")
+                        ))
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(ListPattern::class.java)
+                        assertSuccess(pattern.match(listOf("a", null, "b")))
+                        assertFailure(pattern.match(listOf("a", 10)))
+                    }
+                }
+            ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun multiTypeScenarios(): Stream<Arguments> {
+            return listOf(
+                singleVersionCase("multi-type as anyOf (string | number)", OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", listOf("string", "number"))
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.AnyOfPattern::class.java)
+                        assertSuccess(pattern.match("hello"))
+                        assertSuccess(pattern.match(10))
+                        assertFailure(pattern.match(true))
+                        assertFailure(pattern.match(mapOf("value" to "x")))
+                    }
+                }
+            ).flatten().stream()
+        }
+
+        private fun Pattern.match(value: Any?, resolver: Resolver = Resolver()): Result {
             val parsedValue = toValue(value)
             return this.matches(parsedValue, resolver)
         }
