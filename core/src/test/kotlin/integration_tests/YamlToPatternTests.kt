@@ -13,6 +13,7 @@ import io.specmatic.core.pattern.BooleanPattern
 import io.specmatic.core.pattern.DatePattern
 import io.specmatic.core.pattern.DateTimePattern
 import io.specmatic.core.pattern.EmailPattern
+import io.specmatic.core.pattern.ExactValuePattern
 import io.specmatic.core.pattern.JSONObjectPattern
 import io.specmatic.core.pattern.ListPattern
 import io.specmatic.core.pattern.NumberPattern
@@ -209,6 +210,10 @@ class YamlToPatternTests {
             case.validate(schemaPattern)
         }
     }
+
+    @ParameterizedTest(name = "{index}: [{0}] {1}")
+    @MethodSource("constScenarios")
+    fun const_schema_tests(openApiVersion: OpenApiVersion, case: PatternTestCase, info: TestInfo) = runCase(openApiVersion, case, info)
 
     companion object {
         @JvmStatic
@@ -791,7 +796,50 @@ class YamlToPatternTests {
                         assertFailure(pattern.match(4))
                         assertFailure(pattern.match(true))
                     }
-                }
+                },
+                singleVersionCase("nullable string enum using nullable true", OpenApiVersion.OAS30) {
+                    schema {
+                        put("type", "string")
+                        put("enum", listOf("RED", "GREEN", "BLUE", null))
+                        put("nullable", true)
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.EnumPattern::class.java)
+                        assertSuccess(pattern.match("RED"))
+                        assertSuccess(pattern.match("BLUE"))
+                        assertSuccess(pattern.match(null))
+                        assertFailure(pattern.match("YELLOW"))
+                        assertFailure(pattern.match(1))
+                    }
+                },
+                singleVersionCase("nullable string enum using type includes null", OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", listOf("string", "null"))
+                        put("enum", listOf("RED", "GREEN", "BLUE", null))
+                    }
+                    validate { pattern ->
+                        assertSuccess(pattern.match("RED"))
+                        assertSuccess(pattern.match("GREEN"))
+                        assertSuccess(pattern.match(null))
+                        assertFailure(pattern.match("YELLOW"))
+                        assertFailure(pattern.match(1))
+                    }
+                },
+                singleVersionCase("nullable mixed enum", OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", listOf("string", "number", "null"))
+                        put("enum", listOf("ONE", 2, 3, null))
+                    }
+                    validate { pattern ->
+                        assertSuccess(pattern.match("ONE"))
+                        assertSuccess(pattern.match(2))
+                        assertSuccess(pattern.match(3))
+                        assertSuccess(pattern.match(null))
+                        assertFailure(pattern.match("TWO"))
+                        assertFailure(pattern.match(4))
+                        assertFailure(pattern.match(true))
+                    }
+                },
             ).flatten().stream()
         }
 
@@ -1005,6 +1053,45 @@ class YamlToPatternTests {
                         validate { pattern ->
                             assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.DeferredPattern::class.java)
                         }
+                    }
+                }
+            ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun constScenarios(): Stream<Arguments> {
+            return listOf(
+                singleVersionCase("string const", OpenApiVersion.OAS31) {
+                    schema {
+                        put("const", "FIXED")
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(ExactValuePattern::class.java)
+                        assertSuccess(pattern.match("FIXED"))
+                        assertFailure(pattern.match("OTHER"))
+                        assertFailure(pattern.match(10))
+                    }
+                },
+                singleVersionCase("number const", OpenApiVersion.OAS31) {
+                    schema {
+                        put("const", 42)
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(ExactValuePattern::class.java)
+                        assertSuccess(pattern.match(42))
+                        assertFailure(pattern.match(41))
+                        assertFailure(pattern.match("42"))
+                    }
+                },
+                singleVersionCase("null const", OpenApiVersion.OAS31) {
+                    schema {
+                        put("const", null)
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(ExactValuePattern::class.java)
+                        assertSuccess(pattern.match(null))
+                        assertFailure(pattern.match("anything"))
+                        assertFailure(pattern.match(0))
                     }
                 }
             ).flatten().stream()
