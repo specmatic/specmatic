@@ -3,6 +3,7 @@ package io.specmatic.mock
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.FuzzyUnexpectedKeyCheck
 import io.specmatic.core.KeyCheck
+import io.specmatic.core.MismatchMessages
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.fuzzy.LevenshteinStrategy
@@ -12,12 +13,27 @@ import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.IgnoreUnexpectedKeys
 import io.specmatic.core.pattern.Pattern
+import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 
 private class NoLogPrinter: CompositePrinter() {
     override fun print(msg: LogMessage, indentation: String) {
         return
+    }
+}
+
+object FuzzyExampleMisMatchMessages : MismatchMessages {
+    override fun mismatchMessage(expected: String, actual: String): String {
+        return "Expected $expected, but got $actual"
+    }
+
+    override fun unexpectedKey(keyLabel: String, keyName: String): String {
+        return "${keyLabel.lowercase().capitalizeFirstChar()} named \"$keyName\" is invalid"
+    }
+
+    override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
+        return "Expected ${keyLabel.lowercase().capitalizeFirstChar()} named \"$keyName\" to be present"
     }
 }
 
@@ -34,7 +50,11 @@ object FuzzyExampleJsonValidator {
     }
 
     private val fuzzyUnexpectedKeyCheck = FuzzyUnexpectedKeyCheck(delegate = IgnoreUnexpectedKeys)
-    private val resolver: Resolver = Resolver(findKeyErrorCheck = KeyCheck(unexpectedKeyCheck = fuzzyUnexpectedKeyCheck), newPatterns = patterns)
+    private val resolver: Resolver = Resolver(
+        newPatterns = patterns,
+        mismatchMessages = FuzzyExampleMisMatchMessages,
+        findKeyErrorCheck = KeyCheck(unexpectedKeyCheck = fuzzyUnexpectedKeyCheck),
+    )
 
     fun matches(rawValue: Map<String, Value>): Result {
         return matches(JSONObjectValue(rawValue))

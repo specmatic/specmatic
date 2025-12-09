@@ -1042,8 +1042,8 @@ paths:
                     "http-response": { "status": 200 }
                     }""".trimIndent(),
                     """
-                    >> http-request Expected key named "http-request" was missing
-                    >> supposed-to-be-http-request Key named "supposed-to-be-http-request" was unexpected, Did you mean "http-request" ?
+                    >> http-request Expected Key named "http-request" to be present
+                    >> supposed-to-be-http-request Key named "supposed-to-be-http-request" is invalid. Did you mean "http-request" ?
                     """.trimIndent()
                 ),
                 Arguments.of("""{
@@ -1051,8 +1051,8 @@ paths:
                     "supposed-to-be-http-response": { "status": 200 }
                     }""".trimIndent(),
                     """
-                    >> http-response Expected key named "http-response" was missing
-                    >> supposed-to-be-http-response Key named "supposed-to-be-http-response" was unexpected, Did you mean "http-response" ?
+                    >> http-response Expected Key named "http-response" to be present
+                    >> supposed-to-be-http-response Key named "supposed-to-be-http-response" is invalid. Did you mean "http-response" ?
                     """.trimIndent()
                 ),
                 Arguments.of("""{
@@ -1060,8 +1060,8 @@ paths:
                     "http-response": { "status": 200 }
                     }""".trimIndent(),
                     """
-                    >> http-request.method Expected key named "method" was missing
-                    >> http-request.supposed-to-be-method Key named "supposed-to-be-method" was unexpected, Did you mean "method" ?
+                    >> http-request.method Expected Key named "method" to be present
+                    >> http-request.supposed-to-be-method Key named "supposed-to-be-method" is invalid. Did you mean "method" ?
                     """.trimIndent()
                 ),
                 Arguments.of("""{
@@ -1077,8 +1077,8 @@ paths:
                     "http-response": { "supposed-to-be-status": 200 }
                     }""".trimIndent(),
                     """
-                    >> http-response.status Expected key named "status" was missing
-                    >> http-response.supposed-to-be-status Key named "supposed-to-be-status" was unexpected, Did you mean "status" ?
+                    >> http-response.status Expected Key named "status" to be present
+                    >> http-response.supposed-to-be-status Key named "supposed-to-be-status" is invalid. Did you mean "status" ?
                     """.trimIndent()
                 ),
                 Arguments.of("""{

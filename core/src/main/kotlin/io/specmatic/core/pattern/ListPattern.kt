@@ -17,13 +17,13 @@ data class ListPattern(
 
     override fun fixValue(value: Value, resolver: Resolver): Value {
         if (resolver.matchesPattern(null, this, value).isSuccess()) return value
+        val updatedResolver = resolver.addPatternAsSeen(this).updateLookupPath(this, this.pattern)
         if (value !is JSONArrayValue || (value.list.isEmpty() && resolver.allPatternsAreMandatory && !resolver.hasPartialKeyCheck())) {
             return pattern.listOf(0.until(randomNumber(3)).mapIndexed { index, _ ->
-                attempt(breadCrumb = "[$index (random)]") { pattern.fixValue(NullValue, resolver) }
+                attempt(breadCrumb = "[$index (random)]") { pattern.fixValue(NullValue, updatedResolver) }
             }, resolver)
         }
 
-        val updatedResolver = resolver.addPatternAsSeen(this)
         return JSONArrayValue(value.list.map { pattern.fixValue(it, updatedResolver) })
     }
 

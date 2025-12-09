@@ -383,15 +383,12 @@ const val TRANSIENT_MOCK = "http-stub"
 const val TRANSIENT_MOCK_ID = "$TRANSIENT_MOCK-id"
 const val REQUEST_BODY_REGEX = "bodyRegex"
 const val IS_TRANSIENT_MOCK = "transient"
-
-val MOCK_HTTP_REQUEST_ALL_KEYS = listOf("mock-http-request", MOCK_HTTP_REQUEST)
-val MOCK_HTTP_RESPONSE_ALL_KEYS = listOf("mock-http-response", MOCK_HTTP_RESPONSE)
-
 const val PARTIAL = "partial"
+private val nonMetadataDataKeys = listOf(MOCK_HTTP_REQUEST, MOCK_HTTP_RESPONSE, PARTIAL)
 
 fun mockFromJSON(mockSpec: Map<String, Value>, strictMode: Boolean = true): ScenarioStub {
     val validationResult = FuzzyExampleJsonValidator.matches(mockSpec)
-    val data = mockSpec.filterKeys { it !in (MOCK_HTTP_REQUEST_ALL_KEYS + MOCK_HTTP_RESPONSE_ALL_KEYS).plus(PARTIAL) }
+    val data = mockSpec.filterKeys { it !in nonMetadataDataKeys }
     return if (PARTIAL in mockSpec) {
         parsePartialExample(mockSpec, data, validationResult, strictMode)
     } else {
@@ -412,7 +409,7 @@ private fun parsePartialExample(mockSpec: Map<String, Value>, data: Map<String, 
 
 private fun parseStandardExample(mockSpec: Map<String, Value>, data: Map<String, Value>, validationResult: Result, strictMode: Boolean): ScenarioStub {
     val mockRequest: HttpRequest = try {
-        val reqMap = getJSONObjectValueOrNull(MOCK_HTTP_REQUEST_ALL_KEYS, mockSpec)
+        val reqMap = getJSONObjectValueOrNull(MOCK_HTTP_REQUEST, mockSpec)
         if (reqMap != null) HttpRequest.fromJSONLenient(reqMap) else HttpRequest("", "")
     } catch (e: Exception) {
         logger.debug(e, "Failed to parse $MOCK_HTTP_REQUEST")
@@ -420,7 +417,7 @@ private fun parseStandardExample(mockSpec: Map<String, Value>, data: Map<String,
     }
 
     val mockResponse: HttpResponse = try {
-        val respMap = getJSONObjectValueOrNull(MOCK_HTTP_RESPONSE_ALL_KEYS, mockSpec)
+        val respMap = getJSONObjectValueOrNull(MOCK_HTTP_RESPONSE, mockSpec)
         if (respMap != null) HttpResponse.fromJSONLenient(respMap) else HttpResponse(0, emptyMap())
     } catch (e: Exception) {
         logger.debug(e, "Failed to parse $MOCK_HTTP_RESPONSE")
@@ -451,17 +448,12 @@ private fun parseStandardExample(mockSpec: Map<String, Value>, data: Map<String,
 
 fun getRequestBodyRegexOrNull(mockSpec: Map<String, Value>): String? {
     return try {
-        val requestSpec = getJSONObjectValueOrNull(MOCK_HTTP_REQUEST_ALL_KEYS, mockSpec)
+        val requestSpec = getJSONObjectValueOrNull(MOCK_HTTP_REQUEST, mockSpec)
         requestSpec?.get(REQUEST_BODY_REGEX)?.toStringLiteral()
     } catch (e: Exception) {
         logger.debug(e, "Failed to parse $REQUEST_BODY_REGEX")
         null
     }
-}
-
-fun getJSONObjectValueOrNull(keys: List<String>, mapData: Map<String, Value>): Map<String, Value>? {
-    val key = keys.firstOrNull { mapData.containsKey(it) } ?: return null
-    return getJSONObjectValueOrNull(key, mapData)
 }
 
 fun getJSONObjectValueOrNull(key: String, mapData: Map<String, Value>): Map<String, Value>? {
