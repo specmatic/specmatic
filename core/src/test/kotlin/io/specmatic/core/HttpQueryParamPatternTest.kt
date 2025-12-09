@@ -572,17 +572,17 @@ class HttpQueryParamPatternTest {
 
         @Test
         fun `should be able to fix invalid values`() {
-            val queryPattern = HttpQueryParamPattern(mapOf("petId" to NumberPattern(), "owner" to StringPattern()))
+            val queryPattern = HttpQueryParamPattern(mapOf("petId" to NumberPattern(), "owner" to EmailPattern()))
             val invalidValue = QueryParameters(listOf("petId" to "TODO", "owner" to "999"))
 
-            val dictionary = "PARAMETERS: { QUERY: { petId: 123, owner: TODO } }".let(Dictionary::fromYaml)
+            val dictionary = "PARAMETERS: { QUERY: { petId: 123, owner: fixed@specmatic.io } }".let(Dictionary::fromYaml)
             val fixedValue = queryPattern.fixValue(invalidValue, Resolver(dictionary = dictionary))
             println(fixedValue)
 
             assertThat(fixedValue.paramPairs).isNotEmpty
             assertThat(fixedValue.paramPairs).containsExactlyInAnyOrderElementsOf(listOf(
                 "petId" to "123",
-                "owner" to "TODO"
+                "owner" to "fixed@specmatic.io"
             ))
         }
 

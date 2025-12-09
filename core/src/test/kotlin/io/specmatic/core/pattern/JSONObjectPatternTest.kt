@@ -2002,7 +2002,7 @@ components:
         fun `should be able to fix simple invalid values in an json object`() {
             val pattern = parsedPattern("""
             {
-                "topLevelKey": "(string)",
+                "topLevelKey": "(email)",
                 "topLevelOptionalKey?": "(number)",
                 "nested": {
                     "nestedKey": "(date)",
@@ -2012,7 +2012,7 @@ components:
             """.trimIndent(), typeAlias = "(Test)")
             val patternDictionary = """
             Test:
-                topLevelKey: Fixed
+                topLevelKey: fixed@specmatic.io
                 nested:
                     nestedOptionalKey: true
             """.trimIndent().let(Dictionary::fromYaml)
@@ -2032,7 +2032,7 @@ components:
 
             assertThat(fixedValue).isEqualTo(parsedValue("""
             {
-                "topLevelKey": "Fixed",
+                "topLevelKey": "fixed@specmatic.io",
                 "topLevelOptionalKey": 10,
                 "nested": {
                     "nestedKey": "2025-01-01",
@@ -2309,42 +2309,42 @@ components:
 
         @Test
         fun `should generate value when pattern token does not match when resolver is in mock mode`() {
-            val pattern = JSONObjectPattern(mapOf("number" to NumberPattern(), "string" to StringPattern()))
+            val pattern = JSONObjectPattern(mapOf("number" to NumberPattern(), "email" to EmailPattern()))
             val resolver = Resolver(
                 mockMode = true, newPatterns = mapOf("(Test)" to pattern),
-                dictionary = "{ (number): 999, (string): TODO }".let(Dictionary::fromYaml)
+                dictionary = "{ (number): 999, (email): fixed@specmatic.io }".let(Dictionary::fromYaml)
             )
             val invalidValues = listOf(
                 StringValue("(string)"),
-                JSONObjectValue(mapOf("number" to StringValue("(string)"), "string" to NumberValue(999)))
+                JSONObjectValue(mapOf("number" to StringValue("(string)"), "email" to NumberValue(999)))
             )
 
             assertThat(invalidValues).allSatisfy {
                 val fixedValue = pattern.fixValue(it, resolver)
                 println(fixedValue.toStringLiteral())
                 assertThat(fixedValue).isEqualTo(JSONObjectValue(mapOf(
-                    "number" to NumberValue(999), "string" to StringValue("TODO"))
+                    "number" to NumberValue(999), "email" to StringValue("fixed@specmatic.io"))
                 ))
             }
         }
 
         @Test
         fun `should generate values even if pattern token matches but resolver is not in mock mode`() {
-            val pattern = JSONObjectPattern(mapOf("number" to NumberPattern(), "string" to StringPattern()), typeAlias = "(Test)")
+            val pattern = JSONObjectPattern(mapOf("number" to NumberPattern(), "email" to EmailPattern()), typeAlias = "(Test)")
             val resolver = Resolver(
                 newPatterns = mapOf("(Test)" to pattern),
-                dictionary = "{ (number): 999, (string): TODO }".let(Dictionary::fromYaml)
+                dictionary = "{ (number): 999, (email): fixed@specmatic.io }".let(Dictionary::fromYaml)
             )
             val values = listOf(
                 StringValue("(Test)"),
-                JSONObjectValue(mapOf("number" to StringValue("(number)"), "string" to NumberValue(999)))
+                JSONObjectValue(mapOf("number" to StringValue("(number)"), "email" to NumberValue(999)))
             )
 
             assertThat(values).allSatisfy {
                 val fixedValue = pattern.fixValue(it, resolver)
                 println(fixedValue.toStringLiteral())
                 assertThat(fixedValue).isEqualTo(JSONObjectValue(mapOf(
-                    "number" to NumberValue(999), "string" to StringValue("TODO"))
+                    "number" to NumberValue(999), "email" to StringValue("fixed@specmatic.io"))
                 ))
             }
         }
