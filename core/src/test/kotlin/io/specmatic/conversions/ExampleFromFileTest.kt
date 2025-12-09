@@ -117,9 +117,9 @@ class ExampleFromFileTest {
         >> ${file.path}
         Error loading example due to invalid format. Please correct the format to proceed
         >> http-response
-        Expected key named "http-response" was missing
+        Expected Key named "http-response" to be present
         >> http-request.method
-        Expected key named "method" was missing
+        Expected Key named "method" to be present
         """.trimIndent())
     }
 

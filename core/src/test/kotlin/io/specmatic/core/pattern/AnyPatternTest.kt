@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
+import java.math.BigDecimal
 
 internal class AnyPatternTest {
     @Test
@@ -903,26 +904,26 @@ internal class AnyPatternTest {
 
         @Test
         fun `should work when pattern is scalar based of nullable type`() {
-            val pattern = AnyPattern(listOf(NullPattern, StringPattern()), extensions = emptyMap())
-            val dictionary = "(string): TODO".let(Dictionary::fromYaml)
+            val pattern = AnyPattern(listOf(NullPattern, NumberPattern()), extensions = emptyMap())
+            val dictionary = "(number): 999".let(Dictionary::fromYaml)
             val resolver = Resolver(dictionary = dictionary)
-            val invalidValue = NumberValue(999)
+            val invalidValue = StringValue("999")
             val fixedValue = pattern.fixValue(invalidValue, resolver)
 
-            assertThat(fixedValue).isInstanceOf(StringValue::class.java); fixedValue as StringValue
-            assertThat(fixedValue.string).isEqualTo("TODO")
+            assertThat(fixedValue).isInstanceOf(NumberValue::class.java); fixedValue as NumberValue
+            assertThat(fixedValue.nativeValue).isEqualTo(999)
         }
 
         @Test
         fun `scalar value should be picked from dictionary when pattern has typeAlias and matching key in dictionary`() {
-            val pattern = AnyPattern(listOf(NullPattern, StringPattern()), typeAlias = "(StringOrEmpty)", extensions = emptyMap())
-            val dictionary = "StringOrEmpty: TODO".let(Dictionary::fromYaml)
+            val pattern = AnyPattern(listOf(NullPattern, NumberPattern()), typeAlias = "(NumberOrEmpty)", extensions = emptyMap())
+            val dictionary = "NumberOrEmpty: 999".let(Dictionary::fromYaml)
             val resolver = Resolver(dictionary = dictionary)
-            val invalidValue = NumberValue(999)
+            val invalidValue = StringValue("999")
             val fixedValue = pattern.fixValue(invalidValue, resolver)
 
-            assertThat(fixedValue).isInstanceOf(StringValue::class.java); fixedValue as StringValue
-            assertThat(fixedValue.string).isEqualTo("TODO")
+            assertThat(fixedValue).isInstanceOf(NumberValue::class.java); fixedValue as NumberValue
+            assertThat(fixedValue.nativeValue).isEqualTo(999)
         }
 
         @Test

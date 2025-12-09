@@ -2463,9 +2463,9 @@ paths:
         >> ${File("src/test/resources/openapi/hello_with_invalid_externalised_example_examples/invalid.json").canonicalPath}
         Error loading example due to invalid format. Please correct the format to proceed
         >> http-response
-        Expected key named "http-response" was missing
+        Expected Key named "http-response" to be present
         >> http-respons
-        Key named "http-respons" was unexpected, Did you mean "http-response" ?
+        Key named "http-respons" is invalid. Did you mean "http-response" ?
         """.trimIndent())
     }
 
