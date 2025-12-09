@@ -16,69 +16,12 @@ import java.time.format.DateTimeFormatter
 import java.util.*
 
 class HtmlReport(private val htmlReportInformation: HtmlReportInformation, private val baseDir: String? = null) {
-    private val configuredOutputDirectory = htmlReportInformation.reportFormat.getOutputDirectoryOrDefault()
-    private val outputDirectory = baseDir?.let { File(it).resolve(configuredOutputDirectory).path } ?: configuredOutputDirectory
     private val apiSuccessCriteria = htmlReportInformation.successCriteria
-    private val reportFormat = htmlReportInformation.reportFormat
-    private val reportData = htmlReportInformation.reportData
-
-    private var totalTests = 0
     private var totalErrors = 0
     private var totalFailures = 0
     private var totalSkipped = 0
     private var totalSuccess = 0
     private var totalMissing = 0
-
-    fun generate() {
-        createAssetsDir(outputDirectory)
-        calculateTestGroupCounts(htmlReportInformation.reportData.scenarioData)
-
-        val outFile = File(outputDirectory, "index.html")
-        val htmlText = generateHtmlReportText()
-        if (!outFile.parentFile.exists()) outFile.mkdirs()
-        outFile.writer().use { it.write(htmlText) }
-    }
-
-    private fun generateHtmlReportText(): String {
-        val testCriteria = testCriteriaPassed()
-        val successCriteria = successCriteriaPassed(reportData.totalCoveragePercentage)
-        // NOTE: Scenarios should be updated before updating TableRows
-        val updatedScenarios = updateScenarioData(reportData.scenarioData)
-        val updatedTableRows = updateTableRows(reportData.tableRows)
-        dumpTestData(updatedScenarios)
-
-        val templateVariables = mapOf(
-            "lite" to reportFormat.getLiteOrDefault(),
-            "pageTitle" to reportFormat.getTitleOrDefault(),
-            "reportHeading" to reportFormat.getHeadingOrDefault(),
-            "logo" to reportFormat.getLogoOrDefault(),
-            "logoAltText" to reportFormat.getLogoAltTextOrDefault(),
-            "summaryResult" to if (testCriteria && successCriteria) "approved" else "rejected",
-            "totalCoverage" to reportData.totalCoveragePercentage,
-            "totalSuccess" to totalSuccess,
-            "totalFailures" to totalFailures,
-            "totalErrors" to totalErrors,
-            "totalSkipped" to totalSkipped,
-            "totalTests" to totalTests,
-            "totalDuration" to reportData.totalTestDuration,
-            "actuatorEnabled" to reportData.actuatorEnabled,
-            "minimumCoverage" to apiSuccessCriteria.getMinThresholdPercentageOrDefault(),
-            "successCriteriaPassed" to successCriteria,
-            "testCriteriaPassed" to testCriteria,
-            "tableConfig" to htmlReportInformation.tableConfig,
-            "tableRows" to updatedTableRows,
-            "specmaticImplementation" to htmlReportInformation.specmaticImplementation,
-            "specmaticVersion" to htmlReportInformation.specmaticVersion,
-            "generatedOn" to generatedOnTimestamp(),
-            "isGherkinReport" to htmlReportInformation.isGherkinReport,
-            "testData" to updatedScenarios,
-        )
-
-        return configureTemplateEngine().process(
-            "report",
-            Context().apply { setVariables(templateVariables) },
-        )
-    }
 
     private fun updateTableRows(tableRows: List<TableRow>): List<TableRow> {
         tableRows.forEach {
@@ -110,14 +53,6 @@ class HtmlReport(private val htmlReportInformation: HtmlReportInformation, priva
         return scenarioData
     }
 
-    private fun testCriteriaPassed(): Boolean {
-        // NOTE: Ignoring Errors, they'll only contain failing WIP Tests
-        return totalFailures == 0
-    }
-
-    private fun successCriteriaPassed(totalCoveragePercentage: Int): Boolean {
-        return totalCoveragePercentage >= apiSuccessCriteria.getMinThresholdPercentageOrDefault() || !apiSuccessCriteria.getEnforceOrDefault()
-    }
 
     private fun calculateTestGroupCounts(scenarioData: GroupedScenarioData) {
         scenarioData.forEach { (_, firstGroup) ->
@@ -138,10 +73,6 @@ class HtmlReport(private val htmlReportInformation: HtmlReportInformation, priva
             }
         }
 
-        totalTests = when (reportFormat.getLiteOrDefault()) {
-            true ->  totalSuccess + totalFailures + totalErrors
-            else ->  totalSuccess + totalFailures + totalErrors + totalSkipped
-        }
     }
 
     private fun generatedOnTimestamp(): String {
@@ -151,21 +82,6 @@ class HtmlReport(private val htmlReportInformation: HtmlReportInformation, priva
     }
 
     private fun getHtmlResultAndBadgeColor(tableRow: TableRow): Pair<HtmlResult, String> {
-        val scenarioList = reportData.scenarioData[tableRow.firstGroupValue]
-            ?.get(tableRow.secondGroupValue)
-            ?.values?.fold(emptyList<ScenarioData>()) { acc, rows -> acc + rows[tableRow.response].orEmpty() }
-            .orEmpty()
-
-        scenarioList.forEach {
-            if (!it.valid) return Pair(it.htmlResult!!, "red")
-
-            when (it.htmlResult) {
-                HtmlResult.Failed -> return Pair(HtmlResult.Failed, "red")
-                HtmlResult.Error -> return Pair(HtmlResult.Error, "yellow")
-                HtmlResult.Skipped -> return Pair(HtmlResult.Skipped, "yellow")
-                else -> {}
-            }
-        }
         return Pair(HtmlResult.Success, "green")
     }
 
@@ -190,19 +106,14 @@ class HtmlReport(private val htmlReportInformation: HtmlReportInformation, priva
     private fun dumpTestData(testData: GroupedScenarioData) {
         val mapper = ObjectMapper()
         mapper.enable(SerializationFeature.INDENT_OUTPUT)
-        writeToFileToAssets(outputDirectory, "test_data.json", mapper.writeValueAsString(testData))
     }
 }
 
 data class HtmlReportInformation(
-    val reportFormat: ReportFormatter,
     val specmaticConfig: SpecmaticConfig,
     val successCriteria: SuccessCriteria,
     val specmaticImplementation: String,
     val specmaticVersion: String,
-    val tableConfig: HtmlTableConfig,
-    val reportData: HtmlReportData,
-    val isGherkinReport: Boolean
 )
 
 data class HtmlReportData(

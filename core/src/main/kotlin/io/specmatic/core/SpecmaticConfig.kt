@@ -893,25 +893,17 @@ data class RepositoryInfo(
 
 
 interface ReportConfiguration {
-    fun withDefaultFormattersIfMissing(): ReportConfiguration
-    fun getHTMLFormatter(): ReportFormatterDetails?
-    fun getFormatterWithType(type: ReportFormatterType): ReportFormatterDetails?
     fun getSuccessCriteria(): SuccessCriteria
-    fun <T> mapRenderers(fn: (ReportFormatterType) -> T): List<T>
     fun excludedOpenAPIEndpoints(): List<String>
 
     companion object {
         val default = ReportConfigurationDetails(
-            formatters = listOf(
-                ReportFormatterDetails(ReportFormatterType.TEXT, ReportFormatterLayout.TABLE),
-                ReportFormatterDetails(ReportFormatterType.HTML)
-            ), types = ReportTypes()
+           types = ReportTypes()
         )
     }
 }
 
 data class ReportConfigurationDetails(
-    val formatters: List<ReportFormatterDetails>? = null,
     val types: ReportTypes? = null
 ) : ReportConfiguration {
 
@@ -937,39 +929,9 @@ data class ReportConfigurationDetails(
         )
     }
 
-
-    @JsonIgnore
-    override fun withDefaultFormattersIfMissing(): ReportConfigurationDetails {
-        val htmlReportFormatter = formatters?.firstOrNull {
-            it.getTypeOrDefault() == ReportFormatterType.HTML
-        } ?: ReportFormatterDetails(ReportFormatterType.HTML)
-        val textReportFormatter = formatters?.firstOrNull {
-            it.getTypeOrDefault() == ReportFormatterType.TEXT
-        } ?: ReportFormatterDetails(ReportFormatterType.TEXT)
-
-        return this.copy(formatters = listOf(htmlReportFormatter, textReportFormatter))
-    }
-
-    @JsonIgnore
-    override fun getHTMLFormatter(): ReportFormatterDetails? {
-        return formatters?.firstOrNull { it.getTypeOrDefault() == ReportFormatterType.HTML }
-    }
-
-    @JsonIgnore
-    override fun getFormatterWithType(type: ReportFormatterType): ReportFormatterDetails? {
-        return formatters?.firstOrNull { it.getTypeOrDefault() == type }
-    }
-
     @JsonIgnore
     override fun getSuccessCriteria(): SuccessCriteria {
         return types?.apiCoverage?.openAPI?.successCriteria ?: SuccessCriteria.default
-    }
-
-    @JsonIgnore
-    override fun <T> mapRenderers(fn: (ReportFormatterType) -> T): List<T> {
-        return formatters!!.map {
-            fn(it.getTypeOrDefault())
-        }
     }
 
     @JsonIgnore

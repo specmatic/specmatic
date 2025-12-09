@@ -21,28 +21,6 @@ typealias GroupedScenarioData = Map<String, Map<String, Map<String, Map<String, 
 class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApiCoverageReportInput, val baseDir: String) : ReportRenderer<OpenAPICoverageConsoleReport> {
     val actuatorEnabled = openApiCoverageReportInput.endpointsAPISet
 
-    override fun render(report: OpenAPICoverageConsoleReport, specmaticConfig: SpecmaticConfig): String {
-        logger.log("Generating HTML report...")
-        val reportConfiguration = specmaticConfig.getReport()!!
-        val htmlReportConfiguration = reportConfiguration.getHTMLFormatter()!!
-        val openApiSuccessCriteria = reportConfiguration.getSuccessCriteria()
-
-        val reportData = HtmlReportData(
-            totalCoveragePercentage = report.totalCoveragePercentage, actuatorEnabled = actuatorEnabled,
-            tableRows = makeTableRows(report, htmlReportConfiguration),
-            scenarioData = makeScenarioData(report), totalTestDuration = getTotalDuration()
-        )
-
-        val htmlReportInformation = HtmlReportInformation(
-            reportFormat = htmlReportConfiguration, successCriteria = openApiSuccessCriteria,
-            specmaticImplementation = "OpenAPI", specmaticVersion = getSpecmaticVersion(),
-            tableConfig = createTableConfig(report), reportData = reportData, specmaticConfig = specmaticConfig,
-            isGherkinReport = report.isGherkinReport
-        )
-
-        HtmlReport(htmlReportInformation, baseDir).generate()
-        return "Successfully generated HTML report in ${htmlReportConfiguration.getOutputDirectoryOrDefault()}"
-    }
 
     private fun createTableConfig(report: OpenAPICoverageConsoleReport): HtmlTableConfig {
         return HtmlTableConfig(
@@ -57,42 +35,6 @@ class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApi
 
     private fun getSpecmaticVersion(): String {
         return VersionInfo.describe()
-    }
-
-    private fun makeTableRows(
-        report: OpenAPICoverageConsoleReport,
-        htmlReportConfiguration: ReportFormatter
-    ): List<TableRow> {
-        val updatedCoverageRows = when (htmlReportConfiguration.getLiteOrDefault()) {
-            true -> reCreateCoverageRowsForLite(report, report.coverageRows)
-            else -> report.coverageRows
-        }
-
-        return report.getGroupedCoverageRows(updatedCoverageRows).flatMap { (_, methodGroup) ->
-            val firstGroupRows = methodGroup.values.flatMap { it.values.flatMap { it.values } }
-            methodGroup.flatMap { (_, contentGroup) ->
-                val secondGroupRows = contentGroup.values.flatMap { it.values }
-                contentGroup.flatMap { (_, statusGroup) ->
-                    statusGroup.flatMap { (_, coverageRows) ->
-                        coverageRows.map {
-                            TableRow(
-                                coveragePercentage = it.coveragePercentage,
-                                firstGroupValue = it.path,
-                                showFirstGroup = it.showPath,
-                                firstGroupRowSpan = firstGroupRows.sumOf { rows -> rows.size },
-                                secondGroupValue = it.method,
-                                showSecondGroup = it.showMethod,
-                                secondGroupRowSpan = secondGroupRows.sumOf { rows -> rows.size },
-                                requestContentType = it.requestContentType.orEmpty(),
-                                response = it.responseStatus,
-                                exercised = it.count.toInt(),
-                                result = it.remarks
-                            )
-                        }
-                    }
-                }
-            }
-        }
     }
 
     private fun getTotalDuration(): Long {

@@ -107,8 +107,7 @@ open class SpecmaticJUnitSupport {
             logger.log("Could not load report configuration, coverage will be calculated but no coverage threshold will be enforced")
             return ReportConfiguration.default
         }
-
-        return reportConfiguration.withDefaultFormattersIfMissing()
+        return reportConfiguration
     }
 
     enum class ActuatorSetupResult(val failed: Boolean) {

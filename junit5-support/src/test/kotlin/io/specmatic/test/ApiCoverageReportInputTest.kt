@@ -43,7 +43,7 @@ class ApiCoverageReportInputTest {
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(CONFIG_FILE_PATH, testReportRecords, applicationAPIs, allEndpoints = endpointsInSpec, endpointsAPISet = true).generate()
-        println(CoverageReportTextRenderer().render(apiCoverageReport, specmaticConfig))
+//        println(CoverageReportTextRenderer().render(apiCoverageReport, specmaticConfig))
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
                 listOf(
@@ -84,7 +84,7 @@ class ApiCoverageReportInputTest {
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(CONFIG_FILE_PATH, testReportRecords, applicationAPIs, allEndpoints = endpointsInSpec, endpointsAPISet = true).generate()
-        println(CoverageReportTextRenderer().render(apiCoverageReport, specmaticConfig))
+//        println(CoverageReportTextRenderer().render(apiCoverageReport, specmaticConfig))
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
                 listOf(
@@ -135,7 +135,7 @@ class ApiCoverageReportInputTest {
 
         System.setProperty(FILTER, "PATH!='/healthCheck, /heartbeat'")
         val apiCoverageReport = OpenApiCoverageReportInput(CONFIG_FILE_PATH, testReportRecords, applicationAPIs, excludedAPIs, endpointsInSpec,true).generate()
-        println(CoverageReportTextRenderer().render(apiCoverageReport, specmaticConfig))
+//        println(CoverageReportTextRenderer().render(apiCoverageReport, specmaticConfig))
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
                 listOf(
@@ -222,7 +222,7 @@ class ApiCoverageReportInputTest {
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(CONFIG_FILE_PATH, testReportRecords, applicationAPIs, allEndpoints = endpointsInSpec, endpointsAPISet = true).generate()
-        println(CoverageReportTextRenderer().render(apiCoverageReport,specmaticConfig))
+//        println(CoverageReportTextRenderer().render(apiCoverageReport,specmaticConfig))
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
                 listOf(
@@ -264,7 +264,7 @@ class ApiCoverageReportInputTest {
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(CONFIG_FILE_PATH, testReportRecords, applicationAPIs, allEndpoints = endpointsInSpec, endpointsAPISet = true).generate()
-        println(CoverageReportTextRenderer().render(apiCoverageReport, specmaticConfig))
+//        println(CoverageReportTextRenderer().render(apiCoverageReport, specmaticConfig))
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
                 listOf(
@@ -338,7 +338,7 @@ class ApiCoverageReportInputTest {
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(CONFIG_FILE_PATH, testReportRecords, applicationAPIs, allEndpoints = allEndpoints, filteredEndpoints = allEndpoints, endpointsAPISet = true).generate()
-        println(CoverageReportTextRenderer().render(apiCoverageReport, specmaticConfig))
+//        println(CoverageReportTextRenderer().render(apiCoverageReport, specmaticConfig))
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
                 listOf(

@@ -2,15 +2,11 @@ package io.specmatic.test.reports
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.specmatic.core.ReportConfiguration
-import io.specmatic.core.ReportFormatterType
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.log.logger
 import io.specmatic.reporter.generated.dto.coverage.SpecmaticCoverageReport
 import io.specmatic.test.reports.coverage.OpenApiCoverageReportInput
 import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
-import io.specmatic.test.reports.renderers.CoverageReportHtmlRenderer
-import io.specmatic.test.reports.renderers.CoverageReportTextRenderer
-import io.specmatic.test.reports.renderers.ReportRenderer
 import org.assertj.core.api.Assertions.assertThat
 import java.io.File
 
@@ -29,24 +25,11 @@ class OpenApiCoverageReportProcessor(private val openApiCoverageReportInput: Ope
         if (openAPICoverageReport.coverageRows.isEmpty()) {
             logger.log("The Open API coverage report generated is blank.\nThis can happen if your open api specification does not have any paths documented.")
         } else {
-            val renderers = configureReportRenderers(reportConfiguration)
-            renderers.forEach { renderer ->
-                logger.log(renderer.render(openAPICoverageReport, specmaticConfig))
-            }
             saveAsJson(openApiCoverageReportInput.generateJsonReport())
         }
         assertSuccessCriteria(reportConfiguration, openAPICoverageReport)
     }
 
-    override fun configureReportRenderers(reportConfiguration: ReportConfiguration): List<ReportRenderer<OpenAPICoverageConsoleReport>> {
-        return reportConfiguration.mapRenderers { formatterType: ReportFormatterType ->
-            when (formatterType) {
-                ReportFormatterType.TEXT -> CoverageReportTextRenderer()
-                ReportFormatterType.HTML -> CoverageReportHtmlRenderer(openApiCoverageReportInput, reportBaseDirectory)
-                else -> throw Exception("Report formatter type: $formatterType is not supported")
-            }
-        }
-    }
 
     private fun excludedEndpointsFromEnv() = System.getenv("SPECMATIC_EXCLUDED_ENDPOINTS")?.let { excludedEndpoints ->
         excludedEndpoints.split(",").map { it.trim() }
