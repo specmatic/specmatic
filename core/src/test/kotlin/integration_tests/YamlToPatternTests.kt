@@ -2,6 +2,8 @@ package integration_tests
 
 import integration_tests.PatternTestCase.Companion.multiVersionCase
 import integration_tests.PatternTestCase.Companion.singleVersionCase
+import integration_tests.CompositePatternTestCase.Companion.multiVersionCompositeCase
+import integration_tests.CompositePatternTestCase.Companion.singleVersionCompositeCase
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
@@ -64,10 +66,39 @@ data class PatternTestCase(val schema: Map<String, Any?>, val validate: (Pattern
         }
 
         fun build(): PatternTestCase {
-            return PatternTestCase(
-                schema = schema,
-                validate = validator ?: throw IllegalStateException("Validation block missing")
-            )
+            return PatternTestCase(schema = schema, validate = validator  ?: {})
+        }
+    }
+}
+
+data class CompositePatternTestCase(val schemas: Map<String, PatternTestCase>) {
+    companion object {
+        fun singleVersionCompositeCase(name: String, openApiVersion: OpenApiVersion, block: CompositePatternTestCase.Builder.() -> Unit): List<Arguments> {
+            val builder = Builder()
+            builder.block()
+            val testCase = builder.build()
+            return listOf(Arguments.of(openApiVersion, Named.of(name, testCase)))
+        }
+
+        fun multiVersionCompositeCase(name: String, vararg versions: OpenApiVersion, block: CompositePatternTestCase.Builder.() -> Unit): List<Arguments> {
+            val builder = Builder()
+            builder.block()
+            val testCase = builder.build()
+            return versions.map { version -> Arguments.of(version, Named.of(name, testCase)) }
+        }
+    }
+
+    class Builder {
+        private val schemas: MutableMap<String, PatternTestCase> = linkedMapOf()
+
+        fun schema(name: String, init: PatternTestCase.Builder.() -> Unit) {
+            val builder = PatternTestCase.Builder()
+            builder.init()
+            schemas[name] = builder.build()
+        }
+
+        fun build(): CompositePatternTestCase {
+            return CompositePatternTestCase(schemas = schemas.toMap())
         }
     }
 }
@@ -81,6 +112,18 @@ class YamlToPatternTests {
             "components" to mapOf(
                 "schemas" to schemasMap
             )
+        )
+
+        val openApiYamlString = yamlMapper.writeValueAsString(root)
+        val openApiSpecification = OpenApiSpecification.fromYAML(openApiYamlString, "TEST")
+        return openApiSpecification.parseUnreferencedSchemas().mapKeys { withoutPatternDelimiters(it.key) }
+    }
+
+    private fun parseAndExtractPatterns(openApiVersion: OpenApiVersion, composite: CompositePatternTestCase): Map<String, Pattern> {
+        val schemasMap = composite.schemas.mapValues { (_, case) -> case.schema }
+        val root = mapOf(
+            "openapi" to openApiVersion.value,
+            "components" to mapOf("schemas" to schemasMap)
         )
 
         val openApiYamlString = yamlMapper.writeValueAsString(root)
@@ -146,6 +189,26 @@ class YamlToPatternTests {
     @ParameterizedTest(name = "{index}: [{0}] {1}")
     @MethodSource("anyOfScenarios")
     fun any_of_schema_tests(openApiVersion: OpenApiVersion, case: PatternTestCase, info: TestInfo) = runCase(openApiVersion, case, info)
+
+    @ParameterizedTest(name = "{index}: [{0}] {1}")
+    @MethodSource("discriminatorScenarios")
+    fun discriminator_schema_tests(openApiVersion: OpenApiVersion, composite: CompositePatternTestCase, info: TestInfo) {
+        val patterns = parseAndExtractPatterns(openApiVersion, composite)
+        composite.schemas.forEach { (name, case) ->
+            val schemaPattern = patterns.getValue(name)
+            case.validate(schemaPattern)
+        }
+    }
+
+    @ParameterizedTest(name = "{index}: [{0}] {1}")
+    @MethodSource("refScenarios")
+    fun ref_schema_tests(openApiVersion: OpenApiVersion, composite: CompositePatternTestCase, info: TestInfo) {
+        val patterns = parseAndExtractPatterns(openApiVersion, composite)
+        composite.schemas.forEach { (name, case) ->
+            val schemaPattern = patterns.getValue(name)
+            case.validate(schemaPattern)
+        }
+    }
 
     companion object {
         @JvmStatic
@@ -838,6 +901,114 @@ class YamlToPatternTests {
                         assertSuccess(pattern.match(mapOf("age" to 30)))
                         assertSuccess(pattern.match(mapOf("name" to "Alice", "age" to 30)))
                         assertFailure(pattern.match(mapOf("active" to true)))
+                    }
+                }
+            ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun discriminatorScenarios(): Stream<Arguments> {
+            return listOf(
+                multiVersionCompositeCase(name = "discriminator allOf with mappings", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema("BasePet") {
+                        schema {
+                            put("type", "object")
+                            put("properties", mapOf("petType" to mapOf("type" to "string")))
+                            put("required", listOf("petType"))
+                        }
+                    }
+                    schema("Dog") {
+                        schema {
+                            put("allOf", listOf(
+                                mapOf("\$ref" to "#/components/schemas/BasePet"),
+                                mapOf(
+                                    "type" to "object",
+                                    "properties" to mapOf("name" to mapOf("type" to "string")),
+                                    "required" to listOf("name")
+                                )
+                            ))
+                        }
+                    }
+                    schema("Cat") {
+                        schema {
+                            put("allOf", listOf(
+                                mapOf("\$ref" to "#/components/schemas/BasePet"),
+                                mapOf(
+                                    "type" to "object",
+                                    "properties" to mapOf("age" to mapOf("type" to "integer")),
+                                    "required" to listOf("age")
+                                )
+                            ))
+                        }
+                    }
+                    schema("Pet") {
+                        schema {
+                            put("allOf", listOf(mapOf("\$ref" to "#/components/schemas/BasePet")))
+                            put("discriminator", mapOf(
+                                "propertyName" to "petType",
+                                "mapping" to mapOf("dog" to "#/components/schemas/Dog", "cat" to "#/components/schemas/Cat")
+                            ))
+                        }
+                        validate { pattern ->
+                            assertSuccess(pattern.match(mapOf("petType" to "dog", "name" to "Fido")))
+                            assertSuccess(pattern.match(mapOf("petType" to "cat", "age" to 4)))
+                            assertFailure(pattern.match(mapOf("petType" to "dog", "age" to 4)))
+                            assertFailure(pattern.match(mapOf("petType" to "bird", "name" to "Tweety")))
+                        }
+                    }
+                },
+                multiVersionCompositeCase(name = "discriminator with refs", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema("Dog") {
+                        schema {
+                            put("type", "object")
+                            put("properties", mapOf("petType" to mapOf("type" to "string"), "name" to mapOf("type" to "string")))
+                            put("required", listOf("petType", "name"))
+                        }
+                    }
+                    schema("Cat") {
+                        schema {
+                            put("type", "object")
+                            put("properties", mapOf("petType" to mapOf("type" to "string"), "age" to mapOf("type" to "integer")))
+                            put("required", listOf("petType", "age"))
+                        }
+                    }
+                    schema("Pet") {
+                        schema {
+                            put("oneOf", listOf(mapOf("\$ref" to "#/components/schemas/Dog"), mapOf("\$ref" to "#/components/schemas/Cat")))
+                            put("discriminator", mapOf(
+                                "propertyName" to "petType",
+                                "mapping" to mapOf("dog" to "#/components/schemas/Dog", "cat" to "#/components/schemas/Cat")
+                            ))
+                        }
+                        validate { pattern ->
+                            assertSuccess(pattern.match(mapOf("petType" to "dog", "name" to "Fido")))
+                            assertSuccess(pattern.match(mapOf("petType" to "cat", "age" to 4)))
+                            assertFailure(pattern.match(mapOf("petType" to "dog", "age" to 4)))
+                            assertFailure(pattern.match(mapOf("petType" to "bird", "name" to "Tweety")))
+                        }
+                    }
+                }
+            ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun refScenarios(): Stream<Arguments> {
+            return listOf(
+                multiVersionCompositeCase(name = "standard ref schema", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema("ActualObject") {
+                        schema {
+                            put("type", "object")
+                            put("properties", mapOf("id" to mapOf("type" to "integer"), "name" to mapOf("type" to "string")))
+                            put("required", listOf("id", "name"))
+                        }
+                    }
+                    schema("RefWrapper") {
+                        schema {
+                            put("\$ref", "#/components/schemas/ActualObject")
+                        }
+                        validate { pattern ->
+                            assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.DeferredPattern::class.java)
+                        }
                     }
                 }
             ).flatten().stream()
