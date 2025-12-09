@@ -11,6 +11,8 @@ import io.specmatic.core.pattern.BooleanPattern
 import io.specmatic.core.pattern.DatePattern
 import io.specmatic.core.pattern.DateTimePattern
 import io.specmatic.core.pattern.EmailPattern
+import io.specmatic.core.pattern.JSONObjectPattern
+import io.specmatic.core.pattern.ListPattern
 import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.StringPattern
@@ -20,6 +22,7 @@ import io.specmatic.core.utilities.toValue
 import io.specmatic.core.utilities.yamlMapper
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Named
+import org.junit.jupiter.api.TestInfo
 import org.junit.jupiter.api.fail
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
@@ -85,14 +88,40 @@ class YamlToPatternTests {
         return openApiSpecification.parseUnreferencedSchemas().mapKeys { withoutPatternDelimiters(it.key) }
     }
 
-    @ParameterizedTest(name = "{index}: [{0}] {1}")
-    @MethodSource("stringScenarios", "numberScenarios", "integerScenarios", "formatScenarios", "booleanScenarios")
-    fun `should be able to construct pattern from the given yaml schema with accurate constraints`(openApiVersion: OpenApiVersion, case: PatternTestCase) {
+    private fun runCase(openApiVersion: OpenApiVersion, case: PatternTestCase, info: TestInfo) {
         val patterns = parseAndExtractPatterns(openApiVersion, mapOf("TestSchema" to case))
         assertThat(patterns).hasSize(1).containsKey("TestSchema")
         val schemaPattern = patterns.getValue("TestSchema")
         case.validate(schemaPattern)
     }
+
+    @ParameterizedTest(name = "{index}: [{0}] {1}")
+    @MethodSource("stringScenarios")
+    fun string_schema_tests(openApiVersion: OpenApiVersion, case: PatternTestCase, info: TestInfo) = runCase(openApiVersion, case, info)
+
+    @ParameterizedTest(name = "{index}: [{0}] {1}")
+    @MethodSource("numberScenarios")
+    fun number_schema_tests(openApiVersion: OpenApiVersion, case: PatternTestCase, info: TestInfo) = runCase(openApiVersion, case, info)
+
+    @ParameterizedTest(name = "{index}: [{0}] {1}")
+    @MethodSource("integerScenarios")
+    fun integer_schema_tests(openApiVersion: OpenApiVersion, case: PatternTestCase, info: TestInfo) = runCase(openApiVersion, case, info)
+
+    @ParameterizedTest(name = "{index}: [{0}] {1}")
+    @MethodSource("formatScenarios")
+    fun format_schema_tests(openApiVersion: OpenApiVersion, case: PatternTestCase, info: TestInfo) = runCase(openApiVersion, case, info)
+
+    @ParameterizedTest(name = "{index}: [{0}] {1}")
+    @MethodSource("booleanScenarios")
+    fun boolean_schema_tests(openApiVersion: OpenApiVersion, case: PatternTestCase, info: TestInfo) = runCase(openApiVersion, case, info)
+
+    @ParameterizedTest(name = "{index}: [{0}] {1}")
+    @MethodSource("objectScenarios")
+    fun object_schema_tests(openApiVersion: OpenApiVersion, case: PatternTestCase, info: TestInfo) = runCase(openApiVersion, case, info)
+
+    @ParameterizedTest(name = "{index}: [{0}] {1}")
+    @MethodSource("arrayScenarios")
+    fun array_schema_tests(openApiVersion: OpenApiVersion, case: PatternTestCase, info: TestInfo) = runCase(openApiVersion, case, info)
 
     companion object {
         @JvmStatic
@@ -414,6 +443,115 @@ class YamlToPatternTests {
                     }
                     validate { pattern ->
                         assertThat(pattern).isInstanceOf(Base64StringPattern::class.java)
+                    }
+                }
+            ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun objectScenarios(): Stream<Arguments> {
+            return listOf(
+                multiVersionCase("basic object", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", "object")
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(JSONObjectPattern::class.java)
+                    }
+                },
+                multiVersionCase("object with required and optional properties", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", "object")
+                        put("properties", mapOf(
+                            "name" to mapOf("type" to "string"),
+                            "age" to mapOf("type" to "integer")
+                        ))
+                        put("required", listOf("name"))
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(JSONObjectPattern::class.java); pattern as JSONObjectPattern
+                        assertSuccess(pattern.match(mapOf("name" to "John", "age" to 30)))
+                        assertSuccess(pattern.match(mapOf("name" to "John")))
+                        assertFailure(pattern.match(mapOf("age" to 30)))
+                        assertFailure(pattern.match(mapOf("name" to "John", "age" to "thirty")))
+                    }
+                },
+                multiVersionCase("object with additionalProperties (none)", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", "object")
+                        put("properties", mapOf("id" to mapOf("type" to "integer")))
+                        put("additionalProperties", false)
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(JSONObjectPattern::class.java)
+                        assertSuccess(pattern.match(mapOf("id" to 10)))
+                        assertFailure(pattern.match(mapOf("id" to 10, "extra" to "not-allowed")))
+                    }
+                },
+                multiVersionCase("object with additionalProperties (free-form)", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", "object")
+                        put("additionalProperties", true)
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(JSONObjectPattern::class.java)
+                        assertSuccess(pattern.match(mapOf("anyKey" to "anyValue")))
+                        assertSuccess(pattern.match(emptyMap<String, Any>()))
+                    }
+                },
+                multiVersionCase("object with additionalProperties (typed)", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", "object")
+                        put("properties", mapOf("id" to mapOf("type" to "integer")))
+                        put("additionalProperties", mapOf("type" to "string"))
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(JSONObjectPattern::class.java)
+                        assertSuccess(pattern.match(mapOf("id" to 10)))
+                        assertSuccess(pattern.match(mapOf("id" to 10, "tag" to "v1")))
+                        assertFailure(pattern.match(mapOf("id" to 10, "isActive" to true)))
+                    }
+                }
+            ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun arrayScenarios(): Stream<Arguments> {
+            return listOf(
+                multiVersionCase("basic array", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", "array")
+                    }
+                    validate { pattern ->
+                         assertThat(pattern).isInstanceOf(ListPattern::class.java)
+                         assertSuccess(pattern.match(emptyList<Any>()))
+                         assertSuccess(pattern.match(listOf("any")))
+                    }
+                },
+                multiVersionCase("array with items (scalar)", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", "array")
+                        put("items", mapOf("type" to "string"))
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(ListPattern::class.java)
+                        assertSuccess(pattern.match(listOf("hello", "world")))
+                        assertFailure(pattern.match(listOf("hello", 123)))
+                    }
+                },
+                multiVersionCase("array with items (object)", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", "array")
+                        put("items", mapOf(
+                            "type" to "object",
+                            "properties" to mapOf("id" to mapOf("type" to "integer"), "name" to mapOf("type" to "string")),
+                            "required" to listOf("id")
+                        ))
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.ListPattern::class.java)
+                        assertSuccess(pattern.match(listOf(mapOf("id" to 1, "name" to "Alice"), mapOf("id" to 2))))
+                        assertFailure(pattern.match(listOf(mapOf("name" to "Bob"))))
                     }
                 }
             ).flatten().stream()
