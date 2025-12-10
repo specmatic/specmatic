@@ -932,12 +932,6 @@ internal class SpecmaticConfigAllTest {
         val expectedReportConfigurationJson = parsedJSON(
             """
             {
-              "formatters": [
-                {
-                  "type": "text",
-                  "layout": "table"
-                }
-              ],
               "types": {
                 "APICoverage": {
                   "OpenAPI": {

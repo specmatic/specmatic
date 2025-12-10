@@ -7,6 +7,8 @@ import io.specmatic.core.log.logger
 import io.specmatic.reporter.generated.dto.coverage.SpecmaticCoverageReport
 import io.specmatic.test.reports.coverage.OpenApiCoverageReportInput
 import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
+import io.specmatic.test.reports.renderers.CoverageReportHtmlRenderer
+import io.specmatic.test.reports.renderers.CoverageReportTextRenderer
 import org.assertj.core.api.Assertions.assertThat
 import java.io.File
 
@@ -25,6 +27,8 @@ class OpenApiCoverageReportProcessor(private val openApiCoverageReportInput: Ope
         if (openAPICoverageReport.coverageRows.isEmpty()) {
             logger.log("The Open API coverage report generated is blank.\nThis can happen if your open api specification does not have any paths documented.")
         } else {
+            CoverageReportTextRenderer().render(openAPICoverageReport, specmaticConfig)
+            CoverageReportHtmlRenderer(openApiCoverageReportInput, reportBaseDirectory).render(openAPICoverageReport, specmaticConfig)
             saveAsJson(openApiCoverageReportInput.generateJsonReport())
         }
         assertSuccessCriteria(reportConfiguration, openAPICoverageReport)

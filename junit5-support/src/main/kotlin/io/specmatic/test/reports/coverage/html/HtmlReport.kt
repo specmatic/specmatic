@@ -6,18 +6,77 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.SuccessCriteria
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.TestResult
+import io.specmatic.test.reports.coverage.html.HtmlTemplateConfiguration.Companion.configureTemplateEngine
 import io.specmatic.test.reports.renderers.GroupedScenarioData
+import org.thymeleaf.context.Context
+import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.*
 
-class HtmlReport(private val htmlReportInformation: HtmlReportInformation, private val baseDir: String? = null) {
+class HtmlReport(private val htmlReportInformation: HtmlReportInformation, baseDir: String? = null) {
+    private val configuredOutputDirectory = "./build/reports/specmatic/html"
+    private val outputDirectory = baseDir?.let { File(it).resolve(configuredOutputDirectory).path } ?: configuredOutputDirectory
     private val apiSuccessCriteria = htmlReportInformation.successCriteria
+    private val reportData = htmlReportInformation.reportData
+
+    private var totalTests = 0
     private var totalErrors = 0
     private var totalFailures = 0
     private var totalSkipped = 0
     private var totalSuccess = 0
     private var totalMissing = 0
+
+    fun generate() {
+        createAssetsDir(outputDirectory)
+        calculateTestGroupCounts(htmlReportInformation.reportData.scenarioData)
+
+        val outFile = File(outputDirectory, "index.html")
+        val htmlText = generateHtmlReportText()
+        if (!outFile.parentFile.exists()) outFile.mkdirs()
+        outFile.writer().use { it.write(htmlText) }
+    }
+
+    private fun generateHtmlReportText(): String {
+        val testCriteria = testCriteriaPassed()
+        val successCriteria = successCriteriaPassed(reportData.totalCoveragePercentage)
+        // NOTE: Scenarios should be updated before updating TableRows
+        val updatedScenarios = updateScenarioData(reportData.scenarioData)
+        val updatedTableRows = updateTableRows(reportData.tableRows)
+        dumpTestData(updatedScenarios)
+
+        val templateVariables = mapOf(
+            "lite" to true,
+            "pageTitle" to "Specmatic Report",
+            "reportHeading" to "Contract Test Results",
+            "logo" to "assets/specmatic-logo.svg",
+            "logoAltText" to "Specmatic",
+            "summaryResult" to if (testCriteria && successCriteria) "approved" else "rejected",
+            "totalCoverage" to reportData.totalCoveragePercentage,
+            "totalSuccess" to totalSuccess,
+            "totalFailures" to totalFailures,
+            "totalErrors" to totalErrors,
+            "totalSkipped" to totalSkipped,
+            "totalTests" to totalTests,
+            "totalDuration" to reportData.totalTestDuration,
+            "actuatorEnabled" to reportData.actuatorEnabled,
+            "minimumCoverage" to apiSuccessCriteria.getMinThresholdPercentageOrDefault(),
+            "successCriteriaPassed" to successCriteria,
+            "testCriteriaPassed" to testCriteria,
+            "tableConfig" to htmlReportInformation.tableConfig,
+            "tableRows" to updatedTableRows,
+            "specmaticImplementation" to htmlReportInformation.specmaticImplementation,
+            "specmaticVersion" to htmlReportInformation.specmaticVersion,
+            "generatedOn" to generatedOnTimestamp(),
+            "isGherkinReport" to htmlReportInformation.isGherkinReport,
+            "testData" to updatedScenarios,
+        )
+
+        return configureTemplateEngine().process(
+            "report",
+            Context().apply { setVariables(templateVariables) },
+        )
+    }
 
     private fun updateTableRows(tableRows: List<TableRow>): List<TableRow> {
         tableRows.forEach {
@@ -49,6 +108,14 @@ class HtmlReport(private val htmlReportInformation: HtmlReportInformation, priva
         return scenarioData
     }
 
+    private fun testCriteriaPassed(): Boolean {
+        // NOTE: Ignoring Errors, they'll only contain failing WIP Tests
+        return totalFailures == 0
+    }
+
+    private fun successCriteriaPassed(totalCoveragePercentage: Int): Boolean {
+        return totalCoveragePercentage >= apiSuccessCriteria.getMinThresholdPercentageOrDefault() || !apiSuccessCriteria.getEnforceOrDefault()
+    }
 
     private fun calculateTestGroupCounts(scenarioData: GroupedScenarioData) {
         scenarioData.forEach { (_, firstGroup) ->
@@ -69,6 +136,7 @@ class HtmlReport(private val htmlReportInformation: HtmlReportInformation, priva
             }
         }
 
+        totalTests = totalSuccess + totalFailures + totalErrors
     }
 
     private fun generatedOnTimestamp(): String {
@@ -78,6 +146,21 @@ class HtmlReport(private val htmlReportInformation: HtmlReportInformation, priva
     }
 
     private fun getHtmlResultAndBadgeColor(tableRow: TableRow): Pair<HtmlResult, String> {
+        val scenarioList = reportData.scenarioData[tableRow.firstGroupValue]
+            ?.get(tableRow.secondGroupValue)
+            ?.values?.fold(emptyList<ScenarioData>()) { acc, rows -> acc + rows[tableRow.response].orEmpty() }
+            .orEmpty()
+
+        scenarioList.forEach {
+            if (!it.valid) return Pair(it.htmlResult!!, "red")
+
+            when (it.htmlResult) {
+                HtmlResult.Failed -> return Pair(HtmlResult.Failed, "red")
+                HtmlResult.Error -> return Pair(HtmlResult.Error, "yellow")
+                HtmlResult.Skipped -> return Pair(HtmlResult.Skipped, "yellow")
+                else -> {}
+            }
+        }
         return Pair(HtmlResult.Success, "green")
     }
 
@@ -102,6 +185,7 @@ class HtmlReport(private val htmlReportInformation: HtmlReportInformation, priva
     private fun dumpTestData(testData: GroupedScenarioData) {
         val mapper = ObjectMapper()
         mapper.enable(SerializationFeature.INDENT_OUTPUT)
+        writeToFileToAssets(outputDirectory, "test_data.json", mapper.writeValueAsString(testData))
     }
 }
 
@@ -110,6 +194,9 @@ data class HtmlReportInformation(
     val successCriteria: SuccessCriteria,
     val specmaticImplementation: String,
     val specmaticVersion: String,
+    val tableConfig: HtmlTableConfig,
+    val reportData: HtmlReportData,
+    val isGherkinReport: Boolean
 )
 
 data class HtmlReportData(
