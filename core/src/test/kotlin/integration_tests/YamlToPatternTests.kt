@@ -7,11 +7,13 @@ import integration_tests.CompositePatternTestCase.Companion.singleVersionComposi
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
+import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.Base64StringPattern
 import io.specmatic.core.pattern.BinaryPattern
 import io.specmatic.core.pattern.BooleanPattern
 import io.specmatic.core.pattern.DatePattern
 import io.specmatic.core.pattern.DateTimePattern
+import io.specmatic.core.pattern.DeferredPattern
 import io.specmatic.core.pattern.EmailPattern
 import io.specmatic.core.pattern.ExactValuePattern
 import io.specmatic.core.pattern.JSONObjectPattern
@@ -72,7 +74,7 @@ data class PatternTestCase(val schema: Map<String, Any?>, val validate: (Pattern
     }
 }
 
-data class CompositePatternTestCase(val schemas: Map<String, PatternTestCase>) {
+data class CompositePatternTestCase(val schemas: Map<String, PatternTestCase>, val validate: (Map<String, Pattern>, Resolver) -> Unit) {
     companion object {
         fun singleVersionCompositeCase(name: String, openApiVersion: OpenApiVersion, block: CompositePatternTestCase.Builder.() -> Unit): List<Arguments> {
             val builder = Builder()
@@ -91,6 +93,7 @@ data class CompositePatternTestCase(val schemas: Map<String, PatternTestCase>) {
 
     class Builder {
         private val schemas: MutableMap<String, PatternTestCase> = linkedMapOf()
+        private var validate: ((Map<String, Pattern>, Resolver) -> Unit)? = null
 
         fun schema(name: String, init: PatternTestCase.Builder.() -> Unit) {
             val builder = PatternTestCase.Builder()
@@ -98,8 +101,12 @@ data class CompositePatternTestCase(val schemas: Map<String, PatternTestCase>) {
             schemas[name] = builder.build()
         }
 
+        fun validate(block: (Map<String, Pattern>, Resolver) -> Unit) {
+            validate = block
+        }
+
         fun build(): CompositePatternTestCase {
-            return CompositePatternTestCase(schemas = schemas.toMap())
+            return CompositePatternTestCase(schemas = schemas.toMap(), validate = validate ?: { _, _ -> })
         }
     }
 }
@@ -116,11 +123,14 @@ class YamlToPatternTests {
         )
 
         val openApiYamlString = yamlMapper.writeValueAsString(root)
+        logger.log(openApiYamlString)
+        logger.boundary()
+
         val openApiSpecification = OpenApiSpecification.fromYAML(openApiYamlString, "TEST")
         return openApiSpecification.parseUnreferencedSchemas().mapKeys { withoutPatternDelimiters(it.key) }
     }
 
-    private fun parseAndExtractPatterns(openApiVersion: OpenApiVersion, composite: CompositePatternTestCase): Map<String, Pattern> {
+    private fun parseAndExtractPatterns(openApiVersion: OpenApiVersion, composite: CompositePatternTestCase): Pair<Map<String, Pattern>, Resolver> {
         val schemasMap = composite.schemas.mapValues { (_, case) -> case.schema }
         val root = mapOf(
             "openapi" to openApiVersion.value,
@@ -128,8 +138,13 @@ class YamlToPatternTests {
         )
 
         val openApiYamlString = yamlMapper.writeValueAsString(root)
+        logger.log(openApiYamlString)
+        logger.boundary()
+
         val openApiSpecification = OpenApiSpecification.fromYAML(openApiYamlString, "TEST")
-        return openApiSpecification.parseUnreferencedSchemas().mapKeys { withoutPatternDelimiters(it.key) }
+        val unreferencedSchemas = openApiSpecification.parseUnreferencedSchemas()
+        val resolver = Resolver(newPatterns = unreferencedSchemas.plus(openApiSpecification.patterns))
+        return Pair(unreferencedSchemas.mapKeys { withoutPatternDelimiters(it.key) }, resolver)
     }
 
     private fun runCase(openApiVersion: OpenApiVersion, case: PatternTestCase, info: TestInfo) {
@@ -194,21 +209,23 @@ class YamlToPatternTests {
     @ParameterizedTest(name = "{index}: [{0}] {1}")
     @MethodSource("discriminatorScenarios")
     fun discriminator_schema_tests(openApiVersion: OpenApiVersion, composite: CompositePatternTestCase, info: TestInfo) {
-        val patterns = parseAndExtractPatterns(openApiVersion, composite)
+        val (patterns, resolver) = parseAndExtractPatterns(openApiVersion, composite)
         composite.schemas.forEach { (name, case) ->
             val schemaPattern = patterns.getValue(name)
             case.validate(schemaPattern)
         }
+        composite.validate(patterns, resolver)
     }
 
     @ParameterizedTest(name = "{index}: [{0}] {1}")
     @MethodSource("refScenarios")
     fun ref_schema_tests(openApiVersion: OpenApiVersion, composite: CompositePatternTestCase, info: TestInfo) {
-        val patterns = parseAndExtractPatterns(openApiVersion, composite)
+        val (patterns, resolver) = parseAndExtractPatterns(openApiVersion, composite)
         composite.schemas.forEach { (name, case) ->
             val schemaPattern = patterns.getValue(name)
             case.validate(schemaPattern)
         }
+        composite.validate(patterns, resolver)
     }
 
     @ParameterizedTest(name = "{index}: [{0}] {1}")
@@ -1074,7 +1091,64 @@ class YamlToPatternTests {
                             assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.DeferredPattern::class.java)
                         }
                     }
+                },
+                singleVersionCompositeCase(name = "ref to schema with sibling constraints", OpenApiVersion.OAS31) {
+                    schema("JustAStringSchema") {
+                        schema {
+                            put("type", "string")
+                        }
+                        validate { pattern ->
+                            assertThat(pattern).isInstanceOf(StringPattern::class.java)
+                        }
+                    }
+                    schema("EmailRef") {
+                        schema {
+                            put("\$ref", "#/components/schemas/JustAStringSchema")
+                            put("format", "email")
+                        }
+                        validate { pattern ->
+                            assertThat(pattern).isInstanceOf(DeferredPattern::class.java)
+                        }
+                    }
+                    validate { patterns, resolver ->
+                        val justAStringSchemaPattern = patterns.getValue("JustAStringSchema")
+                        assertSuccess(justAStringSchemaPattern.match("test@example.com", resolver))
+                        assertSuccess(justAStringSchemaPattern.match("not-an-email", resolver))
+                        assertFailure(justAStringSchemaPattern.match(123, resolver))
+
+                        val emailRefPattern = patterns.getValue("EmailRef")
+                        assertSuccess(emailRefPattern.match("test@example.com", resolver))
+                        assertFailure(emailRefPattern.match("not-an-email", resolver))
+                        assertFailure(emailRefPattern.match(123, resolver))
+                    }
+                },
+                singleVersionCompositeCase(name = "nested ref with sibling constraints", OpenApiVersion.OAS31) {
+                    schema("JustAStringSchema") {
+                        schema {
+                            put("type", "string")
+                        }
+                        validate { pattern ->
+                            assertThat(pattern).isInstanceOf(StringPattern::class.java)
+                        }
+                    }
+                    schema("EmailRefObject") {
+                        schema {
+                            put("type", "object")
+                            put("properties", mapOf("email" to mapOf("\$ref" to "#/components/schemas/JustAStringSchema", "format" to "email")))
+                            put("required", listOf("email"))
+                        }
+                        validate { pattern ->
+                            assertThat(pattern).isInstanceOf(JSONObjectPattern::class.java)
+                            assertSuccess(pattern.match(mapOf("email" to "test@example.com")))
+                            assertFailure(pattern.match(mapOf("email" to "not-an-email")))
+                            assertFailure(pattern.match(mapOf("email" to 123)))
+                        }
+                    }
+                    validate { _, resolver ->
+                        assertThat(resolver.newPatterns.keys).containsExactlyInAnyOrder("(JustAStringSchema)", "(EmailRefObject)")
+                    }
                 }
+
             ).flatten().stream()
         }
 

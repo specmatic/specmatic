@@ -1791,7 +1791,14 @@ class OpenApiSpecification(
             logger.boundary()
         }
 
-        if (resolvedSchema != referredSchema) return overrideToPattern(resolvedSchema, typeStack, patternName)
+        if (resolvedSchema != referredSchema) {
+            if (patternName.isNotBlank() && typeStack.contains(patternName)) return DeferredPattern("($patternName)")
+            val finalPattern = overrideToPattern(resolvedSchema, typeStack, patternName)
+            if (patternName.isBlank() || patternName.contains(".")) return finalPattern
+            cacheComponentPattern(patternName, finalPattern)
+            return DeferredPattern("($patternName)")
+        }
+
         if (typeStack.contains(componentName)) return DeferredPattern("($componentName)")
         val componentPattern = overrideToPattern(resolvedSchema, typeStack.plus(componentName), componentName)
         cacheComponentPattern(componentName, componentPattern)
