@@ -1,10 +1,7 @@
 package io.specmatic.test.reports.renderers
 
 import io.specmatic.core.HttpRequest
-import io.specmatic.core.ReportFormatter
-import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.log.HttpLogMessage
-import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.Flags
 import io.specmatic.junit5.support.VersionInfo
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.HOST
