@@ -2,7 +2,6 @@ package io.specmatic.test.reports.coverage.html
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
-import io.specmatic.core.ReportFormatter
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.SuccessCriteria
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
@@ -15,11 +14,10 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.*
 
-class HtmlReport(private val htmlReportInformation: HtmlReportInformation, private val baseDir: String? = null) {
-    private val configuredOutputDirectory = htmlReportInformation.reportFormat.getOutputDirectoryOrDefault()
+class HtmlReport(private val htmlReportInformation: HtmlReportInformation, baseDir: String? = null) {
+    private val configuredOutputDirectory = "./build/reports/specmatic/html"
     private val outputDirectory = baseDir?.let { File(it).resolve(configuredOutputDirectory).path } ?: configuredOutputDirectory
     private val apiSuccessCriteria = htmlReportInformation.successCriteria
-    private val reportFormat = htmlReportInformation.reportFormat
     private val reportData = htmlReportInformation.reportData
 
     private var totalTests = 0
@@ -48,11 +46,11 @@ class HtmlReport(private val htmlReportInformation: HtmlReportInformation, priva
         dumpTestData(updatedScenarios)
 
         val templateVariables = mapOf(
-            "lite" to reportFormat.getLiteOrDefault(),
-            "pageTitle" to reportFormat.getTitleOrDefault(),
-            "reportHeading" to reportFormat.getHeadingOrDefault(),
-            "logo" to reportFormat.getLogoOrDefault(),
-            "logoAltText" to reportFormat.getLogoAltTextOrDefault(),
+            "lite" to true,
+            "pageTitle" to "Specmatic Report",
+            "reportHeading" to "Contract Test Results",
+            "logo" to "assets/specmatic-logo.svg",
+            "logoAltText" to "Specmatic",
             "summaryResult" to if (testCriteria && successCriteria) "approved" else "rejected",
             "totalCoverage" to reportData.totalCoveragePercentage,
             "totalSuccess" to totalSuccess,
@@ -138,10 +136,7 @@ class HtmlReport(private val htmlReportInformation: HtmlReportInformation, priva
             }
         }
 
-        totalTests = when (reportFormat.getLiteOrDefault()) {
-            true ->  totalSuccess + totalFailures + totalErrors
-            else ->  totalSuccess + totalFailures + totalErrors + totalSkipped
-        }
+        totalTests = totalSuccess + totalFailures + totalErrors
     }
 
     private fun generatedOnTimestamp(): String {
@@ -195,7 +190,6 @@ class HtmlReport(private val htmlReportInformation: HtmlReportInformation, priva
 }
 
 data class HtmlReportInformation(
-    val reportFormat: ReportFormatter,
     val specmaticConfig: SpecmaticConfig,
     val successCriteria: SuccessCriteria,
     val specmaticImplementation: String,

@@ -4,8 +4,6 @@ import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
-import io.specmatic.core.ReportFormatterLayout
-import io.specmatic.core.ReportFormatterType
 import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.Source
 import io.specmatic.core.SourceProvider.filesystem
@@ -904,9 +902,6 @@ internal class SpecmaticConfigAllTest {
             .contains("OpenAPI")
             .contains("APICoverage")
 
-        assertThat(configV2.report?.formatters?.get(0)?.type).isEqualTo(ReportFormatterType.TEXT)
-        assertThat(configV2.report?.formatters?.get(0)?.layout).isEqualTo(ReportFormatterLayout.TABLE)
-
         assertThat(configV2.report?.types?.apiCoverage?.openAPI?.successCriteria?.minThresholdPercentage).isEqualTo(70)
         assertThat(configV2.report?.types?.apiCoverage?.openAPI?.successCriteria?.maxMissedEndpointsInSpec).isEqualTo(0)
         assertThat(configV2.report?.types?.apiCoverage?.openAPI?.successCriteria?.enforce).isEqualTo(true)
@@ -937,12 +932,6 @@ internal class SpecmaticConfigAllTest {
         val expectedReportConfigurationJson = parsedJSON(
             """
             {
-              "formatters": [
-                {
-                  "type": "text",
-                  "layout": "table"
-                }
-              ],
               "types": {
                 "APICoverage": {
                   "OpenAPI": {
@@ -973,9 +962,6 @@ internal class SpecmaticConfigAllTest {
         val actualReportConfigurationJson = parsedJSON(jsonObjectMapper.writeValueAsString(configV2.report))
 
         assertThat(actualReportConfigurationJson).isEqualTo(expectedReportConfigurationJson)
-
-        assertThat(configV2.report?.formatters?.get(0)?.type).isEqualTo(ReportFormatterType.TEXT)
-        assertThat(configV2.report?.formatters?.get(0)?.layout).isEqualTo(ReportFormatterLayout.TABLE)
 
         assertThat(configV2.report?.types?.apiCoverage?.openAPI?.successCriteria?.minThresholdPercentage).isEqualTo(70)
         assertThat(configV2.report?.types?.apiCoverage?.openAPI?.successCriteria?.maxMissedEndpointsInSpec).isEqualTo(0)

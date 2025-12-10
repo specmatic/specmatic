@@ -68,8 +68,6 @@ internal class SpecmaticConfigKtTest {
             SpecmaticConfig.getEnvironments(config)?.get("staging")?.variables?.get("password")
         ).isEqualTo("PaSsWoRd")
 
-        assertThat(SpecmaticConfig.getReport(config)?.formatters?.get(0)?.type).isEqualTo(ReportFormatterType.TEXT)
-        assertThat(SpecmaticConfig.getReport(config)?.formatters?.get(0)?.layout).isEqualTo(ReportFormatterLayout.TABLE)
         assertThat(SpecmaticConfig.getReport(config)?.types?.apiCoverage?.openAPI?.successCriteria?.minThresholdPercentage).isEqualTo(
             70
         )
@@ -109,12 +107,6 @@ internal class SpecmaticConfigKtTest {
 
         assertThat(config.getStubDelayInMilliseconds()).isEqualTo(1000L)
         assertThat(config.getStubGenerative()).isEqualTo(false)
-
-        val htmlConfig = SpecmaticConfig.getReport(config)?.formatters?.first { it.type == ReportFormatterType.HTML }
-        assertThat(htmlConfig?.title).isEqualTo("Test Report")
-        assertThat(htmlConfig?.heading).isEqualTo("Test Results")
-        assertThat(htmlConfig?.outputDirectory).isEqualTo("output")
-
         assertThat(config.getTestTimeoutInMilliseconds()).isEqualTo(3000)
     }
 
@@ -170,8 +162,6 @@ internal class SpecmaticConfigKtTest {
         assertThat(SpecmaticConfig.getEnvironments(config)?.get("staging")?.variables?.get("username")).isEqualTo("jackie")
         assertThat(SpecmaticConfig.getEnvironments(config)?.get("staging")?.variables?.get("password")).isEqualTo("PaSsWoRd")
 
-        assertThat(SpecmaticConfig.getReport(config)?.formatters?.get(0)?.type).isEqualTo(ReportFormatterType.TEXT)
-        assertThat(SpecmaticConfig.getReport(config)?.formatters?.get(0)?.layout).isEqualTo(ReportFormatterLayout.TABLE)
         assertThat(SpecmaticConfig.getReport(config)?.types?.apiCoverage?.openAPI?.successCriteria?.minThresholdPercentage).isEqualTo(70)
         assertThat(SpecmaticConfig.getReport(config)?.types?.apiCoverage?.openAPI?.successCriteria?.maxMissedEndpointsInSpec).isEqualTo(3)
         assertThat(SpecmaticConfig.getReport(config)?.types?.apiCoverage?.openAPI?.successCriteria?.enforce).isTrue()

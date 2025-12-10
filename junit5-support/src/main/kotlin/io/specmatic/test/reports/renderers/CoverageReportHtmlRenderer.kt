@@ -1,7 +1,6 @@
 package io.specmatic.test.reports.renderers
 
 import io.specmatic.core.HttpRequest
-import io.specmatic.core.ReportFormatter
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.log.logger
@@ -24,26 +23,24 @@ class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApi
     override fun render(report: OpenAPICoverageConsoleReport, specmaticConfig: SpecmaticConfig): String {
         logger.log("Generating HTML report...")
         val reportConfiguration = specmaticConfig.getReport()!!
-        val htmlReportConfiguration = reportConfiguration.getHTMLFormatter()!!
         val openApiSuccessCriteria = reportConfiguration.getSuccessCriteria()
 
         val reportData = HtmlReportData(
             totalCoveragePercentage = report.totalCoveragePercentage, actuatorEnabled = actuatorEnabled,
-            tableRows = makeTableRows(report, htmlReportConfiguration),
+            tableRows = makeTableRows(report),
             scenarioData = makeScenarioData(report), totalTestDuration = getTotalDuration()
         )
 
         val htmlReportInformation = HtmlReportInformation(
-            reportFormat = htmlReportConfiguration, successCriteria = openApiSuccessCriteria,
+            successCriteria = openApiSuccessCriteria,
             specmaticImplementation = "OpenAPI", specmaticVersion = getSpecmaticVersion(),
             tableConfig = createTableConfig(report), reportData = reportData, specmaticConfig = specmaticConfig,
             isGherkinReport = report.isGherkinReport
         )
 
         HtmlReport(htmlReportInformation, baseDir).generate()
-        return "Successfully generated HTML report in ${htmlReportConfiguration.getOutputDirectoryOrDefault()}"
+        return "Successfully generated HTML report in ./build/reports/specmatic/html"
     }
-
     private fun createTableConfig(report: OpenAPICoverageConsoleReport): HtmlTableConfig {
         return HtmlTableConfig(
             firstGroupName = "Path",
@@ -54,19 +51,10 @@ class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApi
             thirdGroupColSpan = 1
         )
     }
-
-    private fun getSpecmaticVersion(): String {
-        return VersionInfo.describe()
-    }
-
     private fun makeTableRows(
-        report: OpenAPICoverageConsoleReport,
-        htmlReportConfiguration: ReportFormatter
+        report: OpenAPICoverageConsoleReport
     ): List<TableRow> {
-        val updatedCoverageRows = when (htmlReportConfiguration.getLiteOrDefault()) {
-            true -> reCreateCoverageRowsForLite(report, report.coverageRows)
-            else -> report.coverageRows
-        }
+        val updatedCoverageRows =  reCreateCoverageRowsForLite(report, report.coverageRows)
 
         return report.getGroupedCoverageRows(updatedCoverageRows).flatMap { (_, methodGroup) ->
             val firstGroupRows = methodGroup.values.flatMap { it.values.flatMap { it.values } }
@@ -93,6 +81,9 @@ class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApi
                 }
             }
         }
+    }
+    private fun getSpecmaticVersion(): String {
+        return VersionInfo.describe()
     }
 
     private fun getTotalDuration(): Long {

@@ -34,7 +34,6 @@ class CoverageReportTextRenderer: ReportRenderer<OpenAPICoverageConsoleReport> {
 
         return coveredAPIsTable + System.lineSeparator()  + missingAndNotImplementedAPIsMessageRows.joinToString(System.lineSeparator()) + System.lineSeparator()
     }
-
     private fun pluralisePath(count: Int): String =
         "$count path${if (count == 1) "" else "s"}"
 

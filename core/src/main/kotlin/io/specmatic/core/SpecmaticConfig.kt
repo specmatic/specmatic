@@ -2,6 +2,7 @@ package io.specmatic.core
 
 import com.fasterxml.jackson.annotation.JsonAlias
 import com.fasterxml.jackson.annotation.JsonIgnore
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
@@ -893,25 +894,18 @@ data class RepositoryInfo(
 
 
 interface ReportConfiguration {
-    fun withDefaultFormattersIfMissing(): ReportConfiguration
-    fun getHTMLFormatter(): ReportFormatterDetails?
-    fun getFormatterWithType(type: ReportFormatterType): ReportFormatterDetails?
     fun getSuccessCriteria(): SuccessCriteria
-    fun <T> mapRenderers(fn: (ReportFormatterType) -> T): List<T>
     fun excludedOpenAPIEndpoints(): List<String>
 
     companion object {
         val default = ReportConfigurationDetails(
-            formatters = listOf(
-                ReportFormatterDetails(ReportFormatterType.TEXT, ReportFormatterLayout.TABLE),
-                ReportFormatterDetails(ReportFormatterType.HTML)
-            ), types = ReportTypes()
+           types = ReportTypes()
         )
     }
 }
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class ReportConfigurationDetails(
-    val formatters: List<ReportFormatterDetails>? = null,
     val types: ReportTypes? = null
 ) : ReportConfiguration {
 
@@ -937,123 +931,15 @@ data class ReportConfigurationDetails(
         )
     }
 
-
-    @JsonIgnore
-    override fun withDefaultFormattersIfMissing(): ReportConfigurationDetails {
-        val htmlReportFormatter = formatters?.firstOrNull {
-            it.getTypeOrDefault() == ReportFormatterType.HTML
-        } ?: ReportFormatterDetails(ReportFormatterType.HTML)
-        val textReportFormatter = formatters?.firstOrNull {
-            it.getTypeOrDefault() == ReportFormatterType.TEXT
-        } ?: ReportFormatterDetails(ReportFormatterType.TEXT)
-
-        return this.copy(formatters = listOf(htmlReportFormatter, textReportFormatter))
-    }
-
-    @JsonIgnore
-    override fun getHTMLFormatter(): ReportFormatterDetails? {
-        return formatters?.firstOrNull { it.getTypeOrDefault() == ReportFormatterType.HTML }
-    }
-
-    @JsonIgnore
-    override fun getFormatterWithType(type: ReportFormatterType): ReportFormatterDetails? {
-        return formatters?.firstOrNull { it.getTypeOrDefault() == type }
-    }
-
     @JsonIgnore
     override fun getSuccessCriteria(): SuccessCriteria {
         return types?.apiCoverage?.openAPI?.successCriteria ?: SuccessCriteria.default
     }
 
     @JsonIgnore
-    override fun <T> mapRenderers(fn: (ReportFormatterType) -> T): List<T> {
-        return formatters!!.map {
-            fn(it.getTypeOrDefault())
-        }
-    }
-
-    @JsonIgnore
     override fun excludedOpenAPIEndpoints(): List<String> {
         return types?.apiCoverage?.openAPI?.excludedEndpoints ?: emptyList()
     }
-}
-
-interface ReportFormatter {
-    fun getTypeOrDefault(): ReportFormatterType
-    fun getLayoutOrDefault(): ReportFormatterLayout
-    fun getLiteOrDefault(): Boolean
-    fun getTitleOrDefault(): String
-    fun getLogoOrDefault(): String
-    fun getLogoAltTextOrDefault(): String
-    fun getHeadingOrDefault(): String
-    fun getOutputDirectoryOrDefault(): String
-}
-
-data class ReportFormatterDetails(
-    val type: ReportFormatterType? = null,
-    val layout: ReportFormatterLayout? = null,
-    val lite: Boolean? = null,
-    val title: String? = null,
-    val logo: String? = null,
-    val logoAltText: String? = null,
-    val heading: String? = null,
-    val outputDirectory: String? = null
-) : ReportFormatter {
-    @JsonIgnore
-    override fun getTypeOrDefault(): ReportFormatterType {
-        return type ?: ReportFormatterType.TEXT
-    }
-
-    @JsonIgnore
-    override fun getLayoutOrDefault(): ReportFormatterLayout {
-        return layout ?: ReportFormatterLayout.TABLE
-    }
-
-    @JsonIgnore
-    override fun getLiteOrDefault(): Boolean {
-        return lite ?: false
-    }
-
-    @JsonIgnore
-    override fun getTitleOrDefault(): String {
-        return title ?: "Specmatic Report"
-    }
-
-    @JsonIgnore
-    override fun getLogoOrDefault(): String {
-        return logo ?: "assets/specmatic-logo.svg"
-    }
-
-    @JsonIgnore
-    override fun getLogoAltTextOrDefault(): String {
-        return logoAltText ?: "Specmatic"
-    }
-
-    @JsonIgnore
-    override fun getHeadingOrDefault(): String {
-        return heading ?: "Contract Test Results"
-    }
-
-    @JsonIgnore
-    override fun getOutputDirectoryOrDefault(): String {
-        return outputDirectory ?: "./build/reports/specmatic/html"
-    }
-}
-
-enum class ReportFormatterType {
-    @JsonProperty("text")
-    TEXT,
-
-    @JsonProperty("html")
-    HTML,
-
-    @JsonProperty("ctrf")
-    CTRF
-}
-
-enum class ReportFormatterLayout {
-    @JsonProperty("table")
-    TABLE
 }
 
 data class ReportTypes(
