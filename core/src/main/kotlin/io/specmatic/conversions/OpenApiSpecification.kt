@@ -1504,9 +1504,6 @@ class OpenApiSpecification(
     }
 
     private fun resolveDeepAllOfs(schema: Schema<*>, discriminatorDetails: DiscriminatorDetails, typeStack: Set<String>, topLevel: Boolean): Pair<List<Schema<*>>, DiscriminatorDetails> {
-        if (schema.allOf == null)
-            return listOf(schema) to discriminatorDetails
-
         // Pair<String [property name], Map<String [possible value], Pair<String [Schema name derived from the ref], Schema<Any> [reffed schema]>>>
         val newDiscriminatorDetailsDetails: Triple<String, Map<String, Pair<String, List<Schema<*>>>>, DiscriminatorDetails>? = if (!topLevel) null else schema.discriminator?.let { rawDiscriminator ->
             rawDiscriminator.propertyName?.let { propertyName ->
@@ -1545,7 +1542,8 @@ class OpenApiSpecification(
             }
         }
 
-        val allOfs = schema.allOf.mapNotNull { constituentSchema ->
+        val schemasToProcess = schema.allOf.orEmpty().plus(schema)
+        val allOfs = schemasToProcess.mapNotNull { constituentSchema ->
             if (constituentSchema.`$ref` != null) {
                 val (_, referredSchema) = resolveReferenceToSchema(constituentSchema.`$ref`)
 

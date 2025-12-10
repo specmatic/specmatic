@@ -195,6 +195,25 @@ paths:
         '400':
           description: Bad Request
 
+  /allOfWithTopLevelPropertiesSchema:
+    post:
+      summary: Handle allOf schema with top level properties
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AllOfWithTopLevelPropertiesSchema'
+      responses:
+        '201':
+          description: Successfully created allOf with top level properties
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AllOfWithTopLevelPropertiesSchema'
+        '400':
+          description: Bad Request
+
   /anyOfSchema:
     post:
       summary: Handle anyOf schema
@@ -322,6 +341,21 @@ components:
           properties:
             details:
               type: string
+          required:
+            - details
+
+    AllOfWithTopLevelPropertiesSchema:
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/AllOfSchema'
+      properties:
+        topLevelMandatory:
+          type: string
+          format: uuid
+        topLevelOptional:
+          type: string
+      required:
+        - topLevelMandatory
 
     AnyOfSchema:
       anyOf:

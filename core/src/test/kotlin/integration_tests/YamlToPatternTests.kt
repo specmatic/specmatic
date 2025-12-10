@@ -907,7 +907,27 @@ class YamlToPatternTests {
                         assertFailure(pattern.match(mapOf("id" to 1)))
                         assertFailure(pattern.match(mapOf("name" to "Alice")))
                     }
-                }
+                },
+                multiVersionCase("allOf with additional top-level object", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", "object")
+                        put("allOf", listOf(
+                            mapOf(
+                                "type" to "object",
+                                "properties" to mapOf("id" to mapOf("type" to "integer")),
+                                "required" to listOf("id")
+                            ),
+                        ))
+                        put("properties", mapOf("name" to mapOf("type" to "string")))
+                        put("required", listOf("name"))
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(JSONObjectPattern::class.java)
+                        assertSuccess(pattern.match(mapOf("id" to 1, "name" to "Alice")))
+                        assertFailure(pattern.match(mapOf("id" to 1)))
+                        assertFailure(pattern.match(mapOf("name" to "Alice")))
+                    }
+                },
             ).flatten().stream()
         }
 

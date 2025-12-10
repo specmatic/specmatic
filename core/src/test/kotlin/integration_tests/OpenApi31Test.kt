@@ -160,19 +160,32 @@ class OpenApi31Test {
         assertThat(oneOfObjectComponent.pattern).containsKey("id?")
         assertThat(oneOfObjectComponent.pattern["id?"]).isInstanceOf(NumberPattern::class.java)
 
-        // AllOf Schema (Merged properties: baseId + details)
+        // AllOf Schema (Merged properties: baseId? + details)
         val allOfScenario = feature.scenarios.elementAt(18)
         val allOfRequestBody = resolvedHop(allOfScenario.httpRequestPattern.body, allOfScenario.resolver)
         val allOfResponseBody = resolvedHop(allOfScenario.httpResponsePattern.body, allOfScenario.resolver)
 
         assertThat(allOfRequestBody).isEqualTo(allOfResponseBody)
         assertThat(allOfRequestBody).isInstanceOf(JSONObjectPattern::class.java); allOfRequestBody as JSONObjectPattern
-        assertThat(allOfRequestBody.pattern.keys).containsExactlyInAnyOrder("baseId?", "details?")
+        assertThat(allOfRequestBody.pattern.keys).containsExactlyInAnyOrder("baseId?", "details")
         assertThat(allOfRequestBody.pattern["baseId?"]).isInstanceOf(UUIDPattern::class.java)
-        assertThat(allOfRequestBody.pattern["details?"]).isInstanceOf(StringPattern::class.java)
+        assertThat(allOfRequestBody.pattern["details"]).isInstanceOf(StringPattern::class.java)
+
+        // AllOf Schema with top level properties [topLevelMandatory(UUID) + topLevelOptional? + AllOf(baseId(UUID) + details?(String))]
+        val allOfWithTopLevelPropertiesScenario = feature.scenarios.elementAt(20)
+        val allOfWithTopLevelPropertiesRequestBody = resolvedHop(allOfWithTopLevelPropertiesScenario.httpRequestPattern.body, allOfWithTopLevelPropertiesScenario.resolver)
+        val allOfWithTopLevelPropertiesResponseBody = resolvedHop(allOfWithTopLevelPropertiesScenario.httpResponsePattern.body, allOfWithTopLevelPropertiesScenario.resolver)
+
+        assertThat(allOfWithTopLevelPropertiesRequestBody).isEqualTo(allOfWithTopLevelPropertiesResponseBody)
+        assertThat(allOfWithTopLevelPropertiesRequestBody).isInstanceOf(JSONObjectPattern::class.java); allOfWithTopLevelPropertiesRequestBody as JSONObjectPattern
+        assertThat(allOfWithTopLevelPropertiesRequestBody.pattern.keys).containsExactlyInAnyOrder("baseId?", "details", "topLevelMandatory", "topLevelOptional?")
+        assertThat(allOfWithTopLevelPropertiesRequestBody.pattern["baseId?"]).isInstanceOf(UUIDPattern::class.java)
+        assertThat(allOfWithTopLevelPropertiesRequestBody.pattern["details"]).isInstanceOf(StringPattern::class.java)
+        assertThat(allOfWithTopLevelPropertiesRequestBody.pattern["topLevelMandatory"]).isInstanceOf(UUIDPattern::class.java)
+        assertThat(allOfWithTopLevelPropertiesRequestBody.pattern["topLevelOptional?"]).isInstanceOf(StringPattern::class.java)
 
         // AnyOf Schema [String, Integer, Boolean]
-        val anyOfScenario = feature.scenarios.elementAt(20)
+        val anyOfScenario = feature.scenarios.elementAt(22)
         val anyOfRequestBody = resolvedHop(anyOfScenario.httpRequestPattern.body, anyOfScenario.resolver)
         val anyOfResponseBody = resolvedHop(anyOfScenario.httpResponsePattern.body, anyOfScenario.resolver)
 
@@ -197,7 +210,7 @@ class OpenApi31Test {
             feature.executeTests(stub.client)
         }.results
 
-        assertThat(results.size).isEqualTo(61)
+        assertThat(results.size).isEqualTo(87)
         assertThat(Result.fromResults(results))
             .withFailMessage { Result.fromResults(results).reportString() }
             .isInstanceOf(Result.Success::class.java)
@@ -215,7 +228,7 @@ class OpenApi31Test {
             openApi30Specification.toFeature().copy(specmaticConfig = specmaticConfig).executeTests(stub.client)
         }.results
 
-        assertThat(results.size).isEqualTo(61 + 2) // +2 Due to multiTypEnum representation
+        assertThat(results.size).isEqualTo(87 + 2) // +2 Due to multiTypEnum representation
         assertThat(Result.fromResults(results))
             .withFailMessage { Result.fromResults(results).reportString() }
             .isInstanceOf(Result.Success::class.java)
@@ -233,7 +246,7 @@ class OpenApi31Test {
             openApi31Specification.toFeature().copy(specmaticConfig = specmaticConfig).executeTests(stub.client)
         }.results
 
-        assertThat(results.size).isEqualTo(61)
+        assertThat(results.size).isEqualTo(87)
         assertThat(Result.fromResults(results))
             .withFailMessage { Result.fromResults(results).reportString() }
             .isInstanceOf(Result.Success::class.java)
@@ -249,13 +262,13 @@ class OpenApi31Test {
         val openApi31Feature = ScenarioFilter(filterClauses = backwardCompatibilityFilter).filter(openApi31Specification.toFeature())
 
         val openApi30To31 = testBackwardCompatibility(openApi30Feature, openApi31Feature)
-        assertThat(openApi30To31.results).hasSize(40)
+        assertThat(openApi30To31.results).hasSize(44)
         assertThat(Result.fromResults(openApi30To31.results))
             .withFailMessage { Result.fromResults(openApi30To31.results).reportString() }
             .isInstanceOf(Result.Success::class.java)
 
         val openApi31To30 = testBackwardCompatibility(openApi31Feature, openApi30Feature)
-        assertThat(openApi31To30.results).hasSize(40)
+        assertThat(openApi31To30.results).hasSize(44)
         assertThat(Result.fromResults(openApi31To30.results))
             .withFailMessage { Result.fromResults(openApi31To30.results).reportString() }
             .isInstanceOf(Result.Success::class.java)
