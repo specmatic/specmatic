@@ -27,7 +27,8 @@ class OpenApiCoverageReportProcessor(private val openApiCoverageReportInput: Ope
         if (openAPICoverageReport.coverageRows.isEmpty()) {
             logger.log("The Open API coverage report generated is blank.\nThis can happen if your open api specification does not have any paths documented.")
         } else {
-            CoverageReportTextRenderer().render(openAPICoverageReport, specmaticConfig)
+            val textReport = CoverageReportTextRenderer().render(openAPICoverageReport, specmaticConfig)
+            logger.log(textReport)
             CoverageReportHtmlRenderer(openApiCoverageReportInput, reportBaseDirectory).render(openAPICoverageReport, specmaticConfig)
             saveAsJson(openApiCoverageReportInput.generateJsonReport())
         }
