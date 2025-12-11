@@ -1593,29 +1593,29 @@ class OpenApiSpecification(
         }
     }
 
-    private fun handleMultiType(schema: JsonSchema, typeStack: List<String>, patternName: String, types: List<String>, example: String? = null): Pattern {
-        if (schema.enum != null) {
-            val enumDataTypes = types.sortedWith(compareBy { it == "string" }).map(::withPatternDelimiters)
-            val converter: (String) -> Value = { value ->
-                enumDataTypes.firstNotNullOfOrNull {
-                    val pattern = builtInPatterns[it] ?: return@firstNotNullOfOrNull null
-                    runCatching { pattern.parse(value, Resolver()) }.getOrNull()
-                } ?: run {
-                    logger.log("Failed to validate enum value $value against provided list of types $enumDataTypes")
-                    parsedScalarValue(value)
-                }
+    private fun handleMultiTypeEnum(schema: Schema<*>, typeStack: List<String>, patternName: String, types: List<String>, example: String? = null): Pattern {
+        val enumDataTypes = types.sortedWith(compareBy { it == "string" }).map(::withPatternDelimiters)
+        val converter: (String) -> Value = { value ->
+            enumDataTypes.firstNotNullOfOrNull {
+                val pattern = builtInPatterns[it] ?: return@firstNotNullOfOrNull null
+                runCatching { pattern.parse(value, Resolver()) }.getOrNull()
+            } ?: run {
+                logger.log("Failed to validate enum value $value against provided list of types $enumDataTypes")
+                parsedScalarValue(value)
             }
-
-            return toEnum(schema, types.contains(NULL_TYPE), patternName, multiType = true) { enumValue ->
-                converter(enumValue.toString())
-            }.withExample(example)
         }
 
-        val patterns = schema.types.map { singleType ->
+        return toEnum(schema, types.contains(NULL_TYPE), patternName, multiType = true) { enumValue ->
+            converter(enumValue.toString())
+        }.withExample(example)
+    }
+
+    private fun handleMultiType(schema: Schema<*>, typeStack: List<String>, patternName: String, types: List<String>, example: String? = null): Pattern {
+        val patterns = types.map { singleType ->
             val singleTypeSchema = SchemaUtils.cloneWithType(schema, singleType)
             toSpecmaticPattern(singleTypeSchema, typeStack)
         }
-        return AnyOfPattern(pattern = patterns, typeAlias = "($patternName)")
+        return AnyOfPattern(pattern = patterns, typeAlias = "($patternName)", example = example)
     }
 
     private fun handleAllOf(schema: Schema<*>, typeStack: List<String>, patternName: String): Pattern {
@@ -2383,12 +2383,12 @@ class OpenApiSpecification(
             return exactPattern(toValue(this.const), patternName)
         }
 
-        val example = this.extractFirstExampleAsString()
-        val declaredTypes = this.types ?: setOfNotNull(this.type)
+        val example = extractFirstExampleAsString()
+        val declaredTypes = types ?: setOfNotNull(type)
         val effectiveTypes = declaredTypes.filter { it != NULL_TYPE }
-        if (this is JsonSchema && (effectiveTypes.size > 1 || this.enum != null)) {
-            return handleMultiType(this, typeStack, patternName, declaredTypes.toList())
-        }
+
+        if (enum != null) return handleMultiTypeEnum(this, typeStack, patternName, declaredTypes.toList(), example)
+        if (effectiveTypes.size > 1) return handleMultiType(this, typeStack, patternName, declaredTypes.toList(), example)
 
         return when (effectiveTypes.firstOrNull()) {
             // Primitives
