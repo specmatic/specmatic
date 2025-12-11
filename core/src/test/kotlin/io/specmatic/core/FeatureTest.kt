@@ -1,5 +1,6 @@
 package io.specmatic.core
 
+import io.ktor.http.HttpStatusCode
 import io.mockk.every
 import io.mockk.mockk
 import io.specmatic.conversions.OpenApiSpecification
@@ -3248,6 +3249,55 @@ paths:
                 // It's also acceptable if no negative tests are generated in strict mode
                 assertThat(negativeTests).isEmpty()
             }
+        }
+    }
+
+    @Nested
+    inner class StubsFromExamplesTests {
+        /*
+            Right now, if there are multiple response examples for the same request the last
+            response example is picked up against the request example as a stub.
+            This is leading VS to break as in the following case the example that's loaded has
+            a request-response pair where the response status is 400
+         */
+        @Test
+        fun `should load the inline examples as stubs`() {
+            val feature = OpenApiSpecification.fromFile(
+                "src/test/resources/openapi/spec_with_inline_2xx_and_4xx_examples.yaml"
+            ).toFeature()
+
+            val requestResponseList = feature.stubsFromExamples.values.flatten()
+
+            val request = requestResponseList.map { it.first }.toSet().single()
+            assertThat(request.bodyString).isEqualTo("""
+                {
+                    "products": [
+                        {
+                            "productId": "P1001",
+                            "quantity": 2
+                        },
+                        {
+                            "productId": "P2003",
+                            "quantity": 1
+                        }
+                    ],
+                    "region": "US",
+                    "isCorporate": true,
+                    "discountCoupon": "SAVE10"
+                }
+            """.trimIndent())
+
+            // Right now I've added this assertion where I am expecting the stubsFromExamples
+            // to contain all the responses associated with the request but that may be a wrong assertion.
+            // We need to decide on the same.
+            val responses = requestResponseList.map { it.second }
+            assertThat(responses.size).isEqualTo(2)
+
+            val createdResponse = responses.firstOrNull { it.status == HttpStatusCode.Created.value }
+            val badRequestResponse = responses.firstOrNull { it.status == HttpStatusCode.BadRequest.value }
+
+            assertThat(createdResponse).isNotNull
+            assertThat(badRequestResponse).isNotNull
         }
     }
 }

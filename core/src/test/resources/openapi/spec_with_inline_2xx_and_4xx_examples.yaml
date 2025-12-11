@@ -1,0 +1,139 @@
+openapi: 3.0.1
+info:
+  title: E-Commerce Orders API
+  version: 1.0.0
+paths:
+  /orders:
+    post:
+      operationId: createOrder
+      summary: Create a new order
+      description: Create a new e-Commerce order with specified products and details.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewOrder'
+            examples:
+              createOrder:
+                value:
+                  products:
+                    - productId: "P1001"
+                      quantity: 2
+                    - productId: "P2003"
+                      quantity: 1
+                  region: "US"
+                  isCorporate: true
+                  discountCoupon: "SAVE10"
+      responses:
+        '201':
+          description: Order created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+              examples:
+                createOrder:
+                  value:
+                    orderId: "O12345"
+                    products:
+                      - productId: "P1001"
+                        quantity: 2
+                      - productId: "P2003"
+                        quantity: 1
+                    region: "US"
+                    isCorporate: true
+                    discountCoupon: "SAVE10"
+                    status: "PENDING"
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                createOrder:
+                  value:
+                    timestamp: "2025-12-10T10:15:30Z"
+                    status: 400
+                    error: "Invalid order payload"
+                    path: "/orders"
+components:
+  schemas:
+    BaseOrderProduct:
+      type: object
+      required:
+        - productId
+        - quantity
+      properties:
+        productId:
+          type: string
+        quantity:
+          type: integer
+          format: int32
+          minimum: 1
+    NewOrderProduct:
+      allOf:
+        - $ref: '#/components/schemas/BaseOrderProduct'
+    OrderProduct:
+      allOf:
+        - $ref: '#/components/schemas/BaseOrderProduct'
+    NewOrder:
+      type: object
+      required:
+        - products
+        - region
+        - isCorporate
+      properties:
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/NewOrderProduct'
+        region:
+          type: string
+        isCorporate:
+          type: boolean
+        discountCoupon:
+          type: string
+    Order:
+      type: object
+      x-id-field: orderId
+      required:
+        - orderId
+        - products
+        - region
+        - isCorporate
+        - status
+      properties:
+        orderId:
+          type: string
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderProduct'
+        region:
+          type: string
+        isCorporate:
+          type: boolean
+        discountCoupon:
+          type: string
+        status:
+          type: string
+    Error:
+      type: object
+      required:
+        - timestamp
+        - status
+        - error
+        - path
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: integer
+          format: int32
+        error:
+          type: string
+        path:
+          type: string
