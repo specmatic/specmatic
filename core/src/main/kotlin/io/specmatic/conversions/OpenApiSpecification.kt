@@ -2001,7 +2001,7 @@ class OpenApiSpecification(
                 val nodes = nodeProperties.map { (propertyName: String, propertySchema) ->
                     val type = when (propertySchema.type) {
                         in primitiveOpenAPITypes -> {
-                            val primitivePattern = toSpecmaticPattern(propertySchema, typeStack, propertyName)
+                            val primitivePattern = toSpecmaticPattern(propertySchema, typeStack)
                             XMLPattern(XMLTypeData(propertyName, propertyName, emptyMap(), listOf(primitivePattern)))
                         }
                         else -> {
@@ -2055,7 +2055,7 @@ class OpenApiSpecification(
                             nodeNameFromProperty
                         }
                         val name = innerName ?: throw ContractException("Could not determine name for an xml node")
-                        val primitivePattern = toSpecmaticPattern(repeatingSchema, typeStack, name)
+                        val primitivePattern = toSpecmaticPattern(repeatingSchema, typeStack)
                         XMLPattern(XMLTypeData(name, name, emptyMap(), listOf(primitivePattern)))
                     }
 
@@ -2141,7 +2141,7 @@ class OpenApiSpecification(
         return when (resolvedAdditionalProperties) {
             true -> AdditionalProperties.FreeForm
             false -> AdditionalProperties.NoAdditionalProperties
-            is Schema<*> -> processAdditionalPropertiesSchema(resolvedAdditionalProperties, patternName, typeStack)
+            is Schema<*> -> processAdditionalPropertiesSchema(resolvedAdditionalProperties, typeStack)
             else -> throw ContractException(
                 breadCrumb = "$patternName.additionalProperties",
                 errorMessage = "Unrecognized type for additionalProperties: expected a boolean or a schema"
@@ -2149,8 +2149,8 @@ class OpenApiSpecification(
         }
     }
 
-    private fun processAdditionalPropertiesSchema(schema: Schema<*>, patternName: String, typeStack: List<String>): AdditionalProperties {
-        val parsedPattern = toSpecmaticPattern(schema, typeStack, patternName)
+    private fun processAdditionalPropertiesSchema(schema: Schema<*>, typeStack: List<String>): AdditionalProperties {
+        val parsedPattern = toSpecmaticPattern(schema, typeStack)
         return if (parsedPattern is AnyNonNullJSONValue) AdditionalProperties.FreeForm
         else AdditionalProperties.PatternConstrained(parsedPattern)
     }
@@ -2303,7 +2303,7 @@ class OpenApiSpecification(
             )
 
             URLPathSegmentPattern(
-                pattern = toSpecmaticPattern(param.schema, emptyList(), "$schemaLocationDescription.$paramName"),
+                pattern = toSpecmaticPattern(param.schema, emptyList(), breadCrumb = "$schemaLocationDescription.$paramName"),
                 key = paramName
             )
         }

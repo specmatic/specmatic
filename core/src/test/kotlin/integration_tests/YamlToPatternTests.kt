@@ -8,6 +8,7 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.log.logger
+import io.specmatic.core.pattern.AdditionalProperties
 import io.specmatic.core.pattern.Base64StringPattern
 import io.specmatic.core.pattern.BinaryPattern
 import io.specmatic.core.pattern.BooleanPattern
@@ -1147,8 +1148,36 @@ class YamlToPatternTests {
                     validate { _, resolver ->
                         assertThat(resolver.newPatterns.keys).containsExactlyInAnyOrder("(JustAStringSchema)", "(EmailRefObject)")
                     }
+                },
+                multiVersionCompositeCase(name = "object with additionalProperties as ref", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema("TagSchema") {
+                        schema {
+                            put("type", "string")
+                            put("minLength", 1)
+                        }
+                        validate { pattern ->
+                            assertThat(pattern).isInstanceOf(StringPattern::class.java)
+                        }
+                    }
+                    schema("TagMap") {
+                        schema {
+                            put("type", "object")
+                            put("additionalProperties", mapOf("\$ref" to "#/components/schemas/TagSchema"))
+                        }
+                        validate { pattern ->
+                            assertThat(pattern).isInstanceOf(JSONObjectPattern::class.java); pattern as JSONObjectPattern
+                            assertThat(pattern.additionalProperties).isInstanceOf(AdditionalProperties.PatternConstrained::class.java)
+                            assertThat((pattern.additionalProperties as AdditionalProperties.PatternConstrained).pattern).isInstanceOf(DeferredPattern::class.java)
+                        }
+                    }
+                    validate { patterns, resolver ->
+                        val tagMapPattern = patterns.getValue("TagMap")
+                        assertThat(resolver.newPatterns.keys).containsExactlyInAnyOrder("(TagSchema)", "(TagMap)")
+                        assertSuccess(tagMapPattern.match(mapOf("tag" to "test"), resolver))
+                        assertFailure(tagMapPattern.match(mapOf("tag" to ""), resolver))
+                        assertFailure(tagMapPattern.match(mapOf("tag" to 123), resolver))
+                    }
                 }
-
             ).flatten().stream()
         }
 
