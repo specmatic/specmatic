@@ -59,7 +59,6 @@ import io.specmatic.core.utilities.URIValidationResult
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.utilities.exitWithMessage
-import io.specmatic.core.utilities.jsonStringToValueMap
 import io.specmatic.core.utilities.saveJsonFile
 import io.specmatic.core.utilities.toMap
 import io.specmatic.core.utilities.validateTestOrStubUri
@@ -72,8 +71,6 @@ import io.specmatic.core.value.toXMLNode
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.mock.TRANSIENT_MOCK
-import io.specmatic.mock.mockFromJSON
-import io.specmatic.mock.validateMock
 import io.specmatic.reporter.generated.dto.stub.usage.SpecmaticStubUsageReport
 import io.specmatic.reporter.internal.dto.stub.usage.merge
 import io.specmatic.reporter.model.TestResult
@@ -670,7 +667,7 @@ class HttpStub(
             if (httpRequest.body.toStringLiteral().isEmpty())
                 throw ContractException("Expectation payload was empty")
 
-            val mock: ScenarioStub = stringToMockScenario(httpRequest.body)
+            val mock: ScenarioStub = ScenarioStub.parse(httpRequest.body)
             val stub: HttpStubData = setExpectation(mock).first()
 
             HttpStubResponse(HttpResponse.OK, contractPath = stub.contractPath)
@@ -740,7 +737,7 @@ class HttpStub(
 
     // Java helper
     override fun setExpectation(json: String) {
-        val mock = stringToMockScenario(StringValue(json))
+        val mock = ScenarioStub.parse(json)
         setExpectation(mock)
     }
 
@@ -1567,15 +1564,6 @@ fun softCastValueToXML(body: Value): Value {
 
         else -> body
     }
-}
-
-fun stringToMockScenario(text: Value): ScenarioStub {
-    val mockSpec: Map<String, Value> =
-        jsonStringToValueMap(text.toStringLiteral()).also {
-            validateMock(it)
-        }
-
-    return mockFromJSON(mockSpec)
 }
 
 data class SseEvent(

@@ -718,10 +718,20 @@ fun fix(jsonPatternMap: Map<String, Pattern>, jsonValueMap: Map<String, Value>, 
         .map { (key, pattern) -> key to Pair(pattern, NullValue) }
         .toMap()
 
+    val keyErrors = resolver.findKeyErrorCheck.validateAll(jsonPatternMap, jsonValueMap)
+    val fuzzyKeyErrors = keyErrors.filterIsInstance<FuzzyKeyError>().associate{ it.name to it.candidate }
     val keyToPatternValuePair = jsonValueMap.mapNotNull { (key, value) ->
-        val pattern = jsonPatternMap[key] ?: jsonPatternMap["$key?"]
-        if (pattern == null && resolver.findKeyErrorCheck.unexpectedKeyCheck is ValidateUnexpectedKeys) return@mapNotNull null
-        key to Pair(pattern, value)
+        val potentialKeys = listOfNotNull(key, fuzzyKeyErrors[key])
+        val match = potentialKeys.firstNotNullOfOrNull { candidateKey ->
+            val pattern = jsonPatternMap[withoutOptionality(candidateKey)] ?: jsonPatternMap[withOptionality(candidateKey)]
+            pattern?.let { pattern -> withoutOptionality(candidateKey) to pattern }
+        }
+
+        when {
+            match != null -> match.first to Pair(match.second, value)
+            resolver.findKeyErrorCheck.isValidateUnexpectedKeyCheck() -> null
+            else -> key to (null to value)
+        }
     }.toMap()
 
     val finalMap = defaultKeyToPatternValuePair.plus(keyToPatternValuePair)
@@ -759,7 +769,7 @@ fun fill(jsonPatternMap: Map<String, Pattern>, jsonValueMap: Map<String, Value>,
 
     val resolvedValuesMap = adjustedValue.mapValues { (key, value) ->
         val pattern = jsonPatternMap[key] ?: jsonPatternMap["$key?"] ?: return@mapValues when {
-            resolver.findKeyErrorCheck.unexpectedKeyCheck is IgnoreUnexpectedKeys -> generateIfPatternToken(typeAlias, key, value, resolver)
+            resolver.findKeyErrorCheck.isIgnoreUnexpectedKeyCheck() -> generateIfPatternToken(typeAlias, key, value, resolver)
             resolver.isNegative -> generateIfPatternToken(typeAlias, key, value, resolver)
             else -> HasFailure<Value>(Result.Failure(resolver.mismatchMessages.unexpectedKey("key", key)))
         }.breadCrumb(key)

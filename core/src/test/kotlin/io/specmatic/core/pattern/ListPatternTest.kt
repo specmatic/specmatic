@@ -371,7 +371,7 @@ Feature: Recursive test
         fun `should be able to fix simple invalid values in an json array`() {
             val innerPattern = parsedPattern("""
             {
-                "topLevelKey": "(string)",
+                "topLevelKey": "(email)",
                 "topLevelOptionalKey?": "(number)",
                 "nested": {
                     "nestedKey": "(date)",
@@ -382,18 +382,18 @@ Feature: Recursive test
             val pattern = ListPattern(innerPattern)
             val patternDictionary = """
             Test:
-                topLevelKey: Fixed
+                topLevelKey: fixed@specmatic.io
                 nested:
                     nestedOptionalKey: true
             """.let(Dictionary::fromYaml)
 
             val invalidValue = parsedValue("""[
                 {
-                    "topLevelKey": 999,
+                    "topLevelKey": "999",
                     "topLevelOptionalKey": 10,
                     "nested": {
                         "nestedKey": "2025-01-01",
-                        "nestedOptionalKey": "false"
+                        "nestedOptionalKey": "no"
                     }
                 }
             ]
@@ -405,7 +405,7 @@ Feature: Recursive test
                 it as JSONObjectValue
                 assertThat(it).isEqualTo(parsedJSONObject("""
                 {
-                    "topLevelKey": "Fixed",
+                    "topLevelKey": "fixed@specmatic.io",
                     "nested": {
                         "nestedKey": "2025-01-01",
                         "nestedOptionalKey": true
@@ -420,7 +420,7 @@ Feature: Recursive test
         fun `should generate if the value does not match the type expected json-array`() {
             val innerPattern = parsedPattern("""
             {
-                "topLevelKey": "(string)",
+                "topLevelKey": "(email)",
                 "topLevelOptionalKey?": "(number)",
                 "nested": {
                     "nestedKey": "(date)",
@@ -431,7 +431,7 @@ Feature: Recursive test
             val pattern = ListPattern(innerPattern)
             val patternDictionary = """
             Test:
-                topLevelKey: Fixed
+                topLevelKey: fixed@specmatic.io
                 nested:
                     nestedKey: 2025-01-01
             """.let(Dictionary::fromYaml)
@@ -443,7 +443,7 @@ Feature: Recursive test
             assertThat((fixedValue as JSONArrayValue).list).allSatisfy {
                 assertThat(it).isEqualTo(parsedJSONObject("""
                 {
-                    "topLevelKey": "Fixed",
+                    "topLevelKey": "fixed@specmatic.io",
                     "nested": {
                         "nestedKey": "2025-01-01"
                     }
@@ -455,14 +455,14 @@ Feature: Recursive test
         @Test
         fun `should not generate when the pattern is avoidably cycling and value is missing`() {
             val pattern = ListPattern(parsedPattern("""{
-                "topLevelKey": "(string)",
+                "topLevelKey": "(email)",
                 "topLevelOptionalKey?": "(number)",
                 "subList?": "(TestList)"
             }
             """.trimIndent(), typeAlias = "(Test)"), typeAlias = "(TestList)")
             val patternDictionary = """
             Test:
-                topLevelKey: Fixed
+                topLevelKey: fixed@specmatic.io
                 topLevelOptionalKey: 999
             """.let(Dictionary::fromYaml)
 
@@ -480,7 +480,7 @@ Feature: Recursive test
             assertThat(fixedValue.toStringLiteral()).isEqualTo("""
             [
                 {
-                    "topLevelKey": "Fixed",
+                    "topLevelKey": "fixed@specmatic.io",
                     "topLevelOptionalKey": 999
                 }
             ]
@@ -490,14 +490,14 @@ Feature: Recursive test
         @Test
         fun `should throw an exception when the pattern is unavoidably cycling and value is missing`() {
             val pattern = ListPattern(parsedPattern("""{
-                "topLevelKey": "(string)",
+                "topLevelKey": "(email)",
                 "topLevelOptionalKey?": "(number)",
                 "subList": "(TestList)"
             }
             """.trimIndent(), typeAlias = "(Test)"), typeAlias = "(TestList)")
             val patternDictionary = """
             Test:
-                topLevelKey: Fixed
+                topLevelKey: fixed@specmatic.io
                 topLevelOptionalKey: 999
             """.let(Dictionary::fromYaml)
 
@@ -522,14 +522,14 @@ Feature: Recursive test
         fun `should generate new values if the list is empty and allPatternsAreMandatory is set`() {
             val innerPattern = parsedPattern("""
             {
-                "topLevelKey": "(string)",
+                "topLevelKey": "(email)",
                 "topLevelOptionalKey?": "(number)"
             }
             """.trimIndent(), typeAlias = "(Test)")
             val pattern = ListPattern(innerPattern)
             val patternDictionary = """
             Test:
-                topLevelKey: Fixed
+                topLevelKey: fixed@specmatic.io
                 topLevelOptionalKey: 10
             """.let(Dictionary::fromYaml)
 
@@ -543,7 +543,7 @@ Feature: Recursive test
                     parsedValue(
                         """
                         {
-                            "topLevelKey": "Fixed",
+                            "topLevelKey": "fixed@specmatic.io",
                             "topLevelOptionalKey": 10 
                         }
                         """.trimIndent()
@@ -555,14 +555,14 @@ Feature: Recursive test
         @Test
         fun `should not generate when the pattern is avoidably cycling and value is missing even if allPatternsAreMandatory is set`() {
             val pattern = ListPattern(parsedPattern("""{
-                "topLevelKey": "(string)",
+                "topLevelKey": "(email)",
                 "topLevelOptionalKey?": "(number)",
                 "subList?": "(TestList)"
             }
             """.trimIndent(), typeAlias = "(Test)"), typeAlias = "(TestList)")
             val patternDictionary = """
             Test:
-                topLevelKey: Fixed
+                topLevelKey: fixed@specmatic.io
                 topLevelOptionalKey: 999
             """.let(Dictionary::fromYaml)
 
@@ -582,13 +582,13 @@ Feature: Recursive test
 
             assertThat(fixedValue.list).allSatisfy {
                 it as JSONObjectValue
-                assertThat(it.getString("topLevelKey")).isEqualTo("Fixed")
+                assertThat(it.getString("topLevelKey")).isEqualTo("fixed@specmatic.io")
                 assertThat(it.getInt("topLevelOptionalKey")).isEqualTo(999)
                 assertThat(it.getJSONArray("subList")).allSatisfy { nested ->
                     nested as JSONObjectValue
                     assertThat(nested).isEqualTo(parsedJSONObject("""
                      {
-                        "topLevelKey": "Fixed",
+                        "topLevelKey": "fixed@specmatic.io",
                         "topLevelOptionalKey": 999
                     }
                     """.trimIndent()))

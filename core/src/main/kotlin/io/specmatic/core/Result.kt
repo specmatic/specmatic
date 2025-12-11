@@ -355,7 +355,7 @@ interface MismatchMessages {
     fun optionalKeyMissing(keyLabel: String, keyName: String): String {
         return expectedKeyWasMissing("optional ${keyLabel.lowercase()}", keyName)
     }
-    fun valueMismatchFailure(expected: String, actual: Value?, mismatchMessages: MismatchMessages = DefaultMismatchMessages): Failure {
+    fun valueMismatchFailure(expected: String, actual: Value?, mismatchMessages: MismatchMessages = this): Failure {
         return mismatchResult(expected, valueError(actual) ?: "null", mismatchMessages)
     }
 }

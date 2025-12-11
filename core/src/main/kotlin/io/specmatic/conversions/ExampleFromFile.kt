@@ -3,6 +3,7 @@ package io.specmatic.conversions
 import io.specmatic.core.CONTENT_TYPE
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
+import io.specmatic.core.Result
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.examples.server.SchemaExample
 import io.specmatic.core.log.logger
@@ -15,27 +16,21 @@ import io.specmatic.test.ExampleProcessor
 import java.io.File
 import java.net.URI
 
-class ExampleFromFile(private val scenarioStub: ScenarioStub, val json: JSONObjectValue, val file: File) {
-
+class ExampleFromFile(private val scenarioStub: ScenarioStub, val file: File) {
     companion object {
-        fun fromFile(file: File): ReturnValue<ExampleFromFile> {
+        fun fromFile(file: File, strictMode: Boolean = true): ReturnValue<ExampleFromFile> {
             if (SchemaExample.matchesFilePattern(file)) {
                 return HasFailure("Skipping file ${file.canonicalPath}, because it contains schema-based example")
             }
 
-            return runCatching { ExampleFromFile(file) }.map(::HasValue).getOrElse(::HasException)
+            return runCatching {
+                ExampleFromFile(file, strictMode)
+            }.map(::HasValue).getOrElse(::HasException)
         }
     }
 
-    constructor(file: File): this(
-        scenarioStub = ScenarioStub.readFromFile(file),
-        json = readValueAs<JSONObjectValue>(file), file = file
-    )
-
-    constructor(json: JSONObjectValue, file: File): this(
-        scenarioStub = ScenarioStub.parse(json),
-        json = json, file = file
-    )
+    constructor(file: File, strictMode: Boolean = true): this(scenarioStub = ScenarioStub.readFromFile(file, strictMode), file = file)
+    constructor(json: JSONObjectValue, file: File, strictMode: Boolean = true): this(scenarioStub = ScenarioStub.parse(json, strictMode), file = file)
 
     fun toRow(specmaticConfig: SpecmaticConfig = SpecmaticConfig()): Row {
         logger.log("Loading test file ${this.expectationFilePath}")
@@ -68,6 +63,8 @@ class ExampleFromFile(private val scenarioStub: ScenarioStub, val json: JSONObje
         ).let { ExampleProcessor.resolve(it, ExampleProcessor::ifNotExitsToLookupPattern) }
     }
 
+    val json: JSONObjectValue = scenarioStub.rawJsonData
+    val validationErrors: Result = scenarioStub.validationErrors
     val expectationFilePath: String = file.canonicalPath
     @Suppress("MemberVisibilityCanBePrivate") // Used in openapi-module
     val testName: String = scenarioStub.name ?: file.nameWithoutExtension

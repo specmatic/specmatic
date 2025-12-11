@@ -95,6 +95,7 @@ class OpenApiSpecification(
     private val specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
     private val strictMode: Boolean = false,
     private val dictionary: Dictionary = loadDictionary(openApiFilePath, specmaticConfig.getStubDictionary(), strictMode),
+    private val logger: LogStrategy = io.specmatic.core.log.logger
 ) : IncludedSpecification, ApiSpecification {
     init {
         StringProviders // Trigger early initialization of StringProviders to ensure all providers are loaded at startup
@@ -248,7 +249,7 @@ class OpenApiSpecification(
         fun fromYAML(
             yamlContent: String,
             openApiFilePath: String,
-            loggerForErrors: LogStrategy = logger,
+            logger: LogStrategy = io.specmatic.core.log.logger,
             sourceProvider: String? = null,
             sourceRepository: String? = null,
             sourceRepositoryBranch: String? = null,
@@ -274,15 +275,15 @@ class OpenApiSpecification(
             if (parsedOpenApi == null) {
                 logger.log("FATAL: Failed to parse OpenAPI from file $openApiFilePath after preprocessing additionalProperties\n\n$preprocessedYaml")
 
-                printMessages(parseResult, loggerForErrors)
+                printMessages(parseResult, logger)
 
                 throw ContractException("Could not parse contract $openApiFilePath, please validate the syntax using https://editor.swagger.io")
             } else if (parseResult.messages?.isNotEmpty() == true) {
                 logger.boundary()
                 logger.log("WARNING: The OpenAPI file $openApiFilePath was read successfully but with some issues")
 
-                loggerForErrors.withIndentation(2) {
-                    printMessages(parseResult, loggerForErrors)
+                logger.withIndentation(2) {
+                    printMessages(parseResult, logger)
                 }
                 logger.boundary()
             }
@@ -296,7 +297,8 @@ class OpenApiSpecification(
                 specificationPath,
                 securityConfiguration,
                 specmaticConfig,
-                strictMode = strictMode
+                strictMode = strictMode,
+                logger = logger
             )
         }
 

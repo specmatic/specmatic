@@ -4,6 +4,8 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.Substitution
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.value.NullValue
+import io.specmatic.core.value.ScalarValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
@@ -134,7 +136,15 @@ fun fillInIfPatternToken(value: Value, pattern: Pattern, resolver: Resolver): Re
 }
 
 fun fixValue(value: Value, pattern: Pattern, resolver: Resolver): Value {
-    return value.takeIf { resolver.matchesPattern(null, pattern, value).isSuccess() } ?: resolver.generate(pattern)
+    val parsedValueIfScalar = if (value !is NullValue && pattern is ScalarType && value is ScalarValue) {
+        runCatching { pattern.parse(value.toStringLiteral(), resolver) }.getOrDefault(value)
+    } else {
+        value
+    }
+
+    return parsedValueIfScalar.takeIf {
+        resolver.matchesPattern(null, pattern, parsedValueIfScalar).isSuccess()
+    } ?: resolver.generate(pattern)
 }
 
 fun scalarResolveSubstitutions(substitution: Substitution, value: Value, key: String?, pattern: Pattern, resolver: Resolver): ReturnValue<Value> {

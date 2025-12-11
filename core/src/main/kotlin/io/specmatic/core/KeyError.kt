@@ -20,11 +20,3 @@ data class MissingKeyError(override val name: String) : KeyError {
         return Failure(mismatchMessages.optionalKeyMissing(keyLabel, name), isPartial = true)
     }
 }
-
-data class UnexpectedKeyError(override val name: String) : KeyError {
-    override fun missingKeyToResult(keyLabel: String, mismatchMessages: MismatchMessages): Failure =
-        Failure(mismatchMessages.unexpectedKey(keyLabel, name))
-
-    override fun missingOptionalKeyToResult(keyLabel: String, mismatchMessages: MismatchMessages): Failure =
-        Failure(mismatchMessages.unexpectedKey(keyLabel, name))
-}

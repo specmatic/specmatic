@@ -58,11 +58,12 @@ data class AnyPattern(
 
     override fun fixValue(value: Value, resolver: Resolver): Value {
         if (resolver.matchesPattern(null, this, value).isSuccess()) return value
+        val updatedResolver = resolver.updateLookupPath(this.typeAlias)
         val discBasedFixedValue = if (discriminator != null && value is JSONObjectValue && discriminator.property in value.jsonObject) {
             val discriminatorValue = value.jsonObject.getValue(discriminator.property).toStringLiteral()
             fixValue(
                 value = value, resolver = resolver, discriminatorValue = discriminatorValue,
-                onValidDiscValue = { generateValue(resolver, discriminatorValue) },
+                onValidDiscValue = { generateValue(updatedResolver, discriminatorValue) },
                 onInvalidDiscValue = { null }
             )
         } else null
@@ -75,7 +76,6 @@ data class AnyPattern(
         }
 
         val matchingPatternNew = patternMatches.minBy { (it.result as? Failure)?.failureCount() ?: 0 }
-        val updatedResolver = resolver.updateLookupPath(this.typeAlias)
         return matchingPatternNew.pattern.fixValue(value, updatedResolver)
     }
 
