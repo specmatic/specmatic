@@ -1770,13 +1770,8 @@ class OpenApiSpecification(
         }
     }
 
-    private fun handleReference(
-        schema: Schema<*>,
-        typeStack: List<String>,
-        patternName: String, breadCrumb: String = "",
-        onResolve: (String, Schema<*>) -> Unit = { _, _ -> },
-        overrideToPattern: (Schema<*>, List<String>, String) -> Pattern = { schema, typeStack, patternName -> toSpecmaticPattern(schema, typeStack, patternName) }
-    ): Pattern {
+    private data class ResolvedRef(val componentName: String, val resolvedSchema: Schema<*>, val referredSchema: Schema<*>)
+    private fun resolveSchema(schema: Schema<*>, patternName: String, breadCrumb: String = ""): ResolvedRef {
         val (componentName, referredSchema) = resolveReferenceToSchema(schema.`$ref`)
         val resolvedSchema = if (parsedOpenApi.specVersion == SpecVersion.V31) {
             mergeResolvedIfJsonSchema(referredSchema, schema)
@@ -1784,25 +1779,58 @@ class OpenApiSpecification(
             referredSchema
         }
 
-        onResolve(componentName, resolvedSchema)
         if (parsedOpenApi.specVersion != SpecVersion.V31 && schema.type != null) {
             val descriptor = if (patternName.isNotEmpty()) withoutPatternDelimiters(patternName) else breadCrumb
             logger.log(createWarningForRefAndSchemaSiblings(descriptor, schema.`$ref`, schema.type))
             logger.boundary()
         }
 
-        if (resolvedSchema != referredSchema) {
+        return ResolvedRef(componentName, resolvedSchema, referredSchema)
+    }
+
+    private fun convertAndCacheResolvedRef(
+        resolvedRef: ResolvedRef,
+        typeStack: List<String>,
+        patternName: String,
+        build: (Schema<*>, List<String>, String) -> Pattern
+    ): Pattern {
+        if (resolvedRef.resolvedSchema != resolvedRef.referredSchema) {
             if (patternName.isNotBlank() && typeStack.contains(patternName)) return DeferredPattern("($patternName)")
-            val finalPattern = overrideToPattern(resolvedSchema, typeStack, patternName)
-            if (patternName.isBlank() || patternName.contains(".")) return finalPattern
-            cacheComponentPattern(patternName, finalPattern)
+            val componentPattern = build(resolvedRef.resolvedSchema, typeStack, patternName)
+            if (patternName.isBlank()) return componentPattern
+            cacheComponentPattern(patternName, componentPattern)
             return DeferredPattern("($patternName)")
         }
 
-        if (typeStack.contains(componentName)) return DeferredPattern("($componentName)")
-        val componentPattern = overrideToPattern(resolvedSchema, typeStack.plus(componentName), componentName)
-        cacheComponentPattern(componentName, componentPattern)
-        return DeferredPattern("($componentName)")
+        if (typeStack.contains(resolvedRef.componentName)) return DeferredPattern("(${resolvedRef.componentName})")
+        val componentPattern = build(resolvedRef.resolvedSchema, typeStack.plus(resolvedRef.componentName), resolvedRef.componentName)
+        cacheComponentPattern(resolvedRef.componentName, componentPattern)
+        return DeferredPattern("(${resolvedRef.componentName})")
+    }
+
+    private fun handleReference(schema: Schema<*>, typeStack: List<String>, patternName: String, breadCrumb: String = ""): Pattern {
+        val resolvedRef = resolveSchema(schema, patternName, breadCrumb)
+        return convertAndCacheResolvedRef(
+            resolvedRef = resolvedRef,
+            typeStack = typeStack,
+            patternName = patternName,
+            build = ::toSpecmaticPattern
+        )
+    }
+
+    private fun handleXmlReference(schema: Schema<*>, typeStack: List<String>, patternName: String?): Pair<String, Pattern> {
+        val resolvedRef = resolveSchema(schema, patternName.orEmpty())
+        val nodeName = resolvedRef.resolvedSchema.xml?.name ?: patternName ?: resolvedRef.componentName
+        val pattern = convertAndCacheResolvedRef(
+            resolvedRef = resolvedRef,
+            typeStack = typeStack,
+            patternName = patternName.orEmpty(),
+            build = { schema, typeStack, componentName ->
+                toXMLPattern(schema, componentName, typeStack)
+            }
+        )
+
+        return Pair(nodeName, pattern)
     }
 
     private fun exactPattern(value: Value, patterName: String): ExactValuePattern {
@@ -2058,19 +2086,7 @@ class OpenApiSpecification(
 
             else -> {
                 if (schema.`$ref` == null) throw ContractException("Node not recognized as XML type: ${schema.type}")
-                var nodeName = name.orEmpty()
-                val deferredPattern = handleReference(
-                    schema = schema,
-                    typeStack = typeStack,
-                    patternName = name.orEmpty(),
-                    onResolve = { componentName, schema ->
-                        nodeName = schema.xml?.name ?: name ?: componentName
-                    },
-                    overrideToPattern = { schema, typeStack, componentName ->
-                        toXMLPattern(schema, componentName, typeStack)
-                    }
-                )
-
+                val (nodeName, deferredPattern) = handleXmlReference(schema = schema, typeStack = typeStack, patternName = name)
                 val componentName = withoutPatternDelimiters(deferredPattern.typeAlias.orEmpty())
                 XMLPattern(XMLTypeData(
                     nodeName,
