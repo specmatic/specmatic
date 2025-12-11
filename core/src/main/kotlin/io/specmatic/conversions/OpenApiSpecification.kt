@@ -1806,18 +1806,17 @@ class OpenApiSpecification(
         patternName: String,
         build: (Schema<*>, List<String>, String) -> Pattern
     ): Pattern {
-        if (resolvedRef.resolvedSchema != resolvedRef.referredSchema) {
-            if (patternName.isNotBlank() && typeStack.contains(patternName)) return DeferredPattern("($patternName)")
-            val componentPattern = build(resolvedRef.resolvedSchema, typeStack, patternName)
-            if (patternName.isBlank()) return componentPattern
-            cacheComponentPattern(patternName, componentPattern)
-            return DeferredPattern("($patternName)")
+        val cacheKey = if (resolvedRef.resolvedSchema != resolvedRef.referredSchema) {
+            patternName.takeUnless(String::isBlank)
+        } else {
+            resolvedRef.componentName
         }
 
-        if (typeStack.contains(resolvedRef.componentName)) return DeferredPattern("(${resolvedRef.componentName})")
-        val componentPattern = build(resolvedRef.resolvedSchema, typeStack.plus(resolvedRef.componentName), resolvedRef.componentName)
-        cacheComponentPattern(resolvedRef.componentName, componentPattern)
-        return DeferredPattern("(${resolvedRef.componentName})")
+        if (cacheKey == null) return build(resolvedRef.resolvedSchema, typeStack, patternName)
+        if (typeStack.contains(cacheKey)) return DeferredPattern("($cacheKey)")
+        val builtPattern = build(resolvedRef.resolvedSchema, typeStack.plus(cacheKey), cacheKey)
+        cacheComponentPattern(cacheKey, builtPattern)
+        return DeferredPattern("($cacheKey)")
     }
 
     private fun handleReference(schema: Schema<*>, typeStack: List<String>, patternName: String, breadCrumb: String = ""): Pattern {
