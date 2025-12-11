@@ -1605,7 +1605,7 @@ class OpenApiSpecification(
         }
     }
 
-    private fun handleMultiTypeEnum(schema: Schema<*>, typeStack: List<String>, patternName: String, types: List<String>, example: String? = null): Pattern {
+    private fun handleMultiTypeEnum(schema: Schema<*>, patternName: String, types: List<String>, example: String? = null): Pattern {
         val enumDataTypes = types.sortedWith(compareBy { it == "string" }).map(::withPatternDelimiters)
         val converter: (String) -> Value = { value ->
             enumDataTypes.firstNotNullOfOrNull {
@@ -2415,7 +2415,7 @@ class OpenApiSpecification(
         val declaredTypes = types ?: setOfNotNull(type)
         val effectiveTypes = declaredTypes.filter { it != NULL_TYPE }
 
-        if (enum != null) return handleMultiTypeEnum(this, typeStack, patternName, declaredTypes.toList(), example)
+        if (enum != null) return handleMultiTypeEnum(this, patternName, declaredTypes.toList(), example)
         if (effectiveTypes.size > 1) return handleMultiType(this, typeStack, patternName, declaredTypes.toList(), example)
 
         return when (effectiveTypes.firstOrNull()) {
