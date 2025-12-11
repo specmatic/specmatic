@@ -9,7 +9,7 @@ import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
 private fun validEnumValues(values: List<Value>, key: String?, typeAlias: String?, example: String?, nullable: Boolean, multiType: Boolean): AnyPattern {
-    assertThatAllValuesHaveTheSameType(values, nullable, multiType)
+    validateEnumValues(values, nullable, multiType)
     val sortedValues = values.sortedWith(compareBy { it is StringValue })
     val patterns = sortedValues.map { ExactValuePattern(it) }
     return AnyPattern(
@@ -22,16 +22,14 @@ private fun validEnumValues(values: List<Value>, key: String?, typeAlias: String
 }
 
 fun not(boolean: Boolean) = !boolean
-fun assertThatAllValuesHaveTheSameType(values: List<Value>, enumIsNullable: Boolean, multiType: Boolean) {
+fun validateEnumValues(values: List<Value>, enumIsNullable: Boolean, multiType: Boolean) {
     val enumOptionsContainNull = values.any { it is NullValue }
-    if(not(enumIsNullable) yet enumOptionsContainNull)
-        throw ContractException("Enum values cannot be null as the enum is not nullable")
+    if (not(enumIsNullable) yet enumOptionsContainNull) throw ContractException("Enum values cannot be null as the enum is not nullable")
+    if (multiType) return
 
     val types = values.filterNot { it is NullValue }.map { it.javaClass }
     val distinctTypes = types.distinct()
-
-    if(distinctTypes.size > 1 && !multiType)
-        throw ContractException("Enum values must all be of the same type. Found types: ${distinctTypes.joinToString(", ")}")
+    if (distinctTypes.size > 1) throw ContractException("Enum values must all be of the same type. Found types: ${distinctTypes.joinToString(", ")}")
 }
 
 private infix fun Boolean.yet(otherBooleanValue: Boolean): Boolean {
