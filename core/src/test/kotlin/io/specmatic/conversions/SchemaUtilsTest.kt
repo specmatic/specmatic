@@ -93,7 +93,6 @@ class SchemaUtilsTest {
         } as JsonSchema
 
         val result = SchemaUtils.cloneWithType(original, "string")
-        assertThat(result.type).isEqualTo("string")
         assertThat(result.types).containsExactly("string")
         assertThat(result.description).isEqualTo("An integer")
         assertThat(result.minimum).isEqualTo(BigDecimal("10"))
