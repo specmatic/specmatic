@@ -1574,7 +1574,19 @@ class OpenApiSpecification(
     private fun toSpecmaticPattern(
         schema: Schema<*>, typeStack: List<String>, patternName: String = "", jsonInFormData: Boolean = false, breadCrumb: String = ""
     ): Pattern {
-        if(patternName.isNotBlank()) logger.debug("Processing schema $patternName")
+        val debugMessage =
+            if (patternName.isNotBlank() && breadCrumb.isNotBlank()) {
+                "Processing schema $patternName at $breadCrumb"
+            }
+            else if (patternName.isNotBlank()) {
+                "Processing schema $patternName"
+            } else if (breadCrumb.isNotBlank()) {
+                "Processing schema at $breadCrumb"
+            } else {
+                "Processing inline schema"
+            }
+
+        logger.debug(debugMessage)
 
         val preExistingResult = patterns["($patternName)"]
         if (preExistingResult != null && patternName.isNotBlank()) return preExistingResult
