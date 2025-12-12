@@ -446,8 +446,10 @@ class OpenApiSpecification(
     }
 
     fun parseUnreferencedSchemas(): Map<String, Pattern> {
+        val componentSchemasBreadCrumb = "components.schemas"
         return openApiSchemas().filterNot { withPatternDelimiters(it.key) in patterns }.map {
-            withPatternDelimiters(it.key) to toSpecmaticPattern(it.value, emptyList(), it.key)
+            val pattern = toSpecmaticPattern(it.value, emptyList(), it.key, breadCrumb = componentSchemasBreadCrumb.plus(".${it.key}"))
+            withPatternDelimiters(it.key) to pattern
         }.toMap()
     }
 
@@ -1859,7 +1861,7 @@ class OpenApiSpecification(
         )
     }
 
-    private fun enumPattern(schema: Schema<*>, patternName: String, types: List<String>, example: String? = null): EnumPattern {
+    private fun enumPattern(schema: Schema<*>, patternName: String, types: List<String>, breadCrumb: String, example: String? = null): EnumPattern {
         val enumDataTypes = types.sortedWith(compareBy { it == "string" }).map(::withPatternDelimiters)
         val converter: (String) -> Value = { value ->
             enumDataTypes.firstNotNullOfOrNull {
@@ -1871,7 +1873,7 @@ class OpenApiSpecification(
             }
         }
 
-        return toEnum(schema, schema.isNullable(), patternName, multiType = types.size > 1) { enumValue ->
+        return toEnum(schema, schema.isNullable(), patternName, multiType = types.size > 1, breadCrumb = breadCrumb) { enumValue ->
             converter(enumValue.toString())
         }.withExample(example)
     }
@@ -2175,7 +2177,7 @@ class OpenApiSpecification(
         return patternMap
     }
 
-    private fun toEnum(schema: Schema<*>, isNullable: Boolean, patternName: String, multiType: Boolean = false, toSpecmaticValue: (Any) -> Value): EnumPattern {
+    private fun toEnum(schema: Schema<*>, isNullable: Boolean, patternName: String, multiType: Boolean = false, breadCrumb: String = "", toSpecmaticValue: (Any) -> Value): EnumPattern {
         val specmaticValues = schema.enum.map<Any?, Value> { enumValue ->
             when (enumValue) {
                 null -> NullValue
@@ -2183,14 +2185,21 @@ class OpenApiSpecification(
             }
         }
 
-        if (parsedOpenApi.specVersion != SpecVersion.V31 && !isNullable && NullValue in specmaticValues)
-            throw ContractException("Enum values cannot contain null since the schema $patternName is not nullable")
+        if (parsedOpenApi.specVersion != SpecVersion.V31 && NullValue in specmaticValues && !isNullable) {
+            throw ContractException(
+                breadCrumb = breadCrumb,
+                errorMessage = """
+                Failed to parse enum. One or more enum values were parsed as null
+                This often happens in OpenAPI 3.0.x when enum values have mixed or invalid types and the parser implicitly coerces those values to null
+                Please check the enum schema and entries or mark then schema as nullable if this was intentional
+                """.trimIndent()
+            )
+        }
 
-        if (parsedOpenApi.specVersion != SpecVersion.V31 && isNullable && NullValue !in specmaticValues)
-            throw ContractException("Enum values must contain null since the schema $patternName is nullable")
-
-        return EnumPattern(specmaticValues, nullable = isNullable, typeAlias = patternName, multiType = multiType).also {
-            cacheComponentPattern(patternName, it)
+        return attempt(errorMessage = "Failed to parse enum values, please check the schema and entries: ", breadCrumb = breadCrumb) {
+            EnumPattern(specmaticValues, nullable = isNullable, typeAlias = patternName, multiType = multiType).also {
+                cacheComponentPattern(patternName, it)
+            }
         }
     }
 
@@ -2352,7 +2361,7 @@ class OpenApiSpecification(
         val declaredTypes = types ?: setOfNotNull(type)
         val effectiveTypes = declaredTypes.filter { it != NULL_TYPE }
 
-        if (enum != null) return enumPattern(this, patternName, declaredTypes.toList(), example)
+        if (enum != null) return enumPattern(this, patternName, declaredTypes.toList(), breadCrumb, example)
         if (effectiveTypes.size > 1) return handleMultiType(this, typeStack, patternName, declaredTypes.toList(), example)
 
         return when (effectiveTypes.firstOrNull()) {
