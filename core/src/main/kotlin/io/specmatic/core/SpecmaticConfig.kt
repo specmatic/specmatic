@@ -216,7 +216,7 @@ data class AttributeSelectionPattern(
 
 data class SpecmaticConfig(
     private val sources: List<Source> = emptyList(),
-    private val serviceName: String? = null,
+    private val name: String? = null,
     private val auth: Auth? = null,
     private val pipeline: Pipeline? = null,
     private val environments: Map<String, Environment>? = null,
@@ -243,8 +243,8 @@ data class SpecmaticConfig(
         }
 
         @JsonIgnore
-        fun getServiceName(specmaticConfig: SpecmaticConfig): String? {
-            return specmaticConfig.serviceName
+        fun getName(specmaticConfig: SpecmaticConfig): String? {
+            return specmaticConfig.name
         }
 
         @JsonIgnore
@@ -340,8 +340,8 @@ data class SpecmaticConfig(
     }
 
     @JsonIgnore
-    fun getServiceName(): String? {
-        return serviceName
+    fun getName(): String? {
+        return name
     }
 
     @JsonIgnore

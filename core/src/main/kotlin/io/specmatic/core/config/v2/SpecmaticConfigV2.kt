@@ -21,7 +21,8 @@ import org.eclipse.jgit.lib.BranchConfig
 
 data class SpecmaticConfigV2(
     val version: SpecmaticConfigVersion,
-    val serviceName: String? = null,
+    @field:JsonAlias("serviceName")
+    val name: String? = null,
     val contracts: List<ContractConfig> = emptyList(),
     val auth: Auth? = null,
     val pipeline: Pipeline? = null,
@@ -47,7 +48,7 @@ data class SpecmaticConfigV2(
     override fun transform(): SpecmaticConfig {
         return SpecmaticConfig(
             version = currentConfigVersion(),
-            serviceName = this.serviceName,
+            name = this.name,
             sources = this.contracts.map { contract -> contract.transform() },
             auth = this.auth,
             pipeline = this.pipeline,
@@ -77,7 +78,7 @@ data class SpecmaticConfigV2(
         override fun loadFrom(config: SpecmaticConfig): SpecmaticVersionedConfig {
             return SpecmaticConfigV2(
                 version = currentConfigVersion(),
-                serviceName = config.getServiceName(),
+                name = config.getName(),
                 contracts = SpecmaticConfig.getSources(config).map { ContractConfig(it) },
                 auth = config.getAuth(),
                 pipeline = getPipeline(config),

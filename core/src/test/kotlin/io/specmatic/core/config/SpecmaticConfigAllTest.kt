@@ -60,10 +60,10 @@ internal class SpecmaticConfigAllTest {
     }
 
     @Test
-    fun `v2 config should accept serviceName and expose it in SpecmaticConfig`(@TempDir tempDir: File) {
+    fun `v2 config should accept name and expose it in SpecmaticConfig`(@TempDir tempDir: File) {
         val configYaml = """
             version: 2
-            serviceName: "Payments"
+            name: "Payments"
             contracts: []
         """.trimIndent()
 
@@ -72,22 +72,22 @@ internal class SpecmaticConfigAllTest {
 
         val config = configFile.toSpecmaticConfig()
         assertThat(config.getVersion()).isEqualTo(SpecmaticConfigVersion.VERSION_2)
-        assertThat(config.getServiceName()).isEqualTo("Payments")
+        assertThat(config.getName()).isEqualTo("Payments")
     }
 
     @Test
-    fun `v2 loadFrom should retain serviceName`() {
-        val config = SpecmaticConfig(serviceName = "Payments")
+    fun `v2 loadFrom should retain name`() {
+        val config = SpecmaticConfig(name = "Payments")
         val v2 = SpecmaticConfigV2.loadFrom(config) as SpecmaticConfigV2
 
-        assertThat(v2.serviceName).isEqualTo("Payments")
+        assertThat(v2.name).isEqualTo("Payments")
     }
 
     @Test
-    fun `v1 config should reject serviceName`(@TempDir tempDir: File) {
+    fun `v1 config should reject name`(@TempDir tempDir: File) {
         val configYaml = """
             version: 1
-            serviceName: "Payments"
+            name: "Payments"
             contract_repositories: []
         """.trimIndent()
 
