@@ -1,12 +1,16 @@
 package io.specmatic.conversions
 
 import integration_tests.OpenApiVersion
+import io.specmatic.core.pattern.AnythingPattern
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.DeferredPattern
 import io.specmatic.core.pattern.NumberPattern
+import io.specmatic.core.pattern.QueryParameterScalarPattern
+import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.pattern.XMLTypeData
 import io.specmatic.core.pattern.resolvedHop
+import io.specmatic.core.utilities.yamlMapper
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -14,6 +18,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import java.io.File
 import java.math.BigDecimal
+import java.util.stream.Stream
 
 class OpenApiSpecificationParseTest {
     @Test
@@ -77,8 +82,96 @@ class OpenApiSpecificationParseTest {
         }
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("additionalPropertiesTestCases")
+    fun `query param with various additionalProperties configurations`(case: AdditionalPropsCase) {
+        val yamlContentMap = buildMap<String, Any?> {
+            put("openapi", case.version.value)
+            put("info", mapOf("title" to "Test API", "version" to "1.0.0"))
+            put(
+                "paths", mapOf(
+                    "/test" to mapOf(
+                        "get" to mapOf(
+                            "parameters" to listOf(
+                                mapOf(
+                                    "name" to "parameterizedParam",
+                                    "in" to "query",
+                                    "schema" to mapOf("type" to "object", "additionalProperties" to case.additionalProperties)
+                                ),
+                                mapOf(
+                                    "name" to "testParam",
+                                    "in" to "query",
+                                    "schema" to mapOf("type" to "integer")
+                                ),
+                            ),
+                            "responses" to mapOf("200" to mapOf("description" to "OK"))
+                        )
+                    )
+                )
+            )
+            put("components", mapOf("schemas" to mapOf("EmailPattern" to mapOf("type" to "string", "format" to "email"))))
+        }
+
+        val feature = OpenApiSpecification.fromYAML(yamlMapper.writeValueAsString(yamlContentMap), "test-api.yaml").toFeature()
+        val queryParameters = feature.scenarios.first().httpRequestPattern.httpQueryParamPattern
+        val paramPattern = queryParameters.queryPatterns["testParam?"]
+
+        assertThat(paramPattern).isInstanceOf(QueryParameterScalarPattern::class.java); paramPattern  as QueryParameterScalarPattern
+        assertThat(paramPattern.pattern).isInstanceOf(NumberPattern::class.java)
+        case.check(queryParameters.additionalProperties)
+    }
+
     companion object {
+        data class AdditionalPropsCase(val name: String, val version: OpenApiVersion, val additionalProperties: Any?, val check: (Any?) -> Unit) {
+            override fun toString(): String = name
+        }
+
         @JvmStatic
         fun openApiVersionsProviders(): List<OpenApiVersion> = OpenApiVersion.entries
+
+        @JvmStatic
+        fun additionalPropertiesTestCases(): Stream<AdditionalPropsCase> {
+            fun casesFor(version: OpenApiVersion) = listOf(
+                AdditionalPropsCase(
+                    "unspecified ($version)",
+                    version,
+                    null,
+                    { additionalProps -> assertThat(additionalProps).isNull() }
+                ),
+                AdditionalPropsCase(
+                    "true ($version)",
+                    version,
+                    true,
+                    { additionalProps -> assertThat(additionalProps).isInstanceOf(AnythingPattern::class.java) }
+                ),
+                AdditionalPropsCase(
+                    "false ($version)",
+                    version,
+                    false,
+                    { additionalProps -> assertThat(additionalProps).isNull() }
+                ),
+                AdditionalPropsCase(
+                    "inline schema ($version)",
+                    version,
+                    mapOf("type" to "string", "pattern" to "^test.*"),
+                    { additionalProps ->
+                        assertThat(additionalProps).isInstanceOf(StringPattern::class.java)
+                        additionalProps as StringPattern
+                        assertThat(additionalProps.regex).isEqualTo("^test.*")
+                    }
+                ),
+                AdditionalPropsCase(
+                    "ref ($version)",
+                    version,
+                    mapOf("\$ref" to "#/components/schemas/EmailPattern"),
+                    { additionalProps ->
+                        assertThat(additionalProps).isInstanceOf(DeferredPattern::class.java); additionalProps as DeferredPattern
+                        assertThat(additionalProps.pattern).isEqualTo("(EmailPattern)")
+                    }
+                )
+            )
+
+            return OpenApiVersion.entries.flatMap(::casesFor).stream()
+        }
     }
 }
