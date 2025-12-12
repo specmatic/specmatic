@@ -27,7 +27,6 @@ import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
 import io.specmatic.core.utilities.toValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NullValue
-import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.specmatic.core.wsdl.parser.message.MULTIPLE_ATTRIBUTE_VALUE
@@ -55,8 +54,6 @@ import java.io.File
 import kotlin.collections.orEmpty
 
 private const val BEARER_SECURITY_SCHEME = "bearer"
-
-const val OBJECT_TYPE = "object"
 const val SERVICE_TYPE_HTTP = "HTTP"
 
 private const val X_SPECMATIC_HINT = "x-specmatic-hint"
@@ -105,8 +102,8 @@ class OpenApiSpecification(
         private val jsonMapper = ObjectMapper().registerKotlinModule()
         private const val X_CONST_EXPLICIT = "x-const-explicit"
         private const val NULL_TYPE = "null"
-        private const val STRING_TYPE = "string"
         private const val OBJECT_TYPE = "object"
+        private const val ARRAY_TYPE = "array"
         private const val BINARY_FORMAT = "binary"
 
         fun patternsFrom(jsonSchema: Map<String, Any?>, schemaName: String = "Schema"): Map<String, Pattern> {
@@ -2249,11 +2246,12 @@ class OpenApiSpecification(
 
             val breadCrumb = "$schemaLocationDescription.${it.name}"
 
-            val specmaticPattern: Pattern? = if (it.schema.type == "array") {
+            val specmaticPattern: Pattern? = if (it.schema.isSchema(ARRAY_TYPE)) {
                 QueryParameterArrayPattern(listOf(toSpecmaticPattern(schema = it.schema.items, typeStack = emptyList(), breadCrumb = breadCrumb)), it.name)
-            } else if (it.schema.type != OBJECT_TYPE) {
+            } else if (!it.schema.isSchema(OBJECT_TYPE)) {
                 QueryParameterScalarPattern(toSpecmaticPattern(schema = it.schema, typeStack = emptyList(), breadCrumb = breadCrumb))
             } else {
+                logger.log("Query parameter ${it.name} is an object, skipping as not yet supported")
                 null
             }
 
@@ -2271,19 +2269,21 @@ class OpenApiSpecification(
     }
 
     private fun additionalPropertiesInQueryParam(parameters: List<Parameter>): Pattern? {
-        val additionalProperties = parameters.filterIsInstance<QueryParameter>()
-            .find { it.schema.type == OBJECT_TYPE && it.schema.additionalProperties != null }?.schema?.additionalProperties
+        val additionalProperties = parameters.filterIsInstance<QueryParameter>().firstOrNull {
+            it.schema.isSchema(OBJECT_TYPE, multi = false) && it.schema.additionalProperties != null
+        }?.schema?.additionalProperties ?: return null
 
-        if(additionalProperties == false)
-            return null
+        val resolvedAdditionalProperties = if (additionalProperties is JsonSchema && additionalProperties.booleanSchemaValue != null) {
+            additionalProperties.booleanSchemaValue
+        } else {
+            additionalProperties
+        }
 
-        if(additionalProperties == true)
-            return AnythingPattern
-
-        if(additionalProperties is Schema<*>)
-            return toSpecmaticPattern(additionalProperties, emptyList())
-
-        return null
+        return when (resolvedAdditionalProperties) {
+            true -> AnythingPattern
+            is Schema<*> -> toSpecmaticPattern(resolvedAdditionalProperties, emptyList())
+            else -> null
+        }
     }
 
     private fun toSpecmaticPathParam(openApiPath: String, operation: Operation, schemaLocationDescription: String, otherPathPatterns: Collection<HttpPathPattern> = emptyList()): HttpPathPattern {
@@ -2428,15 +2428,33 @@ class OpenApiSpecification(
     }
 
     private fun Schema<*>.isBinarySchema(): Boolean {
-        if (this !is JsonSchema) return this is io.swagger.v3.oas.models.media.BinarySchema
         val types = (this.types ?: setOfNotNull(this.type))
-        return types.contains(STRING_TYPE) && this.format == BINARY_FORMAT
+        return types.contains("string") && this.format == BINARY_FORMAT
     }
 
-    private fun Schema<*>.isObjectSchema(): Boolean {
-        if (this !is JsonSchema) return this is io.swagger.v3.oas.models.media.MapSchema || this is io.swagger.v3.oas.models.media.ObjectSchema
-        val types = (this.types ?: setOfNotNull(this.type))
-        return types.contains(OBJECT_TYPE)
+    private fun Schema<*>.isPrimitive(nullable: Boolean? = null, multi: Boolean? = null): Boolean {
+        val meta = schemaMeta()
+        if (nullable != null && nullable != meta.isNullable) return false
+        if (multi != null && multi != meta.isMulti) return false
+        return meta.effectiveTypes.all {
+            it == "string" || it == "number" || it == "integer" || it == "boolean"
+        }
+    }
+
+    private fun Schema<*>.isSchema(type: String, nullable: Boolean? = null, multi: Boolean? = null): Boolean {
+        val meta = schemaMeta()
+        if (nullable != null && nullable != meta.isNullable) return false
+        if (multi != null && multi != meta.isMulti) return false
+        return type in meta.effectiveTypes
+    }
+
+    private data class SchemaMeta(val isNullable: Boolean, val isMulti: Boolean, val effectiveTypes: List<String>)
+    private fun Schema<*>.schemaMeta(): SchemaMeta {
+        val declared = types ?: setOfNotNull(this.type)
+        val isNullable = this.nullable == true || NULL_TYPE in declared
+        val effectiveTypes = declared.filterNot { it == NULL_TYPE }
+        val isMulti = effectiveTypes.size > 1
+        return SchemaMeta(isNullable, isMulti, effectiveTypes)
     }
 }
 
