@@ -52,7 +52,7 @@ data class TestResultRecord(
     override fun extraFields(): CtrfTestMetadata {
         return CtrfTestMetadata(
             valid = isValid,
-            isWip = isWip,
+            wip = isWip,
             input = request?.toLogString().orEmpty(),
             output = response?.toLogString().orEmpty(),
             inputTime = requestTime?.toEpochMilli() ?: 0L,

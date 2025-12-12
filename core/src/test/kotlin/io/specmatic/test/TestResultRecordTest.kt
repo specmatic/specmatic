@@ -99,7 +99,7 @@ class TestResultRecordTest {
         val meta = record.extraFields()
 
         assertTrue(meta.valid)
-        assertFalse(meta.isWip)
+        assertFalse(meta.wip)
         assertEquals(request.toLogString().trim(), meta.input.trim())
         assertEquals(response.toLogString().trim(), meta.output?.trim())
         assertEquals(requestTime.toEpochMilli(), meta.inputTime)
@@ -124,7 +124,7 @@ class TestResultRecordTest {
         val meta = record.extraFields()
 
         assertFalse(meta.valid)
-        assertTrue(meta.isWip)
+        assertTrue(meta.wip)
         assertEquals("", meta.input)
         assertEquals("", meta.output)
         assertEquals(0L, meta.inputTime)
