@@ -4377,6 +4377,8 @@ paths:
                           type: array
                           items:
                             type: number
+                            xml:
+                              name: products
                           xml:
                             wrapped: true
                             name: products
@@ -4450,6 +4452,8 @@ paths:
                   type: array
                   items:
                     type: number
+                    xml:
+                      name: products
                   xml:
                     wrapped: true
                     name: products
@@ -4527,6 +4531,8 @@ paths:
                       type: array
                       items:
                         type: number
+                        xml:
+                          name: products
                       xml:
                         name: products
                         wrapped: true
@@ -4757,14 +4763,14 @@ paths:
                           properties:
                             productid:
                               type: array
-                              xml:
-                                name: user
                               items:
                                 ${"$"}ref: '#/components/schemas/UserData'
             components:
               schemas:
                 UserData:
                   type: object
+                  xml:
+                    name: user
                   properties:
                     id:
                       type: number
