@@ -1,27 +1,31 @@
 package io.specmatic.core.report
 
 import io.specmatic.core.getConfigFilePath
+import io.specmatic.core.log.consoleLog
 import io.specmatic.reporter.ctrf.CtrfReportGenerator
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
+import io.specmatic.reporter.ctrf.model.CtrfTestResultRecord
+import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.reporting.ReportProvider
-import io.specmatic.test.TestResultRecord
-import io.specmatic.test.TestResultRecord.Companion.getCoverageStatus
 import java.io.File
 import java.util.*
 
 object ReportGenerator {
     fun generateReport(
-        testResultRecords: List<TestResultRecord>,
+        testResultRecords: List<CtrfTestResultRecord>,
         startTime: Long,
         endTime: Long,
         specConfigs: List<CtrfSpecConfig>,
         coverage: Int? = null,
         reportDir: File,
+        getCoverageStatus: (List<CtrfTestResultRecord>) -> CoverageStatus
     ) {
         val extra = buildMap<String, Any> {
             coverage?.let { put("apiCoverage", "$coverage%") }
             put("specmaticConfigPath", getConfigFilePath())
         }
+
+        consoleLog("Generating report for ${testResultRecords.size} tests...")
 
         val report = CtrfReportGenerator.generate(
             testResultRecords = testResultRecords,
@@ -29,14 +33,11 @@ object ReportGenerator {
             endTime = endTime,
             extra = extra,
             specConfig = specConfigs,
-            getCoverageStatus = { ctrfTestResultRecords ->
-                ctrfTestResultRecords.filterIsInstance<TestResultRecord>().getCoverageStatus()
-            },
+            getCoverageStatus = getCoverageStatus
         )
 
         ServiceLoader.load(ReportProvider::class.java).forEach { hook ->
             hook.generateReport(report, reportDir)
         }
     }
-
 }

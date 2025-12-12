@@ -24,6 +24,7 @@ import io.specmatic.core.value.Value
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.stub.hasOpenApiFileExtension
 import io.specmatic.stub.isOpenAPI
+import io.specmatic.test.TestResultRecord.Companion.getCoverageStatus
 import io.specmatic.test.reports.OpenApiCoverageReportProcessor
 import io.specmatic.test.reports.coverage.Endpoint
 import io.specmatic.test.reports.coverage.OpenApiCoverageReportInput
@@ -215,8 +216,10 @@ open class SpecmaticJUnitSupport {
             endTime = end,
             specConfigs = specConfigs,
             coverage = report.totalCoveragePercentage,
-            reportDir = File("$ARTIFACTS_PATH/test/ctrf")
-        )
+            reportDir = File("$ARTIFACTS_PATH/test")
+        ){ ctrfTestResultRecords ->
+            ctrfTestResultRecords.filterIsInstance<TestResultRecord>().getCoverageStatus()
+        }
 
 
         threads.distinct().let {

@@ -36,6 +36,7 @@ import io.specmatic.stub.report.StubUsageReport
 import io.specmatic.test.LegacyHttpClient
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.TestResultRecord.Companion.STUB_TEST_TYPE
+import io.specmatic.test.TestResultRecord.Companion.getCoverageStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.*
 import kotlinx.coroutines.delay
@@ -761,8 +762,11 @@ class HttpStub(
                 endTime = Instant.now().toEpochMilli(),
                 specConfigs = ctrfSpecConfigsFrom(specmaticConfig, ctrfTestResultRecords),
                 coverage = 0,
-                reportDir = File("$ARTIFACTS_PATH/stub/ctrf")
+                reportDir = File("$ARTIFACTS_PATH/stub")
             )
+            { ctrfTestResultRecords ->
+                ctrfTestResultRecords.filterIsInstance<TestResultRecord>().getCoverageStatus()
+            }
         }
     }
 
