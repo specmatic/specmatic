@@ -49,7 +49,7 @@ data class BasicAuthSecurityScheme(private val token: String? = null) : OpenAPIS
     }
 
     override fun removeParam(httpRequest: HttpRequest): HttpRequest {
-        return httpRequest.copy(headers = httpRequest.headers.minus(AUTHORIZATION))
+        return httpRequest.removeSecurityHeader(AUTHORIZATION)
     }
 
     override fun addTo(httpRequest: HttpRequest, resolver: Resolver): HttpRequest {
