@@ -27,7 +27,6 @@ import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
 import io.specmatic.core.utilities.toValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NullValue
-import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.specmatic.core.wsdl.parser.message.MULTIPLE_ATTRIBUTE_VALUE
@@ -55,8 +54,6 @@ import java.io.File
 import kotlin.collections.orEmpty
 
 private const val BEARER_SECURITY_SCHEME = "bearer"
-
-const val OBJECT_TYPE = "object"
 const val SERVICE_TYPE_HTTP = "HTTP"
 
 private const val X_SPECMATIC_HINT = "x-specmatic-hint"
@@ -105,8 +102,8 @@ class OpenApiSpecification(
         private val jsonMapper = ObjectMapper().registerKotlinModule()
         private const val X_CONST_EXPLICIT = "x-const-explicit"
         private const val NULL_TYPE = "null"
-        private const val STRING_TYPE = "string"
         private const val OBJECT_TYPE = "object"
+        private const val ARRAY_TYPE = "array"
         private const val BINARY_FORMAT = "binary"
 
         fun patternsFrom(jsonSchema: Map<String, Any?>, schemaName: String = "Schema"): Map<String, Pattern> {
@@ -1980,7 +1977,7 @@ class OpenApiSpecification(
     }
 
     private fun nullableEmptyObject(schema: Schema<*>): Boolean {
-        return schema.isObjectSchema() && schema.isNullable()
+        return schema.isSchema(OBJECT_TYPE, nullable = true, multi = false)
     }
 
     private fun toXMLPattern(mediaType: MediaType): Pattern {
@@ -1989,9 +1986,15 @@ class OpenApiSpecification(
 
     private fun toXMLPattern(schema: Schema<*>, nodeNameFromProperty: String? = null, typeStack: List<String>): XMLPattern {
         val name = schema.xml?.name ?: nodeNameFromProperty
-        return when (schema.type) {
-            "object" -> {
-                if(schema.properties == null) {
+        return when {
+            schema.isPrimitive() -> {
+                name ?: throw ContractException("Could not determine name for an xml node")
+                val primitivePattern = toSpecmaticPattern(schema, typeStack)
+                XMLPattern(XMLTypeData(name, name, emptyMap(), listOf(primitivePattern)))
+            }
+
+            schema.isSchema(OBJECT_TYPE, multi = false) -> {
+                if (schema.properties == null) {
                     throw ContractException("XML schema named $name does not have properties.")
                 }
 
@@ -2000,21 +2003,12 @@ class OpenApiSpecification(
                 }
 
                 val nodes = nodeProperties.map { (propertyName: String, propertySchema) ->
-                    val type = when (propertySchema.type) {
-                        in primitiveOpenAPITypes -> {
-                            val primitivePattern = toSpecmaticPattern(propertySchema, typeStack)
-                            XMLPattern(XMLTypeData(propertyName, propertyName, emptyMap(), listOf(primitivePattern)))
-                        }
-                        else -> {
-                            toXMLPattern(propertySchema, propertyName, typeStack)
-                        }
+                    val type = toXMLPattern(propertySchema, propertyName, typeStack)
+                    val optionalAttribute = if (propertyName !in (schema.required ?: emptyList<String>())) {
+                        mapOf(OCCURS_ATTRIBUTE_NAME to ExactValuePattern(StringValue(OPTIONAL_ATTRIBUTE_VALUE)))
+                    } else {
+                        emptyMap()
                     }
-
-                    val optionalAttribute = if (propertyName !in (schema.required ?: emptyList<String>())) mapOf(
-                        OCCURS_ATTRIBUTE_NAME to ExactValuePattern(StringValue(OPTIONAL_ATTRIBUTE_VALUE))
-                    )
-                    else emptyMap()
-
                     type.copy(pattern = type.pattern.copy(attributes = optionalAttribute.plus(type.pattern.attributes)))
                 }
 
@@ -2022,17 +2016,16 @@ class OpenApiSpecification(
                     entry.value.xml?.attribute == true
                 }
 
-                val attributes: Map<String, Pattern> = attributeProperties.map { (name, schema) ->
+                val attributes: Map<String, Pattern> = attributeProperties.map { (name, propertySchema) ->
                     val attributeName = if(name !in schema.required.orEmpty())
                         "$name.opt"
                     else
                         name
 
-                    attributeName to toSpecmaticPattern(schema, emptyList())
+                    attributeName to toSpecmaticPattern(propertySchema, emptyList())
                 }.toMap()
 
                 name ?: throw ContractException("Could not determine name for an xml node")
-
                 val namespaceAttributes: Map<String, ExactValuePattern> = if (schema.xml?.namespace != null && schema.xml?.prefix != null) {
                     val attributeName = "xmlns:${schema.xml?.prefix}"
                     val attributeValue = ExactValuePattern(StringValue(schema.xml.namespace))
@@ -2045,25 +2038,10 @@ class OpenApiSpecification(
                 XMLPattern(xmlTypeData)
             }
 
-            "array" -> {
-                val repeatingSchema = schema.items as Schema<Any>
-
-                val repeatingType = when (repeatingSchema.type) {
-                    in primitiveOpenAPITypes -> {
-                        val innerName = repeatingSchema.xml?.name ?: if (schema.xml?.name != null && schema.xml?.wrapped == true) {
-                            schema.xml.name
-                        } else {
-                            nodeNameFromProperty
-                        }
-                        val name = innerName ?: throw ContractException("Could not determine name for an xml node")
-                        val primitivePattern = toSpecmaticPattern(repeatingSchema, typeStack)
-                        XMLPattern(XMLTypeData(name, name, emptyMap(), listOf(primitivePattern)))
-                    }
-
-                    else -> {
-                        toXMLPattern(repeatingSchema, name, typeStack)
-                    }
-                }.let { repeatingType ->
+            schema.isSchema(ARRAY_TYPE, multi = false) -> {
+                val repeatingSchema = schema.items
+                val itemName = repeatingSchema.xml?.name ?: nodeNameFromProperty
+                val innerPattern = toXMLPattern(repeatingSchema, itemName, typeStack).let { repeatingType ->
                     repeatingType.copy(
                         pattern = repeatingType.pattern.copy(
                             attributes = repeatingType.pattern.attributes.plus(
@@ -2074,15 +2052,11 @@ class OpenApiSpecification(
                 }
 
                 if (schema.xml?.wrapped == true) {
-                    val wrappedName = schema.xml?.name ?: nodeNameFromProperty
-                    val wrapperTypeData = XMLTypeData(
-                        wrappedName ?: throw ContractException("Could not determine name for an xml node"),
-                        wrappedName,
-                        emptyMap(),
-                        listOf(repeatingType)
-                    )
-                    XMLPattern(wrapperTypeData)
-                } else repeatingType
+                    val wrapperName = name ?: throw ContractException("Wrapped array must have a name")
+                    XMLPattern(XMLTypeData(wrapperName, wrapperName, emptyMap(), listOf(innerPattern)))
+                } else {
+                    innerPattern
+                }
             }
 
             else -> {
@@ -2103,9 +2077,6 @@ class OpenApiSpecification(
     } else {
         name
     }
-
-    private val primitiveOpenAPITypes =
-        mapOf("string" to "(string)", "number" to "(number)", "integer" to "(number)", "boolean" to "(boolean)")
 
     private fun toJsonObjectPattern(
         schema: Schema<*>, patternName: String, typeStack: List<String>, breadCrumb: String = ""
@@ -2249,11 +2220,12 @@ class OpenApiSpecification(
 
             val breadCrumb = "$schemaLocationDescription.${it.name}"
 
-            val specmaticPattern: Pattern? = if (it.schema.type == "array") {
+            val specmaticPattern: Pattern? = if (it.schema.isSchema(ARRAY_TYPE)) {
                 QueryParameterArrayPattern(listOf(toSpecmaticPattern(schema = it.schema.items, typeStack = emptyList(), breadCrumb = breadCrumb)), it.name)
-            } else if (it.schema.type != OBJECT_TYPE) {
+            } else if (!it.schema.isSchema(OBJECT_TYPE)) {
                 QueryParameterScalarPattern(toSpecmaticPattern(schema = it.schema, typeStack = emptyList(), breadCrumb = breadCrumb))
             } else {
+                logger.log("Query parameter ${it.name} is an object, skipping as not yet supported")
                 null
             }
 
@@ -2271,19 +2243,21 @@ class OpenApiSpecification(
     }
 
     private fun additionalPropertiesInQueryParam(parameters: List<Parameter>): Pattern? {
-        val additionalProperties = parameters.filterIsInstance<QueryParameter>()
-            .find { it.schema.type == OBJECT_TYPE && it.schema.additionalProperties != null }?.schema?.additionalProperties
+        val additionalProperties = parameters.filterIsInstance<QueryParameter>().firstOrNull {
+            it.schema.isSchema(OBJECT_TYPE, multi = false) && it.schema.additionalProperties != null
+        }?.schema?.additionalProperties ?: return null
 
-        if(additionalProperties == false)
-            return null
+        val resolvedAdditionalProperties = if (additionalProperties is JsonSchema && additionalProperties.booleanSchemaValue != null) {
+            additionalProperties.booleanSchemaValue
+        } else {
+            additionalProperties
+        }
 
-        if(additionalProperties == true)
-            return AnythingPattern
-
-        if(additionalProperties is Schema<*>)
-            return toSpecmaticPattern(additionalProperties, emptyList())
-
-        return null
+        return when (resolvedAdditionalProperties) {
+            true -> AnythingPattern
+            is Schema<*> -> toSpecmaticPattern(resolvedAdditionalProperties, emptyList())
+            else -> null
+        }
     }
 
     private fun toSpecmaticPathParam(openApiPath: String, operation: Operation, schemaLocationDescription: String, otherPathPatterns: Collection<HttpPathPattern> = emptyList()): HttpPathPattern {
@@ -2428,15 +2402,33 @@ class OpenApiSpecification(
     }
 
     private fun Schema<*>.isBinarySchema(): Boolean {
-        if (this !is JsonSchema) return this is io.swagger.v3.oas.models.media.BinarySchema
         val types = (this.types ?: setOfNotNull(this.type))
-        return types.contains(STRING_TYPE) && this.format == BINARY_FORMAT
+        return types.contains("string") && this.format == BINARY_FORMAT
     }
 
-    private fun Schema<*>.isObjectSchema(): Boolean {
-        if (this !is JsonSchema) return this is io.swagger.v3.oas.models.media.MapSchema || this is io.swagger.v3.oas.models.media.ObjectSchema
-        val types = (this.types ?: setOfNotNull(this.type))
-        return types.contains(OBJECT_TYPE)
+    private fun Schema<*>.isPrimitive(nullable: Boolean? = null, multi: Boolean? = null): Boolean {
+        val meta = schemaMeta()
+        if (nullable != null && nullable != meta.isNullable) return false
+        if (multi != null && multi != meta.isMulti) return false
+        return meta.effectiveTypes.isNotEmpty() && meta.effectiveTypes.all {
+            it == "string" || it == "number" || it == "integer" || it == "boolean"
+        }
+    }
+
+    private fun Schema<*>.isSchema(type: String, nullable: Boolean? = null, multi: Boolean? = null): Boolean {
+        val meta = schemaMeta()
+        if (nullable != null && nullable != meta.isNullable) return false
+        if (multi != null && multi != meta.isMulti) return false
+        return type in meta.effectiveTypes
+    }
+
+    private data class SchemaMeta(val isNullable: Boolean, val isMulti: Boolean, val effectiveTypes: List<String>)
+    private fun Schema<*>.schemaMeta(): SchemaMeta {
+        val declared = types ?: setOfNotNull(this.type)
+        val isNullable = this.nullable == true || NULL_TYPE in declared
+        val effectiveTypes = declared.filterNot { it == NULL_TYPE }
+        val isMulti = effectiveTypes.size > 1
+        return SchemaMeta(isNullable, isMulti, effectiveTypes)
     }
 }
 
