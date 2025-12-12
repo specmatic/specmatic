@@ -3,6 +3,7 @@ package io.specmatic.core.config
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.Source
@@ -56,6 +57,46 @@ internal class SpecmaticConfigAllTest {
             """.trimIndent()
 
         assertThat(config.getVersion()).isEqualTo(SpecmaticConfigVersion.VERSION_1)
+    }
+
+    @Test
+    fun `v2 config should accept serviceName and expose it in SpecmaticConfig`(@TempDir tempDir: File) {
+        val configYaml = """
+            version: 2
+            serviceName: "Payments"
+            contracts: []
+        """.trimIndent()
+
+        val configFile = tempDir.resolve("specmatic.yaml")
+        configFile.writeText(configYaml)
+
+        val config = configFile.toSpecmaticConfig()
+        assertThat(config.getVersion()).isEqualTo(SpecmaticConfigVersion.VERSION_2)
+        assertThat(config.getServiceName()).isEqualTo("Payments")
+    }
+
+    @Test
+    fun `v2 loadFrom should retain serviceName`() {
+        val config = SpecmaticConfig(serviceName = "Payments")
+        val v2 = SpecmaticConfigV2.loadFrom(config) as SpecmaticConfigV2
+
+        assertThat(v2.serviceName).isEqualTo("Payments")
+    }
+
+    @Test
+    fun `v1 config should reject serviceName`(@TempDir tempDir: File) {
+        val configYaml = """
+            version: 1
+            serviceName: "Payments"
+            contract_repositories: []
+        """.trimIndent()
+
+        val configFile = tempDir.resolve("specmatic.yaml")
+        configFile.writeText(configYaml)
+
+        assertThrows<UnrecognizedPropertyException> {
+            configFile.toSpecmaticConfig()
+        }
     }
 
     @Test

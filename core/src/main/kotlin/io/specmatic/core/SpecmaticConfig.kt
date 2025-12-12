@@ -216,6 +216,7 @@ data class AttributeSelectionPattern(
 
 data class SpecmaticConfig(
     private val sources: List<Source> = emptyList(),
+    private val serviceName: String? = null,
     private val auth: Auth? = null,
     private val pipeline: Pipeline? = null,
     private val environments: Map<String, Environment>? = null,
@@ -239,6 +240,11 @@ data class SpecmaticConfig(
     companion object {
         fun getReport(specmaticConfig: SpecmaticConfig): ReportConfigurationDetails? {
             return specmaticConfig.report
+        }
+
+        @JsonIgnore
+        fun getServiceName(specmaticConfig: SpecmaticConfig): String? {
+            return specmaticConfig.serviceName
         }
 
         @JsonIgnore
@@ -331,6 +337,11 @@ data class SpecmaticConfig(
     @JsonIgnore
     fun getHotReload(): Switch? {
         return stub.getHotReload()
+    }
+
+    @JsonIgnore
+    fun getServiceName(): String? {
+        return serviceName
     }
 
     @JsonIgnore
