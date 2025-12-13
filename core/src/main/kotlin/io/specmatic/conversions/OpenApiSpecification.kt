@@ -446,8 +446,10 @@ class OpenApiSpecification(
     }
 
     fun parseUnreferencedSchemas(): Map<String, Pattern> {
+        val componentSchemasBreadCrumb = "components.schemas"
         return openApiSchemas().filterNot { withPatternDelimiters(it.key) in patterns }.map {
-            withPatternDelimiters(it.key) to toSpecmaticPattern(it.value, emptyList(), it.key)
+            val pattern = toSpecmaticPattern(it.value, emptyList(), it.key, breadCrumb = componentSchemasBreadCrumb.plus(".${it.key}"))
+            withPatternDelimiters(it.key) to pattern
         }.toMap()
     }
 
@@ -1605,23 +1607,6 @@ class OpenApiSpecification(
         }
     }
 
-    private fun handleMultiTypeEnum(schema: Schema<*>, patternName: String, types: List<String>, example: String? = null): Pattern {
-        val enumDataTypes = types.sortedWith(compareBy { it == "string" }).map(::withPatternDelimiters)
-        val converter: (String) -> Value = { value ->
-            enumDataTypes.firstNotNullOfOrNull {
-                val pattern = builtInPatterns[it] ?: return@firstNotNullOfOrNull null
-                runCatching { pattern.parse(value, Resolver()) }.getOrNull()
-            } ?: run {
-                logger.log("Failed to validate enum value $value against provided list of types $enumDataTypes")
-                parsedScalarValue(value)
-            }
-        }
-
-        return toEnum(schema, types.contains(NULL_TYPE), patternName, multiType = true) { enumValue ->
-            converter(enumValue.toString())
-        }.withExample(example)
-    }
-
     private fun handleMultiType(schema: Schema<*>, typeStack: List<String>, patternName: String, types: List<String>, example: String? = null): Pattern {
         val patterns = types.map { singleType ->
             val singleTypeSchema = SchemaUtils.cloneWithType(schema, singleType)
@@ -1876,14 +1861,19 @@ class OpenApiSpecification(
         )
     }
 
-    private fun enumPattern(schema: Schema<*>, patternName: String, example: String? = null): EnumPattern {
-        val converter: (String) -> Value = if (schema.type == "number" || schema.type == "integer") {
-            { NumberValue(it.toInt()) }
-        } else {
-            { StringValue(it) }
+    private fun enumPattern(schema: Schema<*>, patternName: String, types: List<String>, breadCrumb: String, example: String? = null): EnumPattern {
+        val enumDataTypes = types.sortedWith(compareBy { it == "string" }).map(::withPatternDelimiters)
+        val converter: (String) -> Value = { value ->
+            enumDataTypes.firstNotNullOfOrNull {
+                val pattern = builtInPatterns[it] ?: return@firstNotNullOfOrNull null
+                runCatching { pattern.parse(value, Resolver()) }.getOrNull()
+            } ?: run {
+                logger.log("Failed to validate enum value $value against provided list of types $enumDataTypes")
+                parsedScalarValue(value)
+            }
         }
 
-        return toEnum(schema, schema.isNullable(), patternName) { enumValue ->
+        return toEnum(schema, schema.isNullable(), patternName, multiType = types.size > 1, breadCrumb = breadCrumb) { enumValue ->
             converter(enumValue.toString())
         }.withExample(example)
     }
@@ -2187,7 +2177,7 @@ class OpenApiSpecification(
         return patternMap
     }
 
-    private fun toEnum(schema: Schema<*>, isNullable: Boolean, patternName: String, multiType: Boolean = false, toSpecmaticValue: (Any) -> Value): EnumPattern {
+    private fun toEnum(schema: Schema<*>, isNullable: Boolean, patternName: String, multiType: Boolean = false, breadCrumb: String = "", toSpecmaticValue: (Any) -> Value): EnumPattern {
         val specmaticValues = schema.enum.map<Any?, Value> { enumValue ->
             when (enumValue) {
                 null -> NullValue
@@ -2195,14 +2185,21 @@ class OpenApiSpecification(
             }
         }
 
-        if (parsedOpenApi.specVersion != SpecVersion.V31 && !isNullable && NullValue in specmaticValues)
-            throw ContractException("Enum values cannot contain null since the schema $patternName is not nullable")
+        if (parsedOpenApi.specVersion != SpecVersion.V31 && NullValue in specmaticValues && !isNullable) {
+            throw ContractException(
+                breadCrumb = breadCrumb,
+                errorMessage = """
+                Failed to parse enum. One or more enum values were parsed as null
+                This often happens in OpenAPI 3.0.x when enum values have mixed or invalid types and the parser implicitly coerces those values to null
+                Please check the enum schema and entries or mark then schema as nullable if this was intentional
+                """.trimIndent()
+            )
+        }
 
-        if (parsedOpenApi.specVersion != SpecVersion.V31 && isNullable && NullValue !in specmaticValues)
-            throw ContractException("Enum values must contain null since the schema $patternName is nullable")
-
-        return EnumPattern(specmaticValues, nullable = isNullable, typeAlias = patternName, multiType = multiType).also {
-            cacheComponentPattern(patternName, it)
+        return attempt(errorMessage = "Failed to parse enum values, please check the schema and entries: ", breadCrumb = breadCrumb) {
+            EnumPattern(specmaticValues, nullable = isNullable, typeAlias = patternName, multiType = multiType).also {
+                cacheComponentPattern(patternName, it)
+            }
         }
     }
 
@@ -2351,56 +2348,6 @@ class OpenApiSpecification(
 
     private fun Schema<*>.toSpecmaticPattern(patternName: String, typeStack: List<String>, breadCrumb: String): Pattern {
         if (this.`$ref` != null) return handleReference(this, typeStack, patternName, breadCrumb)
-        if (this is JsonSchema) return this.jsonSchemaToSpecmaticPattern(patternName, typeStack, breadCrumb)
-
-        val example = this.extractFirstExampleAsString()
-        if (this.enum != null) return enumPattern(this, patternName, example)
-        return when (this) {
-            // Primitives
-            is io.swagger.v3.oas.models.media.StringSchema -> stringPattern(this, patternName, breadCrumb, example)
-            is io.swagger.v3.oas.models.media.IntegerSchema -> numberPattern(this, false, example)
-            is io.swagger.v3.oas.models.media.NumberSchema -> numberPattern(this, true, example)
-            is io.swagger.v3.oas.models.media.BooleanSchema -> BooleanPattern(example = example)
-
-            // Formats
-            is io.swagger.v3.oas.models.media.EmailSchema -> EmailPattern(example = example)
-            is io.swagger.v3.oas.models.media.PasswordSchema -> StringPattern(example = example)
-            is io.swagger.v3.oas.models.media.UUIDSchema -> UUIDPattern
-            is io.swagger.v3.oas.models.media.DateSchema -> DatePattern
-            is io.swagger.v3.oas.models.media.DateTimeSchema -> DateTimePattern
-            is io.swagger.v3.oas.models.media.BinarySchema -> BinaryPattern()
-            is io.swagger.v3.oas.models.media.ByteArraySchema -> Base64StringPattern()
-
-            // Structural
-            is io.swagger.v3.oas.models.media.ObjectSchema, is io.swagger.v3.oas.models.media.MapSchema -> if (this.xml?.name != null) {
-                toXMLPattern(this, typeStack = typeStack)
-            } else {
-                toJsonObjectPattern(this, patternName, typeStack, breadCrumb)
-            }
-
-            is io.swagger.v3.oas.models.media.ArraySchema -> if (this.xml?.name != null) {
-                toXMLPattern(this, typeStack = typeStack)
-            } else {
-                ListPattern(
-                    pattern = toSpecmaticPattern(this.items ?: Schema<Any>(), typeStack, breadCrumb = "$breadCrumb[]"),
-                    example = toListExample(this.extractFirstExampleAsJsonNode()),
-                )
-            }
-
-            // Composite
-            is io.swagger.v3.oas.models.media.ComposedSchema -> when {
-                this.allOf != null -> handleAllOf(this, typeStack, patternName)
-                this.oneOf != null -> handleOneOf(this, typeStack, patternName)
-                this.anyOf != null -> handleAnyOf(this, typeStack, patternName)
-                else -> throw ContractException("Invalid Composed Schema, must have oneOf, allOf or anyOf defined")
-            }
-
-            else -> this.jsonSchemaToSpecmaticPattern(patternName, typeStack, breadCrumb)
-        }
-    }
-
-    private fun Schema<*>.jsonSchemaToSpecmaticPattern(patternName: String, typeStack: List<String>, breadCrumb: String): Pattern {
-        if (this.`$ref` != null) return handleReference(this, typeStack, patternName, breadCrumb)
         if (this.allOf != null) return handleAllOf(this, typeStack, patternName)
         if (this.oneOf != null) return handleOneOf(this, typeStack, patternName)
         if (this.anyOf != null) return handleAnyOf(this, typeStack, patternName)
@@ -2414,7 +2361,7 @@ class OpenApiSpecification(
         val declaredTypes = types ?: setOfNotNull(type)
         val effectiveTypes = declaredTypes.filter { it != NULL_TYPE }
 
-        if (enum != null) return handleMultiTypeEnum(this, patternName, declaredTypes.toList(), example)
+        if (enum != null) return enumPattern(this, patternName, declaredTypes.toList(), breadCrumb, example)
         if (effectiveTypes.size > 1) return handleMultiType(this, typeStack, patternName, declaredTypes.toList(), example)
 
         return when (effectiveTypes.firstOrNull()) {
