@@ -135,21 +135,17 @@ class EnumPatternTest {
         }
 
         @Test
-        fun `it should use the inline example if present`() {
-            val enum = EnumPattern(listOf(StringValue("01"), StringValue("02")), example = "01")
-            val patterns =
-                enum.newBasedOn(Row(), Resolver(defaultExampleResolver = UseDefaultExample)).map { it.value }.toList()
-
-            assertThat(patterns).containsExactly(
-                ExactValuePattern(StringValue("01"))
-            )
+        fun `it should use the inline example if present when generating a value`() {
+            val enum = EnumPattern(listOf("01", "02", "03", "04", "05").map { StringValue(it) }, example = "01")
+            val value = enum.generate(Resolver())
+            assertThat(value).isEqualTo(StringValue("01"))
         }
 
         @Test
         fun `it should use the inline example if present with multiValue`() {
-            val enum = toMultiValueEnum("Three", 3, true, example = "3")
-            val patterns = enum.newBasedOn(Row(), Resolver(defaultExampleResolver = UseDefaultExample)).map { it.value }.toList()
-            assertThat(patterns).containsExactly(ExactValuePattern(NumberValue(3)))
+            val enum = toMultiValueEnum("One", true, "Three", 3, true, example = "3")
+            val value = enum.generate(Resolver())
+            assertThat(value).isEqualTo(NumberValue(3))
         }
 
         @Test

@@ -249,8 +249,10 @@ data class AnyPattern(
             }
         } ?: pattern
 
-        resolver.resolveExample(example, updatedPatterns)?.let {
-            return sequenceOf(HasValue(ExactValuePattern(it)))
+        if (isNullablePattern() && hasNoAmbiguousPatterns()) {
+            resolver.resolveExample(example, updatedPatterns)?.let {
+                return sequenceOf(HasValue(ExactValuePattern(it)))
+            }
         }
 
         val isNullable = updatedPatterns.any(::isEmpty)

@@ -43,7 +43,7 @@ fun strategiesFromFlags(specmaticConfig: SpecmaticConfig): FlagsBased {
             Pair("", "")
 
     return FlagsBased(
-        defaultExampleResolver = if (getBooleanValue(SCHEMA_EXAMPLE_DEFAULT)) UseDefaultExample else DoNotUseDefaultExample,
+        defaultExampleResolver = UseDefaultExample,
         generation = when {
             specmaticConfig.isResiliencyTestingEnabled() -> GenerativeTestsEnabled(positiveOnly = specmaticConfig.isOnlyPositiveTestingEnabled())
             else -> NonGenerativeTests
