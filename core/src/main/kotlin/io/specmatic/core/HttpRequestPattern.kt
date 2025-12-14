@@ -331,11 +331,7 @@ data class HttpRequestPattern(
 
         val updatedResolver =
             if(Flags.getBooleanValue(EXTENSIBLE_QUERY_PARAMS))
-                resolver.copy(
-                    findKeyErrorCheck = resolver.findKeyErrorCheck.copy(
-                        unexpectedKeyCheck = IgnoreUnexpectedKeys
-                    )
-                )
+                resolver.copy(findKeyErrorCheck = resolver.findKeyErrorCheck.withUnexpectedKeyCheck(IgnoreUnexpectedKeys))
             else
                 resolver
 

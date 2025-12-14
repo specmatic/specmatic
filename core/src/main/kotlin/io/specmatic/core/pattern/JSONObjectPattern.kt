@@ -719,7 +719,7 @@ fun fix(jsonPatternMap: Map<String, Pattern>, jsonValueMap: Map<String, Value>, 
         .toMap()
 
     val keyErrors = resolver.findKeyErrorCheck.validateAll(jsonPatternMap, jsonValueMap)
-    val fuzzyKeyErrors = keyErrors.filterIsInstance<FuzzyKeyError>().associate{ it.name to it.candidate }
+    val fuzzyKeyErrors = keyErrors.filterIsInstance<FuzzyKeyError>().associate{ it.name to it.canonicalKey }
     val keyToPatternValuePair = jsonValueMap.mapNotNull { (key, value) ->
         val potentialKeys = listOfNotNull(key, fuzzyKeyErrors[key])
         val match = potentialKeys.firstNotNullOfOrNull { candidateKey ->
@@ -729,7 +729,7 @@ fun fix(jsonPatternMap: Map<String, Pattern>, jsonValueMap: Map<String, Value>, 
 
         when {
             match != null -> match.first to Pair(match.second, value)
-            resolver.findKeyErrorCheck.isValidateUnexpectedKeyCheck() -> null
+            !resolver.findKeyErrorCheck.isExtensible -> null
             else -> key to (null to value)
         }
     }.toMap()
@@ -769,7 +769,7 @@ fun fill(jsonPatternMap: Map<String, Pattern>, jsonValueMap: Map<String, Value>,
 
     val resolvedValuesMap = adjustedValue.mapValues { (key, value) ->
         val pattern = jsonPatternMap[key] ?: jsonPatternMap["$key?"] ?: return@mapValues when {
-            resolver.findKeyErrorCheck.isIgnoreUnexpectedKeyCheck() -> generateIfPatternToken(typeAlias, key, value, resolver)
+            resolver.findKeyErrorCheck.isExtensible -> generateIfPatternToken(typeAlias, key, value, resolver)
             resolver.isNegative -> generateIfPatternToken(typeAlias, key, value, resolver)
             else -> HasFailure<Value>(Result.Failure(resolver.mismatchMessages.unexpectedKey("key", key)))
         }.breadCrumb(key)

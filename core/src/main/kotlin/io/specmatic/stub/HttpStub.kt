@@ -1380,7 +1380,7 @@ fun stubResponse(
 ): HttpResponse {
     return try {
         when (val mock = stubs.http.find { (requestPattern, _, resolver) ->
-            requestPattern.matches(httpRequest, resolver.disableOverrideUnexpectedKeycheck()) is Result.Success
+            requestPattern.matches(httpRequest, resolver.disableOverrideUnexpectedKeyCheck()) is Result.Success
         }) {
             null -> {
                 val responses = contractInfo.asSequence().map { (feature, _) ->

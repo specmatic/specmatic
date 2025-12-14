@@ -193,7 +193,7 @@ data class Dictionary(
 
     companion object {
         private const val SPECMATIC_CONSTANTS = "SPECMATIC_CONSTANTS"
-        private val noPatternKeyCheckDictionary = KeyCheck(noPatternKeyCheck, IgnoreUnexpectedKeys)
+        private val noPatternKeyCheckDictionary = DefaultKeyCheckImpl(noPatternKeyCheck, IgnoreUnexpectedKeys)
 
         fun from(file: File, strictMode: Boolean = false): Dictionary {
             if (!file.exists()) throw ContractException(

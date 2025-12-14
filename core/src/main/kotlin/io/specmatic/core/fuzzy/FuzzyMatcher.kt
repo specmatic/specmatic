@@ -35,6 +35,19 @@ class FuzzyMatcher(
         return findBestFuzzyMatch(inputKey, inputTokens)
     }
 
+    fun findNearestIn(keys: Set<String>, target: String): FuzzyMatchResult {
+        return keys.asSequence().filter { key -> key !in model.validKeys }.mapNotNull { key ->
+            val matchResult = this.match(key)
+            when {
+                matchResult is FuzzyMatchResult.FuzzyMatch && matchResult.key == target -> matchResult.copy(key = key)
+                else -> null
+            }
+        }
+        .maxByOrNull { it.score }
+        ?.let { FuzzyMatchResult.FuzzyMatch(it.key, it.score) }
+        ?: FuzzyMatchResult.NoMatch
+    }
+
     private fun findBestFuzzyMatch(inputKey: String, inputTokens: List<String>): FuzzyMatchResult {
         return tokenizedKeys.asSequence()
             .map { (candidateKey, candidateTokens) -> evaluateCandidate(candidateKey, candidateTokens, inputTokens) }
@@ -79,7 +92,7 @@ class FuzzyMatcher(
             }
         }
 
-        fun fuzzyMatcher(block: FuzzyBuilder.() -> Unit) : FuzzyMatcher {
+        fun buildFuzzyMatcher(block: FuzzyBuilder.() -> Unit) : FuzzyMatcher {
             val builder = FuzzyBuilder()
             block(builder)
             return builder.build()

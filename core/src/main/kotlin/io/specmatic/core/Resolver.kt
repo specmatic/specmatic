@@ -81,8 +81,8 @@ data class Resolver(
         return this.copy(allPatternsAreMandatory = false)
     }
 
-    fun disableOverrideUnexpectedKeycheck(): Resolver {
-        return this.copy(findKeyErrorCheck = this.findKeyErrorCheck.disableOverrideUnexpectedKeycheck())
+    fun disableOverrideUnexpectedKeyCheck(): Resolver {
+        return this.copy(findKeyErrorCheck = this.findKeyErrorCheck.disableOverrideUnexpectedKeyCheck())
     }
 
     fun findKeyError(pattern: Map<String, Any>, actual: Map<String, Any>): KeyError? {
@@ -435,7 +435,7 @@ data class Resolver(
     }
 
     fun hasPartialKeyCheck(): Boolean {
-        return this.findKeyErrorCheck.isPartial()
+        return this.findKeyErrorCheck.isPartial
     }
 
     fun partializeKeyCheck(): Resolver {

@@ -171,7 +171,7 @@ internal class HttpHeadersPatternTest {
             put("X-Unspecified-Header", "Can't accept this header in a mock")
         }
 
-        assertThat(expectedHeaders.matches(actualHeaders, Resolver(findKeyErrorCheck = DefaultKeyCheck.disableOverrideUnexpectedKeycheck()))).isInstanceOf(Result.Failure::class.java)
+        assertThat(expectedHeaders.matches(actualHeaders, Resolver(findKeyErrorCheck = DefaultKeyCheck.disableOverrideUnexpectedKeyCheck()))).isInstanceOf(Result.Failure::class.java)
     }
 
     @Tag(GENERATION)
@@ -337,7 +337,7 @@ internal class HttpHeadersPatternTest {
     @Test
     fun `unexpected but non-optional standard http headers are allowed and will break a match check`() {
         val headersPattern = HttpHeadersPattern(mapOf("X-Data" to StringPattern()), ancestorHeaders = mapOf("X-Data" to StringPattern(), "Content-Type" to StringPattern()))
-        val resolver = Resolver(findKeyErrorCheck = DefaultKeyCheck.disableOverrideUnexpectedKeycheck())
+        val resolver = Resolver(findKeyErrorCheck = DefaultKeyCheck.disableOverrideUnexpectedKeyCheck())
         assertThat(headersPattern.matches(mapOf("X-Data" to "data", "Content-Type" to "text/plain"), resolver)).isInstanceOf(Result.Failure::class.java)
     }
 
