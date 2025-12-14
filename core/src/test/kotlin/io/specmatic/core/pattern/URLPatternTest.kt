@@ -88,4 +88,14 @@ internal class URLPatternTest {
             assertThat(generated).isInstanceOf(StringValue::class.java)
         }
     }
+
+    @Test
+    fun `should use provided url example during generation`() {
+        val example = "https://specmatic.io"
+        val pattern = URLPattern(scheme = URLScheme.HTTPS, example = example)
+
+        val generated = pattern.generate(Resolver())
+
+        assertEquals(example, generated.string)
+    }
 }

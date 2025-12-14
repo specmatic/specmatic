@@ -2365,11 +2365,11 @@ class OpenApiSpecification(
             // Formats
             is io.swagger.v3.oas.models.media.EmailSchema -> EmailPattern(example = example)
             is io.swagger.v3.oas.models.media.PasswordSchema -> StringPattern(example = example)
-            is io.swagger.v3.oas.models.media.UUIDSchema -> UUIDPattern
-            is io.swagger.v3.oas.models.media.DateSchema -> DatePattern
-            is io.swagger.v3.oas.models.media.DateTimeSchema -> DateTimePattern
-            is io.swagger.v3.oas.models.media.BinarySchema -> BinaryPattern()
-            is io.swagger.v3.oas.models.media.ByteArraySchema -> Base64StringPattern()
+            is io.swagger.v3.oas.models.media.UUIDSchema -> UUIDPattern(example = example)
+            is io.swagger.v3.oas.models.media.DateSchema -> DatePattern(example = example)
+            is io.swagger.v3.oas.models.media.DateTimeSchema -> DateTimePattern(example = example)
+            is io.swagger.v3.oas.models.media.BinarySchema -> BinaryPattern(example = example)
+            is io.swagger.v3.oas.models.media.ByteArraySchema -> Base64StringPattern(example = example)
 
             // Structural
             is io.swagger.v3.oas.models.media.ObjectSchema, is io.swagger.v3.oas.models.media.MapSchema -> if (this.xml?.name != null) {
@@ -2422,11 +2422,11 @@ class OpenApiSpecification(
             "string" -> when (this.format) {
                 "email" -> EmailPattern(example = example)
                 "password" -> StringPattern(example = example)
-                "uuid" -> UUIDPattern
-                "date" -> DatePattern
-                "date-time" -> DateTimePattern
-                "binary" -> BinaryPattern()
-                "byte" -> Base64StringPattern()
+                "uuid" -> UUIDPattern(example = example)
+                "date" -> DatePattern(example = example)
+                "date-time" -> DateTimePattern(example = example)
+                "binary" -> BinaryPattern(example = example)
+                "byte" -> Base64StringPattern(example = example)
                 else -> stringPattern(this, patternName, breadCrumb, example)
             }
             "integer" -> numberPattern(this, false, example)

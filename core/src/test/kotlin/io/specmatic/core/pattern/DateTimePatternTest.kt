@@ -3,7 +3,6 @@ package io.specmatic.core.pattern
 import io.specmatic.GENERATION
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
-import io.specmatic.core.pattern.DateTimePattern.newBasedOn
 import io.specmatic.core.value.StringValue
 import io.specmatic.shouldMatch
 import io.specmatic.shouldNotMatch
@@ -14,45 +13,47 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 
 internal class DateTimePatternTest {
+    private val pattern = DateTimePattern()
+
     @Test
     fun `should parse a valid datetime value`() {
         val dateString = RFC3339.currentDateTime()
-        val dateValue = DateTimePattern.parse(dateString, Resolver())
+        val dateValue = pattern.parse(dateString, Resolver())
 
         assertThat(dateValue.string).isEqualTo(dateString)
     }
 
     @Test
     fun `should generate a datetime value which can be parsed`() {
-        val valueGenerated = DateTimePattern.generate(Resolver())
-        val valueParsed = DateTimePattern.parse(valueGenerated.string, Resolver())
+        val valueGenerated = pattern.generate(Resolver())
+        val valueParsed = pattern.parse(valueGenerated.string, Resolver())
 
         assertThat(valueParsed).isEqualTo(valueGenerated)
     }
 
     @Test
     fun `should match a valid datetime value`() {
-        val valueGenerated = DateTimePattern.generate(Resolver())
-        valueGenerated shouldMatch DateTimePattern
+        val valueGenerated = pattern.generate(Resolver())
+        valueGenerated shouldMatch pattern
     }
 
     @Test
     fun `should fail to match an invalid datetime value`() {
         val valueGenerated = StringValue("this is not a datetime value")
-        valueGenerated shouldNotMatch DateTimePattern
+        valueGenerated shouldNotMatch pattern
     }
 
     @Test
     fun `should return itself when generating a new pattern based on a row`() {
-        val datePatterns = newBasedOn(Row(), Resolver()).map { it.value as DateTimePattern }.toList()
+        val datePatterns = pattern.newBasedOn(Row(), Resolver()).map { it.value as DateTimePattern }.toList()
         assertThat(datePatterns.size).isEqualTo(1)
-        assertThat(datePatterns.first()).isEqualTo(DateTimePattern)
+        assertThat(datePatterns.first()).isEqualTo(pattern)
     }
 
     @ParameterizedTest
     @MethodSource("getRFC3339CompliantDateTimeData")
     fun `should match RFC3339 date time format`(dateTime: String) {
-        assertThat(DateTimePattern.matches(
+        assertThat(pattern.matches(
             StringValue(dateTime),
             Resolver()
         )).isInstanceOf(Result.Success::class.java)
@@ -62,7 +63,7 @@ internal class DateTimePatternTest {
     @MethodSource("getRFC3339NonCompliantDateTimeData")
     fun `should fail if the dateTime is not RFC3339 compliant`(dateTime: String) {
         assertThat(
-            DateTimePattern.matches(
+            pattern.matches(
                 StringValue(dateTime),
                 Resolver()
             )
@@ -72,8 +73,18 @@ internal class DateTimePatternTest {
     @Test
     @Tag(GENERATION)
     fun `negative patterns should be generated`() {
-        val result = DateTimePattern.negativeBasedOn(Row(), Resolver()).map { it.value }.toList()
+        val result = pattern.negativeBasedOn(Row(), Resolver()).map { it.value }.toList()
         assertThat(result.map { it.typeName }).containsExactlyInAnyOrder("string", "number", "boolean", "null")
+    }
+
+    @Test
+    fun `should use the provided datetime example during generation`() {
+        val example = "2024-05-01T12:34:56Z"
+        val patternWithExample = DateTimePattern(example = example)
+
+        val generated = patternWithExample.generate(Resolver())
+
+        assertThat(generated.string).isEqualTo(example)
     }
 
     companion object {

@@ -10,7 +10,10 @@ import io.specmatic.core.value.Value
 import org.apache.commons.codec.binary.Base64
 import java.util.*
 
-data class Base64StringPattern(override val typeAlias: String? = null) : Pattern, ScalarType {
+data class Base64StringPattern(
+    override val typeAlias: String? = null,
+    override val example: String? = null,
+) : Pattern, ScalarType, HasDefaultExample {
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if (sampleData?.hasTemplate() == true)
             return Result.Success()
@@ -40,6 +43,12 @@ data class Base64StringPattern(override val typeAlias: String? = null) : Pattern
     private val randomStringLength: Int = 5
 
     override fun generate(resolver: Resolver): Value {
+        val exampleValue = resolver.resolveExample(example, this)
+        if (exampleValue != null) {
+            matches(exampleValue, resolver).throwOnFailure()
+            return exampleValue
+        }
+
         return StringValue(randomBase64String(randomStringLength))
     }
 

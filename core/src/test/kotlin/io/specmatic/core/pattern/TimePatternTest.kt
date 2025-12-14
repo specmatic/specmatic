@@ -12,25 +12,27 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 
 class TimePatternTest {
+    private val pattern = TimePattern()
+
     @Test
     fun `should be able to generate a time`() {
-        val generated = TimePattern.generate(Resolver())
+        val generated = pattern.generate(Resolver())
         println(generated)
-        val result = TimePattern.matches(generated, Resolver())
+        val result = pattern.matches(generated, Resolver())
         assertTrue(result is Result.Success)
     }
 
     @Test
     fun `should generate new time values for test`() {
         val row = Row()
-        val patterns = TimePattern.newBasedOn(row, Resolver()).map { it.value }.toList()
+        val patterns = pattern.newBasedOn(row, Resolver()).map { it.value }.toList()
 
         assertEquals(1, patterns.size)
-        assertEquals(TimePattern, patterns.first())
+        assertEquals(pattern, patterns.first())
 
         assertThat(patterns).allSatisfy {
             val time = it.generate(Resolver())
-            val match = TimePattern.matches(time, Resolver())
+            val match = pattern.matches(time, Resolver())
             assertThat(match).isInstanceOf(Result.Success::class.java)
         }
     }
@@ -38,7 +40,7 @@ class TimePatternTest {
     @Test
     @Tag(GENERATION)
     fun `negative patterns should be generated`() {
-        val result = TimePattern.negativeBasedOn(Row(), Resolver()).map { it.value }.toList()
+        val result = pattern.negativeBasedOn(Row(), Resolver()).map { it.value }.toList()
         assertThat(result.map { it.typeName }).containsExactlyInAnyOrder("string", "number", "boolean", "null")
     }
 
@@ -56,7 +58,7 @@ class TimePatternTest {
         "aa:bb:cc, invalid"
     )
     fun `RFC 6801 regex should validate time`(time: String, validity: String) {
-        val result = TimePattern.matches(StringValue(time), Resolver())
+        val result = pattern.matches(StringValue(time), Resolver())
 
         val isValid = when(validity) {
             "valid" -> true
@@ -65,5 +67,15 @@ class TimePatternTest {
         }
 
         assertEquals(isValid, result is Result.Success)
+    }
+
+    @Test
+    fun `should use the provided time example during generation`() {
+        val example = "01:02:03Z"
+        val patternWithExample = TimePattern(example = example)
+
+        val generated = patternWithExample.generate(Resolver())
+
+        assertEquals(example, generated.string)
     }
 }

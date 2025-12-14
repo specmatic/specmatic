@@ -50,4 +50,14 @@ internal class Base64StringPatternTest {
         }.isInstanceOf(ContractException::class.java)
 
     }
+
+    @Test
+    fun `should use provided base64 example during generation`() {
+        val example = "U3BlY21hdGlj"
+        val pattern = Base64StringPattern(example = example)
+
+        val generated = pattern.generate(Resolver())
+
+        assertThat(generated.toStringLiteral()).isEqualTo(example)
+    }
 }

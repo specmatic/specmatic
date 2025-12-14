@@ -8,7 +8,11 @@ import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import java.net.URI
 
-data class URLPattern(val scheme: URLScheme = URLScheme.HTTPS, override val typeAlias: String? = null): Pattern, ScalarType {
+data class URLPattern(
+    val scheme: URLScheme = URLScheme.HTTPS,
+    override val typeAlias: String? = null,
+    override val example: String? = null,
+): Pattern, ScalarType, HasDefaultExample {
     override val pattern: String = "(url)"
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
@@ -23,6 +27,12 @@ data class URLPattern(val scheme: URLScheme = URLScheme.HTTPS, override val type
     }
 
     override fun generate(resolver: Resolver): StringValue {
+        val exampleValue = resolver.resolveExample(example, this)
+        if (exampleValue != null) {
+            matches(exampleValue, resolver).throwOnFailure()
+            return exampleValue as StringValue
+        }
+
         val providedString = resolver.provideString(this)
         return providedString ?: StringValue("${scheme.prefix}${randomString().lowercase()}.com/${randomString().lowercase()}")
     }

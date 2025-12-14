@@ -12,7 +12,8 @@ import java.security.SecureRandom
 
 data class BinaryPattern(
     override val typeAlias: String? = null,
-) : Pattern, ScalarType {
+    override val example: String? = null,
+) : Pattern, ScalarType, HasDefaultExample {
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if (sampleData?.hasTemplate() == true)
@@ -38,6 +39,12 @@ data class BinaryPattern(
     }
 
     override fun generate(resolver: Resolver): Value {
+        val exampleValue = resolver.resolveExample(example, this)
+        if (exampleValue != null) {
+            matches(exampleValue, resolver).throwOnFailure()
+            return exampleValue
+        }
+
         val secureRandom = SecureRandom()
         val bytes = ByteArray(20)
         secureRandom.nextBytes(bytes)

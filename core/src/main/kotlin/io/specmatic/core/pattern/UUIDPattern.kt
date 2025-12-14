@@ -8,7 +8,7 @@ import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import java.util.*
 
-object UUIDPattern : Pattern, ScalarType {
+data class UUIDPattern(override val example: String? = null) : Pattern, ScalarType, HasDefaultExample {
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if (sampleData?.hasTemplate() == true)
             return Result.Success()
@@ -23,7 +23,15 @@ object UUIDPattern : Pattern, ScalarType {
         }
     }
 
-    override fun generate(resolver: Resolver): StringValue = StringValue(UUID.randomUUID().toString())
+    override fun generate(resolver: Resolver): StringValue {
+        val exampleValue = resolver.resolveExample(example, this)
+        if (exampleValue != null) {
+            matches(exampleValue, resolver).throwOnFailure()
+            return exampleValue as StringValue
+        }
+
+        return StringValue(UUID.randomUUID().toString())
+    }
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> = sequenceOf(HasValue(this))
 
@@ -54,6 +62,7 @@ object UUIDPattern : Pattern, ScalarType {
 
     override val typeAlias: String?
         get() = null
+
     override val typeName: String = "uuid"
     override val pattern = "(uuid)"
 

@@ -18,4 +18,14 @@ class BinaryPatternTest {
             "boolean"
         )
     }
+
+    @Test
+    fun `should use provided example during generation`() {
+        val example = "sample-bytes"
+        val pattern = BinaryPattern(example = example)
+
+        val generated = pattern.generate(Resolver())
+
+        assertThat(generated.toStringLiteral()).isEqualTo(example)
+    }
 }

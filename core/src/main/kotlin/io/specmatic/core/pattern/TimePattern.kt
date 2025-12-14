@@ -7,7 +7,7 @@ import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
-object TimePattern : Pattern, ScalarType {
+data class TimePattern(override val example: String? = null) : Pattern, ScalarType, HasDefaultExample {
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if (sampleData?.hasTemplate() == true)
             return Result.Success()
@@ -22,7 +22,15 @@ object TimePattern : Pattern, ScalarType {
         }
     }
 
-    override fun generate(resolver: Resolver): StringValue = StringValue(ISO8601.currentTime)
+    override fun generate(resolver: Resolver): StringValue {
+        val exampleValue = resolver.resolveExample(example, this)
+        if (exampleValue != null) {
+            matches(exampleValue, resolver).throwOnFailure()
+            return exampleValue as StringValue
+        }
+
+        return StringValue(ISO8601.currentTime)
+    }
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> = sequenceOf(HasValue(this))
 
