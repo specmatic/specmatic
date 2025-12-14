@@ -15,24 +15,6 @@ pluginManagement {
                 includeGroup("io.specmatic.gradle")
             }
         }
-
-        val repos =
-            mapOf(
-                "specmaticReleases" to uri("https://repo.specmatic.io/releases"),
-                "specmaticSnapshots" to uri("https://repo.specmatic.io/snapshots"),
-                "specmaticPrivate" to uri("https://repo.specmatic.io/private"),
-            )
-
-        repos.forEach { (repoName, repoUrl) ->
-            maven {
-                this.name = repoName
-                this.url = repoUrl
-                credentials {
-                    username = settings.extra.properties["reposilite.user"]?.toString() ?: System.getenv("SPECMATIC_REPOSILITE_USERNAME")
-                    password = settings.extra.properties["reposilite.token"]?.toString() ?: System.getenv("SPECMATIC_REPOSILITE_TOKEN")
-                }
-            }
-        }
     }
 }
 
