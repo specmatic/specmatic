@@ -49,11 +49,10 @@ object FuzzyExampleJsonValidator {
         }
     }
 
-    private val fuzzyUnexpectedKeyCheck = FuzzyUnexpectedKeyCheck(delegate = IgnoreUnexpectedKeys)
     private val resolver: Resolver = Resolver(
         newPatterns = patterns,
         mismatchMessages = FuzzyExampleMisMatchMessages,
-        findKeyErrorCheck = KeyCheck(unexpectedKeyCheck = fuzzyUnexpectedKeyCheck),
+        findKeyErrorCheck = FuzzyKeyCheck(unexpectedKeyCheck = IgnoreUnexpectedKeys),
     )
 
     fun matches(rawValue: Map<String, Value>): Result {

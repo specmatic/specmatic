@@ -1,5 +1,6 @@
 package io.specmatic.stub
 
+import io.specmatic.core.DefaultKeyCheckImpl
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.KeyCheck
 import io.specmatic.core.Result
@@ -183,11 +184,7 @@ class ThreadSafeListOfStubs(
                 hasExpectedResponseCode(it.first, expectedResponseCode)
             }.map { (stubData, partial) ->
                 val (requestPattern, _, resolver) = stubData
-
-                val partialResolver = resolver.copy(
-                    findKeyErrorCheck = KeyCheck(unexpectedKeyCheck = IgnoreUnexpectedKeys)
-                )
-
+                val partialResolver = resolver.withUnexpectedKeyCheck(IgnoreUnexpectedKeys)
                 val partialResult = requestPattern.generate(partial.request, resolver)
                     .matches(httpRequest, partialResolver, partialResolver)
 

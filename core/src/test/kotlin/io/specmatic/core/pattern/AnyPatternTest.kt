@@ -462,8 +462,8 @@ internal class AnyPatternTest {
 
         val partialResolvers = listOf(
             Resolver().partializeKeyCheck(),
-            Resolver(findKeyErrorCheck = KeyCheck(noPatternKeyCheck, IgnoreUnexpectedKeys)),
-            Resolver(findKeyErrorCheck = KeyCheck(noPatternKeyCheck, ValidateUnexpectedKeys)),
+            Resolver(findKeyErrorCheck = DefaultKeyCheckImpl(noPatternKeyCheck, IgnoreUnexpectedKeys)),
+            Resolver(findKeyErrorCheck = DefaultKeyCheckImpl(noPatternKeyCheck, ValidateUnexpectedKeys)),
         )
 
         assertThat(partialResolvers).allSatisfy {

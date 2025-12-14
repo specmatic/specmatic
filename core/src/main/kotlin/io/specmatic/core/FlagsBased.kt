@@ -17,10 +17,9 @@ data class FlagsBased(
     val allPatternsAreMandatory: Boolean
 ) {
     fun update(resolver: Resolver): Resolver {
-        val findKeyErrorCheck = if(unexpectedKeyCheck != null) {
-            resolver.findKeyErrorCheck.copy(unexpectedKeyCheck = unexpectedKeyCheck)
-        } else
-            resolver.findKeyErrorCheck
+        val findKeyErrorCheck = resolver.findKeyErrorCheck
+            .let { unexpectedKeyCheck?.let(it::withUnexpectedKeyCheck) ?: it }
+            .let { if (getBooleanValue(Flags.SPECMATIC_FUZZY)) FuzzyKeyCheck(it) else it }
 
         return resolver.copy(
             defaultExampleResolver = defaultExampleResolver,
@@ -42,20 +41,13 @@ fun strategiesFromFlags(specmaticConfig: SpecmaticConfig): FlagsBased {
         else
             Pair("", "")
 
-    val unexpectedKeyCheck = if (specmaticConfig.isExtensibleSchemaEnabled()) IgnoreUnexpectedKeys else null
-    val fuzzyWrappedKeyCheck = if (getBooleanValue(Flags.SPECMATIC_FUZZY)) {
-        FuzzyUnexpectedKeyCheck(delegate = unexpectedKeyCheck ?: ValidateUnexpectedKeys)
-    } else {
-        unexpectedKeyCheck
-    }
-
     return FlagsBased(
         defaultExampleResolver = if (getBooleanValue(SCHEMA_EXAMPLE_DEFAULT)) UseDefaultExample else DoNotUseDefaultExample,
         generation = when {
             specmaticConfig.isResiliencyTestingEnabled() -> GenerativeTestsEnabled(positiveOnly = specmaticConfig.isOnlyPositiveTestingEnabled())
             else -> NonGenerativeTests
         },
-        unexpectedKeyCheck = fuzzyWrappedKeyCheck,
+        unexpectedKeyCheck = if (specmaticConfig.isExtensibleSchemaEnabled()) IgnoreUnexpectedKeys else null,
         positivePrefix = positivePrefix,
         negativePrefix = negativePrefix,
         allPatternsAreMandatory = specmaticConfig.getAllPatternsMandatory()

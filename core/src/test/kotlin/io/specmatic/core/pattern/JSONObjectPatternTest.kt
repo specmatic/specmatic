@@ -2467,7 +2467,7 @@ components:
                 }
             }
             """.trimIndent())
-            val keyErrorCheck = KeyCheck(unexpectedKeyCheck = FuzzyUnexpectedKeyCheck(ValidateUnexpectedKeys))
+            val keyErrorCheck = FuzzyKeyCheck(unexpectedKeyCheck = ValidateUnexpectedKeys)
             val fixedValue = pattern.fixValue(invalidValue, Resolver(findKeyErrorCheck = keyErrorCheck))
 
             assertThat(fixedValue).isEqualTo(parsedValue("""
@@ -2505,7 +2505,7 @@ components:
                 }
             }
             """.trimIndent())
-            val keyErrorCheck = KeyCheck(unexpectedKeyCheck = ValidateUnexpectedKeys)
+            val keyErrorCheck = DefaultKeyCheckImpl(unexpectedKeyCheck = ValidateUnexpectedKeys)
             val fixedValue = pattern.fixValue(invalidValue, Resolver(findKeyErrorCheck = keyErrorCheck))
 
             assertThat(fixedValue).isNotEqualTo(parsedValue("""

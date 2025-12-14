@@ -1,24 +1,19 @@
 package io.specmatic.core
 
-import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.isOptional
-import io.specmatic.core.value.StringValue
 
 internal object CheckOnlyPatternKeys: KeyErrorCheck {
-    override fun validate(pattern: Map<String, Any>, actual: Map<String, Any>): KeyError? {
+    override fun validate(pattern: Map<String, Any>, actual: Map<String, Any>): MissingKeyError? {
         return validateList(pattern, actual).firstOrNull()
     }
 
-    override fun validateList(pattern: Map<String, Any>, actual: Map<String, Any>): List<KeyError> {
+    override fun validateList(pattern: Map<String, Any>, actual: Map<String, Any>): List<MissingKeyError> {
         return pattern.minus("...").keys.filter { key ->
             isMissingKey(actual, key)
         }.map { it.toMissingKeyError() }
     }
 
-    override fun validateListCaseInsensitive(
-        pattern: Map<String, Pattern>,
-        actual: Map<String, StringValue>
-    ): List<KeyError> {
+    override fun validateListCaseInsensitive(pattern: Map<String, Any>, actual: Map<String, Any>): List<MissingKeyError> {
         return pattern.minus("...").keys.filter { key ->
             isMissingKeyCaseInsensitive(actual, key)
         }.map { it.toMissingKeyError() }
