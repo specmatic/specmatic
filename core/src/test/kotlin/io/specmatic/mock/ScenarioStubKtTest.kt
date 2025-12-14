@@ -1042,8 +1042,8 @@ paths:
                     "http-response": { "status": 200 }
                     }""".trimIndent(),
                     """
-                    >> http-request Key named "http-request" is mandatory as per example format, but was missing in the actual example
-                    >> supposed-to-be-http-request Key named "supposed-to-be-http-request" is invalid as per example format. Did you mean "http-request"?
+                    >> supposed-to-be-http-request
+                    Missing mandatory key named "http-request" as per example format. Did you mean "http-request"?
                     """.trimIndent()
                 ),
                 Arguments.of("""{
@@ -1051,8 +1051,8 @@ paths:
                     "supposed-to-be-http-response": { "status": 200 }
                     }""".trimIndent(),
                     """
-                    >> http-response Key named "http-response" is mandatory as per example format, but was missing in the actual example
-                    >> supposed-to-be-http-response Key named "supposed-to-be-http-response" is invalid as per example format. Did you mean "http-response"?
+                    >> supposed-to-be-http-response 
+                    Missing mandatory key named "http-response" as per example format. Did you mean "http-response"?
                     """.trimIndent()
                 ),
                 Arguments.of("""{
@@ -1060,8 +1060,8 @@ paths:
                     "http-response": { "status": 200 }
                     }""".trimIndent(),
                     """
-                    >> http-request.method Key named "method" is mandatory as per example format, but was missing in the actual example
-                    >> http-request.supposed-to-be-method Key named "supposed-to-be-method" is invalid as per example format. Did you mean "method"?
+                    >> http-request.supposed-to-be-method
+                    Missing mandatory key named "method" as per example format. Did you mean "method"?
                     """.trimIndent()
                 ),
                 Arguments.of("""{
@@ -1077,8 +1077,8 @@ paths:
                     "http-response": { "supposed-to-be-status": 200 }
                     }""".trimIndent(),
                     """
-                    >> http-response.status Key named "status" is mandatory as per example format, but was missing in the actual example
-                    >> http-response.supposed-to-be-status Key named "supposed-to-be-status" is invalid as per example format. Did you mean "status"?
+                    >> http-response.supposed-to-be-status
+                    Missing mandatory key named "status" as per example format. Did you mean "status"?
                     """.trimIndent()
                 ),
                 Arguments.of("""{

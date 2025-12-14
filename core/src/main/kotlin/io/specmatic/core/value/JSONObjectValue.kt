@@ -38,11 +38,12 @@ data class JSONObjectValue(val jsonObject: Map<String, Value> = emptyMap()) : Va
         if (jsonObject.keys == attributeSelectedFields) return Result.Success()
 
         return Result.fromResults(
-            results = resolver.findKeyErrorList(
-                attributeSelectedFields.associateBy { it },
-                jsonObject
-            ).map {
-                it.missingKeyToResult("key", resolver.mismatchMessages).breadCrumb(it.name)
+            results = resolver.findKeyErrorList(attributeSelectedFields.associateBy { it }, jsonObject).map {
+                when {
+                    attributeSelectedFields.contains(it.name) -> it.missingKeyToResult("key", resolver.mismatchMessages)
+                    attributeSelectedFields.contains(withOptionality(it.name)) -> it.missingOptionalKeyToResult("key", resolver.mismatchMessages)
+                    else -> it.unknownKeyToResult("key", resolver.mismatchMessages)
+                }.breadCrumb(it.name)
             }
         )
     }

@@ -63,69 +63,65 @@ class FuzzyExampleJsonValidatorTest {
                     stub = stubWith {
                         put("nam", StringValue("My Stub"))
                     },
-                    ">> nam Key named \"nam\" is invalid as per example format. Did you mean \"name\"?"
+                    ">> nam Missing optional key named \"name\" as per example format. Did you mean \"name\"?"
                 ),
                 expectFailure(
                     stub = stubWith {
                         put("delay-in-secs", NumberValue(10))
                     },
-                    ">> delay-in-secs Key named \"delay-in-secs\" is invalid as per example format. Did you mean \"$DELAY_IN_SECONDS\"?"
+                    ">> delay-in-secs Missing optional key named \"$DELAY_IN_SECONDS\" as per example format. Did you mean \"$DELAY_IN_SECONDS\"?"
                 ),
                 expectFailure(
                     stub = stubWith {
                         put("dealy-in-seconds", NumberValue(10))
                     },
-                    ">> dealy-in-seconds Key named \"dealy-in-seconds\" is invalid as per example format. Did you mean \"$DELAY_IN_SECONDS\"?"
+                    ">> dealy-in-seconds Missing optional key named \"$DELAY_IN_SECONDS\" as per example format. Did you mean \"$DELAY_IN_SECONDS\"?"
                 ),
                 expectFailure(
                     stub = stubWith {
                         put("delay-in-milisecnds", NumberValue(10))
                     },
-                    ">> delay-in-milisecnds Key named \"delay-in-milisecnds\" is invalid as per example format. Did you mean \"$DELAY_IN_MILLISECONDS\"?"
+                    ">> delay-in-milisecnds Missing optional key named \"$DELAY_IN_MILLISECONDS\" as per example format. Did you mean \"$DELAY_IN_MILLISECONDS\"?"
                 ),
                 expectFailure(
                     stub = stubWith {
                         put("transent", BooleanValue(true))
                     },
-                    ">> transent Key named \"transent\" is invalid as per example format. Did you mean \"$IS_TRANSIENT_MOCK\"?"
+                    ">> transent Missing optional key named \"$IS_TRANSIENT_MOCK\" as per example format. Did you mean \"$IS_TRANSIENT_MOCK\"?"
                 ),
                 expectFailure(
                     stub = stubWith {
                         put("htp-stb-id", StringValue("123"))
                     },
-                    ">> htp-stb-id Key named \"htp-stb-id\" is invalid as per example format. Did you mean \"$TRANSIENT_MOCK_ID\"?"
+                    ">> htp-stb-id Missing optional key named \"$TRANSIENT_MOCK_ID\" as per example format. Did you mean \"$TRANSIENT_MOCK_ID\"?"
                 ),
                 expectFailure(
                     stub = stubWith {
                         val value = remove(MOCK_HTTP_REQUEST)!!
                         put("http-req", value)
                     },
-                    ">> $MOCK_HTTP_REQUEST Key named \"$MOCK_HTTP_REQUEST\" is mandatory as per example format, but was missing in the actual example",
-                    ">> http-req Key named \"http-req\" is invalid as per example format. Did you mean \"$MOCK_HTTP_REQUEST\"?"
+                    ">> http-req Missing mandatory key named \"$MOCK_HTTP_REQUEST\" as per example format. Did you mean \"$MOCK_HTTP_REQUEST\"?"
                 ),
                 expectFailure(
                     stub = stubWith {
                         val value = remove(MOCK_HTTP_REQUEST)!!
                         put("request", value)
                     },
-                    ">> $MOCK_HTTP_REQUEST Key named \"$MOCK_HTTP_REQUEST\" is mandatory as per example format, but was missing in the actual example",
-                    ">> request Key named \"request\" is invalid as per example format. Did you mean \"$MOCK_HTTP_REQUEST\"?"
+                    ">> request Missing mandatory key named \"$MOCK_HTTP_REQUEST\" as per example format. Did you mean \"$MOCK_HTTP_REQUEST\"?"
                 ),
                 expectFailure(
                     stub = stubWith {
                         val value = remove(MOCK_HTTP_RESPONSE)!!
                         put("http-res", value)
                     },
-                    ">> $MOCK_HTTP_RESPONSE Key named \"$MOCK_HTTP_RESPONSE\" is mandatory as per example format, but was missing in the actual example",
-                    ">> http-res Key named \"http-res\" is invalid as per example format. Did you mean \"$MOCK_HTTP_RESPONSE\"?"
+                    ">> http-res Missing mandatory key named \"$MOCK_HTTP_RESPONSE\" as per example format. Did you mean \"$MOCK_HTTP_RESPONSE\"?"
                 ),
                 expectFailure(
                     stub = stubWith {
                         val value = remove(MOCK_HTTP_RESPONSE)!!
                         put("response", value)
                     },
-                    ">> $MOCK_HTTP_RESPONSE Key named \"$MOCK_HTTP_RESPONSE\" is mandatory as per example format, but was missing in the actual example",
-                    ">> response Key named \"response\" is invalid as per example format. Did you mean \"$MOCK_HTTP_RESPONSE\"?"
+                    ">> response Missing mandatory key named \"$MOCK_HTTP_RESPONSE\" as per example format. Did you mean \"$MOCK_HTTP_RESPONSE\"?"
                 ),
 
                 // $MOCK_HTTP_REQUEST failures
@@ -136,7 +132,7 @@ class FuzzyExampleJsonValidatorTest {
                             put("paths", value)
                         }
                     },
-                    ">> $MOCK_HTTP_REQUEST.paths Key named \"paths\" is invalid as per example format. Did you mean \"path\"?"
+                    ">> $MOCK_HTTP_REQUEST.paths Missing optional key named \"path\" as per example format. Did you mean \"path\"?"
                 ),
                 expectFailure(
                     stub = stubWith {
@@ -145,8 +141,7 @@ class FuzzyExampleJsonValidatorTest {
                             put("mthd", value)
                         }
                     },
-                    ">> $MOCK_HTTP_REQUEST.method Key named \"method\" is mandatory as per example format, but was missing in the actual example",
-                    ">> $MOCK_HTTP_REQUEST.mthd Key named \"mthd\" is invalid as per example format. Did you mean \"method\"?"
+                    ">> $MOCK_HTTP_REQUEST.mthd Missing mandatory key named \"method\" as per example format. Did you mean \"method\"?"
                 ),
                 expectFailure(
                     stub = stubWith {
@@ -154,7 +149,7 @@ class FuzzyExampleJsonValidatorTest {
                             put("queries", JSONObjectValue())
                         }
                     },
-                    ">> $MOCK_HTTP_REQUEST.queries Key named \"queries\" is invalid as per example format. Did you mean \"query\"?"
+                    ">> $MOCK_HTTP_REQUEST.queries Missing optional key named \"query\" as per example format. Did you mean \"query\"?"
                 ),
                 expectFailure(
                     stub = stubWith {
@@ -162,7 +157,7 @@ class FuzzyExampleJsonValidatorTest {
                             put("header", JSONObjectValue())
                         }
                     },
-                    ">> $MOCK_HTTP_REQUEST.header Key named \"header\" is invalid as per example format. Did you mean \"headers\"?"
+                    ">> $MOCK_HTTP_REQUEST.header Missing optional key named \"headers\" as per example format. Did you mean \"headers\"?"
                 ),
                 expectFailure(
                     stub = stubWith {
@@ -170,7 +165,7 @@ class FuzzyExampleJsonValidatorTest {
                             put("requestBodyRegex", StringValue("A-Z+"))
                         }
                     },
-                    ">> $MOCK_HTTP_REQUEST.requestBodyRegex Key named \"requestBodyRegex\" is invalid as per example format. Did you mean \"bodyRegex\"?"
+                    ">> $MOCK_HTTP_REQUEST.requestBodyRegex Missing optional key named \"bodyRegex\" as per example format. Did you mean \"bodyRegex\"?"
                 ),
 
                 // $MOCK_HTTP_RESPONSE-failures
@@ -180,7 +175,7 @@ class FuzzyExampleJsonValidatorTest {
                             put("header", JSONObjectValue())
                         }
                     },
-                    ">> $MOCK_HTTP_RESPONSE.header Key named \"header\" is invalid as per example format. Did you mean \"headers\"?"
+                    ">> $MOCK_HTTP_RESPONSE.header Missing optional key named \"headers\" as per example format. Did you mean \"headers\"?"
                 ),
 
                 // PARTIALS
@@ -191,22 +186,20 @@ class FuzzyExampleJsonValidatorTest {
                             put("partal", value)
                         }
                     ),
-                    ">> $PARTIAL Key named \"$PARTIAL\" is mandatory as per example format, but was missing in the actual example",
-                    ">> partal Key named \"partal\" is invalid as per example format. Did you mean \"$PARTIAL\"?"
+                    ">> partal Missing mandatory key named \"partial\" as per example format. Did you mean \"partial\"?"
                 ),
                 expectFailure(
                     stub = stubWithPartial {
                         val value = remove(MOCK_HTTP_REQUEST)!!
                         put("http-req", value)
                     },
-                    ">> partial.$MOCK_HTTP_REQUEST Key named \"$MOCK_HTTP_REQUEST\" is mandatory as per example format, but was missing in the actual example",
-                    ">> partial.http-req Key named \"http-req\" is invalid as per example format. Did you mean \"$MOCK_HTTP_REQUEST\"?"
+                    ">> partial.http-req Missing mandatory key named \"http-request\" as per example format. Did you mean \"http-request\"?"
                 ),
                 expectFailure(
                     stub = stubWithPartial {
                         put("nam", StringValue("Inner Name"))
                     },
-                    ">> partial.nam Key named \"nam\" is invalid as per example format. Did you mean \"name\"?"
+                    ">> partial.nam Missing optional key named \"name\" as per example format. Did you mean \"name\"?"
                 ),
                 expectFailure(
                     stub = stubWithPartial {
@@ -215,8 +208,7 @@ class FuzzyExampleJsonValidatorTest {
                             put("mthd", value)
                         }
                     },
-                    ">> partial.$MOCK_HTTP_REQUEST.method Key named \"method\" is mandatory as per example format, but was missing in the actual example",
-                    ">> partial.$MOCK_HTTP_REQUEST.mthd Key named \"mthd\" is invalid as per example format. Did you mean \"method\"?"
+                    ">> partial.$MOCK_HTTP_REQUEST.mthd Missing mandatory key named \"method\" as per example format. Did you mean \"method\"?"
                 ),
             )
         }

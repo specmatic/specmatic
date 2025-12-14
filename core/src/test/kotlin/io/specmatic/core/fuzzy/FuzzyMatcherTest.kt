@@ -1,6 +1,6 @@
 package io.specmatic.core.fuzzy
 
-import io.specmatic.core.fuzzy.FuzzyMatcher.Companion.fuzzyMatcher
+import io.specmatic.core.fuzzy.FuzzyMatcher.Companion.buildFuzzyMatcher
 import io.specmatic.core.fuzzy.FuzzyMatcher.Companion.FuzzyBuilder
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
@@ -12,7 +12,7 @@ import org.junit.jupiter.params.provider.ValueSource
 class FuzzyMatcherTest {
     @Nested
     inner class ExactMatching {
-        private val matcher = fuzzyMatcher {
+        private val matcher = buildFuzzyMatcher {
             fromKeys(setOf("user_id", "user_name", "account_id"))
         }
 

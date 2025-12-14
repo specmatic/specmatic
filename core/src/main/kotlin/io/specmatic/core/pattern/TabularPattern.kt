@@ -43,10 +43,13 @@ data class TabularPattern(
 
         val resolverWithNullType = withNullPattern(resolver)
 
-        val keyErrors: List<Result.Failure> =
-            resolverWithNullType.findKeyErrorList(pattern, sampleData.jsonObject).map {
-                it.missingKeyToResult("key", resolver.mismatchMessages).breadCrumb(it.name)
-            }
+        val keyErrors: List<Result.Failure> = resolverWithNullType.findKeyErrorList(pattern, sampleData.jsonObject).map {
+            when {
+                pattern.contains(it.name) -> it.missingKeyToResult("key", resolver.mismatchMessages)
+                pattern.contains(withOptionality(it.name)) -> it.missingOptionalKeyToResult("key", resolver.mismatchMessages)
+                else -> it.unknownKeyToResult("key", resolver.mismatchMessages)
+            }.breadCrumb(it.name)
+        }
 
         val results: List<Result.Failure> =
             mapZip(pattern, sampleData.jsonObject).map { (key, patternValue, sampleValue) ->

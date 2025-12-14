@@ -115,9 +115,9 @@ class ExampleFromFileTest {
         assertThat(example).isInstanceOf(HasException::class.java); example as HasException
         assertThat(example.toFailure().reportString()).isEqualToNormalizingWhitespace("""
         >> http-response
-        Key named "http-response" is mandatory as per example format, but was missing in the actual example
+        Missing mandatory key named "http-response" as per example format
         >> http-request.method
-        Key named "method" is mandatory as per example format, but was missing in the actual example
+        Missing mandatory key named "method" as per example format
         """.trimIndent())
     }
 
