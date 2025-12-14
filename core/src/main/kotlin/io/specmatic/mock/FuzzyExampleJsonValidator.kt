@@ -1,8 +1,7 @@
 package io.specmatic.mock
 
 import io.specmatic.conversions.OpenApiSpecification
-import io.specmatic.core.FuzzyUnexpectedKeyCheck
-import io.specmatic.core.KeyCheck
+import io.specmatic.core.FuzzyKeyCheck
 import io.specmatic.core.MismatchMessages
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
@@ -33,7 +32,11 @@ object FuzzyExampleMisMatchMessages : MismatchMessages {
     }
 
     override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
-        return "${keyLabel.lowercase().capitalizeFirstChar()} named \"$keyName\" is mandatory as per example format, but was missing in the actual example"
+        return "Missing mandatory ${keyLabel.lowercase()} named \"$keyName\" as per example format"
+    }
+
+    override fun optionalKeyMissing(keyLabel: String, keyName: String): String {
+        return "Missing optional ${keyLabel.lowercase()} named \"$keyName\" as per example format"
     }
 }
 

@@ -9,6 +9,7 @@ import io.specmatic.core.utilities.withNullPattern
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.StringValue
 import java.net.URI
+import kotlin.collections.contains
 
 data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val additionalProperties: Pattern? = null) {
 
@@ -78,10 +79,13 @@ data class HttpQueryParamPattern(val queryPatterns: Map<String, Pattern>, val ad
             httpRequest.queryParams
         }
 
-        val keyErrors =
-            resolver.findKeyErrorList(queryPatterns, queryParams.asMap().mapValues { StringValue(it.value) })
+        val keyErrors = resolver.findKeyErrorList(queryPatterns, queryParams.asMap().mapValues { StringValue(it.value) })
         val keyErrorList: List<Result.Failure> = keyErrors.map {
-            it.missingKeyToResult("query param", resolver.mismatchMessages).breadCrumb(it.name)
+            when {
+                queryPatterns.contains(it.name) -> it.missingKeyToResult("query param", resolver.mismatchMessages)
+                queryPatterns.contains(withOptionality(it.name)) -> it.missingOptionalKeyToResult("query param", resolver.mismatchMessages)
+                else -> it.unknownKeyToResult("query param", resolver.mismatchMessages)
+            }.breadCrumb(it.name)
         }
 
         // 1. key is optional and request does not have the key as well

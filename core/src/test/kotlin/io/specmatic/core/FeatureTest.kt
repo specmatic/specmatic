@@ -2460,10 +2460,8 @@ paths:
         }
 
         assertThat(error.report()).isEqualToNormalizingWhitespace("""
-        >> http-response
-        Key named "http-response" is mandatory as per example format, but was missing in the actual example
         >> http-respons
-        Key named "http-respons" is invalid as per example format. Did you mean "http-response"?
+        Missing mandatory key named "http-response" as per example format. Did you mean "http-response"?
         """.trimIndent())
     }
 
