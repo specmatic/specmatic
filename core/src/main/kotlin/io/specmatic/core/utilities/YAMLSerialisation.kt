@@ -5,8 +5,15 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
-import io.specmatic.core.pattern.*
+import io.specmatic.core.pattern.RFC3339
+import io.specmatic.core.pattern.UTF_BYTE_ORDER_MARK
 import io.specmatic.core.value.*
+import java.time.LocalDateTime
+import java.time.LocalTime
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.util.*
 
 private val yamlFactory = YAMLFactory().disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER).enable(YAMLGenerator.Feature.MINIMIZE_QUOTES)
 
@@ -33,7 +40,20 @@ fun toValue(any: Any?): Value {
         is String -> StringValue(rawValue)
         is Boolean -> BooleanValue(rawValue)
         is Number -> NumberValue(rawValue)
-        else -> throw ContractException("Unknown value type: ${rawValue::class.simpleName}")
+        is Date -> {
+            val zoned = rawValue.toInstant().atZone(ZoneOffset.UTC)
+            val localTime = zoned.toLocalTime()
+            if (localTime == LocalTime.MIDNIGHT) {
+                val formattedDate = zoned.toLocalDate().format(RFC3339.dateFormatter)
+                StringValue(formattedDate)
+            } else {
+                toValue(zoned.toOffsetDateTime())
+            }
+        }
+        is OffsetDateTime -> StringValue(rawValue.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+        is LocalDateTime -> StringValue(rawValue.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+        is ByteArray -> BinaryValue(rawValue)
+        else -> StringValue(rawValue.toString())
     }
 }
 

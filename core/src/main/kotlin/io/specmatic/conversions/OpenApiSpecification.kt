@@ -1860,6 +1860,14 @@ class OpenApiSpecification(
         )
     }
 
+    private fun stringFormatPattern(format: String?, example: String?): Pattern? {
+        return when (format?.lowercase()) {
+            "time" -> TimePattern(example = example)
+            "uri", "url" -> URLPattern(URLScheme.EITHER, example = example)
+            else -> null
+        }
+    }
+
     private fun numberPattern(schema: Schema<*>, isDoubleFormat: Boolean, example: String?) : NumberPattern {
         val resolvedMin = schema.exclusiveMinimumValue ?: schema.minimum
         val resolvedMax = schema.exclusiveMaximumValue ?: schema.maximum
@@ -2357,7 +2365,8 @@ class OpenApiSpecification(
         if (this.enum != null) return enumPattern(this, patternName, example)
         return when (this) {
             // Primitives
-            is io.swagger.v3.oas.models.media.StringSchema -> stringPattern(this, patternName, breadCrumb, example)
+            is io.swagger.v3.oas.models.media.StringSchema -> stringFormatPattern(this.format, example)
+                ?: stringPattern(this, patternName, breadCrumb, example)
             is io.swagger.v3.oas.models.media.IntegerSchema -> numberPattern(this, false, example)
             is io.swagger.v3.oas.models.media.NumberSchema -> numberPattern(this, true, example)
             is io.swagger.v3.oas.models.media.BooleanSchema -> BooleanPattern(example = example)
@@ -2425,8 +2434,10 @@ class OpenApiSpecification(
                 "uuid" -> UUIDPattern(example = example)
                 "date" -> DatePattern(example = example)
                 "date-time" -> DateTimePattern(example = example)
+                "time" -> TimePattern(example = example)
                 "binary" -> BinaryPattern(example = example)
                 "byte" -> Base64StringPattern(example = example)
+                "uri", "url" -> URLPattern(URLScheme.EITHER, example = example)
                 else -> stringPattern(this, patternName, breadCrumb, example)
             }
             "integer" -> numberPattern(this, false, example)

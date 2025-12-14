@@ -87,4 +87,15 @@ class YAMLSerialisationKtTest {
             )
         }
     }
+
+    @Test
+    fun `should convert unknown yaml binary types to string`() {
+        val yamlContent = """
+        binary: !!binary |
+          QQ==
+        """.trimIndent()
+
+        val parsed = yamlStringToValue(yamlContent) as JSONObjectValue
+        assertThat(parsed.jsonObject["binary"]).isEqualTo(BinaryValue("A".toByteArray()))
+    }
 }

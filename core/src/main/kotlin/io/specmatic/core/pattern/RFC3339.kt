@@ -11,7 +11,7 @@ private const val DATE_FORMAT = "yyyy-MM-dd"
 
 private val RFC3339_PATTERN: Pattern = Pattern.compile (
     "^(\\d{4})-(\\d{2})-(\\d{2})" // yyyy-MM-dd
-            + "([Tt](\\d{2}):(\\d{2}):(\\d{2})(\\.\\d+)?)?" // 'T'HH:mm:ss.milliseconds
+            + "([Tt](\\d{2}):(\\d{2})(:(\\d{2})(\\.\\d+)?)?)?" // 'T'HH:mm:ss.milliseconds
             + "([Zz]|([+-])(\\d{2}):(\\d{2}))?" // 'Z' or time zone shift HH:mm following '+' or '-'
 )
 
