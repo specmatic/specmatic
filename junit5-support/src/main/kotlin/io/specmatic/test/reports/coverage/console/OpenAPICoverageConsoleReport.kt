@@ -1,5 +1,6 @@
 package io.specmatic.test.reports.coverage.console
 
+import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.reports.TestReportListener
 import io.specmatic.test.reports.onEachListener
@@ -29,10 +30,14 @@ data class OpenAPICoverageConsoleReport(
     private fun calculateTotalCoveragePercentage(): Int {
         if (totalEndpointsCount == 0) return 0
 
-        val totalCountOfEndpointsWithResponseStatuses = coverageRows.count()
-        val totalCountOfCoveredEndpointsWithResponseStatuses = coverageRows.count { it.count.toInt() > 0 }
+        val countOfEndpointsPresentInSpec =
+            coverageRows.count { it.remarks != CoverageStatus.MISSING_IN_SPEC }
 
-        return ((totalCountOfCoveredEndpointsWithResponseStatuses * 100) / totalCountOfEndpointsWithResponseStatuses).toDouble().roundToInt()
+        if(countOfEndpointsPresentInSpec == 0 ) return 0
+
+        val countOfEndpointsHitThatArePresentInSpec = coverageRows.count { it.count.toInt() > 0 && it.remarks != CoverageStatus.MISSING_IN_SPEC }
+
+        return ((countOfEndpointsHitThatArePresentInSpec * 100) / countOfEndpointsPresentInSpec).toDouble().roundToInt()
     }
 
     fun getGroupedTestResultRecords(testResultRecords: List<TestResultRecord>): GroupedTestResultRecords {
