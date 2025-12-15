@@ -15,8 +15,6 @@ interface KeyCheck {
     fun validateAllCaseInsensitive(pattern: Map<String, Any>, actual: Map<String, Any>): List<KeyError>
 
     fun toPartialKeyCheck(): KeyCheck
-
-    fun toExtensibleKeyCheck(): KeyCheck
 }
 
 val DefaultKeyCheck = DefaultKeyCheckImpl()
