@@ -49,12 +49,12 @@ data class FuzzyKeyError(override val name: String, private val candidate: Strin
     override val canonicalKey: String = candidate
 
     override fun missingKeyToResult(keyLabel: String, mismatchMessages: MismatchMessages): Failure {
-        val msg = mismatchMessages.expectedKeyWasMissing(keyLabel, candidate) + ". Did you mean \"$candidate\"?"
+        val msg = mismatchMessages.unexpectedKey(keyLabel, name) + ". Did you mean \"$candidate\"?"
         return Failure(msg)
     }
 
     override fun missingOptionalKeyToResult(keyLabel: String, mismatchMessages: MismatchMessages): Failure {
-        val msg = mismatchMessages.optionalKeyMissing(keyLabel, candidate) + ". Did you mean \"$candidate\"?"
+        val msg = mismatchMessages.unexpectedKey(keyLabel, name) + ". Did you mean \"$candidate\"?"
         return Failure(msg, isPartial = treatOptionalAsWarning)
     }
 
