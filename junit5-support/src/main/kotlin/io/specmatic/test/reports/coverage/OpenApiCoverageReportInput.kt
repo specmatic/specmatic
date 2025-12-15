@@ -280,11 +280,11 @@ class OpenApiCoverageReportInput(
         val failedTestResults = testResults.filter { it.result == TestResult.Failed }
 
         for (failedTestResult in failedTestResults) {
-            val pathHasErrorResponse = allEndpoints.any {
+            val endpointExistsInSpecification = allEndpoints.any {
                 it.path == failedTestResult.path && it.method == failedTestResult.method && it.responseStatus == failedTestResult.actualResponseStatus
             }
 
-            if (!failedTestResult.isConnectionRefused() && !pathHasErrorResponse) {
+            if (!failedTestResult.isConnectionRefused() && !endpointExistsInSpecification) {
                 notImplementedAndMissingTests.add(
                     failedTestResult.copy(
                         responseStatus = failedTestResult.actualResponseStatus,
@@ -292,6 +292,7 @@ class OpenApiCoverageReportInput(
                         actualResponseStatus = failedTestResult.actualResponseStatus
                     )
                 )
+                continue
             }
 
             if (!endpointsAPISet) {
