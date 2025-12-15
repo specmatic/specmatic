@@ -22,7 +22,7 @@ class OpenApiCoverageConsoleReportTest {
 
         val coverageReport = OpenAPICoverageConsoleReport(rows, emptyList(), totalEndpointsCount = 3, missedEndpointsCount = 0, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 1, partiallyNotImplementedAPICount = 0)
 
-        assertThat(coverageReport.totalCoveragePercentage).isEqualTo(28)
+        assertThat(coverageReport.totalCoveragePercentage).isEqualTo(29)
     }
 
     @Test
@@ -43,7 +43,7 @@ class OpenApiCoverageConsoleReportTest {
 
         val coverageReport = OpenAPICoverageConsoleReport(rows, emptyList(), totalEndpointsCount = 3, missedEndpointsCount = 0, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 0, partiallyNotImplementedAPICount = 0)
 
-        assertThat(coverageReport.totalCoveragePercentage).isEqualTo(81)
+        assertThat(coverageReport.totalCoveragePercentage).isEqualTo(82)
     }
 
     @Test

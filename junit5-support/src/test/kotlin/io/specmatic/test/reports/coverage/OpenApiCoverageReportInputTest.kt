@@ -126,7 +126,7 @@ class OpenApiCoverageReportInputTest {
         )
 
         val report = input.generate()
-        assertThat(report.totalCoveragePercentage).isEqualTo(66)
+        assertThat(report.totalCoveragePercentage).isEqualTo(67)
         assertThat(report.coverageRows).anyMatch { it.path == "/current" && it.remarks.toString() == "covered" && it.coveragePercentage == 100 }
         assertThat(report.coverageRows).anyMatch { it.path == "/previous" && it.remarks.toString() == "covered" && it.coveragePercentage == 100 }
         assertThat(report.coverageRows).anyMatch { it.path == "/uncovered" && it.remarks.toString() == "invalid" && it.coveragePercentage == 0 }
@@ -203,7 +203,7 @@ class OpenApiCoverageReportInputTest {
         )
 
         val report = input.generate()
-        assertThat(report.totalCoveragePercentage).isEqualTo(66)
+        assertThat(report.totalCoveragePercentage).isEqualTo(67)
         assertThat(report.coverageRows).anyMatch {
             it.path == "/resource" && it.method == "GET" &&  it.remarks.toString() == "covered" &&  it.coveragePercentage == 67
         }
