@@ -33,7 +33,8 @@ fun toValue(any: Any?): Value {
         is String -> StringValue(rawValue)
         is Boolean -> BooleanValue(rawValue)
         is Number -> NumberValue(rawValue)
-        else -> throw ContractException("Unknown value type: ${rawValue::class.simpleName}")
+        is ByteArray -> BinaryValue(rawValue)
+        else -> StringValue(rawValue.toString())
     }
 }
 
