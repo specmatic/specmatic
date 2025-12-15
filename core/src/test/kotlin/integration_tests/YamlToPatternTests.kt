@@ -1486,6 +1486,19 @@ class YamlToPatternTests {
                         assertFailure(pattern.matchParseValue("<Books><books>A</books><books>B</books></Books>"))
                     }
                 },
+                multiVersionCase("nested wrapped xml array with item name", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", "object")
+                        put("properties", mapOf("books" to mapOf("type" to "array", "items" to mapOf("type" to "integer", "xml" to mapOf("name" to "book")))))
+                        put("required", listOf("books"))
+                        put("xml", mapOf("name" to "Books"))
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.XMLPattern::class.java)
+                        assertSuccess(pattern.matchParseValue("<Books><book>1</book><book>2</book></Books>"))
+                        assertFailure(pattern.matchParseValue("<Books><book>A</book><book>B</book></Books>"))
+                    }
+                },
                 multiVersionCase("nested xml object structure", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
                     schema {
                         put("type", "object")
