@@ -25,18 +25,21 @@ fun not(boolean: Boolean) = !boolean
 fun validateEnumValues(values: List<Value>, enumIsNullable: Boolean, multiType: Boolean) {
     val enumOptionsContainNull = values.any { it is NullValue }
     if (not(enumIsNullable) yet enumOptionsContainNull) throw ContractException("Enum values cannot be null as the enum is not nullable")
+    if (enumIsNullable yet not(enumOptionsContainNull)) throw ContractException("Enum values must contain null as the enum is nullable")
     if (multiType) return
 
-    val types = values.filterNot { it is NullValue }.map { it.javaClass }
+    val types = values.filterNot { it is NullValue }.map { it.displayableType() }
     val distinctTypes = types.distinct()
-    if (distinctTypes.size > 1) throw ContractException("Enum values must all be of the same type. Found types: ${distinctTypes.joinToString(", ")}")
+    if (distinctTypes.size > 1) throw ContractException("""
+    One or more enum values do not match the specified type, Found types: ${distinctTypes.joinToString(", ")}
+    """.trimIndent())
 }
 
 private infix fun Boolean.yet(otherBooleanValue: Boolean): Boolean {
     return this && otherBooleanValue
 }
 
-data class EnumPattern(override val pattern: AnyPattern, val nullable: Boolean, val multiType: Boolean = false) : Pattern by pattern, ScalarType {
+data class EnumPattern(override val pattern: AnyPattern, val nullable: Boolean) : Pattern by pattern, ScalarType {
     constructor(
         values: List<Value>,
         key: String? = null,
@@ -44,7 +47,7 @@ data class EnumPattern(override val pattern: AnyPattern, val nullable: Boolean, 
         example: String? = null,
         nullable: Boolean = false,
         multiType: Boolean = false
-    ) : this (validEnumValues(values, key, typeAlias, example, nullable, multiType), nullable, multiType)
+    ) : this (validEnumValues(values, key, typeAlias, example, nullable, multiType), nullable)
 
     override fun resolveSubstitutions(
         substitution: Substitution,

@@ -7,7 +7,6 @@ import io.cucumber.messages.types.Source
 import io.ktor.http.*
 import io.specmatic.conversions.ExampleFromFile
 import io.specmatic.conversions.IncludedSpecification
-import io.specmatic.conversions.OBJECT_TYPE
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.WSDLFile
 import io.specmatic.conversions.WsdlSpecification
@@ -2142,6 +2141,7 @@ data class Feature(
 
 
     companion object {
+        private const val OBJECT_TYPE = "object"
         private val OPENAPI_MAP_KEY_NEGATED_PATTERN = Regex("[^a-zA-Z0-9._-]")
 
         private fun getTestsDirectory(contractFile: File): File? {

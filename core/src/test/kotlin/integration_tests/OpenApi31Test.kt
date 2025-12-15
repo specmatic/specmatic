@@ -68,7 +68,6 @@ class OpenApi31Test {
 
         assertThat(multiTypeEnumSchemaRequestBody).isEqualTo(multiTypeEnumSchemaResponseBody)
         assertThat(multiTypeEnumKeySchema).isInstanceOf(EnumPattern::class.java); multiTypeEnumKeySchema as EnumPattern
-        assertThat(multiTypeEnumKeySchema.multiType).isTrue
         assertThat(multiTypeEnumKeySchema.nullable).isTrue
         assertThat(multiTypeEnumKeySchema.pattern.pattern).containsExactlyInAnyOrder(
             ExactValuePattern(StringValue("ABCD")),

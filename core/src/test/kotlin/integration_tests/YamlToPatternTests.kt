@@ -23,6 +23,7 @@ import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.pattern.UUIDPattern
+import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.pattern.withoutPatternDelimiters
 import io.specmatic.core.utilities.toValue
 import io.specmatic.core.utilities.yamlMapper
@@ -232,6 +233,10 @@ class YamlToPatternTests {
     @ParameterizedTest(name = "{index}: [{0}] {1}")
     @MethodSource("constScenarios")
     fun const_schema_tests(openApiVersion: OpenApiVersion, case: PatternTestCase, info: TestInfo) = runCase(openApiVersion, case, info)
+
+    @ParameterizedTest(name = "{index}: [{0}] {1}")
+    @MethodSource("xmlSchemaScenarios")
+    fun xml_schema_tests(openApiVersion: OpenApiVersion, case: PatternTestCase, info: TestInfo) = runCase(openApiVersion, case, info)
 
     companion object {
         @JvmStatic
@@ -750,7 +755,102 @@ class YamlToPatternTests {
                         assertSuccess(pattern.match(listOf("a", null, "b")))
                         assertFailure(pattern.match(listOf("a", 10)))
                     }
-                }
+                },
+                singleVersionCase("nullable xml object", OpenApiVersion.OAS30) {
+                    schema {
+                        put("type", "object")
+                        put("properties", mapOf("id" to mapOf("type" to "integer"), "name" to mapOf("type" to "string")))
+                        put("required", listOf("id"))
+                        put("nullable", true)
+                        put("xml", mapOf("name" to "Item"))
+                    }
+                    validate { pattern ->
+                        assertSuccess(pattern.matchParseValue(null))
+                        assertSuccess(pattern.matchParseValue(""))
+                        assertSuccess(pattern.matchParseValue("<Item><id>1</id><name>Test</name></Item>"))
+                        assertFailure(pattern.matchParseValue("<Item><name>NoId</name></Item>"))
+                    }
+                },
+                singleVersionCase("nullable xml object", OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", listOf("object", "null"))
+                        put("properties", mapOf("id" to mapOf("type" to "integer"), "name" to mapOf("type" to "string")))
+                        put("required", listOf("id"))
+                        put("xml", mapOf("name" to "Item"))
+                    }
+                    validate { pattern ->
+                        assertSuccess(pattern.matchParseValue(null))
+                        assertSuccess(pattern.matchParseValue(""))
+                        assertSuccess(pattern.matchParseValue("<Item><id>1</id><name>Test</name></Item>"))
+                        assertFailure(pattern.matchParseValue("<Item><name>NoId</name></Item>"))
+                    }
+                },
+                singleVersionCase("nullable property in xml object", OpenApiVersion.OAS30) {
+                    schema {
+                        put("type", "object")
+                        put("properties", mapOf("id" to mapOf("type" to "integer"), "name" to mapOf("type" to "string", "nullable" to true)))
+                        put("required", listOf("id"))
+                        put("xml", mapOf("name" to "Item"))
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.XMLPattern::class.java)
+                        assertSuccess(pattern.matchParseValue("<Item><id>1</id><name>Test</name></Item>"))
+                        // assertSuccess(pattern.matchParseValue("<Item><id>2</id><name xsi:nil=\"true\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"/></Item>"))
+                        // TODO: We don't support "xsi:nil" ?
+                        assertSuccess(pattern.matchParseValue("<Item><id>3</id></Item>"))
+                    }
+                },
+                singleVersionCase("nullable property in xml object", OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", "object")
+                        put("properties", mapOf("id" to mapOf("type" to "integer"), "name" to mapOf("type" to listOf("string", "null"))))
+                        put("required", listOf("id"))
+                        put("xml", mapOf("name" to "Item"))
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.XMLPattern::class.java)
+                        assertSuccess(pattern.matchParseValue("<Item><id>1</id><name>Test</name></Item>"))
+                        // assertSuccess(pattern.matchParseValue("<Item><id>2</id><name xsi:nil=\"true\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"/></Item>"))
+                        // TODO: We don't support "xsi:nil" ?
+                        assertSuccess(pattern.matchParseValue("<Item><id>3</id></Item>"))
+                    }
+                },
+                singleVersionCase("nullable array in xml object", OpenApiVersion.OAS30) {
+                    schema {
+                        put("type", "object")
+                        put("properties", mapOf(
+                            "id" to mapOf("type" to "integer"),
+                            "tags" to mapOf("type" to "array", "items" to mapOf("type" to "string"), "nullable" to true)
+                        ))
+                        put("required", listOf("id"))
+                        put("xml", mapOf("name" to "Product"))
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.XMLPattern::class.java)
+                        assertSuccess(pattern.matchParseValue("<Product><id>1</id><tags>tag1</tags><tags>tag2</tags></Product>"))
+                        // assertSuccess(pattern.matchParseValue("<Product><id>2</id><tags xsi:nil=\"true\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"/></Product>"))
+                        // TODO: We don't support "xsi:nil" ?
+                        assertSuccess(pattern.matchParseValue("<Product><id>3</id></Product>"))
+                    }
+                },
+                singleVersionCase("nullable array in xml object", OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", "object")
+                        put("properties", mapOf(
+                            "id" to mapOf("type" to "integer"),
+                            "tags" to mapOf("type" to listOf("array", "null"), "items" to mapOf("type" to "string"))
+                        ))
+                        put("required", listOf("id"))
+                        put("xml", mapOf("name" to "Product"))
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.XMLPattern::class.java)
+                        assertSuccess(pattern.matchParseValue("<Product><id>1</id><tags>tag1</tags><tags>tag2</tags></Product>"))
+                        // assertSuccess(pattern.matchParseValue("<Product><id>2</id><tags xsi:nil=\"true\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"/></Product>"))
+                        // TODO: We don't support "xsi:nil" ?
+                        assertSuccess(pattern.matchParseValue("<Product><id>3</id></Product>"))
+                    }
+                },
             ).flatten().stream()
         }
 
@@ -1177,6 +1277,97 @@ class YamlToPatternTests {
                         assertFailure(tagMapPattern.match(mapOf("tag" to ""), resolver))
                         assertFailure(tagMapPattern.match(mapOf("tag" to 123), resolver))
                     }
+                },
+                multiVersionCompositeCase(name = "xml ref inside object property", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema("IdSchema") {
+                        schema {
+                            put("type", "integer")
+                            put("minimum", 1)
+                        }
+                        validate { pattern ->
+                            assertThat(pattern).isInstanceOf(NumberPattern::class.java)
+                        }
+                    }
+                    schema("Product") {
+                        schema {
+                            put("type", "object")
+                            put("properties", mapOf(
+                                "id" to mapOf("\$ref" to "#/components/schemas/IdSchema", "xml" to mapOf("name" to "id")),
+                                "name" to mapOf("type" to "string")
+                            ))
+                            put("required", listOf("id", "name"))
+                            put("xml", mapOf("name" to "Product"))
+                        }
+                        validate { pattern ->
+                            assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.XMLPattern::class.java)
+                        }
+                    }
+                    validate { patterns, resolver ->
+                        val productPattern = patterns.getValue("Product")
+                        assertSuccess(productPattern.matchParseValue("<Product><id>10</id><name>Soap</name></Product>", resolver))
+                        assertFailure(productPattern.matchParseValue("<Product><id>0</id><name>Soap</name></Product>", resolver))
+                        assertFailure(productPattern.matchParseValue("<Product><id>ABC</id><name>Soap</name></Product>", resolver))
+                    }
+                },
+                singleVersionCompositeCase(name = "xml ref inside array items", OpenApiVersion.OAS30) {
+                    schema("TagSchema") {
+                        schema {
+                            put("type", "string")
+                            put("minLength", 3)
+                            put("xml", mapOf("name" to "tag"))
+                        }
+                        validate { pattern ->
+                            assertThat(pattern).isInstanceOf(StringPattern::class.java)
+                        }
+                    }
+                    schema("ProductTags") {
+                        schema {
+                            put("type", "object")
+                            put("properties", mapOf("tags" to mapOf("type" to "array", "items" to mapOf("\$ref" to "#/components/schemas/TagSchema"))))
+                            put("required", listOf("tags"))
+                            put("xml", mapOf("name" to "Tags"))
+                        }
+                        validate { pattern ->
+                            assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.XMLPattern::class.java)
+                        }
+                    }
+                    validate { patterns, resolver ->
+                        val productPattern = patterns.getValue("ProductTags")
+                        assertSuccess(productPattern.matchParseValue("<Tags><tag>new</tag><tag>sale</tag></Tags>", resolver))
+                        assertFailure(productPattern.matchParseValue("<Tags><tag>AB</tag></Tags>", resolver))
+                    }
+                },
+                singleVersionCompositeCase(name = "xml ref inside array items", OpenApiVersion.OAS31) {
+                    schema("TagSchema") {
+                        schema {
+                            put("type", "string")
+                            put("minLength", 3)
+                        }
+                        validate { pattern ->
+                            assertThat(pattern).isInstanceOf(StringPattern::class.java)
+                        }
+                    }
+                    schema("ProductTags") {
+                        schema {
+                            put("type", "object")
+                            put("properties", mapOf(
+                                "tags" to mapOf(
+                                    "type" to "array",
+                                    "items" to mapOf("\$ref" to "#/components/schemas/TagSchema", "xml" to mapOf("name" to "tag"))
+                                )
+                            ))
+                            put("required", listOf("tags"))
+                            put("xml", mapOf("name" to "Tags"))
+                        }
+                        validate { pattern ->
+                            assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.XMLPattern::class.java)
+                        }
+                    }
+                    validate { patterns, resolver ->
+                        val productPattern = patterns.getValue("ProductTags")
+                        assertSuccess(productPattern.matchParseValue("<Tags><tag>new</tag><tag>sale</tag></Tags>", resolver))
+                        assertFailure(productPattern.matchParseValue("<Tags><tag>AB</tag></Tags>", resolver))
+                    }
                 }
             ).flatten().stream()
         }
@@ -1220,8 +1411,124 @@ class YamlToPatternTests {
             ).flatten().stream()
         }
 
+        @JvmStatic
+        fun xmlSchemaScenarios(): Stream<Arguments> {
+            return listOf(
+                multiVersionCase("basic object schema with xml name", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", "object")
+                        put("properties", mapOf(
+                            "productId" to mapOf("type" to "integer"),
+                            "inventory" to mapOf("type" to "integer", "minimum" to 1)
+                        ))
+                        put("required", listOf("productId", "inventory"))
+                        put("xml", mapOf("name" to "Inventory"))
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.XMLPattern::class.java)
+                        assertSuccess(pattern.matchParseValue("<Inventory><productId>123</productId><inventory>50</inventory></Inventory>"))
+                        assertFailure(pattern.matchParseValue("<Inventory><productId>123</productId><inventory>0</inventory></Inventory>"))
+                        assertFailure(pattern.matchParseValue("<Inventory><productId>123</productId><inventory>102</inventory><extra>extra</extra></Inventory>"))
+                        assertFailure(pattern.matchParseValue("<Inventory><productId>123</productId></Inventory>"))
+                    }
+                },
+                multiVersionCase("object with xml attribute", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", "object")
+                        put("properties", mapOf(
+                            "id" to mapOf("type" to "integer", "xml" to mapOf("attribute" to true)),
+                            "name" to mapOf("type" to "string")
+                        ))
+                        put("required", listOf("id", "name"))
+                        put("xml", mapOf("name" to "Product"))
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.XMLPattern::class.java)
+                        assertSuccess(pattern.matchParseValue("<Product id=\"123\"><name>Widget</name></Product>"))
+                        assertFailure(pattern.matchParseValue("<Product id=\"ABC\"><name>Widget</name></Product>"))
+                        assertFailure(pattern.matchParseValue("<Product><name>Widget</name></Product>"))
+                    }
+                },
+                multiVersionCase("object with xml namespace", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", "object")
+                        put("properties", mapOf("value" to mapOf("type" to "string")))
+                        put("required", listOf("value"))
+                        put("xml", mapOf("name" to "Data", "namespace" to "http://example.com/ns"))
+                    }
+                    validate { pattern ->
+                        assertSuccess(pattern.matchParseValue("<Data xmlns=\"http://example.com/ns\"><value>test</value></Data>"))
+                        // assertFailure(pattern.matchParseValue("<Data><value>test</value></Data>")) // TODO: Not sure if this shoudl be strict
+                    }
+                },
+                multiVersionCase("array wrapped in xml", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", "array")
+                        put("items", mapOf("type" to "integer", "xml" to mapOf("name" to "Item")))
+                        put("xml", mapOf("name" to "Items", "wrapped" to true))
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.XMLPattern::class.java)
+                        assertSuccess(pattern.matchParseValue("<Items><Item>1</Item><Item>2</Item></Items>"))
+                        assertFailure(pattern.matchParseValue("<Items><Item>A</Item><Item>B</Item></Items>"))
+                    }
+                },
+                multiVersionCase("array not wrapped in xml", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", "object")
+                        put("properties", mapOf("books" to mapOf("type" to "array", "items" to mapOf("type" to "integer"))))
+                        put("required", listOf("books"))
+                        put("xml", mapOf("name" to "Books"))
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.XMLPattern::class.java)
+                        assertSuccess(pattern.matchParseValue("<Books><books>1</books><books>2</books></Books>"))
+                        assertFailure(pattern.matchParseValue("<Books><books>A</books><books>B</books></Books>"))
+                    }
+                },
+                multiVersionCase("nested wrapped xml array with item name", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", "object")
+                        put("properties", mapOf("books" to mapOf("type" to "array", "items" to mapOf("type" to "integer", "xml" to mapOf("name" to "book")))))
+                        put("required", listOf("books"))
+                        put("xml", mapOf("name" to "Books"))
+                    }
+                    validate { pattern ->
+                        assertThat(pattern).isInstanceOf(io.specmatic.core.pattern.XMLPattern::class.java)
+                        assertSuccess(pattern.matchParseValue("<Books><book>1</book><book>2</book></Books>"))
+                        assertFailure(pattern.matchParseValue("<Books><book>A</book><book>B</book></Books>"))
+                    }
+                },
+                multiVersionCase("nested xml object structure", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema {
+                        put("type", "object")
+                        put("properties", mapOf(
+                            "product" to mapOf(
+                                "type" to "object",
+                                "properties" to mapOf("id" to mapOf("type" to "integer"), "name" to mapOf("type" to "string")),
+                                "required" to listOf("id", "name"),
+                                "xml" to mapOf("name" to "Product")
+                            ),
+                            "quantity" to mapOf("type" to "integer")
+                        ))
+                        put("required", listOf("product", "quantity"))
+                        put("xml", mapOf("name" to "Order"))
+                    }
+                    validate { pattern ->
+                        assertSuccess(pattern.matchParseValue("<Order><Product><id>123</id><name>Widget</name></Product><quantity>10</quantity></Order>"))
+                        assertFailure(pattern.matchParseValue("<Order><Product><id>123</id></Product><quantity>10</quantity></Order>"))
+                    }
+                },
+            ).flatten().stream()
+        }
+
         private fun Pattern.match(value: Any?, resolver: Resolver = Resolver()): Result {
             val parsedValue = toValue(value)
+            return this.matches(parsedValue, resolver)
+        }
+
+        private fun Pattern.matchParseValue(value: String?, resolver: Resolver = Resolver()): Result {
+            val parsedValue = parsedValue(value)
             return this.matches(parsedValue, resolver)
         }
 
@@ -1231,6 +1538,10 @@ class YamlToPatternTests {
 
         private fun assertFailure(result: Result) {
             if (result.isSuccess()) fail("Expected failure but succeeded")
+            logger.log("<------------------------->")
+            logger.log(result.reportString())
+            logger.log("<------------------------->")
+            logger.boundary()
         }
     }
 }
