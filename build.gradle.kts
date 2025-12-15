@@ -2,35 +2,17 @@ import io.specmatic.gradle.extensions.RepoType
 
 plugins {
     id("io.specmatic.gradle")
-    id("base") 
+    id("base")
 }
 
 allprojects {
     repositories {
         mavenLocal()
         mavenCentral()
-        maven {
-            name = "specmaticReleases"
-            url = uri("https://repo.specmatic.io/releases")
-            credentials {
-                username = project.extra.properties["reposilite.user"]?.toString() ?: System.getenv("SPECMATIC_REPOSILITE_USERNAME")
-                password = project.extra.properties["reposilite.token"]?.toString() ?: System.getenv("SPECMATIC_REPOSILITE_TOKEN")
-            }
-        }
-    
-        maven {
-            name = "specmaticSnapshots"
-            url = uri("https://repo.specmatic.io/snapshots")
-            credentials {
-                username = project.extra.properties["reposilite.user"]?.toString() ?: System.getenv("SPECMATIC_REPOSILITE_USERNAME")
-                password = project.extra.properties["reposilite.token"]?.toString() ?: System.getenv("SPECMATIC_REPOSILITE_TOKEN")
-            }
-        }
     }
 }
 
 specmatic {
-    publishToMavenCentral()
     releasePublishTasks = listOf(
         "dockerBuildxPublish",
         "publishAllPublicationsToMavenCentralRepository",
@@ -38,12 +20,15 @@ specmatic {
         "publishAllPublicationsToSpecmaticReleasesRepository",
     )
 
-    publishTo("specmaticPrivate", "https://repo.specmatic.io/private", RepoType.PUBLISH_ALL)
-    publishTo("specmaticSnapshots", "https://repo.specmatic.io/snapshots", RepoType.PUBLISH_ALL)
-    publishTo("specmaticReleases", "https://repo.specmatic.io/releases", RepoType.PUBLISH_ALL)
 
     withOSSLibrary(project(":specmatic-core")) {
         githubRelease()
+
+        publishToMavenCentral()
+        publishTo("specmaticPrivate", "https://repo.specmatic.io/private", RepoType.PUBLISH_ALL)
+        publishTo("specmaticSnapshots", "https://repo.specmatic.io/snapshots", RepoType.PUBLISH_ALL)
+        publishTo("specmaticReleases", "https://repo.specmatic.io/releases", RepoType.PUBLISH_ALL)
+
         publish {
             pom {
                 name = "Specmatic"
@@ -72,6 +57,12 @@ specmatic {
     }
     withOSSLibrary(project(":junit5-support")) {
         githubRelease()
+
+        publishToMavenCentral()
+        publishTo("specmaticPrivate", "https://repo.specmatic.io/private", RepoType.PUBLISH_ALL)
+        publishTo("specmaticSnapshots", "https://repo.specmatic.io/snapshots", RepoType.PUBLISH_ALL)
+        publishTo("specmaticReleases", "https://repo.specmatic.io/releases", RepoType.PUBLISH_ALL)
+
         publish {
             pom {
                 name = "SpecmaticJUnit5Support"
@@ -102,6 +93,12 @@ specmatic {
         githubRelease {
             addFile("unobfuscatedShadowJar", "specmatic.jar")
         }
+
+        publishToMavenCentral()
+        publishTo("specmaticPrivate", "https://repo.specmatic.io/private", RepoType.PUBLISH_ALL)
+        publishTo("specmaticSnapshots", "https://repo.specmatic.io/snapshots", RepoType.PUBLISH_ALL)
+        publishTo("specmaticReleases", "https://repo.specmatic.io/releases", RepoType.PUBLISH_ALL)
+
         dockerBuild {
             imageName = "specmatic"
         }
@@ -132,6 +129,12 @@ specmatic {
     }
     withOSSLibrary(project(":specmatic-mcp")) {
         githubRelease()
+
+        publishToMavenCentral()
+        publishTo("specmaticPrivate", "https://repo.specmatic.io/private", RepoType.PUBLISH_ALL)
+        publishTo("specmaticSnapshots", "https://repo.specmatic.io/snapshots", RepoType.PUBLISH_ALL)
+        publishTo("specmaticReleases", "https://repo.specmatic.io/releases", RepoType.PUBLISH_ALL)
+
         publish {
             pom {
                 name = "Specmatic"

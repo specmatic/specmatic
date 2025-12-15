@@ -5,8 +5,8 @@ import io.specmatic.core.*
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.exceptionCauseMessage
+import io.specmatic.core.utilities.jsonStringToValueMap
 import io.specmatic.core.value.*
-import io.specmatic.stub.stringToMockScenario
 import java.io.File
 import java.util.UUID
 
@@ -31,8 +31,15 @@ data class ScenarioStub(
     val requestBodyRegex: String? = null,
     val data: JSONObjectValue = JSONObjectValue(),
     val filePath: String? = null,
-    val partial: ScenarioStub? = null
+    val partial: ScenarioStub? = null,
+    val rawJsonData: JSONObjectValue = JSONObjectValue(),
+    val validationErrors: Result = Result.Success(),
+    val strictMode: Boolean = true
 ) {
+    init {
+        if (strictMode && !validationErrors.isSuccess()) validationErrors.throwOnFailure()
+    }
+
     fun requestMethod() = request.method ?: partial?.request?.method
 
     fun requestPath() = request.path ?: partial?.request?.path
@@ -61,7 +68,7 @@ data class ScenarioStub(
                 serializeRequestResponse(this)
             }
 
-        return JSONObjectValue(requestResponse + data.jsonObject)
+        return JSONObjectValue(data.jsonObject + requestResponse)
     }
 
     private fun serializeRequestResponse(scenarioStub: ScenarioStub): Map<String, Value> {
@@ -348,21 +355,17 @@ data class ScenarioStub(
     }
 
     companion object {
-        fun readFromFile(file: File): ScenarioStub {
-            return attempt(
-                breadCrumb = file.path,
-                errorMessage = "Error loading example due to invalid format. Please correct the format to proceed"
-            ) {
-                parse(file.readText(Charsets.UTF_8)).copy(filePath = file.path)
-            }
+        fun readFromFile(file: File, strictMode: Boolean = true): ScenarioStub {
+            return parse(file.readText(Charsets.UTF_8), strictMode).copy(filePath = file.path)
         }
 
-        fun parse(text: String): ScenarioStub {
-            return parse(StringValue(text))
+        fun parse(text: String, strictMode: Boolean = true): ScenarioStub {
+            return parse(StringValue(text), strictMode)
         }
 
-        fun parse(json: Value): ScenarioStub {
-            return stringToMockScenario(json)
+        fun parse(json: Value, strictMode: Boolean = true): ScenarioStub {
+            val parsedJson = jsonStringToValueMap(json.toStringLiteral())
+            return mockFromJSON(parsedJson, strictMode)
         }
     }
 }
@@ -375,101 +378,103 @@ const val TRANSIENT_MOCK = "http-stub"
 const val TRANSIENT_MOCK_ID = "$TRANSIENT_MOCK-id"
 const val REQUEST_BODY_REGEX = "bodyRegex"
 const val IS_TRANSIENT_MOCK = "transient"
-
-val MOCK_HTTP_REQUEST_ALL_KEYS = listOf("mock-http-request", MOCK_HTTP_REQUEST)
-val MOCK_HTTP_RESPONSE_ALL_KEYS = listOf("mock-http-response", MOCK_HTTP_RESPONSE)
-
 const val PARTIAL = "partial"
+private val nonMetadataDataKeys = listOf(MOCK_HTTP_REQUEST, MOCK_HTTP_RESPONSE, PARTIAL)
 
-fun validateMock(mockSpec: Map<String, Any?>) {
-    if(mockSpec.containsKey(PARTIAL)) {
-        val template = mockSpec.getValue(PARTIAL) as? JSONObjectValue ?: throw ContractException("template should be an object")
-        return validateMock(template.jsonObject)
+fun mockFromJSON(mockSpec: Map<String, Value>, strictMode: Boolean = true): ScenarioStub {
+    val validationResult = FuzzyExampleJsonValidator.matches(mockSpec)
+    val data = mockSpec.filterKeys { it !in nonMetadataDataKeys }
+    return if (PARTIAL in mockSpec) {
+        parsePartialExample(mockSpec, data, validationResult, strictMode)
+    } else {
+        parseStandardExample(mockSpec, data, validationResult, strictMode)
     }
-
-    if (MOCK_HTTP_REQUEST_ALL_KEYS.none { mockSpec.containsKey(it) })
-        throw ContractException(errorMessage = "Example should contain http-request/mock-http-request as a top level key.")
-    if (MOCK_HTTP_RESPONSE_ALL_KEYS.none { mockSpec.containsKey(it) })
-        throw ContractException(errorMessage = "Example should contain http-response/mock-http-response as a top level key.")
 }
 
-fun mockFromJSON(mockSpec: Map<String, Value>): ScenarioStub {
-    val data = JSONObjectValue(mockSpec.filterKeys { it !in (MOCK_HTTP_REQUEST_ALL_KEYS + MOCK_HTTP_RESPONSE_ALL_KEYS).plus(PARTIAL) })
+private fun parsePartialExample(mockSpec: Map<String, Value>, data: Map<String, Value>, validationResult: Result, strictMode: Boolean): ScenarioStub {
+    val template = mockSpec[PARTIAL] as? JSONObjectValue ?: JSONObjectValue()
+    val parsedPartial = mockFromJSON(template.jsonObject.plus(data), strictMode)
+    return parsedPartial.copy(
+        partial = parsedPartial,
+        rawJsonData = JSONObjectValue(mockSpec),
+        validationErrors = validationResult,
+        strictMode = strictMode
+    )
+}
 
-    if (PARTIAL in mockSpec) {
-        val template = mockSpec.getValue(PARTIAL) as? JSONObjectValue ?: throw ContractException("template key must be an object")
-        return ScenarioStub(data = data, partial = mockFromJSON(template.jsonObject))
+private fun parseStandardExample(mockSpec: Map<String, Value>, data: Map<String, Value>, validationResult: Result, strictMode: Boolean): ScenarioStub {
+    val mockRequest: HttpRequest = try {
+        val reqMap = getJSONObjectValueOrNull(MOCK_HTTP_REQUEST, mockSpec)
+        if (reqMap != null) HttpRequest.fromJSONLenient(reqMap) else HttpRequest("", "")
+    } catch (e: Exception) {
+        logger.debug(e, "Failed to parse $MOCK_HTTP_REQUEST")
+        HttpRequest("", "")
     }
 
-    val mockRequest: HttpRequest = requestFromJSON(getJSONObjectValue(MOCK_HTTP_REQUEST_ALL_KEYS, mockSpec))
-    val mockResponse: HttpResponse = HttpResponse.fromJSON(getJSONObjectValue(MOCK_HTTP_RESPONSE_ALL_KEYS, mockSpec))
+    val mockResponse: HttpResponse = try {
+        val respMap = getJSONObjectValueOrNull(MOCK_HTTP_RESPONSE, mockSpec)
+        if (respMap != null) HttpResponse.fromJSONLenient(respMap) else HttpResponse(0, emptyMap())
+    } catch (e: Exception) {
+        logger.debug(e, "Failed to parse $MOCK_HTTP_RESPONSE")
+        HttpResponse(0, emptyMap())
+    }
 
-    val delayInSeconds: Int? = getIntOrNull(DELAY_IN_SECONDS, mockSpec)
-    val delayInMilliseconds: Long? = getLongOrNull(DELAY_IN_MILLISECONDS, mockSpec)
-    val delayInMs: Long? = delayInMilliseconds ?: delayInSeconds?.toLong()?.times(1000)
+    val delayInSeconds = getIntOrNull(DELAY_IN_SECONDS, mockSpec)
+    val delayInMilliseconds = getLongOrNull(DELAY_IN_MILLISECONDS, mockSpec)
+    val delayInMs = delayInMilliseconds ?: delayInSeconds?.toLong()?.times(1000)
 
     val explicitStubToken = getStringOrNull(TRANSIENT_MOCK_ID, mockSpec)
     val isTransientMock = getBooleanOrNull(IS_TRANSIENT_MOCK, mockSpec) ?: false
-    val stubToken: String? = explicitStubToken ?: if (isTransientMock) UUID.randomUUID().toString() else null
+    val stubToken = explicitStubToken ?: if (isTransientMock) UUID.randomUUID().toString() else null
+    val requestBodyRegex = getRequestBodyRegexOrNull(mockSpec)
 
-    val requestBodyRegex: String? = getRequestBodyRegexOrNull(mockSpec)
     return ScenarioStub(
         request = mockRequest,
         response = mockResponse,
         delayInMilliseconds = delayInMs,
         stubToken = stubToken,
         requestBodyRegex = requestBodyRegex,
-        data = data,
+        data = JSONObjectValue(data),
+        rawJsonData = JSONObjectValue(mockSpec),
+        validationErrors = validationResult,
+        strictMode = strictMode
     )
 }
 
 fun getRequestBodyRegexOrNull(mockSpec: Map<String, Value>): String? {
-    val requestSpec: Map<String, Value> = getJSONObjectValue(MOCK_HTTP_REQUEST_ALL_KEYS, mockSpec)
-    return requestSpec[REQUEST_BODY_REGEX]?.toStringLiteral()
+    return try {
+        val requestSpec = getJSONObjectValueOrNull(MOCK_HTTP_REQUEST, mockSpec)
+        requestSpec?.get(REQUEST_BODY_REGEX)?.toStringLiteral()
+    } catch (e: Exception) {
+        logger.debug(e, "Failed to parse $REQUEST_BODY_REGEX")
+        null
+    }
 }
 
-fun getJSONObjectValue(keys: List<String>, mapData: Map<String, Value>): Map<String, Value> {
-    val key = keys.first { mapData.containsKey(it) }
-    return getJSONObjectValue(key, mapData)
+fun getJSONObjectValueOrNull(key: String, mapData: Map<String, Value>): Map<String, Value>? {
+    return (mapData[key] as? JSONObjectValue)?.jsonObject
 }
 
-fun getJSONObjectValue(key: String, mapData: Map<String, Value>): Map<String, Value> {
-    val data = mapData.getValue(key)
-    if(data !is JSONObjectValue) throw ContractException("$key should be a json object")
-    return data.jsonObject
+fun getArrayOrNull(key: String, mapData: Map<String, Value>): List<Value>? {
+    return (mapData[key] as? JSONArrayValue)?.list
+}
+
+fun getObjectListOrNull(key: String, mapData: Map<String, Value>): List<Map<String, Value>>? {
+    return getArrayOrNull(key, mapData)?.mapNotNull { (it as? JSONObjectValue)?.jsonObject }
 }
 
 fun getIntOrNull(key: String, mapData: Map<String, Value>): Int? {
-    val data = mapData[key]
-
-    return data?.let {
-        if(data !is NumberValue) throw ContractException("$key should be a number")
-        return data.number.toInt()
-    }
+    return (mapData[key] as? NumberValue)?.number?.toInt()
 }
 
 fun getLongOrNull(key: String, mapData: Map<String, Value>): Long? {
-    val data = mapData[key]
-
-    return data?.let {
-        if(data !is NumberValue) throw ContractException("$key should be a number")
-        return data.number.toLong()
-    }
+    return (mapData[key] as? NumberValue)?.number?.toLong()
 }
 
 fun getStringOrNull(key: String, mapData: Map<String, Value>): String? {
-    val data = mapData[key]
-
-    return data?.let {
-        if(data !is StringValue) throw ContractException("$key should be a number")
-        return data.string
-    }
+    return (mapData[key] as? StringValue)?.string
 }
 
 fun getBooleanOrNull(key: String, mapData: Map<String, Value>): Boolean? {
-    val data = mapData[key]
-    return data?.let {
-        if (data !is BooleanValue) throw ContractException("$key should be a boolean")
-        return data.booleanValue
-    }
+    return (mapData[key] as? BooleanValue)?.booleanValue
 }

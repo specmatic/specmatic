@@ -36,6 +36,7 @@ import io.specmatic.stub.report.StubUsageReport
 import io.specmatic.test.LegacyHttpClient
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.TestResultRecord.Companion.STUB_TEST_TYPE
+import io.specmatic.test.TestResultRecord.Companion.getCoverageStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.*
 import kotlinx.coroutines.delay
@@ -624,7 +625,7 @@ class HttpStub(
             if (httpRequest.body.toStringLiteral().isEmpty())
                 throw ContractException("Expectation payload was empty")
 
-            val mock: ScenarioStub = stringToMockScenario(httpRequest.body)
+            val mock: ScenarioStub = ScenarioStub.parse(httpRequest.body)
             val stub: HttpStubData = setExpectation(mock).first()
 
             HttpStubResponse(HttpResponse.OK, contractPath = stub.contractPath)
@@ -694,7 +695,7 @@ class HttpStub(
 
     // Java helper
     override fun setExpectation(json: String) {
-        val mock = stringToMockScenario(StringValue(json))
+        val mock = ScenarioStub.parse(json)
         setExpectation(mock)
     }
 
@@ -761,8 +762,11 @@ class HttpStub(
                 endTime = Instant.now().toEpochMilli(),
                 specConfigs = ctrfSpecConfigsFrom(specmaticConfig, ctrfTestResultRecords),
                 coverage = 0,
-                reportDir = File("$ARTIFACTS_PATH/stub/ctrf")
+                reportDir = File("$ARTIFACTS_PATH/stub")
             )
+            { ctrfTestResultRecords ->
+                ctrfTestResultRecords.filterIsInstance<TestResultRecord>().getCoverageStatus()
+            }
         }
     }
 
@@ -1376,7 +1380,7 @@ fun stubResponse(
 ): HttpResponse {
     return try {
         when (val mock = stubs.http.find { (requestPattern, _, resolver) ->
-            requestPattern.matches(httpRequest, resolver.disableOverrideUnexpectedKeycheck()) is Result.Success
+            requestPattern.matches(httpRequest, resolver.disableOverrideUnexpectedKeyCheck()) is Result.Success
         }) {
             null -> {
                 val responses = contractInfo.asSequence().map { (feature, _) ->
@@ -1531,15 +1535,6 @@ fun softCastValueToXML(body: Value): Value {
 
         else -> body
     }
-}
-
-fun stringToMockScenario(text: Value): ScenarioStub {
-    val mockSpec: Map<String, Value> =
-        jsonStringToValueMap(text.toStringLiteral()).also {
-            validateMock(it)
-        }
-
-    return mockFromJSON(mockSpec)
 }
 
 data class SseEvent(

@@ -32,7 +32,7 @@ class ExampleModule {
                                 || breadCrumb.contains(BreadCrumb.REQUEST.plus(BreadCrumb.PARAM_HEADER).with(CONTENT_TYPE))
                                 || breadCrumb.contains("STATUS")
                     } || matchResult.hasReason(FailureReason.URLPathParamMismatchButSameStructure)
-                    if (isFailureRelatedToScenario) { example to matchResult } else null
+                    if (isFailureRelatedToScenario) { example to example.breadCrumbIfPartial(matchResult) } else null
                 }
             }
         }
@@ -44,13 +44,13 @@ class ExampleModule {
             .resolve("""${contractFile.nameWithoutExtension}$EXAMPLES_DIR_SUFFIX""")
     }
 
-    fun getExamplesFromDir(dir: File): List<ExampleFromFile> {
-        return getExamplesFromFiles(dir.listFiles().orEmpty().filter { it.extension == "json" })
+    fun getExamplesFromDir(dir: File, strictMode: Boolean = true): List<ExampleFromFile> {
+        return getExamplesFromFiles(dir.listFiles().orEmpty().filter { it.extension == "json" }, strictMode)
     }
 
-    fun getExamplesFromFiles(files: List<File>): List<ExampleFromFile> {
+    fun getExamplesFromFiles(files: List<File>, strictMode: Boolean = true): List<ExampleFromFile> {
         return files.mapNotNull {
-            ExampleFromFile.fromFile(it).realise(
+            ExampleFromFile.fromFile(it, strictMode).realise(
                 hasValue = { example, _ -> example },
                 orException = { err -> consoleDebug(exceptionCauseMessage(err.t)); null },
                 orFailure = { null }

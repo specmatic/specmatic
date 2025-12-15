@@ -11,19 +11,16 @@ import org.junit.jupiter.api.Test
 internal class KeyCheckTest {
     @Test
     fun `should invoke the pattern key check`() {
-        val result = KeyCheck(patternKeyCheck = object: KeyErrorCheck {
-            override fun validate(pattern: Map<String, Any>, actual: Map<String, Any>): KeyError {
+        val result = DefaultKeyCheckImpl(patternKeyCheck = object: KeyErrorCheck {
+            override fun validate(pattern: Map<String, Any>, actual: Map<String, Any>): MissingKeyError {
                 return MissingKeyError("test")
             }
 
-            override fun validateList(pattern: Map<String, Any>, actual: Map<String, Any>): List<KeyError> {
+            override fun validateList(pattern: Map<String, Any>, actual: Map<String, Any>): List<MissingKeyError> {
                 return listOf(MissingKeyError("test"))
             }
 
-            override fun validateListCaseInsensitive(
-                pattern: Map<String, Pattern>,
-                actual: Map<String, StringValue>
-            ): List<KeyError> {
+            override fun validateListCaseInsensitive(pattern: Map<String, Any>, actual: Map<String, Any>): List<MissingKeyError> {
                 TODO("Not yet implemented")
             }
 
@@ -34,19 +31,16 @@ internal class KeyCheckTest {
 
     @Test
     fun `should invoke the unexpected key check if the pattern key check returns nothing`() {
-        val result = KeyCheck(patternKeyCheck = object: KeyErrorCheck {
-            override fun validate(pattern: Map<String, Any>, actual: Map<String, Any>): KeyError? {
+        val result = DefaultKeyCheckImpl(patternKeyCheck = object: KeyErrorCheck {
+            override fun validate(pattern: Map<String, Any>, actual: Map<String, Any>): MissingKeyError? {
                 return null
             }
 
-            override fun validateList(pattern: Map<String, Any>, actual: Map<String, Any>): List<KeyError> {
+            override fun validateList(pattern: Map<String, Any>, actual: Map<String, Any>): List<MissingKeyError> {
                 return emptyList()
             }
 
-            override fun validateListCaseInsensitive(
-                pattern: Map<String, Pattern>,
-                actual: Map<String, StringValue>
-            ): List<KeyError> {
+            override fun validateListCaseInsensitive(pattern: Map<String, Any>, actual: Map<String, Any>): List<MissingKeyError> {
                 TODO("Not yet implemented")
             }
 
@@ -59,10 +53,7 @@ internal class KeyCheckTest {
                 return listOf(UnexpectedKeyError("test"))
             }
 
-            override fun validateListCaseInsensitive(
-                pattern: Map<String, Pattern>,
-                actual: Map<String, StringValue>
-            ): List<UnexpectedKeyError> {
+            override fun validateListCaseInsensitive(pattern: Map<String, Any>, actual: Map<String, Any>): List<UnexpectedKeyError> {
                 TODO("Not yet implemented")
             }
 
@@ -73,19 +64,16 @@ internal class KeyCheckTest {
 
     @Test
     fun `override the unexpected key check`() {
-        val checker = KeyCheck(patternKeyCheck = object: KeyErrorCheck {
-            override fun validate(pattern: Map<String, Any>, actual: Map<String, Any>): KeyError? {
+        val checker = DefaultKeyCheckImpl(patternKeyCheck = object: KeyErrorCheck {
+            override fun validate(pattern: Map<String, Any>, actual: Map<String, Any>): MissingKeyError? {
                 return null
             }
 
-            override fun validateList(pattern: Map<String, Any>, actual: Map<String, Any>): List<KeyError> {
+            override fun validateList(pattern: Map<String, Any>, actual: Map<String, Any>): List<MissingKeyError> {
                 return emptyList()
             }
 
-            override fun validateListCaseInsensitive(
-                pattern: Map<String, Pattern>,
-                actual: Map<String, StringValue>
-            ): List<KeyError> {
+            override fun validateListCaseInsensitive(pattern: Map<String, Any>, actual: Map<String, Any>): List<MissingKeyError> {
                 TODO("Not yet implemented")
             }
 
@@ -98,10 +86,7 @@ internal class KeyCheckTest {
                 return listOf(UnexpectedKeyError("test"))
             }
 
-            override fun validateListCaseInsensitive(
-                pattern: Map<String, Pattern>,
-                actual: Map<String, StringValue>
-            ): List<UnexpectedKeyError> {
+            override fun validateListCaseInsensitive(pattern: Map<String, Any>, actual: Map<String, Any>): List<UnexpectedKeyError> {
                 TODO("Not yet implemented")
             }
 
@@ -114,19 +99,16 @@ internal class KeyCheckTest {
 
     @Test
     fun `prevent overriding of the unexpected key check`() {
-        val checker = KeyCheck(patternKeyCheck = object: KeyErrorCheck {
-            override fun validate(pattern: Map<String, Any>, actual: Map<String, Any>): KeyError? {
+        val checker = DefaultKeyCheckImpl(patternKeyCheck = object: KeyErrorCheck {
+            override fun validate(pattern: Map<String, Any>, actual: Map<String, Any>): MissingKeyError? {
                 return null
             }
 
-            override fun validateList(pattern: Map<String, Any>, actual: Map<String, Any>): List<KeyError> {
+            override fun validateList(pattern: Map<String, Any>, actual: Map<String, Any>): List<MissingKeyError> {
                 return emptyList()
             }
 
-            override fun validateListCaseInsensitive(
-                pattern: Map<String, Pattern>,
-                actual: Map<String, StringValue>
-            ): List<KeyError> {
+            override fun validateListCaseInsensitive(pattern: Map<String, Any>, actual: Map<String, Any>): List<MissingKeyError> {
                 TODO("Not yet implemented")
             }
 
@@ -139,14 +121,11 @@ internal class KeyCheckTest {
                 return listOf(UnexpectedKeyError("test"))
             }
 
-            override fun validateListCaseInsensitive(
-                pattern: Map<String, Pattern>,
-                actual: Map<String, StringValue>
-            ): List<UnexpectedKeyError> {
+            override fun validateListCaseInsensitive(pattern: Map<String, Any>, actual: Map<String, Any>): List<UnexpectedKeyError> {
                 TODO("Not yet implemented")
             }
 
-        }).disableOverrideUnexpectedKeycheck().withUnexpectedKeyCheck(IgnoreUnexpectedKeys)
+        }).disableOverrideUnexpectedKeyCheck().withUnexpectedKeyCheck(IgnoreUnexpectedKeys)
 
         val result = checker.validate(emptyMap(), emptyMap())
 
@@ -167,7 +146,7 @@ internal class KeyCheckTest {
             unexpectedKeyCheck.validateListCaseInsensitive(any(), any())
         }.returns(listOf(UnexpectedKeyError("key2")))
 
-        val errors = KeyCheck(keyErrorCheck, unexpectedKeyCheck).validateAllCaseInsensitive(emptyMap(), emptyMap())
+        val errors = DefaultKeyCheckImpl(keyErrorCheck, unexpectedKeyCheck).validateAllCaseInsensitive(emptyMap(), emptyMap())
 
         assertThat(errors[0].name).isEqualTo("key1")
         assertThat(errors[1].name).isEqualTo("key2")
@@ -176,12 +155,10 @@ internal class KeyCheckTest {
     @Test
     fun `isPartial should return true when keyCheck is partial key check`() {
         val partialKeyChecks = listOf(
-            KeyCheck(patternKeyCheck = noPatternKeyCheck, unexpectedKeyCheck = IgnoreUnexpectedKeys),
-            KeyCheck(patternKeyCheck = noPatternKeyCheck, unexpectedKeyCheck = ValidateUnexpectedKeys),
+            DefaultKeyCheckImpl(patternKeyCheck = noPatternKeyCheck, unexpectedKeyCheck = IgnoreUnexpectedKeys),
+            DefaultKeyCheckImpl(patternKeyCheck = noPatternKeyCheck, unexpectedKeyCheck = ValidateUnexpectedKeys),
         )
 
-        assertThat(partialKeyChecks).allSatisfy {
-            assertThat(it.isPartial()).isTrue()
-        }
+        assertThat(partialKeyChecks).allSatisfy { assertThat(it.isPartial).isTrue() }
     }
 }

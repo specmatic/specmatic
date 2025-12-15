@@ -30,7 +30,6 @@ import io.specmatic.stub.HttpStubData
 import io.specmatic.stub.captureStandardOutput
 import io.specmatic.stub.createStub
 import io.specmatic.stub.createStubFromContracts
-import io.specmatic.stub.stringToMockScenario
 import io.specmatic.test.ScenarioAsTest
 import io.specmatic.test.TestExecutor
 import io.specmatic.trimmedLinesString
@@ -7991,7 +7990,7 @@ paths:
             }
         """.trimIndent()
 
-        val expectation: ScenarioStub = stringToMockScenario(StringValue(rawStub))
+        val expectation: ScenarioStub = ScenarioStub.parse(StringValue(rawStub))
 
         HttpStub(feature, listOf(expectation)).use { stub ->
             val request = expectation.request

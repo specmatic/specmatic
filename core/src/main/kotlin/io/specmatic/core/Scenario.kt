@@ -179,7 +179,7 @@ data class Scenario(
         val resolver = resolver.copy(mismatchMessages = mismatchMessages).let {
             if(unexpectedKeyCheck != null) {
                 val keyCheck = it.findKeyErrorCheck
-                it.copy(findKeyErrorCheck = keyCheck.copy(unexpectedKeyCheck = unexpectedKeyCheck))
+                it.copy(findKeyErrorCheck = keyCheck.withUnexpectedKeyCheck(unexpectedKeyCheck))
             }
             else
                 it
@@ -199,7 +199,7 @@ data class Scenario(
             headersResolver.withUnexpectedKeyCheck(unexpectedKeyCheck)
         } else {
             headersResolver
-        }.disableOverrideUnexpectedKeycheck()
+        }.disableOverrideUnexpectedKeyCheck()
 
         return matches(httpRequest, serverState, nonHeadersResolver, headersResolver)
     }
@@ -336,8 +336,6 @@ data class Scenario(
 
         return matches(
             httpResponse = httpResponse,
-            mismatchMessages = mismatchMessages,
-            unexpectedKeyCheck = unexpectedKeyCheck,
             resolver = updatedResolver(mismatchMessages, unexpectedKeyCheck).copy(context = RequestContext(httpRequest))
         )
     }
@@ -360,12 +358,12 @@ data class Scenario(
                 findKeyErrorCheck = if (isPartial) resolver.getPartialKeyCheck() else resolver.findKeyErrorCheck
             )
         ).let {
-            if (disableOverrideKeyCheck) it.disableOverrideUnexpectedKeycheck() else it
+            if (disableOverrideKeyCheck) it.disableOverrideUnexpectedKeyCheck() else it
         }
 
         val updatedScenario = newBasedOnAttributeSelectionFields(httpRequest.queryParams)
         val requestMatch = when(httpResponse.status in invalidRequestStatuses) {
-            false -> updatedScenario.matches(httpRequest, mismatchMessages, updatedResolver.findKeyErrorCheck.unexpectedKeyCheck, updatedResolver)
+            false -> updatedScenario.matches(httpRequest, updatedResolver)
             else -> updatedScenario.httpRequestPattern.matchesPathStructureMethodAndContentType(httpRequest, updatedResolver)
         }
 
@@ -375,7 +373,7 @@ data class Scenario(
             if (result is Result.Failure) return Result.fromResults(listOf(requestMatch, result)).updateScenario(updatedScenario)
         }
 
-        val responseMatch = updatedScenario.matches(httpResponse, mismatchMessages, updatedResolver.findKeyErrorCheck.unexpectedKeyCheck, updatedResolver)
+        val responseMatch = updatedScenario.matches(httpResponse, updatedResolver)
         return Result.fromResults(listOf(requestMatch, responseMatch)).updateScenario(updatedScenario)
     }
 
@@ -385,8 +383,7 @@ data class Scenario(
 
     fun matches(httpResponse: HttpResponse, mismatchMessages: MismatchMessages = DefaultMismatchMessages, unexpectedKeyCheck: UnexpectedKeyCheck? = null): Result {
         val resolver = updatedResolver(mismatchMessages, unexpectedKeyCheck)
-
-        return matches(httpResponse, mismatchMessages, unexpectedKeyCheck, resolver)
+        return matches(httpResponse, resolver)
     }
 
     private fun updatedResolver(
@@ -395,13 +392,13 @@ data class Scenario(
     ): Resolver {
         return Resolver(expectedFacts, false, patterns).copy(mismatchMessages = mismatchMessages).let {
             if (unexpectedKeyCheck != null)
-                it.copy(findKeyErrorCheck = it.findKeyErrorCheck.copy(unexpectedKeyCheck = unexpectedKeyCheck))
+                it.copy(findKeyErrorCheck = it.findKeyErrorCheck.withUnexpectedKeyCheck(unexpectedKeyCheck))
             else
                 it
         }
     }
 
-    fun matches(httpResponse: HttpResponse, mismatchMessages: MismatchMessages = DefaultMismatchMessages, unexpectedKeyCheck: UnexpectedKeyCheck? = null, resolver: Resolver): Result {
+    fun matches(httpResponse: HttpResponse, resolver: Resolver): Result {
 
         if (this.isNegative) {
             return if (is4xxResponse(httpResponse)) {
@@ -421,7 +418,7 @@ data class Scenario(
         }
     }
 
-    fun matches(httpRequest: HttpRequest, mismatchMessages: MismatchMessages = DefaultMismatchMessages, unexpectedKeyCheck: UnexpectedKeyCheck? = null, resolver: Resolver): Result {
+    fun matches(httpRequest: HttpRequest, resolver: Resolver): Result {
         return try {
             httpRequestPattern.matches(httpRequest, resolver).updateScenario(this)
         } catch (exception: Throwable) {
@@ -536,7 +533,7 @@ data class Scenario(
         val errors = rowsToValidate.mapNotNull { row ->
             val resolverForExample = flagsBased.update(
                 resolver = resolverForValidation(resolver, row)
-            ).let { if(disallowExtraHeaders) it.disableOverrideUnexpectedKeycheck() else it }
+            ).let { if (disallowExtraHeaders) it.disableOverrideUnexpectedKeyCheck() else it }
 
             val requestError = nullOrExceptionString {
                 validateRequestExample(row, resolverForExample)
@@ -708,7 +705,7 @@ data class Scenario(
                 IgnoreFacts(),
                 true,
                 patterns,
-                findKeyErrorCheck = keyCheck.disableOverrideUnexpectedKeycheck(),
+                findKeyErrorCheck = keyCheck.disableOverrideUnexpectedKeyCheck(),
                 mismatchMessages = updatedMismatchMessages
             )
 
@@ -1040,18 +1037,15 @@ object ContractAndResponseMismatch : MismatchMessages {
 }
 
 val noPatternKeyCheck = object : KeyErrorCheck {
-    override fun validate(pattern: Map<String, Any>, actual: Map<String, Any>): KeyError? {
+    override fun validate(pattern: Map<String, Any>, actual: Map<String, Any>): MissingKeyError? {
         return null
     }
 
-    override fun validateList(pattern: Map<String, Any>, actual: Map<String, Any>): List<KeyError> {
+    override fun validateList(pattern: Map<String, Any>, actual: Map<String, Any>): List<MissingKeyError> {
         return emptyList()
     }
 
-    override fun validateListCaseInsensitive(
-        pattern: Map<String, Pattern>,
-        actual: Map<String, StringValue>
-    ): List<KeyError> {
+    override fun validateListCaseInsensitive(pattern: Map<String, Any>, actual: Map<String, Any>): List<MissingKeyError> {
         return emptyList()
     }
 }

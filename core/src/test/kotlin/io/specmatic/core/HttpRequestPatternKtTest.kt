@@ -43,7 +43,7 @@ internal class HttpRequestPatternKtTest {
             httpPathPattern = buildHttpPathPattern("/"), method = "POST", securitySchemes = listOf(securitySchema)
         )
         val httpRequest = invalidateSecuritySchemes(HttpRequest("POST", "/"), securitySchema)
-        val result = httpRequestPattern.matches(httpRequest, Resolver().disableOverrideUnexpectedKeycheck())
+        val result = httpRequestPattern.matches(httpRequest, Resolver().disableOverrideUnexpectedKeyCheck())
         val report = result.reportString()
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)

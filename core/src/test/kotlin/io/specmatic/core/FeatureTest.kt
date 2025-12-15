@@ -2460,9 +2460,8 @@ paths:
         }
 
         assertThat(error.report()).isEqualToNormalizingWhitespace("""
-        >> ${File("src/test/resources/openapi/hello_with_invalid_externalised_example_examples/invalid.json").canonicalPath}
-        Error loading example due to invalid format. Please correct the format to proceed
-        Example should contain http-response/mock-http-response as a top level key.
+        >> http-respons
+        Key named "http-respons" is invalid. Did you mean "http-response"?
         """.trimIndent())
     }
 

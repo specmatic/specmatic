@@ -17,10 +17,9 @@ data class FlagsBased(
     val allPatternsAreMandatory: Boolean
 ) {
     fun update(resolver: Resolver): Resolver {
-        val findKeyErrorCheck = if(unexpectedKeyCheck != null) {
-            resolver.findKeyErrorCheck.copy(unexpectedKeyCheck = unexpectedKeyCheck)
-        } else
-            resolver.findKeyErrorCheck
+        val findKeyErrorCheck = resolver.findKeyErrorCheck
+            .let { unexpectedKeyCheck?.let(it::withUnexpectedKeyCheck) ?: it }
+            .let { if (getBooleanValue(Flags.SPECMATIC_FUZZY)) FuzzyKeyCheck(it) else it }
 
         return resolver.copy(
             defaultExampleResolver = defaultExampleResolver,

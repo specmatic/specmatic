@@ -9,6 +9,7 @@ import io.specmatic.core.lifecycle.ExamplesUsedFor
 import io.specmatic.core.lifecycle.LifecycleHooks
 import io.specmatic.core.log.logger
 import io.specmatic.core.value.NullValue
+import io.specmatic.mock.PARTIAL
 import io.specmatic.mock.ScenarioStub
 import java.io.File
 
@@ -63,12 +64,15 @@ class ExampleValidationModule {
     }
 
     private fun validateExample(feature: Feature, example: ExampleFromFile): Result {
-        return feature.matchResultFlagBased(
+        val scenarioResult = feature.matchResultFlagBased(
             request = example.request,
             response = example.response,
             mismatchMessages = InteractiveExamplesMismatchMessages,
             isPartial = example.isPartial()
         ).toResultIfAnyWithCauses()
+
+        val scenarioResultWithBreadCrumb = example.breadCrumbIfPartial(scenarioResult)
+        return Result.fromResults(listOf(example.validationErrors, scenarioResultWithBreadCrumb))
     }
 
     private fun validateExample(feature: Feature, schemaExample: SchemaExample): Result {
@@ -86,7 +90,7 @@ class ExampleValidationModule {
     }
 
     fun validateExample(feature: Feature, exampleFile: File): Result {
-        return ExampleFromFile.fromFile(exampleFile).realise(
+        return ExampleFromFile.fromFile(exampleFile, strictMode = false).realise(
             hasValue = { example, _ -> validateExample(feature, example) },
             orFailure = { validateSchemaExample(feature, exampleFile) },
             orException = { it.toHasFailure().failure }
@@ -107,5 +111,13 @@ class ExampleValidationModule {
             ExamplesUsedFor.Validation,
             listOf(Pair(feature, scenarioStubs))
         )
+    }
+}
+
+internal fun ExampleFromFile.breadCrumbIfPartial(result: Result): Result {
+    return if (isPartial()) {
+        result.breadCrumb(PARTIAL)
+    } else {
+        result
     }
 }

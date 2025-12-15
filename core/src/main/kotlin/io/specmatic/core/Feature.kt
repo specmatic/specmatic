@@ -2016,34 +2016,31 @@ data class Feature(
             }
 
         logger.log("Loading externalised examples in ${testsDirectory.path}: ")
+        logger.boundary()
+
         return examplesInSubdirectories + files.asSequence().filterNot {
             it.isDirectory
-        }.map {
-            val exampleFromFile = ExampleFromFile(it)
-            if(exampleFromFile.isInvalid()) {
-                throw ContractException("Error loading example from file '${it.name}' as it is in invalid format. Please fix the example format to load this example.")
-            }
-            exampleFromFile
-        }.mapNotNull { exampleFromFile ->
-            try {
+        }.mapNotNull { example ->
+            runCatching { ExampleFromFile(example) }.mapCatching { exampleFromFile ->
                 with(exampleFromFile) {
                     OpenApiSpecification.OperationIdentifier(
                         requestMethod = requestMethod.orEmpty(),
                         requestPath = requestPath.orEmpty(),
                         responseStatus = responseStatus ?: 0,
-                        requestContentType = exampleFromFile.requestContentType,
-                        responseContentType = exampleFromFile.responseContentType
-                    ) to exampleFromFile.toRow(specmaticConfig)
+                        requestContentType = requestContentType,
+                        responseContentType = responseContentType
+                    ) to toRow(specmaticConfig)
                 }
-            } catch (e: Throwable) {
-                val errorMessage = "Error reading file ${exampleFromFile.expectationFilePath}"
-                if(strictMode) throw ContractException(errorMessage)
-                logger.log(e, errorMessage)
+            }.getOrElse { e ->
+                logger.log("Could not load test file ${example.canonicalPath}")
+                logger.log(e)
+                logger.boundary()
+                if (strictMode) throw ContractException(exceptionCauseMessage(e))
                 null
             }
         }
-            .groupBy { (operationIdentifier, _) -> operationIdentifier }
-            .mapValues { (_, value) -> value.map { it.second } }
+        .groupBy { (operationIdentifier, _) -> operationIdentifier }
+        .mapValues { (_, value) -> value.map { it.second } }
     }
 
     fun loadExternalisedExamplesAndListUnloadableExamples(): Pair<Feature, Set<String>> {

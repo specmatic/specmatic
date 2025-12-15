@@ -2389,7 +2389,7 @@ components:
         }
 
         assertThat(exception.message?.trimmedLinesString()).isEqualTo(
-            """400 Bad Request: "In scenario "POST /users.
+            """400 Bad Request on POST request for "http://localhost:9000/users": "In scenario "POST /users.
             | Response: Details of the new user to register"<EOL>API: POST /users -> 201<EOL><EOL>
             |  >> REQUEST.BODY.email<EOL>  <EOL>
             |     Contract expected email string but request contained "this.is.not.an.email"""""

@@ -1,8 +1,6 @@
 package io.specmatic.core
 
-import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.withoutOptionality
-import io.specmatic.core.value.StringValue
 import io.specmatic.test.asserts.ASSERT_KEYS
 
 object ValidateUnexpectedKeys: UnexpectedKeyCheck {
@@ -15,21 +13,17 @@ object ValidateUnexpectedKeys: UnexpectedKeyCheck {
             // Supports free-form dictionaries
             return listOf()
         }
+
         val patternKeys = pattern.minus("...").keys.map { withoutOptionality(it) }
         val actualKeys = actual.keys.map { withoutOptionality(it) }
-
         return actualKeys.minus(patternKeys.toSet().plus(ASSERT_KEYS)).map {
             UnexpectedKeyError(it)
         }
     }
 
-    override fun validateListCaseInsensitive(
-        pattern: Map<String, Pattern>,
-        actual: Map<String, StringValue>
-    ): List<UnexpectedKeyError> {
+    override fun validateListCaseInsensitive(pattern: Map<String, Any>, actual: Map<String, Any>): List<UnexpectedKeyError> {
         val patternKeys = pattern.minus("...").keys.map { withoutOptionality(it).lowercase() }.toSet()
         val actualKeys = actual.keys.map { withoutOptionality(it) }
-
         return actualKeys.filter { it.lowercase() !in patternKeys && it !in ASSERT_KEYS }.map { UnexpectedKeyError(it) }
     }
 }

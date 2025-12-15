@@ -32,6 +32,7 @@ import io.specmatic.core.pattern.parsedPattern
 import io.specmatic.core.pattern.resolvedHop
 import io.specmatic.core.pattern.returnValue
 import io.specmatic.core.pattern.singleLineDescription
+import io.specmatic.core.pattern.withOptionality
 import io.specmatic.core.pattern.withoutOptionality
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_QUERY_PARAMS
@@ -40,8 +41,6 @@ import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.XMLNode
-import io.specmatic.core.value.XMLValue
-import io.specmatic.test.ExampleProcessor
 
 private const val MULTIPART_FORMDATA_BREADCRUMB = "MULTIPART-FORMDATA"
 const val METHOD_BREAD_CRUMB = "METHOD"
@@ -217,7 +216,11 @@ data class HttpRequestPattern(
         val (httpRequest, resolver, _: List<Failure>) = parameters
 
         val keyErrorResults: List<Failure> = resolver.findKeyErrorList(formFieldsPattern, httpRequest.formFields).map {
-            it.missingKeyToResult("form field", resolver.mismatchMessages).breadCrumb(it.name).breadCrumb(FORM_FIELDS_BREADCRUMB)
+            when {
+                httpRequest.formFields.contains(it.name) -> it.missingKeyToResult("form field", resolver.mismatchMessages)
+                httpRequest.formFields.contains(withOptionality(it.name)) -> it.missingOptionalKeyToResult("form field", resolver.mismatchMessages)
+                else -> it.unknownKeyToResult("form field", resolver.mismatchMessages)
+            }.breadCrumb(it.name).breadCrumb(FORM_FIELDS_BREADCRUMB)
         }
 
         val payloadResults: List<Result> = formFieldsPattern
@@ -331,11 +334,7 @@ data class HttpRequestPattern(
 
         val updatedResolver =
             if(Flags.getBooleanValue(EXTENSIBLE_QUERY_PARAMS))
-                resolver.copy(
-                    findKeyErrorCheck = resolver.findKeyErrorCheck.copy(
-                        unexpectedKeyCheck = IgnoreUnexpectedKeys
-                    )
-                )
+                resolver.copy(findKeyErrorCheck = resolver.findKeyErrorCheck.withUnexpectedKeyCheck(IgnoreUnexpectedKeys))
             else
                 resolver
 
