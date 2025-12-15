@@ -276,35 +276,50 @@ class OpenApiCoverageReportInput(
     }
 
     private fun identifyFailedTestsDueToUnimplementedEndpointsAddMissingTests(testResults: List<TestResultRecord>): List<TestResultRecord> {
-        val notImplementedAndMissingTests = mutableListOf<TestResultRecord>()
-        val failedTestResults = testResults.filter { it.result == TestResult.Failed }
-
-        for (failedTestResult in failedTestResults) {
-            val endpointExistsInSpecification = allEndpoints.any {
-                it.path == failedTestResult.path && it.method == failedTestResult.method && it.responseStatus == failedTestResult.actualResponseStatus
+        return testResults.map { testResult ->
+            when {
+                testResult.hasFailedAndEndpointIsNotImplemented() -> testResult.copy(result = TestResult.NotImplemented)
+                else -> testResult
             }
-
-            if (!failedTestResult.isConnectionRefused() && !endpointExistsInSpecification) {
-                notImplementedAndMissingTests.add(
-                    failedTestResult.copy(
-                        responseStatus = failedTestResult.actualResponseStatus,
-                        result = TestResult.MissingInSpec,
-                        actualResponseStatus = failedTestResult.actualResponseStatus
-                    )
-                )
-                continue
+        }.flatMap { testResult ->
+            when {
+                testResult.testedEndpointIsMissingInSpec() -> {
+                    createMissingInSpecRecordAndIncludeOriginalRecordIfApplicable(testResult)
+                }
+                else -> listOf(testResult)
             }
-
-            if (!endpointsAPISet) {
-                notImplementedAndMissingTests.add(failedTestResult)
-                continue
-            }
-
-            val isInApplicationAPI = applicationAPIs.any { api -> api.path == failedTestResult.path && api.method == failedTestResult.method }
-            notImplementedAndMissingTests.add(failedTestResult.copy(result = if (isInApplicationAPI) TestResult.Failed else TestResult.NotImplemented))
         }
+    }
 
-        return testResults.minus(failedTestResults.toSet()).plus(notImplementedAndMissingTests)
+    private fun createMissingInSpecRecordAndIncludeOriginalRecordIfApplicable(testResult: TestResultRecord): List<TestResultRecord> = listOfNotNull(
+        testResult.copy(
+            responseStatus = testResult.actualResponseStatus,
+            result = TestResult.MissingInSpec,
+            actualResponseStatus = testResult.actualResponseStatus
+        ),
+        testResult.takeIf {
+            it.sourceEndpointIsPresentInSpec()
+        }
+    )
+
+    private fun TestResultRecord.hasFailedAndEndpointIsNotImplemented(): Boolean {
+        return this.result == TestResult.Failed && endpointsAPISet &&
+                applicationAPIs.none {
+                    it.path == this.path && it.method == this.method
+                }
+    }
+
+    private fun TestResultRecord.testedEndpointIsMissingInSpec(): Boolean {
+        val endpointExistsInSpecification = allEndpoints.any {
+            it.path == this.path && it.method == this.method && it.responseStatus == this.actualResponseStatus
+        }
+        return (!this.isConnectionRefused() && !endpointExistsInSpecification)
+    }
+
+    private fun TestResultRecord.sourceEndpointIsPresentInSpec(): Boolean {
+        return allEndpoints.any {
+            it.path == this.path && it.method == this.method && it.responseStatus == this.responseStatus
+        }
     }
 
     private fun List<TestResultRecord>.checkForInvalidTestsAndUpdateResult(): List<TestResultRecord> {
