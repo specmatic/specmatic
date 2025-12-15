@@ -34,8 +34,4 @@ data class DefaultKeyCheckImpl(
     override fun toPartialKeyCheck(): KeyCheck {
         return this.copy(patternKeyCheck = noPatternKeyCheck)
     }
-
-    override fun toExtensibleKeyCheck(): KeyCheck {
-        return this.copy(unexpectedKeyCheck = IgnoreUnexpectedKeys)
-    }
 }
