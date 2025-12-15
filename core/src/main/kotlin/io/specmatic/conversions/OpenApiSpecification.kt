@@ -2406,10 +2406,8 @@ class OpenApiSpecification(
         return types.contains("string") && this.format == BINARY_FORMAT
     }
 
-    private fun Schema<*>.isPrimitive(nullable: Boolean? = null, multi: Boolean? = null): Boolean {
+    private fun Schema<*>.isPrimitive(): Boolean {
         val meta = schemaMeta()
-        if (nullable != null && nullable != meta.isNullable) return false
-        if (multi != null && multi != meta.isMulti) return false
         return meta.effectiveTypes.isNotEmpty() && meta.effectiveTypes.all {
             it == "string" || it == "number" || it == "integer" || it == "boolean"
         }
