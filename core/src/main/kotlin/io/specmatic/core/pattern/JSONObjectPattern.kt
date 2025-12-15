@@ -349,8 +349,8 @@ data class JSONObjectPattern(
 
         val keyErrors: List<Result.Failure> = resolverWithNullType.findKeyErrorList(adjustedPattern, sampleData.jsonObject).map {
             when {
-                pattern.contains(it.name) -> it.missingKeyToResult("key", resolver.mismatchMessages)
-                pattern.contains(withOptionality(it.name)) -> it.missingOptionalKeyToResult("key", resolver.mismatchMessages)
+                pattern.contains(it.canonicalKey) -> it.missingKeyToResult("key", resolver.mismatchMessages)
+                pattern.contains(withOptionality(it.canonicalKey)) -> it.missingOptionalKeyToResult("key", resolver.mismatchMessages)
                 else -> it.unknownKeyToResult("key", resolver.mismatchMessages)
             }.breadCrumb(it.name)
         }

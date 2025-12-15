@@ -1,7 +1,6 @@
 package io.specmatic.core
 
 import io.specmatic.core.FuzzyKeyCheckTest.Companion.ExpectedError.Companion.fuzzy
-import io.specmatic.core.FuzzyKeyCheckTest.Companion.ExpectedError.Companion.fuzzyOptional
 import io.specmatic.core.FuzzyKeyCheckTest.Companion.ExpectedError.Companion.missing
 import io.specmatic.core.FuzzyKeyCheckTest.Companion.ExpectedError.Companion.unexpected
 import io.specmatic.core.pattern.IgnoreUnexpectedKeys
@@ -104,9 +103,9 @@ class FuzzyKeyCheckTest {
                 name = "Missing optional key matches unexpected key",
                 actual = mapOf("name" to "John", "email" to "john@example.com", "ages" to "30"),
                 overrideExpectations = mapOf(
-                    FuzzyTestConfig.IgnorePatternButCheckUnexpected to listOf(fuzzyOptional("ages", "age")),
-                    FuzzyTestConfig.CheckPatternAndCheckUnexpected to listOf(fuzzyOptional("ages", "age")),
-                    FuzzyTestConfig.CheckPatternButIgnoreUnexpected to listOf(fuzzyOptional("ages", "age", true)),
+                    FuzzyTestConfig.IgnorePatternButCheckUnexpected to listOf(fuzzy("ages", "age")),
+                    FuzzyTestConfig.CheckPatternAndCheckUnexpected to listOf(fuzzy("ages", "age")),
+                    FuzzyTestConfig.CheckPatternButIgnoreUnexpected to listOf(fuzzy("ages", "age", true)),
                 )
             ),
             FuzzyScenario(
@@ -133,9 +132,9 @@ class FuzzyKeyCheckTest {
                 name = "Two fuzzy actual keys for the same optional key",
                 actual = mapOf("name" to "John", "email" to "john@example.com", "ages" to "30", "agex" to "30"),
                 overrideExpectations = mapOf(
-                    FuzzyTestConfig.IgnorePatternButCheckUnexpected to listOf(fuzzyOptional("ages", "age"), unexpected("agex")),
-                    FuzzyTestConfig.CheckPatternAndCheckUnexpected to listOf(fuzzyOptional("ages", "age"), unexpected("agex")),
-                    FuzzyTestConfig.CheckPatternButIgnoreUnexpected to listOf(fuzzyOptional("ages", "age", partial = true))
+                    FuzzyTestConfig.IgnorePatternButCheckUnexpected to listOf(fuzzy("ages", "age"), unexpected("agex")),
+                    FuzzyTestConfig.CheckPatternAndCheckUnexpected to listOf(fuzzy("ages", "age"), unexpected("agex")),
+                    FuzzyTestConfig.CheckPatternButIgnoreUnexpected to listOf(fuzzy("ages", "age", partial = true))
                 )
             ),
             FuzzyScenario(
@@ -156,9 +155,9 @@ class FuzzyKeyCheckTest {
                 name = "Missing mandatory and optional with fuzzy unexpected keys",
                 actual = mapOf("nme" to "John", "ages" to "30"),
                 overrideExpectations = mapOf(
-                    FuzzyTestConfig.CheckPatternAndCheckUnexpected to listOf(fuzzy("nme", "name"), fuzzyOptional("ages", "age"), missing("email")),
-                    FuzzyTestConfig.CheckPatternButIgnoreUnexpected to listOf(fuzzy("nme", "name"), fuzzyOptional("ages", "age", partial = true), missing("email")),
-                    FuzzyTestConfig.IgnorePatternButCheckUnexpected to listOf(fuzzy("nme", "name"), fuzzyOptional("ages", "age"))
+                    FuzzyTestConfig.CheckPatternAndCheckUnexpected to listOf(fuzzy("nme", "name"), fuzzy("ages", "age"), missing("email")),
+                    FuzzyTestConfig.CheckPatternButIgnoreUnexpected to listOf(fuzzy("nme", "name"), fuzzy("ages", "age", partial = true), missing("email")),
+                    FuzzyTestConfig.IgnorePatternButCheckUnexpected to listOf(fuzzy("nme", "name"), fuzzy("ages", "age"))
                 )
             ),
             FuzzyScenario(
@@ -189,8 +188,7 @@ class FuzzyKeyCheckTest {
             companion object {
                 fun missing(name: String, partial: Boolean = false) = Missing(name, "Expected key named \"$name\" was missing", partial)
                 fun unexpected(name: String, partial: Boolean = false) = Unexpected(name, "Key named \"$name\" was unexpected", partial)
-                fun fuzzy(name: String, candidate: String, partial: Boolean = false) = Fuzzy(name, candidate, "Expected key named \"$candidate\" was missing. Did you mean \"$candidate\"?", partial)
-                fun fuzzyOptional(name: String, candidate: String, partial: Boolean = false) = Fuzzy(name, candidate, "Expected optional key named \"$candidate\" was missing. Did you mean \"$candidate\"?", partial)
+                fun fuzzy(name: String, candidate: String, partial: Boolean = false) = Fuzzy(name, candidate, "Key named \"$name\" was unexpected. Did you mean \"$candidate\"?", partial)
             }
         }
 

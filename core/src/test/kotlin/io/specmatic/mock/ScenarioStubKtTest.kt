@@ -1043,7 +1043,7 @@ paths:
                     }""".trimIndent(),
                     """
                     >> supposed-to-be-http-request
-                    Missing mandatory key named "http-request" as per example format. Did you mean "http-request"?
+                    Key named "supposed-to-be-http-request" is invalid. Did you mean "http-request"?
                     """.trimIndent()
                 ),
                 Arguments.of("""{
@@ -1052,7 +1052,7 @@ paths:
                     }""".trimIndent(),
                     """
                     >> supposed-to-be-http-response 
-                    Missing mandatory key named "http-response" as per example format. Did you mean "http-response"?
+                    Key named "supposed-to-be-http-response" is invalid. Did you mean "http-response"?
                     """.trimIndent()
                 ),
                 Arguments.of("""{
@@ -1061,7 +1061,7 @@ paths:
                     }""".trimIndent(),
                     """
                     >> http-request.supposed-to-be-method
-                    Missing mandatory key named "method" as per example format. Did you mean "method"?
+                    Key named "supposed-to-be-method" is invalid. Did you mean "method"?
                     """.trimIndent()
                 ),
                 Arguments.of("""{
@@ -1069,7 +1069,8 @@ paths:
                     "http-response": { "status": 200 }
                     }""".trimIndent(),
                     """
-                    >> http-request.body Should be non-null value as per example format, but got null in the actual example
+                    >> http-request.body
+                    Should be non-null value as per example format, but got null in the actual example
                     """.trimIndent()
                 ),
                 Arguments.of("""{
@@ -1078,7 +1079,7 @@ paths:
                     }""".trimIndent(),
                     """
                     >> http-response.supposed-to-be-status
-                    Missing mandatory key named "status" as per example format. Did you mean "status"?
+                    Key named "supposed-to-be-status" is invalid. Did you mean "status"?
                     """.trimIndent()
                 ),
                 Arguments.of("""{
@@ -1086,7 +1087,8 @@ paths:
                     "http-response": { "status": 200,  body: null }
                     }""".trimIndent(),
                     """
-                    >> http-response.body Should be non-null value as per example format, but got null in the actual example
+                    >> http-response.body
+                    Should be non-null value as per example format, but got null in the actual example
                     """.trimIndent()
                 )
             )

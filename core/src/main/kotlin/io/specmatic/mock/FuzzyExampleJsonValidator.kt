@@ -28,7 +28,7 @@ object FuzzyExampleMisMatchMessages : MismatchMessages {
     }
 
     override fun unexpectedKey(keyLabel: String, keyName: String): String {
-        return "${keyLabel.lowercase().capitalizeFirstChar()} named \"$keyName\" is invalid as per example format"
+        return "${keyLabel.lowercase().capitalizeFirstChar()} named \"$keyName\" is invalid"
     }
 
     override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
