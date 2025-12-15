@@ -37,7 +37,7 @@ data class OpenAPICoverageConsoleReport(
 
         val countOfEndpointsHitThatArePresentInSpec = coverageRows.count { it.count.toInt() > 0 && it.remarks != CoverageStatus.MISSING_IN_SPEC }
 
-        return ((countOfEndpointsHitThatArePresentInSpec * 100) / countOfEndpointsPresentInSpec).toDouble().roundToInt()
+        return ((countOfEndpointsHitThatArePresentInSpec * 100) / countOfEndpointsPresentInSpec.toDouble()).roundToInt()
     }
 
     fun getGroupedTestResultRecords(testResultRecords: List<TestResultRecord>): GroupedTestResultRecords {
