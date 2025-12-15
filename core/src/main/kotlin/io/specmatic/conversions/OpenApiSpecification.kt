@@ -2382,7 +2382,7 @@ class OpenApiSpecification(
         val hasAdditionalProps = schema.additionalProperties != null && schema.additionalProperties != false
         if (hasProperties || hasAdditionalProps) return toJsonObjectPattern(schema, patternName, typeStack, breadCrumb)
 
-        logger.log("Unrecognized schema type: ${schema::class} with types: ${schema.types}, defaulting to AnyNonNullValue")
+        logger.debug("Unrecognized schema type: ${schema::class} with types: ${schema.types}, defaulting to AnyNonNullValue")
         return AnyNonNullJSONValue()
     }
 
