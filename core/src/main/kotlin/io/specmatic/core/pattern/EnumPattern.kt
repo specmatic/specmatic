@@ -39,7 +39,7 @@ private infix fun Boolean.yet(otherBooleanValue: Boolean): Boolean {
     return this && otherBooleanValue
 }
 
-data class EnumPattern(override val pattern: AnyPattern, val nullable: Boolean, val multiType: Boolean = false) : Pattern by pattern, ScalarType {
+data class EnumPattern(override val pattern: AnyPattern, val nullable: Boolean) : Pattern by pattern, ScalarType {
     constructor(
         values: List<Value>,
         key: String? = null,
@@ -47,7 +47,7 @@ data class EnumPattern(override val pattern: AnyPattern, val nullable: Boolean, 
         example: String? = null,
         nullable: Boolean = false,
         multiType: Boolean = false
-    ) : this (validEnumValues(values, key, typeAlias, example, nullable, multiType), nullable, multiType)
+    ) : this (validEnumValues(values, key, typeAlias, example, nullable, multiType), nullable)
 
     override fun resolveSubstitutions(
         substitution: Substitution,
