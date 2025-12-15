@@ -213,9 +213,9 @@ class ExampleValidationModuleTest {
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> REQUEST.BODY.name
+        >> partial.REQUEST.BODY.name
         Specification expected string but example contained 123 (number)
-        >> RESPONSE.BODY.id
+        >> partial.RESPONSE.BODY.id
         Specification expected number but example contained "abc"
         """.trimIndent())
     }
@@ -246,9 +246,9 @@ class ExampleValidationModuleTest {
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> REQUEST.BODY.name
+        >> partial.REQUEST.BODY.name
         Specification expected string but example contained number
-        >> RESPONSE.BODY.id
+        >> partial.RESPONSE.BODY.id
         Specification expected number but example contained string
         """.trimIndent())
     }
@@ -390,13 +390,13 @@ class ExampleValidationModuleTest {
         assertThat(partialValidExampleResult).isInstanceOf(Result.Success::class.java)
         assertThat(partialInvalidExampleResult).isInstanceOf(Result.Failure::class.java)
         assertThat(partialInvalidExampleResult.reportString()).isEqualToNormalizingWhitespace("""
-        >> RESPONSE.BODY[0].id
+        >> partial.RESPONSE.BODY[0].id
         Expected key named "id" was missing
-        >> RESPONSE.BODY[0].name
+        >> partial.RESPONSE.BODY[0].name
         Expected key named "name" was missing
-        >> RESPONSE.BODY[0].age
+        >> partial.RESPONSE.BODY[0].age
         Key named "age" was unexpected
-        >> RESPONSE.BODY[0].extra
+        >> partial.RESPONSE.BODY[0].extra
         Key named "extra" was unexpected
         """.trimIndent())
     }
@@ -452,9 +452,9 @@ class ExampleValidationModuleTest {
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> REQUEST.PARAMETERS.HEADER.EXTRA-HEADER
+        >> partial.REQUEST.PARAMETERS.HEADER.EXTRA-HEADER
         Header EXTRA-HEADER in the example is not in the specification
-        >> RESPONSE.HEADER.EXTRA-HEADER
+        >> partial.RESPONSE.HEADER.EXTRA-HEADER
         Header EXTRA-HEADER in the example is not in the specification
         """.trimIndent())
     }

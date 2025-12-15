@@ -32,7 +32,7 @@ class ExampleModule {
                                 || breadCrumb.contains(BreadCrumb.REQUEST.plus(BreadCrumb.PARAM_HEADER).with(CONTENT_TYPE))
                                 || breadCrumb.contains("STATUS")
                     } || matchResult.hasReason(FailureReason.URLPathParamMismatchButSameStructure)
-                    if (isFailureRelatedToScenario) { example to matchResult } else null
+                    if (isFailureRelatedToScenario) { example to example.breadCrumbIfPartial(matchResult) } else null
                 }
             }
         }

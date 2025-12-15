@@ -9,6 +9,7 @@ import io.specmatic.core.lifecycle.ExamplesUsedFor
 import io.specmatic.core.lifecycle.LifecycleHooks
 import io.specmatic.core.log.logger
 import io.specmatic.core.value.NullValue
+import io.specmatic.mock.PARTIAL
 import io.specmatic.mock.ScenarioStub
 import java.io.File
 
@@ -69,7 +70,9 @@ class ExampleValidationModule {
             mismatchMessages = InteractiveExamplesMismatchMessages,
             isPartial = example.isPartial()
         ).toResultIfAnyWithCauses()
-        return Result.fromResults(listOf(example.validationErrors, scenarioResult))
+
+        val scenarioResultWithBreadCrumb = example.breadCrumbIfPartial(scenarioResult)
+        return Result.fromResults(listOf(example.validationErrors, scenarioResultWithBreadCrumb))
     }
 
     private fun validateExample(feature: Feature, schemaExample: SchemaExample): Result {
@@ -108,5 +111,13 @@ class ExampleValidationModule {
             ExamplesUsedFor.Validation,
             listOf(Pair(feature, scenarioStubs))
         )
+    }
+}
+
+internal fun ExampleFromFile.breadCrumbIfPartial(result: Result): Result {
+    return if (isPartial()) {
+        result.breadCrumb(PARTIAL)
+    } else {
+        result
     }
 }
