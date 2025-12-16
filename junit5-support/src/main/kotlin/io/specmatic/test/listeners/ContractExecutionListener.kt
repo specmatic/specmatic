@@ -4,6 +4,7 @@ import io.specmatic.core.log.logger
 import io.specmatic.test.SpecmaticJUnitSupport
 import org.junit.platform.engine.TestDescriptor
 import org.junit.platform.engine.TestExecutionResult
+import org.junit.platform.engine.TestExecutionResult.Status
 import org.junit.platform.launcher.TestExecutionListener
 import org.junit.platform.launcher.TestIdentifier
 import org.junit.platform.launcher.TestPlan
@@ -30,20 +31,16 @@ class ContractExecutionListener : TestExecutionListener {
 
         private val failedLog: MutableList<String> = mutableListOf()
         private var couldNotStart = false
+        private var testSuiteFailed = false
         private val exceptionsThrown = mutableListOf<Throwable>()
         private val printer: ContractExecutionPrinter = getContractExecutionPrinter()
 
         fun exitProcess() {
-            val exitStatus = when (failure != 0 || couldNotStart) {
-                true -> 1
-                false -> 0
-            }
-            exitProcess(exitStatus)
+            exitProcess(exitStatus())
         }
-    }
 
-    override fun executionSkipped(testIdentifier: TestIdentifier?, reason: String?) {
-        super.executionSkipped(testIdentifier, reason)
+        internal fun exitStatus(): Int = if (testSuiteFailed || couldNotStart) 1 else 0
+
     }
 
     override fun executionFinished(testIdentifier: TestIdentifier?, testExecutionResult: TestExecutionResult?) {
@@ -53,7 +50,10 @@ class ContractExecutionListener : TestExecutionListener {
 
             testExecutionResult?.let {
                 it.throwable?.ifPresent { throwable -> exceptionsThrown.add(throwable) }
-                couldNotStart = it.status != TestExecutionResult.Status.SUCCESSFUL
+                if (it.status != Status.SUCCESSFUL) {
+                    testSuiteFailed = true
+                    couldNotStart = couldNotStart || (success + failure + aborted == 0)
+                }
             }
 
             return
@@ -61,8 +61,8 @@ class ContractExecutionListener : TestExecutionListener {
 
         printer.printTestSummary(testIdentifier, testExecutionResult)
 
-        when(testExecutionResult?.status) {
-            TestExecutionResult.Status.SUCCESSFUL ->  {
+        when (testExecutionResult?.status) {
+            TestExecutionResult.Status.SUCCESSFUL -> {
                 success++
                 println()
             }
