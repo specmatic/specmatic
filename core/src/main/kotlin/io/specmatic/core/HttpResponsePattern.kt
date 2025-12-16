@@ -64,8 +64,10 @@ data class HttpResponsePattern(
             ::matchExactResponseBodyValue then
             ::summarize otherwise
             ::handleError toResult
-            ::returnResult
+            ::addContext
     }
+
+    private fun addContext(result: Result): Result = result.withRuleViolationContext(StandardRuleViolationContext.RESPONSE)
 
     fun withResponseExampleValue(row: Row, resolver: Resolver): HttpResponsePattern =
         attempt(breadCrumb = "RESPONSE") {
