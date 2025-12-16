@@ -9,4 +9,10 @@ enum class StandardRuleViolationSegment(override val id: String): RuleViolationS
     TypeMismatch(id = "type-mismatch"),
     PatternMismatch(id = "pattern-mismatch"),
     ConstraintViolation(id = "constraint-violation"),
+
+    MissingMandatoryKey(id = "missing-mandatory-key"),
+    FuzzyMatchMissingMandatoryKey(id = "missing-mandatory-key-fuzzy"),
+    MissingOptionalKey(id = "missing-optional-key"),
+    FuzzyMatchMissingOptionalKey(id = "missing-optional-key-fuzzy"),
+    UnknownKey(id = "unknown-key"),
 }

@@ -1261,7 +1261,7 @@ fun fakeHttpResponse(
 fun responseDetailsFrom(features: List<Feature>, httpRequest: HttpRequest): List<ResponseDetails> {
     return features.asSequence().map { feature ->
         feature.stubResponse(httpRequest, ContractAndRequestsMismatch).let {
-            ResponseDetails(feature, it.first, it.second)
+            ResponseDetails(feature, it.first, it.second.withContext(StandardRuleViolationContext.STUB))
         }
     }.toList()
 }
