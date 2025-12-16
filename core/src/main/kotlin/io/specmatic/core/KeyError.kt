@@ -17,15 +17,25 @@ data class MissingKeyError(override val name: String) : KeyError {
     override val canonicalKey: String = name
 
     override fun missingKeyToResult(keyLabel: String, mismatchMessages: MismatchMessages): Failure {
-        return Failure(mismatchMessages.expectedKeyWasMissing(keyLabel, name))
+        return Failure(
+            message = mismatchMessages.expectedKeyWasMissing(keyLabel, name),
+            ruleViolationSegment = StandardRuleViolationSegment.MissingMandatoryKey
+        )
     }
 
     override fun missingOptionalKeyToResult(keyLabel: String, mismatchMessages: MismatchMessages): Failure {
-        return Failure(mismatchMessages.optionalKeyMissing(keyLabel, name), isPartial = true)
+        return Failure(
+            message = mismatchMessages.optionalKeyMissing(keyLabel, name),
+            ruleViolationSegment = StandardRuleViolationSegment.MissingOptionalKey,
+            isPartial = true
+        )
     }
 
     override fun unknownKeyToResult(keyLabel: String, mismatchMessages: MismatchMessages): Failure {
-        return Failure(mismatchMessages.unexpectedKey(keyLabel, name))
+        return Failure(
+            message = mismatchMessages.unexpectedKey(keyLabel, name),
+            ruleViolationSegment = StandardRuleViolationSegment.UnknownKey
+        )
     }
 }
 
@@ -33,15 +43,18 @@ data class UnexpectedKeyError(override val name: String) : KeyError {
     override val canonicalKey: String = name
 
     override fun missingKeyToResult(keyLabel: String, mismatchMessages: MismatchMessages): Failure {
-        return Failure(mismatchMessages.unexpectedKey(keyLabel, name))
+        return missingOptionalKeyToResult(keyLabel, mismatchMessages)
     }
 
     override fun missingOptionalKeyToResult(keyLabel: String, mismatchMessages: MismatchMessages): Failure {
-        return Failure(mismatchMessages.unexpectedKey(keyLabel, name))
+        return unknownKeyToResult(keyLabel, mismatchMessages)
     }
 
     override fun unknownKeyToResult(keyLabel: String, mismatchMessages: MismatchMessages): Failure {
-        return Failure(mismatchMessages.unexpectedKey(keyLabel, name))
+        return Failure(
+            message = mismatchMessages.unexpectedKey(keyLabel, name),
+            ruleViolationSegment = StandardRuleViolationSegment.UnknownKey
+        )
     }
 }
 
@@ -49,13 +62,18 @@ data class FuzzyKeyError(override val name: String, private val candidate: Strin
     override val canonicalKey: String = candidate
 
     override fun missingKeyToResult(keyLabel: String, mismatchMessages: MismatchMessages): Failure {
-        val msg = mismatchMessages.unexpectedKey(keyLabel, name) + ". Did you mean \"$candidate\"?"
-        return Failure(msg)
+        return Failure(
+            message = mismatchMessages.unexpectedKey(keyLabel, name) + ". Did you mean \"$candidate\"?",
+            ruleViolationSegment = StandardRuleViolationSegment.FuzzyMatchMissingMandatoryKey
+        )
     }
 
     override fun missingOptionalKeyToResult(keyLabel: String, mismatchMessages: MismatchMessages): Failure {
-        val msg = mismatchMessages.unexpectedKey(keyLabel, name) + ". Did you mean \"$candidate\"?"
-        return Failure(msg, isPartial = treatOptionalAsWarning)
+        return Failure(
+            message = mismatchMessages.unexpectedKey(keyLabel, name) + ". Did you mean \"$candidate\"?",
+            ruleViolationSegment = StandardRuleViolationSegment.FuzzyMatchMissingOptionalKey,
+            isPartial = treatOptionalAsWarning,
+        )
     }
 
     override fun unknownKeyToResult(keyLabel: String, mismatchMessages: MismatchMessages): Failure {
