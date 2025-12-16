@@ -8,10 +8,13 @@ data class FailureReport(val contractPath: String?, private val scenarioMessage:
     }
 
     fun breadCrumbs(): String {
-        if(matchFailureDetailList.size != 1)
-            return ""
-
+        if(matchFailureDetailList.size != 1) return ""
         return breadCrumbString(matchFailureDetailList.first().breadCrumbs)
+    }
+
+    fun ruleViolationId(): RuleViolationId? {
+        if(matchFailureDetailList.size != 1) return null
+        return matchFailureDetailList.first().ruleViolationId
     }
 
     override fun toText(): String {
@@ -41,17 +44,18 @@ data class FailureReport(val contractPath: String?, private val scenarioMessage:
     }
 
     private fun matchFailureDetails(matchFailureDetails: MatchFailureDetails): String {
-        val (breadCrumbs, errorMessages) = matchFailureDetails
-
-        val breadCrumbString = startOfBreadCrumbPrefix(breadCrumbString(breadCrumbs))
-
-        val errorMessagesString = errorMessagesToString(errorMessages)
-
-        return listOf(breadCrumbString, errorMessagesString.prependIndent("   ")).filter { it.isNotBlank() }.joinToString("${System.lineSeparator()}${System.lineSeparator()}")
+        val breadCrumbString = startOfBreadCrumbPrefix(breadCrumbString(matchFailureDetails.breadCrumbs))
+        val errorMessageString = errorMessagesToString(matchFailureDetails.errorMessages).prependIndent("   ")
+        val ruleViolationString = ruleViolationIdToString(matchFailureDetails.ruleViolationId)?.prependIndent("   ")
+        return listOf(breadCrumbString, ruleViolationString, errorMessageString).mapNotNull {
+            it?.takeIf(String::isNotBlank)
+        }.joinToString("\n\n")
     }
 
     private fun errorMessagesToString(errorMessages: List<String>) =
         errorMessages.map { it.trim() }.filter { it.isNotEmpty() }.joinToString("\n")
+
+    private fun ruleViolationIdToString(ruleViolationId: RuleViolationId?) = ruleViolationId?.finalizeRuleId()?.takeIf(String::isNotBlank)
 
     private fun breadCrumbString(breadCrumbs: List<String>): String {
         return breadCrumbs
