@@ -35,12 +35,12 @@ class EmailPattern (private val stringPatternDelegate: StringPattern, val exampl
         if (sampleData?.hasTemplate() == true)
             return Result.Success()
 
-        if (sampleData !is StringValue) return dataTypeMismatchResult("email string", sampleData, resolver.mismatchMessages)
+        if (sampleData !is StringValue) return dataTypeMismatchResult(this, sampleData, resolver.mismatchMessages)
         val email = sampleData.toStringLiteral()
         return if (emailRegex.matches(email)) {
             Result.Success()
         } else {
-            valueMismatchResult("email string", sampleData, resolver.mismatchMessages)
+            valueMismatchResult(this.typeName, sampleData, resolver.mismatchMessages)
         }
     }
 

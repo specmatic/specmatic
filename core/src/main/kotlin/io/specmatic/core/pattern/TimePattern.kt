@@ -2,7 +2,7 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
-import io.specmatic.core.StandardRuleViolationSegment
+import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.JSONArrayValue
@@ -15,12 +15,12 @@ object TimePattern : Pattern, ScalarType {
             return Result.Success()
 
         return when (sampleData) {
-            is StringValue -> resultOfParse(errorMessage = "Invalid Time Format") {
+            is StringValue -> resultOf(ruleViolation = StandardRuleViolation.VALUE_MISMATCH) {
                 parse(sampleData.string, resolver)
                 Result.Success()
             }
 
-            else -> dataTypeMismatchResult("time string", sampleData, resolver.mismatchMessages)
+            else -> dataTypeMismatchResult(this, sampleData, resolver.mismatchMessages)
         }
     }
 
@@ -38,7 +38,7 @@ object TimePattern : Pattern, ScalarType {
         return scalarAnnotation(this, sequenceOf(StringPattern(), NumberPattern(), BooleanPattern(), NullPattern))
     }
 
-    override fun parse(value: String, resolver: Resolver): StringValue = attempt(ruleViolationSegment = StandardRuleViolationSegment.ParseFailure) {
+    override fun parse(value: String, resolver: Resolver): StringValue = attemptParse(this, value, resolver.mismatchMessages) {
         ISO8601.validatedStringValue(value)
     }
 

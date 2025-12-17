@@ -8,7 +8,6 @@ import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
 import io.specmatic.core.Scenario
-import io.specmatic.core.StandardRuleViolationContext
 import io.specmatic.core.ValidateUnexpectedKeys
 import io.specmatic.core.Workflow
 import io.specmatic.core.log.HttpLogMessage
@@ -188,19 +187,20 @@ data class ScenarioAsTest(
         testScenario: Scenario,
         flagsBased: FlagsBased
     ): Result {
-        val result = testScenario.matchesResponse(
-            request,
-            response,
-            ContractAndResponseMismatch,
-            flagsBased.unexpectedKeyCheck ?: ValidateUnexpectedKeys,
-        )
+        val result =
+            testScenario.matchesResponse(
+                request,
+                response,
+                ContractAndResponseMismatch,
+                flagsBased.unexpectedKeyCheck ?: ValidateUnexpectedKeys,
+            )
 
         if (result is Result.Success && result.isPartialSuccess()) {
             logger.log("    PARTIAL SUCCESS: ${result.partialSuccessMessage}")
             logger.newLine()
         }
 
-        return result.withRuleViolationContext(StandardRuleViolationContext.TEST)
+        return result
     }
 
     private fun HttpResponse.getResponseHandlerIfExists(): ResponseHandler? {

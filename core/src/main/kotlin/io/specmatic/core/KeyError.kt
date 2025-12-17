@@ -19,14 +19,14 @@ data class MissingKeyError(override val name: String) : KeyError {
     override fun missingKeyToResult(keyLabel: String, mismatchMessages: MismatchMessages): Failure {
         return Failure(
             message = mismatchMessages.expectedKeyWasMissing(keyLabel, name),
-            ruleViolationSegment = StandardRuleViolationSegment.MissingMandatoryKey
+            ruleViolation = StandardRuleViolation.REQUIRED_PROPERTY_MISSING
         )
     }
 
     override fun missingOptionalKeyToResult(keyLabel: String, mismatchMessages: MismatchMessages): Failure {
         return Failure(
             message = mismatchMessages.optionalKeyMissing(keyLabel, name),
-            ruleViolationSegment = StandardRuleViolationSegment.MissingOptionalKey,
+            ruleViolation = StandardRuleViolation.OPTIONAL_PROPERTY_MISSING,
             isPartial = true
         )
     }
@@ -34,7 +34,7 @@ data class MissingKeyError(override val name: String) : KeyError {
     override fun unknownKeyToResult(keyLabel: String, mismatchMessages: MismatchMessages): Failure {
         return Failure(
             message = mismatchMessages.unexpectedKey(keyLabel, name),
-            ruleViolationSegment = StandardRuleViolationSegment.UnknownKey
+            ruleViolation = StandardRuleViolation.UNKNOWN_KEY
         )
     }
 }
@@ -53,7 +53,7 @@ data class UnexpectedKeyError(override val name: String) : KeyError {
     override fun unknownKeyToResult(keyLabel: String, mismatchMessages: MismatchMessages): Failure {
         return Failure(
             message = mismatchMessages.unexpectedKey(keyLabel, name),
-            ruleViolationSegment = StandardRuleViolationSegment.UnknownKey
+            ruleViolation = StandardRuleViolation.UNKNOWN_KEY
         )
     }
 }
@@ -64,14 +64,14 @@ data class FuzzyKeyError(override val name: String, private val candidate: Strin
     override fun missingKeyToResult(keyLabel: String, mismatchMessages: MismatchMessages): Failure {
         return Failure(
             message = mismatchMessages.unexpectedKey(keyLabel, name) + ". Did you mean \"$candidate\"?",
-            ruleViolationSegment = StandardRuleViolationSegment.FuzzyMatchMissingMandatoryKey
+            ruleViolation = StandardRuleViolation.REQUIRED_PROPERTY_MISSING
         )
     }
 
     override fun missingOptionalKeyToResult(keyLabel: String, mismatchMessages: MismatchMessages): Failure {
         return Failure(
             message = mismatchMessages.unexpectedKey(keyLabel, name) + ". Did you mean \"$candidate\"?",
-            ruleViolationSegment = StandardRuleViolationSegment.FuzzyMatchMissingOptionalKey,
+            ruleViolation = StandardRuleViolation.OPTIONAL_PROPERTY_MISSING,
             isPartial = treatOptionalAsWarning,
         )
     }

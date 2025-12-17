@@ -2,7 +2,7 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
-import io.specmatic.core.StandardRuleViolationSegment
+import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.JSONArrayValue
@@ -16,12 +16,12 @@ object UUIDPattern : Pattern, ScalarType {
             return Result.Success()
 
         return when (sampleData) {
-            is StringValue -> resultOfParse("Invalid UUID format") {
+            is StringValue -> resultOf(ruleViolation = StandardRuleViolation.VALUE_MISMATCH) {
                 parse(sampleData.string, resolver)
                 Result.Success()
             }
 
-            else -> return dataTypeMismatchResult("uuid string", sampleData, resolver.mismatchMessages)
+            else -> return dataTypeMismatchResult(this, sampleData, resolver.mismatchMessages)
         }
     }
 
@@ -35,11 +35,10 @@ object UUIDPattern : Pattern, ScalarType {
         return scalarAnnotation(this, sequenceOf(StringPattern(), NumberPattern(), BooleanPattern(), NullPattern))
     }
 
-    override fun parse(value: String, resolver: Resolver): StringValue =
-        attempt(ruleViolationSegment = StandardRuleViolationSegment.ParseFailure) {
-            UUID.fromString(value)
-            StringValue(value)
-        }
+    override fun parse(value: String, resolver: Resolver): StringValue = attemptParse(this, value, resolver.mismatchMessages) {
+        UUID.fromString(value)
+        StringValue(value)
+    }
 
     override fun encompasses(
         otherPattern: Pattern,

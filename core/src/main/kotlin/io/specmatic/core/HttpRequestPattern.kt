@@ -92,7 +92,7 @@ data class HttpRequestPattern(
                 ::returnResult
 
         return when (result) {
-            is Failure -> result.breadCrumb("REQUEST").withRuleViolationContext(StandardRuleViolationContext.REQUEST)
+            is Failure -> result.breadCrumb("REQUEST")
             else -> result
         }
     }

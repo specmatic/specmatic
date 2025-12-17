@@ -2,7 +2,6 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
-import io.specmatic.core.StandardRuleViolationSegment
 import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.JSONArrayValue
@@ -33,8 +32,8 @@ object NullPattern : Pattern, ScalarType {
         return scalarAnnotation(this, sequenceOf(StringPattern(), NumberPattern(), BooleanPattern()))
     }
 
-    override fun parse(value: String, resolver: Resolver): Value = attempt(ruleViolationSegment = StandardRuleViolationSegment.ParseFailure) {
-        if (resolver.isNegative) return@attempt NullValue
+    override fun parse(value: String, resolver: Resolver): Value = attemptParse(this, value, resolver.mismatchMessages) {
+        if (resolver.isNegative) return@attemptParse NullValue
         when(value.trim()) {
             NULL_TYPE -> NullValue
             "" -> NullValue

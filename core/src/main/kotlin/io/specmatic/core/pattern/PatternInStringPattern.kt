@@ -2,7 +2,7 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
-import io.specmatic.core.StandardRuleViolationSegment
+import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.patternMismatchResult
@@ -12,7 +12,7 @@ import io.specmatic.core.value.Value
 data class PatternInStringPattern(override val pattern: Pattern = StringPattern(), override val typeAlias: String? = null): Pattern {
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if (sampleData !is StringValue) return dataTypeMismatchResult(pattern, sampleData, resolver.mismatchMessages)
-        return resultOfParse(errorMessage = "Failed to parse value") {
+        return resultOf(ruleViolation = StandardRuleViolation.VALUE_MISMATCH) {
             val parsedValue = pattern.parse(sampleData.string, resolver)
             pattern.matches(parsedValue, resolver)
         }
@@ -36,7 +36,7 @@ data class PatternInStringPattern(override val pattern: Pattern = StringPattern(
         return sequenceOf(HasValue(NullPattern))
     }
 
-    override fun parse(value: String, resolver: Resolver): Value = attempt(ruleViolationSegment = StandardRuleViolationSegment.ParseFailure) {
+    override fun parse(value: String, resolver: Resolver): Value = attemptParse(this, value, resolver.mismatchMessages) {
         StringValue(pattern.parse(value, resolver).toStringLiteral())
     }
 

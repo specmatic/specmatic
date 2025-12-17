@@ -2,9 +2,7 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
-import io.specmatic.core.StandardRuleViolationSegment
 import io.specmatic.core.dataTypeMismatchResult
-import io.specmatic.core.parseFailureResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.BooleanValue
 import io.specmatic.core.value.JSONArrayValue
@@ -32,9 +30,9 @@ data class BooleanPattern(override val example: String? = null) : Pattern, Scala
         return scalarAnnotation(this, sequenceOf(StringPattern(), NumberPattern(), NullPattern))
     }
 
-    override fun parse(value: String, resolver: Resolver): Value = attempt(ruleViolationSegment = StandardRuleViolationSegment.ParseFailure) {
+    override fun parse(value: String, resolver: Resolver): Value = attemptParse(this, value, resolver.mismatchMessages) {
         when (value.lowercase()) {
-            !in listOf("true", "false") -> throw ContractException(parseFailureResult(BooleanPattern(), value, resolver.mismatchMessages).toFailureReport())
+            !in listOf("true", "false") -> throw ContractException("Must be true or false")
             else -> BooleanValue(value.toBoolean())
         }
     }

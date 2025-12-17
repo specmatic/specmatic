@@ -2,7 +2,6 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
-import io.specmatic.core.StandardRuleViolationSegment
 import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.valueMismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
@@ -57,8 +56,8 @@ data class Base64StringPattern(override val typeAlias: String? = null) : Pattern
     }
 
 
-    override fun parse(value: String, resolver: Resolver): Value = attempt(ruleViolationSegment = StandardRuleViolationSegment.ParseFailure) {
-        if (!Base64.isBase64(value)) throw ContractException("Expected a base64 string but got \"$value\"")
+    override fun parse(value: String, resolver: Resolver): Value = attemptParse(this, value, resolver.mismatchMessages) {
+        if (!Base64.isBase64(value)) throw ContractException("Must be a string of bytes (base64)")
         StringValue(value)
     }
 

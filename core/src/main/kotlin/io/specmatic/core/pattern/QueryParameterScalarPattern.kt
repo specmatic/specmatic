@@ -17,10 +17,10 @@ data class QueryParameterScalarPattern(override val pattern: Pattern): Pattern b
     }
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
-        if (sampleData == null) return dataTypeMismatchResult("scalar", sampleData, resolver.mismatchMessages)
+        if (sampleData == null) return dataTypeMismatchResult(pattern, sampleData, resolver.mismatchMessages)
         val sampleDataString = when (sampleData) {
             is ListValue -> {
-                if (sampleData.list.size > 1) return dataTypeMismatchResult("scalar", sampleData, resolver.mismatchMessages)
+                if (sampleData.list.size > 1) return dataTypeMismatchResult(pattern, sampleData, resolver.mismatchMessages)
                 sampleData.list.single().toStringLiteral()
             }
             else -> sampleData.toStringLiteral()
