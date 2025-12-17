@@ -7,14 +7,17 @@ data class FailureReport(val contractPath: String?, private val scenarioMessage:
         return errorMessagesToString(matchFailureDetailList.first().errorMessages)
     }
 
-    fun breadCrumbs(): String {
-        if(matchFailureDetailList.size != 1) return ""
-        return breadCrumbString(matchFailureDetailList.first().breadCrumbs)
+    fun getRuleViolationReport(): RuleViolationReport {
+        return matchFailureDetailList.fold(RuleViolationReport()) { acc, ruleViolations ->
+            acc.plus(ruleViolations.ruleViolationReport)
+        }
     }
 
-    fun ruleViolationId(): RuleViolationId? {
-        if(matchFailureDetailList.size != 1) return null
-        return matchFailureDetailList.first().ruleViolationId
+    fun breadCrumbs(): String {
+        if(matchFailureDetailList.size != 1)
+            return ""
+
+        return breadCrumbString(matchFailureDetailList.first().breadCrumbs)
     }
 
     override fun toText(): String {
@@ -46,7 +49,7 @@ data class FailureReport(val contractPath: String?, private val scenarioMessage:
     private fun matchFailureDetails(matchFailureDetails: MatchFailureDetails): String {
         val breadCrumbString = startOfBreadCrumbPrefix(breadCrumbString(matchFailureDetails.breadCrumbs))
         val errorMessageString = errorMessagesToString(matchFailureDetails.errorMessages).prependIndent("   ")
-        val ruleViolationString = ruleViolationIdToString(matchFailureDetails.ruleViolationId)?.prependIndent("   ")
+        val ruleViolationString = matchFailureDetails.ruleViolationReport?.toText()?.prependIndent("   ")
         return listOf(breadCrumbString, ruleViolationString, errorMessageString).mapNotNull {
             it?.takeIf(String::isNotBlank)
         }.joinToString("\n\n")
@@ -54,8 +57,6 @@ data class FailureReport(val contractPath: String?, private val scenarioMessage:
 
     private fun errorMessagesToString(errorMessages: List<String>) =
         errorMessages.map { it.trim() }.filter { it.isNotEmpty() }.joinToString("\n")
-
-    private fun ruleViolationIdToString(ruleViolationId: RuleViolationId?) = ruleViolationId?.finalizeRuleId()?.takeIf(String::isNotBlank)
 
     private fun breadCrumbString(breadCrumbs: List<String>): String {
         return breadCrumbs

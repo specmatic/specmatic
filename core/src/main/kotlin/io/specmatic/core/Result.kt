@@ -53,8 +53,7 @@ sealed class Result {
     abstract fun withBindings(bindings: Map<String, String>, response: HttpResponse): Result
     abstract fun breadCrumb(breadCrumb: String): Result
     abstract fun failureReason(failureReason: FailureReason?): Result
-    open fun withRuleViolationContext(ruleViolationContext: RuleViolationContext): Result = this
-    open fun withRuleViolationSegment(ruleViolationSegment: RuleViolationSegment): Result = this
+    open fun withRuleViolation(ruleViolation: RuleViolation): Result = this
 
     abstract fun shouldBeIgnored(): Boolean
 
@@ -117,20 +116,20 @@ sealed class Result {
         }
     }
 
-    data class Failure(val causes: List<FailureCause> = emptyList(), val breadCrumb: String = "", val failureReason: FailureReason? = null, val isPartial: Boolean = false, val ruleViolationId: RuleViolationId? = null) : Result() {
+    data class Failure(val causes: List<FailureCause> = emptyList(), val breadCrumb: String = "", val failureReason: FailureReason? = null, val isPartial: Boolean = false, val ruleViolationReport: RuleViolationReport? = null) : Result() {
         constructor(
             message: String = "",
             cause: Failure? = null,
             breadCrumb: String = "",
             failureReason: FailureReason? = null,
             isPartial: Boolean? = false,
-            ruleViolationSegment: RuleViolationSegment? = null
+            ruleViolation: RuleViolation? = null
         ) : this (
             causes = listOf(element = FailureCause(message, cause)),
             breadCrumb = breadCrumb,
             failureReason = failureReason,
             isPartial = isPartial ?: false,
-            ruleViolationId = ruleViolationSegment?.let(RuleViolationId::from)
+            ruleViolationReport = ruleViolation?.let(RuleViolationReport::from)
         )
 
         companion object {
@@ -242,7 +241,7 @@ sealed class Result {
                     }
 
                     when {
-                        ruleViolationId != null -> withBreadCrumbs.copy(ruleViolationId = ruleViolationId.plus(withBreadCrumbs.ruleViolationId))
+                        ruleViolationReport != null -> withBreadCrumbs.copy(ruleViolationReport = ruleViolationReport.plus(withBreadCrumbs.ruleViolationReport))
                         else -> withBreadCrumbs
                     }
                 }
@@ -255,14 +254,14 @@ sealed class Result {
 
         override fun isSuccess() = false
 
-        override fun withRuleViolationContext(ruleViolationContext: RuleViolationContext): Failure {
-            val ruleViolationId = this.ruleViolationId ?: RuleViolationId()
-            return copy(ruleViolationId = ruleViolationId.withContext(ruleViolationContext))
+        override fun withRuleViolation(ruleViolation: RuleViolation): Failure {
+            val ruleViolationReport = this.ruleViolationReport ?: RuleViolationReport()
+            return copy(ruleViolationReport = ruleViolationReport.withViolation(ruleViolation))
         }
 
-        override fun withRuleViolationSegment(ruleViolationSegment: RuleViolationSegment): Failure {
-            val ruleViolationId = this.ruleViolationId ?: RuleViolationId()
-            return copy(ruleViolationId = ruleViolationId.withViolation(ruleViolationSegment))
+        fun withRuleViolationReport(ruleViolationReport: RuleViolationReport? = null): Failure {
+            if (this.ruleViolationReport == null) return copy(ruleViolationReport = ruleViolationReport)
+            return copy(ruleViolationReport = this.ruleViolationReport.plus(ruleViolationReport))
         }
 
         fun traverseFailureReason(): FailureReason? {
@@ -381,7 +380,7 @@ data class MatchFailureDetails(
     val errorMessages: List<String> = emptyList(),
     val path: String? = null,
     val isPartial: Boolean = false,
-    val ruleViolationId: RuleViolationId? = null
+    val ruleViolationReport: RuleViolationReport? = null
 )
 
 interface MismatchMessages {
@@ -422,12 +421,9 @@ object DefaultMismatchMessages: MismatchMessages {
 private fun mismatchFailure(
     expected: String,
     actual: String,
-    segment: RuleViolationSegment,
-    mismatchMessages: MismatchMessages
-): Failure = Failure(
-    message = mismatchMessages.mismatchMessage(expected, actual),
-    ruleViolationSegment = segment
-)
+    mismatchMessages: MismatchMessages,
+    ruleViolation: RuleViolation,
+): Failure = Failure(message = mismatchMessages.mismatchMessage(expected, actual), ruleViolation = ruleViolation)
 
 fun valueError(value: Value?): String? = value?.valueErrorSnippet()
 
@@ -436,7 +432,7 @@ fun valueMismatchResult(
     expected: String,
     actual: String,
     mismatchMessages: MismatchMessages = DefaultMismatchMessages
-): Failure = Failure(message = mismatchMessages.mismatchMessage(expected, actual), ruleViolationSegment = StandardRuleViolationSegment.ValueMismatch)
+): Failure = mismatchFailure(expected, actual, mismatchMessages, ruleViolation = StandardRuleViolation.VALUE_MISMATCH)
 
 fun valueMismatchResult(
     expected: String,
@@ -455,7 +451,7 @@ fun dataTypeMismatchResult(
     expected: Pattern,
     actual: String,
     mismatchMessages: MismatchMessages = DefaultMismatchMessages
-): Failure = mismatchFailure(expected.typeName, actual, StandardRuleViolationSegment.TypeMismatch, mismatchMessages)
+): Failure = mismatchFailure(expected.typeName, actual, mismatchMessages, StandardRuleViolation.TYPE_MISMATCH)
 
 fun dataTypeMismatchResult(
     pattern: Pattern,
@@ -467,14 +463,14 @@ fun dataTypeMismatchResult(
     expected: String,
     sampleData: Value?,
     mismatchMessages: MismatchMessages = DefaultMismatchMessages
-): Failure = mismatchFailure(expected, valueError(sampleData) ?: "null", StandardRuleViolationSegment.TypeMismatch, mismatchMessages)
+): Failure = mismatchFailure(expected, valueError(sampleData) ?: "null", mismatchMessages, StandardRuleViolation.TYPE_MISMATCH)
 
 // Constraint Mismatch
 fun constraintMismatchResult(
     expected: String,
     actual: String,
     mismatchMessages: MismatchMessages = DefaultMismatchMessages
-): Failure = Failure(message = mismatchMessages.mismatchMessage(expected, actual), ruleViolationSegment = StandardRuleViolationSegment.ConstraintViolation)
+): Failure = Failure(message = mismatchMessages.mismatchMessage(expected, actual), ruleViolation = StandardRuleViolation.CONSTRAINT_VIOLATION)
 
 fun constraintMismatchResult(
     expected: String,
@@ -487,11 +483,5 @@ fun patternMismatchResult(
     thisPattern: Pattern,
     otherPattern: Pattern,
     mismatchMessages: MismatchMessages = DefaultMismatchMessages
-): Failure = mismatchFailure(thisPattern.typeName, otherPattern.typeName, StandardRuleViolationSegment.PatternMismatch, mismatchMessages)
+): Failure = Failure(message = mismatchMessages.mismatchMessage(thisPattern.typeName, otherPattern.typeName))
 
-// Parse Failure Result
-fun parseFailureResult(
-    pattern: Pattern,
-    sampleData: String,
-    mismatchMessages: MismatchMessages = DefaultMismatchMessages
-): Failure = Failure(message = mismatchMessages.mismatchMessage(pattern.typeName, sampleData), ruleViolationSegment = StandardRuleViolationSegment.ParseFailure)

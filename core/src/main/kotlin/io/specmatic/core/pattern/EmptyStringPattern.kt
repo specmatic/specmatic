@@ -2,7 +2,6 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
-import io.specmatic.core.StandardRuleViolationSegment
 import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.valueMismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
@@ -25,10 +24,10 @@ object EmptyStringPattern : Pattern {
         return sequenceOf(HasValue(this))
     }
 
-    override fun parse(value: String, resolver: Resolver): Value = attempt(ruleViolationSegment = StandardRuleViolationSegment.ParseFailure) {
+    override fun parse(value: String, resolver: Resolver): Value = attemptParse(this, value, resolver.mismatchMessages) {
         when {
             value.isEmpty() -> EmptyString
-            else -> throw ContractException("""No data was expected, but got "$value" instead""")
+            else -> throw ContractException("No data was expected")
         }
     }
 

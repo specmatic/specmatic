@@ -2,7 +2,7 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
-import io.specmatic.core.StandardRuleViolationSegment
+import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.valueMismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
@@ -17,7 +17,7 @@ data class URLPattern(val scheme: URLScheme = URLScheme.HTTPS, override val type
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         return when (sampleData) {
             is StringValue -> {
-                resultOfParse(errorMessage = "Invalid URL Format") {
+                resultOf(ruleViolation = StandardRuleViolation.VALUE_MISMATCH) {
                     if (scheme.matches(parse(sampleData.string, resolver))) {
                         Result.Success()
                     } else {
@@ -25,7 +25,7 @@ data class URLPattern(val scheme: URLScheme = URLScheme.HTTPS, override val type
                     }
                 }
             }
-            else -> dataTypeMismatchResult("url string", sampleData, resolver.mismatchMessages)
+            else -> dataTypeMismatchResult(this, sampleData, resolver.mismatchMessages)
         }
     }
 
@@ -41,7 +41,7 @@ data class URLPattern(val scheme: URLScheme = URLScheme.HTTPS, override val type
         return newBasedOn(row, resolver)
     }
 
-    override fun parse(value: String, resolver: Resolver): StringValue = attempt(ruleViolationSegment = StandardRuleViolationSegment.ParseFailure) {
+    override fun parse(value: String, resolver: Resolver): StringValue = attemptParse(this, value, resolver.mismatchMessages) {
         StringValue(URI.create(value).toString())
     }
 

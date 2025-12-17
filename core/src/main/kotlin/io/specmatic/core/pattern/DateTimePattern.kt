@@ -2,13 +2,12 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
-import io.specmatic.core.StandardRuleViolationSegment
+import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
-
 
 object DateTimePattern : Pattern, ScalarType {
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
@@ -16,11 +15,11 @@ object DateTimePattern : Pattern, ScalarType {
             return Result.Success()
 
         return when (sampleData) {
-            is StringValue -> resultOfParse(errorMessage = "Invalid Date-Time Format") {
+            is StringValue -> resultOf(ruleViolation = StandardRuleViolation.VALUE_MISMATCH) {
                 parse(sampleData.string, resolver)
                 Result.Success()
             }
-            else -> dataTypeMismatchResult("date-time string", sampleData, resolver.mismatchMessages)
+            else -> dataTypeMismatchResult(this, sampleData, resolver.mismatchMessages)
         }
     }
 
@@ -34,7 +33,7 @@ object DateTimePattern : Pattern, ScalarType {
         return scalarAnnotation(this, sequenceOf(StringPattern(), NumberPattern(), BooleanPattern(), NullPattern))
     }
 
-    override fun parse(value: String, resolver: Resolver): StringValue = attempt(ruleViolationSegment = StandardRuleViolationSegment.ParseFailure) {
+    override fun parse(value: String, resolver: Resolver): StringValue = attemptParse(this, value, resolver.mismatchMessages) {
         RFC3339.parse(value)
         StringValue(value)
     }
@@ -50,7 +49,7 @@ object DateTimePattern : Pattern, ScalarType {
     override val typeAlias: String?
         get() = null
 
-    override val typeName: String = "datetime"
+    override val typeName: String = "date-time"
 
     override val pattern = "(datetime)"
 

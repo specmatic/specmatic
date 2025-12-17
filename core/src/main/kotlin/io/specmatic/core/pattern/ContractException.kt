@@ -1,10 +1,14 @@
 package io.specmatic.core.pattern
 
 import io.specmatic.core.FailureReport
+import io.specmatic.core.MismatchMessages
 import io.specmatic.core.Result
-import io.specmatic.core.RuleViolationId
+import io.specmatic.core.RuleViolation
+import io.specmatic.core.RuleViolationReport
 import io.specmatic.core.ScenarioDetailsForResult
+import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.utilities.exceptionCauseMessage
+import io.specmatic.core.value.StringValue
 
 fun isCycle(throwable: Throwable?): Boolean = when(throwable) {
     is ContractException -> throwable.isCycle
@@ -17,12 +21,12 @@ data class ContractException(
     val exceptionCause: Throwable? = null,
     val scenario: ScenarioDetailsForResult? = null,
     val isCycle: Boolean = isCycle(exceptionCause),
-    val ruleViolationId: RuleViolationId? = null,
+    val ruleViolationReport: RuleViolationReport? = null,
 ) : Exception(errorMessage, exceptionCause) {
     constructor(failureReport: FailureReport) : this(
         errorMessage = failureReport.errorMessage(),
         breadCrumb = failureReport.breadCrumbs(),
-        ruleViolationId = failureReport.ruleViolationId()
+        ruleViolationReport = failureReport.getRuleViolationReport()
     )
 
     fun failure(): Result.Failure =
@@ -34,7 +38,7 @@ data class ContractException(
                 else -> null
             },
             breadCrumb = breadCrumb
-        ).copy(ruleViolationId = ruleViolationId).also { result ->
+        ).withRuleViolationReport(ruleViolationReport).also { result ->
             if (scenario != null) result.updateScenario(scenario)
         }
 
@@ -70,8 +74,21 @@ inline fun <ReturnType> scenarioBreadCrumb(scenario: ScenarioDetailsForResult, f
     }
 }
 
-fun resultOf(f: () -> Result): Result {
+fun <ReturnType> attemptParse(pattern: Pattern, value: String, mismatchMessages: MismatchMessages, f: ()->ReturnType): ReturnType {
+    try {
+        return f()
+    } catch (throwable: Throwable) {
+        throw ContractException(
+            errorMessage = dataTypeMismatchResult(pattern, StringValue(value), mismatchMessages).reportString(),
+            exceptionCause = throwable
+        )
+    }
+}
+
+fun resultOf(ruleViolation: RuleViolation? = null, f: () -> Result): Result {
     return try {
         f()
-    } catch(e: Throwable) { Result.Failure(e.localizedMessage) }
+    } catch(e: Throwable) {
+        Result.Failure(message = exceptionCauseMessage(e), ruleViolation = ruleViolation)
+    }
 }
