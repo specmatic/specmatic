@@ -3,7 +3,7 @@ package io.specmatic.core.pattern
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.Substitution
-import io.specmatic.core.utilities.exceptionCauseMessage
+import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.value.*
 
 data class QueryParameterScalarPattern(override val pattern: Pattern): Pattern by pattern, ScalarType {
@@ -17,23 +17,17 @@ data class QueryParameterScalarPattern(override val pattern: Pattern): Pattern b
     }
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
-        if(sampleData == null){
-            return Result.Failure("Null found, expected a scalar value")
-        }
+        if (sampleData == null) return dataTypeMismatchResult("scalar", sampleData, resolver.mismatchMessages)
         val sampleDataString = when (sampleData) {
             is ListValue -> {
-                if (sampleData.list.size > 1) return Result.Failure("Multiple values $sampleData found. Expected a single value")
+                if (sampleData.list.size > 1) return dataTypeMismatchResult("scalar", sampleData, resolver.mismatchMessages)
                 sampleData.list.single().toStringLiteral()
             }
             else -> sampleData.toStringLiteral()
         }
 
-        return try {
-            val parsedValue = runCatching { pattern.parse(sampleDataString, resolver) }.getOrDefault(StringValue(sampleDataString))
-            resolver.matchesPattern(null, pattern, parsedValue)
-        } catch (e: Throwable) {
-            Result.Failure(exceptionCauseMessage(e))
-        }
+        val parsedValue = runCatching { pattern.parse(sampleDataString, resolver) }.getOrDefault(StringValue(sampleDataString))
+        return resolver.matchesPattern(null, pattern, parsedValue)
     }
 
     override fun generate(resolver: Resolver): Value {

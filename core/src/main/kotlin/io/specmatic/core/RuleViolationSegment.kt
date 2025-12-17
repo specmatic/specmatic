@@ -7,6 +7,7 @@ interface RuleViolationSegment {
 enum class StandardRuleViolationSegment(override val id: String): RuleViolationSegment {
     ValueMismatch(id = "value-mismatch"),
     TypeMismatch(id = "type-mismatch"),
+    ParseFailure(id = "parse-failure"),
     PatternMismatch(id = "pattern-mismatch"),
     ConstraintViolation(id = "constraint-violation"),
 

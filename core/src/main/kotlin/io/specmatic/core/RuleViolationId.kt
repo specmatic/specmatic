@@ -19,7 +19,7 @@ data class RuleViolationId(private val ruleViolationContext: List<RuleViolationC
     fun finalizeRuleId(): String? {
         if (ruleViolationSegment.isEmpty()) return null
         val contextPrefix = canonicalContextPrefix()
-        val combinedRuleId = ruleViolationSegment.joinToString(RULE_VIOLATION_SEPARATOR) { it.id }
+        val combinedRuleId = ruleViolationSegment.canonicalizeSegments().joinToString(RULE_VIOLATION_SEPARATOR) { it.id }
         val fullRuleId = listOf(contextPrefix, combinedRuleId).filter(String::isNotBlank).joinToString(RULE_VIOLATION_SEPARATOR)
         return "rule: ${rulesDocumentationUrl(fullRuleId)}"
     }
@@ -27,6 +27,8 @@ data class RuleViolationId(private val ruleViolationContext: List<RuleViolationC
     private fun canonicalContextPrefix(): String = ruleViolationContext.canonicalizeContexts().joinToString(RULE_CONTEXT_SEPARATOR) { it.context }
 
     private fun List<RuleViolationContext>.canonicalizeContexts(): List<RuleViolationContext> = asReversed().distinctBy { it.groupId }.sortedBy { it.groupId }
+
+    private fun List<RuleViolationSegment>.canonicalizeSegments(): List<RuleViolationSegment> = asReversed().distinctBy { it.id }
 
     private fun rulesDocumentationUrl(ruleId: String): String = listOf(RULES_DOCUMENTATION_URL, ruleId).filter(String::isNotBlank).joinToString("#")
 

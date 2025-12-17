@@ -2,6 +2,8 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
+import io.specmatic.core.StandardRuleViolationSegment
+import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.StringValue
@@ -13,12 +15,12 @@ object TimePattern : Pattern, ScalarType {
             return Result.Success()
 
         return when (sampleData) {
-            is StringValue -> resultOf {
+            is StringValue -> resultOfParse(errorMessage = "Invalid Time Format") {
                 parse(sampleData.string, resolver)
                 Result.Success()
             }
 
-            else -> Result.Failure("Time types can only be represented using strings")
+            else -> dataTypeMismatchResult("time string", sampleData, resolver.mismatchMessages)
         }
     }
 
@@ -36,8 +38,8 @@ object TimePattern : Pattern, ScalarType {
         return scalarAnnotation(this, sequenceOf(StringPattern(), NumberPattern(), BooleanPattern(), NullPattern))
     }
 
-    override fun parse(value: String, resolver: Resolver): StringValue {
-        return ISO8601.validatedStringValue(value)
+    override fun parse(value: String, resolver: Resolver): StringValue = attempt(ruleViolationSegment = StandardRuleViolationSegment.ParseFailure) {
+        ISO8601.validatedStringValue(value)
     }
 
     override fun encompasses(otherPattern: Pattern, thisResolver: Resolver, otherResolver: Resolver, typeStack: TypeStack): Result {

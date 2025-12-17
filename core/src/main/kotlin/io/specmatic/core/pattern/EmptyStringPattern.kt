@@ -2,15 +2,19 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
-import io.specmatic.core.mismatchResult
+import io.specmatic.core.StandardRuleViolationSegment
+import io.specmatic.core.dataTypeMismatchResult
+import io.specmatic.core.valueMismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.patternMismatchResult
 import io.specmatic.core.value.*
 
 object EmptyStringPattern : Pattern {
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         return when (sampleData) {
             EmptyString -> Result.Success()
-            else -> mismatchResult("empty string", sampleData, resolver.mismatchMessages)
+            is StringValue -> valueMismatchResult("empty string", sampleData, resolver.mismatchMessages)
+            else -> dataTypeMismatchResult("string", sampleData, resolver.mismatchMessages)
         }
     }
 
@@ -21,16 +25,16 @@ object EmptyStringPattern : Pattern {
         return sequenceOf(HasValue(this))
     }
 
-    override fun parse(value: String, resolver: Resolver): Value {
-        return when {
+    override fun parse(value: String, resolver: Resolver): Value = attempt(ruleViolationSegment = StandardRuleViolationSegment.ParseFailure) {
+        when {
             value.isEmpty() -> EmptyString
             else -> throw ContractException("""No data was expected, but got "$value" instead""")
         }
     }
 
     override fun encompasses(otherPattern: Pattern, thisResolver: Resolver, otherResolver: Resolver, typeStack: TypeStack): Result {
-        if(otherPattern is EmptyStringPattern) return Result.Success()
-        return Result.Failure("No data was expected, but got \"${otherPattern.typeName}\" instead")
+        if (otherPattern is EmptyStringPattern) return Result.Success()
+        return patternMismatchResult(this, otherPattern, thisResolver.mismatchMessages)
     }
 
     override fun listOf(valueList: List<Value>, resolver: Resolver): Value {
