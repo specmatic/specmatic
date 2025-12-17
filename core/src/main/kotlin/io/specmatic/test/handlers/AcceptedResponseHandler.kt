@@ -39,9 +39,7 @@ class AcceptedResponseHandler(
     override fun canHandle(response: HttpResponse, scenario: Scenario): Boolean {
         if (response.status != HttpStatusCode.Accepted.value) return false
         if (!isMonitorLinkPresent(response)) return false
-        val isAcceptedResponsePossible = feature.isResponseStatusPossible(scenario, HttpStatusCode.Accepted.value)
-        val inCaseOfAcceptedAnyOther2xxExists = inCaseOfAcceptedAnyOther2xxExists()
-        return inCaseOfAcceptedAnyOther2xxExists && isAcceptedResponsePossible
+        return scenario.status == HttpStatusCode.Accepted.value
     }
 
     override fun handle(request: HttpRequest, response: HttpResponse, testScenario: Scenario, testExecutor: TestExecutor): ResponseHandlingResult {
