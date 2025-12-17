@@ -2,6 +2,9 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
+import io.specmatic.core.StandardRuleViolationSegment
+import io.specmatic.core.dataTypeMismatchResult
+import io.specmatic.core.valueMismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.StringValue
@@ -14,11 +17,15 @@ data class URLPattern(val scheme: URLScheme = URLScheme.HTTPS, override val type
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         return when (sampleData) {
             is StringValue -> {
-                if(scheme.matches(parse(sampleData.string, resolver))) {
-                    Result.Success()
-                } else Result.Failure("Expected ${sampleData.string} to be ${scheme.type}")
+                resultOfParse(errorMessage = "Invalid URL Format") {
+                    if (scheme.matches(parse(sampleData.string, resolver))) {
+                        Result.Success()
+                    } else {
+                        valueMismatchResult(scheme.type, sampleData.string)
+                    }
+                }
             }
-            else -> Result.Failure("URLs can only be held in strings.")
+            else -> dataTypeMismatchResult("url string", sampleData, resolver.mismatchMessages)
         }
     }
 
@@ -34,7 +41,9 @@ data class URLPattern(val scheme: URLScheme = URLScheme.HTTPS, override val type
         return newBasedOn(row, resolver)
     }
 
-    override fun parse(value: String, resolver: Resolver): StringValue = StringValue(URI.create(value).toString())
+    override fun parse(value: String, resolver: Resolver): StringValue = attempt(ruleViolationSegment = StandardRuleViolationSegment.ParseFailure) {
+        StringValue(URI.create(value).toString())
+    }
 
     override fun encompasses(otherPattern: Pattern, thisResolver: Resolver, otherResolver: Resolver, typeStack: TypeStack): Result {
         return when(otherPattern) {

@@ -393,10 +393,11 @@ interface MismatchMessages {
     }
 
     fun valueMismatchFailure(expected: String, actual: Value?, mismatchMessages: MismatchMessages = this): Failure {
-        return mismatchResult(expected, valueError(actual) ?: "null", mismatchMessages)
+        return valueMismatchResult(expected, valueError(actual) ?: "null", mismatchMessages)
     }
+
     fun valueMismatchFailure(expected: Value?, actual: Value?, mismatchMessages: MismatchMessages = this): Failure {
-        return mismatchResult(valueError(expected) ?: "null", valueError(actual) ?: "null", mismatchMessages)
+        return valueMismatchResult(valueError(expected) ?: "null", valueError(actual) ?: "null", mismatchMessages)
     }
 }
 
@@ -431,36 +432,42 @@ private fun mismatchFailure(
 fun valueError(value: Value?): String? = value?.valueErrorSnippet()
 
 // Value Mismatch Result
-fun mismatchResult(
+fun valueMismatchResult(
     expected: String,
     actual: String,
     mismatchMessages: MismatchMessages = DefaultMismatchMessages
 ): Failure = Failure(message = mismatchMessages.mismatchMessage(expected, actual), ruleViolationSegment = StandardRuleViolationSegment.ValueMismatch)
 
-fun mismatchResult(
+fun valueMismatchResult(
     expected: String,
     actual: Value?,
     mismatchMessages: MismatchMessages = DefaultMismatchMessages
 ): Failure = mismatchMessages.valueMismatchFailure(expected, actual, mismatchMessages)
 
-fun mismatchResult(
+fun valueMismatchResult(
     expected: Value,
     actual: Value?,
     mismatchMessages: MismatchMessages = DefaultMismatchMessages
 ): Failure = mismatchMessages.valueMismatchFailure(expected, actual, mismatchMessages)
 
 // Data Type Mismatch Result
-fun mismatchResult(
+fun dataTypeMismatchResult(
     expected: Pattern,
     actual: String,
     mismatchMessages: MismatchMessages = DefaultMismatchMessages
 ): Failure = mismatchFailure(expected.typeName, actual, StandardRuleViolationSegment.TypeMismatch, mismatchMessages)
 
-fun mismatchResult(
+fun dataTypeMismatchResult(
     pattern: Pattern,
     sampleData: Value?,
     mismatchMessages: MismatchMessages = DefaultMismatchMessages
-): Failure = mismatchResult(pattern, sampleData?.toStringLiteral() ?: "null", mismatchMessages)
+): Failure = dataTypeMismatchResult(pattern, valueError(sampleData) ?: "null", mismatchMessages)
+
+fun dataTypeMismatchResult(
+    expected: String,
+    sampleData: Value?,
+    mismatchMessages: MismatchMessages = DefaultMismatchMessages
+): Failure = mismatchFailure(expected, valueError(sampleData) ?: "null", StandardRuleViolationSegment.TypeMismatch, mismatchMessages)
 
 // Constraint Mismatch
 fun constraintMismatchResult(
@@ -469,9 +476,22 @@ fun constraintMismatchResult(
     mismatchMessages: MismatchMessages = DefaultMismatchMessages
 ): Failure = Failure(message = mismatchMessages.mismatchMessage(expected, actual), ruleViolationSegment = StandardRuleViolationSegment.ConstraintViolation)
 
+fun constraintMismatchResult(
+    expected: String,
+    actual: Value?,
+    mismatchMessages: MismatchMessages = DefaultMismatchMessages
+): Failure = constraintMismatchResult(expected, valueError(actual) ?: "null", mismatchMessages)
+
 // Pattern Mismatch Result
-fun mismatchResult(
+fun patternMismatchResult(
     thisPattern: Pattern,
     otherPattern: Pattern,
     mismatchMessages: MismatchMessages = DefaultMismatchMessages
 ): Failure = mismatchFailure(thisPattern.typeName, otherPattern.typeName, StandardRuleViolationSegment.PatternMismatch, mismatchMessages)
+
+// Parse Failure Result
+fun parseFailureResult(
+    pattern: Pattern,
+    sampleData: String,
+    mismatchMessages: MismatchMessages = DefaultMismatchMessages
+): Failure = Failure(message = mismatchMessages.mismatchMessage(pattern.typeName, sampleData), ruleViolationSegment = StandardRuleViolationSegment.ParseFailure)

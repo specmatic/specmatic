@@ -2,23 +2,20 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
-import io.specmatic.core.mismatchResult
+import io.specmatic.core.StandardRuleViolationSegment
+import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.patternMismatchResult
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
 data class PatternInStringPattern(override val pattern: Pattern = StringPattern(), override val typeAlias: String? = null): Pattern {
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
-        if(sampleData !is StringValue)
-            return mismatchResult(pattern, sampleData, resolver.mismatchMessages)
-
-        val value = try {
-            pattern.parse(sampleData.string, resolver)
-        } catch(e: Throwable) {
-            return Result.Failure("Could not parse ${sampleData.displayableValue()} to ${pattern.typeName}")
+        if (sampleData !is StringValue) return dataTypeMismatchResult(pattern, sampleData, resolver.mismatchMessages)
+        return resultOfParse(errorMessage = "Failed to parse value") {
+            val parsedValue = pattern.parse(sampleData.string, resolver)
+            pattern.matches(parsedValue, resolver)
         }
-
-        return pattern.matches(value, resolver)
     }
 
     override fun generate(resolver: Resolver): Value {
@@ -39,7 +36,9 @@ data class PatternInStringPattern(override val pattern: Pattern = StringPattern(
         return sequenceOf(HasValue(NullPattern))
     }
 
-    override fun parse(value: String, resolver: Resolver): Value = StringValue(pattern.parse(value, resolver).toStringLiteral())
+    override fun parse(value: String, resolver: Resolver): Value = attempt(ruleViolationSegment = StandardRuleViolationSegment.ParseFailure) {
+        StringValue(pattern.parse(value, resolver).toStringLiteral())
+    }
 
     override fun patternSet(resolver: Resolver): List<PatternInStringPattern> =
             pattern.patternSet(resolver).map { PatternInStringPattern(it) }
@@ -48,7 +47,7 @@ data class PatternInStringPattern(override val pattern: Pattern = StringPattern(
             when (otherPattern) {
                 is ExactValuePattern -> otherPattern.fitsWithin(patternSet(thisResolver), otherResolver, thisResolver, typeStack)
                 is PatternInStringPattern -> pattern.encompasses(otherPattern.pattern, otherResolver, thisResolver, typeStack)
-                else -> Result.Failure("Expected type in string type, got ${otherPattern.typeName}")
+                else -> patternMismatchResult(this, otherPattern, thisResolver.mismatchMessages)
             }
 
     override fun listOf(valueList: List<Value>, resolver: Resolver): Value {

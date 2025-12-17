@@ -2,7 +2,9 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
-import io.specmatic.core.mismatchResult
+import io.specmatic.core.StandardRuleViolationSegment
+import io.specmatic.core.dataTypeMismatchResult
+import io.specmatic.core.parseFailureResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.BooleanValue
 import io.specmatic.core.value.JSONArrayValue
@@ -16,7 +18,7 @@ data class BooleanPattern(override val example: String? = null) : Pattern, Scala
 
         return when (sampleData) {
             is BooleanValue -> Result.Success()
-            else -> mismatchResult("boolean", sampleData, resolver.mismatchMessages)
+            else -> dataTypeMismatchResult(this, sampleData, resolver.mismatchMessages)
         }
     }
 
@@ -30,10 +32,13 @@ data class BooleanPattern(override val example: String? = null) : Pattern, Scala
         return scalarAnnotation(this, sequenceOf(StringPattern(), NumberPattern(), NullPattern))
     }
 
-    override fun parse(value: String, resolver: Resolver): Value = when (value.lowercase()) {
-        !in listOf("true", "false") -> throw ContractException(mismatchResult(BooleanPattern(), value, resolver.mismatchMessages).toFailureReport())
-        else -> BooleanValue(value.toBoolean())
+    override fun parse(value: String, resolver: Resolver): Value = attempt(ruleViolationSegment = StandardRuleViolationSegment.ParseFailure) {
+        when (value.lowercase()) {
+            !in listOf("true", "false") -> throw ContractException(parseFailureResult(BooleanPattern(), value, resolver.mismatchMessages).toFailureReport())
+            else -> BooleanValue(value.toBoolean())
+        }
     }
+
     override fun encompasses(otherPattern: Pattern, thisResolver: Resolver, otherResolver: Resolver, typeStack: TypeStack): Result {
         return encompasses(this, otherPattern, thisResolver, otherResolver, typeStack)
     }
