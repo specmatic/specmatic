@@ -15,6 +15,7 @@ import io.specmatic.core.pattern.Examples
 import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.report.ReportGenerator
+import io.specmatic.core.report.SPEC_NOT_FOUND
 import io.specmatic.core.utilities.*
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_TIMEOUT
 import io.specmatic.core.utilities.Flags.Companion.getLongValue
@@ -202,7 +203,7 @@ open class SpecmaticJUnitSupport {
                     CtrfSpecConfig(
                         serviceType = it.serviceType.orEmpty(),
                         specType = "OPENAPI",
-                        specification = it.specification.orEmpty(),
+                        specification = it.specification ?: SPEC_NOT_FOUND,
                         sourceProvider = it.sourceProvider,
                         repository = it.sourceRepository,
                         branch = it.sourceRepositoryBranch ?: "main"
