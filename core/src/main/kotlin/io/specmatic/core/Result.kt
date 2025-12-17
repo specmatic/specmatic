@@ -394,10 +394,6 @@ interface MismatchMessages {
     fun valueMismatchFailure(expected: String, actual: Value?, mismatchMessages: MismatchMessages = this): Failure {
         return valueMismatchResult(expected, valueError(actual) ?: "null", mismatchMessages)
     }
-
-    fun valueMismatchFailure(expected: Value?, actual: Value?, mismatchMessages: MismatchMessages = this): Failure {
-        return valueMismatchResult(valueError(expected) ?: "null", valueError(actual) ?: "null", mismatchMessages)
-    }
 }
 
 object DefaultMismatchMessages: MismatchMessages {
@@ -418,7 +414,7 @@ object DefaultMismatchMessages: MismatchMessages {
     }
 }
 
-private fun mismatchFailure(
+fun mismatchFailure(
     expected: String,
     actual: String,
     mismatchMessages: MismatchMessages,
@@ -436,12 +432,6 @@ fun valueMismatchResult(
 
 fun valueMismatchResult(
     expected: String,
-    actual: Value?,
-    mismatchMessages: MismatchMessages = DefaultMismatchMessages
-): Failure = mismatchMessages.valueMismatchFailure(expected, actual, mismatchMessages)
-
-fun valueMismatchResult(
-    expected: Value,
     actual: Value?,
     mismatchMessages: MismatchMessages = DefaultMismatchMessages
 ): Failure = mismatchMessages.valueMismatchFailure(expected, actual, mismatchMessages)

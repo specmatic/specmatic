@@ -6,6 +6,38 @@ interface RuleViolation {
     val summary: String?
 }
 
+enum class OpenApiRuleViolation(override val id: String, override val title: String, override val summary: String? = null): RuleViolation {
+    PATH_MISMATCH(
+        id = "R0003",
+        title = "HTTP path mismatch",
+        summary = "The HTTP path does not match any path defined in the specification"
+    ),
+
+    METHOD_MISMATCH(
+        id = "R0001",
+        title = "HTTP method mismatch",
+        summary = "The HTTP method does not match the method defined in the specification"
+    ),
+
+    STATUS_MISMATCH(
+        id = "R0002",
+        title = "HTTP status mismatch",
+        summary = "The HTTP status code does not match the expected status code defined in the specification"
+    ),
+
+    SECURITY_SCHEME_MISMATCH(
+        id = "R0006",
+        title = "Security scheme mismatch",
+        summary = "The security scheme does not match the security scheme defined in the specification"
+    ),
+
+    NO_MATCHING_SECURITY_SCHEME(
+        id = "R0007",
+        title = "No matching security scheme",
+        summary = "The request does not satisfy the requirements of any defined security scheme"
+    ),
+}
+
 enum class StandardRuleViolation(override val id: String, override val title: String, override val summary: String? = null): RuleViolation {
     /* ---------------- Pattern → Value Rules ---------------- */
     TYPE_MISMATCH(
