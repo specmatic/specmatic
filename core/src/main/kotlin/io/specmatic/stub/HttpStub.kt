@@ -784,7 +784,8 @@ class HttpStub(
                     request = null,
                     response = null,
                     result = TestResult.NotCovered,
-                    specification = endpoint.specification.orEmpty()
+                    specification = endpoint.specification.orEmpty(),
+                    testType = STUB_TEST_TYPE
                 )
             }
         }
