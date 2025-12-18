@@ -1,6 +1,7 @@
 package io.specmatic.test.reports.coverage
 
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
+import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.API
 import io.specmatic.test.TestResultRecord
@@ -316,6 +317,10 @@ class OpenApiCoverageReportInputTest {
         assertThat(missingInSpecRow.path).isEqualTo("/current")
         assertThat(missingInSpecRow.method).isEqualTo("GET")
         assertThat(missingInSpecRow.responseStatus).isEqualTo("400")
+
+        // Assert that the responseStatus of testResultRecord's operation is updated
+        val missingInSpecTestResult = report.testResultRecords.single { it.result == TestResult.MissingInSpec }
+        assertThat(missingInSpecTestResult.operation).isEqualTo(OpenAPIOperation("/current", "GET", "", 400))
     }
 
     @Test
@@ -364,4 +369,5 @@ class OpenApiCoverageReportInputTest {
         assertThat(missingInSpecRow.method).isEqualTo("GET")
         assertThat(missingInSpecRow.responseStatus).isEqualTo("400")
     }
+
 }

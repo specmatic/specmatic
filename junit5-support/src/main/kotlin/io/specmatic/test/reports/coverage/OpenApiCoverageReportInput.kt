@@ -7,6 +7,7 @@ import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.reporter.generated.dto.coverage.CoverageEntry
 import io.specmatic.reporter.generated.dto.coverage.OpenAPICoverageOperation
 import io.specmatic.reporter.generated.dto.coverage.SpecmaticCoverageReport
+import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.API
 import io.specmatic.test.HttpInteractionsLog
@@ -293,6 +294,7 @@ class OpenApiCoverageReportInput(
 
     private fun createMissingInSpecRecordAndIncludeOriginalRecordIfApplicable(testResult: TestResultRecord): List<TestResultRecord> = listOfNotNull(
         testResult.copy(
+            operation = OpenAPIOperation(testResult.path, testResult.method, testResult.requestContentType.orEmpty(), testResult.actualResponseStatus),
             responseStatus = testResult.actualResponseStatus,
             result = TestResult.MissingInSpec,
             actualResponseStatus = testResult.actualResponseStatus
