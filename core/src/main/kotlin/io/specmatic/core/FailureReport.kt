@@ -38,6 +38,18 @@ data class FailureReport(val contractPath: String?, private val scenarioMessage:
         return report.trimIndent()
     }
 
+    override fun toErrors(): List<Error> {
+        return matchFailureDetailList.map { detail ->
+            Error (
+                path = BreadCrumbToJsonPathConverter().convert(detail.breadCrumbs),
+                breadCrumb = breadCrumbString(detail.breadCrumbs),
+                ruleViolations = detail.ruleViolationReport?.ruleViolations.orEmpty(),
+                details = errorMessagesToString(detail.errorMessages),
+                severity = if (detail.isPartial) ErrorSeverity.WARNING else ErrorSeverity.ERROR
+            )
+        }
+    }
+
     override fun toString(): String = toText()
 
     private fun matchFailureDetails(): String {

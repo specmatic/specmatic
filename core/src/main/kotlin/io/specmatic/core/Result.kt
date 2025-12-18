@@ -53,6 +53,7 @@ sealed class Result {
     abstract fun withBindings(bindings: Map<String, String>, response: HttpResponse): Result
     abstract fun breadCrumb(breadCrumb: String): Result
     abstract fun failureReason(failureReason: FailureReason?): Result
+    open fun toErrors(): List<Error> = emptyList()
     open fun withRuleViolation(ruleViolation: RuleViolation): Result = this
 
     abstract fun shouldBeIgnored(): Boolean
@@ -257,6 +258,10 @@ sealed class Result {
         override fun withRuleViolation(ruleViolation: RuleViolation): Failure {
             val ruleViolationReport = this.ruleViolationReport ?: RuleViolationReport()
             return copy(ruleViolationReport = ruleViolationReport.withViolation(ruleViolation))
+        }
+
+        override fun toErrors(): List<Error> {
+            return toFailureReport().toErrors()
         }
 
         fun withRuleViolationReport(ruleViolationReport: RuleViolationReport? = null): Failure {

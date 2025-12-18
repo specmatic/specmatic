@@ -6,4 +6,8 @@ object SuccessReport: Report {
     override fun toText(): String {
         return ""
     }
+
+    override fun toErrors(): List<Error> {
+        return emptyList()
+    }
 }
