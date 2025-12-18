@@ -2,7 +2,7 @@ package io.specmatic.core
 
 import io.specmatic.core.utilities.Flags
 
-data class RuleViolationReport(private val ruleViolations: List<RuleViolation> = emptyList()) {
+data class RuleViolationReport(val ruleViolations: List<RuleViolation> = emptyList()) {
     fun withViolation(violation: RuleViolation): RuleViolationReport {
         return copy(ruleViolations = ruleViolations.plus(violation))
     }
