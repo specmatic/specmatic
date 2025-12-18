@@ -20,6 +20,8 @@ object ReportGenerator {
         reportDir: File,
         getCoverageStatus: (List<CtrfTestResultRecord>) -> CoverageStatus
     ) {
+        validateCtrfSpecConfigs(specConfigs)
+
         val extra = buildMap<String, Any> {
             coverage?.let { put("apiCoverage", "$coverage%") }
             put("specmaticConfigPath", getConfigFilePath())
@@ -38,6 +40,13 @@ object ReportGenerator {
 
         ServiceLoader.load(ReportProvider::class.java).forEach { hook ->
             hook.generateReport(report, reportDir)
+        }
+    }
+
+    private fun validateCtrfSpecConfigs(specConfigs: List<CtrfSpecConfig>) {
+        if (specConfigs.isEmpty()) throw IllegalArgumentException("CtrfSpecConfigs cannot be empty")
+        if (specConfigs.any { it.specification.isBlank() }) {
+            throw IllegalArgumentException("The ctrf spec configs should not have an entry with blank specification.")
         }
     }
 }
