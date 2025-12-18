@@ -110,9 +110,7 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
         xmlValue.name.substringAfter(":") == this.pattern.name
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
-        if (sampleData !is XMLNode)
-            return Failure("Expected xml, got ${sampleData?.displayableType()}").breadCrumb(pattern.name)
-
+        if (sampleData !is XMLNode) return dataTypeMismatchResult(this, sampleData, resolver.mismatchMessages).breadCrumb(pattern.name)
         return matchesXMLNode(sampleData, resolver)
     }
 
@@ -159,7 +157,7 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
             }
             else -> {
                 if (sampleDataWithoutEmptyHeader.childNodes.size != 1) {
-                    return mismatchResult("single node", sampleDataWithoutEmptyHeader, resolver.mismatchMessages)
+                    return valueMismatchResult("single node", sampleDataWithoutEmptyHeader, resolver.mismatchMessages)
                 }
 
                 val valueToMatch = matchingType.parse(sampleDataWithoutEmptyHeader.firstChild().toStringLiteral(), resolver)
@@ -319,7 +317,7 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
 
     private fun matchName(sampleData: XMLNode, resolver: Resolver): Result {
         if (sampleData.name != pattern.name)
-            return mismatchResult(pattern.name, sampleData.name, resolver.mismatchMessages)
+            return valueMismatchResult(pattern.name, sampleData.name, resolver.mismatchMessages)
 
         return Success()
     }
@@ -602,7 +600,7 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
 
                 failureResult ?: provisionalFailure(results) ?: Success()
             }
-            else -> mismatchResult(this, otherResolvedPattern, thisResolver.mismatchMessages)
+            else -> patternMismatchResult(this, otherResolvedPattern, thisResolver.mismatchMessages)
         }.breadCrumb(this.pattern.name)
     }
 

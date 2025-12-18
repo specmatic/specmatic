@@ -327,17 +327,26 @@ data class JSONObjectPattern(
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         val resolverWithNullType = withNullPattern(resolver)
-        if (sampleData !is JSONObjectValue)
-            return mismatchResult("JSON object", sampleData, resolver.mismatchMessages)
+        if (sampleData !is JSONObjectValue) return dataTypeMismatchResult(this, sampleData, resolver.mismatchMessages)
 
         val minCountErrors: List<Result.Failure> = if (sampleData.jsonObject.keys.size < (minProperties ?: 0))
-            listOf(Result.Failure("Expected at least $minProperties properties, got ${sampleData.jsonObject.keys.size}"))
+            listOf(
+                Result.Failure(
+                    message = "Expected at least $minProperties properties, got ${sampleData.jsonObject.keys.size}",
+                    ruleViolation = StandardRuleViolation.CONSTRAINT_VIOLATION
+                )
+            )
         else
             emptyList()
 
         val maxCountErrors: List<Result.Failure> =
             if (sampleData.jsonObject.keys.size > (maxProperties ?: Int.MAX_VALUE))
-                listOf(Result.Failure("Expected at most $maxProperties properties, got ${sampleData.jsonObject.keys.size}"))
+                listOf(
+                    Result.Failure(
+                        message = "Expected at most $maxProperties properties, got ${sampleData.jsonObject.keys.size}",
+                        ruleViolation = StandardRuleViolation.CONSTRAINT_VIOLATION
+                    )
+                )
             else
                 emptyList()
 

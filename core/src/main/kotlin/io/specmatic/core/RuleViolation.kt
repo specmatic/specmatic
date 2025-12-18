@@ -78,6 +78,18 @@ enum class StandardRuleViolation(override val id: String, override val title: St
     ),
 
     /* ---------------- Composed Schema Rules ---------------- */
+    DISCRIMINATOR_MISMATCH(
+        id = "R3000",
+        title = "Discriminator mismatch",
+        summary = "The discriminator does not match the expected discriminator defined in the specification"
+    ),
+
+    MISSING_DISCRIMINATOR(
+        id = "R3001",
+        title = "Missing discriminator",
+        summary = "The discriminator property defined in the specification is missing"
+    ),
+
     ANY_OF_UNKNOWN_KEY(
         id = "R3001",
         title = "Property not in any schema options",

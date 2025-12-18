@@ -436,6 +436,12 @@ fun valueMismatchResult(
     mismatchMessages: MismatchMessages = DefaultMismatchMessages
 ): Failure = mismatchMessages.valueMismatchFailure(expected, actual, mismatchMessages)
 
+fun valueMismatchResult(
+    expected: Value,
+    actual: Value?,
+    mismatchMessages: MismatchMessages = DefaultMismatchMessages
+): Failure = mismatchMessages.valueMismatchFailure(valueError(expected) ?: "null", actual, mismatchMessages)
+
 // Data Type Mismatch Result
 fun dataTypeMismatchResult(
     expected: Pattern,

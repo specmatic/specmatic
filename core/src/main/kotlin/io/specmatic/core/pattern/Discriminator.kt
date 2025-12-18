@@ -3,9 +3,12 @@ package io.specmatic.core.pattern
 import io.specmatic.core.FailureReason
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
+import io.specmatic.core.Result.Failure
+import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.pattern.AnyPattern.AnyPatternMatch
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
+import io.specmatic.core.valueMismatchResult
 import io.specmatic.test.ExampleProcessor
 
 class Discriminator(
@@ -87,7 +90,8 @@ class Discriminator(
             failure.breadCrumb(breadcrumb)
         }
 
-        return Result.Failure.fromFailures(failuresWithUpdatedBreadcrumbs)
+        val didNotMatchAnyOptionFailure = Failure(message = "Value didn't match any of the schema options", ruleViolation = StandardRuleViolation.ONE_OF_VALUE_MISMATCH)
+        return Failure.fromFailures(listOf(didNotMatchAnyOptionFailure).plus(failuresWithUpdatedBreadcrumbs))
     }
 
     private fun _matches(sampleData: Value?, pattern: List<Pattern>, key: String?, resolver: Resolver): Result {
@@ -149,9 +153,10 @@ class Discriminator(
 
         if(!discriminatorMatchOccurred) {
             return Result.Failure(
-                "Discriminator property $property is missing from the spec",
+                "Discriminator property $property in the value did not match any of the expected values",
                 breadCrumb = property,
-                failureReason = FailureReason.DiscriminatorMismatch
+                failureReason = FailureReason.DiscriminatorMismatch,
+                ruleViolation = StandardRuleViolation.DISCRIMINATOR_MISMATCH
             )
         }
 
@@ -164,32 +169,35 @@ class Discriminator(
 
         val deepMatchResults = failures.filter { it.hasReason(FailureReason.FailedButDiscriminatorMatched) }
 
-        return if(deepMatchResults.isNotEmpty())
-            Result.Failure.fromFailures(deepMatchResults)
-                .removeReasonsFromCauses().copy(failureReason = FailureReason.FailedButDiscriminatorMatched)
+        val finalResult = if (deepMatchResults.isNotEmpty())
+            Result.Failure.fromFailures(deepMatchResults).removeReasonsFromCauses().copy(failureReason = FailureReason.FailedButDiscriminatorMatched)
         else
             Result.Failure.fromFailures(failures).removeReasonsFromCauses()
 
+        val didNotMatchAnyOptionFailure = Failure(message = "Value didn't match any of the schema options", ruleViolation = StandardRuleViolation.ONE_OF_VALUE_MISMATCH)
+        return Failure.fromFailures(listOf(didNotMatchAnyOptionFailure).plus(finalResult))
     }
 
     private fun discriminatorMatchFailure(pattern: Pattern) = AnyPattern.AnyPatternMatch(
         pattern,
         Result.Failure(
             "Discriminator match failure",
-            failureReason = FailureReason.DiscriminatorMismatch
+            failureReason = FailureReason.DiscriminatorMismatch,
+            ruleViolation = StandardRuleViolation.DISCRIMINATOR_MISMATCH
         )
     )
 
     private fun jsonObjectMismatchError(
         resolver: Resolver,
         sampleData: Value?
-    ) = resolver.mismatchMessages.valueMismatchFailure("json object", sampleData)
+    ) = valueMismatchResult("json object", sampleData, resolver.mismatchMessages)
 
     private fun discriminatorKeyMissingFailure(discriminatorProperty: String, discriminatorCsv: String) =
         Result.Failure(
             "Discriminator property $discriminatorProperty is missing from the object (it's value should be $discriminatorCsv)",
             breadCrumb = discriminatorProperty,
-            failureReason = FailureReason.DiscriminatorMismatch
+            failureReason = FailureReason.DiscriminatorMismatch,
+            ruleViolation = StandardRuleViolation.MISSING_DISCRIMINATOR
         )
 
     fun removeKeyFromRow(row: Row): Row {

@@ -11,7 +11,7 @@ object NoBodyPattern : Pattern {
         if(sampleData is NoBodyValue || sampleData == null)
             return Result.Success()
 
-        return Result.Failure("Expected no body, but found ${sampleData.displayableType()}")
+        return valueMismatchResult("no body", sampleData, resolver.mismatchMessages)
     }
 
     override fun generate(resolver: Resolver): Value = NoBodyValue
