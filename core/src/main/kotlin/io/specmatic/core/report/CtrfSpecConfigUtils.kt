@@ -19,7 +19,7 @@ fun ctrfSpecConfigsFrom(
         else
             specmaticConfig.getCtrfSpecConfig(absoluteSpecPath, it.testType, serviceType, specType)
     }
-    return specConfigs
+    return specConfigs.distinct()
 }
 
 

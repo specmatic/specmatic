@@ -25,7 +25,9 @@ import io.specmatic.core.route.modules.HealthCheckModule.Companion.configureHeal
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.isHealthCheckRequest
 import io.specmatic.core.utilities.*
 import io.specmatic.core.value.*
-import io.specmatic.mock.*
+import io.specmatic.mock.NoMatchingScenario
+import io.specmatic.mock.ScenarioStub
+import io.specmatic.mock.TRANSIENT_MOCK
 import io.specmatic.reporter.generated.dto.stub.usage.SpecmaticStubUsageReport
 import io.specmatic.reporter.internal.dto.stub.usage.merge
 import io.specmatic.reporter.model.TestResult
@@ -322,21 +324,23 @@ class HttpStub(
                         httpLogMessage.addResponse(httpStubResponse)
                     }
 
-                    val ctrfTestResultRecord = TestResultRecord(
-                        path = convertPathParameterStyle(httpLogMessage.scenario?.path ?: httpRequest.path),
-                        method = httpLogMessage.scenario?.method ?: httpRequest.method.orEmpty(),
-                        responseStatus = httpLogMessage.scenario?.status ?: 0,
-                        request = httpRequest,
-                        response = httpResponse,
-                        result = httpLogMessage.toResult(),
-                        serviceType = "OPENAPI",
-                        requestContentType = httpLogMessage.scenario?.requestContentType
-                            ?: httpRequest.headers["Content-Type"],
-                        specification = httpStubResponse.scenario?.specification,
-                        testType = STUB_TEST_TYPE,
-                        actualResponseStatus = httpResponse.status
-                    )
-                    synchronized(ctrfTestResultRecords) { ctrfTestResultRecords.add(ctrfTestResultRecord) }
+                    if(!isInternalStubPath(httpRequest.path)) {
+                        val ctrfTestResultRecord = TestResultRecord(
+                            path = convertPathParameterStyle(httpLogMessage.scenario?.path ?: httpRequest.path),
+                            method = httpLogMessage.scenario?.method ?: httpRequest.method.orEmpty(),
+                            responseStatus = httpLogMessage.scenario?.status ?: 0,
+                            request = httpRequest,
+                            response = httpResponse,
+                            result = httpLogMessage.toResult(),
+                            serviceType = "OPENAPI",
+                            requestContentType = httpLogMessage.scenario?.requestContentType
+                                ?: httpRequest.headers["Content-Type"],
+                            specification = httpStubResponse.scenario?.specification,
+                            testType = STUB_TEST_TYPE,
+                            actualResponseStatus = httpResponse.status
+                        )
+                        synchronized(ctrfTestResultRecords) { ctrfTestResultRecords.add(ctrfTestResultRecord) }
+                    }
                 } catch (e: ContractException) {
                     val response = badRequest(e.report())
                     httpLogMessage.addResponseWithCurrentTime(response)
@@ -771,23 +775,21 @@ class HttpStub(
     }
 
     private fun notCoveredTestResultRecords(): List<TestResultRecord> {
-        synchronized(_logs) {
-            return _allEndpoints.plus(_logs).toSet().filter { endpoint ->
-                ctrfTestResultRecords.none { testResultRecord ->
-                    endpoint.isEqualTo(testResultRecord)
-                }
-            }.map { endpoint ->
-                TestResultRecord(
-                    path = endpoint.path.orEmpty(),
-                    method = endpoint.method.orEmpty(),
-                    responseStatus = endpoint.responseCode,
-                    request = null,
-                    response = null,
-                    result = TestResult.NotCovered,
-                    specification = endpoint.specification.orEmpty(),
-                    testType = STUB_TEST_TYPE
-                )
+        return _allEndpoints.toSet().filter { endpoint ->
+            ctrfTestResultRecords.none { testResultRecord ->
+                endpoint.isEqualTo(testResultRecord)
             }
+        }.map { endpoint ->
+            TestResultRecord(
+                path = endpoint.path.orEmpty(),
+                method = endpoint.method.orEmpty(),
+                responseStatus = endpoint.responseCode,
+                request = null,
+                response = null,
+                result = TestResult.NotCovered,
+                specification = endpoint.specification.orEmpty(),
+                testType = STUB_TEST_TYPE
+            )
         }
     }
 
@@ -1499,6 +1501,10 @@ fun validateBaseUrls(specToBaseUrlMap: Map<String, String>): Result {
     }
 
     return Result.fromResults(results)
+}
+
+internal fun isInternalStubPath(path: String): Boolean {
+    return path.startsWith("/_$APPLICATION_NAME_LOWER_CASE")
 }
 
 internal fun isPath(path: String?, lastPart: String): Boolean {
