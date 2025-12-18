@@ -15,13 +15,13 @@ data class RuleViolationReport(private val ruleViolations: List<RuleViolation> =
     fun toText(): String? {
         if (ruleViolations.isEmpty()) return null
         if (ruleViolations.size == 1) return ruleViolationToText(ruleViolations.first())
-        return ruleViolations.joinToString("\n- ", transform = ::ruleViolationToText)
+        return ruleViolations.joinToString(prefix = "- ", separator = "\n\n- ", transform = ::ruleViolationToText)
     }
 
     private fun ruleViolationToText(rule: RuleViolation): String = buildString {
-        appendLine("${rule.id}: ${rule.title}")
-        appendLine("Documentation: $RULES_DOCUMENTATION_URL#${rule.id}")
-        rule.summary?.let { appendLine("summary: $it") }
+        append("${rule.id}: ${rule.title}\n")
+        append("Documentation: $RULES_DOCUMENTATION_URL#${rule.id}")
+        rule.summary?.let { append("\nsummary: $it") }
     }
 
     companion object {

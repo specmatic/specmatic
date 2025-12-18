@@ -5,7 +5,7 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.UnexpectedKeyCheck
 import io.specmatic.core.ValidateUnexpectedKeys
-import io.specmatic.core.mismatchResult
+import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.utilities.Flags.Companion.MAX_TEST_REQUEST_COMBINATIONS
 import io.specmatic.core.utilities.Flags.Companion.getStringValue
@@ -38,11 +38,9 @@ data class TabularPattern(
     override val typeAlias: String? = null
 ) : Pattern {
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
-        if (sampleData !is JSONObjectValue)
-            return mismatchResult("JSON object", sampleData, resolver.mismatchMessages)
+        if (sampleData !is JSONObjectValue) return dataTypeMismatchResult("JSON object", sampleData, resolver.mismatchMessages)
 
         val resolverWithNullType = withNullPattern(resolver)
-
         val keyErrors: List<Result.Failure> = resolverWithNullType.findKeyErrorList(pattern, sampleData.jsonObject).map {
             when {
                 pattern.contains(it.name) -> it.missingKeyToResult("key", resolver.mismatchMessages)
