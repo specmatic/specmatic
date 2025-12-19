@@ -1,7 +1,11 @@
 package io.specmatic.core
 
-sealed interface TransformationStrategy {
+interface TransformationStrategy {
     fun transform(input: String): String
+
+    data class ExactReplacement(private val from: String, private val to: String, private val ignoreCase: Boolean = true) : TransformationStrategy {
+        override fun transform(input: String): String = if (input.equals(from, ignoreCase = ignoreCase)) to else input
+    }
 
     data class DirectReplacement(private val from: String, private val to: String, private val ignoreCase: Boolean = true) : TransformationStrategy {
         override fun transform(input: String): String = input.replace(from, to, ignoreCase = ignoreCase)
@@ -48,25 +52,25 @@ class BreadCrumbToJsonPathConverter(private val config: TransformationConfig = d
         val defaultConfig = TransformationConfig(
             transformations = listOf(
                 // Parameters
-                TransformationStrategy.DirectReplacement(BreadCrumb.PARAMETERS.value, ""),
+                TransformationStrategy.ExactReplacement(BreadCrumb.PARAMETERS.value, ""),
 
                 // RESPONSE / REQUEST / BODY
-                TransformationStrategy.DirectReplacement("RESPONSE", "http-response"),
-                TransformationStrategy.DirectReplacement("REQUEST", "http-request"),
-                TransformationStrategy.DirectReplacement("BODY", "body"),
-                TransformationStrategy.DirectReplacement("STATUS", "status"),
+                TransformationStrategy.ExactReplacement("RESPONSE", "http-response"),
+                TransformationStrategy.ExactReplacement("REQUEST", "http-request"),
+                TransformationStrategy.ExactReplacement("BODY", "body"),
+                TransformationStrategy.ExactReplacement("STATUS", "status"),
 
                 // PATH variants
-                TransformationStrategy.DirectReplacement(BreadCrumb.PARAM_PATH.value, "path"),
-                TransformationStrategy.DirectReplacement(BreadCrumb.PATH.value, "path"),
+                TransformationStrategy.ExactReplacement(BreadCrumb.PARAM_PATH.value, "path"),
+                TransformationStrategy.ExactReplacement(BreadCrumb.PATH.value, "path"),
 
                 // HEADERS variants
-                TransformationStrategy.DirectReplacement(BreadCrumb.PARAM_HEADER.value, "header"),
-                TransformationStrategy.DirectReplacement(BreadCrumb.HEADER.value, "header"),
+                TransformationStrategy.ExactReplacement(BreadCrumb.PARAM_HEADER.value, "header"),
+                TransformationStrategy.ExactReplacement(BreadCrumb.HEADER.value, "header"),
 
                 // QUERY variants
-                TransformationStrategy.DirectReplacement(BreadCrumb.PARAM_QUERY.value, "query"),
-                TransformationStrategy.DirectReplacement(BreadCrumb.QUERY.value, "query"),
+                TransformationStrategy.ExactReplacement(BreadCrumb.PARAM_QUERY.value, "query"),
+                TransformationStrategy.ExactReplacement(BreadCrumb.QUERY.value, "query"),
 
                 // Tilde transformations
                 TransformationStrategy.DirectReplacement(".(~~~", " (when "),
