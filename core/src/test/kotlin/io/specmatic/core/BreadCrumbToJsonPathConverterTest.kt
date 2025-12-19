@@ -84,6 +84,13 @@ class BreadCrumbToJsonPathConverterTest {
         assertThat(result).isEqualTo("/starts-with-slash/end")
     }
 
+    @Test
+    fun `should not rewrite header keys that contain REQUEST as a substring`() {
+        val breadcrumbs = listOf("REQUEST", "HEADER", "X-Request-ID")
+        val result = converter.toJsonPath(breadcrumbs)
+        assertThat(result).isEqualTo("/http-request/header/X-Request-ID")
+    }
+
     companion object {
         @JvmStatic
         fun standardPathProvider(): Stream<Arguments> {
@@ -155,7 +162,68 @@ class BreadCrumbToJsonPathConverterTest {
                     listOf("RESPONSE", "BODY", "nested.object.structure"),
                     "/http-response/body/nested/object/structure"
                 ),
-            )
+
+                // -- Multi-component entries in a single list element (dot-splitting) --
+                Arguments.of(
+                    listOf("RESPONSE.STATUS"),
+                    "/http-response/status"
+                ),
+                Arguments.of(
+                    listOf("REQUEST.BODY.name.key"),
+                    "/http-request/body/name/key"
+                ),
+                Arguments.of(
+                    listOf("REQUEST", "BODY.name.key"),
+                    "/http-request/body/name/key"
+                ),
+                Arguments.of(
+                    listOf("REQUEST.BODY", "name.key"),
+                    "/http-request/body/name/key"
+                ),
+                Arguments.of(
+                    listOf("RESPONSE.HEADER.Content-Type"),
+                    "/http-response/header/Content-Type"
+                ),
+                Arguments.of(
+                    listOf("REQUEST.PARAMETERS.HEADER.X-Request-ID"),
+                    "/http-request/header/X-Request-ID"
+                ),
+
+                // -- Regression: structural token must not rewrite inside header keys --
+                Arguments.of(
+                    listOf("REQUEST", "HEADER", "X-Request-ID"),
+                    "/http-request/header/X-Request-ID"
+                ),
+                Arguments.of(
+                    listOf("REQUEST", "HEADER", "X-REQUEST-ID"),
+                    "/http-request/header/X-REQUEST-ID"
+                ),
+                Arguments.of(
+                    listOf("REQUEST", "HEADER", "X-http-request-ID"), // already contains "http-request" text
+                    "/http-request/header/X-http-request-ID"
+                ),
+
+                // -- Extra edge cases around dot splitting and blanks --
+                Arguments.of(
+                    listOf("RESPONSE..BODY...name"), // empty segments should be dropped
+                    "/http-response/body/name"
+                ),
+                Arguments.of(
+                    listOf("RESPONSE", "BODY", "attributes..priority"),
+                    "/http-response/body/attributes/priority"
+                ),
+
+                // -- Mix dot-splitting with indices (index token still separate) --
+                Arguments.of(
+                    listOf("RESPONSE.BODY.items", "[0]", "id"),
+                    "/http-response/body/items/0/id"
+                ),
+                Arguments.of(
+                    listOf("RESPONSE", "BODY.items", "[10]"),
+                    "/http-response/body/items/10"
+                ),
+
+                )
         }
     }
 }
