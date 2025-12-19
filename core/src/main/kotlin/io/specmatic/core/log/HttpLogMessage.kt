@@ -19,7 +19,8 @@ data class HttpLogMessage(
     val targetServer: String = "",
     val comment: String? = null,
     var scenario: Scenario? = null,
-    var exception: Exception? = null
+    var exception: Exception? = null,
+    var result: Result? = null
 ) : LogMessage {
     fun combineLog(): String {
         val request = this.request.toLogString().trim('\n')
@@ -44,6 +45,10 @@ data class HttpLogMessage(
 
     fun addException(exception: Exception) {
         this.exception = exception
+    }
+
+    fun addResult(result: Result) {
+        this.result = result
     }
 
     private fun target(): String {
