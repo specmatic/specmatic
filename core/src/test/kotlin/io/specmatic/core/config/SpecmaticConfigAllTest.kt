@@ -86,12 +86,12 @@ internal class SpecmaticConfigAllTest {
                 provider = git,
                 repository = "https://contracts",
                 branch = "1.0.1",
-                test = listOf("com/petstore/1.yaml"),
+                test = listOf(SpecExecutionConfig.StringValue("com/petstore/1.yaml")),
                 stub = listOf(SpecExecutionConfig.StringValue("com/petstore/payment.yaml"))
             ),
             Source(
                 provider = filesystem,
-                test = listOf("com/petstore/1.yaml"),
+                test = listOf(SpecExecutionConfig.StringValue("com/petstore/1.yaml")),
                 stub = listOf(
                     SpecExecutionConfig.StringValue("com/petstore/payment.yaml"),
                     SpecExecutionConfig.StringValue("com/petstore/order.yaml")
@@ -117,12 +117,12 @@ internal class SpecmaticConfigAllTest {
                 provider = git,
                 repository = "https://contracts",
                 branch = "1.0.1",
-                test = listOf("com/petstore/1.yaml"),
+                test = listOf(SpecExecutionConfig.StringValue("com/petstore/1.yaml")),
                 stub = listOf(SpecExecutionConfig.StringValue("com/petstore/payment.yaml"))
             ),
             Source(
                 provider = filesystem,
-                test = listOf("com/petstore/1.yaml"),
+                test = listOf(SpecExecutionConfig.StringValue("com/petstore/1.yaml")),
                 stub = listOf(
                     SpecExecutionConfig.StringValue("com/petstore/payment.yaml"),
                     SpecExecutionConfig.ObjectValue.FullUrl(

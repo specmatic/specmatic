@@ -1,5 +1,6 @@
 package io.specmatic.core.config.v3
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonValue
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.DeserializationContext
@@ -54,6 +55,45 @@ sealed class SpecExecutionConfig {
             }
         }
     }
+
+    data class ConfigValue(
+        val specs: List<String>,
+        val specType: String,
+        val config: Map<String, Any>
+    ) : SpecExecutionConfig() {
+        fun contains(specPath: String, specType: String): Boolean {
+            return specPath in this.specs.toSet() && specType == this.specType
+        }
+    }
+
+    @JsonIgnore
+    fun contains(absoluteSpecPath: String): Boolean = when (this) {
+        is StringValue -> absoluteSpecPath.contains(this.value)
+        is ObjectValue -> this.specs.any { absoluteSpecPath.contains(it) }
+        is ConfigValue -> this.specs.any { absoluteSpecPath.contains(it) }
+    }
+
+    @JsonIgnore
+    fun specs(): List<String> {
+        return when (this) {
+            is StringValue -> listOf(this.value)
+            is ObjectValue -> this.specs
+            is ConfigValue -> this.specs
+        }
+    }
+
+    @JsonIgnore
+    fun specToBaseUrlPairList(defaultBaseUrl: String?): List<Pair<String, String?>> {
+        return when (this) {
+            is StringValue -> listOf(this.value to null)
+            is ObjectValue -> this.specs.map { specPath ->
+                specPath to this.toBaseUrl(defaultBaseUrl)
+            }
+            is ConfigValue -> this.specs.map { specPath ->
+                specPath to null
+            }
+        }
+    }
 }
 
 class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeserializer<List<SpecExecutionConfig>>() {
@@ -67,7 +107,11 @@ class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeseriali
         } ?: throw JsonMappingException(p, "Consumes should be an array")
     }
 
-    private fun JsonNode.parseObjectValue(p: JsonParser): SpecExecutionConfig.ObjectValue {
+    private fun JsonNode.parseObjectValue(p: JsonParser): SpecExecutionConfig {
+        if (has("specType") || has("config")) {
+            return parseConfigValue(p)
+        }
+
         val validatedJsonNode = this.getValidatedJsonNode(p)
         val specs = validatedJsonNode.get("specs").map(JsonNode::asText)
         val resiliencyTests = parseResiliencyTestsIfApplicable(p)
@@ -84,6 +128,61 @@ class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeseriali
         }
     }
 
+    private fun JsonNode.parseConfigValue(p: JsonParser): SpecExecutionConfig.ConfigValue {
+        validateConfigValueFields(p)
+
+        val specs = get("specs").map(JsonNode::asText)
+        val specType = get("specType").asText()
+        val config = get("config").toMap(p)
+
+        return SpecExecutionConfig.ConfigValue(specs, specType, config)
+    }
+
+    private fun JsonNode.validateConfigValueFields(p: JsonParser) {
+        validateSpecsFieldAndReturn(p)
+        val specTypeField = get("specType")
+        if (specTypeField == null || !specTypeField.isTextual) {
+            throw JsonMappingException(p, "Missing or invalid required field 'specType'")
+        }
+        val configField = get("config")
+        if (configField == null || !configField.isObject) {
+            throw JsonMappingException(p, "Missing or invalid required field 'config'")
+        }
+    }
+
+    private fun JsonNode.validateSpecsFieldAndReturn(p: JsonParser): JsonNode {
+        val specsField = get("specs")
+        when {
+            specsField == null -> throw JsonMappingException(p, "Missing required field 'specs'")
+            !specsField.isArray -> throw JsonMappingException(p, "'specs' must be an array")
+            specsField.isEmpty -> throw JsonMappingException(p, "'specs' array cannot be empty")
+            specsField.any { !it.isTextual } -> throw JsonMappingException(p, "'specs' must contain only strings")
+        }
+        return specsField
+    }
+
+    private fun JsonNode.toMap(p: JsonParser): Map<String, Any> {
+        val map = mutableMapOf<String, Any>()
+        this.properties().forEach { (key, value) ->
+            map[key] = value.nativeValue(p)
+        }
+        return map
+    }
+
+    private fun JsonNode.nativeValue(p: JsonParser): Any {
+        return when {
+            this.isTextual -> this.asText()
+            this.isInt -> this.asInt()
+            this.isLong -> this.asLong()
+            this.isDouble -> this.asDouble()
+            this.isBoolean -> this.asBoolean()
+            this.isArray -> this.map { it.nativeValue(p) }
+            this.isObject -> this.toMap(p)
+            this.isNull -> throw JsonMappingException(p, "Null values not supported in config")
+            else -> throw JsonMappingException(p, "Unsupported value type in config")
+        }
+    }
+
     private fun JsonNode.getValidatedJsonNode(p: JsonParser): JsonNode {
         val allowedFields = buildSet {
             addAll(listOf("baseUrl", "host", "port", "basePath", "specs"))
@@ -97,17 +196,10 @@ class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeseriali
         }
 
         if (!consumes && has("basePath")) {
-            // In provides, basePath is not permitted
             throw JsonMappingException(p, "Field 'basePath' is not supported in provides")
         }
 
-        val specsField = get("specs")
-        when {
-            specsField == null -> throw JsonMappingException(p, "Missing required field 'specs'")
-            !specsField.isArray -> throw JsonMappingException(p, "'specs' must be an array")
-            specsField.isEmpty -> throw JsonMappingException(p, "'specs' array cannot be empty")
-            specsField.any { !it.isTextual } -> throw JsonMappingException(p, "'specs' must contain only strings")
-        }
+        validateSpecsFieldAndReturn(p)
 
         val hasBaseUrl = has("baseUrl")
 

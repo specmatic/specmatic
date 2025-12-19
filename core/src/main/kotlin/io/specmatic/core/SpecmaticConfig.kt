@@ -307,6 +307,23 @@ data class SpecmaticConfig(
     }
 
     @JsonIgnore
+    fun testConfigFor(specPath: String, specType: String): Map<String, Any> {
+        return sources.flatMap { it.test.orEmpty() }.configWith(specPath, specType)
+    }
+
+    @JsonIgnore
+    fun stubConfigFor(specPath: String, specType: String): Map<String, Any> {
+        return sources.flatMap { it.stub.orEmpty() }.configWith(specPath, specType)
+    }
+
+    @JsonIgnore
+    private fun List<SpecExecutionConfig>.configWith(specPath: String, specType: String): Map<String, Any> {
+        return this.filterIsInstance<SpecExecutionConfig.ConfigValue>().firstOrNull {
+            it.contains(specPath, specType)
+        }?.config.orEmpty()
+    }
+
+    @JsonIgnore
     fun getCtrfSpecConfig(absoluteSpecPath: String, testType: String, serviceType: String, specType: String): CtrfSpecConfig {
         val source = when (testType) {
             CONTRACT_TEST_TEST_TYPE -> testSourceFromConfig(absoluteSpecPath)
@@ -365,10 +382,7 @@ data class SpecmaticConfig(
         sources
             .flatMap { source ->
                 source.stub.orEmpty().map { consumes ->
-                    when (consumes) {
-                        is SpecExecutionConfig.StringValue -> defaultBaseUrl
-                        is SpecExecutionConfig.ObjectValue -> consumes.toBaseUrl(defaultBaseUrl)
-                    }
+                    baseUrlFrom(consumes, defaultBaseUrl)
                 }
             }.distinct()
 
@@ -379,6 +393,7 @@ data class SpecmaticConfig(
                 when (consumes) {
                     is SpecExecutionConfig.StringValue -> listOf(consumes.value to defaultBaseUrl)
                     is SpecExecutionConfig.ObjectValue -> consumes.specs.map { it to consumes.toBaseUrl(defaultBaseUrl) }
+                    is SpecExecutionConfig.ConfigValue -> consumes.specs.map { it to defaultBaseUrl }
                 }
             }
         }
@@ -396,6 +411,12 @@ data class SpecmaticConfig(
     fun getStubStartTimeoutInMilliseconds(): Long {
         return stub.getStartTimeoutInMilliseconds() ?: 20_000L
     }
+
+    @JsonIgnore
+    private fun baseUrlFrom(
+        consumes: SpecExecutionConfig,
+        defaultBaseUrl: String
+    ): String = if (consumes is SpecExecutionConfig.ObjectValue) consumes.toBaseUrl(defaultBaseUrl) else defaultBaseUrl
 
     fun logDependencyProjects(azure: AzureAPI) {
         logger.log("Dependency projects")
@@ -652,10 +673,7 @@ data class SpecmaticConfig(
     fun stubContracts(relativeTo: File = File(".")): List<String> {
         return sources.flatMap { source ->
             source.stub.orEmpty().flatMap { stub ->
-                when (stub) {
-                    is SpecExecutionConfig.StringValue -> listOf(stub.value)
-                    is SpecExecutionConfig.ObjectValue -> stub.specs
-                }
+                stub.specs()
             }.map { spec ->
                 if (source.provider == web) spec
                 else spec.canonicalPath(relativeTo)
@@ -709,21 +727,14 @@ data class SpecmaticConfig(
     @JsonIgnore
     private fun testSourceFromConfig(absoluteSpecPath: String): Source? {
         return sources.firstOrNull { source ->
-            source.test.orEmpty().any { test ->
-                absoluteSpecPath.contains(test)
-            }
+            source.test.orEmpty().any { test -> test.contains(absoluteSpecPath) }
         }
     }
 
     @JsonIgnore
     private fun stubSourceFromConfig(absoluteSpecPath: String): Source? {
         return sources.firstOrNull { source ->
-            source.stub.orEmpty().any { stub ->
-                when (stub) {
-                    is SpecExecutionConfig.StringValue -> absoluteSpecPath.contains(stub.value)
-                    is SpecExecutionConfig.ObjectValue -> stub.specs.any { absoluteSpecPath.contains(it) }
-                }
-            }
+            source.stub.orEmpty().any { stub -> stub.contains(absoluteSpecPath) }
         }
     }
 
@@ -814,7 +825,8 @@ data class Source(
     val repository: String? = null,
     val branch: String? = null,
     @field:JsonAlias("provides")
-    val test: List<String>? = null,
+    @JsonDeserialize(using = ConsumesDeserializer::class)
+    val test: List<SpecExecutionConfig>? = null,
     @field:JsonAlias("consumes")
     @JsonDeserialize(using = ConsumesDeserializer::class)
     val stub: List<SpecExecutionConfig>? = null,
@@ -823,48 +835,28 @@ data class Source(
     val matchBranch: Boolean? = null,
 ) {
     constructor(test: List<String>? = null, stub: List<String>? = null) : this(
-        test = test,
+        test = test?.map { SpecExecutionConfig.StringValue(it) },
         stub = stub?.map { SpecExecutionConfig.StringValue(it) }
     )
 
     fun specsUsedAsStub(): List<String> {
-        return stub.orEmpty().flatMap {
-            when (it) {
-                is SpecExecutionConfig.StringValue -> listOf(it.value)
-                is SpecExecutionConfig.ObjectValue -> it.specs
-            }
-        }
+        return stub.orEmpty().flatMap { it.specs() }
     }
 
     fun specsUsedAsTest(): List<String> {
-        return testConsumes?.flatMap {
-            when (it) {
-                is SpecExecutionConfig.StringValue -> listOf(it.value)
-                is SpecExecutionConfig.ObjectValue -> it.specs
-            }
-        } ?: test.orEmpty()
+        return testConsumes?.flatMap { it.specs() } ?: test.orEmpty().flatMap { it.specs() }
     }
 
     fun specToStubBaseUrlMap(defaultBaseUrl: String? = null): Map<String, String?> {
-        return stub.orEmpty().flatMap {
-            when (it) {
-                is SpecExecutionConfig.StringValue -> listOf(it.value to null)
-                is SpecExecutionConfig.ObjectValue -> it.specs.map { specPath ->
-                    specPath to it.toBaseUrl(defaultBaseUrl)
-                }
-            }
-        }.toMap()
+        return stub.orEmpty().flatMap { it.specToBaseUrlPairList(defaultBaseUrl) }.toMap()
     }
 
     fun specToTestBaseUrlMap(defaultBaseUrl: String? = null): Map<String, String?> {
         return testConsumes?.flatMap {
-            when (it) {
-                is SpecExecutionConfig.StringValue -> listOf(it.value to null)
-                is SpecExecutionConfig.ObjectValue -> it.specs.map { specPath ->
-                    specPath to it.toBaseUrl(defaultBaseUrl)
-                }
-            }
-        }?.toMap() ?: test.orEmpty().associateWith { null }
+            it.specToBaseUrlPairList(defaultBaseUrl)
+        }?.toMap() ?: test.orEmpty().flatMap {
+            it.specToBaseUrlPairList(defaultBaseUrl)
+        }.toMap()
     }
 
     fun specToTestGenerativeMap(): Map<String, ResiliencyTestSuite?> {
@@ -873,6 +865,9 @@ data class Source(
                 is SpecExecutionConfig.StringValue -> listOf(it.value to null)
                 is SpecExecutionConfig.ObjectValue -> it.specs.map { specPath ->
                     specPath to it.resiliencyTests?.enable
+                }
+                is SpecExecutionConfig.ConfigValue -> it.specs.map { specPath ->
+                    specPath to null
                 }
             }
         }?.toMap() ?: emptyMap()
