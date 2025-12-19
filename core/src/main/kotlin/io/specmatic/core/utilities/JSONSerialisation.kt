@@ -76,7 +76,7 @@ fun toLiteralPattern(jsonElement: JsonPrimitive): Pattern =
         else -> throw ContractException("Can't recognise the type of $jsonElement")
     }
 
-private fun toValue(jsonElement: JsonElement): Value =
+fun toValue(jsonElement: JsonElement): Value =
     when (jsonElement) {
         is JsonNull -> NullValue
         is JsonObject -> JSONObjectValue(jsonElement.toMap().mapValues { toValue(it.value) })
@@ -119,7 +119,7 @@ fun mapToStringElement(data: Map<String, Value>): Map<String, JsonElement> {
     return data.filterNot { it.value is NoBodyValue }.mapValues { valueToJsonElement(it.value) }
 }
 
-private fun valueToJsonElement(value: Value): JsonElement {
+fun valueToJsonElement(value: Value): JsonElement {
     return when (value) {
         is JSONArrayValue -> valueListToElements(value.list)
         is JSONObjectValue -> JsonObject(mapToStringElement(value.jsonObject))

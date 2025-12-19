@@ -288,12 +288,16 @@ class HttpStub(
                         isSseExpectationCreation(httpRequest) -> handleSseExpectationCreationRequest(httpRequest)
                         isStateSetupRequest(httpRequest) -> handleStateSetupRequest(httpRequest)
                         isFlushTransientStubsRequest(httpRequest) -> handleFlushTransientStubsRequest(httpRequest)
-                        else -> serveStubResponse(
-                            httpRequest,
-                            baseUrl = "${call.request.local.scheme}://${call.request.local.serverHost}:${call.request.local.localPort}",
-                            defaultBaseUrl = endPointFromHostAndPort(host, port, keyData),
-                            urlPath = call.request.path()
-                        )
+                        else -> {
+                            val responseResult = serveStubResponse(
+                                httpRequest,
+                                baseUrl = "${call.request.local.scheme}://${call.request.local.serverHost}:${call.request.local.localPort}",
+                                defaultBaseUrl = endPointFromHostAndPort(host, port, keyData),
+                                urlPath = call.request.path()
+                            )
+                            if (responseResult is NotStubbed) httpLogMessage.addResult(responseResult.stubResult)
+                            responseResult.response
+                        }
                     }
 
                     val (httpResponse, responseInterceptorErrors) = responseInterceptors.fold(
@@ -515,7 +519,7 @@ class HttpStub(
         baseUrl: String,
         defaultBaseUrl: String,
         urlPath: String
-    ): HttpStubResponse {
+    ): StubbedResponseResult {
         val url = "$baseUrl$urlPath"
         val stubBaseUrlPath = specmaticConfigInstance.stubBaseUrlPathAssociatedTo(url, defaultBaseUrl)
 
@@ -532,7 +536,7 @@ class HttpStub(
                 it.response.mock?.let { mock -> httpExpectations.utilizeMock(mock) }
             }
             it.log(_logs, httpRequest)
-        }.response
+        }
     }
 
     internal fun featuresAssociatedTo(
@@ -1101,18 +1105,17 @@ fun getHttpResponse(
         }
         if (httpClientFactory != null && passThroughTargetBase.isNotBlank()) {
             return NotStubbed(
-                passThroughResponse(
-                    httpRequest,
-                    passThroughTargetBase,
-                    httpClientFactory
-                )
+                passThroughResponse(httpRequest, passThroughTargetBase, httpClientFactory),
+                stubResult = Result.Success()
             )
         }
         if (strictMode) return NotStubbed(
             HttpStubResponse(
                 response = strictModeHttp400Response(httpRequest, matchResults),
                 scenario = features.firstNotNullOfOrNull { it.identifierMatchingScenario(httpRequest) }
-            ))
+            ),
+            stubResult = Result.Failure("Request did not match any of the examples")
+        )
 
         return fakeHttpResponse(features, httpRequest, specmaticConfig)
     } finally {
@@ -1209,7 +1212,7 @@ fun fakeHttpResponse(
 ): StubbedResponseResult {
 
     if (features.isEmpty())
-        return NotStubbed(HttpStubResponse(HttpResponse(400, "No valid API specifications loaded")))
+        return NotStubbed(HttpStubResponse(HttpResponse(400, "No valid API specifications loaded")), Result.Failure("No valid API specifications loaded"))
 
     val responses: List<ResponseDetails> = responseDetailsFrom(features, httpRequest)
 
@@ -1243,7 +1246,7 @@ fun fakeHttpResponse(
             } else {
                 val httpFailureResponse = combinedFailureResult.generateErrorHttpResponse(httpRequest)
                 val nearestScenario = features.firstNotNullOfOrNull { it.identifierMatchingScenario(httpRequest) }
-                NotStubbed(HttpStubResponse(httpFailureResponse, scenario = nearestScenario))
+                NotStubbed(HttpStubResponse(httpFailureResponse, scenario = nearestScenario), stubResult = combinedFailureResult.toResultIfAnyWithCauses())
             }
         }
 
