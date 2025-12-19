@@ -43,7 +43,7 @@ data class FailureReport(val contractPath: String?, private val scenarioMessage:
             Error (
                 path = BreadCrumbToJsonPathConverter().convert(detail.breadCrumbs),
                 breadCrumb = breadCrumbString(detail.breadCrumbs),
-                ruleViolations = detail.ruleViolationReport?.ruleViolations.orEmpty(),
+                ruleViolations = detail.ruleViolationReport?.ruleViolations?.map(RuleViolation::snapshot).orEmpty(),
                 details = errorMessagesToString(detail.errorMessages),
                 severity = if (detail.isPartial) ErrorSeverity.WARNING else ErrorSeverity.ERROR
             )
