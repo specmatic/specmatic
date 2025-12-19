@@ -1,10 +1,22 @@
 package io.specmatic.core
 
-enum class ErrorSeverity { ERROR, WARNING }
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+
+@Serializable
+enum class ErrorSeverity {
+    @SerialName("error")
+    ERROR,
+
+    @SerialName("warning")
+    WARNING
+}
+
+@Serializable
 data class Error(
     val breadCrumb: String,
     val path: List<String>,
-    val ruleViolations: List<RuleViolation>,
+    val ruleViolations: List<RuleViolationSnapshot>,
     val details: String,
     val severity: ErrorSeverity
 )

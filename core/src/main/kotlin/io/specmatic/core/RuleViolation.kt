@@ -1,9 +1,20 @@
 package io.specmatic.core
 
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class RuleViolationSnapshot(
+    val id: String,
+    val title: String,
+    val summary: String?
+)
+
 interface RuleViolation {
     val id: String
     val title: String
     val summary: String?
+
+    fun snapshot(): RuleViolationSnapshot = RuleViolationSnapshot(id, title, summary)
 }
 
 enum class OpenApiRuleViolation(override val id: String, override val title: String, override val summary: String? = null): RuleViolation {

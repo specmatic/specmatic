@@ -2,7 +2,7 @@ package io.specmatic.core
 
 import io.specmatic.core.utilities.Flags
 
-data class RuleViolationReport(val ruleViolations: List<RuleViolation> = emptyList()) {
+data class RuleViolationReport(val ruleViolations: Set<RuleViolation> = emptySet()) {
     fun withViolation(violation: RuleViolation): RuleViolationReport {
         return copy(ruleViolations = ruleViolations.plus(violation))
     }
@@ -29,7 +29,7 @@ data class RuleViolationReport(val ruleViolations: List<RuleViolation> = emptyLi
         private val RULES_DOCUMENTATION_URL = Flags.getStringValue("RULES_DOCUMENTATION_URL") ?: DEFAULT_RULES_DOCUMENTATION_URL
 
         fun from(violationSegment: RuleViolation): RuleViolationReport {
-            return RuleViolationReport(ruleViolations = listOf(violationSegment))
+            return RuleViolationReport(ruleViolations = setOf(violationSegment))
         }
     }
 }
