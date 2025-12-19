@@ -102,19 +102,19 @@ enum class StandardRuleViolation(override val id: String, override val title: St
     ),
 
     ANY_OF_UNKNOWN_KEY(
-        id = "R3001",
+        id = "R3002",
         title = "Property not in any schema options",
         summary = "The property is not defined in any available schema options"
     ),
 
     ANY_OF_NO_MATCHING_SCHEMA(
-        id = "R3002",
+        id = "R3003",
         title = "Property matches no schema option",
         summary = "The property does not satisfy any available schema options"
     ),
 
     ONE_OF_VALUE_MISMATCH(
-        id = "R3003",
+        id = "R3004",
         title = "No matching schema option",
         summary = "The value does not satisfy the constraints of any available schema option"
     )
