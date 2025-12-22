@@ -7,7 +7,7 @@ object SuccessReport: Report {
         return ""
     }
 
-    override fun toErrors(): List<Error> {
+    override fun toIssues(breadCrumbToJsonPathConverter: BreadCrumbToJsonPathConverter): List<Issue> {
         return emptyList()
     }
 }

@@ -53,7 +53,7 @@ sealed class Result {
     abstract fun withBindings(bindings: Map<String, String>, response: HttpResponse): Result
     abstract fun breadCrumb(breadCrumb: String): Result
     abstract fun failureReason(failureReason: FailureReason?): Result
-    open fun toErrors(): List<Error> = emptyList()
+    open fun toIssues(breadCrumbToJsonPathConverter: BreadCrumbToJsonPathConverter = BreadCrumbToJsonPathConverter()): List<Issue> = emptyList()
     open fun withRuleViolation(ruleViolation: RuleViolation): Result = this
 
     abstract fun shouldBeIgnored(): Boolean
@@ -260,8 +260,8 @@ sealed class Result {
             return copy(ruleViolationReport = ruleViolationReport.withViolation(ruleViolation))
         }
 
-        override fun toErrors(): List<Error> {
-            return toFailureReport().toErrors()
+        override fun toIssues(breadCrumbToJsonPathConverter: BreadCrumbToJsonPathConverter): List<Issue> {
+            return toFailureReport().toIssues(breadCrumbToJsonPathConverter)
         }
 
         fun withRuleViolationReport(ruleViolationReport: RuleViolationReport? = null): Failure {

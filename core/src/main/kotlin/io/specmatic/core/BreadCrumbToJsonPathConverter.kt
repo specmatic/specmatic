@@ -77,9 +77,7 @@ class BreadCrumbToJsonPathConverter(private val config: TransformationConfig = d
                 TransformationStrategy.RegexReplacement(Regex("^\\(~~~")) { "(when " },
 
                 // Indices transformations
-                TransformationStrategy.RegexReplacement(Regex("\\[(\\d+)]")) { match ->
-                    "/${match.groupValues[1]}"
-                }
+                TransformationStrategy.RegexReplacement(Regex("\\[(\\d+)]")) { match -> "/${match.groupValues[1]}" }
             )
         )
     }
