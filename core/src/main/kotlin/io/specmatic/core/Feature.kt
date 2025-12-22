@@ -1191,7 +1191,7 @@ data class Feature(
             url.removeSuffix("/").removePrefix("http://").removePrefix("https://")
                 .split("/").filterNot { it.isEmpty() }
                 .joinToString("_") { segment ->
-                    if (segment.toIntOrNull() != null) "ID"
+                    if (isNumericPathSegment(segment)) "ID"
                     else segment.capitalizeFirstChar()
                 }
         }
@@ -1213,7 +1213,7 @@ data class Feature(
         }
 
         fun normalize(url: String): String = url.replace('{', '_').replace('}', '_').split("/").joinToString("/") {
-            if(it.toIntOrNull() != null)
+            if (isNumericPathSegment(it))
                 "ID"
             else
                 it
@@ -2746,9 +2746,13 @@ fun similarURLPath(baseScenario: Scenario, newScenario: Scenario): Boolean {
     }
 }
 
+private val NUMERIC_PATH_SEGMENT = Regex("^\\d+$")
+
 fun isInteger(
     base: URLPathSegmentPattern
-) = base.pattern is ExactValuePattern && base.pattern.pattern.toStringLiteral().toIntOrNull() != null
+) = base.pattern is ExactValuePattern && isNumericPathSegment(base.pattern.pattern.toStringLiteral())
+
+private fun isNumericPathSegment(segment: String): Boolean = NUMERIC_PATH_SEGMENT.matches(segment)
 
 data class DiscriminatorBasedRequestResponse(
     val request: HttpRequest,
