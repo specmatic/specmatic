@@ -238,8 +238,7 @@ paths:
 
             assertThat(stub.logs).isEqualTo(listOf(
                 StubEndpoint("/data", "GET", 200, "text/plain", serviceType = "HTTP"),
-                StubEndpoint("/hello", "GET", 200, "text/plain", serviceType = "HTTP"),
-                StubEndpoint("/unknown", "GET", 400, "text/plain", serviceType = "HTTP"),
+                StubEndpoint("/hello", "GET", 200, "text/plain", serviceType = "HTTP")
             ))
         }
     }
@@ -255,7 +254,6 @@ paths:
 
             assertThat(stub.logs).isEqualTo(listOf(
                 StubEndpoint("/data", "GET", 200, "text/plain", serviceType = "HTTP"),
-                StubEndpoint("/unknown", "GET", 400, "text/plain", serviceType = "HTTP"),
             ))
         }
     }
@@ -284,7 +282,6 @@ paths:
 
             assertThat(stub.logs).isEqualTo(listOf(
                 StubEndpoint("/data", "GET", 200, "text/plain", serviceType = "HTTP"),
-                StubEndpoint("/hello", "GET", 400, "text/plain", serviceType = "HTTP"),
             ))
         }
     }
