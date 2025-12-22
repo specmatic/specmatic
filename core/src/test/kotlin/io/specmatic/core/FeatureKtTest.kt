@@ -430,7 +430,28 @@ class FeatureKtTest {
                         type: array
                         items:
                           ${"$"}ref: #/components/schemas/Addresses
-        """.trimIndent())
+                """.trimIndent())
+    }
+
+    @Test
+    fun `large numeric path segments should be treated as ids when comparing similar URLs`() {
+        val feature = parseGherkinStringToFeature(
+            """
+            Feature: Orders API
+
+            Scenario: Order 1
+              When GET /orders/5432154321
+              Then status 200
+
+            Scenario: Order 2
+              When GET /orders/9876543210
+              Then status 200
+            """.trimIndent()
+        )
+
+        val scenarios = feature.scenarios
+
+        assertThat(similarURLPath(scenarios[0], scenarios[1])).isTrue
     }
 
     private fun deferredToJsonPatternData(pattern: Pattern, resolver: Resolver): Map<String, Pattern> =
@@ -708,6 +729,26 @@ paths:
 
     @Nested
     inner class FeatureToOpenAPI {
+        @Test
+        fun `should treat large numeric path segments as ids when generating OpenAPI`() {
+            val feature = parseGherkinStringToFeature(
+                """
+                Feature: Orders API
+
+                Scenario: Get order
+                  When GET /orders/5432154321
+                  Then status 200
+                """.trimIndent()
+            )
+
+            val openAPI = feature.toOpenApi()
+            val pathItem = openAPI.paths["/orders/{id}"]
+            val getOperation = requireNotNull(pathItem?.get) { "Expected GET operation for /orders/{id}" }
+
+            assertThat(pathItem).isNotNull
+            assertThat(getOperation.parameters.map { it.name }).contains("id")
+        }
+
         @Test
         fun `should provide unique names to body schemas under the same endpoint`() {
             val requestPattern = HttpRequestPattern(
