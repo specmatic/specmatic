@@ -4,7 +4,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
-enum class ErrorSeverity {
+enum class IssueSeverity {
     @SerialName("error")
     ERROR,
 
@@ -13,16 +13,16 @@ enum class ErrorSeverity {
 }
 
 @Serializable
-data class Error(
+data class Issue(
     val breadCrumb: String,
     val path: List<String>,
     val ruleViolations: List<RuleViolationSnapshot>,
     val details: String,
-    val severity: ErrorSeverity
+    val severity: IssueSeverity
 )
 
 interface Report {
     override fun toString(): String
     fun toText(): String
-    fun toErrors(): List<Error>
+    fun toIssues(breadCrumbToJsonPathConverter: BreadCrumbToJsonPathConverter = BreadCrumbToJsonPathConverter()): List<Issue>
 }

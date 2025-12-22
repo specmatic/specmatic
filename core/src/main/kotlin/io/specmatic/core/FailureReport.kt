@@ -38,14 +38,14 @@ data class FailureReport(val contractPath: String?, private val scenarioMessage:
         return report.trimIndent()
     }
 
-    override fun toErrors(): List<Error> {
+    override fun toIssues(breadCrumbToJsonPathConverter: BreadCrumbToJsonPathConverter): List<Issue> {
         return matchFailureDetailList.map { detail ->
-            Error (
-                path = BreadCrumbToJsonPathConverter().convert(detail.breadCrumbs),
+            Issue (
+                path = breadCrumbToJsonPathConverter.convert(detail.breadCrumbs),
                 breadCrumb = breadCrumbString(detail.breadCrumbs),
-                ruleViolations = detail.ruleViolationReport?.ruleViolations?.map(RuleViolation::snapshot).orEmpty(),
+                ruleViolations = detail.ruleViolationReport?.toSnapShots().orEmpty(),
                 details = errorMessagesToString(detail.errorMessages),
-                severity = if (detail.isPartial) ErrorSeverity.WARNING else ErrorSeverity.ERROR
+                severity = if (detail.isPartial) IssueSeverity.WARNING else IssueSeverity.ERROR
             )
         }
     }

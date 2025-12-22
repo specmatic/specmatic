@@ -6,7 +6,8 @@ import kotlinx.serialization.Serializable
 data class RuleViolationSnapshot(
     val id: String,
     val title: String,
-    val summary: String?
+    val documentationUrl: String,
+    val summary: String?,
 )
 
 interface RuleViolation {
@@ -14,7 +15,7 @@ interface RuleViolation {
     val title: String
     val summary: String?
 
-    fun snapshot(): RuleViolationSnapshot = RuleViolationSnapshot(id, title, summary)
+    fun snapshot(documentationUrl: String): RuleViolationSnapshot = RuleViolationSnapshot(id, title, documentationUrl, summary)
 }
 
 enum class OpenApiRuleViolation(override val id: String, override val title: String, override val summary: String? = null): RuleViolation {

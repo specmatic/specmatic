@@ -18,10 +18,20 @@ data class RuleViolationReport(val ruleViolations: Set<RuleViolation> = emptySet
         return ruleViolations.joinToString(prefix = "- ", separator = "\n\n- ", transform = ::ruleViolationToText)
     }
 
+    fun toSnapShots(): List<RuleViolationSnapshot> {
+        return ruleViolations.map {
+            it.snapshot(it.toDocumentationUrl())
+        }
+    }
+
     private fun ruleViolationToText(rule: RuleViolation): String = buildString {
         append("${rule.id}: ${rule.title}\n")
-        append("Documentation: $RULES_DOCUMENTATION_URL#${rule.id.lowercase()}")
+        append("Documentation: ${rule.toDocumentationUrl()}")
         rule.summary?.let { append("\nsummary: $it") }
+    }
+
+    private fun RuleViolation.toDocumentationUrl(): String {
+        return listOf(RULES_DOCUMENTATION_URL, id.lowercase()).joinToString("#")
     }
 
     companion object {
