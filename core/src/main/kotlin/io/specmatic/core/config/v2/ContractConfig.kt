@@ -36,7 +36,7 @@ data class ContractConfig(
             source.directory != null -> FileSystemContractSource(source)
             else -> null
         },
-        provides = source.testConsumes ?: source.test?.map { SpecExecutionConfig.StringValue(it) },
+        provides = source.testConsumes ?: source.test?.map { it },
         consumes = source.stub
     )
 
@@ -53,18 +53,12 @@ data class ContractConfig(
     }
 
     fun transform(): Source {
-        val testSpecs: List<String>? = provides?.flatMap { consume ->
-            when (consume) {
-                is SpecExecutionConfig.StringValue -> listOf(consume.value)
-                is SpecExecutionConfig.ObjectValue -> consume.specs
-            }
-        }
         val testSpecExecutionConfigOrNull = when {
             provides?.any { it is SpecExecutionConfig.ObjectValue } == true -> provides
             else -> null
         }
         return this.contractSource?.transform(provides, consumes)
-            ?: Source(test = testSpecs, stub = consumes, testConsumes = testSpecExecutionConfigOrNull)
+            ?: Source(test = provides, stub = consumes, testConsumes = testSpecExecutionConfigOrNull)
     }
 
     fun interface ContractSource {
@@ -79,7 +73,6 @@ data class ContractConfig(
         constructor(source: Source) : this(source.repository, source.branch, source.matchBranch)
 
         override fun transform(provides: List<SpecExecutionConfig>?, consumes: List<SpecExecutionConfig>?): Source {
-            val testSpecs = provides?.flatMap { p -> when(p) { is SpecExecutionConfig.StringValue -> listOf(p.value); is SpecExecutionConfig.ObjectValue -> p.specs } }
             val testSpecExecutionConfigOrNull = when {
                 provides?.any { it is SpecExecutionConfig.ObjectValue } == true -> provides
                 else -> null
@@ -88,7 +81,7 @@ data class ContractConfig(
                 provider = SourceProvider.git,
                 repository = this.url,
                 branch = this.branch,
-                test = testSpecs,
+                test = provides.orEmpty(),
                 stub = consumes.orEmpty(),
                 testConsumes = testSpecExecutionConfigOrNull,
                 matchBranch = this.matchBranch
@@ -102,7 +95,6 @@ data class ContractConfig(
         constructor(source: Source) : this(source.directory ?: ".")
 
         override fun transform(provides: List<SpecExecutionConfig>?, consumes: List<SpecExecutionConfig>?): Source {
-            val testSpecs = provides?.flatMap { p -> when(p) { is SpecExecutionConfig.StringValue -> listOf(p.value); is SpecExecutionConfig.ObjectValue -> p.specs } }
             val testSpecExecutionConfigOrNull = when {
                 provides?.any { it is SpecExecutionConfig.ObjectValue } == true -> provides
                 else -> null
@@ -110,7 +102,7 @@ data class ContractConfig(
             return Source(
                 provider = SourceProvider.filesystem,
                 directory = this.directory,
-                test = testSpecs,
+                test = provides.orEmpty(),
                 stub = consumes.orEmpty(),
                 testConsumes = testSpecExecutionConfigOrNull
             )
