@@ -10,12 +10,14 @@ fun ctrfSpecConfigsFrom(
     serviceType: String = "HTTP",
     specType: String = "OPENAPI",
 ): List<CtrfSpecConfig> {
-    val specConfigs = testResultRecords.map {
-        it.specification.orEmpty() to it.testType
-    }.map { (absoluteSpecPath, testType) ->
-        specmaticConfig.getCtrfSpecConfig(absoluteSpecPath, testType, serviceType, specType)
+    val specConfigs = testResultRecords.mapNotNull {
+        val absoluteSpecPath = it.specification
+        when {
+            absoluteSpecPath.isNullOrBlank() -> null
+            else -> specmaticConfig.getCtrfSpecConfig(absoluteSpecPath, it.testType, serviceType, specType)
+        }
     }
-    return specConfigs
+    return specConfigs.distinct()
 }
 
 
