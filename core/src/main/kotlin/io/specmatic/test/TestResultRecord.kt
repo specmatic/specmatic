@@ -40,7 +40,7 @@ data class TestResultRecord(
     override val operation: APIOperation = OpenAPIOperation(
         path = path,
         method = method,
-        contentType = requestContentType.orEmpty(),
+        contentType = requestContentType,
         responseCode = responseStatus
     )
 ): CtrfTestResultRecord {

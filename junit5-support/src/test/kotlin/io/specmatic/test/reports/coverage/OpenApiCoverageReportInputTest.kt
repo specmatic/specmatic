@@ -370,4 +370,63 @@ class OpenApiCoverageReportInputTest {
         assertThat(missingInSpecRow.responseStatus).isEqualTo("400")
     }
 
+    @Test
+    fun `should retain requestContentTypes for not covered endpoints`() {
+        val endpoint1 = Endpoint(path = "/current", method = "GET", responseStatus = 200)
+        val endpoint2 = Endpoint(path = "/previous", method = "POST", requestContentType = "application/json", responseStatus = 201)
+
+        val allEndpoints = mutableListOf(endpoint1, endpoint2)
+        val currentRecord = TestResultRecord(
+            path = "/current",
+            method = "GET",
+            responseStatus = 200,
+            request = null,
+            response = null,
+            result = TestResult.Success
+        )
+
+        val input = OpenApiCoverageReportInput(
+            configFilePath = "specmatic.yaml",
+            testResultRecords = mutableListOf(currentRecord),
+            previousTestResultRecord = emptyList(),
+            allEndpoints = allEndpoints,
+            filteredEndpoints = allEndpoints
+        )
+
+        val report = input.generate()
+
+        assertThat(report.testResultRecords.count()).isEqualTo(2)
+        val notCoveredRecord = report.testResultRecords.first { it.path == "/previous" }
+        assertThat(notCoveredRecord.requestContentType).isEqualTo("application/json")
+    }
+
+    @Test
+    fun `should report requestContentTypes as null wherever it is not applicable or available`() {
+        val endpoint1 = Endpoint(path = "/current", method = "GET", responseStatus = 200)
+
+        val allEndpoints = mutableListOf(endpoint1)
+        val currentRecord = TestResultRecord(
+            path = "/current",
+            method = "GET",
+            responseStatus = 200,
+            request = null,
+            response = null,
+            result = TestResult.Success
+        )
+
+        val input = OpenApiCoverageReportInput(
+            configFilePath = "specmatic.yaml",
+            testResultRecords = mutableListOf(currentRecord),
+            previousTestResultRecord = emptyList(),
+            allEndpoints = allEndpoints,
+            filteredEndpoints = allEndpoints
+        )
+
+        val report = input.generate()
+
+        assertThat(report.testResultRecords.count()).isEqualTo(1)
+        val notCoveredRecord = report.testResultRecords.first { it.path == "/current" }
+        assertThat(notCoveredRecord.requestContentType).isNull()
+    }
+
 }
