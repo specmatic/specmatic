@@ -97,6 +97,8 @@ sealed class SpecExecutionConfig {
 }
 
 class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeserializer<List<SpecExecutionConfig>>() {
+    private val keyBeingDeserialized = if(consumes) "consumes" else "provides"
+
     override fun deserialize(p: JsonParser, ctxt: DeserializationContext): List<SpecExecutionConfig> {
         return p.codec.readTree<JsonNode>(p).takeIf(JsonNode::isArray)?.map { element ->
             when {
@@ -142,21 +144,21 @@ class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeseriali
         validateSpecsFieldAndReturn(p)
         val specTypeField = get("specType")
         if (specTypeField == null || !specTypeField.isTextual) {
-            throw JsonMappingException(p, "Missing or invalid required field 'specType'")
+            throw JsonMappingException(p, "Missing or invalid required field 'specType' key in '$keyBeingDeserialized' field in Specmatic configuration")
         }
         val configField = get("config")
         if (configField == null || !configField.isObject) {
-            throw JsonMappingException(p, "Missing or invalid required field 'config'")
+            throw JsonMappingException(p, "Missing or invalid required field 'config' key in '$keyBeingDeserialized' field in Specmatic configuration")
         }
     }
 
     private fun JsonNode.validateSpecsFieldAndReturn(p: JsonParser): JsonNode {
         val specsField = get("specs")
         when {
-            specsField == null -> throw JsonMappingException(p, "Missing required field 'specs'")
-            !specsField.isArray -> throw JsonMappingException(p, "'specs' must be an array")
-            specsField.isEmpty -> throw JsonMappingException(p, "'specs' array cannot be empty")
-            specsField.any { !it.isTextual } -> throw JsonMappingException(p, "'specs' must contain only strings")
+            specsField == null -> throw JsonMappingException(p, "Missing required field 'specs' in '$keyBeingDeserialized' field in Specmatic configuration")
+            !specsField.isArray -> throw JsonMappingException(p, "'specs' must be an array in '$keyBeingDeserialized' field in Specmatic configuration")
+            specsField.isEmpty -> throw JsonMappingException(p, "'specs' array cannot be empty in '$keyBeingDeserialized' field in Specmatic configuration")
+            specsField.any { !it.isTextual } -> throw JsonMappingException(p, "'specs' must contain only strings in '$keyBeingDeserialized' field in Specmatic configuration")
         }
         return specsField
     }
@@ -178,8 +180,8 @@ class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeseriali
             this.isBoolean -> this.asBoolean()
             this.isArray -> this.map { it.nativeValue(p) }
             this.isObject -> this.toMap(p)
-            this.isNull -> throw JsonMappingException(p, "Null values not supported in config")
-            else -> throw JsonMappingException(p, "Unsupported value type in config")
+            this.isNull -> throw JsonMappingException(p, "Null values not supported in 'config' key present under $keyBeingDeserialized field in Specmatic configuration")
+            else -> throw JsonMappingException(p, "Unsupported value type in 'config' key present under $keyBeingDeserialized field in Specmatic configuration")
         }
     }
 

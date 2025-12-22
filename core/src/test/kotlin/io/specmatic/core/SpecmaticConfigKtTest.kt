@@ -676,7 +676,7 @@ internal class SpecmaticConfigKtTest {
             }
 
             assertThat(exception.originalMessage).isEqualToNormalizingWhitespace("""
-            Missing required field 'specs'
+            Missing required field 'specs' in 'consumes' field in Specmatic configuration
             """.trimIndent())
         }
 
@@ -692,7 +692,7 @@ internal class SpecmaticConfigKtTest {
             }
 
             assertThat(exception.originalMessage).isEqualToNormalizingWhitespace("""
-            'specs' array cannot be empty
+            'specs' array cannot be empty in 'consumes' field in Specmatic configuration
             """.trimIndent())
         }
 
@@ -708,7 +708,7 @@ internal class SpecmaticConfigKtTest {
             }
 
             assertThat(exception.originalMessage).isEqualToNormalizingWhitespace("""
-            'specs' must contain only strings
+            'specs' must contain only strings in 'consumes' field in Specmatic configuration
             """.trimIndent())
         }
 
@@ -932,7 +932,7 @@ internal class SpecmaticConfigKtTest {
                 mapper.readValue<ContractConfig>(providesString)
             }
 
-            assertThat(exception.originalMessage).contains("Missing or invalid required field 'specType'")
+            assertThat(exception.originalMessage).isEqualTo("Missing or invalid required field 'specType' key in 'provides' field in Specmatic configuration")
         }
 
         @Test
@@ -948,7 +948,7 @@ internal class SpecmaticConfigKtTest {
                 mapper.readValue<ContractConfig>(providesString)
             }
 
-            assertThat(exception.originalMessage).contains("Missing or invalid required field 'config'")
+            assertThat(exception.originalMessage).isEqualTo("Missing or invalid required field 'config' key in 'provides' field in Specmatic configuration")
         }
 
         @Test
@@ -964,7 +964,7 @@ internal class SpecmaticConfigKtTest {
                 mapper.readValue<ContractConfig>(providesString)
             }
 
-            assertThat(exception.originalMessage).contains("Missing required field 'specs'")
+            assertThat(exception.originalMessage).isEqualTo("Missing required field 'specs' in 'provides' field in Specmatic configuration")
         }
     }
 
