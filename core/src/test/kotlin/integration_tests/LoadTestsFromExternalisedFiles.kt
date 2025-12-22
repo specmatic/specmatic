@@ -16,6 +16,8 @@ import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_SCHEMA
 import io.specmatic.core.utilities.Flags.Companion.IGNORE_INLINE_EXAMPLES
 import io.specmatic.core.value.*
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.toViolationReportString
 import io.specmatic.test.ExampleProcessor
 import io.specmatic.test.TestExecutor
 import org.assertj.core.api.Assertions.*
@@ -457,10 +459,20 @@ class LoadTestsFromExternalisedFiles {
 
             assertThat(exception.report()).isEqualToNormalizingWhitespace("""
             Error loading example for GET /hello/(id:number) -> 200 from ${examplesDir.resolve("extra_header.json").canonicalPath}
-            >> REQUEST.PARAMETERS.HEADER.X-Extra-Header  
-            The header X-Extra-Header was found in the example extra_header but was not in the specification.
-            >> RESPONSE.HEADER.X-Extra-Header
-            The header X-Extra-Header was found in the example extra_header but was not in the specification.
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.PARAMETERS.HEADER.X-Extra-Header",
+                    details = "The header X-Extra-Header was found in the example extra_header but was not in the specification.",
+                    StandardRuleViolation.UNKNOWN_PROPERTY
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "RESPONSE.HEADER.X-Extra-Header",
+                    details = "The header X-Extra-Header was found in the example extra_header but was not in the specification.",
+                    StandardRuleViolation.UNKNOWN_PROPERTY
+                )
+            }
             """.trimIndent())
         }
     }
@@ -548,28 +560,68 @@ class LoadTestsFromExternalisedFiles {
 
         assertThat(exception.report()).isEqualToNormalizingWhitespace("""
         Error loading example for POST /test/(testId:string) -> 200 from ${invalidExamplesDir.resolve("testId_example.json").canonicalPath}
-        >> REQUEST.BODY.value
-        Expected number as per the specification, but the example testId_example had true (boolean).
-        >> RESPONSE.BODY.value
-        Expected number as per the specification, but the example testId_example had true (boolean).
+        ${
+            toViolationReportString(
+                breadCrumb = "REQUEST.BODY.value",
+                details = "Expected number as per the specification, but the example testId_example had true (boolean).",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY.value",
+                details = "Expected number as per the specification, but the example testId_example had true (boolean).",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
 
         Error loading example for POST /test/latest -> 200 from ${invalidExamplesDir.resolve("latest_example.json").canonicalPath}
-        >> REQUEST.BODY.value
-        Expected boolean as per the specification, but the example latest_example had 123 (number).
-        >> RESPONSE.BODY.value
-        Expected boolean as per the specification, but the example latest_example had 123 (number).
+        ${
+            toViolationReportString(
+                breadCrumb = "REQUEST.BODY.value",
+                details = "Expected boolean as per the specification, but the example latest_example had 123 (number).",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY.value",
+                details = "Expected boolean as per the specification, but the example latest_example had 123 (number).",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
         
         Error loading example for POST /reports/(testId:string)/latest -> 200 from ${invalidExamplesDir.resolve("reports_testId_latest.json").canonicalPath}
-        >> REQUEST.BODY.value
-        Expected number as per the specification, but the example reports_testId_latest had true (boolean).
-        >> RESPONSE.BODY.value
-        Expected number as per the specification, but the example reports_testId_latest had true (boolean).
+        ${
+            toViolationReportString(
+                breadCrumb = "REQUEST.BODY.value",
+                details = "Expected number as per the specification, but the example reports_testId_latest had true (boolean).",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY.value",
+                details = "Expected number as per the specification, but the example reports_testId_latest had true (boolean).",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
         
         Error loading example for POST /(testId:string)/reports/(reportId:string) -> 200 from ${invalidExamplesDir.resolve("testId_reports_reportId.json").canonicalPath}
-        >> REQUEST.BODY.value 
-        Expected boolean as per the specification, but the example testId_reports_reportId had 123 (number).
-        >> RESPONSE.BODY.value
-        Expected boolean as per the specification, but the example testId_reports_reportId had 123 (number).
+        ${
+            toViolationReportString(
+                breadCrumb = "REQUEST.BODY.value",
+                details = "Expected boolean as per the specification, but the example testId_reports_reportId had 123 (number).",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY.value",
+                details = "Expected boolean as per the specification, but the example testId_reports_reportId had 123 (number).",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
         """.trimIndent())
     }
 
@@ -608,22 +660,47 @@ class LoadTestsFromExternalisedFiles {
 
         assertThat(exception.report()).isEqualToNormalizingWhitespace("""
         Error loading example for POST /secure -> 200 from ${examplesDir.resolve("secure.json").canonicalPath} 
-        >> REQUEST.PARAMETERS.HEADER.Authorization
-        Authorization header must be prefixed with "Bearer"
-
-        Error loading example for POST /partial -> 200 from ${examplesDir.resolve("partial.json").canonicalPath} 
-        >> REQUEST.PARAMETERS.HEADER.Authorization
-        Authorization header must be prefixed with "Bearer"
+        ${
+            toViolationReportString(
+                breadCrumb = "REQUEST.PARAMETERS.HEADER.Authorization",
+                details = "Authorization header must be prefixed with \"Bearer\"",
+                OpenApiRuleViolation.SECURITY_SCHEME_MISMATCH
+            )
+        }
+       
+        Error loading example for POST /partial -> 200 from ${examplesDir.resolve("partial.json").canonicalPath}
+         ${
+             toViolationReportString(
+                 breadCrumb = "REQUEST.PARAMETERS.HEADER.Authorization",
+                 details = "Authorization header must be prefixed with \"Bearer\"",
+                 OpenApiRuleViolation.SECURITY_SCHEME_MISMATCH
+             )
+         }
         
         Error loading example for POST /overlap -> 200 from ${examplesDir.resolve("overlap.json").canonicalPath}
-        >> REQUEST.PARAMETERS.HEADER.Authorization
-        Authorization header must be prefixed with "Bearer"
-
+        ${
+            toViolationReportString(
+                breadCrumb = "REQUEST.PARAMETERS.HEADER.Authorization",
+                details = "Authorization header must be prefixed with \"Bearer\"",
+                OpenApiRuleViolation.SECURITY_SCHEME_MISMATCH
+            )
+        }
+        
         Error loading example for POST /insecure -> 200 from ${examplesDir.resolve("insecure.json").canonicalPath} 
-        >> REQUEST.PARAMETERS.QUERY.apiKey
-        The query param apiKey was found in the example insecure but was not in the specification. 
-        >> REQUEST.PARAMETERS.HEADER.Authorization
-        The header Authorization was found in the example insecure but was not in the specification.
+        ${
+            toViolationReportString(
+                 breadCrumb = "REQUEST.PARAMETERS.QUERY.apiKey",
+                 details = "The query param apiKey was found in the example insecure but was not in the specification.",
+                StandardRuleViolation.UNKNOWN_PROPERTY
+            )
+        }
+        ${
+             toViolationReportString(
+                 breadCrumb = "REQUEST.PARAMETERS.HEADER.Authorization",
+                 details = "The header Authorization was found in the example insecure but was not in the specification.",
+                StandardRuleViolation.UNKNOWN_PROPERTY
+            )
+         }
         """.trimIndent())
     }
 
@@ -922,18 +999,47 @@ class LoadTestsFromExternalisedFiles {
                 In scenario "PATCH /pets/(id:number). Response: pet response"
                 API: PATCH /pets/(id:number) -> 200
 
-                >> REQUEST.BODY.name
-                Contract expected string but found value 10 (number)
-                >> REQUEST.BODY.tag[0]
-                Contract expected string but found value 10 (number)
-                >> REQUEST.BODY.details
-                Can't generate object value from type number
-                >> REQUEST.BODY.adopted
-                Contract expected boolean but found value "false"
-                >> REQUEST.BODY.age
-                Contract expected number but found value "20"
-                >> REQUEST.BODY.birthdate
-                Date types can only be represented using strings
+                ${
+                    toViolationReportString(
+                        breadCrumb = "REQUEST.BODY.name",
+                        details = "Contract expected string but found value 10 (number)",
+                        StandardRuleViolation.TYPE_MISMATCH
+                    )
+                }
+                ${
+                    toViolationReportString(
+                        breadCrumb = "REQUEST.BODY.tag[0]",
+                        details = "Contract expected string but found value 10 (number)",
+                        StandardRuleViolation.TYPE_MISMATCH
+                    )
+                }
+                ${
+                    toViolationReportString(
+                        breadCrumb = "REQUEST.BODY.details",
+                        details = "Can't generate object value from type number"
+                    )
+                }
+                ${
+                    toViolationReportString(
+                        breadCrumb = "REQUEST.BODY.adopted",
+                        details = "Contract expected boolean but found value \"false\"",
+                        StandardRuleViolation.TYPE_MISMATCH
+                    )
+                }
+                ${
+                    toViolationReportString(
+                        breadCrumb = "REQUEST.BODY.age",
+                        details = "Contract expected number but found value \"20\"",
+                        StandardRuleViolation.TYPE_MISMATCH
+                    )
+                }
+                ${
+                    toViolationReportString(
+                        breadCrumb = "REQUEST.BODY.birthdate",
+                        details = "Contract expected date but found value false (boolean)",
+                        StandardRuleViolation.TYPE_MISMATCH
+                    )
+                }
              """.trimIndent())
             }
 
@@ -1035,10 +1141,20 @@ class LoadTestsFromExternalisedFiles {
                 assertThat(failure.reportString()).containsIgnoringWhitespaces("""
                 In scenario "List all pets. Response: A list of pets"
                 API: GET /pets -> 200
-                >> RESPONSE.BODY[0].petType
-                Expected "dog" to equal "cat"
-                >> RESPONSE.BODY[0].color
-                Expected "white" to equal "black"
+                ${
+                    toViolationReportString(
+                        breadCrumb = "RESPONSE.BODY[0].petType",
+                        details = "Expected \"dog\" to equal \"cat\"",
+                        StandardRuleViolation.VALUE_MISMATCH
+                    )
+                }
+                ${
+                    toViolationReportString(
+                        breadCrumb = "RESPONSE.BODY[0].color",
+                        details = "Expected \"white\" to equal \"black\"",
+                        StandardRuleViolation.VALUE_MISMATCH
+                    )
+                }
                 """.trimIndent())
             }
         }
@@ -1166,32 +1282,88 @@ class LoadTestsFromExternalisedFiles {
             assertThat(exception.report()).isEqualToNormalizingWhitespace("""
             Error loading example for PATCH /creators/(creatorId:number)/pets/(petId:number) -> 201 from ${invalidExamplesDir.resolve("pets_post.json").canonicalPath}
 
-            >> REQUEST.PARAMETERS.PATH.creatorId  
-            Expected number as per the specification, but the example pets_post had "abc".
-            >> REQUEST.PARAMETERS.PATH.petId  
-            Expected number as per the specification, but the example pets_post had string.
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.PARAMETERS.PATH.creatorId",
+                    details = "Expected number as per the specification, but the example pets_post had \"abc\".",
+                    OpenApiRuleViolation.PATH_MISMATCH, StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.PARAMETERS.PATH.petId",
+                    details = "Expected number as per the specification, but the example pets_post had string.",
+                    OpenApiRuleViolation.PATH_MISMATCH, StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
             
-            >> REQUEST.PARAMETERS.QUERY.creatorId
-            Expected number as per the specification, but the example pets_post had "abc".
-            >> REQUEST.PARAMETERS.QUERY.petId
-            Expected number as per the specification, but the example pets_post had string.
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.PARAMETERS.QUERY.creatorId",
+                    details = "Expected number as per the specification, but the example pets_post had \"abc\".",
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.PARAMETERS.QUERY.petId",
+                    details = "Expected number as per the specification, but the example pets_post had string.",
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
+    
+        
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.PARAMETERS.HEADER.CREATOR-ID",
+                    details = "Expected number as per the specification, but the example pets_post had \"abc\".",
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.PARAMETERS.HEADER.PET-ID",
+                    details = "Expected number as per the specification, but the example pets_post had string.",
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
 
-            >> REQUEST.PARAMETERS.HEADER.CREATOR-ID
-            Expected number as per the specification, but the example pets_post had "abc".
-            >> REQUEST.PARAMETERS.HEADER.PET-ID  
-            Expected number as per the specification, but the example pets_post had string.
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.BODY.creatorId",
+                    details = "Expected number as per the specification, but the example pets_post had \"123\".",
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.BODY.petId",
+                    details = "Expected number as per the specification, but the example pets_post had string.",
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
 
-            >> REQUEST.BODY.creatorId  
-            Expected number as per the specification, but the example pets_post had "123".  
-            >> REQUEST.BODY.petId  
-            Expected number as per the specification, but the example pets_post had string.
-
-            >> RESPONSE.BODY.id  
-            Expected number as per the specification, but the example pets_post had string.
-            >> RESPONSE.BODY.traceId  
-            Expected string as per the specification, but the example pets_post had number.
-            >> RESPONSE.BODY.creatorId  
-            Expected number as per the specification, but the example pets_post had "123".  
+            ${
+                toViolationReportString(
+                    breadCrumb = "RESPONSE.BODY.id",
+                    details = "Expected number as per the specification, but the example pets_post had string.",
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "RESPONSE.BODY.traceId",
+                    details = "Expected string as per the specification, but the example pets_post had number.",
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "RESPONSE.BODY.creatorId",
+                    details = "Expected number as per the specification, but the example pets_post had \"123\".",
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            }  
             """.trimIndent())
         }
 

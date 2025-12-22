@@ -9,6 +9,8 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -89,10 +91,20 @@ class ExampleValidationModuleTest {
         assertThat(result.report()).isEqualToNormalizingWhitespace("""
         In scenario ""
         API: POST /add -> 200
-        >> REQUEST.BODY.first
-        Specification expected number but example contained string
-        >> RESPONSE.BODY.result
-        Specification expected number but example contained uuid
+        ${
+            toViolationReportString(
+                breadCrumb = "REQUEST.BODY.first",
+                details = "Specification expected number but example contained string",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY.result",
+                details = "Specification expected number but example contained uuid",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
         """.trimIndent())
     }
 
@@ -119,8 +131,13 @@ class ExampleValidationModuleTest {
         val result = feature.matchResultSchemaFlagBased(null, "Test", example, DefaultMismatchMessages)
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> first
-        Expected number, actual was string
+        ${
+            toViolationReportString(
+                breadCrumb = "first",
+                details = "Expected number, actual was string",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
         """.trimIndent())
     }
 
@@ -140,8 +157,11 @@ class ExampleValidationModuleTest {
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
         In scenario ""
         API: GET /test/(id:number)/name/(name:string) -> 200
-        >> REQUEST.PARAMETERS.PATH.id
-        Specification expected number but example contained "abc"
+        ${toViolationReportString(
+            breadCrumb = "REQUEST.PARAMETERS.PATH.id",
+            details = "Specification expected number but example contained \"abc\"",
+            OpenApiRuleViolation.PATH_MISMATCH, StandardRuleViolation.TYPE_MISMATCH
+        )}
         """.trimIndent())
     }
 
@@ -213,10 +233,20 @@ class ExampleValidationModuleTest {
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> partial.REQUEST.BODY.name
-        Specification expected string but example contained 123 (number)
-        >> partial.RESPONSE.BODY.id
-        Specification expected number but example contained "abc"
+        ${
+            toViolationReportString(
+                breadCrumb = "partial.REQUEST.BODY.name",
+                details = "Specification expected string but example contained 123 (number)",
+                StandardRuleViolation.TYPE_MISMATCH 
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "partial.RESPONSE.BODY.id",
+                details = "Specification expected number but example contained \"abc\"",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
         """.trimIndent())
     }
 
@@ -246,10 +276,20 @@ class ExampleValidationModuleTest {
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> partial.REQUEST.BODY.name
-        Specification expected string but example contained number
-        >> partial.RESPONSE.BODY.id
-        Specification expected number but example contained string
+        ${
+            toViolationReportString(
+                breadCrumb = "partial.REQUEST.BODY.name",
+                details = "Specification expected string but example contained number",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "partial.RESPONSE.BODY.id",
+                details = "Specification expected number but example contained string",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
         """.trimIndent())
     }
 
@@ -280,14 +320,34 @@ class ExampleValidationModuleTest {
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> REQUEST.BODY.age
-        Key age in the specification is missing from the example
-        >> RESPONSE.BODY.id
-        Key id in the specification is missing from the example
-        >> RESPONSE.BODY.name
-        Key name in the specification is missing from the example
-        >> RESPONSE.BODY.age
-        Key age in the specification is missing from the example
+        ${
+            toViolationReportString(
+                breadCrumb = "REQUEST.BODY.age",
+                details = "Key age in the specification is missing from the example",
+                StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY.id",
+                details = "Key id in the specification is missing from the example",
+                StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY.name",
+                details = "Key name in the specification is missing from the example",
+                StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY.age",
+                details = "Key age in the specification is missing from the example",
+                StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+            )
+        }
         """.trimIndent())
     }
 
@@ -317,14 +377,34 @@ class ExampleValidationModuleTest {
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> RESPONSE.BODY[0].id
-        Expected key named "id" was missing
-        >> RESPONSE.BODY[0].name
-        Expected key named "name" was missing
-        >> RESPONSE.BODY[0].age
-        Key named "age" was unexpected
-        >> RESPONSE.BODY[0].extra
-        Key named "extra" was unexpected
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY[0].id",
+                details = "Expected key named \"id\" was missing",
+                StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY[0].name",
+                details = "Expected key named \"name\" was missing",
+                StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY[0].age",
+                details ="Key named \"age\" was unexpected", 
+                StandardRuleViolation.UNKNOWN_PROPERTY
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY[0].extra",
+                details = "Key named \"extra\" was unexpected", 
+                StandardRuleViolation.UNKNOWN_PROPERTY
+            )
+        }
         """.trimIndent())
     }
 
@@ -390,14 +470,35 @@ class ExampleValidationModuleTest {
         assertThat(partialValidExampleResult).isInstanceOf(Result.Success::class.java)
         assertThat(partialInvalidExampleResult).isInstanceOf(Result.Failure::class.java)
         assertThat(partialInvalidExampleResult.reportString()).isEqualToNormalizingWhitespace("""
-        >> partial.RESPONSE.BODY[0].id
-        Expected key named "id" was missing
-        >> partial.RESPONSE.BODY[0].name
-        Expected key named "name" was missing
-        >> partial.RESPONSE.BODY[0].age
-        Key named "age" was unexpected
-        >> partial.RESPONSE.BODY[0].extra
-        Key named "extra" was unexpected
+        
+        ${
+            toViolationReportString(
+                breadCrumb = "partial.RESPONSE.BODY[0].id",
+                details = "Expected key named \"id\" was missing",
+                StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "partial.RESPONSE.BODY[0].name",
+                details = "Expected key named \"name\" was missing",
+                StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "partial.RESPONSE.BODY[0].age",
+                details = "Key named \"age\" was unexpected",
+                StandardRuleViolation.UNKNOWN_PROPERTY
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "partial.RESPONSE.BODY[0].extra",
+                details = "Key named \"extra\" was unexpected",
+                StandardRuleViolation.UNKNOWN_PROPERTY
+            )
+        }
         """.trimIndent())
     }
 
@@ -423,10 +524,20 @@ class ExampleValidationModuleTest {
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> REQUEST.PARAMETERS.HEADER.EXTRA-HEADER
-        Header EXTRA-HEADER in the example is not in the specification
-        >> RESPONSE.HEADER.EXTRA-HEADER
-        Header EXTRA-HEADER in the example is not in the specification
+        ${
+            toViolationReportString(
+                breadCrumb = "REQUEST.PARAMETERS.HEADER.EXTRA-HEADER",
+                details = "Header EXTRA-HEADER in the example is not in the specification",
+                StandardRuleViolation.UNKNOWN_PROPERTY
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.HEADER.EXTRA-HEADER",
+                details = "Header EXTRA-HEADER in the example is not in the specification",
+                StandardRuleViolation.UNKNOWN_PROPERTY
+            )
+        }
         """.trimIndent())
     }
 
@@ -452,10 +563,20 @@ class ExampleValidationModuleTest {
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> partial.REQUEST.PARAMETERS.HEADER.EXTRA-HEADER
-        Header EXTRA-HEADER in the example is not in the specification
-        >> partial.RESPONSE.HEADER.EXTRA-HEADER
-        Header EXTRA-HEADER in the example is not in the specification
+        ${
+            toViolationReportString(
+                breadCrumb = "partial.REQUEST.PARAMETERS.HEADER.EXTRA-HEADER",
+                details = "Header EXTRA-HEADER in the example is not in the specification",
+                StandardRuleViolation.UNKNOWN_PROPERTY
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "partial.RESPONSE.HEADER.EXTRA-HEADER",
+                details = "Header EXTRA-HEADER in the example is not in the specification",
+                StandardRuleViolation.UNKNOWN_PROPERTY
+            )
+        }
         """.trimIndent())
     }
 
@@ -533,19 +654,31 @@ class ExampleValidationModuleTest {
                 {
                     assertThat(requestPath).isIn("/test/latest", "/123/reports/456")
                     assertThat(it).isEqualToNormalizingWhitespace("""
-                    >> REQUEST.BODY.value
-                    Specification expected boolean but example contained 123 (number)
-                    >> RESPONSE.BODY.value
-                    Specification expected boolean but example contained 123 (number)
+                    ${toViolationReportString(
+                        breadCrumb = "REQUEST.BODY.value",
+                        details = "Specification expected boolean but example contained 123 (number)",
+                        StandardRuleViolation.TYPE_MISMATCH
+                    )}
+                    ${toViolationReportString(
+                        breadCrumb = "RESPONSE.BODY.value",
+                        details = "Specification expected boolean but example contained 123 (number)",
+                        StandardRuleViolation.TYPE_MISMATCH
+                    )}
                     """.trimIndent())
                 },
                 {
                     assertThat(requestPath).isIn("/test/123", "/reports/123/latest")
                     assertThat(it).isEqualToNormalizingWhitespace("""
-                    >> REQUEST.BODY.value
-                    Specification expected number but example contained true (boolean)
-                    >> RESPONSE.BODY.value
-                    Specification expected number but example contained true (boolean)
+                    ${toViolationReportString(
+                        breadCrumb = "REQUEST.BODY.value",
+                        details = "Specification expected number but example contained true (boolean)",
+                        StandardRuleViolation.TYPE_MISMATCH
+                    )}
+                    ${toViolationReportString(
+                        breadCrumb = "RESPONSE.BODY.value",
+                        details = "Specification expected number but example contained true (boolean)",
+                        StandardRuleViolation.TYPE_MISMATCH
+                    )}
                     """.trimIndent())
                 }
             )

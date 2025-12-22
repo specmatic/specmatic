@@ -8,6 +8,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import io.specmatic.shouldNotMatch
+import io.specmatic.toViolationReportString
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.assertThrows
@@ -201,7 +202,13 @@ Feature: Recursive test
             println(result.reportString())
 
             assertThat(result).isInstanceOf(Result.Failure::class.java)
-            assertThat(result.reportString()).isEqualToNormalizingWhitespace("List cannot be empty")
+            assertThat(result.reportString()).isEqualToIgnoringWhitespace(
+                toViolationReportString(
+                    breadCrumb = null,
+                    details = "List cannot be empty",
+                    StandardRuleViolation.CONSTRAINT_VIOLATION
+                )
+            )
         }
 
         @Test
@@ -324,11 +331,21 @@ Feature: Recursive test
 
             println(result.reportString())
             assertThat(result).isInstanceOf(Result.Failure::class.java)
-            assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-            >> [0].details
-            Expected optional key named "details" was missing
-            >> [1].details
-            Expected optional key named "details" was missing
+            assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
+            ${
+                toViolationReportString(
+                    breadCrumb = "[0].details",
+                    details = "Expected optional key named \"details\" was missing",
+                    StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "[1].details",
+                    details = "Expected optional key named \"details\" was missing",
+                    StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+                )
+            }
             """.trimIndent())
         }
 

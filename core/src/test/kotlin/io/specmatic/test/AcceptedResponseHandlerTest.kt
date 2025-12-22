@@ -6,6 +6,8 @@ import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.toViolationReportString
 import io.specmatic.test.handlers.AcceptedResponseHandler
 import io.specmatic.test.handlers.ResponseHandlingResult
 import io.specmatic.test.utils.DelayStrategy
@@ -77,9 +79,16 @@ class AcceptedResponseHandlerTest {
         assertThat(result.result.reportString()).isEqualToNormalizingWhitespace("""
         In scenario ""
         API: POST /  -> 202
-        >> RESPONSE.STATUS
-        Response doesn't match processing scenario
-        Expected status 202, actual was status 404
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.STATUS",
+                details = """
+                Response doesn't match processing scenario
+                Expected status 202, actual was status 404
+                """.trimIndent(),
+                OpenApiRuleViolation.STATUS_MISMATCH
+            )
+        }
         """.trimIndent())
     }
 
@@ -99,9 +108,13 @@ class AcceptedResponseHandlerTest {
         assertThat(result.result.reportString()).isEqualToNormalizingWhitespace("""
         In scenario ""
         API: POST / -> 202
-        >> RESPONSE.HEADER.Link
-        Response doesn't match processing scenario
-        Expected header named "Link" was missing
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.HEADER.Link",
+                details = "Response doesn't match processing scenario\nExpected header named \"Link\" was missing",
+                StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+            )
+        }
         """.trimIndent())
     }
 
@@ -392,12 +405,20 @@ class AcceptedResponseHandlerTest {
         assertThat(result.result.reportString()).isEqualToNormalizingWhitespace("""
         In scenario ""
         API: POST / -> 201
-        >> MONITOR.RESPONSE.BODY.name
-        Invalid request or response payload in the monitor response
-        Expected string, actual was 123 (number)
-        >> MONITOR.RESPONSE.BODY.age 
-        Invalid request or response payload in the monitor response
-        Expected number, actual was "John"
+        ${
+            toViolationReportString(
+                breadCrumb = "MONITOR.RESPONSE.BODY.name",
+                details = "Invalid request or response payload in the monitor response\nExpected string, actual was 123 (number)",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "MONITOR.RESPONSE.BODY.age",
+                details = "Invalid request or response payload in the monitor response\nExpected number, actual was \"John\"",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
         """.trimIndent())
     }
 

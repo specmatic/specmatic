@@ -34,7 +34,7 @@ data class MissingKeyError(override val name: String) : KeyError {
     override fun unknownKeyToResult(keyLabel: String, mismatchMessages: MismatchMessages): Failure {
         return Failure(
             message = mismatchMessages.unexpectedKey(keyLabel, name),
-            ruleViolation = StandardRuleViolation.UNKNOWN_KEY
+            ruleViolation = StandardRuleViolation.UNKNOWN_PROPERTY
         )
     }
 }
@@ -53,7 +53,7 @@ data class UnexpectedKeyError(override val name: String) : KeyError {
     override fun unknownKeyToResult(keyLabel: String, mismatchMessages: MismatchMessages): Failure {
         return Failure(
             message = mismatchMessages.unexpectedKey(keyLabel, name),
-            ruleViolation = StandardRuleViolation.UNKNOWN_KEY
+            ruleViolation = StandardRuleViolation.UNKNOWN_PROPERTY
         )
     }
 }

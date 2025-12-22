@@ -1253,7 +1253,7 @@ paths:
         val result: Results = testBackwardCompatibility(oldContract, newContract)
 
         assertThat(result.report()).contains("string in the new contract")
-        assertThat(result.report()).contains("number in the old contract")
+        assertThat(result.report()).contains("(number) in the old contract")
     }
 
     @Test

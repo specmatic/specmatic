@@ -18,6 +18,7 @@ import io.specmatic.mock.ScenarioStub
 import io.specmatic.osAgnosticPath
 import io.specmatic.shouldMatch
 import io.specmatic.test.LegacyHttpClient
+import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -1211,14 +1212,17 @@ paths:
                 val response = stub.client.execute(request)
 
                 assertThat(response.status).isEqualTo(400)
-                assertThat(response.body.toStringLiteral()).isEqualToNormalizingWhitespace(
-                    """
-            In scenario "Simple POST endpoint. Response: OK"
-            API: POST / -> 204
-            >> REQUEST.BODY.age
-            Key named age in the request was not in the contract
-            """.trimIndent()
-                )
+                assertThat(response.body.toStringLiteral()).isEqualToNormalizingWhitespace("""
+                In scenario "Simple POST endpoint. Response: OK"
+                API: POST / -> 204
+                ${
+                    toViolationReportString(
+                        breadCrumb = "REQUEST.BODY.age",
+                        details = "Key named age in the request was not in the contract",
+                        StandardRuleViolation.UNKNOWN_PROPERTY
+                    )
+                }
+                """.trimIndent())
             }
         }
 
@@ -1396,8 +1400,13 @@ paths:
             assertThat(response.body.toStringLiteral()).isEqualToNormalizingWhitespace("""
             In scenario "Simple GET endpoint. Response: OK"
             API: GET / -> 200
-            >> REQUEST.PARAMETERS.HEADER.Mandatory
-            Header named Mandatory in the contract was not found in the request
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.PARAMETERS.HEADER.Mandatory",
+                    details = "Header named Mandatory in the contract was not found in the request",
+                    StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+                )
+            }
             """.trimIndent())
         }
     }

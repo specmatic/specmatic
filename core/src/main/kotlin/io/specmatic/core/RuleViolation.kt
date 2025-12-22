@@ -82,7 +82,7 @@ enum class StandardRuleViolation(override val id: String, override val title: St
         summary = "An optional property defined in the specification is missing"
     ),
 
-    UNKNOWN_KEY(
+    UNKNOWN_PROPERTY(
         id = "R2003",
         title = "Unknown property",
         summary = "A property was found that is not defined in the specification"
@@ -95,26 +95,32 @@ enum class StandardRuleViolation(override val id: String, override val title: St
         summary = "The discriminator does not match the expected discriminator defined in the specification"
     ),
 
-    MISSING_DISCRIMINATOR(
+    INVALID_DISCRIMINATOR_SETUP(
         id = "R3002",
+        title = "Invalid discriminator setup",
+        summary = "The discriminator property defined in the specification is not present in the discriminator schemas"
+    ),
+
+    MISSING_DISCRIMINATOR(
+        id = "R3003",
         title = "Missing discriminator",
         summary = "The discriminator property defined in the specification is missing"
     ),
 
     ANY_OF_UNKNOWN_KEY(
-        id = "R3003",
+        id = "R3004",
         title = "Property not in any schema options",
         summary = "The property is not defined in any available schema options"
     ),
 
     ANY_OF_NO_MATCHING_SCHEMA(
-        id = "R3004",
+        id = "R3005",
         title = "Property matches no schema option",
         summary = "The property does not satisfy any available schema options"
     ),
 
     ONE_OF_VALUE_MISMATCH(
-        id = "R3005",
+        id = "R3006",
         title = "No matching schema option",
         summary = "The value does not satisfy the constraints of any available schema option"
     )

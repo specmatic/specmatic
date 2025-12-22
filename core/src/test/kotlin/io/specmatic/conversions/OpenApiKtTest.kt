@@ -17,6 +17,8 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.toViolationReportString
 import io.specmatic.jsonBody
 import io.specmatic.stub.HttpStub
 import io.specmatic.test.TestExecutor
@@ -1228,22 +1230,18 @@ Background:
 
         assertFalse(results.success())
         val reportText = """
-            In scenario "create a pet. Response: pet response"
-            API: POST /pets -> 201
+        In scenario "create a pet. Response: pet response"
+        API: POST /pets -> 201
 
-              >> RESPONSE.BODY.breed
-              
-                 ${
-            ContractAndResponseMismatch.mismatchMessage(
-                """("null" or "labrador" or "retriever")""",
-                "\"malinois\""
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY.breed",
+                details = ContractAndResponseMismatch.mismatchMessage("""("null" or "labrador" or "retriever")""", "\"malinois\""),
+                StandardRuleViolation.VALUE_MISMATCH
             )
         }
-            """.trimIndent()
-        assertThat(results.report().trimmedLinesString()).contains(
-            reportText.trimmedLinesString()
-        )
-
+        """.trimIndent()
+        assertThat(results.report()).containsIgnoringWhitespaces(reportText)
         assertThat(countMatches(results.report(), reportText)).isEqualTo(3)
     }
 
@@ -1297,17 +1295,18 @@ Background:
 
         assertFalse(results.success())
         val reportText = """
-            In scenario "create a pet. Response: pet response"
-            API: POST /pets -> 201
-            
-              >> RESPONSE.BODY.rating
-              
-                 ${ContractAndResponseMismatch.mismatchMessage("(1 or 2)", "3 (number)")}
-            """.trimIndent()
-        assertThat(results.report().trimmedLinesString()).contains(
-            reportText.trimmedLinesString()
-        )
+        In scenario "create a pet. Response: pet response"
+        API: POST /pets -> 201
 
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY.rating",
+                details = ContractAndResponseMismatch.mismatchMessage("(1 or 2)", "3 (number)"),
+                StandardRuleViolation.VALUE_MISMATCH
+            )
+        }
+        """.trimIndent()
+        assertThat(results.report()).containsIgnoringWhitespaces(reportText)
         assertThat(countMatches(results.report(), reportText)).isEqualTo(3)
     }
 
@@ -1361,17 +1360,18 @@ Background:
 
         assertFalse(results.success())
         val expectedReport = """
-            In scenario "create a pet. Response: pet response"
-            API: POST /pets -> 201
+        In scenario "create a pet. Response: pet response"
+        API: POST /pets -> 201
 
-              >> RESPONSE.BODY.name
-              
-                 ${ContractAndResponseMismatch.mismatchMessage("string with minLength 6", "\"small\"")}
-            """.trimIndent()
-        assertThat(results.report().trimmedLinesString()).contains(
-            expectedReport.trimmedLinesString()
-        )
-
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY.name",
+                details = ContractAndResponseMismatch.mismatchMessage("string with minLength 6", "\"small\""),
+                StandardRuleViolation.CONSTRAINT_VIOLATION
+            )
+        }
+        """.trimIndent()
+        assertThat(results.report()).containsIgnoringWhitespaces(expectedReport)
         assertThat(countMatches(results.report(), expectedReport)).isEqualTo(3)
     }
 
@@ -2375,7 +2375,8 @@ components:
 
     @Test
     fun `stub should not match email value in request that does not adhere to email format`() {
-        val feature = OpenApiSpecification.fromFile("openapi/spec_with_password_and_email_format_strings.yaml").toFeature()
+        val feature =
+            OpenApiSpecification.fromFile("openapi/spec_with_password_and_email_format_strings.yaml").toFeature()
 
         val exception = Assertions.assertThrows(HttpClientErrorException::class.java) {
             HttpStub(feature).use {
@@ -2388,14 +2389,16 @@ components:
             }
         }
 
-        assertThat(exception.message?.trimmedLinesString()).isEqualTo(
-            """400 Bad Request on POST request for "http://localhost:9000/users": "In scenario "POST /users.
-            | Response: Details of the new user to register"<EOL>API: POST /users -> 201<EOL><EOL>
-            |  >> REQUEST.BODY.email<EOL>  <EOL>
-            |     Contract expected email string but request contained "this.is.not.an.email"""""
-                .trimMargin()
-                .replace(Regex("(\n*)\n"), "$1").trimmedLinesString()
-        )
+        assertThat(exception.message).isEqualToIgnoringWhitespace("""
+        400 Bad Request on POST request for "http://localhost:9000/users": "In scenario "POST /users. Response: Details of the new user to register"
+        API: POST /users -> 201
+
+        ${toViolationReportString(
+            breadCrumb = "REQUEST.BODY.email",
+            details = "Contract expected email but request contained \"this.is.not.an.email\"",
+            StandardRuleViolation.VALUE_MISMATCH
+        )}"
+        """.trimIndent().replace(Regex("\n"), "<EOL>"))
     }
 }
 

@@ -47,7 +47,7 @@ class PatternMatcherTest {
 
         val result = matcher.execute(context)
         assertThat(result).isInstanceOf(MatcherResult.MisMatch::class.java)
-        assertThat((result as MatcherResult.MisMatch).failure.reportString()).contains("Expected email string")
+        assertThat((result as MatcherResult.MisMatch).failure.reportString()).contains("Expected email")
     }
 
     @Test

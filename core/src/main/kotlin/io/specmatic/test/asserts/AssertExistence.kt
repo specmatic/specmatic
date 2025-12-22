@@ -2,6 +2,7 @@ package io.specmatic.test.asserts
 
 import io.ktor.http.*
 import io.specmatic.core.Result
+import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
@@ -32,7 +33,8 @@ class AssertExistence(override val keys: List<String>, val checkType: ExistenceC
 
         return if (success) { Result.Success() } else Result.Failure(
             breadCrumb = combinedKey,
-            message = "Expected ${combinedKey.quote()} to ${checkType.errorMessageSuffix}"
+            message = "Expected ${combinedKey.quote()} to ${checkType.errorMessageSuffix}",
+            ruleViolation = StandardRuleViolation.VALUE_MISMATCH
         )
     }
 

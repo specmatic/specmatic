@@ -15,6 +15,8 @@ import io.specmatic.core.utilities.Flags.Companion.IGNORE_INLINE_EXAMPLE_WARNING
 import io.specmatic.core.utilities.Flags.Companion.MAX_TEST_REQUEST_COMBINATIONS
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.*
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.toViolationReportString
 import io.specmatic.shouldNotMatch
 import io.specmatic.trimmedLinesString
 import org.assertj.core.api.Assertions.assertThat
@@ -281,15 +283,22 @@ internal class JSONObjectPatternTest {
             it as Result.Failure
             assertThat(it.causes).hasSize(2)
 
-            assertThat(it.toFailureReport().toString().trimmedLinesString()).isEqualTo("""
-                >> id
-
-                   Expected number, actual was "abc123"
-
-                >> address.flat
-
-                   Expected number, actual was "10"
-            """.trimIndent().trim().trimmedLinesString())
+            assertThat(it.toFailureReport().toText()).isEqualToIgnoringWhitespace("""
+            ${
+                toViolationReportString(
+                    breadCrumb = "id",
+                    details = "Expected number, actual was \"abc123\"",
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "address.flat",
+                    details = "Expected number, actual was \"10\"",
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
+            """.trimIndent())
         })
     }
 
@@ -1143,7 +1152,7 @@ internal class JSONObjectPatternTest {
             },
             "subOptionalObject?": {
                 "subMandatoryKey": "(string)",
-                "subOptionalKey": "(number)"
+                "subOptionalKey?": "(number)"
             }
         }
         """.trimIndent())
@@ -1162,12 +1171,27 @@ internal class JSONObjectPatternTest {
 
             assertThat(result).isInstanceOf(Result.Failure::class.java)
             assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-            >> subOptionalObject.subOptionalKey
-            Expected key named "subOptionalKey" was missing
-            >> topLevelOptionalKey
-            Expected optional key named "topLevelOptionalKey" was missing
-            >> subMandatoryObject.subOptionalKey
-            Expected optional key named "subOptionalKey" was missing
+            ${
+                toViolationReportString(
+                    breadCrumb = "topLevelOptionalKey",
+                    details = "Expected optional key named \"topLevelOptionalKey\" was missing",
+                    StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "subMandatoryObject.subOptionalKey",
+                    details = "Expected optional key named \"subOptionalKey\" was missing",
+                    StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "subOptionalObject.subOptionalKey",
+                    details = "Expected optional key named \"subOptionalKey\" was missing",
+                    StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+                )
+            }
             """.trimIndent())
         }
 
@@ -1820,10 +1844,20 @@ components:
 
             assertThat(result).isInstanceOf(Result.Failure::class.java)
             assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-            >> name
-            Expected key named "name" was missing
-            >> extraKey
-            Key named "extraKey" was unexpected
+            ${
+                toViolationReportString(
+                    breadCrumb = "name",
+                    details = "Expected key named \"name\" was missing",
+                    StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "extraKey",
+                    details = "Key named \"extraKey\" was unexpected",
+                    StandardRuleViolation.UNKNOWN_PROPERTY
+                )
+            }
             """.trimIndent())
         }
 
@@ -1836,8 +1870,13 @@ components:
 
             assertThat(result).isInstanceOf(Result.Failure::class.java)
             assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-            >> extraKey
-            Expected string, actual was 999 (number)
+            ${
+                toViolationReportString(
+                    breadCrumb = "extraKey",
+                    details = "Expected string, actual was 999 (number)",
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
             """.trimIndent())
         }
 

@@ -26,6 +26,8 @@ import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.XMLValue
 import io.specmatic.core.value.toXMLNode
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.toViolationReportString
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stubResponse
 import io.specmatic.test.LegacyHttpClient
@@ -335,17 +337,20 @@ Feature: Test
         val stubData = feature.matchingStub(scenarioStub)
         val stubResponse = stubResponse(HttpRequest(method = "POST", path = "/", body = StringValue("Hello")), listOf(feature), listOf(stubData), true)
 
-        assertResponseFailure(stubResponse, """STRICT MODE ON
-
->> REQUEST.BODY
-
-   Expected number, actual was "Hello"""")
+        assertResponseFailure(stubResponse, """
+        STRICT MODE ON
+        ${toViolationReportString(
+            breadCrumb = "REQUEST.BODY",
+            details = "Stub expected number but request contained \"Hello\"\nExpected number, actual was \"Hello\"",
+            StandardRuleViolation.VALUE_MISMATCH
+        )}
+        """.trimIndent())
     }
 
     private fun assertResponseFailure(stubResponse: HttpStubResponse, errorMessage: String) {
         assertThat(stubResponse.response.status).isEqualTo(400)
         assertThat(stubResponse.response.headers).containsEntry(SPECMATIC_RESULT_HEADER, "failure")
-        assertThat(stubResponse.response.body.toStringLiteral().trimmedLinesList()).isEqualTo(errorMessage.trimmedLinesList())
+        assertThat(stubResponse.response.body.toStringLiteral()).isEqualToIgnoringWhitespace(errorMessage)
     }
 
     @Test
@@ -363,15 +368,17 @@ Feature: POST API
 
         val stubResponse = stubResponse(request, listOf(feature), emptyList(), false)
 
-        assertResponseFailure(stubResponse,
-            """
-            In scenario "Test"
-            API: POST / -> 200
-            
-              >> REQUEST.BODY.undeclared
-              
-                 ${ContractAndRequestsMismatch.unexpectedKey("key", "undeclared")}
-            """.trimIndent())
+        assertResponseFailure(stubResponse, """
+        In scenario "Test"
+        API: POST / -> 200
+        ${
+            toViolationReportString(
+                breadCrumb = "REQUEST.BODY.undeclared",
+                details = ContractAndRequestsMismatch.unexpectedKey("key", "undeclared"),
+                StandardRuleViolation.UNKNOWN_PROPERTY
+            )
+        }
+        """.trimIndent())
     }
 
     @Test
@@ -427,15 +434,17 @@ Scenario: Square of a number
         val request = HttpRequest(method = "POST", path = "/number", body = parsedValue("""{"number": 10, "unexpected": "data"}"""))
         val response = stubResponse(request, listOf(feature), emptyList(), false)
 
-        assertResponseFailure(response,
-            """
-            In scenario "Square of a number"
-            API: POST /number -> 200
-            
-              >> REQUEST.BODY.unexpected
-              
-                 ${ContractAndRequestsMismatch.unexpectedKey("key", "unexpected")}
-            """.trimIndent())
+        assertResponseFailure(response, """
+        In scenario "Square of a number"
+        API: POST /number -> 200
+        ${
+            toViolationReportString(
+                breadCrumb = "REQUEST.BODY.unexpected",
+                details = ContractAndRequestsMismatch.unexpectedKey("key", "unexpected"),
+                StandardRuleViolation.UNKNOWN_PROPERTY
+            )
+        }
+        """.trimIndent())
     }
 
     @Test
@@ -463,11 +472,14 @@ Scenario: Square of a number
         assertThat(response.response.status).isEqualTo(200)
 
         val strictResponse = stubResponse(request, listOf(feature), listOf(stubData), true)
-        assertResponseFailure(strictResponse, """STRICT MODE ON
-
->> REQUEST.PARAMETERS.QUERY.status
-
-   ${StubAndRequestMismatchMessages.expectedKeyWasMissing("query param", "status")}""")
+        assertResponseFailure(strictResponse, """
+        STRICT MODE ON
+        ${toViolationReportString(
+            breadCrumb = "REQUEST.PARAMETERS.QUERY.status",
+            details = StubAndRequestMismatchMessages.expectedKeyWasMissing("query param", "status"),
+            StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+        )}
+        """.trimIndent())
     }
 
     @Test

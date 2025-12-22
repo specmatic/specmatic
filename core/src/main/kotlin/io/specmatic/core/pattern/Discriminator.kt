@@ -153,10 +153,10 @@ class Discriminator(
 
         if(!discriminatorMatchOccurred) {
             return Result.Failure(
-                "Discriminator property $property in the value did not match any of the expected values",
+                "Discriminator property $property is missing from the spec",
                 breadCrumb = property,
                 failureReason = FailureReason.DiscriminatorMismatch,
-                ruleViolation = StandardRuleViolation.DISCRIMINATOR_MISMATCH
+                ruleViolation = StandardRuleViolation.INVALID_DISCRIMINATOR_SETUP
             )
         }
 
@@ -169,13 +169,10 @@ class Discriminator(
 
         val deepMatchResults = failures.filter { it.hasReason(FailureReason.FailedButDiscriminatorMatched) }
 
-        val finalResult = if (deepMatchResults.isNotEmpty())
+        return if (deepMatchResults.isNotEmpty())
             Result.Failure.fromFailures(deepMatchResults).removeReasonsFromCauses().copy(failureReason = FailureReason.FailedButDiscriminatorMatched)
         else
             Result.Failure.fromFailures(failures).removeReasonsFromCauses()
-
-        val didNotMatchAnyOptionFailure = Failure(message = "Value didn't match any of the schema options", ruleViolation = StandardRuleViolation.ONE_OF_VALUE_MISMATCH)
-        return Failure.fromFailures(listOf(didNotMatchAnyOptionFailure).plus(finalResult))
     }
 
     private fun discriminatorMatchFailure(pattern: Pattern) = AnyPattern.AnyPatternMatch(

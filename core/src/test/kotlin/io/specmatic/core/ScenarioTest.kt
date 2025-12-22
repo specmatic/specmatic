@@ -13,6 +13,8 @@ import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.toViolationReportString
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import org.assertj.core.api.Assertions.*
 import org.junit.jupiter.api.Nested
@@ -379,13 +381,16 @@ class ScenarioTest {
         )
 
         val exception = assertThrows<ContractException> { scenario.validExamplesOrException(DefaultStrategies) }
-        assertThat(exception.report()).isEqualToNormalizingWhitespace(
-            """
+        assertThat(exception.report()).isEqualToNormalizingWhitespace("""
         Error loading example named  for POST / -> 200
-        >> REQUEST.PARAMETERS.HEADER.Authorization
-        Authorization header must be prefixed with "Basic"
-        """.trimIndent()
-        )
+        ${
+            toViolationReportString(
+                breadCrumb = "REQUEST.PARAMETERS.HEADER.Authorization",
+                details = "Authorization header must be prefixed with \"Basic\"",
+                OpenApiRuleViolation.SECURITY_SCHEME_MISMATCH
+            )
+        }
+        """.trimIndent())
     }
 
     @Test
@@ -427,15 +432,23 @@ class ScenarioTest {
         )
 
         val exception = assertThrows<ContractException> { scenario.validExamplesOrException(DefaultStrategies) }
-        assertThat(exception.report()).isEqualToNormalizingWhitespace(
-            """
+        assertThat(exception.report()).isEqualToNormalizingWhitespace("""
         Error loading example named example.json for POST / -> 200
-        >> REQUEST.PARAMETERS.HEADER.X-EXTRA-HEADERS
-        The header X-EXTRA-HEADERS was found in the example example.json but was not in the specification.
-        >> RESPONSE.HEADER.X-EXTRA-HEADERS
-        The header X-EXTRA-HEADERS was found in the example example.json but was not in the specification.
-        """.trimIndent()
-        )
+        ${
+            toViolationReportString(
+                breadCrumb = "REQUEST.PARAMETERS.HEADER.X-EXTRA-HEADERS",
+                details = "The header X-EXTRA-HEADERS was found in the example example.json but was not in the specification.",
+                StandardRuleViolation.UNKNOWN_PROPERTY
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.HEADER.X-EXTRA-HEADERS",
+                details = "The header X-EXTRA-HEADERS was found in the example example.json but was not in the specification.",
+                StandardRuleViolation.UNKNOWN_PROPERTY
+            )
+        }
+        """.trimIndent())
     }
 
     @Test
@@ -478,15 +491,23 @@ class ScenarioTest {
         )
 
         val exception = assertThrows<ContractException> { scenario.validExamplesOrException(DefaultStrategies) }
-        assertThat(exception.report()).isEqualToNormalizingWhitespace(
-            """
+        assertThat(exception.report()).isEqualToNormalizingWhitespace("""
         Error loading example named partial-example.json for POST / -> 200
-        >> REQUEST.PARAMETERS.HEADER.X-EXTRA-HEADERS
-        The header X-EXTRA-HEADERS was found in the example partial-example.json but was not in the specification.
-        >> RESPONSE.HEADER.X-EXTRA-HEADERS
-        The header X-EXTRA-HEADERS was found in the example partial-example.json but was not in the specification.
-        """.trimIndent()
-        )
+        ${
+            toViolationReportString(
+                breadCrumb = "REQUEST.PARAMETERS.HEADER.X-EXTRA-HEADERS",
+                details = "The header X-EXTRA-HEADERS was found in the example partial-example.json but was not in the specification.",
+                StandardRuleViolation.UNKNOWN_PROPERTY
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.HEADER.X-EXTRA-HEADERS",
+                details = "The header X-EXTRA-HEADERS was found in the example partial-example.json but was not in the specification.",
+                StandardRuleViolation.UNKNOWN_PROPERTY
+            )
+        }
+        """.trimIndent())
     }
 
     @Test
@@ -590,15 +611,17 @@ class ScenarioTest {
 
             println(result.reportString())
             assertThat(result).isInstanceOf(Result.Failure::class.java)
-            assertThat(result.reportString()).isEqualToNormalizingWhitespace(
-                """
+            assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
             In scenario ""
             API: GET /test -> 200
-
-            >> RESPONSE.BODY.extraKey 
-            Key named "extraKey" was unexpected
-            """.trimIndent()
-            )
+            ${
+                toViolationReportString(
+                    breadCrumb = "RESPONSE.BODY.extraKey",
+                    details = "Key named \"extraKey\" was unexpected",
+                    StandardRuleViolation.UNKNOWN_PROPERTY
+                )
+            }
+            """.trimIndent())
         }
 
         @Test
@@ -651,15 +674,17 @@ class ScenarioTest {
 
             println(nonExtensibleResult.reportString())
             assertThat(nonExtensibleResult).isInstanceOf(Result.Failure::class.java)
-            assertThat(nonExtensibleResult.reportString()).isEqualToNormalizingWhitespace(
-                """
+            assertThat(nonExtensibleResult.reportString()).isEqualToNormalizingWhitespace("""
             In scenario ""
             API: GET /test -> 200
-
-            >> RESPONSE.BODY.extraKey 
-            Key named "extraKey" was unexpected
-            """.trimIndent()
-            )
+            ${
+                toViolationReportString(
+                    breadCrumb = "RESPONSE.BODY.extraKey",
+                    details = "Key named \"extraKey\" was unexpected",
+                    StandardRuleViolation.UNKNOWN_PROPERTY
+                )
+            }
+            """.trimIndent())
         }
     }
 
