@@ -13,8 +13,11 @@ import io.specmatic.core.filters.HttpResponseFilterContext
 import io.specmatic.core.log.logger
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.configureHealthCheckModule
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.isHealthCheckRequest
+import io.specmatic.core.utilities.TrackingFeature
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.utilities.uniqueNameForApiOperation
+import io.specmatic.license.core.LicenseResolver
+import io.specmatic.license.core.LicensedProduct
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.*
 import io.specmatic.test.LegacyHttpClient
@@ -27,7 +30,7 @@ import kotlinx.coroutines.withContext
 import java.io.Closeable
 import java.net.URI
 import java.net.URL
-import java.util.ServiceLoader
+import java.util.*
 
 fun interface RequestObserver {
     fun onRequestHandled(
@@ -110,6 +113,11 @@ class Proxy(
 
                             else ->
                                 try {
+                                    LicenseResolver.utilize(
+                                        product = LicensedProduct.OPEN_SOURCE,
+                                        feature = TrackingFeature.PROXY,
+                                    )
+
                                     if (filter != "" && filterHttpRequest(httpRequest, filter)) {
                                         respondToKtorHttpResponse(call, HttpResponse(404, "This request has been filtered out"))
                                         return@intercept
