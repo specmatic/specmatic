@@ -36,7 +36,7 @@ data class ContractConfig(
             source.directory != null -> FileSystemContractSource(source)
             else -> null
         },
-        provides = source.testConsumes ?: source.test?.map { it },
+        provides = source.test,
         consumes = source.stub
     )
 
@@ -53,12 +53,8 @@ data class ContractConfig(
     }
 
     fun transform(): Source {
-        val testSpecExecutionConfigOrNull = when {
-            provides?.any { it is SpecExecutionConfig.ObjectValue } == true -> provides
-            else -> null
-        }
         return this.contractSource?.transform(provides, consumes)
-            ?: Source(test = provides, stub = consumes, testConsumes = testSpecExecutionConfigOrNull)
+            ?: Source(test = provides, stub = consumes)
     }
 
     fun interface ContractSource {
@@ -73,17 +69,12 @@ data class ContractConfig(
         constructor(source: Source) : this(source.repository, source.branch, source.matchBranch)
 
         override fun transform(provides: List<SpecExecutionConfig>?, consumes: List<SpecExecutionConfig>?): Source {
-            val testSpecExecutionConfigOrNull = when {
-                provides?.any { it is SpecExecutionConfig.ObjectValue } == true -> provides
-                else -> null
-            }
             return Source(
                 provider = SourceProvider.git,
                 repository = this.url,
                 branch = this.branch,
                 test = provides.orEmpty(),
                 stub = consumes.orEmpty(),
-                testConsumes = testSpecExecutionConfigOrNull,
                 matchBranch = this.matchBranch
             )
         }
@@ -95,16 +86,11 @@ data class ContractConfig(
         constructor(source: Source) : this(source.directory ?: ".")
 
         override fun transform(provides: List<SpecExecutionConfig>?, consumes: List<SpecExecutionConfig>?): Source {
-            val testSpecExecutionConfigOrNull = when {
-                provides?.any { it is SpecExecutionConfig.ObjectValue } == true -> provides
-                else -> null
-            }
             return Source(
                 provider = SourceProvider.filesystem,
                 directory = this.directory,
                 test = provides.orEmpty(),
                 stub = consumes.orEmpty(),
-                testConsumes = testSpecExecutionConfigOrNull
             )
         }
     }

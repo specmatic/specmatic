@@ -386,8 +386,6 @@ internal class SpecmaticConfigKtTest {
                     SpecExecutionConfig.StringValue("9001_first.yaml"),
                     SpecExecutionConfig.StringValue("9001_second.yaml"),
                     SpecExecutionConfig.StringValue("9002_first.yaml"),
-                ),
-                testConsumes = listOf(
                     SpecExecutionConfig.StringValue("9000_first.yaml"),
                     SpecExecutionConfig.StringValue("9000_second.yaml"),
                     SpecExecutionConfig.ObjectValue.FullUrl(
@@ -398,7 +396,7 @@ internal class SpecmaticConfigKtTest {
                         specs = listOf("9002_first.yaml"),
                         baseUrl = "http://localhost:9002"
                     ),
-                )
+                ),
             )
 
             val source2 = Source(
@@ -407,8 +405,6 @@ internal class SpecmaticConfigKtTest {
                     SpecExecutionConfig.StringValue("9001_third.yaml"),
                     SpecExecutionConfig.StringValue("9001_fourth.yaml"),
                     SpecExecutionConfig.StringValue("9002_second.yaml"),
-                ),
-                testConsumes = listOf(
                     SpecExecutionConfig.StringValue("9000_third.yaml"),
                     SpecExecutionConfig.ObjectValue.FullUrl(
                         specs = listOf("9001_third.yaml", "9001_fourth.yaml"),
@@ -418,7 +414,7 @@ internal class SpecmaticConfigKtTest {
                         specs = listOf("9002_second.yaml"),
                         baseUrl = "http://localhost:9002"
                     ),
-                )
+                ),
             )
 
             val specmaticConfig = SpecmaticConfig(

@@ -831,7 +831,6 @@ data class Source(
     @JsonDeserialize(using = ConsumesDeserializer::class)
     val stub: List<SpecExecutionConfig>? = null,
     val directory: String? = null,
-    @JsonIgnore val testConsumes: List<SpecExecutionConfig>? = null,
     val matchBranch: Boolean? = null,
 ) {
     constructor(test: List<String>? = null, stub: List<String>? = null) : this(
@@ -844,7 +843,7 @@ data class Source(
     }
 
     fun specsUsedAsTest(): List<String> {
-        return testConsumes?.flatMap { it.specs() } ?: test.orEmpty().flatMap { it.specs() }
+        return test?.flatMap { it.specs() } ?: test.orEmpty().flatMap { it.specs() }
     }
 
     fun specToStubBaseUrlMap(defaultBaseUrl: String? = null): Map<String, String?> {
@@ -852,7 +851,7 @@ data class Source(
     }
 
     fun specToTestBaseUrlMap(defaultBaseUrl: String? = null): Map<String, String?> {
-        return testConsumes?.flatMap {
+        return test?.flatMap {
             it.specToBaseUrlPairList(defaultBaseUrl)
         }?.toMap() ?: test.orEmpty().flatMap {
             it.specToBaseUrlPairList(defaultBaseUrl)
@@ -860,7 +859,7 @@ data class Source(
     }
 
     fun specToTestGenerativeMap(): Map<String, ResiliencyTestSuite?> {
-        return testConsumes?.flatMap {
+        return test?.flatMap {
             when (it) {
                 is SpecExecutionConfig.StringValue -> listOf(it.value to null)
                 is SpecExecutionConfig.ObjectValue -> it.specs.map { specPath ->
