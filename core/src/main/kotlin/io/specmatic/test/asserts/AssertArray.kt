@@ -2,6 +2,8 @@ package io.specmatic.test.asserts
 
 import io.ktor.http.*
 import io.specmatic.core.Result
+import io.specmatic.core.RuleViolationReport
+import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.StringValue
@@ -15,7 +17,8 @@ class AssertArray(override val keys: List<String>, val lookupKey: String, val ar
         require(keys[keys.lastIndex - 1].matches("\\[\\*]|\\[\\d+]".toRegex())) {
             throw ContractException(
                 breadCrumb = combinedKey,
-                errorMessage = "Array Asserts can only be used on arrays"
+                errorMessage = "Array Asserts can only be used on arrays",
+                ruleViolationReport = RuleViolationReport().withViolation(StandardRuleViolation.TYPE_MISMATCH)
             )
         }
     }
@@ -37,6 +40,7 @@ class AssertArray(override val keys: List<String>, val lookupKey: String, val ar
         return this.firstOrNull { it is Result.Success } ?: Result.Failure(
             breadCrumb = indexedKeys.withWildCard().combinedKey(),
             message = "None of the values matched ${lookupKey.quote()} of value ${expectedValue.displayableValue()}",
+            ruleViolation = StandardRuleViolation.VALUE_MISMATCH
         )
     }
 

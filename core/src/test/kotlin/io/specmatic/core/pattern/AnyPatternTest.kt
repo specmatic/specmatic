@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
-import java.math.BigDecimal
 
 internal class AnyPatternTest {
     @Test
@@ -134,17 +133,29 @@ internal class AnyPatternTest {
         val result1 = pattern1.matches(value, resolver)
         val result2 = pattern2.matches(value, resolver)
 
-        assertThat(result2.toReport().toText().trimIndent()).isEqualTo("""
-        Expected string, actual was JSON object {
-            "firstname": "Jane",
-            "lastname": "Doe"
-        }""".trimIndent())
+        assertThat(result2.toReport().toText().trimIndent()).isEqualToIgnoringWhitespace(
+            toViolationReportString(
+                breadCrumb = null,
+                details = """
+                Expected string, actual was JSON object {
+                    "firstname": "Jane",
+                    "lastname": "Doe"
+                }""".trimIndent(),
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        )
 
-        assertThat(result1.toReport().toText().trimIndent()).isEqualTo("""
-        Expected string, actual was JSON object {
-            "firstname": "Jane",
-            "lastname": "Doe"
-        }""".trimIndent())
+        assertThat(result1.toReport().toText().trimIndent()).isEqualToIgnoringWhitespace(
+            toViolationReportString(
+                breadCrumb = null,
+                details = """
+                Expected string, actual was JSON object {
+                    "firstname": "Jane",
+                    "lastname": "Doe"
+                }""".trimIndent(),
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        )
     }
 
     @Test
@@ -367,19 +378,29 @@ internal class AnyPatternTest {
 
         val personMatchResult = personType.matches(personData, Resolver()).reportString()
 
-        assertThat(personMatchResult.trimmedLinesString()).contains("""
-            >> personInfo (when Customer object).salutation
-            
-               Key named "salutation" was unexpected
-            
-            >> personInfo (when Employee object).manager
-            
-               Expected key named "manager" was missing
-            
-            >> personInfo (when Employee object).salutation
-            
-               Key named "salutation" was unexpected
-       """.trimIndent().trimmedLinesString())
+        assertThat(personMatchResult.trimmedLinesString()).isEqualToIgnoringWhitespace("""
+        ${
+            toViolationReportString(
+                breadCrumb = "personInfo (when Customer object).salutation",
+                details = "Key named \"salutation\" was unexpected",
+                StandardRuleViolation.UNKNOWN_PROPERTY
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "personInfo (when Employee object).manager",
+                details = "Expected key named \"manager\" was missing",
+                StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "personInfo (when Employee object).salutation",
+                details = "Key named \"salutation\" was unexpected",
+                StandardRuleViolation.UNKNOWN_PROPERTY
+            )
+        }
+        """.trimIndent())
     }
 
     @Test
@@ -433,16 +454,42 @@ internal class AnyPatternTest {
         val result = pattern.matches(invalidValue, Resolver().partializeKeyCheck())
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).isEqualToNormalizingWhitespace("""    
-        >> (when Sub1 object).newKey
-        Key named "newKey" was unexpected 
-        >> (when Sub1 object).prop
-        Expected string, actual was true (boolean)
-
-        >> (when Sub2 object).newKey 
-        Key named "newKey" was unexpected
-        >> (when Sub2 object).prop
-        Expected number, actual was true (boolean)
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
+        ${
+            toViolationReportString(
+                breadCrumb = null,
+                details = "Value didn't match any of the schema options",
+                StandardRuleViolation.ONE_OF_VALUE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "(when Sub1 object).newKey",
+                details = "Key named \"newKey\" was unexpected",
+                StandardRuleViolation.UNKNOWN_PROPERTY
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "(when Sub1 object).prop",
+                details = "Expected string, actual was true (boolean)",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "(when Sub2 object).newKey",
+                details = "Key named \"newKey\" was unexpected",
+                StandardRuleViolation.UNKNOWN_PROPERTY
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "(when Sub2 object).prop",
+                details = "Expected number, actual was true (boolean)",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
         """.trimIndent())
     }
 
@@ -644,17 +691,17 @@ internal class AnyPatternTest {
             val invalidSub2Value = JSONObjectValue(mapOf("type" to StringValue("sub2")))
             val resultSub2 = pattern.matches(invalidSub2Value, Resolver().withAllPatternsAsMandatory())
 
-            println(resultSub1.reportString())
-            assertThat(resultSub1.reportString()).isEqualToNormalizingWhitespace("""
-            >> address
-            Expected optional key named "address" was missing
-            """.trimIndent())
+            assertThat(resultSub1.reportString()).isEqualToIgnoringWhitespace(toViolationReportString(
+                breadCrumb = "address",
+                details = "Expected optional key named \"address\" was missing",
+                StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+            ))
 
-            println(resultSub2.reportString())
-            assertThat(resultSub2.reportString()).isEqualToNormalizingWhitespace("""
-            >> age
-            Expected optional key named "age" was missing
-            """.trimIndent())
+            assertThat(resultSub2.reportString()).isEqualToIgnoringWhitespace(toViolationReportString(
+                breadCrumb = "age",
+                details = "Expected optional key named \"age\" was missing",
+                StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+            ))
         }
 
         @Test
@@ -715,10 +762,13 @@ internal class AnyPatternTest {
 
             print(result.reportString())
             assertThat(result).isInstanceOf(Result.Failure::class.java)
-            assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-            >> details
-            Expected optional key named "details" was missing
-            """.trimIndent())
+            assertThat(result.reportString()).isEqualToIgnoringWhitespace(
+                toViolationReportString(
+                    breadCrumb = "details",
+                    details = "Expected optional key named \"details\" was missing",
+                    StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+                )
+            )
         }
 
         @Test
@@ -738,10 +788,13 @@ internal class AnyPatternTest {
 
             println(result.reportString())
             assertThat(result).isInstanceOf(Result.Failure::class.java)
-            assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-            >> address
-            Expected optional key named "address" was missing
-            """.trimIndent())
+            assertThat(result.reportString()).isEqualToIgnoringWhitespace(
+                toViolationReportString(
+                    breadCrumb = "address",
+                    details = "Expected optional key named \"address\" was missing",
+                    StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+                )
+            )
         }
     }
 

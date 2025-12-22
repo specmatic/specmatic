@@ -13,6 +13,8 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.toViolationReportString
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub
@@ -420,16 +422,17 @@ Scenario: JSON API to get account details with fact check
                 mock.setExpectation(ScenarioStub(expectedRequest, expectedResponse))
                 throw AssertionError("Should not allow unexpected values in enums")
             } catch (e: Exception) {
-                assertThat(e.toString().trimmedLinesString()).isEqualTo(
-                    """
-                    io.specmatic.mock.NoMatchingScenario: In scenario "api call"
-                    API: GET /(organisation:Organisation)/employees/ -> 200
-                    
-                      >> RESPONSE.BODY[0].rating
-                      
-                         ${ContractAndStubMismatchMessages.mismatchMessage("(1 or 2 or 3)", "4 (number)")}
-                """.trimIndent().trimmedLinesString()
-                )
+                assertThat(e.toString()).isEqualToNormalizingWhitespace("""
+                io.specmatic.mock.NoMatchingScenario: In scenario "api call"
+                API: GET /(organisation:Organisation)/employees/ -> 200
+                ${
+                    toViolationReportString(
+                        breadCrumb = "RESPONSE.BODY[0].rating",
+                        details = "Contract expected (1 or 2 or 3) but stub contained 4 (number)",
+                        StandardRuleViolation.VALUE_MISMATCH
+                    )
+                }
+                """.trimIndent())
             }
         }
     }
@@ -707,8 +710,13 @@ Scenario: JSON API to get account details with fact check
             assertThat(secureResponse.body.toStringLiteral()).isEqualToNormalizingWhitespace("""
             In scenario "Secure endpoint requiring Bearer token and query API key. Response: Success"
             API: POST /secure -> 200
-            >> REQUEST.PARAMETERS.QUERY.apiKey
-            Api-key named apiKey in the contract was not found in the request
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.PARAMETERS.QUERY.apiKey",
+                    details = "Api-key named apiKey in the contract was not found in the request",
+                    OpenApiRuleViolation.SECURITY_SCHEME_MISMATCH
+                )
+            }
             """.trimIndent())
 
             val partialInvalidRequest = HttpRequest("POST", "/partial", body = validRequestBody)
@@ -718,10 +726,20 @@ Scenario: JSON API to get account details with fact check
             assertThat(partialResponse.body.toStringLiteral()).isEqualToNormalizingWhitespace("""
             In scenario "Partially secure endpoint requiring either Bearer token or query API key. Response: Success"
             API: POST /partial -> 200
-            >> REQUEST.PARAMETERS.HEADER.Authorization
-            Header named Authorization in the contract was not found in the request
-            >> REQUEST.PARAMETERS.QUERY.apiKey
-            Api-key named apiKey in the contract was not found in the request
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.PARAMETERS.HEADER.Authorization",
+                    details = "Header named Authorization in the contract was not found in the request",
+                    OpenApiRuleViolation.SECURITY_SCHEME_MISMATCH
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.PARAMETERS.QUERY.apiKey",
+                    details = "Api-key named apiKey in the contract was not found in the request",
+                    OpenApiRuleViolation.SECURITY_SCHEME_MISMATCH
+                )
+            }
             """.trimIndent())
 
             val overlapInvalidRequest = HttpRequest("POST", "/overlap", body = validRequestBody)
@@ -731,12 +749,27 @@ Scenario: JSON API to get account details with fact check
             assertThat(overlapResponse.body.toStringLiteral()).isEqualToNormalizingWhitespace("""
             In scenario "overlap endpoint requiring either Bearer token and query API key or Bearer token only. Response: Success"
             API: POST /overlap -> 200
-            >> REQUEST.PARAMETERS.HEADER.Authorization
-            Header named Authorization in the contract was not found in the request
-            >> REQUEST.PARAMETERS.QUERY.apiKey
-            Api-key named apiKey in the contract was not found in the request
-            >> REQUEST.PARAMETERS.HEADER.Authorization
-            Header named Authorization in the contract was not found in the request
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.PARAMETERS.HEADER.Authorization",
+                    details = "Header named Authorization in the contract was not found in the request",
+                    OpenApiRuleViolation.SECURITY_SCHEME_MISMATCH
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.PARAMETERS.QUERY.apiKey",
+                    details = "Api-key named apiKey in the contract was not found in the request",
+                    OpenApiRuleViolation.SECURITY_SCHEME_MISMATCH
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.PARAMETERS.HEADER.Authorization",
+                    details = "Header named Authorization in the contract was not found in the request",
+                    OpenApiRuleViolation.SECURITY_SCHEME_MISMATCH
+                )
+            }
             """.trimIndent())
 
             val insecureValidRequest = HttpRequest("POST", "/insecure", body = validRequestBody)
@@ -843,18 +876,50 @@ Scenario: JSON API to get account details with fact check
             Error from contract ${openApiFile.canonicalPath}
             In scenario "PATCH /creators/(creatorId:number)/pets/(petId:number). Response: pet response"
             API: PATCH /creators/(creatorId:number)/pets/(petId:number) -> 201
-            >> REQUEST.PARAMETERS.PATH.creatorId
-            Expected number, actual was "ABC"
-            >> REQUEST.PARAMETERS.PATH.petId
-            Expected number, actual was "DEF"
-            >> REQUEST.PARAMETERS.QUERY.creatorId
-            Expected number, actual was "ABC"
-            >> REQUEST.PARAMETERS.HEADER.PET-ID
-            Expected number, actual was "DEF"
-            >> REQUEST.BODY.creatorId
-            Expected number, actual was "ABC"
-            >> RESPONSE.BODY.petId
-            Expected number, actual was "DEF"
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.PARAMETERS.PATH.creatorId",
+                    details = "Expected number, actual was \"ABC\"",
+                    OpenApiRuleViolation.PATH_MISMATCH, StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.PARAMETERS.PATH.petId",
+                    details = "Expected number, actual was \"DEF\"",
+                    OpenApiRuleViolation.PATH_MISMATCH, StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
+            
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.PARAMETERS.QUERY.creatorId",
+                    details = "Expected number, actual was \"ABC\"",
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.PARAMETERS.HEADER.PET-ID",
+                    details = "Expected number, actual was \"DEF\"",
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
+            
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.BODY.creatorId",
+                    details = "Expected number, actual was \"ABC\"",
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "RESPONSE.BODY.petId",
+                    details = "Expected number, actual was \"DEF\"",
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
             """.trimIndent())
         }
     }

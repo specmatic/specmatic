@@ -6,6 +6,8 @@ import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.utilities.parseXML
 import io.specmatic.core.value.*
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.toViolationReportString
 import io.specmatic.test.TestExecutor
 import io.specmatic.trimmedLinesString
 import org.assertj.core.api.Assertions.assertThat
@@ -81,16 +83,18 @@ class ContractAsTest {
 
             override fun setServerState(serverState: Map<String, Value>) {}
         })
-        assertThat(results.report().trimmedLinesString()).isEqualTo(
-            """
-            In scenario "Get balance"
-            API: GET /balance -> 200
-            
-              >> RESPONSE.HEADER.length
-              
-                 ${ContractAndResponseMismatch.mismatchMessage("number", "\"abc\"")}
-            """.trimIndent().trimmedLinesString()
-        )
+
+        assertThat(results.report()).isEqualToIgnoringWhitespace("""
+        In scenario "Get balance"
+        API: GET /balance -> 200
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.HEADER.length",
+                details = "Contract expected number but response contained \"abc\"",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        """.trimIndent().trimmedLinesString())
     }
 
     @Test

@@ -6,6 +6,8 @@ import io.specmatic.core.pattern.JSONObjectPattern
 import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.toViolationReportString
 import io.specmatic.test.MonitorResult
 import io.specmatic.test.TestExecutor
 import io.specmatic.test.utils.DelayStrategy
@@ -72,9 +74,13 @@ class TooManyRequestsHandlerTest {
         assertThat(result.result.reportString()).isEqualToNormalizingWhitespace("""
         In scenario ""
         API: POST /(id:string) -> 429
-        >> RESPONSE.STATUS
-        Response doesn't match processing scenario
-        Expected status 429, actual was status 404
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.STATUS",
+                details = "Response doesn't match processing scenario\nExpected status 429, actual was status 404",
+                OpenApiRuleViolation.STATUS_MISMATCH
+            )
+        }
         """.trimIndent())
     }
 
@@ -214,9 +220,13 @@ class TooManyRequestsHandlerTest {
         assertThat(result.result.reportString()).isEqualToNormalizingWhitespace("""
         In scenario ""
         API: POST /(id:string) -> 201
-        >> RESPONSE.STATUS
-        Invalid 2xx response received on retry
-        Expected status 201, actual was status 202
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.STATUS",
+                details = "Invalid 2xx response received on retry\nExpected status 201, actual was status 202",
+                OpenApiRuleViolation.STATUS_MISMATCH
+            )
+        }
         """.trimIndent())
         assertThat(retryAttempts).isEqualTo(0)
     }

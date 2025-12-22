@@ -485,4 +485,3 @@ fun patternMismatchResult(
     otherPattern: Pattern,
     mismatchMessages: MismatchMessages = DefaultMismatchMessages
 ): Failure = Failure(message = mismatchMessages.mismatchMessage(thisPattern.typeName, otherPattern.typeName))
-

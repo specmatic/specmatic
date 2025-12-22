@@ -6,6 +6,7 @@ import io.specmatic.core.Result
 import io.specmatic.core.RuleViolation
 import io.specmatic.core.RuleViolationReport
 import io.specmatic.core.ScenarioDetailsForResult
+import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.valueMismatchResult
@@ -23,10 +24,10 @@ data class ContractException(
     val isCycle: Boolean = isCycle(exceptionCause),
     val ruleViolationReport: RuleViolationReport? = null,
 ) : Exception(errorMessage, exceptionCause) {
-    constructor(failureReport: FailureReport) : this(
+    constructor(failureReport: FailureReport, ruleViolationReport: RuleViolationReport? = null) : this(
         errorMessage = failureReport.errorMessage(),
         breadCrumb = failureReport.breadCrumbs(),
-        ruleViolationReport = failureReport.getRuleViolationReport()
+        ruleViolationReport = ruleViolationReport
     )
 
     fun failure(): Result.Failure =
@@ -78,8 +79,8 @@ fun <ReturnType> attemptParse(pattern: Pattern, value: String, mismatchMessages:
     try {
         return f()
     } catch (throwable: Throwable) {
-        val contractException = ContractException(valueMismatchResult(pattern.typeName, StringValue(value), mismatchMessages).toFailureReport())
-        throw contractException.copy(exceptionCause = throwable)
+        val failureReport = valueMismatchResult(pattern.typeName, StringValue(value), mismatchMessages).toFailureReport()
+        throw ContractException(failureReport, failureReport.getRuleViolationReport()).copy(exceptionCause = throwable)
     }
 }
 

@@ -1,11 +1,13 @@
 package io.specmatic.conversions
 
 import io.specmatic.core.Result
+import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.pattern.JSONObjectPattern
 import io.specmatic.core.pattern.ListPattern
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.pattern.resolvedHop
 import io.specmatic.core.value.JSONArrayValue
+import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -161,26 +163,33 @@ class OverlayTest {
         val objectResult = objectResponseBody.matches(incorrectDataTypeValue, objectScenario.resolver)
         assertThat(objectResult).isInstanceOf(Result.Failure::class.java)
         assertThat(objectResult.reportString()).isEqualToIgnoringNewLines(
-        """
-        >> description
-
-           Expected string, actual was 123 (number)
-        """.trimIndent())
+            toViolationReportString(
+                breadCrumb = "description",
+                details = "Expected string, actual was 123 (number)",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        )
 
         val arrayScenario = feature.scenarios.first { it.path == "/products" }
         val arrayResponseBody = resolvedHop(arrayScenario.httpResponsePattern.body, objectScenario.resolver) as ListPattern
 
         val arrayResult = arrayResponseBody.matches(JSONArrayValue(listOf(incorrectDataTypeValue, incorrectDataTypeValue)), arrayScenario.resolver)
         assertThat(arrayResult).isInstanceOf(Result.Failure::class.java)
-        assertThat(arrayResult.reportString()).isEqualToIgnoringNewLines(
-        """
-        >> [0].description
-
-           Expected string, actual was 123 (number)
-        
-        >> [1].description
-        
-           Expected string, actual was 123 (number)
+        assertThat(arrayResult.reportString()).isEqualToIgnoringWhitespace("""
+        ${
+            toViolationReportString(
+                breadCrumb = "[0].description",
+                details = "Expected string, actual was 123 (number)",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "[1].description",
+                details = "Expected string, actual was 123 (number)",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
         """.trimIndent())
     }
 
