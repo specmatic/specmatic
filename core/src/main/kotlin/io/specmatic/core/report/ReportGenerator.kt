@@ -20,7 +20,7 @@ object ReportGenerator {
         reportDir: File,
         getCoverageStatus: (List<CtrfTestResultRecord>) -> CoverageStatus
     ) {
-        validateCtrfSpecConfigs(specConfigs)
+        if(isCtrfSpecConfigsValid(specConfigs).not()) return
 
         val extra = buildMap<String, Any> {
             coverage?.let { put("apiCoverage", "$coverage%") }
@@ -43,10 +43,15 @@ object ReportGenerator {
         }
     }
 
-    private fun validateCtrfSpecConfigs(specConfigs: List<CtrfSpecConfig>) {
-        if (specConfigs.isEmpty()) throw IllegalArgumentException("CtrfSpecConfigs cannot be empty")
-        if (specConfigs.any { it.specification.isBlank() }) {
-            throw IllegalArgumentException("The ctrf spec configs should not have an entry with blank specification.")
+    private fun isCtrfSpecConfigsValid(specConfigs: List<CtrfSpecConfig>): Boolean {
+        if (specConfigs.isEmpty()) {
+            consoleLog("Skipping the CTRF report generation as ctrf spec configs list is empty.")
+            return false
         }
+        if (specConfigs.any { it.specification.isBlank() }) {
+            consoleLog("Skipping the CTRF report generation as ctrf spec configs list contains an entry with blank specification.")
+            return false
+        }
+        return true
     }
 }
