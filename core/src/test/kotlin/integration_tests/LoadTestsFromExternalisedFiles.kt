@@ -1593,8 +1593,13 @@ class LoadTestsFromExternalisedFiles {
 
                     assertThat(exception.report()).isEqualToNormalizingWhitespace("""
                     Error loading example for POST /pets -> 201 from ${exampleWithInvalidDisc.resolve("partial_example.json").canonicalPath}
-                    >> REQUEST.BODY.petType
-                    Expected the value of discriminator property to be one of dog, cat but it was UNKNOWN
+                    ${
+                        toViolationReportString(
+                            breadCrumb = "REQUEST.BODY.petType",
+                            details = "Expected the value of discriminator property to be one of dog, cat but it was UNKNOWN",
+                            StandardRuleViolation.DISCRIMINATOR_MISMATCH
+                        )
+                    }
                     """.trimIndent())
                 }
             }

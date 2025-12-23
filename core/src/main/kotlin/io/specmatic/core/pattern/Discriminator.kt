@@ -122,7 +122,8 @@ class Discriminator(
             return Result.Failure(
                 message,
                 breadCrumb = property,
-                failureReason = FailureReason.DiscriminatorMismatch
+                failureReason = FailureReason.DiscriminatorMismatch,
+                ruleViolation = StandardRuleViolation.DISCRIMINATOR_MISMATCH
             )
         }
 

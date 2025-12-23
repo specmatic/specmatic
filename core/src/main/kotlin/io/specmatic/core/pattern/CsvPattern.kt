@@ -16,7 +16,7 @@ class CsvPattern(override val pattern: Pattern) : Pattern {
             resultOf(ruleViolation = StandardRuleViolation.VALUE_MISMATCH) {
                 pattern.parse(value, resolver)
                 Result.Success()
-            }
+            }.breadCrumb("[$index]")
         }
         return Result.fromResults(results)
     }
