@@ -137,6 +137,33 @@ internal class ProxyTest {
     }
 
     @Test
+    fun `proxy should record large numeric path segments as ids`() {
+        val feature =
+            parseGherkinStringToFeature(
+                """
+                Feature: Orders
+                  Scenario: Get order
+                    When GET /orders/(id:string)
+                    Then status 200
+                """.trimIndent(),
+            )
+
+        HttpStub(feature).use {
+            Proxy(host = "localhost", port = 9001, "http://localhost:9000", fakeFileWriter).use {
+                val restProxy = java.net.Proxy(java.net.Proxy.Type.HTTP, InetSocketAddress("localhost", 9001))
+                val requestFactory = SimpleClientHttpRequestFactory()
+                requestFactory.setProxy(restProxy)
+                val client = RestTemplate(requestFactory)
+                val response = client.getForEntity("http://localhost:9000/orders/5432154321", String::class.java)
+
+                assertThat(response.statusCode.value()).isEqualTo(200)
+            }
+        }
+
+        assertThat(fakeFileWriter.receivedContract?.trim()).contains("/orders/{id}")
+    }
+
+    @Test
     fun `basic test of the reverse proxy`() {
         HttpStub(simpleFeature).use {
             Proxy(host = "localhost", port = 9001, "http://localhost:9000", fakeFileWriter).use {
