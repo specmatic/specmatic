@@ -23,6 +23,8 @@ object ReportGenerator {
         toolName: String = "Specmatic v${VersionInfo.describe()}",
         getCoverageStatus: (List<CtrfTestResultRecord>) -> CoverageStatus
     ) {
+        if(isCtrfSpecConfigsValid(specConfigs).not()) return
+
         val extra = buildMap<String, Any> {
             coverage?.let { put("apiCoverage", "$coverage%") }
             put("specmaticConfigPath", getConfigFilePath())
@@ -43,5 +45,17 @@ object ReportGenerator {
         ServiceLoader.load(ReportProvider::class.java).forEach { hook ->
             hook.generateReport(report, reportDir)
         }
+    }
+
+    private fun isCtrfSpecConfigsValid(specConfigs: List<CtrfSpecConfig>): Boolean {
+        if (specConfigs.isEmpty()) {
+            consoleLog("Skipping the CTRF report generation as ctrf spec configs list is empty.")
+            return false
+        }
+        if (specConfigs.any { it.specification.isBlank() }) {
+            consoleLog("Skipping the CTRF report generation as ctrf spec configs list contains an entry with blank specification.")
+            return false
+        }
+        return true
     }
 }

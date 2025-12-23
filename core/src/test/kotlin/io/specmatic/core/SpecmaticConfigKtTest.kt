@@ -47,7 +47,7 @@ internal class SpecmaticConfigKtTest {
 
         assertThat(sources.first().provider).isEqualTo(SourceProvider.git)
         assertThat(sources.first().repository).isEqualTo("https://contracts")
-        assertThat(sources.first().test).isEqualTo(listOf("com/petstore/1.spec"))
+        assertThat(sources.first().test).isEqualTo(listOf(SpecExecutionConfig.StringValue("com/petstore/1.spec")))
         assertThat(sources.first().specsUsedAsStub()).isEqualTo(listOf("com/petstore/payment.spec"))
 
         assertThat(config.getAuthBearerFile()).isEqualTo("bearer.txt")
@@ -130,7 +130,7 @@ internal class SpecmaticConfigKtTest {
         assertThat(sources).isNotEmpty
 
         assertThat(sources.first().provider).isEqualTo(SourceProvider.git)
-        assertThat(sources.first().test).isEqualTo(listOf("path/to/contract.spec"))
+        assertThat(sources.first().test).isEqualTo(listOf(SpecExecutionConfig.StringValue("path/to/contract.spec")))
     }
 
     @CsvSource(
@@ -147,7 +147,7 @@ internal class SpecmaticConfigKtTest {
 
         assertThat(sources.first().provider).isEqualTo(SourceProvider.git)
         assertThat(sources.first().repository).isEqualTo("https://contracts")
-        assertThat(sources.first().test).isEqualTo(listOf("com/petstore/1.yaml"))
+        assertThat(sources.first().test).isEqualTo(listOf(SpecExecutionConfig.StringValue("com/petstore/1.yaml")))
         assertThat(sources.first().specsUsedAsStub()).isEqualTo(listOf("com/petstore/payment.yaml"))
 
         assertThat(config.getAuthBearerFile()).isEqualTo("bearer.txt")
@@ -381,13 +381,11 @@ internal class SpecmaticConfigKtTest {
         fun `should return all test baseUrls from sources`() {
             val source1 = Source(
                 test = listOf(
-                    "9000_first.yaml",
-                    "9000_second.yaml",
-                    "9001_first.yaml",
-                    "9001_second.yaml",
-                    "9002_first.yaml",
-                ),
-                testConsumes = listOf(
+                    SpecExecutionConfig.StringValue("9000_first.yaml"),
+                    SpecExecutionConfig.StringValue("9000_second.yaml"),
+                    SpecExecutionConfig.StringValue("9001_first.yaml"),
+                    SpecExecutionConfig.StringValue("9001_second.yaml"),
+                    SpecExecutionConfig.StringValue("9002_first.yaml"),
                     SpecExecutionConfig.StringValue("9000_first.yaml"),
                     SpecExecutionConfig.StringValue("9000_second.yaml"),
                     SpecExecutionConfig.ObjectValue.FullUrl(
@@ -398,17 +396,15 @@ internal class SpecmaticConfigKtTest {
                         specs = listOf("9002_first.yaml"),
                         baseUrl = "http://localhost:9002"
                     ),
-                )
+                ),
             )
 
             val source2 = Source(
                 test = listOf(
-                    "9000_third.yaml",
-                    "9001_third.yaml",
-                    "9001_fourth.yaml",
-                    "9002_second.yaml",
-                ),
-                testConsumes = listOf(
+                    SpecExecutionConfig.StringValue("9000_third.yaml"),
+                    SpecExecutionConfig.StringValue("9001_third.yaml"),
+                    SpecExecutionConfig.StringValue("9001_fourth.yaml"),
+                    SpecExecutionConfig.StringValue("9002_second.yaml"),
                     SpecExecutionConfig.StringValue("9000_third.yaml"),
                     SpecExecutionConfig.ObjectValue.FullUrl(
                         specs = listOf("9001_third.yaml", "9001_fourth.yaml"),
@@ -418,7 +414,7 @@ internal class SpecmaticConfigKtTest {
                         specs = listOf("9002_second.yaml"),
                         baseUrl = "http://localhost:9002"
                     ),
-                )
+                ),
             )
 
             val specmaticConfig = SpecmaticConfig(
@@ -676,7 +672,7 @@ internal class SpecmaticConfigKtTest {
             }
 
             assertThat(exception.originalMessage).isEqualToNormalizingWhitespace("""
-            Missing required field 'specs'
+            Missing required field 'specs' in 'consumes' field in Specmatic configuration
             """.trimIndent())
         }
 
@@ -692,7 +688,7 @@ internal class SpecmaticConfigKtTest {
             }
 
             assertThat(exception.originalMessage).isEqualToNormalizingWhitespace("""
-            'specs' array cannot be empty
+            'specs' array cannot be empty in 'consumes' field in Specmatic configuration
             """.trimIndent())
         }
 
@@ -708,7 +704,7 @@ internal class SpecmaticConfigKtTest {
             }
 
             assertThat(exception.originalMessage).isEqualToNormalizingWhitespace("""
-            'specs' must contain only strings
+            'specs' must contain only strings in 'consumes' field in Specmatic configuration
             """.trimIndent())
         }
 
@@ -780,6 +776,597 @@ internal class SpecmaticConfigKtTest {
             Unknown fields: resiliencyTests
             Allowed fields: baseUrl, host, port, basePath, specs
             """.trimIndent())
+        }
+
+        @Test
+        fun `should be able to deserialize ConfigValue with specType and config`() {
+            val consumesString = """
+            consumes:
+              - specs:
+                  - "io/specmatic/order.yaml"
+                  - "io/specmatic/payment.yaml"
+                specType: "ASYNCAPI"
+                config:
+                  servers:
+                    - protocol: "sqs"
+                      host: "localhost:8080"
+                    - protocol: "kafka"
+                      host: "localhost:9092"
+                  timeout: 30
+                  retries: 3
+            """.trimIndent()
+
+            val config = assertDoesNotThrow { mapper.readValue<ContractConfig>(consumesString) }
+            val consumes = config.consumes
+
+            assertThat(consumes).hasSize(1)
+            assertThat(consumes?.single()).isInstanceOf(SpecExecutionConfig.ConfigValue::class.java)
+
+            val configValue = consumes?.single() as SpecExecutionConfig.ConfigValue
+            assertThat(configValue.specs).containsExactly("io/specmatic/order.yaml", "io/specmatic/payment.yaml")
+            assertThat(configValue.specType).isEqualTo("ASYNCAPI")
+            assertThat(configValue.config).isNotEmpty
+            assertThat(configValue.config["servers"]).isInstanceOf(List::class.java)
+            assertThat(configValue.config["timeout"]).isEqualTo(30)
+            assertThat(configValue.config["retries"]).isEqualTo(3)
+
+            @Suppress("UNCHECKED_CAST")
+            val servers = configValue.config["servers"] as List<Map<String, Any>>
+            assertThat(servers).hasSize(2)
+            assertThat(servers[0]["protocol"]).isEqualTo("sqs")
+            assertThat(servers[0]["host"]).isEqualTo("localhost:8080")
+            assertThat(servers[1]["protocol"]).isEqualTo("kafka")
+            assertThat(servers[1]["host"]).isEqualTo("localhost:9092")
+        }
+
+        @Test
+        fun `should complain when specType is missing in ConfigValue`() {
+            val consumesString = """
+            consumes:
+              - specs:
+                  - "io/specmatic/order.yaml"
+                config:
+                  timeout: 30
+            """.trimIndent()
+
+            val exception = assertThrows<JsonMappingException> {
+                mapper.readValue<ContractConfig>(consumesString)
+            }
+
+            assertThat(exception.originalMessage).contains("Missing or invalid required field 'specType'")
+        }
+
+        @Test
+        fun `should complain when config is missing in ConfigValue`() {
+            val consumesString = """
+            consumes:
+              - specs:
+                  - "io/specmatic/order.yaml"
+                specType: "ASYNCAPI"
+            """.trimIndent()
+
+            val exception = assertThrows<JsonMappingException> {
+                mapper.readValue<ContractConfig>(consumesString)
+            }
+
+            assertThat(exception.originalMessage).contains("Missing or invalid required field 'config'")
+        }
+
+        @Test
+        fun `should complain when specs is missing in ConfigValue`() {
+            val consumesString = """
+            consumes:
+              - specType: "ASYNCAPI"
+                config:
+                  timeout: 30
+            """.trimIndent()
+
+            val exception = assertThrows<JsonMappingException> {
+                mapper.readValue<ContractConfig>(consumesString)
+            }
+
+            assertThat(exception.originalMessage).contains("Missing required field 'specs'")
+        }
+    }
+
+    @Nested
+    inner class TestSerializeAndDeSerializeTests {
+        private val mapper = ObjectMapper(YAMLFactory()).registerKotlinModule()
+
+        @Test
+        fun `should be able to deserialize ConfigValue with specType and config`() {
+            val providesString = """
+            provides:
+              - specs:
+                  - "io/specmatic/order.yaml"
+                  - "io/specmatic/payment.yaml"
+                specType: "ASYNCAPI"
+                config:
+                  servers:
+                    - protocol: "sqs"
+                      host: "localhost:8080"
+                    - protocol: "kafka"
+                      host: "localhost:9092"
+                  timeout: 30
+                  retries: 3
+            """.trimIndent()
+
+            val config = assertDoesNotThrow { mapper.readValue<ContractConfig>(providesString) }
+            val provides = config.provides
+
+            assertThat(provides).hasSize(1)
+            assertThat(provides?.single()).isInstanceOf(SpecExecutionConfig.ConfigValue::class.java)
+
+            val configValue = provides?.single() as SpecExecutionConfig.ConfigValue
+            assertThat(configValue.specs).containsExactly("io/specmatic/order.yaml", "io/specmatic/payment.yaml")
+            assertThat(configValue.specType).isEqualTo("ASYNCAPI")
+            assertThat(configValue.config).isNotEmpty
+            assertThat(configValue.config["servers"]).isInstanceOf(List::class.java)
+            assertThat(configValue.config["timeout"]).isEqualTo(30)
+            assertThat(configValue.config["retries"]).isEqualTo(3)
+
+            @Suppress("UNCHECKED_CAST")
+            val servers = configValue.config["servers"] as List<Map<String, Any>>
+            assertThat(servers).hasSize(2)
+            assertThat(servers[0]["protocol"]).isEqualTo("sqs")
+            assertThat(servers[0]["host"]).isEqualTo("localhost:8080")
+            assertThat(servers[1]["protocol"]).isEqualTo("kafka")
+            assertThat(servers[1]["host"]).isEqualTo("localhost:9092")
+        }
+
+        @Test
+        fun `should complain when specType is missing in ConfigValue`() {
+            val providesString = """
+            provides:
+              - specs:
+                  - "io/specmatic/order.yaml"
+                config:
+                  timeout: 30
+            """.trimIndent()
+
+            val exception = assertThrows<JsonMappingException> {
+                mapper.readValue<ContractConfig>(providesString)
+            }
+
+            assertThat(exception.originalMessage).isEqualTo("Missing or invalid required field 'specType' key in 'provides' field in Specmatic configuration")
+        }
+
+        @Test
+        fun `should complain when config is missing in ConfigValue`() {
+            val providesString = """
+            provides:
+              - specs:
+                  - "io/specmatic/order.yaml"
+                specType: "ASYNCAPI"
+            """.trimIndent()
+
+            val exception = assertThrows<JsonMappingException> {
+                mapper.readValue<ContractConfig>(providesString)
+            }
+
+            assertThat(exception.originalMessage).isEqualTo("Missing or invalid required field 'config' key in 'provides' field in Specmatic configuration")
+        }
+
+        @Test
+        fun `should complain when specs is missing in ConfigValue`() {
+            val providesString = """
+            provides:
+              - specType: "ASYNCAPI"
+                config:
+                  timeout: 30
+            """.trimIndent()
+
+            val exception = assertThrows<JsonMappingException> {
+                mapper.readValue<ContractConfig>(providesString)
+            }
+
+            assertThat(exception.originalMessage).isEqualTo("Missing required field 'specs' in 'provides' field in Specmatic configuration")
+        }
+    }
+
+    @Nested
+    inner class TestConfigForTests {
+        @Test
+        fun `testConfigFor should return config for matching spec path and type`() {
+            val config = SpecmaticConfig(
+                sources = listOf(
+                    Source(
+                        test = listOf(
+                            SpecExecutionConfig.ConfigValue(
+                                specs = listOf("io/specmatic/order.yaml", "io/specmatic/payment.yaml"),
+                                specType = "ASYNCAPI",
+                                config = mapOf(
+                                    "timeout" to 30,
+                                    "retries" to 3,
+                                    "servers" to listOf(
+                                        mapOf("protocol" to "kafka", "host" to "localhost:9092")
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+
+            val result = config.testConfigFor("io/specmatic/order.yaml", "ASYNCAPI")
+
+            assertThat(result).isNotEmpty
+            assertThat(result["timeout"]).isEqualTo(30)
+            assertThat(result["retries"]).isEqualTo(3)
+            assertThat(result["servers"]).isInstanceOf(List::class.java)
+        }
+
+        @Test
+        fun `testConfigFor should return empty map when spec path does not match`() {
+            val config = SpecmaticConfig(
+                sources = listOf(
+                    Source(
+                        test = listOf(
+                            SpecExecutionConfig.ConfigValue(
+                                specs = listOf("io/specmatic/order.yaml"),
+                                specType = "ASYNCAPI",
+                                config = mapOf("timeout" to 30)
+                            )
+                        )
+                    )
+                )
+            )
+
+            val result = config.testConfigFor("io/specmatic/unknown.yaml", "ASYNCAPI")
+
+            assertThat(result).isEmpty()
+        }
+
+        @Test
+        fun `testConfigFor should return empty map when spec type does not match`() {
+            val config = SpecmaticConfig(
+                sources = listOf(
+                    Source(
+                        test = listOf(
+                            SpecExecutionConfig.ConfigValue(
+                                specs = listOf("io/specmatic/order.yaml"),
+                                specType = "ASYNCAPI",
+                                config = mapOf("timeout" to 30)
+                            )
+                        )
+                    )
+                )
+            )
+
+            val result = config.testConfigFor("io/specmatic/order.yaml", "OPENAPI")
+
+            assertThat(result).isEmpty()
+        }
+
+        @Test
+        fun `testConfigFor should return empty map when no ConfigValue exists`() {
+            val config = SpecmaticConfig(
+                sources = listOf(
+                    Source(
+                        test = listOf(
+                            SpecExecutionConfig.StringValue("io/specmatic/order.yaml")
+                        )
+                    )
+                )
+            )
+
+            val result = config.testConfigFor("io/specmatic/order.yaml", "ASYNCAPI")
+
+            assertThat(result).isEmpty()
+        }
+
+        @Test
+        fun `testConfigFor should return config from first matching source`() {
+            val config = SpecmaticConfig(
+                sources = listOf(
+                    Source(
+                        test = listOf(
+                            SpecExecutionConfig.ConfigValue(
+                                specs = listOf("io/specmatic/order.yaml"),
+                                specType = "ASYNCAPI",
+                                config = mapOf("timeout" to 30)
+                            )
+                        )
+                    ),
+                    Source(
+                        test = listOf(
+                            SpecExecutionConfig.ConfigValue(
+                                specs = listOf("io/specmatic/order.yaml"),
+                                specType = "ASYNCAPI",
+                                config = mapOf("timeout" to 60)
+                            )
+                        )
+                    )
+                )
+            )
+
+            val result = config.testConfigFor("io/specmatic/order.yaml", "ASYNCAPI")
+
+            assertThat(result["timeout"]).isEqualTo(30)
+        }
+
+        @Test
+        fun `testConfigFor should handle multiple ConfigValues and return first match`() {
+            val config = SpecmaticConfig(
+                sources = listOf(
+                    Source(
+                        test = listOf(
+                            SpecExecutionConfig.ConfigValue(
+                                specs = listOf("io/specmatic/payment.yaml"),
+                                specType = "ASYNCAPI",
+                                config = mapOf("timeout" to 20)
+                            ),
+                            SpecExecutionConfig.ConfigValue(
+                                specs = listOf("io/specmatic/order.yaml"),
+                                specType = "ASYNCAPI",
+                                config = mapOf("timeout" to 30)
+                            )
+                        )
+                    )
+                )
+            )
+
+            val result = config.testConfigFor("io/specmatic/order.yaml", "ASYNCAPI")
+
+            assertThat(result["timeout"]).isEqualTo(30)
+        }
+
+        @Test
+        fun `testConfigFor should return empty map when sources are empty`() {
+            val config = SpecmaticConfig(sources = emptyList())
+
+            val result = config.testConfigFor("io/specmatic/order.yaml", "ASYNCAPI")
+
+            assertThat(result).isEmpty()
+        }
+
+        @Test
+        fun `testConfigFor should handle complex config with nested structures`() {
+            val config = SpecmaticConfig(
+                sources = listOf(
+                    Source(
+                        test = listOf(
+                            SpecExecutionConfig.ConfigValue(
+                                specs = listOf("io/specmatic/order.yaml"),
+                                specType = "ASYNCAPI",
+                                config = mapOf(
+                                    "servers" to listOf(
+                                        mapOf("protocol" to "kafka", "host" to "localhost:9092"),
+                                        mapOf("protocol" to "sqs", "host" to "localhost:8080")
+                                    ),
+                                    "timeout" to 30,
+                                    "retries" to 3,
+                                    "advanced" to mapOf(
+                                        "compression" to true,
+                                        "maxMessageSize" to 1024
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+
+            val result = config.testConfigFor("io/specmatic/order.yaml", "ASYNCAPI")
+
+            assertThat(result).isNotEmpty
+            assertThat(result["timeout"]).isEqualTo(30)
+            assertThat(result["retries"]).isEqualTo(3)
+            assertThat(result["servers"]).isInstanceOf(List::class.java)
+            assertThat(result["advanced"]).isInstanceOf(Map::class.java)
+
+            @Suppress("UNCHECKED_CAST")
+            val servers = result["servers"] as List<Map<String, Any>>
+            assertThat(servers).hasSize(2)
+            assertThat(servers[0]["protocol"]).isEqualTo("kafka")
+
+            @Suppress("UNCHECKED_CAST")
+            val advanced = result["advanced"] as Map<String, Any>
+            assertThat(advanced["compression"]).isEqualTo(true)
+            assertThat(advanced["maxMessageSize"]).isEqualTo(1024)
+        }
+    }
+
+    @Nested
+    inner class StubConfigForTests {
+        @Test
+        fun `stubConfigFor should return config for matching spec path and type`() {
+            val config = SpecmaticConfig(
+                sources = listOf(
+                    Source(
+                        stub = listOf(
+                            SpecExecutionConfig.ConfigValue(
+                                specs = listOf("io/specmatic/order.yaml", "io/specmatic/payment.yaml"),
+                                specType = "ASYNCAPI",
+                                config = mapOf(
+                                    "timeout" to 30,
+                                    "retries" to 3,
+                                    "servers" to listOf(
+                                        mapOf("protocol" to "sqs", "host" to "localhost:8080")
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+
+            val result = config.stubConfigFor("io/specmatic/order.yaml", "ASYNCAPI")
+
+            assertThat(result).isNotEmpty
+            assertThat(result["timeout"]).isEqualTo(30)
+            assertThat(result["retries"]).isEqualTo(3)
+            assertThat(result["servers"]).isInstanceOf(List::class.java)
+        }
+
+        @Test
+        fun `stubConfigFor should return empty map when spec path does not match`() {
+            val config = SpecmaticConfig(
+                sources = listOf(
+                    Source(
+                        stub = listOf(
+                            SpecExecutionConfig.ConfigValue(
+                                specs = listOf("io/specmatic/order.yaml"),
+                                specType = "ASYNCAPI",
+                                config = mapOf("timeout" to 30)
+                            )
+                        )
+                    )
+                )
+            )
+
+            val result = config.stubConfigFor("io/specmatic/unknown.yaml", "ASYNCAPI")
+
+            assertThat(result).isEmpty()
+        }
+
+        @Test
+        fun `stubConfigFor should return empty map when spec type does not match`() {
+            val config = SpecmaticConfig(
+                sources = listOf(
+                    Source(
+                        stub = listOf(
+                            SpecExecutionConfig.ConfigValue(
+                                specs = listOf("io/specmatic/order.yaml"),
+                                specType = "ASYNCAPI",
+                                config = mapOf("timeout" to 30)
+                            )
+                        )
+                    )
+                )
+            )
+
+            val result = config.stubConfigFor("io/specmatic/order.yaml", "OPENAPI")
+
+            assertThat(result).isEmpty()
+        }
+
+        @Test
+        fun `stubConfigFor should return empty map when no ConfigValue exists`() {
+            val config = SpecmaticConfig(
+                sources = listOf(
+                    Source(
+                        stub = listOf(
+                            SpecExecutionConfig.StringValue("io/specmatic/order.yaml")
+                        )
+                    )
+                )
+            )
+
+            val result = config.stubConfigFor("io/specmatic/order.yaml", "ASYNCAPI")
+
+            assertThat(result).isEmpty()
+        }
+
+        @Test
+        fun `stubConfigFor should return config from first matching source`() {
+            val config = SpecmaticConfig(
+                sources = listOf(
+                    Source(
+                        stub = listOf(
+                            SpecExecutionConfig.ConfigValue(
+                                specs = listOf("io/specmatic/order.yaml"),
+                                specType = "ASYNCAPI",
+                                config = mapOf("timeout" to 30)
+                            )
+                        )
+                    ),
+                    Source(
+                        stub = listOf(
+                            SpecExecutionConfig.ConfigValue(
+                                specs = listOf("io/specmatic/order.yaml"),
+                                specType = "ASYNCAPI",
+                                config = mapOf("timeout" to 60)
+                            )
+                        )
+                    )
+                )
+            )
+
+            val result = config.stubConfigFor("io/specmatic/order.yaml", "ASYNCAPI")
+
+            assertThat(result["timeout"]).isEqualTo(30)
+        }
+
+        @Test
+        fun `stubConfigFor should handle multiple ConfigValues and return first match`() {
+            val config = SpecmaticConfig(
+                sources = listOf(
+                    Source(
+                        stub = listOf(
+                            SpecExecutionConfig.ConfigValue(
+                                specs = listOf("io/specmatic/payment.yaml"),
+                                specType = "ASYNCAPI",
+                                config = mapOf("timeout" to 20)
+                            ),
+                            SpecExecutionConfig.ConfigValue(
+                                specs = listOf("io/specmatic/order.yaml"),
+                                specType = "ASYNCAPI",
+                                config = mapOf("timeout" to 30)
+                            )
+                        )
+                    )
+                )
+            )
+
+            val result = config.stubConfigFor("io/specmatic/order.yaml", "ASYNCAPI")
+
+            assertThat(result["timeout"]).isEqualTo(30)
+        }
+
+        @Test
+        fun `stubConfigFor should return empty map when sources are empty`() {
+            val config = SpecmaticConfig(sources = emptyList())
+
+            val result = config.stubConfigFor("io/specmatic/order.yaml", "ASYNCAPI")
+
+            assertThat(result).isEmpty()
+        }
+
+        @Test
+        fun `stubConfigFor should handle complex config with nested structures`() {
+            val config = SpecmaticConfig(
+                sources = listOf(
+                    Source(
+                        stub = listOf(
+                            SpecExecutionConfig.ConfigValue(
+                                specs = listOf("io/specmatic/order.yaml"),
+                                specType = "ASYNCAPI",
+                                config = mapOf(
+                                    "servers" to listOf(
+                                        mapOf("protocol" to "sqs", "host" to "localhost:8080"),
+                                        mapOf("protocol" to "kafka", "host" to "localhost:9092")
+                                    ),
+                                    "timeout" to 30,
+                                    "retries" to 3,
+                                    "advanced" to mapOf(
+                                        "compression" to true,
+                                        "maxMessageSize" to 2048
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+
+            val result = config.stubConfigFor("io/specmatic/order.yaml", "ASYNCAPI")
+
+            assertThat(result).isNotEmpty
+            assertThat(result["timeout"]).isEqualTo(30)
+            assertThat(result["retries"]).isEqualTo(3)
+            assertThat(result["servers"]).isInstanceOf(List::class.java)
+            assertThat(result["advanced"]).isInstanceOf(Map::class.java)
+
+            @Suppress("UNCHECKED_CAST")
+            val servers = result["servers"] as List<Map<String, Any>>
+            assertThat(servers).hasSize(2)
+            assertThat(servers[0]["protocol"]).isEqualTo("sqs")
+
+            @Suppress("UNCHECKED_CAST")
+            val advanced = result["advanced"] as Map<String, Any>
+            assertThat(advanced["compression"]).isEqualTo(true)
+            assertThat(advanced["maxMessageSize"]).isEqualTo(2048)
         }
     }
 
