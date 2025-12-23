@@ -32,7 +32,6 @@ internal class ProxyTest {
         listOf(
             HttpHeaders.Authorization,
             HttpHeaders.UserAgent,
-            HttpHeaders.Cookie,
             HttpHeaders.Referrer,
             HttpHeaders.AcceptLanguage,
             HttpHeaders.Host,
