@@ -510,7 +510,6 @@ val HTTP_TRANSPORT_HEADERS: Set<String> =
     listOf(
         HttpHeaders.Authorization,
         HttpHeaders.UserAgent,
-        HttpHeaders.Cookie,
         HttpHeaders.Referrer,
         HttpHeaders.AcceptLanguage,
         HttpHeaders.Host,
