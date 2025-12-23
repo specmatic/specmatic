@@ -20,7 +20,7 @@ object ReportGenerator {
         specConfigs: List<CtrfSpecConfig>,
         coverage: Int? = null,
         reportDir: File,
-        toolName: String = "Specmatic v${VersionInfo.describe()}",
+        toolName: String = "Specmatic ${VersionInfo.describe()}",
         getCoverageStatus: (List<CtrfTestResultRecord>) -> CoverageStatus
     ) {
         if(isCtrfSpecConfigsValid(specConfigs).not()) return
