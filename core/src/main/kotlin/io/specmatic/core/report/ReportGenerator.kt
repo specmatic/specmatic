@@ -2,11 +2,13 @@ package io.specmatic.core.report
 
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.log.consoleLog
+import io.specmatic.reporter.commands.VersionProvider
 import io.specmatic.reporter.ctrf.CtrfReportGenerator
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.ctrf.model.CtrfTestResultRecord
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.reporting.ReportProvider
+import io.specmatic.specmatic.core.VersionInfo
 import java.io.File
 import java.util.*
 
@@ -18,6 +20,7 @@ object ReportGenerator {
         specConfigs: List<CtrfSpecConfig>,
         coverage: Int? = null,
         reportDir: File,
+        toolName: String = "Specmatic v${VersionInfo.describe()}",
         getCoverageStatus: (List<CtrfTestResultRecord>) -> CoverageStatus
     ) {
         val extra = buildMap<String, Any> {
@@ -33,7 +36,8 @@ object ReportGenerator {
             endTime = endTime,
             extra = extra,
             specConfig = specConfigs,
-            getCoverageStatus = getCoverageStatus
+            getCoverageStatus = getCoverageStatus,
+            toolName = toolName
         )
 
         ServiceLoader.load(ReportProvider::class.java).forEach { hook ->
