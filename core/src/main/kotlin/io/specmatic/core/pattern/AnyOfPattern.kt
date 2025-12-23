@@ -58,18 +58,22 @@ class AnyOfPattern(
         val delegateResult = delegate.matches(sampleData, resolver)
 
         val failures = mutableListOf<Failure>()
-        if (jsonMatchAnalysis.unknownKeys.isNotEmpty()) {
-            failures.add(Failure(
-                message = "Key(s) ${jsonMatchAnalysis.unknownKeys.joinToString(", ")} are not declared in any anyOf option",
-                ruleViolation = StandardRuleViolation.ANY_OF_UNKNOWN_KEY
-            ))
+        jsonMatchAnalysis.unknownKeys.forEach { key ->
+            failures.add(
+                Failure(
+                    message = "Key '$key' is not declared in any anyOf option",
+                    ruleViolation = StandardRuleViolation.ANY_OF_UNKNOWN_KEY
+                ).breadCrumb(key)
+            )
         }
 
-        if (jsonMatchAnalysis.keysDeclaredButUnmatched.isNotEmpty()) {
-            failures.add(Failure(
-                message = "Key(s) ${jsonMatchAnalysis.keysDeclaredButUnmatched.joinToString(", ")} did not match any anyOf option that declares them",
-                ruleViolation = StandardRuleViolation.ANY_OF_NO_MATCHING_SCHEMA
-            ))
+        jsonMatchAnalysis.keysDeclaredButUnmatched.forEach { key ->
+            failures.add(
+                Failure(
+                    message = "Key '$key' did not match any anyOf option that declares it",
+                    ruleViolation = StandardRuleViolation.ANY_OF_NO_MATCHING_SCHEMA
+                ).breadCrumb(key)
+            )
         }
 
         failures.addAll(jsonMatchAnalysis.relevantPatternFailures)
