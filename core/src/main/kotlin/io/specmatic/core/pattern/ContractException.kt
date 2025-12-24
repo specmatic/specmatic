@@ -6,7 +6,7 @@ import io.specmatic.core.Result
 import io.specmatic.core.RuleViolation
 import io.specmatic.core.RuleViolationReport
 import io.specmatic.core.ScenarioDetailsForResult
-import io.specmatic.core.StandardRuleViolation
+import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.valueMismatchResult
@@ -75,11 +75,15 @@ inline fun <ReturnType> scenarioBreadCrumb(scenario: ScenarioDetailsForResult, f
     }
 }
 
-fun <ReturnType> attemptParse(pattern: Pattern, value: String, mismatchMessages: MismatchMessages, f: ()->ReturnType): ReturnType {
+fun <ReturnType> attemptParse(pattern: Pattern, value: String, mismatchMessages: MismatchMessages, f: () -> ReturnType): ReturnType {
+    return attemptParse(pattern.typeName, value, mismatchMessages, f)
+}
+
+fun <ReturnType> attemptParse(typeName: String, value: String, mismatchMessages: MismatchMessages, f: () -> ReturnType): ReturnType {
     try {
         return f()
     } catch (throwable: Throwable) {
-        val failureReport = valueMismatchResult(pattern.typeName, StringValue(value), mismatchMessages).toFailureReport()
+        val failureReport = dataTypeMismatchResult(typeName, StringValue(value), mismatchMessages).toFailureReport()
         throw ContractException(failureReport, failureReport.getRuleViolationReport()).copy(exceptionCause = throwable)
     }
 }

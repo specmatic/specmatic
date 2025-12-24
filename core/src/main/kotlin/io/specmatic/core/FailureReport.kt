@@ -60,8 +60,8 @@ data class FailureReport(val contractPath: String?, private val scenarioMessage:
 
     private fun matchFailureDetails(matchFailureDetails: MatchFailureDetails): String {
         val breadCrumbString = startOfBreadCrumbPrefix(breadCrumbString(matchFailureDetails.breadCrumbs))
-        val errorMessageString = errorMessagesToString(matchFailureDetails.errorMessages).prependIndent("   ")
-        val ruleViolationString = matchFailureDetails.ruleViolationReport?.toText()?.prependIndent("   ")
+        val errorMessageString = errorMessagesToString(matchFailureDetails.errorMessages).prependIndent("    ")
+        val ruleViolationString = matchFailureDetails.ruleViolationReport?.toText()?.prependIndent("    ")
         return listOf(breadCrumbString, ruleViolationString, errorMessageString).mapNotNull {
             it?.takeIf(String::isNotBlank)
         }.joinToString("\n\n")

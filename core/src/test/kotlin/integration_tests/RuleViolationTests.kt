@@ -198,13 +198,25 @@ class RuleViolationTests {
                         }
                     }
                 },
-                violationTestCase(name = "Value Mismatch") {
+                violationTestCase(name = "Value Mismatch with Const") {
                     withPattern(name = "TEST") {
-                        put("type", "string")
-                        put("format", "date")
+                        put("const", "This-Should-Be-A-Date")
                     }
                     forPattern(name = "TEST") {
-                        withValue("This-Should-Be-A-Date")
+                        withValue("This-Is-Not-A-Date")
+                        expect {
+                            totalViolations(1)
+                            toContainViolation(StandardRuleViolation.VALUE_MISMATCH)
+                        }
+                    }
+                },
+                violationTestCase(name = "Value Mismatch with Enum") {
+                    withPattern(name = "TEST") {
+                        put("type", "string")
+                        put("enum", listOf("This-Should-Be-A-Date", "This-Should-Be-A-Number"))
+                    }
+                    forPattern(name = "TEST") {
+                        withValue("This-Is-Not-A-Date-And-Not-A-Number")
                         expect {
                             totalViolations(1)
                             toContainViolation(StandardRuleViolation.VALUE_MISMATCH)
@@ -363,8 +375,9 @@ class RuleViolationTests {
                     forPattern(name = "OneOfPattern") {
                         withValue(true)
                         expect {
-                            totalViolations(1)
+                            totalViolations(2)
                             toContainViolation(StandardRuleViolation.ONE_OF_VALUE_MISMATCH)
+                            toContainViolation(StandardRuleViolation.TYPE_MISMATCH)
                         }
                     }
                 },

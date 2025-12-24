@@ -342,7 +342,7 @@ Feature: Test
         ${toViolationReportString(
             breadCrumb = "REQUEST.BODY",
             details = "Stub expected number but request contained \"Hello\"\nExpected number, actual was \"Hello\"",
-            StandardRuleViolation.VALUE_MISMATCH
+            StandardRuleViolation.TYPE_MISMATCH
         )}
         """.trimIndent())
     }

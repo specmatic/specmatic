@@ -213,9 +213,9 @@ data class AnyPattern(
             }.failedToFindAny(typeName, getResult(matchResults.map { it.result as Failure }), resolver.mismatchMessages)
 
         val failuresWithUpdatedBreadcrumbs = addTypeInfoBreadCrumbs(matchResults)
-
-        val didNotMatchAnyOptionFailure = Failure(message = "Value didn't match any of the schema options", ruleViolation = StandardRuleViolation.ONE_OF_VALUE_MISMATCH)
-        return Result.fromFailures(listOf(didNotMatchAnyOptionFailure).plus(failuresWithUpdatedBreadcrumbs))
+        return Result.fromFailures(failures = failuresWithUpdatedBreadcrumbs).withRuleViolation(
+            ruleViolation = StandardRuleViolation.ONE_OF_VALUE_MISMATCH
+        )
     }
 
     private fun anyPatternIsEnum(): Boolean {

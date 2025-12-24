@@ -15,17 +15,11 @@ data class URLPattern(val scheme: URLScheme = URLScheme.HTTPS, override val type
     override val pattern: String = "(url)"
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
-        return when (sampleData) {
-            is StringValue -> {
-                resultOf(ruleViolation = StandardRuleViolation.VALUE_MISMATCH) {
-                    if (scheme.matches(parse(sampleData.string, resolver))) {
-                        Result.Success()
-                    } else {
-                        valueMismatchResult(scheme.type, sampleData.string)
-                    }
-                }
+        return resultOf(ruleViolation = StandardRuleViolation.TYPE_MISMATCH) {
+            when {
+                sampleData is StringValue && scheme.matches(parse(sampleData.string, resolver)) -> Result.Success()
+                else -> dataTypeMismatchResult(this, sampleData, resolver.mismatchMessages)
             }
-            else -> dataTypeMismatchResult(this, sampleData, resolver.mismatchMessages)
         }
     }
 

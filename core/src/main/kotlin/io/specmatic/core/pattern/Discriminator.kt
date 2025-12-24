@@ -90,8 +90,9 @@ class Discriminator(
             failure.breadCrumb(breadcrumb)
         }
 
-        val didNotMatchAnyOptionFailure = Failure(message = "Value didn't match any of the schema options", ruleViolation = StandardRuleViolation.ONE_OF_VALUE_MISMATCH)
-        return Failure.fromFailures(listOf(didNotMatchAnyOptionFailure).plus(failuresWithUpdatedBreadcrumbs))
+        return Failure.fromFailures(failures = failuresWithUpdatedBreadcrumbs).withRuleViolation(
+            ruleViolation = StandardRuleViolation.ONE_OF_VALUE_MISMATCH
+        )
     }
 
     private fun _matches(sampleData: Value?, pattern: List<Pattern>, key: String?, resolver: Resolver): Result {

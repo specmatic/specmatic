@@ -13,18 +13,10 @@ import java.util.*
 
 data class Base64StringPattern(override val typeAlias: String? = null) : Pattern, ScalarType {
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
-        if (sampleData?.hasTemplate() == true)
-            return Result.Success()
-
-        return when (sampleData) {
-            is StringValue -> {
-                if (Base64.isBase64(sampleData.string)) {
-                    Result.Success()
-                } else {
-                    valueMismatchResult("string of bytes (base64)", sampleData, resolver.mismatchMessages)
-                }
-            }
-            else -> dataTypeMismatchResult("string of bytes (base64)", sampleData, resolver.mismatchMessages)
+        if (sampleData?.hasTemplate() == true) return Result.Success()
+        return when {
+            sampleData is StringValue && Base64.isBase64(sampleData.string) -> Result.Success()
+            else -> dataTypeMismatchResult(actualTypeName, sampleData, resolver.mismatchMessages)
         }
     }
 
@@ -56,13 +48,14 @@ data class Base64StringPattern(override val typeAlias: String? = null) : Pattern
     }
 
 
-    override fun parse(value: String, resolver: Resolver): Value = attemptParse(this, value, resolver.mismatchMessages) {
+    override fun parse(value: String, resolver: Resolver): Value = attemptParse(actualTypeName, value, resolver.mismatchMessages) {
         if (!Base64.isBase64(value)) throw ContractException("Must be a string of bytes (base64)")
         StringValue(value)
     }
 
     override val typeName: String = "string"
     override val pattern: Any = "(string)"
+    private val actualTypeName: String = "string of bytes (base64)"
 }
 
 fun randomBase64String(length: Int = 5): String {

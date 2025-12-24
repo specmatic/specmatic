@@ -699,11 +699,11 @@ Feature: Recursive test
 
             val result = listPattern.fillInTheBlanks(jsonArray, resolver)
             assertThat(result).isInstanceOf(HasFailure::class.java); result as HasFailure
-            assertThat(result.failure.reportString()).isEqualToNormalizingWhitespace("""
-            >> [0]
-            Expected number, actual was string
-            """.trimIndent()
-            )
+            assertThat(result.failure.reportString()).isEqualToNormalizingWhitespace(toViolationReportString(
+                breadCrumb = "[0]",
+                details = "Expected number, actual was string",
+                StandardRuleViolation.TYPE_MISMATCH
+            ))
         }
 
         @Test
