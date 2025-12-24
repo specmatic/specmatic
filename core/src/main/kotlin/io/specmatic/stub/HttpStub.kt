@@ -813,7 +813,7 @@ class HttpStub(
     }
 
     init {
-        LicenseConfig.instance.setShipDisabled(specmaticConfigInstance.isTelemetryDisabled())
+        LicenseConfig.instance.utilization.shipDisabled = specmaticConfigInstance.isTelemetryDisabled()
         val initializers = ServiceLoader.load(StubInitializer::class.java)
 
         initializers.forEach { initializer ->

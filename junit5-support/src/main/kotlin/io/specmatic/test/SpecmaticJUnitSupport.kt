@@ -261,7 +261,7 @@ open class SpecmaticJUnitSupport {
     @TestFactory
     fun contractTest(): Stream<DynamicTest> {
         specmaticConfig?.let {
-            LicenseConfig.instance.setShipDisabled(it.isTelemetryDisabled())
+            LicenseConfig.instance.utilization.shipDisabled = it.isTelemetryDisabled()
         }
         partialSuccesses.clear()
 

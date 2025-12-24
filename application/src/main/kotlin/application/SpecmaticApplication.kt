@@ -14,7 +14,7 @@ open class SpecmaticApplication {
 
         @JvmStatic
         fun main(args: Array<String>) {
-            LicenseConfig.instance.setShipDisabled(loadSpecmaticConfig().isTelemetryDisabled())
+            LicenseConfig.instance.utilization.shipDisabled = loadSpecmaticConfig().isTelemetryDisabled()
             setupPicoCli()
             setupLogging()
 
