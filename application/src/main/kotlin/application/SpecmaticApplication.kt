@@ -1,6 +1,6 @@
 package application
 
-import io.specmatic.core.loadSpecmaticConfig
+import io.specmatic.core.loadSpecmaticConfigOrNull
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.SystemExit
 import io.specmatic.core.utilities.UncaughtExceptionHandler
@@ -14,7 +14,10 @@ open class SpecmaticApplication {
 
         @JvmStatic
         fun main(args: Array<String>) {
-            LicenseConfig.instance.utilization.shipDisabled = loadSpecmaticConfig().isTelemetryDisabled()
+            val specmaticConfig = loadSpecmaticConfigOrNull()
+            specmaticConfig?.let{
+                LicenseConfig.instance.utilization.shipDisabled = it.isTelemetryDisabled()
+            }
             setupPicoCli()
             setupLogging()
 
