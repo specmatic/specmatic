@@ -2,6 +2,7 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
+import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.Substitution
 import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.value.*
@@ -20,7 +21,7 @@ data class QueryParameterScalarPattern(override val pattern: Pattern): Pattern b
         if (sampleData == null) return dataTypeMismatchResult(pattern, sampleData, resolver.mismatchMessages)
         val sampleDataString = when (sampleData) {
             is ListValue -> {
-                if (sampleData.list.size > 1) return dataTypeMismatchResult(pattern, sampleData, resolver.mismatchMessages)
+                if (sampleData.list.size > 1) return Result.Failure(message = "Multiple values $sampleData found. Expected a single value", ruleViolation = StandardRuleViolation.TYPE_MISMATCH)
                 sampleData.list.single().toStringLiteral()
             }
             else -> sampleData.toStringLiteral()
