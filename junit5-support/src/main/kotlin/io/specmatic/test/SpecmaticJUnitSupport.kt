@@ -23,6 +23,7 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.LicensedProduct
+import io.specmatic.license.core.util.LicenseConfig
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.stub.hasOpenApiFileExtension
 import io.specmatic.stub.isOpenAPI
@@ -259,6 +260,9 @@ open class SpecmaticJUnitSupport {
 
     @TestFactory
     fun contractTest(): Stream<DynamicTest> {
+        specmaticConfig?.let {
+            LicenseConfig.instance.utilization.shipDisabled = it.isTelemetryDisabled()
+        }
         partialSuccesses.clear()
 
         val givenWorkingDirectory = System.getProperty(WORKING_DIRECTORY)
