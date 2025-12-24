@@ -21,6 +21,8 @@ import io.specmatic.core.utilities.Flags.Companion.getLongValue
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
+import io.specmatic.license.core.LicenseResolver
+import io.specmatic.license.core.LicensedProduct
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.stub.hasOpenApiFileExtension
 import io.specmatic.stub.isOpenAPI
@@ -217,7 +219,7 @@ open class SpecmaticJUnitSupport {
             specConfigs = specConfigs,
             coverage = report.totalCoveragePercentage,
             reportDir = File("$ARTIFACTS_PATH/test")
-        ){ ctrfTestResultRecords ->
+        ) { ctrfTestResultRecords ->
             ctrfTestResultRecords.filterIsInstance<TestResultRecord>().getCoverageStatus()
         }
 
@@ -454,6 +456,12 @@ open class SpecmaticJUnitSupport {
         startTime = Instant.now()
         return testScenarios.map { (contractTest, baseURL) ->
             DynamicTest.dynamicTest(contractTest.testDescription()) {
+
+                LicenseResolver.utilize(
+                    product = LicensedProduct.OPEN_SOURCE,
+                    feature = TrackingFeature.TEST_EXECUTED,
+                )
+
                 threads.add(Thread.currentThread().name)
 
                 var testResult: ContractTestExecutionResult? = null

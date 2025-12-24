@@ -8,10 +8,13 @@ import io.specmatic.core.*
 import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.logger
 import io.specmatic.core.log.logException
+import io.specmatic.core.utilities.TrackingFeature
 import io.specmatic.core.utilities.jsonStringToValueMap
 import io.specmatic.core.utilities.parseXML
 import io.specmatic.core.value.toXMLNode
 import io.specmatic.core.wsdl.parser.WSDL
+import io.specmatic.license.core.LicenseResolver
+import io.specmatic.license.core.LicensedProduct
 import io.specmatic.license.core.cli.Category
 import io.specmatic.mock.mockFromJSON
 import io.swagger.v3.core.util.Yaml
@@ -60,6 +63,11 @@ fun convertStub(path: String, userSpecifiedOutFile: String?) {
 
     val outFile = userSpecifiedOutFile ?: "${inputFile.nameWithoutExtension}.yaml"
 
+    LicenseResolver.utilize(
+        product = LicensedProduct.OPEN_SOURCE,
+        feature = TrackingFeature.IMPORT_FROM_STUB,
+    )
+
     writeOut(openApiYAML, outFile)
 }
 
@@ -96,6 +104,10 @@ fun convertWSDL(path: String, userSpecifiedOutFile: String?) {
     val contract = WSDL(wsdlXML, path).convertToGherkin()
 
     val outFile = userSpecifiedOutFile ?: "${inputFile.nameWithoutExtension}.$CONTRACT_EXTENSION"
+    LicenseResolver.utilize(
+        product = LicensedProduct.OPEN_SOURCE,
+        feature = TrackingFeature.IMPORT_FROM_WSDL,
+    )
 
     writeOut(contract, outFile)
 }

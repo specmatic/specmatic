@@ -25,6 +25,8 @@ import io.specmatic.core.route.modules.HealthCheckModule.Companion.configureHeal
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.isHealthCheckRequest
 import io.specmatic.core.utilities.*
 import io.specmatic.core.value.*
+import io.specmatic.license.core.LicenseResolver
+import io.specmatic.license.core.LicensedProduct
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.mock.TRANSIENT_MOCK
@@ -247,6 +249,11 @@ class HttpStub(
                 var responseErrors: List<InterceptorError> = emptyList()
 
                 try {
+                    LicenseResolver.utilize(
+                        product = LicensedProduct.OPEN_SOURCE,
+                        feature = TrackingFeature.STUB_REQUEST_SERVED,
+                    )
+
                     val rawHttpRequest = ktorHttpRequestToHttpRequest(call).also {
                         if (it.isHealthCheckRequest()) return@intercept
                     }
@@ -325,21 +332,21 @@ class HttpStub(
                     }
 
                     if(!isInternalStubPath(httpRequest.path)) {
-                        val ctrfTestResultRecord = TestResultRecord(
-                            path = convertPathParameterStyle(httpLogMessage.scenario?.path ?: httpRequest.path),
-                            method = httpLogMessage.scenario?.method ?: httpRequest.method.orEmpty(),
-                            responseStatus = httpLogMessage.scenario?.status ?: 0,
-                            request = httpRequest,
-                            response = httpResponse,
-                            result = httpLogMessage.toResult(),
-                            serviceType = "OPENAPI",
-                            requestContentType = httpLogMessage.scenario?.requestContentType
-                                ?: httpRequest.headers["Content-Type"],
-                            specification = httpStubResponse.scenario?.specification,
-                            testType = STUB_TEST_TYPE,
-                            actualResponseStatus = httpResponse.status
-                        )
-                        synchronized(ctrfTestResultRecords) { ctrfTestResultRecords.add(ctrfTestResultRecord) }
+                    val ctrfTestResultRecord = TestResultRecord(
+                        path = convertPathParameterStyle(httpLogMessage.scenario?.path ?: httpRequest.path),
+                        method = httpLogMessage.scenario?.method ?: httpRequest.method.orEmpty(),
+                        responseStatus = httpLogMessage.scenario?.status ?: 0,
+                        request = httpRequest,
+                        response = httpResponse,
+                        result = httpLogMessage.toResult(),
+                        serviceType = "OPENAPI",
+                        requestContentType = httpLogMessage.scenario?.requestContentType
+                            ?: httpRequest.headers["Content-Type"],
+                        specification = httpStubResponse.scenario?.specification,
+                        testType = STUB_TEST_TYPE,
+                        actualResponseStatus = httpResponse.status
+                    )
+                    synchronized(ctrfTestResultRecords) { ctrfTestResultRecords.add(ctrfTestResultRecord) }
                     }
                 } catch (e: ContractException) {
                     val response = badRequest(e.report())
