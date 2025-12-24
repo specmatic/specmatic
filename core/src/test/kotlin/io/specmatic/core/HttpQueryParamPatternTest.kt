@@ -501,7 +501,6 @@ class HttpQueryParamPatternTest {
             val stubbedNumericScalarQueryParameterPattern = HttpQueryParamPattern(mapOf("product_id" to QueryParameterScalarPattern(ExactValuePattern(NumberValue(1)))))
             val result = stubbedNumericScalarQueryParameterPattern.matches(HttpRequest("GET", "/", queryParams = QueryParameters(paramPairs = listOf("product_id" to "abc"))),  Resolver())
             assertThat(result is Failure).isTrue
-            // TODO: This should've been TYPE_MISMATCH, the parse is throwing it off
             assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
             ${
                 toViolationReportString(

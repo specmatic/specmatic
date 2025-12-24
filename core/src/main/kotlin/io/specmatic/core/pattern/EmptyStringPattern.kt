@@ -2,10 +2,10 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
+import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.valueMismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
-import io.specmatic.core.patternMismatchResult
 import io.specmatic.core.value.*
 
 object EmptyStringPattern : Pattern {
@@ -33,7 +33,7 @@ object EmptyStringPattern : Pattern {
 
     override fun encompasses(otherPattern: Pattern, thisResolver: Resolver, otherResolver: Resolver, typeStack: TypeStack): Result {
         if (otherPattern is EmptyStringPattern) return Result.Success()
-        return patternMismatchResult(this, otherPattern, thisResolver.mismatchMessages)
+        return Result.Failure(message = "No data was expected, but got \"${otherPattern.typeName}\" instead", ruleViolation = StandardRuleViolation.TYPE_MISMATCH)
     }
 
     override fun listOf(valueList: List<Value>, resolver: Resolver): Value {
