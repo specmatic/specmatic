@@ -101,6 +101,7 @@ specmatic {
 
         dockerBuild {
             imageName = "specmatic"
+            dockerOrgNames = listOf("specmatic")
         }
         publish {
             pom {
