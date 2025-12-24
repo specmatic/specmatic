@@ -2597,10 +2597,11 @@ components:
 
             val result = jsonObjectPattern.fillInTheBlanks(jsonObject, resolver)
             assertThat(result).isInstanceOf(HasFailure::class.java); result as HasFailure
-            assertThat(result.failure.reportString()).isEqualToNormalizingWhitespace("""
-            >> name
-            Expected string, actual was number
-            """.trimIndent())
+            assertThat(result.failure.reportString()).isEqualToNormalizingWhitespace(toViolationReportString(
+                breadCrumb = "name",
+                details = "Expected string, actual was number",
+                StandardRuleViolation.TYPE_MISMATCH
+            ))
         }
 
         @Test

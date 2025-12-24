@@ -13,7 +13,7 @@ object EmptyStringPattern : Pattern {
         return when (sampleData) {
             EmptyString -> Result.Success()
             is StringValue -> valueMismatchResult("empty string", sampleData, resolver.mismatchMessages)
-            else -> dataTypeMismatchResult("string", sampleData, resolver.mismatchMessages)
+            else -> dataTypeMismatchResult("empty string", sampleData, resolver.mismatchMessages)
         }
     }
 
@@ -24,7 +24,7 @@ object EmptyStringPattern : Pattern {
         return sequenceOf(HasValue(this))
     }
 
-    override fun parse(value: String, resolver: Resolver): Value = attemptParse(this, value, resolver.mismatchMessages) {
+    override fun parse(value: String, resolver: Resolver): Value = attemptParse("empty string", value, resolver.mismatchMessages) {
         when {
             value.isEmpty() -> EmptyString
             else -> throw ContractException("No data was expected")

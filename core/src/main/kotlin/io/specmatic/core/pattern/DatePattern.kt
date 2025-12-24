@@ -15,7 +15,7 @@ object DatePattern : Pattern, ScalarType {
             return Result.Success()
 
         return when (sampleData) {
-            is StringValue -> resultOf(ruleViolation = StandardRuleViolation.VALUE_MISMATCH) {
+            is StringValue -> resultOf(ruleViolation = StandardRuleViolation.TYPE_MISMATCH) {
                 parse(sampleData.string, resolver)
                 Result.Success()
             }

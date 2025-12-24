@@ -15,7 +15,7 @@ object DateTimePattern : Pattern, ScalarType {
             return Result.Success()
 
         return when (sampleData) {
-            is StringValue -> resultOf(ruleViolation = StandardRuleViolation.VALUE_MISMATCH) {
+            is StringValue -> resultOf(ruleViolation = StandardRuleViolation.TYPE_MISMATCH) {
                 parse(sampleData.string, resolver)
                 Result.Success()
             }
@@ -49,7 +49,7 @@ object DateTimePattern : Pattern, ScalarType {
     override val typeAlias: String?
         get() = null
 
-    override val typeName: String = "date-time"
+    override val typeName: String = "datetime"
 
     override val pattern = "(datetime)"
 

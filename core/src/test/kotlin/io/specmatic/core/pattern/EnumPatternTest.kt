@@ -4,6 +4,7 @@ import io.specmatic.GENERATION
 import io.specmatic.core.*
 import io.specmatic.core.utilities.toValue
 import io.specmatic.core.value.*
+import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.assertDoesNotThrow
 import org.junit.jupiter.api.Nested
@@ -312,7 +313,13 @@ class EnumPatternTest {
         fun `enum error message should feature the expected values with multiType enumerable`() {
             val result = toMultiValueEnum("One", "Two", 1, 2).encompasses(StringPattern(), Resolver(), Resolver())
             val resultText = result.reportString()
-            assertThat(resultText).isEqualToIgnoringWhitespace("""Expected (1 or 2 or "One" or "Two"), actual was string""")
+            assertThat(resultText).isEqualToIgnoringWhitespace(
+                toViolationReportString(
+                    breadCrumb = null,
+                    details = "Expected (1 or 2 or \"One\" or \"Two\"), actual was string",
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            )
         }
     }
 

@@ -484,4 +484,4 @@ fun patternMismatchResult(
     thisPattern: Pattern,
     otherPattern: Pattern,
     mismatchMessages: MismatchMessages = DefaultMismatchMessages
-): Failure = Failure(message = mismatchMessages.mismatchMessage(thisPattern.typeName, otherPattern.typeName))
+): Failure = mismatchFailure(expected = thisPattern.typeName, actual = otherPattern.typeName, mismatchMessages, StandardRuleViolation.TYPE_MISMATCH)

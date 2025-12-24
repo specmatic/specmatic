@@ -457,37 +457,30 @@ internal class AnyPatternTest {
         assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
         ${
             toViolationReportString(
-                breadCrumb = null,
-                details = "Value didn't match any of the schema options",
-                StandardRuleViolation.ONE_OF_VALUE_MISMATCH
-            )
-        }
-        ${
-            toViolationReportString(
                 breadCrumb = "(when Sub1 object).newKey",
                 details = "Key named \"newKey\" was unexpected",
-                StandardRuleViolation.UNKNOWN_PROPERTY
+                StandardRuleViolation.ONE_OF_VALUE_MISMATCH, StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "(when Sub1 object).prop",
                 details = "Expected string, actual was true (boolean)",
-                StandardRuleViolation.TYPE_MISMATCH
+                StandardRuleViolation.ONE_OF_VALUE_MISMATCH, StandardRuleViolation.TYPE_MISMATCH
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "(when Sub2 object).newKey",
                 details = "Key named \"newKey\" was unexpected",
-                StandardRuleViolation.UNKNOWN_PROPERTY
+                StandardRuleViolation.ONE_OF_VALUE_MISMATCH, StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "(when Sub2 object).prop",
                 details = "Expected number, actual was true (boolean)",
-                StandardRuleViolation.TYPE_MISMATCH
+                StandardRuleViolation.ONE_OF_VALUE_MISMATCH, StandardRuleViolation.TYPE_MISMATCH
             )
         }
         """.trimIndent())
