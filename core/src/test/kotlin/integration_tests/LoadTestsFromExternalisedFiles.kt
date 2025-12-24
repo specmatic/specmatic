@@ -664,7 +664,7 @@ class LoadTestsFromExternalisedFiles {
             toViolationReportString(
                 breadCrumb = "REQUEST.PARAMETERS.HEADER.Authorization",
                 details = "Authorization header must be prefixed with \"Bearer\"",
-                OpenApiRuleViolation.SECURITY_SCHEME_MISMATCH
+                StandardRuleViolation.TYPE_MISMATCH
             )
         }
        
@@ -673,7 +673,7 @@ class LoadTestsFromExternalisedFiles {
              toViolationReportString(
                  breadCrumb = "REQUEST.PARAMETERS.HEADER.Authorization",
                  details = "Authorization header must be prefixed with \"Bearer\"",
-                 OpenApiRuleViolation.SECURITY_SCHEME_MISMATCH
+                 StandardRuleViolation.TYPE_MISMATCH
              )
          }
         
@@ -682,7 +682,7 @@ class LoadTestsFromExternalisedFiles {
             toViolationReportString(
                 breadCrumb = "REQUEST.PARAMETERS.HEADER.Authorization",
                 details = "Authorization header must be prefixed with \"Bearer\"",
-                OpenApiRuleViolation.SECURITY_SCHEME_MISMATCH
+                StandardRuleViolation.TYPE_MISMATCH
             )
         }
         
@@ -1286,14 +1286,14 @@ class LoadTestsFromExternalisedFiles {
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.PATH.creatorId",
                     details = "Expected number as per the specification, but the example pets_post had \"abc\".",
-                    OpenApiRuleViolation.PATH_MISMATCH, StandardRuleViolation.TYPE_MISMATCH
+                    StandardRuleViolation.TYPE_MISMATCH
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.PATH.petId",
                     details = "Expected number as per the specification, but the example pets_post had string.",
-                    OpenApiRuleViolation.PATH_MISMATCH, StandardRuleViolation.TYPE_MISMATCH
+                    StandardRuleViolation.TYPE_MISMATCH
                 )
             }
             

@@ -160,7 +160,7 @@ class ExampleValidationModuleTest {
         ${toViolationReportString(
             breadCrumb = "REQUEST.PARAMETERS.PATH.id",
             details = "Specification expected number but example contained \"abc\"",
-            OpenApiRuleViolation.PATH_MISMATCH, StandardRuleViolation.TYPE_MISMATCH
+            StandardRuleViolation.TYPE_MISMATCH
         )}
         """.trimIndent())
     }

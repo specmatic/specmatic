@@ -714,7 +714,7 @@ Scenario: JSON API to get account details with fact check
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.QUERY.apiKey",
                     details = "Api-key named apiKey in the contract was not found in the request",
-                    OpenApiRuleViolation.SECURITY_SCHEME_MISMATCH
+                    StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                 )
             }
             """.trimIndent())
@@ -730,14 +730,14 @@ Scenario: JSON API to get account details with fact check
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.HEADER.Authorization",
                     details = "Header named Authorization in the contract was not found in the request",
-                    OpenApiRuleViolation.SECURITY_SCHEME_MISMATCH
+                    StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.QUERY.apiKey",
                     details = "Api-key named apiKey in the contract was not found in the request",
-                    OpenApiRuleViolation.SECURITY_SCHEME_MISMATCH
+                    StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                 )
             }
             """.trimIndent())
@@ -753,21 +753,21 @@ Scenario: JSON API to get account details with fact check
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.HEADER.Authorization",
                     details = "Header named Authorization in the contract was not found in the request",
-                    OpenApiRuleViolation.SECURITY_SCHEME_MISMATCH
+                    StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.QUERY.apiKey",
                     details = "Api-key named apiKey in the contract was not found in the request",
-                    OpenApiRuleViolation.SECURITY_SCHEME_MISMATCH
+                    StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.HEADER.Authorization",
                     details = "Header named Authorization in the contract was not found in the request",
-                    OpenApiRuleViolation.SECURITY_SCHEME_MISMATCH
+                    StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                 )
             }
             """.trimIndent())
@@ -880,14 +880,14 @@ Scenario: JSON API to get account details with fact check
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.PATH.creatorId",
                     details = "Expected number, actual was \"ABC\"",
-                    OpenApiRuleViolation.PATH_MISMATCH, StandardRuleViolation.TYPE_MISMATCH
+                    StandardRuleViolation.TYPE_MISMATCH
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.PATH.petId",
                     details = "Expected number, actual was \"DEF\"",
-                    OpenApiRuleViolation.PATH_MISMATCH, StandardRuleViolation.TYPE_MISMATCH
+                    StandardRuleViolation.TYPE_MISMATCH
                 )
             }
             

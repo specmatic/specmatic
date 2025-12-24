@@ -31,18 +31,6 @@ enum class OpenApiRuleViolation(override val id: String, override val title: Str
         summary = "The HTTP status code does not match the expected status code defined in the specification"
     ),
 
-    PATH_MISMATCH(
-        id = "R0003",
-        title = "HTTP path mismatch",
-        summary = "The HTTP path does not match any path defined in the specification"
-    ),
-
-    SECURITY_SCHEME_MISMATCH(
-        id = "R0006",
-        title = "Security scheme mismatch",
-        summary = "The security scheme does not match the security scheme defined in the specification"
-    ),
-
     NO_MATCHING_SECURITY_SCHEME(
         id = "R0007",
         title = "No matching security scheme",
