@@ -165,6 +165,7 @@ class OpenApiCoverageReportInput(
                 TestResultRecord(
                     path = endpoint.path,
                     method = endpoint.method,
+                    requestContentType = endpoint.requestContentType,
                     responseStatus = endpoint.responseStatus,
                     request = null,
                     response = null,
