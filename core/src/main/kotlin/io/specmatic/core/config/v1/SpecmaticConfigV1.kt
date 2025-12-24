@@ -33,7 +33,9 @@ data class SpecmaticConfigV1 (
 	val allPatternsMandatory: Boolean? = null,
 	@field:JsonAlias("default_pattern_values")
 	val defaultPatternValues: Map<String, Any> = emptyMap(),
-	val version: SpecmaticConfigVersion? = null
+	val version: SpecmaticConfigVersion? = null,
+	@field:JsonAlias("disable_telemetry")
+	val disableTelemetry: Boolean? = null,
 ): SpecmaticVersionedConfig {
 	override fun transform(): SpecmaticConfig {
 		return SpecmaticConfig(
@@ -55,7 +57,8 @@ data class SpecmaticConfigV1 (
 			attributeSelectionPattern = this.attributeSelectionPattern,
 			allPatternsMandatory = this.allPatternsMandatory,
 			defaultPatternValues = this.defaultPatternValues,
-			version = SpecmaticConfigVersion.VERSION_1
+			version = SpecmaticConfigVersion.VERSION_1,
+			disableTelemetry = this.disableTelemetry,
 		)
 	}
 

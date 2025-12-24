@@ -1,8 +1,10 @@
 package application
 
+import io.specmatic.core.loadSpecmaticConfig
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.SystemExit
 import io.specmatic.core.utilities.UncaughtExceptionHandler
+import io.specmatic.license.core.util.LicenseConfig
 import io.specmatic.specmatic.executable.JULForwarder
 import picocli.CommandLine
 
@@ -12,6 +14,7 @@ open class SpecmaticApplication {
 
         @JvmStatic
         fun main(args: Array<String>) {
+            LicenseConfig.instance.setShipDisabled(loadSpecmaticConfig().isTelemetryDisabled())
             setupPicoCli()
             setupLogging()
 

@@ -27,6 +27,7 @@ import io.specmatic.core.utilities.*
 import io.specmatic.core.value.*
 import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.LicensedProduct
+import io.specmatic.license.core.util.LicenseConfig
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.mock.TRANSIENT_MOCK
@@ -812,6 +813,7 @@ class HttpStub(
     }
 
     init {
+        LicenseConfig.instance.setShipDisabled(specmaticConfigInstance.isTelemetryDisabled())
         val initializers = ServiceLoader.load(StubInitializer::class.java)
 
         initializers.forEach { initializer ->

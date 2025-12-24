@@ -79,6 +79,8 @@ const val EXAMPLES_DIR_SUFFIX = "_examples"
 const val SPECMATIC_GITHUB_ISSUES = "https://github.com/specmatic/specmatic/issues"
 const val DEFAULT_WORKING_DIRECTORY = ".$APPLICATION_NAME_LOWER_CASE"
 
+const val DISABLE_TELEMETRY = "DISABLE_TELEMETRY"
+
 const val SPECMATIC_STUB_DICTIONARY = "SPECMATIC_STUB_DICTIONARY"
 
 const val MISSING_CONFIG_FILE_MESSAGE = "Config file does not exist. (Could not find file ./specmatic.json OR ./specmatic.yaml OR ./specmatic.yml)"
@@ -234,7 +236,8 @@ data class SpecmaticConfig(
     private val allPatternsMandatory: Boolean? = null,
     private val defaultPatternValues: Map<String, Any> = emptyMap(),
     private val matchBranch: Boolean? = null,
-    private val version: SpecmaticConfigVersion? = null
+    private val version: SpecmaticConfigVersion? = null,
+    private val disableTelemetry: Boolean? = null
 ) {
     companion object {
         fun getReport(specmaticConfig: SpecmaticConfig): ReportConfigurationDetails? {
@@ -304,6 +307,16 @@ data class SpecmaticConfig(
         fun getHooks(specmaticConfig: SpecmaticConfig): Map<String, String> {
             return specmaticConfig.hooks
         }
+    }
+
+    @JsonIgnore
+    fun isTelemetryDisabled(): Boolean {
+        val disableTelemetryFromEnvVarOrSystemProp = readEnvVarOrProperty(
+            DISABLE_TELEMETRY, DISABLE_TELEMETRY
+        )
+
+        return disableTelemetryFromEnvVarOrSystemProp?.toBoolean()
+            ?: (disableTelemetry == true)
     }
 
     @JsonIgnore
