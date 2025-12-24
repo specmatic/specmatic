@@ -79,7 +79,7 @@ const val EXAMPLES_DIR_SUFFIX = "_examples"
 const val SPECMATIC_GITHUB_ISSUES = "https://github.com/specmatic/specmatic/issues"
 const val DEFAULT_WORKING_DIRECTORY = ".$APPLICATION_NAME_LOWER_CASE"
 
-const val DISABLE_TELEMETRY = "DISABLE_TELEMETRY"
+const val SPECMATIC_DISABLE_TELEMETRY = "SPECMATIC_DISABLE_TELEMETRY"
 
 const val SPECMATIC_STUB_DICTIONARY = "SPECMATIC_STUB_DICTIONARY"
 
@@ -312,7 +312,7 @@ data class SpecmaticConfig(
     @JsonIgnore
     fun isTelemetryDisabled(): Boolean {
         val disableTelemetryFromEnvVarOrSystemProp = readEnvVarOrProperty(
-            DISABLE_TELEMETRY, DISABLE_TELEMETRY
+            SPECMATIC_DISABLE_TELEMETRY, SPECMATIC_DISABLE_TELEMETRY
         )
 
         return disableTelemetryFromEnvVarOrSystemProp?.toBoolean()
