@@ -18,7 +18,7 @@ fun toViolationReportString(breadCrumb: String? = null, details: String, vararg 
     val breadCrumbString = if (breadCrumb != null) ">> $breadCrumb" else null
     val violationReport = RuleViolationReport(ruleViolations = ruleViolation.toSet())
     val ruleViolationString = violationReport.toText().orEmpty()
-    return listOfNotNull(breadCrumbString, ruleViolationString.prependIndent("   "), details.prependIndent("   ")).mapNotNull {
+    return listOfNotNull(breadCrumbString, ruleViolationString.prependIndent("    "), details.prependIndent("    ")).mapNotNull {
         it.takeIf(String::isNotBlank)
     }.joinToString("\n\n")
 }

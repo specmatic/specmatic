@@ -162,7 +162,7 @@ class OverlayTest {
 
         val objectResult = objectResponseBody.matches(incorrectDataTypeValue, objectScenario.resolver)
         assertThat(objectResult).isInstanceOf(Result.Failure::class.java)
-        assertThat(objectResult.reportString()).isEqualToIgnoringNewLines(
+        assertThat(objectResult.reportString()).isEqualToIgnoringWhitespace(
             toViolationReportString(
                 breadCrumb = "description",
                 details = "Expected string, actual was 123 (number)",

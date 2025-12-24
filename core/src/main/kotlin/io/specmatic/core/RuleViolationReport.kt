@@ -27,7 +27,7 @@ data class RuleViolationReport(val ruleViolations: Set<RuleViolation> = emptySet
     private fun ruleViolationToText(rule: RuleViolation): String = buildString {
         append("${rule.id}: ${rule.title}\n")
         append("Documentation: ${rule.toDocumentationUrl()}")
-        rule.summary?.let { append("\nsummary: $it") }
+        rule.summary?.let { append("\nSummary: $it") }
     }
 
     private fun RuleViolation.toDocumentationUrl(): String {
