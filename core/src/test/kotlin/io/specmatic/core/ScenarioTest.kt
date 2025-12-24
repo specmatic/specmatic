@@ -387,7 +387,7 @@ class ScenarioTest {
             toViolationReportString(
                 breadCrumb = "REQUEST.PARAMETERS.HEADER.Authorization",
                 details = "Authorization header must be prefixed with \"Basic\"",
-                OpenApiRuleViolation.SECURITY_SCHEME_MISMATCH
+                StandardRuleViolation.TYPE_MISMATCH
             )
         }
         """.trimIndent())

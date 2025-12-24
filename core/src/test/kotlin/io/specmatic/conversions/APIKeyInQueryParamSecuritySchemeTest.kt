@@ -3,6 +3,8 @@ package io.specmatic.conversions
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -15,10 +17,11 @@ class APIKeyInQueryParamSecuritySchemeTest {
         val result = APIKeyInQueryParamSecurityScheme(name = "API-KEY", apiKey = "123").matches(httpRequest, resolver)
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> QUERY.API-KEY
-        Expected api-key named "API-KEY" was missing
-        """.trimIndent())
+        assertThat(result.reportString()).isEqualToNormalizingWhitespace(toViolationReportString(
+            breadCrumb = "QUERY.API-KEY",
+            details = "Expected api-key named \"API-KEY\" was missing",
+            StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+        ))
     }
 
     @Test
