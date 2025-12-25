@@ -1173,21 +1173,21 @@ internal class JSONObjectPatternTest {
             ${
                 toViolationReportString(
                     breadCrumb = "topLevelOptionalKey",
-                    details = DefaultMismatchMessages.optionalKeyMissing("key", "topLevelOptionalKey"),
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "topLevelOptionalKey"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "subMandatoryObject.subOptionalKey",
-                    details = DefaultMismatchMessages.optionalKeyMissing("key", "subOptionalKey"),
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "subOptionalKey"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "subOptionalObject.subOptionalKey",
-                    details = DefaultMismatchMessages.optionalKeyMissing("key", "subOptionalKey"),
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "subOptionalKey"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
@@ -1846,14 +1846,14 @@ components:
             ${
                 toViolationReportString(
                     breadCrumb = "name",
-                    details = DefaultMismatchMessages.expectedKeyWasMissing("key", "name"),
+                    details = DefaultMismatchMessages.expectedKeyWasMissing("property", "name"),
                     StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "extraKey",
-                    details = DefaultMismatchMessages.unexpectedKey("key", "extraKey"),
+                    details = DefaultMismatchMessages.unexpectedKey("property", "extraKey"),
                     StandardRuleViolation.UNKNOWN_PROPERTY
                 )
             }
@@ -2644,7 +2644,7 @@ components:
                 assertThat(result).isInstanceOf(HasFailure::class.java); result as HasFailure
                 assertThat(result.failure.reportString()).satisfiesAnyOf(
                     { report -> assertThat(report).containsIgnoringWhitespaces("Expected json type") },
-                    { report -> assertThat(report).containsIgnoringWhitespaces("Expected key \"name\" was missing") },
+                    { report -> assertThat(report).containsIgnoringWhitespaces("Expected property \"name\" was missing") },
                 )
             }
         }

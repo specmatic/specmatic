@@ -22,14 +22,14 @@ class FuzzyKeyCheckTest {
             when (exp) {
                 is ExpectedError.Missing -> {
                     val error = errors.filterIsInstance<MissingKeyError>().first { it.name == exp.name }
-                    val failure = error.missingKeyToResult("key")
+                    val failure = error.missingKeyToResult("property")
                     assertThat(failure.reportString()).isEqualToNormalizingWhitespace(exp.message)
                     assertThat(failure.isPartial).isEqualTo(exp.isPartial)
                 }
 
                 is ExpectedError.Unexpected -> {
                     val error = errors.filterIsInstance<UnexpectedKeyError>().first { it.name == exp.name }
-                    val failure = error.unknownKeyToResult("key")
+                    val failure = error.unknownKeyToResult("property")
                     assertThat(failure.reportString()).isEqualToNormalizingWhitespace(exp.message)
                     assertThat(failure.isPartial).isEqualTo(exp.isPartial)
                 }
@@ -37,9 +37,9 @@ class FuzzyKeyCheckTest {
                 is ExpectedError.Fuzzy -> {
                     val error = errors.filterIsInstance<FuzzyKeyError>().first { it.name == exp.name }
                     val failure = when {
-                        pattern.containsKey(error.canonicalKey) -> error.missingKeyToResult("key")
-                        pattern.containsKey(withOptionality(error.canonicalKey)) -> error.missingOptionalKeyToResult("key")
-                        else -> error.unknownKeyToResult("key")
+                        pattern.containsKey(error.canonicalKey) -> error.missingKeyToResult("property")
+                        pattern.containsKey(withOptionality(error.canonicalKey)) -> error.missingOptionalKeyToResult("property")
+                        else -> error.unknownKeyToResult("property")
                     }
 
                     assertThat(error.canonicalKey).isEqualTo(exp.candidate)
@@ -191,7 +191,7 @@ class FuzzyKeyCheckTest {
                     name = name,
                     message = toViolationReportString(
                         breadCrumb = null,
-                        details = DefaultMismatchMessages.expectedKeyWasMissing("key", name),
+                        details = DefaultMismatchMessages.expectedKeyWasMissing("property", name),
                         StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                     ),
                     isPartial = partial
@@ -201,7 +201,7 @@ class FuzzyKeyCheckTest {
                     name = name,
                     message = toViolationReportString(
                         breadCrumb = null,
-                        details = DefaultMismatchMessages.unexpectedKey("key", name),
+                        details = DefaultMismatchMessages.unexpectedKey("property", name),
                         StandardRuleViolation.UNKNOWN_PROPERTY
                     ),
                     isPartial = partial
@@ -212,7 +212,7 @@ class FuzzyKeyCheckTest {
                     candidate = candidate,
                     message = toViolationReportString(
                         breadCrumb = null,
-                        details = "${DefaultMismatchMessages.unexpectedKey("key", name)}. Did you mean \"$candidate\"?",
+                        details = "${DefaultMismatchMessages.unexpectedKey("property", name)}. Did you mean \"$candidate\"?",
                         violation
                     ),
                     isPartial = partial

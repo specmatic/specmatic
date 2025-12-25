@@ -358,9 +358,9 @@ data class JSONObjectPattern(
 
         val keyErrors: List<Result.Failure> = resolverWithNullType.findKeyErrorList(adjustedPattern, sampleData.jsonObject).map {
             when {
-                pattern.contains(it.canonicalKey) -> it.missingKeyToResult("key", resolver.mismatchMessages)
-                pattern.contains(withOptionality(it.canonicalKey)) -> it.missingOptionalKeyToResult("key", resolver.mismatchMessages)
-                else -> it.unknownKeyToResult("key", resolver.mismatchMessages)
+                pattern.contains(it.canonicalKey) -> it.missingKeyToResult("property", resolver.mismatchMessages)
+                pattern.contains(withOptionality(it.canonicalKey)) -> it.missingOptionalKeyToResult("property", resolver.mismatchMessages)
+                else -> it.unknownKeyToResult("property", resolver.mismatchMessages)
             }.breadCrumb(it.name)
         }
 
@@ -782,7 +782,7 @@ fun fill(jsonPatternMap: Map<String, Pattern>, jsonValueMap: Map<String, Value>,
         val pattern = jsonPatternMap[key] ?: jsonPatternMap["$key?"] ?: return@mapValues when {
             resolver.findKeyErrorCheck.isExtensible -> generateIfPatternToken(typeAlias, key, value, resolver)
             resolver.isNegative -> generateIfPatternToken(typeAlias, key, value, resolver)
-            else -> HasFailure<Value>(Result.Failure(resolver.mismatchMessages.unexpectedKey("key", key)))
+            else -> HasFailure<Value>(Result.Failure(resolver.mismatchMessages.unexpectedKey("property", key)))
         }.breadCrumb(key)
         val updatedResolver = resolver.updateLookupPath(typeAlias, KeyWithPattern(key, pattern))
         pattern.fillInTheBlanks(value, updatedResolver).breadCrumb(key)
@@ -883,7 +883,7 @@ internal fun mapEncompassesMap(
 
     val missingFixedKeyErrors: List<Result.Failure> =
         myRequiredKeys.filter { it !in otherRequiredKeys }.map { missingFixedKey ->
-            MissingKeyError(missingFixedKey).missingKeyToResult("key", thisResolverWithNullType.mismatchMessages)
+            MissingKeyError(missingFixedKey).missingKeyToResult("property", thisResolverWithNullType.mismatchMessages)
                 .breadCrumb(withoutOptionality(missingFixedKey))
         }
 

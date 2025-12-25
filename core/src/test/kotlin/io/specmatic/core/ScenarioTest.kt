@@ -614,7 +614,7 @@ class ScenarioTest {
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY.extraKey",
-                    details = AttributeSelectionWithResponseMismatchMessages.unexpectedKey("key", "extraKey"),
+                    details = AttributeSelectionWithResponseMismatchMessages.unexpectedKey("property", "extraKey"),
                     StandardRuleViolation.UNKNOWN_PROPERTY
                 )
             }
@@ -671,7 +671,7 @@ class ScenarioTest {
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY.extraKey",
-                    details = DefaultMismatchMessages.unexpectedKey("key", "extraKey"),
+                    details = DefaultMismatchMessages.unexpectedKey("property", "extraKey"),
                     StandardRuleViolation.UNKNOWN_PROPERTY
                 )
             }

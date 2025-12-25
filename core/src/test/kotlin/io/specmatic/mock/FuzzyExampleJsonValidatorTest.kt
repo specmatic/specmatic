@@ -748,7 +748,7 @@ class FuzzyExampleJsonValidatorTest {
         }
 
         private fun unexpectedKeyButMatches(unexpectedKey: String, candidate: String): String {
-            return "${FuzzyExampleMisMatchMessages.unexpectedKey("key", unexpectedKey)}. Did you mean \"$candidate\"?"
+            return "${FuzzyExampleMisMatchMessages.unexpectedKey("property", unexpectedKey)}. Did you mean \"$candidate\"?"
         }
     }
 }

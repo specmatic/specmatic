@@ -9,6 +9,7 @@ import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.*
+import io.specmatic.mock.FuzzyExampleMisMatchMessages
 import io.specmatic.toViolationReportString
 import io.specmatic.stub.captureStandardOutput
 import io.specmatic.stub.createStubFromContracts
@@ -2469,7 +2470,7 @@ paths:
 
         assertThat(error.report()).isEqualToNormalizingWhitespace("""
         >> http-respons
-        Key "http-respons" is invalid. Did you mean "http-response"?
+        ${unexpectedKeyButMatches("http-respons", "http-response")}
         """.trimIndent())
     }
 
@@ -2977,6 +2978,10 @@ paths:
                     Arguments.of(featureData[0], "10", "{calls_left: 10, messages_left: 20}"),
                     Arguments.of(featureData[1], "20", "{calls_left: 10, messages_left: 30}")
             )
+        }
+
+        private fun unexpectedKeyButMatches(unexpectedKey: String, candidate: String): String {
+            return "${FuzzyExampleMisMatchMessages.unexpectedKey("property", unexpectedKey)}. Did you mean \"$candidate\"?"
         }
     }
 

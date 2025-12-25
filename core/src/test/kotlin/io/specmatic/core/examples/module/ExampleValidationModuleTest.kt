@@ -324,28 +324,28 @@ class ExampleValidationModuleTest {
         ${
             toViolationReportString(
                 breadCrumb = "REQUEST.BODY.age",
-                details = ExampleMismatchMessages.expectedKeyWasMissing("key", "age"),
+                details = ExampleMismatchMessages.expectedKeyWasMissing("property", "age"),
                 StandardRuleViolation.REQUIRED_PROPERTY_MISSING
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY.id",
-                details = ExampleMismatchMessages.expectedKeyWasMissing("key", "id"),
+                details = ExampleMismatchMessages.expectedKeyWasMissing("property", "id"),
                 StandardRuleViolation.REQUIRED_PROPERTY_MISSING
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY.name",
-                details = ExampleMismatchMessages.expectedKeyWasMissing("key", "name"),
+                details = ExampleMismatchMessages.expectedKeyWasMissing("property", "name"),
                 StandardRuleViolation.REQUIRED_PROPERTY_MISSING
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY.age",
-                details = ExampleMismatchMessages.expectedKeyWasMissing("key", "age"),
+                details = ExampleMismatchMessages.expectedKeyWasMissing("property", "age"),
                 StandardRuleViolation.REQUIRED_PROPERTY_MISSING
             )
         }
@@ -381,28 +381,28 @@ class ExampleValidationModuleTest {
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY[0].id",
-                details = AttributeSelectionWithExampleMismatchMessages.expectedKeyWasMissing("key", "id"),
+                details = AttributeSelectionWithExampleMismatchMessages.expectedKeyWasMissing("property", "id"),
                 StandardRuleViolation.REQUIRED_PROPERTY_MISSING
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY[0].name",
-                details = AttributeSelectionWithExampleMismatchMessages.expectedKeyWasMissing("key", "name"),
+                details = AttributeSelectionWithExampleMismatchMessages.expectedKeyWasMissing("property", "name"),
                 StandardRuleViolation.REQUIRED_PROPERTY_MISSING
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY[0].age",
-                details = AttributeSelectionWithExampleMismatchMessages.unexpectedKey("key", "age"),
+                details = AttributeSelectionWithExampleMismatchMessages.unexpectedKey("property", "age"),
                 StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY[0].extra",
-                details = AttributeSelectionWithExampleMismatchMessages.unexpectedKey("key", "extra"), 
+                details = AttributeSelectionWithExampleMismatchMessages.unexpectedKey("property", "extra"), 
                 StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }
@@ -475,28 +475,28 @@ class ExampleValidationModuleTest {
         ${
             toViolationReportString(
                 breadCrumb = "partial.RESPONSE.BODY[0].id",
-                details = AttributeSelectionWithExampleMismatchMessages.expectedKeyWasMissing("key", "id"),
+                details = AttributeSelectionWithExampleMismatchMessages.expectedKeyWasMissing("property", "id"),
                 StandardRuleViolation.REQUIRED_PROPERTY_MISSING
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "partial.RESPONSE.BODY[0].name",
-                details = AttributeSelectionWithExampleMismatchMessages.expectedKeyWasMissing("key", "name"),
+                details = AttributeSelectionWithExampleMismatchMessages.expectedKeyWasMissing("property", "name"),
                 StandardRuleViolation.REQUIRED_PROPERTY_MISSING
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "partial.RESPONSE.BODY[0].age",
-                details = AttributeSelectionWithExampleMismatchMessages.unexpectedKey("key", "age"),
+                details = AttributeSelectionWithExampleMismatchMessages.unexpectedKey("property", "age"),
                 StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "partial.RESPONSE.BODY[0].extra",
-                details = AttributeSelectionWithExampleMismatchMessages.unexpectedKey("key", "extra"),
+                details = AttributeSelectionWithExampleMismatchMessages.unexpectedKey("property", "extra"),
                 StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }

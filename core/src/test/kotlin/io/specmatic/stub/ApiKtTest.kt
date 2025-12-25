@@ -469,7 +469,7 @@ Feature: Math API
         assertThat(output).contains("""In scenario "Square of a number"""")
         assertThat(output).contains("API: POST /square -> 200")
         assertThat(output).contains(">> REQUEST.BODY.unexpected")
-        assertThat(output).contains(ExampleMismatchMessages.unexpectedKey("key", "unexpected"))
+        assertThat(output).contains(ExampleMismatchMessages.unexpectedKey("property", "unexpected"))
     }
 
     @Test
@@ -505,7 +505,7 @@ Feature: Math API
         assertThat(output).contains("""In scenario "Square of a number"""")
         assertThat(output).contains("API: POST /square -> 200")
         assertThat(output).contains(">> RESPONSE.BODY.unexpected")
-        assertThat(output).contains(ExampleMismatchMessages.unexpectedKey("key", "unexpected"))
+        assertThat(output).contains(ExampleMismatchMessages.unexpectedKey("property", "unexpected"))
     }
 
     private fun fakeResponse(request: HttpRequest, behaviour: Feature): HttpResponse {

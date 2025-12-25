@@ -378,7 +378,7 @@ Feature: POST API
         ${
             toViolationReportString(
                 breadCrumb = "REQUEST.BODY.undeclared",
-                details = SpecificationAndRequestMismatchMessages.unexpectedKey("key", "undeclared"),
+                details = SpecificationAndRequestMismatchMessages.unexpectedKey("property", "undeclared"),
                 StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }
@@ -444,7 +444,7 @@ Scenario: Square of a number
         ${
             toViolationReportString(
                 breadCrumb = "REQUEST.BODY.unexpected",
-                details = SpecificationAndRequestMismatchMessages.unexpectedKey("key", "unexpected"),
+                details = SpecificationAndRequestMismatchMessages.unexpectedKey("property", "unexpected"),
                 StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }

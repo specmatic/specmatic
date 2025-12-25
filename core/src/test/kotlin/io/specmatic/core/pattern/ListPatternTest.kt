@@ -335,14 +335,14 @@ Feature: Recursive test
             ${
                 toViolationReportString(
                     breadCrumb = "[0].details",
-                    details = DefaultMismatchMessages.optionalKeyMissing("key", "details"),
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "details"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "[1].details",
-                    details = DefaultMismatchMessages.optionalKeyMissing("key", "details"),
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "details"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }

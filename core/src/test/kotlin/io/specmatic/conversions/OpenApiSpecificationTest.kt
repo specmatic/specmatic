@@ -6683,7 +6683,7 @@ paths:
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.BODY[1].name",
-                    details = DefaultMismatchMessages.expectedKeyWasMissing("key", "name"),
+                    details = DefaultMismatchMessages.expectedKeyWasMissing("property", "name"),
                     StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                 )
             }

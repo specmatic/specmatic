@@ -1048,7 +1048,7 @@ paths:
                     }""".trimIndent(),
                     """
                     >> supposed-to-be-http-request
-                    Key "supposed-to-be-http-request" is invalid. Did you mean "http-request"?
+                    ${unexpectedKeyButMatches("supposed-to-be-http-request", "http-request")}
                     """.trimIndent()
                 ),
                 Arguments.of("""{
@@ -1057,7 +1057,7 @@ paths:
                     }""".trimIndent(),
                     """
                     >> supposed-to-be-http-response 
-                    Key "supposed-to-be-http-response" is invalid. Did you mean "http-response"?
+                    ${unexpectedKeyButMatches("supposed-to-be-http-response", "http-response")}
                     """.trimIndent()
                 ),
                 Arguments.of("""{
@@ -1066,7 +1066,7 @@ paths:
                     }""".trimIndent(),
                     """
                     >> http-request.supposed-to-be-method
-                    Key "supposed-to-be-method" is invalid. Did you mean "method"?
+                    ${unexpectedKeyButMatches("supposed-to-be-method", "method")}
                     """.trimIndent()
                 ),
                 Arguments.of("""{
@@ -1084,7 +1084,7 @@ paths:
                     }""".trimIndent(),
                     """
                     >> http-response.supposed-to-be-status
-                    Key "supposed-to-be-status" is invalid. Did you mean "status"?
+                    ${unexpectedKeyButMatches("supposed-to-be-status", "status")}
                     """.trimIndent()
                 ),
                 Arguments.of("""{
@@ -1097,6 +1097,10 @@ paths:
                     """.trimIndent()
                 )
             )
+        }
+
+        private fun unexpectedKeyButMatches(unexpectedKey: String, candidate: String): String {
+            return "${FuzzyExampleMisMatchMessages.unexpectedKey("property", unexpectedKey)}. Did you mean \"$candidate\"?"
         }
     }
 }

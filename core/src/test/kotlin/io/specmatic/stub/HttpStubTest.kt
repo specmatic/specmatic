@@ -1218,7 +1218,7 @@ paths:
                 ${
                     toViolationReportString(
                         breadCrumb = "REQUEST.BODY.age",
-                        details = SpecificationAndRequestMismatchMessages.unexpectedKey("key", "age"),
+                        details = SpecificationAndRequestMismatchMessages.unexpectedKey("property", "age"),
                         StandardRuleViolation.UNKNOWN_PROPERTY
                     )
                 }

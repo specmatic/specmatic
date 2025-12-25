@@ -125,21 +125,21 @@ class AllPatternsMandatoryTest {
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.BODY.type",
-                    details = DefaultMismatchMessages.optionalKeyMissing("key", "type"),
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "type"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.BODY.inventory",
-                    details = DefaultMismatchMessages.optionalKeyMissing("key", "inventory"),
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "inventory"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.BODY.details",
-                    details = DefaultMismatchMessages.optionalKeyMissing("key", "details"),
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "details"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
@@ -147,28 +147,28 @@ class AllPatternsMandatoryTest {
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY[0].type",
-                    details = DefaultMismatchMessages.optionalKeyMissing("key", "type"),
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "type"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY[0].inventory",
-                    details = DefaultMismatchMessages.optionalKeyMissing("key", "inventory"),
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "inventory"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY[0].details.dateOfManufacture",
-                    details = DefaultMismatchMessages.optionalKeyMissing("key", "dateOfManufacture"),
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "dateOfManufacture"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY[0].details.dateOfExpiry",
-                    details = DefaultMismatchMessages.optionalKeyMissing("key", "dateOfExpiry"),
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "dateOfExpiry"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
@@ -176,28 +176,28 @@ class AllPatternsMandatoryTest {
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY[1].type",
-                    details = DefaultMismatchMessages.optionalKeyMissing("key", "type"),
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "type"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY[1].inventory",
-                    details = DefaultMismatchMessages.optionalKeyMissing("key", "inventory"),
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "inventory"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY[1].details.dateOfManufacture",
-                    details = DefaultMismatchMessages.optionalKeyMissing("key", "dateOfManufacture"),
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "dateOfManufacture"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY[1].details.dateOfExpiry",
-                    details = DefaultMismatchMessages.optionalKeyMissing("key", "dateOfExpiry"),
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "dateOfExpiry"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
@@ -236,7 +236,7 @@ class AllPatternsMandatoryTest {
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY[0].name",
-                    details = DefaultMismatchMessages.expectedKeyWasMissing("key", "name"),
+                    details = DefaultMismatchMessages.expectedKeyWasMissing("property", "name"),
                     StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                 )
             }
@@ -244,21 +244,21 @@ class AllPatternsMandatoryTest {
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.BODY.type",
-                    details = DefaultMismatchMessages.optionalKeyMissing("key", "type"),
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "type"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.BODY.inventory",
-                    details = DefaultMismatchMessages.optionalKeyMissing("key", "inventory"),
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "inventory"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY[0].type",
-                    details = DefaultMismatchMessages.optionalKeyMissing("key", "type"),
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "type"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
@@ -266,7 +266,7 @@ class AllPatternsMandatoryTest {
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY[0].inventory",
-                    details = DefaultMismatchMessages.optionalKeyMissing("key", "inventory"),
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "inventory"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
@@ -274,7 +274,7 @@ class AllPatternsMandatoryTest {
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY[0].details",
-                    details = DefaultMismatchMessages.optionalKeyMissing("key", "details"),
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "details"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
@@ -323,7 +323,7 @@ class AllPatternsMandatoryTest {
         ${
             toViolationReportString(
                 breadCrumb = "REQUEST.BODY.details",
-                details = DefaultMismatchMessages.optionalKeyMissing("key", "details"),
+                details = DefaultMismatchMessages.optionalKeyMissing("property", "details"),
                 StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
             )
         }
@@ -331,21 +331,21 @@ class AllPatternsMandatoryTest {
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY[0].type",
-                details = DefaultMismatchMessages.optionalKeyMissing("key", "type"),
+                details = DefaultMismatchMessages.optionalKeyMissing("property", "type"),
                 StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY[0].inventory",
-                details = DefaultMismatchMessages.optionalKeyMissing("key", "inventory"),
+                details = DefaultMismatchMessages.optionalKeyMissing("property", "inventory"),
                 StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
             )
         }   
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY[0].details",
-                details = DefaultMismatchMessages.optionalKeyMissing("key", "details"),
+                details = DefaultMismatchMessages.optionalKeyMissing("property", "details"),
                 StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
             )
         }
@@ -353,21 +353,21 @@ class AllPatternsMandatoryTest {
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY[1].type",
-                details = DefaultMismatchMessages.optionalKeyMissing("key", "type"),
+                details = DefaultMismatchMessages.optionalKeyMissing("property", "type"),
                 StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY[1].inventory",
-                details = DefaultMismatchMessages.optionalKeyMissing("key", "inventory"),
+                details = DefaultMismatchMessages.optionalKeyMissing("property", "inventory"),
                 StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY[1].details",
-                details = DefaultMismatchMessages.optionalKeyMissing("key", "details"),
+                details = DefaultMismatchMessages.optionalKeyMissing("property", "details"),
                 StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
             )
         }
