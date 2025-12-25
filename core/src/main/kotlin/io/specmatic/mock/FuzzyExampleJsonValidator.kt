@@ -28,15 +28,15 @@ object FuzzyExampleMisMatchMessages : MismatchMessages {
     }
 
     override fun unexpectedKey(keyLabel: String, keyName: String): String {
-        return "${keyLabel.lowercase().capitalizeFirstChar()} \"$keyName\" is invalid"
+        return "${keyLabel.capitalizeFirstChar()} \"$keyName\" is invalid"
     }
 
     override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
-        return "Example format expected mandatory ${keyLabel.lowercase()} \"$keyName\" to be present but was missing from the example"
+        return "Example format expected mandatory $keyLabel \"$keyName\" to be present but was missing from the example"
     }
 
     override fun optionalKeyMissing(keyLabel: String, keyName: String): String {
-        return "Expected optional ${keyLabel.lowercase()} \"$keyName\" to be present but was missing from the example"
+        return "Expected optional $keyLabel \"$keyName\" to be present but was missing from the example"
     }
 }
 

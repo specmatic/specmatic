@@ -20,7 +20,7 @@ class APIKeyInQueryParamSecuritySchemeTest {
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).isEqualToNormalizingWhitespace(toViolationReportString(
             breadCrumb = "QUERY.API-KEY",
-            details = DefaultMismatchMessages.expectedKeyWasMissing("api-key", "API-KEY"),
+            details = DefaultMismatchMessages.expectedKeyWasMissing(apiKeyParamName, "API-KEY"),
             StandardRuleViolation.REQUIRED_PROPERTY_MISSING
         ))
     }

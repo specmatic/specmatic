@@ -394,7 +394,7 @@ interface MismatchMessages {
     fun expectedKeyWasMissing(keyLabel: String, keyName: String): String
 
     fun optionalKeyMissing(keyLabel: String, keyName: String): String {
-        return expectedKeyWasMissing("optional ${keyLabel.lowercase().capitalizeFirstChar()}", keyName)
+        return expectedKeyWasMissing("optional $keyLabel", keyName)
     }
 
     fun valueMismatch(expected: String, actual: String): String {
@@ -446,11 +446,11 @@ object DefaultMismatchMessages: MismatchMessages {
     }
 
     override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
-        return "Expected ${keyLabel.lowercase()} \"$keyName\" was missing"
+        return "Expected $keyLabel \"$keyName\" was missing"
     }
 
     override fun optionalKeyMissing(keyLabel: String, keyName: String): String {
-        return "Expected optional ${keyLabel.lowercase()} \"$keyName\" was missing"
+        return "Expected optional $keyLabel \"$keyName\" was missing"
     }
 }
 

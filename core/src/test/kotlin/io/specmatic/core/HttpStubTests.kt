@@ -1,6 +1,7 @@
 package io.specmatic.core
 
 import io.specmatic.conversions.OpenApiSpecification
+import io.specmatic.conversions.apiKeyParamName
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.pattern.parsedJSON
@@ -710,7 +711,7 @@ Scenario: JSON API to get account details with fact check
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.QUERY.apiKey",
-                    details = SpecificationAndRequestMismatchMessages.expectedKeyWasMissing("api-key", "apiKey"),
+                    details = SpecificationAndRequestMismatchMessages.expectedKeyWasMissing(apiKeyParamName, "apiKey"),
                     StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                 )
             }
@@ -733,7 +734,7 @@ Scenario: JSON API to get account details with fact check
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.QUERY.apiKey",
-                    details = SpecificationAndRequestMismatchMessages.expectedKeyWasMissing("api-key", "apiKey"),
+                    details = SpecificationAndRequestMismatchMessages.expectedKeyWasMissing(apiKeyParamName, "apiKey"),
                     StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                 )
             }
@@ -756,7 +757,7 @@ Scenario: JSON API to get account details with fact check
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.QUERY.apiKey",
-                    details = SpecificationAndRequestMismatchMessages.expectedKeyWasMissing("api-key", "apiKey"),
+                    details = SpecificationAndRequestMismatchMessages.expectedKeyWasMissing(apiKeyParamName, "apiKey"),
                     StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                 )
             }

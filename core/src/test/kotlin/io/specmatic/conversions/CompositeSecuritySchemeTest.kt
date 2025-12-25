@@ -50,7 +50,7 @@ class CompositeSecuritySchemeTest {
         ${
             toViolationReportString(
                 breadCrumb = "QUERY.apiKey",
-                details = DefaultMismatchMessages.expectedKeyWasMissing("api-key", "apiKey"),
+                details = DefaultMismatchMessages.expectedKeyWasMissing(apiKeyParamName, "apiKey"),
                 StandardRuleViolation.REQUIRED_PROPERTY_MISSING
             )
         }

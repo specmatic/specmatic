@@ -91,11 +91,11 @@ object NewAndOldSpecificationRequestMismatches: MismatchMessages {
     }
 
     override fun unexpectedKey(keyLabel: String, keyName: String): String {
-        return "${keyLabel.lowercase().capitalizeFirstChar()} \"$keyName\" in the request from the old specification is not in the new specification"
+        return "${keyLabel.capitalizeFirstChar()} \"$keyName\" in the request from the old specification is not in the new specification"
     }
 
     override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
-        return "New specification expects ${keyLabel.lowercase()} \"$keyName\" in the request but it is missing from the old specification"
+        return "New specification expects $keyLabel \"$keyName\" in the request but it is missing from the old specification"
     }
 }
 
@@ -112,10 +112,10 @@ object NewAndOldSpecificationResponseMismatches: MismatchMessages {
     }
 
     override fun unexpectedKey(keyLabel: String, keyName: String): String {
-        return "${keyLabel.lowercase().capitalizeFirstChar()} \"$keyName\" in the response from the new specification is not in the old specification"
+        return "${keyLabel.capitalizeFirstChar()} \"$keyName\" in the response from the new specification is not in the old specification"
     }
 
     override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
-        return "The old specification expects ${keyLabel.lowercase()} \"$keyName\" but it is missing in the new specification"
+        return "The old specification expects $keyLabel \"$keyName\" but it is missing in the new specification"
     }
 }

@@ -9,14 +9,14 @@ object SpecificationExternalResponseMismatch: MismatchMessages {
     }
 
     override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
-        return "Specification expected mandatory ${keyLabel.lowercase().capitalizeFirstChar()} \"$keyName\" to be present but was missing in the response from the external command"
+        return "Specification expected mandatory $keyLabel \"$keyName\" to be present but was missing in the response from the external command"
     }
 
     override fun optionalKeyMissing(keyLabel: String, keyName: String): String {
-        return "Expected optional ${keyLabel.lowercase().capitalizeFirstChar()} \"$keyName\" from specification to be present but was missing in the response from the external command"
+        return "Expected optional $keyLabel \"$keyName\" from specification to be present but was missing in the response from the external command"
     }
 
     override fun unexpectedKey(keyLabel: String, keyName: String): String {
-        return "${keyLabel.lowercase().capitalizeFirstChar()} \"$keyName\" in the response from the external command was not in the specification"
+        return "${keyLabel.capitalizeFirstChar()} \"$keyName\" in the response from the external command was not in the specification"
     }
 }

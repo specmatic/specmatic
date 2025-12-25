@@ -256,14 +256,14 @@ private val valueMismatchMessages = object : MismatchMessages {
     }
 
     override fun unexpectedKey(keyLabel: String, keyName: String): String {
-        return "Value mismatch: ${keyLabel.lowercase().capitalizeFirstChar()} \"$keyName\" was unexpected"
+        return "Value mismatch: $keyLabel \"$keyName\" was unexpected"
     }
 
     override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
-        return "Value mismatch: ${keyLabel.lowercase().capitalizeFirstChar()} \"$keyName\" was missing"
+        return "Value mismatch: $keyLabel \"$keyName\" was missing"
     }
 
     override fun optionalKeyMissing(keyLabel: String, keyName: String): String {
-        return "Value mismatch: ${keyLabel.lowercase().capitalizeFirstChar()} \"$keyName\" was missing"
+        return "Value mismatch: $keyLabel \"$keyName\" was missing"
     }
 }

@@ -948,11 +948,11 @@ object SpecificationAndResponseMismatch : MismatchMessages {
     }
 
     override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
-        return "Specification expected mandatory ${keyLabel.lowercase().capitalizeFirstChar()} \"$keyName\" to be present but was missing from the response"
+        return "Specification expected mandatory $keyLabel \"$keyName\" to be present but was missing from the response"
     }
 
     override fun optionalKeyMissing(keyLabel: String, keyName: String): String {
-        return "Expected optional ${keyLabel.lowercase().capitalizeFirstChar()} \"$keyName\" from specification to be present but was missing from the response"
+        return "Expected optional $keyLabel \"$keyName\" from specification to be present but was missing from the response"
     }
 }
 

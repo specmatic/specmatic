@@ -13,10 +13,10 @@ object ExampleMismatchMessages : MismatchMessages {
     }
 
     override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
-        return "Specification expected mandatory ${keyLabel.lowercase().capitalizeFirstChar()} \"$keyName\" to be present but was missing from the example"
+        return "Specification expected mandatory $keyLabel \"$keyName\" to be present but was missing from the example"
     }
 
     override fun optionalKeyMissing(keyLabel: String, keyName: String): String {
-        return "Warning: Expected optional ${keyLabel.lowercase().capitalizeFirstChar()} \"$keyName\" from specification to be present but was missing from the example"
+        return "Warning: Expected optional $keyLabel \"$keyName\" from specification to be present but was missing from the example"
     }
 }
