@@ -15,6 +15,7 @@ import io.ktor.util.pipeline.*
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.*
 import io.specmatic.core.Constants.Companion.ARTIFACTS_PATH
+import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.core.log.*
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSON
@@ -125,7 +126,7 @@ class HttpStub(
         fun setExpectation(
             stub: ScenarioStub,
             feature: Feature,
-            mismatchMessages: MismatchMessages = ContractAndStubMismatchMessages
+            mismatchMessages: MismatchMessages = ExampleMismatchMessages
         ): Pair<Pair<Result.Success, List<HttpStubData>>?, NoMatchingScenario?> {
             try {
                 val tier1Match = feature.matchingStub(
@@ -137,7 +138,7 @@ class HttpStub(
                     ?: throw ContractException("Expected scenario after stub matched for:${System.lineSeparator()}${stub.toJSON()}")
 
                 val stubWithSubstitutionsResolved = stub.resolveDataSubstitutions().map { scenarioStub ->
-                    feature.matchingStub(scenarioStub, ContractAndStubMismatchMessages)
+                    feature.matchingStub(scenarioStub, ExampleMismatchMessages)
                 }
 
                 val stubData: List<HttpStubData> = stubWithSubstitutionsResolved.map {
@@ -1143,17 +1144,21 @@ fun passThroughResponse(
     return HttpStubResponse(response.copy(headers = response.headers.plus(SPECMATIC_SOURCE_HEADER to "proxy")))
 }
 
-object StubAndRequestMismatchMessages : MismatchMessages {
+object SpecificationAndRequestMismatchMessages : MismatchMessages {
     override fun mismatchMessage(expected: String, actual: String): String {
-        return "Stub expected $expected but request contained $actual"
+        return "Specification expected $expected but request contained $actual"
     }
 
     override fun unexpectedKey(keyLabel: String, keyName: String): String {
-        return "${keyLabel.lowercase().capitalizeFirstChar()} named $keyName in the request was not in the stub"
+        return "${keyLabel.lowercase().capitalizeFirstChar()} \"$keyName\" in the request was not in the specification"
     }
 
     override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
-        return "${keyLabel.lowercase().capitalizeFirstChar()} named $keyName in the stub was not found in the request"
+        return "Specification expected mandatory ${keyLabel.lowercase().capitalizeFirstChar()} \"$keyName\" to be present but was missing from the request"
+    }
+
+    override fun optionalKeyMissing(keyLabel: String, keyName: String): String {
+        return "Expected optional ${keyLabel.lowercase().capitalizeFirstChar()} \"$keyName\" from specification to be present but was missing from the request"
     }
 }
 
@@ -1193,22 +1198,6 @@ fun isMissingData(e: Throwable?): Boolean {
         is MissingDataException -> true
         is ContractException -> isMissingData(e.exceptionCause)
         else -> false
-    }
-}
-
-object ContractAndRequestsMismatch : MismatchMessages {
-    override fun mismatchMessage(expected: String, actual: String): String {
-        return "Contract expected $expected but request contained $actual"
-    }
-
-    override fun unexpectedKey(keyLabel: String, keyName: String): String {
-        return "${keyLabel.lowercase().capitalizeFirstChar()} named $keyName in the request was not in the contract"
-    }
-
-    override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
-        return "${
-            keyLabel.lowercase().capitalizeFirstChar()
-        } named $keyName in the contract was not found in the request"
     }
 }
 
@@ -1272,7 +1261,7 @@ fun fakeHttpResponse(
 
 fun responseDetailsFrom(features: List<Feature>, httpRequest: HttpRequest): List<ResponseDetails> {
     return features.asSequence().map { feature ->
-        feature.stubResponse(httpRequest, ContractAndRequestsMismatch).let {
+        feature.stubResponse(httpRequest, SpecificationAndRequestMismatchMessages).let {
             ResponseDetails(feature, it.first, it.second)
         }
     }.toList()
@@ -1421,7 +1410,7 @@ fun stubResponse(
 fun contractInfoToHttpExpectations(contractInfo: List<Pair<Feature, List<ScenarioStub>>>): List<HttpStubData> {
     return contractInfo.flatMap { (feature, examples) ->
         examples.map { example ->
-            feature.matchingStub(example, ContractAndStubMismatchMessages) to example
+            feature.matchingStub(example, ExampleMismatchMessages) to example
         }.flatMap { (stubData, example) ->
             val examplesWithDataSubstitutionsResolved = try {
                 example.resolveDataSubstitutions()
@@ -1433,7 +1422,7 @@ fun contractInfoToHttpExpectations(contractInfo: List<Pair<Feature, List<Scenari
             }
 
             examplesWithDataSubstitutionsResolved.map {
-                feature.matchingStub(it, ContractAndStubMismatchMessages)
+                feature.matchingStub(it, ExampleMismatchMessages)
             }
         }
     }

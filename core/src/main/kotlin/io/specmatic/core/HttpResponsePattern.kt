@@ -4,6 +4,7 @@ import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.discriminator.DiscriminatorBasedValueGenerator
 import io.specmatic.core.discriminator.DiscriminatorMetadata
 import io.specmatic.core.pattern.*
+import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.specmatic.stub.softCastValueToXML
@@ -255,11 +256,14 @@ private val valueMismatchMessages = object : MismatchMessages {
     }
 
     override fun unexpectedKey(keyLabel: String, keyName: String): String {
-        return "Value mismatch: $keyLabel $keyName in value was unexpected"
+        return "Value mismatch: ${keyLabel.lowercase().capitalizeFirstChar()} \"$keyName\" was unexpected"
     }
 
     override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
-        return "Value mismatch: $keyLabel $keyName was missing"
+        return "Value mismatch: ${keyLabel.lowercase().capitalizeFirstChar()} \"$keyName\" was missing"
     }
 
+    override fun optionalKeyMissing(keyLabel: String, keyName: String): String {
+        return "Value mismatch: ${keyLabel.lowercase().capitalizeFirstChar()} \"$keyName\" was missing"
+    }
 }

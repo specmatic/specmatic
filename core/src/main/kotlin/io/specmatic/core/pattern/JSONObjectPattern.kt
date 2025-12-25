@@ -201,7 +201,7 @@ data class JSONObjectPattern(
         val updatedMap = resolvedValue.jsonObject.mapNotNull { (key, value) ->
             val pattern = attempt("Could not find key in json object", key) { adjustedPattern[key] ?: adjustedPattern["$key?"] ?: throw MissingDataException("Could not find key $key") }
             if (substitution.isDropDirective(value)) {
-                if (adjustedPattern[key] != null) return HasFailure(Result.Failure(breadCrumb = key, message = "Cannot drop mandatory key named ${key.quote()}"))
+                if (adjustedPattern[key] != null) return HasFailure(Result.Failure(breadCrumb = key, message = "Cannot drop mandatory key ${key.quote()}"))
                 else return@mapNotNull null
             }
             key to pattern.resolveSubstitutions(substitution, value, resolver, key).breadCrumb(key)

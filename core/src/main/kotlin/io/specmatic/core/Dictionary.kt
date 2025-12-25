@@ -2,6 +2,7 @@ package io.specmatic.core
 
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.*
+import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.utilities.yamlStringToValue
 import io.specmatic.core.value.JSONArrayValue
@@ -11,6 +12,24 @@ import io.specmatic.test.ExampleProcessor
 import io.specmatic.test.ExampleProcessor.toFactStore
 import io.specmatic.test.asserts.WILDCARD_INDEX
 import java.io.File
+
+object DictionaryMismatchMessages : MismatchMessages {
+    override fun mismatchMessage(expected: String, actual: String): String {
+        return "Specification expected $expected but dictionary contained $actual"
+    }
+
+    override fun unexpectedKey(keyLabel: String, keyName: String): String {
+        return "${keyLabel.lowercase().capitalizeFirstChar()} \"$keyName\" in the dictionary was not in the specification"
+    }
+
+    override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
+        return "Specification expected mandatory ${keyLabel.lowercase().capitalizeFirstChar()} \"$keyName\" to be present but was missing from the dictionary"
+    }
+
+    override fun optionalKeyMissing(keyLabel: String, keyName: String): String {
+        return "Expected optional ${keyLabel.lowercase().capitalizeFirstChar()} \"$keyName\" from specification to be present but was missing from the dictionary"
+    }
+}
 
 data class Dictionary(
     private val data: Map<String, Value>,
@@ -95,7 +114,7 @@ data class Dictionary(
     private fun getReturnValueFor(lookup: String, value: Value, pattern: Pattern, resolver: Resolver): ReturnValue<Value>? {
         return runCatching {
             val valueToMatch = getValueToMatch(value, pattern, resolver) ?: return null
-            val result = pattern.fillInTheBlanks(valueToMatch, resolver.copy(isNegative = false), removeExtraKeys = true)
+            val result = pattern.fillInTheBlanks(valueToMatch, resolver.copy(isNegative = false, mismatchMessages = DictionaryMismatchMessages), removeExtraKeys = true)
             if (result is ReturnFailure && resolver.isNegative) return null
             result.addDetails("Invalid Dictionary value at \"$lookup\"", breadCrumb = "")
         }.getOrElse(::HasException)
@@ -150,32 +169,12 @@ data class Dictionary(
         return lenientlySelectedValue
     }
 
-    private val dictionaryMismatchMessages = object : MismatchMessages {
-        override fun mismatchMessage(expected: String, actual: String): String {
-            return "Expected $expected but got $actual in the dictionary"
-        }
-
-        override fun unexpectedKey(keyLabel: String, keyName: String): String {
-            return "Unexpected $keyLabel $keyName in the dictionary"
-        }
-
-        override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
-            return "Expected $keyLabel $keyName was missing in the dictionary"
-        }
-    }
-
     private fun selectValueLenient(pattern: Pattern, values: List<Value>, resolver: Resolver): Value? {
         val dictionaryBreadcrumbs = ">> DICTIONARY.${resolver.dictionaryLookupPath}"
-
-        val updatedResolver = resolver.copy(
-            findKeyErrorCheck = noPatternKeyCheckDictionary,
-            mismatchMessages = dictionaryMismatchMessages,
-        )
-
+        val updatedResolver = resolver.copy(findKeyErrorCheck = noPatternKeyCheckDictionary, mismatchMessages = DictionaryMismatchMessages)
         return values.shuffled().firstOrNull { value ->
             runCatching {
                 val result = pattern.matches(value, updatedResolver)
-
                 if (result is Result.Failure) {
                     logger.debug(dictionaryBreadcrumbs)
                     logger.debug(result.reportString())

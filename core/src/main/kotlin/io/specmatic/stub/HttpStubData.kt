@@ -66,7 +66,7 @@ data class HttpStubData(
 
     fun matches(
         httpRequest: HttpRequest,
-        mismatchMessages: MismatchMessages = StubAndRequestMismatchMessages,
+        mismatchMessages: MismatchMessages = SpecificationAndRequestMismatchMessages,
     ): Result {
         val exampleMatchResult = matchExample(httpRequest, mismatchMessages)
         if (exampleMatchResult is Result.Failure) return exampleMatchResult
@@ -88,7 +88,7 @@ data class HttpStubData(
             HttpResponse.fromJSON(responseMap)
         }
 
-        val responseMatches = responsePattern.matchesResponse(externalCommandResponse, resolver.copy(mismatchMessages = ContractExternalResponseMismatch))
+        val responseMatches = responsePattern.matchesResponse(externalCommandResponse, resolver.copy(mismatchMessages = SpecificationExternalResponseMismatch))
         return when {
             !responseMatches.isSuccess() -> {
                 val errorMessage =
@@ -104,7 +104,7 @@ data class HttpStubData(
 
     private fun matchExample(
         httpRequest: HttpRequest,
-        mismatchMessages: MismatchMessages = StubAndRequestMismatchMessages,
+        mismatchMessages: MismatchMessages = SpecificationAndRequestMismatchMessages,
     ): Result {
         return requestType.matches(
             httpRequest,
