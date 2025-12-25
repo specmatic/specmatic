@@ -10,7 +10,8 @@ import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.StandardRuleViolation
-import io.specmatic.core.pattern.HasFailure
+import io.specmatic.core.examples.server.ExampleMismatchMessages
+import io.specmatic.mock.FuzzyExampleMisMatchMessages
 import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -120,14 +121,14 @@ class ExampleFromFileTest {
         ${
             toViolationReportString(
                 breadCrumb = "http-response",
-                details = "Missing mandatory key named \"http-response\" as per example format",
+                details = FuzzyExampleMisMatchMessages.expectedKeyWasMissing("key", "http-response"),
                 StandardRuleViolation.REQUIRED_PROPERTY_MISSING,
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "http-request.method",
-                details = "Missing mandatory key named \"method\" as per example format",
+                details = FuzzyExampleMisMatchMessages.expectedKeyWasMissing("key", "method"),
                 StandardRuleViolation.REQUIRED_PROPERTY_MISSING,
             )
         }

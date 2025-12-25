@@ -13,7 +13,7 @@ import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
-import io.specmatic.core.StandardRuleViolation
+import io.specmatic.stub.NamedExampleMismatchMessages
 import io.specmatic.toViolationReportString
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import org.assertj.core.api.Assertions.*
@@ -437,14 +437,14 @@ class ScenarioTest {
         ${
             toViolationReportString(
                 breadCrumb = "REQUEST.PARAMETERS.HEADER.X-EXTRA-HEADERS",
-                details = "The header X-EXTRA-HEADERS was found in the example example.json but was not in the specification.",
+                details = NamedExampleMismatchMessages("example.json").unexpectedKey("header", "X-EXTRA-HEADERS"),
                 StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.HEADER.X-EXTRA-HEADERS",
-                details = "The header X-EXTRA-HEADERS was found in the example example.json but was not in the specification.",
+                details = NamedExampleMismatchMessages("example.json").unexpectedKey("header", "X-EXTRA-HEADERS"),
                 StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }
@@ -496,14 +496,14 @@ class ScenarioTest {
         ${
             toViolationReportString(
                 breadCrumb = "REQUEST.PARAMETERS.HEADER.X-EXTRA-HEADERS",
-                details = "The header X-EXTRA-HEADERS was found in the example partial-example.json but was not in the specification.",
+                details = NamedExampleMismatchMessages("partial-example.json").unexpectedKey("header", "X-EXTRA-HEADERS"),
                 StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.HEADER.X-EXTRA-HEADERS",
-                details = "The header X-EXTRA-HEADERS was found in the example partial-example.json but was not in the specification.",
+                details = NamedExampleMismatchMessages("partial-example.json").unexpectedKey("header", "X-EXTRA-HEADERS"),
                 StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }
@@ -605,10 +605,7 @@ class ScenarioTest {
                 body = """{"id": 10, "extraKey": "extraValue"}"""
             )
 
-            val flagBasedWithExtensibleSchema = DefaultStrategies.copy(unexpectedKeyCheck = IgnoreUnexpectedKeys)
-            val result =
-                scenario.matches(httpRequest, httpResponse, DefaultMismatchMessages, flagBasedWithExtensibleSchema)
-
+            val result = scenario.matchesResponse(httpRequest, httpResponse, DefaultMismatchMessages, IgnoreUnexpectedKeys)
             println(result.reportString())
             assertThat(result).isInstanceOf(Result.Failure::class.java)
             assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
@@ -617,7 +614,7 @@ class ScenarioTest {
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY.extraKey",
-                    details = "Key named \"extraKey\" was unexpected",
+                    details = AttributeSelectionWithResponseMismatchMessages.unexpectedKey("key", "extraKey"),
                     StandardRuleViolation.UNKNOWN_PROPERTY
                 )
             }
@@ -661,17 +658,11 @@ class ScenarioTest {
                 body = """{"id": 10, "name": "name", "extraKey": "extraValue"}"""
             )
 
-            val flagBasedWithExtensibleSchema = DefaultStrategies.copy(unexpectedKeyCheck = IgnoreUnexpectedKeys)
-            val extensibleResult =
-                scenario.matches(httpRequest, httpResponse, DefaultMismatchMessages, flagBasedWithExtensibleSchema)
-
+            val extensibleResult = scenario.matchesResponse(httpRequest, httpResponse, DefaultMismatchMessages, IgnoreUnexpectedKeys)
             println(extensibleResult.reportString())
             assertThat(extensibleResult).isInstanceOf(Result.Success::class.java)
 
-            val flagBasedWithoutExtensibleSchema = DefaultStrategies
-            val nonExtensibleResult =
-                scenario.matches(httpRequest, httpResponse, DefaultMismatchMessages, flagBasedWithoutExtensibleSchema)
-
+            val nonExtensibleResult = scenario.matchesResponse(httpRequest, httpResponse, DefaultMismatchMessages, ValidateUnexpectedKeys)
             println(nonExtensibleResult.reportString())
             assertThat(nonExtensibleResult).isInstanceOf(Result.Failure::class.java)
             assertThat(nonExtensibleResult.reportString()).isEqualToNormalizingWhitespace("""
@@ -680,7 +671,7 @@ class ScenarioTest {
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY.extraKey",
-                    details = "Key named \"extraKey\" was unexpected",
+                    details = DefaultMismatchMessages.unexpectedKey("key", "extraKey"),
                     StandardRuleViolation.UNKNOWN_PROPERTY
                 )
             }

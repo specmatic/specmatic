@@ -2,7 +2,7 @@ package io.specmatic.core
 
 import io.specmatic.GENERATION
 import io.specmatic.core.value.NumberValue
-import io.specmatic.core.value.StringValue
+import io.specmatic.core.value.StringValue import io.specmatic.core.DefaultMismatchMessages
 import io.mockk.every
 import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
@@ -592,7 +592,7 @@ internal class HttpPathPatternTest {
 
             assertThat(exception.failure().reportString()).isEqualToNormalizingWhitespace("""
             >> id
-            Expected number, actual was string
+            ${DefaultMismatchMessages.patternMismatch("number", "string")}
             """.trimIndent())
         }
 

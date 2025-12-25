@@ -1217,7 +1217,7 @@ class StubSubstitutionTest {
 
         assertThat(exception.report()).isEqualToNormalizingWhitespace("""
         >> RESPONSE.BODY.id
-        Cannot drop mandatory key named "id"
+        Cannot drop mandatory key "id"
         """.trimIndent())
     }
 
@@ -1283,7 +1283,7 @@ class StubSubstitutionTest {
             assertThat(response.status).isEqualTo(400)
             assertThat(response.body.toStringLiteral()).isEqualToNormalizingWhitespace("""
             >> RESPONSE.BODY.names
-            Cannot drop mandatory key named "names"
+            Cannot drop mandatory key "names"
             """.trimIndent())
         }
     }

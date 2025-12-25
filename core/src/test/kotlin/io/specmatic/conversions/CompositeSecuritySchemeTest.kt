@@ -5,6 +5,7 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.StandardRuleViolation
 import io.specmatic.toViolationReportString
+import io.specmatic.core.DefaultMismatchMessages
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -42,14 +43,14 @@ class CompositeSecuritySchemeTest {
         ${
             toViolationReportString(
                 breadCrumb = "HEADER.$AUTHORIZATION",
-                details = "Expected header named \"$AUTHORIZATION\" was missing",
+                details = DefaultMismatchMessages.expectedKeyWasMissing("header", AUTHORIZATION),
                 StandardRuleViolation.REQUIRED_PROPERTY_MISSING
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "QUERY.apiKey",
-                details = "Expected api-key named \"apiKey\" was missing",
+                details = DefaultMismatchMessages.expectedKeyWasMissing("api-key", "apiKey"),
                 StandardRuleViolation.REQUIRED_PROPERTY_MISSING
             )
         }

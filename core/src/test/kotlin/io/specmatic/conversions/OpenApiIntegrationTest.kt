@@ -186,7 +186,7 @@ Examples:
                 assertThat(result).isInstanceOf(Result.Failure::class.java)
                 assertThat(result.reportString())
                     .contains(">> REQUEST.PARAMETERS.HEADER.Authorization")
-                    .contains("Expected header named \"Authorization\" was missing")
+                    .contains(DefaultMismatchMessages.expectedKeyWasMissing("header", "Authorization"))
             }
 
             @Test
@@ -561,7 +561,7 @@ Background:
             assertThat(result).isInstanceOf(Result.Failure::class.java)
             assertThat(result.reportString())
                 .contains(">> REQUEST.PARAMETERS.HEADER.Authorization")
-                .contains("Expected header named \"Authorization\" was missing")
+                .contains(DefaultMismatchMessages.expectedKeyWasMissing("header", "Authorization"))
         }
 
         @Test

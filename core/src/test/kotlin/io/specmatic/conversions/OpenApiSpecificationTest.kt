@@ -6683,7 +6683,7 @@ paths:
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.BODY[1].name",
-                    details = "Expected key named \"name\" was missing",
+                    details = DefaultMismatchMessages.expectedKeyWasMissing("key", "name"),
                     StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                 )
             }
@@ -7451,7 +7451,7 @@ paths:
 
         assertThat(result.success()).isFalse()
 
-        assertThat(result.report()).contains("expects query param named \"id\"")
+        assertThat(result.report()).contains(NewAndOldSpecificationRequestMismatches.expectedKeyWasMissing("query param", "id"))
     }
 
     @Test
@@ -10876,7 +10876,7 @@ paths:
             }
         })
 
-        assertThat(results.report()).contains("""expected "application/json; charset=utf-8" but found value "application/json"""")
+        assertThat(results.report()).contains("""expected "application/json; charset=utf-8" but example contained "application/json"""")
     }
 
     @Test
@@ -11159,7 +11159,7 @@ paths:
         })
 
         println(results.report())
-        assertThat(results.report()).contains("""expected "application/json; charset=utf-8" but found value "application/json"""")
+        assertThat(results.report()).contains("""expected "application/json; charset=utf-8" but example contained "application/json"""")
     }
 
     @Test

@@ -125,21 +125,21 @@ class AllPatternsMandatoryTest {
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.BODY.type",
-                    details = "Expected optional key named \"type\" was missing",
+                    details = DefaultMismatchMessages.optionalKeyMissing("key", "type"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.BODY.inventory",
-                    details = "Expected optional key named \"inventory\" was missing",
+                    details = DefaultMismatchMessages.optionalKeyMissing("key", "inventory"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.BODY.details",
-                    details = "Expected optional key named \"details\" was missing",
+                    details = DefaultMismatchMessages.optionalKeyMissing("key", "details"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
@@ -147,28 +147,28 @@ class AllPatternsMandatoryTest {
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY[0].type",
-                    details = "Expected optional key named \"type\" was missing",
+                    details = DefaultMismatchMessages.optionalKeyMissing("key", "type"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY[0].inventory",
-                    details = "Expected optional key named \"inventory\" was missing",
+                    details = DefaultMismatchMessages.optionalKeyMissing("key", "inventory"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY[0].details.dateOfManufacture",
-                    details = "Expected optional key named \"dateOfManufacture\" was missing",
+                    details = DefaultMismatchMessages.optionalKeyMissing("key", "dateOfManufacture"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY[0].details.dateOfExpiry",
-                    details = "Expected optional key named \"dateOfExpiry\" was missing",
+                    details = DefaultMismatchMessages.optionalKeyMissing("key", "dateOfExpiry"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
@@ -176,28 +176,28 @@ class AllPatternsMandatoryTest {
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY[1].type",
-                    details = "Expected optional key named \"type\" was missing",
+                    details = DefaultMismatchMessages.optionalKeyMissing("key", "type"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY[1].inventory",
-                    details = "Expected optional key named \"inventory\" was missing",
+                    details = DefaultMismatchMessages.optionalKeyMissing("key", "inventory"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY[1].details.dateOfManufacture",
-                    details = "Expected optional key named \"dateOfManufacture\" was missing",
+                    details = DefaultMismatchMessages.optionalKeyMissing("key", "dateOfManufacture"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY[1].details.dateOfExpiry",
-                    details = "Expected optional key named \"dateOfExpiry\" was missing",
+                    details = DefaultMismatchMessages.optionalKeyMissing("key", "dateOfExpiry"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
@@ -236,7 +236,7 @@ class AllPatternsMandatoryTest {
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY[0].name",
-                    details = "Expected key named \"name\" was missing",
+                    details = DefaultMismatchMessages.expectedKeyWasMissing("key", "name"),
                     StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                 )
             }
@@ -244,21 +244,21 @@ class AllPatternsMandatoryTest {
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.BODY.type",
-                    details = "Expected optional key named \"type\" was missing",
+                    details = DefaultMismatchMessages.optionalKeyMissing("key", "type"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.BODY.inventory",
-                    details = "Expected optional key named \"inventory\" was missing",
+                    details = DefaultMismatchMessages.optionalKeyMissing("key", "inventory"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY[0].type",
-                    details = "Expected optional key named \"type\" was missing",
+                    details = DefaultMismatchMessages.optionalKeyMissing("key", "type"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
@@ -266,7 +266,7 @@ class AllPatternsMandatoryTest {
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY[0].inventory",
-                    details = "Expected optional key named \"inventory\" was missing",
+                    details = DefaultMismatchMessages.optionalKeyMissing("key", "inventory"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
@@ -274,7 +274,7 @@ class AllPatternsMandatoryTest {
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY[0].details",
-                    details = "Expected optional key named \"details\" was missing",
+                    details = DefaultMismatchMessages.optionalKeyMissing("key", "details"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
@@ -308,14 +308,14 @@ class AllPatternsMandatoryTest {
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY[0].name",
-                details = "Expected string, actual was 123 (number)",
+                details = DefaultMismatchMessages.typeMismatch("string", "123", "number"),
                 StandardRuleViolation.TYPE_MISMATCH
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY[1].name",
-                details = "Expected string, actual was 123 (number)",
+                details = DefaultMismatchMessages.typeMismatch("string", "123", "number"),
                 StandardRuleViolation.TYPE_MISMATCH
             )
         }
@@ -323,7 +323,7 @@ class AllPatternsMandatoryTest {
         ${
             toViolationReportString(
                 breadCrumb = "REQUEST.BODY.details",
-                details = "Expected optional key named \"details\" was missing",
+                details = DefaultMismatchMessages.optionalKeyMissing("key", "details"),
                 StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
             )
         }
@@ -331,21 +331,21 @@ class AllPatternsMandatoryTest {
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY[0].type",
-                details = "Expected optional key named \"type\" was missing",
+                details = DefaultMismatchMessages.optionalKeyMissing("key", "type"),
                 StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY[0].inventory",
-                details = "Expected optional key named \"inventory\" was missing",
+                details = DefaultMismatchMessages.optionalKeyMissing("key", "inventory"),
                 StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
             )
         }   
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY[0].details",
-                details = "Expected optional key named \"details\" was missing",
+                details = DefaultMismatchMessages.optionalKeyMissing("key", "details"),
                 StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
             )
         }
@@ -353,21 +353,21 @@ class AllPatternsMandatoryTest {
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY[1].type",
-                details = "Expected optional key named \"type\" was missing",
+                details = DefaultMismatchMessages.optionalKeyMissing("key", "type"),
                 StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY[1].inventory",
-                details = "Expected optional key named \"inventory\" was missing",
+                details = DefaultMismatchMessages.optionalKeyMissing("key", "inventory"),
                 StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY[1].details",
-                details = "Expected optional key named \"details\" was missing",
+                details = DefaultMismatchMessages.optionalKeyMissing("key", "details"),
                 StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
             )
         }

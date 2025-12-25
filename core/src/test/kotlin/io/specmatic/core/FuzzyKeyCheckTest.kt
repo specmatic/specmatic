@@ -6,7 +6,6 @@ import io.specmatic.core.FuzzyKeyCheckTest.Companion.ExpectedError.Companion.une
 import io.specmatic.core.pattern.IgnoreUnexpectedKeys
 import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.pattern.withOptionality
-import io.specmatic.core.StandardRuleViolation
 import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.params.ParameterizedTest
@@ -192,7 +191,7 @@ class FuzzyKeyCheckTest {
                     name = name,
                     message = toViolationReportString(
                         breadCrumb = null,
-                        details = "Expected key named \"$name\" was missing",
+                        details = DefaultMismatchMessages.expectedKeyWasMissing("key", name),
                         StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                     ),
                     isPartial = partial
@@ -202,7 +201,7 @@ class FuzzyKeyCheckTest {
                     name = name,
                     message = toViolationReportString(
                         breadCrumb = null,
-                        details = "Key named \"$name\" was unexpected",
+                        details = DefaultMismatchMessages.unexpectedKey("key", name),
                         StandardRuleViolation.UNKNOWN_PROPERTY
                     ),
                     isPartial = partial
@@ -213,7 +212,7 @@ class FuzzyKeyCheckTest {
                     candidate = candidate,
                     message = toViolationReportString(
                         breadCrumb = null,
-                        details = "Key named \"$name\" was unexpected. Did you mean \"$candidate\"?",
+                        details = "${DefaultMismatchMessages.unexpectedKey("key", name)}. Did you mean \"$candidate\"?",
                         violation
                     ),
                     isPartial = partial

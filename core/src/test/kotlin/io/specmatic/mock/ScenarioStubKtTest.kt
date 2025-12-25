@@ -12,9 +12,9 @@ import io.specmatic.core.utilities.jsonStringToValueMap
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.StandardRuleViolation
+import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.toViolationReportString
 import io.specmatic.shouldMatch
-import io.specmatic.trimmedLinesList
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
@@ -910,7 +910,7 @@ paths:
         val response = HttpResponse.ok("success")
 
         assertThatThrownBy {
-            feature.matchingStub(request, response, ContractAndStubMismatchMessages)
+            feature.matchingStub(request, response, ExampleMismatchMessages)
         }.satisfies(Consumer {
             assertThat((it as NoMatchingScenario).report(request)).isEqualToIgnoringWhitespace("""
             In scenario "hello world. Response: Says hello"
@@ -918,7 +918,7 @@ paths:
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.HEADER.X-Value",
-                    details = "Contract expected number but stub contained \"data\"",
+                    details = ExampleMismatchMessages.typeMismatch("number", "\"data\"", "string"),
                     StandardRuleViolation.TYPE_MISMATCH
                 )
             }
@@ -1048,7 +1048,7 @@ paths:
                     }""".trimIndent(),
                     """
                     >> supposed-to-be-http-request
-                    Key named "supposed-to-be-http-request" is invalid. Did you mean "http-request"?
+                    Key "supposed-to-be-http-request" is invalid. Did you mean "http-request"?
                     """.trimIndent()
                 ),
                 Arguments.of("""{
@@ -1057,7 +1057,7 @@ paths:
                     }""".trimIndent(),
                     """
                     >> supposed-to-be-http-response 
-                    Key named "supposed-to-be-http-response" is invalid. Did you mean "http-response"?
+                    Key "supposed-to-be-http-response" is invalid. Did you mean "http-response"?
                     """.trimIndent()
                 ),
                 Arguments.of("""{
@@ -1066,7 +1066,7 @@ paths:
                     }""".trimIndent(),
                     """
                     >> http-request.supposed-to-be-method
-                    Key named "supposed-to-be-method" is invalid. Did you mean "method"?
+                    Key "supposed-to-be-method" is invalid. Did you mean "method"?
                     """.trimIndent()
                 ),
                 Arguments.of("""{
@@ -1075,7 +1075,7 @@ paths:
                     }""".trimIndent(),
                     """
                     >> http-request.body
-                    Should be non-null value as per example format, but got null in the actual example
+                    ${FuzzyExampleMisMatchMessages.mismatchMessage("non-null value", "null")}
                     """.trimIndent()
                 ),
                 Arguments.of("""{
@@ -1084,7 +1084,7 @@ paths:
                     }""".trimIndent(),
                     """
                     >> http-response.supposed-to-be-status
-                    Key named "supposed-to-be-status" is invalid. Did you mean "status"?
+                    Key "supposed-to-be-status" is invalid. Did you mean "status"?
                     """.trimIndent()
                 ),
                 Arguments.of("""{
@@ -1093,7 +1093,7 @@ paths:
                     }""".trimIndent(),
                     """
                     >> http-response.body
-                    Should be non-null value as per example format, but got null in the actual example
+                    ${FuzzyExampleMisMatchMessages.mismatchMessage("non-null value", "null")}
                     """.trimIndent()
                 )
             )

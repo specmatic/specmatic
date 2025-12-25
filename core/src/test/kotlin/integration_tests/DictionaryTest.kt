@@ -2,6 +2,7 @@ package integration_tests
 
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.Dictionary
+import io.specmatic.core.DictionaryMismatchMessages
 import io.specmatic.core.Feature
 import io.specmatic.core.HttpHeadersPattern
 import io.specmatic.core.HttpQueryParamPattern
@@ -652,7 +653,7 @@ class DictionaryTest {
             assertThat(exception.report()).isEqualToNormalizingWhitespace("""
             >> array[1]
             Invalid Dictionary value at "Schema.array"
-            Expected number, actual was "abc"
+            ${DictionaryMismatchMessages.typeMismatch("number", "\"abc\"", "string")}
             """.trimIndent())
         }
 
@@ -1027,19 +1028,19 @@ class DictionaryTest {
             assertThat(commonKeyValue).isInstanceOf(BooleanValue::class.java)
             assertThat(stdout).containsIgnoringWhitespaces(toViolationReportString(
                 breadCrumb = "DICTIONARY..commonKey",
-                details = "Expected boolean but got \"Twenty\" in the dictionary",
+                details = DictionaryMismatchMessages.typeMismatch("boolean", "\"Twenty\"", "string"),
                 StandardRuleViolation.TYPE_MISMATCH
             ))
 
             assertThat(stdout).containsIgnoringWhitespaces(toViolationReportString(
                 breadCrumb = "DICTIONARY..commonKey",
-                details = "Expected boolean but got 10 (number) in the dictionary",
+                details = DictionaryMismatchMessages.typeMismatch("boolean", "10", "number"),
                 StandardRuleViolation.TYPE_MISMATCH
             ))
 
             assertThat(stdout).containsIgnoringWhitespaces(toViolationReportString(
                 breadCrumb = "DICTIONARY..commonKey",
-                details = "Expected boolean but got \"specmatic@test.io\" in the dictionary",
+                details = DictionaryMismatchMessages.typeMismatch("boolean", "\"specmatic@test.io\"", "string"),
                 StandardRuleViolation.TYPE_MISMATCH
             ))
         }

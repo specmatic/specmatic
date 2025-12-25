@@ -7,6 +7,7 @@ import io.specmatic.core.pattern.*
 import io.specmatic.core.value.*
 import io.specmatic.test.asserts.AssertComparisonTest.Companion.toFactStore
 import io.specmatic.toViolationReportString
+import io.specmatic.core.DefaultMismatchMessages
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -80,7 +81,7 @@ class AssertPatternTest {
         assertThat(result.reportString()).isEqualToIgnoringWhitespace(
             toViolationReportString(
                 breadCrumb = "BODY.name",
-                details = "Expected string, actual was 100 (number)",
+                details = DefaultMismatchMessages.typeMismatch("string", "100", "number"),
                 StandardRuleViolation.TYPE_MISMATCH
             )
         )
@@ -146,21 +147,21 @@ class AssertPatternTest {
         ${
             toViolationReportString(
                 breadCrumb = "BODY[0].name",
-                details = "Expected string, actual was 100 (number)",
+                details = DefaultMismatchMessages.typeMismatch("string", "100", "number"),
                 StandardRuleViolation.TYPE_MISMATCH
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "BODY[1].name",
-                details = "Expected string, actual was 100 (number)",
+                details = DefaultMismatchMessages.typeMismatch("string", "100", "number"),
                 StandardRuleViolation.TYPE_MISMATCH
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "BODY[2].name",
-                details = "Expected string, actual was 100 (number)",
+                details = DefaultMismatchMessages.typeMismatch("string", "100", "number"),
                 StandardRuleViolation.TYPE_MISMATCH
             )
         }

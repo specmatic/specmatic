@@ -98,8 +98,8 @@ internal class HttpHeadersPatternTest {
         httpHeaders.matches(headers, Resolver()).let {
             assertThat(it is Result.Failure).isTrue()
             assertThat((it as Result.Failure).toMatchFailureDetails()).isEqualTo(MatchFailureDetails(
-                listOf("HEADER", "key"), listOf("Expected number, actual was \"abc\""))
-            )
+                listOf("HEADER", "key"), listOf(DefaultMismatchMessages.typeMismatch("number", "\"abc\"", "string"))
+            ))
         }
     }
 
@@ -111,8 +111,8 @@ internal class HttpHeadersPatternTest {
         httpHeaders.matches(headers, Resolver()).let {
             assertThat(it is Result.Failure).isTrue()
             assertThat((it as Result.Failure).toMatchFailureDetails()).isEqualTo(MatchFailureDetails(
-                listOf("HEADER", "key"), listOf("Expected header named \"key\" was missing"))
-            )
+                listOf("HEADER", "key"), listOf(DefaultMismatchMessages.expectedKeyWasMissing("header", "key"))
+            ))
         }
     }
 
@@ -844,7 +844,7 @@ internal class HttpHeadersPatternTest {
 
             assertThat(exception.failure().reportString()).isEqualToNormalizingWhitespace("""
             >> number
-            Expected number, actual was string
+            ${DefaultMismatchMessages.patternMismatch("number", "string")}
             """.trimIndent())
         }
 

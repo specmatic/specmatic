@@ -27,8 +27,8 @@ internal class HttpRequestPatternTest {
         httpRequestPattern.matches(httpRequest, Resolver()).let {
             assertThat(it).isInstanceOf(Failure::class.java)
             assertThat((it as Failure).toMatchFailureDetails()).isEqualTo(MatchFailureDetails(
-                listOf("REQUEST", "PARAMETERS.PATH (/unmatched_path)"), listOf("""Expected "matching_path", actual was "unmatched_path""""))
-            )
+                listOf("REQUEST", "PARAMETERS.PATH (/unmatched_path)"), listOf(DefaultMismatchMessages.mismatchMessage("\"matching_path\"", "\"unmatched_path\""))
+            ))
         }
     }
 
@@ -42,7 +42,7 @@ internal class HttpRequestPatternTest {
             .updateMethod("GET")
         httpRequestPattern.matches(httpRequest, Resolver()).let {
             assertThat(it is Failure).isTrue()
-            assertThat((it as Failure).toMatchFailureDetails()).isEqualTo(MatchFailureDetails(listOf("REQUEST", "METHOD"), listOf("Expected POST, actual was GET")))
+            assertThat((it as Failure).toMatchFailureDetails()).isEqualTo(MatchFailureDetails(listOf("REQUEST", "METHOD"), listOf(DefaultMismatchMessages.mismatchMessage("POST", "GET"))))
         }
     }
 
@@ -59,7 +59,7 @@ internal class HttpRequestPatternTest {
             .updateBody("""{"unmatchedKey": "unmatchedValue"}""")
         httpRequestPattern.matches(httpRequest, Resolver()).let {
             assertThat(it).isInstanceOf(Failure::class.java)
-            assertThat((it as Failure).toMatchFailureDetails()).isEqualTo(MatchFailureDetails(listOf("REQUEST", "BODY", "name"), listOf("Expected key named \"name\" was missing")))
+            assertThat((it as Failure).toMatchFailureDetails()).isEqualTo(MatchFailureDetails(listOf("REQUEST", "BODY", "name"), listOf(DefaultMismatchMessages.expectedKeyWasMissing("key", "name"))))
         }
     }
 

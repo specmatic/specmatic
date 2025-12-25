@@ -6,6 +6,7 @@ import io.specmatic.core.*
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.utilities.ContractPathData
 import io.specmatic.core.value.*
+import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.trimmedLinesList
@@ -392,7 +393,7 @@ Feature: Math API
         assertThat(stdout).contains("""In scenario "Square of a number"""")
         assertThat(stdout).contains("API: POST /square -> 200")
         assertThat(stdout).contains(">> RESPONSE.BODY")
-        assertThat(stdout).contains(ContractAndStubMismatchMessages.mismatchMessage("number", """"not a number""""))
+        assertThat(stdout).contains(ExampleMismatchMessages.typeMismatch("number", """"not a number"""", "string"))
     }
 
     @Test
@@ -468,7 +469,7 @@ Feature: Math API
         assertThat(output).contains("""In scenario "Square of a number"""")
         assertThat(output).contains("API: POST /square -> 200")
         assertThat(output).contains(">> REQUEST.BODY.unexpected")
-        assertThat(output).contains(ContractAndStubMismatchMessages.unexpectedKey("key", "unexpected"))
+        assertThat(output).contains(ExampleMismatchMessages.unexpectedKey("key", "unexpected"))
     }
 
     @Test
@@ -504,7 +505,7 @@ Feature: Math API
         assertThat(output).contains("""In scenario "Square of a number"""")
         assertThat(output).contains("API: POST /square -> 200")
         assertThat(output).contains(">> RESPONSE.BODY.unexpected")
-        assertThat(output).contains(ContractAndStubMismatchMessages.unexpectedKey("key", "unexpected"))
+        assertThat(output).contains(ExampleMismatchMessages.unexpectedKey("key", "unexpected"))
     }
 
     private fun fakeResponse(request: HttpRequest, behaviour: Feature): HttpResponse {
