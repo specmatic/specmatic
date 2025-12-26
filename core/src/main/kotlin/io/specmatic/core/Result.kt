@@ -108,6 +108,10 @@ sealed class Result {
             return this.copy(cause = cause?._removeReasonsFromCauses())
         }
 
+        fun removeViolationReport(): FailureCause {
+            return this.copy(cause = cause?.removeViolationReport())
+        }
+
         fun reasonIs(reasonFilter: (failureReason: FailureReason) -> Boolean): Boolean {
             return (cause ?: return false).reasonIs(reasonFilter)
         }
@@ -296,6 +300,10 @@ sealed class Result {
 
         fun isEmpty(): Boolean {
             return this.causes.isEmpty()
+        }
+
+        fun removeViolationReport(): Failure {
+            return this.copy(causes = causes.map { it.removeViolationReport() }, ruleViolationReport = null)
         }
 
         fun removeReasonsFromCauses(): Failure {

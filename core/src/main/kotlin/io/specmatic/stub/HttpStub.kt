@@ -1362,8 +1362,7 @@ private fun strictModeHttp400Response(
     matchResults: List<Pair<Result, HttpStubData>>
 ): HttpResponse {
     val failureResults = matchResults.map { it.first }
-
-    val results = Results(failureResults).withoutFluff()
+    val results = Results(failureResults).withoutFluff().withoutViolationReport()
     return HttpResponse(
         400,
         headers = mapOf(SPECMATIC_RESULT_HEADER to "failure"),
