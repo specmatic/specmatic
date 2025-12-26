@@ -16,9 +16,30 @@ import io.specmatic.core.pattern.unwrapOrContractException
 import io.specmatic.core.pattern.unwrapOrReturn
 import io.specmatic.core.utilities.ExternalCommand
 import io.specmatic.core.utilities.Transactional
+import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.utilities.jsonStringToValueMap
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.mock.ScenarioStub
+
+class ExampleAndRequestMismatchMessages(val exampleName: String?) : MismatchMessages {
+    private val exampleNamePart = if (exampleName == null) "" else " \"$exampleName\""
+
+    override fun mismatchMessage(expected: String, actual: String): String {
+        return "Example$exampleNamePart expected $expected but request contained $actual"
+    }
+
+    override fun unexpectedKey(keyLabel: String, keyName: String): String {
+        return "${keyLabel.capitalizeFirstChar()} \"$keyName\" in the request was not in the example$exampleNamePart"
+    }
+
+    override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
+        return "Example$exampleNamePart expected mandatory $keyLabel \"$keyName\" to be present but was missing from the request"
+    }
+
+    override fun optionalKeyMissing(keyLabel: String, keyName: String): String {
+        return "Expected optional $keyLabel \"$keyName\" from example$exampleNamePart to be present but was missing from the request"
+    }
+}
 
 data class HttpStubData(
     val requestType: HttpRequestPattern,
@@ -34,10 +55,12 @@ data class HttpStubData(
     val scenario: Scenario? = null,
     private val originalRequest: HttpRequest? = null,
     val data: JSONObjectValue = JSONObjectValue(),
-    val partial: ScenarioStub? = null
+    val partial: ScenarioStub? = null,
+    val name: String? = null,
 ) {
     private val matcher: CompositeMatcher? by lazy { buildMatcherFromRequest() }
     private val sharedState: Transactional<ObjectValueOperator> = Transactional(ObjectValueOperator())
+    private val defaultMismatchMessages: MismatchMessages = ExampleAndRequestMismatchMessages(name)
 
     fun resolveOriginalRequest(): HttpRequest? {
         return partial?.request ?: originalRequest
@@ -66,7 +89,7 @@ data class HttpStubData(
 
     fun matches(
         httpRequest: HttpRequest,
-        mismatchMessages: MismatchMessages = StubAndRequestMismatchMessages,
+        mismatchMessages: MismatchMessages = defaultMismatchMessages,
     ): Result {
         val exampleMatchResult = matchExample(httpRequest, mismatchMessages)
         if (exampleMatchResult is Result.Failure) return exampleMatchResult
@@ -88,7 +111,7 @@ data class HttpStubData(
             HttpResponse.fromJSON(responseMap)
         }
 
-        val responseMatches = responsePattern.matchesResponse(externalCommandResponse, resolver.copy(mismatchMessages = ContractExternalResponseMismatch))
+        val responseMatches = responsePattern.matchesResponse(externalCommandResponse, resolver.copy(mismatchMessages = SpecificationExternalResponseMismatch))
         return when {
             !responseMatches.isSuccess() -> {
                 val errorMessage =
@@ -104,7 +127,7 @@ data class HttpStubData(
 
     private fun matchExample(
         httpRequest: HttpRequest,
-        mismatchMessages: MismatchMessages = StubAndRequestMismatchMessages,
+        mismatchMessages: MismatchMessages = defaultMismatchMessages,
     ): Result {
         return requestType.matches(
             httpRequest,

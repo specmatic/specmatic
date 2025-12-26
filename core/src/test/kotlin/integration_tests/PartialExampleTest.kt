@@ -11,6 +11,7 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.StandardRuleViolation
+import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.toViolationReportString
 import io.specmatic.osAgnosticPath
 import io.specmatic.stub.HttpStub
@@ -614,14 +615,14 @@ class PartialExampleTest {
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY.code",
-                details = "Expected number, actual was \"400\"",
+                details = ExampleMismatchMessages.typeMismatch("number", "\"400\"", "string"),
                 StandardRuleViolation.TYPE_MISMATCH
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY.message",
-                details = "Expected string, actual was number",
+                details = ExampleMismatchMessages.patternMismatch("string", "number"),
                 StandardRuleViolation.TYPE_MISMATCH
             )
         }

@@ -83,7 +83,8 @@ data class HttpHeadersPattern(
                     Result.Failure(
                         resolver.mismatchMessages.mismatchMessage(contentType, contentTypeHeaderValueFromRequest),
                         breadCrumb = CONTENT_TYPE,
-                        failureReason = FailureReason.ContentTypeMismatch
+                        failureReason = FailureReason.ContentTypeMismatch,
+                        ruleViolation = StandardRuleViolation.VALUE_MISMATCH
                     )
                 )
             }

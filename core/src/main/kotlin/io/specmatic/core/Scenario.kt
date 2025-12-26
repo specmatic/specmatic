@@ -3,10 +3,10 @@ package io.specmatic.core
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.OperationMetadata
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
+import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.core.filters.HasScenarioMetadata
 import io.specmatic.core.filters.ExpressionContextPopulator
 import io.specmatic.core.filters.ScenarioFilterVariablePopulator
-import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.utilities.mapZip
@@ -16,38 +16,9 @@ import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.True
 import io.specmatic.core.value.Value
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.stub.NamedExampleMismatchMessages
 import io.specmatic.stub.RequestContext
 import io.specmatic.test.ExampleProcessor
-
-object ContractAndStubMismatchMessages : MismatchMessages {
-    override fun mismatchMessage(expected: String, actual: String): String {
-        return "Contract expected $expected but stub contained $actual"
-    }
-
-    override fun unexpectedKey(keyLabel: String, keyName: String): String {
-        return "${keyLabel.lowercase().capitalizeFirstChar()} named $keyName in the stub was not in the contract"
-    }
-
-    override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
-        return "${keyLabel.lowercase().capitalizeFirstChar()} named $keyName in the contract was not found in the stub"
-    }
-}
-
-object StubAndAttributeSelectionMismatchMessages: MismatchMessages {
-    override fun mismatchMessage(expected: String, actual: String): String {
-        return "Contract expected $expected but stub contained $actual"
-    }
-
-    override fun unexpectedKey(keyLabel: String, keyName: String): String {
-        if(keyLabel == "key") return "Unexpected key named '$keyName' detected in the stub"
-        return "${keyLabel.lowercase().capitalizeFirstChar()} named $keyName in the stub was not in the contract"
-    }
-
-    override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
-        if(keyLabel == "key") return "Expected key named '$keyName' was missing in the stub"
-        return "${keyLabel.lowercase().capitalizeFirstChar()} named $keyName in the contract was not found in the stub"
-    }
-}
 
 interface ScenarioDetailsForResult {
     val status: Int
@@ -329,15 +300,14 @@ data class Scenario(
     fun matchesResponse(httpRequest: HttpRequest, httpResponse: HttpResponse, mismatchMessages: MismatchMessages = DefaultMismatchMessages, unexpectedKeyCheck: UnexpectedKeyCheck? = null): Result {
         val attributeSelectedFields = fieldsToBeMadeMandatoryBasedOnAttributeSelection(httpRequest.queryParams)
 
-        if(attributeSelectedFields.isNotEmpty()) {
-            val attributeSelectionResult = httpResponse.checkIfAllRootLevelKeysAreAttributeSelected(attributeSelectedFields, resolver)
-            if(attributeSelectionResult.isSuccess().not()) return attributeSelectionResult
+        if (attributeSelectedFields.isNotEmpty()) {
+            val updatedResolver = resolver.copy(mismatchMessages = AttributeSelectionWithResponseMismatchMessages)
+            val attributeSelectionResult = httpResponse.checkIfAllRootLevelKeysAreAttributeSelected(attributeSelectedFields, updatedResolver)
+            if (attributeSelectionResult.isSuccess().not()) return attributeSelectionResult.updateScenario(this)
         }
 
-        return matches(
-            httpResponse = httpResponse,
-            resolver = updatedResolver(mismatchMessages, unexpectedKeyCheck).copy(context = RequestContext(httpRequest))
-        )
+        val updatedResolver = updatedResolver(mismatchMessages, unexpectedKeyCheck).copy(context = RequestContext(httpRequest))
+        return matches(httpResponse = httpResponse, resolver = updatedResolver)
     }
 
     fun matches(
@@ -369,7 +339,8 @@ data class Scenario(
 
         val fieldsSelected = fieldsToBeMadeMandatoryBasedOnAttributeSelection(httpRequest.queryParams)
         if (fieldsSelected.isNotEmpty()) {
-            val result = httpResponse.checkIfAllRootLevelKeysAreAttributeSelected(fieldsSelected, resolver)
+            val attributeSelectedResolver = resolver.copy(mismatchMessages = AttributeSelectionWithExampleMismatchMessages)
+            val result = httpResponse.checkIfAllRootLevelKeysAreAttributeSelected(fieldsSelected, attributeSelectedResolver)
             if (result is Result.Failure) return Result.fromResults(listOf(requestMatch, result)).updateScenario(updatedScenario)
         }
 
@@ -428,29 +399,11 @@ data class Scenario(
 
     private fun is4xxResponse(httpResponse: HttpResponse) = (400..499).contains(httpResponse.status)
 
-    object ContractAndRowValueMismatch : MismatchMessages {
-        override fun mismatchMessage(expected: String, actual: String): String {
-            return "Contract expected $expected but found value $actual"
-        }
-
-        override fun unexpectedKey(keyLabel: String, keyName: String): String {
-            return "${
-                keyLabel.lowercase().capitalizeFirstChar()
-            } named $keyName in the example was not in the specification"
-        }
-
-        override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
-            return "${
-                keyLabel.lowercase().capitalizeFirstChar()
-            } named $keyName in the specification was not found in the example"
-        }
-    }
-
     fun newBasedOn(row: Row, flagsBased: FlagsBased): Sequence<ReturnValue<Scenario>> {
         val ignoreFailure = this.ignoreFailure || row.name.startsWith("[WIP]")
 
         val resolver = resolver.copy(
-            factStore = CheckFacts(expectedFacts), mockMode = false, mismatchMessages = ContractAndRowValueMismatch
+            factStore = CheckFacts(expectedFacts), mockMode = false, mismatchMessages = ExampleMismatchMessages
         ).let { flagsBased.update(it) }
 
         val newExpectedServerState = newExpectedServerStateBasedOn(row, expectedFacts, fixtures, resolver)
@@ -564,19 +517,7 @@ data class Scenario(
         updatedResolver: Resolver,
         row: Row
     ) = updatedResolver.copy(
-        mismatchMessages = object : MismatchMessages {
-            override fun mismatchMessage(expected: String, actual: String): String {
-                return "Expected $expected as per the specification, but the example ${row.name} had $actual."
-            }
-
-            override fun unexpectedKey(keyLabel: String, keyName: String): String {
-                return "The $keyLabel $keyName was found in the example ${row.name} but was not in the specification."
-            }
-
-            override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
-                return "The $keyLabel $keyName in the specification was missing in example ${row.name}"
-            }
-        },
+        mismatchMessages = NamedExampleMismatchMessages(row.name),
         findKeyErrorCheck = if (row.isPartial) updatedResolver.getPartialKeyCheck() else updatedResolver.findKeyErrorCheck,
         mockMode = true
     )
@@ -590,7 +531,7 @@ data class Scenario(
         val fieldsToBeMadeMandatory =
             fieldsToBeMadeMandatoryBasedOnAttributeSelection(row.requestExample?.queryParams)
         val updatedResolver = if(fieldsToBeMadeMandatory.isNotEmpty()) {
-            resolverForExample.copy(mismatchMessages = getMismatchObjectForTestExamples(row))
+            resolverForExample.copy(mismatchMessages = NamedExampleMismatchMessages(row.name))
         } else resolverForExample
 
         if (responseExample != null) {
@@ -613,24 +554,6 @@ data class Scenario(
         }
 
         return Result.Success()
-    }
-
-    private fun getMismatchObjectForTestExamples(row: Row): MismatchMessages {
-       return object: MismatchMessages {
-           override fun mismatchMessage(expected: String, actual: String): String {
-               return "Expected $expected as per the specification, but the example ${row.name} had $actual."
-           }
-
-           override fun unexpectedKey(keyLabel: String, keyName: String): String {
-               if(keyLabel == "key") return "Unexpected key named '$keyName' detected in the example"
-               return "The $keyLabel $keyName was found in the example ${row.name} but was not in the specification."
-           }
-
-           override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
-               if(keyLabel == "key") return "Missing key named '$keyName' detected in the example"
-               return "The $keyLabel $keyName was found in the example ${row.name} but was not in the specification."
-           }
-       }
     }
 
     fun generateTestScenarios(
@@ -696,17 +619,12 @@ data class Scenario(
         keyCheck: KeyCheck = DefaultKeyCheck
     ): Result {
         scenarioBreadCrumb(this) {
-            val updatedMismatchMessages =
-                if (fieldsToBeMadeMandatoryBasedOnAttributeSelection(request.queryParams).isEmpty())
-                    mismatchMessages
-                else StubAndAttributeSelectionMismatchMessages
-
             val resolver = Resolver(
                 IgnoreFacts(),
                 true,
                 patterns,
                 findKeyErrorCheck = keyCheck.disableOverrideUnexpectedKeyCheck(),
-                mismatchMessages = updatedMismatchMessages
+                mismatchMessages = mismatchMessages
             )
 
             val requestMatchResult = attempt(breadCrumb = "REQUEST") {
@@ -903,8 +821,8 @@ data class Scenario(
         return httpResponsePattern.resolveSubstitutions(substitution, response)
     }
 
-    fun matchesPartial(template: ScenarioStub): Result {
-        val updatedResolver = resolver.copy(mockMode = true).partializeKeyCheck()
+    fun matchesPartial(template: ScenarioStub, mismatchMessages: MismatchMessages): Result {
+        val updatedResolver = resolver.copy(mockMode = true, mismatchMessages = mismatchMessages).partializeKeyCheck()
 
         val requestMatch = attempt(breadCrumb = "REQUEST") {
             if (template.response.status !in invalidRequestStatuses) {
@@ -1020,19 +938,21 @@ fun newExpectedServerStateBasedOn(
         }
     }
 
-object ContractAndResponseMismatch : MismatchMessages {
+object SpecificationAndResponseMismatch : MismatchMessages {
     override fun mismatchMessage(expected: String, actual: String): String {
-        return "Contract expected $expected but response contained $actual"
+        return "Specification expected $expected but response contained $actual"
     }
 
     override fun unexpectedKey(keyLabel: String, keyName: String): String {
-        return "${keyLabel.lowercase().capitalizeFirstChar()} named $keyName in the response was not in the specification"
+        return "${keyLabel.capitalizeFirstChar()} \"$keyName\" in the response was not in the specification"
     }
 
     override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
-        return "${
-            keyLabel.lowercase().capitalizeFirstChar()
-        } named $keyName in the specification was not found in the response"
+        return "Specification expected mandatory $keyLabel \"$keyName\" to be present but was missing from the response"
+    }
+
+    override fun optionalKeyMissing(keyLabel: String, keyName: String): String {
+        return "Expected optional $keyLabel \"$keyName\" from specification to be present but was missing from the response"
     }
 }
 

@@ -21,6 +21,7 @@ import io.specmatic.core.StandardRuleViolation
 import io.specmatic.toViolationReportString
 import io.specmatic.jsonBody
 import io.specmatic.stub.HttpStub
+import io.specmatic.stub.SpecificationAndRequestMismatchMessages
 import io.specmatic.test.TestExecutor
 import io.specmatic.trimmedLinesString
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -1236,7 +1237,7 @@ Background:
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY.breed",
-                details = ContractAndResponseMismatch.mismatchMessage("""("null" or "labrador" or "retriever")""", "\"malinois\""),
+                details = SpecificationAndResponseMismatch.mismatchMessage("""("null" or "labrador" or "retriever")""", "\"malinois\""),
                 StandardRuleViolation.VALUE_MISMATCH
             )
         }
@@ -1301,7 +1302,7 @@ Background:
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY.rating",
-                details = ContractAndResponseMismatch.mismatchMessage("(1 or 2)", "3 (number)"),
+                details = SpecificationAndResponseMismatch.mismatchMessage("(1 or 2)", "3 (number)"),
                 StandardRuleViolation.VALUE_MISMATCH
             )
         }
@@ -1366,7 +1367,7 @@ Background:
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY.name",
-                details = ContractAndResponseMismatch.mismatchMessage("string with minLength 6", "\"small\""),
+                details = SpecificationAndResponseMismatch.typeMismatch("string with minLength 6", "\"small\"", "string"),
                 StandardRuleViolation.CONSTRAINT_VIOLATION
             )
         }
@@ -2395,7 +2396,7 @@ components:
 
         ${toViolationReportString(
             breadCrumb = "REQUEST.BODY.email",
-            details = "Contract expected email but request contained \"this.is.not.an.email\"",
+            details = SpecificationAndRequestMismatchMessages.mismatchMessage("email", "\"this.is.not.an.email\""),
             StandardRuleViolation.VALUE_MISMATCH
         )}"
         """.trimIndent().replace(Regex("\n"), "<EOL>"))

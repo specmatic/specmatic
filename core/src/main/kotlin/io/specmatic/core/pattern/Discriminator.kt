@@ -90,9 +90,7 @@ class Discriminator(
             failure.breadCrumb(breadcrumb)
         }
 
-        return Failure.fromFailures(failures = failuresWithUpdatedBreadcrumbs).withRuleViolation(
-            ruleViolation = StandardRuleViolation.ONE_OF_VALUE_MISMATCH
-        )
+        return Failure.fromFailures(failures = failuresWithUpdatedBreadcrumbs)
     }
 
     private fun _matches(sampleData: Value?, pattern: List<Pattern>, key: String?, resolver: Resolver): Result {

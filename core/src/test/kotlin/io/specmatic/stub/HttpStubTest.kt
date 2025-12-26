@@ -1218,7 +1218,7 @@ paths:
                 ${
                     toViolationReportString(
                         breadCrumb = "REQUEST.BODY.age",
-                        details = "Key named age in the request was not in the contract",
+                        details = SpecificationAndRequestMismatchMessages.unexpectedKey("property", "age"),
                         StandardRuleViolation.UNKNOWN_PROPERTY
                     )
                 }
@@ -1403,7 +1403,7 @@ paths:
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.HEADER.Mandatory",
-                    details = "Header named Mandatory in the contract was not found in the request",
+                    details = SpecificationAndRequestMismatchMessages.expectedKeyWasMissing("header", "Mandatory"),
                     StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                 )
             }

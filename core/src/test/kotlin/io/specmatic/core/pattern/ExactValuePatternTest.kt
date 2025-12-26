@@ -11,6 +11,7 @@ import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
+import io.specmatic.core.DefaultMismatchMessages
 import io.specmatic.shouldNotMatch
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Tag
@@ -63,14 +64,14 @@ internal class ExactValuePatternTest {
         ${
             toViolationReportString(
                 breadCrumb = null,
-                details = "Expected 100 (number), actual was 99 (number)",
+                details = DefaultMismatchMessages.patternMismatch("100", "99"),
                 StandardRuleViolation.VALUE_MISMATCH
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = null,
-                details = "Expected 100 (number), actual was 101 (number)",
+                details = DefaultMismatchMessages.patternMismatch("100", "101"),
                 StandardRuleViolation.VALUE_MISMATCH
             )
         }

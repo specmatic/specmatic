@@ -8,6 +8,7 @@ import io.ktor.util.reflect.*
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.value.*
 import io.specmatic.test.TestExecutor
+import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Nested
@@ -98,8 +99,8 @@ internal class HttpHeadersPatternTest {
         httpHeaders.matches(headers, Resolver()).let {
             assertThat(it is Result.Failure).isTrue()
             assertThat((it as Result.Failure).toMatchFailureDetails()).isEqualTo(MatchFailureDetails(
-                listOf("HEADER", "key"), listOf("Expected number, actual was \"abc\""))
-            )
+                listOf("HEADER", "key"), listOf(DefaultMismatchMessages.typeMismatch("number", "\"abc\"", "string"))
+            ))
         }
     }
 
@@ -111,8 +112,8 @@ internal class HttpHeadersPatternTest {
         httpHeaders.matches(headers, Resolver()).let {
             assertThat(it is Result.Failure).isTrue()
             assertThat((it as Result.Failure).toMatchFailureDetails()).isEqualTo(MatchFailureDetails(
-                listOf("HEADER", "key"), listOf("Expected header named \"key\" was missing"))
-            )
+                listOf("HEADER", "key"), listOf(DefaultMismatchMessages.expectedKeyWasMissing("header", "key"))
+            ))
         }
     }
 
@@ -842,10 +843,13 @@ internal class HttpHeadersPatternTest {
                 httpHeaders.fillInTheBlanks(headers, Resolver()).value
             }
 
-            assertThat(exception.failure().reportString()).isEqualToNormalizingWhitespace("""
-            >> number
-            Expected number, actual was string
-            """.trimIndent())
+            assertThat(exception.failure().reportString()).isEqualToNormalizingWhitespace(
+                toViolationReportString(
+                    breadCrumb = "number",
+                    details = DefaultMismatchMessages.patternMismatch("number", "string"),
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            )
         }
 
         @Test

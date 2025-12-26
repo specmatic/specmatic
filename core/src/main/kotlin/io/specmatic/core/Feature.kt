@@ -25,7 +25,7 @@ import io.specmatic.core.value.*
 import io.specmatic.core.Result.Success
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
-import io.specmatic.stub.ExamplesAsExpectationsMismatch
+import io.specmatic.stub.NamedExampleMismatchMessages
 import io.specmatic.stub.HttpStubData
 import io.specmatic.test.*
 import io.swagger.v3.oas.models.*
@@ -186,7 +186,7 @@ data class Feature(
             examples.mapNotNull { (request, response) ->
                 try {
                     val stubData: HttpStubData =
-                        this.matchingStub(request, response, ExamplesAsExpectationsMismatch(exampleName))
+                        this.matchingStub(request, response, NamedExampleMismatchMessages(exampleName))
 
                     if (stubData.matchFailure) {
                         logger.newLine()
@@ -362,7 +362,7 @@ data class Feature(
         return matchingScenarios
     }
 
-    fun compatibilityLookup(httpRequest: HttpRequest, mismatchMessages: MismatchMessages = NewAndOldContractRequestMismatches): List<Pair<Scenario, Result>> {
+    fun compatibilityLookup(httpRequest: HttpRequest, mismatchMessages: MismatchMessages = NewAndOldSpecificationRequestMismatches): List<Pair<Scenario, Result>> {
         try {
             val resultList = lookupAllScenarios(httpRequest, scenarios, mismatchMessages, IgnoreUnexpectedKeys)
 
@@ -865,12 +865,13 @@ data class Feature(
                 requestBodyRegex = scenarioStub.requestBodyRegex?.let { Regex(it) },
                 stubToken = scenarioStub.stubToken,
                 data = scenarioStub.data,
-                examplePath = scenarioStub.filePath
+                examplePath = scenarioStub.filePath,
+                name = scenarioStub.nameOrFileName
             )
         }
 
         val results = scenarios.asSequence().map { scenario ->
-            scenario.matchesPartial(scenarioStub.partial).updateScenario(scenario).updatePath(path) to scenario
+            scenario.matchesPartial(scenarioStub.partial, mismatchMessages).updateScenario(scenario).updatePath(path) to scenario
         }
 
         val matchingScenario = results.filter { it.first is Success }.map { it.second }.firstOrNull()
@@ -902,7 +903,8 @@ data class Feature(
             scenario = matchingScenario,
             data = scenarioStub.data,
             contractPath = this.path,
-            partial = scenarioStub.partial.copy(response = scenarioStub.partial.response)
+            partial = scenarioStub.partial.copy(response = scenarioStub.partial.response),
+            name = scenarioStub.nameOrFileName
         )
     }
 

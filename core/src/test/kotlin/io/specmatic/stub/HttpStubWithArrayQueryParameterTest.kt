@@ -1,6 +1,7 @@
 package io.specmatic.stub
 
 import io.specmatic.conversions.OpenApiSpecification
+import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.QueryParameters
 import io.specmatic.core.StandardRuleViolation
@@ -291,14 +292,14 @@ class HttpStubWithArrayQueryParameterTest {
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.QUERY.brand_ids",
-                    details = "Query param named brand_ids in the contract was not found in the request",
+                    details = SpecificationAndRequestMismatchMessages.expectedKeyWasMissing("query param", "brand_ids"),
                     StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.QUERY.category_id",
-                    details = "Query param named category_id in the request was not in the contract",
+                    details = SpecificationAndRequestMismatchMessages.unexpectedKey("query param", "category_id"),
                     StandardRuleViolation.UNKNOWN_PROPERTY
                 )
             }""".trimIndent())
@@ -368,14 +369,14 @@ class HttpStubWithArrayQueryParameterTest {
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.QUERY.status",
-                    details = """Contract expected ("pending" or "complete") but stub contained "cancelled"""",
+                    details = ExampleMismatchMessages.mismatchMessage("(\"pending\" or \"complete\")", "\"cancelled\""),
                     StandardRuleViolation.VALUE_MISMATCH
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.QUERY.status",
-                    details = """Contract expected ("pending" or "complete") but stub contained "suspended"""",
+                    details = ExampleMismatchMessages.mismatchMessage("(\"pending\" or \"complete\")", "\"suspended\""),
                     StandardRuleViolation.VALUE_MISMATCH
                 )
             }""".trimIndent())

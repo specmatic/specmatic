@@ -84,7 +84,7 @@ class AcceptedResponseHandlerTest {
                 breadCrumb = "RESPONSE.STATUS",
                 details = """
                 Response doesn't match processing scenario
-                Expected status 202, actual was status 404
+                ${DefaultMismatchMessages.mismatchMessage("status 202", "status 404")}
                 """.trimIndent(),
                 OpenApiRuleViolation.STATUS_MISMATCH
             )
@@ -111,7 +111,7 @@ class AcceptedResponseHandlerTest {
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.HEADER.Link",
-                details = "Response doesn't match processing scenario\nExpected header named \"Link\" was missing",
+                details = "Response doesn't match processing scenario\n${DefaultMismatchMessages.expectedKeyWasMissing("header", "Link")}",
                 StandardRuleViolation.REQUIRED_PROPERTY_MISSING
             )
         }
@@ -408,14 +408,14 @@ class AcceptedResponseHandlerTest {
         ${
             toViolationReportString(
                 breadCrumb = "MONITOR.RESPONSE.BODY.name",
-                details = "Invalid request or response payload in the monitor response\nExpected string, actual was 123 (number)",
+                details = "Invalid request or response payload in the monitor response\n${DefaultMismatchMessages.typeMismatch("string", "123", "number")}",
                 StandardRuleViolation.TYPE_MISMATCH
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "MONITOR.RESPONSE.BODY.age",
-                details = "Invalid request or response payload in the monitor response\nExpected number, actual was \"John\"",
+                details = "Invalid request or response payload in the monitor response\n${DefaultMismatchMessages.typeMismatch("number", "\"John\"", "string")}",
                 StandardRuleViolation.TYPE_MISMATCH
             )
         }

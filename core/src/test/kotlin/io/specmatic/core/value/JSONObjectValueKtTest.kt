@@ -37,8 +37,8 @@ internal class JSONObjectValueKtTest {
             resolver = Resolver()
         )
 
-        assertThat(result.reportString()).contains("""Expected key named "age" was missing""")
-        assertThat(result.reportString()).contains("""Key named "name" was unexpected""")
+        assertThat(result.reportString()).contains("""Expected property "age" was missing""")
+        assertThat(result.reportString()).contains("""Property "name" was unexpected""")
     }
 
     @Test

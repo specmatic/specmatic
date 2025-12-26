@@ -316,7 +316,7 @@ class EnumPatternTest {
             assertThat(resultText).isEqualToIgnoringWhitespace(
                 toViolationReportString(
                     breadCrumb = null,
-                    details = "Expected (1 or 2 or \"One\" or \"Two\"), actual was string",
+                    details = DefaultMismatchMessages.patternMismatch("(1 or 2 or \"One\" or \"Two\")", "string"),
                     StandardRuleViolation.TYPE_MISMATCH
                 )
             )

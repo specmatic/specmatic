@@ -19,7 +19,7 @@ class OptionalBodyPatternTest {
         assertThat(matchResult.reportString().trim()).isEqualToNormalizingWhitespace(
             toViolationReportString(
                 breadCrumb = null,
-                details = """Expected number, actual was "abc"""",
+                details = DefaultMismatchMessages.typeMismatch("number", "\"abc\"", "string"),
                 StandardRuleViolation.TYPE_MISMATCH
             )
         )

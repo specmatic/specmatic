@@ -9,7 +9,6 @@ import io.specmatic.core.ScenarioDetailsForResult
 import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.StringValue
-import io.specmatic.core.valueMismatchResult
 
 fun isCycle(throwable: Throwable?): Boolean = when(throwable) {
     is ContractException -> throwable.isCycle
@@ -83,8 +82,8 @@ fun <ReturnType> attemptParse(typeName: String, value: String, mismatchMessages:
     try {
         return f()
     } catch (throwable: Throwable) {
-        val failureReport = dataTypeMismatchResult(typeName, StringValue(value), mismatchMessages).toFailureReport()
-        throw ContractException(failureReport, failureReport.getRuleViolationReport()).copy(exceptionCause = throwable)
+        val failureReport = dataTypeMismatchResult(typeName, StringValue(value), mismatchMessages)
+        throw ContractException(failureReport.removeViolationReport().toFailureReport(), failureReport.ruleViolationReport).copy(exceptionCause = throwable)
     }
 }
 

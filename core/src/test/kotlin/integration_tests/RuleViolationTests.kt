@@ -50,31 +50,31 @@ data class RuleViolationAssertion(
         assertThat(shouldContainRuleViolation).allSatisfy { ruleViolation ->
             val matchingIssue = findMatchingIssue(issues) ?: fail("No matching issue found for path $path")
             val violationSnapShot = RuleViolationReport(ruleViolations = setOf(ruleViolation)).toSnapShots().first()
-            assertThat(matchingIssue.ruleViolations).contains(violationSnapShot)
+            assertThat(matchingIssue).anySatisfy { assertThat(it.ruleViolations).contains(violationSnapShot) }
         }
 
         assertThat(shouldNotContainRuleViolation).allSatisfy { ruleViolation ->
             val matchingIssue = findMatchingIssue(issues) ?: fail("No matching issue found for path $path")
             val violationSnapShot = RuleViolationReport(ruleViolations = setOf(ruleViolation)).toSnapShots().first()
-            assertThat(matchingIssue.ruleViolations).doesNotContain(violationSnapShot)
+            assertThat(matchingIssue).anySatisfy { assertThat(it.ruleViolations).doesNotContain(violationSnapShot) }
         }
     }
 
     private fun assertTotalViolations(issues: List<Issue>) {
         if (totalViolations == null) return
         val matchingIssue = findMatchingIssue(issues) ?: fail("No matching issue found for path $path")
-        assertThat(matchingIssue.ruleViolations.size).isEqualTo(totalViolations)
+        assertThat(matchingIssue.sumOf { it.ruleViolations.size }).isEqualTo(totalViolations)
     }
 
     private fun assertSeverity(issues: List<Issue>) {
         val matchingIssue = findMatchingIssue(issues) ?: fail("No matching issue found for path $path")
-        assertThat(matchingIssue.severity).isEqualTo(severity)
+        assertThat(matchingIssue).allSatisfy { assertThat(it.severity).isEqualTo(severity) }
     }
 
-    private fun findMatchingIssue(issues: List<Issue>): Issue? {
-        return issues.firstOrNull { issue ->
+    private fun findMatchingIssue(issues: List<Issue>): List<Issue>? {
+        return issues.filter { issue ->
             issue.breadCrumb == path || issue.path.joinToString(prefix = "/", separator = "/") == path || (path == null && issue.path.isEmpty())
-        }
+        }.takeUnless { it.isEmpty() }
     }
 
     private fun String.normalizeWs() = replace("\\s+".toRegex(), " ")
@@ -134,6 +134,7 @@ data class RuleViolationCase(val patternTestCase: CompositePatternTestCase, val 
             val pattern = patterns[check.patternName] ?: fail("Pattern '${check.patternName}' not found")
             val result = pattern.matches(check.value, updatedResolver)
             logger.log("Checking ${check.patternName} with value ${check.value}")
+            logger.boundary()
             logger.log("Result: ${result.reportString()}")
             logger.boundary()
             check.assertions.forEach { it.assertViolation(result) }
@@ -181,6 +182,26 @@ class RuleViolationTests {
     @ParameterizedTest
     @MethodSource("standardRuleViolationTestCases")
     fun standard_rule_violations_case(case: RuleViolationCase, info: TestInfo) = case.assertViolation()
+
+    @ParameterizedTest
+    @MethodSource("objectRuleViolationTestCases")
+    fun object_rule_violations(case: RuleViolationCase, info: TestInfo) = case.assertViolation()
+
+    @ParameterizedTest
+    @MethodSource("arrayRuleViolationTestCases")
+    fun array_rule_violations(case: RuleViolationCase, info: TestInfo) = case.assertViolation()
+
+    @ParameterizedTest
+    @MethodSource("allOfRuleViolationTestCases")
+    fun all_of_rule_violations(case: RuleViolationCase, info: TestInfo) = case.assertViolation()
+
+    @ParameterizedTest
+    @MethodSource("anyOfRuleViolationTestCases")
+    fun any_of_rule_violations(case: RuleViolationCase, info: TestInfo) = case.assertViolation()
+
+    @ParameterizedTest
+    @MethodSource("oneOfRuleViolationTestCases")
+    fun one_of_rule_violations(case: RuleViolationCase, info: TestInfo) = case.assertViolation()
 
     companion object {
         @JvmStatic
@@ -290,19 +311,19 @@ class RuleViolationTests {
                     }
                     withPattern(name = "Cat") {
                         put("type", "object")
-                        put("allOf", listOf(mapOf("\$ref" to "#/patterns/Base")))
+                        put("allOf", listOf(mapOf("\$ref" to "#/components/schemas/Base")))
                         put("properties", mapOf("whiskers" to mapOf("type" to "integer")))
                         put("required", listOf("whiskers"))
                     }
                     withPattern(name = "Dog") {
                         put("type", "object")
-                        put("allOf", listOf(mapOf("\$ref" to "#/patterns/Base")))
+                        put("allOf", listOf(mapOf("\$ref" to "#/components/schemas/Base")))
                         put("properties", mapOf("bark" to mapOf("type" to "boolean")))
                         put("required", listOf("bark"))
                     }
                     withPattern(name = "Animal") {
-                        put("oneOf", listOf(mapOf("\$ref" to "#/patterns/Cat"), mapOf("\$ref" to "#/patterns/Dog")))
-                        put("discriminator", mapOf("propertyName" to "type", "mapping" to mapOf("Cat" to "#/patterns/Cat", "Dog" to "#/patterns/Dog")))
+                        put("oneOf", listOf(mapOf("\$ref" to "#/components/schemas/Cat"), mapOf("\$ref" to "#/components/schemas/Dog")))
+                        put("discriminator", mapOf("propertyName" to "type", "mapping" to mapOf("Cat" to "#/components/schemas/Cat", "Dog" to "#/components/schemas/Dog")))
                     }
 
                     forPattern(name = "Animal") {
@@ -321,19 +342,19 @@ class RuleViolationTests {
                     }
                     withPattern(name = "Cat") {
                         put("type", "object")
-                        put("allOf", listOf(mapOf("\$ref" to "#/patterns/Base")))
+                        put("allOf", listOf(mapOf("\$ref" to "#/components/schemas/Base")))
                         put("properties", mapOf("whiskers" to mapOf("type" to "integer")))
                         put("required", listOf("whiskers"))
                     }
                     withPattern(name = "Dog") {
                         put("type", "object")
-                        put("allOf", listOf(mapOf("\$ref" to "#/patterns/Base")))
+                        put("allOf", listOf(mapOf("\$ref" to "#/components/schemas/Base")))
                         put("properties", mapOf("bark" to mapOf("type" to "boolean")))
                         put("required", listOf("bark"))
                     }
                     withPattern(name = "Animal") {
-                        put("oneOf", listOf(mapOf("\$ref" to "#/patterns/Cat"), mapOf("\$ref" to "#/patterns/Dog")))
-                        put("discriminator", mapOf("propertyName" to "type", "mapping" to mapOf("Cat" to "#/patterns/Cat", "Dog" to "#/patterns/Dog")))
+                        put("oneOf", listOf(mapOf("\$ref" to "#/components/schemas/Cat"), mapOf("\$ref" to "#/components/schemas/Dog")))
+                        put("discriminator", mapOf("propertyName" to "type", "mapping" to mapOf("Cat" to "#/components/schemas/Cat", "Dog" to "#/components/schemas/Dog")))
                     }
 
                     forPattern(name = "Animal") {
@@ -356,8 +377,8 @@ class RuleViolationTests {
                         put("required", listOf("bark"))
                     }
                     withPattern(name = "Animal") {
-                        put("oneOf", listOf(mapOf("\$ref" to "#/patterns/Cat"), mapOf("\$ref" to "#/patterns/Dog")))
-                        put("discriminator", mapOf("propertyName" to "type", "mapping" to mapOf("Cat" to "#/patterns/Cat", "Dog" to "#/patterns/Dog")))
+                        put("oneOf", listOf(mapOf("\$ref" to "#/components/schemas/Cat"), mapOf("\$ref" to "#/components/schemas/Dog")))
+                        put("discriminator", mapOf("propertyName" to "type", "mapping" to mapOf("Cat" to "#/components/schemas/Cat", "Dog" to "#/components/schemas/Dog")))
                     }
 
                     forPattern(name = "Animal") {
@@ -365,19 +386,6 @@ class RuleViolationTests {
                         expect(path = "/type") {
                             totalViolations(1)
                             toContainViolation(StandardRuleViolation.INVALID_DISCRIMINATOR_SETUP)
-                        }
-                    }
-                },
-                violationTestCase(name = "OneOf Value Mismatch") {
-                    withPattern(name = "OneOfPattern") {
-                        put("oneOf", listOf(mapOf("type" to "number"), mapOf("type" to "string")))
-                    }
-                    forPattern(name = "OneOfPattern") {
-                        withValue(true)
-                        expect {
-                            totalViolations(2)
-                            toContainViolation(StandardRuleViolation.ONE_OF_VALUE_MISMATCH)
-                            toContainViolation(StandardRuleViolation.TYPE_MISMATCH)
                         }
                     }
                 },
@@ -393,15 +401,15 @@ class RuleViolationTests {
                     }
                     withPattern(name = "AnyOfPattern") {
                         put("anyOf", listOf(
-                            mapOf("\$ref" to "#/patterns/OptionA"),
-                            mapOf("\$ref" to "#/patterns/OptionB")
+                            mapOf("\$ref" to "#/components/schemas/OptionA"),
+                            mapOf("\$ref" to "#/components/schemas/OptionB")
                         ))
                     }
 
                     forPattern(name = "AnyOfPattern") {
                         withValue(mapOf("c" to 10))
                         expect(path = "/c") {
-                            totalViolations(1)
+                            totalViolations(3)
                             toContainViolation(StandardRuleViolation.ANY_OF_UNKNOWN_KEY)
                         }
                     }
@@ -417,19 +425,407 @@ class RuleViolationTests {
                     }
                     withPattern(name = "AnyOfPattern") {
                         put("anyOf", listOf(
-                            mapOf("\$ref" to "#/patterns/OptionA"),
-                            mapOf("\$ref" to "#/patterns/OptionB")
+                            mapOf("\$ref" to "#/components/schemas/OptionA"),
+                            mapOf("\$ref" to "#/components/schemas/OptionB")
                         ))
                     }
 
                     forPattern(name = "AnyOfPattern") {
                         withValue(mapOf("common" to true))
                         expect(path = "/common") {
-                            totalViolations(1)
+                            totalViolations(5)
                             toContainViolation(StandardRuleViolation.ANY_OF_NO_MATCHING_SCHEMA)
                         }
                     }
                 },
+            ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun objectRuleViolationTestCases(): Stream<Arguments> {
+            return listOf(
+                violationTestCase(name = "Type Mismatch") {
+                    withPattern(name = "TEST") {
+                        put("type", "object")
+                        put("properties", mapOf("child" to mapOf("type" to "object", "properties" to mapOf("age" to mapOf("type" to "number")))))
+                    }
+                    forPattern(name = "TEST") {
+                        withValue(mapOf("child" to mapOf("age" to "not-a-number")))
+                        expect(path = "/child/age") { toContainViolation(StandardRuleViolation.TYPE_MISMATCH) }
+                    }
+                },
+                violationTestCase(name = "Value Mismatch") {
+                    withPattern(name = "TEST") {
+                        put("type", "object")
+                        put("properties", mapOf("child" to mapOf("type" to "object", "properties" to mapOf("status" to mapOf("enum" to listOf("active", "inactive"))))))
+                    }
+                    forPattern(name = "TEST") {
+                        withValue(mapOf("child" to mapOf("status" to "pending")))
+                        expect(path = "/child/status") { toContainViolation(StandardRuleViolation.VALUE_MISMATCH) }
+                    }
+                },
+                violationTestCase(name = "Constraint Violation") {
+                    withPattern(name = "TEST") {
+                        put("type", "object")
+                        put("properties", mapOf("child" to mapOf("type" to "object", "properties" to mapOf("code" to mapOf("type" to "string", "minLength" to 5)))))
+                    }
+                    forPattern(name = "TEST") {
+                        withValue(mapOf("child" to mapOf("code" to "123")))
+                        expect(path = "/child/code") { toContainViolation(StandardRuleViolation.CONSTRAINT_VIOLATION) }
+                    }
+                },
+                violationTestCase(name = "Required Property Missing") {
+                    withPattern(name = "TEST") {
+                        put("type", "object")
+                        put("properties", mapOf("child" to mapOf("type" to "object", "required" to listOf("id"), "properties" to mapOf("id" to mapOf("type" to "string")))))
+                    }
+                    forPattern(name = "TEST") {
+                        withValue(mapOf("child" to emptyMap<String, Any>()))
+                        expect(path = "/child/id") { toContainViolation(StandardRuleViolation.REQUIRED_PROPERTY_MISSING) }
+                    }
+                },
+                violationTestCase(name = "Optional Property Missing") {
+                    withPattern(name = "TEST") {
+                        put("type", "object")
+                        put("properties", mapOf("child" to mapOf("type" to "object", "required" to emptyList<String>(), "properties" to mapOf("id" to mapOf("type" to "string")))))
+                    }
+                    forPattern(name = "TEST") {
+                        withResolver { resolver -> resolver.withAllPatternsAsMandatory() }
+                        withValue(mapOf("child" to emptyMap<String, Any>()))
+                        expect(path = "/child/id") {
+                            toHaveSeverity(IssueSeverity.WARNING)
+                            toContainViolation(StandardRuleViolation.OPTIONAL_PROPERTY_MISSING)
+                        }
+                    }
+                },
+                violationTestCase(name = "Unknown Property") {
+                    withPattern(name = "TEST") {
+                        put("type", "object")
+                        put("properties", mapOf("child" to mapOf("type" to "object", "additionalProperties" to false)))
+                    }
+                    forPattern(name = "TEST") {
+                        withValue(mapOf("child" to mapOf("extra" to "val")))
+                        expect(path = "/child/extra") { toContainViolation(StandardRuleViolation.UNKNOWN_PROPERTY) }
+                    }
+                }
+            ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun arrayRuleViolationTestCases(): Stream<Arguments> {
+            return listOf(
+                violationTestCase(name = "Type Mismatch") {
+                    withPattern(name = "TEST") { put("type", "array"); put("items", mapOf("type" to "number")) }
+                    forPattern(name = "TEST") {
+                        withValue(listOf(1, "two"))
+                        expect(path = "/1") { toContainViolation(StandardRuleViolation.TYPE_MISMATCH) }
+                    }
+                },
+                violationTestCase(name = "Value Mismatch") {
+                    withPattern(name = "TEST") { put("type", "array"); put("items", mapOf("const" to "Fixed")) }
+                    forPattern(name = "TEST") {
+                        withValue(listOf("Fixed", "Wrong"))
+                        expect(path = "/1") { toContainViolation(StandardRuleViolation.VALUE_MISMATCH) }
+                    }
+                },
+                violationTestCase(name = "Constraint Mismatch") {
+                    withPattern(name = "TEST") { put("type", "array"); put("items", mapOf("type" to "integer", "exclusiveMinimum" to 100)) }
+                    forPattern(name = "TEST") {
+                        withValue(listOf(100))
+                        expect(path = "/0") { toContainViolation(StandardRuleViolation.CONSTRAINT_VIOLATION) }
+                    }
+                },
+                violationTestCase(name = "Missing Required Property") {
+                    withPattern(name = "TEST") {
+                        put("type", "array")
+                        put("items", mapOf("type" to "object", "properties" to mapOf("id" to mapOf("type" to "string")), "required" to listOf("id")))
+                    }
+                    forPattern(name = "TEST") {
+                        withValue(listOf(mapOf("id" to "001"), emptyMap<String, Any>()))
+                        expect(path = "/1/id") { toContainViolation(StandardRuleViolation.REQUIRED_PROPERTY_MISSING) }
+                    }
+                },
+                violationTestCase(name = "Optional Missing") {
+                    withPattern(name = "TEST") {
+                        put("type", "array")
+                        put("items", mapOf("type" to "object", "properties" to mapOf("tag" to mapOf("type" to "string"))))
+                    }
+                    forPattern(name = "TEST") {
+                        withValue(listOf(emptyMap<String, Any>()))
+                        withResolver { it.withAllPatternsAsMandatory() }
+                        expect(path = "/0/tag") {
+                            toHaveSeverity(IssueSeverity.WARNING)
+                            toContainViolation(StandardRuleViolation.OPTIONAL_PROPERTY_MISSING)
+                        }
+                    }
+                },
+                violationTestCase(name = "Unknown Property") {
+                    withPattern(name = "TEST") {
+                        put("type", "array")
+                        put("items", mapOf("type" to "object", "additionalProperties" to false))
+                    }
+                    forPattern(name = "TEST") {
+                        withValue(listOf(mapOf("forbidden" to true)))
+                        expect(path = "/0/forbidden") { toContainViolation(StandardRuleViolation.UNKNOWN_PROPERTY) }
+                    }
+                }
+            ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun allOfRuleViolationTestCases(): Stream<Arguments> {
+            return listOf(
+                violationTestCase(name = "Type Mismatch") {
+                    withPattern(name = "TEST") {
+                        put("allOf", listOf(
+                            mapOf("type" to "object", "properties" to mapOf("id" to mapOf("type" to "number"))),
+                            mapOf("type" to "object", "properties" to mapOf("name" to mapOf("type" to "string")))
+                        ))
+                    }
+                    forPattern(name = "TEST") {
+                        withValue(mapOf("id" to "not-a-number"))
+                        expect(path = "/id") { toContainViolation(StandardRuleViolation.TYPE_MISMATCH) }
+                    }
+                },
+                violationTestCase(name = "Value Mismatch") {
+                    withPattern(name = "TEST") {
+                        put("allOf", listOf(
+                            mapOf("type" to "object", "properties" to mapOf("id" to mapOf("type" to "number"))),
+                            mapOf("type" to "object", "properties" to mapOf("name" to mapOf("type" to "string", "enum" to listOf("A", "B")))
+                        )))
+                    }
+                    forPattern(name = "TEST") {
+                        withValue(mapOf("name" to "C"))
+                        expect(path = "/name") { toContainViolation(StandardRuleViolation.VALUE_MISMATCH) }
+                    }
+                },
+                violationTestCase(name = "Constraint Violation") {
+                    withPattern(name = "TEST") {
+                        put("allOf", listOf(
+                            mapOf("type" to "object", "properties" to mapOf("id" to mapOf("type" to "number"))),
+                            mapOf("type" to "object", "properties" to mapOf("name" to mapOf("type" to "string", "minLength" to 5))
+                        )))
+                    }
+                    forPattern(name = "TEST") {
+                        withValue(mapOf("name" to "John"))
+                        expect(path ="/name") { toContainViolation(StandardRuleViolation.CONSTRAINT_VIOLATION) }
+                    }
+                },
+                violationTestCase(name = "Missing Required Property") {
+                    withPattern(name = "TEST") {
+                        put("allOf", listOf(
+                            mapOf("type" to "object", "required" to listOf("name"), "properties" to mapOf("name" to mapOf("type" to "string"))),
+                            mapOf("type" to "object", "required" to listOf("age"), "properties" to mapOf("age" to mapOf("type" to "number")))
+                        ))
+                    }
+                    forPattern(name = "TEST") {
+                        withValue(mapOf("name" to "John"))
+                        expect(path = "/age") { toContainViolation(StandardRuleViolation.REQUIRED_PROPERTY_MISSING) }
+                    }
+                },
+                violationTestCase(name = "Missing Optional Property") {
+                    withPattern(name = "TEST") {
+                        put("allOf", listOf(
+                            mapOf("type" to "object", "required" to listOf("name"), "properties" to mapOf("name" to mapOf("type" to "string"))),
+                            mapOf("type" to "object", "properties" to mapOf("age" to mapOf("type" to "number")))
+                        ))
+                    }
+                    forPattern(name = "TEST") {
+                        withResolver { it.withAllPatternsAsMandatory() }
+                        withValue(mapOf("name" to "John"))
+                        expect(path = "/age") {
+                            toHaveSeverity(IssueSeverity.WARNING)
+                            toContainViolation(StandardRuleViolation.OPTIONAL_PROPERTY_MISSING)
+                        }
+                    }
+                },
+                violationTestCase(name = "Unknown Property") {
+                    withPattern(name = "TEST") {
+                        put("allOf", listOf(mapOf("properties" to mapOf("id" to mapOf("type" to "string")))))
+                    }
+                    forPattern(name = "TEST") {
+                        withValue(mapOf("id" to "123", "extra" to "bad"))
+                        expect(path = "/extra") { toContainViolation(StandardRuleViolation.UNKNOWN_PROPERTY) }
+                    }
+                }
+            ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun anyOfRuleViolationTestCases(): Stream<Arguments> {
+            return listOf(
+                violationTestCase(name = "Type Mismatch") {
+                    withPattern(name = "TEST") {
+                        put("anyOf", listOf(
+                            mapOf("type" to "object", "properties" to mapOf("id" to mapOf("type" to "number"))),
+                            mapOf("type" to "object", "properties" to mapOf("name" to mapOf("type" to "string")))
+                        ))
+                    }
+                    forPattern(name = "TEST") {
+                        withValue(mapOf("id" to "not-a-number"))
+                        expect(path = "/id") {
+                            toContainViolation(StandardRuleViolation.TYPE_MISMATCH)
+                            toContainViolation(StandardRuleViolation.ANY_OF_NO_MATCHING_SCHEMA)
+                        }
+                    }
+                },
+                violationTestCase(name = "Value Mismatch") {
+                    withPattern(name = "TEST") {
+                        put("anyOf", listOf(
+                            mapOf("type" to "object", "properties" to mapOf("status" to mapOf("enum" to listOf("A", "B")))),
+                            mapOf("type" to "object", "properties" to mapOf("code" to mapOf("type" to "number")))
+                        ))
+                    }
+                    forPattern(name = "TEST") {
+                        withValue(mapOf("status" to "C"))
+                        expect(path = "/status") {
+                            toContainViolation(StandardRuleViolation.VALUE_MISMATCH)
+                            toContainViolation(StandardRuleViolation.ANY_OF_NO_MATCHING_SCHEMA)
+                        }
+                    }
+                },
+                violationTestCase(name = "Constraint Violation") {
+                    withPattern(name = "TEST") {
+                        put("anyOf", listOf(
+                            mapOf("type" to "object", "properties" to mapOf("id" to mapOf("type" to "string", "minLength" to 5))),
+                            mapOf("type" to "object", "properties" to mapOf("age" to mapOf("type" to "number")))
+                        ))
+                    }
+                    forPattern(name = "TEST") {
+                        withValue(mapOf("id" to "123"))
+                        expect(path = "/id") {
+                            toContainViolation(StandardRuleViolation.CONSTRAINT_VIOLATION)
+                            toContainViolation(StandardRuleViolation.ANY_OF_NO_MATCHING_SCHEMA)
+                        }
+                    }
+                },
+                violationTestCase(name = "Missing Required Property") {
+                    withPattern(name = "TEST") {
+                        put("anyOf", listOf(
+                            mapOf("type" to "object", "required" to listOf("id"), "properties" to mapOf("id" to mapOf("type" to "string"))),
+                            mapOf("type" to "object", "required" to listOf("name"), "properties" to mapOf("name" to mapOf("type" to "string")))
+                        ))
+                    }
+                    forPattern(name = "TEST") {
+                        withValue(emptyMap<String, Any>())
+                        expect(path = "/id") {
+                            totalViolations(1)
+                            toContainViolation(StandardRuleViolation.REQUIRED_PROPERTY_MISSING)
+                        }
+                        expect(path = "/name") {
+                            totalViolations(1)
+                            toContainViolation(StandardRuleViolation.REQUIRED_PROPERTY_MISSING)
+                        }
+                    }
+                },
+                violationTestCase(name = "Missing Optional Property") {
+                    withPattern(name = "TEST") {
+                        put("anyOf", listOf(
+                            mapOf("type" to "object", "properties" to mapOf("id" to mapOf("type" to "string")))
+                        ))
+                    }
+                    forPattern(name = "TEST") {
+                        withResolver { it.withAllPatternsAsMandatory() }
+                        withValue(emptyMap<String, Any>())
+                        expect(path = "/id") {
+                            toHaveSeverity(IssueSeverity.WARNING)
+                            toContainViolation(StandardRuleViolation.OPTIONAL_PROPERTY_MISSING)
+                        }
+                    }
+                },
+                violationTestCase(name = "Unknown Property") {
+                    withPattern(name = "TEST") {
+                        put("anyOf", listOf(mapOf("type" to "object", "properties" to mapOf("id" to mapOf("type" to "string")))))
+                    }
+                    forPattern(name = "TEST") {
+                        withValue(mapOf("id" to "123", "extra" to "val"))
+                        expect(path = "/extra") {
+                            totalViolations(1)
+                            toContainViolation(StandardRuleViolation.ANY_OF_UNKNOWN_KEY)
+                        }
+                    }
+                }
+            ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun oneOfRuleViolationTestCases(): Stream<Arguments> {
+            return listOf(
+                violationTestCase(name = "Type Mismatch") {
+                    withPattern(name = "TEST") {
+                        put("oneOf", listOf(
+                            mapOf("type" to "object", "properties" to mapOf("id" to mapOf("type" to "number"))),
+                            mapOf("type" to "object", "properties" to mapOf("name" to mapOf("type" to "string")))
+                        ))
+                    }
+                    forPattern(name = "TEST") {
+                        withValue(mapOf("id" to "not-a-number"))
+                        expect(path = "/id") { toContainViolation(StandardRuleViolation.TYPE_MISMATCH) }
+                    }
+                },
+                violationTestCase(name = "Value Mismatch") {
+                    withPattern(name = "TEST") {
+                        put("oneOf", listOf(
+                            mapOf("type" to "object", "properties" to mapOf("status" to mapOf("enum" to listOf("A", "B")))),
+                            mapOf("type" to "object", "properties" to mapOf("code" to mapOf("type" to "number")))
+                        ))
+                    }
+                    forPattern(name = "TEST") {
+                        withValue(mapOf("status" to "C"))
+                        expect(path = "/status") { toContainViolation(StandardRuleViolation.VALUE_MISMATCH) }
+                    }
+                },
+                violationTestCase(name = "Constraint Violation") {
+                    withPattern(name = "TEST") {
+                        put("oneOf", listOf(
+                            mapOf("type" to "object", "properties" to mapOf("id" to mapOf("type" to "string", "minLength" to 5))),
+                            mapOf("type" to "object", "properties" to mapOf("age" to mapOf("type" to "number")))
+                        ))
+                    }
+                    forPattern(name = "TEST") {
+                        withValue(mapOf("id" to "123"))
+                        expect(path = "/id") { toContainViolation(StandardRuleViolation.CONSTRAINT_VIOLATION) }
+                    }
+                },
+                violationTestCase(name = "Missing Required Property") {
+                    withPattern(name = "TEST") {
+                        put("oneOf", listOf(
+                            mapOf("type" to "object", "required" to listOf("id"), "properties" to mapOf("id" to mapOf("type" to "string"))),
+                            mapOf("type" to "object", "required" to listOf("name"), "properties" to mapOf("name" to mapOf("type" to "string")))
+                        ))
+                    }
+                    forPattern(name = "TEST") {
+                        withValue(emptyMap<String, Any>())
+                        expect(path = "/id") { toContainViolation(StandardRuleViolation.REQUIRED_PROPERTY_MISSING) }
+                        expect(path = "/name") { toContainViolation(StandardRuleViolation.REQUIRED_PROPERTY_MISSING) }
+                    }
+                },
+                violationTestCase(name = "Missing Optional Property") {
+                    withPattern(name = "TEST") {
+                        put("oneOf", listOf(mapOf("type" to "object", "properties" to mapOf("id" to mapOf("type" to "string")))))
+                    }
+                    forPattern(name = "TEST") {
+                        withResolver { it.withAllPatternsAsMandatory() }
+                        withValue(emptyMap<String, Any>())
+                        expect(path = "/id") {
+                            toHaveSeverity(IssueSeverity.WARNING)
+                            toContainViolation(StandardRuleViolation.OPTIONAL_PROPERTY_MISSING)
+                        }
+                    }
+                },
+                violationTestCase(name = "Multiple Matches") {
+                    withPattern(name = "TEST") {
+                        put("oneOf", listOf(
+                            mapOf("type" to "object", "properties" to mapOf("id" to mapOf("type" to "string"))),
+                            mapOf("type" to "object", "properties" to mapOf("name" to mapOf("type" to "string")))
+                        ))
+                    }
+                    forPattern(name = "TEST") {
+                        withValue(mapOf("id" to "123", "name" to "John"))
+                        expect(path = "/id") { toContainViolation(StandardRuleViolation.UNKNOWN_PROPERTY) }
+                        expect(path = "/name") { toContainViolation(StandardRuleViolation.UNKNOWN_PROPERTY) }
+                    }
+                }
             ).flatten().stream()
         }
     }

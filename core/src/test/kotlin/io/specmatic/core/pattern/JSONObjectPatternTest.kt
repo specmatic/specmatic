@@ -18,7 +18,6 @@ import io.specmatic.core.value.*
 import io.specmatic.core.StandardRuleViolation
 import io.specmatic.toViolationReportString
 import io.specmatic.shouldNotMatch
-import io.specmatic.trimmedLinesString
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.*
@@ -287,14 +286,14 @@ internal class JSONObjectPatternTest {
             ${
                 toViolationReportString(
                     breadCrumb = "id",
-                    details = "Expected number, actual was \"abc123\"",
+                    details = DefaultMismatchMessages.typeMismatch("number", "\"abc123\"", "string"),
                     StandardRuleViolation.TYPE_MISMATCH
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "address.flat",
-                    details = "Expected number, actual was \"10\"",
+                    details = DefaultMismatchMessages.typeMismatch("number", "\"10\"", "string"),
                     StandardRuleViolation.TYPE_MISMATCH
                 )
             }
@@ -571,7 +570,7 @@ internal class JSONObjectPatternTest {
                 val result = pattern.matches(JSONObjectValue(mapOf("id" to StringValue("abc"))), Resolver())
                 result is Result.Failure && result.toMatchFailureDetails() == MatchFailureDetails(
                     listOf("id"),
-                    listOf("""Expected number, actual was "abc"""")
+                    listOf(DefaultMismatchMessages.typeMismatch("number", "\"abc\"", "string"))
                 )
             }).isNotNull()
         }
@@ -1174,21 +1173,21 @@ internal class JSONObjectPatternTest {
             ${
                 toViolationReportString(
                     breadCrumb = "topLevelOptionalKey",
-                    details = "Expected optional key named \"topLevelOptionalKey\" was missing",
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "topLevelOptionalKey"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "subMandatoryObject.subOptionalKey",
-                    details = "Expected optional key named \"subOptionalKey\" was missing",
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "subOptionalKey"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "subOptionalObject.subOptionalKey",
-                    details = "Expected optional key named \"subOptionalKey\" was missing",
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "subOptionalKey"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
@@ -1847,14 +1846,14 @@ components:
             ${
                 toViolationReportString(
                     breadCrumb = "name",
-                    details = "Expected key named \"name\" was missing",
+                    details = DefaultMismatchMessages.expectedKeyWasMissing("property", "name"),
                     StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "extraKey",
-                    details = "Key named \"extraKey\" was unexpected",
+                    details = DefaultMismatchMessages.unexpectedKey("property", "extraKey"),
                     StandardRuleViolation.UNKNOWN_PROPERTY
                 )
             }
@@ -1873,7 +1872,7 @@ components:
             ${
                 toViolationReportString(
                     breadCrumb = "extraKey",
-                    details = "Expected string, actual was 999 (number)",
+                    details = DefaultMismatchMessages.typeMismatch("string", "999", "number"),
                     StandardRuleViolation.TYPE_MISMATCH
                 )
             }
@@ -2645,7 +2644,7 @@ components:
                 assertThat(result).isInstanceOf(HasFailure::class.java); result as HasFailure
                 assertThat(result.failure.reportString()).satisfiesAnyOf(
                     { report -> assertThat(report).containsIgnoringWhitespaces("Expected json type") },
-                    { report -> assertThat(report).containsIgnoringWhitespaces("Expected key named \"name\" was missing") },
+                    { report -> assertThat(report).containsIgnoringWhitespaces("Expected property \"name\" was missing") },
                 )
             }
         }

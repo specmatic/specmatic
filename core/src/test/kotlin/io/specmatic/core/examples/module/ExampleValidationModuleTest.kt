@@ -10,6 +10,7 @@ import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.core.StandardRuleViolation
+import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -134,7 +135,7 @@ class ExampleValidationModuleTest {
         ${
             toViolationReportString(
                 breadCrumb = "first",
-                details = "Expected number, actual was string",
+                details = DefaultMismatchMessages.patternMismatch("number", "string"),
                 StandardRuleViolation.TYPE_MISMATCH
             )
         }
@@ -159,7 +160,7 @@ class ExampleValidationModuleTest {
         API: GET /test/(id:number)/name/(name:string) -> 200
         ${toViolationReportString(
             breadCrumb = "REQUEST.PARAMETERS.PATH.id",
-            details = "Specification expected number but example contained \"abc\"",
+            details = ExampleMismatchMessages.typeMismatch("number", "\"abc\"", "string"),
             StandardRuleViolation.TYPE_MISMATCH
         )}
         """.trimIndent())
@@ -236,14 +237,14 @@ class ExampleValidationModuleTest {
         ${
             toViolationReportString(
                 breadCrumb = "partial.REQUEST.BODY.name",
-                details = "Specification expected string but example contained 123 (number)",
+                details = ExampleMismatchMessages.typeMismatch("string", "123", "number"),
                 StandardRuleViolation.TYPE_MISMATCH 
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "partial.RESPONSE.BODY.id",
-                details = "Specification expected number but example contained \"abc\"",
+                details = ExampleMismatchMessages.typeMismatch("number", "\"abc\"", "string"),
                 StandardRuleViolation.TYPE_MISMATCH
             )
         }
@@ -279,14 +280,14 @@ class ExampleValidationModuleTest {
         ${
             toViolationReportString(
                 breadCrumb = "partial.REQUEST.BODY.name",
-                details = "Specification expected string but example contained number",
+                details = ExampleMismatchMessages.patternMismatch("string", "number"),
                 StandardRuleViolation.TYPE_MISMATCH
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "partial.RESPONSE.BODY.id",
-                details = "Specification expected number but example contained string",
+                details = ExampleMismatchMessages.patternMismatch("number", "string"),
                 StandardRuleViolation.TYPE_MISMATCH
             )
         }
@@ -323,28 +324,28 @@ class ExampleValidationModuleTest {
         ${
             toViolationReportString(
                 breadCrumb = "REQUEST.BODY.age",
-                details = "Key age in the specification is missing from the example",
+                details = ExampleMismatchMessages.expectedKeyWasMissing("property", "age"),
                 StandardRuleViolation.REQUIRED_PROPERTY_MISSING
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY.id",
-                details = "Key id in the specification is missing from the example",
+                details = ExampleMismatchMessages.expectedKeyWasMissing("property", "id"),
                 StandardRuleViolation.REQUIRED_PROPERTY_MISSING
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY.name",
-                details = "Key name in the specification is missing from the example",
+                details = ExampleMismatchMessages.expectedKeyWasMissing("property", "name"),
                 StandardRuleViolation.REQUIRED_PROPERTY_MISSING
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY.age",
-                details = "Key age in the specification is missing from the example",
+                details = ExampleMismatchMessages.expectedKeyWasMissing("property", "age"),
                 StandardRuleViolation.REQUIRED_PROPERTY_MISSING
             )
         }
@@ -380,28 +381,28 @@ class ExampleValidationModuleTest {
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY[0].id",
-                details = "Expected key named \"id\" was missing",
+                details = AttributeSelectionWithExampleMismatchMessages.expectedKeyWasMissing("property", "id"),
                 StandardRuleViolation.REQUIRED_PROPERTY_MISSING
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY[0].name",
-                details = "Expected key named \"name\" was missing",
+                details = AttributeSelectionWithExampleMismatchMessages.expectedKeyWasMissing("property", "name"),
                 StandardRuleViolation.REQUIRED_PROPERTY_MISSING
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY[0].age",
-                details ="Key named \"age\" was unexpected", 
+                details = AttributeSelectionWithExampleMismatchMessages.unexpectedKey("property", "age"),
                 StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY[0].extra",
-                details = "Key named \"extra\" was unexpected", 
+                details = AttributeSelectionWithExampleMismatchMessages.unexpectedKey("property", "extra"), 
                 StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }
@@ -474,28 +475,28 @@ class ExampleValidationModuleTest {
         ${
             toViolationReportString(
                 breadCrumb = "partial.RESPONSE.BODY[0].id",
-                details = "Expected key named \"id\" was missing",
+                details = AttributeSelectionWithExampleMismatchMessages.expectedKeyWasMissing("property", "id"),
                 StandardRuleViolation.REQUIRED_PROPERTY_MISSING
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "partial.RESPONSE.BODY[0].name",
-                details = "Expected key named \"name\" was missing",
+                details = AttributeSelectionWithExampleMismatchMessages.expectedKeyWasMissing("property", "name"),
                 StandardRuleViolation.REQUIRED_PROPERTY_MISSING
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "partial.RESPONSE.BODY[0].age",
-                details = "Key named \"age\" was unexpected",
+                details = AttributeSelectionWithExampleMismatchMessages.unexpectedKey("property", "age"),
                 StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "partial.RESPONSE.BODY[0].extra",
-                details = "Key named \"extra\" was unexpected",
+                details = AttributeSelectionWithExampleMismatchMessages.unexpectedKey("property", "extra"),
                 StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }
@@ -527,14 +528,14 @@ class ExampleValidationModuleTest {
         ${
             toViolationReportString(
                 breadCrumb = "REQUEST.PARAMETERS.HEADER.EXTRA-HEADER",
-                details = "Header EXTRA-HEADER in the example is not in the specification",
+                details = ExampleMismatchMessages.unexpectedKey("header", "EXTRA-HEADER"),
                 StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.HEADER.EXTRA-HEADER",
-                details = "Header EXTRA-HEADER in the example is not in the specification",
+                details = ExampleMismatchMessages.unexpectedKey("header", "EXTRA-HEADER"),
                 StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }
@@ -566,14 +567,14 @@ class ExampleValidationModuleTest {
         ${
             toViolationReportString(
                 breadCrumb = "partial.REQUEST.PARAMETERS.HEADER.EXTRA-HEADER",
-                details = "Header EXTRA-HEADER in the example is not in the specification",
+                details = ExampleMismatchMessages.unexpectedKey("header", "EXTRA-HEADER"),
                 StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "partial.RESPONSE.HEADER.EXTRA-HEADER",
-                details = "Header EXTRA-HEADER in the example is not in the specification",
+                details = ExampleMismatchMessages.unexpectedKey("header", "EXTRA-HEADER"),
                 StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }
@@ -656,12 +657,12 @@ class ExampleValidationModuleTest {
                     assertThat(it).isEqualToNormalizingWhitespace("""
                     ${toViolationReportString(
                         breadCrumb = "REQUEST.BODY.value",
-                        details = "Specification expected boolean but example contained 123 (number)",
+                        details = ExampleMismatchMessages.typeMismatch("boolean", "123", "number"),
                         StandardRuleViolation.TYPE_MISMATCH
                     )}
                     ${toViolationReportString(
                         breadCrumb = "RESPONSE.BODY.value",
-                        details = "Specification expected boolean but example contained 123 (number)",
+                        details = ExampleMismatchMessages.typeMismatch("boolean", "123", "number"),
                         StandardRuleViolation.TYPE_MISMATCH
                     )}
                     """.trimIndent())
@@ -671,12 +672,12 @@ class ExampleValidationModuleTest {
                     assertThat(it).isEqualToNormalizingWhitespace("""
                     ${toViolationReportString(
                         breadCrumb = "REQUEST.BODY.value",
-                        details = "Specification expected number but example contained true (boolean)",
+                        details = ExampleMismatchMessages.typeMismatch("number", "true", "boolean"),
                         StandardRuleViolation.TYPE_MISMATCH
                     )}
                     ${toViolationReportString(
                         breadCrumb = "RESPONSE.BODY.value",
-                        details = "Specification expected number but example contained true (boolean)",
+                        details = ExampleMismatchMessages.typeMismatch("number", "true", "boolean"),
                         StandardRuleViolation.TYPE_MISMATCH
                     )}
                     """.trimIndent())

@@ -67,7 +67,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "nam",
-                        details = "Key named \"nam\" is invalid. Did you mean \"name\"?",
+                        details = unexpectedKeyButMatches("nam", "name"),
                         StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                     )
                 ),
@@ -77,7 +77,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "delay-in-secs",
-                        details = "Key named \"delay-in-secs\" is invalid. Did you mean \"delay-in-seconds\"?",
+                        details = unexpectedKeyButMatches("delay-in-secs", "delay-in-seconds"),
                         StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                     )
                 ),
@@ -87,7 +87,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "dealy-in-seconds",
-                        details = "Key named \"dealy-in-seconds\" is invalid. Did you mean \"delay-in-seconds\"?",
+                        details = unexpectedKeyButMatches("dealy-in-seconds", "delay-in-seconds"),
                         StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                     )
                 ),
@@ -97,7 +97,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "delay-in-milisecnds",
-                        details = "Key named \"delay-in-milisecnds\" is invalid. Did you mean \"delay-in-milliseconds\"?",
+                        details = unexpectedKeyButMatches("delay-in-milisecnds", "delay-in-milliseconds"),
                         StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                     )
                 ),
@@ -107,7 +107,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "transent",
-                        details = "Key named \"transent\" is invalid. Did you mean \"transient\"?",
+                        details = unexpectedKeyButMatches("transent", "transient"),
                         StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                     )
                 ),
@@ -117,7 +117,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "htp-stb-id",
-                        details = "Key named \"htp-stb-id\" is invalid. Did you mean \"http-stub-id\"?",
+                        details = unexpectedKeyButMatches("htp-stb-id", "http-stub-id"),
                         StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                     )
                 ),
@@ -128,7 +128,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "http-req",
-                        details = "Key named \"http-req\" is invalid. Did you mean \"http-request\"?",
+                        details = unexpectedKeyButMatches("http-req", "http-request"),
                         StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                     )
                 ),
@@ -139,7 +139,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "request",
-                        details = "Key named \"request\" is invalid. Did you mean \"http-request\"?",
+                        details = unexpectedKeyButMatches("request", "http-request"),
                         StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                     )
                 ),
@@ -150,7 +150,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "http-res",
-                        details = "Key named \"http-res\" is invalid. Did you mean \"http-response\"?",
+                        details = unexpectedKeyButMatches("http-res", "http-response"),
                         StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                     )
                 ),
@@ -161,7 +161,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "response",
-                        details = "Key named \"response\" is invalid. Did you mean \"http-response\"?",
+                        details = unexpectedKeyButMatches("response", "http-response"),
                         StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                     )
                 ),
@@ -176,7 +176,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "$MOCK_HTTP_REQUEST.paths",
-                        details = "Key named \"paths\" is invalid. Did you mean \"path\"?",
+                        details = unexpectedKeyButMatches("paths", "path"),
                         StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                     )
                 ),
@@ -189,7 +189,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "$MOCK_HTTP_REQUEST.mthd",
-                        details = "Key named \"mthd\" is invalid. Did you mean \"method\"?",
+                        details = unexpectedKeyButMatches("mthd", "method"),
                         StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                     )
                 ),
@@ -201,7 +201,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "$MOCK_HTTP_REQUEST.queries",
-                        details = "Key named \"queries\" is invalid. Did you mean \"query\"?",
+                        details = unexpectedKeyButMatches("queries", "query"),
                         StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                     )
                 ),
@@ -213,7 +213,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "$MOCK_HTTP_REQUEST.header",
-                        details = "Key named \"header\" is invalid. Did you mean \"headers\"?",
+                        details = unexpectedKeyButMatches("header", "headers"),
                         StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                     )
                 ),
@@ -225,7 +225,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "$MOCK_HTTP_REQUEST.requestBodyRegex",
-                        details = "Key named \"requestBodyRegex\" is invalid. Did you mean \"bodyRegex\"?",
+                        details = unexpectedKeyButMatches("requestBodyRegex", "bodyRegex"),
                         StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                     )
                 ),
@@ -239,7 +239,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "$MOCK_HTTP_RESPONSE.header",
-                        details = "Key named \"header\" is invalid. Did you mean \"headers\"?",
+                        details = unexpectedKeyButMatches("header", "headers"),
                         StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                     )
                 ),
@@ -254,7 +254,7 @@ class FuzzyExampleJsonValidatorTest {
                     ),
                     toViolationReportString(
                         breadCrumb = "partal",
-                        details = "Key named \"partal\" is invalid. Did you mean \"partial\"?",
+                        details = unexpectedKeyButMatches("partal", "partial"),
                         StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                     )
                 ),
@@ -265,7 +265,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "partial.http-req",
-                        details = "Key named \"http-req\" is invalid. Did you mean \"http-request\"?",
+                        details = unexpectedKeyButMatches("http-req", "http-request"),
                         StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                     )
                 ),
@@ -275,7 +275,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "partial.nam",
-                        details = "Key named \"nam\" is invalid. Did you mean \"name\"?",
+                        details = unexpectedKeyButMatches("nam", "name"),
                         StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                     )
                 ),
@@ -288,7 +288,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "partial.$MOCK_HTTP_REQUEST.mthd",
-                        details = "Key named \"mthd\" is invalid. Did you mean \"method\"?",
+                        details = unexpectedKeyButMatches("mthd", "method"),
                         StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                     )
                 ),
@@ -304,7 +304,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "name",
-                        details = "Should be string as per example format, but got 10 (number) in the actual example",
+                        details = FuzzyExampleMisMatchMessages.typeMismatch("string", "10", "number"),
                         StandardRuleViolation.TYPE_MISMATCH
                     )
                 ),
@@ -314,7 +314,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = IS_TRANSIENT_MOCK,
-                        details = "Should be boolean as per example format, but got \"yes\" in the actual example",
+                        details = FuzzyExampleMisMatchMessages.typeMismatch("boolean", "\"yes\"", "string"),
                         StandardRuleViolation.TYPE_MISMATCH
                     )
                 ),
@@ -324,7 +324,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = TRANSIENT_MOCK_ID,
-                        details = "Should be string as per example format, but got 10 (number) in the actual example",
+                        details = FuzzyExampleMisMatchMessages.typeMismatch("string", "10", "number"),
                         StandardRuleViolation.TYPE_MISMATCH
                     )
                 ),
@@ -334,7 +334,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = DELAY_IN_SECONDS,
-                        details = "Should be number as per example format, but got \"10Seconds\" in the actual example",
+                        details = FuzzyExampleMisMatchMessages.typeMismatch("number", "\"10Seconds\"", "string"),
                         StandardRuleViolation.TYPE_MISMATCH
                     )
                 ),
@@ -344,7 +344,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = DELAY_IN_SECONDS,
-                        details = "Should be number >= 0 as per example format, but got -5 (number) in the actual example",
+                        details = FuzzyExampleMisMatchMessages.typeMismatch("number >= 0", "-5", "number"),
                         StandardRuleViolation.CONSTRAINT_VIOLATION
                     )
                 ),
@@ -354,7 +354,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = DELAY_IN_MILLISECONDS,
-                        details = "Should be number as per example format, but got \"OneThousand\" in the actual example",
+                        details = FuzzyExampleMisMatchMessages.typeMismatch("number", "\"OneThousand\"", "string"),
                         StandardRuleViolation.TYPE_MISMATCH
                     )
                 ),
@@ -366,7 +366,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = MOCK_HTTP_REQUEST,
-                        details = "Should be json object as per example format, but got \"My-Request\" in the actual example",
+                        details = FuzzyExampleMisMatchMessages.typeMismatch("json object", "\"My-Request\"", "string"),
                         StandardRuleViolation.TYPE_MISMATCH
                     )
                 ),
@@ -378,7 +378,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "$MOCK_HTTP_REQUEST.method",
-                        details = "Should be string as per example format, but got 123 (number) in the actual example",
+                        details = FuzzyExampleMisMatchMessages.typeMismatch("string", "123", "number"),
                         StandardRuleViolation.TYPE_MISMATCH
                     )
                 ),
@@ -390,7 +390,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "$MOCK_HTTP_REQUEST.path",
-                        details = "Should be string as per example format, but got true (boolean) in the actual example",
+                        details = FuzzyExampleMisMatchMessages.typeMismatch("string", "true", "boolean"),
                         StandardRuleViolation.TYPE_MISMATCH
                     )
                 ),
@@ -402,7 +402,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "$MOCK_HTTP_REQUEST.query",
-                        details = "Should be json object as per example format, but got \"param=value\" in the actual example",
+                        details = FuzzyExampleMisMatchMessages.typeMismatch("json object", "\"param=value\"", "string"),
                         StandardRuleViolation.TYPE_MISMATCH
                     )
                 ),
@@ -414,7 +414,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "$MOCK_HTTP_REQUEST.headers",
-                        details = "Should be json object as per example format, but got 0 (number) in the actual example",
+                        details = FuzzyExampleMisMatchMessages.typeMismatch("json object", "0", "number"),
                         StandardRuleViolation.TYPE_MISMATCH
                     )
                 ),
@@ -426,7 +426,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = MOCK_HTTP_RESPONSE,
-                        details = "Should be json object as per example format, but got \"My-Response\" in the actual example",
+                        details = FuzzyExampleMisMatchMessages.typeMismatch("json object", "\"My-Response\"", "string"),
                         StandardRuleViolation.TYPE_MISMATCH
                     )
                 ),
@@ -438,7 +438,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "$MOCK_HTTP_RESPONSE.status",
-                        details = "Should be number as per example format, but got \"200 OK\" in the actual example",
+                        details = FuzzyExampleMisMatchMessages.typeMismatch("number", "\"200 OK\"", "string"),
                         StandardRuleViolation.TYPE_MISMATCH
                     )
                 ),
@@ -450,7 +450,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "$MOCK_HTTP_RESPONSE.status",
-                        details = "Should be number >= 0 as per example format, but got -200 (number) in the actual example",
+                        details = FuzzyExampleMisMatchMessages.typeMismatch("number >= 0", "-200", "number"),
                         StandardRuleViolation.CONSTRAINT_VIOLATION
                     )
                 ),
@@ -462,7 +462,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "$MOCK_HTTP_RESPONSE.headers",
-                        details = "Should be json object as per example format, but got \"Content-Type: JSON\" in the actual example",
+                        details = FuzzyExampleMisMatchMessages.typeMismatch("json object", "\"Content-Type: JSON\"", "string"),
                         StandardRuleViolation.TYPE_MISMATCH
                     )
                 ),
@@ -474,7 +474,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "partial.name",
-                        details = "Should be string as per example format, but got 12345 (number) in the actual example",
+                        details = FuzzyExampleMisMatchMessages.typeMismatch("string", "12345", "number"),
                         StandardRuleViolation.TYPE_MISMATCH
                     )
                 ),
@@ -486,7 +486,7 @@ class FuzzyExampleJsonValidatorTest {
                     },
                     toViolationReportString(
                         breadCrumb = "partial.$MOCK_HTTP_RESPONSE.status",
-                        details = "Should be number as per example format, but got \"200 OK\" in the actual example",
+                        details = FuzzyExampleMisMatchMessages.typeMismatch("number", "\"200 OK\"", "string"),
                         StandardRuleViolation.TYPE_MISMATCH
                     )
                 ),
@@ -745,6 +745,10 @@ class FuzzyExampleJsonValidatorTest {
                     )
                 )
             )
+        }
+
+        private fun unexpectedKeyButMatches(unexpectedKey: String, candidate: String): String {
+            return "${FuzzyExampleMisMatchMessages.unexpectedKey("property", unexpectedKey)}. Did you mean \"$candidate\"?"
         }
     }
 }

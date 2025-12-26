@@ -1,5 +1,6 @@
 package io.specmatic.core.pattern
 
+import io.specmatic.core.DefaultMismatchMessages
 import io.specmatic.core.Resolver
 import io.specmatic.core.value.StringValue
 import org.assertj.core.api.Assertions.assertThat
@@ -78,7 +79,6 @@ internal class JSONArrayPatternKtTest {
         val result = arrayType.matches(nonArrayValue, Resolver())
 
         println(result.reportString())
-        assertThat(result.reportString()).contains("not a json array")
-        assertThat(result.reportString()).contains("Expected json array")
+        assertThat(result.reportString()).contains(DefaultMismatchMessages.typeMismatch("json array", "\"not a json array\"", "string"))
     }
 }

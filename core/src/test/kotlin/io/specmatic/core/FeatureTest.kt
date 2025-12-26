@@ -9,14 +9,13 @@ import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.*
-import io.specmatic.core.StandardRuleViolation
+import io.specmatic.mock.FuzzyExampleMisMatchMessages
 import io.specmatic.toViolationReportString
 import io.specmatic.stub.captureStandardOutput
 import io.specmatic.stub.createStubFromContracts
 import io.specmatic.test.ScenarioTestGenerationException
 import io.specmatic.test.ScenarioTestGenerationFailure
 import io.specmatic.test.TestExecutor
-import io.specmatic.trimmedLinesList
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.json.JSONObject
@@ -323,7 +322,7 @@ paths:
         ${
             toViolationReportString(
                 breadCrumb = "REQUEST.PARAMETERS.HEADER.x-loginId",
-                details = "Expected header named \"x-loginId\" was missing",
+                details = DefaultMismatchMessages.expectedKeyWasMissing("header", "x-loginId"),
                 StandardRuleViolation.REQUIRED_PROPERTY_MISSING
             )
         }
@@ -403,7 +402,7 @@ paths:
         ${
             toViolationReportString(
                 breadCrumb = "REQUEST.BODY.calls_made",
-                details = "Expected an array of length 3, actual length 2",
+                details = DefaultMismatchMessages.valueMismatch("array of length 3", "array of length 2"),
                 StandardRuleViolation.CONSTRAINT_VIOLATION
             )
         }
@@ -430,7 +429,7 @@ paths:
         ${
             toViolationReportString(
                 breadCrumb = "REQUEST.BODY.calls_made[2]",
-                details = "Expected number, actual was \"test\"",
+                details = DefaultMismatchMessages.typeMismatch("number", "\"test\"", "string"),
                 StandardRuleViolation.TYPE_MISMATCH
             )
         }
@@ -475,7 +474,7 @@ paths:
         ${
             toViolationReportString(
                 breadCrumb = "REQUEST.PARAMETERS.QUERY.account-id",
-                details = "Expected number, actual was \"abc\"",
+                details = DefaultMismatchMessages.typeMismatch("number", "\"abc\"", "string"),
                 StandardRuleViolation.TYPE_MISMATCH
             )
         }
@@ -2469,10 +2468,13 @@ paths:
             feature.loadExternalisedExamples()
         }
 
-        assertThat(error.report()).isEqualToNormalizingWhitespace("""
-        >> http-respons
-        Key named "http-respons" is invalid. Did you mean "http-response"?
-        """.trimIndent())
+        assertThat(error.report()).isEqualToNormalizingWhitespace(
+            toViolationReportString(
+                breadCrumb = "http-respons",
+                details = unexpectedKeyButMatches("http-respons", "http-response"),
+                StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+            )
+        )
     }
 
     @Test
@@ -2979,6 +2981,10 @@ paths:
                     Arguments.of(featureData[0], "10", "{calls_left: 10, messages_left: 20}"),
                     Arguments.of(featureData[1], "20", "{calls_left: 10, messages_left: 30}")
             )
+        }
+
+        private fun unexpectedKeyButMatches(unexpectedKey: String, candidate: String): String {
+            return "${FuzzyExampleMisMatchMessages.unexpectedKey("property", unexpectedKey)}. Did you mean \"$candidate\"?"
         }
     }
 

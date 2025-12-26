@@ -14,7 +14,7 @@ data class BasicAuthSecurityScheme(private val token: String? = null) : OpenAPIS
             true -> Result.Success()
             else -> Result.Failure(
                 breadCrumb = BreadCrumb.HEADER.with(AUTHORIZATION),
-                message = resolver.mismatchMessages.expectedKeyWasMissing("Header", AUTHORIZATION),
+                message = resolver.mismatchMessages.expectedKeyWasMissing("header", AUTHORIZATION),
                 ruleViolation = StandardRuleViolation.REQUIRED_PROPERTY_MISSING
             )
         }

@@ -6,7 +6,6 @@ import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.utilities.parseXML
 import io.specmatic.core.value.*
-import io.specmatic.core.StandardRuleViolation
 import io.specmatic.toViolationReportString
 import io.specmatic.test.TestExecutor
 import io.specmatic.trimmedLinesString
@@ -90,7 +89,7 @@ class ContractAsTest {
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.HEADER.length",
-                details = "Contract expected number but response contained \"abc\"",
+                details = SpecificationAndResponseMismatch.typeMismatch("number", "\"abc\"", "string"),
                 StandardRuleViolation.TYPE_MISMATCH
             )
         }

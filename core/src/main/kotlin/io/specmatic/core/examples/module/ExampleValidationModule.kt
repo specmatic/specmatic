@@ -2,7 +2,7 @@ package io.specmatic.core.examples.module
 
 import io.specmatic.conversions.ExampleFromFile
 import io.specmatic.core.*
-import io.specmatic.core.examples.server.InteractiveExamplesMismatchMessages
+import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.core.examples.server.ScenarioFilter
 import io.specmatic.core.examples.server.SchemaExample
 import io.specmatic.core.lifecycle.ExamplesUsedFor
@@ -63,14 +63,14 @@ class ExampleValidationModule {
     }
 
     fun validateExample(feature: Feature, scenarioStub: ScenarioStub): Results {
-        return feature.matchResultFlagBased(scenarioStub, InteractiveExamplesMismatchMessages)
+        return feature.matchResultFlagBased(scenarioStub, ExampleMismatchMessages)
     }
 
     private fun validateExample(feature: Feature, example: ExampleFromFile): Result {
         val scenarioResult = feature.matchResultFlagBased(
             request = example.request,
             response = example.response,
-            mismatchMessages = InteractiveExamplesMismatchMessages,
+            mismatchMessages = ExampleMismatchMessages,
             isPartial = example.isPartial()
         ).toResultIfAnyWithCauses()
 
@@ -87,7 +87,7 @@ class ExampleValidationModule {
             discriminatorPatternName = schemaExample.discriminatorBasedOn,
             patternName = schemaExample.schemaBasedOn,
             value = schemaExample.value,
-            mismatchMessages = InteractiveExamplesMismatchMessages,
+            mismatchMessages = ExampleMismatchMessages,
             breadCrumbIfDiscriminatorMismatch = schemaExample.file.name
         )
     }

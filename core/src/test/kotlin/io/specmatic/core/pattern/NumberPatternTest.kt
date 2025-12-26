@@ -1,6 +1,7 @@
 package io.specmatic.core.pattern
 
 import io.specmatic.GENERATION
+import io.specmatic.core.DefaultMismatchMessages
 import io.specmatic.core.Resolver
 import io.specmatic.core.UseDefaultExample
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
@@ -70,7 +71,7 @@ internal class NumberPatternTest {
         assertThat(result.reportString()).isEqualToIgnoringWhitespace(
             toViolationReportString(
                 breadCrumb = null,
-                details = "Expected number >= 3, actual was 2 (number)",
+                details = DefaultMismatchMessages.typeMismatch("number >= 3", "2", "number"),
                 StandardRuleViolation.CONSTRAINT_VIOLATION
             )
         )
@@ -89,7 +90,7 @@ internal class NumberPatternTest {
         assertThat(result.reportString()).isEqualToIgnoringWhitespace(
             toViolationReportString(
                 breadCrumb = null,
-                details = "Expected number >= 4, actual was 3 (number)",
+                details = DefaultMismatchMessages.typeMismatch("number >= 4", "3", "number"),
                 StandardRuleViolation.CONSTRAINT_VIOLATION
             )
         )
@@ -108,7 +109,7 @@ internal class NumberPatternTest {
         assertThat(result.reportString()).isEqualToIgnoringWhitespace(
             toViolationReportString(
                 breadCrumb = null,
-                details = "Expected number <= 99, actual was 100 (number)",
+                details = DefaultMismatchMessages.typeMismatch("number <= 99", "100", "number"),
                 StandardRuleViolation.CONSTRAINT_VIOLATION
             )
         )
@@ -127,7 +128,7 @@ internal class NumberPatternTest {
         assertThat(result.reportString()).isEqualToIgnoringWhitespace(
             toViolationReportString(
                 breadCrumb = null,
-                details = "Expected number <= 98, actual was 99 (number)",
+                details = DefaultMismatchMessages.typeMismatch("number <= 98", "99", "number"),
                 StandardRuleViolation.CONSTRAINT_VIOLATION
             )
         )
@@ -292,7 +293,7 @@ internal class NumberPatternTest {
         assertThat(result.reportString()).isEqualToIgnoringWhitespace(
             toViolationReportString(
                 breadCrumb = null,
-                details = "Expected number with minLength 4, actual was 123 (number)",
+                details = DefaultMismatchMessages.typeMismatch("number with minLength 4", "123", "number"),
                 StandardRuleViolation.CONSTRAINT_VIOLATION
             )
         )
@@ -305,7 +306,7 @@ internal class NumberPatternTest {
         assertThat(result.reportString()).isEqualToIgnoringWhitespace(
             toViolationReportString(
                 breadCrumb = null,
-                details = "Expected number with maxLength 3, actual was 1234 (number)",
+                details = DefaultMismatchMessages.typeMismatch("number with maxLength 3", "1234", "number"),
                 StandardRuleViolation.CONSTRAINT_VIOLATION
             )
         )

@@ -1,5 +1,6 @@
 package io.specmatic.core.pattern
 
+import io.specmatic.core.DefaultMismatchMessages
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.StandardRuleViolation
@@ -118,12 +119,12 @@ internal class AnyOfPatternTest {
         )}
         ${toViolationReportString(
             breadCrumb = "common",
-            details = "Expected string, actual was false (boolean)",
+            details = DefaultMismatchMessages.typeMismatch("string", "false", "boolean"),
             StandardRuleViolation.TYPE_MISMATCH
         )}
         ${toViolationReportString(
             breadCrumb = "common",
-            details = "Expected number, actual was false (boolean)",
+            details = DefaultMismatchMessages.typeMismatch("number", "false", "boolean"),
             StandardRuleViolation.TYPE_MISMATCH
         )}
         """.trimIndent())

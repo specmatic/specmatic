@@ -44,8 +44,8 @@ fun testBackwardCompatibility(
                 val newerResponsePattern = newerScenario.httpResponsePattern
                 val responseResult = oldScenario.httpResponsePattern.encompasses(
                     newerResponsePattern,
-                    oldScenario.resolver.copy(mismatchMessages = NewAndOldContractResponseMismatches),
-                    newerScenario.resolver.copy(mismatchMessages = NewAndOldContractResponseMismatches),
+                    oldScenario.resolver.copy(mismatchMessages = NewAndOldSpecificationResponseMismatches),
+                    newerScenario.resolver.copy(mismatchMessages = NewAndOldSpecificationResponseMismatches),
                 ).also {
                     it.scenario = newerScenario
                 }
@@ -78,41 +78,56 @@ fun testBackwardCompatibility(
     }
 }
 
-object NewAndOldContractRequestMismatches: MismatchMessages {
-    override fun valueMismatchFailure(expected: String, actual: Value?, mismatchMessages: MismatchMessages): Result.Failure {
-        return valueMismatchResult(expected, nullOrValue(actual), mismatchMessages)
-    }
-
-    private fun nullOrValue(actual: Value?): String {
-        return when (actual) {
+object NewAndOldSpecificationRequestMismatches: MismatchMessages {
+    override fun toPartFromValue(value: Value?): String {
+        return when (value) {
             is NullValue -> "nullable"
-            else -> actual?.type()?.typeName ?: "null"
+            else -> value?.type()?.typeName ?: "null"
         }
     }
 
     override fun mismatchMessage(expected: String, actual: String): String {
-        return "This is $expected in the new contract, $actual in the old contract"
+        return "This is $expected in the new specification, but $actual in the old specification"
     }
 
     override fun unexpectedKey(keyLabel: String, keyName: String): String {
-        return "${keyLabel.lowercase().capitalizeFirstChar()} named \"$keyName\" in the request from the old contract is not in the new contract"
+        return "${keyLabel.capitalizeFirstChar()} \"$keyName\" in the request from the old specification is not in the new specification"
     }
 
     override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
-        return "New contract expects ${keyLabel.lowercase()} named \"$keyName\" in the request but it is missing from the old contract"
+        return "New specification expects $keyLabel \"$keyName\" in the request but it is missing from the old specification"
+    }
+
+    override fun typeMismatch(expectedType: String, actualValue: String?, actualType: String?): String {
+        val expectedPart = "type $expectedType"
+        val actualPart = "type $actualType"
+        return mismatchMessage(expectedPart, actualPart)
     }
 }
 
-object NewAndOldContractResponseMismatches: MismatchMessages {
+object NewAndOldSpecificationResponseMismatches: MismatchMessages {
+    override fun toPartFromValue(value: Value?): String {
+        return when (value) {
+            is NullValue -> "nullable"
+            else -> value?.type()?.typeName ?: "null"
+        }
+    }
+
     override fun mismatchMessage(expected: String, actual: String): String {
-        return "This is $actual in the new contract response but $expected in the old contract"
+        return "This is $actual in the new specification response but $expected in the old specification"
     }
 
     override fun unexpectedKey(keyLabel: String, keyName: String): String {
-        return "${keyLabel.lowercase().capitalizeFirstChar()} named \"$keyName\" in the response from the new contract is not in the old contract"
+        return "${keyLabel.capitalizeFirstChar()} \"$keyName\" in the response from the new specification is not in the old specification"
     }
 
     override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
-        return "The old contract expects ${keyLabel.lowercase()} named \"$keyName\" but it is missing in the new contract"
+        return "The old specification expects $keyLabel \"$keyName\" but it is missing in the new specification"
+    }
+
+    override fun typeMismatch(expectedType: String, actualValue: String?, actualType: String?): String {
+        val expectedPart = "type $expectedType"
+        val actualPart = "type $actualType"
+        return NewAndOldSpecificationRequestMismatches.mismatchMessage(expectedPart, actualPart)
     }
 }

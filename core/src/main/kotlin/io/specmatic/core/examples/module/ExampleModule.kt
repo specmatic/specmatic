@@ -2,7 +2,7 @@ package io.specmatic.core.examples.module
 
 import io.specmatic.conversions.ExampleFromFile
 import io.specmatic.core.*
-import io.specmatic.core.examples.server.InteractiveExamplesMismatchMessages
+import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.core.examples.server.SchemaExample
 import io.specmatic.core.log.consoleDebug
 import io.specmatic.core.log.logger
@@ -18,7 +18,7 @@ class ExampleModule {
             val matchResult = scenario.matches(
                 httpRequest = example.request,
                 httpResponse = example.response,
-                mismatchMessages = InteractiveExamplesMismatchMessages,
+                mismatchMessages = ExampleMismatchMessages,
                 flagsBased = feature.flagsBased,
                 isPartial = example.isPartial()
             )
@@ -68,7 +68,7 @@ class ExampleModule {
                     discriminatorPatternName = it.discriminatorBasedOn,
                     patternName = it.schemaBasedOn,
                     value = it.value,
-                    mismatchMessages = InteractiveExamplesMismatchMessages,
+                    mismatchMessages = ExampleMismatchMessages,
                     breadCrumbIfDiscriminatorMismatch = it.file.name
                 )
             } else null

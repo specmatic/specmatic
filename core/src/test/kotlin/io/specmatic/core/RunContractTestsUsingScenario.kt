@@ -5,7 +5,6 @@ import io.ktor.http.HttpStatusCode
 import io.specmatic.DefaultStrategies
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.*
-import io.specmatic.core.StandardRuleViolation
 import io.specmatic.toViolationReportString
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.test.TestExecutor
@@ -533,7 +532,7 @@ paths:
                         }
                     }).result as Result.Failure
 
-        assertThat(result.reportString()).contains("Contract expected")
+        assertThat(result.reportString()).contains("Specification expected")
         assertThat(result.reportString()).contains("response contained")
     }
 
@@ -661,14 +660,14 @@ paths:
         ${
             toViolationReportString(
                 breadCrumb = "MONITOR.RESPONSE.BODY.name",
-                details = "Invalid request or response payload in the monitor response\nExpected string, actual was 20 (number)",
+                details = "Invalid request or response payload in the monitor response\n${DefaultMismatchMessages.typeMismatch("string", "20", "number")}",
                 StandardRuleViolation.TYPE_MISMATCH
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "MONITOR.RESPONSE.BODY.age",
-                details = "Invalid request or response payload in the monitor response\nExpected number, actual was \"John\"",
+                details = "Invalid request or response payload in the monitor response\n${DefaultMismatchMessages.typeMismatch("number", "\"John\"", "string")}",
                 StandardRuleViolation.TYPE_MISMATCH
             )
         }
@@ -741,7 +740,7 @@ paths:
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.STATUS",
-                details = "Contract expected status 201 but response contained status 202",
+                details = SpecificationAndResponseMismatch.mismatchMessage("status 201", "status 202"),
                 OpenApiRuleViolation.STATUS_MISMATCH
             )
         }
