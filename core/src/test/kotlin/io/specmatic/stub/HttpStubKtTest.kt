@@ -343,7 +343,7 @@ Feature: Test
         ${toViolationReportString(
             breadCrumb = "REQUEST.BODY",
             details = """
-            ${ExampleAndRequestMismatchMessages.typeMismatch("number", "\"Hello\"", "string")}
+            ${ExampleAndRequestMismatchMessages(null).typeMismatch("number", "\"Hello\"", "string")}
             ${DefaultMismatchMessages.mismatchMessage("number", "\"Hello\"")}
             """.trimIndent()
         )}
@@ -467,7 +467,8 @@ Scenario: Square of a number
             stubRequest.toPattern(),
             stubResponse,
             Resolver(),
-            responsePattern = HttpResponsePattern()
+            responsePattern = HttpResponsePattern(),
+            name = "TestExample"
         )
 
         val request = HttpRequest(method = "GET", path = "/count")
@@ -479,7 +480,7 @@ Scenario: Square of a number
         STRICT MODE ON
         ${toViolationReportString(
             breadCrumb = "REQUEST.PARAMETERS.QUERY.status",
-            details = ExampleAndRequestMismatchMessages.expectedKeyWasMissing("query param", "status")
+            details = ExampleAndRequestMismatchMessages("TestExample").expectedKeyWasMissing("query param", "status")
         )}
         """.trimIndent())
     }

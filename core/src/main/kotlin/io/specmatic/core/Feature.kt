@@ -865,7 +865,8 @@ data class Feature(
                 requestBodyRegex = scenarioStub.requestBodyRegex?.let { Regex(it) },
                 stubToken = scenarioStub.stubToken,
                 data = scenarioStub.data,
-                examplePath = scenarioStub.filePath
+                examplePath = scenarioStub.filePath,
+                name = scenarioStub.nameOrFileName
             )
         }
 
@@ -902,7 +903,8 @@ data class Feature(
             scenario = matchingScenario,
             data = scenarioStub.data,
             contractPath = this.path,
-            partial = scenarioStub.partial.copy(response = scenarioStub.partial.response)
+            partial = scenarioStub.partial.copy(response = scenarioStub.partial.response),
+            name = scenarioStub.nameOrFileName
         )
     }
 

@@ -1119,14 +1119,7 @@ fun getHttpResponse(
                 stubResult = Result.Success()
             )
         }
-        if (strictMode) return NotStubbed(
-            HttpStubResponse(
-                response = strictModeHttp400Response(httpRequest, matchResults),
-                scenario = features.firstNotNullOfOrNull { it.identifierMatchingScenario(httpRequest) }
-            ),
-            stubResult = Result.Failure("Request did not match any of the examples")
-        )
-
+        if (strictMode) return strictModeHttp400Response(features, httpRequest, matchResults)
         return fakeHttpResponse(features, httpRequest, specmaticConfig)
     } finally {
         features.forEach { feature -> feature.clearServerState() }
@@ -1357,22 +1350,26 @@ fun dumpIntoFirstAvailableStringField(jsonArrayValue: JSONArrayValue, stringValu
     return jsonArrayValue.copy(list = newList)
 }
 
-private fun strictModeHttp400Response(
-    httpRequest: HttpRequest,
-    matchResults: List<Pair<Result, HttpStubData>>
-): HttpResponse {
+private fun strictModeHttp400Response(features: List<Feature>, httpRequest: HttpRequest, matchResults: List<Pair<Result, HttpStubData>>): NotStubbed {
     val failureResults = matchResults.map { it.first }
     val results = Results(failureResults).withoutFluff().withoutViolationReport()
-    return HttpResponse(
-        400,
-        headers = mapOf(SPECMATIC_RESULT_HEADER to "failure"),
-        body = StringValue(
-            "STRICT MODE ON${System.lineSeparator()}${System.lineSeparator()}${
-                results.strictModeReport(
-                    httpRequest
-                )
-            }"
-        )
+    val strictModeReport = results.strictModeReport(httpRequest)
+
+    val defaultHeaders = mapOf("Content-Type" to "text/plain", SPECMATIC_RESULT_HEADER to "failure")
+    val headers = when {
+        strictModeReport.isEmpty() -> defaultHeaders.plus(SPECMATIC_EMPTY_HEADER to "true")
+        else -> defaultHeaders
+    }
+
+    return NotStubbed(
+        stubResult = results.toResultIfAnyWithCauses(),
+        response = HttpStubResponse(
+            scenario = features.firstNotNullOfOrNull { it.identifierMatchingScenario(httpRequest) },
+            response = HttpResponse(
+                status = 400, headers = headers,
+                body = StringValue("STRICT MODE ON${System.lineSeparator()}${System.lineSeparator()}$strictModeReport")
+            ),
+        ),
     )
 }
 
