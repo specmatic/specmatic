@@ -796,10 +796,13 @@ class HttpQueryParamPatternTest {
             val params = QueryParameters(mapOf("number" to "(string)"))
             val exception = assertThrows<ContractException> { queryParams.fillInTheBlanks(params, Resolver()).value }
 
-            assertThat(exception.failure().reportString()).isEqualToNormalizingWhitespace("""
-            >> number
-            ${DefaultMismatchMessages.patternMismatch("number", "string")}
-            """.trimIndent())
+            assertThat(exception.failure().reportString()).isEqualToNormalizingWhitespace(
+                toViolationReportString(
+                    breadCrumb = "number",
+                    details = DefaultMismatchMessages.patternMismatch("number", "string"),
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            )
         }
 
         @Test

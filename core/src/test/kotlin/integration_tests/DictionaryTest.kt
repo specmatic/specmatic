@@ -650,11 +650,17 @@ class DictionaryTest {
             val resolver = Resolver(dictionary = dictionary.copy(strictMode = true))
             val exception = assertThrows<ContractException> { pattern.generate(resolver) }
 
-            assertThat(exception.report()).isEqualToNormalizingWhitespace("""
-            >> array[1]
-            Invalid Dictionary value at "Schema.array"
-            ${DictionaryMismatchMessages.typeMismatch("number", "\"abc\"", "string")}
-            """.trimIndent())
+
+            assertThat(exception.report()).isEqualToNormalizingWhitespace(
+                toViolationReportString(
+                    breadCrumb = "array[1]",
+                    details = """
+                    Invalid Dictionary value at "Schema.array"
+                    ${DictionaryMismatchMessages.typeMismatch("number", "\"abc\"", "string")}
+                    """.trimIndent(),
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            )
         }
 
         @Test

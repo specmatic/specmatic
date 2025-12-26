@@ -16,9 +16,28 @@ import io.specmatic.core.pattern.unwrapOrContractException
 import io.specmatic.core.pattern.unwrapOrReturn
 import io.specmatic.core.utilities.ExternalCommand
 import io.specmatic.core.utilities.Transactional
+import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.utilities.jsonStringToValueMap
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.mock.ScenarioStub
+
+object ExampleAndRequestMismatchMessages : MismatchMessages {
+    override fun mismatchMessage(expected: String, actual: String): String {
+        return "Example expected $expected but request contained $actual"
+    }
+
+    override fun unexpectedKey(keyLabel: String, keyName: String): String {
+        return "${keyLabel.capitalizeFirstChar()} \"$keyName\" in the request was not in the example"
+    }
+
+    override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
+        return "Example expected mandatory $keyLabel \"$keyName\" to be present but was missing from the request"
+    }
+
+    override fun optionalKeyMissing(keyLabel: String, keyName: String): String {
+        return "Expected optional $keyLabel \"$keyName\" from example to be present but was missing from the request"
+    }
+}
 
 data class HttpStubData(
     val requestType: HttpRequestPattern,
@@ -66,7 +85,7 @@ data class HttpStubData(
 
     fun matches(
         httpRequest: HttpRequest,
-        mismatchMessages: MismatchMessages = SpecificationAndRequestMismatchMessages,
+        mismatchMessages: MismatchMessages = ExampleAndRequestMismatchMessages,
     ): Result {
         val exampleMatchResult = matchExample(httpRequest, mismatchMessages)
         if (exampleMatchResult is Result.Failure) return exampleMatchResult
@@ -104,7 +123,7 @@ data class HttpStubData(
 
     private fun matchExample(
         httpRequest: HttpRequest,
-        mismatchMessages: MismatchMessages = SpecificationAndRequestMismatchMessages,
+        mismatchMessages: MismatchMessages = ExampleAndRequestMismatchMessages,
     ): Result {
         return requestType.matches(
             httpRequest,

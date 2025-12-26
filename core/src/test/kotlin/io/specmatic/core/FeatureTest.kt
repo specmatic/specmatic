@@ -2468,10 +2468,13 @@ paths:
             feature.loadExternalisedExamples()
         }
 
-        assertThat(error.report()).isEqualToNormalizingWhitespace("""
-        >> http-respons
-        ${unexpectedKeyButMatches("http-respons", "http-response")}
-        """.trimIndent())
+        assertThat(error.report()).isEqualToNormalizingWhitespace(
+            toViolationReportString(
+                breadCrumb = "http-respons",
+                details = unexpectedKeyButMatches("http-respons", "http-response"),
+                StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+            )
+        )
     }
 
     @Test

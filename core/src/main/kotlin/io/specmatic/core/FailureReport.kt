@@ -6,12 +6,6 @@ data class FailureReport(val contractPath: String?, private val scenarioMessage:
         return matchFailureDetailsErrorMessage(matchFailureDetailList.first()).joinToString("\n\n")
     }
 
-    fun getRuleViolationReport(): RuleViolationReport {
-        return matchFailureDetailList.fold(RuleViolationReport()) { acc, ruleViolations ->
-            acc.plus(ruleViolations.ruleViolationReport)
-        }
-    }
-
     fun breadCrumbs(): String {
         if(matchFailureDetailList.size != 1)
             return ""
@@ -60,15 +54,13 @@ data class FailureReport(val contractPath: String?, private val scenarioMessage:
     private fun matchFailureDetails(matchFailureDetails: MatchFailureDetails): String {
         val breadCrumbString = startOfBreadCrumbPrefix(breadCrumbString(matchFailureDetails.breadCrumbs))
         val matchFailureDetails = matchFailureDetailsErrorMessage(matchFailureDetails).map { it.prependIndent("    ") }
-        return listOf(breadCrumbString).plus(matchFailureDetails).joinToString("\n\n")
+        return listOf(breadCrumbString).plus(matchFailureDetails).filter(String::isNotBlank).joinToString("\n\n")
     }
 
     private fun matchFailureDetailsErrorMessage(matchFailureDetails: MatchFailureDetails): List<String> {
         val errorMessageString = errorMessagesToString(matchFailureDetails.errorMessages)
         val ruleViolationString = matchFailureDetails.ruleViolationReport?.toText()
-        return listOf(ruleViolationString, errorMessageString).mapNotNull {
-            it?.takeIf(String::isNotBlank)
-        }
+        return listOfNotNull(ruleViolationString, errorMessageString).filter(String::isNotBlank)
     }
 
     private fun errorMessagesToString(errorMessages: List<String>) =

@@ -1046,55 +1046,61 @@ paths:
                     "supposed-to-be-http-request": { "path": "/add", "method": "POST" },
                     "http-response": { "status": 200 }
                     }""".trimIndent(),
-                    """
-                    >> supposed-to-be-http-request
-                    ${unexpectedKeyButMatches("supposed-to-be-http-request", "http-request")}
-                    """.trimIndent()
+                    toViolationReportString(
+                        breadCrumb = "supposed-to-be-http-request",
+                        details = unexpectedKeyButMatches("supposed-to-be-http-request", "http-request"),
+                        StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+                    )
                 ),
                 Arguments.of("""{
                     "http-request": { "path": "/add", "method": "POST" },
                     "supposed-to-be-http-response": { "status": 200 }
                     }""".trimIndent(),
-                    """
-                    >> supposed-to-be-http-response 
-                    ${unexpectedKeyButMatches("supposed-to-be-http-response", "http-response")}
-                    """.trimIndent()
+                    toViolationReportString(
+                        breadCrumb = "supposed-to-be-http-response",
+                        details = unexpectedKeyButMatches("supposed-to-be-http-response", "http-response"),
+                        StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+                    )
                 ),
                 Arguments.of("""{
                     "http-request": { "path": "/add", "supposed-to-be-method": "POST" },
                     "http-response": { "status": 200 }
                     }""".trimIndent(),
-                    """
-                    >> http-request.supposed-to-be-method
-                    ${unexpectedKeyButMatches("supposed-to-be-method", "method")}
-                    """.trimIndent()
+                    toViolationReportString(
+                        breadCrumb = "http-request.supposed-to-be-method",
+                        details = unexpectedKeyButMatches("supposed-to-be-method", "method"),
+                        StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+                    )
                 ),
                 Arguments.of("""{
                     "http-request": { "path": "/add", "method": "POST", body: null },
                     "http-response": { "status": 200 }
                     }""".trimIndent(),
-                    """
-                    >> http-request.body
-                    ${FuzzyExampleMisMatchMessages.mismatchMessage("non-null value", "null")}
-                    """.trimIndent()
+                    toViolationReportString(
+                        breadCrumb = "http-request.body",
+                        details = FuzzyExampleMisMatchMessages.mismatchMessage("non-null value", "null"),
+                        StandardRuleViolation.VALUE_MISMATCH
+                    )
                 ),
                 Arguments.of("""{
                     "http-request": { "path": "/add", "method": "POST" },
                     "http-response": { "supposed-to-be-status": 200 }
                     }""".trimIndent(),
-                    """
-                    >> http-response.supposed-to-be-status
-                    ${unexpectedKeyButMatches("supposed-to-be-status", "status")}
-                    """.trimIndent()
+                    toViolationReportString(
+                        breadCrumb = "http-response.supposed-to-be-status",
+                        details = unexpectedKeyButMatches("supposed-to-be-status", "status"),
+                        StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+                    )
                 ),
                 Arguments.of("""{
                     "http-request": { "path": "/add", "method": "POST" },
                     "http-response": { "status": 200,  body: null }
                     }""".trimIndent(),
-                    """
-                    >> http-response.body
-                    ${FuzzyExampleMisMatchMessages.mismatchMessage("non-null value", "null")}
-                    """.trimIndent()
+                    toViolationReportString(
+                        breadCrumb = "http-response.body",
+                        details = FuzzyExampleMisMatchMessages.mismatchMessage("non-null value", "null"),
+                        StandardRuleViolation.VALUE_MISMATCH
+                    )
                 )
             )
         }

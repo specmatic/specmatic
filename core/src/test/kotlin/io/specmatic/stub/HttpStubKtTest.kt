@@ -343,10 +343,9 @@ Feature: Test
         ${toViolationReportString(
             breadCrumb = "REQUEST.BODY",
             details = """
-            ${SpecificationAndRequestMismatchMessages.typeMismatch("number", "\"Hello\"", "string")}
+            ${ExampleAndRequestMismatchMessages.typeMismatch("number", "\"Hello\"", "string")}
             ${DefaultMismatchMessages.mismatchMessage("number", "\"Hello\"")}
-            """.trimIndent(),
-            StandardRuleViolation.TYPE_MISMATCH
+            """.trimIndent()
         )}
         """.trimIndent())
     }
@@ -480,8 +479,7 @@ Scenario: Square of a number
         STRICT MODE ON
         ${toViolationReportString(
             breadCrumb = "REQUEST.PARAMETERS.QUERY.status",
-            details = SpecificationAndRequestMismatchMessages.expectedKeyWasMissing("query param", "status"),
-            StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+            details = ExampleAndRequestMismatchMessages.expectedKeyWasMissing("query param", "status")
         )}
         """.trimIndent())
     }
@@ -825,7 +823,7 @@ paths:
 
         println(requestString)
 
-        assertThat(requestString).contains("Specification expected")
+        assertThat(requestString).contains("Example expected")
         assertThat(requestString).contains("request contained")
     }
 
