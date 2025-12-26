@@ -97,6 +97,12 @@ object NewAndOldSpecificationRequestMismatches: MismatchMessages {
     override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
         return "New specification expects $keyLabel \"$keyName\" in the request but it is missing from the old specification"
     }
+
+    override fun typeMismatch(expectedType: String, actualValue: String?, actualType: String?): String {
+        val expectedPart = "type $expectedType"
+        val actualPart = "type $actualType"
+        return mismatchMessage(expectedPart, actualPart)
+    }
 }
 
 object NewAndOldSpecificationResponseMismatches: MismatchMessages {
@@ -117,5 +123,11 @@ object NewAndOldSpecificationResponseMismatches: MismatchMessages {
 
     override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
         return "The old specification expects $keyLabel \"$keyName\" but it is missing in the new specification"
+    }
+
+    override fun typeMismatch(expectedType: String, actualValue: String?, actualType: String?): String {
+        val expectedPart = "type $expectedType"
+        val actualPart = "type $actualType"
+        return NewAndOldSpecificationRequestMismatches.mismatchMessage(expectedPart, actualPart)
     }
 }
