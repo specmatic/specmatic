@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
+import org.junit.jupiter.api.assertThrows
 
 internal class AnyPatternTest {
     @Test
@@ -457,28 +458,28 @@ internal class AnyPatternTest {
             toViolationReportString(
                 breadCrumb = "(when Sub1 object).newKey",
                 details = DefaultMismatchMessages.unexpectedKey("property", "newKey"),
-                StandardRuleViolation.ONE_OF_VALUE_MISMATCH, StandardRuleViolation.UNKNOWN_PROPERTY
+                StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "(when Sub1 object).prop",
                 details = DefaultMismatchMessages.typeMismatch("string", "true", "boolean"),
-                StandardRuleViolation.ONE_OF_VALUE_MISMATCH, StandardRuleViolation.TYPE_MISMATCH
+                StandardRuleViolation.TYPE_MISMATCH
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "(when Sub2 object).newKey",
                 details = DefaultMismatchMessages.unexpectedKey("property", "newKey"),
-                StandardRuleViolation.ONE_OF_VALUE_MISMATCH, StandardRuleViolation.UNKNOWN_PROPERTY
+                StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "(when Sub2 object).prop",
                 details = DefaultMismatchMessages.typeMismatch("number", "true", "boolean"),
-                StandardRuleViolation.ONE_OF_VALUE_MISMATCH, StandardRuleViolation.TYPE_MISMATCH
+                StandardRuleViolation.TYPE_MISMATCH
             )
         }
         """.trimIndent())
@@ -553,6 +554,35 @@ internal class AnyPatternTest {
         val pattern = AnyPattern(pattern = listOf(StringPattern()), extensions = emptyMap())
         val nullablePattern = pattern.toNullable(null)
         assertThat(nullablePattern.pattern).contains(NullPattern)
+    }
+
+    @Test
+    fun `should throw exceptions with all sub-schema parse failures if parse fails for all cases`() {
+        val pattern = AnyPattern(pattern = listOf(NumberPattern(), BooleanPattern()), extensions = emptyMap())
+        val exception = assertThrows<ContractException> { pattern.parse("123False", Resolver()) }
+
+        assertThat(exception.report()).isEqualToIgnoringWhitespace("""
+        ${
+            toViolationReportString(
+                breadCrumb = null,
+                details = """
+                ${DefaultMismatchMessages.typeMismatch("number", "\"123False\"", "string")}
+                Expected number, actual was "123False"
+                """.trimIndent(),
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = null,
+                details = """
+                ${DefaultMismatchMessages.typeMismatch("boolean", "\"123False\"", "string")}
+                Must be true or false
+                """.trimIndent(),
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        """.trimIndent())
     }
 
     @Nested

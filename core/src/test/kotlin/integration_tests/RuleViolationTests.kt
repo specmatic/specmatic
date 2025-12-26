@@ -134,6 +134,7 @@ data class RuleViolationCase(val patternTestCase: CompositePatternTestCase, val 
             val pattern = patterns[check.patternName] ?: fail("Pattern '${check.patternName}' not found")
             val result = pattern.matches(check.value, updatedResolver)
             logger.log("Checking ${check.patternName} with value ${check.value}")
+            logger.boundary()
             logger.log("Result: ${result.reportString()}")
             logger.boundary()
             check.assertions.forEach { it.assertViolation(result) }
@@ -290,19 +291,19 @@ class RuleViolationTests {
                     }
                     withPattern(name = "Cat") {
                         put("type", "object")
-                        put("allOf", listOf(mapOf("\$ref" to "#/patterns/Base")))
+                        put("allOf", listOf(mapOf("\$ref" to "#/components/schemas/Base")))
                         put("properties", mapOf("whiskers" to mapOf("type" to "integer")))
                         put("required", listOf("whiskers"))
                     }
                     withPattern(name = "Dog") {
                         put("type", "object")
-                        put("allOf", listOf(mapOf("\$ref" to "#/patterns/Base")))
+                        put("allOf", listOf(mapOf("\$ref" to "#/components/schemas/Base")))
                         put("properties", mapOf("bark" to mapOf("type" to "boolean")))
                         put("required", listOf("bark"))
                     }
                     withPattern(name = "Animal") {
-                        put("oneOf", listOf(mapOf("\$ref" to "#/patterns/Cat"), mapOf("\$ref" to "#/patterns/Dog")))
-                        put("discriminator", mapOf("propertyName" to "type", "mapping" to mapOf("Cat" to "#/patterns/Cat", "Dog" to "#/patterns/Dog")))
+                        put("oneOf", listOf(mapOf("\$ref" to "#/components/schemas/Cat"), mapOf("\$ref" to "#/components/schemas/Dog")))
+                        put("discriminator", mapOf("propertyName" to "type", "mapping" to mapOf("Cat" to "#/components/schemas/Cat", "Dog" to "#/components/schemas/Dog")))
                     }
 
                     forPattern(name = "Animal") {
@@ -321,19 +322,19 @@ class RuleViolationTests {
                     }
                     withPattern(name = "Cat") {
                         put("type", "object")
-                        put("allOf", listOf(mapOf("\$ref" to "#/patterns/Base")))
+                        put("allOf", listOf(mapOf("\$ref" to "#/components/schemas/Base")))
                         put("properties", mapOf("whiskers" to mapOf("type" to "integer")))
                         put("required", listOf("whiskers"))
                     }
                     withPattern(name = "Dog") {
                         put("type", "object")
-                        put("allOf", listOf(mapOf("\$ref" to "#/patterns/Base")))
+                        put("allOf", listOf(mapOf("\$ref" to "#/components/schemas/Base")))
                         put("properties", mapOf("bark" to mapOf("type" to "boolean")))
                         put("required", listOf("bark"))
                     }
                     withPattern(name = "Animal") {
-                        put("oneOf", listOf(mapOf("\$ref" to "#/patterns/Cat"), mapOf("\$ref" to "#/patterns/Dog")))
-                        put("discriminator", mapOf("propertyName" to "type", "mapping" to mapOf("Cat" to "#/patterns/Cat", "Dog" to "#/patterns/Dog")))
+                        put("oneOf", listOf(mapOf("\$ref" to "#/components/schemas/Cat"), mapOf("\$ref" to "#/components/schemas/Dog")))
+                        put("discriminator", mapOf("propertyName" to "type", "mapping" to mapOf("Cat" to "#/components/schemas/Cat", "Dog" to "#/components/schemas/Dog")))
                     }
 
                     forPattern(name = "Animal") {
@@ -356,8 +357,8 @@ class RuleViolationTests {
                         put("required", listOf("bark"))
                     }
                     withPattern(name = "Animal") {
-                        put("oneOf", listOf(mapOf("\$ref" to "#/patterns/Cat"), mapOf("\$ref" to "#/patterns/Dog")))
-                        put("discriminator", mapOf("propertyName" to "type", "mapping" to mapOf("Cat" to "#/patterns/Cat", "Dog" to "#/patterns/Dog")))
+                        put("oneOf", listOf(mapOf("\$ref" to "#/components/schemas/Cat"), mapOf("\$ref" to "#/components/schemas/Dog")))
+                        put("discriminator", mapOf("propertyName" to "type", "mapping" to mapOf("Cat" to "#/components/schemas/Cat", "Dog" to "#/components/schemas/Dog")))
                     }
 
                     forPattern(name = "Animal") {
@@ -365,19 +366,6 @@ class RuleViolationTests {
                         expect(path = "/type") {
                             totalViolations(1)
                             toContainViolation(StandardRuleViolation.INVALID_DISCRIMINATOR_SETUP)
-                        }
-                    }
-                },
-                violationTestCase(name = "OneOf Value Mismatch") {
-                    withPattern(name = "OneOfPattern") {
-                        put("oneOf", listOf(mapOf("type" to "number"), mapOf("type" to "string")))
-                    }
-                    forPattern(name = "OneOfPattern") {
-                        withValue(true)
-                        expect {
-                            totalViolations(2)
-                            toContainViolation(StandardRuleViolation.ONE_OF_VALUE_MISMATCH)
-                            toContainViolation(StandardRuleViolation.TYPE_MISMATCH)
                         }
                     }
                 },
@@ -393,8 +381,8 @@ class RuleViolationTests {
                     }
                     withPattern(name = "AnyOfPattern") {
                         put("anyOf", listOf(
-                            mapOf("\$ref" to "#/patterns/OptionA"),
-                            mapOf("\$ref" to "#/patterns/OptionB")
+                            mapOf("\$ref" to "#/components/schemas/OptionA"),
+                            mapOf("\$ref" to "#/components/schemas/OptionB")
                         ))
                     }
 
@@ -417,8 +405,8 @@ class RuleViolationTests {
                     }
                     withPattern(name = "AnyOfPattern") {
                         put("anyOf", listOf(
-                            mapOf("\$ref" to "#/patterns/OptionA"),
-                            mapOf("\$ref" to "#/patterns/OptionB")
+                            mapOf("\$ref" to "#/components/schemas/OptionA"),
+                            mapOf("\$ref" to "#/components/schemas/OptionB")
                         ))
                     }
 
