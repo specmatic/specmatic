@@ -543,6 +543,15 @@ fun dataTypeMismatchResult(
 // Constraint Mismatch
 fun constraintMismatchResult(
     expected: String,
+    actual: String,
+    mismatchMessages: MismatchMessages = DefaultMismatchMessages
+): Failure = Failure(
+    message = mismatchMessages.valueMismatch(expected = expected, actual = actual),
+    ruleViolation = StandardRuleViolation.CONSTRAINT_VIOLATION
+)
+
+fun constraintMismatchResult(
+    expected: String,
     actual: Value?,
     mismatchMessages: MismatchMessages = DefaultMismatchMessages
 ): Failure = Failure(

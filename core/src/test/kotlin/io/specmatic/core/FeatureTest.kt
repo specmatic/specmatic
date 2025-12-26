@@ -402,7 +402,7 @@ paths:
         ${
             toViolationReportString(
                 breadCrumb = "REQUEST.BODY.calls_made",
-                details = "Expected an array of length 3, actual length 2",
+                details = DefaultMismatchMessages.valueMismatch("array of length 3", "array of length 2"),
                 StandardRuleViolation.CONSTRAINT_VIOLATION
             )
         }
