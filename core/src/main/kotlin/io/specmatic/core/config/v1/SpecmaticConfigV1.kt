@@ -19,7 +19,7 @@ data class SpecmaticConfigV1 (
 	val repository: RepositoryInfo? = null,
 	val report: ReportConfigurationDetails? = null,
 	val security: SecurityConfiguration? = null,
-	val test: TestConfiguration? = TestConfiguration(),
+	val test: TestConfiguration? = null,
 	val stub: StubConfiguration = StubConfiguration(),
 	@field:JsonAlias("virtual_service")
 	val virtualService: VirtualServiceConfiguration = VirtualServiceConfiguration(),
