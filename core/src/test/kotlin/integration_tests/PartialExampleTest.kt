@@ -10,6 +10,8 @@ import io.specmatic.core.utilities.Flags.Companion.STUB_STRICT_MODE
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.toViolationReportString
 import io.specmatic.osAgnosticPath
 import io.specmatic.stub.HttpStub
 import io.specmatic.stub.captureStandardOutput
@@ -609,10 +611,20 @@ class PartialExampleTest {
         Error from contract $apiSpecFile
         In scenario "PATCH /creators/(creatorId:number)/pets/(petId:number). Response: bad request"
         API: PATCH /creators/(creatorId:number)/pets/(petId:number) -> 400
-        >> RESPONSE.BODY.code
-        Expected number, actual was "400"
-        >> RESPONSE.BODY.message
-        Expected string, actual was number
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY.code",
+                details = "Expected number, actual was \"400\"",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY.message",
+                details = "Expected string, actual was number",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
         """.trimIndent())
     }
 }

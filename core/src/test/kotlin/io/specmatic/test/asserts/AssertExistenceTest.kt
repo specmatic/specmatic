@@ -1,10 +1,12 @@
 package io.specmatic.test.asserts
 
 import io.specmatic.core.Result
+import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.test.asserts.AssertComparisonTest.Companion.toFactStore
+import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -40,10 +42,11 @@ class AssertExistenceTest {
         println(result.reportString())
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> BODY.name
-        Expected "BODY.name" to exist
-        """.trimIndent())
+        assertThat(toViolationReportString(
+            breadCrumb = "BODY.name",
+            details = "Expected \"BODY.name\" to exist",
+            StandardRuleViolation.VALUE_MISMATCH,
+        ))
     }
 
     @Test
@@ -57,10 +60,11 @@ class AssertExistenceTest {
         println(result.reportString())
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> BODY.name
-        Expected "BODY.name" to not exist
-        """.trimIndent())
+        assertThat(toViolationReportString(
+            breadCrumb = "BODY.name",
+            details = "Expected \"BODY.name\" to not exist",
+            StandardRuleViolation.VALUE_MISMATCH,
+        ))
     }
 
     @Test
@@ -74,10 +78,11 @@ class AssertExistenceTest {
         println(result.reportString())
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> BODY.name
-        Expected "BODY.name" to not be null
-        """.trimIndent())
+        assertThat(toViolationReportString(
+            breadCrumb = "BODY.name",
+            details = "Expected \"BODY.name\" to not be null",
+            StandardRuleViolation.VALUE_MISMATCH,
+        ))
     }
 
     @Test
@@ -91,10 +96,11 @@ class AssertExistenceTest {
         println(result.reportString())
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> BODY.name
-        Expected "BODY.name" to be null
-        """.trimIndent())
+        assertThat(toViolationReportString(
+            breadCrumb = "BODY.name",
+            details = "Expected \"BODY.name\" to be null",
+            StandardRuleViolation.VALUE_MISMATCH,
+        ))
     }
 
     @Test

@@ -2,6 +2,7 @@ package io.specmatic.test.reports
 
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
+import io.specmatic.core.Result
 import io.specmatic.core.Scenario
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.reporter.model.TestResult
@@ -9,9 +10,10 @@ import io.specmatic.test.API
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.reports.coverage.Endpoint
 
+// TODO: Result is currently only applicable to the last response, no data for the rest
 data class TestExecutionResult(
     val name: String,
-    val details: String,
+    val result: Result,
     val scenario: Scenario,
     val testResult: TestResult,
     val valid: Boolean,
@@ -59,7 +61,7 @@ internal fun List<TestReportListener>.onTestResult(testResultRecord: TestResultR
         response = httpLogMessages.map(HttpLogMessage::response),
         responseTime = lastHttpLogMessage.responseTime?.toEpochMillis(),
         actualResponseStatus = testResultRecord.actualResponseStatus,
-        details = testResultRecord.scenarioResult?.reportString() ?: "No details found for this test",
+        result = testResultRecord.scenarioResult ?: Result.Failure("No details found for this test"),
     )
     onEachListener { onTestResult(testExecutionResult) }
 }

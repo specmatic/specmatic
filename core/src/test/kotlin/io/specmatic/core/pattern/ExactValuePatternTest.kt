@@ -3,6 +3,8 @@ package io.specmatic.core.pattern
 import io.specmatic.GENERATION
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.toViolationReportString
 import io.specmatic.core.value.BooleanValue
 import org.junit.jupiter.api.Test
 import io.specmatic.core.value.NullValue
@@ -58,8 +60,20 @@ internal class ExactValuePatternTest {
         val result = constPattern.encompasses(anyValueOneOf, Resolver(), Resolver())
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
-        Expected 100 (number), actual was 99 (number)
-        Expected 100 (number), actual was 101 (number)
+        ${
+            toViolationReportString(
+                breadCrumb = null,
+                details = "Expected 100 (number), actual was 99 (number)",
+                StandardRuleViolation.VALUE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = null,
+                details = "Expected 100 (number), actual was 101 (number)",
+                StandardRuleViolation.VALUE_MISMATCH
+            )
+        }
         """.trimIndent())
     }
 

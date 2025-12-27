@@ -3,6 +3,7 @@ package io.specmatic.core.pattern
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.Result.Failure
+import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.ListValue
@@ -11,10 +12,7 @@ import io.specmatic.core.value.Value
 
 data class QueryParameterArrayPattern(override val pattern: List<Pattern>, val parameterName: String): Pattern {
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
-        if(sampleData !is ListValue) {
-            return resolver.mismatchMessages.valueMismatchFailure("Array", sampleData)
-        }
-
+        if (sampleData !is ListValue) return dataTypeMismatchResult("list of ${pattern.first().typeName}", sampleData)
         val requestValues = sampleData.list.map { it.toString() }
         val initialFoldValue =
             emptyList<Result>() to requestValues.map<String, Pair<String, List<Failure>>> { value ->
@@ -89,7 +87,6 @@ data class QueryParameterArrayPattern(override val pattern: List<Pattern>, val p
         }
 
         return Result.fromResults(listOf(overallMatchResultForTheKey, unmatchedKeysResult))
-
     }
 
     override fun generate(resolver: Resolver): Value {

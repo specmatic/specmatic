@@ -213,8 +213,9 @@ data class AnyPattern(
             }.failedToFindAny(typeName, getResult(matchResults.map { it.result as Failure }), resolver.mismatchMessages)
 
         val failuresWithUpdatedBreadcrumbs = addTypeInfoBreadCrumbs(matchResults)
-
-        return Result.fromFailures(failuresWithUpdatedBreadcrumbs)
+        return Result.fromFailures(failures = failuresWithUpdatedBreadcrumbs).withRuleViolation(
+            ruleViolation = StandardRuleViolation.ONE_OF_VALUE_MISMATCH
+        )
     }
 
     private fun anyPatternIsEnum(): Boolean {
@@ -339,7 +340,7 @@ data class AnyPattern(
         val compatibleResult = otherPattern.fitsWithin(patternSet(thisResolver), otherResolver, thisResolver, typeStack)
 
         return if(compatibleResult is Failure && allValuesAreScalar())
-            mismatchResult(this, otherPattern, thisResolver.mismatchMessages)
+            patternMismatchResult(this, otherPattern, thisResolver.mismatchMessages)
         else
             compatibleResult
     }
@@ -631,7 +632,7 @@ private class FailedToFindAnyUsingTypeValueDescription <V> (val actual: V) : Fai
             else -> "$displayableValueOfActual (${actual.type().typeName})"
         }
 
-        return mismatchResult(expected, description, mismatchMessages)
+        return valueMismatchResult(expected, description, mismatchMessages)
     }
 
 }
@@ -645,7 +646,7 @@ private class FailedToFindAnyUsingValue(val actual: Value?) : FailedToFindAny {
         return when (results.size) {
             1 -> results[0]
             else -> {
-                mismatchResult(expected, actual, mismatchMessages)
+                valueMismatchResult(expected, actual, mismatchMessages)
             }
         }
     }

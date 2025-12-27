@@ -7,6 +7,8 @@ import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.shouldNotMatch
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.toViolationReportString
 import org.apache.commons.lang3.RandomStringUtils
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.fail
@@ -92,7 +94,11 @@ internal class StringPatternTest {
         val candidate = "VAKTIGOOIXJDKQWGBBAPFXRKIHLEONUP"
         val result = StringPattern(regex = regex).matches(StringValue(candidate), Resolver())
         assertThat(result.isSuccess()).isFalse
-        assertThat(result.reportString()).isEqualTo("""Expected string that matches regex $regex, actual was "$candidate"""")
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace("""${toViolationReportString(
+            breadCrumb = null,
+            details = "Expected string that matches regex $regex, actual was \"$candidate\"",
+            StandardRuleViolation.CONSTRAINT_VIOLATION
+        )}""")
     }
 
     @Test
@@ -125,14 +131,22 @@ internal class StringPatternTest {
     fun `should not match when string is shorter than minLength`() {
         val result = StringPattern(minLength = 4).matches(StringValue("abc"), Resolver())
         assertThat(result.isSuccess()).isFalse
-        assertThat(result.reportString()).isEqualTo("""Expected string with minLength 4, actual was "abc"""")
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace("""${toViolationReportString(
+            breadCrumb = null,
+            details = "Expected string with minLength 4, actual was \"abc\"",
+            StandardRuleViolation.CONSTRAINT_VIOLATION
+        )}""")
     }
 
     @Test
     fun `should not match when string is longer than maxLength`() {
         val result = StringPattern(maxLength = 3).matches(StringValue("test"), Resolver())
         assertThat(result.isSuccess()).isFalse
-        assertThat(result.reportString()).isEqualTo("""Expected string with maxLength 3, actual was "test"""")
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace("""${toViolationReportString(
+            breadCrumb = null,
+            details = "Expected string with maxLength 3, actual was \"test\"",
+            StandardRuleViolation.CONSTRAINT_VIOLATION
+        )}""")
     }
 
     @ParameterizedTest

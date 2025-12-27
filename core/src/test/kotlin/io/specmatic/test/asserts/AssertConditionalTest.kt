@@ -2,12 +2,14 @@ package io.specmatic.test.asserts
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
+import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.test.asserts.AssertComparisonTest.Companion.toFactStore
+import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -33,10 +35,11 @@ class AssertConditionalTest {
             println(result.reportString())
 
             assertThat(result).isInstanceOf(Result.Failure::class.java)
-            assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-            >> BODY.address
-            Expected "456 Main St" to equal "123 Main St"
-            """.trimIndent())
+            assertThat(toViolationReportString(
+                breadCrumb = "BODY.address",
+                details = "Expected \"BODY.address\" to equal \"123 Main St\"",
+                StandardRuleViolation.VALUE_MISMATCH,
+            ))
         }
 
         @Test
@@ -56,10 +59,11 @@ class AssertConditionalTest {
             println(result.reportString())
 
             assertThat(result).isInstanceOf(Result.Failure::class.java)
-            assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-            >> BODY.address
-            Expected "123 Main St" to not equal "123 Main St"
-            """.trimIndent())
+            assertThat(toViolationReportString(
+                breadCrumb = "BODY.address",
+                details = "Expected \"BODY.address\" to not equal \"123 Main St\"",
+                StandardRuleViolation.VALUE_MISMATCH,
+            ))
         }
     }
 
@@ -88,10 +92,11 @@ class AssertConditionalTest {
             println(result.reportString())
 
             assertThat(result).isInstanceOf(Result.Failure::class.java)
-            assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-            >> BODY[1].address
-            Expected "123 Main St" to equal "456 Main St"
-            """.trimIndent())
+            assertThat(result.reportString()).isEqualToNormalizingWhitespace(toViolationReportString(
+                breadCrumb = "BODY[1].address",
+                details = "Expected \"123 Main St\" to equal \"456 Main St\"",
+                StandardRuleViolation.VALUE_MISMATCH,
+            ))
         }
 
         @Test
@@ -118,10 +123,20 @@ class AssertConditionalTest {
 
             assertThat(result).isInstanceOf(Result.Failure::class.java)
             assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-            >> BODY[0].address
-            Expected "123 Main St" to not equal "123 Main St"
-            >> BODY[2].address
-            Expected "123 Main St" to not equal "123 Main St"
+            ${
+                toViolationReportString(
+                    breadCrumb = "BODY[0].address",
+                    details = "Expected \"123 Main St\" to not equal \"123 Main St\"",
+                    StandardRuleViolation.VALUE_MISMATCH,
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "BODY[2].address",
+                    details = "Expected \"123 Main St\" to not equal \"123 Main St\"",
+                    StandardRuleViolation.VALUE_MISMATCH,
+                )
+            }
             """.trimIndent())
         }
     }

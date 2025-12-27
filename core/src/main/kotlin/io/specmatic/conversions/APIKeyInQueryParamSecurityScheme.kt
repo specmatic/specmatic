@@ -14,7 +14,8 @@ data class APIKeyInQueryParamSecurityScheme(val name: String, private val apiKey
         return if (httpRequest.queryParams.containsKey(name) || resolver.mockMode) Result.Success()
         else Result.Failure(
             breadCrumb = BreadCrumb.QUERY.with(name),
-            message = resolver.mismatchMessages.expectedKeyWasMissing(apiKeyParamName, name)
+            message = resolver.mismatchMessages.expectedKeyWasMissing(apiKeyParamName, name),
+            ruleViolation = StandardRuleViolation.REQUIRED_PROPERTY_MISSING
         )
     }
 

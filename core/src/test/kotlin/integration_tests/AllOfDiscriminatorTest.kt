@@ -3,6 +3,7 @@ package integration_tests
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
+import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.utilities.exceptionCauseMessage
@@ -12,6 +13,7 @@ import io.specmatic.core.value.Value
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.stub.HttpStub
 import io.specmatic.test.TestExecutor
+import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.*
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Nested
@@ -91,7 +93,11 @@ class AllOfDiscriminatorTest {
         )
 
         assertThat(result.reportString()).doesNotContain("car, bike")
-        assertThat(result.reportString()).contains("missing from the spec")
+        assertThat(result.reportString()).isEqualToNormalizingWhitespace(toViolationReportString(
+            breadCrumb = "REQUEST.BODY.type",
+            details = "Discriminator property type is missing from the spec",
+            StandardRuleViolation.INVALID_DISCRIMINATOR_SETUP
+        ))
     }
 
     @Test

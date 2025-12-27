@@ -3,7 +3,9 @@ package integration_tests
 import integration_tests.PatternTestCase.Companion.multiVersionCase
 import integration_tests.PatternTestCase.Companion.singleVersionCase
 import integration_tests.CompositePatternTestCase.Companion.multiVersionCompositeCase
+import integration_tests.CompositePatternTestCase.Companion.parseAndExtractCompositePatterns
 import integration_tests.CompositePatternTestCase.Companion.singleVersionCompositeCase
+import integration_tests.PatternTestCase.Companion.parseAndExtractPatterns
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
@@ -56,6 +58,24 @@ data class PatternTestCase(val schema: Map<String, Any?>, val validate: (Pattern
             val testCase = builder.build()
             return versions.map { version -> Arguments.of(version, Named.of(name, testCase)) }
         }
+
+        fun parseAndExtractPatterns(openApiVersion: OpenApiVersion, cases: Map<String, PatternTestCase>): Map<String, Pattern> {
+            val schemasMap = cases.mapValues { (_, case) -> case.schema }
+            val root = mapOf(
+                "openapi" to openApiVersion.value,
+                "info" to mapOf("title" to "Test API", "version" to "1.0.0"),
+                "components" to mapOf(
+                    "schemas" to schemasMap
+                )
+            )
+
+            val openApiYamlString = yamlMapper.writeValueAsString(root)
+            logger.log(openApiYamlString)
+            logger.boundary()
+
+            val openApiSpecification = OpenApiSpecification.fromYAML(openApiYamlString, "TEST")
+            return openApiSpecification.parseUnreferencedSchemas().mapKeys { withoutPatternDelimiters(it.key) }
+        }
     }
 
     class Builder {
@@ -91,6 +111,23 @@ data class CompositePatternTestCase(val schemas: Map<String, PatternTestCase>, v
             val testCase = builder.build()
             return versions.map { version -> Arguments.of(version, Named.of(name, testCase)) }
         }
+
+        fun parseAndExtractCompositePatterns(openApiVersion: OpenApiVersion, composite: CompositePatternTestCase): Pair<Map<String, Pattern>, Resolver> {
+            val schemasMap = composite.schemas.mapValues { (_, case) -> case.schema }
+            val root = mapOf(
+                "openapi" to openApiVersion.value,
+                "components" to mapOf("schemas" to schemasMap)
+            )
+
+            val openApiYamlString = yamlMapper.writeValueAsString(root)
+            logger.log(openApiYamlString)
+            logger.boundary()
+
+            val openApiSpecification = OpenApiSpecification.fromYAML(openApiYamlString, "TEST")
+            val unreferencedSchemas = openApiSpecification.parseUnreferencedSchemas()
+            val resolver = Resolver(newPatterns = unreferencedSchemas.plus(openApiSpecification.patterns))
+            return Pair(unreferencedSchemas.mapKeys { withoutPatternDelimiters(it.key) }, resolver)
+        }
     }
 
     class Builder {
@@ -107,6 +144,10 @@ data class CompositePatternTestCase(val schemas: Map<String, PatternTestCase>, v
             validate = block
         }
 
+        fun containsSchema(name: String): Boolean {
+            return schemas.containsKey(name)
+        }
+
         fun build(): CompositePatternTestCase {
             return CompositePatternTestCase(schemas = schemas.toMap(), validate = validate ?: { _, _ -> })
         }
@@ -114,41 +155,6 @@ data class CompositePatternTestCase(val schemas: Map<String, PatternTestCase>, v
 }
 
 class YamlToPatternTests {
-    private fun parseAndExtractPatterns(openApiVersion: OpenApiVersion, cases: Map<String, PatternTestCase>): Map<String, Pattern> {
-        val schemasMap = cases.mapValues { (_, case) -> case.schema }
-        val root = mapOf(
-            "openapi" to openApiVersion.value,
-            "info" to mapOf("title" to "Test API", "version" to "1.0.0"),
-            "components" to mapOf(
-                "schemas" to schemasMap
-            )
-        )
-
-        val openApiYamlString = yamlMapper.writeValueAsString(root)
-        logger.log(openApiYamlString)
-        logger.boundary()
-
-        val openApiSpecification = OpenApiSpecification.fromYAML(openApiYamlString, "TEST")
-        return openApiSpecification.parseUnreferencedSchemas().mapKeys { withoutPatternDelimiters(it.key) }
-    }
-
-    private fun parseAndExtractPatterns(openApiVersion: OpenApiVersion, composite: CompositePatternTestCase): Pair<Map<String, Pattern>, Resolver> {
-        val schemasMap = composite.schemas.mapValues { (_, case) -> case.schema }
-        val root = mapOf(
-            "openapi" to openApiVersion.value,
-            "components" to mapOf("schemas" to schemasMap)
-        )
-
-        val openApiYamlString = yamlMapper.writeValueAsString(root)
-        logger.log(openApiYamlString)
-        logger.boundary()
-
-        val openApiSpecification = OpenApiSpecification.fromYAML(openApiYamlString, "TEST")
-        val unreferencedSchemas = openApiSpecification.parseUnreferencedSchemas()
-        val resolver = Resolver(newPatterns = unreferencedSchemas.plus(openApiSpecification.patterns))
-        return Pair(unreferencedSchemas.mapKeys { withoutPatternDelimiters(it.key) }, resolver)
-    }
-
     private fun runCase(openApiVersion: OpenApiVersion, case: PatternTestCase, info: TestInfo) {
         val patterns = parseAndExtractPatterns(openApiVersion, mapOf("TestSchema" to case))
         assertThat(patterns).hasSize(1).containsKey("TestSchema")
@@ -211,7 +217,7 @@ class YamlToPatternTests {
     @ParameterizedTest(name = "{index}: [{0}] {1}")
     @MethodSource("discriminatorScenarios")
     fun discriminator_schema_tests(openApiVersion: OpenApiVersion, composite: CompositePatternTestCase, info: TestInfo) {
-        val (patterns, resolver) = parseAndExtractPatterns(openApiVersion, composite)
+        val (patterns, resolver) = parseAndExtractCompositePatterns(openApiVersion, composite)
         composite.schemas.forEach { (name, case) ->
             val schemaPattern = patterns.getValue(name)
             case.validate(schemaPattern)
@@ -222,7 +228,7 @@ class YamlToPatternTests {
     @ParameterizedTest(name = "{index}: [{0}] {1}")
     @MethodSource("refScenarios")
     fun ref_schema_tests(openApiVersion: OpenApiVersion, composite: CompositePatternTestCase, info: TestInfo) {
-        val (patterns, resolver) = parseAndExtractPatterns(openApiVersion, composite)
+        val (patterns, resolver) = parseAndExtractCompositePatterns(openApiVersion, composite)
         composite.schemas.forEach { (name, case) ->
             val schemaPattern = patterns.getValue(name)
             case.validate(schemaPattern)

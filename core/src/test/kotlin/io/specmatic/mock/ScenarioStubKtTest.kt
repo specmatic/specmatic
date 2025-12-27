@@ -11,6 +11,8 @@ import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.utilities.jsonStringToValueMap
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.toViolationReportString
 import io.specmatic.shouldMatch
 import io.specmatic.trimmedLinesList
 import org.junit.jupiter.api.assertThrows
@@ -910,14 +912,17 @@ paths:
         assertThatThrownBy {
             feature.matchingStub(request, response, ContractAndStubMismatchMessages)
         }.satisfies(Consumer {
-            assertThat((it as NoMatchingScenario).report(request).trim().trimmedLinesList()).isEqualTo("""
-                In scenario "hello world. Response: Says hello"
-                API: GET /hello/(id:number) -> 200
-
-                  >> REQUEST.PARAMETERS.HEADER.X-Value
-                  
-                     ${ContractAndStubMismatchMessages.mismatchMessage("number", """"data" """.trim())}
-                """.trimIndent().trimmedLinesList())
+            assertThat((it as NoMatchingScenario).report(request)).isEqualToIgnoringWhitespace("""
+            In scenario "hello world. Response: Says hello"
+            API: GET /hello/(id:number) -> 200
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.PARAMETERS.HEADER.X-Value",
+                    details = "Contract expected number but stub contained \"data\"",
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
+            """.trimIndent())
         })
     }
 

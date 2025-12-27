@@ -80,7 +80,7 @@ fun testBackwardCompatibility(
 
 object NewAndOldContractRequestMismatches: MismatchMessages {
     override fun valueMismatchFailure(expected: String, actual: Value?, mismatchMessages: MismatchMessages): Result.Failure {
-        return mismatchResult(expected, nullOrValue(actual), mismatchMessages)
+        return valueMismatchResult(expected, nullOrValue(actual), mismatchMessages)
     }
 
     private fun nullOrValue(actual: Value?): String {

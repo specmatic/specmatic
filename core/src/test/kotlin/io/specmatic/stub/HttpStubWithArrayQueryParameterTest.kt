@@ -3,8 +3,9 @@ package io.specmatic.stub
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.QueryParameters
+import io.specmatic.core.StandardRuleViolation
 import io.specmatic.mock.NoMatchingScenario
-import io.specmatic.trimmedLinesList
+import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -284,19 +285,23 @@ class HttpStubWithArrayQueryParameterTest {
             val queryParameters = QueryParameters(paramPairs = listOf("category_id" to "1"))
             val response = stub.client.execute(HttpRequest("GET", "/products", queryParams = queryParameters))
             assertThat(response.status).isEqualTo(400)
-            assertThat(response.body.toStringLiteral().trimmedLinesList()).isEqualTo(
-                """
+            assertThat(response.body.toStringLiteral()).isEqualToIgnoringWhitespace("""
             In scenario "get products. Response: OK"
             API: GET /products -> 200
-            
-              >> REQUEST.PARAMETERS.QUERY.brand_ids
-              
-                 Query param named brand_ids in the contract was not found in the request
-              
-              >> REQUEST.PARAMETERS.QUERY.category_id
-              
-                 Query param named category_id in the request was not in the contract
-            """.trimIndent().trimmedLinesList())
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.PARAMETERS.QUERY.brand_ids",
+                    details = "Query param named brand_ids in the contract was not found in the request",
+                    StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.PARAMETERS.QUERY.category_id",
+                    details = "Query param named category_id in the request was not in the contract",
+                    StandardRuleViolation.UNKNOWN_PROPERTY
+                )
+            }""".trimIndent())
         }
     }
 
@@ -356,20 +361,24 @@ class HttpStubWithArrayQueryParameterTest {
                 )
 
             }
-            assertThat(exception.message).isEqualTo("""
-                Error from contract src/test/resources/openapi/spec_with_enum_based_array_query_parameter.yaml
-
-                  In scenario "get orders. Response: OK"
-                  API: GET /orders -> 200
-                  
-                    >> REQUEST.PARAMETERS.QUERY.status
-                  
-                       Contract expected ("pending" or "complete") but stub contained "cancelled"
-                  
-                    >> REQUEST.PARAMETERS.QUERY.status
-                  
-                       Contract expected ("pending" or "complete") but stub contained "suspended"
-            """.trimIndent())
+            assertThat(exception.message).isEqualToIgnoringWhitespace("""
+            Error from contract src/test/resources/openapi/spec_with_enum_based_array_query_parameter.yaml
+            In scenario "get orders. Response: OK"
+            API: GET /orders -> 200           
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.PARAMETERS.QUERY.status",
+                    details = """Contract expected ("pending" or "complete") but stub contained "cancelled"""",
+                    StandardRuleViolation.VALUE_MISMATCH
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.PARAMETERS.QUERY.status",
+                    details = """Contract expected ("pending" or "complete") but stub contained "suspended"""",
+                    StandardRuleViolation.VALUE_MISMATCH
+                )
+            }""".trimIndent())
         }
     }
 

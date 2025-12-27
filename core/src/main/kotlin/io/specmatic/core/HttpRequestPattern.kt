@@ -164,8 +164,11 @@ data class HttpRequestPattern(
             }
         }
 
-        val newFailures = results.map { it.result }.filterIsInstance<Failure>()
-        return MatchSuccess(Triple(modifiedHttpRequest, resolver, failures.plus(newFailures)))
+        val completeFailure = Result.fromFailures(results.map { it.result }.filterIsInstance<Failure>())
+            .withRuleViolation(OpenApiRuleViolation.NO_MATCHING_SECURITY_SCHEME) as? Failure
+
+        return if (completeFailure == null) MatchSuccess(Triple(modifiedHttpRequest, resolver, failures))
+        else MatchSuccess(Triple(modifiedHttpRequest, resolver, failures.plus(completeFailure)))
     }
 
     fun matchesSignature(other: HttpRequestPattern): Boolean =
@@ -196,12 +199,18 @@ data class HttpRequestPattern(
         val valueKeys = httpRequest.multiPartFormData.map { it.name }.sorted()
 
         val missingInType: List<Failure> = valueKeys.filter { it !in typeKeys }.map {
-            Failure(resolver.mismatchMessages.unexpectedKey("part", it)).breadCrumb(it).breadCrumb(MULTIPART_FORMDATA_BREADCRUMB)
+            Failure(
+                message = resolver.mismatchMessages.unexpectedKey("part", it),
+                ruleViolation = StandardRuleViolation.UNKNOWN_PROPERTY
+            ).breadCrumb(it).breadCrumb(MULTIPART_FORMDATA_BREADCRUMB)
         }
 
         val originalTypeKeys = multiPartFormDataPattern.map { it.name }.sorted()
         val missingInValue = originalTypeKeys.filter { !isOptional(it) }.filter { withoutOptionality(it) !in valueKeys }.map { partName ->
-            Failure(resolver.mismatchMessages.expectedKeyWasMissing("part", withoutOptionality(partName))).breadCrumb(withoutOptionality(partName)).breadCrumb(MULTIPART_FORMDATA_BREADCRUMB)
+            Failure(
+                message = resolver.mismatchMessages.expectedKeyWasMissing("part", withoutOptionality(partName)),
+                ruleViolation = StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+            ).breadCrumb(withoutOptionality(partName)).breadCrumb(MULTIPART_FORMDATA_BREADCRUMB)
         }
 
         val allFailures: List<Failure> = missingInValue.plus(missingInType).plus(payloadFailures)
@@ -225,23 +234,20 @@ data class HttpRequestPattern(
 
         val payloadResults: List<Result> = formFieldsPattern
             .filterKeys { key -> withoutOptionality(key) in httpRequest.formFields }
-            .map { (key, pattern) -> Triple(withoutOptionality(key), pattern, httpRequest.formFields.getValue(key)) }
+            .map { (key, pattern) ->
+                Triple(withoutOptionality(key), pattern, httpRequest.formFields.getValue(key))
+            }
             .map { (key, pattern, value) ->
-                try {
-                    when (val result = resolver.matchesPattern(
-                        key, pattern, try {
-                            pattern.parse(value, resolver)
-                        } catch (e: Throwable) {
-                            StringValue(value)
-                        }
-                    )) {
-                        is Failure -> result.breadCrumb(key).breadCrumb(FORM_FIELDS_BREADCRUMB)
-                        else -> result
-                    }
-                } catch (e: ContractException) {
-                    e.failure().breadCrumb(key).breadCrumb(FORM_FIELDS_BREADCRUMB)
-                } catch (e: Throwable) {
-                    mismatchResult(pattern, value).breadCrumb(key).breadCrumb(FORM_FIELDS_BREADCRUMB)
+                Triple(
+                    key,
+                    runCatching { pattern.parse(value, resolver) }.getOrDefault(StringValue(value)),
+                    pattern
+                )
+            }
+            .map { (key, value, pattern) ->
+                when (val result = resolver.matchesPattern(key, pattern, value)) {
+                    is Failure -> result.breadCrumb(key).breadCrumb(FORM_FIELDS_BREADCRUMB)
+                    else -> result
                 }
             }
 
@@ -299,10 +305,12 @@ data class HttpRequestPattern(
         method.let {
             return if (it != httpRequest.method)
                 MatchFailure(
-                    mismatchResult(
-                        method ?: "",
-                        httpRequest.method ?: ""
-                    ).copy(failureReason = FailureReason.MethodMismatch).breadCrumb(METHOD_BREAD_CRUMB)
+                    mismatchFailure(
+                        expected = method.orEmpty(),
+                        actual = httpRequest.method.orEmpty(),
+                        mismatchMessages = resolver.mismatchMessages,
+                        ruleViolation = OpenApiRuleViolation.METHOD_MISMATCH
+                    ).withFailureReason(FailureReason.MethodMismatch).breadCrumb(METHOD_BREAD_CRUMB)
                 )
             else
                 MatchSuccess(Triple(httpRequest, resolver, failures))
@@ -311,11 +319,9 @@ data class HttpRequestPattern(
 
     private fun matchPath(parameters: Pair<HttpRequest, Resolver>): MatchingResult<Triple<HttpRequest, Resolver, List<Failure>>> {
         val (httpRequest, resolver) = parameters
-
         val result = matchesPath(httpRequest.path!!, resolver)
-
         return if (result is Failure) {
-            if(result.failureReason == FailureReason.URLPathMisMatch)
+            if (result.failureReason == FailureReason.URLPathMisMatch)
                 MatchFailure(result)
             else
                 MatchSuccess(Triple(parameters.first, parameters.second, listOf(result)))

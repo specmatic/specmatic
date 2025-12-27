@@ -2,10 +2,12 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
+import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.value.BooleanValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -79,7 +81,52 @@ internal class AnyOfPatternTest {
         val result = pattern.matches(value, resolver)
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.toReport().toText()).contains("Key(s) extra")
+        assertThat(result.toReport().toText()).isEqualToIgnoringWhitespace("""
+        ${toViolationReportString(
+            breadCrumb = "extra",
+            details = "Key 'extra' is not declared in any anyOf option",
+            StandardRuleViolation.ANY_OF_UNKNOWN_KEY
+        )}
+        """.trimIndent())
+    }
+
+    @Test
+    fun `matches fails when object contains keys do not match any keys from any of the schemas`() {
+        val pattern =
+            AnyOfPattern(
+                listOf(
+                    JSONObjectPattern(
+                        pattern = mapOf("common" to StringPattern()),
+                        additionalProperties = AdditionalProperties.FreeForm,
+                    ),
+                    JSONObjectPattern(
+                        pattern = mapOf("common" to NumberPattern()),
+                        additionalProperties = AdditionalProperties.FreeForm,
+                    ),
+                ),
+            )
+
+        val value = JSONObjectValue(mapOf("common" to BooleanValue(false)))
+        val result = pattern.matches(value, resolver)
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.toReport().toText()).containsIgnoringWhitespaces("""
+        ${toViolationReportString(
+            breadCrumb = "common",
+            details = "Key 'common' did not match any anyOf option that declares it",
+            StandardRuleViolation.ANY_OF_NO_MATCHING_SCHEMA
+        )}
+        ${toViolationReportString(
+            breadCrumb = "common",
+            details = "Expected string, actual was false (boolean)",
+            StandardRuleViolation.TYPE_MISMATCH
+        )}
+        ${toViolationReportString(
+            breadCrumb = "common",
+            details = "Expected number, actual was false (boolean)",
+            StandardRuleViolation.TYPE_MISMATCH
+        )}
+        """.trimIndent())
     }
 
     @Test

@@ -10,6 +10,8 @@ import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.toViolationReportString
 import io.specmatic.mock.ScenarioStub
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -120,30 +122,85 @@ class AllPatternsMandatoryTest {
             In scenario "POST /products. Response: OK"
             API: POST /products -> 200
 
-            >> REQUEST.BODY.type
-            Expected optional key named "type" was missing
-            >> REQUEST.BODY.inventory
-            Expected optional key named "inventory" was missing
-            >> REQUEST.BODY.details
-            Expected optional key named "details" was missing
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.BODY.type",
+                    details = "Expected optional key named \"type\" was missing",
+                    StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.BODY.inventory",
+                    details = "Expected optional key named \"inventory\" was missing",
+                    StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.BODY.details",
+                    details = "Expected optional key named \"details\" was missing",
+                    StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+                )
+            }
             
-            >> RESPONSE.BODY[0].type
-            Expected optional key named "type" was missing
-            >> RESPONSE.BODY[0].inventory
-            Expected optional key named "inventory" was missing
-            >> RESPONSE.BODY[0].details.dateOfManufacture
-            Expected optional key named "dateOfManufacture" was missing
-            >> RESPONSE.BODY[0].details.dateOfExpiry
-            Expected optional key named "dateOfExpiry" was missing
-
-            >> RESPONSE.BODY[1].type
-            Expected optional key named "type" was missing
-            >> RESPONSE.BODY[1].inventory
-            Expected optional key named "inventory" was missing
-            >> RESPONSE.BODY[1].details.dateOfManufacture
-            Expected optional key named "dateOfManufacture" was missing
-            >> RESPONSE.BODY[1].details.dateOfExpiry
-            Expected optional key named "dateOfExpiry" was missing
+            ${
+                toViolationReportString(
+                    breadCrumb = "RESPONSE.BODY[0].type",
+                    details = "Expected optional key named \"type\" was missing",
+                    StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "RESPONSE.BODY[0].inventory",
+                    details = "Expected optional key named \"inventory\" was missing",
+                    StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "RESPONSE.BODY[0].details.dateOfManufacture",
+                    details = "Expected optional key named \"dateOfManufacture\" was missing",
+                    StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "RESPONSE.BODY[0].details.dateOfExpiry",
+                    details = "Expected optional key named \"dateOfExpiry\" was missing",
+                    StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+                )
+            }
+            
+            ${
+                toViolationReportString(
+                    breadCrumb = "RESPONSE.BODY[1].type",
+                    details = "Expected optional key named \"type\" was missing",
+                    StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "RESPONSE.BODY[1].inventory",
+                    details = "Expected optional key named \"inventory\" was missing",
+                    StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "RESPONSE.BODY[1].details.dateOfManufacture",
+                    details = "Expected optional key named \"dateOfManufacture\" was missing",
+                    StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "RESPONSE.BODY[1].details.dateOfExpiry",
+                    details = "Expected optional key named \"dateOfExpiry\" was missing",
+                    StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+                )
+            }
             """.trimIndent())
     }
 
@@ -176,19 +233,51 @@ class AllPatternsMandatoryTest {
             In scenario "POST /products. Response: OK"
             API: POST /products -> 200
 
-            >> RESPONSE.BODY[0].name
-            Expected key named "name" was missing
+            ${
+                toViolationReportString(
+                    breadCrumb = "RESPONSE.BODY[0].name",
+                    details = "Expected key named \"name\" was missing",
+                    StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+                )
+            }
+            
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.BODY.type",
+                    details = "Expected optional key named \"type\" was missing",
+                    StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.BODY.inventory",
+                    details = "Expected optional key named \"inventory\" was missing",
+                    StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "RESPONSE.BODY[0].type",
+                    details = "Expected optional key named \"type\" was missing",
+                    StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+                )
+            }
 
-            >> REQUEST.BODY.type
-            Expected optional key named "type" was missing
-            >> REQUEST.BODY.inventory
-            Expected optional key named "inventory" was missing
-            >> RESPONSE.BODY[0].type
-            Expected optional key named "type" was missing
-            >> RESPONSE.BODY[0].inventory
-            Expected optional key named "inventory" was missing
-            >> RESPONSE.BODY[0].details
-            Expected optional key named "details" was missing
+            ${
+                toViolationReportString(
+                    breadCrumb = "RESPONSE.BODY[0].inventory",
+                    details = "Expected optional key named \"inventory\" was missing",
+                    StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+                )
+            }
+
+            ${
+                toViolationReportString(
+                    breadCrumb = "RESPONSE.BODY[0].details",
+                    details = "Expected optional key named \"details\" was missing",
+                    StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+                )
+            }
             """.trimIndent())
     }
 
@@ -214,31 +303,75 @@ class AllPatternsMandatoryTest {
         val report = result.reportString()
         println(report)
         assertThat(report).isEqualToNormalizingWhitespace("""
-            In scenario "POST /products. Response: OK"
-            API: POST /products -> 200
-
-            >> RESPONSE.BODY[0].name
-            Expected string, actual was 123 (number)
-            >> RESPONSE.BODY[1].name
-            Expected string, actual was 123 (number)
+        In scenario "POST /products. Response: OK"
+        API: POST /products -> 200
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY[0].name",
+                details = "Expected string, actual was 123 (number)",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY[1].name",
+                details = "Expected string, actual was 123 (number)",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        
+        ${
+            toViolationReportString(
+                breadCrumb = "REQUEST.BODY.details",
+                details = "Expected optional key named \"details\" was missing",
+                StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+            )
+        }
             
-            >> REQUEST.BODY.details
-            Expected optional key named "details" was missing
-
-            >> RESPONSE.BODY[0].type
-            Expected optional key named "type" was missing
-            >> RESPONSE.BODY[0].inventory
-            Expected optional key named "inventory" was missing
-            >> RESPONSE.BODY[0].details
-            Expected optional key named "details" was missing
-            
-            >> RESPONSE.BODY[1].type
-            Expected optional key named "type" was missing
-            >> RESPONSE.BODY[1].inventory
-            Expected optional key named "inventory" was missing
-            >> RESPONSE.BODY[1].details
-            Expected optional key named "details" was missing
-            """.trimIndent())
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY[0].type",
+                details = "Expected optional key named \"type\" was missing",
+                StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY[0].inventory",
+                details = "Expected optional key named \"inventory\" was missing",
+                StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+            )
+        }   
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY[0].details",
+                details = "Expected optional key named \"details\" was missing",
+                StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+            )
+        }
+        
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY[1].type",
+                details = "Expected optional key named \"type\" was missing",
+                StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY[1].inventory",
+                details = "Expected optional key named \"inventory\" was missing",
+                StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY[1].details",
+                details = "Expected optional key named \"details\" was missing",
+                StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+            )
+        }
+        """.trimIndent())
     }
 
     @Test

@@ -1,11 +1,13 @@
 package io.specmatic.test.asserts
 
 import io.specmatic.core.Result
+import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.specmatic.test.traverse
+import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -50,9 +52,14 @@ class AssertComparisonTest {
         val result = assert.assert(currentStore, actualStore)
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> BODY.name
-        Expected "Jane" to equal "John"
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
+        ${
+            toViolationReportString(
+                breadCrumb = "BODY.name",
+                details = "Expected \"Jane\" to equal \"John\"",
+                StandardRuleViolation.VALUE_MISMATCH
+            )
+        }
         """.trimIndent())
     }
 
@@ -80,10 +87,13 @@ class AssertComparisonTest {
         val result = assert.assert(currentStore, actualStore)
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> BODY.name
-        Expected "John" to not equal "John"
-        """.trimIndent())
+        assertThat(result.reportString()).isEqualToNormalizingWhitespace(
+            toViolationReportString(
+                breadCrumb = "BODY.name",
+                details = "Expected \"John\" to not equal \"John\"",
+                StandardRuleViolation.VALUE_MISMATCH
+            )
+        )
     }
 
     @Test

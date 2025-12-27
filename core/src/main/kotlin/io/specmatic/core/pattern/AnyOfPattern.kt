@@ -3,7 +3,8 @@ package io.specmatic.core.pattern
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.Result.Failure
-import io.specmatic.core.mismatchResult
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.core.patternMismatchResult
 import io.specmatic.core.value.EmptyString
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
@@ -57,12 +58,22 @@ class AnyOfPattern(
         val delegateResult = delegate.matches(sampleData, resolver)
 
         val failures = mutableListOf<Failure>()
-        if (jsonMatchAnalysis.unknownKeys.isNotEmpty()) {
-            failures.add(Failure("Key(s) ${jsonMatchAnalysis.unknownKeys.joinToString(", ")} are not declared in any anyOf option"))
+        jsonMatchAnalysis.unknownKeys.forEach { key ->
+            failures.add(
+                Failure(
+                    message = "Key '$key' is not declared in any anyOf option",
+                    ruleViolation = StandardRuleViolation.ANY_OF_UNKNOWN_KEY
+                ).breadCrumb(key)
+            )
         }
 
-        if (jsonMatchAnalysis.keysDeclaredButUnmatched.isNotEmpty()) {
-            failures.add(Failure("Key(s) ${jsonMatchAnalysis.keysDeclaredButUnmatched.joinToString(", ")} did not match any anyOf option that declares them"))
+        jsonMatchAnalysis.keysDeclaredButUnmatched.forEach { key ->
+            failures.add(
+                Failure(
+                    message = "Key '$key' did not match any anyOf option that declares it",
+                    ruleViolation = StandardRuleViolation.ANY_OF_NO_MATCHING_SCHEMA
+                ).breadCrumb(key)
+            )
         }
 
         failures.addAll(jsonMatchAnalysis.relevantPatternFailures)
@@ -101,7 +112,7 @@ class AnyOfPattern(
         typeStack: TypeStack,
     ): Result {
         if (otherPattern !is AnyOfPattern) {
-            return mismatchResult(this, otherPattern, thisResolver.mismatchMessages)
+            return patternMismatchResult(this, otherPattern, thisResolver.mismatchMessages)
         }
 
         val myPatterns = patternSet(thisResolver)

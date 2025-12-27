@@ -5,6 +5,8 @@ import io.ktor.http.HttpStatusCode
 import io.specmatic.DefaultStrategies
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.*
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.toViolationReportString
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.test.TestExecutor
 import io.mockk.every
@@ -655,12 +657,21 @@ paths:
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
         In scenario ""
         API: POST / -> 201
-        >> MONITOR.RESPONSE.BODY.name
-        Invalid request or response payload in the monitor response
-        Expected string, actual was 20 (number)
-        >> MONITOR.RESPONSE.BODY.age
-        Invalid request or response payload in the monitor response
-        Expected number, actual was "John"
+        
+        ${
+            toViolationReportString(
+                breadCrumb = "MONITOR.RESPONSE.BODY.name",
+                details = "Invalid request or response payload in the monitor response\nExpected string, actual was 20 (number)",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "MONITOR.RESPONSE.BODY.age",
+                details = "Invalid request or response payload in the monitor response\nExpected number, actual was \"John\"",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
         """.trimIndent())
     }
 
@@ -727,8 +738,13 @@ paths:
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
         In scenario ""
         API: POST / -> 201
-        >> RESPONSE.STATUS
-        Expected status 201, actual was status 202
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.STATUS",
+                details = "Contract expected status 201 but response contained status 202",
+                OpenApiRuleViolation.STATUS_MISMATCH
+            )
+        }
         """.trimIndent())
     }
 

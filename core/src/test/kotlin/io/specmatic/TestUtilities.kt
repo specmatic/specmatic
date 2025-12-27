@@ -14,6 +14,15 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.assertFalse
 import java.io.File
 
+fun toViolationReportString(breadCrumb: String? = null, details: String, vararg ruleViolation: RuleViolation): String {
+    val breadCrumbString = if (breadCrumb != null) ">> $breadCrumb" else null
+    val violationReport = RuleViolationReport(ruleViolations = ruleViolation.toSet())
+    val ruleViolationString = violationReport.toText().orEmpty()
+    return listOfNotNull(breadCrumbString, ruleViolationString.prependIndent("    "), details.prependIndent("    ")).mapNotNull {
+        it.takeIf(String::isNotBlank)
+    }.joinToString("\n\n")
+}
+
 fun toReport(result: Result, scenarioMessage: String? = null): String {
     return when (result) {
         is Result.Failure -> {

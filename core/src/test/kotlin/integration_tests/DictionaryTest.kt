@@ -39,6 +39,8 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.toViolationReportString
 import io.specmatic.stub.HttpStub
 import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
 import io.specmatic.stub.captureStandardOutput
@@ -1023,18 +1025,23 @@ class DictionaryTest {
 
             val commonKeyValue = value.jsonObject.getValue("commonKey")
             assertThat(commonKeyValue).isInstanceOf(BooleanValue::class.java)
-            assertThat(stdout).containsIgnoringWhitespaces("""
-            >> DICTIONARY..commonKey
-            Expected boolean but got "Twenty" in the dictionary
-            """.trimIndent())
-            assertThat(stdout).containsIgnoringWhitespaces("""
-            >> DICTIONARY..commonKey
-            Expected boolean but got 10 (number) in the dictionary
-            """.trimIndent())
-            assertThat(stdout).containsIgnoringWhitespaces("""
-            >> DICTIONARY..commonKey
-            Expected boolean but got "specmatic@test.io" in the dictionary
-            """.trimIndent())
+            assertThat(stdout).containsIgnoringWhitespaces(toViolationReportString(
+                breadCrumb = "DICTIONARY..commonKey",
+                details = "Expected boolean but got \"Twenty\" in the dictionary",
+                StandardRuleViolation.TYPE_MISMATCH
+            ))
+
+            assertThat(stdout).containsIgnoringWhitespaces(toViolationReportString(
+                breadCrumb = "DICTIONARY..commonKey",
+                details = "Expected boolean but got 10 (number) in the dictionary",
+                StandardRuleViolation.TYPE_MISMATCH
+            ))
+
+            assertThat(stdout).containsIgnoringWhitespaces(toViolationReportString(
+                breadCrumb = "DICTIONARY..commonKey",
+                details = "Expected boolean but got \"specmatic@test.io\" in the dictionary",
+                StandardRuleViolation.TYPE_MISMATCH
+            ))
         }
 
         @Test

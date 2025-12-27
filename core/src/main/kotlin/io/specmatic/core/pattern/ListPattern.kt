@@ -102,14 +102,14 @@ data class ListPattern(
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if(sampleData !is ListValue)
             return when {
-                resolvedHop(pattern, resolver) is XMLPattern -> mismatchResult("xml nodes", sampleData, resolver.mismatchMessages)
-                else -> mismatchResult(this, sampleData, resolver.mismatchMessages)
+                resolvedHop(pattern, resolver) is XMLPattern -> dataTypeMismatchResult("xml nodes", sampleData, resolver.mismatchMessages)
+                else -> dataTypeMismatchResult(this, sampleData, resolver.mismatchMessages)
             }
 
         val resolverWithEmptyType = withEmptyType(pattern, resolver)
         val patternToCheck = this.typeAlias?.let { this } ?: this.pattern
         if (resolverWithEmptyType.allPatternsAreMandatory && !resolverWithEmptyType.hasSeenPattern(patternToCheck) && sampleData.list.isEmpty()) {
-            return Result.Failure(message = "List cannot be empty")
+            return Result.Failure(message = "List cannot be empty", ruleViolation = StandardRuleViolation.CONSTRAINT_VIOLATION)
         }
 
         val updatedResolver = resolverWithEmptyType.addPatternAsSeen(this)

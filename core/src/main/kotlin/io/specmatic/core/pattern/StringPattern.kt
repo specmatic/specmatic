@@ -2,8 +2,8 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
-import io.specmatic.core.log.logger
-import io.specmatic.core.mismatchResult
+import io.specmatic.core.constraintMismatchResult
+import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.CDATAValue
 import io.specmatic.core.value.JSONArrayValue
@@ -45,21 +45,21 @@ data class StringPattern (
             when (sampleData) {
                 is StringValue -> sampleData
                 is CDATAValue -> StringValue(sampleData.toStringLiteral())
-                else -> return mismatchResult("string", sampleData, resolver.mismatchMessages)
+                else -> return dataTypeMismatchResult(this, sampleData, resolver.mismatchMessages)
             }
 
-        if (lengthBelowLowerBound(sampleData)) return mismatchResult(
+        if (lengthBelowLowerBound(sampleData)) return constraintMismatchResult(
             "string with minLength $effectiveMinLength",
             sampleData, resolver.mismatchMessages
         )
 
-        if (lengthAboveUpperBound(sampleData)) return mismatchResult(
+        if (lengthAboveUpperBound(sampleData)) return constraintMismatchResult(
             "string with maxLength $maxLength",
             sampleData, resolver.mismatchMessages
         )
 
         if (!regExSpec.match(sampleData)) {
-            return mismatchResult(
+            return constraintMismatchResult(
                 """string that matches regex $regex""",
                 sampleData,
                 resolver.mismatchMessages

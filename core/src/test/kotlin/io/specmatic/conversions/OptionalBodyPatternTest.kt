@@ -6,6 +6,7 @@ import io.specmatic.core.value.EmptyString
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -15,7 +16,13 @@ class OptionalBodyPatternTest {
         val body = OptionalBodyPattern.fromPattern(NumberPattern())
 
         val matchResult = body.matches(StringValue("abc"), Resolver())
-        assertThat(matchResult.reportString().trim()).isEqualTo("Expected number, actual was \"abc\"")
+        assertThat(matchResult.reportString().trim()).isEqualToNormalizingWhitespace(
+            toViolationReportString(
+                breadCrumb = null,
+                details = """Expected number, actual was "abc"""",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        )
     }
 
     @Test

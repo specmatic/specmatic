@@ -15,14 +15,16 @@ data class BearerSecurityScheme(private val configuredToken: String? = null) : O
             true -> Result.Success()
             else -> Result.Failure(
                 breadCrumb = BreadCrumb.HEADER.with(AUTHORIZATION),
-                message = resolver.mismatchMessages.expectedKeyWasMissing("Header", AUTHORIZATION)
+                message = resolver.mismatchMessages.expectedKeyWasMissing("Header", AUTHORIZATION),
+                ruleViolation = StandardRuleViolation.REQUIRED_PROPERTY_MISSING
             )
         }
 
         if (!authHeaderValue.value.lowercase().startsWith("bearer")) {
             return Result.Failure(
                 breadCrumb = BreadCrumb.HEADER.with(AUTHORIZATION),
-                message = "$AUTHORIZATION header must be prefixed with \"Bearer\""
+                message = "$AUTHORIZATION header must be prefixed with \"Bearer\"",
+                ruleViolation = StandardRuleViolation.TYPE_MISMATCH
             )
         }
 

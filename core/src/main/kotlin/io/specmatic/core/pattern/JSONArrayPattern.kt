@@ -2,7 +2,8 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
-import io.specmatic.core.mismatchResult
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.utilities.stringTooPatternArray
 import io.specmatic.core.utilities.withNullPattern
@@ -33,8 +34,7 @@ data class JSONArrayPattern(override val pattern: List<Pattern> = emptyList(), o
 
     @Throws(Exception::class)
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
-        if (sampleData !is JSONArrayValue)
-            return mismatchResult(this, sampleData, resolver.mismatchMessages)
+        if (sampleData !is JSONArrayValue) return dataTypeMismatchResult(this, sampleData, resolver.mismatchMessages)
 
         val resolverWithNumberType = withNumberType(withNullPattern(resolver))
         val resolvedPatterns = pattern.map { resolvedHop(it, resolverWithNumberType) }
@@ -46,7 +46,10 @@ data class JSONArrayPattern(override val pattern: List<Pattern> = emptyList(), o
         }
 
         if(resolvedPatterns.size != sampleData.list.size)
-            return Result.Failure(arrayLengthMismatchMessage(resolvedPatterns.size, sampleData.list.size))
+            return Result.Failure(
+                message = arrayLengthMismatchMessage(resolvedPatterns.size, sampleData.list.size),
+                ruleViolation = StandardRuleViolation.CONSTRAINT_VIOLATION
+            )
 
         return resolvedPatterns.asSequence().mapIndexed { index, patternValue ->
             val sampleValue = sampleData.list[index]

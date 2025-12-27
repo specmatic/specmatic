@@ -9,6 +9,9 @@ import io.specmatic.core.pattern.HasException
 import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.core.pattern.HasFailure
+import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.io.File
@@ -114,10 +117,20 @@ class ExampleFromFileTest {
 
         assertThat(example).isInstanceOf(HasException::class.java); example as HasException
         assertThat(example.toFailure().reportString()).isEqualToNormalizingWhitespace("""
-        >> http-response
-        Missing mandatory key named "http-response" as per example format
-        >> http-request.method
-        Missing mandatory key named "method" as per example format
+        ${
+            toViolationReportString(
+                breadCrumb = "http-response",
+                details = "Missing mandatory key named \"http-response\" as per example format",
+                StandardRuleViolation.REQUIRED_PROPERTY_MISSING,
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "http-request.method",
+                details = "Missing mandatory key named \"method\" as per example format",
+                StandardRuleViolation.REQUIRED_PROPERTY_MISSING,
+            )
+        }
         """.trimIndent())
     }
 
