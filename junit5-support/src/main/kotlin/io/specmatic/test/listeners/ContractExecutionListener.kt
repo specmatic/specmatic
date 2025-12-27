@@ -23,7 +23,6 @@ private fun colorIsRequested() = System.getenv("SPECMATIC_COLOR") == "1"
 private fun stdOutIsRedirected() = System.console() == null
 
 class ContractExecutionListener : TestExecutionListener {
-
     companion object {
         private var success: Int = 0
         private var failure: Int = 0
@@ -39,15 +38,13 @@ class ContractExecutionListener : TestExecutionListener {
             exitProcess(exitStatus())
         }
 
-        internal fun exitStatus(): Int = if (testSuiteFailed || couldNotStart) 1 else 0
-
+        internal fun exitStatus(): Int = if (testSuiteFailed || couldNotStart || failure > 0) 1 else 0
     }
 
     override fun executionFinished(testIdentifier: TestIdentifier?, testExecutionResult: TestExecutionResult?) {
         if (testIdentifier != null &&
             testIdentifier.type == TestDescriptor.Type.CONTAINER
-            ) {
-
+        ) {
             testExecutionResult?.let {
                 it.throwable?.ifPresent { throwable -> exceptionsThrown.add(throwable) }
                 if (it.status != Status.SUCCESSFUL) {
@@ -62,15 +59,15 @@ class ContractExecutionListener : TestExecutionListener {
         printer.printTestSummary(testIdentifier, testExecutionResult)
 
         when (testExecutionResult?.status) {
-            TestExecutionResult.Status.SUCCESSFUL -> {
+            Status.SUCCESSFUL -> {
                 success++
                 println()
             }
-            TestExecutionResult.Status.ABORTED -> {
+            Status.ABORTED -> {
                 aborted++
                 printAndLogFailure(testExecutionResult, testIdentifier)
             }
-            TestExecutionResult.Status.FAILED -> {
+            Status.FAILED -> {
                 failure++
                 printAndLogFailure(testExecutionResult, testIdentifier)
             }
