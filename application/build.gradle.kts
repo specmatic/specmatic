@@ -18,7 +18,7 @@ dependencies {
     testImplementation("com.arakelian:java-jq:2.0.0")
 
     implementation("org.assertj:assertj-core:3.27.6")
-    implementation("org.junit.jupiter:junit-jupiter-api:5.13.4")
+    implementation("org.junit.jupiter:junit-jupiter-api:6.0.1")
 
     implementation("info.picocli:picocli:4.7.7")
     implementation("io.ktor:ktor-client-core-jvm:2.3.13")
@@ -27,8 +27,8 @@ dependencies {
 
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.20.1")
 
-    implementation("org.junit.platform:junit-platform-launcher:1.13.4")
-    implementation("org.junit.platform:junit-platform-reporting:1.13.4")
+    implementation("org.junit.platform:junit-platform-launcher:6.0.1")
+    implementation("org.junit.platform:junit-platform-reporting:6.0.1")
 
     implementation("org.eclipse.jgit:org.eclipse.jgit:7.4.0.202509020913-r")
     implementation("org.eclipse.jgit:org.eclipse.jgit.ssh.apache:7.4.0.202509020913-r")
@@ -48,13 +48,13 @@ dependencies {
 
     implementation("org.jetbrains.kotlin:kotlin-reflect")
 
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.13.4")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:6.0.1")
 
     testImplementation("io.mockk:mockk:1.13.11")
     testImplementation("org.assertj:assertj-core:3.27.6")
     testImplementation("com.ginsberg:junit5-system-exit:2.0.2")
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.13.4")
-    testImplementation("org.junit.jupiter:junit-jupiter-params:5.13.4")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:6.0.1")
+    testImplementation("org.junit.jupiter:junit-jupiter-params:6.0.1")
     testImplementation("io.kotest:kotest-assertions-core-jvm:6.0.7")
 
 }
