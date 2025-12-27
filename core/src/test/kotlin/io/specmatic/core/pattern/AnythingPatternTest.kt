@@ -4,6 +4,7 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.value.BooleanValue
 import io.specmatic.core.value.NumberValue
+import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import org.assertj.core.api.Assertions.assertThat
@@ -42,6 +43,13 @@ internal class AnythingPatternTest {
     @Test
     fun `parse just returns the value it is given`() {
         assertThat(AnythingPattern.parse("hello", Resolver())).isEqualTo(StringValue("hello"))
+    }
+
+    @Test
+    fun `listOf returns a json array`() {
+        val result = AnythingPattern.listOf(listOf(StringValue("item")), Resolver())
+
+        assertThat(result).isInstanceOf(JSONArrayValue::class.java)
     }
 
     @Test
