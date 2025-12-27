@@ -102,6 +102,7 @@ class RegExSpec(
             .replaceRegexLowerBounds()
             .replaceShorthandCharacterClasses()
             .requote()
+            .replaceNonCapturingGroups()
     }
 
     private fun String.replaceRegexLowerBounds(): String {
@@ -162,6 +163,49 @@ class RegExSpec(
             val group = matchResult.groups[1]?.value.orEmpty()
             patternSpecial.replace(group) { "\\${it.value}" }
         }
+    }
+
+    private fun String.replaceNonCapturingGroups(): String {
+        val result = StringBuilder(length)
+        var insideCharClass = false
+        var pendingEscape = false
+        var index = 0
+
+        while (index < length) {
+            val ch = this[index]
+            when {
+                pendingEscape -> {
+                    result.append(ch)
+                    pendingEscape = false
+                    index++
+                }
+                ch == '\\' -> {
+                    pendingEscape = true
+                    result.append(ch)
+                    index++
+                }
+                ch == '[' -> {
+                    insideCharClass = true
+                    result.append(ch)
+                    index++
+                }
+                ch == ']' -> {
+                    insideCharClass = false
+                    result.append(ch)
+                    index++
+                }
+                !insideCharClass && ch == '(' && index + 2 < length && this[index + 1] == '?' && this[index + 2] == ':' -> {
+                    result.append('(')
+                    index += 3
+                }
+                else -> {
+                    result.append(ch)
+                    index++
+                }
+            }
+        }
+
+        return result.toString()
     }
 
     override fun toString(): String {
