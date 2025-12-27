@@ -39,6 +39,16 @@ class ContractExecutionListener : TestExecutionListener {
         }
 
         internal fun exitStatus(): Int = if (testSuiteFailed || couldNotStart || failure > 0) 1 else 0
+
+        internal fun reset() {
+            success = 0
+            failure = 0
+            aborted = 0
+            couldNotStart = false
+            testSuiteFailed = false
+            failedLog.clear()
+            exceptionsThrown.clear()
+        }
     }
 
     override fun executionFinished(testIdentifier: TestIdentifier?, testExecutionResult: TestExecutionResult?) {
