@@ -187,6 +187,31 @@ internal class SpecmaticConfigKtTest {
     }
 
     @Test
+    fun `parse specmatic config v2 with proxy configuration`() {
+        val configYaml = """
+            version: 2
+            contracts: []
+            proxy:
+              - target: http://example.com/api
+                specs:
+                  - openapi_spec1.yaml
+                  - openapi_spec2.yaml
+        """.trimIndent()
+
+        val config = ObjectMapper(YAMLFactory()).registerKotlinModule().readValue(
+            configYaml,
+            SpecmaticConfigV2::class.java
+        ).transform()
+
+        assertThat(config.getProxyDetails()).containsExactly(
+            mapOf(
+                "target" to "http://example.com/api",
+                "specs" to listOf("openapi_spec1.yaml", "openapi_spec2.yaml")
+            )
+        )
+    }
+
+    @Test
     fun `should create SpecmaticConfig with flag values read from system properties`() {
         val properties = mapOf(
             SPECMATIC_GENERATIVE_TESTS to "true",
