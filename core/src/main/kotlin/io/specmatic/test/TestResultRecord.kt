@@ -2,8 +2,11 @@ package io.specmatic.test
 
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
+import io.specmatic.core.Issue
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.reporter.ctrf.model.CtrfIOValue
+import io.specmatic.reporter.ctrf.model.CtrfIssue
 import io.specmatic.reporter.ctrf.model.CtrfTestMetadata
 import io.specmatic.reporter.ctrf.model.CtrfTestResultRecord
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
@@ -53,10 +56,11 @@ data class TestResultRecord(
         return CtrfTestMetadata(
             valid = isValid,
             wip = isWip,
-            input = request?.toLogString().orEmpty(),
-            output = response?.toLogString().orEmpty(),
+            input = request?.let { CtrfIOValue(it.toLogString(), it.toJSON().toNativeValue()) },
+            output = response?.let { CtrfIOValue(it.toLogString(), it.toJSON().toNativeValue()) },
             inputTime = requestTime?.toEpochMilli() ?: 0L,
-            outputTime = responseTime?.toEpochMilli() ?: 0L
+            outputTime = responseTime?.toEpochMilli() ?: 0L,
+            issues = testIssues(scenarioResult)
         )
     }
 
@@ -95,6 +99,11 @@ data class TestResultRecord(
             isWip -> "WIP: ${method.uppercase()} $path -> $responseStatus"
             else -> "${method.uppercase()} $path (${responseStatus})"
         }
+    }
+
+    private fun testIssues(result: Result?): List<CtrfIssue> {
+        val testResult = result ?: return emptyList()
+        return testResult.toIssues().map(Issue::toCtrfIssue)
     }
 
     companion object {

@@ -338,21 +338,21 @@ class HttpStub(
                     }
 
                     if(!isInternalStubPath(httpRequest.path)) {
-                    val ctrfTestResultRecord = TestResultRecord(
-                        path = convertPathParameterStyle(httpLogMessage.scenario?.path ?: httpRequest.path),
-                        method = httpLogMessage.scenario?.method ?: httpRequest.method.orEmpty(),
-                        responseStatus = httpLogMessage.scenario?.status ?: 0,
-                        request = httpRequest,
-                        response = httpResponse,
-                        result = httpLogMessage.toResult(),
-                        serviceType = "OPENAPI",
-                        requestContentType = httpLogMessage.scenario?.requestContentType
-                            ?: httpRequest.headers["Content-Type"],
-                        specification = httpStubResponse.scenario?.specification,
-                        testType = STUB_TEST_TYPE,
-                        actualResponseStatus = httpResponse.status
-                    )
-                    synchronized(ctrfTestResultRecords) { ctrfTestResultRecords.add(ctrfTestResultRecord) }
+                        val ctrfTestResultRecord = TestResultRecord(
+                            path = convertPathParameterStyle(httpLogMessage.scenario?.path ?: httpRequest.path),
+                            method = httpLogMessage.scenario?.method ?: httpRequest.method.orEmpty(),
+                            responseStatus = httpLogMessage.scenario?.status ?: 0,
+                            request = httpRequest,
+                            response = httpResponse,
+                            result = httpLogMessage.toResult(),
+                            serviceType = "OPENAPI",
+                            requestContentType = httpLogMessage.scenario?.requestContentType ?: httpRequest.headers["Content-Type"],
+                            specification = httpStubResponse.scenario?.specification,
+                            testType = STUB_TEST_TYPE,
+                            actualResponseStatus = httpResponse.status,
+                            scenarioResult = httpLogMessage.result
+                        )
+                        synchronized(ctrfTestResultRecords) { ctrfTestResultRecords.add(ctrfTestResultRecord) }
                     }
                 } catch (e: ContractException) {
                     val response = badRequest(e.report())
@@ -1237,7 +1237,10 @@ fun fakeHttpResponse(
             } else {
                 val httpFailureResponse = combinedFailureResult.generateErrorHttpResponse(httpRequest)
                 val nearestScenario = features.firstNotNullOfOrNull { it.identifierMatchingScenario(httpRequest) }
-                NotStubbed(HttpStubResponse(httpFailureResponse, scenario = nearestScenario), stubResult = combinedFailureResult.toResultIfAnyWithCauses())
+                NotStubbed(
+                    response = HttpStubResponse(httpFailureResponse, scenario = nearestScenario),
+                    stubResult = combinedFailureResult.toResultIfAnyWithCauses().updateScenario(nearestScenario)
+                )
             }
         }
 

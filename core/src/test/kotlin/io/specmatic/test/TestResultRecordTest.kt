@@ -100,8 +100,10 @@ class TestResultRecordTest {
 
         assertTrue(meta.valid)
         assertFalse(meta.wip)
-        assertEquals(request.toLogString().trim(), meta.input.trim())
-        assertEquals(response.toLogString().trim(), meta.output?.trim())
+        assertEquals(request.toLogString().trim(), meta.input?.serialized?.trim())
+        assertEquals(response.toLogString().trim(), meta.output?.serialized?.trim())
+        assertEquals(request.toJSON().toNativeValue(), meta.input?.rawValue)
+        assertEquals(response.toJSON().toNativeValue(), meta.output?.rawValue)
         assertEquals(requestTime.toEpochMilli(), meta.inputTime)
         assertEquals(responseTime.toEpochMilli(), meta.outputTime)
     }
@@ -125,8 +127,8 @@ class TestResultRecordTest {
 
         assertFalse(meta.valid)
         assertTrue(meta.wip)
-        assertEquals("", meta.input)
-        assertEquals("", meta.output)
+        assertEquals(null, meta.input)
+        assertEquals(null, meta.output)
         assertEquals(0L, meta.inputTime)
         assertEquals(0L, meta.outputTime)
     }
