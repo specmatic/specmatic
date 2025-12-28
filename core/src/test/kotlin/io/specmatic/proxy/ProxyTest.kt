@@ -25,6 +25,7 @@ import org.springframework.web.client.RestTemplate
 import org.springframework.web.client.postForEntity
 import java.io.File
 import java.net.InetSocketAddress
+import java.nio.file.Files
 
 internal class ProxyTest {
     private val dynamicHttpHeaders =
@@ -468,28 +469,67 @@ internal class ProxyTest {
     }
 }
 
-class FakeFileWriter : FileWriter {
-    var receivedContract: String? = null
-    var receivedStub: String? = null
-    val flags = mutableListOf<String>()
-    val receivedPaths = mutableListOf<String>()
+class FakeFileWriter private constructor(
+    private val state: FakeFileWriterState,
+    private val pathPrefix: String,
+) : FileWriter {
+    constructor() : this(FakeFileWriterState(), "")
+
+    var receivedContract: String?
+        get() = state.receivedContract
+        set(value) {
+            state.receivedContract = value
+        }
+
+    var receivedStub: String?
+        get() = state.receivedStub
+        set(value) {
+            state.receivedStub = value
+        }
+
+    val flags: MutableList<String>
+        get() = state.flags
+
+    val receivedPaths: MutableList<String>
+        get() = state.receivedPaths
 
     override fun createDirectory() {
-        this.flags.add("createDirectory")
+        state.flags.add("createDirectory")
+        File(state.baseDir, pathPrefix).mkdirs()
     }
 
     override fun writeText(
         path: String,
         content: String,
     ) {
-        this.receivedPaths.add(path)
+        val fullPath = fullPath(path)
+        state.receivedPaths.add(path)
 
         if (path.endsWith(".$YAML")) {
-            this.receivedContract = content
+            state.receivedContract = content
         } else {
-            this.receivedStub = content
+            state.receivedStub = content
         }
+
+        val target = File(state.baseDir, fullPath)
+        target.parentFile?.mkdirs()
+        target.writeText(content)
     }
 
-    override fun subDirectory(path: String): FileWriter = this
+    override fun subDirectory(path: String): FileWriter =
+        FakeFileWriter(state, fullPath(path))
+
+    override fun fileName(path: String): String =
+        File(state.baseDir, fullPath(path)).path
+
+    private fun fullPath(path: String): String =
+        if (pathPrefix.isBlank()) path else File(pathPrefix, path).path
+}
+
+private class FakeFileWriterState {
+    val baseDir: File = Files.createTempDirectory("specmatic-proxy-test").toFile()
+    var receivedContract: String? = null
+    var receivedStub: String? = null
+    val flags: MutableList<String> = mutableListOf()
+    val receivedPaths: MutableList<String> = mutableListOf()
 }
