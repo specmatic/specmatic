@@ -560,9 +560,9 @@ paths:
         ))
 
         val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario, monitorScenario))
-        val contractTest = ScenarioAsTest(postScenario, feature, feature.flagsBased, originalScenario = postScenario)
+        val contractTest = ScenarioAsTest(acceptedScenario, feature, feature.flagsBased, originalScenario = postScenario)
 
-        val (result, response) = contractTest.runTest(object : TestExecutor {
+        val (result, _) = contractTest.runTest(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
                 if (request.method == "POST") {
                     return HttpResponse(202, headers = mapOf("Link" to "</monitor/123>;rel=related;title=monitor"))
@@ -595,7 +595,7 @@ paths:
     }
 
     @Test
-    fun `should return failure when the monitor link returns invalid response`() {
+    fun `should fail the test if accepted status code was return for a 201 response test`() {
         val postScenario = Scenario(ScenarioInfo(
             httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/"), method = "POST"),
             httpResponsePattern = HttpResponsePattern(
@@ -621,7 +621,72 @@ paths:
         val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario, monitorScenario))
         val contractTest = ScenarioAsTest(postScenario, feature, feature.flagsBased, originalScenario = postScenario)
 
-        val (result, response) = contractTest.runTest(object : TestExecutor {
+        val (result, _) = contractTest.runTest(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                if (request.method == "POST") {
+                    return HttpResponse(202, headers = mapOf("Link" to "</monitor/123>;rel=related;title=monitor"))
+                }
+
+                return HttpResponse(
+                    200,
+                    body = parsedJSONObject("""
+                        {
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    { "name": "Content-Type", "value": "application/json" }
+                                ]
+                            },
+                            "response": {
+                                "statusCode": 201,
+                                "header": [
+                                    { "name": "Content-Type", "value": "application/json" }
+                                ],
+                                "body": { "name": "John", "age": 20 }
+                            }
+                        }
+                        """.trimIndent())
+                )
+            }
+        })
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
+        In scenario ""
+        API: POST / -> 201
+        >> RESPONSE.STATUS
+        Expected status 201, actual was status 202
+        """.trimIndent())
+    }
+
+    @Test
+    fun `should return failure when the monitor link returns invalid response`() {
+        val postScenario = Scenario(ScenarioInfo(
+            httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/"), method = "POST"),
+            httpResponsePattern = HttpResponsePattern(
+                status = 201,
+                body = JSONObjectPattern(mapOf("name" to StringPattern(), "age" to NumberPattern()))
+            )
+        ))
+        val acceptedScenario = Scenario(ScenarioInfo(
+            httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/"), method = "POST"),
+            httpResponsePattern = HttpResponsePattern(
+                status = 202,
+                headersPattern = HttpHeadersPattern(mapOf("Link" to StringPattern()))
+            )
+        ))
+        val monitorScenario = Scenario(ScenarioInfo(
+            httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/monitor/(id:number)"), method = "GET"),
+            httpResponsePattern = HttpResponsePattern(
+                status = 200,
+                body = JSONObjectPattern(mapOf("request" to AnyNonNullJSONValue(), "response?" to AnyNonNullJSONValue()))
+            )
+        ))
+
+        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario, monitorScenario))
+        val contractTest = ScenarioAsTest(acceptedScenario, feature, feature.flagsBased, originalScenario = postScenario)
+
+        val (result, _) = contractTest.runTest(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
                 if (request.method == "POST") {
                     return HttpResponse(202, headers = mapOf("Link" to "</monitor/123>;rel=related;title=monitor"))
@@ -654,7 +719,7 @@ paths:
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
         In scenario ""
-        API: POST / -> 201
+        API: POST / -> 202
         >> MONITOR.RESPONSE.BODY.name
         Invalid request or response payload in the monitor response
         Expected string, actual was 20 (number)
@@ -682,7 +747,7 @@ paths:
         ))
 
         val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario))
-        val contractTest = ScenarioAsTest(postScenario, feature, feature.flagsBased, originalScenario = postScenario)
+        val contractTest = ScenarioAsTest(acceptedScenario, feature, feature.flagsBased, originalScenario = postScenario)
 
         val (result, response) = contractTest.runTest(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
@@ -694,7 +759,7 @@ paths:
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
         In scenario ""
-        API: POST / -> 201
+        API: POST / -> 202
         No monitor scenario found matching link: Link(url=/monitor/123, rel=related, title=monitor)
         """.trimIndent())
     }
@@ -750,7 +815,7 @@ paths:
         ))
 
         val feature = Feature(name = "", scenarios = listOf(postScenario, tooManyRequestsScenario))
-        val contractTest = ScenarioAsTest(postScenario, feature, feature.flagsBased, originalScenario = postScenario)
+        val contractTest = ScenarioAsTest(tooManyRequestsScenario, feature, feature.flagsBased, originalScenario = postScenario)
         val (result) = contractTest.runTest(object : TestExecutor {
             var retryCount: Int = 0
 
@@ -761,6 +826,36 @@ paths:
         })
 
         assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `should fail a test if a tooManyRequests response was returned for a 201 test`() {
+        val postScenario = Scenario(ScenarioInfo(
+            httpRequestPattern = HttpRequestPattern(
+                httpPathPattern = buildHttpPathPattern("/(id:string)"), method = "POST",
+                body = JSONObjectPattern(mapOf("age" to NumberPattern()))
+            ),
+            httpResponsePattern = HttpResponsePattern(status = 201),
+        ))
+        val tooManyRequestsScenario = Scenario(ScenarioInfo(
+            httpRequestPattern = HttpRequestPattern(
+                httpPathPattern = buildHttpPathPattern("/(id:string)"), method = "POST",
+                body = JSONObjectPattern(mapOf("age" to NumberPattern()))
+            ),
+            httpResponsePattern = HttpResponsePattern(status = HttpStatusCode.TooManyRequests.value),
+        ))
+
+        val feature = Feature(name = "", scenarios = listOf(postScenario, tooManyRequestsScenario))
+        val contractTest = ScenarioAsTest(postScenario, feature, feature.flagsBased, originalScenario = postScenario)
+        val (result) = contractTest.runTest(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                return HttpResponse(429, headers = mapOf(HttpHeaders.RetryAfter to "0"))
+            }
+        })
+
+        println(result.reportString())
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).contains("Expected status 201, actual was status 429")
     }
 
     @Test
