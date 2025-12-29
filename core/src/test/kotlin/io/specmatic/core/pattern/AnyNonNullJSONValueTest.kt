@@ -160,4 +160,14 @@ class AnyNonNullJSONValueTest {
         assertThat(result).isInstanceOf(HasValue::class.java)
         assertThat((result as HasValue).value).isEqualTo(arrayValue)
     }
+
+    @Test
+    fun `listOf should return a json array`() {
+        val pattern = AnyNonNullJSONValue()
+        val resolver = Resolver()
+
+        val result = pattern.listOf(listOf(StringValue("item")), resolver)
+
+        assertThat(result).isInstanceOf(JSONArrayValue::class.java)
+    }
 }
