@@ -1,12 +1,15 @@
 package io.specmatic.core
 
+import io.specmatic.reporter.backwardcompat.dto.OperationUsageResponse
+import io.specmatic.reporter.backwardcompat.dto.openApiReportText
+
 const val PATH_NOT_RECOGNIZED_ERROR = "Match not found"
 
 data class Results(val results: List<Result> = emptyList()) {
     fun hasResults(): Boolean = results.isNotEmpty()
 
     fun hasFailures(): Boolean = results.any { it is Result.Failure }
-    fun success(): Boolean = if(hasResults()) successCount > 0 && failureCount == 0 else true
+    fun success(): Boolean = if (hasResults()) successCount > 0 && failureCount == 0 else true
 
     fun withoutFluff(fluffLevel: Int): Results = copy(results = results.filterNot { it.isFluffy(fluffLevel) })
 
@@ -20,7 +23,9 @@ data class Results(val results: List<Result> = emptyList()) {
         }
 
     fun toResultIfAny(): Result {
-        return results.find { it is Result.Success } ?: Result.Failure(results.joinToString("\n\n") { it.toReport().toText() }, isPartial = results.all { it.isPartialFailure() })
+        return results.find { it is Result.Success } ?: Result.Failure(results.joinToString("\n\n") {
+            it.toReport().toText()
+        }, isPartial = results.all { it.isPartialFailure() })
     }
 
     fun toResultIfAnyWithCauses(): Result {
@@ -54,11 +59,14 @@ data class Results(val results: List<Result> = emptyList()) {
         return report(httpRequest.requestNotRecognizedInStrictMode())
     }
 
-    fun report(defaultMessage: String = PATH_NOT_RECOGNIZED_ERROR): String {
+    fun report(
+        defaultMessage: String = PATH_NOT_RECOGNIZED_ERROR,
+        operations: List<OperationUsageResponse>? = null
+    ): String {
         val filteredResults = withoutFluff().results.filterIsInstance<Result.Failure>()
 
         return when {
-            filteredResults.isNotEmpty() -> listToReport(filteredResults)
+            filteredResults.isNotEmpty() -> listToReport(filteredResults, operations)
             else -> defaultMessage.trim()
         }
     }
@@ -68,7 +76,7 @@ data class Results(val results: List<Result> = emptyList()) {
 
         return when {
             filteredResults.isNotEmpty() -> listToDistinctReport(filteredResults)
-            else -> if(successCount > 0 && failureCount == 0) "" else defaultMessage.trim()
+            else -> if (successCount > 0 && failureCount == 0) "" else defaultMessage.trim()
         }
     }
 
@@ -77,7 +85,7 @@ data class Results(val results: List<Result> = emptyList()) {
     fun distinct(): Results {
         val filteredResults = withoutFluff().results
         val resultReports = filteredResults.map {
-            when(it) {
+            when (it) {
                 is Result.Failure -> it.toFailureReport().toText()
                 else -> ""
             }
@@ -85,13 +93,14 @@ data class Results(val results: List<Result> = emptyList()) {
 
         val uniqueResults: List<Result> = filteredResults.foldIndexed(emptyList()) { index, acc, result ->
             val report = resultReports[index]
-            when(result) {
+            when (result) {
                 is Result.Failure -> {
-                    if(resultReports.indexOf(report) == index)
+                    if (resultReports.indexOf(report) == index)
                         acc.plus(result)
                     else
                         acc
                 }
+
                 else -> acc.plus(result)
             }
         }
@@ -118,17 +127,29 @@ data class Results(val results: List<Result> = emptyList()) {
             else -> "$successCount example(s) are valid. $failureCount example(s) are invalid."
         }
     }
+
     fun toResultPartialFailures(): List<Result> {
         return results.filter { it.isPartialFailure() }
     }
 }
 
-private fun listToReport(results: List<Result>): String {
+private fun listToReport(results: List<Result>, operations: List<OperationUsageResponse>?): String {
     return results.filterIsInstance<Result.Failure>()
-        .joinToString("${System.lineSeparator()}${System.lineSeparator()}") {
-            it.toFailureReport().toText()
+        .joinToString("${System.lineSeparator()}${System.lineSeparator()}") { failure ->
+            val currentOperation = failure.scenario?.operation
+
+            val reportFromHook = operations.reportText(currentOperation)
+
+            listOf(failure.toFailureReport().toText(), reportFromHook).filterNotNull().joinToString(". ")
         }
 }
+
+private fun List<OperationUsageResponse>?.reportText(currentOperation: Operation?): String? =
+    if (currentOperation == null) {
+        null
+    } else {
+        this.openApiReportText(currentOperation.path, currentOperation.method, currentOperation.responseCode)
+    }
 
 private fun listToDistinctReport(results: List<Result>): String {
     return results.filterIsInstance<Result.Failure>().map {
