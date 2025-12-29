@@ -105,7 +105,7 @@ data class Resolver(
         }
 
         if (patternFromValue is AnyValuePattern) return Result.Success()
-        return pattern.encompasses(patternFromValue, this, this)
+        return pattern.encompasses(patternFromValue, this, this).withRuleViolation(ruleViolation = StandardRuleViolation.TYPE_MISMATCH)
     }
 
     fun actualPatternMatch(factKey: String?, pattern: Pattern, sampleValue: Value): Result {

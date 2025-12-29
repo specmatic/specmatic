@@ -11,8 +11,10 @@ import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.utilities.jsonStringToValueMap
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.core.examples.server.ExampleMismatchMessages
+import io.specmatic.toViolationReportString
 import io.specmatic.shouldMatch
-import io.specmatic.trimmedLinesList
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
@@ -908,16 +910,19 @@ paths:
         val response = HttpResponse.ok("success")
 
         assertThatThrownBy {
-            feature.matchingStub(request, response, ContractAndStubMismatchMessages)
+            feature.matchingStub(request, response, ExampleMismatchMessages)
         }.satisfies(Consumer {
-            assertThat((it as NoMatchingScenario).report(request).trim().trimmedLinesList()).isEqualTo("""
-                In scenario "hello world. Response: Says hello"
-                API: GET /hello/(id:number) -> 200
-
-                  >> REQUEST.PARAMETERS.HEADER.X-Value
-                  
-                     ${ContractAndStubMismatchMessages.mismatchMessage("number", """"data" """.trim())}
-                """.trimIndent().trimmedLinesList())
+            assertThat((it as NoMatchingScenario).report(request)).isEqualToIgnoringWhitespace("""
+            In scenario "hello world. Response: Says hello"
+            API: GET /hello/(id:number) -> 200
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.PARAMETERS.HEADER.X-Value",
+                    details = ExampleMismatchMessages.typeMismatch("number", "\"data\"", "string"),
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
+            """.trimIndent())
         })
     }
 
@@ -1041,57 +1046,67 @@ paths:
                     "supposed-to-be-http-request": { "path": "/add", "method": "POST" },
                     "http-response": { "status": 200 }
                     }""".trimIndent(),
-                    """
-                    >> supposed-to-be-http-request
-                    Key named "supposed-to-be-http-request" is invalid. Did you mean "http-request"?
-                    """.trimIndent()
+                    toViolationReportString(
+                        breadCrumb = "supposed-to-be-http-request",
+                        details = unexpectedKeyButMatches("supposed-to-be-http-request", "http-request"),
+                        StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+                    )
                 ),
                 Arguments.of("""{
                     "http-request": { "path": "/add", "method": "POST" },
                     "supposed-to-be-http-response": { "status": 200 }
                     }""".trimIndent(),
-                    """
-                    >> supposed-to-be-http-response 
-                    Key named "supposed-to-be-http-response" is invalid. Did you mean "http-response"?
-                    """.trimIndent()
+                    toViolationReportString(
+                        breadCrumb = "supposed-to-be-http-response",
+                        details = unexpectedKeyButMatches("supposed-to-be-http-response", "http-response"),
+                        StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+                    )
                 ),
                 Arguments.of("""{
                     "http-request": { "path": "/add", "supposed-to-be-method": "POST" },
                     "http-response": { "status": 200 }
                     }""".trimIndent(),
-                    """
-                    >> http-request.supposed-to-be-method
-                    Key named "supposed-to-be-method" is invalid. Did you mean "method"?
-                    """.trimIndent()
+                    toViolationReportString(
+                        breadCrumb = "http-request.supposed-to-be-method",
+                        details = unexpectedKeyButMatches("supposed-to-be-method", "method"),
+                        StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+                    )
                 ),
                 Arguments.of("""{
                     "http-request": { "path": "/add", "method": "POST", body: null },
                     "http-response": { "status": 200 }
                     }""".trimIndent(),
-                    """
-                    >> http-request.body
-                    Should be non-null value as per example format, but got null in the actual example
-                    """.trimIndent()
+                    toViolationReportString(
+                        breadCrumb = "http-request.body",
+                        details = FuzzyExampleMisMatchMessages.mismatchMessage("non-null value", "null"),
+                        StandardRuleViolation.VALUE_MISMATCH
+                    )
                 ),
                 Arguments.of("""{
                     "http-request": { "path": "/add", "method": "POST" },
                     "http-response": { "supposed-to-be-status": 200 }
                     }""".trimIndent(),
-                    """
-                    >> http-response.supposed-to-be-status
-                    Key named "supposed-to-be-status" is invalid. Did you mean "status"?
-                    """.trimIndent()
+                    toViolationReportString(
+                        breadCrumb = "http-response.supposed-to-be-status",
+                        details = unexpectedKeyButMatches("supposed-to-be-status", "status"),
+                        StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+                    )
                 ),
                 Arguments.of("""{
                     "http-request": { "path": "/add", "method": "POST" },
                     "http-response": { "status": 200,  body: null }
                     }""".trimIndent(),
-                    """
-                    >> http-response.body
-                    Should be non-null value as per example format, but got null in the actual example
-                    """.trimIndent()
+                    toViolationReportString(
+                        breadCrumb = "http-response.body",
+                        details = FuzzyExampleMisMatchMessages.mismatchMessage("non-null value", "null"),
+                        StandardRuleViolation.VALUE_MISMATCH
+                    )
                 )
             )
+        }
+
+        private fun unexpectedKeyButMatches(unexpectedKey: String, candidate: String): String {
+            return "${FuzzyExampleMisMatchMessages.unexpectedKey("property", unexpectedKey)}. Did you mean \"$candidate\"?"
         }
     }
 }

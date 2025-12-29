@@ -5,6 +5,8 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.toViolationReportString
 import io.specmatic.shouldMatch
 import io.specmatic.shouldNotMatch
 import io.specmatic.stub.HttpStub
@@ -324,13 +326,15 @@ Feature: test feature
         val resolver = feature.scenarios.single().resolver
         val result = feature.scenarios.single().httpRequestPattern.matches(request, resolver)
 
-        assertThat(result.toReport().toString().trimmedLinesString()).isEqualTo(
-            """>> REQUEST.BODY.name
-
-   Expected string, actual was JSON object {
-       "firstname": "Jane",
-       "lastname": "Doe"
-   }""".trimmedLinesString()
+        assertThat(result.toReport().toString().trimmedLinesString()).isEqualToIgnoringWhitespace(
+            toViolationReportString(
+                breadCrumb = "REQUEST.BODY.name",
+                details = DefaultMismatchMessages.typeMismatch(expectedType = "string", actualType = "json object", actualValue = """{
+                    "firstname": "Jane",
+                    "lastname": "Doe"
+                }""".trimIndent()),
+                StandardRuleViolation.TYPE_MISMATCH
+            )
         )
     }
 

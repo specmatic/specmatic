@@ -4,6 +4,7 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.Flags
+import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
@@ -19,9 +20,14 @@ class ExamplePostValidatorTest {
         val result = ExamplePostValidator.postValidate(scenario, scenario, request, response)
 
         assertThat(result).isInstanceOf(Result.Failure::class.java); result as Result.Failure
-        assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> RESPONSE.BODY.data
-        Expected "bye" to equal "hello"
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY.data",
+                details = "Expected \"bye\" to equal \"hello\"",
+                StandardRuleViolation.VALUE_MISMATCH
+            )
+        }
         """.trimIndent())
     }
 
@@ -142,22 +148,62 @@ class ExamplePostValidatorTest {
 
         assertThat(result).isInstanceOf(Result.Failure::class.java); result as Result.Failure
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> RESPONSE.BODY[0].details[0].name
-        Expected string, actual was 1 (number)
-        >> RESPONSE.BODY[0].details[1].name
-        Expected string, actual was 2 (number)
-        >> RESPONSE.BODY[1].details[0].name
-        Expected string, actual was 3 (number)
-        >> RESPONSE.BODY[1].details[1].name
-        Expected string, actual was 3 (number)
-        >> RESPONSE.BODY[0].details[0].age
-        Expected 1 to equal 20
-        >> RESPONSE.BODY[0].details[1].age
-        Expected 2 to equal 20
-        >> RESPONSE.BODY[1].details[0].age
-        Expected 3 to equal 20
-        >> RESPONSE.BODY[1].details[1].age
-        Expected 4 to equal 20
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY[0].details[0].name",
+                details = DefaultMismatchMessages.typeMismatch("string", "1", "number"),
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY[0].details[1].name",
+                details = DefaultMismatchMessages.typeMismatch("string", "2", "number"),
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY[1].details[0].name",
+                details = DefaultMismatchMessages.typeMismatch("string", "3", "number"),
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY[1].details[1].name",
+                details = DefaultMismatchMessages.typeMismatch("string", "3", "number"),
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY[0].details[0].age",
+                details = "Expected 1 to equal 20",
+                StandardRuleViolation.VALUE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY[0].details[1].age",
+                details = "Expected 2 to equal 20",
+                StandardRuleViolation.VALUE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY[1].details[0].age",
+                details = "Expected 3 to equal 20",
+                StandardRuleViolation.VALUE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY[1].details[1].age",
+                details = "Expected 4 to equal 20",
+                StandardRuleViolation.VALUE_MISMATCH
+            )
+        }
         """.trimIndent())
     }
 
@@ -215,10 +261,10 @@ class ExamplePostValidatorTest {
         """.trimIndent())), newPatterns = mapOf("(ListOfString)" to ListPattern(StringPattern())))
         val request = HttpRequest(method = "POST")
         val failingBodyValuesToErrorMessage = listOf(
-            """{"details": "Not an array"}""" to "Expected list of string, actual was Not an array",
-            """{"details": 123}""" to "Expected list of string, actual was 123",
-            """{"details": null}""" to "Expected list of string, actual was (null)",
-            """{"details": {"key": "value"}}""" to """Expected list of string, actual was { "key": "value" }""",
+            """{"details": "Not an array"}""" to DefaultMismatchMessages.typeMismatch("list of string", "\"Not an array\"", "string"),
+            """{"details": 123}""" to DefaultMismatchMessages.typeMismatch("list of string", "123", "number"),
+            """{"details": null}""" to DefaultMismatchMessages.typeMismatch("list of string", "null", "null"),
+            """{"details": {"key": "value"}}""" to DefaultMismatchMessages.typeMismatch("list of string", "{\"key\": \"value\"}", "json object"),
         )
 
         assertThat(failingBodyValuesToErrorMessage).allSatisfy {
@@ -226,9 +272,8 @@ class ExamplePostValidatorTest {
             val result = ExamplePostValidator.postValidate(arrayAssert, arrayAssert, request, response)
 
             assertThat(result).isInstanceOf(Result.Failure::class.java); result as Result.Failure
-            assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-            >> RESPONSE.BODY.details
-            ${it.second}
+            assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
+            ${toViolationReportString(breadCrumb = "RESPONSE.BODY.details", details = it.second, StandardRuleViolation.TYPE_MISMATCH)}
             """.trimIndent())
         }
     }
@@ -244,9 +289,9 @@ class ExamplePostValidatorTest {
         """.trimIndent())))
         val request = HttpRequest(method = "POST")
         val failingBodyValuesToErrorMessage = listOf(
-            """{"details": [123]}""" to "Expected string, actual was 123 (number)",
-            """{"details": [null]}""" to "Expected string, actual was null",
-            """{"details": [{"key": "value"}]}""" to """Expected string, actual was JSON object { "key": "value" }""",
+            """{"details": [123]}""" to DefaultMismatchMessages.typeMismatch("string", "123", "number"),
+            """{"details": [null]}""" to DefaultMismatchMessages.typeMismatch("string", null, "null"),
+            """{"details": [{"key": "value"}]}""" to DefaultMismatchMessages.typeMismatch("string", "{\"key\": \"value\"}", "json object"),
         )
 
         assertThat(failingBodyValuesToErrorMessage).allSatisfy {
@@ -255,9 +300,8 @@ class ExamplePostValidatorTest {
 
             assertThat(result).isInstanceOf(Result.Failure::class.java); result as Result.Failure
             println(result.reportString())
-            assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-            >> RESPONSE.BODY.details[0]
-            ${it.second}
+            assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
+            ${toViolationReportString(breadCrumb = "RESPONSE.BODY.details[0]", details = it.second, StandardRuleViolation.TYPE_MISMATCH)}
             """.trimIndent())
         }
     }
@@ -293,14 +337,30 @@ class ExamplePostValidatorTest {
         val result = ExamplePostValidator.postValidate(scenario, scenario, request, response)
 
         assertThat(result).isInstanceOf(Result.Failure::class.java); result as Result.Failure
-        assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> RESPONSE.BODY[1].details[0][0]
-        Expected number, actual was false (boolean)
-        >> RESPONSE.BODY[1].details[0][1]
-        Expected number, actual was "5"
-        >> RESPONSE.BODY[1].details[0][2]
-        Expected number, actual was null
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY[1].details[0][0]",
+                details = DefaultMismatchMessages.typeMismatch("number", "false", "boolean"),
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY[1].details[0][1]",
+                details = DefaultMismatchMessages.typeMismatch("number", "\"5\"", "string"),
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY[1].details[0][2]",
+                details = DefaultMismatchMessages.typeMismatch("number", null, "null"),
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
         """.trimIndent())
+
     }
 
     @Test
@@ -316,9 +376,14 @@ class ExamplePostValidatorTest {
         val result = ExamplePostValidator.postValidate(scenario, scenario, request, response)
 
         assertThat(result).isInstanceOf(Result.Failure::class.java); result as Result.Failure
-        assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> RESPONSE.BODY.id
-        Expected 456 to equal 123
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY.id",
+                details = "Expected 456 to equal 123",
+                StandardRuleViolation.VALUE_MISMATCH
+            )
+        }
         """.trimIndent())
     }
 
@@ -338,9 +403,14 @@ class ExamplePostValidatorTest {
         val result = ExamplePostValidator.postValidate(scenario, scenario, request, response)
 
         assertThat(result).isInstanceOf(Result.Failure::class.java); result as Result.Failure
-        assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> RESPONSE.BODY.id
-        Expected 456 to equal 123
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY.id",
+                details = "Expected 456 to equal 123",
+                StandardRuleViolation.VALUE_MISMATCH
+            )
+        }
         """.trimIndent())
     }
 
@@ -360,9 +430,14 @@ class ExamplePostValidatorTest {
         val result = ExamplePostValidator.postValidate(scenario, scenario, request, response)
 
         assertThat(result).isInstanceOf(Result.Failure::class.java); result as Result.Failure
-        assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> RESPONSE.BODY.id
-        Expected 456 to equal 123
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY.id",
+                details = "Expected 456 to equal 123",
+                StandardRuleViolation.VALUE_MISMATCH
+            )
+        }
         """.trimIndent())
     }
 

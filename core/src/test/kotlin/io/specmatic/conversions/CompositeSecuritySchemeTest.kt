@@ -3,6 +3,9 @@ package io.specmatic.conversions
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.toViolationReportString
+import io.specmatic.core.DefaultMismatchMessages
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -37,10 +40,20 @@ class CompositeSecuritySchemeTest {
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> HEADER.$AUTHORIZATION
-        Expected header named "$AUTHORIZATION" was missing
-        >> QUERY.apiKey
-        Expected api-key named "apiKey" was missing
+        ${
+            toViolationReportString(
+                breadCrumb = "HEADER.$AUTHORIZATION",
+                details = DefaultMismatchMessages.expectedKeyWasMissing("header", AUTHORIZATION),
+                StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "QUERY.apiKey",
+                details = DefaultMismatchMessages.expectedKeyWasMissing(apiKeyParamName, "apiKey"),
+                StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+            )
+        }
         """.trimIndent())
     }
 

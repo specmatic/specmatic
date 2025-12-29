@@ -15,6 +15,7 @@ import io.ktor.util.pipeline.*
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.*
 import io.specmatic.core.Constants.Companion.ARTIFACTS_PATH
+import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.core.log.*
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSON
@@ -125,7 +126,7 @@ class HttpStub(
         fun setExpectation(
             stub: ScenarioStub,
             feature: Feature,
-            mismatchMessages: MismatchMessages = ContractAndStubMismatchMessages
+            mismatchMessages: MismatchMessages = ExampleMismatchMessages
         ): Pair<Pair<Result.Success, List<HttpStubData>>?, NoMatchingScenario?> {
             try {
                 val tier1Match = feature.matchingStub(
@@ -137,7 +138,7 @@ class HttpStub(
                     ?: throw ContractException("Expected scenario after stub matched for:${System.lineSeparator()}${stub.toJSON()}")
 
                 val stubWithSubstitutionsResolved = stub.resolveDataSubstitutions().map { scenarioStub ->
-                    feature.matchingStub(scenarioStub, ContractAndStubMismatchMessages)
+                    feature.matchingStub(scenarioStub, ExampleMismatchMessages)
                 }
 
                 val stubData: List<HttpStubData> = stubWithSubstitutionsResolved.map {
@@ -296,12 +297,16 @@ class HttpStub(
                         isSseExpectationCreation(httpRequest) -> handleSseExpectationCreationRequest(httpRequest)
                         isStateSetupRequest(httpRequest) -> handleStateSetupRequest(httpRequest)
                         isFlushTransientStubsRequest(httpRequest) -> handleFlushTransientStubsRequest(httpRequest)
-                        else -> serveStubResponse(
-                            httpRequest,
-                            baseUrl = "${call.request.local.scheme}://${call.request.local.serverHost}:${call.request.local.localPort}",
-                            defaultBaseUrl = endPointFromHostAndPort(host, port, keyData),
-                            urlPath = call.request.path()
-                        )
+                        else -> {
+                            val responseResult = serveStubResponse(
+                                httpRequest,
+                                baseUrl = "${call.request.local.scheme}://${call.request.local.serverHost}:${call.request.local.localPort}",
+                                defaultBaseUrl = endPointFromHostAndPort(host, port, keyData),
+                                urlPath = call.request.path()
+                            )
+                            if (responseResult is NotStubbed) httpLogMessage.addResult(responseResult.stubResult)
+                            responseResult.response
+                        }
                     }
 
                     val (httpResponse, responseInterceptorErrors) = responseInterceptors.fold(
@@ -523,7 +528,7 @@ class HttpStub(
         baseUrl: String,
         defaultBaseUrl: String,
         urlPath: String
-    ): HttpStubResponse {
+    ): StubbedResponseResult {
         val url = "$baseUrl$urlPath"
         val stubBaseUrlPath = specmaticConfigInstance.stubBaseUrlPathAssociatedTo(url, defaultBaseUrl)
 
@@ -540,7 +545,7 @@ class HttpStub(
                 it.response.mock?.let { mock -> httpExpectations.utilizeMock(mock) }
             }
             it.log(_logs, httpRequest)
-        }.response
+        }
     }
 
     internal fun featuresAssociatedTo(
@@ -1110,19 +1115,11 @@ fun getHttpResponse(
         }
         if (httpClientFactory != null && passThroughTargetBase.isNotBlank()) {
             return NotStubbed(
-                passThroughResponse(
-                    httpRequest,
-                    passThroughTargetBase,
-                    httpClientFactory
-                )
+                passThroughResponse(httpRequest, passThroughTargetBase, httpClientFactory),
+                stubResult = Result.Success()
             )
         }
-        if (strictMode) return NotStubbed(
-            HttpStubResponse(
-                response = strictModeHttp400Response(httpRequest, matchResults),
-                scenario = features.firstNotNullOfOrNull { it.identifierMatchingScenario(httpRequest) }
-            ))
-
+        if (strictMode) return strictModeHttp400Response(features, httpRequest, matchResults)
         return fakeHttpResponse(features, httpRequest, specmaticConfig)
     } finally {
         features.forEach { feature -> feature.clearServerState() }
@@ -1140,17 +1137,21 @@ fun passThroughResponse(
     return HttpStubResponse(response.copy(headers = response.headers.plus(SPECMATIC_SOURCE_HEADER to "proxy")))
 }
 
-object StubAndRequestMismatchMessages : MismatchMessages {
+object SpecificationAndRequestMismatchMessages : MismatchMessages {
     override fun mismatchMessage(expected: String, actual: String): String {
-        return "Stub expected $expected but request contained $actual"
+        return "Specification expected $expected but request contained $actual"
     }
 
     override fun unexpectedKey(keyLabel: String, keyName: String): String {
-        return "${keyLabel.lowercase().capitalizeFirstChar()} named $keyName in the request was not in the stub"
+        return "${keyLabel.capitalizeFirstChar()} \"$keyName\" in the request was not in the specification"
     }
 
     override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
-        return "${keyLabel.lowercase().capitalizeFirstChar()} named $keyName in the stub was not found in the request"
+        return "Specification expected mandatory $keyLabel \"$keyName\" to be present but was missing from the request"
+    }
+
+    override fun optionalKeyMissing(keyLabel: String, keyName: String): String {
+        return "Expected optional $keyLabel \"$keyName\" from specification to be present but was missing from the request"
     }
 }
 
@@ -1193,22 +1194,6 @@ fun isMissingData(e: Throwable?): Boolean {
     }
 }
 
-object ContractAndRequestsMismatch : MismatchMessages {
-    override fun mismatchMessage(expected: String, actual: String): String {
-        return "Contract expected $expected but request contained $actual"
-    }
-
-    override fun unexpectedKey(keyLabel: String, keyName: String): String {
-        return "${keyLabel.lowercase().capitalizeFirstChar()} named $keyName in the request was not in the contract"
-    }
-
-    override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
-        return "${
-            keyLabel.lowercase().capitalizeFirstChar()
-        } named $keyName in the contract was not found in the request"
-    }
-}
-
 data class ResponseDetails(val feature: Feature, val successResponse: ResponseBuilder?, val results: Results)
 
 fun fakeHttpResponse(
@@ -1218,7 +1203,7 @@ fun fakeHttpResponse(
 ): StubbedResponseResult {
 
     if (features.isEmpty())
-        return NotStubbed(HttpStubResponse(HttpResponse(400, "No valid API specifications loaded")))
+        return NotStubbed(HttpStubResponse(HttpResponse(400, "No valid API specifications loaded")), Result.Failure("No valid API specifications loaded"))
 
     val responses: List<ResponseDetails> = responseDetailsFrom(features, httpRequest)
 
@@ -1252,7 +1237,7 @@ fun fakeHttpResponse(
             } else {
                 val httpFailureResponse = combinedFailureResult.generateErrorHttpResponse(httpRequest)
                 val nearestScenario = features.firstNotNullOfOrNull { it.identifierMatchingScenario(httpRequest) }
-                NotStubbed(HttpStubResponse(httpFailureResponse, scenario = nearestScenario))
+                NotStubbed(HttpStubResponse(httpFailureResponse, scenario = nearestScenario), stubResult = combinedFailureResult.toResultIfAnyWithCauses())
             }
         }
 
@@ -1269,7 +1254,7 @@ fun fakeHttpResponse(
 
 fun responseDetailsFrom(features: List<Feature>, httpRequest: HttpRequest): List<ResponseDetails> {
     return features.asSequence().map { feature ->
-        feature.stubResponse(httpRequest, ContractAndRequestsMismatch).let {
+        feature.stubResponse(httpRequest, SpecificationAndRequestMismatchMessages).let {
             ResponseDetails(feature, it.first, it.second)
         }
     }.toList()
@@ -1365,23 +1350,26 @@ fun dumpIntoFirstAvailableStringField(jsonArrayValue: JSONArrayValue, stringValu
     return jsonArrayValue.copy(list = newList)
 }
 
-private fun strictModeHttp400Response(
-    httpRequest: HttpRequest,
-    matchResults: List<Pair<Result, HttpStubData>>
-): HttpResponse {
+private fun strictModeHttp400Response(features: List<Feature>, httpRequest: HttpRequest, matchResults: List<Pair<Result, HttpStubData>>): NotStubbed {
     val failureResults = matchResults.map { it.first }
+    val results = Results(failureResults).withoutFluff().withoutViolationReport()
+    val strictModeReport = results.strictModeReport(httpRequest)
 
-    val results = Results(failureResults).withoutFluff()
-    return HttpResponse(
-        400,
-        headers = mapOf(SPECMATIC_RESULT_HEADER to "failure"),
-        body = StringValue(
-            "STRICT MODE ON${System.lineSeparator()}${System.lineSeparator()}${
-                results.strictModeReport(
-                    httpRequest
-                )
-            }"
-        )
+    val defaultHeaders = mapOf("Content-Type" to "text/plain", SPECMATIC_RESULT_HEADER to "failure")
+    val headers = when {
+        strictModeReport.isEmpty() -> defaultHeaders.plus(SPECMATIC_EMPTY_HEADER to "true")
+        else -> defaultHeaders
+    }
+
+    return NotStubbed(
+        stubResult = results.toResultIfAnyWithCauses(),
+        response = HttpStubResponse(
+            scenario = features.firstNotNullOfOrNull { it.identifierMatchingScenario(httpRequest) },
+            response = HttpResponse(
+                status = 400, headers = headers,
+                body = StringValue("STRICT MODE ON${System.lineSeparator()}${System.lineSeparator()}$strictModeReport")
+            ),
+        ),
     )
 }
 
@@ -1418,7 +1406,7 @@ fun stubResponse(
 fun contractInfoToHttpExpectations(contractInfo: List<Pair<Feature, List<ScenarioStub>>>): List<HttpStubData> {
     return contractInfo.flatMap { (feature, examples) ->
         examples.map { example ->
-            feature.matchingStub(example, ContractAndStubMismatchMessages) to example
+            feature.matchingStub(example, ExampleMismatchMessages) to example
         }.flatMap { (stubData, example) ->
             val examplesWithDataSubstitutionsResolved = try {
                 example.resolveDataSubstitutions()
@@ -1430,7 +1418,7 @@ fun contractInfoToHttpExpectations(contractInfo: List<Pair<Feature, List<Scenari
             }
 
             examplesWithDataSubstitutionsResolved.map {
-                feature.matchingStub(it, ContractAndStubMismatchMessages)
+                feature.matchingStub(it, ExampleMismatchMessages)
             }
         }
     }

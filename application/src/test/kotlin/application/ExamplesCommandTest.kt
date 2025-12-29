@@ -171,7 +171,7 @@ paths:
         println(output)
 
         assertThat(returnValue).isNotEqualTo(0)
-        assertThat(output).contains("""expected number but example contained""")
+        assertThat(output).contains("""expected type number but example contained""")
     }
 
     @Test

@@ -4,6 +4,7 @@ import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.discriminator.DiscriminatorBasedValueGenerator
 import io.specmatic.core.discriminator.DiscriminatorMetadata
 import io.specmatic.core.pattern.*
+import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.specmatic.stub.softCastValueToXML
@@ -90,16 +91,17 @@ data class HttpResponsePattern(
     fun matchesMock(response: HttpResponse, resolver: Resolver) = matchesResponse(response, resolver)
 
     private fun matchStatus(parameters: Pair<HttpResponse, Resolver>): MatchingResult<Pair<HttpResponse, Resolver>> {
-        if(status == DEFAULT_RESPONSE_CODE)
-            return MatchSuccess(parameters)
+        if(status == DEFAULT_RESPONSE_CODE) return MatchSuccess(parameters)
 
-        val (response, _) = parameters
-
-        val body = response.body
-
+        val (response, resolver) = parameters
         return when (response.status) {
             status -> MatchSuccess(parameters)
-            else -> MatchFailure(mismatchResult("status $status", "status ${response.status}").copy(breadCrumb = "RESPONSE.STATUS", failureReason = FailureReason.StatusMismatch))
+            else -> MatchFailure(mismatchFailure(
+                expected = "status $status",
+                actual = "status ${response.status}",
+                ruleViolation = OpenApiRuleViolation.STATUS_MISMATCH,
+                mismatchMessages = resolver.mismatchMessages
+            ).copy(breadCrumb = "RESPONSE.STATUS", failureReason = FailureReason.StatusMismatch))
         }
     }
 
@@ -254,11 +256,14 @@ private val valueMismatchMessages = object : MismatchMessages {
     }
 
     override fun unexpectedKey(keyLabel: String, keyName: String): String {
-        return "Value mismatch: $keyLabel $keyName in value was unexpected"
+        return "Value mismatch: $keyLabel \"$keyName\" was unexpected"
     }
 
     override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
-        return "Value mismatch: $keyLabel $keyName was missing"
+        return "Value mismatch: $keyLabel \"$keyName\" was missing"
     }
 
+    override fun optionalKeyMissing(keyLabel: String, keyName: String): String {
+        return "Value mismatch: $keyLabel \"$keyName\" was missing"
+    }
 }

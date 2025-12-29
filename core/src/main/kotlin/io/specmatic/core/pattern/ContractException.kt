@@ -1,9 +1,14 @@
 package io.specmatic.core.pattern
 
 import io.specmatic.core.FailureReport
+import io.specmatic.core.MismatchMessages
 import io.specmatic.core.Result
+import io.specmatic.core.RuleViolation
+import io.specmatic.core.RuleViolationReport
 import io.specmatic.core.ScenarioDetailsForResult
+import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.utilities.exceptionCauseMessage
+import io.specmatic.core.value.StringValue
 
 fun isCycle(throwable: Throwable?): Boolean = when(throwable) {
     is ContractException -> throwable.isCycle
@@ -15,21 +20,26 @@ data class ContractException(
     val breadCrumb: String = "",
     val exceptionCause: Throwable? = null,
     val scenario: ScenarioDetailsForResult? = null,
-    val isCycle: Boolean = isCycle(exceptionCause)
+    val isCycle: Boolean = isCycle(exceptionCause),
+    val ruleViolationReport: RuleViolationReport? = null,
 ) : Exception(errorMessage, exceptionCause) {
-    constructor(failureReport: FailureReport): this(failureReport.errorMessage(), failureReport.breadCrumbs())
+    constructor(failureReport: FailureReport, ruleViolationReport: RuleViolationReport? = null) : this(
+        errorMessage = failureReport.errorMessage(),
+        breadCrumb = failureReport.breadCrumbs(),
+        ruleViolationReport = ruleViolationReport
+    )
 
     fun failure(): Result.Failure =
         Result.Failure(
             message = errorMessage,
-            cause = when(exceptionCause) {
+            cause = when (exceptionCause) {
                 is ContractException -> exceptionCause.failure()
                 is Throwable -> Result.Failure(exceptionCauseMessage(exceptionCause))
                 else -> null
             },
             breadCrumb = breadCrumb
-        ).also { result ->
-            if(scenario != null) result.updateScenario(scenario)
+        ).withRuleViolationReport(ruleViolationReport).also { result ->
+            if (scenario != null) result.updateScenario(scenario)
         }
 
     fun report(): String = failure().toReport().toText()
@@ -64,8 +74,26 @@ inline fun <ReturnType> scenarioBreadCrumb(scenario: ScenarioDetailsForResult, f
     }
 }
 
-fun resultOf(f: () -> Result): Result {
+fun <ReturnType> attemptParse(pattern: Pattern, value: String, mismatchMessages: MismatchMessages, f: () -> ReturnType): ReturnType {
+    return attemptParse(pattern.typeName, value, mismatchMessages, f)
+}
+
+fun <ReturnType> attemptParse(typeName: String, value: String, mismatchMessages: MismatchMessages, f: () -> ReturnType): ReturnType {
+    try {
+        return f()
+    } catch (throwable: Throwable) {
+        val mismatchFailure = dataTypeMismatchResult(typeName, StringValue(value), mismatchMessages)
+        throw ContractException(mismatchFailure.removeViolationReport().toFailureReport(), mismatchFailure.ruleViolationReport).copy(exceptionCause = throwable)
+    }
+}
+
+fun resultOf(ruleViolation: RuleViolation? = null, f: () -> Result): Result {
     return try {
         f()
-    } catch(e: Throwable) { Result.Failure(e.localizedMessage) }
+    } catch (e: ContractException) {
+        val failure = e.failure()
+        if (ruleViolation != null) failure.withRuleViolation(ruleViolation) else failure
+    } catch(e: Throwable) {
+        Result.Failure(message = exceptionCauseMessage(e), ruleViolation = ruleViolation)
+    }
 }

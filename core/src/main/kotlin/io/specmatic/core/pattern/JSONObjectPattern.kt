@@ -201,7 +201,7 @@ data class JSONObjectPattern(
         val updatedMap = resolvedValue.jsonObject.mapNotNull { (key, value) ->
             val pattern = attempt("Could not find key in json object", key) { adjustedPattern[key] ?: adjustedPattern["$key?"] ?: throw MissingDataException("Could not find key $key") }
             if (substitution.isDropDirective(value)) {
-                if (adjustedPattern[key] != null) return HasFailure(Result.Failure(breadCrumb = key, message = "Cannot drop mandatory key named ${key.quote()}"))
+                if (adjustedPattern[key] != null) return HasFailure(Result.Failure(breadCrumb = key, message = "Cannot drop mandatory key ${key.quote()}"))
                 else return@mapNotNull null
             }
             key to pattern.resolveSubstitutions(substitution, value, resolver, key).breadCrumb(key)
@@ -327,17 +327,26 @@ data class JSONObjectPattern(
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         val resolverWithNullType = withNullPattern(resolver)
-        if (sampleData !is JSONObjectValue)
-            return mismatchResult("JSON object", sampleData, resolver.mismatchMessages)
+        if (sampleData !is JSONObjectValue) return dataTypeMismatchResult(this, sampleData, resolver.mismatchMessages)
 
         val minCountErrors: List<Result.Failure> = if (sampleData.jsonObject.keys.size < (minProperties ?: 0))
-            listOf(Result.Failure("Expected at least $minProperties properties, got ${sampleData.jsonObject.keys.size}"))
+            listOf(
+                Result.Failure(
+                    message = "Expected at least $minProperties properties, got ${sampleData.jsonObject.keys.size}",
+                    ruleViolation = StandardRuleViolation.CONSTRAINT_VIOLATION
+                )
+            )
         else
             emptyList()
 
         val maxCountErrors: List<Result.Failure> =
             if (sampleData.jsonObject.keys.size > (maxProperties ?: Int.MAX_VALUE))
-                listOf(Result.Failure("Expected at most $maxProperties properties, got ${sampleData.jsonObject.keys.size}"))
+                listOf(
+                    Result.Failure(
+                        message = "Expected at most $maxProperties properties, got ${sampleData.jsonObject.keys.size}",
+                        ruleViolation = StandardRuleViolation.CONSTRAINT_VIOLATION
+                    )
+                )
             else
                 emptyList()
 
@@ -349,9 +358,9 @@ data class JSONObjectPattern(
 
         val keyErrors: List<Result.Failure> = resolverWithNullType.findKeyErrorList(adjustedPattern, sampleData.jsonObject).map {
             when {
-                pattern.contains(it.canonicalKey) -> it.missingKeyToResult("key", resolver.mismatchMessages)
-                pattern.contains(withOptionality(it.canonicalKey)) -> it.missingOptionalKeyToResult("key", resolver.mismatchMessages)
-                else -> it.unknownKeyToResult("key", resolver.mismatchMessages)
+                pattern.contains(it.canonicalKey) -> it.missingKeyToResult("property", resolver.mismatchMessages)
+                pattern.contains(withOptionality(it.canonicalKey)) -> it.missingOptionalKeyToResult("property", resolver.mismatchMessages)
+                else -> it.unknownKeyToResult("property", resolver.mismatchMessages)
             }.breadCrumb(it.name)
         }
 
@@ -773,7 +782,7 @@ fun fill(jsonPatternMap: Map<String, Pattern>, jsonValueMap: Map<String, Value>,
         val pattern = jsonPatternMap[key] ?: jsonPatternMap["$key?"] ?: return@mapValues when {
             resolver.findKeyErrorCheck.isExtensible -> generateIfPatternToken(typeAlias, key, value, resolver)
             resolver.isNegative -> generateIfPatternToken(typeAlias, key, value, resolver)
-            else -> HasFailure<Value>(Result.Failure(resolver.mismatchMessages.unexpectedKey("key", key)))
+            else -> HasFailure<Value>(Result.Failure(resolver.mismatchMessages.unexpectedKey("property", key)))
         }.breadCrumb(key)
         val updatedResolver = resolver.updateLookupPath(typeAlias, KeyWithPattern(key, pattern))
         pattern.fillInTheBlanks(value, updatedResolver).breadCrumb(key)
@@ -874,7 +883,7 @@ internal fun mapEncompassesMap(
 
     val missingFixedKeyErrors: List<Result.Failure> =
         myRequiredKeys.filter { it !in otherRequiredKeys }.map { missingFixedKey ->
-            MissingKeyError(missingFixedKey).missingKeyToResult("key", thisResolverWithNullType.mismatchMessages)
+            MissingKeyError(missingFixedKey).missingKeyToResult("property", thisResolverWithNullType.mismatchMessages)
                 .breadCrumb(withoutOptionality(missingFixedKey))
         }
 

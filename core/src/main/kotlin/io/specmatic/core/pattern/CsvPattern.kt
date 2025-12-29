@@ -2,26 +2,22 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
-import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
 class CsvPattern(override val pattern: Pattern) : Pattern {
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
-        if(sampleData !is StringValue)
-            return resolver.mismatchMessages.valueMismatchFailure("CSV string", sampleData)
-
+        if (sampleData !is StringValue) return dataTypeMismatchResult(this, sampleData, resolver.mismatchMessages)
         val results: List<Result> = sampleData.string.split(",").mapIndexed { index, value ->
-            try {
+            resultOf(ruleViolation = StandardRuleViolation.VALUE_MISMATCH) {
                 pattern.parse(value, resolver)
                 Result.Success()
-            } catch(e: Throwable) {
-                Result.Failure("Element $index did not match the type ${pattern.typeName}. ${exceptionCauseMessage(e)}")
-            }
+            }.breadCrumb("[$index]")
         }
-
         return Result.fromResults(results)
     }
 

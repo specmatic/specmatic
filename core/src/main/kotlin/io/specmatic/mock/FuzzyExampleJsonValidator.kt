@@ -24,19 +24,19 @@ private class NoLogPrinter: CompositePrinter() {
 
 object FuzzyExampleMisMatchMessages : MismatchMessages {
     override fun mismatchMessage(expected: String, actual: String): String {
-        return "Should be $expected as per example format, but got $actual in the actual example"
+        return "Example format expected $expected, but example contained $actual"
     }
 
     override fun unexpectedKey(keyLabel: String, keyName: String): String {
-        return "${keyLabel.lowercase().capitalizeFirstChar()} named \"$keyName\" is invalid"
+        return "${keyLabel.capitalizeFirstChar()} \"$keyName\" is invalid"
     }
 
     override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
-        return "Missing mandatory ${keyLabel.lowercase()} named \"$keyName\" as per example format"
+        return "Example format expected mandatory $keyLabel \"$keyName\" to be present but was missing from the example"
     }
 
     override fun optionalKeyMissing(keyLabel: String, keyName: String): String {
-        return "Missing optional ${keyLabel.lowercase()} named \"$keyName\" as per example format"
+        return "Expected optional $keyLabel \"$keyName\" to be present but was missing from the example"
     }
 }
 

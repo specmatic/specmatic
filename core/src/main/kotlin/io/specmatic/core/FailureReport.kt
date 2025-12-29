@@ -2,9 +2,8 @@ package io.specmatic.core
 
 data class FailureReport(val contractPath: String?, private val scenarioMessage: String?, val scenario: ScenarioDetailsForResult?, private val matchFailureDetailList: List<MatchFailureDetails>): Report {
     fun errorMessage(): String {
-        if(matchFailureDetailList.size != 1)
-            return toText()
-        return errorMessagesToString(matchFailureDetailList.first().errorMessages)
+        if (matchFailureDetailList.size != 1) return toText()
+        return matchFailureDetailsErrorMessage(matchFailureDetailList.first()).joinToString("\n\n")
     }
 
     fun breadCrumbs(): String {
@@ -32,6 +31,18 @@ data class FailureReport(val contractPath: String?, private val scenarioMessage:
         return report.trimIndent()
     }
 
+    override fun toIssues(breadCrumbToJsonPathConverter: BreadCrumbToJsonPathConverter): List<Issue> {
+        return matchFailureDetailList.map { detail ->
+            Issue (
+                path = breadCrumbToJsonPathConverter.convert(detail.breadCrumbs),
+                breadCrumb = breadCrumbString(detail.breadCrumbs),
+                ruleViolations = detail.ruleViolationReport?.toSnapShots().orEmpty(),
+                details = errorMessagesToString(detail.errorMessages),
+                severity = if (detail.isPartial) IssueSeverity.WARNING else IssueSeverity.ERROR
+            )
+        }
+    }
+
     override fun toString(): String = toText()
 
     private fun matchFailureDetails(): String {
@@ -41,13 +52,15 @@ data class FailureReport(val contractPath: String?, private val scenarioMessage:
     }
 
     private fun matchFailureDetails(matchFailureDetails: MatchFailureDetails): String {
-        val (breadCrumbs, errorMessages) = matchFailureDetails
+        val breadCrumbString = startOfBreadCrumbPrefix(breadCrumbString(matchFailureDetails.breadCrumbs))
+        val matchFailureDetails = matchFailureDetailsErrorMessage(matchFailureDetails).map { it.prependIndent("    ") }
+        return listOf(breadCrumbString).plus(matchFailureDetails).filter(String::isNotBlank).joinToString("\n\n")
+    }
 
-        val breadCrumbString = startOfBreadCrumbPrefix(breadCrumbString(breadCrumbs))
-
-        val errorMessagesString = errorMessagesToString(errorMessages)
-
-        return listOf(breadCrumbString, errorMessagesString.prependIndent("   ")).filter { it.isNotBlank() }.joinToString("${System.lineSeparator()}${System.lineSeparator()}")
+    private fun matchFailureDetailsErrorMessage(matchFailureDetails: MatchFailureDetails): List<String> {
+        val errorMessageString = errorMessagesToString(matchFailureDetails.errorMessages)
+        val ruleViolationString = matchFailureDetails.ruleViolationReport?.toText()
+        return listOfNotNull(ruleViolationString, errorMessageString).filter(String::isNotBlank)
     }
 
     private fun errorMessagesToString(errorMessages: List<String>) =

@@ -2,6 +2,7 @@ package io.specmatic.test.asserts
 
 import io.ktor.http.*
 import io.specmatic.core.Result
+import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
@@ -25,7 +26,8 @@ class AssertComparison(override val keys: List<String>, val lookupKey: String, v
             val message = if (isEqualityCheck) "equal" else "not equal"
             Result.Failure(
                 breadCrumb = combinedKey,
-                message = "Expected ${actualValue.displayableValue()} to $message ${expectedValue.displayableValue()}"
+                message = "Expected ${actualValue.displayableValue()} to $message ${expectedValue.displayableValue()}",
+                ruleViolation = StandardRuleViolation.VALUE_MISMATCH
             )
         }
     }

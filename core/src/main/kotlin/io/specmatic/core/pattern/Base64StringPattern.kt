@@ -2,7 +2,8 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
-import io.specmatic.core.mismatchResult
+import io.specmatic.core.dataTypeMismatchResult
+import io.specmatic.core.valueMismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.StringValue
@@ -12,15 +13,10 @@ import java.util.*
 
 data class Base64StringPattern(override val typeAlias: String? = null) : Pattern, ScalarType {
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
-        if (sampleData?.hasTemplate() == true)
-            return Result.Success()
-
-        return when (sampleData) {
-            is StringValue -> {
-                return if (Base64.isBase64(sampleData.string)) Result.Success() else mismatchResult("string of bytes (base64)", sampleData, resolver.mismatchMessages)
-            }
-
-            else -> mismatchResult("string of bytes (base64)", sampleData, resolver.mismatchMessages)
+        if (sampleData?.hasTemplate() == true) return Result.Success()
+        return when {
+            sampleData is StringValue && Base64.isBase64(sampleData.string) -> Result.Success()
+            else -> dataTypeMismatchResult(actualTypeName, sampleData, resolver.mismatchMessages)
         }
     }
 
@@ -52,15 +48,14 @@ data class Base64StringPattern(override val typeAlias: String? = null) : Pattern
     }
 
 
-    override fun parse(value: String, resolver: Resolver): Value {
-        if(! Base64.isBase64(value))
-            throw ContractException("Expected a base64 string but got \"$value\"")
-
-        return StringValue(value)
+    override fun parse(value: String, resolver: Resolver): Value = attemptParse(actualTypeName, value, resolver.mismatchMessages) {
+        if (!Base64.isBase64(value)) throw ContractException("Must be a string of bytes (base64)")
+        StringValue(value)
     }
 
     override val typeName: String = "string"
     override val pattern: Any = "(string)"
+    private val actualTypeName: String = "string of bytes (base64)"
 }
 
 fun randomBase64String(length: Int = 5): String {

@@ -1,12 +1,15 @@
 package io.specmatic.core.pattern
 
 import io.specmatic.GENERATION
+import io.specmatic.core.DefaultMismatchMessages
 import io.specmatic.core.Resolver
 import io.specmatic.core.UseDefaultExample
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.shouldNotMatch
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.toViolationReportString
 import org.apache.commons.lang3.RandomStringUtils
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Tag
@@ -65,7 +68,13 @@ internal class NumberPatternTest {
     fun `should reject example values when minimum keyword is not met`() {
         val result = NumberPattern(minimum = BigDecimal(3)).matches(NumberValue(2), Resolver())
         assertThat(result.isSuccess()).isFalse()
-        assertThat(result.reportString()).isEqualTo("""Expected number >= 3, actual was 2 (number)""")
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace(
+            toViolationReportString(
+                breadCrumb = null,
+                details = DefaultMismatchMessages.typeMismatch("number >= 3", "2", "number"),
+                StandardRuleViolation.CONSTRAINT_VIOLATION
+            )
+        )
     }
 
     @Test
@@ -78,7 +87,13 @@ internal class NumberPatternTest {
     fun `should reject example values when exclusiveMinimum keyword is not met`() {
         val result = NumberPattern(minimum = BigDecimal(3), exclusiveMinimum = true).matches(NumberValue(3), Resolver())
         assertThat(result.isSuccess()).isFalse()
-        assertThat(result.reportString()).isEqualTo("""Expected number >= 4, actual was 3 (number)""")
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace(
+            toViolationReportString(
+                breadCrumb = null,
+                details = DefaultMismatchMessages.typeMismatch("number >= 4", "3", "number"),
+                StandardRuleViolation.CONSTRAINT_VIOLATION
+            )
+        )
     }
 
     @Test
@@ -91,7 +106,13 @@ internal class NumberPatternTest {
     fun `should reject example values when maximum keyword is not met`() {
         val result = NumberPattern(maximum = BigDecimal(99.0)).matches(NumberValue(100), Resolver())
         assertThat(result.isSuccess()).isFalse()
-        assertThat(result.reportString()).isEqualTo("""Expected number <= 99, actual was 100 (number)""")
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace(
+            toViolationReportString(
+                breadCrumb = null,
+                details = DefaultMismatchMessages.typeMismatch("number <= 99", "100", "number"),
+                StandardRuleViolation.CONSTRAINT_VIOLATION
+            )
+        )
     }
 
     @Test
@@ -104,7 +125,13 @@ internal class NumberPatternTest {
     fun `should reject example values when exclusiveMaximum keyword is not met`() {
         val result = NumberPattern(maximum = BigDecimal(99), exclusiveMaximum = true).matches(NumberValue(99), Resolver())
         assertThat(result.isSuccess()).isFalse()
-        assertThat(result.reportString()).isEqualTo("""Expected number <= 98, actual was 99 (number)""")
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace(
+            toViolationReportString(
+                breadCrumb = null,
+                details = DefaultMismatchMessages.typeMismatch("number <= 98", "99", "number"),
+                StandardRuleViolation.CONSTRAINT_VIOLATION
+            )
+        )
     }
 
     @Test
@@ -263,14 +290,26 @@ internal class NumberPatternTest {
     fun `should not match when number is shorter than minLength`() {
         val result = NumberPattern(minLength = 4).matches(NumberValue(123), Resolver())
         assertThat(result.isSuccess()).isFalse
-        assertThat(result.reportString()).isEqualTo("""Expected number with minLength 4, actual was 123 (number)""")
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace(
+            toViolationReportString(
+                breadCrumb = null,
+                details = DefaultMismatchMessages.typeMismatch("number with minLength 4", "123", "number"),
+                StandardRuleViolation.CONSTRAINT_VIOLATION
+            )
+        )
     }
 
     @Test
     fun `should not match when number is longer than maxLength`() {
         val result = NumberPattern(maxLength = 3).matches(NumberValue(1234), Resolver())
         assertThat(result.isSuccess()).isFalse
-        assertThat(result.reportString()).isEqualTo("""Expected number with maxLength 3, actual was 1234 (number)""")
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace(
+            toViolationReportString(
+                breadCrumb = null,
+                details = DefaultMismatchMessages.typeMismatch("number with maxLength 3", "1234", "number"),
+                StandardRuleViolation.CONSTRAINT_VIOLATION
+            )
+        )
     }
 
     @Test

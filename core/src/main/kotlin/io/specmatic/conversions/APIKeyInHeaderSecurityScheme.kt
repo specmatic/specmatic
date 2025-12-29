@@ -12,7 +12,8 @@ data class APIKeyInHeaderSecurityScheme(val name: String, private val apiKey:Str
         return if (httpRequest.headers.containsKey(name) || resolver.mockMode) Result.Success()
         else Result.Failure(
             breadCrumb = BreadCrumb.HEADER.with(name),
-            message = resolver.mismatchMessages.expectedKeyWasMissing(apiKeyParamName, name)
+            message = resolver.mismatchMessages.expectedKeyWasMissing(apiKeyParamName, name),
+            ruleViolation = StandardRuleViolation.REQUIRED_PROPERTY_MISSING
         )
     }
 

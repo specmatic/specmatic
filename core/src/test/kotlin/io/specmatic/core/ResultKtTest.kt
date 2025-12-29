@@ -1,7 +1,5 @@
 package io.specmatic.core
 
-import io.specmatic.core.value.NullValue
-import io.specmatic.core.value.StringValue
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.util.function.Consumer
@@ -30,17 +28,5 @@ internal class ResultKtTest {
 
             println(result.reportString())
         })
-    }
-
-    @Test
-    fun `mismatch for null`() {
-        val result = valueError(NullValue)
-        assertThat(result).isEqualTo("null")
-    }
-
-    @Test
-    fun `mismatch for non-null`() {
-        val result = valueError(StringValue("test"))
-        assertThat(result).isEqualTo("\"test\"")
     }
 }

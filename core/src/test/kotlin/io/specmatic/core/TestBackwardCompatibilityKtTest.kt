@@ -4,6 +4,7 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.logger
 import io.specmatic.stub.captureStandardOutput
+import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -1252,8 +1253,18 @@ paths:
 
         val result: Results = testBackwardCompatibility(oldContract, newContract)
 
-        assertThat(result.report()).contains("string in the new contract")
-        assertThat(result.report()).contains("number in the old contract")
+        assertThat(result.report()).isEqualToNormalizingWhitespace("""
+        In scenario "hello world. Response: Says hello"
+        API: POST /data -> 200
+        
+        ${
+            toViolationReportString(
+                breadCrumb = "REQUEST.BODY.data",
+                details = "This is type string in the new specification, but type number in the old specification",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        """.trimIndent())
     }
 
     @Test
@@ -1336,8 +1347,8 @@ paths:
 
         val result: Results = testBackwardCompatibility(oldContract, newContract)
 
-        assertThat(result.report()).contains("new contract response")
-        assertThat(result.report()).contains("old contract")
+        assertThat(result.report()).contains("new specification response")
+        assertThat(result.report()).contains("old specification")
     }
 
     @Test

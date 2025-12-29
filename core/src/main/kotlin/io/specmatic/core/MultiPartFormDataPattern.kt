@@ -33,7 +33,11 @@ data class MultiPartContentPattern(override val name: String, val content: Patte
 
     override fun matches(value: MultiPartFormDataValue, resolver: Resolver): Result {
         if(withoutOptionality(name) != value.name)
-            return Failure("The contract expected a part name to be $name, but got ${value.name}", failureReason = FailureReason.PartNameMisMatch)
+            return Failure(
+                message = "The contract expected a part name to be $name, but got ${value.name}",
+                failureReason = FailureReason.PartNameMisMatch,
+                ruleViolation = StandardRuleViolation.VALUE_MISMATCH
+            )
 
 //        if(contentType != null && value.contentType != null && contentType != value.contentType)
 //            return Failure("Expected $contentType, but got ${value.contentType}")
@@ -44,9 +48,13 @@ data class MultiPartContentPattern(override val name: String, val content: Patte
                     val parsedContent = try { content.parse(value.content.toStringLiteral(), resolver) } catch (e: Throwable) { StringValue(value.content.toStringLiteral()) }
                     resolver.matchesPattern(name, content, parsedContent)
                 } catch (e: ContractException) {
-                    Failure(e.report(), breadCrumb = "content")
+                    Failure(e.report(), breadCrumb = "content", ruleViolation = StandardRuleViolation.TYPE_MISMATCH)
                 } catch (e: Throwable) {
-                    Failure("Expected a ${content.typeName} but got ${value.content.toStringLiteral()}", breadCrumb = "content")
+                    Failure(
+                        message = "Expected a ${content.typeName} but got ${value.content.toStringLiteral()}",
+                        breadCrumb = "content",
+                        ruleViolation = StandardRuleViolation.TYPE_MISMATCH
+                    )
                 }
             }
             is MultiPartContentValue -> {
@@ -55,9 +63,13 @@ data class MultiPartContentPattern(override val name: String, val content: Patte
                         val parsedContent = try { content.parse(value.content.toStringLiteral(), resolver) } catch (e: Throwable) { StringValue(value.content.toStringLiteral()) }
                         resolver.matchesPattern(name, content, parsedContent)
                     } catch (e: ContractException) {
-                        Failure(e.report(), breadCrumb = "content")
+                        Failure(e.report(), breadCrumb = "content", ruleViolation = StandardRuleViolation.TYPE_MISMATCH)
                     } catch (e: Throwable) {
-                        Failure("Expected a ${content.typeName} but got ${value.content.toStringLiteral()}", breadCrumb = "content")
+                        Failure(
+                            message = "Expected a ${content.typeName} but got ${value.content.toStringLiteral()}",
+                            breadCrumb = "content",
+                            ruleViolation = StandardRuleViolation.TYPE_MISMATCH
+                        )
                     }
                 } else {
                     content.matches(value.content, resolver)
@@ -82,17 +94,19 @@ data class MultiPartFilePattern(override val name: String, val filename: Pattern
 
     override fun matches(value: MultiPartFormDataValue, resolver: Resolver): Result {
         return when {
-            value !is MultiPartFileValue -> Failure("The contract expected a file, but got content instead.")
-            name != value.name -> Failure("The contract expected a part name to be $name, but got ${value.name}.", failureReason = FailureReason.PartNameMisMatch)
+            value !is MultiPartFileValue -> Failure("The contract expected a file, but got content instead.", ruleViolation = StandardRuleViolation.TYPE_MISMATCH)
+            name != value.name -> Failure("The contract expected a part name to be $name, but got ${value.name}.", failureReason = FailureReason.PartNameMisMatch, ruleViolation = StandardRuleViolation.VALUE_MISMATCH)
             fileContentMismatch(value, resolver) -> fileContentMismatchError(value, resolver)
             //TODO: Fix below comment
 //            contentType != null && value.contentType != null && value.contentType != contentType -> Failure("The contract expected ${contentType.let { "content type $contentType" }}, but got ${value.contentType?.let { "content type $value.contentType" } ?: "no content type."}.")
             contentEncoding != null && value.contentEncoding != contentEncoding -> {
                 val contentEncodingMessage = contentEncoding.let { "content encoding $contentEncoding" }
-                val receivedContentEncodingMessage = value.contentEncoding?.let { "content encoding ${value.contentEncoding}" }
-                        ?: "no content encoding"
-
-                Failure("The contract expected ${contentEncodingMessage}, but got ${receivedContentEncodingMessage}.", breadCrumb = "contentEncoding")
+                val receivedContentEncodingMessage = value.contentEncoding?.let { "content encoding ${value.contentEncoding}" } ?: "no content encoding"
+                Failure(
+                    message = "The contract expected ${contentEncodingMessage}, but got ${receivedContentEncodingMessage}.",
+                    breadCrumb = "contentEncoding",
+                    ruleViolation = StandardRuleViolation.VALUE_MISMATCH
+                )
             }
             else -> Success()
         }
@@ -104,14 +118,16 @@ data class MultiPartFilePattern(override val name: String, val filename: Pattern
     ) = when(filename) {
         is ExactValuePattern -> {
             Failure(
-                "In the part named $name, the contents in request did not match the value in file ${filename.pattern.toStringLiteral()}",
-                failureReason = FailureReason.PartNameMisMatch
+                message = "In the part named $name, the contents in request did not match the value in file ${filename.pattern.toStringLiteral()}",
+                failureReason = FailureReason.PartNameMisMatch,
+                ruleViolation = StandardRuleViolation.VALUE_MISMATCH
             )
         }
         else -> Failure(
-            "In the part named $name, the contract expected the filename to be ${filename.typeName}, but got ${value.filename}.",
+            message = "In the part named $name, the contract expected the filename to be ${filename.typeName}, but got ${value.filename}.",
             failureReason = FailureReason.PartNameMisMatch,
-            cause = filename.matches(StringValue(value.filename), resolver) as Failure
+            cause = filename.matches(StringValue(value.filename), resolver) as Failure,
+            ruleViolation = StandardRuleViolation.VALUE_MISMATCH
         )
     }
 

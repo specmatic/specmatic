@@ -6,4 +6,8 @@ object SuccessReport: Report {
     override fun toText(): String {
         return ""
     }
+
+    override fun toIssues(breadCrumbToJsonPathConverter: BreadCrumbToJsonPathConverter): List<Issue> {
+        return emptyList()
+    }
 }

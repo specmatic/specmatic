@@ -118,6 +118,16 @@ data class Results(val results: List<Result> = emptyList()) {
             else -> "$successCount example(s) are valid. $failureCount example(s) are invalid."
         }
     }
+
+    fun withoutViolationReport(): Results {
+        return this.copy(results = results.map {
+            when (it) {
+                is Result.Failure -> it.removeViolationReport()
+                else -> it
+            }
+        })
+    }
+
     fun toResultPartialFailures(): List<Result> {
         return results.filter { it.isPartialFailure() }
     }

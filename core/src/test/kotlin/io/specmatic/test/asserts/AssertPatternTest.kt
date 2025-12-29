@@ -2,9 +2,12 @@ package io.specmatic.test.asserts
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
+import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.*
 import io.specmatic.test.asserts.AssertComparisonTest.Companion.toFactStore
+import io.specmatic.toViolationReportString
+import io.specmatic.core.DefaultMismatchMessages
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -75,10 +78,13 @@ class AssertPatternTest {
         println(result.reportString())
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> BODY.name
-        Expected string, actual was 100 (number)
-        """.trimIndent())
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace(
+            toViolationReportString(
+                breadCrumb = "BODY.name",
+                details = DefaultMismatchMessages.typeMismatch("string", "100", "number"),
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        )
     }
 
     @Test
@@ -137,13 +143,28 @@ class AssertPatternTest {
         println(result.reportString())
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> BODY[0].name
-        Expected string, actual was 100 (number)
-        >> BODY[1].name
-        Expected string, actual was 100 (number)
-        >> BODY[2].name
-        Expected string, actual was 100 (number)
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
+        ${
+            toViolationReportString(
+                breadCrumb = "BODY[0].name",
+                details = DefaultMismatchMessages.typeMismatch("string", "100", "number"),
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "BODY[1].name",
+                details = DefaultMismatchMessages.typeMismatch("string", "100", "number"),
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "BODY[2].name",
+                details = DefaultMismatchMessages.typeMismatch("string", "100", "number"),
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
         """.trimIndent())
     }
 

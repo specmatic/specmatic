@@ -53,8 +53,7 @@ data class DictionaryPattern(val keyPattern: Pattern, val valuePattern: Pattern,
     }
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
-        if(sampleData !is JSONObjectValue)
-            return mismatchResult("JSON object", sampleData, resolver.mismatchMessages)
+        if (sampleData !is JSONObjectValue) return dataTypeMismatchResult("JSON object", sampleData, resolver.mismatchMessages)
 
         sampleData.jsonObject.forEach { (key, value) ->
             try {

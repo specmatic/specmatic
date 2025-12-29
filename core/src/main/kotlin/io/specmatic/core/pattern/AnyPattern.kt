@@ -7,6 +7,7 @@ import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.discriminator.DiscriminatorMetadata
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.*
+import io.specmatic.test.asserts.toFailure
 
 fun List<Pattern>.extractCombinedExtensions(): Map<String, Any> {
     return this.flatMap {
@@ -213,8 +214,7 @@ data class AnyPattern(
             }.failedToFindAny(typeName, getResult(matchResults.map { it.result as Failure }), resolver.mismatchMessages)
 
         val failuresWithUpdatedBreadcrumbs = addTypeInfoBreadCrumbs(matchResults)
-
-        return Result.fromFailures(failuresWithUpdatedBreadcrumbs)
+        return Result.fromFailures(failures = failuresWithUpdatedBreadcrumbs)
     }
 
     private fun anyPatternIsEnum(): Boolean {
@@ -312,19 +312,16 @@ data class AnyPattern(
         val resolvedTypes = pattern.map { resolvedHop(it, resolver) }
         val nonNullTypesFirst = resolvedTypes.sortedBy(::isEmpty)
 
-        return nonNullTypesFirst.asSequence().map {
+        val failures = mutableListOf<Failure>()
+        for (pattern in nonNullTypesFirst) {
             try {
-                it.parse(value, resolver)
+                return pattern.parse(value, resolver)
             } catch (e: Throwable) {
-                null
+                failures.add(e.toFailure())
             }
-        }.find { it != null } ?: throw ContractException(
-            "Failed to parse value \"$value\". It should have matched one of ${
-                pattern.joinToString(
-                    ", "
-                ) { it.typeName }
-            }."
-        )
+        }
+
+        throw ContractException(Failure.fromFailures(failures).toFailureReport())
     }
 
     override fun patternSet(resolver: Resolver): List<Pattern> =
@@ -339,7 +336,7 @@ data class AnyPattern(
         val compatibleResult = otherPattern.fitsWithin(patternSet(thisResolver), otherResolver, thisResolver, typeStack)
 
         return if(compatibleResult is Failure && allValuesAreScalar())
-            mismatchResult(this, otherPattern, thisResolver.mismatchMessages)
+            patternMismatchResult(this, otherPattern, thisResolver.mismatchMessages)
         else
             compatibleResult
     }
@@ -631,7 +628,7 @@ private class FailedToFindAnyUsingTypeValueDescription <V> (val actual: V) : Fai
             else -> "$displayableValueOfActual (${actual.type().typeName})"
         }
 
-        return mismatchResult(expected, description, mismatchMessages)
+        return valueMismatchResult(expected, description, mismatchMessages)
     }
 
 }
@@ -645,7 +642,7 @@ private class FailedToFindAnyUsingValue(val actual: Value?) : FailedToFindAny {
         return when (results.size) {
             1 -> results[0]
             else -> {
-                mismatchResult(expected, actual, mismatchMessages)
+                valueMismatchResult(expected, actual, mismatchMessages)
             }
         }
     }

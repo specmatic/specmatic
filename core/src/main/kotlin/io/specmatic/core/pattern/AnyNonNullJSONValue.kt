@@ -6,12 +6,11 @@ import io.specmatic.core.Substitution
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.Value
+import io.specmatic.core.valueMismatchResult
 
 data class AnyNonNullJSONValue(override val pattern: Pattern = AnythingPattern): Pattern by pattern{
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
-        if(sampleData is NullValue)
-            return resolver.mismatchMessages.valueMismatchFailure("non-null value", sampleData)
-
+        if (sampleData is NullValue) return valueMismatchResult("non-null value", sampleData, resolver.mismatchMessages)
         return Result.Success()
     }
 

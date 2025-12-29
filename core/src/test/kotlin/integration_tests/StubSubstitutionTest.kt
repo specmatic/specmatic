@@ -1,9 +1,11 @@
 package integration_tests
 
 import io.specmatic.conversions.OpenApiSpecification
+import io.specmatic.core.DefaultMismatchMessages
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.SPECMATIC_STUB_DICTIONARY
+import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.value.JSONArrayValue
@@ -16,6 +18,7 @@ import io.specmatic.stub.HttpStub
 import io.specmatic.stub.HttpStubResponse
 import io.specmatic.stub.captureStandardOutput
 import io.specmatic.stub.createStubFromContracts
+import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
@@ -1217,7 +1220,7 @@ class StubSubstitutionTest {
 
         assertThat(exception.report()).isEqualToNormalizingWhitespace("""
         >> RESPONSE.BODY.id
-        Cannot drop mandatory key named "id"
+        Cannot drop mandatory key "id"
         """.trimIndent())
     }
 
@@ -1283,7 +1286,7 @@ class StubSubstitutionTest {
             assertThat(response.status).isEqualTo(400)
             assertThat(response.body.toStringLiteral()).isEqualToNormalizingWhitespace("""
             >> RESPONSE.BODY.names
-            Cannot drop mandatory key named "names"
+            Cannot drop mandatory key "names"
             """.trimIndent())
         }
     }
@@ -1350,10 +1353,13 @@ class StubSubstitutionTest {
             val response = stub.client.execute(request)
 
             assertThat(response.status).isEqualTo(400)
-            assertThat(response.body.toStringLiteral()).isEqualToNormalizingWhitespace("""
-             >> RESPONSE.BODY.names[0]
-            Expected string, actual was number
-            """.trimIndent())
+            assertThat(response.body.toStringLiteral()).isEqualToNormalizingWhitespace(
+                toViolationReportString(
+                    breadCrumb = "RESPONSE.BODY.names[0]",
+                    details = DefaultMismatchMessages.patternMismatch("string", "number"),
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            )
         }
     }
 

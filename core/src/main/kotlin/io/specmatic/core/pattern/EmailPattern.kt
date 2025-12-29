@@ -35,12 +35,12 @@ class EmailPattern (private val stringPatternDelegate: StringPattern, val exampl
         if (sampleData?.hasTemplate() == true)
             return Result.Success()
 
-        if (sampleData !is StringValue) return mismatchResult("email string", sampleData, resolver.mismatchMessages)
+        if (sampleData !is StringValue) return dataTypeMismatchResult(this, sampleData, resolver.mismatchMessages)
         val email = sampleData.toStringLiteral()
         return if (emailRegex.matches(email)) {
             Result.Success()
         } else {
-            mismatchResult("email string", sampleData, resolver.mismatchMessages)
+            valueMismatchResult(this.typeName, sampleData, resolver.mismatchMessages)
         }
     }
 
@@ -84,8 +84,7 @@ class EmailPattern (private val stringPatternDelegate: StringPattern, val exampl
         typeStack: TypeStack
     ): Result {
         val resolvedOther = resolvedHop(otherPattern, otherResolver)
-        if(resolvedOther !is EmailPattern) return Result.Failure("Expected email, got ${resolvedOther.typeName}")
-
+        if (resolvedOther !is EmailPattern) return patternMismatchResult(this, otherPattern, thisResolver.mismatchMessages)
         return stringPatternDelegate.encompasses(resolvedOther.stringPatternDelegate, thisResolver, otherResolver, typeStack)
     }
 

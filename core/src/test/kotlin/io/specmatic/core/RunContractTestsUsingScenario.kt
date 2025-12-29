@@ -5,6 +5,7 @@ import io.ktor.http.HttpStatusCode
 import io.specmatic.DefaultStrategies
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.*
+import io.specmatic.toViolationReportString
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.test.TestExecutor
 import io.mockk.every
@@ -531,7 +532,7 @@ paths:
                         }
                     }).result as Result.Failure
 
-        assertThat(result.reportString()).contains("Contract expected")
+        assertThat(result.reportString()).contains("Specification expected")
         assertThat(result.reportString()).contains("response contained")
     }
 
@@ -655,12 +656,21 @@ paths:
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
         In scenario ""
         API: POST / -> 201
-        >> MONITOR.RESPONSE.BODY.name
-        Invalid request or response payload in the monitor response
-        Expected string, actual was 20 (number)
-        >> MONITOR.RESPONSE.BODY.age
-        Invalid request or response payload in the monitor response
-        Expected number, actual was "John"
+        
+        ${
+            toViolationReportString(
+                breadCrumb = "MONITOR.RESPONSE.BODY.name",
+                details = "Invalid request or response payload in the monitor response\n${DefaultMismatchMessages.typeMismatch("string", "20", "number")}",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "MONITOR.RESPONSE.BODY.age",
+                details = "Invalid request or response payload in the monitor response\n${DefaultMismatchMessages.typeMismatch("number", "\"John\"", "string")}",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
         """.trimIndent())
     }
 
@@ -727,8 +737,13 @@ paths:
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
         In scenario ""
         API: POST / -> 201
-        >> RESPONSE.STATUS
-        Expected status 201, actual was status 202
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.STATUS",
+                details = SpecificationAndResponseMismatch.mismatchMessage("status 201", "status 202"),
+                OpenApiRuleViolation.STATUS_MISMATCH
+            )
+        }
         """.trimIndent())
     }
 

@@ -8,10 +8,9 @@ import io.specmatic.core.Result.Success
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_QUERY_PARAMS
-import io.specmatic.core.value.BooleanValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
-import io.specmatic.trimmedLinesList
+import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.*
@@ -62,7 +61,7 @@ class HttpQueryParamPatternTest {
         urlPattern.matches(URI("/pets"), queryParameters, Resolver()).let {
             assertThat(it is Failure).isTrue()
             assertThat((it as Failure).toMatchFailureDetails()).isEqualTo(
-                MatchFailureDetails(listOf(BreadCrumb.PARAM_QUERY.value, "petid"), listOf("""Expected number, actual was "text""""))
+                MatchFailureDetails(listOf(BreadCrumb.PARAM_QUERY.value, "petid"), listOf(DefaultMismatchMessages.typeMismatch("number", "\"text\"", "string")))
             )
         }
     }
@@ -252,37 +251,52 @@ class HttpQueryParamPatternTest {
         fun `fails when request contains a parameter whose type does not match the spec`() {
             val result = unStubbedArrayQueryParameterPattern.matches(HttpRequest("GET", "/", queryParams = QueryParameters(paramPairs = listOf("brand_ids" to "abc", "brand_ids" to "def"))),  Resolver())
             assertThat(result is Failure).isTrue
-            assertThat(result.reportString().trimmedLinesList()).isEqualTo("""
-                >> PARAMETERS.QUERY.brand_ids
-
-                   Expected number, actual was "abc"
-                
-                >> PARAMETERS.QUERY.brand_ids
-                
-                   Expected number, actual was "def"
-            """.trimIndent().trimmedLinesList())
+            assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
+            ${
+                toViolationReportString(
+                    breadCrumb = "PARAMETERS.QUERY.brand_ids",
+                    details = DefaultMismatchMessages.typeMismatch("number", "\"abc\"", "string"),
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "PARAMETERS.QUERY.brand_ids",
+                    details = DefaultMismatchMessages.typeMismatch("number", "\"def\"", "string"),
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
+            """.trimIndent())
         }
 
         @Test
         fun `fails when request does not contain a mandatory query parameter`() {
             val result = unStubbedArrayQueryParameterPattern.matches(HttpRequest("GET", "/", emptyMap()),  Resolver())
             assertThat(result is Failure).isTrue
-            assertThat(result.reportString().trimmedLinesList()).isEqualTo("""
-                >> PARAMETERS.QUERY.brand_ids
-
-                   Expected query param named "brand_ids" was missing
-            """.trimIndent().trimmedLinesList())
+            assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
+            ${
+                toViolationReportString(
+                    breadCrumb = "PARAMETERS.QUERY.brand_ids",
+                    details = DefaultMismatchMessages.expectedKeyWasMissing("query param", "brand_ids"),
+                    StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+                )
+            }
+            """.trimIndent())
         }
 
         @Test
         fun `fails when request contains a query parameter not present in the spec`() {
             val result = unStubbedArrayQueryParameterPattern.matches(HttpRequest("GET", "/", queryParams = QueryParameters(paramPairs = listOf("brand_ids" to "1", "brand_ids" to "2", "product_id" to "1"))),  Resolver())
             assertThat(result is Failure).isTrue
-            assertThat(result.reportString().trimmedLinesList()).isEqualTo("""
-                >> PARAMETERS.QUERY.product_id
-
-                   Query param named "product_id" was unexpected
-            """.trimIndent().trimmedLinesList())
+            assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
+            ${
+                toViolationReportString(
+                    breadCrumb = "PARAMETERS.QUERY.product_id",
+                    details = DefaultMismatchMessages.unexpectedKey("query param", "product_id"),
+                    StandardRuleViolation.UNKNOWN_PROPERTY
+                )
+            }
+            """.trimIndent())
         }
 
         @Test
@@ -313,67 +327,96 @@ class HttpQueryParamPatternTest {
         fun `fails when request does not contain all the stub values`() {
             val result = stubbedArrayQueryParameterPattern.matches(HttpRequest("GET", "/", queryParams = QueryParameters(paramPairs = listOf("brand_ids" to "1"))),  Resolver())
             assertThat(result is Failure).isTrue
-            assertThat(result.reportString().trimmedLinesList()).isEqualTo("""
-                >> PARAMETERS.QUERY.brand_ids
-
-                   Expected 2 (number), actual was 1 (number)
-            """.trimIndent().trimmedLinesList())
+            assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
+            ${
+                toViolationReportString(
+                    breadCrumb = "PARAMETERS.QUERY.brand_ids",
+                    details = DefaultMismatchMessages.patternMismatch("2", "1"),
+                    StandardRuleViolation.VALUE_MISMATCH
+                )
+            }
+            """.trimIndent())
         }
 
         @Test
         fun `fails when request does not contain all stub values and also a value not present in the stub`() {
             val result = stubbedArrayQueryParameterPattern.matches(HttpRequest("GET", "/", queryParams = QueryParameters(paramPairs = listOf("brand_ids" to "1", "brand_ids" to "3"))),  Resolver())
             assertThat(result is Failure).isTrue
-            assertThat(result.reportString().trimmedLinesList()).isEqualTo("""
-                >> PARAMETERS.QUERY.brand_ids
-
-                   Expected 2 (number), actual was 1 (number)
-                
-                >> PARAMETERS.QUERY.brand_ids
-                
-                   Expected 2 (number), actual was 3 (number)
-                
-                >> PARAMETERS.QUERY.brand_ids
-                
-                   Expected 1 (number), actual was 3 (number)
-            """.trimIndent().trimmedLinesList())
+            assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
+            ${
+                toViolationReportString(
+                    breadCrumb = "PARAMETERS.QUERY.brand_ids",
+                    details = DefaultMismatchMessages.patternMismatch("2", "1"),
+                    StandardRuleViolation.VALUE_MISMATCH
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "PARAMETERS.QUERY.brand_ids",
+                    details = DefaultMismatchMessages.patternMismatch("2", "3"),
+                    StandardRuleViolation.VALUE_MISMATCH
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "PARAMETERS.QUERY.brand_ids",
+                    details = DefaultMismatchMessages.patternMismatch("1", "3"),
+                    StandardRuleViolation.VALUE_MISMATCH
+                )
+            }
+            """.trimIndent())
         }
 
         @Test
         fun `fails when request contains all stub values and also a value not present in the stub`() {
             val result = stubbedArrayQueryParameterPattern.matches(HttpRequest("GET", "/", queryParams = QueryParameters(paramPairs = listOf("brand_ids" to "1", "brand_ids" to "2", "brand_ids" to "3"))),  Resolver())
             assertThat(result is Failure).isTrue
-            assertThat(result.reportString().trimmedLinesList()).isEqualTo("""
-                >> PARAMETERS.QUERY.brand_ids
-
-                   Expected 2 (number), actual was 3 (number)
-                
-                >> PARAMETERS.QUERY.brand_ids
-                
-                   Expected 1 (number), actual was 3 (number)
-            """.trimIndent().trimmedLinesList())
+            assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
+            ${
+                toViolationReportString(
+                    breadCrumb = "PARAMETERS.QUERY.brand_ids",
+                    details = DefaultMismatchMessages.patternMismatch("2", "3"),
+                    StandardRuleViolation.VALUE_MISMATCH
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "PARAMETERS.QUERY.brand_ids",
+                    details = DefaultMismatchMessages.patternMismatch("1", "3"),
+                    StandardRuleViolation.VALUE_MISMATCH
+                )
+            }
+            """.trimIndent())
         }
 
         @Test
         fun `fails when request does not contain a mandatory query parameter`() {
             val result = stubbedArrayQueryParameterPattern.matches(HttpRequest("GET", "/", emptyMap()),  Resolver())
             assertThat(result is Failure).isTrue
-            assertThat(result.reportString().trimmedLinesList()).isEqualTo("""
-                >> PARAMETERS.QUERY.brand_ids
-
-                   Expected query param named "brand_ids" was missing
-            """.trimIndent().trimmedLinesList())
+            assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
+           ${
+               toViolationReportString(
+                   breadCrumb = "PARAMETERS.QUERY.brand_ids",
+                   details = DefaultMismatchMessages.expectedKeyWasMissing("query param", "brand_ids"),
+                   StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+               )
+           }
+            """.trimIndent())
         }
 
         @Test
         fun `fails when request contains a query parameter not present in the spec`() {
             val result = stubbedArrayQueryParameterPattern.matches(HttpRequest("GET", "/", queryParams = QueryParameters(paramPairs = listOf("brand_ids" to "1", "brand_ids" to "2", "product_id" to "1"))),  Resolver())
             assertThat(result is Failure).isTrue
-            assertThat(result.reportString().trimmedLinesList()).isEqualTo("""
-                >> PARAMETERS.QUERY.product_id
-
-                   Query param named "product_id" was unexpected
-            """.trimIndent().trimmedLinesList())
+            assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
+            ${
+                toViolationReportString(
+                    breadCrumb = "PARAMETERS.QUERY.product_id",
+                    details = DefaultMismatchMessages.unexpectedKey("query param", "product_id"),
+                    StandardRuleViolation.UNKNOWN_PROPERTY
+                )
+            }
+            """.trimIndent())
         }
 
     }
@@ -398,33 +441,45 @@ class HttpQueryParamPatternTest {
         fun `fails when query parameter type does not match the spec`() {
             val result = unStubbedScalarQueryParameterPattern.matches(HttpRequest("GET", "/", queryParams = QueryParameters(paramPairs = listOf("product_id" to "abc"))),  Resolver())
             assertThat(result is Failure).isTrue
-            assertThat(result.reportString().trimmedLinesList()).isEqualTo("""
-                >> PARAMETERS.QUERY.product_id
-
-                   Expected number, actual was "abc"
-            """.trimIndent().trimmedLinesList())
+            assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
+            ${
+                toViolationReportString(
+                    breadCrumb = "PARAMETERS.QUERY.product_id",
+                    details = DefaultMismatchMessages.typeMismatch("number", "\"abc\"", "string"),
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
+            """.trimIndent())
         }
 
         @Test
         fun `fails when request does not contain a mandatory query parameter`() {
             val result = unStubbedScalarQueryParameterPattern.matches(HttpRequest("GET", "/", emptyMap()),  Resolver())
             assertThat(result is Failure).isTrue
-            assertThat(result.reportString().trimmedLinesList()).isEqualTo("""
-                >> PARAMETERS.QUERY.product_id
-
-                   Expected query param named "product_id" was missing
-            """.trimIndent().trimmedLinesList())
+            assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
+            ${
+                toViolationReportString(
+                    breadCrumb = "PARAMETERS.QUERY.product_id",
+                    details = DefaultMismatchMessages.expectedKeyWasMissing("query param", "product_id"),
+                    StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+                )
+            }
+            """.trimIndent())
         }
 
         @Test
         fun `fails when request contains a query parameter not present in the spec`() {
             val result = unStubbedScalarQueryParameterPattern.matches(HttpRequest("GET", "/", queryParams = QueryParameters(paramPairs = listOf("brand_ids" to "1", "product_id" to "1"))),  Resolver())
             assertThat(result is Failure).isTrue
-            assertThat(result.reportString().trimmedLinesList()).isEqualTo("""
-                >> PARAMETERS.QUERY.brand_ids
-
-                   Query param named "brand_ids" was unexpected
-            """.trimIndent().trimmedLinesList())
+            assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
+            ${
+                toViolationReportString(
+                    breadCrumb = "PARAMETERS.QUERY.brand_ids",
+                    details = DefaultMismatchMessages.unexpectedKey("query param", "brand_ids"),
+                    StandardRuleViolation.UNKNOWN_PROPERTY
+                )
+            }
+            """.trimIndent())
         }
     }
 
@@ -443,33 +498,45 @@ class HttpQueryParamPatternTest {
             val stubbedNumericScalarQueryParameterPattern = HttpQueryParamPattern(mapOf("product_id" to QueryParameterScalarPattern(ExactValuePattern(NumberValue(1)))))
             val result = stubbedNumericScalarQueryParameterPattern.matches(HttpRequest("GET", "/", queryParams = QueryParameters(paramPairs = listOf("product_id" to "abc"))),  Resolver())
             assertThat(result is Failure).isTrue
-            assertThat(result.reportString().trimmedLinesList()).isEqualTo("""
-                >> PARAMETERS.QUERY.product_id
-
-                   Expected 1 (number), actual was "abc"
-            """.trimIndent().trimmedLinesList())
+            assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
+            ${
+                toViolationReportString(
+                    breadCrumb = "PARAMETERS.QUERY.product_id",
+                    details = DefaultMismatchMessages.valueMismatch("1", "\"abc\""),
+                    StandardRuleViolation.VALUE_MISMATCH
+                )
+            }
+            """.trimIndent())
         }
 
         @Test
         fun `fails when request does not contain a mandatory query parameter`() {
             val result = stubbedScalarQueryParameterPattern.matches(HttpRequest("GET", "/", emptyMap()),  Resolver())
             assertThat(result is Failure).isTrue
-            assertThat(result.reportString().trimmedLinesList()).isEqualTo("""
-                >> PARAMETERS.QUERY.status
-
-                   Expected query param named "status" was missing
-            """.trimIndent().trimmedLinesList())
+            assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
+            ${
+                toViolationReportString(
+                    breadCrumb = "PARAMETERS.QUERY.status",
+                    details = DefaultMismatchMessages.expectedKeyWasMissing("query param", "status"),
+                    StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+                )
+            }
+            """.trimIndent())
         }
 
         @Test
         fun `fails when request contains a query parameter not present in the spec`() {
             val result = stubbedScalarQueryParameterPattern.matches(HttpRequest("GET", "/", queryParams = QueryParameters(paramPairs = listOf("brand_ids" to "1", "status" to "pending"))),  Resolver())
             assertThat(result is Failure).isTrue
-            assertThat(result.reportString().trimmedLinesList()).isEqualTo("""
-                >> PARAMETERS.QUERY.brand_ids
-
-                   Query param named "brand_ids" was unexpected
-            """.trimIndent().trimmedLinesList())
+            assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
+            ${
+                toViolationReportString(
+                    breadCrumb = "PARAMETERS.QUERY.brand_ids",
+                    details = DefaultMismatchMessages.unexpectedKey("query param", "brand_ids"),
+                    StandardRuleViolation.UNKNOWN_PROPERTY
+                )
+            }
+            """.trimIndent())
         }
     }
 
@@ -729,10 +796,13 @@ class HttpQueryParamPatternTest {
             val params = QueryParameters(mapOf("number" to "(string)"))
             val exception = assertThrows<ContractException> { queryParams.fillInTheBlanks(params, Resolver()).value }
 
-            assertThat(exception.failure().reportString()).isEqualToNormalizingWhitespace("""
-            >> number
-            Expected number, actual was string
-            """.trimIndent())
+            assertThat(exception.failure().reportString()).isEqualToNormalizingWhitespace(
+                toViolationReportString(
+                    breadCrumb = "number",
+                    details = DefaultMismatchMessages.patternMismatch("number", "string"),
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            )
         }
 
         @Test

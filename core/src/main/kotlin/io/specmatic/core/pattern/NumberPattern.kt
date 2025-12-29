@@ -2,7 +2,9 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
-import io.specmatic.core.mismatchResult
+import io.specmatic.core.constraintMismatchResult
+import io.specmatic.core.patternMismatchResult
+import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.NumberValue
@@ -57,21 +59,21 @@ data class NumberPattern(
             return Result.Success()
 
         if (sampleData !is NumberValue)
-            return mismatchResult("number", sampleData, resolver.mismatchMessages)
+            return dataTypeMismatchResult(this, sampleData, resolver.mismatchMessages)
 
         if (sampleData.toStringLiteral().length < minLength)
-            return mismatchResult("number with minLength $minLength", sampleData, resolver.mismatchMessages)
+            return constraintMismatchResult("number with minLength $minLength", sampleData, resolver.mismatchMessages)
 
         if (sampleData.toStringLiteral().length > maxLength)
-            return mismatchResult("number with maxLength $maxLength", sampleData, resolver.mismatchMessages)
+            return constraintMismatchResult("number with maxLength $maxLength", sampleData, resolver.mismatchMessages)
 
         val sampleNumber = BigDecimal(sampleData.number.toString())
 
         if (sampleNumber < effectiveMin)
-            return mismatchResult("number >= $effectiveMin", sampleData, resolver.mismatchMessages)
+            return constraintMismatchResult("number >= $effectiveMin", sampleData, resolver.mismatchMessages)
 
         if (sampleNumber > effectiveMax)
-            return mismatchResult("number <= $effectiveMax", sampleData, resolver.mismatchMessages)
+            return constraintMismatchResult("number <= $effectiveMax", sampleData, resolver.mismatchMessages)
 
         return Result.Success()
     }
@@ -174,8 +176,8 @@ data class NumberPattern(
             emptySequence()
     }
 
-    override fun parse(value: String, resolver: Resolver): Value {
-        return NumberValue(convertToNumber(value))
+    override fun parse(value: String, resolver: Resolver): Value = attemptParse(this, value, resolver.mismatchMessages) {
+        NumberValue(convertToNumber(value))
     }
 
     override fun encompasses(
@@ -235,5 +237,5 @@ fun encompasses(
 
         otherPattern::class == thisPattern::class -> Result.Success()
 
-        else -> mismatchResult(thisPattern, otherPattern, thisResolver.mismatchMessages)
+        else -> patternMismatchResult(thisPattern, otherPattern, thisResolver.mismatchMessages)
     }

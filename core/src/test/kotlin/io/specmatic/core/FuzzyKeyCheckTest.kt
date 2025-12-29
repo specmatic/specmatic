@@ -6,6 +6,7 @@ import io.specmatic.core.FuzzyKeyCheckTest.Companion.ExpectedError.Companion.une
 import io.specmatic.core.pattern.IgnoreUnexpectedKeys
 import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.pattern.withOptionality
+import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
@@ -21,28 +22,28 @@ class FuzzyKeyCheckTest {
             when (exp) {
                 is ExpectedError.Missing -> {
                     val error = errors.filterIsInstance<MissingKeyError>().first { it.name == exp.name }
-                    val failure = error.missingKeyToResult("key")
-                    assertThat(failure.reportString()).isEqualTo(exp.message)
+                    val failure = error.missingKeyToResult("property")
+                    assertThat(failure.reportString()).isEqualToNormalizingWhitespace(exp.message)
                     assertThat(failure.isPartial).isEqualTo(exp.isPartial)
                 }
 
                 is ExpectedError.Unexpected -> {
                     val error = errors.filterIsInstance<UnexpectedKeyError>().first { it.name == exp.name }
-                    val failure = error.unknownKeyToResult("key")
-                    assertThat(failure.reportString()).isEqualTo(exp.message)
+                    val failure = error.unknownKeyToResult("property")
+                    assertThat(failure.reportString()).isEqualToNormalizingWhitespace(exp.message)
                     assertThat(failure.isPartial).isEqualTo(exp.isPartial)
                 }
 
                 is ExpectedError.Fuzzy -> {
                     val error = errors.filterIsInstance<FuzzyKeyError>().first { it.name == exp.name }
                     val failure = when {
-                        pattern.containsKey(error.canonicalKey) -> error.missingKeyToResult("key")
-                        pattern.containsKey(withOptionality(error.canonicalKey)) -> error.missingOptionalKeyToResult("key")
-                        else -> error.unknownKeyToResult("key")
+                        pattern.containsKey(error.canonicalKey) -> error.missingKeyToResult("property")
+                        pattern.containsKey(withOptionality(error.canonicalKey)) -> error.missingOptionalKeyToResult("property")
+                        else -> error.unknownKeyToResult("property")
                     }
 
                     assertThat(error.canonicalKey).isEqualTo(exp.candidate)
-                    assertThat(failure.reportString()).isEqualTo(exp.message)
+                    assertThat(failure.reportString()).isEqualToNormalizingWhitespace(exp.message)
                     assertThat(failure.isPartial).isEqualTo(exp.isPartial)
                 }
             }
@@ -103,9 +104,9 @@ class FuzzyKeyCheckTest {
                 name = "Missing optional key matches unexpected key",
                 actual = mapOf("name" to "John", "email" to "john@example.com", "ages" to "30"),
                 overrideExpectations = mapOf(
-                    FuzzyTestConfig.IgnorePatternButCheckUnexpected to listOf(fuzzy("ages", "age")),
-                    FuzzyTestConfig.CheckPatternAndCheckUnexpected to listOf(fuzzy("ages", "age")),
-                    FuzzyTestConfig.CheckPatternButIgnoreUnexpected to listOf(fuzzy("ages", "age", true)),
+                    FuzzyTestConfig.IgnorePatternButCheckUnexpected to listOf(fuzzy("ages", "age", violation = StandardRuleViolation.OPTIONAL_PROPERTY_MISSING)),
+                    FuzzyTestConfig.CheckPatternAndCheckUnexpected to listOf(fuzzy("ages", "age", violation = StandardRuleViolation.OPTIONAL_PROPERTY_MISSING)),
+                    FuzzyTestConfig.CheckPatternButIgnoreUnexpected to listOf(fuzzy("ages", "age", violation = StandardRuleViolation.OPTIONAL_PROPERTY_MISSING, partial = true)),
                 )
             ),
             FuzzyScenario(
@@ -132,9 +133,9 @@ class FuzzyKeyCheckTest {
                 name = "Two fuzzy actual keys for the same optional key",
                 actual = mapOf("name" to "John", "email" to "john@example.com", "ages" to "30", "agex" to "30"),
                 overrideExpectations = mapOf(
-                    FuzzyTestConfig.IgnorePatternButCheckUnexpected to listOf(fuzzy("ages", "age"), unexpected("agex")),
-                    FuzzyTestConfig.CheckPatternAndCheckUnexpected to listOf(fuzzy("ages", "age"), unexpected("agex")),
-                    FuzzyTestConfig.CheckPatternButIgnoreUnexpected to listOf(fuzzy("ages", "age", partial = true))
+                    FuzzyTestConfig.IgnorePatternButCheckUnexpected to listOf(fuzzy("ages", "age", violation = StandardRuleViolation.OPTIONAL_PROPERTY_MISSING), unexpected("agex")),
+                    FuzzyTestConfig.CheckPatternAndCheckUnexpected to listOf(fuzzy("ages", "age", violation = StandardRuleViolation.OPTIONAL_PROPERTY_MISSING), unexpected("agex")),
+                    FuzzyTestConfig.CheckPatternButIgnoreUnexpected to listOf(fuzzy("ages", "age", partial = true, violation = StandardRuleViolation.OPTIONAL_PROPERTY_MISSING))
                 )
             ),
             FuzzyScenario(
@@ -155,9 +156,9 @@ class FuzzyKeyCheckTest {
                 name = "Missing mandatory and optional with fuzzy unexpected keys",
                 actual = mapOf("nme" to "John", "ages" to "30"),
                 overrideExpectations = mapOf(
-                    FuzzyTestConfig.CheckPatternAndCheckUnexpected to listOf(fuzzy("nme", "name"), fuzzy("ages", "age"), missing("email")),
-                    FuzzyTestConfig.CheckPatternButIgnoreUnexpected to listOf(fuzzy("nme", "name"), fuzzy("ages", "age", partial = true), missing("email")),
-                    FuzzyTestConfig.IgnorePatternButCheckUnexpected to listOf(fuzzy("nme", "name"), fuzzy("ages", "age"))
+                    FuzzyTestConfig.CheckPatternAndCheckUnexpected to listOf(fuzzy("nme", "name"), fuzzy("ages", "age", violation = StandardRuleViolation.OPTIONAL_PROPERTY_MISSING), missing("email")),
+                    FuzzyTestConfig.CheckPatternButIgnoreUnexpected to listOf(fuzzy("nme", "name"), fuzzy("ages", "age", partial = true, violation = StandardRuleViolation.OPTIONAL_PROPERTY_MISSING), missing("email")),
+                    FuzzyTestConfig.IgnorePatternButCheckUnexpected to listOf(fuzzy("nme", "name"), fuzzy("ages", "age", violation = StandardRuleViolation.OPTIONAL_PROPERTY_MISSING))
                 )
             ),
             FuzzyScenario(
@@ -186,9 +187,36 @@ class FuzzyKeyCheckTest {
             data class Fuzzy(override val name: String, val candidate: String, val message: String, override val isPartial: Boolean) : ExpectedError
 
             companion object {
-                fun missing(name: String, partial: Boolean = false) = Missing(name, "Expected key named \"$name\" was missing", partial)
-                fun unexpected(name: String, partial: Boolean = false) = Unexpected(name, "Key named \"$name\" was unexpected", partial)
-                fun fuzzy(name: String, candidate: String, partial: Boolean = false) = Fuzzy(name, candidate, "Key named \"$name\" was unexpected. Did you mean \"$candidate\"?", partial)
+                fun missing(name: String, partial: Boolean = false) = Missing(
+                    name = name,
+                    message = toViolationReportString(
+                        breadCrumb = null,
+                        details = DefaultMismatchMessages.expectedKeyWasMissing("property", name),
+                        StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+                    ),
+                    isPartial = partial
+                )
+
+                fun unexpected(name: String, partial: Boolean = false) = Unexpected(
+                    name = name,
+                    message = toViolationReportString(
+                        breadCrumb = null,
+                        details = DefaultMismatchMessages.unexpectedKey("property", name),
+                        StandardRuleViolation.UNKNOWN_PROPERTY
+                    ),
+                    isPartial = partial
+                )
+
+                fun fuzzy(name: String, candidate: String, partial: Boolean = false, violation: StandardRuleViolation = StandardRuleViolation.REQUIRED_PROPERTY_MISSING) = Fuzzy(
+                    name = name,
+                    candidate = candidate,
+                    message = toViolationReportString(
+                        breadCrumb = null,
+                        details = "${DefaultMismatchMessages.unexpectedKey("property", name)}. Did you mean \"$candidate\"?",
+                        violation
+                    ),
+                    isPartial = partial
+                )
             }
         }
 
