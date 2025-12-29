@@ -20,8 +20,15 @@ class BreadCrumbToJsonPathConverterTest {
     @Test
     fun `should handle array indices by converting brackets to slashes`() {
         val breadcrumbs = listOf("RESPONSE", "BODY", "items", "[0]", "id")
-        val result = converter.toJsonPath(breadcrumbs)
-        assertThat(result).isEqualTo("/http-response/body/items/0/id")
+        assertThat(converter.toJsonPath(breadcrumbs)).isEqualTo("/http-response/body/items/0/id")
+        assertThat(converter.convert(breadcrumbs)).isEqualTo(listOf("http-response", "body", "items", "0", "id"))
+    }
+
+    @Test
+    fun `should handle array indices by converting brackets to slashes when combined with a key`() {
+        val breadcrumbs = listOf("RESPONSE", "BODY", "items[0]", "details", "aliases[1]")
+        assertThat(converter.toJsonPath(breadcrumbs)).isEqualTo("/http-response/body/items/0/details/aliases/1")
+        assertThat(converter.convert(breadcrumbs)).isEqualTo(listOf("http-response", "body", "items", "0", "details", "aliases", "1"))
     }
 
     @Test
@@ -211,6 +218,10 @@ class BreadCrumbToJsonPathConverterTest {
                 Arguments.of(
                     listOf("RESPONSE", "BODY", "attributes..priority"),
                     "/http-response/body/attributes/priority"
+                ),
+                Arguments.of(
+                    listOf("RESPONSE", "BODY", "attributes[0]"),
+                    "/http-response/body/attributes/0"
                 ),
 
                 // -- Mix dot-splitting with indices (index token still separate) --

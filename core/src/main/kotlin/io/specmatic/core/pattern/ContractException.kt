@@ -82,8 +82,8 @@ fun <ReturnType> attemptParse(typeName: String, value: String, mismatchMessages:
     try {
         return f()
     } catch (throwable: Throwable) {
-        val failureReport = dataTypeMismatchResult(typeName, StringValue(value), mismatchMessages)
-        throw ContractException(failureReport.removeViolationReport().toFailureReport(), failureReport.ruleViolationReport).copy(exceptionCause = throwable)
+        val mismatchFailure = dataTypeMismatchResult(typeName, StringValue(value), mismatchMessages)
+        throw ContractException(mismatchFailure.removeViolationReport().toFailureReport(), mismatchFailure.ruleViolationReport).copy(exceptionCause = throwable)
     }
 }
 

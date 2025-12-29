@@ -29,7 +29,7 @@ class BreadCrumbToJsonPathConverter(private val config: TransformationConfig = d
     }
 
     fun convert(breadcrumbs: List<String>): List<String> {
-        return breadcrumbs.flatMap { it.split(".") }
+        return breadcrumbs.flatMap { it.splitBySeparators() }
             .filter(String::isNotBlank).map(::applyTransformations)
             .filter(String::isNotBlank).filterNot(::isTildeBreadCrumb)
     }
@@ -48,7 +48,12 @@ class BreadCrumbToJsonPathConverter(private val config: TransformationConfig = d
         return (component.startsWith("(") && component.endsWith(")")) || component.startsWith("(~~~")
     }
 
+    private fun String.splitBySeparators(): List<String> {
+        return this.replace(ARRAY_START_BRACKET, "|$ARRAY_START_BRACKET").split(".", "|")
+    }
+
     companion object {
+        private const val ARRAY_START_BRACKET = "["
         val defaultConfig = TransformationConfig(
             transformations = listOf(
                 // Parameters
