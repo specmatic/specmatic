@@ -15,6 +15,8 @@ data class JSONObjectValue(val jsonObject: Map<String, Value> = emptyMap()) : Va
 
     override fun displayableValue() = toStringLiteral()
     override fun toStringLiteral() = valueMapToPrettyJsonString(jsonObject)
+    override fun toNativeValue(): Any = jsonObject.mapValues { it.value.toNativeValue() }
+
     fun toUnformattedStringLiteral() = valueMapToUnindentedJsonString(jsonObject)
     override fun displayableType(): String = "json object"
     override fun exactMatchElseType(): Pattern = toJSONObjectPattern(jsonObject.mapValues { it.value.exactMatchElseType() })

@@ -15,6 +15,10 @@ object NoBodyValue : Value {
         return ""
     }
 
+    override fun toNativeValue(): Any? {
+        return null
+    }
+
     override fun displayableType(): String {
         return "No body"
     }
