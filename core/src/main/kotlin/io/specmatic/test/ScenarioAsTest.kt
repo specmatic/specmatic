@@ -1,7 +1,7 @@
 package io.specmatic.test
 
 import io.specmatic.conversions.convertPathParameterStyle
-import io.specmatic.core.ContractAndResponseMismatch
+import io.specmatic.core.SpecificationAndResponseMismatch
 import io.specmatic.core.Feature
 import io.specmatic.core.FlagsBased
 import io.specmatic.core.HttpRequest
@@ -191,7 +191,7 @@ data class ScenarioAsTest(
             testScenario.matchesResponse(
                 request,
                 response,
-                ContractAndResponseMismatch,
+                SpecificationAndResponseMismatch,
                 flagsBased.unexpectedKeyCheck ?: ValidateUnexpectedKeys,
             )
 

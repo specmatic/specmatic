@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
+import org.junit.jupiter.api.assertThrows
 
 internal class AnyPatternTest {
     @Test
@@ -136,11 +137,10 @@ internal class AnyPatternTest {
         assertThat(result2.toReport().toText().trimIndent()).isEqualToIgnoringWhitespace(
             toViolationReportString(
                 breadCrumb = null,
-                details = """
-                Expected string, actual was JSON object {
+                details = DefaultMismatchMessages.typeMismatch(expectedType = "string", actualType = "json object", actualValue = """{
                     "firstname": "Jane",
                     "lastname": "Doe"
-                }""".trimIndent(),
+                }""".trimMargin()),
                 StandardRuleViolation.TYPE_MISMATCH
             )
         )
@@ -148,11 +148,10 @@ internal class AnyPatternTest {
         assertThat(result1.toReport().toText().trimIndent()).isEqualToIgnoringWhitespace(
             toViolationReportString(
                 breadCrumb = null,
-                details = """
-                Expected string, actual was JSON object {
+                details = DefaultMismatchMessages.typeMismatch(expectedType = "string", actualType = "json object", actualValue = """{
                     "firstname": "Jane",
                     "lastname": "Doe"
-                }""".trimIndent(),
+                }"""),
                 StandardRuleViolation.TYPE_MISMATCH
             )
         )
@@ -382,21 +381,21 @@ internal class AnyPatternTest {
         ${
             toViolationReportString(
                 breadCrumb = "personInfo (when Customer object).salutation",
-                details = "Key named \"salutation\" was unexpected",
+                details = DefaultMismatchMessages.unexpectedKey("property", "salutation"),
                 StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "personInfo (when Employee object).manager",
-                details = "Expected key named \"manager\" was missing",
+                details = DefaultMismatchMessages.expectedKeyWasMissing("property", "manager"),
                 StandardRuleViolation.REQUIRED_PROPERTY_MISSING
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "personInfo (when Employee object).salutation",
-                details = "Key named \"salutation\" was unexpected",
+                details = DefaultMismatchMessages.unexpectedKey("property", "salutation"),
                 StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }
@@ -458,29 +457,29 @@ internal class AnyPatternTest {
         ${
             toViolationReportString(
                 breadCrumb = "(when Sub1 object).newKey",
-                details = "Key named \"newKey\" was unexpected",
-                StandardRuleViolation.ONE_OF_VALUE_MISMATCH, StandardRuleViolation.UNKNOWN_PROPERTY
+                details = DefaultMismatchMessages.unexpectedKey("property", "newKey"),
+                StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "(when Sub1 object).prop",
-                details = "Expected string, actual was true (boolean)",
-                StandardRuleViolation.ONE_OF_VALUE_MISMATCH, StandardRuleViolation.TYPE_MISMATCH
+                details = DefaultMismatchMessages.typeMismatch("string", "true", "boolean"),
+                StandardRuleViolation.TYPE_MISMATCH
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "(when Sub2 object).newKey",
-                details = "Key named \"newKey\" was unexpected",
-                StandardRuleViolation.ONE_OF_VALUE_MISMATCH, StandardRuleViolation.UNKNOWN_PROPERTY
+                details = DefaultMismatchMessages.unexpectedKey("property", "newKey"),
+                StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "(when Sub2 object).prop",
-                details = "Expected number, actual was true (boolean)",
-                StandardRuleViolation.ONE_OF_VALUE_MISMATCH, StandardRuleViolation.TYPE_MISMATCH
+                details = DefaultMismatchMessages.typeMismatch("number", "true", "boolean"),
+                StandardRuleViolation.TYPE_MISMATCH
             )
         }
         """.trimIndent())
@@ -555,6 +554,35 @@ internal class AnyPatternTest {
         val pattern = AnyPattern(pattern = listOf(StringPattern()), extensions = emptyMap())
         val nullablePattern = pattern.toNullable(null)
         assertThat(nullablePattern.pattern).contains(NullPattern)
+    }
+
+    @Test
+    fun `should throw exceptions with all sub-schema parse failures if parse fails for all cases`() {
+        val pattern = AnyPattern(pattern = listOf(NumberPattern(), BooleanPattern()), extensions = emptyMap())
+        val exception = assertThrows<ContractException> { pattern.parse("123False", Resolver()) }
+
+        assertThat(exception.report()).isEqualToIgnoringWhitespace("""
+        ${
+            toViolationReportString(
+                breadCrumb = null,
+                details = """
+                ${DefaultMismatchMessages.typeMismatch("number", "\"123False\"", "string")}
+                Expected number, actual was "123False"
+                """.trimIndent(),
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = null,
+                details = """
+                ${DefaultMismatchMessages.typeMismatch("boolean", "\"123False\"", "string")}
+                Must be true or false
+                """.trimIndent(),
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        """.trimIndent())
     }
 
     @Nested
@@ -686,13 +714,13 @@ internal class AnyPatternTest {
 
             assertThat(resultSub1.reportString()).isEqualToIgnoringWhitespace(toViolationReportString(
                 breadCrumb = "address",
-                details = "Expected optional key named \"address\" was missing",
+                details = DefaultMismatchMessages.optionalKeyMissing("property", "address"),
                 StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
             ))
 
             assertThat(resultSub2.reportString()).isEqualToIgnoringWhitespace(toViolationReportString(
                 breadCrumb = "age",
-                details = "Expected optional key named \"age\" was missing",
+                details = DefaultMismatchMessages.optionalKeyMissing("property", "age"),
                 StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
             ))
         }
@@ -758,7 +786,7 @@ internal class AnyPatternTest {
             assertThat(result.reportString()).isEqualToIgnoringWhitespace(
                 toViolationReportString(
                     breadCrumb = "details",
-                    details = "Expected optional key named \"details\" was missing",
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "details"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             )
@@ -784,7 +812,7 @@ internal class AnyPatternTest {
             assertThat(result.reportString()).isEqualToIgnoringWhitespace(
                 toViolationReportString(
                     breadCrumb = "address",
-                    details = "Expected optional key named \"address\" was missing",
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "address"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             )

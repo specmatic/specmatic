@@ -8,6 +8,7 @@ import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import io.specmatic.core.pattern.*
+import io.specmatic.toViolationReportString
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Tag
@@ -590,10 +591,13 @@ internal class HttpPathPatternTest {
                 pathPattern.fillInTheBlanks(path, Resolver(dictionary = dictionary)).value
             }
 
-            assertThat(exception.failure().reportString()).isEqualToNormalizingWhitespace("""
-            >> id
-            Expected number, actual was string
-            """.trimIndent())
+            assertThat(exception.failure().reportString()).isEqualToNormalizingWhitespace(
+                toViolationReportString(
+                    breadCrumb = "id",
+                    details = DefaultMismatchMessages.patternMismatch("number", "string"),
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            )
         }
 
         @Test

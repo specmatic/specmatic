@@ -8,12 +8,9 @@ import io.specmatic.core.Result.Success
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_QUERY_PARAMS
-import io.specmatic.core.value.BooleanValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
-import io.specmatic.core.StandardRuleViolation
 import io.specmatic.toViolationReportString
-import io.specmatic.trimmedLinesList
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.*
@@ -64,7 +61,7 @@ class HttpQueryParamPatternTest {
         urlPattern.matches(URI("/pets"), queryParameters, Resolver()).let {
             assertThat(it is Failure).isTrue()
             assertThat((it as Failure).toMatchFailureDetails()).isEqualTo(
-                MatchFailureDetails(listOf(BreadCrumb.PARAM_QUERY.value, "petid"), listOf("""Expected number, actual was "text""""))
+                MatchFailureDetails(listOf(BreadCrumb.PARAM_QUERY.value, "petid"), listOf(DefaultMismatchMessages.typeMismatch("number", "\"text\"", "string")))
             )
         }
     }
@@ -258,14 +255,14 @@ class HttpQueryParamPatternTest {
             ${
                 toViolationReportString(
                     breadCrumb = "PARAMETERS.QUERY.brand_ids",
-                    details = "Expected number, actual was \"abc\"",
+                    details = DefaultMismatchMessages.typeMismatch("number", "\"abc\"", "string"),
                     StandardRuleViolation.TYPE_MISMATCH
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "PARAMETERS.QUERY.brand_ids",
-                    details = "Expected number, actual was \"def\"",
+                    details = DefaultMismatchMessages.typeMismatch("number", "\"def\"", "string"),
                     StandardRuleViolation.TYPE_MISMATCH
                 )
             }
@@ -280,7 +277,7 @@ class HttpQueryParamPatternTest {
             ${
                 toViolationReportString(
                     breadCrumb = "PARAMETERS.QUERY.brand_ids",
-                    details = "Expected query param named \"brand_ids\" was missing",
+                    details = DefaultMismatchMessages.expectedKeyWasMissing("query param", "brand_ids"),
                     StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                 )
             }
@@ -295,7 +292,7 @@ class HttpQueryParamPatternTest {
             ${
                 toViolationReportString(
                     breadCrumb = "PARAMETERS.QUERY.product_id",
-                    details = "Query param named \"product_id\" was unexpected",
+                    details = DefaultMismatchMessages.unexpectedKey("query param", "product_id"),
                     StandardRuleViolation.UNKNOWN_PROPERTY
                 )
             }
@@ -334,7 +331,7 @@ class HttpQueryParamPatternTest {
             ${
                 toViolationReportString(
                     breadCrumb = "PARAMETERS.QUERY.brand_ids",
-                    details = "Expected 2 (number), actual was 1 (number)",
+                    details = DefaultMismatchMessages.patternMismatch("2", "1"),
                     StandardRuleViolation.VALUE_MISMATCH
                 )
             }
@@ -349,21 +346,21 @@ class HttpQueryParamPatternTest {
             ${
                 toViolationReportString(
                     breadCrumb = "PARAMETERS.QUERY.brand_ids",
-                    details = "Expected 2 (number), actual was 1 (number)",
+                    details = DefaultMismatchMessages.patternMismatch("2", "1"),
                     StandardRuleViolation.VALUE_MISMATCH
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "PARAMETERS.QUERY.brand_ids",
-                    details = "Expected 2 (number), actual was 3 (number)",
+                    details = DefaultMismatchMessages.patternMismatch("2", "3"),
                     StandardRuleViolation.VALUE_MISMATCH
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "PARAMETERS.QUERY.brand_ids",
-                    details = "Expected 1 (number), actual was 3 (number)",
+                    details = DefaultMismatchMessages.patternMismatch("1", "3"),
                     StandardRuleViolation.VALUE_MISMATCH
                 )
             }
@@ -378,14 +375,14 @@ class HttpQueryParamPatternTest {
             ${
                 toViolationReportString(
                     breadCrumb = "PARAMETERS.QUERY.brand_ids",
-                    details = "Expected 2 (number), actual was 3 (number)",
+                    details = DefaultMismatchMessages.patternMismatch("2", "3"),
                     StandardRuleViolation.VALUE_MISMATCH
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "PARAMETERS.QUERY.brand_ids",
-                    details = "Expected 1 (number), actual was 3 (number)",
+                    details = DefaultMismatchMessages.patternMismatch("1", "3"),
                     StandardRuleViolation.VALUE_MISMATCH
                 )
             }
@@ -400,7 +397,7 @@ class HttpQueryParamPatternTest {
            ${
                toViolationReportString(
                    breadCrumb = "PARAMETERS.QUERY.brand_ids",
-                   details = "Expected query param named \"brand_ids\" was missing",
+                   details = DefaultMismatchMessages.expectedKeyWasMissing("query param", "brand_ids"),
                    StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                )
            }
@@ -415,7 +412,7 @@ class HttpQueryParamPatternTest {
             ${
                 toViolationReportString(
                     breadCrumb = "PARAMETERS.QUERY.product_id",
-                    details = "Query param named \"product_id\" was unexpected",
+                    details = DefaultMismatchMessages.unexpectedKey("query param", "product_id"),
                     StandardRuleViolation.UNKNOWN_PROPERTY
                 )
             }
@@ -448,7 +445,7 @@ class HttpQueryParamPatternTest {
             ${
                 toViolationReportString(
                     breadCrumb = "PARAMETERS.QUERY.product_id",
-                    details = "Expected number, actual was \"abc\"",
+                    details = DefaultMismatchMessages.typeMismatch("number", "\"abc\"", "string"),
                     StandardRuleViolation.TYPE_MISMATCH
                 )
             }
@@ -463,7 +460,7 @@ class HttpQueryParamPatternTest {
             ${
                 toViolationReportString(
                     breadCrumb = "PARAMETERS.QUERY.product_id",
-                    details = "Expected query param named \"product_id\" was missing",
+                    details = DefaultMismatchMessages.expectedKeyWasMissing("query param", "product_id"),
                     StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                 )
             }
@@ -478,7 +475,7 @@ class HttpQueryParamPatternTest {
             ${
                 toViolationReportString(
                     breadCrumb = "PARAMETERS.QUERY.brand_ids",
-                    details = "Query param named \"brand_ids\" was unexpected",
+                    details = DefaultMismatchMessages.unexpectedKey("query param", "brand_ids"),
                     StandardRuleViolation.UNKNOWN_PROPERTY
                 )
             }
@@ -505,7 +502,7 @@ class HttpQueryParamPatternTest {
             ${
                 toViolationReportString(
                     breadCrumb = "PARAMETERS.QUERY.product_id",
-                    details = "Expected 1 (number), actual was \"abc\"",
+                    details = DefaultMismatchMessages.valueMismatch("1", "\"abc\""),
                     StandardRuleViolation.VALUE_MISMATCH
                 )
             }
@@ -520,7 +517,7 @@ class HttpQueryParamPatternTest {
             ${
                 toViolationReportString(
                     breadCrumb = "PARAMETERS.QUERY.status",
-                    details = "Expected query param named \"status\" was missing",
+                    details = DefaultMismatchMessages.expectedKeyWasMissing("query param", "status"),
                     StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                 )
             }
@@ -535,7 +532,7 @@ class HttpQueryParamPatternTest {
             ${
                 toViolationReportString(
                     breadCrumb = "PARAMETERS.QUERY.brand_ids",
-                    details = "Query param named \"brand_ids\" was unexpected",
+                    details = DefaultMismatchMessages.unexpectedKey("query param", "brand_ids"),
                     StandardRuleViolation.UNKNOWN_PROPERTY
                 )
             }
@@ -799,10 +796,13 @@ class HttpQueryParamPatternTest {
             val params = QueryParameters(mapOf("number" to "(string)"))
             val exception = assertThrows<ContractException> { queryParams.fillInTheBlanks(params, Resolver()).value }
 
-            assertThat(exception.failure().reportString()).isEqualToNormalizingWhitespace("""
-            >> number
-            Expected number, actual was string
-            """.trimIndent())
+            assertThat(exception.failure().reportString()).isEqualToNormalizingWhitespace(
+                toViolationReportString(
+                    breadCrumb = "number",
+                    details = DefaultMismatchMessages.patternMismatch("number", "string"),
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            )
         }
 
         @Test

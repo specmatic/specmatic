@@ -17,6 +17,8 @@ import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_SCHEMA
 import io.specmatic.core.utilities.Flags.Companion.IGNORE_INLINE_EXAMPLES
 import io.specmatic.core.value.*
 import io.specmatic.core.StandardRuleViolation
+import io.specmatic.core.examples.server.ExampleMismatchMessages
+import io.specmatic.stub.NamedExampleMismatchMessages
 import io.specmatic.toViolationReportString
 import io.specmatic.test.ExampleProcessor
 import io.specmatic.test.TestExecutor
@@ -462,14 +464,14 @@ class LoadTestsFromExternalisedFiles {
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.HEADER.X-Extra-Header",
-                    details = "The header X-Extra-Header was found in the example extra_header but was not in the specification.",
+                    details = NamedExampleMismatchMessages("extra_header").unexpectedKey("header", "X-Extra-Header"),
                     StandardRuleViolation.UNKNOWN_PROPERTY
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.HEADER.X-Extra-Header",
-                    details = "The header X-Extra-Header was found in the example extra_header but was not in the specification.",
+                    details = NamedExampleMismatchMessages("extra_header").unexpectedKey("header", "X-Extra-Header"),
                     StandardRuleViolation.UNKNOWN_PROPERTY
                 )
             }
@@ -563,14 +565,14 @@ class LoadTestsFromExternalisedFiles {
         ${
             toViolationReportString(
                 breadCrumb = "REQUEST.BODY.value",
-                details = "Expected number as per the specification, but the example testId_example had true (boolean).",
+                details = NamedExampleMismatchMessages("testId_example").typeMismatch("number", "true", "boolean"),
                 StandardRuleViolation.TYPE_MISMATCH
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY.value",
-                details = "Expected number as per the specification, but the example testId_example had true (boolean).",
+                details = NamedExampleMismatchMessages("testId_example").typeMismatch("number", "true", "boolean"),
                 StandardRuleViolation.TYPE_MISMATCH
             )
         }
@@ -579,14 +581,14 @@ class LoadTestsFromExternalisedFiles {
         ${
             toViolationReportString(
                 breadCrumb = "REQUEST.BODY.value",
-                details = "Expected boolean as per the specification, but the example latest_example had 123 (number).",
+                details = NamedExampleMismatchMessages("latest_example").typeMismatch("boolean", "123", "number"),
                 StandardRuleViolation.TYPE_MISMATCH
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY.value",
-                details = "Expected boolean as per the specification, but the example latest_example had 123 (number).",
+                details = NamedExampleMismatchMessages("latest_example").typeMismatch("boolean", "123", "number"),
                 StandardRuleViolation.TYPE_MISMATCH
             )
         }
@@ -595,14 +597,14 @@ class LoadTestsFromExternalisedFiles {
         ${
             toViolationReportString(
                 breadCrumb = "REQUEST.BODY.value",
-                details = "Expected number as per the specification, but the example reports_testId_latest had true (boolean).",
+                details = NamedExampleMismatchMessages("reports_testId_latest").typeMismatch("number", "true", "boolean"),
                 StandardRuleViolation.TYPE_MISMATCH
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY.value",
-                details = "Expected number as per the specification, but the example reports_testId_latest had true (boolean).",
+                details = NamedExampleMismatchMessages("reports_testId_latest").typeMismatch("number", "true", "boolean"),
                 StandardRuleViolation.TYPE_MISMATCH
             )
         }
@@ -611,14 +613,14 @@ class LoadTestsFromExternalisedFiles {
         ${
             toViolationReportString(
                 breadCrumb = "REQUEST.BODY.value",
-                details = "Expected boolean as per the specification, but the example testId_reports_reportId had 123 (number).",
+                details = NamedExampleMismatchMessages("testId_reports_reportId").typeMismatch("boolean", "123", "number"),
                 StandardRuleViolation.TYPE_MISMATCH
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.BODY.value",
-                details = "Expected boolean as per the specification, but the example testId_reports_reportId had 123 (number).",
+                details = NamedExampleMismatchMessages("testId_reports_reportId").typeMismatch("boolean", "123", "number"),
                 StandardRuleViolation.TYPE_MISMATCH
             )
         }
@@ -690,14 +692,14 @@ class LoadTestsFromExternalisedFiles {
         ${
             toViolationReportString(
                  breadCrumb = "REQUEST.PARAMETERS.QUERY.apiKey",
-                 details = "The query param apiKey was found in the example insecure but was not in the specification.",
+                 details = NamedExampleMismatchMessages("insecure").unexpectedKey("query param", "apiKey"),
                 StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }
         ${
              toViolationReportString(
                  breadCrumb = "REQUEST.PARAMETERS.HEADER.Authorization",
-                 details = "The header Authorization was found in the example insecure but was not in the specification.",
+                 details = NamedExampleMismatchMessages("insecure").unexpectedKey("header", "Authorization"),
                 StandardRuleViolation.UNKNOWN_PROPERTY
             )
          }
@@ -1002,14 +1004,14 @@ class LoadTestsFromExternalisedFiles {
                 ${
                     toViolationReportString(
                         breadCrumb = "REQUEST.BODY.name",
-                        details = "Contract expected string but found value 10 (number)",
+                        details = ExampleMismatchMessages.typeMismatch("string", "10", "number"),
                         StandardRuleViolation.TYPE_MISMATCH
                     )
                 }
                 ${
                     toViolationReportString(
                         breadCrumb = "REQUEST.BODY.tag[0]",
-                        details = "Contract expected string but found value 10 (number)",
+                        details = ExampleMismatchMessages.typeMismatch("string", "10", "number"),
                         StandardRuleViolation.TYPE_MISMATCH
                     )
                 }
@@ -1022,21 +1024,21 @@ class LoadTestsFromExternalisedFiles {
                 ${
                     toViolationReportString(
                         breadCrumb = "REQUEST.BODY.adopted",
-                        details = "Contract expected boolean but found value \"false\"",
+                        details = ExampleMismatchMessages.typeMismatch("boolean", "\"false\"", "string"),
                         StandardRuleViolation.TYPE_MISMATCH
                     )
                 }
                 ${
                     toViolationReportString(
                         breadCrumb = "REQUEST.BODY.age",
-                        details = "Contract expected number but found value \"20\"",
+                        details = ExampleMismatchMessages.typeMismatch("number", "\"20\"", "string"),
                         StandardRuleViolation.TYPE_MISMATCH
                     )
                 }
                 ${
                     toViolationReportString(
                         breadCrumb = "REQUEST.BODY.birthdate",
-                        details = "Contract expected date but found value false (boolean)",
+                        details = ExampleMismatchMessages.typeMismatch("date", "false", "boolean"),
                         StandardRuleViolation.TYPE_MISMATCH
                     )
                 }
@@ -1285,14 +1287,14 @@ class LoadTestsFromExternalisedFiles {
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.PATH.creatorId",
-                    details = "Expected number as per the specification, but the example pets_post had \"abc\".",
+                    NamedExampleMismatchMessages("pets_post").typeMismatch("number", "\"abc\"", "string"),
                     StandardRuleViolation.TYPE_MISMATCH
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.PATH.petId",
-                    details = "Expected number as per the specification, but the example pets_post had string.",
+                    NamedExampleMismatchMessages("pets_post").patternMismatch("number", "string"),
                     StandardRuleViolation.TYPE_MISMATCH
                 )
             }
@@ -1300,14 +1302,14 @@ class LoadTestsFromExternalisedFiles {
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.QUERY.creatorId",
-                    details = "Expected number as per the specification, but the example pets_post had \"abc\".",
+                    NamedExampleMismatchMessages("pets_post").typeMismatch("number", "\"abc\"", "string"),
                     StandardRuleViolation.TYPE_MISMATCH
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.QUERY.petId",
-                    details = "Expected number as per the specification, but the example pets_post had string.",
+                    NamedExampleMismatchMessages("pets_post").patternMismatch("number", "string"),
                     StandardRuleViolation.TYPE_MISMATCH
                 )
             }
@@ -1316,14 +1318,14 @@ class LoadTestsFromExternalisedFiles {
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.HEADER.CREATOR-ID",
-                    details = "Expected number as per the specification, but the example pets_post had \"abc\".",
+                    NamedExampleMismatchMessages("pets_post").typeMismatch("number", "\"abc\"", "string"),
                     StandardRuleViolation.TYPE_MISMATCH
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.HEADER.PET-ID",
-                    details = "Expected number as per the specification, but the example pets_post had string.",
+                    NamedExampleMismatchMessages("pets_post").patternMismatch("number", "string"),
                     StandardRuleViolation.TYPE_MISMATCH
                 )
             }
@@ -1331,14 +1333,14 @@ class LoadTestsFromExternalisedFiles {
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.BODY.creatorId",
-                    details = "Expected number as per the specification, but the example pets_post had \"123\".",
+                    NamedExampleMismatchMessages("pets_post").typeMismatch("number", "\"123\"", "string"),
                     StandardRuleViolation.TYPE_MISMATCH
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.BODY.petId",
-                    details = "Expected number as per the specification, but the example pets_post had string.",
+                    NamedExampleMismatchMessages("pets_post").patternMismatch("number", "string"),
                     StandardRuleViolation.TYPE_MISMATCH
                 )
             }
@@ -1346,21 +1348,21 @@ class LoadTestsFromExternalisedFiles {
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY.id",
-                    details = "Expected number as per the specification, but the example pets_post had string.",
+                    NamedExampleMismatchMessages("pets_post").patternMismatch("number", "string"),
                     StandardRuleViolation.TYPE_MISMATCH
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY.traceId",
-                    details = "Expected string as per the specification, but the example pets_post had number.",
+                    NamedExampleMismatchMessages("pets_post").patternMismatch("string", "number"),
                     StandardRuleViolation.TYPE_MISMATCH
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY.creatorId",
-                    details = "Expected number as per the specification, but the example pets_post had \"123\".",
+                    NamedExampleMismatchMessages("pets_post").typeMismatch("number", "\"123\"", "string"),
                     StandardRuleViolation.TYPE_MISMATCH
                 )
             }  

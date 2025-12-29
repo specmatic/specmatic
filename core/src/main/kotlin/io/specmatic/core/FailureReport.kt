@@ -2,15 +2,8 @@ package io.specmatic.core
 
 data class FailureReport(val contractPath: String?, private val scenarioMessage: String?, val scenario: ScenarioDetailsForResult?, private val matchFailureDetailList: List<MatchFailureDetails>): Report {
     fun errorMessage(): String {
-        if(matchFailureDetailList.size != 1)
-            return toText()
-        return errorMessagesToString(matchFailureDetailList.first().errorMessages)
-    }
-
-    fun getRuleViolationReport(): RuleViolationReport {
-        return matchFailureDetailList.fold(RuleViolationReport()) { acc, ruleViolations ->
-            acc.plus(ruleViolations.ruleViolationReport)
-        }
+        if (matchFailureDetailList.size != 1) return toText()
+        return matchFailureDetailsErrorMessage(matchFailureDetailList.first()).joinToString("\n\n")
     }
 
     fun breadCrumbs(): String {
@@ -60,11 +53,14 @@ data class FailureReport(val contractPath: String?, private val scenarioMessage:
 
     private fun matchFailureDetails(matchFailureDetails: MatchFailureDetails): String {
         val breadCrumbString = startOfBreadCrumbPrefix(breadCrumbString(matchFailureDetails.breadCrumbs))
-        val errorMessageString = errorMessagesToString(matchFailureDetails.errorMessages).prependIndent("    ")
-        val ruleViolationString = matchFailureDetails.ruleViolationReport?.toText()?.prependIndent("    ")
-        return listOf(breadCrumbString, ruleViolationString, errorMessageString).mapNotNull {
-            it?.takeIf(String::isNotBlank)
-        }.joinToString("\n\n")
+        val matchFailureDetails = matchFailureDetailsErrorMessage(matchFailureDetails).map { it.prependIndent("    ") }
+        return listOf(breadCrumbString).plus(matchFailureDetails).filter(String::isNotBlank).joinToString("\n\n")
+    }
+
+    private fun matchFailureDetailsErrorMessage(matchFailureDetails: MatchFailureDetails): List<String> {
+        val errorMessageString = errorMessagesToString(matchFailureDetails.errorMessages)
+        val ruleViolationString = matchFailureDetails.ruleViolationReport?.toText()
+        return listOfNotNull(ruleViolationString, errorMessageString).filter(String::isNotBlank)
     }
 
     private fun errorMessagesToString(errorMessages: List<String>) =

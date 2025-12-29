@@ -4,6 +4,7 @@ import integration_tests.testCount
 import io.mockk.InternalPlatformDsl.toStr
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.APPLICATION_NAME_LOWER_CASE
+import io.specmatic.core.DefaultMismatchMessages
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.HttpResponsePattern
@@ -27,12 +28,12 @@ import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.XMLValue
 import io.specmatic.core.value.toXMLNode
 import io.specmatic.core.StandardRuleViolation
+import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.toViolationReportString
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stubResponse
 import io.specmatic.test.LegacyHttpClient
 import io.specmatic.test.TestExecutor
-import io.specmatic.trimmedLinesList
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -341,8 +342,10 @@ Feature: Test
         STRICT MODE ON
         ${toViolationReportString(
             breadCrumb = "REQUEST.BODY",
-            details = "Stub expected number but request contained \"Hello\"\nExpected number, actual was \"Hello\"",
-            StandardRuleViolation.TYPE_MISMATCH
+            details = """
+            ${ExampleAndRequestMismatchMessages(null).typeMismatch("number", "\"Hello\"", "string")}
+            ${DefaultMismatchMessages.mismatchMessage("number", "\"Hello\"")}
+            """.trimIndent()
         )}
         """.trimIndent())
     }
@@ -374,7 +377,7 @@ Feature: POST API
         ${
             toViolationReportString(
                 breadCrumb = "REQUEST.BODY.undeclared",
-                details = ContractAndRequestsMismatch.unexpectedKey("key", "undeclared"),
+                details = SpecificationAndRequestMismatchMessages.unexpectedKey("property", "undeclared"),
                 StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }
@@ -440,7 +443,7 @@ Scenario: Square of a number
         ${
             toViolationReportString(
                 breadCrumb = "REQUEST.BODY.unexpected",
-                details = ContractAndRequestsMismatch.unexpectedKey("key", "unexpected"),
+                details = SpecificationAndRequestMismatchMessages.unexpectedKey("property", "unexpected"),
                 StandardRuleViolation.UNKNOWN_PROPERTY
             )
         }
@@ -464,7 +467,8 @@ Scenario: Square of a number
             stubRequest.toPattern(),
             stubResponse,
             Resolver(),
-            responsePattern = HttpResponsePattern()
+            responsePattern = HttpResponsePattern(),
+            name = "TestExample"
         )
 
         val request = HttpRequest(method = "GET", path = "/count")
@@ -476,8 +480,7 @@ Scenario: Square of a number
         STRICT MODE ON
         ${toViolationReportString(
             breadCrumb = "REQUEST.PARAMETERS.QUERY.status",
-            details = StubAndRequestMismatchMessages.expectedKeyWasMissing("query param", "status"),
-            StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+            details = ExampleAndRequestMismatchMessages("TestExample").expectedKeyWasMissing("query param", "status")
         )}
         """.trimIndent())
     }
@@ -728,7 +731,7 @@ paths:
 
         println(response.response.toLogString())
 
-        assertThat(response.response.body.toStringLiteral()).contains("Contract expected")
+        assertThat(response.response.body.toStringLiteral()).contains("Specification expected")
         assertThat(response.response.body.toStringLiteral()).contains("request contained")
     }
 
@@ -821,7 +824,7 @@ paths:
 
         println(requestString)
 
-        assertThat(requestString).contains("Stub expected")
+        assertThat(requestString).contains("Example expected")
         assertThat(requestString).contains("request contained")
     }
 
@@ -874,7 +877,7 @@ paths:
             val responseString = response.toLogString()
             println(responseString)
 
-            assertThat(responseString).contains("Contract expected number but stub contained \"abc\"")
+            assertThat(responseString).contains(ExampleMismatchMessages.typeMismatch("number", "\"abc\"",  "string"))
         }
     }
 
@@ -913,7 +916,7 @@ paths:
             val responseString = response.toLogString()
             println(responseString)
 
-            assertThat(responseString).contains("Contract expected")
+            assertThat(responseString).contains("Specification expected")
             assertThat(responseString).contains("request contained")
         }
     }

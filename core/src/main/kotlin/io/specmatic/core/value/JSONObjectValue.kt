@@ -15,6 +15,8 @@ data class JSONObjectValue(val jsonObject: Map<String, Value> = emptyMap()) : Va
 
     override fun displayableValue() = toStringLiteral()
     override fun toStringLiteral() = valueMapToPrettyJsonString(jsonObject)
+    override fun toNativeValue(): Any = jsonObject.mapValues { it.value.toNativeValue() }
+
     fun toUnformattedStringLiteral() = valueMapToUnindentedJsonString(jsonObject)
     override fun displayableType(): String = "json object"
     override fun exactMatchElseType(): Pattern = toJSONObjectPattern(jsonObject.mapValues { it.value.exactMatchElseType() })
@@ -40,9 +42,9 @@ data class JSONObjectValue(val jsonObject: Map<String, Value> = emptyMap()) : Va
         return Result.fromResults(
             results = resolver.findKeyErrorList(attributeSelectedFields.associateBy { it }, jsonObject).map {
                 when {
-                    attributeSelectedFields.contains(it.name) -> it.missingKeyToResult("key", resolver.mismatchMessages)
-                    attributeSelectedFields.contains(withOptionality(it.name)) -> it.missingOptionalKeyToResult("key", resolver.mismatchMessages)
-                    else -> it.unknownKeyToResult("key", resolver.mismatchMessages)
+                    attributeSelectedFields.contains(it.name) -> it.missingKeyToResult("property", resolver.mismatchMessages)
+                    attributeSelectedFields.contains(withOptionality(it.name)) -> it.missingOptionalKeyToResult("property", resolver.mismatchMessages)
+                    else -> it.unknownKeyToResult("property", resolver.mismatchMessages)
                 }.breadCrumb(it.name)
             }
         )

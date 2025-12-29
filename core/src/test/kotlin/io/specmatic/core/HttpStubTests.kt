@@ -1,25 +1,23 @@
 package io.specmatic.core
 
 import io.specmatic.conversions.OpenApiSpecification
+import io.specmatic.conversions.apiKeyParamName
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.pattern.parsedValue
-import io.specmatic.core.utilities.Flags
-import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.parseXML
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
-import io.specmatic.core.StandardRuleViolation
+import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.toViolationReportString
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
-import io.specmatic.stub
 import io.specmatic.stub.HttpStub
-import io.specmatic.trimmedLinesString
+import io.specmatic.stub.SpecificationAndRequestMismatchMessages
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import org.assertj.core.api.Assertions.assertThat
 import org.json.JSONObject
@@ -428,7 +426,7 @@ Scenario: JSON API to get account details with fact check
                 ${
                     toViolationReportString(
                         breadCrumb = "RESPONSE.BODY[0].rating",
-                        details = "Contract expected (1 or 2 or 3) but stub contained 4 (number)",
+                        details = ExampleMismatchMessages.mismatchMessage("(1 or 2 or 3)", "4 (number)"),
                         StandardRuleViolation.VALUE_MISMATCH
                     )
                 }
@@ -713,7 +711,7 @@ Scenario: JSON API to get account details with fact check
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.QUERY.apiKey",
-                    details = "Api-key named apiKey in the contract was not found in the request",
+                    details = SpecificationAndRequestMismatchMessages.expectedKeyWasMissing(apiKeyParamName, "apiKey"),
                     StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                 )
             }
@@ -729,14 +727,14 @@ Scenario: JSON API to get account details with fact check
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.HEADER.Authorization",
-                    details = "Header named Authorization in the contract was not found in the request",
+                    details = SpecificationAndRequestMismatchMessages.expectedKeyWasMissing("header", "Authorization"),
                     StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.QUERY.apiKey",
-                    details = "Api-key named apiKey in the contract was not found in the request",
+                    details = SpecificationAndRequestMismatchMessages.expectedKeyWasMissing(apiKeyParamName, "apiKey"),
                     StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                 )
             }
@@ -752,21 +750,21 @@ Scenario: JSON API to get account details with fact check
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.HEADER.Authorization",
-                    details = "Header named Authorization in the contract was not found in the request",
+                    details = SpecificationAndRequestMismatchMessages.expectedKeyWasMissing("header", "Authorization"),
                     StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.QUERY.apiKey",
-                    details = "Api-key named apiKey in the contract was not found in the request",
+                    details = SpecificationAndRequestMismatchMessages.expectedKeyWasMissing(apiKeyParamName, "apiKey"),
                     StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.HEADER.Authorization",
-                    details = "Header named Authorization in the contract was not found in the request",
+                    details = SpecificationAndRequestMismatchMessages.expectedKeyWasMissing("header", "Authorization"),
                     StandardRuleViolation.REQUIRED_PROPERTY_MISSING
                 )
             }
@@ -879,14 +877,14 @@ Scenario: JSON API to get account details with fact check
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.PATH.creatorId",
-                    details = "Expected number, actual was \"ABC\"",
+                    details = ExampleMismatchMessages.typeMismatch("number", "\"ABC\"", "string"),
                     StandardRuleViolation.TYPE_MISMATCH
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.PATH.petId",
-                    details = "Expected number, actual was \"DEF\"",
+                    details = ExampleMismatchMessages.typeMismatch("number", "\"DEF\"", "string"),
                     StandardRuleViolation.TYPE_MISMATCH
                 )
             }
@@ -894,14 +892,14 @@ Scenario: JSON API to get account details with fact check
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.QUERY.creatorId",
-                    details = "Expected number, actual was \"ABC\"",
+                    details = ExampleMismatchMessages.typeMismatch("number", "\"ABC\"", "string"),
                     StandardRuleViolation.TYPE_MISMATCH
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.PARAMETERS.HEADER.PET-ID",
-                    details = "Expected number, actual was \"DEF\"",
+                    details = ExampleMismatchMessages.typeMismatch("number", "\"DEF\"", "string"),
                     StandardRuleViolation.TYPE_MISMATCH
                 )
             }
@@ -909,14 +907,14 @@ Scenario: JSON API to get account details with fact check
             ${
                 toViolationReportString(
                     breadCrumb = "REQUEST.BODY.creatorId",
-                    details = "Expected number, actual was \"ABC\"",
+                    details = ExampleMismatchMessages.typeMismatch("number", "\"ABC\"", "string"),
                     StandardRuleViolation.TYPE_MISMATCH
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "RESPONSE.BODY.petId",
-                    details = "Expected number, actual was \"DEF\"",
+                    details = ExampleMismatchMessages.typeMismatch("number", "\"DEF\"", "string"),
                     StandardRuleViolation.TYPE_MISMATCH
                 )
             }

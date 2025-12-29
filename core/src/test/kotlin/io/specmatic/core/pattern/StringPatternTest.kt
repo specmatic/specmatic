@@ -94,11 +94,13 @@ internal class StringPatternTest {
         val candidate = "VAKTIGOOIXJDKQWGBBAPFXRKIHLEONUP"
         val result = StringPattern(regex = regex).matches(StringValue(candidate), Resolver())
         assertThat(result.isSuccess()).isFalse
-        assertThat(result.reportString()).isEqualToIgnoringWhitespace("""${toViolationReportString(
-            breadCrumb = null,
-            details = "Expected string that matches regex $regex, actual was \"$candidate\"",
-            StandardRuleViolation.CONSTRAINT_VIOLATION
-        )}""")
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace(
+            toViolationReportString(
+                breadCrumb = null,
+                details = DefaultMismatchMessages.typeMismatch("string that matches regex $regex", "\"$candidate\"", "string"),
+                StandardRuleViolation.CONSTRAINT_VIOLATION
+            )
+        )
     }
 
     @Test
@@ -131,22 +133,26 @@ internal class StringPatternTest {
     fun `should not match when string is shorter than minLength`() {
         val result = StringPattern(minLength = 4).matches(StringValue("abc"), Resolver())
         assertThat(result.isSuccess()).isFalse
-        assertThat(result.reportString()).isEqualToIgnoringWhitespace("""${toViolationReportString(
-            breadCrumb = null,
-            details = "Expected string with minLength 4, actual was \"abc\"",
-            StandardRuleViolation.CONSTRAINT_VIOLATION
-        )}""")
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace(
+            toViolationReportString(
+                breadCrumb = null,
+                details = DefaultMismatchMessages.typeMismatch("string with minLength 4", "\"abc\"", "string"),
+                StandardRuleViolation.CONSTRAINT_VIOLATION
+            )
+        )
     }
 
     @Test
     fun `should not match when string is longer than maxLength`() {
         val result = StringPattern(maxLength = 3).matches(StringValue("test"), Resolver())
         assertThat(result.isSuccess()).isFalse
-        assertThat(result.reportString()).isEqualToIgnoringWhitespace("""${toViolationReportString(
-            breadCrumb = null,
-            details = "Expected string with maxLength 3, actual was \"test\"",
-            StandardRuleViolation.CONSTRAINT_VIOLATION
-        )}""")
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace(
+            toViolationReportString(
+                breadCrumb = null,
+                details = DefaultMismatchMessages.typeMismatch("string with maxLength 3", "\"test\"", "string"),
+                StandardRuleViolation.CONSTRAINT_VIOLATION
+            )
+        )
     }
 
     @ParameterizedTest

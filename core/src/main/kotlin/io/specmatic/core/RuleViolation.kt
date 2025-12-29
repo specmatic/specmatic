@@ -81,13 +81,13 @@ enum class StandardRuleViolation(override val id: String, override val title: St
     DISCRIMINATOR_MISMATCH(
         id = "R3001",
         title = "Discriminator mismatch",
-        summary = "The discriminator does not match the expected discriminator defined in the specification"
+        summary = "The value provided does not match the discriminator defined in the specification"
     ),
 
     INVALID_DISCRIMINATOR_SETUP(
         id = "R3002",
         title = "Invalid discriminator setup",
-        summary = "The discriminator property defined in the specification is not present in the discriminator schemas"
+        summary = "The discriminator property defined in the specification is missing from the subschemas"
     ),
 
     MISSING_DISCRIMINATOR(
@@ -107,10 +107,4 @@ enum class StandardRuleViolation(override val id: String, override val title: St
         title = "Property matches no schema option",
         summary = "The property does not satisfy any available schema options"
     ),
-
-    ONE_OF_VALUE_MISMATCH(
-        id = "R3006",
-        title = "No matching schema option",
-        summary = "The value does not satisfy the constraints of any available schema option"
-    )
 }

@@ -58,6 +58,8 @@ data class ScenarioStub(
 
     val name: String? = this.data.jsonObject["name"]?.toStringLiteral() ?: partial?.name
 
+    val nameOrFileName: String? = runCatching { name ?: filePath?.let(::File)?.nameWithoutExtension }.getOrNull()
+
     fun toJSON(): JSONObjectValue {
         val requestResponse: Map<String, Value> =
             if (partial != null) {

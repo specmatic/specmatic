@@ -1,5 +1,6 @@
 package io.specmatic.conversions
 
+import io.specmatic.core.DefaultMismatchMessages
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
@@ -18,7 +19,7 @@ class APIKeyInHeaderSecuritySchemeTest {
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).isEqualToNormalizingWhitespace(toViolationReportString(
             breadCrumb = "HEADER.API-KEY",
-            details = "Expected api-key named \"API-KEY\" was missing",
+            details = DefaultMismatchMessages.expectedKeyWasMissing(apiKeyParamName, "API-KEY"),
             StandardRuleViolation.REQUIRED_PROPERTY_MISSING
         ))
     }

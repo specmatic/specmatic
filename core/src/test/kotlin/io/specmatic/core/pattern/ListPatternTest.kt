@@ -335,14 +335,14 @@ Feature: Recursive test
             ${
                 toViolationReportString(
                     breadCrumb = "[0].details",
-                    details = "Expected optional key named \"details\" was missing",
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "details"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
             ${
                 toViolationReportString(
                     breadCrumb = "[1].details",
-                    details = "Expected optional key named \"details\" was missing",
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "details"),
                     StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                 )
             }
@@ -701,7 +701,7 @@ Feature: Recursive test
             assertThat(result).isInstanceOf(HasFailure::class.java); result as HasFailure
             assertThat(result.failure.reportString()).isEqualToNormalizingWhitespace(toViolationReportString(
                 breadCrumb = "[0]",
-                details = "Expected number, actual was string",
+                details = DefaultMismatchMessages.patternMismatch("number", "string"),
                 StandardRuleViolation.TYPE_MISMATCH
             ))
         }
@@ -748,7 +748,7 @@ Feature: Recursive test
                 assertThat(result).isInstanceOf(HasFailure::class.java); result as HasFailure
                 assertThat(result.failure.reportString()).satisfiesAnyOf(
                     { report -> assertThat(report).containsIgnoringWhitespaces("Expected array or list type") },
-                    { report -> assertThat(report).containsIgnoringWhitespaces("Expected string, actual was boolean") },
+                    { report -> assertThat(report).containsIgnoringWhitespaces("Expected string").containsIgnoringWhitespaces("was boolean") },
                 )
             }
         }

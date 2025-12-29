@@ -5,7 +5,7 @@ package io.specmatic.stub
 import io.specmatic.core.CONTRACT_EXTENSION
 import io.specmatic.core.CONTRACT_EXTENSIONS
 import io.specmatic.core.CommandHook
-import io.specmatic.core.ContractAndStubMismatchMessages
+import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.core.DATA_DIR_SUFFIX
 import io.specmatic.core.Feature
 import io.specmatic.core.HookName
@@ -58,7 +58,7 @@ fun createStubFromContractAndData(
             ScenarioStub
                 .readFromFile(file)
                 .also {
-                    contractBehaviour.matchingStub(it, ContractAndStubMismatchMessages)
+                    contractBehaviour.matchingStub(it, ExampleMismatchMessages)
                 }
         }
 
@@ -878,7 +878,7 @@ fun loadContractStubsAsResults(
             val matchResults =
                 features.map { (specFile, feature) ->
                     try {
-                        feature.matchingStub(stub, ContractAndStubMismatchMessages)
+                        feature.matchingStub(stub, ExampleMismatchMessages)
                         StubMatchResults(feature, null)
                     } catch (e: NoMatchingScenario) {
                         StubMatchResults(

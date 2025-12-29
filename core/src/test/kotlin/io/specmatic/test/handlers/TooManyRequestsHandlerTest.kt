@@ -6,7 +6,6 @@ import io.specmatic.core.pattern.JSONObjectPattern
 import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
-import io.specmatic.core.StandardRuleViolation
 import io.specmatic.toViolationReportString
 import io.specmatic.test.MonitorResult
 import io.specmatic.test.TestExecutor
@@ -77,7 +76,7 @@ class TooManyRequestsHandlerTest {
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.STATUS",
-                details = "Response doesn't match processing scenario\nExpected status 429, actual was status 404",
+                details = "Response doesn't match processing scenario\n${DefaultMismatchMessages.mismatchMessage("status 429", "status 404")}",
                 OpenApiRuleViolation.STATUS_MISMATCH
             )
         }
@@ -223,7 +222,7 @@ class TooManyRequestsHandlerTest {
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.STATUS",
-                details = "Invalid 2xx response received on retry\nExpected status 201, actual was status 202",
+                details = "Invalid 2xx response received on retry\n${DefaultMismatchMessages.mismatchMessage("status 201", "status 202")}",
                 OpenApiRuleViolation.STATUS_MISMATCH
             )
         }

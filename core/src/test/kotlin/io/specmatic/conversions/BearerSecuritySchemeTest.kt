@@ -1,5 +1,6 @@
 package io.specmatic.conversions
 
+import io.specmatic.core.DefaultMismatchMessages
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
@@ -37,7 +38,7 @@ class BearerSecuritySchemeTest {
             assertThat(isSuccess()).isFalse
             assertThat(this.reportString())
                 .contains(">> HEADER.Authorization")
-                .contains("Expected header named \"Authorization\" was missing")
+                .contains(DefaultMismatchMessages.expectedKeyWasMissing("header", "Authorization"))
         }
     }
 

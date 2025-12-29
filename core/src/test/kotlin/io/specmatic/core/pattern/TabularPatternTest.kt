@@ -329,12 +329,10 @@ Feature: test feature
         assertThat(result.toReport().toString().trimmedLinesString()).isEqualToIgnoringWhitespace(
             toViolationReportString(
                 breadCrumb = "REQUEST.BODY.name",
-                details = """
-                Expected string, actual was JSON object {
+                details = DefaultMismatchMessages.typeMismatch(expectedType = "string", actualType = "json object", actualValue = """{
                     "firstname": "Jane",
                     "lastname": "Doe"
-                }
-                """.trimIndent(),
+                }""".trimIndent()),
                 StandardRuleViolation.TYPE_MISMATCH
             )
         )
