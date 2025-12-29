@@ -779,7 +779,7 @@ paths:
             val reportText = it.report()
             println(reportText)
 
-            assertThat(reportText).contains("Contract expected")
+            assertThat(reportText).contains("Specification expected")
             assertThat(reportText).contains("response from external command")
         })
     }
