@@ -30,7 +30,7 @@ dependencies {
     implementation("com.jayway.jsonpath:json-path:2.10.0")
 
 
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.6.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.9.0")
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.9.25")
     implementation("org.eclipse.jgit:org.eclipse.jgit:7.4.0.202509020913-r")
     implementation("org.eclipse.jgit:org.eclipse.jgit.ssh.apache:7.4.0.202509020913-r")
