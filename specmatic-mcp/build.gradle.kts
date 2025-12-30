@@ -16,10 +16,10 @@ dependencies {
     implementation("com.fasterxml.jackson.core:jackson-core:2.20.1")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.20.1")
 
-    implementation("org.junit.platform:junit-platform-launcher:1.13.4")
-    implementation("org.junit.platform:junit-platform-reporting:1.13.4")
-    implementation("org.junit.jupiter:junit-jupiter-api:5.13.4")
-    implementation("org.junit.jupiter:junit-jupiter-engine:5.13.4")
+    implementation("org.junit.platform:junit-platform-launcher:6.0.1")
+    implementation("org.junit.platform:junit-platform-reporting:6.0.1")
+    implementation("org.junit.jupiter:junit-jupiter-api:6.0.1")
+    implementation("org.junit.jupiter:junit-jupiter-engine:6.0.1")
     implementation("org.assertj:assertj-core:3.27.6")
 
     implementation("info.picocli:picocli:4.7.7")
