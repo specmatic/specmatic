@@ -9,8 +9,6 @@ dependencies {
         exclude(group = "commons-logging", module = "commons-logging")
     }
 
-    implementation("io.netty:netty-codec-http:4.2.7.Final")
-    implementation("net.minidev:json-smart:2.6.0")
     implementation("com.ezylang:EvalEx:3.6.0")
     implementation(project(":specmatic-core"))
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
@@ -24,7 +22,6 @@ dependencies {
 
     implementation("org.thymeleaf:thymeleaf:3.1.3.RELEASE")
 
-    implementation("io.ktor:ktor-client-core-jvm:2.3.13")
     implementation("io.ktor:ktor-client-cio:2.3.13")
 
     implementation("org.junit.platform:junit-platform-launcher:1.13.4")
