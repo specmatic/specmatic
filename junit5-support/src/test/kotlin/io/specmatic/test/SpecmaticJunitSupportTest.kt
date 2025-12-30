@@ -21,6 +21,7 @@ import org.junit.platform.launcher.TestExecutionListener
 import org.opentest4j.TestAbortedException
 import java.io.File
 import java.util.*
+import kotlin.io.path.createTempDirectory
 
 class SpecmaticJunitSupportTest {
     companion object {
@@ -268,7 +269,7 @@ paths:
                     type: integer
         """.trimIndent()
 
-        val tempDir = createTempDir()
+        val tempDir = createTempDirectory().toFile()
         try {
             val specFile = tempDir.resolve("api.yaml")
             specFile.writeText(openApiSpec)

@@ -10,13 +10,15 @@ data class ConsumeResult<ListType, MatchedType>(val result: Result = Result.Succ
     fun breadCrumb(breadCrumb: String): ConsumeResult<ListType, MatchedType> = this.copy(result = result.breadCrumb(breadCrumb))
 
     inline fun <reified OtherListType> cast(typeName: String): ConsumeResult<OtherListType, MatchedType> {
-        val newList = remainder.map {
-            if(it is OtherListType)
-                it
-            else
+        val newList = mutableListOf<OtherListType>()
+        for (item in remainder) {
+            if (item is OtherListType) {
+                newList.add(item)
+            } else {
                 throw ContractException("Could not cast list to $typeName type")
+            }
         }
 
-        return ConsumeResult(result, newList, provisionalError)
+        return ConsumeResult(result, newList.toList(), provisionalError)
     }
 }

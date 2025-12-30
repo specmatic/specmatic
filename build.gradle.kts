@@ -13,6 +13,8 @@ allprojects {
 }
 
 specmatic {
+    kotlinVersion = "2.3.0"
+    kotlinApiVersion = org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_3
     releasePublishTasks = listOf(
         "dockerBuildxPublish",
         "publishAllPublicationsToMavenCentralRepository",
