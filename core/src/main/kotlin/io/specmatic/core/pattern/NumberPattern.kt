@@ -27,8 +27,8 @@ data class NumberPattern(
     private fun minValueIsSet() = minimum != null
     private fun maxValueIsSet() = maximum != null
     private fun minAndMaxValuesNotSet() = minimum == null && maximum == null
-    private val lowerBound = if (isDoubleFormat) BigDecimal(-Double.MAX_VALUE) else BigDecimal(Int.MIN_VALUE)
-    private val upperBound = if (isDoubleFormat) BigDecimal(Double.MAX_VALUE) else BigDecimal(Int.MAX_VALUE)
+    private val lowerBound = if (isDoubleFormat) BigDecimal(-Double.MAX_VALUE) else BigDecimal(Long.MIN_VALUE)
+    private val upperBound = if (isDoubleFormat) BigDecimal(Double.MAX_VALUE) else BigDecimal(Long.MAX_VALUE)
     private val smallInc = BigDecimal("1")
 
     private val effectiveMax =
@@ -97,7 +97,7 @@ data class NumberPattern(
         val number = if (isDoubleFormat)
             SecureRandom().nextDouble(effectiveMin.toDouble(), effectiveMax.toDouble())
         else
-            SecureRandom().nextInt(effectiveMin.toInt(), effectiveMax.toInt())
+            SecureRandom().nextLong(effectiveMin.toLong(), effectiveMax.toLong())
         return NumberValue(number)
     }
 
