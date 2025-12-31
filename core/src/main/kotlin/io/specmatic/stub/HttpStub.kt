@@ -43,6 +43,7 @@ import io.specmatic.test.LegacyHttpClient
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.TestResultRecord.Companion.STUB_TEST_TYPE
 import io.specmatic.test.TestResultRecord.Companion.getCoverageStatus
+import io.specmatic.test.internalHeadersToKtorHeaders
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.*
 import kotlinx.coroutines.delay
@@ -53,6 +54,7 @@ import java.io.File
 import java.io.Writer
 import java.net.InetAddress
 import java.net.URI
+import java.net.URL
 import java.nio.charset.Charset
 import java.time.Instant
 import java.util.*
@@ -300,7 +302,7 @@ class HttpStub(
                         else -> {
                             val responseResult = serveStubResponse(
                                 httpRequest,
-                                baseUrl = "${call.request.local.scheme}://${call.request.local.serverHost}:${call.request.local.localPort}",
+                                baseUrl = "${call.request.local.scheme}://${call.request.local.localHost}:${call.request.local.localPort}",
                                 defaultBaseUrl = endPointFromHostAndPort(host, port, keyData),
                                 urlPath = call.request.path()
                             )
@@ -1068,9 +1070,12 @@ suspend fun respondToKtorHttpResponse(
     delayInMilliSeconds: Long? = null,
     specmaticConfig: SpecmaticConfig? = null
 ) {
-    val headersControlledByEngine = listOfExcludedHeaders().map { it.lowercase() }
-    for ((name, value) in httpResponse.headers.filterNot { it.key.lowercase() in headersControlledByEngine }) {
-        call.response.headers.append(name, value)
+    val headersControlledByEngine = listOfExcludedHeaders().mapTo(hashSetOf()) { it.lowercase() }
+    val headers = internalHeadersToKtorHeaders(httpResponse.headers.filterNot { it.key.lowercase() in headersControlledByEngine })
+    headers.forEach { (key, values) ->
+        values.forEach { value ->
+            call.response.headers.append(key, value)
+        }
     }
 
     val delayInMs = delayInMilliSeconds ?: specmaticConfig?.getStubDelayInMilliseconds()

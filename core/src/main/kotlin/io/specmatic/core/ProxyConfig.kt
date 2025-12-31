@@ -4,16 +4,7 @@ import net.minidev.json.annotate.JsonIgnore
 import java.net.URL
 import javax.activation.MimeType
 
-data class ProxyMockedOperation(private val path: String, private val method: String, private val requestContentType: String? = null) {
-    @JsonIgnore
-    fun path(): String = path
-
-    @JsonIgnore
-    fun method(): String = method
-
-    @JsonIgnore
-    fun requestContentType(): String? = requestContentType
-
+data class ProxyMockedOperation(val path: String, val method: String, val requestContentType: String? = null) {
     @JsonIgnore
     fun identity() = Triple(
         path,
@@ -22,34 +13,21 @@ data class ProxyMockedOperation(private val path: String, private val method: St
     )
 }
 
-data class ProxyMockedSpecification(private val spec: String, private val operations: List<ProxyMockedOperation>) {
-    @JsonIgnore
-    fun spec(): String = spec
-
-    @JsonIgnore
-    fun operations(): List<ProxyMockedOperation> = operations
-
+data class ProxyMockedSpecification(val spec: String, val operations: List<ProxyMockedOperation>) {
     @JsonIgnore
     fun merge(other: ProxyMockedSpecification): ProxyMockedSpecification {
         require(spec == other.spec)
-        val mergedOperations = (operations + other.operations()).distinctBy(ProxyMockedOperation::identity)
+        val mergedOperations = (operations + other.operations).distinctBy(ProxyMockedOperation::identity)
         return copy(operations = mergedOperations)
     }
 }
 
-data class ProxyConfig(
-    private val baseUrl: String,
-    private val targetBaseUrl: String,
-    private val mocked: List<ProxyMockedSpecification> = emptyList()
-) {
+data class ProxyConfig(val baseUrl: String, val targetBaseUrl: String, val mocked: List<ProxyMockedSpecification> = emptyList()) {
     @JsonIgnore
     fun baseUrl(): URL = URL(baseUrl)
 
     @JsonIgnore
     fun targetBaseUrl(): URL = URL(targetBaseUrl)
-
-    @JsonIgnore
-    fun mocked(): List<ProxyMockedSpecification> = mocked
 
     @JsonIgnore
     fun merge(other: ProxyConfig): ProxyConfig {

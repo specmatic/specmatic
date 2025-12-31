@@ -206,12 +206,31 @@ suspend fun ktorResponseToHttpResponse(ktorResponse: io.ktor.client.statement.Ht
 
 suspend fun decodeBody(ktorResponse: io.ktor.client.statement.HttpResponse): Pair<Map<String, String>, String> {
     val encoding = ktorResponse.headers["Content-Encoding"]
-    val headers = ktorResponse.headers.toMap().mapValues { it.value.first() }
+    val headers = ktorHeadersToInternalHeaders(ktorResponse.headers.toMap())
 
     return try {
         decodeBody(ktorResponse.readBytes(), encoding, ktorResponse.charset(), headers)
     } catch (e: ClientRequestException) {
         decodeBody(e.response.readBytes(), encoding, ktorResponse.charset(), headers)
+    }
+}
+
+internal fun ktorHeadersToInternalHeaders(headers: Map<String, List<String>>): Map<String, String> {
+    return headers.entries.associateBy (
+        keySelector = { it.key },
+        valueTransform = { (name, values) ->
+            if (!name.equals(HttpHeaders.SetCookie, ignoreCase = true)) return@associateBy values.first()
+            values.joinToString(separator = "\u0000")
+        }
+    )
+}
+
+internal fun internalHeadersToKtorHeaders(headers: Map<String, String>): Map<String, List<String>> {
+    return headers.mapValues { (name, value) ->
+        when {
+            name.equals(HttpHeaders.SetCookie, ignoreCase = true) -> value.split("\u0000")
+            else -> listOf(value)
+        }
     }
 }
 

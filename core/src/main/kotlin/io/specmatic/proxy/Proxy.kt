@@ -13,6 +13,7 @@ import io.specmatic.core.filters.HttpResponseFilterContext
 import io.specmatic.core.log.logger
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.configureHealthCheckModule
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.isHealthCheckRequest
+import io.specmatic.core.utilities.OpenApiPath
 import io.specmatic.core.utilities.TrackingFeature
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.utilities.openApiYamlFromExampleDir
@@ -22,7 +23,6 @@ import io.specmatic.license.core.LicensedProduct
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.*
 import io.specmatic.test.HttpClient
-import io.swagger.v3.core.util.Yaml
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
@@ -369,7 +369,7 @@ class Proxy(
         }
     }
 
-    fun record(specName: String, operationDetails: List<OperationDetails> = emptyList(), clearPrevious: Boolean = false) {
+    fun record(specName: String, operationDetails: List<ProxyMockedOperation> = emptyList(), clearPrevious: Boolean = false) {
         runBlocking {
             recordInternal(specName, operationDetails, clearPrevious)
         }
@@ -403,7 +403,7 @@ class Proxy(
             .booleanValue
     }
 
-    private suspend fun recordInternal(specName: String, operationDetails: List<OperationDetails>, clearPrevious: Boolean = false) =
+    private suspend fun recordInternal(specName: String, operationDetails: List<ProxyMockedOperation>, clearPrevious: Boolean = false) =
         recordMutex.withLock {
             val basePath = specName.dropExtension()
             val examplesDirName = "${basePath}$EXAMPLES_DIR_SUFFIX"
@@ -460,25 +460,16 @@ private fun String.dropExtension(): String {
     return if (dotIndex > 0) substring(0, dotIndex) else this
 }
 
-private fun NamedStub.matches(operationDetails: OperationDetails): Boolean {
+private fun NamedStub.matches(operationDetails: ProxyMockedOperation): Boolean {
     val request = stub.requestElsePartialRequest()
-    val response = stub.responseElsePartialResponse()
     val requestContentType = request.getHeader(CONTENT_TYPE)
-    val responseContentType = response.getHeader(CONTENT_TYPE)
 
     val matchesMethod = request.method?.equals(operationDetails.method, ignoreCase = true) == true
-    val matchesPath = request.path == operationDetails.path
-    val matchesStatus = response.status == operationDetails.status
-
+    val matchesPath = OpenApiPath.from(request.path.orEmpty()).normalizedEquals(OpenApiPath.from(operationDetails.path))
     val matchesRequestContentType = operationDetails.requestContentType?.let { expected ->
         if (requestContentType == null) return@let false
         MimeType(requestContentType).match(MimeType(expected))
     } ?: true
 
-    val matchesResponseContentType = operationDetails.responseContentType?.let { expected ->
-        if (responseContentType == null) return@let false
-        MimeType(responseContentType).match(MimeType(expected))
-    } ?: true
-
-    return matchesMethod && matchesPath && matchesStatus && matchesRequestContentType && matchesResponseContentType
+    return matchesMethod && matchesPath && matchesRequestContentType
 }

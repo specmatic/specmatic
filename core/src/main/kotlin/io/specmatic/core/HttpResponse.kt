@@ -211,8 +211,13 @@ data class HttpResponse(
         }
 
         private fun isJSON(responseHeaders: Map<String, String>): Boolean {
-            val contentType = responseHeaders.entries.find { it.key.equals(CONTENT_TYPE, ignoreCase = true) }?.value
-            return ContentType.parse(contentType ?: "") == ContentType.Application.Json
+            val contentType = responseHeaders.entries.find { it.key.equals(CONTENT_TYPE, ignoreCase = true) }?.value ?: return false
+            return try {
+                val ct = ContentType.parse(contentType)
+                ct.contentSubtype.equals("json", ignoreCase = true) || ct.contentSubtype.endsWith("+json", ignoreCase = true)
+            } catch (_: Throwable) {
+                false
+            }
         }
     }
 
