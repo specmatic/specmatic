@@ -222,7 +222,7 @@ data class SpecmaticConfig(
     private val pipeline: Pipeline? = null,
     private val environments: Map<String, Environment>? = null,
     private val hooks: Map<String, String> = emptyMap(),
-    private val proxy: List<Map<String, Any>> = emptyList(),
+    private val proxy: List<ProxyConfig> = emptyList(),
     private val repository: RepositoryInfo? = null,
     private val report: ReportConfigurationDetails? = null,
     private val security: SecurityConfiguration? = null,
@@ -310,7 +310,7 @@ data class SpecmaticConfig(
         }
 
         @JsonIgnore
-        fun getProxyDetails(specmaticConfig: SpecmaticConfig): List<Map<String, Any>> {
+        fun getProxyConfigs(specmaticConfig: SpecmaticConfig): List<ProxyConfig> {
             return specmaticConfig.proxy
         }
     }
@@ -614,7 +614,7 @@ data class SpecmaticConfig(
     }
 
     @JsonIgnore
-    fun getProxyDetails(): List<Map<String, Any>> {
+    fun getProxyConfigs(): List<ProxyConfig> {
         return proxy
     }
 

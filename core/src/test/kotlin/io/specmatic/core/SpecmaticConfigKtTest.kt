@@ -10,7 +10,6 @@ import io.specmatic.core.config.v2.ContractConfig
 import io.specmatic.core.utilities.ContractSourceEntry
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.config.v2.SpecmaticConfigV2
-import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_SCHEMA
 import io.specmatic.core.utilities.Flags.Companion.MAX_TEST_REQUEST_COMBINATIONS
 import io.specmatic.core.utilities.Flags.Companion.ONLY_POSITIVE
@@ -192,10 +191,18 @@ internal class SpecmaticConfigKtTest {
             version: 2
             contracts: []
             proxy:
-              - target: http://example.com/api
-                specs:
-                  - openapi_spec1.yaml
-                  - openapi_spec2.yaml
+              - baseUrl: http://localhost:9000
+                targetBaseUrl: http://example.com/api
+                mocked:
+                  - spec: openapi_spec1.yaml
+                    operations:
+                    - path: /test
+                      method: POST
+                  - spec: openapi_spec2.yaml
+                    operations:
+                    - path: /anotherTest
+                      method: POST
+                      requestContentType: application/json
         """.trimIndent()
 
         val config = ObjectMapper(YAMLFactory()).registerKotlinModule().readValue(
@@ -203,10 +210,19 @@ internal class SpecmaticConfigKtTest {
             SpecmaticConfigV2::class.java
         ).transform()
 
-        assertThat(config.getProxyDetails()).containsExactly(
-            mapOf(
-                "target" to "http://example.com/api",
-                "specs" to listOf("openapi_spec1.yaml", "openapi_spec2.yaml")
+        assertThat(config.getProxyConfigs()).containsExactly(
+            ProxyConfig(
+                baseUrl = "http://localhost:9000", targetBaseUrl = "http://example.com/api",
+                mocked = listOf(
+                    ProxyMockedSpecification(
+                        spec = "openapi_spec1.yaml",
+                        operations = listOf(ProxyMockedOperation(path = "/test", method = "POST"))
+                    ),
+                    ProxyMockedSpecification(
+                        spec = "openapi_spec2.yaml",
+                        operations = listOf(ProxyMockedOperation(path = "/anotherTest", method = "POST", requestContentType = "application/json"))
+                    ),
+                )
             )
         )
     }

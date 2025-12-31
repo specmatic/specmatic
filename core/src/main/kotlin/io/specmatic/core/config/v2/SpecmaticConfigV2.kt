@@ -17,7 +17,6 @@ import io.specmatic.core.config.SpecmaticVersionedConfigLoader
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.Flags.Companion.getStringValue
-import org.eclipse.jgit.lib.BranchConfig
 
 data class SpecmaticConfigV2(
     val version: SpecmaticConfigVersion,
@@ -26,7 +25,7 @@ data class SpecmaticConfigV2(
     val pipeline: Pipeline? = null,
     val environments: Map<String, Environment>? = null,
     val hooks: Map<String, String> = emptyMap(),
-    val proxy: List<Map<String, Any>> = emptyList(),
+    val proxy: List<ProxyConfig> = emptyList(),
     val repository: RepositoryInfo? = null,
     val report: ReportConfigurationDetails? = null,
     val security: SecurityConfiguration? = null,
@@ -85,7 +84,7 @@ data class SpecmaticConfigV2(
                 pipeline = getPipeline(config),
                 environments = SpecmaticConfig.getEnvironments(config),
                 hooks = config.getHooks(),
-                proxy = config.getProxyDetails(),
+                proxy = config.getProxyConfigs(),
                 repository = getRepository(config),
                 report = SpecmaticConfig.getReport(config)?.validatePresenceOfExcludedEndpoints(currentConfigVersion()),
                 security = getSecurityConfiguration(config),
