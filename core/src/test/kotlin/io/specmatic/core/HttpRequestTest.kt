@@ -255,6 +255,17 @@ internal class HttpRequestTest {
     }
 
     @Test
+    fun `should remove lowercase host header to avoid duplicates`() {
+        val httpRequestBuilder = HttpRequestBuilder().apply {
+            this.url.host = "target.com"
+            this.url.port = 80
+        }
+        HttpRequest("GET", "/", headers = mapOf("host" to "original.com"))
+            .buildKTORRequest(httpRequestBuilder, java.net.URL("http://target.com/"))
+        assertThat(httpRequestBuilder.headers["Host"]).isEqualTo("target.com")
+    }
+
+    @Test
     fun `should formulate a loggable error in non-strict mode`() {
         val request = spyk(
             HttpRequest(
