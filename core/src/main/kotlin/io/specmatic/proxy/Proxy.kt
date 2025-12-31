@@ -22,6 +22,7 @@ import io.specmatic.license.core.LicensedProduct
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.*
 import io.specmatic.test.HttpClient
+import io.swagger.v3.core.util.Yaml
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
@@ -32,6 +33,7 @@ import java.io.File
 import java.net.URI
 import java.net.URL
 import java.util.*
+import javax.activation.MimeType
 
 fun interface RequestObserver {
     fun onRequestHandled(
@@ -51,6 +53,7 @@ class Proxy(
     private val requestObserver: RequestObserver? = null,
     private val generateOnExit: Boolean = true,
     specmaticConfigSource: SpecmaticConfigSource = SpecmaticConfigSource.None,
+    private val specificationFileName: String = "proxy_generated",
 ) : Closeable {
     constructor(
         host: String,
@@ -359,16 +362,16 @@ class Proxy(
     override fun close() {
         try {
             if (generateOnExit) {
-                record("proxy_generated.yaml")
+                record("$specificationFileName.yaml")
             }
         } finally {
             server.stop(0, 0)
         }
     }
 
-    fun record(specName: String, operationDetails: OperationDetails? = null) {
+    fun record(specName: String, operationDetails: List<OperationDetails> = emptyList(), clearPrevious: Boolean = false) {
         runBlocking {
-            recordInternal(specName, operationDetails)
+            recordInternal(specName, operationDetails, clearPrevious)
         }
     }
 
@@ -400,19 +403,21 @@ class Proxy(
             .booleanValue
     }
 
-    private suspend fun recordInternal(specName: String, operationDetails: OperationDetails?) =
+    private suspend fun recordInternal(specName: String, operationDetails: List<OperationDetails>, clearPrevious: Boolean = false) =
         recordMutex.withLock {
             val basePath = specName.dropExtension()
             val examplesDirName = "${basePath}$EXAMPLES_DIR_SUFFIX"
             val examplesDir = File(outputDirectory.fileName(examplesDirName))
             val stubDataDirectory = outputDirectory.subDirectory(examplesDirName)
 
+            if (clearPrevious) stubDataDirectory.clearDirectory()
             outputDirectory.createDirectory()
             stubDataDirectory.createDirectory()
 
-            val matchingStubs = operationDetails?.let { details ->
-                stubs.filter { it.matches(details) }
-            } ?: stubs.toList()
+            val matchingStubs = stubs.filter { stub ->
+                if (operationDetails.isEmpty()) return@filter true
+                operationDetails.any { stub.matches(it) }
+            }
 
             if (matchingStubs.isNotEmpty()) {
                 val existingCount = examplesDir.listFiles().orEmpty().count { it.isFile && it.extension == "json" }
@@ -421,7 +426,6 @@ class Proxy(
                     println("Writing stub data to $fileName")
                     stubDataDirectory.writeText(fileName, namedStub.stub.toJSON().toStringLiteral())
                 }
-                stubs.removeAll(matchingStubs)
             }
 
             val openApiYaml = openApiYamlFromExampleDir(examplesDir, File(basePath).name)
@@ -435,7 +439,7 @@ class Proxy(
         }
 
     private suspend fun dumpSpecAndExamplesIntoOutputDir() =
-        recordInternal("proxy_generated.yaml", null)
+        recordInternal("$specificationFileName.yaml", emptyList())
 
     private suspend fun handleDumpRequest(call: ApplicationCall) {
         call.respond(HttpStatusCode.Accepted, "Dump process of spec and examples has started in the background")
@@ -459,30 +463,22 @@ private fun String.dropExtension(): String {
 private fun NamedStub.matches(operationDetails: OperationDetails): Boolean {
     val request = stub.requestElsePartialRequest()
     val response = stub.responseElsePartialResponse()
-    val requestContentType = request.contentType()
-    val responseContentType = response.contentType()
+    val requestContentType = request.getHeader(CONTENT_TYPE)
+    val responseContentType = response.getHeader(CONTENT_TYPE)
 
     val matchesMethod = request.method?.equals(operationDetails.method, ignoreCase = true) == true
     val matchesPath = request.path == operationDetails.path
     val matchesStatus = response.status == operationDetails.status
+
     val matchesRequestContentType = operationDetails.requestContentType?.let { expected ->
-        requestContentType?.equals(expected, ignoreCase = true) == true
-    } ?: (requestContentType == null)
+        if (requestContentType == null) return@let false
+        MimeType(requestContentType).match(MimeType(expected))
+    } ?: true
+
     val matchesResponseContentType = operationDetails.responseContentType?.let { expected ->
-        responseContentType?.equals(expected, ignoreCase = true) == true
-    } ?: (responseContentType == null)
+        if (responseContentType == null) return@let false
+        MimeType(responseContentType).match(MimeType(expected))
+    } ?: true
 
     return matchesMethod && matchesPath && matchesStatus && matchesRequestContentType && matchesResponseContentType
 }
-
-private fun HttpRequest.contentType(): String? =
-    headers.entries.firstOrNull { it.key.equals("Content-Type", ignoreCase = true) }
-        ?.value
-        ?.split(";")
-        ?.firstOrNull()
-
-private fun HttpResponse.contentType(): String? =
-    headers.entries.firstOrNull { it.key.equals("Content-Type", ignoreCase = true) }
-        ?.value
-        ?.split(";")
-        ?.firstOrNull()

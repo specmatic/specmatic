@@ -9,6 +9,10 @@ class RealFileWriter(private val dataDir: File): FileWriter {
         if (!dataDir.exists()) dataDir.mkdirs()
     }
 
+    override fun clearDirectory() {
+        dataDir.deleteRecursively()
+    }
+
     override fun writeText(path: String, content: String) {
         dataDir.resolve(path).writeText(content)
     }

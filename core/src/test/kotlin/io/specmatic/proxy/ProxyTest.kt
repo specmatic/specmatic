@@ -524,6 +524,11 @@ class FakeFileWriter private constructor(
         File(state.baseDir, pathPrefix).mkdirs()
     }
 
+    override fun clearDirectory() {
+        state.flags.add("removeDirectory")
+        File(state.baseDir, pathPrefix).deleteRecursively()
+    }
+
     override fun writeText(
         path: String,
         content: String,

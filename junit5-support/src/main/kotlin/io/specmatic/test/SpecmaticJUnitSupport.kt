@@ -260,6 +260,8 @@ open class SpecmaticJUnitSupport {
 
     @TestFactory
     fun contractTest(): Stream<DynamicTest> {
+        LicenseResolver.setCurrentExecutorIfNotSet(SpecmaticJUnitSupport::class.java.simpleName)
+
         specmaticConfig?.let {
             LicenseConfig.instance.utilization.shipDisabled = it.isTelemetryDisabled()
         }
