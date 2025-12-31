@@ -1078,7 +1078,7 @@ suspend fun respondToKtorHttpResponse(
         delay(delayInMs)
     }
 
-    val contentType = httpResponse.headers["Content-Type"] ?: httpResponse.body.httpContentType
+    val contentType = httpResponse.contentType() ?: httpResponse.body.httpContentType
     val responseBody = httpResponse.body.toStringLiteral()
     val status = HttpStatusCode.fromValue(httpResponse.status)
 

@@ -21,7 +21,7 @@ import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.LicensedProduct
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.*
-import io.specmatic.test.LegacyHttpClient
+import io.specmatic.test.HttpClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
@@ -178,7 +178,7 @@ class Proxy(
 
                                     // continue as before, if not matching filter
                                     val client =
-                                        LegacyHttpClient(
+                                        HttpClient(
                                             proxyURL(httpRequest, baseURL),
                                             timeoutInMilliseconds = timeoutInMilliseconds,
                                         )
@@ -186,7 +186,11 @@ class Proxy(
                                     // Send the ORIGINAL request to the target (not the tracked one)
                                     val requestToSend =
                                         targetHost?.let {
-                                            httpRequest.withHost(targetHost)
+                                            if (httpRequest.hasHeader("host")) {
+                                                httpRequest.withHost(targetHost)
+                                            } else {
+                                                httpRequest
+                                            }
                                         } ?: httpRequest
 
                                     val httpResponse = client.execute(requestToSend)
@@ -241,7 +245,10 @@ class Proxy(
                                     requestObserver?.onRequestHandled(recordedRequest, recordedResponse)
 
                                     // Send the ORIGINAL response back to consumer (not the tracked one)
-                                    respondToKtorHttpResponse(call, withoutContentEncodingGzip(httpResponse))
+                                    respondToKtorHttpResponse(
+                                        call,
+                                        withoutContentEncodingGzip(httpResponse.rewriteBaseURLs()),
+                                    )
                                 } catch (e: Throwable) {
                                     logger.log(e)
                                     val errorResponse =

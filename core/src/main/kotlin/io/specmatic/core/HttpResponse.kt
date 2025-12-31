@@ -6,6 +6,7 @@ import io.specmatic.core.GherkinSection.Then
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Pattern
+import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.utilities.isXML
 import io.specmatic.core.value.*
@@ -29,7 +30,7 @@ data class HttpResponse(
         status: Int = 0,
         body: String? = "",
         headers: Map<String, String> = mapOf(CONTENT_TYPE to "text/plain")
-    ) : this(status, headers, body?.let { parsedValue(it) } ?: EmptyString)
+    ) : this(status, headers, body?.let { adjustPayloadForContentType(StringValue(it), headers) } ?: EmptyString)
 
     constructor(
         status: Int = 0,
@@ -52,6 +53,8 @@ data class HttpResponse(
             .values
             .firstOrNull()
     }
+
+    fun contentType(): String? = getHeader(CONTENT_TYPE)
 
     fun withoutSpecmaticTypeHeader(): HttpResponse {
         return this.copy(headers = this.headers.filterKeys { it != "X-Specmatic-Type" })
@@ -126,6 +129,23 @@ data class HttpResponse(
         return this.copy(headers = this.headers.minus(SPECMATIC_RESULT_HEADER))
     }
 
+    fun rewriteBaseURLs(): HttpResponse {
+        return System.getenv("SPECMATIC_BASE_URL_REWRITES")?.let { hostReplacement ->
+            val replacements =
+                hostReplacement
+                    .split(',')
+                    .map { it.trim() }
+                    .takeIf { it.isNotEmpty() } ?: return@let this
+
+            replacements.fold(this) { httpResponse, hostReplacement ->
+                val parts = hostReplacement.split("=>").map { it.trim() }
+                if (parts.size != 2) return@fold httpResponse
+                val (oldHost, newHost) = parts
+                httpResponse.replaceString(oldHost, newHost)
+            }
+        } ?: this
+    }
+
     companion object {
         val ERROR_400 = HttpResponse(400, "This request did not match any scenario.", emptyMap())
         val OK = HttpResponse(200, emptyMap())
@@ -175,19 +195,30 @@ data class HttpResponse(
                 externalisedResponseCommand = command.orEmpty()
             ).adjustPayloadForContentType()
         }
-    }
 
-    fun adjustPayloadForContentType(): HttpResponse {
-        return adjustPayloadForContentType(this.headers)
+        fun adjustPayloadForContentType(payload: Value, responseHeaders: Map<String, String>, requestHeaders: Map<String, String> = emptyMap()): Value {
+            return if (isJSON(responseHeaders)) {
+                if (payload is StringValue) {
+                    runCatching { parsedJSON(payload.nativeValue) }.getOrElse { payload }
+                } else {
+                    payload
+                }
+            } else if (isXML(responseHeaders) || isXML(requestHeaders)) {
+                payload as? XMLNode ?: runCatching { toXMLNode(payload.toStringLiteral()) }.getOrDefault(payload)
+            } else {
+                payload
+            }
+        }
+
+        private fun isJSON(responseHeaders: Map<String, String>): Boolean {
+            val contentType = responseHeaders.entries.find { it.key.equals(CONTENT_TYPE, ignoreCase = true) }?.value
+            return ContentType.parse(contentType ?: "") == ContentType.Application.Json
+        }
     }
 
     fun adjustPayloadForContentType(requestHeaders: Map<String, String> = emptyMap()): HttpResponse {
-        if (!isXML(headers) && !isXML(requestHeaders)) {
-            return this
-        }
-
-        val parsedBody = body as? XMLNode ?: runCatching { toXMLNode(body.toStringLiteral()) }.getOrDefault(body)
-        return copy(body = parsedBody.adjustValueForXMLContentType())
+        val adjustedPayload = adjustPayloadForContentType(body, this.headers, requestHeaders)
+        return this.copy(body = adjustedPayload)
     }
 
     fun dropIrrelevantHeaders(): HttpResponse = withoutTransportHeaders().withoutConversionHeaders().withoutSpecmaticHeaders()
@@ -219,6 +250,16 @@ data class HttpResponse(
             attributeSelectedFields,
             resolver
         ).breadCrumb("RESPONSE.BODY")
+    }
+
+    fun replaceString(string: String, replacement: String): HttpResponse {
+        val updatedBody = body.toStringLiteral().replace(string, replacement).let { StringValue(it) }
+
+        val updatedHeaders = headers.mapValues {
+            it.value.replace(string, replacement)
+        }
+
+        return this.copy(headers = updatedHeaders, body = updatedBody)
     }
 }
 

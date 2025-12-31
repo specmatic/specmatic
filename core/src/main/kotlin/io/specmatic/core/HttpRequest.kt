@@ -94,7 +94,7 @@ data class HttpRequest(
 
     fun updateQueryParams(otherQueryParams: Map<String, String>): HttpRequest = copy(queryParams = queryParams.plus(otherQueryParams))
 
-    fun withHost(host: String) = this.copy(headers = this.headers.plus("Host" to host))
+    fun withHost(host: String) = this.copy(headers = this.headers.minusIgnoringCase(listOf("host")).plus("Host" to host))
 
     fun updatePath(path: String): HttpRequest {
         return try {
@@ -249,8 +249,7 @@ data class HttpRequest(
             }
 
         httpRequestBuilder.url.let {
-            if (it.port == DEFAULT_PORT || it.port == it.protocol.defaultPort)
-                httpRequestBuilder.header("Host", it.authority)
+            httpRequestBuilder.header("Host", it.authority)
         }
 
         if(body !is NoBodyValue) {
