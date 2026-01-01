@@ -335,6 +335,8 @@ private fun adjustPayloadForContentType(payload: Value, responseHeaders: Map<Str
         }
     } else if (isXML(responseHeaders) || isXML(requestHeaders)) {
         payload as? XMLNode ?: runCatching { toXMLNode(payload.toStringLiteral()) }.getOrDefault(payload)
+    } else if (responseHeaders.none { it.key.equals(CONTENT_TYPE, ignoreCase = true) }) {
+        guessType(payload)
     } else {
         payload
     }
