@@ -196,29 +196,6 @@ data class HttpResponse(
             ).adjustPayloadForContentType()
         }
 
-        fun adjustPayloadForContentType(payload: Value, responseHeaders: Map<String, String>, requestHeaders: Map<String, String> = emptyMap()): Value {
-            return if (isJSON(responseHeaders)) {
-                if (payload is StringValue) {
-                    runCatching { parsedJSON(payload.nativeValue) }.getOrElse { payload }
-                } else {
-                    payload
-                }
-            } else if (isXML(responseHeaders) || isXML(requestHeaders)) {
-                payload as? XMLNode ?: runCatching { toXMLNode(payload.toStringLiteral()) }.getOrDefault(payload)
-            } else {
-                payload
-            }
-        }
-
-        private fun isJSON(responseHeaders: Map<String, String>): Boolean {
-            val contentType = responseHeaders.entries.find { it.key.equals(CONTENT_TYPE, ignoreCase = true) }?.value ?: return false
-            return try {
-                val ct = ContentType.parse(contentType)
-                ct.contentSubtype.equals("json", ignoreCase = true) || ct.contentSubtype.endsWith("+json", ignoreCase = true)
-            } catch (_: Throwable) {
-                false
-            }
-        }
     }
 
     fun adjustPayloadForContentType(requestHeaders: Map<String, String> = emptyMap()): HttpResponse {
@@ -310,7 +287,8 @@ fun toGherkinClauses(
             )
             Triple(clauses.plus(newClauses).plus(contentTypHeaderClause), newTypes, DiscardExampleDeclarations())
         }.let { (clauses, types, examples) ->
-            when (val result = responseBodyToGherkinClauses("ResponseBody", guessType(response.body), types)) {
+            val adjustedResponsePayload = adjustPayloadForContentType(response.body, response.headers)
+            when (val result = responseBodyToGherkinClauses("ResponseBody", adjustedResponsePayload, types)) {
                 null -> Triple(clauses, types, examples)
                 else -> {
                     val (newClauses, newTypes, _) = result
@@ -346,4 +324,28 @@ fun <T> partitionOnContentType(headers: Map<String, T>): Pair<Map.Entry<String, 
 fun <T> Map<String, T>.minusIgnoringCase(keys: Iterable<String>): Map<String, T> {
     val caseInsensitiveKeys = keys.map(String::lowercase).toSet()
     return this.filterKeys { it.lowercase() !in caseInsensitiveKeys }
+}
+
+private fun adjustPayloadForContentType(payload: Value, responseHeaders: Map<String, String>, requestHeaders: Map<String, String> = emptyMap()): Value {
+    return if (isJSON(responseHeaders)) {
+        if (payload is StringValue) {
+            runCatching { parsedJSON(payload.nativeValue) }.getOrElse { payload }
+        } else {
+            payload
+        }
+    } else if (isXML(responseHeaders) || isXML(requestHeaders)) {
+        payload as? XMLNode ?: runCatching { toXMLNode(payload.toStringLiteral()) }.getOrDefault(payload)
+    } else {
+        payload
+    }
+}
+
+private fun isJSON(responseHeaders: Map<String, String>): Boolean {
+    val contentType = responseHeaders.entries.find { it.key.equals(CONTENT_TYPE, ignoreCase = true) }?.value ?: return false
+    return try {
+        val ct = ContentType.parse(contentType)
+        ct.contentSubtype.equals("json", ignoreCase = true) || ct.contentSubtype.endsWith("+json", ignoreCase = true)
+    } catch (_: Throwable) {
+        false
+    }
 }
