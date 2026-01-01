@@ -78,7 +78,7 @@ data class HttpStubData(
 
     fun softCastResponseToXML(httpRequest: HttpRequest): HttpStubData = when {
         response.externalisedResponseCommand.isNotEmpty() -> invokeExternalCommand(httpRequest).copy(contractPath = contractPath)
-        else -> this.copy(response = response.copy(body = softCastValueToXML(response.body)))
+        else -> this.copy(response = response.adjustPayloadForContentType(httpRequest.headers))
     }
 
     fun utilize(): Boolean {

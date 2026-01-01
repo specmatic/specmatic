@@ -459,6 +459,15 @@ internal class HttpPathPatternTest {
         }
     }
 
+    @Test
+    fun `should not encompass a path pattern which is structurally different`() {
+        val simplestPathPattern = HttpPathPattern.from("/")
+        val complexPathPattern = HttpPathPattern.from("/api/order/(param:integer)")
+
+        assertThat(complexPathPattern.encompasses(simplestPathPattern, Resolver(), Resolver())).isInstanceOf(Result.Failure::class.java)
+        assertThat(simplestPathPattern.encompasses(complexPathPattern, Resolver(), Resolver())).isInstanceOf(Result.Failure::class.java)
+    }
+
     @Nested
     inner class FixValueTests {
         @Test

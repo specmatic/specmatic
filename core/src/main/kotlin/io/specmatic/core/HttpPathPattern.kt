@@ -27,6 +27,14 @@ data class HttpPathPattern(
         if (this.matches(URI.create(otherHttpPathPattern.path), resolver = thisResolver) is Success)
             return Success()
 
+        if (this.pathSegmentPatterns.size != otherHttpPathPattern.pathSegmentPatterns.size) {
+            return Failure(
+                "Path segment count mismatch: Expected ${this.path} (having ${this.pathSegmentPatterns.size} path segments) to have the same number of segments as ${otherHttpPathPattern.path} (which has ${otherHttpPathPattern.pathSegmentPatterns.size} path segments).",
+                breadCrumb = BreadCrumb.PATH.value,
+                failureReason = FailureReason.URLPathMisMatch,
+            )
+        }
+
         val mismatchedPartResults =
             this.pathSegmentPatterns.zip(otherHttpPathPattern.pathSegmentPatterns)
                 .map { (thisPathItem, otherPathItem) ->

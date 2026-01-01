@@ -221,7 +221,12 @@ data class HttpResponsePattern(
 
     private fun generateResponseWith(value: Value, resolver: Resolver): HttpResponse {
         return attempt(breadCrumb = "RESPONSE") {
-            val generatedBody = softCastValueToXML(value)
+            val generatedBody =
+                if (headersPattern.isXML(resolver)) {
+                    adjustPayloadForContentType(value, responseHeaders = mapOf("Content-Type" to "application/xml"))
+                } else {
+                    value
+                }
             val headers = headersPattern.generate(
                 resolver = resolver.updateLookupPath(BreadCrumb.RESPONSE.value)
             ).plus(SPECMATIC_RESULT_HEADER to "success").let { headers ->

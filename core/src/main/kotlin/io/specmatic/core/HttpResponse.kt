@@ -326,7 +326,7 @@ fun <T> Map<String, T>.minusIgnoringCase(keys: Iterable<String>): Map<String, T>
     return this.filterKeys { it.lowercase() !in caseInsensitiveKeys }
 }
 
-private fun adjustPayloadForContentType(payload: Value, responseHeaders: Map<String, String>, requestHeaders: Map<String, String> = emptyMap()): Value {
+internal fun adjustPayloadForContentType(payload: Value, responseHeaders: Map<String, String>, requestHeaders: Map<String, String> = emptyMap()): Value {
     return if (isJSON(responseHeaders)) {
         if (payload is StringValue) {
             runCatching { parsedJSON(payload.nativeValue) }.getOrElse { payload }
