@@ -212,10 +212,7 @@ internal class HttpPathPatternTest {
                 )
             } returns StringValue("pets")
             every {
-                it.withCyclePrevention<NumberValue>(
-                    DeferredPattern("(number)", "petid"),
-                    any()
-                )
+                it.withCyclePrevention<NumberValue>(NumberPattern(), any())
             } returns NumberValue(123)
             every {
                 it.withCyclePrevention<StringValue>(
@@ -224,10 +221,7 @@ internal class HttpPathPatternTest {
                 )
             } returns StringValue("owner")
             every {
-                it.withCyclePrevention<StringValue>(
-                    DeferredPattern("(string)", "owner"),
-                    any()
-                )
+                it.withCyclePrevention<StringValue>(StringPattern(), any())
             } returns StringValue("hari")
         }
         urlPattern.generate(resolver).let {
@@ -332,7 +326,7 @@ internal class HttpPathPatternTest {
                 URLPathSegmentPattern(ExactValuePattern(StringValue("organizations"))),
                 URLPathSegmentPattern(BooleanPattern(), "orgId"),
                 URLPathSegmentPattern(ExactValuePattern(StringValue("employees"))),
-                URLPathSegmentPattern(DeferredPattern("(number)"), "empId"),
+                URLPathSegmentPattern(NumberPattern(), "empId"),
             )
         )
         assertThat(negativePatterns[1].value).containsExactlyElementsOf(
@@ -340,13 +334,13 @@ internal class HttpPathPatternTest {
                 URLPathSegmentPattern(ExactValuePattern(StringValue("organizations"))),
                 URLPathSegmentPattern(StringPattern(), "orgId"),
                 URLPathSegmentPattern(ExactValuePattern(StringValue("employees"))),
-                URLPathSegmentPattern(DeferredPattern("(number)"), "empId"),
+                URLPathSegmentPattern(NumberPattern(), "empId"),
             )
         )
         assertThat(negativePatterns[2].value).containsExactlyElementsOf(
             listOf(
                 URLPathSegmentPattern(ExactValuePattern(StringValue("organizations"))),
-                URLPathSegmentPattern(DeferredPattern("(number)"), "orgId"),
+                URLPathSegmentPattern(NumberPattern(), "orgId"),
                 URLPathSegmentPattern(ExactValuePattern(StringValue("employees"))),
                 URLPathSegmentPattern(BooleanPattern(), "empId"),
             )
@@ -354,7 +348,7 @@ internal class HttpPathPatternTest {
         assertThat(negativePatterns[3].value).containsExactlyElementsOf(
             listOf(
                 URLPathSegmentPattern(ExactValuePattern(StringValue("organizations"))),
-                URLPathSegmentPattern(DeferredPattern("(number)"), "orgId"),
+                URLPathSegmentPattern(NumberPattern(), "orgId"),
                 URLPathSegmentPattern(ExactValuePattern(StringValue("employees"))),
                 URLPathSegmentPattern(StringPattern(), "empId"),
             )

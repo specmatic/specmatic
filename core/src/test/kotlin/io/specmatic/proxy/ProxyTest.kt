@@ -159,7 +159,7 @@ internal class ProxyTest {
             }
         }
 
-        assertThat(fakeFileWriter.receivedContract?.trim()).contains("/orders/{id}")
+        assertThat(fakeFileWriter.receivedContract?.trim()).contains("/orders/{param}")
     }
 
     @Test

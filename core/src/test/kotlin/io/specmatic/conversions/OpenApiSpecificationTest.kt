@@ -569,12 +569,12 @@ Scenario: Get product by id
                     in: "path"
                     required: true
                     schema:
-                      type: "number"
+                      type: "integer"
                   - name: "variantId"
                     in: "path"
                     required: true
                     schema:
-                      type: "number"
+                      type: "integer"
                   - name: "tag"
                     in: "query"
                     schema:
@@ -6191,28 +6191,27 @@ paths:
               title: API
               version: 1
             paths:
-              /data/{id}:
+              /data/{param}:
                 post:
                   summary: API 1
                   parameters:
-                  - name: id
+                  - name: param
                     in: path
                     required: true
                     schema:
                       type: integer
-                      format: int32
                   requestBody:
                     content:
                       application/json:
                         schema:
-                          ${"$"}ref: '#/components/schemas/Data_ID_POST_RequestBody'
+                          ${"$"}ref: '#/components/schemas/Data_param_POST_RequestBody'
                     required: true
                   responses:
                     200:
                       description: API 1
             components:
               schemas:
-                Data_ID_POST_RequestBody:
+                Data_param_POST_RequestBody:
                   required:
                   - hello
                   type: object
@@ -6261,28 +6260,27 @@ paths:
               title: API
               version: 1
             paths:
-              /data/{id}:
+              /data/{param}:
                 post:
                   summary: API 1
                   parameters:
-                  - name: id
+                  - name: param
                     in: path
                     required: true
                     schema:
                       type: integer
-                      format: int32
                   requestBody:
                     content:
                       application/json:
                         schema:
-                          ${"$"}ref: '#/components/schemas/Data_ID_POST_RequestBody'
+                          ${"$"}ref: '#/components/schemas/Data_param_POST_RequestBody'
                     required: true
                   responses:
                     200:
                       description: API 1
             components:
               schemas:
-                Data_ID_POST_RequestBody:
+                Data_param_POST_RequestBody:
                   required:
                   - hello
                   type: object
@@ -7887,7 +7885,7 @@ paths:
         })
 
         assertThat(results.testCount).isEqualTo(1)
-        assertThat(results.success()).isTrue()
+        assertThat(results.success()).withFailMessage { results.toResultIfAny().reportString() }.isTrue()
     }
 
     @Test
