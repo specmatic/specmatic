@@ -150,10 +150,12 @@ data class Feature(
         }
 
     fun enableGenerativeTesting(onlyPositive: Boolean = false): Feature {
-        return this.copy(flagsBased = this.flagsBased.copy(
-            generation = GenerativeTestsEnabled(onlyPositive),
-            positivePrefix = POSITIVE_TEST_DESCRIPTION_PREFIX,
-            negativePrefix = NEGATIVE_TEST_DESCRIPTION_PREFIX),
+        return this.copy(
+            flagsBased = this.flagsBased.copy(
+                generation = GenerativeTestsEnabled(onlyPositive),
+                positivePrefix = POSITIVE_TEST_DESCRIPTION_PREFIX,
+                negativePrefix = NEGATIVE_TEST_DESCRIPTION_PREFIX
+            ),
             specmaticConfig = specmaticConfig.copyResiliencyTestsConfig(onlyPositive)
         )
     }
@@ -203,10 +205,12 @@ data class Feature(
                             logger.log(e)
                             null
                         }
+
                         is NoMatchingScenario -> {
                             logger.log(e, "[Example $exampleName]")
                             HasFailure("[Example $exampleName] ${e.message}")
                         }
+
                         else -> {
                             logger.log(e, "[Example $exampleName]")
                             throw e
@@ -233,7 +237,10 @@ data class Feature(
 
             val discriminatorBasedRequestResponseList = if (requests.size > responses.size) {
                 requests.map { (requestDiscriminator, request) ->
-                    val (responseDiscriminator, response) = if (responses.containsDiscriminatorValueAs(requestDiscriminator.discriminatorValue))
+                    val (responseDiscriminator, response) = if (responses.containsDiscriminatorValueAs(
+                            requestDiscriminator.discriminatorValue
+                        )
+                    )
                         responses.getDiscriminatorItemWith(requestDiscriminator.discriminatorValue)
                     else
                         responses.first()
@@ -247,7 +254,10 @@ data class Feature(
                 }
             } else {
                 responses.map { (responseDiscriminator, response) ->
-                    val (requestDiscriminator, request) = if (requests.containsDiscriminatorValueAs(responseDiscriminator.discriminatorValue))
+                    val (requestDiscriminator, request) = if (requests.containsDiscriminatorValueAs(
+                            responseDiscriminator.discriminatorValue
+                        )
+                    )
                         requests.getDiscriminatorItemWith(responseDiscriminator.discriminatorValue)
                     else requests.first()
                     DiscriminatorBasedRequestResponse(
@@ -286,9 +296,9 @@ data class Feature(
                 ?: Pair(
                     null,
                     Results(resultList.map {
-                            it.second
-                        }.toList())
-                    .withoutFluff()
+                        it.second
+                    }.toList())
+                        .withoutFluff()
                 )
         } finally {
             serverState = emptyMap()
@@ -310,10 +320,11 @@ data class Feature(
         unexpectedKeyCheck: UnexpectedKeyCheck
     ): Map<Int, Pair<ResponseBuilder?, Results>> {
         try {
-            val resultList = matchingScenarioToResultList(httpRequest, serverState, mismatchMessages, unexpectedKeyCheck)
+            val resultList =
+                matchingScenarioToResultList(httpRequest, serverState, mismatchMessages, unexpectedKeyCheck)
             val matchingScenarios = matchingScenarios(resultList)
 
-            if(matchingScenarios.toList().isEmpty()) {
+            if (matchingScenarios.toList().isEmpty()) {
                 val results = Results(
                     resultList.map { it.second }.toList()
                 ).withoutFluff()
@@ -362,7 +373,10 @@ data class Feature(
         return matchingScenarios
     }
 
-    fun compatibilityLookup(httpRequest: HttpRequest, mismatchMessages: MismatchMessages = NewAndOldSpecificationRequestMismatches): List<Pair<Scenario, Result>> {
+    fun compatibilityLookup(
+        httpRequest: HttpRequest,
+        mismatchMessages: MismatchMessages = NewAndOldSpecificationRequestMismatches
+    ): List<Pair<Scenario, Result>> {
         try {
             val resultList = lookupAllScenarios(httpRequest, scenarios, mismatchMessages, IgnoreUnexpectedKeys)
 
@@ -502,10 +516,10 @@ data class Feature(
     fun generateSchemaFlagBased(discriminatorPatternName: String?, patternName: String): Value {
         val updatedResolver = flagsBased.update(scenarios.last().resolver)
 
-       return when (val pattern = getSchemaPattern(discriminatorPatternName, patternName, updatedResolver)) {
-           is SubSchemaCompositePattern -> pattern.generateValue(updatedResolver, patternName)
-           else -> pattern.generate(updatedResolver)
-       }
+        return when (val pattern = getSchemaPattern(discriminatorPatternName, patternName, updatedResolver)) {
+            is SubSchemaCompositePattern -> pattern.generateValue(updatedResolver, patternName)
+            else -> pattern.generate(updatedResolver)
+        }
     }
 
     fun fixSchemaFlagBased(discriminatorPatternName: String?, patternName: String, value: Value): Value {
@@ -516,7 +530,7 @@ data class Feature(
             return pattern.fixValue(
                 value = value, resolver = updatedResolver, discriminatorValue = patternName,
                 onValidDiscValue = { pattern.generateValue(updatedResolver, patternName) },
-                onInvalidDiscValue = { f -> throw ContractException(f.toFailureReport())}
+                onInvalidDiscValue = { f -> throw ContractException(f.toFailureReport()) }
             ) ?: throw ContractException("Couldn't fix pattern with discriminator value ${patternName.quote()}")
         }
 
@@ -525,7 +539,8 @@ data class Feature(
 
     private fun getSchemaPattern(discriminatorPatternName: String?, patternName: String, resolver: Resolver): Pattern {
         if (!discriminatorPatternName.isNullOrEmpty()) {
-            return when (val discriminatorPattern = resolver.getPattern(withPatternDelimiters(discriminatorPatternName))) {
+            return when (val discriminatorPattern =
+                resolver.getPattern(withPatternDelimiters(discriminatorPatternName))) {
                 is AnyPattern -> discriminatorPattern
                 else -> throw ContractException(
                     breadCrumb = discriminatorPatternName,
@@ -538,7 +553,12 @@ data class Feature(
     }
 
     fun matchResultFlagBased(scenarioStub: ScenarioStub, mismatchMessages: MismatchMessages): Results {
-        return matchResultFlagBased(scenarioStub.requestElsePartialRequest(), scenarioStub.response(), mismatchMessages, scenarioStub.isPartial())
+        return matchResultFlagBased(
+            scenarioStub.requestElsePartialRequest(),
+            scenarioStub.response(),
+            mismatchMessages,
+            scenarioStub.isPartial()
+        )
     }
 
     fun negativeScenariosFor(originalScenario: Scenario): Sequence<ReturnValue<Scenario>> {
@@ -554,12 +574,17 @@ data class Feature(
         }
     }
 
-    fun matchResultFlagBased(request: HttpRequest, response: HttpResponse, mismatchMessages: MismatchMessages, isPartial: Boolean): Results {
+    fun matchResultFlagBased(
+        request: HttpRequest,
+        response: HttpResponse,
+        mismatchMessages: MismatchMessages,
+        isPartial: Boolean
+    ): Results {
         val results = scenarios.map {
             it.matches(request, response, mismatchMessages, flagsBased, isPartial)
         }
 
-        if(results.any { it.isSuccess() })
+        if (results.any { it.isSuccess() })
             return Results(results).withoutFluff()
 
         val deepErrors: List<Result> = results.filterNot {
@@ -570,14 +595,21 @@ data class Feature(
             }
         }
 
-        if(deepErrors.isNotEmpty())
+        if (deepErrors.isNotEmpty())
             return Results(deepErrors).distinct()
 
-        return Results(listOf(Result.Failure("No matching specification found for this example", failureReason = FailureReason.IdentifierMismatch)))
+        return Results(
+            listOf(
+                Result.Failure(
+                    "No matching specification found for this example",
+                    failureReason = FailureReason.IdentifierMismatch
+                )
+            )
+        )
     }
 
     fun matchResult(request: HttpRequest, response: HttpResponse): Result {
-        if(scenarios.isEmpty())
+        if (scenarios.isEmpty())
             return Result.Failure("No operations found")
 
         val matchResults = scenarios.map {
@@ -588,8 +620,8 @@ data class Feature(
         }
 
         if (matchResults.any {
-            it.first is Success && it.second is Success
-        })
+                it.first is Success && it.second is Success
+            })
             return Success()
 
         return Result.fromResults(matchResults.flatMap { it.toList() })
@@ -618,7 +650,7 @@ data class Feature(
 
     fun matchingHttpPathPatternFor(path: String): HttpPathPattern? {
         return scenarios.firstOrNull {
-            if(it.httpRequestPattern.httpPathPattern == null) return@firstOrNull false
+            if (it.httpRequestPattern.httpPathPattern == null) return@firstOrNull false
             it.httpRequestPattern.matchesPath(path, it.resolver) is Success
         }?.httpRequestPattern?.httpPathPattern
     }
@@ -632,7 +664,7 @@ data class Feature(
             scenario.newBasedOnAttributeSelectionFields(request.queryParams)
         }.map { scenario ->
             try {
-                val keyCheck = if(flagsBased.unexpectedKeyCheck != null)
+                val keyCheck = if (flagsBased.unexpectedKeyCheck != null)
                     DefaultKeyCheck.copy(unexpectedKeyCheck = flagsBased.unexpectedKeyCheck)
                 else DefaultKeyCheck
                 when (val matchResult = scenario.matchesMock(
@@ -646,7 +678,8 @@ data class Feature(
                             val newRequestType = scenario.httpRequestPattern.generate(request, resolver)
                             HttpStubData(
                                 requestType = newRequestType,
-                                response = resolvedResponse.adjustPayloadForContentType(request.headers).copy(externalisedResponseCommand = response.externalisedResponseCommand),
+                                response = resolvedResponse.adjustPayloadForContentType(request.headers)
+                                    .copy(externalisedResponseCommand = response.externalisedResponseCommand),
                                 resolver = resolver,
                                 responsePattern = scenario.httpResponsePattern,
                                 contractPath = this.path,
@@ -671,10 +704,18 @@ data class Feature(
     private fun failureResults(results: List<Pair<HttpStubData?, Result>>): Results =
         Results(results.map { it.second }.filterIsInstance<Result.Failure>().toMutableList())
 
-    fun generateContractTests(suggestions: List<Scenario>, originalScenarios: List<Scenario> = scenarios, fn: (Scenario, Row) -> Scenario = { s, _ -> s }): Sequence<ContractTest> {
+    fun generateContractTests(
+        suggestions: List<Scenario>,
+        originalScenarios: List<Scenario> = scenarios,
+        fn: (Scenario, Row) -> Scenario = { s, _ -> s }
+    ): Sequence<ContractTest> {
         val workflow = Workflow(specmaticConfig.getWorkflowDetails() ?: WorkflowDetails.default)
 
-        return generateContractTestScenarios(suggestions, fn, originalScenarios).map { (originalScenario, returnValue) ->
+        return generateContractTestScenarios(
+            suggestions,
+            fn,
+            originalScenarios
+        ).map { (originalScenario, returnValue) ->
             returnValue.realise(
                 hasValue = { concreteTestScenario, comment ->
                     scenarioAsTest(concreteTestScenario, comment, workflow, originalScenario, originalScenarios)
@@ -741,7 +782,11 @@ data class Feature(
         )
     }
 
-    fun isResponseStatusPossible(scenario: Scenario, responseStatusCode: Int, scenarios: List<Scenario> = this.scenarios): Boolean {
+    fun isResponseStatusPossible(
+        scenario: Scenario,
+        responseStatusCode: Int,
+        scenarios: List<Scenario> = this.scenarios
+    ): Boolean {
         return this.scenarioAssociatedTo(
             scenarios = scenarios,
             path = scenario.path, method = scenario.method,
@@ -749,7 +794,10 @@ data class Feature(
         ) != null
     }
 
-    private fun getBadRequestsOrDefault(scenario: Scenario, scenariosToLookInto: List<Scenario> = scenarios): BadRequestOrDefault? {
+    private fun getBadRequestsOrDefault(
+        scenario: Scenario,
+        scenariosToLookInto: List<Scenario> = scenarios
+    ): BadRequestOrDefault? {
         val badRequestResponses = scenariosToLookInto.filter {
             it.httpRequestPattern.httpPathPattern!!.path == scenario.httpRequestPattern.httpPathPattern!!.path
                     && it.httpResponsePattern.status.toString().startsWith("4")
@@ -760,13 +808,17 @@ data class Feature(
                     && it.httpResponsePattern.status == DEFAULT_RESPONSE_CODE
         }?.httpResponsePattern
 
-        if(badRequestResponses.isEmpty() && defaultResponse == null)
+        if (badRequestResponses.isEmpty() && defaultResponse == null)
             return null
 
         return BadRequestOrDefault(badRequestResponses, defaultResponse)
     }
 
-    fun generateContractTestScenarios(suggestions: List<Scenario>, fn: (Scenario, Row) -> Scenario = { s, _ -> s }, originalScenarios: List<Scenario> = scenarios): Sequence<Pair<Scenario, ReturnValue<Scenario>>> {
+    fun generateContractTestScenarios(
+        suggestions: List<Scenario>,
+        fn: (Scenario, Row) -> Scenario = { s, _ -> s },
+        originalScenarios: List<Scenario> = scenarios
+    ): Sequence<Pair<Scenario, ReturnValue<Scenario>>> {
         val positiveTestScenarios = positiveTestScenarios(suggestions, fn)
 
         return if (!specmaticConfig.isResiliencyTestingEnabled() || specmaticConfig.isOnlyPositiveTestingEnabled())
@@ -775,7 +827,10 @@ data class Feature(
             positiveTestScenarios + negativeTestScenarios(originalScenarios)
     }
 
-    private fun positiveTestScenarios(suggestions: List<Scenario>, fn: (Scenario, Row) -> Scenario = { s, _ -> s }): Sequence<Pair<Scenario, ReturnValue<Scenario>>> =
+    private fun positiveTestScenarios(
+        suggestions: List<Scenario>,
+        fn: (Scenario, Row) -> Scenario = { s, _ -> s }
+    ): Sequence<Pair<Scenario, ReturnValue<Scenario>>> =
         scenarios.asSequence().filter {
             it.isA2xxScenario() || it.examples.isNotEmpty() || it.isGherkinScenario
         }.filter {
@@ -783,7 +838,7 @@ data class Feature(
         }.map {
             it.newBasedOn(suggestions)
         }.flatMap { originalScenario ->
-            val resolverStrategies = if(originalScenario.isA2xxScenario())
+            val resolverStrategies = if (originalScenario.isA2xxScenario())
                 flagsBased
             else
                 flagsBased.withoutGenerativeTests()
@@ -852,10 +907,10 @@ data class Feature(
         scenarioStub: ScenarioStub,
         mismatchMessages: MismatchMessages = DefaultMismatchMessages
     ): HttpStubData {
-        if(scenarios.isEmpty())
+        if (scenarios.isEmpty())
             throw ContractException("No scenarios found in feature $name ($path)")
 
-        if(scenarioStub.partial == null) {
+        if (scenarioStub.partial == null) {
             return matchingStub(
                 scenarioStub.request,
                 scenarioStub.response,
@@ -871,11 +926,12 @@ data class Feature(
         }
 
         val results = scenarios.asSequence().map { scenario ->
-            scenario.matchesPartial(scenarioStub.partial, mismatchMessages).updateScenario(scenario).updatePath(path) to scenario
+            scenario.matchesPartial(scenarioStub.partial, mismatchMessages).updateScenario(scenario)
+                .updatePath(path) to scenario
         }
 
         val matchingScenario = results.filter { it.first is Success }.map { it.second }.firstOrNull()
-        if(matchingScenario == null) {
+        if (matchingScenario == null) {
             val failures = Results(results.map { it.first }.filterIsInstance<Result.Failure>().toList()).withoutFluff()
             throw NoMatchingScenario(failures, msg = "Could not load partial example ${scenarioStub.filePath}")
         }
@@ -994,12 +1050,14 @@ data class Feature(
 
                     resolvedBasePattern
                 }
+
                 baseRawPattern is DeferredPattern -> {
                     if (baseRawPattern.pattern == newRawPattern.pattern && isObjectType(resolvedBasePattern))
                         baseRawPattern
                     else
                         throw ContractException("Cannot converge different types ${baseRawPattern.pattern} and ${newRawPattern.pattern} found in ${baseScenario.httpRequestPattern.method} ${baseScenario.httpRequestPattern.httpPathPattern?.path}")
                 }
+
                 else ->
                     TODO("Converging of type ${resolvedBasePattern.pattern} and ${resolvedNewPattern.pattern} in ${baseScenario.httpRequestPattern.method} ${baseScenario.httpRequestPattern.httpPathPattern?.path}")
             }
@@ -1175,7 +1233,9 @@ data class Feature(
         })
 
         val payloadAdjustedScenarios: List<Scenario> = scenarios.map { rawScenario ->
-            val prefix = urlPrefixMap.getValue(OpenApiPath.from(rawScenario.httpRequestPattern.httpPathPattern?.path!!).normalize().build())
+            val prefix = urlPrefixMap.getValue(
+                OpenApiPath.from(rawScenario.httpRequestPattern.httpPathPattern?.path!!).normalize().build()
+            )
             var scenario = updateScenarioContentTypeFromPattern(rawScenario)
 
             if (hasBodyJsonPattern(scenario.httpRequestPattern.body, scenario.resolver)) {
@@ -1228,22 +1288,23 @@ data class Feature(
             )
         }
 
-        val rawCombinedScenarios = payloadAdjustedScenarios.fold(emptyList<Scenario>()) { acc, payloadAdjustedScenario ->
-            val scenarioWithSameIdentifiers = acc.find { alreadyCombinedScenario: Scenario ->
-                similarURLPath(alreadyCombinedScenario, payloadAdjustedScenario)
-                    && alreadyCombinedScenario.httpRequestPattern.method == payloadAdjustedScenario.httpRequestPattern.method
-                    && alreadyCombinedScenario.httpResponsePattern.status == payloadAdjustedScenario.httpResponsePattern.status
-                    && (alreadyCombinedScenario.requestContentType == payloadAdjustedScenario.requestContentType || (alreadyCombinedScenario.requestContentType == null || payloadAdjustedScenario.requestContentType == null))
-                    && (alreadyCombinedScenario.responseContentType == payloadAdjustedScenario.responseContentType || (alreadyCombinedScenario.responseContentType == null || payloadAdjustedScenario.responseContentType == null))
-            }
+        val rawCombinedScenarios =
+            payloadAdjustedScenarios.fold(emptyList<Scenario>()) { acc, payloadAdjustedScenario ->
+                val scenarioWithSameIdentifiers = acc.find { alreadyCombinedScenario: Scenario ->
+                    similarURLPath(alreadyCombinedScenario, payloadAdjustedScenario)
+                            && alreadyCombinedScenario.httpRequestPattern.method == payloadAdjustedScenario.httpRequestPattern.method
+                            && alreadyCombinedScenario.httpResponsePattern.status == payloadAdjustedScenario.httpResponsePattern.status
+                            && (alreadyCombinedScenario.requestContentType == payloadAdjustedScenario.requestContentType || (alreadyCombinedScenario.requestContentType == null || payloadAdjustedScenario.requestContentType == null))
+                            && (alreadyCombinedScenario.responseContentType == payloadAdjustedScenario.responseContentType || (alreadyCombinedScenario.responseContentType == null || payloadAdjustedScenario.responseContentType == null))
+                }
 
-            if (scenarioWithSameIdentifiers == null)
-                acc.plus(payloadAdjustedScenario)
-            else {
-                val combined = combine(scenarioWithSameIdentifiers, payloadAdjustedScenario)
-                acc.minus(scenarioWithSameIdentifiers).plus(combined)
+                if (scenarioWithSameIdentifiers == null)
+                    acc.plus(payloadAdjustedScenario)
+                else {
+                    val combined = combine(scenarioWithSameIdentifiers, payloadAdjustedScenario)
+                    acc.minus(scenarioWithSameIdentifiers).plus(combined)
+                }
             }
-        }
 
         val paths: List<Pair<String, PathItem>> = rawCombinedScenarios.fold(emptyList()) { acc, scenario ->
             val pathName = scenario.httpRequestPattern.httpPathPattern!!.toOpenApiPath()
@@ -1298,7 +1359,8 @@ data class Feature(
                 }
             }
 
-            operation.parameters = operation.parameters.orEmpty().plus(openApiPathParameters + openApiQueryParameters + openApiRequestHeaders).distinct()
+            operation.parameters = operation.parameters.orEmpty()
+                .plus(openApiPathParameters + openApiQueryParameters + openApiRequestHeaders).distinct()
             val responses = operation.responses ?: ApiResponses()
             val apiResponse = responses[scenario.httpResponsePattern.status.toString()] ?: ApiResponse()
 
@@ -1378,7 +1440,11 @@ data class Feature(
                 return@fold acc.plus(key to ListPattern(JSONObjectPattern(convergePatternMap(converged, new))))
             }
 
-            if (accPattern is JSONArrayPattern && accPattern.pattern.isNotEmpty() && accPattern.pattern.all { isObjectType(it) }) {
+            if (accPattern is JSONArrayPattern && accPattern.pattern.isNotEmpty() && accPattern.pattern.all {
+                    isObjectType(
+                        it
+                    )
+                }) {
                 val entryPattern = entry.value
 
                 val new: Map<String, Pattern> =
@@ -1428,14 +1494,30 @@ data class Feature(
 
     private fun hasBodyJsonPattern(body: Pattern, resolver: Resolver): Boolean {
         return when (body) {
-            is DeferredPattern -> body.pattern in listOf("(RequestBody)", "(ResponseBody)") && isJSONPayload(body.resolvePattern(resolver))
+            is DeferredPattern -> body.pattern in listOf(
+                "(RequestBody)",
+                "(ResponseBody)"
+            ) && isJSONPayload(body.resolvePattern(resolver))
+
             else -> isJSONPayload(body)
         }
     }
 
-    private fun jsonPatternToUniqueName(pattern: Pattern, method: String, status: Int? = null, contentType: String? = null, prefix: String? = null): String {
+    private fun jsonPatternToUniqueName(
+        pattern: Pattern,
+        method: String,
+        status: Int? = null,
+        contentType: String? = null,
+        prefix: String? = null
+    ): String {
         val patternTypeAlias = if (pattern is ListPattern) pattern.pattern.typeAlias else pattern.typeAlias
-        return listOfNotNull(prefix, method, status?.toString(), contentType, patternTypeAlias?.let(::withoutPatternDelimiters))
+        return listOfNotNull(
+            prefix,
+            method,
+            status?.toString(),
+            contentType,
+            patternTypeAlias?.let(::withoutPatternDelimiters)
+        )
             .joinToString(separator = "_")
             .replace(OPENAPI_MAP_KEY_NEGATED_PATTERN, "_")
             .replace(Regex("_{2,}"), "_")
@@ -1483,30 +1565,40 @@ data class Feature(
     }
 
     private fun requestBodySchema(requestBodyType: Pattern, scenario: Scenario): Pair<String, MediaType>? = when {
-        scenario.requestContentType?.takeUnless(String::isNullOrBlank) != null-> {
+        scenario.requestContentType?.takeUnless(String::isNullOrBlank) != null -> {
             val mediaType = MediaType()
             mediaType.schema = toOpenApiSchema(requestBodyType)
             Pair(scenario.requestContentType.orEmpty(), mediaType)
         }
+
         requestBodyType is LookupRowPattern -> {
             requestBodySchema(requestBodyType.pattern, scenario)
         }
-        isJSONPayload(requestBodyType) || requestBodyType is DeferredPattern && isJSONPayload(requestBodyType.resolvePattern(scenario.resolver)) -> {
+
+        isJSONPayload(requestBodyType) || requestBodyType is DeferredPattern && isJSONPayload(
+            requestBodyType.resolvePattern(
+                scenario.resolver
+            )
+        ) -> {
             jsonMediaType(requestBodyType)
         }
+
         requestBodyType is XMLPattern || requestBodyType is DeferredPattern && requestBodyType.resolvePattern(scenario.resolver) is XMLPattern -> {
             throw ContractException("XML not supported yet")
         }
+
         requestBodyType is ExactValuePattern -> {
             val mediaType = MediaType()
             mediaType.schema = toOpenApiSchema(requestBodyType)
             Pair("text/plain", mediaType)
         }
+
         requestBodyType.pattern.let { it is String && builtInPatterns.contains(it) } -> {
             val mediaType = MediaType()
             mediaType.schema = toOpenApiSchema(requestBodyType)
             Pair("text/plain", mediaType)
         }
+
         else -> {
             if (scenario.httpRequestPattern.formFieldsPattern.isNotEmpty()) {
                 val mediaType = MediaType()
@@ -1533,8 +1625,10 @@ data class Feature(
 
                                 Pair(withoutOptionality(key), encoding)
                             }
+
                             type is XMLPattern ->
                                 throw NotImplementedError("XML encoding not supported for form fields")
+
                             else -> {
                                 null
                             }
@@ -1554,20 +1648,30 @@ data class Feature(
     }
 
     private fun responseBodySchema(responseBodyType: Pattern, scenario: Scenario): Pair<String, MediaType> = when {
-        scenario.responseContentType?.takeUnless(String::isNullOrBlank) != null-> {
+        scenario.responseContentType?.takeUnless(String::isNullOrBlank) != null -> {
             val mediaType = MediaType()
             mediaType.schema = toOpenApiSchema(responseBodyType)
             Pair(scenario.responseContentType.orEmpty(), mediaType)
         }
+
         responseBodyType is LookupRowPattern -> {
             responseBodySchema(responseBodyType.pattern, scenario)
         }
-        isJSONPayload(responseBodyType) || responseBodyType is DeferredPattern && isJSONPayload(responseBodyType.resolvePattern(scenario.resolver)) -> {
+
+        isJSONPayload(responseBodyType) || responseBodyType is DeferredPattern && isJSONPayload(
+            responseBodyType.resolvePattern(
+                scenario.resolver
+            )
+        ) -> {
             jsonMediaType(responseBodyType)
         }
-        responseBodyType is XMLPattern || responseBodyType is DeferredPattern && responseBodyType.resolvePattern(scenario.resolver) is XMLPattern -> {
+
+        responseBodyType is XMLPattern || responseBodyType is DeferredPattern && responseBodyType.resolvePattern(
+            scenario.resolver
+        ) is XMLPattern -> {
             throw ContractException("XML not supported yet")
         }
+
         else -> {
             val mediaType = MediaType()
             mediaType.schema = toOpenApiSchema(responseBodyType)
@@ -1607,75 +1711,86 @@ data class Feature(
         return Pair(descriptor, commonValueType)
     }
 
-    private fun convergePatternMap(map1: Map<String, Pattern>, map2: Map<String, Pattern>): Map<String, Pattern> {
-        val common: Map<String, Pattern> = map1.filter { entry ->
-            val cleanedKey = withoutOptionality(entry.key)
-            cleanedKey in map2 || "${cleanedKey}?" in map2
-        }.mapKeys { entry ->
-            val cleanedKey = withoutOptionality(entry.key)
-            if (isOptional(entry.key) || "${cleanedKey}?" in map2) {
-                "${cleanedKey}?"
-            } else
-                cleanedKey
-        }.mapValues { entry ->
-            val (type1Descriptor, type1) = getTypeAndDescriptor(map1, entry.key)
-            val (type2Descriptor, type2) = getTypeAndDescriptor(map2, entry.key)
+    private fun convergePatternMap(map1: Map<String, Pattern>, map2: Map<String, Pattern>): Map<String, Pattern> =
+        try {
+            val map2LowercaseKeys = map2.mapKeys { it.key.lowercase() }
 
-            if (type1Descriptor != type2Descriptor) {
-                val typeDescriptors = listOf(type1Descriptor, type2Descriptor).sorted()
-                val cleanedUpDescriptors = typeDescriptors.map { cleanupDescriptor(it) }
+            val common: Map<String, Pattern> = map1.filter { entry ->
+                val cleanedKey = withoutOptionality(entry.key).lowercase()
+                cleanedKey in map2LowercaseKeys || "$cleanedKey?" in map2
+            }.mapKeys { entry ->
+                val cleanedKey = withoutOptionality(entry.key)
 
-                if (isEmptyOrNull(type1) || isEmptyOrNull(type2)) {
-                    val type = if (isEmptyOrNull(type1)) type2 else type1
-
-                    if (type is DeferredPattern) {
-                        val descriptor = if (isEmptyOrNull(type1)) type2Descriptor else type1Descriptor
-                        val withoutBrackets = withoutPatternDelimiters(descriptor)
-                        val newPattern = withoutBrackets.removeSuffix("?").let { "($it)" }
-                        val patterns = listOf(NullPattern, type.copy(pattern = newPattern))
-                        AnyPattern(patterns, extensions = patterns.extractCombinedExtensions())
-                    } else {
-                        val patterns = listOf(NullPattern, type)
-                        AnyPattern(patterns, extensions = patterns.extractCombinedExtensions())
-                    }
-                } else if (cleanedUpDescriptors.first() == cleanedUpDescriptors.second()) {
-                    entry.value
-                } else if (withoutPatternDelimiters(cleanedUpDescriptors.second()).trimEnd('?') == withoutPatternDelimiters(
-                        cleanedUpDescriptors.first()
-                    )
-                ) {
-                    val type: Pattern = listOf(map1, map2).map {
-                        getTypeAndDescriptor(it, entry.key)
-                    }.associate {
-                        cleanupDescriptor(it.first) to it.second
-                    }.getValue(cleanedUpDescriptors.second())
-
-                    type
+                if (isOptional(entry.key) || "${cleanedKey.lowercase()}?" in map2LowercaseKeys) {
+                    "${withoutOptionality(entry.key)}?"
                 } else {
-                    logger.log("Found conflicting values for the same key ${entry.key} ($type1Descriptor, $type2Descriptor).")
-                    entry.value
+                    cleanedKey
                 }
-            } else
-                entry.value
+            }.mapValues { entry ->
+                val (type1Descriptor, type1) = getTypeAndDescriptor(map1, entry.key)
+                val (type2Descriptor, type2) = getTypeAndDescriptor(map2LowercaseKeys, entry.key.lowercase())
+
+                if (type1Descriptor != type2Descriptor) {
+                    val typeDescriptors = listOf(type1Descriptor, type2Descriptor).sorted()
+                    val cleanedUpDescriptors = typeDescriptors.map { cleanupDescriptor(it) }
+
+                    if (isEmptyOrNull(type1) || isEmptyOrNull(type2)) {
+                        val type = if (isEmptyOrNull(type1)) type2 else type1
+
+                        if (type is DeferredPattern) {
+                            val descriptor = if (isEmptyOrNull(type1)) type2Descriptor else type1Descriptor
+                            val withoutBrackets = withoutPatternDelimiters(descriptor)
+                            val newPattern = withoutBrackets.removeSuffix("?").let { "($it)" }
+                            val patterns = listOf(NullPattern, type.copy(pattern = newPattern))
+                            AnyPattern(patterns, extensions = patterns.extractCombinedExtensions())
+                        } else {
+                            val patterns = listOf(NullPattern, type)
+                            AnyPattern(patterns, extensions = patterns.extractCombinedExtensions())
+                        }
+                    } else if (cleanedUpDescriptors.first() == cleanedUpDescriptors.second()) {
+                        entry.value
+                    } else if (
+                        withoutPatternDelimiters(cleanedUpDescriptors.second()).trimEnd('?') == withoutPatternDelimiters(
+                            cleanedUpDescriptors.first()
+                        )
+                    ) {
+                        val type: Pattern = listOf(map1, map2).map {
+                            getTypeAndDescriptor(it, entry.key)
+                        }.associate {
+                            cleanupDescriptor(it.first) to it.second
+                        }.getValue(cleanedUpDescriptors.second())
+
+                        type
+                    } else {
+                        logger.log("Found conflicting values for the same key ${entry.key} ($type1Descriptor, $type2Descriptor).")
+                        entry.value
+                    }
+                } else
+                    entry.value
+            }
+
+            val commonLowercaseKey = common.mapKeys { it.key.lowercase() }
+
+            val onlyInMap1: Map<String, Pattern> = entriesOnlyInFirstMap(map1, commonLowercaseKey)
+            val onlyInMap2: Map<String, Pattern> = entriesOnlyInFirstMap(map2, commonLowercaseKey)
+
+            common.plus(onlyInMap1).plus(onlyInMap2)
+        } catch(e: Throwable) {
+            throw e
         }
 
+    private fun entriesOnlyInFirstMap(
+        map1: Map<String, Pattern>,
+        map2: Map<String, Pattern>
+    ): Map<String, Pattern> {
         val onlyInMap1: Map<String, Pattern> = map1.filter { entry ->
-            val cleanedKey = withoutOptionality(entry.key)
-            (cleanedKey !in common && "${cleanedKey}?" !in common)
+            val cleanedKey = withoutOptionality(entry.key).lowercase()
+            (cleanedKey !in map2 && "${cleanedKey}?" !in map2)
         }.mapKeys { entry ->
             val cleanedKey = withoutOptionality(entry.key)
             "${cleanedKey}?"
         }
-
-        val onlyInMap2: Map<String, Pattern> = map2.filter { entry ->
-            val cleanedKey = withoutOptionality(entry.key)
-            (cleanedKey !in common && "${cleanedKey}?" !in common)
-        }.mapKeys { entry ->
-            val cleanedKey = withoutOptionality(entry.key)
-            "${cleanedKey}?"
-        }
-
-        return common.plus(onlyInMap1).plus(onlyInMap2)
+        return onlyInMap1
     }
 
     private fun objectStructure(objectType: Pattern): Map<String, Pattern> {
