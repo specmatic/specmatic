@@ -175,7 +175,7 @@ class Proxy(
 
                                     val eventResponse = proxyEvents.firstNotNullOfOrNull { it.onRequest(recordedRequest) }
                                     if (eventResponse != null) {
-                                        respondToKtorHttpResponse(call, eventResponse)
+                                        respondToKtorHttpResponse(call, withoutContentEncodingGzip(eventResponse.rewriteBaseURLs()))
                                         return@intercept
                                     }
 
@@ -369,8 +369,8 @@ class Proxy(
         }
     }
 
-    fun record(specName: String, operationDetails: List<ProxyMockedOperation> = emptyList(), clearPrevious: Boolean = false) {
-        runBlocking {
+    fun record(specName: String, operationDetails: List<ProxyMockedOperation> = emptyList(), clearPrevious: Boolean = false): Boolean {
+        return runBlocking {
             recordInternal(specName, operationDetails, clearPrevious)
         }
     }
@@ -403,7 +403,7 @@ class Proxy(
             .booleanValue
     }
 
-    private suspend fun recordInternal(specName: String, operationDetails: List<ProxyMockedOperation>, clearPrevious: Boolean = false) =
+    private suspend fun recordInternal(specName: String, operationDetails: List<ProxyMockedOperation>, clearPrevious: Boolean = false): Boolean =
         recordMutex.withLock {
             val basePath = specName.dropExtension()
             val examplesDirName = "${basePath}$EXAMPLES_DIR_SUFFIX"
@@ -431,11 +431,12 @@ class Proxy(
             val openApiYaml = openApiYamlFromExampleDir(examplesDir, File(basePath).name)
             if (openApiYaml == null) {
                 println("No stubs were recorded. No contract will be written.")
-                return
+                return false
             }
 
             println("Writing specification to $specName")
             outputDirectory.writeText(specName, openApiYaml)
+            return true
         }
 
     private suspend fun dumpSpecAndExamplesIntoOutputDir() =

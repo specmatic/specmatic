@@ -6,7 +6,6 @@ import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.StringValue
-import io.specmatic.test.ExampleProcessor
 import java.net.URI
 
 val OMIT = listOf("(OMIT)", "(omit)")
@@ -427,8 +426,8 @@ internal fun pathToPattern(rawPath: String): List<URLPathSegmentPattern> =
                 }
 
                 val (name, type) = pieces
-
-                URLPathSegmentPattern(DeferredPattern(withPatternDelimiters(type)), name)
+                val pattern = builtInPatterns[withPatternDelimiters(type)] ?: DeferredPattern(withPatternDelimiters(type))
+                URLPathSegmentPattern(pattern, name)
             }
 
             isMatcherToken(part) -> URLPathSegmentPattern(parsedPattern(part))

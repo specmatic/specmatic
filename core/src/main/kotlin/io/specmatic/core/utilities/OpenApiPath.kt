@@ -1,25 +1,57 @@
 package io.specmatic.core.utilities
 
+import io.specmatic.core.HttpPathPattern
+import io.specmatic.core.pattern.isPatternToken
+import io.specmatic.core.pattern.withoutPatternDelimiters
+
 data class OpenApiPath(private val parts: List<String>) {
     fun normalize(): OpenApiPath {
-        return this.copy(
-            parts = parts.map { segment ->
-                if (isNumericPathSegment(segment)) "{id}" else segment
+        val numericIndices = parts.withIndex().filter { isNumericPathSegment(it.value) || isDecimal(it.value) }.map { it.index }
+        val renamed = parts.mapIndexed { idx, segment ->
+            val type = numericType(segment) ?: return@mapIndexed segment
+            when {
+                numericIndices.size == 1 -> "(param:$type)"
+                else -> {
+                    val position = numericIndices.indexOf(idx) + 1
+                    "(param$position:$type)"
+                }
             }
-        )
+        }
+
+        return this.copy(parts = renamed)
     }
 
     fun normalizedEquals(other: OpenApiPath): Boolean = this.normalize() == other.normalize()
 
-    fun build(): String = parts.joinToString(separator = PATH_SEPARATOR, prefix = PATH_SEPARATOR)
+    fun build(): String {
+        return parts.joinToString(separator = PATH_SEPARATOR, prefix = PATH_SEPARATOR) {
+            if (!isPathParameter(it)) return@joinToString it
+            "{${withoutPatternDelimiters(it).substringBefore(":")}}"
+        }
+    }
 
-    private fun isNumericPathSegment(segment: String): Boolean = segment.all(Char::isDigit)
+    fun toHttpPathPattern(): HttpPathPattern {
+        return HttpPathPattern.from(parts.joinToString(separator = PATH_SEPARATOR, prefix = PATH_SEPARATOR))
+    }
+
+    private fun numericType(segment: String): String? = when {
+        isNumericPathSegment(segment) -> "integer"
+        isDecimal(segment) -> "number"
+        else -> null
+    }
+
+    private fun isNumericPathSegment(segment: String): Boolean = segment.isNotEmpty() && segment.all(Char::isDigit)
+
+    private fun isDecimal(segment: String): Boolean = segment.count { it == '.' } == 1 && segment.replace(".", "").all(Char::isDigit)
+
+    private fun isPathParameter(value: String): Boolean = isPatternToken(value) && value.contains(":")
 
     companion object {
         private const val PATH_SEPARATOR = "/"
 
-        fun from(path: String): OpenApiPath {
-            return OpenApiPath(path.split(PATH_SEPARATOR).filter(String::isNotBlank))
+        fun from(path: String, escape: Boolean = true): OpenApiPath {
+            val escaped = if (escape) path.replace('{', '_').replace('}', '_') else path
+            return OpenApiPath(escaped.split(PATH_SEPARATOR).filter(String::isNotBlank))
         }
     }
 }

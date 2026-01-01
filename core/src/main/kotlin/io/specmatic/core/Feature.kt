@@ -948,54 +948,13 @@ data class Feature(
     }
 
     private fun combine(baseScenario: Scenario, newScenario: Scenario): Scenario {
-        return convergeURLMatcher(baseScenario, newScenario).let { convergedScenario ->
-            convergeHeaders(convergedScenario, newScenario)
-        }.let { convergedScenario ->
+        return convergeHeaders(baseScenario, newScenario).let { convergedScenario ->
             convergeQueryParameters(convergedScenario, newScenario)
         }.let { convergedScenario ->
             convergeRequestPayload(convergedScenario, newScenario)
         }.let { convergedScenario ->
             convergeResponsePayload(convergedScenario, newScenario)
         }
-    }
-
-    private fun convergeURLMatcher(baseScenario: Scenario, newScenario: Scenario): Scenario {
-        if (baseScenario.httpRequestPattern.httpPathPattern!!.encompasses(
-                newScenario.httpRequestPattern.httpPathPattern!!,
-                baseScenario.resolver,
-                newScenario.resolver
-            ) is Success
-        )
-            return baseScenario
-
-        val basePathParts = baseScenario.httpRequestPattern.httpPathPattern.pathSegmentPatterns
-        val newPathParts = newScenario.httpRequestPattern.httpPathPattern.pathSegmentPatterns
-
-        val convergedPathPattern: List<URLPathSegmentPattern> = basePathParts.zip(newPathParts).map { (base, new) ->
-            if(base.pattern.encompasses(new.pattern, baseScenario.resolver, newScenario.resolver) is Success)
-                base
-            else {
-                if(isInteger(base) && isInteger(new))
-                    URLPathSegmentPattern(NumberPattern(), key = "id")
-                else
-                    throw ContractException("Can't figure out how to converge these URLs: ${baseScenario.httpRequestPattern.httpPathPattern.path}, ${newScenario.httpRequestPattern.httpPathPattern.path}")
-            }
-        }
-
-        val convergedPath: String = convergedPathPattern.joinToString("/") {
-            when (it.pattern) {
-                is ExactValuePattern -> it.pattern.pattern.toStringLiteral()
-                else -> "(${it.key}:${it.pattern.typeName})"
-            }
-        }.let { if(it.startsWith("/")) it else "/$it"}
-
-        val convergedHttpPathPattern: HttpPathPattern = baseScenario.httpRequestPattern.httpPathPattern.copy(pathSegmentPatterns = convergedPathPattern, path = convergedPath)
-
-        return baseScenario.copy(
-            httpRequestPattern =  baseScenario.httpRequestPattern.copy(
-                httpPathPattern = convergedHttpPathPattern
-            )
-        )
     }
 
     private fun convergeResponsePayload(baseScenario: Scenario, newScenario: Scenario): Scenario {
@@ -1187,13 +1146,10 @@ data class Feature(
     }
 
     private fun toOpenAPIURLPrefixMap(urls: List<String>): Map<String, String> {
-        return urls.associateWith { url ->
+        return urls.toSet().associateWith { url ->
             url.removeSuffix("/").removePrefix("http://").removePrefix("https://")
                 .split("/").filterNot { it.isEmpty() }
-                .joinToString("_") { segment ->
-                    if (isNumericPathSegment(segment)) "ID"
-                    else segment.capitalizeFirstChar()
-                }
+                .joinToString("_") { segment -> segment.capitalizeFirstChar() }
         }
     }
 
@@ -1212,21 +1168,14 @@ data class Feature(
             throw ContractException("Scenario ${it.name} has no path")
         }
 
-        fun normalize(url: String): String = url.replace('{', '_').replace('}', '_').split("/").joinToString("/") {
-            if (isNumericPathSegment(it))
-                "ID"
-            else
-                it
-        }.let { if(it.startsWith("/")) it else "/$it"}
-
         val urlPrefixMap = toOpenAPIURLPrefixMap(scenarios.mapNotNull {
             it.httpRequestPattern.httpPathPattern?.path
         }.map {
-            normalize(it)
-        }.toSet().toList())
+            OpenApiPath.from(it).normalize().build()
+        })
 
         val payloadAdjustedScenarios: List<Scenario> = scenarios.map { rawScenario ->
-            val prefix = urlPrefixMap.getValue(normalize(rawScenario.httpRequestPattern.httpPathPattern?.path!!))
+            val prefix = urlPrefixMap.getValue(OpenApiPath.from(rawScenario.httpRequestPattern.httpPathPattern?.path!!).normalize().build())
             var scenario = updateScenarioContentTypeFromPattern(rawScenario)
 
             if (hasBodyJsonPattern(scenario.httpRequestPattern.body, scenario.resolver)) {
@@ -1274,7 +1223,7 @@ data class Feature(
 
             scenario.copy(
                 httpRequestPattern = scenario.httpRequestPattern.copy(
-                    httpPathPattern = scenario.httpRequestPattern.httpPathPattern?.let(::toPathPatternWithId)
+                    httpPathPattern = scenario.httpRequestPattern.httpPathPattern?.let(::toPathPatternWithParameters)
                 )
             )
         }
@@ -1528,25 +1477,9 @@ data class Feature(
         return name.replace(Regex("""\?.*$"""), "")
     }
 
-    private fun toPathPatternWithId(httpPathPattern: HttpPathPattern?): HttpPathPattern {
-        if(httpPathPattern!!.pathSegmentPatterns.any { it.pattern !is ExactValuePattern })
-            return httpPathPattern
-
-        val pathSegmentPatternsWithIds: List<URLPathSegmentPattern> = httpPathPattern.pathSegmentPatterns.map { type ->
-            if(isInteger(type))
-                URLPathSegmentPattern(NumberPattern(), key = "id")
-            else
-                type
-        }
-
-        val pathWithIds: String = pathSegmentPatternsWithIds.joinToString("/") {
-            when (it.pattern) {
-                is ExactValuePattern -> it.pattern.pattern.toStringLiteral()
-                else -> "(${it.key}:${it.pattern.typeName})"
-            }
-        }.let { if(it.startsWith("/")) it else "/$it"}
-
-        return httpPathPattern.copy(pathSegmentPatterns = pathSegmentPatternsWithIds, path = pathWithIds)
+    private fun toPathPatternWithParameters(httpPathPattern: HttpPathPattern?): HttpPathPattern {
+        if (httpPathPattern!!.pathSegmentPatterns.any { it.pattern !is ExactValuePattern }) return httpPathPattern
+        return OpenApiPath.from(httpPathPattern.path).normalize().toHttpPathPattern()
     }
 
     private fun requestBodySchema(requestBodyType: Pattern, scenario: Scenario): Pair<String, MediaType>? = when {
@@ -1763,11 +1696,11 @@ data class Feature(
         val schema = when {
             pattern is EmailPattern -> EmailSchema()
             pattern is NumberPattern -> {
-                val schema = if (pattern.isDoubleFormat) NumberSchema() else IntegerSchema()
+                val schema = if (pattern.isDoubleFormat) NumberSchema() else IntegerSchema().apply { format = null }
                 schema.apply {
                     minimum = pattern.minimum;
                     maximum = pattern.maximum;
-                    exclusiveMinimum = pattern.exclusiveMinimum.takeIf { it };
+                    exclusiveMinimum = pattern.exclusiveMinimum.takeIf { it }
                     exclusiveMaximum = pattern.exclusiveMaximum.takeIf { it }
                 }
             }
@@ -1863,9 +1796,7 @@ data class Feature(
                 }
             }
             pattern is NumberPattern || (pattern is DeferredPattern && pattern.pattern == "(number)") -> NumberSchema()
-            pattern is NumberPattern || (pattern is DeferredPattern && pattern.pattern == "(integer)") -> IntegerSchema().apply {
-                format = null
-            }
+            pattern is NumberPattern || (pattern is DeferredPattern && pattern.pattern == "(integer)") -> IntegerSchema().apply { format = null }
             pattern is BooleanPattern || (pattern is DeferredPattern && pattern.pattern == "(boolean)") -> BooleanSchema()
             pattern is DateTimePattern || (pattern is DeferredPattern && pattern.pattern == "(datetime)") -> DateTimeSchema()
             pattern is DatePattern || (pattern is DeferredPattern && pattern.pattern == "(date)") -> DateSchema()
@@ -2731,28 +2662,12 @@ private fun List<String>.second(): String {
 }
 
 fun similarURLPath(baseScenario: Scenario, newScenario: Scenario): Boolean {
-    if(baseScenario.httpRequestPattern.httpPathPattern?.encompasses(newScenario.httpRequestPattern.httpPathPattern!!, baseScenario.resolver, newScenario.resolver) is Success)
-        return true
-
-    val basePathParts = baseScenario.httpRequestPattern.httpPathPattern!!.pathSegmentPatterns
-    val newPathParts = newScenario.httpRequestPattern.httpPathPattern!!.pathSegmentPatterns
-
-    if(basePathParts.size != newPathParts.size)
-        return false
-
-    return basePathParts.zip(newPathParts).all { (base, new) ->
-        isInteger(base) && isInteger(new) ||
-                base.pattern.encompasses(new.pattern, baseScenario.resolver, newScenario.resolver) is Success
-    }
+    return baseScenario.httpRequestPattern.httpPathPattern?.encompasses(
+        newScenario.httpRequestPattern.httpPathPattern!!,
+        baseScenario.resolver,
+        newScenario.resolver
+    ) is Success
 }
-
-private val NUMERIC_PATH_SEGMENT = Regex("^\\d+$")
-
-fun isInteger(
-    base: URLPathSegmentPattern
-) = base.pattern is ExactValuePattern && isNumericPathSegment(base.pattern.pattern.toStringLiteral())
-
-private fun isNumericPathSegment(segment: String): Boolean = NUMERIC_PATH_SEGMENT.matches(segment)
 
 data class DiscriminatorBasedRequestResponse(
     val request: HttpRequest,
