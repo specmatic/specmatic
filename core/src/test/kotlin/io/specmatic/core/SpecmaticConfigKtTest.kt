@@ -191,18 +191,11 @@ internal class SpecmaticConfigKtTest {
             version: 2
             contracts: []
             proxy:
-              - baseUrl: http://localhost:9000
-                targetBaseUrl: http://example.com/api
-                mocked:
-                  - spec: openapi_spec1.yaml
-                    operations:
-                    - path: /test
-                      method: POST
-                  - spec: openapi_spec2.yaml
-                    operations:
-                    - path: /anotherTest
-                      method: POST
-                      requestContentType: application/json
+              port: 9000
+              targetUrl: http://example.com/api
+              consumes:
+              - openapi_spec1.yaml
+              - openapi_spec2.yaml
         """.trimIndent()
 
         val config = ObjectMapper(YAMLFactory()).registerKotlinModule().readValue(
@@ -210,19 +203,10 @@ internal class SpecmaticConfigKtTest {
             SpecmaticConfigV2::class.java
         ).transform()
 
-        assertThat(config.getProxyConfigs()).containsExactly(
+        assertThat(config.getProxyConfig()).isEqualTo(
             ProxyConfig(
-                baseUrl = "http://localhost:9000", targetBaseUrl = "http://example.com/api",
-                mocked = listOf(
-                    ProxyMockedSpecification(
-                        spec = "openapi_spec1.yaml",
-                        operations = listOf(ProxyMockedOperation(path = "/test", method = "POST"))
-                    ),
-                    ProxyMockedSpecification(
-                        spec = "openapi_spec2.yaml",
-                        operations = listOf(ProxyMockedOperation(path = "/anotherTest", method = "POST", requestContentType = "application/json"))
-                    ),
-                )
+                port = 9000, targetUrl = "http://example.com/api",
+                consumes = listOf("openapi_spec1.yaml", "openapi_spec2.yaml")
             )
         )
     }

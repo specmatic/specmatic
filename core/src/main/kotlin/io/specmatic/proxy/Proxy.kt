@@ -13,7 +13,6 @@ import io.specmatic.core.filters.HttpResponseFilterContext
 import io.specmatic.core.log.logger
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.configureHealthCheckModule
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.isHealthCheckRequest
-import io.specmatic.core.utilities.OpenApiPath
 import io.specmatic.core.utilities.TrackingFeature
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.utilities.openApiYamlFromExampleDir
@@ -40,6 +39,28 @@ fun interface RequestObserver {
         httpRequest: HttpRequest,
         httpResponse: HttpResponse,
     )
+}
+
+data class ProxyOperation(val pathPattern: HttpPathPattern, val method: String, val requestContentType: String? = null, val resolver: Resolver = Resolver()) {
+    fun matches(request: HttpRequest): Boolean {
+        val requestPath = request.path.orEmpty()
+        val requestMethod = request.method.orEmpty()
+        val requestContentType = request.getHeader(CONTENT_TYPE)
+        return matches(requestPath, requestMethod, requestContentType)
+    }
+
+    fun matches(path: String, method: String, requestContentType: String?): Boolean {
+        val pathMatches = pathPattern.matches(path, Resolver()).isSuccess()
+        val methodMatches = this.method.equals(method, ignoreCase = true)
+        val contentTypeMatches = matchContentTypeIfPresent(requestContentType)
+        return pathMatches && methodMatches && contentTypeMatches
+    }
+
+    private fun matchContentTypeIfPresent(expectedContentType: String?): Boolean {
+        if (requestContentType == null) return true
+        if (expectedContentType == null) return false
+        return MimeType(requestContentType).match(MimeType(expectedContentType))
+    }
 }
 
 class Proxy(
@@ -369,7 +390,7 @@ class Proxy(
         }
     }
 
-    fun record(specName: String, operationDetails: List<ProxyMockedOperation> = emptyList(), clearPrevious: Boolean = false): Boolean {
+    fun record(specName: String, operationDetails: List<ProxyOperation> = emptyList(), clearPrevious: Boolean = false): Boolean {
         return runBlocking {
             recordInternal(specName, operationDetails, clearPrevious)
         }
@@ -403,7 +424,7 @@ class Proxy(
             .booleanValue
     }
 
-    private suspend fun recordInternal(specName: String, operationDetails: List<ProxyMockedOperation>, clearPrevious: Boolean = false): Boolean =
+    private suspend fun recordInternal(specName: String, operationDetails: List<ProxyOperation>, clearPrevious: Boolean = false): Boolean =
         recordMutex.withLock {
             val basePath = specName.dropExtension()
             val examplesDirName = "${basePath}$EXAMPLES_DIR_SUFFIX"
@@ -461,16 +482,6 @@ private fun String.dropExtension(): String {
     return if (dotIndex > 0) substring(0, dotIndex) else this
 }
 
-private fun NamedStub.matches(operationDetails: ProxyMockedOperation): Boolean {
-    val request = stub.requestElsePartialRequest()
-    val requestContentType = request.getHeader(CONTENT_TYPE)
-
-    val matchesMethod = request.method?.equals(operationDetails.method, ignoreCase = true) == true
-    val matchesPath = OpenApiPath.from(request.path.orEmpty()).normalizedEquals(OpenApiPath.from(operationDetails.path))
-    val matchesRequestContentType = operationDetails.requestContentType?.let { expected ->
-        if (requestContentType == null) return@let false
-        MimeType(requestContentType).match(MimeType(expected))
-    } ?: true
-
-    return matchesMethod && matchesPath && matchesRequestContentType
+private fun NamedStub.matches(operationDetails: ProxyOperation): Boolean {
+    return operationDetails.matches(stub.requestElsePartialRequest())
 }
