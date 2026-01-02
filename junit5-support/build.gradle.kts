@@ -9,7 +9,7 @@ dependencies {
         exclude(group = "commons-logging", module = "commons-logging")
     }
 
-    implementation("io.netty:netty-codec-http:4.2.7.Final")
+    implementation("io.netty:netty-codec-http:4.2.8.Final")
     implementation("net.minidev:json-smart:2.6.0")
     implementation("com.ezylang:EvalEx:3.6.0")
     implementation(project(":specmatic-core"))
