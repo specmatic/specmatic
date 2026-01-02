@@ -19,6 +19,8 @@ import io.specmatic.core.utilities.openApiYamlFromExampleDir
 import io.specmatic.core.utilities.uniqueNameForApiOperation
 import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.LicensedProduct
+import io.specmatic.mock.MOCK_HTTP_REQUEST
+import io.specmatic.mock.MOCK_HTTP_RESPONSE
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.*
 import io.specmatic.test.HttpClient
@@ -118,6 +120,12 @@ class Proxy(
     private val responseInterceptors: MutableList<ResponseInterceptor> = mutableListOf()
     private val proxyEvents: MutableList<ProxyEvent> = mutableListOf()
     private val recordMutex = Mutex()
+    private val exampleTransformer = ExampleTransformer.from(
+        transformations = mapOf(
+            "$MOCK_HTTP_REQUEST.header.${HttpHeaders.Cookie}" to ValueTransformer.GeneralizeToType(),
+            "$MOCK_HTTP_RESPONSE.header.${HttpHeaders.SetCookie}" to ValueTransformer.CookieExpiryTransformer,
+        )
+    )
 
     fun registerRequestInterceptor(requestInterceptor: RequestInterceptor) {
         if (requestInterceptor !in requestInterceptors) {
@@ -281,9 +289,11 @@ class Proxy(
                                         NamedStub(
                                             name,
                                             uniqueNameForApiOperation(recordedRequest, baseURL, recordedResponse.status),
-                                            ScenarioStub(
+                                            exampleTransformer.applyTo(
+                                                scenarioStub = ScenarioStub(
                                                 recordedRequest.dropIrrelevantHeaders(),
                                                 recordedResponse.dropIrrelevantHeaders(),
+                                                )
                                             ),
                                         ),
                                     )

@@ -1,5 +1,6 @@
 package io.specmatic.core.jsonoperator
 
+import io.specmatic.core.HttpPathPattern
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpRequestPattern
 import io.specmatic.core.QueryParameters
@@ -62,17 +63,32 @@ data class RequestOperator(
 
     companion object {
         fun from(request: HttpRequest, requestPattern: HttpRequestPattern, resolver: Resolver): RequestOperator {
+            val pathOperator = if (requestPattern.httpPathPattern != null) {
+                pathParametersFrom(request, requestPattern.httpPathPattern, resolver)
+            } else {
+                ObjectValueOperator()
+            }
+
             return RequestOperator(
                 originalHttpRequest = request,
-                pathOperator = pathParametersFrom(request, requestPattern, resolver),
+                pathOperator = pathOperator,
                 queryOperator = ObjectValueOperator(request.queryParams.asValueMap()),
-                headerOperator = ObjectValueOperator(request.headers.mapValues { StringValue(it.value) }),
+                headerOperator = ObjectValueOperator(request.headers.mapValues { StringValue(it.value) }, caseInsensitive = true),
                 body = ValueOperator.from(request.body),
             )
         }
 
-        private fun pathParametersFrom(request: HttpRequest, requestPattern: HttpRequestPattern, resolver: Resolver): ObjectValueOperator {
-            val pathPattern = requestPattern.httpPathPattern ?: return ObjectValueOperator()
+        fun from(request: HttpRequest, pathPattern: HttpPathPattern, resolver: Resolver): RequestOperator {
+            return RequestOperator(
+                originalHttpRequest = request,
+                pathOperator = pathParametersFrom(request, pathPattern, resolver),
+                queryOperator = ObjectValueOperator(request.queryParams.asValueMap()),
+                headerOperator = ObjectValueOperator(request.headers.mapValues { StringValue(it.value) }, caseInsensitive = true),
+                body = ValueOperator.from(request.body),
+            )
+        }
+
+        private fun pathParametersFrom(request: HttpRequest, pathPattern: HttpPathPattern, resolver: Resolver): ObjectValueOperator {
             val pathSegments = request.path?.trim('/')?.split("/")?.filter(String::isNotEmpty).orEmpty()
             val map = pathPattern.pathSegmentPatterns.withIndex().zip(pathSegments) { (idx, pattern), segment ->
                 if (pattern.pattern is ExactValuePattern || pattern.key == null) return@zip idx.toString() to StringValue(segment)
