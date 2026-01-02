@@ -85,6 +85,10 @@ data class StringValue(val string: String = "", private val xml: Boolean) : Valu
         return if(!isPatternOrMatcherToken(string)) 1 else 0
     }
 
+    override fun replace(oldString: String, newString: String): StringValue {
+        return copy(string = string.replace(oldString, newString))
+    }
+
     companion object {
         private const val ALTERATION_CHARACTER = "_"
     }

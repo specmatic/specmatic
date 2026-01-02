@@ -368,6 +368,22 @@ internal class HttpResponseTest {
         }
     }
 
+    @Test
+    fun `when replacing old text with new response body type should be preserved`() {
+        val originalResponse = HttpResponse(
+            status = 200,
+            headers = mapOf("Content-Type" to "application/json"),
+            body = parsedJSONObject("""{"data": "original"}"""),
+        )
+
+        val updatedResponse = originalResponse.replaceString("original", "updated")
+
+        assertThat(updatedResponse.body).isInstanceOf(JSONObjectValue::class.java)
+        val bodyAsObject = updatedResponse.body as JSONObjectValue
+        assertThat(bodyAsObject.jsonObject["data"]).isInstanceOf(StringValue::class.java)
+        assertThat((bodyAsObject.jsonObject["data"] as StringValue).toStringLiteral()).isEqualTo("updated")
+    }
+
     companion object {
         @JvmStatic
         fun xmlContentTypeScenarios(): Stream<Arguments> = Stream.of(

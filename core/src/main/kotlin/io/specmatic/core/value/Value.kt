@@ -64,6 +64,9 @@ interface Value {
         }
     }
 
+    fun replace(oldString: String, newString: String): Value {
+        return this
+    }
 }
 
 fun Value.mergeWith(other: Value): Value {

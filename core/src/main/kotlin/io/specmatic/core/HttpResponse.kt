@@ -250,7 +250,7 @@ data class HttpResponse(
     }
 
     fun replaceString(string: String, replacement: String): HttpResponse {
-        val updatedBody = body.toStringLiteral().replace(string, replacement).let { StringValue(it) }
+        val updatedBody = body.replace(string, replacement)
 
         val updatedHeaders = headers.mapValues {
             it.value.replace(string, replacement)
