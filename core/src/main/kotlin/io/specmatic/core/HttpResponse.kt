@@ -298,7 +298,7 @@ fun toGherkinClauses(
             )
             Triple(clauses.plus(newClauses).plus(contentTypHeaderClause), newTypes, DiscardExampleDeclarations())
         }.let { (clauses, types, examples) ->
-            val adjustedResponsePayload = adjustPayloadForContentType(response.body, response.headers)
+            val adjustedResponsePayload = adjustPayloadForContentType(response.body, response.headers, emptyMap())
             when (val result = responseBodyToGherkinClauses("ResponseBody", adjustedResponsePayload, types)) {
                 null -> Triple(clauses, types, examples)
                 else -> {
