@@ -1,6 +1,7 @@
 package io.specmatic.core.utilities
 
 import io.specmatic.core.HttpPathPattern
+import io.specmatic.core.pathToPattern
 import io.specmatic.core.pattern.isPatternToken
 import io.specmatic.core.pattern.withoutPatternDelimiters
 
@@ -21,9 +22,7 @@ data class OpenApiPath(private val parts: List<String>) {
         return this.copy(parts = renamed)
     }
 
-    fun normalizedEquals(other: OpenApiPath): Boolean = this.normalize() == other.normalize()
-
-    fun build(): String {
+    fun toPath(): String {
         return parts.joinToString(separator = PATH_SEPARATOR, prefix = PATH_SEPARATOR) {
             if (!isPathParameter(it)) return@joinToString it
             "{${withoutPatternDelimiters(it).substringBefore(":")}}"
@@ -31,7 +30,8 @@ data class OpenApiPath(private val parts: List<String>) {
     }
 
     fun toHttpPathPattern(): HttpPathPattern {
-        return HttpPathPattern.from(parts.joinToString(separator = PATH_SEPARATOR, prefix = PATH_SEPARATOR))
+        val finalPath = parts.joinToString(separator = PATH_SEPARATOR, prefix = PATH_SEPARATOR)
+        return HttpPathPattern(pathSegmentPatterns = pathToPattern(finalPath), path = finalPath)
     }
 
     private fun numericType(segment: String): String? = when {

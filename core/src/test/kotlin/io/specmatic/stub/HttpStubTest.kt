@@ -296,6 +296,9 @@ And response-body (string)
 }, 
 "http-response": {
     "status": 200,
+    "headers": {
+      "Content-Type": "text/plain"
+    },
     "body": "123"
 },
 "$DELAY_IN_SECONDS": 1
@@ -340,6 +343,9 @@ And response-body (string)
 }, 
 "http-response": {
     "status": 200,
+    "headers": {
+      "Content-Type": "text/plain"
+    },
     "body": "123"
 },
 "$DELAY_IN_SECONDS": $delayInSeconds

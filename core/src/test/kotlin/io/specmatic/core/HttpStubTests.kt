@@ -281,7 +281,7 @@ Scenario: JSON API to get account details with fact check
     When GET /locations
     Then status 200
     And response-body (Cities)
-    And response-header Content-Type text/plain
+    And response-header Content-Type application/json
     
   Examples:
   | cities_exist | 
@@ -289,8 +289,7 @@ Scenario: JSON API to get account details with fact check
     """
         HttpStub(contractGherkin).use { mock ->
             val expectedRequest = HttpRequest().updateMethod("GET").updatePath("/locations")
-            val expectedResponse =
-                HttpResponse(200, "{\"cities\":[{\"city\": \"Mumbai\"}, {\"city\": \"Bangalore\"}] }")
+            val expectedResponse = HttpResponse(200, "{\"cities\":[{\"city\": \"Mumbai\"}, {\"city\": \"Bangalore\"}] }")
             mock.setExpectation(ScenarioStub(expectedRequest, expectedResponse))
         }
     }

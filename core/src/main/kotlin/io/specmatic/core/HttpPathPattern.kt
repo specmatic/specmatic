@@ -38,7 +38,7 @@ data class HttpPathPattern(
         val mismatchedPartResults =
             this.pathSegmentPatterns.zip(otherHttpPathPattern.pathSegmentPatterns)
                 .map { (thisPathItem, otherPathItem) ->
-                    thisPathItem.pattern.encompasses(otherPathItem, thisResolver, otherResolver)
+                    thisPathItem.encompasses(otherPathItem, thisResolver, otherResolver)
                 }
 
         val failures = mismatchedPartResults.filterIsInstance<Failure>()

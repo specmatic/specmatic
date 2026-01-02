@@ -1154,16 +1154,21 @@ data class Feature(
         }
     }
 
-    private fun bothAreTheSamePrimitive(
-        baseRequestBody: Pattern,
-        newRequestBody: Pattern
-    ) =
-        (baseRequestBody is EmptyStringPattern && newRequestBody is EmptyStringPattern)
-                || (baseRequestBody.pattern is String
-                && builtInPatterns.contains(baseRequestBody.pattern as String)
-                && newRequestBody.pattern is String
-                && builtInPatterns.contains(newRequestBody.pattern as String)
-                && baseRequestBody.pattern == newRequestBody.pattern)
+    private fun bothAreTheSamePrimitive(baseRequestBody: Pattern, newRequestBody: Pattern): Boolean {
+        if (baseRequestBody is EmptyStringPattern && newRequestBody is EmptyStringPattern) return true
+
+        val basePatternType = when (baseRequestBody) {
+            is LookupRowPattern -> baseRequestBody.pattern.pattern
+            else -> baseRequestBody.pattern
+        }.takeIf { it is String && builtInPatterns.contains(it) } ?: return false
+
+        val newPatternType = when (newRequestBody) {
+            is LookupRowPattern -> newRequestBody.pattern.pattern
+            else -> newRequestBody.pattern
+        }.takeIf { it is String && builtInPatterns.contains(it) } ?: return false
+
+        return basePatternType == newPatternType
+    }
 
     private fun bothAreIdenticalDeferredPatterns(
         baseRequestBody: Pattern,
@@ -1229,13 +1234,11 @@ data class Feature(
         val urlPrefixMap = toOpenAPIURLPrefixMap(scenarios.mapNotNull {
             it.httpRequestPattern.httpPathPattern?.path
         }.map {
-            OpenApiPath.from(it).normalize().build()
+            OpenApiPath.from(it).normalize().toPath()
         })
 
         val payloadAdjustedScenarios: List<Scenario> = scenarios.map { rawScenario ->
-            val prefix = urlPrefixMap.getValue(
-                OpenApiPath.from(rawScenario.httpRequestPattern.httpPathPattern?.path!!).normalize().build()
-            )
+            val prefix = urlPrefixMap.getValue(OpenApiPath.from(rawScenario.httpRequestPattern.httpPathPattern?.path!!).normalize().toPath())
             var scenario = updateScenarioContentTypeFromPattern(rawScenario)
 
             if (hasBodyJsonPattern(scenario.httpRequestPattern.body, scenario.resolver)) {
@@ -2777,11 +2780,16 @@ private fun List<String>.second(): String {
 }
 
 fun similarURLPath(baseScenario: Scenario, newScenario: Scenario): Boolean {
-    return baseScenario.httpRequestPattern.httpPathPattern?.encompasses(
+    val encompassResult = baseScenario.httpRequestPattern.httpPathPattern?.encompasses(
         newScenario.httpRequestPattern.httpPathPattern!!,
         baseScenario.resolver,
         newScenario.resolver
-    ) is Success
+    )
+    if (encompassResult is Success) return true
+
+    val normalizedBasePattern = OpenApiPath.from(baseScenario.httpRequestPattern.httpPathPattern?.path.orEmpty()).normalize().toHttpPathPattern()
+    val normalizedNewPattern = OpenApiPath.from(newScenario.httpRequestPattern.httpPathPattern?.path.orEmpty()).normalize().toHttpPathPattern()
+    return normalizedBasePattern.encompasses(normalizedNewPattern, baseScenario.resolver, newScenario.resolver) is Success
 }
 
 data class DiscriminatorBasedRequestResponse(

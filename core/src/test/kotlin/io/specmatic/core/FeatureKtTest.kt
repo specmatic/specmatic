@@ -742,11 +742,11 @@ paths:
             )
 
             val openAPI = feature.toOpenApi()
-            val pathItem = openAPI.paths["/orders/{id}"]
-            val getOperation = requireNotNull(pathItem?.get) { "Expected GET operation for /orders/{id}" }
+            val pathItem = openAPI.paths["/orders/{param}"]
+            val getOperation = requireNotNull(pathItem?.get) { "Expected GET operation for /orders/{param}" }
 
             assertThat(pathItem).isNotNull
-            assertThat(getOperation.parameters.map { it.name }).contains("id")
+            assertThat(getOperation.parameters.map { it.name }).contains("param")
         }
 
         @Test

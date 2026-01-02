@@ -9,12 +9,10 @@ import io.ktor.client.request.*
 import io.ktor.client.request.forms.*
 import io.ktor.http.*
 import io.ktor.http.content.*
-import io.specmatic.core.GherkinSection.Then
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_PRETTY_PRINT
 import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
 import io.specmatic.core.utilities.URIUtils
-import io.specmatic.core.utilities.isXML
 import io.specmatic.mock.FuzzyExampleJsonValidator
 import io.specmatic.mock.getJSONObjectValueOrNull
 import io.specmatic.mock.getObjectListOrNull
@@ -457,12 +455,9 @@ data class HttpRequest(
         ?.split(URL_PATH_DELIMITER)?.count { !StringValue(it).isPatternOrMatcherToken() } ?: 0
 
     fun adjustPayloadForContentType(): HttpRequest {
-        if (!isXML(headers)) {
-            return this
-        }
-
-        val parsedBody = body as? XMLNode ?: runCatching { toXMLNode(body.toStringLiteral()) }.getOrDefault(body)
-        return copy(body = parsedBody.adjustValueForXMLContentType())
+        val adjustedHeader = this.addHeaderIfMissing(CONTENT_TYPE, body.httpContentType).headers
+        val parsedBody = adjustPayloadForContentType(body, adjustedHeader)
+        return this.copy(body = parsedBody)
     }
 
     companion object {
@@ -599,7 +594,7 @@ fun toGherkinClauses(request: HttpRequest): Triple<List<GherkinClause>, Map<Stri
                 return@let null
             }
 
-            listOf(GherkinClause("request-header $key $contentType", Then))
+            listOf(GherkinClause("request-header $key $contentType", When))
         }.orEmpty()
 
         val (newClauses, newTypes, newExamples) = headersToGherkin(
