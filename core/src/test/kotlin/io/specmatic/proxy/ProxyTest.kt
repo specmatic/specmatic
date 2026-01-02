@@ -361,7 +361,7 @@ internal class ProxyTest {
 
     @Test
     fun `should not timeout if custom timeout is greater than backend service delay`() {
-        HttpStub(simpleFeature).use { fake ->
+        HttpStub(simpleFeature).use { stub ->
             val expectation =
                 """
                  {
@@ -379,10 +379,10 @@ internal class ProxyTest {
                 """.trimIndent()
 
             val stubResponse =
-                RestTemplate().postForEntity<String>(fake.endPoint + "/_specmatic/expectations", expectation)
+                RestTemplate().postForEntity<String>(stub.endPoint + "/_specmatic/expectations", expectation)
             assertThat(stubResponse.statusCode.value()).isEqualTo(200)
 
-            Proxy(host = "localhost", port = 9001, "", fakeFileWriter, timeoutInMilliseconds = 5000).use {
+            Proxy(host = "localhost", port = 9001, stub.endPoint, fakeFileWriter, timeoutInMilliseconds = 5000).use {
                 val restProxy = java.net.Proxy(java.net.Proxy.Type.HTTP, InetSocketAddress("localhost", 9001))
                 val requestFactory = SimpleClientHttpRequestFactory()
                 requestFactory.setProxy(restProxy)

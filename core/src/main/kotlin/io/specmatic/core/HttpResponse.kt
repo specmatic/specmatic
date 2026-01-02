@@ -134,6 +134,10 @@ data class HttpResponse(
         return this.copy(headers = this.headers.minus(SPECMATIC_RESULT_HEADER))
     }
 
+    fun rewriteBaseURL(oldBaseURL: String, newBaseURL: String): HttpResponse {
+        return replaceString(oldBaseURL, newBaseURL)
+    }
+
     fun rewriteBaseURLs(): HttpResponse {
         return System.getenv("SPECMATIC_BASE_URL_REWRITES")?.let { hostReplacement ->
             val replacements =

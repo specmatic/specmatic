@@ -34,6 +34,18 @@ import java.net.URL
 import java.util.*
 import javax.activation.MimeType
 
+class BaseURLRewriteRule(host: String, port: Int, keyData: KeyData?, targetBaseURL: String) {
+    val newBaseURL = endPointFromHostAndPort(host.unspecifiedAddressToLocalhost(), port, keyData)
+    val targetBaseURL = targetBaseURL.removeSuffix("/")
+
+    private fun String.unspecifiedAddressToLocalhost(): String {
+        return when {
+            this == "0.0.0.0" -> "localhost"
+            else -> this
+        }
+    }
+}
+
 fun interface RequestObserver {
     fun onRequestHandled(
         httpRequest: HttpRequest,
@@ -196,7 +208,10 @@ class Proxy(
 
                                     val eventResponse = proxyEvents.firstNotNullOfOrNull { it.onRequest(recordedRequest) }
                                     if (eventResponse != null) {
-                                        respondToKtorHttpResponse(call, withoutContentEncodingGzip(eventResponse.rewriteBaseURLs()))
+                                        val httpResponse =
+                                            withoutContentEncodingGzip(eventResponse)
+
+                                        respondToKtorHttpResponse(call, httpResponse)
                                         return@intercept
                                     }
 
@@ -217,7 +232,14 @@ class Proxy(
                                             }
                                         } ?: httpRequest
 
-                                    val httpResponse = client.execute(requestToSend)
+                                    val httpResponse = client.execute(requestToSend).let { httpResponse ->
+                                        val baseURLRewriteRule = BaseURLRewriteRule(host, port, keyData, baseURL)
+
+                                        httpResponse.rewriteBaseURLs().rewriteBaseURL(
+                                            baseURLRewriteRule.targetBaseURL,
+                                            baseURLRewriteRule.newBaseURL,
+                                        )
+                                    }
 
                                     if (filter != "" && filterHttpResponse(httpResponse, filter)) {
                                         respondToKtorHttpResponse(
@@ -269,9 +291,12 @@ class Proxy(
                                     requestObserver?.onRequestHandled(recordedRequest, recordedResponse)
 
                                     // Send the ORIGINAL response back to consumer (not the tracked one)
+                                    val httpResponseToSend =
+                                        withoutContentEncodingGzip(httpResponse)
+
                                     respondToKtorHttpResponse(
                                         call,
-                                        withoutContentEncodingGzip(httpResponse.rewriteBaseURLs()),
+                                        httpResponseToSend,
                                     )
                                 } catch (e: Throwable) {
                                     logger.log(e)
