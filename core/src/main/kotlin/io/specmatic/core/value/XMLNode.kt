@@ -322,7 +322,7 @@ data class XMLNode(val name: String, val realName: String, val attributes: Map<S
     }
 
     override fun specificity(): Int {
-        TODO("Not yet implemented")
+        return 1 + childNodes.sumOf { it.specificity() } + attributes.entries.sumOf { it.value.specificity() }
     }
 
     fun remove(header: XMLNode): XMLNode {
