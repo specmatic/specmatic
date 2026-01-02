@@ -245,6 +245,27 @@ internal class HttpRequestTest {
     }
 
     @Test
+    fun `by default do not override the host header unless a default port is used`() {
+        val httpRequestBuilder2 = HttpRequestBuilder().apply {
+            this.url.host = "test.com"
+            this.url.port = 8080
+        }
+        HttpRequest("GET", "/").buildKTORRequest(httpRequestBuilder2, null)
+        assertThat(httpRequestBuilder2.headers["Host"]).isNull()
+    }
+
+    @Test
+    fun `should remove lowercase host header to avoid duplicates`() {
+        val httpRequestBuilder = HttpRequestBuilder().apply {
+            this.url.host = "target.com"
+            this.url.port = 80
+        }
+        HttpRequest("GET", "/", headers = mapOf("host" to "original.com"))
+            .buildKTORRequest(httpRequestBuilder, java.net.URL("http://target.com/"))
+        assertThat(httpRequestBuilder.headers["Host"]).isEqualTo("target.com")
+    }
+
+    @Test
     fun `should formulate a loggable error in non-strict mode`() {
         val request = spyk(
             HttpRequest(

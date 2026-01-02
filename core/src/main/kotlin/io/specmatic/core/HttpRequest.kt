@@ -286,7 +286,7 @@ data class HttpRequest(
             return headers
 
         if (isNotIPAddress(url.host))
-            return headers - "Host"
+            return headers.filterKeys { !it.equals("Host", ignoreCase = true) }
 
         return headers
     }
