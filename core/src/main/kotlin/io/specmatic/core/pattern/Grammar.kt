@@ -362,19 +362,79 @@ fun parsedJSONArray(content: String, mismatchMessages: MismatchMessages = Defaul
     }
 }
 
-fun parsedValue(content: String?): Value {
+fun parsedValue(content: String?, contentType: String? = null): Value {
     return content?.trim()?.removePrefix(UTF_BYTE_ORDER_MARK)?.let {
-        try {
-            when {
-                it.startsWith("{") -> JSONObjectValue(jsonStringToValueMap(it))
-                it.startsWith("[") -> JSONArrayValue(jsonStringToValueArray(it))
-                it.startsWith("<") -> toXMLNode(it)
-                else -> StringValue(it)
+        when {
+            contentType != null -> parseWithContentTypeHint(it, contentType)
+            else -> try {
+                when {
+                    it.startsWith("{") -> JSONObjectValue(jsonStringToValueMap(it))
+                    it.startsWith("[") -> JSONArrayValue(jsonStringToValueArray(it))
+                    it.startsWith("<") -> toXMLNode(it)
+                    else -> StringValue(it)
+                }
+            } catch (e: Throwable) {
+                StringValue(it)
             }
-        } catch (e: Throwable) {
-            StringValue(it)
         }
     } ?: EmptyString
+}
+
+private fun parseWithContentTypeHint(content: String, contentType: String): Value {
+    val parsedContentType = try {
+        io.ktor.http.ContentType.parse(contentType)
+    } catch (e: Exception) {
+        // If parsing fails, fall back to simple string parsing
+        val normalizedContentType = contentType.lowercase().split(";")[0].trim()
+        return when {
+            normalizedContentType == "application/json" -> parseAsJson(content)
+            normalizedContentType == "application/xml" || normalizedContentType == "text/xml" -> toXMLNode(content)
+            normalizedContentType.startsWith("text/") -> StringValue(content)
+            else -> fallbackToGuessing(content)
+        }
+    }
+    
+    return when {
+        // Handle JSON and JSON subtypes (e.g., application/merge-patch+json)
+        parsedContentType.match(io.ktor.http.ContentType.Application.Json) || 
+        parsedContentType.contentSubtype.endsWith("+json") -> {
+            parseAsJson(content)
+        }
+        // Handle XML content types
+        parsedContentType.match(io.ktor.http.ContentType.Application.Xml) || 
+        parsedContentType.match(io.ktor.http.ContentType.Text.Xml) -> {
+            toXMLNode(content)
+        }
+        // Handle text content types
+        parsedContentType.contentType == "text" -> {
+            StringValue(content)
+        }
+        else -> {
+            // For unrecognized content types, fall back to guessing behavior
+            fallbackToGuessing(content)
+        }
+    }
+}
+
+private fun parseAsJson(content: String): Value {
+    return when {
+        content.startsWith("{") -> JSONObjectValue(jsonStringToValueMap(content))
+        content.startsWith("[") -> JSONArrayValue(jsonStringToValueArray(content))
+        else -> throw ContractException("Expected JSON content but content does not start with '{' or '['")
+    }
+}
+
+private fun fallbackToGuessing(content: String): Value {
+    return try {
+        when {
+            content.startsWith("{") -> JSONObjectValue(jsonStringToValueMap(content))
+            content.startsWith("[") -> JSONArrayValue(jsonStringToValueArray(content))
+            content.startsWith("<") -> toXMLNode(content)
+            else -> StringValue(content)
+        }
+    } catch (e: Throwable) {
+        StringValue(content)
+    }
 }
 
 fun parsedScalarValue(content: String?): Value {

@@ -160,4 +160,140 @@ internal class GrammarKtTest {
         val value = readValue(contentFile)
         assertThat(value).isEqualTo(expected)
     }
+
+    @Test
+    fun `parsedValue with contentType application-json should parse JSON strictly`() {
+        val jsonObject = """{"hello": "world"}"""
+        val jsonArray = """["item1", "item2"]"""
+        
+        val objResult = parsedValue(jsonObject, "application/json")
+        val arrayResult = parsedValue(jsonArray, "application/json")
+        
+        assertThat(objResult).isInstanceOf(JSONObjectValue::class.java)
+        assertThat(arrayResult).isInstanceOf(JSONArrayValue::class.java)
+    }
+
+    @Test
+    fun `parsedValue with contentType application-json should throw exception for non-JSON content`() {
+        assertThatThrownBy {
+            parsedValue("not json content", "application/json")
+        }.isInstanceOf(ContractException::class.java)
+            .hasMessageContaining("Expected JSON content")
+    }
+
+    @Test
+    fun `parsedValue with contentType application-xml should parse XML strictly`() {
+        val xmlContent = "<root>value</root>"
+        
+        val result = parsedValue(xmlContent, "application/xml")
+        
+        assertThat(result).isInstanceOf(XMLNode::class.java)
+    }
+
+    @Test
+    fun `parsedValue with contentType text-xml should parse XML strictly`() {
+        val xmlContent = "<root>value</root>"
+        
+        val result = parsedValue(xmlContent, "text/xml")
+        
+        assertThat(result).isInstanceOf(XMLNode::class.java)
+    }
+
+    @Test
+    fun `parsedValue with contentType text-plain should parse as string`() {
+        val content = """{"this": "looks like json"}"""
+        
+        val result = parsedValue(content, "text/plain")
+        
+        assertThat(result).isInstanceOf(StringValue::class.java)
+        assertThat((result as StringValue).string).isEqualTo(content)
+    }
+
+    @Test
+    fun `parsedValue with contentType text-slash-anything should parse as string`() {
+        val content = """<this>looks like xml</this>"""
+        
+        val result = parsedValue(content, "text/html")
+        
+        assertThat(result).isInstanceOf(StringValue::class.java)
+        assertThat((result as StringValue).string).isEqualTo(content)
+    }
+
+    @Test
+    fun `parsedValue with unknown contentType should fallback to guessing`() {
+        val jsonContent = """{"hello": "world"}"""
+        val xmlContent = """<root>value</root>"""
+        val plainContent = """plain text"""
+        
+        val jsonResult = parsedValue(jsonContent, "unknown/type")
+        val xmlResult = parsedValue(xmlContent, "unknown/type")
+        val plainResult = parsedValue(plainContent, "unknown/type")
+        
+        assertThat(jsonResult).isInstanceOf(JSONObjectValue::class.java)
+        assertThat(xmlResult).isInstanceOf(XMLNode::class.java)
+        assertThat(plainResult).isInstanceOf(StringValue::class.java)
+    }
+
+    @Test
+    fun `parsedValue with null contentType should use existing guessing behavior`() {
+        val jsonContent = """{"hello": "world"}"""
+        val xmlContent = """<root>value</root>"""
+        val plainContent = """plain text"""
+        
+        val jsonResult = parsedValue(jsonContent, null)
+        val xmlResult = parsedValue(xmlContent, null)
+        val plainResult = parsedValue(plainContent, null)
+        
+        assertThat(jsonResult).isInstanceOf(JSONObjectValue::class.java)
+        assertThat(xmlResult).isInstanceOf(XMLNode::class.java)
+        assertThat(plainResult).isInstanceOf(StringValue::class.java)
+    }
+
+    @Test
+    fun `parsedValue with JSON subtype content types should parse as JSON`() {
+        val content = """{"data": "test"}"""
+        
+        // Test various JSON subtypes that should be parsed as JSON
+        val mergePatchResult = parsedValue(content, "application/merge-patch+json")
+        val jsonPatchResult = parsedValue(content, "application/json-patch+json")
+        val customJsonResult = parsedValue(content, "application/vnd.api+json")
+        
+        assertThat(mergePatchResult).isInstanceOf(JSONObjectValue::class.java)
+        assertThat(jsonPatchResult).isInstanceOf(JSONObjectValue::class.java)
+        assertThat(customJsonResult).isInstanceOf(JSONObjectValue::class.java)
+        
+        // Verify the content is correctly parsed
+        assertThat((mergePatchResult as JSONObjectValue).jsonObject["data"]?.toStringLiteral()).isEqualTo("test")
+    }
+
+    @Test
+    fun `parsedValue with JSON subtype content types handles charset correctly`() {
+        val content = """{"message": "hello"}"""
+        
+        val result = parsedValue(content, "application/merge-patch+json; charset=utf-8")
+        
+        assertThat(result).isInstanceOf(JSONObjectValue::class.java)
+        assertThat((result as JSONObjectValue).jsonObject["message"]?.toStringLiteral()).isEqualTo("hello")
+    }
+
+    @Test
+    fun `parsedValue with contentType containing charset should work correctly`() {
+        val jsonContent = """{"hello": "world"}"""
+        
+        val result = parsedValue(jsonContent, "application/json; charset=utf-8")
+        
+        assertThat(result).isInstanceOf(JSONObjectValue::class.java)
+    }
+
+    @Test
+    fun `parsedValue with case insensitive contentType should work correctly`() {
+        val jsonContent = """{"hello": "world"}"""
+        val xmlContent = """<root>value</root>"""
+        
+        val jsonResult = parsedValue(jsonContent, "APPLICATION/JSON")
+        val xmlResult = parsedValue(xmlContent, "TEXT/XML")
+        
+        assertThat(jsonResult).isInstanceOf(JSONObjectValue::class.java)
+        assertThat(xmlResult).isInstanceOf(XMLNode::class.java)
+    }
 }

@@ -115,7 +115,10 @@ data class HttpRequest(
         return copy(body = body)
     }
 
-    fun updateBody(body: String?): HttpRequest = copy(body = parsedValue(body))
+    fun updateBody(body: String?): HttpRequest {
+        val contentType = headers[CONTENT_TYPE]
+        return copy(body = parsedValue(body, contentType))
+    }
 
     fun updateWith(url: URI): HttpRequest {
         return updateWithPathAndQuery(url.path, url.query)

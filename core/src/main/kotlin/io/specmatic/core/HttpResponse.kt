@@ -29,7 +29,10 @@ data class HttpResponse(
         status: Int = 0,
         body: String? = "",
         headers: Map<String, String> = mapOf(CONTENT_TYPE to "text/plain")
-    ) : this(status, headers, body?.let { parsedValue(it) } ?: EmptyString)
+    ) : this(status, headers, body?.let { 
+        val contentType = headers[CONTENT_TYPE]
+        parsedValue(it, contentType) 
+    } ?: EmptyString)
 
     constructor(
         status: Int = 0,
@@ -153,7 +156,8 @@ data class HttpResponse(
         fun from(status: Int, body: String?) = bodyToHttpResponse(body, status)
 
         private fun bodyToHttpResponse(body: String?, status: Int): HttpResponse {
-            val bodyValue = parsedValue(body)
+            val contentType = "text/plain" // Default content type when not specified
+            val bodyValue = parsedValue(body, contentType)
             return HttpResponse(status, mutableMapOf(CONTENT_TYPE to bodyValue.httpContentType), bodyValue)
         }
 

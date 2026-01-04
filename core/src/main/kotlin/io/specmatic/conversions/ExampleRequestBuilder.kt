@@ -20,14 +20,14 @@ class ExampleRequestBuilder(
                     exampleRequest
                         .copy(
                             headers = exampleRequest.headers + if(CONTENT_TYPE !in exampleRequest.headers) mapOf("Content-Type" to contentType) else exampleRequest.headers,
-                            body = parsedValue(bodyValue))
+                            body = parsedValue(bodyValue, contentType))
                 }
             } else {
                 val httpRequest = HttpRequest(
                     method = httpMethod,
                     path = httpPathPattern.path,
                     headers = mapOf("Content-Type" to contentType),
-                    body = parsedValue(bodyValue)
+                    body = parsedValue(bodyValue, contentType)
                 )
 
                 val requestsWithSecurityParams = securitySchemes.map { securityScheme ->
