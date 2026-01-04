@@ -9,7 +9,7 @@ import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.Flags.Companion.getStringValue
 
-data class SpecmaticConfigV1 (
+data class SpecmaticConfigV1(
 	@field:JsonAlias("contract_repositories")
 	val sources: List<Source> = emptyList(),
 	val auth: Auth? = null,
@@ -22,7 +22,7 @@ data class SpecmaticConfigV1 (
 	val test: TestConfiguration? = TestConfiguration(),
 	val stub: StubConfiguration = StubConfiguration(),
 	@field:JsonAlias("virtual_service")
-	val virtualService: VirtualServiceConfiguration = VirtualServiceConfiguration(),
+	val virtualService: VirtualServiceConfiguration? = null,
 	val examples: List<String> = getStringValue(EXAMPLE_DIRECTORIES)?.split(",") ?: emptyList(),
 	val workflow: WorkflowConfiguration? = null,
 	val ignoreInlineExamples: Boolean? = null,
