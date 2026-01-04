@@ -11,6 +11,7 @@ import io.specmatic.test.TestExecutor
 import io.mockk.every
 import io.mockk.mockk
 import io.specmatic.conversions.*
+import io.specmatic.core.utilities.Flags
 import io.specmatic.test.ScenarioAsTest
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import org.assertj.core.api.Assertions.assertThat
@@ -22,6 +23,57 @@ import java.util.*
 import java.util.function.Consumer
 
 internal class RunContractTestsUsingScenario {
+    @Test
+    fun `should send additional request query-params if defined in example with extensible-query-params enabled`() {
+        val scenario = Scenario(ScenarioInfo(
+            httpRequestPattern = HttpRequestPattern(
+                httpPathPattern = HttpPathPattern.from("/test"), method = "GET",
+                httpQueryParamPattern = HttpQueryParamPattern(mapOf("key" to StringPattern())),
+            ),
+            httpResponsePattern = HttpResponsePattern(status = 200)
+        ))
+        val httpRequest = HttpRequest(
+            path = "/test", method = "GET",
+            queryParams = QueryParameters(mapOf("key" to "value", "extensibleKey" to "extensibleValue"))
+        )
+
+        val newBasedOnScenarios = Flags.using(Flags.Companion.EXTENSIBLE_QUERY_PARAMS to "true") {
+            scenario.newBasedOn(
+                row = Row().updateRequest(httpRequest, scenario.httpRequestPattern, scenario.resolver),
+                flagsBased = DefaultStrategies,
+            ).toList().listFold().value
+        }
+
+        assertThat(newBasedOnScenarios).hasSize(1)
+        assertThat(
+            newBasedOnScenarios.single().httpRequestPattern.httpQueryParamPattern.queryPatterns
+        ).isEqualTo(
+            mapOf("key" to ExactValuePattern(StringValue("value")), "extensibleKey" to ExactValuePattern(StringValue("extensibleValue")))
+        )
+    }
+
+    @Test
+    fun `should return failure on additional request query-params if defined in example without extensible-query-params enabled`() {
+        val scenario = Scenario(ScenarioInfo(
+            httpRequestPattern = HttpRequestPattern(
+                httpPathPattern = HttpPathPattern.from("/test"), method = "GET",
+                httpQueryParamPattern = HttpQueryParamPattern(mapOf("key" to StringPattern())),
+            ),
+            httpResponsePattern = HttpResponsePattern(status = 200)
+        ))
+        val httpRequest = HttpRequest(
+            path = "/test", method = "GET",
+            queryParams = QueryParameters(mapOf("key" to "value", "extensibleKey" to "extensibleValue"))
+        )
+
+        val newBasedOnScenarios = scenario.newBasedOn(
+            row = Row().updateRequest(httpRequest, scenario.httpRequestPattern, scenario.resolver),
+            flagsBased = DefaultStrategies,
+        ).toList().listFold()
+
+        assertThat(newBasedOnScenarios).isInstanceOf(HasFailure::class.java)
+    }
+
     @Test
     fun `should generate one test scenario when there are no examples`() {
         val scenario = Scenario(
