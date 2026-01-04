@@ -54,7 +54,6 @@ import java.io.File
 import java.io.Writer
 import java.net.InetAddress
 import java.net.URI
-import java.net.URL
 import java.nio.charset.Charset
 import java.time.Instant
 import java.util.*
@@ -1124,7 +1123,7 @@ fun getHttpResponse(
                 stubResult = Result.Success()
             )
         }
-        if (strictMode) return strictModeHttp400Response(features, httpRequest, matchResults)
+        if (strictMode) return strictModeHttp400Response(features, httpRequest, matchResults, specmaticConfig.getStubGenerative())
         return fakeHttpResponse(features, httpRequest, specmaticConfig)
     } finally {
         features.forEach { feature -> feature.clearServerState() }
@@ -1227,13 +1226,12 @@ fun fakeHttpResponse(
             }.map { it.scenario!! }.firstOrNull()
 
             if (firstScenarioWith400Response != null && specmaticConfig.getStubGenerative()) {
-                val httpResponse = (firstScenarioWith400Response as Scenario).generateHttpResponse(emptyMap())
-                val updatedResponse: HttpResponse =
-                    dumpIntoFirstAvailableStringField(httpResponse, combinedFailureResult.report())
+                val scenario = firstScenarioWith400Response as Scenario
+                val errorResponse = scenario.responseWithStubError(combinedFailureResult.report())
 
                 FoundStubbedResponse(
                     HttpStubResponse(
-                        updatedResponse,
+                        errorResponse,
                         contractPath = "",
                         feature = fakeResponse?.feature,
                         scenario = fakeResponse?.successResponse?.scenario
@@ -1355,27 +1353,61 @@ fun dumpIntoFirstAvailableStringField(jsonArrayValue: JSONArrayValue, stringValu
     return jsonArrayValue.copy(list = newList)
 }
 
-private fun strictModeHttp400Response(features: List<Feature>, httpRequest: HttpRequest, matchResults: List<Pair<Result, HttpStubData>>): NotStubbed {
+private fun strictModeHttp400Response(
+    features: List<Feature>,
+    httpRequest: HttpRequest,
+    matchResults: List<Pair<Result, HttpStubData>>,
+    generative: Boolean
+): NotStubbed {
     val failureResults = matchResults.map { it.first }
     val results = Results(failureResults).withoutFluff().withoutViolationReport()
     val strictModeReport = results.strictModeReport(httpRequest)
 
-    val defaultHeaders = mapOf("Content-Type" to "text/plain", SPECMATIC_RESULT_HEADER to "failure")
-    val headers = when {
-        strictModeReport.isEmpty() -> defaultHeaders.plus(SPECMATIC_EMPTY_HEADER to "true")
-        else -> defaultHeaders
+    val nonFluffyMismatches = matchResults.filter { !it.first.isFluffy() }
+    val failedFeatures = nonFluffyMismatches.map { it.second }.distinct()
+
+    data class RequestDetails (val method: String, val requestContentType: String, val path: String) {
+        constructor(scenario: Scenario) : this(scenario.httpRequestPattern.method.orEmpty(), scenario.requestContentType.orEmpty(), scenario.path.orEmpty())
     }
+
+    val requestDetailsInExample = nonFluffyMismatches.firstNotNullOfOrNull { (_, stub) -> stub.scenario?.let { RequestDetails(it) } }
+
+    val errorStatuses = listOf(400, 422)
+
+    val firstScenarioWith400Response = features.firstNotNullOfOrNull {
+        it.scenarios.find {
+            RequestDetails(it) == requestDetailsInExample && it.status in errorStatuses
+        }
+    }
+
+    if (firstScenarioWith400Response == null) {
+        val defaultHeaders = mapOf("Content-Type" to "text/plain", SPECMATIC_RESULT_HEADER to "failure")
+        val headers = when {
+            strictModeReport.isEmpty() -> defaultHeaders.plus(SPECMATIC_EMPTY_HEADER to "true")
+            else -> defaultHeaders
+        }
+
+        return NotStubbed(
+            stubResult = results.toResultIfAnyWithCauses(),
+            response = HttpStubResponse(
+                scenario = features.firstNotNullOfOrNull { it.identifierMatchingScenario(httpRequest) },
+                response = HttpResponse(
+                    status = 400, headers = headers,
+                    body = StringValue("STRICT MODE ON${System.lineSeparator()}${System.lineSeparator()}$strictModeReport")
+                ),
+            ),
+        )
+    }
+
+    val httpResponse = firstScenarioWith400Response.responseWithStubError(strictModeReport)
 
     return NotStubbed(
         stubResult = results.toResultIfAnyWithCauses(),
         response = HttpStubResponse(
             scenario = features.firstNotNullOfOrNull { it.identifierMatchingScenario(httpRequest) },
-            response = HttpResponse(
-                status = 400, headers = headers,
-                body = StringValue("STRICT MODE ON${System.lineSeparator()}${System.lineSeparator()}$strictModeReport")
+            response = httpResponse
             ),
-        ),
-    )
+        )
 }
 
 fun stubResponse(

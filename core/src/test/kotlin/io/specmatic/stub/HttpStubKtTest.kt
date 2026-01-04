@@ -12,7 +12,10 @@ import io.specmatic.core.KeyData
 import io.specmatic.core.QueryParameters
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
+import io.specmatic.core.Results
 import io.specmatic.core.SPECMATIC_RESULT_HEADER
+import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.StubConfiguration
 import io.specmatic.core.log.consoleLog
 import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.parseGherkinStringToFeature
@@ -348,6 +351,139 @@ Feature: Test
             """.trimIndent()
         )}
         """.trimIndent())
+    }
+
+    @Test
+    fun `in strict mode uses the 400 response payload and inserts the mismatch report`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Strict mode error payload
+              version: 1.0.0
+            paths:
+              /:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          required:
+                            - number
+                          properties:
+                            number:
+                              type: number
+                  responses:
+                    '200':
+                      description: OK
+                    '400':
+                      description: Bad request
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - message
+                            properties:
+                              message:
+                                type: string
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val stubRequest = HttpRequest(method = "POST", path = "/", body = parsedJSON("""{"number": 10}"""))
+        val scenarioStub = ScenarioStub(stubRequest, HttpResponse.OK, null)
+        val stubData = feature.matchingStub(scenarioStub)
+
+        val request = HttpRequest(method = "POST", path = "/", body = parsedJSON("""{"number": "Hello"}"""))
+        val response = stubResponse(request, listOf(feature), listOf(stubData), true)
+
+        val strictModeReport = Results(listOf(stubData.matches(request)))
+            .withoutFluff()
+            .withoutViolationReport()
+            .strictModeReport(request)
+
+        assertThat(response.response.status).isEqualTo(400)
+        val responseBody = response.response.body as JSONObjectValue
+        assertThat(responseBody.jsonObject.getValue("message").toStringLiteral()).isEqualTo(strictModeReport)
+    }
+
+    @Test
+    fun `fake response should honor response schema constraints when error report does not match`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Generative error payload
+              version: 1.0.0
+            paths:
+              /hello:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          required:
+                            - data
+                          properties:
+                            data:
+                              type: string
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        text/plain:
+                          schema:
+                            type: string
+                    '400':
+                      description: Bad request
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - message
+                            properties:
+                              message:
+                                type: string
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val request = HttpRequest(method = "POST", path = "/hello", body = parsedJSONObject("""{"data": 10}"""))
+        val result = fakeHttpResponse(
+            listOf(feature),
+            request,
+            SpecmaticConfig(stub = StubConfiguration(generative = true))
+        )
+
+        assertThat(result).isInstanceOf(FoundStubbedResponse::class.java)
+        val response = (result as FoundStubbedResponse).response.response
+        assertThat(response.status).isEqualTo(400)
+
+        val responseBody = response.body as JSONObjectValue
+        val messageValue = responseBody.jsonObject.getValue("message")
+        assertThat(messageValue).isInstanceOf(StringValue::class.java)
+        val expectedMessageValue =
+            """
+            In scenario "POST /hello. Response: OK"
+            API: POST /hello -> 200
+            >> REQUEST.BODY.data
+            R1001: Type mismatch
+            Documentation: https://docs.specmatic.io/rules#r1001
+            Summary: The value type does not match the expected type defined in the specification
+            Specification expected type string but request contained value 10 of type number
+            In scenario "POST /hello. Response: Bad request"
+            API: POST /hello -> 400
+            >> REQUEST.BODY.data
+            R1001: Type mismatch
+            Documentation: https://docs.specmatic.io/rules#r1001
+            Summary: The value type does not match the expected type defined in the specification
+            Specification expected type string but request contained value 10 of type number
+            """.trimIndent()
+        assertThat(messageValue.toStringLiteral()).isEqualToIgnoringWhitespace(expectedMessageValue)
     }
 
     private fun assertResponseFailure(stubResponse: HttpStubResponse, errorMessage: String) {

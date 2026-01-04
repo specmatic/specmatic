@@ -30,7 +30,13 @@ data class OpenApiPath(private val parts: List<String>) {
     }
 
     fun toHttpPathPattern(): HttpPathPattern {
-        val finalPath = parts.joinToString(separator = PATH_SEPARATOR, prefix = PATH_SEPARATOR)
+        return toHttpPathPattern("")
+    }
+
+    fun toHttpPathPattern(pathIfBlank: String): HttpPathPattern {
+        val finalPath = parts.joinToString(separator = PATH_SEPARATOR, prefix = PATH_SEPARATOR).let {
+            it.ifBlank { pathIfBlank }
+        }
         return HttpPathPattern(pathSegmentPatterns = pathToPattern(finalPath), path = finalPath)
     }
 

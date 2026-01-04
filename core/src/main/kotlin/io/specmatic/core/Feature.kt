@@ -2341,7 +2341,7 @@ private fun lexScenario(
                             method = step.keyword.uppercase()
                         )
                     )
-                } ?: throw ContractException("Line ${step.line}: $step.text")
+                } ?: throw ContractException("Line ${step.line}: ${step.text}")
             }
             "REQUEST-HEADER" ->
                 scenarioInfo.copy(

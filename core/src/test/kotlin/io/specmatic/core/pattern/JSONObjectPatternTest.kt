@@ -220,6 +220,65 @@ internal class JSONObjectPatternTest {
     }
 
     @Test
+    fun `addToFirstString should update nested string and preserve top level keys`() {
+        val errorReport = "boom"
+        val pattern = JSONObjectPattern(
+            mapOf(
+                "id" to NumberPattern(),
+                "details" to JSONObjectPattern(
+                    mapOf(
+                        "message" to StringPattern(),
+                        "code" to NumberPattern()
+                    )
+                ),
+                "other" to StringPattern()
+            )
+        )
+
+        val updated = pattern.addToFirstString(errorReport, Resolver())
+
+        assertThat(updated.pattern.keys).containsExactly("id", "details", "other")
+        val details = updated.pattern.getValue("details") as JSONObjectPattern
+        assertThat(details.pattern.getValue("message"))
+            .isEqualTo(ExactValuePattern(StringValue(errorReport)))
+        assertThat(details.pattern.getValue("code")).isEqualTo(NumberPattern())
+        assertThat(updated.pattern.getValue("other")).isEqualTo(StringPattern())
+    }
+
+    @Test
+    fun `addToFirstString should update deep nested string and preserve keys`() {
+        val errorReport = "boom"
+        val pattern = JSONObjectPattern(
+            mapOf(
+                "meta" to JSONObjectPattern(
+                    mapOf(
+                        "details" to JSONObjectPattern(
+                            mapOf(
+                                "message" to StringPattern(),
+                                "code" to NumberPattern()
+                            )
+                        ),
+                        "note" to StringPattern()
+                    )
+                ),
+                "status" to NumberPattern()
+            )
+        )
+
+        val updated = pattern.addToFirstString(errorReport, Resolver())
+
+        assertThat(updated.pattern.keys).containsExactly("meta", "status")
+        val meta = updated.pattern.getValue("meta") as JSONObjectPattern
+        assertThat(meta.pattern.keys).containsExactly("details", "note")
+        val details = meta.pattern.getValue("details") as JSONObjectPattern
+        assertThat(details.pattern.getValue("message"))
+            .isEqualTo(ExactValuePattern(StringValue(errorReport)))
+        assertThat(details.pattern.getValue("code")).isEqualTo(NumberPattern())
+        assertThat(meta.pattern.getValue("note")).isEqualTo(StringPattern())
+        assertThat(updated.pattern.getValue("status")).isEqualTo(NumberPattern())
+    }
+
+    @Test
     fun `it should encompass another with the optional key missing`() {
         val bigger = parsedPattern("""{"required": "(number)", "optional?": "(number)"}""")
         val smaller = parsedPattern("""{"required": "(number)"}""")

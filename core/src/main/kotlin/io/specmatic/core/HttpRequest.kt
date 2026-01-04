@@ -460,6 +460,14 @@ data class HttpRequest(
         return this.copy(body = parsedBody)
     }
 
+    fun ifBlankPathUsePath(pathIfBlank: String): HttpRequest {
+        return if (path.orEmpty().isBlank()) {
+            this.copy(path = pathIfBlank)
+        } else {
+            this
+        }
+    }
+
     companion object {
         fun fromJSONLenient(jsonObject: Map<String, Value>): HttpRequest {
             val method = getStringOrNull("method", jsonObject)
