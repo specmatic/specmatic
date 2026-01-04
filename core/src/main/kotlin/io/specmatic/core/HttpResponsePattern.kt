@@ -253,6 +253,16 @@ data class HttpResponsePattern(
             body = body.fixValue(response.body, resolver)
         )
     }
+
+    fun addErrorToPayload(errorReport: String, resolver: Resolver): HttpResponsePattern {
+        val bodyPattern = resolvedHop(body, resolver)
+        if (bodyPattern !is JSONObjectPattern) {
+            return this
+        }
+
+        val newBodyPattern: Pattern = bodyPattern.addToFirstString(errorReport, resolver)
+        return this.copy(body = newBodyPattern)
+    }
 }
 
 private val valueMismatchMessages = object : MismatchMessages {

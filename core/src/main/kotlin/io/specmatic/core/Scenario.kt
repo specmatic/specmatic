@@ -19,6 +19,7 @@ import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.NamedExampleMismatchMessages
 import io.specmatic.stub.RequestContext
 import io.specmatic.test.ExampleProcessor
+import okhttp3.Request
 
 interface ScenarioDetailsForResult {
     val status: Int
@@ -67,6 +68,19 @@ data class Scenario(
     val operationMetadata: OperationMetadata? = null,
     val requestChangeSummary: String? = null
 ): ScenarioDetailsForResult, HasScenarioMetadata {
+    data class RequestDetails(
+        private val method: String,
+        private val requestContentType: String,
+        private val path: String,
+    ) {
+        constructor(scenario: Scenario) :
+            this(
+                scenario.httpRequestPattern.method.orEmpty(),
+                scenario.requestContentType.orEmpty(),
+                scenario.path,
+            )
+    }
+
     constructor(scenarioInfo: ScenarioInfo) : this(
         name = scenarioInfo.scenarioName,
         httpRequestPattern = scenarioInfo.httpRequestPattern,
@@ -89,6 +103,10 @@ data class Scenario(
 
     val apiIdentifier: String
         get() = "$method $path $status"
+
+    fun getRequestDetails(): RequestDetails {
+        return RequestDetails(this)
+    }
 
     override val method: String
         get() {
@@ -885,6 +903,12 @@ data class Scenario(
                 newScenario.httpResponsePattern.fixResponse(httpResponse, updatedResolver)
             )
         }
+    }
+
+    fun responseWithStubError(errorReport: String): HttpResponse {
+        val responsePattern: HttpResponsePattern = httpResponsePattern.addErrorToPayload(errorReport, resolver)
+
+        return responsePattern.fillInTheBlanks(resolver)
     }
 }
 
