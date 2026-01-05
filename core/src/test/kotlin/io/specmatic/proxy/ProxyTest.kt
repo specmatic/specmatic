@@ -3,6 +3,7 @@ package io.specmatic.proxy
 import io.ktor.http.*
 import io.specmatic.Waiter
 import io.specmatic.conversions.OpenApiSpecification
+import io.specmatic.core.HttpResponse
 import io.specmatic.core.YAML
 import io.specmatic.core.parseGherkinStringToFeature
 import io.specmatic.core.pattern.parsedJSON
@@ -219,6 +220,77 @@ internal class ProxyTest {
 
         assertThat(fakeFileWriter.receivedContract?.trim()).startsWith("openapi:")
         assertThat(fakeFileWriter.receivedContract!!).contains("/da ta")
+    }
+
+    @Test
+    fun `proxy should remove base url from recorded response and update content length`() {
+        val feature =
+            OpenApiSpecification
+                .fromYAML(
+                    """
+                    openapi: 3.0.1
+                    info:
+                      title: Links
+                      version: "1"
+                    paths:
+                      /info:
+                        get:
+                          responses:
+                            "200":
+                              description: ok
+                              headers:
+                                Content-Length:
+                                  schema:
+                                    type: string
+                              content:
+                                text/plain:
+                                  schema:
+                                    type: string
+                    """.trimIndent(),
+                    "",
+                ).toFeature()
+
+        var recordedResponse: HttpResponse? = null
+        val requestObserver =
+            RequestObserver { _, response ->
+                recordedResponse = response
+            }
+
+        HttpStub(feature).use { stub ->
+            val bodyWithBaseURL = "Visit ${stub.endPoint}/info"
+            val expectation =
+                """
+                {
+                  "http-request": {
+                    "method": "GET",
+                    "path": "/info"
+                  },
+                  "http-response": {
+                    "status": 200,
+                    "headers": {
+                      "Content-Type": "text/plain",
+                      "Content-Length": "${bodyWithBaseURL.length}"
+                    },
+                    "body": "$bodyWithBaseURL"
+                  }
+                }
+                """.trimIndent()
+
+            val stubResponse =
+                RestTemplate().postForEntity<String>(stub.endPoint + "/_specmatic/expectations", expectation)
+            assertThat(stubResponse.statusCode.value()).isEqualTo(200)
+
+            Proxy(host = "localhost", port = 9001, stub.endPoint, fakeFileWriter, requestObserver = requestObserver).use {
+                val response = RestTemplate().getForEntity("http://localhost:9001/info", String::class.java)
+
+                assertThat(response.statusCode.value()).isEqualTo(200)
+                assertThat(response.body).isEqualTo("Visit /info")
+            }
+        }
+
+        val observedResponse = recordedResponse ?: fail("Expected recorded response to be captured")
+        assertThat(observedResponse.body.toStringLiteral()).isEqualTo("Visit /info")
+        assertThat(observedResponse.getHeader(HttpHeaders.ContentLength)).isEqualTo("Visit /info".length.toString())
     }
 
     @Test
