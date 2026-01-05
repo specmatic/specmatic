@@ -58,10 +58,10 @@ data class StringValue(val string: String = "", private val xml: Boolean) : Valu
     override fun type(): Pattern = StringPattern()
 
     override fun typeDeclarationWithKey(key: String, types: Map<String, Pattern>, exampleDeclarations: ExampleDeclarations): Pair<TypeDeclaration, ExampleDeclarations> =
-            primitiveTypeDeclarationWithKey(key, types, exampleDeclarations, displayableType(), string)
+            primitiveTypeDeclarationWithKey(key, types, exampleDeclarations, displayableType(), newLineStrippedValue())
 
     override fun typeDeclarationWithoutKey(exampleKey: String, types: Map<String, Pattern>, exampleDeclarations: ExampleDeclarations): Pair<TypeDeclaration, ExampleDeclarations> =
-            primitiveTypeDeclarationWithoutKey(exampleKey, types, exampleDeclarations, displayableType(), string)
+            primitiveTypeDeclarationWithoutKey(exampleKey, types, exampleDeclarations, displayableType(), newLineStrippedValue())
 
     override val nativeValue: String
         get() = string
@@ -72,6 +72,7 @@ data class StringValue(val string: String = "", private val xml: Boolean) : Valu
 
     override fun toString() = string
 
+    private fun newLineStrippedValue(): String = toStringLiteral().lines().joinToString(" ", transform = String::trim).trim()
     fun isPatternToken(): Boolean = isPatternToken(string.trim())
     fun isMatcherToken(): Boolean = isMatcherToken(string.trim())
     fun isPatternOrMatcherToken(): Boolean = isPatternToken() || isMatcherToken()
