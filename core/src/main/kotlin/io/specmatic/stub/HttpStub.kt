@@ -1366,17 +1366,13 @@ private fun strictModeHttp400Response(
     val nonFluffyMismatches = matchResults.filter { !it.first.isFluffy() }
     val failedFeatures = nonFluffyMismatches.map { it.second }.distinct()
 
-    data class RequestDetails (val method: String, val requestContentType: String, val path: String) {
-        constructor(scenario: Scenario) : this(scenario.httpRequestPattern.method.orEmpty(), scenario.requestContentType.orEmpty(), scenario.path.orEmpty())
-    }
-
-    val requestDetailsInExample = nonFluffyMismatches.firstNotNullOfOrNull { (_, stub) -> stub.scenario?.let { RequestDetails(it) } }
+    val requestDetailsInExampleScenario = nonFluffyMismatches.firstNotNullOfOrNull { (_, stub) -> stub.scenario?.let { it.getRequestDetails() } }
 
     val errorStatuses = listOf(400, 422)
 
     val firstScenarioWith400Response = features.firstNotNullOfOrNull {
         it.scenarios.find {
-            RequestDetails(it) == requestDetailsInExample && it.status in errorStatuses
+            it.getRequestDetails() == requestDetailsInExampleScenario && it.status in errorStatuses
         }
     }
 
