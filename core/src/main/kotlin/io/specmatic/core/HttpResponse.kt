@@ -269,7 +269,7 @@ data class HttpResponse(
                 it.value.replace(string, replacement)
             }
 
-        val contentLength = body.toStringLiteral().length
+        val contentLength = updatedBody.toStringLiteral().length
 
         val updatedContentLengthHeader = replaceHeaderIfExists(updatedHeaders, HttpHeaders.ContentLength, contentLength.toString())
 
