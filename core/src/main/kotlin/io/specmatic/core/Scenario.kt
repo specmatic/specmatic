@@ -908,7 +908,7 @@ data class Scenario(
     fun responseWithStubError(errorReport: String): HttpResponse {
         val responsePattern: HttpResponsePattern = httpResponsePattern.addErrorToPayload(errorReport, resolver)
 
-        return responsePattern.fillInTheBlanks(resolver)
+        return responsePattern.fillInTheBlanks(resolver, "failure")
     }
 }
 

@@ -20,10 +20,11 @@ data class HttpResponsePattern(
 ) {
     constructor(response: HttpResponse) : this(HttpHeadersPattern(response.headers.mapValues { stringToPattern(it.value, it.key) }), response.status, response.body.exactMatchElseType())
 
-    fun fillInTheBlanks(resolver: Resolver): HttpResponse {
+    fun fillInTheBlanks(resolver: Resolver, resultHeaderValue: String = "success"): HttpResponse {
         return generateResponseWith(
             value = resolver.withCyclePrevention(body, body::generate),
-            resolver = resolver
+            resolver = resolver,
+            resultHeaderValue = resultHeaderValue
         )
     }
 
@@ -219,7 +220,7 @@ data class HttpResponsePattern(
         }.breadCrumb("RESPONSE").value
     }
 
-    private fun generateResponseWith(value: Value, resolver: Resolver): HttpResponse {
+    private fun generateResponseWith(value: Value, resolver: Resolver, resultHeaderValue: String = "success"): HttpResponse {
         return attempt(breadCrumb = "RESPONSE") {
             val generatedBody =
                 if (headersPattern.isXML(resolver)) {
@@ -229,7 +230,7 @@ data class HttpResponsePattern(
                 }
             val headers = headersPattern.generate(
                 resolver = resolver.updateLookupPath(BreadCrumb.RESPONSE.value)
-            ).plus(SPECMATIC_RESULT_HEADER to "success").let { headers ->
+            ).plus(SPECMATIC_RESULT_HEADER to resultHeaderValue).let { headers ->
                 if ((headers.containsKey("Content-Type").not() && generatedBody.httpContentType.isBlank().not()))
                     headers.plus("Content-Type" to generatedBody.httpContentType)
                 else headers

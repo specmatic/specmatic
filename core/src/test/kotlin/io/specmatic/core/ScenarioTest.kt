@@ -935,4 +935,18 @@ class ScenarioTest {
             assertThat(paths).isEmpty()
         }
     }
+
+    @Test
+    fun `response with stub error should return a failure header`() {
+        val scenario = Scenario(
+            name = "test scenario",
+            httpRequestPattern = HttpRequestPattern(method = "GET", httpPathPattern = HttpPathPattern.from("/")),
+            httpResponsePattern = HttpResponsePattern(status = 200, body = JSONObjectPattern(mapOf("error" to StringPattern()))),
+        )
+
+        val response = scenario.responseWithStubError("error")
+        val jsonResponseBody = response.body as JSONObjectValue
+        assertThat(jsonResponseBody.getString("error")).isEqualTo("error")
+        assertThat(response.headers["X-Specmatic-Result"]).isEqualTo("failure")
+    }
 }
