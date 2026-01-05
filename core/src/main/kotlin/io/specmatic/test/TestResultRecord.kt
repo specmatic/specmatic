@@ -62,7 +62,8 @@ data class TestResultRecord(
             input = request?.toLogString().orEmpty(),
             output = response?.toLogString().orEmpty(),
             inputTime = requestTime?.toEpochMilli() ?: 0L,
-            outputTime = responseTime?.toEpochMilli() ?: 0L
+            outputTime = responseTime?.toEpochMilli() ?: 0L,
+            operation = operation
         )
     }
 
