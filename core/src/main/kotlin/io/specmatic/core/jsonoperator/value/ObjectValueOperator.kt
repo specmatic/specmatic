@@ -76,10 +76,10 @@ data class ObjectValueOperator(private val map: Map<String, Value> = emptyMap(),
 
         val resolvedKey = resolveKey(headSegment.key)
         val headSegmentOperator = when {
-            allowMissing -> resolvedKey?.let { ValueOperator.from(map[it]!!) } ?: tailSegments.nextDefaultOperator()
+            allowMissing -> resolvedKey?.let { ValueOperator.from(map.getValue(it)) } ?: tailSegments.nextDefaultOperator()
             else -> {
                 val key = resolvedKey ?: return HasFailure("Key ${headSegment.key} not found", headSegment.parsedPath)
-                ValueOperator.from(map[key]!!)
+                ValueOperator.from(map.getValue(key))
             }
         }
 
