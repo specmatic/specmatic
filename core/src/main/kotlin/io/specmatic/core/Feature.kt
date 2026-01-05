@@ -1562,8 +1562,8 @@ data class Feature(
         return name.replace(Regex("""\?.*$"""), "")
     }
 
-    private fun toPathPatternWithParameters(httpPathPattern: HttpPathPattern?): HttpPathPattern {
-        if (httpPathPattern!!.pathSegmentPatterns.any { it.pattern !is ExactValuePattern }) return httpPathPattern
+    private fun toPathPatternWithParameters(httpPathPattern: HttpPathPattern): HttpPathPattern {
+        if (httpPathPattern.pathSegmentPatterns.any { it.pattern !is ExactValuePattern }) return httpPathPattern
         return OpenApiPath.from(httpPathPattern.path).normalize().toHttpPathPattern()
     }
 
