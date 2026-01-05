@@ -48,7 +48,7 @@ data class OpenApiPath(private val parts: List<String>) {
 
     private fun isNumericPathSegment(segment: String): Boolean = segment.isNotEmpty() && segment.all(Char::isDigit)
 
-    private fun isDecimal(segment: String): Boolean = segment.count { it == '.' } == 1 && segment.replace(".", "").all(Char::isDigit)
+    private fun isDecimal(segment: String): Boolean = segment.count { it == '.' } == 1 && segment.first().isDigit() && segment.last().isDigit() && segment.replace(".", "").all(Char::isDigit)
 
     private fun isPathParameter(value: String): Boolean = isPatternToken(value) && value.contains(":")
 

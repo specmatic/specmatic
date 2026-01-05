@@ -1,5 +1,7 @@
 package io.specmatic.core
 
+import io.ktor.client.request.get
+import io.ktor.http.HttpHeaders
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
@@ -7,7 +9,14 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.specmatic.core.value.StringValue
 import io.specmatic.stub.HttpStub
+import io.specmatic.stub.ktorHttpRequestToHttpRequest
+import io.specmatic.stub.respondToKtorHttpResponse
+import io.specmatic.test.HttpClient
 import io.specmatic.test.LegacyHttpClient
+import io.specmatic.test.internalHeadersToKtorHeaders
+import io.specmatic.test.ktorHeadersToInternalHeaders
+import kotlinx.coroutines.runBlocking
+import org.assertj.core.api.Assertions.assertThat
 import org.json.JSONObject
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
@@ -88,6 +97,57 @@ class HttpClientTest {
             Assertions.assertEquals(200, response.status)
             val jsonResponseBody = JSONObject(response.body.toStringLiteral())
             Assertions.assertEquals(10, jsonResponseBody.getInt("location-id"))
+        }
+    }
+
+    @Test
+    fun `should handle Set-Cookie header case insensitively`() {
+        val headers = mapOf("set-cookie" to listOf("a=1", "b=2"))
+        val internal = ktorHeadersToInternalHeaders(headers)
+        assertThat(internal["set-cookie"]).isEqualTo("a=1\u0000b=2")
+    }
+
+    @Test
+    fun `should join multiple Set-Cookie headers using null separator`() {
+        val ktorHeaders = mapOf(
+            HttpHeaders.SetCookie to listOf("a=1; Path=/", "b=2; HttpOnly"),
+            HttpHeaders.ContentType to listOf("application/json")
+        )
+
+        val internal = ktorHeadersToInternalHeaders(ktorHeaders)
+        assertThat(internal[HttpHeaders.SetCookie]).isEqualTo("a=1; Path=/\u0000b=2; HttpOnly")
+        assertThat(internal[HttpHeaders.ContentType]).isEqualTo("application/json")
+    }
+
+    @Test
+    fun `should split internal Set-Cookie header back into multiple values`() {
+        val internalHeaders = mapOf(
+            HttpHeaders.SetCookie to "a=1; Path=/\u0000b=2; HttpOnly",
+            HttpHeaders.ContentType to "application/json"
+        )
+
+        val ktorHeaders = internalHeadersToKtorHeaders(internalHeaders)
+        assertThat(ktorHeaders[HttpHeaders.SetCookie]).containsExactly("a=1; Path=/", "b=2; HttpOnly")
+        assertThat(ktorHeaders[HttpHeaders.ContentType]).containsExactly("application/json")
+    }
+
+    @Test
+    fun setCookieHeadersShouldBeMultipleOnWire() {
+        val server = embeddedServer(Netty, port = 8080) {
+            routing {
+                get("/cookies") {
+                    val internalResponse = HttpResponse(status = 200, headers = mapOf(HttpHeaders.SetCookie to "a=1; Path=/\u0000b=2; HttpOnly"))
+                    respondToKtorHttpResponse(call, internalResponse)
+                }
+            }
+        }
+
+        try {
+            server.start(wait = false)
+            val rawResponse = runBlocking { io.ktor.client.HttpClient().use { client -> client.get("http://localhost:8080/cookies") } }
+            assertThat(rawResponse.headers.getAll(HttpHeaders.SetCookie)).containsExactly("a=1; Path=/", "b=2; HttpOnly")
+        } finally {
+            server.stop()
         }
     }
 }
