@@ -53,7 +53,7 @@ data class RequestOperator(
 
         return HasValue(
             originalHttpRequest.copy(
-                path = finalizedPathValues.jsonObject.values.joinToString(separator = "/"),
+                path = finalizedPathValues.jsonObject.values.joinToString(prefix = "/", separator = "/"),
                 queryParams = QueryParameters(finalizedQuery.jsonObject.mapValues { it.value.toStringLiteral() }),
                 headers = finalizedHeaders.jsonObject.mapValues { it.value.toStringLiteral() },
                 body = finalizedBody,

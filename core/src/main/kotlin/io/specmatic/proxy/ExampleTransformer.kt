@@ -78,9 +78,9 @@ class ExampleTransformer(private val transformations: Map<Path, ValueTransformer
 
     private fun HttpRequest.apply(transformations: Map<Path, ValueTransformer>): HttpRequest {
         if (transformations.isEmpty()) return this
-        val pathPattern = OpenApiPath.from(this.path.orEmpty()).normalize().toHttpPathPattern(path.orEmpty())
+        val pathPattern = OpenApiPath.from(this.path.orEmpty()).normalize().toHttpPathPattern()
         val requestOperator = RequestOperator.from(this, pathPattern, Resolver())
-        return requestOperator.apply(transformations).finalize().withDefault(this) { it }.ifBlankPathUsePath(path.orEmpty())
+        return requestOperator.apply(transformations).finalize().withDefault(this) { it }
     }
 
     private fun HttpResponse.apply(transformations: Map<Path, ValueTransformer>): HttpResponse {
