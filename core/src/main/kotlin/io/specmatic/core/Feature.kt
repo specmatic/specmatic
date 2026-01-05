@@ -1200,10 +1200,10 @@ data class Feature(
 
         return baseScenario.copy(
             httpRequestPattern = baseScenario.httpRequestPattern.copy(
-                headersPattern = HttpHeadersPattern(convergedRequestHeaders)
+                headersPattern = baseScenario.httpRequestPattern.headersPattern.copy(convergedRequestHeaders)
             ),
             httpResponsePattern = baseScenario.httpResponsePattern.copy(
-                headersPattern = HttpHeadersPattern(convergedResponseHeaders)
+                headersPattern = baseScenario.httpResponsePattern.headersPattern.copy(convergedResponseHeaders)
             )
         )
     }
@@ -1295,10 +1295,10 @@ data class Feature(
             payloadAdjustedScenarios.fold(emptyList<Scenario>()) { acc, payloadAdjustedScenario ->
                 val scenarioWithSameIdentifiers = acc.find { alreadyCombinedScenario: Scenario ->
                     similarURLPath(alreadyCombinedScenario, payloadAdjustedScenario)
-                            && alreadyCombinedScenario.httpRequestPattern.method == payloadAdjustedScenario.httpRequestPattern.method
-                            && alreadyCombinedScenario.httpResponsePattern.status == payloadAdjustedScenario.httpResponsePattern.status
-                            && (alreadyCombinedScenario.requestContentType == payloadAdjustedScenario.requestContentType || (alreadyCombinedScenario.requestContentType == null || payloadAdjustedScenario.requestContentType == null))
-                            && (alreadyCombinedScenario.responseContentType == payloadAdjustedScenario.responseContentType || (alreadyCombinedScenario.responseContentType == null || payloadAdjustedScenario.responseContentType == null))
+                    && alreadyCombinedScenario.httpRequestPattern.method == payloadAdjustedScenario.httpRequestPattern.method
+                    && alreadyCombinedScenario.httpResponsePattern.status == payloadAdjustedScenario.httpResponsePattern.status
+                    && (alreadyCombinedScenario.requestContentType == payloadAdjustedScenario.requestContentType)
+                    && (alreadyCombinedScenario.responseContentType == payloadAdjustedScenario.responseContentType)
                 }
 
                 if (scenarioWithSameIdentifiers == null)
