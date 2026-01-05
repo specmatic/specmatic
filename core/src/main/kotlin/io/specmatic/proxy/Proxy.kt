@@ -36,18 +36,6 @@ import java.net.URL
 import java.util.*
 import javax.activation.MimeType
 
-class BaseURLRewriteRule(host: String, port: Int, keyData: KeyData?, targetBaseURL: String) {
-    val newBaseURL = endPointFromHostAndPort(host.unspecifiedAddressToLocalhost(), port, keyData)
-    val targetBaseURL = targetBaseURL.removeSuffix("/")
-
-    private fun String.unspecifiedAddressToLocalhost(): String {
-        return when {
-            this == "0.0.0.0" -> "localhost"
-            else -> this
-        }
-    }
-}
-
 fun interface RequestObserver {
     fun onRequestHandled(
         httpRequest: HttpRequest,
@@ -241,11 +229,9 @@ class Proxy(
                                         } ?: httpRequest
 
                                     val httpResponse = client.execute(requestToSend).let { httpResponse ->
-                                        val baseURLRewriteRule = BaseURLRewriteRule(host, port, keyData, baseURL)
-
                                         httpResponse.rewriteBaseURLs().rewriteBaseURL(
-                                            baseURLRewriteRule.targetBaseURL,
-                                            baseURLRewriteRule.newBaseURL,
+                                            baseURL.removeSuffix("/"),
+                                            "",
                                         )
                                     }
 

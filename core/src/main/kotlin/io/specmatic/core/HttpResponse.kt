@@ -249,14 +249,31 @@ data class HttpResponse(
         ).breadCrumb("RESPONSE.BODY")
     }
 
-    fun replaceString(string: String, replacement: String): HttpResponse {
-        val updatedBody = body.replace(string, replacement)
-
-        val updatedHeaders = headers.mapValues {
-            it.value.replace(string, replacement)
+    private fun replaceHeaderIfExists(headers: Map<String, String>, headerName: String, newValue: String): Map<String, String> {
+        if (!containsHeader(headerName)) {
+            return headers
         }
 
-        return this.copy(headers = updatedHeaders, body = updatedBody)
+        return headers
+            .minusIgnoringCase(listOf(headerName))
+            .plus(headerName to newValue)
+    }
+
+    fun replaceString(string: String, replacement: String): HttpResponse {
+        logger.debug("Rewriting response: replacing '$string' with '$replacement'")
+
+        val updatedBody = body.replace(string, replacement)
+
+        val updatedHeaders =
+            headers.mapValues {
+                it.value.replace(string, replacement)
+            }
+
+        val contentLength = body.toStringLiteral().length
+
+        val updatedContentLengthHeader = replaceHeaderIfExists(updatedHeaders, HttpHeaders.ContentLength, contentLength.toString())
+
+        return this.copy(headers = updatedContentLengthHeader, body = updatedBody)
     }
 }
 
