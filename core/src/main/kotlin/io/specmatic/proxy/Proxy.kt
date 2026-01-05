@@ -211,13 +211,6 @@ class Proxy(
                                         return@intercept
                                     }
 
-                                    // continue as before, if not matching filter
-                                    val client =
-                                        HttpClient(
-                                            proxyURL(httpRequest, baseURL),
-                                            timeoutInMilliseconds = timeoutInMilliseconds,
-                                        )
-
                                     // Send the ORIGINAL request to the target (not the tracked one)
                                     val requestToSend =
                                         targetHost?.let {
@@ -228,12 +221,20 @@ class Proxy(
                                             }
                                         } ?: httpRequest
 
-                                    val httpResponse = client.execute(requestToSend).let { httpResponse ->
-                                        httpResponse.rewriteBaseURLs().rewriteBaseURL(
-                                            baseURL.removeSuffix("/"),
-                                            "",
-                                        )
-                                    }
+                                    // continue as before, if not matching filter
+                                    val httpResponse =
+                                        HttpClient(
+                                            proxyURL(httpRequest, baseURL),
+                                            timeoutInMilliseconds = timeoutInMilliseconds,
+                                        ).use { client ->
+                                            client
+                                                .execute(requestToSend)
+                                                .rewriteBaseURLs()
+                                                .rewriteBaseURL(
+                                                    baseURL.removeSuffix("/"),
+                                                    "",
+                                                )
+                                        }
 
                                     if (filter != "" && filterHttpResponse(httpResponse, filter)) {
                                         respondToKtorHttpResponse(
