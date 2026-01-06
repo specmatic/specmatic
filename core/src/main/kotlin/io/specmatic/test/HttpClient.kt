@@ -61,7 +61,7 @@ data class HttpClient(
                 httpLogMessage.request = outboundRequest
 
                 ktorResponseToHttpResponse(ktorResponse)
-                    .adjustPayloadForContentType(request.headers)
+                    .adjustPayloadForContentType()
                     .also {
                         httpLogMessage.addResponseWithCurrentTime(it)
                         log(httpLogMessage)

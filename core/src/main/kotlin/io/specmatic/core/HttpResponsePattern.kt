@@ -224,7 +224,7 @@ data class HttpResponsePattern(
         return attempt(breadCrumb = "RESPONSE") {
             val generatedBody =
                 if (headersPattern.isXML(resolver)) {
-                    adjustPayloadForContentType(value, responseHeaders = mapOf("Content-Type" to "application/xml"))
+                    adjustPayloadForContentType(value, mapOf("Content-Type" to "application/xml"))
                 } else {
                     value
                 }

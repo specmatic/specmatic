@@ -235,13 +235,12 @@ internal class HttpResponseTest {
     }
 
     @Nested
-    inner class AdjustRequestForContentTypeTests {
+    inner class AdjustResponseForContentTypeTests {
 
         @ParameterizedTest
         @MethodSource("io.specmatic.core.HttpResponseTest#xmlContentTypeScenarios")
         fun `should adjust body when response headers indicate XML`(
-            responseHeaders: Map<String, String>,
-            requestHeaders: Map<String, String>
+            responseHeaders: Map<String, String>
         ) {
             val xmlBody = StringValue("<response>data</response>")
             val response = HttpResponse(
@@ -250,7 +249,7 @@ internal class HttpResponseTest {
                 body = xmlBody
             )
 
-            val adjustedResponse = response.adjustPayloadForContentType(requestHeaders)
+            val adjustedResponse = response.adjustPayloadForContentType()
 
             assertThat(adjustedResponse.body).isInstanceOf(XMLNode::class.java)
             assertThat(adjustedResponse.body.toStringLiteral()).contains("<response>")
@@ -258,9 +257,8 @@ internal class HttpResponseTest {
 
         @ParameterizedTest
         @MethodSource("io.specmatic.core.HttpResponseTest#nonXmlContentTypeScenarios")
-        fun `should not adjust body when neither request nor response headers indicate XML`(
-            responseHeaders: Map<String, String>,
-            requestHeaders: Map<String, String>
+        fun `should not adjust body when response headers do not indicate XML`(
+            responseHeaders: Map<String, String>
         ) {
             val body = StringValue("<response>data</response>")
             val response = HttpResponse(
@@ -269,7 +267,7 @@ internal class HttpResponseTest {
                 body = body
             )
 
-            val adjustedResponse = response.adjustPayloadForContentType(requestHeaders)
+            val adjustedResponse = response.adjustPayloadForContentType()
 
             assertThat(adjustedResponse.body).isEqualTo(body)
             assertThat(adjustedResponse.body.toStringLiteral()).isEqualTo("<response>data</response>")
@@ -301,32 +299,30 @@ internal class HttpResponseTest {
         }
 
         @Test
-        fun `should adjust based on request headers when response has no Content-Type`() {
+        fun `should not parse XML when response has no Content-Type`() {
             val xmlBody = StringValue("<data>test</data>")
             val response = HttpResponse(
                 status = 200,
                 headers = emptyMap(),
                 body = xmlBody
             )
-            val requestHeaders = mapOf("Content-Type" to "application/xml")
 
-            val adjustedResponse = response.adjustPayloadForContentType(requestHeaders)
+            val adjustedResponse = response.adjustPayloadForContentType()
 
-            assertThat(adjustedResponse.body).isInstanceOf(XMLNode::class.java)
-            assertThat(adjustedResponse.body.toStringLiteral()).contains("<data>")
+            assertThat(adjustedResponse.body).isEqualTo(xmlBody)
+            assertThat(adjustedResponse.body.toStringLiteral()).isEqualTo("<data>test</data>")
         }
 
         @Test
-        fun `should adjust based on SOAPAction in request headers`() {
+        fun `should adjust based on SOAPAction in response headers`() {
             val xmlBody = StringValue("<soap:Envelope>content</soap:Envelope>")
             val response = HttpResponse(
                 status = 200,
-                headers = emptyMap(),
+                headers = mapOf("SOAPAction" to "urn:test"),
                 body = xmlBody
             )
-            val requestHeaders = mapOf("SOAPAction" to "urn:test")
 
-            val adjustedResponse = response.adjustPayloadForContentType(requestHeaders)
+            val adjustedResponse = response.adjustPayloadForContentType()
 
             assertThat(adjustedResponse.body).isInstanceOf(XMLNode::class.java)
             assertThat(adjustedResponse.body.toStringLiteral()).contains("<soap:Envelope>")
@@ -387,19 +383,16 @@ internal class HttpResponseTest {
     companion object {
         @JvmStatic
         fun xmlContentTypeScenarios(): Stream<Arguments> = Stream.of(
-            Arguments.of(mapOf("Content-Type" to "application/xml"), emptyMap<String, String>()),
-            Arguments.of(mapOf("Content-Type" to "text/xml"), emptyMap<String, String>()),
-            Arguments.of(mapOf("Content-Type" to "application/soap+xml"), emptyMap<String, String>()),
-            Arguments.of(emptyMap<String, String>(), mapOf("Content-Type" to "application/xml")),
-            Arguments.of(emptyMap<String, String>(), mapOf("SOAPAction" to "test")),
-            Arguments.of(mapOf("Content-Type" to "text/xml"), mapOf("SOAPAction" to "test")),
+            Arguments.of(mapOf("Content-Type" to "application/xml")),
+            Arguments.of(mapOf("Content-Type" to "text/xml")),
+            Arguments.of(mapOf("Content-Type" to "application/soap+xml")),
+            Arguments.of(mapOf("SOAPAction" to "test")),
         )
 
         @JvmStatic
         fun nonXmlContentTypeScenarios(): Stream<Arguments> = Stream.of(
-            Arguments.of(mapOf("Content-Type" to "application/json"), emptyMap<String, String>()),
-            Arguments.of(emptyMap<String, String>(), mapOf("Content-Type" to "application/json")),
-            Arguments.of(emptyMap<String, String>(), emptyMap<String, String>())
+            Arguments.of(mapOf("Content-Type" to "application/json")),
+            Arguments.of(emptyMap<String, String>())
         )
     }
 }

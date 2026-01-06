@@ -30,11 +30,11 @@ data class HttpResponse(
         status: Int = 0,
         body: String? = "",
         headers: Map<String, String> = emptyMap()
-    ) : this(status, headers, body?.let { adjustPayloadForContentType(StringValue(it), responseHeaders = headers) } ?: EmptyString)
+    ) : this(status, headers, body?.let { adjustPayloadForContentType(StringValue(it), headers) } ?: EmptyString)
 
     constructor(status: Int, body: String?) : this(
         status,
-        body?.let { adjustPayloadForContentType(StringValue(it), responseHeaders = emptyMap()) } ?: EmptyString
+        body?.let { adjustPayloadForContentType(StringValue(it), emptyMap()) } ?: EmptyString
     )
 
     constructor(
@@ -207,9 +207,9 @@ data class HttpResponse(
 
     }
 
-    fun adjustPayloadForContentType(requestHeaders: Map<String, String> = emptyMap()): HttpResponse {
+    fun adjustPayloadForContentType(): HttpResponse {
         val adjustedHeader = this.addHeaderIfMissing(CONTENT_TYPE, body.httpContentType).headers
-        val adjustedPayload = adjustPayloadForContentType(body, adjustedHeader, requestHeaders)
+        val adjustedPayload = adjustPayloadForContentType(body, adjustedHeader)
         return this.copy(body = adjustedPayload)
     }
 
@@ -319,7 +319,7 @@ fun toGherkinClauses(
             )
             Triple(clauses.plus(newClauses).plus(contentTypHeaderClause), newTypes, DiscardExampleDeclarations())
         }.let { (clauses, types, examples) ->
-            val adjustedResponsePayload = adjustPayloadForContentType(response.body, responseHeaders = response.headers)
+            val adjustedResponsePayload = adjustPayloadForContentType(response.body, response.headers)
             when (val result = responseBodyToGherkinClauses("ResponseBody", adjustedResponsePayload, types)) {
                 null -> Triple(clauses, types, examples)
                 else -> {
@@ -358,29 +358,25 @@ fun <T> Map<String, T>.minusIgnoringCase(keys: Iterable<String>): Map<String, T>
     return this.filterKeys { it.lowercase() !in caseInsensitiveKeys }
 }
 
-internal fun adjustPayloadForContentType(payload: Value, requestHeaders: Map<String, String>): Value {
-    return adjustPayloadForContentType(payload, requestHeaders, emptyMap())
-}
-
-internal fun adjustPayloadForContentType(payload: Value, responseHeaders: Map<String, String>, requestHeaders: Map<String, String> = emptyMap()): Value {
-    return if (isJSON(responseHeaders)) {
+internal fun adjustPayloadForContentType(payload: Value, headers: Map<String, String>): Value {
+    return if (isJSON(headers)) {
         if (payload is StringValue) {
             runCatching { parsedJsonValue(payload.nativeValue) }.getOrElse { payload }
         } else {
             payload
         }
-    } else if (isXML(responseHeaders) || isXML(requestHeaders)) {
+    } else if (isXML(headers)) {
         val parsedXmlValue = payload as? XMLNode ?: runCatching { toXMLNode(payload.toStringLiteral()) }.getOrDefault(payload)
         parsedXmlValue.adjustValueForXMLContentType()
-    } else if (responseHeaders.none { it.key.equals(CONTENT_TYPE, ignoreCase = true) }) {
+    } else if (headers.none { it.key.equals(CONTENT_TYPE, ignoreCase = true) }) {
         guessType(payload)
     } else {
         payload
     }
 }
 
-private fun isJSON(responseHeaders: Map<String, String>): Boolean {
-    val contentType = responseHeaders.entries.find { it.key.equals(CONTENT_TYPE, ignoreCase = true) }?.value ?: return false
+private fun isJSON(headers: Map<String, String>): Boolean {
+    val contentType = headers.entries.find { it.key.equals(CONTENT_TYPE, ignoreCase = true) }?.value ?: return false
     return try {
         val ct = ContentType.parse(contentType)
         ct.contentSubtype.equals("json", ignoreCase = true) || ct.contentSubtype.endsWith("+json", ignoreCase = true)

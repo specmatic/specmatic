@@ -320,9 +320,7 @@ class HttpStub(
 
                     // Store encoded response for later logging if different
                     transformedResponse =
-                        if (httpResponse != httpStubResponse.response) httpResponse.adjustPayloadForContentType(
-                            httpRequest.headers
-                        ) else null
+                        if (httpResponse != httpStubResponse.response) httpResponse.adjustPayloadForContentType() else null
 
                     if (httpRequest.path!!.startsWith("""/features/default""")) {
                         handleSse(httpRequest, this@HttpStub, this)
@@ -1275,7 +1273,7 @@ fun generateHttpResponseFrom(
     return fakeResponse.successResponse?.build(RequestContext(httpRequest))?.withRandomResultHeader()!!.let {
         if (withoutSpecmaticTypeHeader) it.withoutSpecmaticTypeHeader()
         else it
-    }.adjustPayloadForContentType(httpRequest.headers)
+    }.adjustPayloadForContentType()
 }
 
 fun dumpIntoFirstAvailableStringField(httpResponse: HttpResponse, stringValue: String): HttpResponse {
