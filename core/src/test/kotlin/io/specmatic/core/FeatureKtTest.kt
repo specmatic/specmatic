@@ -11,6 +11,7 @@ import io.specmatic.mock.mockFromJSON
 import io.specmatic.osAgnosticPath
 import io.mockk.every
 import io.mockk.mockk
+import io.specmatic.core.utilities.OpenApiPath
 import io.specmatic.stub.captureStandardOutput
 import io.swagger.v3.core.util.Yaml
 import org.junit.jupiter.api.*
@@ -434,7 +435,7 @@ class FeatureKtTest {
     }
 
     @Test
-    fun `large numeric path segments should be treated as ids when comparing similar URLs`() {
+    fun `large numeric path segments should be treated as ids when comparing similar URLs once normalized`() {
         val feature = parseGherkinStringToFeature(
             """
             Feature: Orders API
@@ -449,9 +450,13 @@ class FeatureKtTest {
             """.trimIndent()
         )
 
-        val scenarios = feature.scenarios
-
-        assertThat(similarURLPath(scenarios[0], scenarios[1])).isTrue
+        val (firstScenario, secondScenario) = feature.scenarios
+        val firstScenarioNormalizedPath = OpenApiPath.from(firstScenario.path).normalize().toHttpPathPattern()
+        val secondScenarioNormalizedPath = OpenApiPath.from(secondScenario.path).normalize().toHttpPathPattern()
+        assertThat(similarURLPath(
+            baseScenario = firstScenario.copy(httpRequestPattern = firstScenario.httpRequestPattern.copy(httpPathPattern = firstScenarioNormalizedPath)),
+            newScenario = secondScenario.copy(httpRequestPattern = firstScenario.httpRequestPattern.copy(httpPathPattern = secondScenarioNormalizedPath)),
+        )).isTrue
     }
 
     private fun deferredToJsonPatternData(pattern: Pattern, resolver: Resolver): Map<String, Pattern> =

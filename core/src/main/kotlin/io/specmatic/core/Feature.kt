@@ -2780,16 +2780,11 @@ private fun List<String>.second(): String {
 }
 
 fun similarURLPath(baseScenario: Scenario, newScenario: Scenario): Boolean {
-    val encompassResult = baseScenario.httpRequestPattern.httpPathPattern?.encompasses(
+    return baseScenario.httpRequestPattern.httpPathPattern?.encompasses(
         newScenario.httpRequestPattern.httpPathPattern!!,
         baseScenario.resolver,
         newScenario.resolver
-    )
-    if (encompassResult is Success) return true
-
-    val normalizedBasePattern = OpenApiPath.from(baseScenario.httpRequestPattern.httpPathPattern?.path.orEmpty()).normalize().toHttpPathPattern()
-    val normalizedNewPattern = OpenApiPath.from(newScenario.httpRequestPattern.httpPathPattern?.path.orEmpty()).normalize().toHttpPathPattern()
-    return normalizedBasePattern.encompasses(normalizedNewPattern, baseScenario.resolver, newScenario.resolver) is Success
+    ) is Success
 }
 
 data class DiscriminatorBasedRequestResponse(
