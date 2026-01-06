@@ -1192,11 +1192,11 @@ data class Feature(
     private fun convergeHeaders(baseScenario: Scenario, newScenario: Scenario): Scenario {
         val baseRequestHeaders = baseScenario.httpRequestPattern.headersPattern.pattern
         val newRequestHeaders = newScenario.httpRequestPattern.headersPattern.pattern
-        val convergedRequestHeaders = convergePatternMap(baseRequestHeaders, newRequestHeaders)
+        val convergedRequestHeaders = convergePatternMap(baseRequestHeaders, newRequestHeaders, ignoreCase = true)
 
         val baseResponseHeaders = baseScenario.httpResponsePattern.headersPattern.pattern
         val newResponseHeaders = newScenario.httpResponsePattern.headersPattern.pattern
-        val convergedResponseHeaders = convergePatternMap(baseResponseHeaders, newResponseHeaders)
+        val convergedResponseHeaders = convergePatternMap(baseResponseHeaders, newResponseHeaders, ignoreCase = true)
 
         return baseScenario.copy(
             httpRequestPattern = baseScenario.httpRequestPattern.copy(
@@ -1714,24 +1714,43 @@ data class Feature(
         return Pair(descriptor, commonValueType)
     }
 
-    private fun convergePatternMap(map1: Map<String, Pattern>, map2: Map<String, Pattern>): Map<String, Pattern> =
+    private class CaseInsensitivePatternMap(
+        private val delegate: Map<String, Pattern>
+    ) : Map<String, Pattern> by delegate {
+        private val lowercaseKeys = delegate.keys.associateBy { it.lowercase() }
+
+        override fun containsKey(key: String): Boolean {
+            if (delegate.containsKey(key)) return true
+            return lowercaseKeys.containsKey(key.lowercase())
+        }
+
+        override fun get(key: String): Pattern? {
+            return delegate[key] ?: lowercaseKeys[key.lowercase()]?.let { delegate[it] }
+        }
+    }
+
+    private fun convergePatternMap(
+        map1: Map<String, Pattern>,
+        map2: Map<String, Pattern>,
+        ignoreCase: Boolean = false
+    ): Map<String, Pattern> =
         try {
-            val map2LowercaseKeys = map2.mapKeys { it.key.lowercase() }
+            val map2Lookup: Map<String, Pattern> = if (ignoreCase) CaseInsensitivePatternMap(map2) else map2
 
             val common: Map<String, Pattern> = map1.filter { entry ->
-                val cleanedKey = withoutOptionality(entry.key).lowercase()
-                cleanedKey in map2LowercaseKeys || "$cleanedKey?" in map2
+                val cleanedKey = withoutOptionality(entry.key)
+                map2Lookup.containsKey(cleanedKey) || map2Lookup.containsKey("$cleanedKey?")
             }.mapKeys { entry ->
                 val cleanedKey = withoutOptionality(entry.key)
 
-                if (isOptional(entry.key) || "${cleanedKey.lowercase()}?" in map2LowercaseKeys) {
+                if (isOptional(entry.key) || map2Lookup.containsKey("$cleanedKey?")) {
                     "${withoutOptionality(entry.key)}?"
                 } else {
                     cleanedKey
                 }
             }.mapValues { entry ->
                 val (type1Descriptor, type1) = getTypeAndDescriptor(map1, entry.key)
-                val (type2Descriptor, type2) = getTypeAndDescriptor(map2LowercaseKeys, entry.key.lowercase())
+                val (type2Descriptor, type2) = getTypeAndDescriptor(map2Lookup, entry.key)
 
                 if (type1Descriptor != type2Descriptor) {
                     val typeDescriptors = listOf(type1Descriptor, type2Descriptor).sorted()
@@ -1772,10 +1791,10 @@ data class Feature(
                     entry.value
             }
 
-            val commonLowercaseKey = common.mapKeys { it.key.lowercase() }
+            val commonLookup: Map<String, Pattern> = if (ignoreCase) CaseInsensitivePatternMap(common) else common
 
-            val onlyInMap1: Map<String, Pattern> = entriesOnlyInFirstMap(map1, commonLowercaseKey)
-            val onlyInMap2: Map<String, Pattern> = entriesOnlyInFirstMap(map2, commonLowercaseKey)
+            val onlyInMap1: Map<String, Pattern> = entriesOnlyInFirstMap(map1, commonLookup)
+            val onlyInMap2: Map<String, Pattern> = entriesOnlyInFirstMap(map2, commonLookup)
 
             common.plus(onlyInMap1).plus(onlyInMap2)
         } catch(e: Throwable) {
@@ -1787,8 +1806,8 @@ data class Feature(
         map2: Map<String, Pattern>
     ): Map<String, Pattern> {
         val onlyInMap1: Map<String, Pattern> = map1.filter { entry ->
-            val cleanedKey = withoutOptionality(entry.key).lowercase()
-            (cleanedKey !in map2 && "${cleanedKey}?" !in map2)
+            val cleanedKey = withoutOptionality(entry.key)
+            (!map2.containsKey(cleanedKey) && !map2.containsKey("${cleanedKey}?"))
         }.mapKeys { entry ->
             val cleanedKey = withoutOptionality(entry.key)
             "${cleanedKey}?"

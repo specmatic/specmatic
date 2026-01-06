@@ -1,5 +1,8 @@
 package io.specmatic.core
 
+import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.mockk.every
 import io.mockk.mockk
 import io.specmatic.conversions.OpenApiSpecification
@@ -2960,6 +2963,52 @@ paths:
 
         val openAPI = feature.toOpenApi()
         assertThat(openAPI.paths["/data"]?.post?.requestBody).isNull()
+    }
+
+    @Test
+    fun `toOpenApi should de-dupe headers case-insensitively across scenarios`() {
+        val requestPatternUpper = HttpRequestPattern(
+            method = "GET",
+            httpPathPattern = HttpPathPattern.from("/balance"),
+            headersPattern = HttpHeadersPattern(mapOf("X-Request-ID" to StringPattern()))
+        )
+        val responsePatternUpper = HttpResponsePattern(
+            status = 200,
+            headersPattern = HttpHeadersPattern(mapOf("X-Response-ID" to StringPattern()))
+        )
+
+        val requestPatternLower = HttpRequestPattern(
+            method = "GET",
+            httpPathPattern = HttpPathPattern.from("/balance"),
+            headersPattern = HttpHeadersPattern(mapOf("x-request-id" to StringPattern()))
+        )
+        val responsePatternLower = HttpResponsePattern(
+            status = 200,
+            headersPattern = HttpHeadersPattern(mapOf("x-response-id" to StringPattern()))
+        )
+
+        val feature = Feature(
+            name = "Header case",
+            scenarios = listOf(
+                Scenario("uppercase headers", requestPatternUpper, responsePatternUpper),
+                Scenario("lowercase headers", requestPatternLower, responsePatternLower)
+            )
+        )
+
+        val openAPI = feature.toOpenApi()
+        val objectMapper =
+            ObjectMapper().registerKotlinModule().setSerializationInclusion(JsonInclude.Include.NON_EMPTY)
+        val openApiJson = objectMapper.readTree(objectMapper.writeValueAsString(openAPI))
+
+        val requestHeaderNames = openApiJson.at("/paths/~1balance/get/parameters")
+            .mapNotNull { it["name"]?.asText() }
+        assertThat(requestHeaderNames.map { it.lowercase(Locale.US) }.distinct()).containsExactly("x-request-id")
+        assertThat(requestHeaderNames).hasSize(1)
+
+        val responseHeaderNames = openApiJson.at("/paths/~1balance/get/responses/200/headers")
+            .fieldNames().asSequence().toList()
+        assertThat(responseHeaderNames.map { it.lowercase(Locale.US) }.distinct()).containsExactly("x-response-id")
+        assertThat(responseHeaderNames).hasSize(1)
     }
 
     companion object {
