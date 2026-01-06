@@ -15,6 +15,7 @@ import io.specmatic.core.pattern.Examples
 import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.report.ReportGenerator
+import io.specmatic.core.report.SPEC_TYPE_OPENAPI
 import io.specmatic.core.utilities.*
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_TIMEOUT
 import io.specmatic.core.utilities.Flags.Companion.getLongValue
@@ -203,8 +204,8 @@ open class SpecmaticJUnitSupport {
             }.flatMap { (_, groupedEndpoints) ->
                 groupedEndpoints.map {
                     CtrfSpecConfig(
-                        protocol = it.serviceType.orEmpty(),
-                        specType = "openapi",
+                        protocol = it.serviceType.orEmpty().lowercase(),
+                        specType = SPEC_TYPE_OPENAPI,
                         specification = it.specification.orEmpty(),
                         sourceProvider = it.sourceProvider,
                         repository = it.sourceRepository,
