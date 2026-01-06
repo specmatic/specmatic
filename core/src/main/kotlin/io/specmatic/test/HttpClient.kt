@@ -32,6 +32,7 @@ import java.util.zip.GZIPInputStream
 fun createHttpClient(baseURL: String, timeoutInMilliseconds: Long) = LegacyHttpClient(baseURL, timeoutInMilliseconds)
 
 private const val SERVER_STATE_URL = "/_$APPLICATION_NAME_LOWER_CASE/state"
+internal const val SET_COOKIE_SEPARATOR = "~~"
 
 data class HttpClient(
     private val baseURL: String,
@@ -220,7 +221,7 @@ internal fun ktorHeadersToInternalHeaders(headers: Map<String, List<String>>): M
         keySelector = { it.key },
         valueTransform = { (name, values) ->
             if (!name.equals(HttpHeaders.SetCookie, ignoreCase = true)) return@associateBy values.first()
-            values.joinToString(separator = "\u0000")
+            values.joinToString(separator = SET_COOKIE_SEPARATOR)
         }
     )
 }
@@ -228,7 +229,7 @@ internal fun ktorHeadersToInternalHeaders(headers: Map<String, List<String>>): M
 internal fun internalHeadersToKtorHeaders(headers: Map<String, String>): Map<String, List<String>> {
     return headers.mapValues { (name, value) ->
         when {
-            name.equals(HttpHeaders.SetCookie, ignoreCase = true) -> value.split("\u0000")
+            name.equals(HttpHeaders.SetCookie, ignoreCase = true) -> value.split(SET_COOKIE_SEPARATOR)
             else -> listOf(value)
         }
     }

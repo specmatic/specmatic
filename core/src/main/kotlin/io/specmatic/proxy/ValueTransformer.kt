@@ -4,6 +4,7 @@ import io.specmatic.core.pattern.withPatternDelimiters
 import io.specmatic.core.value.ScalarValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
+import io.specmatic.test.SET_COOKIE_SEPARATOR
 
 interface ValueTransformer {
     fun transform(value: Value?): Value?
@@ -27,7 +28,7 @@ interface ValueTransformer {
     data object CookieExpiryTransformer: ValueTransformer {
         override fun transform(value: Value?): Value? {
             if (value !is StringValue) return value
-            val transformed = value.nativeValue.split("\u0000").joinToString("\u0000", transform = ::stripExpiryAttributes)
+            val transformed = value.nativeValue.split(SET_COOKIE_SEPARATOR).joinToString(SET_COOKIE_SEPARATOR, transform = ::stripExpiryAttributes)
             return StringValue(transformed)
         }
 

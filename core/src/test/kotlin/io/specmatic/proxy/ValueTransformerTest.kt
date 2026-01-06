@@ -3,6 +3,7 @@ package io.specmatic.proxy
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.test.SET_COOKIE_SEPARATOR
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -64,10 +65,10 @@ class ValueTransformerTest {
 
         @Test
         fun `should handle multiple cookies separated by null character`() {
-            val cookies = "A=1; Max-Age=10\u0000B=2; Expires=Wed, 21 Oct 2015 07:28:00 GMT"
+            val cookies = "A=1; Max-Age=10${SET_COOKIE_SEPARATOR}B=2; Expires=Wed, 21 Oct 2015 07:28:00 GMT"
             val value = StringValue(cookies)
             val result = transformer.transform(value) as StringValue
-            assertThat(result.nativeValue).isEqualTo("A=1\u0000B=2")
+            assertThat(result.nativeValue).isEqualTo("A=1${SET_COOKIE_SEPARATOR}B=2")
         }
     }
 }

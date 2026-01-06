@@ -13,6 +13,7 @@ import io.specmatic.stub.ktorHttpRequestToHttpRequest
 import io.specmatic.stub.respondToKtorHttpResponse
 import io.specmatic.test.HttpClient
 import io.specmatic.test.LegacyHttpClient
+import io.specmatic.test.SET_COOKIE_SEPARATOR
 import io.specmatic.test.internalHeadersToKtorHeaders
 import io.specmatic.test.ktorHeadersToInternalHeaders
 import kotlinx.coroutines.runBlocking
@@ -104,7 +105,7 @@ class HttpClientTest {
     fun `should handle Set-Cookie header case insensitively`() {
         val headers = mapOf("set-cookie" to listOf("a=1", "b=2"))
         val internal = ktorHeadersToInternalHeaders(headers)
-        assertThat(internal["set-cookie"]).isEqualTo("a=1\u0000b=2")
+        assertThat(internal["set-cookie"]).isEqualTo("a=1${SET_COOKIE_SEPARATOR}b=2")
     }
 
     @Test
@@ -115,14 +116,14 @@ class HttpClientTest {
         )
 
         val internal = ktorHeadersToInternalHeaders(ktorHeaders)
-        assertThat(internal[HttpHeaders.SetCookie]).isEqualTo("a=1; Path=/\u0000b=2; HttpOnly")
+        assertThat(internal[HttpHeaders.SetCookie]).isEqualTo("a=1; Path=/${SET_COOKIE_SEPARATOR}b=2; HttpOnly")
         assertThat(internal[HttpHeaders.ContentType]).isEqualTo("application/json")
     }
 
     @Test
     fun `should split internal Set-Cookie header back into multiple values`() {
         val internalHeaders = mapOf(
-            HttpHeaders.SetCookie to "a=1; Path=/\u0000b=2; HttpOnly",
+            HttpHeaders.SetCookie to "a=1; Path=/${SET_COOKIE_SEPARATOR}b=2; HttpOnly",
             HttpHeaders.ContentType to "application/json"
         )
 
@@ -136,7 +137,7 @@ class HttpClientTest {
         val server = embeddedServer(Netty, port = 8080) {
             routing {
                 get("/cookies") {
-                    val internalResponse = HttpResponse(status = 200, headers = mapOf(HttpHeaders.SetCookie to "a=1; Path=/\u0000b=2; HttpOnly"))
+                    val internalResponse = HttpResponse(status = 200, headers = mapOf(HttpHeaders.SetCookie to "a=1; Path=/${SET_COOKIE_SEPARATOR}b=2; HttpOnly"))
                     respondToKtorHttpResponse(call, internalResponse)
                 }
             }
