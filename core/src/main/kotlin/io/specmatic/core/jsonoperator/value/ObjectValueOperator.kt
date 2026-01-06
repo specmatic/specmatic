@@ -14,14 +14,15 @@ import io.specmatic.core.jsonoperator.value.ValueOperator.Companion.nextDefaultO
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 
-data class ObjectValueOperator(private val map: Map<String, Value> = emptyMap()) : RootMutableJsonOperator<JSONObjectValue> {
+data class ObjectValueOperator(private val map: Map<String, Value> = emptyMap(), private val caseInsensitive: Boolean = false) : RootMutableJsonOperator<JSONObjectValue> {
     override fun get(segments: List<PathSegment>): ReturnValue<Optional<RootMutableJsonOperator<out Value>>> {
         if (segments.isEmpty()) return HasValue(Optional.Some(this))
 
         val headSegment = segments.takeNextAs<PathSegment.Key>().unwrapOrReturn { return it.cast() }
         val tailSegments = segments.drop(1)
 
-        val headSegmentValue = map[headSegment.key] ?: return HasValue(Optional.None)
+        val resolvedKey = resolveKey(headSegment.key) ?: return HasValue(Optional.None)
+        val headSegmentValue = map[resolvedKey] ?: return HasValue(Optional.None)
         val headSegmentOperator = ValueOperator.from(headSegmentValue)
         return headSegmentOperator.get(tailSegments)
     }
@@ -41,10 +42,12 @@ data class ObjectValueOperator(private val map: Map<String, Value> = emptyMap())
 
         val headSegment = segments.takeNextAs<PathSegment.Key>().unwrapOrReturn { return it.cast() }
         val tailSegments = segments.drop(1)
-        val headSegmentValue = map[headSegment.key] ?: return HasFailure("Key ${headSegment.key} not found", headSegment.parsedPath)
+
+        val resolvedKey = resolveKey(headSegment.key) ?: return HasFailure("Key ${headSegment.key} not found", headSegment.parsedPath)
+        val headSegmentValue = map[resolvedKey] ?: return HasFailure("Key ${headSegment.key} not found", headSegment.parsedPath)
 
         if (tailSegments.isEmpty()) {
-            val updatedMap = map.minus(headSegment.key)
+            val updatedMap = map.minus(resolvedKey)
             return HasValue(Optional.Some(copy(map = updatedMap)))
         }
 
@@ -71,20 +74,27 @@ data class ObjectValueOperator(private val map: Map<String, Value> = emptyMap())
         val headSegment = segments.takeNextAs<PathSegment.Key>().unwrapOrReturn { return it.cast() }
         val tailSegments = segments.drop(1)
 
+        val resolvedKey = resolveKey(headSegment.key)
         val headSegmentOperator = when {
-            allowMissing -> map[headSegment.key]?.let(ValueOperator::from) ?: tailSegments.nextDefaultOperator()
+            allowMissing -> resolvedKey?.let { ValueOperator.from(map.getValue(it)) } ?: tailSegments.nextDefaultOperator()
             else -> {
-                val headSegmentValue = map[headSegment.key] ?: return HasFailure("Key ${headSegment.key} not found", headSegment.parsedPath)
-                ValueOperator.from(headSegmentValue)
+                val key = resolvedKey ?: return HasFailure("Key ${headSegment.key} not found", headSegment.parsedPath)
+                ValueOperator.from(map.getValue(key))
             }
         }
 
         return operation(headSegmentOperator, tailSegments).ifHasValue { modifiedOperator ->
             modifiedOperator.value.finalize().ifHasValue { newValue ->
-                val updatedMap = map.plus(headSegment.key to newValue.value)
+                val keyToUpdate = resolvedKey ?: headSegment.key
+                val updatedMap = map.plus(keyToUpdate to newValue.value)
                 HasValue(copy(map = updatedMap))
             }
         }
+    }
+
+    private fun resolveKey(key: String): String? {
+        if (!caseInsensitive) return map[key]?.let { key }
+        return map.keys.firstOrNull { it.equals(key, ignoreCase = true) }
     }
 
     companion object {

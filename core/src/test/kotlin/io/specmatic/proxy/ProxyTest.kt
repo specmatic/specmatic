@@ -3,6 +3,7 @@ package io.specmatic.proxy
 import io.ktor.http.*
 import io.specmatic.Waiter
 import io.specmatic.conversions.OpenApiSpecification
+import io.specmatic.core.HttpResponse
 import io.specmatic.core.YAML
 import io.specmatic.core.parseGherkinStringToFeature
 import io.specmatic.core.pattern.parsedJSON
@@ -25,13 +26,13 @@ import org.springframework.web.client.RestTemplate
 import org.springframework.web.client.postForEntity
 import java.io.File
 import java.net.InetSocketAddress
+import java.nio.file.Files
 
 internal class ProxyTest {
     private val dynamicHttpHeaders =
         listOf(
             HttpHeaders.Authorization,
             HttpHeaders.UserAgent,
-            HttpHeaders.Cookie,
             HttpHeaders.Referrer,
             HttpHeaders.AcceptLanguage,
             HttpHeaders.Host,
@@ -136,6 +137,33 @@ internal class ProxyTest {
     }
 
     @Test
+    fun `proxy should record large numeric path segments as ids`() {
+        val feature =
+            parseGherkinStringToFeature(
+                """
+                Feature: Orders
+                  Scenario: Get order
+                    When GET /orders/(id:string)
+                    Then status 200
+                """.trimIndent(),
+            )
+
+        HttpStub(feature).use {
+            Proxy(host = "localhost", port = 9001, "http://localhost:9000", fakeFileWriter).use {
+                val restProxy = java.net.Proxy(java.net.Proxy.Type.HTTP, InetSocketAddress("localhost", 9001))
+                val requestFactory = SimpleClientHttpRequestFactory()
+                requestFactory.setProxy(restProxy)
+                val client = RestTemplate(requestFactory)
+                val response = client.getForEntity("http://localhost:9000/orders/5432154321", String::class.java)
+
+                assertThat(response.statusCode.value()).isEqualTo(200)
+            }
+        }
+
+        assertThat(fakeFileWriter.receivedContract?.trim()).contains("/orders/{param}")
+    }
+
+    @Test
     fun `basic test of the reverse proxy`() {
         HttpStub(simpleFeature).use {
             Proxy(host = "localhost", port = 9001, "http://localhost:9000", fakeFileWriter).use {
@@ -192,6 +220,77 @@ internal class ProxyTest {
 
         assertThat(fakeFileWriter.receivedContract?.trim()).startsWith("openapi:")
         assertThat(fakeFileWriter.receivedContract!!).contains("/da ta")
+    }
+
+    @Test
+    fun `proxy should remove base url from recorded response and update content length`() {
+        val feature =
+            OpenApiSpecification
+                .fromYAML(
+                    """
+                    openapi: 3.0.1
+                    info:
+                      title: Links
+                      version: "1"
+                    paths:
+                      /info:
+                        get:
+                          responses:
+                            "200":
+                              description: ok
+                              headers:
+                                Content-Length:
+                                  schema:
+                                    type: string
+                              content:
+                                text/plain:
+                                  schema:
+                                    type: string
+                    """.trimIndent(),
+                    "",
+                ).toFeature()
+
+        var recordedResponse: HttpResponse? = null
+        val requestObserver =
+            RequestObserver { _, response ->
+                recordedResponse = response
+            }
+
+        HttpStub(feature).use { stub ->
+            val bodyWithBaseURL = "Visit ${stub.endPoint}/info"
+            val expectation =
+                """
+                {
+                  "http-request": {
+                    "method": "GET",
+                    "path": "/info"
+                  },
+                  "http-response": {
+                    "status": 200,
+                    "headers": {
+                      "Content-Type": "text/plain",
+                      "Content-Length": "${bodyWithBaseURL.length}"
+                    },
+                    "body": "$bodyWithBaseURL"
+                  }
+                }
+                """.trimIndent()
+
+            val stubResponse =
+                RestTemplate().postForEntity<String>(stub.endPoint + "/_specmatic/expectations", expectation)
+            assertThat(stubResponse.statusCode.value()).isEqualTo(200)
+
+            Proxy(host = "localhost", port = 9001, stub.endPoint, fakeFileWriter, requestObserver = requestObserver).use {
+                val response = RestTemplate().getForEntity("http://localhost:9001/info", String::class.java)
+
+                assertThat(response.statusCode.value()).isEqualTo(200)
+                assertThat(response.body).isEqualTo("Visit /info")
+            }
+        }
+
+        val observedResponse = recordedResponse ?: fail("Expected recorded response to be captured")
+        assertThat(observedResponse.body.toStringLiteral()).isEqualTo("Visit /info")
+        assertThat(observedResponse.getHeader(HttpHeaders.ContentLength)).isEqualTo("Visit /info".length.toString())
     }
 
     @Test
@@ -334,7 +433,7 @@ internal class ProxyTest {
 
     @Test
     fun `should not timeout if custom timeout is greater than backend service delay`() {
-        HttpStub(simpleFeature).use { fake ->
+        HttpStub(simpleFeature).use { stub ->
             val expectation =
                 """
                  {
@@ -352,10 +451,10 @@ internal class ProxyTest {
                 """.trimIndent()
 
             val stubResponse =
-                RestTemplate().postForEntity<String>(fake.endPoint + "/_specmatic/expectations", expectation)
+                RestTemplate().postForEntity<String>(stub.endPoint + "/_specmatic/expectations", expectation)
             assertThat(stubResponse.statusCode.value()).isEqualTo(200)
 
-            Proxy(host = "localhost", port = 9001, "", fakeFileWriter, timeoutInMilliseconds = 5000).use {
+            Proxy(host = "localhost", port = 9001, stub.endPoint, fakeFileWriter, timeoutInMilliseconds = 5000).use {
                 val restProxy = java.net.Proxy(java.net.Proxy.Type.HTTP, InetSocketAddress("localhost", 9001))
                 val requestFactory = SimpleClientHttpRequestFactory()
                 requestFactory.setProxy(restProxy)
@@ -468,28 +567,72 @@ internal class ProxyTest {
     }
 }
 
-class FakeFileWriter : FileWriter {
-    var receivedContract: String? = null
-    var receivedStub: String? = null
-    val flags = mutableListOf<String>()
-    val receivedPaths = mutableListOf<String>()
+class FakeFileWriter private constructor(
+    private val state: FakeFileWriterState,
+    private val pathPrefix: String,
+) : FileWriter {
+    constructor() : this(FakeFileWriterState(), "")
+
+    var receivedContract: String?
+        get() = state.receivedContract
+        set(value) {
+            state.receivedContract = value
+        }
+
+    var receivedStub: String?
+        get() = state.receivedStub
+        set(value) {
+            state.receivedStub = value
+        }
+
+    val flags: MutableList<String>
+        get() = state.flags
+
+    val receivedPaths: MutableList<String>
+        get() = state.receivedPaths
 
     override fun createDirectory() {
-        this.flags.add("createDirectory")
+        state.flags.add("createDirectory")
+        File(state.baseDir, pathPrefix).mkdirs()
+    }
+
+    override fun clearDirectory() {
+        state.flags.add("removeDirectory")
+        File(state.baseDir, pathPrefix).deleteRecursively()
     }
 
     override fun writeText(
         path: String,
         content: String,
     ) {
-        this.receivedPaths.add(path)
+        val fullPath = fullPath(path)
+        state.receivedPaths.add(path)
 
         if (path.endsWith(".$YAML")) {
-            this.receivedContract = content
+            state.receivedContract = content
         } else {
-            this.receivedStub = content
+            state.receivedStub = content
         }
+
+        val target = File(state.baseDir, fullPath)
+        target.parentFile?.mkdirs()
+        target.writeText(content)
     }
 
-    override fun subDirectory(path: String): FileWriter = this
+    override fun subDirectory(path: String): FileWriter =
+        FakeFileWriter(state, fullPath(path))
+
+    override fun fileName(path: String): String =
+        File(state.baseDir, fullPath(path)).path
+
+    private fun fullPath(path: String): String =
+        if (pathPrefix.isBlank()) path else File(pathPrefix, path).path
+}
+
+private class FakeFileWriterState {
+    val baseDir: File = Files.createTempDirectory("specmatic-proxy-test").toFile()
+    var receivedContract: String? = null
+    var receivedStub: String? = null
+    val flags: MutableList<String> = mutableListOf()
+    val receivedPaths: MutableList<String> = mutableListOf()
 }

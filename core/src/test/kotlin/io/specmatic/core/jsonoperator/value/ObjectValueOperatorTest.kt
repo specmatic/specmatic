@@ -111,4 +111,36 @@ class ObjectValueOperatorTest {
         val valueAtKey = operator.get("/person/address/city").finalizeValue()
         assertThat(valueAtKey.value.getOrThrow()).isEqualTo(StringValue("NYC"))
     }
+
+    @Test
+    fun `should be able to operate with case-insensitivity keys when caseInsensitive flag is enabled`() {
+        val value = parsedJSONObject("""{"name": "John", "age": 30, "city": "NYC"}""")
+        val operator = ObjectValueOperator.from(value).copy(caseInsensitive = true)
+
+        assertThat(value.jsonObject.keys).allSatisfy { key ->
+            val valueAtKey = operator.get("/${key.uppercase()}").finalizeValue()
+            assertThat(valueAtKey.value.getOrNull()).isEqualTo(value.jsonObject[key])
+        }
+
+        assertThat(value.jsonObject.keys).allSatisfy { key ->
+            val updatedOperator = operator.update("/${key.uppercase()}", StringValue("TODO")).value
+            val valueAtKey = updatedOperator.get("/$key").finalizeValue()
+            assertThat(valueAtKey.value.getOrNull()).isEqualTo(StringValue("TODO"))
+        }
+
+        assertThat(value.jsonObject.keys).allSatisfy { key ->
+            val updatedOperator = operator.delete("/${key.uppercase()}").value.getOrThrow()
+            val valueAtKey = updatedOperator.get("/$key").finalizeValue()
+            assertThat(valueAtKey.value.getOrNull()).isNull()
+        }
+    }
+
+    @Test
+    fun `should retain casing for any original and new keys even in caseInsensitive mode`() {
+        val value = parsedJSONObject("""{"Name": "John", "aGe": 30, "CiTy": "NYC"}""")
+        val operator = ObjectValueOperator.from(value).copy(caseInsensitive = true)
+        val updatedOperator = operator.insert("/NewKey", StringValue("TODO")).value
+        val finalObj = updatedOperator.finalize().value as JSONObjectValue
+        assertThat(finalObj.jsonObject.keys).containsExactlyInAnyOrder("Name", "aGe", "CiTy", "NewKey")
+    }
 }

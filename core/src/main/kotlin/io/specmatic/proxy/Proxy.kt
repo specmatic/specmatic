@@ -15,19 +15,22 @@ import io.specmatic.core.route.modules.HealthCheckModule.Companion.configureHeal
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.isHealthCheckRequest
 import io.specmatic.core.utilities.TrackingFeature
 import io.specmatic.core.utilities.exceptionCauseMessage
+import io.specmatic.core.utilities.openApiYamlFromExampleDir
 import io.specmatic.core.utilities.uniqueNameForApiOperation
 import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.LicensedProduct
+import io.specmatic.mock.MOCK_HTTP_REQUEST
+import io.specmatic.mock.MOCK_HTTP_RESPONSE
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.*
-import io.specmatic.test.LegacyHttpClient
-import io.swagger.v3.core.util.Yaml
+import io.specmatic.test.HttpClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.Closeable
+import java.io.File
 import java.net.URI
 import java.net.URL
 import java.util.*
@@ -48,7 +51,9 @@ class Proxy(
     timeoutInMilliseconds: Long = DEFAULT_TIMEOUT_IN_MILLISECONDS,
     filter: String? = "",
     private val requestObserver: RequestObserver? = null,
+    private val generateOnExit: Boolean = true,
     specmaticConfigSource: SpecmaticConfigSource = SpecmaticConfigSource.None,
+    private val specificationFileName: String = "proxy_generated",
 ) : Closeable {
     constructor(
         host: String,
@@ -59,13 +64,33 @@ class Proxy(
         timeoutInMilliseconds: Long,
         filter: String,
         requestObserver: RequestObserver? = null,
+        generateOnExit: Boolean = true,
         specmaticConfigSource: SpecmaticConfigSource = SpecmaticConfigSource.None,
-    ) : this(host, port, baseURL, RealFileWriter(proxySpecmaticDataDir), keyData, timeoutInMilliseconds, filter, requestObserver, specmaticConfigSource)
+    ) : this(
+        host,
+        port,
+        baseURL,
+        RealFileWriter(proxySpecmaticDataDir),
+        keyData,
+        timeoutInMilliseconds,
+        filter,
+        requestObserver,
+        generateOnExit,
+        specmaticConfigSource
+    )
 
     private val stubs = mutableListOf<NamedStub>()
 
     private val requestInterceptors: MutableList<RequestInterceptor> = mutableListOf()
     private val responseInterceptors: MutableList<ResponseInterceptor> = mutableListOf()
+    private val proxyRequestHandlers: MutableList<ProxyRequestHandler> = mutableListOf()
+    private val recordMutex = Mutex()
+    private val exampleTransformer = ExampleTransformer.from(
+        transformations = mapOf(
+            "$MOCK_HTTP_REQUEST.header.${HttpHeaders.Cookie}" to ValueTransformer.GeneralizeToType(),
+            "$MOCK_HTTP_RESPONSE.header.${HttpHeaders.SetCookie}" to ValueTransformer.CookieExpiryTransformer,
+        )
+    )
 
     fun registerRequestInterceptor(requestInterceptor: RequestInterceptor) {
         if (requestInterceptor !in requestInterceptors) {
@@ -77,6 +102,16 @@ class Proxy(
         if (responseInterceptor !in responseInterceptors) {
             responseInterceptors.add(responseInterceptor)
         }
+    }
+
+    fun register(proxyRequestHandler: ProxyRequestHandler) {
+        if (proxyRequestHandler !in proxyRequestHandlers) {
+            proxyRequestHandlers.add(proxyRequestHandler)
+        }
+    }
+
+    fun unregister(proxyRequestHandler: ProxyRequestHandler) {
+        proxyRequestHandlers.remove(proxyRequestHandler)
     }
 
     private val loadedSpecmaticConfig = specmaticConfigSource.load()
@@ -148,20 +183,39 @@ class Proxy(
                                         logger.log(InterceptorErrors(requestInterceptorErrors).toString().prependIndent("  "))
                                     }
 
-                                    // continue as before, if not matching filter
-                                    val client =
-                                        LegacyHttpClient(
-                                            proxyURL(httpRequest, baseURL),
-                                            timeoutInMilliseconds = timeoutInMilliseconds,
-                                        )
+                                    val eventResponse = proxyRequestHandlers.firstNotNullOfOrNull { it.onRequest(recordedRequest) }
+                                    if (eventResponse != null) {
+                                        val httpResponse =
+                                            withoutContentEncodingGzip(eventResponse)
+
+                                        respondToKtorHttpResponse(call, httpResponse)
+                                        return@intercept
+                                    }
 
                                     // Send the ORIGINAL request to the target (not the tracked one)
                                     val requestToSend =
                                         targetHost?.let {
-                                            httpRequest.withHost(targetHost)
+                                            if (httpRequest.hasHeader("host")) {
+                                                httpRequest.withHost(targetHost)
+                                            } else {
+                                                httpRequest
+                                            }
                                         } ?: httpRequest
 
-                                    val httpResponse = client.execute(requestToSend)
+                                    // continue as before, if not matching filter
+                                    val httpResponse =
+                                        HttpClient(
+                                            proxyURL(httpRequest, baseURL),
+                                            timeoutInMilliseconds = timeoutInMilliseconds,
+                                        ).use { client ->
+                                            client
+                                                .execute(requestToSend)
+                                                .rewriteBaseURLs()
+                                                .rewriteBaseURL(
+                                                    baseURL.removeSuffix("/"),
+                                                    "",
+                                                )
+                                        }
 
                                     if (filter != "" && filterHttpResponse(httpResponse, filter)) {
                                         respondToKtorHttpResponse(
@@ -203,9 +257,11 @@ class Proxy(
                                         NamedStub(
                                             name,
                                             uniqueNameForApiOperation(recordedRequest, baseURL, recordedResponse.status),
-                                            ScenarioStub(
+                                            exampleTransformer.applyTo(
+                                                scenarioStub = ScenarioStub(
                                                 recordedRequest.dropIrrelevantHeaders(),
                                                 recordedResponse.dropIrrelevantHeaders(),
+                                                )
                                             ),
                                         ),
                                     )
@@ -213,7 +269,13 @@ class Proxy(
                                     requestObserver?.onRequestHandled(recordedRequest, recordedResponse)
 
                                     // Send the ORIGINAL response back to consumer (not the tracked one)
-                                    respondToKtorHttpResponse(call, withoutContentEncodingGzip(httpResponse))
+                                    val httpResponseToSend =
+                                        withoutContentEncodingGzip(httpResponse)
+
+                                    respondToKtorHttpResponse(
+                                        call,
+                                        httpResponseToSend,
+                                    )
                                 } catch (e: Throwable) {
                                     logger.log(e)
                                     val errorResponse =
@@ -323,11 +385,17 @@ class Proxy(
 
     override fun close() {
         try {
-            runBlocking {
-                dumpSpecAndExamplesIntoOutputDir()
+            if (generateOnExit) {
+                record("$specificationFileName.yaml")
             }
         } finally {
             server.stop(0, 0)
+        }
+    }
+
+    fun record(specName: String, operationDetails: List<ProxyOperation> = emptyList(), clearPrevious: Boolean = false): Boolean {
+        return runBlocking {
+            recordInternal(specName, operationDetails, clearPrevious)
         }
     }
 
@@ -359,32 +427,44 @@ class Proxy(
             .booleanValue
     }
 
-    private suspend fun dumpSpecAndExamplesIntoOutputDir() =
-        Mutex().withLock {
-            val gherkin = toGherkinFeature("New feature", stubs)
-            val base = "proxy_generated"
-            val featureFileName = "$base.yaml"
+    private suspend fun recordInternal(specName: String, operationDetails: List<ProxyOperation>, clearPrevious: Boolean = false): Boolean =
+        recordMutex.withLock {
+            val basePath = specName.dropExtension()
+            val examplesDirName = "${basePath}$EXAMPLES_DIR_SUFFIX"
+            val examplesDir = File(outputDirectory.fileName(examplesDirName))
+            val stubDataDirectory = outputDirectory.subDirectory(examplesDirName)
 
-            if (stubs.isEmpty()) {
-                println("No stubs were recorded. No contract will be written.")
-                return
-            }
+            if (clearPrevious) stubDataDirectory.clearDirectory()
             outputDirectory.createDirectory()
-
-            val stubDataDirectory = outputDirectory.subDirectory("${base}$EXAMPLES_DIR_SUFFIX")
             stubDataDirectory.createDirectory()
 
-            stubs.mapIndexed { index, namedStub: NamedStub ->
-                val fileName = "${namedStub.shortName}_${index.inc()}.json"
-                println("Writing stub data to $fileName")
-                stubDataDirectory.writeText(fileName, namedStub.stub.toJSON().toStringLiteral())
+            val matchingStubs = stubs.filter { stub ->
+                if (operationDetails.isEmpty()) return@filter true
+                operationDetails.any { stub.matches(it) }
             }
 
-            val openApi = parseGherkinStringToFeature(gherkin).toOpenApi()
+            if (matchingStubs.isNotEmpty()) {
+                val existingCount = examplesDir.listFiles().orEmpty().count { it.isFile && it.extension == "json" }
+                matchingStubs.forEachIndexed { index, namedStub ->
+                    val fileName = "${namedStub.shortName}_${existingCount + index + 1}.json"
+                    println("Writing stub data to $fileName")
+                    stubDataDirectory.writeText(fileName, namedStub.stub.toJSON().toStringLiteral())
+                }
+            }
 
-            println("Writing specification to $featureFileName")
-            outputDirectory.writeText(featureFileName, Yaml.pretty(openApi))
+            val openApiYaml = openApiYamlFromExampleDir(examplesDir, File(basePath).name)
+            if (openApiYaml == null) {
+                println("No stubs were recorded. No contract will be written.")
+                return false
+            }
+
+            println("Writing specification to $specName")
+            outputDirectory.writeText(specName, openApiYaml)
+            return true
         }
+
+    private suspend fun dumpSpecAndExamplesIntoOutputDir() =
+        recordInternal("$specificationFileName.yaml", emptyList())
 
     private suspend fun handleDumpRequest(call: ApplicationCall) {
         call.respond(HttpStatusCode.Accepted, "Dump process of spec and examples has started in the background")
@@ -398,4 +478,13 @@ class Proxy(
 
         private fun HttpRequest.isDumpRequest(): Boolean = (this.path == DUMP_ENDPOINT) && (this.method == HttpMethod.Post.value)
     }
+}
+
+private fun String.dropExtension(): String {
+    val dotIndex = lastIndexOf('.')
+    return if (dotIndex > 0) substring(0, dotIndex) else this
+}
+
+private fun NamedStub.matches(operationDetails: ProxyOperation): Boolean {
+    return operationDetails.matches(stub.requestElsePartialRequest())
 }

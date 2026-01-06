@@ -681,6 +681,39 @@ data class JSONObjectPattern(
                 listOf(ValueDetails(messages = listOf(message)))
             )
         }
+
+    private fun addToFirstStringInner(errorReport: String, resolver: Resolver): Pair<Map<String, Pattern>, Boolean> {
+        val result = pattern.entries.fold(emptyMap<String, Pattern>() to false) { acc: Pair<Map<String, Pattern>, Boolean>, entry: Map.Entry<String, Pattern> ->
+            val (updatedPatternMap, isAdded) = acc
+            if (isAdded) {
+                return@fold updatedPatternMap.plus(entry.key to entry.value) to true
+            }
+
+            val pattern = resolvedHop(entry.value, resolver)
+
+            return@fold when {
+                pattern is StringPattern && pattern.matches(StringValue(errorReport), resolver).isSuccess() -> {
+                    val newPattern = ExactValuePattern(StringValue(errorReport))
+                    updatedPatternMap.plus(withoutOptionality(entry.key) to newPattern) to true
+                }
+
+                pattern is JSONObjectPattern -> {
+                    val (updatedNestedPattern, wasAdded) = pattern.addToFirstStringInner(errorReport, resolver)
+                    updatedPatternMap.plus(entry.key to pattern.copy(pattern = updatedNestedPattern)) to wasAdded
+                }
+
+                else -> {
+                    updatedPatternMap.plus(entry.key to entry.value) to false
+                }
+            }
+        }
+
+        return result
+    }
+
+    fun addToFirstString(errorReport: String, resolver: Resolver): JSONObjectPattern {
+        return copy(pattern = addToFirstStringInner(errorReport, resolver).first)
+    }
 }
 
 fun generate(jsonPatternMap: Map<String, Pattern>, resolver: Resolver, jsonPattern: JSONObjectPattern): Map<String, Value> {

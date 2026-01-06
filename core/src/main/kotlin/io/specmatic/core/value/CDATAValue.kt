@@ -32,4 +32,8 @@ data class CDATAValue(
         get() = stringValue.string
 
     override fun alterValue(): ScalarValue = stringValue.alterValue()
+
+    override fun replace(oldString: String, newString: String): Value {
+        return CDATAValue(stringValue.replace(oldString, newString))
+    }
 }

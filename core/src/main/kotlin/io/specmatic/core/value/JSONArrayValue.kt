@@ -109,4 +109,10 @@ data class JSONArrayValue(override val list: List<Value> = emptyList()) : Value,
     override fun toUnformattedString(): String {
         return valueArrayToUnformattedJsonString(list)
     }
+
+    override fun replace(oldString: String, newString: String): Value {
+        return this.copy(
+            list = list.map { it.replace(oldString, newString) }
+        )
+    }
 }

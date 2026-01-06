@@ -135,6 +135,12 @@ data class JSONObjectValue(val jsonObject: Map<String, Value> = emptyMap()) : Va
     override fun toUnformattedString(): String {
         return valueMapToUnindentedJsonString(jsonObject)
     }
+
+    override fun replace(oldString: String, newString: String): Value {
+        return this.copy(
+            jsonObject = jsonObject.mapValues { it.value.replace(oldString, newString) }
+        )
+    }
 }
 
 internal fun dictionaryToDeclarations(jsonObject: Map<String, Value>, types: Map<String, Pattern>, exampleDeclarations: ExampleDeclarations): Triple<Map<String, DeferredPattern>, Map<String, Pattern>, ExampleDeclarations> {

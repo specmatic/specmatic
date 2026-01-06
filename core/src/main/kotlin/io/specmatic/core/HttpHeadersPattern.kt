@@ -55,8 +55,8 @@ data class HttpHeadersPattern(
     fun matchContentType(parameters: Pair<Map<String, String>, Resolver>):  MatchingResult<Pair<Map<String, String>, Resolver>> {
         val (headers, resolver) = parameters
 
-        val contentTypeHeaderValueFromRequest = headers[CONTENT_TYPE]
-        val contentTypePattern = pattern[CONTENT_TYPE] ?: pattern["$CONTENT_TYPE?"]
+        val contentTypeHeaderValueFromRequest = headers.entries.find { it.key.lowercase() == "content-type" }?.value
+        val contentTypePattern = pattern.entries.find { it.key.lowercase() in listOf("content-type", "content-type?") }?.value
 
         val isContentTypeNotAsPerPattern = isContentTypeAsPerPattern(contentTypePattern, resolver).not()
 
@@ -111,17 +111,19 @@ data class HttpHeadersPattern(
                 headersWithRelevantKeys.mapValues { StringValue(it.value) }
             )
 
-        keyErrors.find { it.name == "SOAPAction" }?.apply {
+        keyErrors.find { it.name.equals("SOAPAction", ignoreCase = true) }?.apply {
             return MatchFailure(
                 this.missingKeyToResult("header", resolver.mismatchMessages).breadCrumb(BreadCrumb.SOAP_ACTION.value)
                     .copy(failureReason = FailureReason.SOAPActionMismatch)
             )
         }
 
+        val lowerCasedPatternKeys = pattern.keys.map { it.lowercase() }
+
         val keyErrorResults: List<Result.Failure> = keyErrors.map {
             when {
-                pattern.contains(it.name) -> it.missingKeyToResult("header", resolver.mismatchMessages)
-                pattern.contains(withOptionality(it.name)) -> it.missingOptionalKeyToResult("header", resolver.mismatchMessages)
+                lowerCasedPatternKeys.contains(it.name.lowercase()) -> it.missingKeyToResult("header", resolver.mismatchMessages)
+                lowerCasedPatternKeys.contains(withOptionality(it.name).lowercase()) -> it.missingOptionalKeyToResult("header", resolver.mismatchMessages)
                 else -> it.unknownKeyToResult("header", resolver.mismatchMessages)
             }.breadCrumb(it.name)
         }
@@ -200,13 +202,16 @@ data class HttpHeadersPattern(
         headers: Map<String, String>,
         pattern: Map<String, Pattern>
     ): Map<String, String> {
-        val contentTypeHeader = "Content-Type"
-        return when {
-            contentTypeHeader in headers && contentTypeHeader !in pattern && "$contentTypeHeader?" !in pattern -> headers.minus(
-                contentTypeHeader
-            )
+        val contentTypeHeaderLowerCased = "content-type"
 
-            else -> headers
+        val contentTypeHeader = headers.entries.find {
+            it.key.lowercase() == contentTypeHeaderLowerCased
+        }?.key
+
+        return if (contentTypeHeader != null && CONTENT_TYPE !in pattern && "$CONTENT_TYPE?" !in pattern) {
+            headers.minus(contentTypeHeader)
+        } else {
+            headers
         }
     }
 
@@ -492,6 +497,34 @@ data class HttpHeadersPattern(
 
     private fun contentTypeHeaderPatternExists() = pattern.keys.caseInsensitiveContains(CONTENT_TYPE)
 
+    fun isXML(resolver: Resolver): Boolean {
+        if (contentType != null) {
+            val parsedContentType = ContentType.parse(contentType)
+            return parsedContentType.match(ContentType.Application.Xml) || parsedContentType.match(ContentType.Text.Xml) || parsedContentType.contentSubtype.endsWith(
+                "soap+xml"
+            )
+        }
+
+        if (ancestorHeaders == null) {
+            return false
+        }
+
+        val contentTypeHeader = pattern.entries.find { it.key.equals("content-type", ignoreCase = true) }
+        if(contentTypeHeader != null) {
+            val parsedContentType =
+                runCatching {
+                    ContentType.parse(contentTypeHeader.value.generate(resolver).toStringLiteral())
+                }.getOrElse { return false }
+
+            return parsedContentType.match(ContentType.Application.Xml) || parsedContentType.match(ContentType.Text.Xml) || parsedContentType.contentSubtype.endsWith(
+                "soap+xml"
+            )
+            return true
+        }
+
+        return false
+    }
+
     companion object {
         private const val HEADER_KEY_ID_IN_TEST_DETAILS = "header"
     }
@@ -511,7 +544,6 @@ val HTTP_TRANSPORT_HEADERS: Set<String> =
     listOf(
         HttpHeaders.Authorization,
         HttpHeaders.UserAgent,
-        HttpHeaders.Cookie,
         HttpHeaders.Referrer,
         HttpHeaders.AcceptLanguage,
         HttpHeaders.Host,

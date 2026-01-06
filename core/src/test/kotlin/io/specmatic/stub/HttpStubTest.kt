@@ -296,6 +296,9 @@ And response-body (string)
 }, 
 "http-response": {
     "status": 200,
+    "headers": {
+      "Content-Type": "text/plain"
+    },
     "body": "123"
 },
 "$DELAY_IN_SECONDS": 1
@@ -340,6 +343,9 @@ And response-body (string)
 }, 
 "http-response": {
     "status": 200,
+    "headers": {
+      "Content-Type": "text/plain"
+    },
     "body": "123"
 },
 "$DELAY_IN_SECONDS": $delayInSeconds
@@ -1740,6 +1746,133 @@ paths:
 
                 val responseBody = response.body as JSONObjectValue
                 assertThat(responseBody.jsonObject["message"]).isInstanceOf(NumberValue::class.java)
+            }
+        }
+
+        @Test
+        fun `a generative stub should return a 422 error in the first available string key for path params in strict mode`() {
+            val spec =
+                """
+                openapi: 3.0.0
+                info:
+                  title: Pet API
+                  version: 0.1.0
+                paths:
+                  /doctor:
+                    post:
+                      summary: Create a doctor
+                      requestBody:
+                        content:
+                          application/json:
+                            schema:
+                              type: object
+                              required:
+                                - name
+                              properties:
+                                name:
+                                  type: string
+                      responses:
+                        '200':
+                          description: Created
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required:
+                                  - id
+                                properties:
+                                  id:
+                                    type: string
+                        '400':
+                          description: Bad request
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required:
+                                  - code
+                                properties:
+                                  code:
+                                    type: integer
+                  /pet/{id}:
+                    put:
+                      summary: Update a pet
+                      parameters:
+                        - name: id
+                          in: path
+                          required: true
+                          schema:
+                            type: integer
+                          examples:
+                            SUCCESS:
+                              value: 10
+                      requestBody:
+                        content:
+                          application/json:
+                            schema:
+                              type: object
+                              required:
+                                - name
+                                - address
+                              properties:
+                                name:
+                                  type: string
+                                address:
+                                  type: array
+                                  items:
+                                    type: string
+                            examples:
+                              SUCCESS:
+                                value:
+                                  name: Jack
+                                  address:
+                                  - "22B Baker Street"
+                      responses:
+                        '200':
+                          description: Updated
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required:
+                                  - status
+                                properties:
+                                  status:
+                                    type: string
+                              examples:
+                                SUCCESS:
+                                  value:
+                                    status: success
+                        '422':
+                          description: Validation error
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required:
+                                  - error
+                                properties:
+                                  error:
+                                    type: string
+                """.trimIndent()
+
+            val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+
+            HttpStub(
+                listOf(feature),
+                strictMode = true,
+            ).use { stub ->
+                val request =
+                    HttpRequest(
+                        "PUT",
+                        path = "/pet/10",
+                        body = parsedJSONObject("""{"name": "Jack", "address": "22B Baker Street"}"""),
+                    )
+                val response = stub.client.execute(request)
+
+                assertThat(response.status).isEqualTo(422)
+                val responseBody = response.body as? JSONObjectValue ?: fail("Expected response body to be a JSONObjectValue")
+                assertThat(responseBody.jsonObject["error"]?.toStringLiteral()).contains("REQUEST.BODY.address")
             }
         }
     }

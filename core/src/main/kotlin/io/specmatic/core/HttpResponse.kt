@@ -6,6 +6,7 @@ import io.specmatic.core.GherkinSection.Then
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Pattern
+import io.specmatic.core.pattern.parsedJsonValue
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.utilities.isXML
 import io.specmatic.core.value.*
@@ -21,15 +22,20 @@ internal const val SPECMATIC_TYPE_HEADER = "${SPECMATIC_HEADER_PREFIX}Type"
 
 data class HttpResponse(
     val status: Int = 0,
-    val headers: Map<String, String> = mapOf(CONTENT_TYPE to "text/plain"),
+    val headers: Map<String, String> = emptyMap(),
     val body: Value = EmptyString,
     val externalisedResponseCommand: String = ""
 ) {
     constructor(
         status: Int = 0,
         body: String? = "",
-        headers: Map<String, String> = mapOf(CONTENT_TYPE to "text/plain")
-    ) : this(status, headers, body?.let { parsedValue(it) } ?: EmptyString)
+        headers: Map<String, String> = emptyMap()
+    ) : this(status, headers, body?.let { adjustPayloadForContentType(StringValue(it), headers) } ?: EmptyString)
+
+    constructor(status: Int, body: String?) : this(
+        status,
+        body?.let { adjustPayloadForContentType(StringValue(it), emptyMap()) } ?: EmptyString
+    )
 
     constructor(
         status: Int = 0,
@@ -52,6 +58,8 @@ data class HttpResponse(
             .values
             .firstOrNull()
     }
+
+    fun contentType(): String? = getHeader(CONTENT_TYPE)
 
     fun withoutSpecmaticTypeHeader(): HttpResponse {
         return this.copy(headers = this.headers.filterKeys { it != "X-Specmatic-Type" })
@@ -126,8 +134,29 @@ data class HttpResponse(
         return this.copy(headers = this.headers.minus(SPECMATIC_RESULT_HEADER))
     }
 
+    fun rewriteBaseURL(oldBaseURL: String, newBaseURL: String): HttpResponse {
+        return replaceString(oldBaseURL, newBaseURL)
+    }
+
+    fun rewriteBaseURLs(): HttpResponse {
+        return System.getenv("SPECMATIC_BASE_URL_REWRITES")?.let { hostReplacement ->
+            val replacements =
+                hostReplacement
+                    .split(',')
+                    .map { it.trim() }
+                    .takeIf { it.isNotEmpty() } ?: return@let this
+
+            replacements.fold(this) { httpResponse, hostReplacement ->
+                val parts = hostReplacement.split("=>").map { it.trim() }
+                if (parts.size != 2) return@fold httpResponse
+                val (oldHost, newHost) = parts
+                httpResponse.replaceString(oldHost, newHost)
+            }
+        } ?: this
+    }
+
     companion object {
-        val ERROR_400 = HttpResponse(400, "This request did not match any scenario.", emptyMap())
+        val ERROR_400 = HttpResponse(400, "This request did not match any scenario.", mapOf(CONTENT_TYPE to "text/plain"))
         val OK = HttpResponse(200, emptyMap())
         fun ok(body: Number): HttpResponse {
             val bodyValue = NumberValue(body)
@@ -175,19 +204,18 @@ data class HttpResponse(
                 externalisedResponseCommand = command.orEmpty()
             ).adjustPayloadForContentType()
         }
+
     }
 
     fun adjustPayloadForContentType(): HttpResponse {
-        return adjustPayloadForContentType(this.headers)
+        val adjustedHeader = this.addHeaderIfMissing(CONTENT_TYPE, body.httpContentType).headers
+        val adjustedPayload = adjustPayloadForContentType(body, adjustedHeader)
+        return this.copy(body = adjustedPayload)
     }
 
-    fun adjustPayloadForContentType(requestHeaders: Map<String, String> = emptyMap()): HttpResponse {
-        if (!isXML(headers) && !isXML(requestHeaders)) {
-            return this
-        }
-
-        val parsedBody = body as? XMLNode ?: runCatching { toXMLNode(body.toStringLiteral()) }.getOrDefault(body)
-        return copy(body = parsedBody.adjustValueForXMLContentType())
+    fun addHeaderIfMissing(key: String, value: String): HttpResponse {
+        if (this.containsHeader(key)) return this
+        return this.copy(headers = this.headers.plus(key to value))
     }
 
     fun dropIrrelevantHeaders(): HttpResponse = withoutTransportHeaders().withoutConversionHeaders().withoutSpecmaticHeaders()
@@ -219,6 +247,33 @@ data class HttpResponse(
             attributeSelectedFields,
             resolver
         ).breadCrumb("RESPONSE.BODY")
+    }
+
+    private fun replaceHeaderIfExists(headers: Map<String, String>, headerName: String, newValue: String): Map<String, String> {
+        if (!containsHeader(headerName)) {
+            return headers
+        }
+
+        return headers
+            .minusIgnoringCase(listOf(headerName))
+            .plus(headerName to newValue)
+    }
+
+    fun replaceString(string: String, replacement: String): HttpResponse {
+        logger.debug("Rewriting response: replacing '$string' with '$replacement'")
+
+        val updatedBody = body.replace(string, replacement)
+
+        val updatedHeaders =
+            headers.mapValues {
+                it.value.replace(string, replacement)
+            }
+
+        val contentLength = updatedBody.toStringLiteral().length
+
+        val updatedContentLengthHeader = replaceHeaderIfExists(updatedHeaders, HttpHeaders.ContentLength, contentLength.toString())
+
+        return this.copy(headers = updatedContentLengthHeader, body = updatedBody)
     }
 }
 
@@ -264,7 +319,8 @@ fun toGherkinClauses(
             )
             Triple(clauses.plus(newClauses).plus(contentTypHeaderClause), newTypes, DiscardExampleDeclarations())
         }.let { (clauses, types, examples) ->
-            when (val result = responseBodyToGherkinClauses("ResponseBody", guessType(response.body), types)) {
+            val adjustedResponsePayload = adjustPayloadForContentType(response.body, response.headers)
+            when (val result = responseBodyToGherkinClauses("ResponseBody", adjustedResponsePayload, types)) {
                 null -> Triple(clauses, types, examples)
                 else -> {
                     val (newClauses, newTypes, _) = result
@@ -300,4 +356,31 @@ fun <T> partitionOnContentType(headers: Map<String, T>): Pair<Map.Entry<String, 
 fun <T> Map<String, T>.minusIgnoringCase(keys: Iterable<String>): Map<String, T> {
     val caseInsensitiveKeys = keys.map(String::lowercase).toSet()
     return this.filterKeys { it.lowercase() !in caseInsensitiveKeys }
+}
+
+internal fun adjustPayloadForContentType(payload: Value, headers: Map<String, String>): Value {
+    return if (isJSON(headers)) {
+        if (payload is StringValue) {
+            runCatching { parsedJsonValue(payload.nativeValue) }.getOrElse { payload }
+        } else {
+            payload
+        }
+    } else if (isXML(headers)) {
+        val parsedXmlValue = payload as? XMLNode ?: runCatching { toXMLNode(payload.toStringLiteral()) }.getOrDefault(payload)
+        parsedXmlValue.adjustValueForXMLContentType()
+    } else if (headers.none { it.key.equals(CONTENT_TYPE, ignoreCase = true) }) {
+        guessType(payload)
+    } else {
+        payload
+    }
+}
+
+private fun isJSON(headers: Map<String, String>): Boolean {
+    val contentType = headers.entries.find { it.key.equals(CONTENT_TYPE, ignoreCase = true) }?.value ?: return false
+    return try {
+        val ct = ContentType.parse(contentType)
+        ct.contentSubtype.equals("json", ignoreCase = true) || ct.contentSubtype.endsWith("+json", ignoreCase = true)
+    } catch (_: Throwable) {
+        false
+    }
 }

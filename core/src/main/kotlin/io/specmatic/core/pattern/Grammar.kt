@@ -362,6 +362,16 @@ fun parsedJSONArray(content: String, mismatchMessages: MismatchMessages = Defaul
     }
 }
 
+fun parsedJsonValue(content: String?): Value {
+    return content?.trim()?.removePrefix(UTF_BYTE_ORDER_MARK)?.let {
+        when {
+            it.startsWith("{") -> JSONObjectValue(jsonStringToValueMap(it))
+            it.startsWith("[") -> JSONArrayValue(jsonStringToValueArray(it))
+            else -> parsedScalarValue(it)
+        }
+    } ?: EmptyString
+}
+
 fun parsedValue(content: String?): Value {
     return content?.trim()?.removePrefix(UTF_BYTE_ORDER_MARK)?.let {
         try {

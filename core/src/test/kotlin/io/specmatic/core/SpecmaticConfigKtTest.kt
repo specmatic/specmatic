@@ -10,7 +10,6 @@ import io.specmatic.core.config.v2.ContractConfig
 import io.specmatic.core.utilities.ContractSourceEntry
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.config.v2.SpecmaticConfigV2
-import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_SCHEMA
 import io.specmatic.core.utilities.Flags.Companion.MAX_TEST_REQUEST_COMBINATIONS
 import io.specmatic.core.utilities.Flags.Companion.ONLY_POSITIVE
@@ -184,6 +183,32 @@ internal class SpecmaticConfigKtTest {
         assertThat(
             (config.getOpenAPISecurityConfigurationScheme("BasicAuth") as BasicAuthSecuritySchemeConfiguration).token
         ).isEqualTo("Abc123")
+    }
+
+    @Test
+    fun `parse specmatic config v2 with proxy configuration`() {
+        val configYaml = """
+            version: 2
+            contracts: []
+            proxy:
+              port: 9000
+              targetUrl: http://example.com/api
+              consumes:
+              - openapi_spec1.yaml
+              - openapi_spec2.yaml
+        """.trimIndent()
+
+        val config = ObjectMapper(YAMLFactory()).registerKotlinModule().readValue(
+            configYaml,
+            SpecmaticConfigV2::class.java
+        ).transform()
+
+        assertThat(config.getProxyConfig()).isEqualTo(
+            ProxyConfig(
+                port = 9000, targetUrl = "http://example.com/api",
+                consumes = listOf("openapi_spec1.yaml", "openapi_spec2.yaml")
+            )
+        )
     }
 
     @Test

@@ -222,17 +222,18 @@ data class SpecmaticConfig(
     private val pipeline: Pipeline? = null,
     private val environments: Map<String, Environment>? = null,
     private val hooks: Map<String, String> = emptyMap(),
+    private val proxy: ProxyConfig? = null,
     private val repository: RepositoryInfo? = null,
     private val report: ReportConfigurationDetails? = null,
     private val security: SecurityConfiguration? = null,
-    private val test: TestConfiguration? = TestConfiguration(),
-    private val stub: StubConfiguration = StubConfiguration(),
-    private val virtualService: VirtualServiceConfiguration = VirtualServiceConfiguration(),
+    private val test: TestConfiguration? = null,
+    private val stub: StubConfiguration? = null,
+    private val virtualService: VirtualServiceConfiguration? = null,
     private val examples: List<String>? = null,
     private val workflow: WorkflowConfiguration? = null,
     private val ignoreInlineExamples: Boolean? = null,
     private val additionalExampleParamsFilePath: String? = null,
-    private val attributeSelectionPattern: AttributeSelectionPattern = AttributeSelectionPattern(),
+    private val attributeSelectionPattern: AttributeSelectionPattern? = null,
     private val allPatternsMandatory: Boolean? = null,
     private val defaultPatternValues: Map<String, Any> = emptyMap(),
     private val matchBranch: Boolean? = null,
@@ -276,7 +277,7 @@ data class SpecmaticConfig(
 
         @JsonIgnore
         fun getVirtualServiceConfiguration(specmaticConfig: SpecmaticConfig): VirtualServiceConfiguration {
-            return specmaticConfig.virtualService
+            return specmaticConfig.virtualService ?: VirtualServiceConfiguration()
         }
 
         @JsonIgnore
@@ -291,12 +292,32 @@ data class SpecmaticConfig(
 
         @JsonIgnore
         fun getAttributeSelectionPattern(specmaticConfig: SpecmaticConfig): AttributeSelectionPattern {
-            return specmaticConfig.attributeSelectionPattern
+            return specmaticConfig.attributeSelectionPattern ?: AttributeSelectionPattern()
         }
 
         @JsonIgnore
         fun getStubConfiguration(specmaticConfig: SpecmaticConfig): StubConfiguration {
+            return specmaticConfig.stub ?: StubConfiguration()
+        }
+
+        @JsonIgnore
+        fun getTestConfigOrNull(specmaticConfig: SpecmaticConfig): TestConfiguration? {
+            return specmaticConfig.test
+        }
+
+        @JsonIgnore
+        fun getStubConfigOrNull(specmaticConfig: SpecmaticConfig): StubConfiguration? {
             return specmaticConfig.stub
+        }
+
+        @JsonIgnore
+        fun getVirtualServiceConfigOrNull(specmaticConfig: SpecmaticConfig): VirtualServiceConfiguration? {
+            return specmaticConfig.virtualService
+        }
+
+        @JsonIgnore
+        fun getAttributeSelectionConfigOrNull(specmaticConfig: SpecmaticConfig): AttributeSelectionPattern? {
+            return specmaticConfig.attributeSelectionPattern
         }
 
         fun getEnvironments(specmaticConfig: SpecmaticConfig): Map<String, Environment>? {
@@ -306,6 +327,11 @@ data class SpecmaticConfig(
         @JsonIgnore
         fun getHooks(specmaticConfig: SpecmaticConfig): Map<String, String> {
             return specmaticConfig.hooks
+        }
+
+        @JsonIgnore
+        fun getProxyConfig(specmaticConfig: SpecmaticConfig): ProxyConfig? {
+            return specmaticConfig.proxy
         }
     }
 
@@ -360,7 +386,7 @@ data class SpecmaticConfig(
 
     @JsonIgnore
     fun getHotReload(): Switch? {
-        return stub.getHotReload()
+        return getStubConfiguration(this).getHotReload()
     }
 
     @JsonIgnore
@@ -387,7 +413,7 @@ data class SpecmaticConfig(
 
     @JsonIgnore
     fun getAttributeSelectionPattern(): AttributeSelectionPatternDetails {
-        return attributeSelectionPattern
+        return getAttributeSelectionPattern(this)
     }
 
     @JsonIgnore
@@ -422,7 +448,7 @@ data class SpecmaticConfig(
 
     @JsonIgnore
     fun getStubStartTimeoutInMilliseconds(): Long {
-        return stub.getStartTimeoutInMilliseconds() ?: 20_000L
+        return getStubConfiguration(this).getStartTimeoutInMilliseconds() ?: 20_000L
     }
 
     @JsonIgnore
@@ -508,7 +534,7 @@ data class SpecmaticConfig(
 
     @JsonIgnore
     fun attributeSelectionQueryParamKey(): String {
-        return attributeSelectionPattern.getQueryParamKey()
+        return getAttributeSelectionPattern().getQueryParamKey()
     }
 
     @JsonIgnore
@@ -553,9 +579,10 @@ data class SpecmaticConfig(
 
     @JsonIgnore
     fun copyResiliencyTestsConfig(onlyPositive: Boolean): SpecmaticConfig {
+        val testConfig = test ?: TestConfiguration()
         return this.copy(
-            test = test?.copy(
-                resiliencyTests = (test.resiliencyTests ?: ResiliencyTestsConfig.fromSystemProperties()).copy(
+            test = testConfig.copy(
+                resiliencyTests = (testConfig.resiliencyTests ?: ResiliencyTestsConfig.fromSystemProperties()).copy(
                     enable = if (onlyPositive) ResiliencyTestSuite.positiveOnly else ResiliencyTestSuite.all
                 )
             )
@@ -564,27 +591,27 @@ data class SpecmaticConfig(
 
     @JsonIgnore
     fun getStubIncludeMandatoryAndRequestedKeysInResponse(): Boolean {
-        return stub.getIncludeMandatoryAndRequestedKeysInResponse() ?: true
+        return getStubConfiguration(this).getIncludeMandatoryAndRequestedKeysInResponse() ?: true
     }
 
     @JsonIgnore
     fun getStubGenerative(): Boolean {
-        return stub.getGenerative() ?: false
+        return getStubConfiguration(this).getGenerative() ?: false
     }
 
     @JsonIgnore
     fun getStubDelayInMilliseconds(): Long? {
-        return stub.getDelayInMilliseconds()
+        return getStubConfiguration(this).getDelayInMilliseconds()
     }
 
     @JsonIgnore
     fun getStubDictionary(): String? {
-        return stub.getDictionary()
+        return getStubConfiguration(this).getDictionary()
     }
 
     @JsonIgnore
     fun getStubStrictMode(): Boolean? {
-        return stub.getStrictMode()
+        return getStubConfiguration(this).getStrictMode()
     }
 
     @JsonIgnore
@@ -605,6 +632,11 @@ data class SpecmaticConfig(
     @JsonIgnore
     fun getHooks(): Map<String, String> {
         return hooks
+    }
+
+    @JsonIgnore
+    fun getProxyConfig(): ProxyConfig? {
+        return proxy
     }
 
     @JsonIgnore
@@ -679,7 +711,7 @@ data class SpecmaticConfig(
 
     @JsonIgnore
     fun getVirtualServiceNonPatchableKeys(): Set<String> {
-        return virtualService.getNonPatchableKeys()
+        return getVirtualServiceConfiguration(this).getNonPatchableKeys()
     }
 
     @JsonIgnore
@@ -710,14 +742,13 @@ data class SpecmaticConfig(
     }
 
     fun enableResiliencyTests(): SpecmaticConfig {
+        val testConfig = test ?: TestConfiguration()
         return this.copy(
-            test =
-                (test ?: TestConfiguration()).copy(
-                    resiliencyTests =
-                        (test?.resiliencyTests ?: ResiliencyTestsConfig()).copy(
-                            enable = ResiliencyTestSuite.all,
-                        ),
+            test = testConfig.copy(
+                resiliencyTests = (testConfig.resiliencyTests ?: ResiliencyTestsConfig()).copy(
+                    enable = ResiliencyTestSuite.all,
                 ),
+            ),
         )
     }
 
@@ -898,7 +929,6 @@ data class RepositoryInfo(
         return collectionName
     }
 }
-
 
 interface ReportConfiguration {
     fun getSuccessCriteria(): SuccessCriteria

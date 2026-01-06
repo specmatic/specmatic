@@ -349,7 +349,7 @@ Feature: Math API
 
         val stubInfo = loadContractStubs(listOf(Pair("math.$CONTRACT_EXTENSION", feature)), listOf(Pair("sample.json", ScenarioStub(
             HttpRequest(method = "POST", path = "/square", body = StringValue("10")),
-            HttpResponse(status = 200, body = "20")
+            HttpResponse(status = 200, body = StringValue("20"))
         ))))
         assertThat(stubInfo.single().first).isEqualTo(feature)
 
@@ -419,7 +419,7 @@ Feature: Cube API
         val features = listOf(Pair("square.$CONTRACT_EXTENSION", squareFeature), Pair("cube.$CONTRACT_EXTENSION", cubeFeature))
         val rawStubInfo = listOf(Pair("sample.json", ScenarioStub(
             HttpRequest(method = "POST", path = "/square", body = StringValue("10")),
-            HttpResponse(status = 200, body = "20")
+            HttpResponse(status = 200, body = StringValue("20"))
         )))
         val stubInfo = loadContractStubs(features, rawStubInfo)
         assertThat(stubInfo.map { it.first }).contains(squareFeature)

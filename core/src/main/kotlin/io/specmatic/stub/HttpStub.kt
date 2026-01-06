@@ -43,6 +43,7 @@ import io.specmatic.test.LegacyHttpClient
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.TestResultRecord.Companion.STUB_TEST_TYPE
 import io.specmatic.test.TestResultRecord.Companion.getCoverageStatus
+import io.specmatic.test.internalHeadersToKtorHeaders
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.*
 import kotlinx.coroutines.delay
@@ -300,7 +301,7 @@ class HttpStub(
                         else -> {
                             val responseResult = serveStubResponse(
                                 httpRequest,
-                                baseUrl = "${call.request.local.scheme}://${call.request.local.serverHost}:${call.request.local.localPort}",
+                                baseUrl = "${call.request.local.scheme}://${call.request.local.localHost}:${call.request.local.localPort}",
                                 defaultBaseUrl = endPointFromHostAndPort(host, port, keyData),
                                 urlPath = call.request.path()
                             )
@@ -319,9 +320,7 @@ class HttpStub(
 
                     // Store encoded response for later logging if different
                     transformedResponse =
-                        if (httpResponse != httpStubResponse.response) httpResponse.adjustPayloadForContentType(
-                            httpRequest.headers
-                        ) else null
+                        if (httpResponse != httpStubResponse.response) httpResponse.adjustPayloadForContentType() else null
 
                     if (httpRequest.path!!.startsWith("""/features/default""")) {
                         handleSse(httpRequest, this@HttpStub, this)
@@ -1068,9 +1067,12 @@ suspend fun respondToKtorHttpResponse(
     delayInMilliSeconds: Long? = null,
     specmaticConfig: SpecmaticConfig? = null
 ) {
-    val headersControlledByEngine = listOfExcludedHeaders().map { it.lowercase() }
-    for ((name, value) in httpResponse.headers.filterNot { it.key.lowercase() in headersControlledByEngine }) {
-        call.response.headers.append(name, value)
+    val headersControlledByEngine = listOfExcludedHeaders().mapTo(hashSetOf()) { it.lowercase() }
+    val headers = internalHeadersToKtorHeaders(httpResponse.headers.filterNot { it.key.lowercase() in headersControlledByEngine })
+    headers.forEach { (key, values) ->
+        values.forEach { value ->
+            call.response.headers.append(key, value)
+        }
     }
 
     val delayInMs = delayInMilliSeconds ?: specmaticConfig?.getStubDelayInMilliseconds()
@@ -1078,7 +1080,7 @@ suspend fun respondToKtorHttpResponse(
         delay(delayInMs)
     }
 
-    val contentType = httpResponse.headers["Content-Type"] ?: httpResponse.body.httpContentType
+    val contentType = httpResponse.contentType() ?: httpResponse.body.httpContentType
     val responseBody = httpResponse.body.toStringLiteral()
     val status = HttpStatusCode.fromValue(httpResponse.status)
 
@@ -1119,7 +1121,7 @@ fun getHttpResponse(
                 stubResult = Result.Success()
             )
         }
-        if (strictMode) return strictModeHttp400Response(features, httpRequest, matchResults)
+        if (strictMode) return strictModeHttp400Response(features, httpRequest, matchResults, specmaticConfig.getStubGenerative())
         return fakeHttpResponse(features, httpRequest, specmaticConfig)
     } finally {
         features.forEach { feature -> feature.clearServerState() }
@@ -1222,13 +1224,12 @@ fun fakeHttpResponse(
             }.map { it.scenario!! }.firstOrNull()
 
             if (firstScenarioWith400Response != null && specmaticConfig.getStubGenerative()) {
-                val httpResponse = (firstScenarioWith400Response as Scenario).generateHttpResponse(emptyMap())
-                val updatedResponse: HttpResponse =
-                    dumpIntoFirstAvailableStringField(httpResponse, combinedFailureResult.report())
+                val scenario = firstScenarioWith400Response as Scenario
+                val errorResponse = scenario.responseWithStubError(combinedFailureResult.report())
 
                 FoundStubbedResponse(
                     HttpStubResponse(
-                        updatedResponse,
+                        errorResponse,
                         contractPath = "",
                         feature = fakeResponse?.feature,
                         scenario = fakeResponse?.successResponse?.scenario
@@ -1272,7 +1273,7 @@ fun generateHttpResponseFrom(
     return fakeResponse.successResponse?.build(RequestContext(httpRequest))?.withRandomResultHeader()!!.let {
         if (withoutSpecmaticTypeHeader) it.withoutSpecmaticTypeHeader()
         else it
-    }.adjustPayloadForContentType(httpRequest.headers)
+    }.adjustPayloadForContentType()
 }
 
 fun dumpIntoFirstAvailableStringField(httpResponse: HttpResponse, stringValue: String): HttpResponse {
@@ -1350,27 +1351,57 @@ fun dumpIntoFirstAvailableStringField(jsonArrayValue: JSONArrayValue, stringValu
     return jsonArrayValue.copy(list = newList)
 }
 
-private fun strictModeHttp400Response(features: List<Feature>, httpRequest: HttpRequest, matchResults: List<Pair<Result, HttpStubData>>): NotStubbed {
+private fun strictModeHttp400Response(
+    features: List<Feature>,
+    httpRequest: HttpRequest,
+    matchResults: List<Pair<Result, HttpStubData>>,
+    generative: Boolean
+): NotStubbed {
     val failureResults = matchResults.map { it.first }
     val results = Results(failureResults).withoutFluff().withoutViolationReport()
     val strictModeReport = results.strictModeReport(httpRequest)
 
-    val defaultHeaders = mapOf("Content-Type" to "text/plain", SPECMATIC_RESULT_HEADER to "failure")
-    val headers = when {
-        strictModeReport.isEmpty() -> defaultHeaders.plus(SPECMATIC_EMPTY_HEADER to "true")
-        else -> defaultHeaders
+    val nonFluffyMismatches = matchResults.filter { !it.first.isFluffy() }
+    val failedFeatures = nonFluffyMismatches.map { it.second }.distinct()
+
+    val requestDetailsInExampleScenario = nonFluffyMismatches.firstNotNullOfOrNull { (_, stub) -> stub.scenario?.let { it.getRequestDetails() } }
+
+    val errorStatuses = listOf(400, 422)
+
+    val firstScenarioWith400Response = features.firstNotNullOfOrNull {
+        it.scenarios.find {
+            it.getRequestDetails() == requestDetailsInExampleScenario && it.status in errorStatuses
+        }
     }
+
+    if (firstScenarioWith400Response == null) {
+        val defaultHeaders = mapOf("Content-Type" to "text/plain", SPECMATIC_RESULT_HEADER to "failure")
+        val headers = when {
+            strictModeReport.isEmpty() -> defaultHeaders.plus(SPECMATIC_EMPTY_HEADER to "true")
+            else -> defaultHeaders
+        }
+
+        return NotStubbed(
+            stubResult = results.toResultIfAnyWithCauses(),
+            response = HttpStubResponse(
+                scenario = features.firstNotNullOfOrNull { it.identifierMatchingScenario(httpRequest) },
+                response = HttpResponse(
+                    status = 400, headers = headers,
+                    body = StringValue("STRICT MODE ON${System.lineSeparator()}${System.lineSeparator()}$strictModeReport")
+                ),
+            ),
+        )
+    }
+
+    val httpResponse = firstScenarioWith400Response.responseWithStubError(strictModeReport)
 
     return NotStubbed(
         stubResult = results.toResultIfAnyWithCauses(),
         response = HttpStubResponse(
             scenario = features.firstNotNullOfOrNull { it.identifierMatchingScenario(httpRequest) },
-            response = HttpResponse(
-                status = 400, headers = headers,
-                body = StringValue("STRICT MODE ON${System.lineSeparator()}${System.lineSeparator()}$strictModeReport")
+            response = httpResponse
             ),
-        ),
-    )
+        )
 }
 
 fun stubResponse(

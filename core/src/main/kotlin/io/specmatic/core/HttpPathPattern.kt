@@ -6,7 +6,6 @@ import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.StringValue
-import io.specmatic.test.ExampleProcessor
 import java.net.URI
 
 val OMIT = listOf("(OMIT)", "(omit)")
@@ -28,10 +27,18 @@ data class HttpPathPattern(
         if (this.matches(URI.create(otherHttpPathPattern.path), resolver = thisResolver) is Success)
             return Success()
 
+        if (this.pathSegmentPatterns.size != otherHttpPathPattern.pathSegmentPatterns.size) {
+            return Failure(
+                "Path segment count mismatch: Expected ${this.path} (having ${this.pathSegmentPatterns.size} path segments) to have the same number of segments as ${otherHttpPathPattern.path} (which has ${otherHttpPathPattern.pathSegmentPatterns.size} path segments).",
+                breadCrumb = BreadCrumb.PATH.value,
+                failureReason = FailureReason.URLPathMisMatch,
+            )
+        }
+
         val mismatchedPartResults =
             this.pathSegmentPatterns.zip(otherHttpPathPattern.pathSegmentPatterns)
                 .map { (thisPathItem, otherPathItem) ->
-                    thisPathItem.pattern.encompasses(otherPathItem, thisResolver, otherResolver)
+                    thisPathItem.encompasses(otherPathItem, thisResolver, otherResolver)
                 }
 
         val failures = mismatchedPartResults.filterIsInstance<Failure>()
@@ -427,8 +434,8 @@ internal fun pathToPattern(rawPath: String): List<URLPathSegmentPattern> =
                 }
 
                 val (name, type) = pieces
-
-                URLPathSegmentPattern(DeferredPattern(withPatternDelimiters(type)), name)
+                val pattern = builtInPatterns[withPatternDelimiters(type)] ?: DeferredPattern(withPatternDelimiters(type))
+                URLPathSegmentPattern(pattern, name)
             }
 
             isMatcherToken(part) -> URLPathSegmentPattern(parsedPattern(part))
