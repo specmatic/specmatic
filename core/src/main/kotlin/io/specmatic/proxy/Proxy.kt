@@ -34,35 +34,12 @@ import java.io.File
 import java.net.URI
 import java.net.URL
 import java.util.*
-import javax.activation.MimeType
 
 fun interface RequestObserver {
     fun onRequestHandled(
         httpRequest: HttpRequest,
         httpResponse: HttpResponse,
     )
-}
-
-data class ProxyOperation(val pathPattern: HttpPathPattern, val method: String, val requestContentType: String? = null, val resolver: Resolver = Resolver()) {
-    fun matches(request: HttpRequest): Boolean {
-        val requestPath = request.path.orEmpty()
-        val requestMethod = request.method.orEmpty()
-        val requestContentType = request.getHeader(CONTENT_TYPE)
-        return matches(requestPath, requestMethod, requestContentType)
-    }
-
-    fun matches(path: String, method: String, requestContentType: String?): Boolean {
-        val pathMatches = pathPattern.matches(path, Resolver()).isSuccess()
-        val methodMatches = this.method.equals(method, ignoreCase = true)
-        val contentTypeMatches = matchContentTypeIfPresent(requestContentType)
-        return pathMatches && methodMatches && contentTypeMatches
-    }
-
-    private fun matchContentTypeIfPresent(expectedContentType: String?): Boolean {
-        if (requestContentType == null) return true
-        if (expectedContentType == null) return false
-        return MimeType(requestContentType).match(MimeType(expectedContentType))
-    }
 }
 
 class Proxy(
@@ -106,7 +83,7 @@ class Proxy(
 
     private val requestInterceptors: MutableList<RequestInterceptor> = mutableListOf()
     private val responseInterceptors: MutableList<ResponseInterceptor> = mutableListOf()
-    private val proxyEvents: MutableList<ProxyEvent> = mutableListOf()
+    private val proxyRequestHandlers: MutableList<ProxyRequestHandler> = mutableListOf()
     private val recordMutex = Mutex()
     private val exampleTransformer = ExampleTransformer.from(
         transformations = mapOf(
@@ -127,10 +104,14 @@ class Proxy(
         }
     }
 
-    fun register(proxyEvent: ProxyEvent) {
-        if (proxyEvent !in proxyEvents) {
-            proxyEvents.add(proxyEvent)
+    fun register(proxyRequestHandler: ProxyRequestHandler) {
+        if (proxyRequestHandler !in proxyRequestHandlers) {
+            proxyRequestHandlers.add(proxyRequestHandler)
         }
+    }
+
+    fun unregister(proxyRequestHandler: ProxyRequestHandler) {
+        proxyRequestHandlers.remove(proxyRequestHandler)
     }
 
     private val loadedSpecmaticConfig = specmaticConfigSource.load()
@@ -202,7 +183,7 @@ class Proxy(
                                         logger.log(InterceptorErrors(requestInterceptorErrors).toString().prependIndent("  "))
                                     }
 
-                                    val eventResponse = proxyEvents.firstNotNullOfOrNull { it.onRequest(recordedRequest) }
+                                    val eventResponse = proxyRequestHandlers.firstNotNullOfOrNull { it.onRequest(recordedRequest) }
                                     if (eventResponse != null) {
                                         val httpResponse =
                                             withoutContentEncodingGzip(eventResponse)
