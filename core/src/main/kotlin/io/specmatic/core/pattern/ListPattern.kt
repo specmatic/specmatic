@@ -245,6 +245,11 @@ data class ListPattern(
         return null
     }
 
+    override fun ensureAdditionalProperties(resolver: Resolver): ListPattern {
+        if (this.pattern !is PossibleJsonObjectPatternContainer) return this
+        return this.copy(pattern = pattern.ensureAdditionalProperties(resolver))
+    }
+
     fun calculatePath(value: Value, resolver: Resolver): Set<String> {
         if (value !is JSONArrayValue) return emptySet()
         

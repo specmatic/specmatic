@@ -1,5 +1,6 @@
 package io.specmatic.conversions
 
+import io.specmatic.conversions.lenient.CollectorContext
 import io.specmatic.core.*
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.StringValue
@@ -135,20 +136,14 @@ data class BasicAuthSecurityScheme(private val token: String? = null) : OpenAPIS
         return AUTHORIZATION
     }
 
-    override fun warnIfExistsInParameters(parameters: List<Parameter>, method: String, path: String) {
-        val matchingHeaders = parameters.filterIsInstance<HeaderParameter>().filter {
-            it.name.equals(AUTHORIZATION, ignoreCase = true)
-        }
-
-        if(matchingHeaders.isNotEmpty()) {
-            printWarningsForOverriddenSecurityParameters(
-                matchingParameters = matchingHeaders,
-                securitySchemeDescription = "Basic Auth",
-                httpParameterType = "header",
-                method = method,
-                path = path
-            )
-
+    override fun collectErrorIfExistsInParameters(parameter: List<IndexedValue<Parameter>>, collectorContext: CollectorContext) {
+        parameter.filter { indexedValue -> indexedValue.value is HeaderParameter }.forEach { (index, value) ->
+            val paramContext = collectorContext.at("parameters").at(index)
+            paramContext.check(name = "name", value = value, isValid = { !it.name.equals(AUTHORIZATION, ignoreCase = true) })
+                .violation { OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED }
+                .message { "Found header parameter with same name as Basic Auth security scheme" }
+                .orUse { value }
+                .build(isWarning = true)
         }
     }
 }

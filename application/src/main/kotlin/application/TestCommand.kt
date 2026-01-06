@@ -16,6 +16,7 @@ import io.specmatic.core.utilities.Flags.Companion.TEST_STRICT_MODE
 import io.specmatic.core.utilities.Flags.Companion.getStringValue
 import io.specmatic.core.utilities.exitWithMessage
 import io.specmatic.core.loadSpecmaticConfigOrNull
+import io.specmatic.core.utilities.Flags.Companion.TEST_LENIENT_MODE
 import io.specmatic.core.utilities.newXMLBuilder
 import io.specmatic.core.utilities.xmlToString
 import io.specmatic.license.core.cli.Category
@@ -146,6 +147,9 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     )
     var useCurrentBranchForCentralRepo: Boolean = false
 
+    @Option(names = ["--lenient"], description = ["Parse the OpenAPI Specification with leniency"], required = false)
+    var lenientMode: Boolean = false
+
     override fun call() = try {
         setParallelism()
 
@@ -183,6 +187,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         System.setProperty(FILTER, filter)
         System.setProperty(OVERLAY_FILE_PATH, overlayFilePath.orEmpty())
         System.setProperty(TEST_STRICT_MODE, strictMode.toString())
+        System.setProperty(TEST_LENIENT_MODE, lenientMode.toString())
 
         val configMatchBranch = loadSpecmaticConfigOrNull(Configuration.configFilePath)?.getMatchBranch() ?: false
         val matchBranchEnabled = useCurrentBranchForCentralRepo || Flags.getBooleanValue(MATCH_BRANCH, false) || configMatchBranch

@@ -12,6 +12,7 @@ import io.specmatic.core.pattern.AnyNonNullJSONValue
 import io.specmatic.core.pattern.AnyOfPattern
 import io.specmatic.core.pattern.AnyPattern
 import io.specmatic.core.pattern.BooleanPattern
+import io.specmatic.core.pattern.DeferredPattern
 import io.specmatic.core.pattern.EmailPattern
 import io.specmatic.core.pattern.EnumPattern
 import io.specmatic.core.pattern.ExactValuePattern
@@ -152,8 +153,8 @@ class OpenApi31Test {
         assertThat(oneOfRequestBody).isEqualTo(oneOfResponseBody)
         assertThat(oneOfRequestBody).isInstanceOf(AnyPattern::class.java); oneOfRequestBody as AnyPattern
         assertThat(oneOfRequestBody.pattern).hasSize(3)
-        assertThat(oneOfRequestBody.pattern.map { it::class.java })
-            .containsExactlyInAnyOrder(StringPattern::class.java, NumberPattern::class.java, JSONObjectPattern::class.java)
+        assertThat(oneOfRequestBody.pattern.map { it::class.java }).containsExactlyInAnyOrder(DeferredPattern::class.java, NumberPattern::class.java, JSONObjectPattern::class.java)
+        assertThat(resolvedHop(oneOfRequestBody.pattern.first { it is DeferredPattern }, oneOfScenario.resolver)).isInstanceOf(StringPattern::class.java)
 
         val oneOfObjectComponent = oneOfRequestBody.pattern.filterIsInstance<JSONObjectPattern>().first()
         assertThat(oneOfObjectComponent.pattern).containsKey("id?")

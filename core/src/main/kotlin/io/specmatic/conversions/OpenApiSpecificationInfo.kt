@@ -16,7 +16,7 @@ fun openApiSpecificationInfo(openApiFilePath: String, parsedOpenApi: OpenAPI): S
     }
 
     parsedOpenApi.components?.let {
-        info.append("  Schema components: ${it.schemas?.size}, Security Schemes: ${it.securitySchemes?.values?.map { securityScheme -> securityScheme.type.toString() } ?: "none"}\n")
+        info.append("  Schema components: ${it.schemas?.size}, Security Schemes: ${it.securitySchemes?.values?.mapNotNull { securityScheme -> securityScheme.type?.toString() } ?: "none"}\n")
     }
 
     return info.toString()

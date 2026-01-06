@@ -1,8 +1,9 @@
 package integration_tests
 
+import io.specmatic.conversions.OpenApiLintViolations
 import io.specmatic.conversions.OpenApiSpecification
-import io.specmatic.conversions.createWarningForRefAndSchemaSiblings
 import io.specmatic.stub.captureStandardOutput
+import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -66,7 +67,13 @@ class WarningsForRefWithSiblings {
             OpenApiSpecification.fromYAML(spec, "").toFeature()
         }
 
-        assertThat(stdout).contains("Address.building")
+        assertThat(stdout).containsIgnoringWhitespaces(
+            toViolationReportString(
+                breadCrumb = "components.schemas.Address.properties.building",
+                details = "Schema has both \$ref (#/components/schemas/BuildingDetails) and a type object defined, ignoring other properties",
+                OpenApiLintViolations.REF_HAS_SIBLINGS
+            )
+        )
     }
 
     @Test
@@ -131,7 +138,13 @@ class WarningsForRefWithSiblings {
             OpenApiSpecification.fromYAML(spec, "").toFeature()
         }
 
-        assertThat(stdout).contains("Address.building.details")
+        assertThat(stdout).containsIgnoringWhitespaces(
+            toViolationReportString(
+                breadCrumb = "components.schemas.Address.properties.building.properties.details",
+                details = "Schema has both \$ref (#/components/schemas/BuildingDetails) and a type object defined, ignoring other properties",
+                OpenApiLintViolations.REF_HAS_SIBLINGS
+            )
+        )
     }
 
     @Test
@@ -186,7 +199,13 @@ class WarningsForRefWithSiblings {
             OpenApiSpecification.fromYAML(spec, "").toFeature()
         }
 
-        assertThat(stdout).contains("Employee.phoneNumbers[]")
+        assertThat(stdout).containsIgnoringWhitespaces(
+            toViolationReportString(
+                breadCrumb = "components.schemas.Employee.properties.phoneNumbers.items",
+                details = "Schema has both \$ref (#/components/schemas/PhoneNumber) and a type object defined, ignoring other properties",
+                OpenApiLintViolations.REF_HAS_SIBLINGS
+            )
+        )
     }
 
     @Test
@@ -244,7 +263,13 @@ class WarningsForRefWithSiblings {
             OpenApiSpecification.fromYAML(spec, "").toFeature()
         }
 
-        assertThat(stdout).contains("GET /test -> 200 (application/json).RESPONSE.BODY.address.building")
+        assertThat(stdout).containsIgnoringWhitespaces(
+            toViolationReportString(
+                breadCrumb = "paths./test.get.responses.200.content.application/json.schema.properties.address.properties.building",
+                details = "Schema has both \$ref (#/components/schemas/BuildingDetails) and a type object defined, ignoring other properties",
+                OpenApiLintViolations.REF_HAS_SIBLINGS
+            )
+        )
     }
 
     @Test
@@ -310,7 +335,13 @@ class WarningsForRefWithSiblings {
             OpenApiSpecification.fromYAML(spec, "").toFeature()
         }
 
-        assertThat(stdout).contains("POST /test (application/json).REQUEST.BODY.address.building")
+        assertThat(stdout).containsIgnoringWhitespaces(
+            toViolationReportString(
+                breadCrumb = "paths./test.post.requestBody.content.application/json.schema.properties.address.properties.building",
+                details = "Schema has both \$ref (#/components/schemas/BuildingDetails) and a type object defined, ignoring other properties",
+                OpenApiLintViolations.REF_HAS_SIBLINGS
+            )
+        )
     }
 
     @Test
@@ -357,7 +388,13 @@ class WarningsForRefWithSiblings {
             OpenApiSpecification.fromYAML(spec, "").toFeature()
         }
 
-        assertThat(stdout).contains("GET /test.REQUEST.PARAMETERS.QUERY.cityType")
+        assertThat(stdout).containsIgnoringWhitespaces(
+            toViolationReportString(
+                breadCrumb = "paths./test.get.parameters[0].schema",
+                details = "Schema has both \$ref (#/components/schemas/CityType) and a type string defined, ignoring other properties",
+                OpenApiLintViolations.REF_HAS_SIBLINGS
+            )
+        )
     }
 
     @Test
@@ -404,7 +441,13 @@ class WarningsForRefWithSiblings {
             OpenApiSpecification.fromYAML(spec, "").toFeature()
         }
 
-        assertThat(stdout).contains("GET /test/{cityType}.REQUEST.PARAMETERS.PATH.cityType")
+        assertThat(stdout).containsIgnoringWhitespaces(
+            toViolationReportString(
+                breadCrumb = "paths./test/{cityType}.get.parameters[0].schema",
+                details = "Schema has both \$ref (#/components/schemas/CityType) and a type string defined, ignoring other properties",
+                OpenApiLintViolations.REF_HAS_SIBLINGS
+            )
+        )
     }
 
     @Test
@@ -451,7 +494,13 @@ class WarningsForRefWithSiblings {
             OpenApiSpecification.fromYAML(spec, "").toFeature()
         }
 
-        assertThat(stdout).contains("GET /test.REQUEST.PARAMETERS.HEADER.cityType")
+        assertThat(stdout).containsIgnoringWhitespaces(
+            toViolationReportString(
+                breadCrumb = "paths./test.get.parameters[0]",
+                details = "Schema has both \$ref (#/components/schemas/CityType) and a type string defined, ignoring other properties",
+                OpenApiLintViolations.REF_HAS_SIBLINGS
+            )
+        )
     }
 
     @Test
@@ -495,15 +544,12 @@ class WarningsForRefWithSiblings {
             OpenApiSpecification.fromYAML(spec, "").toFeature()
         }
 
-        assertThat(stdout).contains("GET /test -> 200.RESPONSE.HEADER.X-Unique-ID")
-    }
-
-    @Test
-    fun `warning message should be correctly constructed`() {
-        val expectedWarningString =
-            "WARNING: Schema at some location has both \$ref (ref/to/schema) and a type object defined. As per the OpenAPI specification format (https://spec.openapis.org/oas/v3.0.4.html#fixed-fields-19), when both are present, only \$ref will be used when generating tests, mock responses, etc, and the neighboring type will be ignored. To resolve this, remove either the ref/to/schema or the object type."
-
-        val warning = createWarningForRefAndSchemaSiblings("some location", "ref/to/schema", "object")
-        assertThat(warning.toLogString()).isEqualTo(expectedWarningString)
+        assertThat(stdout).containsIgnoringWhitespaces(
+            toViolationReportString(
+                breadCrumb = "paths./test.get.responses.200.headers.X-Unique-ID.schema",
+                details = "Schema has both \$ref (#/components/schemas/UniqueIDType) and a type string defined, ignoring other properties",
+                OpenApiLintViolations.REF_HAS_SIBLINGS
+            )
+        )
     }
 }

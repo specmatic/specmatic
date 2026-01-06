@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import io.specmatic.stub.captureStandardOutput
+import io.specmatic.toViolationReportString
 
 class OpenApiSpecificationInfoTest {
     @Test
@@ -175,15 +176,13 @@ class OpenApiSpecificationInfoTest {
 
         val (output, _) = captureStandardOutput { OpenApiSpecification.fromYAML(spec, "").toFeature()  }
 
-        val warningMsg = warningsForOverriddenSecurityParameters(
-            matchingParameters = "Authorization",
-            securitySchemeDescription = "Bearer Authorization",
-            httpParameterType = "header",
-            method= "GET",
-            path = "/greet"
-        ).toLogString()
-
-        assertThat(output).contains(warningMsg)
+        assertThat(output).containsIgnoringWhitespaces(
+            toViolationReportString(
+                breadCrumb = "paths./greet.get.parameters[0].name",
+                details = "Found header parameter with same name as Bearer Authorization security scheme",
+                OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
+            )
+        )
     }
 
     @Test
@@ -228,35 +227,12 @@ class OpenApiSpecificationInfoTest {
         """.trimIndent()
 
         val (output, _) = captureStandardOutput { OpenApiSpecification.fromYAML(spec, "").toFeature()  }
-        val warningMsg = warningsForOverriddenSecurityParameters(
-            matchingParameters = "Authorization",
-            securitySchemeDescription = "Bearer Authorization",
-            httpParameterType = "header",
-            method= "GET",
-            path = "/greet"
-        ).toLogString()
-
-        assertThat(output).contains(warningMsg)
-    }
-
-    @Test
-    fun `should generate correct warning message for overridden security parameters`() {
-        val matchingParameters = "Authorization"
-        val securitySchemeDescription = "BearerAuth"
-        val httpParameterType = "header"
-        val method = "GET"
-        val path = "/greet"
-
-        val warning = warningsForOverriddenSecurityParameters(
-            matchingParameters = matchingParameters,
-            securitySchemeDescription = securitySchemeDescription,
-            httpParameterType = httpParameterType,
-            method = method,
-            path = path
+        assertThat(output).containsIgnoringWhitespaces(
+            toViolationReportString(
+                breadCrumb = "paths./greet.get.parameters[0].name",
+                details = "Found header parameter with same name as Bearer Authorization security scheme",
+                OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
+            )
         )
-
-        val logString = warning.toLogString()
-
-        assertThat(logString).isEqualTo("WARNING: Security scheme BearerAuth is defined in the OpenAPI specification, but conflicting header parameter(s) Authorization have been defined in the GET operation for path '/greet'. This may lead to confusion or conflicts. Consider removing the conflicting header parameter(s) or updating the security scheme definition to avoid conflicts.")
     }
 }

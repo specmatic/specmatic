@@ -7,13 +7,19 @@ import io.specmatic.core.pattern.listFold
 
 sealed interface PathSegment {
     val parsedPath: String
+    val jsonPointerRepresentation: String
+    val internalPointerRepresentation: String
 
     data class Key(val key: String, override val parsedPath: String) : PathSegment {
         override fun toString(): String = key
+        override val jsonPointerRepresentation: String = key
+        override val internalPointerRepresentation: String = key
     }
 
     data class Index(val index: Int, override val parsedPath: String) : PathSegment {
         override fun toString(): String = index.toString()
+        override val jsonPointerRepresentation: String = index.toString()
+        override val internalPointerRepresentation: String = "[$index]"
     }
 
     companion object {
