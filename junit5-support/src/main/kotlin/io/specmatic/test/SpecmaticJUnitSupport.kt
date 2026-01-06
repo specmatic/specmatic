@@ -203,8 +203,8 @@ open class SpecmaticJUnitSupport {
             }.flatMap { (_, groupedEndpoints) ->
                 groupedEndpoints.map {
                     CtrfSpecConfig(
-                        serviceType = it.serviceType.orEmpty(),
-                        specType = "OPENAPI",
+                        protocol = it.serviceType.orEmpty(),
+                        specType = "openapi",
                         specification = it.specification.orEmpty(),
                         sourceProvider = it.sourceProvider,
                         repository = it.sourceRepository,
