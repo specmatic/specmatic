@@ -13,6 +13,7 @@ import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_PRETTY_PRINT
 import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
 import io.specmatic.core.utilities.URIUtils
+import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.FuzzyExampleJsonValidator
 import io.specmatic.mock.getJSONObjectValueOrNull
 import io.specmatic.mock.getObjectListOrNull
@@ -127,6 +128,25 @@ data class HttpRequest(
     fun updateMethod(name: String): HttpRequest = copy(method = name.uppercase())
 
     fun updateHeader(key: String, value: String): HttpRequest = copy(headers = headers.plus(key to value))
+
+    val protocol: SpecmaticProtocol
+        get() {
+            val isSOAP =
+                hasHeader("SOAPAction") ||
+                    contentType()
+                        .orEmpty()
+                        .let {
+                            try {
+                                ContentType.parse(it).contentSubtype.endsWith("soap+xml")
+                            } catch (_: Exception) {
+                                false
+                            }
+                        }
+            return when {
+                isSOAP -> SpecmaticProtocol.SOAP
+                else -> SpecmaticProtocol.HTTP
+            }
+        }
 
     val bodyString: String
         get() = body.toString()

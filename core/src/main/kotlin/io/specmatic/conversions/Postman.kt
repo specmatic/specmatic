@@ -31,9 +31,12 @@ fun postmanCollectionToGherkin(postmanContent: String): List<ImportedPostmanCont
         val collection = PostmanCollection(postmanCollection.name, stubInfo)
         val gherkinString = toGherkinFeature(collection)
 
+        val protocolsInUse = stubInfo.map { (_, namedStub) -> namedStub.protocol }
+
         LicenseResolver.utilize(
             product = LicensedProduct.OPEN_SOURCE,
             feature = TrackingFeature.IMPORT_FROM_POSTMAN,
+            protocol = protocolsInUse,
         )
         ImportedPostmanContracts(collection.name, gherkinString, baseURLInfo, postmanCollection.stubs.map { it.second })
     }

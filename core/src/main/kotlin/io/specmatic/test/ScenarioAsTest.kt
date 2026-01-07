@@ -15,6 +15,7 @@ import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.Value
+import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
 import io.specmatic.test.handlers.ResponseHandler
 import io.specmatic.test.handlers.ResponseHandlerRegistry
@@ -34,15 +35,16 @@ data class ScenarioAsTest(
     private val validators: List<ResponseValidator> = emptyList(),
     private val originalScenario: Scenario,
     private val workflow: Workflow = Workflow(),
-    private val responseHandlerRegistry: ResponseHandlerRegistry = ResponseHandlerRegistry(feature, originalScenario)
+    private val responseHandlerRegistry: ResponseHandlerRegistry = ResponseHandlerRegistry(feature, originalScenario),
 ) : ContractTest {
-
     companion object {
         private var id: Value? = null
     }
 
     private var startTime: Instant? = null
     private var endTime: Instant? = null
+
+    override val protocol: SpecmaticProtocol? = feature.protocol
 
     override fun toScenarioMetadata() = scenario.toScenarioMetadata()
 

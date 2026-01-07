@@ -19,6 +19,7 @@ import io.mockk.verify
 import io.specmatic.core.jsonoperator.value.ObjectValueOperator
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.value.*
+import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.MOCK_HTTP_REQUEST
 import java.util.stream.Stream
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -676,6 +677,49 @@ internal class HttpRequestTest {
 
             val request = requestFromJSON(rawRequestJson.jsonObject)
             assertThat(request.body).isInstanceOf(StringValue::class.java)
+        }
+    }
+
+    // SOAPAction header exists
+    // Content-Type = application/soap+xml; action=SOAPActionName -- double check
+    // Any other content type
+    // no content type
+
+    @Nested
+    inner class ProtocolDetectionTests {
+        @Test
+        fun `should return the SOAP protocol for SOAP 1_1`() {
+            val httpRequest =
+                HttpRequest(
+                    "POST",
+                    "/soap-service",
+                    headers = mapOf("Content-Type" to "text/xml", "SOAPAction" to "SomeAction"),
+                )
+            assertThat(httpRequest.protocol).isEqualTo(SpecmaticProtocol.SOAP)
+        }
+
+        @Test
+        fun `should return the SOAP protocol for for SOAP 1_2`() {
+            val httpRequest =
+                HttpRequest("POST", "/soap-service", headers = mapOf("Content-Type" to "application/soap+xml"))
+            assertThat(httpRequest.protocol).isEqualTo(SpecmaticProtocol.SOAP)
+
+            val httpRequest2 =
+                HttpRequest("POST", "/soap-service", headers = mapOf("Content-Type" to "application/soap+xml; action=SomeSOAPAction"))
+            assertThat(httpRequest2.protocol).isEqualTo(SpecmaticProtocol.SOAP)
+        }
+
+        @Test
+        fun `should return the HTTP protocol for any non-soap content-type`() {
+            val httpRequest =
+                HttpRequest("POST", "/rest-service", headers = mapOf("Content-Type" to "application/json"))
+            assertThat(httpRequest.protocol).isEqualTo(SpecmaticProtocol.HTTP)
+        }
+
+        @Test
+        fun `should return the HTTP protocol for a missing content-type`() {
+            val httpRequest = HttpRequest("POST", "/rest-service", headers = emptyMap())
+            assertThat(httpRequest.protocol).isEqualTo(SpecmaticProtocol.HTTP)
         }
     }
 }

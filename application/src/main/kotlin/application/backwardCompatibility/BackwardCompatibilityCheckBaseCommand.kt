@@ -1,5 +1,6 @@
 package application.backwardCompatibility
 
+import io.specmatic.core.Feature
 import io.specmatic.core.IFeature
 import io.specmatic.core.Results
 import io.specmatic.core.git.GitCommand
@@ -264,6 +265,7 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
                     LicenseResolver.utilize(
                         product = LicensedProduct.OPEN_SOURCE,
                         feature = TrackingFeature.BACKWARD_COMPATIBILITY_CHECK,
+                        protocol = listOfNotNull((older as? Feature)?.protocol)
                     )
 
                     return@mapNotNull ProcessedSpec(
