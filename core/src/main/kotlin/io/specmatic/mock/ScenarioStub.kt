@@ -40,6 +40,8 @@ data class ScenarioStub(
         if (strictMode && !validationErrors.isSuccess()) validationErrors.throwOnFailure()
     }
 
+    val protocol = request.protocol
+
     fun requestMethod() = request.method ?: partial?.request?.method
 
     fun requestPath() = request.path ?: partial?.request?.path

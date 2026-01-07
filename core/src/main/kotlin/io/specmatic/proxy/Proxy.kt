@@ -151,6 +151,7 @@ class Proxy(
                                     LicenseResolver.utilize(
                                         product = LicensedProduct.OPEN_SOURCE,
                                         feature = TrackingFeature.PROXY,
+                                        protocol = listOf(httpRequest.protocol)
                                     )
 
                                     if (filter != "" && filterHttpRequest(httpRequest, filter)) {

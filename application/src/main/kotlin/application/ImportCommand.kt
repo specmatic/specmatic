@@ -15,6 +15,7 @@ import io.specmatic.core.value.toXMLNode
 import io.specmatic.core.wsdl.parser.WSDL
 import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.LicensedProduct
+import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.license.core.cli.Category
 import io.specmatic.mock.mockFromJSON
 import io.swagger.v3.core.util.Yaml
@@ -66,6 +67,7 @@ fun convertStub(path: String, userSpecifiedOutFile: String?) {
     LicenseResolver.utilize(
         product = LicensedProduct.OPEN_SOURCE,
         feature = TrackingFeature.IMPORT_FROM_STUB,
+        protocol = listOfNotNull(stub.protocol)
     )
 
     writeOut(openApiYAML, outFile)
@@ -107,6 +109,7 @@ fun convertWSDL(path: String, userSpecifiedOutFile: String?) {
     LicenseResolver.utilize(
         product = LicensedProduct.OPEN_SOURCE,
         feature = TrackingFeature.IMPORT_FROM_WSDL,
+        protocol = listOf(SpecmaticProtocol.SOAP)
     )
 
     writeOut(contract, outFile)

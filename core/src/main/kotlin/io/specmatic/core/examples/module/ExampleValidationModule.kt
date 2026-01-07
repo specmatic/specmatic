@@ -97,6 +97,7 @@ class ExampleValidationModule {
         LicenseResolver.utilize(
             product = LicensedProduct.OPEN_SOURCE,
             feature = TrackingFeature.EXAMPLE_VALIDATION,
+            protocol = listOfNotNull(feature.protocol),
         )
 
         return ExampleFromFile.fromFile(exampleFile, strictMode = false).realise(

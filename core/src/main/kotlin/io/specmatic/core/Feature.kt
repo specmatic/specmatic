@@ -23,6 +23,7 @@ import io.specmatic.core.pattern.Examples.Companion.examplesFrom
 import io.specmatic.core.utilities.*
 import io.specmatic.core.value.*
 import io.specmatic.core.Result.Success
+import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.NamedExampleMismatchMessages
@@ -141,6 +142,13 @@ data class Feature(
     val strictMode: Boolean = false,
     val exampleStore: ExampleStore = ExampleStore.empty()
 ): IFeature {
+    val protocol: SpecmaticProtocol? =
+        when (File(path).extension.lowercase()) {
+            "wsdl" -> SpecmaticProtocol.SOAP
+            in OPENAPI_FILE_EXTENSIONS -> SpecmaticProtocol.HTTP
+            else -> null
+        }
+
     val stubsFromExamples: Map<String, List<Pair<HttpRequest, HttpResponse>>>
         get() {
             return exampleStore.examples.groupBy(
@@ -721,10 +729,10 @@ data class Feature(
                     scenarioAsTest(concreteTestScenario, comment, workflow, originalScenario, originalScenarios)
                 },
                 orFailure = {
-                    ScenarioTestGenerationFailure(originalScenario, it.failure, it.message)
+                    ScenarioTestGenerationFailure(originalScenario, it.failure, it.message, protocol)
                 },
                 orException = {
-                    ScenarioTestGenerationException(originalScenario, it.t, it.message, it.breadCrumb)
+                    ScenarioTestGenerationException(originalScenario, it.t, it.message, it.breadCrumb, protocol)
                 }
             )
         }
