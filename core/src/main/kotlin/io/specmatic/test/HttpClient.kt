@@ -55,7 +55,7 @@ data class HttpClient(
         return try {
             runBlocking {
                 val ktorResponse: io.ktor.client.statement.HttpResponse = httpClient.value.request(url) {
-                    requestWithFileContent.buildKTORRequest(this, url)
+                    requestWithFileContent.buildKTORRequest(this)
                 }
 
                 val outboundRequest: HttpRequest = ktorHttpRequestToHttpRequestForLogging(ktorResponse.request, requestWithFileContent)

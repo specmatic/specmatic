@@ -15,7 +15,6 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
-import java.net.URL
 
 internal class HttpRequestKtTest {
     @Test
@@ -264,7 +263,7 @@ internal class HttpRequestKtTest {
         }
 
         val httpRequest = HttpRequest(path = "/test", method = "GET")
-        httpRequest.buildKTORRequest(builder, URL("http://example.com/path"))
+        httpRequest.buildKTORRequest(builder)
         assertThat(builder.headers.getAll("Host")).hasSize(1).containsExactly("old.example.com")
         assertThat(builder.url.host).isEqualTo("old.example.com")
     }
@@ -276,7 +275,7 @@ internal class HttpRequestKtTest {
         }
 
         val httpRequest = HttpRequest(path = "/test", method = "GET")
-        httpRequest.buildKTORRequest(builder, URL("http://example.com/path"))
+        httpRequest.buildKTORRequest(builder)
         assertThat(builder.headers.getAll("Host")).hasSize(1).containsExactly("old.example.com")
         assertThat(builder.url.host).isEqualTo("old.example.com")
     }
@@ -286,12 +285,12 @@ internal class HttpRequestKtTest {
         val builder = HttpRequestBuilder().apply {
             url("https://old.example.com")
             headers.append("host", "a.example.com")
-            headers.append("HOST", "b.example.com")
-            headers.append("Host", "c.example.com")
+            headers.append("Host", "b.example.com")
+            headers.append("HOST", "c.example.com")
         }
 
         val httpRequest = HttpRequest(path = "/test", method = "GET")
-        httpRequest.buildKTORRequest(builder, URL("http://example.com/path"))
+        httpRequest.buildKTORRequest(builder)
         assertThat(builder.headers.getAll("Host")).hasSize(1).containsExactly("old.example.com")
         assertThat(builder.url.host).isEqualTo("old.example.com")
     }
@@ -305,7 +304,7 @@ internal class HttpRequestKtTest {
         }
 
         val httpRequest = HttpRequest(path = "/test", method = "GET")
-        httpRequest.buildKTORRequest(builder, URL("http://irrelevant.example/path"))
+        httpRequest.buildKTORRequest(builder)
         assertThat(builder.headers.getAll("Host")).hasSize(1).containsExactly(expectedHost)
     }
 

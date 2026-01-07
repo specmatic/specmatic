@@ -234,7 +234,7 @@ data class HttpRequest(
         }.toMap()
     }
 
-    fun buildKTORRequest(httpRequestBuilder: HttpRequestBuilder, url: URL?) {
+    fun buildKTORRequest(httpRequestBuilder: HttpRequestBuilder) {
         httpRequestBuilder.method = HttpMethod.parse(method as String)
 
         val listOfExcludedHeaders: List<String> = listOfExcludedHeaders()
