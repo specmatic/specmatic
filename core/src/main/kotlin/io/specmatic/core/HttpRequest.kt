@@ -234,20 +234,18 @@ data class HttpRequest(
         }.toMap()
     }
 
-    fun buildKTORRequest(httpRequestBuilder: HttpRequestBuilder, url: URL?) {
+    fun buildKTORRequest(httpRequestBuilder: HttpRequestBuilder) {
         httpRequestBuilder.method = HttpMethod.parse(method as String)
 
         val listOfExcludedHeaders: List<String> = listOfExcludedHeaders()
-
-        withoutDuplicateHostHeader(headers, url)
-            .map { Triple(it.key.trim(), it.key.trim().lowercase(), it.value.trim()) }
+        headers.map { Triple(it.key.trim(), it.key.trim().lowercase(), it.value.trim()) }
             .filter { (_, loweredKey, _) -> loweredKey !in listOfExcludedHeaders }
             .forEach { (key, _, value) ->
                 httpRequestBuilder.header(key, value)
             }
 
         httpRequestBuilder.url.let {
-            httpRequestBuilder.header("Host", it.authority)
+            httpRequestBuilder.headers.set(name = "Host", value = it.authority)
         }
 
         if(body !is NoBodyValue) {
@@ -278,28 +276,6 @@ data class HttpRequest(
                     }
                 }
             )
-        }
-    }
-
-    private fun withoutDuplicateHostHeader(headers: Map<String, String>, url: URL?): Map<String, String> {
-        if (url === null)
-            return headers
-
-        if (isNotIPAddress(url.host))
-            return headers.filterKeys { !it.equals("Host", ignoreCase = true) }
-
-        return headers
-    }
-
-    private fun isNotIPAddress(host: String): Boolean {
-        return !isIPAddress(host) && host != "localhost"
-    }
-
-    private fun isIPAddress(host: String): Boolean {
-        return try {
-            host.split(".").map { it.toInt() }.isNotEmpty()
-        } catch (e: Throwable) {
-            false
         }
     }
 
