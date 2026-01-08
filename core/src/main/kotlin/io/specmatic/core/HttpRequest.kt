@@ -25,6 +25,8 @@ import java.io.File
 import java.io.UnsupportedEncodingException
 import java.net.*
 import java.nio.charset.StandardCharsets
+import kotlin.collections.plus
+import kotlin.to
 
 const val FORM_FIELDS_JSON_KEY = "form-fields"
 const val MULTIPART_FORMDATA_JSON_KEY = "multipart-formdata"
@@ -40,7 +42,7 @@ fun urlToQueryParams(uri: URI): Map<String, String> {
     }
 }
 
-data class HttpRequestMetadata(val securityHeaderNames: Set<String> = emptySet())
+data class HttpRequestMetadata(val securityHeaderNames: Set<String> = emptySet(), val securityQueryNames: Set<String> = emptySet())
 
 data class HttpRequest(
     val method: String? = null,
@@ -392,18 +394,28 @@ data class HttpRequest(
 
     fun addSecurityHeader(headerName: String, headerValue: String): HttpRequest {
         val updatedMetadata = metadata.copy(securityHeaderNames = metadata.securityHeaderNames.plus(headerName))
-
         val updatedHeaders = headers.filterKeys { key ->
-            !key.equals(
-                headerName,
-                ignoreCase = true
-            )
+            !key.equals(headerName, ignoreCase = true)
         } + (headerName to headerValue)
+        return this.copy(headers = updatedHeaders, metadata = updatedMetadata)
+    }
 
-        return this.copy(
-            headers = updatedHeaders,
-            metadata = updatedMetadata
-        )
+    fun removeSecurityHeader(headerName: String): HttpRequest {
+        val updatedMetadata = metadata.copy(securityHeaderNames = metadata.securityHeaderNames.minus(headerName))
+        val updatedHeaders = headers.filterKeys { key -> !key.equals(headerName, ignoreCase = true) }
+        return this.copy(headers = updatedHeaders, metadata = updatedMetadata)
+    }
+
+    fun addSecurityQueryParam(queryParamName: String, paramValue: String): HttpRequest {
+        val updatedMetadata = metadata.copy(securityQueryNames = metadata.securityQueryNames.plus(queryParamName))
+        val updatedQueryParameters = queryParams.plus(queryParamName to paramValue)
+        return this.copy(queryParams = updatedQueryParameters, metadata = updatedMetadata)
+    }
+
+    fun removeSecurityQueryParam(queryParamName: String): HttpRequest {
+        val updatedMetadata = metadata.copy(securityQueryNames = metadata.securityQueryNames.minus(queryParamName))
+        val updatedQueryParameters = queryParams.minus(queryParamName)
+        return this.copy(queryParams = updatedQueryParameters, metadata = updatedMetadata)
     }
 
     fun expectedResponseCode(): Int? {

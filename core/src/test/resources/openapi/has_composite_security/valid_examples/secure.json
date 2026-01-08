@@ -3,10 +3,11 @@
         "path": "/secure",
         "method": "POST",
         "query": {
-            "apiKey": "123"
+            "apiKey": "1234"
         },
         "headers": {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "Authorization": "Bearer API-SECRET"
         },
         "body": {
             "message": "Hello to Secure"

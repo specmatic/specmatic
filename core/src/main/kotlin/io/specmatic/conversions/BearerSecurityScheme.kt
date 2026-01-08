@@ -32,8 +32,7 @@ data class BearerSecurityScheme(private val configuredToken: String? = null) : O
     }
 
     override fun removeParam(httpRequest: HttpRequest): HttpRequest {
-        val headersWithoutAuthorization = httpRequest.headers.filterKeys { !it.equals(AUTHORIZATION, ignoreCase = true) }
-        return httpRequest.copy(headers = headersWithoutAuthorization)
+        return httpRequest.removeSecurityHeader(AUTHORIZATION)
     }
 
     override fun addTo(httpRequest: HttpRequest, resolver: Resolver): HttpRequest {

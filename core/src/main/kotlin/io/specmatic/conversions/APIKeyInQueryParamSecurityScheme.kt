@@ -5,7 +5,6 @@ import io.specmatic.core.pattern.*
 import io.specmatic.core.value.StringValue
 import io.swagger.v3.oas.models.parameters.Parameter
 import io.swagger.v3.oas.models.parameters.QueryParameter
-import org.apache.http.HttpHeaders.AUTHORIZATION
 
 const val apiKeyParamName = "API-Key"
 
@@ -20,13 +19,13 @@ data class APIKeyInQueryParamSecurityScheme(val name: String, private val apiKey
     }
 
     override fun removeParam(httpRequest: HttpRequest): HttpRequest {
-        return httpRequest.copy(queryParams = httpRequest.queryParams.minus(name))
+        return httpRequest.removeSecurityQueryParam(name)
     }
 
     override fun addTo(httpRequest: HttpRequest, resolver: Resolver): HttpRequest {
         val updatedResolver = resolver.updateLookupForParam(BreadCrumb.QUERY.value)
         val apiKeyValue = apiKey ?: updatedResolver.generate(null, name, StringPattern()).toStringLiteral()
-        return httpRequest.copy(queryParams = httpRequest.queryParams.plus(name to apiKeyValue))
+        return httpRequest.addSecurityQueryParam(name, apiKeyValue)
     }
 
     override fun addTo(requestPattern: HttpRequestPattern, row: Row): HttpRequestPattern {
@@ -47,7 +46,7 @@ data class APIKeyInQueryParamSecurityScheme(val name: String, private val apiKey
     override fun copyFromTo(originalRequest: HttpRequest, newHttpRequest: HttpRequest): HttpRequest {
         if (!originalRequest.queryParams.containsKey(name)) return newHttpRequest
         val apiKeyValue = originalRequest.queryParams.getValues(name).first()
-        return newHttpRequest.copy(queryParams = newHttpRequest.queryParams.plus(name to apiKeyValue))
+        return newHttpRequest.addSecurityQueryParam(name, apiKeyValue)
     }
 
     override fun isInRow(row: Row): Boolean = row.containsField(name)
