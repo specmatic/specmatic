@@ -253,7 +253,7 @@ class HttpStub(
                 var responseErrors: List<InterceptorError> = emptyList()
 
                 try {
-                    val protocolsInUse = features.mapNotNull { it.protocol }.distinct()
+                    val protocolsInUse = features.flatMap { it.protocols() }.distinct()
 
                     LicenseResolver.utilize(
                         product = LicensedProduct.OPEN_SOURCE,

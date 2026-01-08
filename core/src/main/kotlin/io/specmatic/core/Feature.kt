@@ -136,12 +136,13 @@ data class Feature(
     val sourceRepository:String? = null,
     val sourceRepositoryBranch:String? = null,
     val specification:String? = null,
-    val protocol: SpecmaticProtocol? = null,
     val specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
     val flagsBased: FlagsBased = strategiesFromFlags(specmaticConfig),
     val strictMode: Boolean = false,
     val exampleStore: ExampleStore = ExampleStore.empty()
 ): IFeature {
+
+    fun protocols() = scenarios.map { it.protocol }.distinct()
 
     val stubsFromExamples: Map<String, List<Pair<HttpRequest, HttpResponse>>>
         get() {
@@ -723,10 +724,10 @@ data class Feature(
                     scenarioAsTest(concreteTestScenario, comment, workflow, originalScenario, originalScenarios)
                 },
                 orFailure = {
-                    ScenarioTestGenerationFailure(originalScenario, it.failure, it.message, protocol)
+                    ScenarioTestGenerationFailure(originalScenario, it.failure, it.message, originalScenario.protocol)
                 },
                 orException = {
-                    ScenarioTestGenerationException(originalScenario, it.t, it.message, it.breadCrumb, protocol)
+                    ScenarioTestGenerationException(originalScenario, it.t, it.message, it.breadCrumb, originalScenario.protocol)
                 }
             )
         }
@@ -2272,7 +2273,6 @@ data class Feature(
                 sourceRepository = sourceRepository,
                 sourceRepositoryBranch = sourceRepositoryBranch,
                 specification = specification,
-                protocol = protocol,
                 specmaticConfig = specmaticConfig,
                 flagsBased = flagsBased,
                 strictMode = strictMode,
