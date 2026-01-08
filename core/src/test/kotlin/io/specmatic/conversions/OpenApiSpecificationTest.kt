@@ -24,6 +24,7 @@ import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.specmatic.core.StandardRuleViolation
+import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.toViolationReportString
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
@@ -8872,13 +8873,15 @@ paths:
                 scenario = firstScenario,
                 feature = feature,
                 originalScenario = firstScenario,
-                flagsBased = DefaultStrategies
+                flagsBased = DefaultStrategies,
+                protocol = SpecmaticProtocol.HTTP
             )
             val secondScenarioAsTest = ScenarioAsTest(
                 scenario = secondScenario,
                 feature = feature,
                 originalScenario = secondScenario,
-                flagsBased = DefaultStrategies
+                flagsBased = DefaultStrategies,
+                protocol = SpecmaticProtocol.HTTP
             )
 
             firstScenarioAsTest.runTest(object: TestExecutor {
@@ -8940,7 +8943,8 @@ paths:
                 scenario = firstScenario,
                 feature = feature,
                 originalScenario = firstScenario,
-                flagsBased = DefaultStrategies
+                flagsBased = DefaultStrategies,
+                protocol = SpecmaticProtocol.HTTP
             )
             firstScenarioAsTest.runTest(object: TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
@@ -9011,13 +9015,15 @@ paths:
                 scenario = firstScenario,
                 feature = feature,
                 originalScenario = firstScenario,
-                flagsBased = DefaultStrategies
+                flagsBased = DefaultStrategies,
+                protocol = SpecmaticProtocol.HTTP
             )
             val secondScenarioAsTest = ScenarioAsTest(
                 scenario = secondScenario,
                 feature = feature,
                 originalScenario = secondScenario,
-                flagsBased = DefaultStrategies
+                flagsBased = DefaultStrategies,
+                protocol = SpecmaticProtocol.HTTP
             )
             firstScenarioAsTest.runTest(object: TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
@@ -9086,13 +9092,15 @@ paths:
                 scenario = firstScenario,
                 feature = feature,
                 originalScenario = firstScenario,
-                flagsBased = DefaultStrategies
+                flagsBased = DefaultStrategies,
+                protocol = SpecmaticProtocol.HTTP
             )
             val secondScenarioAsTest = ScenarioAsTest(
                 scenario = secondScenario,
                 feature = feature,
                 originalScenario = secondScenario,
-                flagsBased = DefaultStrategies
+                flagsBased = DefaultStrategies,
+                protocol = SpecmaticProtocol.HTTP
             )
 
             firstScenarioAsTest.runTest(object: TestExecutor {
@@ -9177,13 +9185,15 @@ paths:
                 scenario = firstScenario,
                 feature = feature,
                 originalScenario = firstScenario,
-                flagsBased = DefaultStrategies
+                flagsBased = DefaultStrategies,
+                protocol = SpecmaticProtocol.HTTP
             )
             val secondScenarioAsTest = ScenarioAsTest(
                 scenario = secondScenario,
                 feature = feature,
                 originalScenario = secondScenario,
-                flagsBased = DefaultStrategies
+                flagsBased = DefaultStrategies,
+                protocol = SpecmaticProtocol.HTTP
             )
 
             firstScenarioAsTest.runTest(object: TestExecutor {

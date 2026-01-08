@@ -5,12 +5,11 @@ import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.ctrf.model.CtrfTestResultRecord
 
 const val SPEC_TYPE_OPENAPI = "openapi"
-const val HTTP_PROTOCOL = "http"
 
 fun ctrfSpecConfigsFrom(
     specmaticConfig: SpecmaticConfig,
     testResultRecords: List<CtrfTestResultRecord>,
-    protocol: String = HTTP_PROTOCOL,
+    protocol: String,
     specType: String = SPEC_TYPE_OPENAPI,
 ): List<CtrfSpecConfig> {
     val specConfigs = testResultRecords.mapNotNull {

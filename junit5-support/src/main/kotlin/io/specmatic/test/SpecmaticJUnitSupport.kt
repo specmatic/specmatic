@@ -24,6 +24,7 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.LicensedProduct
+import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.license.core.util.LicenseConfig
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.stub.hasOpenApiFileExtension
@@ -204,7 +205,7 @@ open class SpecmaticJUnitSupport {
             }.flatMap { (_, groupedEndpoints) ->
                 groupedEndpoints.map {
                     CtrfSpecConfig(
-                        protocol = it.serviceType.orEmpty().lowercase(),
+                        protocol = it.protocol.key,
                         specType = SPEC_TYPE_OPENAPI,
                         specification = it.specification.orEmpty(),
                         sourceProvider = it.sourceProvider,
@@ -623,7 +624,7 @@ open class SpecmaticJUnitSupport {
                 scenario.sourceRepository,
                 scenario.sourceRepositoryBranch,
                 scenario.specification,
-                scenario.serviceType,
+                scenario.protocol,
                 scenario.requestContentType,
                 scenario.httpResponsePattern.headersPattern.contentType
             )
@@ -651,7 +652,7 @@ open class SpecmaticJUnitSupport {
                 scenario.sourceRepository,
                 scenario.sourceRepositoryBranch,
                 scenario.specification,
-                scenario.serviceType,
+                scenario.protocol,
                 scenario.requestContentType,
                 scenario.httpResponsePattern.headersPattern.contentType
             )
@@ -706,6 +707,7 @@ open class SpecmaticJUnitSupport {
                 listOf(examples),
                 emptyMap(),
                 emptyMap(),
+                protocol = SpecmaticProtocol.HTTP
             )
         }
     }

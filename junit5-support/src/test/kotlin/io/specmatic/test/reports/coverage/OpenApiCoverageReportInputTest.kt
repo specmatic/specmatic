@@ -1,5 +1,6 @@
 package io.specmatic.test.reports.coverage
 
+import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.TestResult
@@ -17,7 +18,8 @@ class OpenApiCoverageReportInputTest {
             responseStatus = 200,
             request = null,
             response = null,
-            result = TestResult.Success
+            result = TestResult.Success,
+            protocol = SpecmaticProtocol.HTTP
         )
 
         val input = OpenApiCoverageReportInput(
@@ -39,7 +41,8 @@ class OpenApiCoverageReportInputTest {
             responseStatus = 200,
             request = null,
             response = null,
-            result = TestResult.Success
+            result = TestResult.Success,
+            protocol = SpecmaticProtocol.HTTP
         )
 
         val previousRecord = TestResultRecord(
@@ -48,7 +51,8 @@ class OpenApiCoverageReportInputTest {
             responseStatus = 201,
             request = null,
             response = null,
-            result = TestResult.Success
+            result = TestResult.Success,
+            protocol = SpecmaticProtocol.HTTP
         )
 
         val input = OpenApiCoverageReportInput(
@@ -64,9 +68,18 @@ class OpenApiCoverageReportInputTest {
 
     @Test
     fun `should calculate coverage percentage with only current results`() {
-        val endpoint1 = Endpoint(path = "/current", method = "GET", responseStatus = 200)
-        val endpoint2 = Endpoint(path = "/previous", method = "POST", responseStatus = 201)
-        val endpoint3 = Endpoint(path = "/uncovered", method = "GET", responseStatus = 404)
+        val endpoint1 = Endpoint(
+            path = "/current", method = "GET", responseStatus = 200,
+            protocol = SpecmaticProtocol.HTTP
+        )
+        val endpoint2 = Endpoint(
+            path = "/previous", method = "POST", responseStatus = 201,
+            protocol = SpecmaticProtocol.HTTP
+        )
+        val endpoint3 = Endpoint(
+            path = "/uncovered", method = "GET", responseStatus = 404,
+            protocol = SpecmaticProtocol.HTTP
+        )
 
         val allEndpoints = mutableListOf(endpoint1, endpoint2, endpoint3)
         val currentRecord = TestResultRecord(
@@ -75,7 +88,8 @@ class OpenApiCoverageReportInputTest {
             responseStatus = 200,
             request = null,
             response = null,
-            result = TestResult.Success
+            result = TestResult.Success,
+            protocol = SpecmaticProtocol.HTTP
         )
 
         val input = OpenApiCoverageReportInput(
@@ -95,9 +109,18 @@ class OpenApiCoverageReportInputTest {
 
     @Test
     fun `should calculate coverage percentage including previous test results and uncovered endpoints`() {
-        val endpoint1 = Endpoint(path = "/current", method = "GET", responseStatus = 200)
-        val endpoint2 = Endpoint(path = "/previous", method = "POST", responseStatus = 201)
-        val endpoint3 = Endpoint(path = "/uncovered", method = "GET", responseStatus = 404)
+        val endpoint1 = Endpoint(
+            path = "/current", method = "GET", responseStatus = 200,
+            protocol = SpecmaticProtocol.HTTP
+        )
+        val endpoint2 = Endpoint(
+            path = "/previous", method = "POST", responseStatus = 201,
+            protocol = SpecmaticProtocol.HTTP
+        )
+        val endpoint3 = Endpoint(
+            path = "/uncovered", method = "GET", responseStatus = 404,
+            protocol = SpecmaticProtocol.HTTP
+        )
 
         val allEndpoints = mutableListOf(endpoint1, endpoint2, endpoint3)
         val currentRecord = TestResultRecord(
@@ -106,7 +129,8 @@ class OpenApiCoverageReportInputTest {
             responseStatus = 200,
             request = null,
             response = null,
-            result = TestResult.Success
+            result = TestResult.Success,
+            protocol = SpecmaticProtocol.HTTP
         )
 
         val previousRecord = TestResultRecord(
@@ -115,7 +139,8 @@ class OpenApiCoverageReportInputTest {
             responseStatus = 201,
             request = null,
             response = null,
-            result = TestResult.Success
+            result = TestResult.Success,
+            protocol = SpecmaticProtocol.HTTP
         )
 
         val input = OpenApiCoverageReportInput(
@@ -135,9 +160,18 @@ class OpenApiCoverageReportInputTest {
 
     @Test
     fun `should calculate coverage for a single path with mixed results when no previous runs`() {
-        val endpoint1 = Endpoint(path = "/resource", method = "GET", responseStatus = 200)
-        val endpoint2 = Endpoint(path = "/resource", method = "POST", responseStatus = 201)
-        val endpoint3 = Endpoint(path = "/resource", method = "DELETE", responseStatus = 204)
+        val endpoint1 = Endpoint(
+            path = "/resource", method = "GET", responseStatus = 200,
+            protocol = SpecmaticProtocol.HTTP
+        )
+        val endpoint2 = Endpoint(
+            path = "/resource", method = "POST", responseStatus = 201,
+            protocol = SpecmaticProtocol.HTTP
+        )
+        val endpoint3 = Endpoint(
+            path = "/resource", method = "DELETE", responseStatus = 204,
+            protocol = SpecmaticProtocol.HTTP
+        )
 
         val allEndpoints = mutableListOf(endpoint1, endpoint2, endpoint3)
         val currentRecord = TestResultRecord(
@@ -146,7 +180,8 @@ class OpenApiCoverageReportInputTest {
             responseStatus = 200,
             request = null,
             response = null,
-            result = TestResult.Success
+            result = TestResult.Success,
+            protocol = SpecmaticProtocol.HTTP
         )
 
         val input = OpenApiCoverageReportInput(
@@ -160,7 +195,7 @@ class OpenApiCoverageReportInputTest {
         val report = input.generate()
         assertThat(report.totalCoveragePercentage).isEqualTo(33)
         assertThat(report.coverageRows).anyMatch {
-            it.path == "/resource" && it.method == "GET" &&  it.remarks.toString() == "covered" &&  it.coveragePercentage == 33
+            it.path == "/resource" && it.method == "GET" && it.remarks.toString() == "covered" && it.coveragePercentage == 33
         }
         assertThat(report.coverageRows).anyMatch {
             it.path == "/resource" && it.method == "POST" && it.remarks.toString() == "not covered" && it.coveragePercentage == 33
@@ -172,9 +207,18 @@ class OpenApiCoverageReportInputTest {
 
     @Test
     fun `should calculate coverage for a single path with mixed results including previous runs when provided`() {
-        val endpoint1 = Endpoint(path = "/resource", method = "GET", responseStatus = 200)
-        val endpoint2 = Endpoint(path = "/resource", method = "POST", responseStatus = 201)
-        val endpoint3 = Endpoint(path = "/resource", method = "DELETE", responseStatus = 204)
+        val endpoint1 = Endpoint(
+            path = "/resource", method = "GET", responseStatus = 200,
+            protocol = SpecmaticProtocol.HTTP
+        )
+        val endpoint2 = Endpoint(
+            path = "/resource", method = "POST", responseStatus = 201,
+            protocol = SpecmaticProtocol.HTTP
+        )
+        val endpoint3 = Endpoint(
+            path = "/resource", method = "DELETE", responseStatus = 204,
+            protocol = SpecmaticProtocol.HTTP
+        )
 
         val allEndpoints = mutableListOf(endpoint1, endpoint2, endpoint3)
         val currentRecord = TestResultRecord(
@@ -183,7 +227,8 @@ class OpenApiCoverageReportInputTest {
             responseStatus = 200,
             request = null,
             response = null,
-            result = TestResult.Success
+            result = TestResult.Success,
+            protocol = SpecmaticProtocol.HTTP
         )
 
         val previousRecord = TestResultRecord(
@@ -192,7 +237,8 @@ class OpenApiCoverageReportInputTest {
             responseStatus = 201,
             request = null,
             response = null,
-            result = TestResult.Success
+            result = TestResult.Success,
+            protocol = SpecmaticProtocol.HTTP
         )
 
         val input = OpenApiCoverageReportInput(
@@ -206,7 +252,7 @@ class OpenApiCoverageReportInputTest {
         val report = input.generate()
         assertThat(report.totalCoveragePercentage).isEqualTo(67)
         assertThat(report.coverageRows).anyMatch {
-            it.path == "/resource" && it.method == "GET" &&  it.remarks.toString() == "covered" &&  it.coveragePercentage == 67
+            it.path == "/resource" && it.method == "GET" && it.remarks.toString() == "covered" && it.coveragePercentage == 67
         }
         assertThat(report.coverageRows).anyMatch {
             it.path == "/resource" && it.method == "POST" && it.remarks.toString() == "covered" && it.coveragePercentage == 67
@@ -218,10 +264,27 @@ class OpenApiCoverageReportInputTest {
 
     @Test
     fun `endpoint should not be counted towards the final report if it has been filtered out`() {
-        val allEndpoints = mutableListOf(Endpoint("/test", "POST", 200), Endpoint("/filtered", "POST", 200))
-        val filtered = mutableListOf(Endpoint("/test", "POST", 200))
+        val allEndpoints = mutableListOf(
+            Endpoint(
+                "/test", "POST", 200,
+                protocol = SpecmaticProtocol.HTTP
+            ), Endpoint(
+                "/filtered", "POST", 200,
+                protocol = SpecmaticProtocol.HTTP
+            )
+        )
+        val filtered = mutableListOf(
+            Endpoint(
+                "/test", "POST", 200,
+                protocol = SpecmaticProtocol.HTTP
+            )
+        )
         val testResultRecords = mutableListOf(
-            TestResultRecord("/test", "POST", 200,request = null, response = null, result =  TestResult.Failed, actualResponseStatus = 200),
+            TestResultRecord(
+                "/test", "POST", 200,
+                request = null, response = null, result = TestResult.Failed, actualResponseStatus = 200,
+                protocol = SpecmaticProtocol.HTTP
+            ),
         )
 
         val reportInput = OpenApiCoverageReportInput(
@@ -237,11 +300,28 @@ class OpenApiCoverageReportInputTest {
 
     @Test
     fun `should not be marked missing-in-spec if the endpoint is filtered out but actuator shows it`() {
-        val allEndpoints = mutableListOf(Endpoint("/test", "POST", 200), Endpoint("/filtered", "POST", 200))
-        val filtered = mutableListOf(Endpoint("/test", "POST", 200))
+        val allEndpoints = mutableListOf(
+            Endpoint(
+                "/test", "POST", 200,
+                protocol = SpecmaticProtocol.HTTP
+            ), Endpoint(
+                "/filtered", "POST", 200,
+                protocol = SpecmaticProtocol.HTTP
+            )
+        )
+        val filtered = mutableListOf(
+            Endpoint(
+                "/test", "POST", 200,
+                protocol = SpecmaticProtocol.HTTP
+            )
+        )
         val applicationAPIs = mutableListOf(API("POST", "/test"), API("POST", "/filtered"))
         val testResultRecords = mutableListOf(
-            TestResultRecord("/test", "POST", 200,request = null, response = null, result =  TestResult.Failed, actualResponseStatus = 200),
+            TestResultRecord(
+                "/test", "POST", 200,
+                request = null, response = null, result = TestResult.Failed, actualResponseStatus = 200,
+                protocol = SpecmaticProtocol.HTTP
+            ),
         )
 
         val reportInput = OpenApiCoverageReportInput(
@@ -256,9 +336,28 @@ class OpenApiCoverageReportInputTest {
 
     @Test
     fun `not-implemented endpoints should be identified using filtered endpoints instead of all endpoints`() {
-        val allEndpoints = mutableListOf(Endpoint("/test", "POST", 200), Endpoint("/filtered", "POST", 200))
-        val filtered = mutableListOf(Endpoint("/test", "POST", 200))
-        val testResultRecords = mutableListOf(TestResultRecord("/test", "POST", 200,request = null, response = null, result =  TestResult.Failed, actualResponseStatus = 0))
+        val allEndpoints = mutableListOf(
+            Endpoint(
+                "/test", "POST", 200,
+                protocol = SpecmaticProtocol.HTTP
+            ), Endpoint(
+                "/filtered", "POST", 200,
+                protocol = SpecmaticProtocol.HTTP
+            )
+        )
+        val filtered = mutableListOf(
+            Endpoint(
+                "/test", "POST", 200,
+                protocol = SpecmaticProtocol.HTTP
+            )
+        )
+        val testResultRecords = mutableListOf(
+            TestResultRecord(
+                "/test", "POST", 200,
+                request = null, response = null, result = TestResult.Failed, actualResponseStatus = 0,
+                protocol = SpecmaticProtocol.HTTP
+            )
+        )
 
         val reportInput = OpenApiCoverageReportInput(
             testResultRecords = testResultRecords, configFilePath = "", endpointsAPISet = true,
@@ -273,8 +372,13 @@ class OpenApiCoverageReportInputTest {
     }
 
     @Test
-    fun `should report coverage status as 'missing in spec' for failed tests whose operations do not exit in the spec and actualResponseStatus`(){
-        val allEndpoints = mutableListOf(Endpoint(path = "/current", method = "GET", responseStatus = 200))
+    fun `should report coverage status as 'missing in spec' for failed tests whose operations do not exit in the spec and actualResponseStatus`() {
+        val allEndpoints = mutableListOf(
+            Endpoint(
+                path = "/current", method = "GET", responseStatus = 200,
+                protocol = SpecmaticProtocol.HTTP
+            )
+        )
 
         val testResultRecords = mutableListOf(
             TestResultRecord(
@@ -284,7 +388,8 @@ class OpenApiCoverageReportInputTest {
                 request = null,
                 response = null,
                 result = TestResult.Success,
-                actualResponseStatus = 200
+                actualResponseStatus = 200,
+                protocol = SpecmaticProtocol.HTTP
             ),
             TestResultRecord(
                 "/current",
@@ -293,7 +398,8 @@ class OpenApiCoverageReportInputTest {
                 request = null,
                 response = null,
                 result = TestResult.Failed,
-                actualResponseStatus = 400
+                actualResponseStatus = 400,
+                protocol = SpecmaticProtocol.HTTP
             ),
         )
 
@@ -324,8 +430,13 @@ class OpenApiCoverageReportInputTest {
     }
 
     @Test
-    fun `should report coverage status as 'missing in spec' for successful tests whose operations do not exit in the spec and actualResponseStatus`(){
-        val allEndpoints = mutableListOf(Endpoint(path = "/current", method = "GET", responseStatus = 200))
+    fun `should report coverage status as 'missing in spec' for successful tests whose operations do not exit in the spec and actualResponseStatus`() {
+        val allEndpoints = mutableListOf(
+            Endpoint(
+                path = "/current", method = "GET", responseStatus = 200,
+                protocol = SpecmaticProtocol.HTTP
+            )
+        )
 
         val testResultRecords = mutableListOf(
             TestResultRecord(
@@ -335,7 +446,8 @@ class OpenApiCoverageReportInputTest {
                 request = null,
                 response = null,
                 result = TestResult.Success,
-                actualResponseStatus = 200
+                actualResponseStatus = 200,
+                protocol = SpecmaticProtocol.HTTP
             ),
             TestResultRecord(
                 "/current",
@@ -344,7 +456,8 @@ class OpenApiCoverageReportInputTest {
                 request = null,
                 response = null,
                 result = TestResult.Success,
-                actualResponseStatus = 400
+                actualResponseStatus = 400,
+                protocol = SpecmaticProtocol.HTTP
             ),
         )
 
@@ -372,8 +485,14 @@ class OpenApiCoverageReportInputTest {
 
     @Test
     fun `should retain requestContentTypes for not covered endpoints`() {
-        val endpoint1 = Endpoint(path = "/current", method = "GET", responseStatus = 200)
-        val endpoint2 = Endpoint(path = "/previous", method = "POST", requestContentType = "application/json", responseStatus = 201)
+        val endpoint1 = Endpoint(
+            path = "/current", method = "GET", responseStatus = 200,
+            protocol = SpecmaticProtocol.HTTP
+        )
+        val endpoint2 = Endpoint(
+            path = "/previous", method = "POST", requestContentType = "application/json", responseStatus = 201,
+            protocol = SpecmaticProtocol.HTTP
+        )
 
         val allEndpoints = mutableListOf(endpoint1, endpoint2)
         val currentRecord = TestResultRecord(
@@ -382,7 +501,8 @@ class OpenApiCoverageReportInputTest {
             responseStatus = 200,
             request = null,
             response = null,
-            result = TestResult.Success
+            result = TestResult.Success,
+            protocol = SpecmaticProtocol.HTTP
         )
 
         val input = OpenApiCoverageReportInput(
@@ -402,7 +522,10 @@ class OpenApiCoverageReportInputTest {
 
     @Test
     fun `should report requestContentTypes as null wherever it is not applicable or available`() {
-        val endpoint1 = Endpoint(path = "/current", method = "GET", responseStatus = 200)
+        val endpoint1 = Endpoint(
+            path = "/current", method = "GET", responseStatus = 200,
+            protocol = SpecmaticProtocol.HTTP
+        )
 
         val allEndpoints = mutableListOf(endpoint1)
         val currentRecord = TestResultRecord(
@@ -411,7 +534,8 @@ class OpenApiCoverageReportInputTest {
             responseStatus = 200,
             request = null,
             response = null,
-            result = TestResult.Success
+            result = TestResult.Success,
+            protocol = SpecmaticProtocol.HTTP
         )
 
         val input = OpenApiCoverageReportInput(

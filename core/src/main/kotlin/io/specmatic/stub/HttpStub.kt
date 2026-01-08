@@ -348,7 +348,7 @@ class HttpStub(
                         request = httpRequest,
                         response = httpResponse,
                         result = httpLogMessage.toResult(),
-                        serviceType = "OPENAPI",
+                        protocol = httpLogMessage.scenario?.protocol ?: SpecmaticProtocol.HTTP,
                         requestContentType = httpLogMessage.scenario?.requestContentType
                             ?: httpRequest.headers["Content-Type"],
                         specification = httpStubResponse.scenario?.specification,
@@ -780,7 +780,7 @@ class HttpStub(
                 testResultRecords = ctrfTestResultRecords,
                 startTime = startTime.toEpochMilli(),
                 endTime = Instant.now().toEpochMilli(),
-                specConfigs = ctrfSpecConfigsFrom(specmaticConfig, ctrfTestResultRecords),
+                specConfigs = ctrfSpecConfigsFrom(specmaticConfig, ctrfTestResultRecords, SpecmaticProtocol.HTTP.key),
                 coverage = 0,
                 reportDir = File("$ARTIFACTS_PATH/stub")
             )
@@ -804,7 +804,8 @@ class HttpStub(
                 response = null,
                 result = TestResult.NotCovered,
                 specification = endpoint.specification.orEmpty(),
-                testType = STUB_TEST_TYPE
+                testType = STUB_TEST_TYPE,
+                protocol = endpoint.protocol ?: SpecmaticProtocol.HTTP
             )
         }
     }
@@ -842,7 +843,7 @@ class HttpStub(
                 scenario.sourceRepository,
                 scenario.sourceRepositoryBranch,
                 scenario.specification,
-                scenario.serviceType
+                scenario.protocol
             )
         }
     }

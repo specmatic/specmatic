@@ -4,6 +4,7 @@ import io.specmatic.conversions.ApiSpecification
 import io.specmatic.conversions.OperationMetadata
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.Value
+import io.specmatic.license.core.SpecmaticProtocol
 
 data class ScenarioInfo(
     val scenarioName: String = "",
@@ -17,11 +18,11 @@ data class ScenarioInfo(
     val references: Map<String, References> = emptyMap(),
     val bindings: Map<String, String> = emptyMap(),
     val isGherkinScenario: Boolean = false,
-    val sourceProvider:String? = null,
-    val sourceRepository:String? = null,
-    val sourceRepositoryBranch:String? = null,
-    val specification:String? = null,
-    val serviceType:String? = null,
+    val sourceProvider: String? = null,
+    val sourceRepository: String? = null,
+    val sourceRepositoryBranch: String? = null,
+    val specification: String? = null,
+    val protocol: SpecmaticProtocol,
     val operationMetadata: OperationMetadata? = null
 ) {
 

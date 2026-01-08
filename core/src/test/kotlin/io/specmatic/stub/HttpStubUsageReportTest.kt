@@ -3,6 +3,7 @@ package io.specmatic.stub
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.HttpRequest
+import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.generated.dto.stub.usage.HTTPStubUsageOperation
 import io.specmatic.reporter.generated.dto.stub.usage.SpecmaticStubUsageReport
 import io.specmatic.reporter.generated.dto.stub.usage.StubUsageEntry
@@ -97,10 +98,10 @@ paths:
 
         HttpStub(listOf(stubContract1, stubContract2)).use { stub ->
             assertThat(stub.allEndpoints).isEqualTo(listOf(
-                StubEndpoint("/data", "GET", 200, serviceType = "HTTP"),
-                StubEndpoint("/hello", "GET", 200, serviceType = "HTTP"),
-                StubEndpoint("/data2", "GET", 200, serviceType = "HTTP"),
-                StubEndpoint("/hello2", "GET", 200, serviceType = "HTTP")
+                StubEndpoint("/data", "GET", 200, protocol = SpecmaticProtocol.HTTP),
+                StubEndpoint("/hello", "GET", 200, protocol = SpecmaticProtocol.HTTP),
+                StubEndpoint("/data2", "GET", 200, protocol = SpecmaticProtocol.HTTP),
+                StubEndpoint("/hello2", "GET", 200, protocol = SpecmaticProtocol.HTTP)
             ))
         }
     }
@@ -205,8 +206,8 @@ paths:
             stub.client.execute(HttpRequest("GET", "/hello"))
 
             assertThat(stub.logs).isEqualTo(listOf(
-                StubEndpoint("/data", "GET", 200, "text/plain", serviceType = "HTTP"),
-                StubEndpoint("/hello", "GET", 200, "text/plain", serviceType = "HTTP")
+                StubEndpoint("/data", "GET", 200, "text/plain", protocol = SpecmaticProtocol.HTTP),
+                StubEndpoint("/hello", "GET", 200, "text/plain", protocol = SpecmaticProtocol.HTTP)
             ))
         }
     }
@@ -237,8 +238,8 @@ paths:
             stub.client.execute(HttpRequest("GET", "/unknown"))
 
             assertThat(stub.logs).isEqualTo(listOf(
-                StubEndpoint("/data", "GET", 200, "text/plain", serviceType = "HTTP"),
-                StubEndpoint("/hello", "GET", 200, "text/plain", serviceType = "HTTP")
+                StubEndpoint("/data", "GET", 200, "text/plain", protocol = SpecmaticProtocol.HTTP),
+                StubEndpoint("/hello", "GET", 200, "text/plain", protocol = SpecmaticProtocol.HTTP)
             ))
         }
     }
@@ -253,7 +254,7 @@ paths:
             stub.client.execute(HttpRequest("GET", "/unknown"))
 
             assertThat(stub.logs).isEqualTo(listOf(
-                StubEndpoint("/data", "GET", 200, "text/plain", serviceType = "HTTP"),
+                StubEndpoint("/data", "GET", 200, "text/plain", protocol = SpecmaticProtocol.HTTP),
             ))
         }
     }
@@ -281,7 +282,7 @@ paths:
             stub.client.execute(HttpRequest("GET", "/hello"))
 
             assertThat(stub.logs).isEqualTo(listOf(
-                StubEndpoint("/data", "GET", 200, "text/plain", serviceType = "HTTP"),
+                StubEndpoint("/data", "GET", 200, "text/plain", protocol = SpecmaticProtocol.HTTP),
             ))
         }
     }
@@ -301,7 +302,7 @@ paths:
             threads.forEach { it.join() }
 
             assertThat(stub.logs.count()).isEqualTo(10)
-            assertThat(stub.logs.all { it == StubEndpoint("/hello", "GET", 200, serviceType = "HTTP") }).isTrue
+            assertThat(stub.logs.all { it == StubEndpoint("/hello", "GET", 200, protocol = SpecmaticProtocol.HTTP) }).isTrue
         }
     }
 }

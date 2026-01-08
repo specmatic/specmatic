@@ -32,6 +32,7 @@ import io.specmatic.core.value.Value
 import io.specmatic.core.wsdl.parser.message.MULTIPLE_ATTRIBUTE_VALUE
 import io.specmatic.core.wsdl.parser.message.OCCURS_ATTRIBUTE_NAME
 import io.specmatic.core.wsdl.parser.message.OPTIONAL_ATTRIBUTE_VALUE
+import io.specmatic.license.core.SpecmaticProtocol
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.Operation
 import io.swagger.v3.oas.models.PathItem
@@ -54,7 +55,6 @@ import java.io.File
 import kotlin.collections.orEmpty
 
 private const val BEARER_SECURITY_SCHEME = "bearer"
-const val SERVICE_TYPE_HTTP = "HTTP"
 
 private const val X_SPECMATIC_HINT = "x-specmatic-hint"
 private const val HINT_BOUNDARY_TESTING_ENABLED = "boundary_testing_enabled"
@@ -413,6 +413,7 @@ class OpenApiSpecification(
         }
     }
 
+    val protocol: SpecmaticProtocol = SpecmaticProtocol.HTTP
     val patterns = mutableMapOf<String, Pattern>()
 
     fun isOpenAPI31(): Boolean {
@@ -437,7 +438,7 @@ class OpenApiSpecification(
             sourceRepository = sourceRepository,
             sourceRepositoryBranch = sourceRepositoryBranch,
             specification = specificationPath,
-            serviceType = SERVICE_TYPE_HTTP,
+            protocol = protocol,
             stubsFromExamples = stubsFromExamples,
             specmaticConfig = specmaticConfig,
             strictMode = strictMode
@@ -695,7 +696,7 @@ class OpenApiSpecification(
                             sourceRepository = sourceRepository,
                             sourceRepositoryBranch = sourceRepositoryBranch,
                             specification = specificationPath,
-                            serviceType = SERVICE_TYPE_HTTP,
+                            protocol = protocol,
                             operationMetadata = operationMetadata
                         )
                     }

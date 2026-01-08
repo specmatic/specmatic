@@ -15,11 +15,11 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.True
 import io.specmatic.core.value.Value
+import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.NamedExampleMismatchMessages
 import io.specmatic.stub.RequestContext
 import io.specmatic.test.ExampleProcessor
-import okhttp3.Request
 
 interface ScenarioDetailsForResult {
     val status: Int
@@ -57,7 +57,7 @@ data class Scenario(
     val sourceRepository:String? = null,
     val sourceRepositoryBranch:String? = null,
     val specification:String? = null,
-    val serviceType:String? = null,
+    val protocol: SpecmaticProtocol,
     val generativePrefix: String = "",
     val statusInDescription: String = httpResponsePattern.status.toString(),
     val disambiguate: () -> String = { "" },
@@ -97,7 +97,7 @@ data class Scenario(
         sourceRepository = scenarioInfo.sourceRepository,
         sourceRepositoryBranch = scenarioInfo.sourceRepositoryBranch,
         specification = scenarioInfo.specification,
-        serviceType = scenarioInfo.serviceType,
+        protocol = scenarioInfo.protocol,
         operationMetadata = scenarioInfo.operationMetadata
     )
 

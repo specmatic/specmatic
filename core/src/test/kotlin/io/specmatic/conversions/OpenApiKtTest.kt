@@ -20,6 +20,7 @@ import io.specmatic.core.value.Value
 import io.specmatic.core.StandardRuleViolation
 import io.specmatic.toViolationReportString
 import io.specmatic.jsonBody
+import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.stub.HttpStub
 import io.specmatic.stub.SpecificationAndRequestMismatchMessages
 import io.specmatic.test.TestExecutor
@@ -1509,7 +1510,8 @@ Scenario: zero should return not found
 
         var executed = false
 
-        val result = io.specmatic.test.ScenarioAsTest(feature.scenarios.first(), feature, DefaultStrategies, originalScenario = feature.scenarios.first())
+        val result = io.specmatic.test.ScenarioAsTest(feature.scenarios.first(), feature, DefaultStrategies, originalScenario = feature.scenarios.first(),
+            protocol = SpecmaticProtocol.HTTP)
             .runTest(object : TestExecutor {
                     override fun execute(request: HttpRequest): HttpResponse {
                         executed = true

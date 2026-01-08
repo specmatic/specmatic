@@ -2,6 +2,7 @@ package io.specmatic.core
 
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.StringValue
+import io.specmatic.license.core.SpecmaticProtocol
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
@@ -30,7 +31,8 @@ class ScenarioSOAPActionTest {
         val scenario = Scenario(
             name = "test",
             httpRequestPattern = httpRequestPattern,
-            httpResponsePattern = httpResponsePattern
+            httpResponsePattern = httpResponsePattern,
+            protocol = SpecmaticProtocol.HTTP
         )
         
         // Test that the API description includes SOAPAction
@@ -58,7 +60,8 @@ class ScenarioSOAPActionTest {
         val scenario = Scenario(
             name = "test",
             httpRequestPattern = httpRequestPattern,
-            httpResponsePattern = httpResponsePattern
+            httpResponsePattern = httpResponsePattern,
+            protocol = SpecmaticProtocol.HTTP
         )
         
         // Test that the API description works normally
@@ -87,7 +90,8 @@ class ScenarioSOAPActionTest {
         val scenario = Scenario(
             name = "test",
             httpRequestPattern = httpRequestPattern,
-            httpResponsePattern = httpResponsePattern
+            httpResponsePattern = httpResponsePattern,
+            protocol = SpecmaticProtocol.HTTP
         )
         
         // Test that the API description includes SOAPAction regardless of case
@@ -115,7 +119,8 @@ class ScenarioSOAPActionTest {
         val scenario = Scenario(
             name = "test",
             httpRequestPattern = httpRequestPattern,
-            httpResponsePattern = httpResponsePattern
+            httpResponsePattern = httpResponsePattern,
+            protocol = SpecmaticProtocol.HTTP
         )
         
         // Test that the API description does not include SOAPAction for non-exact patterns
@@ -144,7 +149,8 @@ class ScenarioSOAPActionTest {
         val scenario = Scenario(
             name = "SOAP Service Test",
             httpRequestPattern = httpRequestPattern,
-            httpResponsePattern = httpResponsePattern
+            httpResponsePattern = httpResponsePattern,
+            protocol = SpecmaticProtocol.HTTP
         )
         
         // Test that the test description includes SOAPAction
