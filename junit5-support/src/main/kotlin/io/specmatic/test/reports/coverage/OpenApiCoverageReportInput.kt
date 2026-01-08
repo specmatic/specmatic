@@ -295,7 +295,7 @@ class OpenApiCoverageReportInput(
 
     private fun createMissingInSpecRecordAndIncludeOriginalRecordIfApplicable(testResult: TestResultRecord): List<TestResultRecord> = listOfNotNull(
         testResult.copy(
-            operation = OpenAPIOperation(testResult.path, testResult.method, testResult.requestContentType.orEmpty(), testResult.actualResponseStatus),
+            operations = setOf(OpenAPIOperation(testResult.path, testResult.method, testResult.requestContentType.orEmpty(), testResult.actualResponseStatus)),
             responseStatus = testResult.actualResponseStatus,
             result = TestResult.MissingInSpec,
             actualResponseStatus = testResult.actualResponseStatus

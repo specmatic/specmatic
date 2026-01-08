@@ -7,7 +7,7 @@ import io.specmatic.core.pattern.ContractException
 import io.specmatic.reporter.ctrf.model.CtrfTestMetadata
 import io.specmatic.reporter.ctrf.model.CtrfTestResultRecord
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
-import io.specmatic.reporter.internal.dto.spec.operation.APIOperation
+import io.specmatic.reporter.internal.dto.operation.APIOperation
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.reporter.model.OpenAPIOperation
 import java.time.Duration
@@ -37,11 +37,14 @@ data class TestResultRecord(
     override val duration: Long = durationFrom(requestTime, responseTime),
     override val rawStatus: String? = result.toString(),
     override val testType: String = CONTRACT_TEST_TEST_TYPE,
-    override val operation: APIOperation = OpenAPIOperation(
-        path = path,
-        method = method,
-        contentType = requestContentType,
-        responseCode = responseStatus
+    override val operations: Set<APIOperation> = setOf(
+        OpenAPIOperation(
+            path = path,
+            method = method,
+            contentType = requestContentType,
+            responseCode = responseStatus,
+            protocol = serviceType.orEmpty()
+        )
     )
 ): CtrfTestResultRecord {
     val isExercised = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
