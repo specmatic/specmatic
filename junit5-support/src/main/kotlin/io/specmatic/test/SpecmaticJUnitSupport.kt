@@ -462,10 +462,10 @@ open class SpecmaticJUnitSupport {
         startTime = Instant.now()
         return testScenarios.map { (contractTest, baseURL) ->
             DynamicTest.dynamicTest(contractTest.testDescription()) {
-
                 LicenseResolver.utilize(
                     product = LicensedProduct.OPEN_SOURCE,
                     feature = TrackingFeature.TEST_EXECUTED,
+                    protocol = listOfNotNull(contractTest.protocol),
                 )
 
                 threads.add(Thread.currentThread().name)
@@ -477,19 +477,19 @@ open class SpecmaticJUnitSupport {
                         logger.log(logMessage)
                     }
 
-                    val httpClient = HttpClient(
-                        baseURL,
-                        log = log,
-                        timeoutInMilliseconds = timeoutInMilliseconds,
-                        httpInteractionsLog = httpInteractionsLog
-                    )
+                    val httpClient =
+                        HttpClient(
+                            baseURL,
+                            log = log,
+                            timeoutInMilliseconds = timeoutInMilliseconds,
+                            httpInteractionsLog = httpInteractionsLog,
+                        )
 
-                    try {
-                        testResult = contractTest.runTest(httpClient)
-                    } finally {
-                        httpClient.close()
-                    }
-                    val (result) = testResult!!
+                    testResult =
+                        httpClient.use { httpClient ->
+                            contractTest.runTest(httpClient)
+                        }
+                    val (result) = testResult
 
                     if (result is Result.Success && result.isPartialSuccess()) {
                         partialSuccesses.add(result)

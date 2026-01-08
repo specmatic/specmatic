@@ -28,6 +28,7 @@ import io.specmatic.core.utilities.*
 import io.specmatic.core.value.*
 import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.LicensedProduct
+import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.license.core.util.LicenseConfig
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
@@ -252,9 +253,12 @@ class HttpStub(
                 var responseErrors: List<InterceptorError> = emptyList()
 
                 try {
+                    val protocolsInUse = features.mapNotNull { it.protocol }.distinct()
+
                     LicenseResolver.utilize(
                         product = LicensedProduct.OPEN_SOURCE,
                         feature = TrackingFeature.STUB_REQUEST_SERVED,
+                        protocol = protocolsInUse
                     )
 
                     val rawHttpRequest = ktorHttpRequestToHttpRequest(call).also {
