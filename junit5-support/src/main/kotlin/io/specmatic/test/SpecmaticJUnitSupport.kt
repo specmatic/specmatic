@@ -23,6 +23,7 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.LicensedProduct
+import io.specmatic.license.core.SpecmaticFeature
 import io.specmatic.license.core.util.LicenseConfig
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.stub.hasOpenApiFileExtension
@@ -464,7 +465,7 @@ open class SpecmaticJUnitSupport {
             DynamicTest.dynamicTest(contractTest.testDescription()) {
                 LicenseResolver.utilize(
                     product = LicensedProduct.OPEN_SOURCE,
-                    feature = TrackingFeature.TEST_EXECUTED,
+                    feature = SpecmaticFeature.TEST,
                     protocol = listOfNotNull(contractTest.protocol),
                 )
 
