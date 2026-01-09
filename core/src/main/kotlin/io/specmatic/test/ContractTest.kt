@@ -6,6 +6,7 @@ import io.specmatic.core.Result
 import io.specmatic.core.Scenario
 import io.specmatic.core.filters.HasScenarioMetadata
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.SpecType
 
 interface ResponseValidator {
     fun validate(scenario: Scenario, httpResponse: HttpResponse): Result? {
@@ -25,6 +26,7 @@ interface ContractTest : HasScenarioMetadata {
 
     fun plusValidator(validator: ResponseValidator): ContractTest
     val protocol: SpecmaticProtocol?
+    val specType: SpecType
 }
 
 data class ContractTestExecutionResult(

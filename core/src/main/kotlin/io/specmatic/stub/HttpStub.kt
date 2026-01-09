@@ -35,6 +35,7 @@ import io.specmatic.mock.ScenarioStub
 import io.specmatic.mock.TRANSIENT_MOCK
 import io.specmatic.reporter.generated.dto.stub.usage.SpecmaticStubUsageReport
 import io.specmatic.reporter.internal.dto.stub.usage.merge
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.stub.listener.MockEvent
 import io.specmatic.stub.listener.MockEventListener
@@ -253,7 +254,7 @@ class HttpStub(
                 var responseErrors: List<InterceptorError> = emptyList()
 
                 try {
-                    val protocolsInUse = features.mapNotNull { it.protocol }.distinct()
+                    val protocolsInUse = features.flatMap { it.protocols() }.distinct()
 
                     LicenseResolver.utilize(
                         product = LicensedProduct.OPEN_SOURCE,
@@ -348,7 +349,8 @@ class HttpStub(
                         request = httpRequest,
                         response = httpResponse,
                         result = httpLogMessage.toResult(),
-                        serviceType = "OPENAPI",
+                        protocol = httpLogMessage.scenario?.protocol ?: SpecmaticProtocol.HTTP,
+                        specType = httpLogMessage.scenario?.specType ?: SpecType.OPENAPI,
                         requestContentType = httpLogMessage.scenario?.requestContentType
                             ?: httpRequest.headers["Content-Type"],
                         specification = httpStubResponse.scenario?.specification,
@@ -804,7 +806,9 @@ class HttpStub(
                 response = null,
                 result = TestResult.NotCovered,
                 specification = endpoint.specification.orEmpty(),
-                testType = STUB_TEST_TYPE
+                testType = STUB_TEST_TYPE,
+                protocol = endpoint.protocol,
+                specType = endpoint.specType
             )
         }
     }
@@ -842,7 +846,8 @@ class HttpStub(
                 scenario.sourceRepository,
                 scenario.sourceRepositoryBranch,
                 scenario.specification,
-                scenario.serviceType
+                scenario.protocol,
+                scenario.specType
             )
         }
     }

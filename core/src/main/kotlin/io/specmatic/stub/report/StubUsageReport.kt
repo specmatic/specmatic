@@ -18,7 +18,7 @@ class StubUsageReport(
                 it.sourceRepository,
                 it.sourceRepositoryBranch,
                 it.specification,
-                it.serviceType
+                it.protocol.key.uppercase()
             )
         }.map { (key, recordsOfGroup) ->
             val operations = recordsOfGroup.groupBy {
@@ -36,7 +36,7 @@ class StubUsageReport(
                                 && it.sourceRepository == key.sourceRepository
                                 && it.sourceRepositoryBranch == key.sourceRepositoryBranch
                                 && it.specification == key.specification
-                                && it.serviceType == key.serviceType
+                                && it.protocol.key.uppercase() == key.serviceType
                     })
             }
             StubUsageEntry()

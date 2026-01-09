@@ -363,7 +363,7 @@ data class SpecmaticConfig(
     }
 
     @JsonIgnore
-    fun getCtrfSpecConfig(absoluteSpecPath: String, testType: String, serviceType: String, specType: String): CtrfSpecConfig {
+    fun getCtrfSpecConfig(absoluteSpecPath: String, testType: String, protocol: String, specType: String): CtrfSpecConfig {
         val source = when (testType) {
             CONTRACT_TEST_TEST_TYPE -> testSourceFromConfig(absoluteSpecPath)
             else -> stubSourceFromConfig(absoluteSpecPath)
@@ -375,7 +375,7 @@ data class SpecmaticConfig(
         }
 
         return CtrfSpecConfig(
-            serviceType = serviceType,
+            protocol = protocol,
             specType = specType,
             specification = specPathFromConfig.orEmpty(),
             sourceProvider = source.provider.name,

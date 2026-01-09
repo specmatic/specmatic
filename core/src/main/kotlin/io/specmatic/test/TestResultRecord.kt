@@ -4,12 +4,14 @@ import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.ctrf.model.CtrfTestMetadata
 import io.specmatic.reporter.ctrf.model.CtrfTestResultRecord
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.internal.dto.spec.operation.APIOperation
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.reporter.model.OpenAPIOperation
+import io.specmatic.reporter.model.SpecType
 import java.time.Duration
 import java.time.Instant
 
@@ -24,7 +26,8 @@ data class TestResultRecord(
     override val repository: String? = null,
     override val branch: String? = null,
     override val specification: String? = null,
-    val serviceType: String? = null,
+    override val protocol: SpecmaticProtocol,
+    override val specType: SpecType,
     val actualResponseStatus: Int = 0,
     val scenarioResult: Result? = null,
     val isValid: Boolean = true,

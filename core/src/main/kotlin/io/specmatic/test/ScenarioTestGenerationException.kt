@@ -9,13 +9,15 @@ import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.SpecType
 
 class ScenarioTestGenerationException(
     var scenario: Scenario,
     val e: Throwable,
     val message: String,
     val breadCrumb: String?,
-    override val protocol: SpecmaticProtocol?
+    override val protocol: SpecmaticProtocol?,
+    override val specType: SpecType
 ) : ContractTest {
     init {
         val exampleRow = scenario.examples.flatMap { it.rows }.firstOrNull { it.name == message }
@@ -43,7 +45,8 @@ class ScenarioTestGenerationException(
             repository = scenario.sourceRepository,
             branch = scenario.sourceRepositoryBranch,
             specification = scenario.specification,
-            serviceType = scenario.serviceType,
+            protocol = scenario.protocol,
+            specType = scenario.specType,
             actualResponseStatus = 0,
             scenarioResult = result,
             soapAction = scenario.httpRequestPattern.getSOAPAction().takeIf { scenario.isGherkinScenario },

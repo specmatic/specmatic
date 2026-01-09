@@ -26,6 +26,7 @@ import io.specmatic.core.Result.Success
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.NamedExampleMismatchMessages
 import io.specmatic.stub.HttpStubData
 import io.specmatic.test.*
@@ -136,18 +137,13 @@ data class Feature(
     val sourceRepository:String? = null,
     val sourceRepositoryBranch:String? = null,
     val specification:String? = null,
-    val serviceType:String? = null,
     val specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
     val flagsBased: FlagsBased = strategiesFromFlags(specmaticConfig),
     val strictMode: Boolean = false,
     val exampleStore: ExampleStore = ExampleStore.empty()
 ): IFeature {
-    val protocol: SpecmaticProtocol? =
-        when (File(path).extension.lowercase()) {
-            "wsdl" -> SpecmaticProtocol.SOAP
-            in OPENAPI_FILE_EXTENSIONS -> SpecmaticProtocol.HTTP
-            else -> null
-        }
+
+    fun protocols() = scenarios.map { it.protocol }.distinct()
 
     val stubsFromExamples: Map<String, List<Pair<HttpRequest, HttpResponse>>>
         get() {
@@ -729,10 +725,10 @@ data class Feature(
                     scenarioAsTest(concreteTestScenario, comment, workflow, originalScenario, originalScenarios)
                 },
                 orFailure = {
-                    ScenarioTestGenerationFailure(originalScenario, it.failure, it.message, protocol)
+                    ScenarioTestGenerationFailure(originalScenario, it.failure, it.message, originalScenario.protocol, originalScenario.specType)
                 },
                 orException = {
-                    ScenarioTestGenerationException(originalScenario, it.t, it.message, it.breadCrumb, protocol)
+                    ScenarioTestGenerationException(originalScenario, it.t, it.message, it.breadCrumb, originalScenario.protocol, originalScenario.specType)
                 }
             )
         }
@@ -775,7 +771,8 @@ data class Feature(
         concreteTestScenario.sourceRepository,
         concreteTestScenario.sourceRepositoryBranch,
         concreteTestScenario.specification,
-        concreteTestScenario.serviceType,
+        concreteTestScenario.protocol,
+        concreteTestScenario.specType,
         comment,
         validators = listOf(ExamplePostValidator),
         workflow = workflow,
@@ -1843,16 +1840,16 @@ data class Feature(
             pattern is NumberPattern -> {
                 val schema = if (pattern.isDoubleFormat) NumberSchema() else IntegerSchema().apply { format = null }
                 schema.apply {
-                    minimum = pattern.minimum;
-                    maximum = pattern.maximum;
+                    minimum = pattern.minimum
+                    maximum = pattern.maximum
                     exclusiveMinimum = pattern.exclusiveMinimum.takeIf { it }
                     exclusiveMaximum = pattern.exclusiveMaximum.takeIf { it }
                 }
             }
             pattern is StringPattern -> {
                 StringSchema().apply {
-                    minLength = pattern.minLength;
-                    maxLength = pattern.maxLength;
+                    minLength = pattern.minLength
+                    maxLength = pattern.maxLength
                     this.pattern = pattern.regex
                 }
             }
@@ -2257,11 +2254,10 @@ data class Feature(
             testVariables: Map<String, String> = emptyMap(),
             testBaseURLs: Map<String, String> = emptyMap(),
             path: String = "",
-            sourceProvider:String? = null,
-            sourceRepository:String? = null,
-            sourceRepositoryBranch:String? = null,
-            specification:String? = null,
-            serviceType:String? = null,
+            sourceProvider: String? = null,
+            sourceRepository: String? = null,
+            sourceRepositoryBranch: String? = null,
+            specification: String? = null,
             stubsFromExamples: Map<String, List<Pair<HttpRequest, HttpResponse>>> = emptyMap(),
             specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
             flagsBased: FlagsBased = strategiesFromFlags(specmaticConfig),
@@ -2278,7 +2274,6 @@ data class Feature(
                 sourceRepository = sourceRepository,
                 sourceRepositoryBranch = sourceRepositoryBranch,
                 specification = specification,
-                serviceType = serviceType,
                 specmaticConfig = specmaticConfig,
                 flagsBased = flagsBased,
                 strictMode = strictMode,
@@ -2341,11 +2336,13 @@ private fun lexScenario(
     filePath: String,
     includedSpecifications: List<IncludedSpecification?>,
     isWSDL: Boolean,
+    protocol: SpecmaticProtocol,
+    specType: SpecType
 ): ScenarioInfo {
     val filteredSteps =
         steps.map { step -> StepInfo(step.text, listOfDatatableRows(step), step) }.filterNot { it.isEmpty }
 
-    val parsedScenarioInfo = filteredSteps.fold(backgroundScenarioInfo ?: ScenarioInfo(httpRequestPattern = HttpRequestPattern())) { scenarioInfo, step ->
+    val parsedScenarioInfo = filteredSteps.fold(backgroundScenarioInfo ?: ScenarioInfo(httpRequestPattern = HttpRequestPattern(), protocol = protocol, specType = specType)) { scenarioInfo, step ->
         when (step.keyword) {
             in HTTP_METHODS -> {
                 step.words.getOrNull(1)?.let {
@@ -2470,7 +2467,7 @@ private fun lexScenario(
     val scenarioInfo = if (includedSpecifications.isEmpty() || backgroundScenarioInfo == null) {
         scenarioInfoWithExamples(
             parsedScenarioInfo,
-            backgroundScenarioInfo ?: ScenarioInfo(),
+            backgroundScenarioInfo ?: ScenarioInfo(protocol = protocol, specType = specType),
             examplesList,
             ignoreFailure
         )
@@ -2693,6 +2690,11 @@ fun scenarioInfos(
     val scenarioInfosBelongingToIncludedSpecifications =
         includedSpecifications.map { it.toScenarioInfos().first }.flatten()
 
+    // TODO - use SOAP and WSDL when the WSDL reporting is in place.
+//    val protocol = if(isWSDL) SpecmaticProtocol.SOAP else SpecmaticProtocol.HTTP
+//    val specType = if(isWSDL) SpecType.WSDL else SpecType.OPENAPI
+    val protocol = SpecmaticProtocol.HTTP
+    val specType = SpecType.OPENAPI
     val backgroundInfo = backgroundScenario(featureChildren)?.let { feature ->
         lexScenario(
             feature.unwrapBackground().steps
@@ -2703,9 +2705,11 @@ fun scenarioInfos(
             null,
             filePath,
             includedSpecifications,
-            isWSDL
+            isWSDL,
+            protocol,
+            specType
         )
-    } ?: ScenarioInfo()
+    } ?: ScenarioInfo(protocol = protocol, specType = specType)
 
     val specmaticScenarioInfos = scenarios(featureChildren).map { featureChild ->
         val scenario = featureChild.scenario.orElseThrow {
@@ -2724,6 +2728,8 @@ fun scenarioInfos(
             filePath,
             includedSpecifications,
             isWSDL,
+            protocol,
+            specType
         )
     }
 

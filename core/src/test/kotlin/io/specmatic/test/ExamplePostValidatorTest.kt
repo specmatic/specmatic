@@ -4,6 +4,8 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.Flags
+import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -477,7 +479,7 @@ class ExamplePostValidatorTest {
             return Scenario(ScenarioInfo(
                 httpRequestPattern = httpRequestPattern,
                 httpResponsePattern = httpResponsePattern,
-                patterns = newPatterns
+                patterns = newPatterns, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )).copy(exampleRow = Row(responseExampleForAssertion = responseExampleForAssertion))
         }
     }

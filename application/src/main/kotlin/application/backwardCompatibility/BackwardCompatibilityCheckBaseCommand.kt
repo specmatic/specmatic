@@ -265,7 +265,7 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
                     LicenseResolver.utilize(
                         product = LicensedProduct.OPEN_SOURCE,
                         feature = TrackingFeature.BACKWARD_COMPATIBILITY_CHECK,
-                        protocol = listOfNotNull((older as? Feature)?.protocol)
+                        protocol = (older as? Feature)?.protocols().orEmpty()
                     )
 
                     return@mapNotNull ProcessedSpec(
