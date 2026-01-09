@@ -8,9 +8,9 @@ import io.specmatic.core.git.SystemGit
 import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.SystemExit
-import io.specmatic.core.utilities.TrackingFeature
 import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.LicensedProduct
+import io.specmatic.license.core.SpecmaticFeature
 import io.specmatic.reporter.backwardcompat.dto.OperationUsageResponse
 import picocli.CommandLine.Option
 import java.io.File
@@ -264,7 +264,7 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
 
                     LicenseResolver.utilize(
                         product = LicensedProduct.OPEN_SOURCE,
-                        feature = TrackingFeature.BACKWARD_COMPATIBILITY_CHECK,
+                        feature = SpecmaticFeature.BACKWARD_COMPATIBILITY_CHECK,
                         protocol = (older as? Feature)?.protocols().orEmpty()
                     )
 
