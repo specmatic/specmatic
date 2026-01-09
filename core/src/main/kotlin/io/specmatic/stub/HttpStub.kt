@@ -782,7 +782,7 @@ class HttpStub(
                 testResultRecords = ctrfTestResultRecords,
                 startTime = startTime.toEpochMilli(),
                 endTime = Instant.now().toEpochMilli(),
-                specConfigs = ctrfSpecConfigsFrom(specmaticConfig, ctrfTestResultRecords, SpecmaticProtocol.HTTP.key, SpecType.OPENAPI.value),
+                specConfigs = ctrfSpecConfigsFrom(specmaticConfig, ctrfTestResultRecords),
                 coverage = 0,
                 reportDir = File("$ARTIFACTS_PATH/stub")
             )
