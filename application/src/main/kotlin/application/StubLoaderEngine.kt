@@ -6,6 +6,7 @@ import io.specmatic.core.loadSpecmaticConfigOrDefault
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.ContractPathData
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.stub.SpecmaticConfigSource
 import io.specmatic.stub.loadContractStubsFromFiles
 import io.specmatic.stub.loadContractStubsFromImplicitPaths
 import java.io.File
@@ -14,7 +15,7 @@ class StubLoaderEngine {
     fun loadStubs(
         contractPathDataList: List<ContractPathData>,
         dataDirs: List<String>,
-        specmaticConfigPath: String? = null,
+        specmaticConfigSource: SpecmaticConfigSource,
         strictMode: Boolean
     ): List<Pair<Feature, List<ScenarioStub>>> {
         contractPathDataList.forEach { contractPath ->
@@ -23,7 +24,7 @@ class StubLoaderEngine {
             }
         }
 
-        val specmaticConfig = loadSpecmaticConfigOrDefault(specmaticConfigPath ?: getConfigFilePath())
+        val specmaticConfig = specmaticConfigSource.load().config
 
         return when {
             dataDirs.isNotEmpty() -> {

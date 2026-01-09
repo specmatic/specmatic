@@ -10,7 +10,6 @@ import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.log.*
 import io.specmatic.core.utilities.*
 import io.specmatic.core.utilities.ContractPathData.Companion.specToBaseUrlMap
-import io.specmatic.core.loadSpecmaticConfigOrNull
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.Flags.Companion.MATCH_BRANCH
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_BASE_URL
@@ -19,6 +18,7 @@ import io.specmatic.license.core.cli.Category
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.ContractStub
 import io.specmatic.stub.HttpClientFactory
+import io.specmatic.stub.SpecmaticConfigSource
 import io.specmatic.stub.endPointFromHostAndPort
 import io.specmatic.stub.listener.MockEventListener
 import picocli.CommandLine.*
@@ -35,7 +35,7 @@ import java.util.concurrent.Callable
 class StubCommand(
     private val httpStubEngine: HTTPStubEngine = HTTPStubEngine(),
     private val stubLoaderEngine: StubLoaderEngine = StubLoaderEngine(),
-    private val specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
+    private val specmaticConfigReader: SpecmaticConfig = SpecmaticConfig(),
     private val watchMaker: WatchMaker = WatchMaker(),
     private val httpClientFactory: HttpClientFactory = HttpClientFactory()
 ) : Callable<Unit> {
@@ -131,9 +131,9 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 
     private var contractSources: List<ContractPathData> = emptyList()
 
-    var specmaticConfigPath: String? = null
-
     var listeners: List<MockEventListener> = emptyList()
+
+    var specmaticConfig: io.specmatic.core.SpecmaticConfig? = null
 
     override fun call() {
         if (delayInMilliseconds > 0) {
@@ -153,6 +153,8 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             Configuration.configFilePath = getConfigFilePath()
         }
 
+        specmaticConfig = loadSpecmaticConfigIfExists(Configuration.configFilePath)
+
         val certInfo = CertInfo(keyStoreFile, keyStoreDir, keyStorePassword, keyStoreAlias, keyPassword)
         port = when (isDefaultPort(port)) {
             true -> if (portIsInUse(host, port)) findRandomFreePort() else port
@@ -162,7 +164,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         System.setProperty(SPECMATIC_BASE_URL, baseUrl)
 
         try {
-            val configMatchBranch = loadSpecmaticConfigIfExists(Configuration.configFilePath)?.getMatchBranch() ?: false
+            val configMatchBranch = specmaticConfig?.getMatchBranch() ?: false
             val matchBranchEnabled = useCurrentBranchForCentralRepo || Flags.getBooleanValue(MATCH_BRANCH, false) || configMatchBranch
 
             contractSources = when (contractPaths.isEmpty()) {
@@ -173,10 +175,10 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
                         throw ContractException("Could not start stub, as neither were contract paths provided nor does a configuration file '$configFile' with contracts consumed exist.")
                     }
 
-                    specmaticConfigPath = configFile.canonicalPath
+                    val specmaticConfigPath = configFile.canonicalPath
 
                     logger.debug("Using the spec paths configured for stubs in the configuration file '$specmaticConfigPath'")
-                    specmaticConfig.contractStubPathData(matchBranchEnabled)
+                    specmaticConfigReader.contractStubPathData(matchBranchEnabled)
                 }
                 else -> contractPaths.map {
                     ContractPathData("", it)
@@ -211,12 +213,12 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 
     private fun configuredHotReload(): Switch =
         hotReload
-            ?: loadSpecmaticConfigOrDefault(specmaticConfigPath ?: getConfigFilePath()).getHotReload()
+            ?: specmaticConfig?.getHotReload()
             ?: Switch.enabled
 
     private fun configuredStrictMode(): Boolean =
         strictMode
-            ?: loadSpecmaticConfigOrDefault(specmaticConfigPath ?: getConfigFilePath()).getStubStrictMode()
+            ?: specmaticConfig?.getStubStrictMode()
             ?: false
 
     private fun configureLogPrinters(): List<LogPrinter> {
@@ -249,12 +251,18 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         val workingDirectory = WorkingDirectory()
         val resolvedStrictMode = configuredStrictMode()
         if(resolvedStrictMode) throwExceptionIfDirectoriesAreInvalid(exampleDirs, "example directories")
-        val stubData = stubLoaderEngine.loadStubs(
-            contractPathDataList = contractSources,
-            dataDirs = exampleDirs,
-            specmaticConfigPath = specmaticConfigPath,
-            strictMode = resolvedStrictMode,
-        )
+        val specmaticConfigSource =
+            specmaticConfig?.let {
+                SpecmaticConfigSource.fromConfig(it)
+            } ?: SpecmaticConfigSource.fromPath(Configuration.configFilePath)
+
+        val stubData =
+            stubLoaderEngine.loadStubs(
+                contractPathDataList = contractSources,
+                dataDirs = exampleDirs,
+                specmaticConfigSource = specmaticConfigSource,
+                strictMode = resolvedStrictMode,
+            )
 
         logStubLoadingSummary(stubData)
 
@@ -296,7 +304,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             certInfo = certInfo,
             strictMode = resolvedStrictMode,
             passThroughTargetBase = passThroughTargetBase,
-            specmaticConfigPath = specmaticConfigPath,
+            specmaticConfigPath = File(Configuration.configFilePath).canonicalPath,
             httpClientFactory = httpClientFactory,
             workingDirectory = workingDirectory,
             gracefulRestartTimeoutInMs = gracefulRestartTimeoutInMs,
