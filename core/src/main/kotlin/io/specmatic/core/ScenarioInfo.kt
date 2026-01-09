@@ -5,6 +5,7 @@ import io.specmatic.conversions.OperationMetadata
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.Value
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.SpecType
 
 data class ScenarioInfo(
     val scenarioName: String = "",
@@ -23,6 +24,7 @@ data class ScenarioInfo(
     val sourceRepositoryBranch: String? = null,
     val specification: String? = null,
     val protocol: SpecmaticProtocol,
+    val specType: SpecType,
     val operationMetadata: OperationMetadata? = null
 ) {
 

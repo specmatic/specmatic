@@ -8,6 +8,7 @@ import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.Value
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.RequestContext
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -68,7 +69,7 @@ class ResponseBuilderTest {
             HttpRequest("GET", "/").toPattern(),
             HttpResponsePattern(body = responsePattern),
             emptyMap(), emptyList(), emptyMap(), emptyMap(),
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         ResponseBuilder(scenario, emptyMap()).build(RequestContext(HttpRequest(path = "testPath")))

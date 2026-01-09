@@ -16,6 +16,7 @@ import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.Value
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
 import io.specmatic.test.handlers.ResponseHandler
 import io.specmatic.test.handlers.ResponseHandlerRegistry
@@ -31,6 +32,7 @@ data class ScenarioAsTest(
     private val sourceRepositoryBranch: String? = null,
     private val specification: String? = null,
     override val protocol: SpecmaticProtocol,
+    override val specType: SpecType,
     private val annotations: String? = null,
     private val validators: List<ResponseValidator> = emptyList(),
     private val originalScenario: Scenario,
@@ -63,6 +65,7 @@ data class ScenarioAsTest(
             branch = sourceRepositoryBranch,
             specification = specification,
             protocol = protocol,
+            specType = specType,
             actualResponseStatus = response?.status ?: 0,
             scenarioResult = result,
             soapAction = scenario.httpRequestPattern.getSOAPAction().takeIf { scenario.isGherkinScenario },

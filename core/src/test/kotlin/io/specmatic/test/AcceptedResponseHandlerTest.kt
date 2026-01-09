@@ -8,6 +8,7 @@ import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.StandardRuleViolation
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.toViolationReportString
 import io.specmatic.test.handlers.AcceptedResponseHandler
 import io.specmatic.test.handlers.ResponseHandlingResult
@@ -24,21 +25,21 @@ class AcceptedResponseHandlerTest {
             httpResponsePattern = HttpResponsePattern(
                 status = 201,
                 body = JSONObjectPattern(mapOf("name" to StringPattern(), "age" to NumberPattern())),
-            ), protocol = SpecmaticProtocol.HTTP
+            ), protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         ))
         val acceptedScenario = Scenario(ScenarioInfo(
             httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/"), method = "POST"),
             httpResponsePattern = HttpResponsePattern(
                 status = 202,
                 headersPattern = HttpHeadersPattern(mapOf("Link" to StringPattern())),
-            ), protocol = SpecmaticProtocol.HTTP
+            ), protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         ))
         val monitorScenario = Scenario(ScenarioInfo(
             httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/monitor/(id:number)"), method = "GET"),
             httpResponsePattern = HttpResponsePattern(
                 status = 200,
                 body = JSONObjectPattern(mapOf("request" to AnyNonNullJSONValue(), "response?" to AnyNonNullJSONValue())),
-            ), protocol = SpecmaticProtocol.HTTP
+            ), protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         ))
     }
 
@@ -123,14 +124,14 @@ class AcceptedResponseHandlerTest {
     fun `should return failure when scenario matching monitor link is not found`() {
         val postScenario = Scenario(ScenarioInfo(
             httpRequestPattern = HttpRequestPattern(method = "POST"),
-            httpResponsePattern = HttpResponsePattern(status = 201), protocol = SpecmaticProtocol.HTTP
+            httpResponsePattern = HttpResponsePattern(status = 201), protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         ))
         val acceptedScenario = Scenario(ScenarioInfo(
             httpRequestPattern = HttpRequestPattern(method = "POST"),
             httpResponsePattern = HttpResponsePattern(
                 status = 202,
                 headersPattern = HttpHeadersPattern(mapOf("Link" to StringPattern())),
-            ), protocol = SpecmaticProtocol.HTTP
+            ), protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         ))
         val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario))
 

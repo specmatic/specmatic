@@ -8,6 +8,7 @@ import io.specmatic.reporter.generated.dto.coverage.CoverageEntry
 import io.specmatic.reporter.generated.dto.coverage.OpenAPICoverageOperation
 import io.specmatic.reporter.generated.dto.coverage.SpecmaticCoverageReport
 import io.specmatic.reporter.model.OpenAPIOperation
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.API
 import io.specmatic.test.HttpInteractionsLog
@@ -174,7 +175,8 @@ class OpenApiCoverageReportInput(
                     repository = endpoint.sourceRepository,
                     branch = endpoint.sourceRepositoryBranch,
                     specification = endpoint.specification,
-                    protocol = endpoint.protocol
+                    protocol = endpoint.protocol,
+                    specType = endpoint.specType
                 )
             }
         )
@@ -250,7 +252,8 @@ class OpenApiCoverageReportInput(
                 request = null,
                 response = null,
                 result = TestResult.MissingInSpec,
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI
             )
         }
 
@@ -369,5 +372,6 @@ data class Endpoint(
     val specification: String? = null,
     val protocol: SpecmaticProtocol,
     val requestContentType: String? = null,
-    val responseContentType: String? = null
+    val responseContentType: String? = null,
+    val specType: SpecType,
 )

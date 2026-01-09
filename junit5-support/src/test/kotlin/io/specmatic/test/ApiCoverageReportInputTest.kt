@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.FILTER
 import io.specmatic.test.reports.coverage.Endpoint
@@ -23,10 +24,10 @@ class ApiCoverageReportInputTest {
     @Test
     fun `test generates api coverage report when all endpoints are covered`() {
         val testReportRecords = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP),
-            TestResultRecord("/route1", "POST", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP),
-            TestResultRecord("/route1", "POST", 401, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP),
-            TestResultRecord("/route2", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP),
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route1", "POST", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route1", "POST", 401, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route2", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
         )
         val applicationAPIs = mutableListOf(
             API("GET", "/route1"),
@@ -35,10 +36,10 @@ class ApiCoverageReportInputTest {
         )
 
         val endpointsInSpec = mutableListOf(
-            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP),
-            Endpoint("/route1", "POST", 200, protocol = SpecmaticProtocol.HTTP),
-            Endpoint("/route1", "POST", 401, protocol = SpecmaticProtocol.HTTP),
-            Endpoint("/route2", "GET", 200, protocol = SpecmaticProtocol.HTTP),
+            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route1", "POST", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route1", "POST", 401, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route2", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(CONFIG_FILE_PATH, testReportRecords, applicationAPIs, allEndpoints = endpointsInSpec, endpointsAPISet = true).generate()
@@ -69,17 +70,17 @@ class ApiCoverageReportInputTest {
         )
 
         val testReportRecords = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP),
-            TestResultRecord("/route1", "POST", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP),
-            TestResultRecord("/route1", "POST", 401, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP),
-            TestResultRecord("/route2", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP)
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route1", "POST", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route1", "POST", 401, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route2", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
         )
 
         val endpointsInSpec = mutableListOf(
-            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP),
-            Endpoint("/route1", "POST", 200, protocol = SpecmaticProtocol.HTTP),
-            Endpoint("/route1", "POST", 401, protocol = SpecmaticProtocol.HTTP),
-            Endpoint("/route2", "GET", 200, protocol = SpecmaticProtocol.HTTP),
+            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route1", "POST", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route1", "POST", 401, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route2", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(CONFIG_FILE_PATH, testReportRecords, applicationAPIs, allEndpoints = endpointsInSpec, endpointsAPISet = true).generate()
@@ -104,11 +105,11 @@ class ApiCoverageReportInputTest {
     @Test
     fun `test generates api coverage report when some endpoints are marked as excluded`() {
         val testReportRecords = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP),
-            TestResultRecord("/route1", "POST", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP),
-            TestResultRecord("/route1", "POST", 401, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP),
-            TestResultRecord("/route2", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP),
-            TestResultRecord("/route2", "POST", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP)
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route1", "POST", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route1", "POST", 401, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route2", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route2", "POST", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
         )
         val applicationAPIs = mutableListOf(
             API("GET", "/route1"),
@@ -120,11 +121,11 @@ class ApiCoverageReportInputTest {
         )
 
         val endpointsInSpec = mutableListOf(
-            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP),
-            Endpoint("/route1", "POST", 200, protocol = SpecmaticProtocol.HTTP),
-            Endpoint("/route1", "POST", 401, protocol = SpecmaticProtocol.HTTP),
-            Endpoint("/route2", "GET", 200, protocol = SpecmaticProtocol.HTTP),
-            Endpoint("/route2", "POST", 200, protocol = SpecmaticProtocol.HTTP),
+            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route1", "POST", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route1", "POST", 401, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route2", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route2", "POST", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
         )
 
         val excludedAPIs = mutableListOf(
@@ -153,11 +154,11 @@ class ApiCoverageReportInputTest {
     @Test
     fun `test generates empty api coverage report when all endpoints are marked as excluded`() {
         val testReportRecords = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP),
-            TestResultRecord("/route1", "POST", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP),
-            TestResultRecord("/route1", "POST", 401, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP),
-            TestResultRecord("/route2", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP),
-            TestResultRecord("/route2", "POST", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP)
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route1", "POST", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route1", "POST", 401, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route2", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route2", "POST", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
         )
         val applicationAPIs = mutableListOf(
             API("GET", "/route1"),
@@ -169,11 +170,11 @@ class ApiCoverageReportInputTest {
         )
 
         val endpointsInSpec = mutableListOf(
-            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP),
-            Endpoint("/route1", "POST", 200, protocol = SpecmaticProtocol.HTTP),
-            Endpoint("/route1", "POST", 401, protocol = SpecmaticProtocol.HTTP),
-            Endpoint("/route2", "GET", 200, protocol = SpecmaticProtocol.HTTP),
-            Endpoint("/route2", "POST", 200, protocol = SpecmaticProtocol.HTTP),
+            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route1", "POST", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route1", "POST", 401, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route2", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route2", "POST", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
         )
 
         val excludedAPIs = mutableListOf(
@@ -207,17 +208,17 @@ class ApiCoverageReportInputTest {
         )
 
         val testReportRecords = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP),
-            TestResultRecord("/route1", "POST", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP),
-            TestResultRecord("/route2", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404, protocol = SpecmaticProtocol.HTTP),
-            TestResultRecord("/route2", "POST", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404, protocol = SpecmaticProtocol.HTTP)
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route1", "POST", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route2", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route2", "POST", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
         )
 
         val endpointsInSpec = mutableListOf(
-            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP),
-            Endpoint("/route1", "POST", 200, protocol = SpecmaticProtocol.HTTP),
-            Endpoint("/route2", "GET", 200, protocol = SpecmaticProtocol.HTTP),
-            Endpoint("/route2", "POST", 200, protocol = SpecmaticProtocol.HTTP),
+            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route1", "POST", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route2", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route2", "POST", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(CONFIG_FILE_PATH, testReportRecords, applicationAPIs, allEndpoints = endpointsInSpec, endpointsAPISet = true).generate()
@@ -249,17 +250,17 @@ class ApiCoverageReportInputTest {
         )
 
         val testReportRecords = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP),
-            TestResultRecord("/route1", "POST", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP),
-            TestResultRecord("/route2", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP),
-            TestResultRecord("/route2", "POST", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404, protocol = SpecmaticProtocol.HTTP)
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route1", "POST", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route2", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route2", "POST", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
         )
 
         val endpointsInSpec = mutableListOf(
-            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP),
-            Endpoint("/route1", "POST", 200, protocol = SpecmaticProtocol.HTTP),
-            Endpoint("/route2", "GET", 200, protocol = SpecmaticProtocol.HTTP),
-            Endpoint("/route2", "POST", 200, protocol = SpecmaticProtocol.HTTP),
+            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route1", "POST", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route2", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route2", "POST", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(CONFIG_FILE_PATH, testReportRecords, applicationAPIs, allEndpoints = endpointsInSpec, endpointsAPISet = true).generate()
@@ -303,7 +304,7 @@ class ApiCoverageReportInputTest {
                 "https://github.com/specmatic/specmatic-order-contracts.git",
                 "main",
                 "in/specmatic/examples/store/route1.yaml",
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             ),
             TestResultRecord(
                 "/route1",
@@ -316,7 +317,7 @@ class ApiCoverageReportInputTest {
                 "https://github.com/specmatic/specmatic-order-contracts.git",
                 "main",
                 "in/specmatic/examples/store/route1.yaml",
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             ),
             TestResultRecord(
                 "/route2",
@@ -329,7 +330,7 @@ class ApiCoverageReportInputTest {
                 "https://github.com/specmatic/specmatic-order-contracts.git",
                 "main",
                 "in/specmatic/examples/store/route2.yaml",
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             ),
             TestResultRecord(
                 "/route2",
@@ -342,16 +343,16 @@ class ApiCoverageReportInputTest {
                 "https://github.com/specmatic/specmatic-order-contracts.git",
                 "main",
                 "in/specmatic/examples/store/route2.yaml",
-                protocol = SpecmaticProtocol.HTTP,
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
                 actualResponseStatus = 404
             )
         )
 
         val endpointsInSpec = mutableListOf(
-            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP),
-            Endpoint("/route1", "POST", 200, protocol = SpecmaticProtocol.HTTP),
-            Endpoint("/route2", "GET", 200, protocol = SpecmaticProtocol.HTTP),
-            Endpoint("/route2", "POST", 200, protocol = SpecmaticProtocol.HTTP),
+            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route1", "POST", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route2", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route2", "POST", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
         )
 
         val openApiCoverageJsonReport = OpenApiCoverageReportInput(CONFIG_FILE_PATH, testReportRecords, applicationAPIs, allEndpoints = endpointsInSpec, endpointsAPISet = true).generateJsonReport()
@@ -364,12 +365,12 @@ class ApiCoverageReportInputTest {
     @Test
     fun `test generates api coverage report with endpoints present in spec but not tested`() {
         val testReportRecords = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP),
-            TestResultRecord("/route1", "POST", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP),
-            TestResultRecord("/route1", "POST", 401, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP),
-            TestResultRecord("/route2", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP),
-            TestResultRecord("/route2", "GET", 404, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP),
-            TestResultRecord("/route2", "POST", 500, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP),
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route1", "POST", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route1", "POST", 401, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route2", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route2", "GET", 404, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route2", "POST", 500, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
         )
         val applicationAPIs = mutableListOf(
             API("GET", "/route1"),
@@ -378,11 +379,11 @@ class ApiCoverageReportInputTest {
         )
 
         val allEndpoints = mutableListOf(
-            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP),
-            Endpoint("/route1", "POST", 200, protocol = SpecmaticProtocol.HTTP),
-            Endpoint("/route1", "POST", 401, protocol = SpecmaticProtocol.HTTP),
-            Endpoint("/route2", "GET", 200, protocol = SpecmaticProtocol.HTTP),
-            Endpoint("/route2", "GET", 400, protocol = SpecmaticProtocol.HTTP)
+            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route1", "POST", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route1", "POST", 401, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route2", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route2", "GET", 400, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(CONFIG_FILE_PATH, testReportRecords, applicationAPIs, allEndpoints = allEndpoints, filteredEndpoints = allEndpoints, endpointsAPISet = true).generate()

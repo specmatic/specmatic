@@ -7,6 +7,7 @@ import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.toViolationReportString
 import io.specmatic.test.MonitorResult
 import io.specmatic.test.TestExecutor
@@ -27,7 +28,7 @@ class TooManyRequestsHandlerTest {
                 body = JSONObjectPattern(mapOf("age" to NumberPattern()))
             ),
             httpResponsePattern = HttpResponsePattern(status = 201),
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         ))
 
         private val tooManyRequestsScenario = Scenario(ScenarioInfo(
@@ -36,7 +37,7 @@ class TooManyRequestsHandlerTest {
                 body = JSONObjectPattern(mapOf("age" to NumberPattern()))
             ),
             httpResponsePattern = HttpResponsePattern(status = HttpStatusCode.TooManyRequests.value),
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         ))
 
         private val throwAwayExecutor = object : TestExecutor {

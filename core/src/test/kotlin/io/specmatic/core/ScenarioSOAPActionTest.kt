@@ -3,6 +3,7 @@ package io.specmatic.core
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.StringValue
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.SpecType
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
@@ -32,7 +33,7 @@ class ScenarioSOAPActionTest {
             name = "test",
             httpRequestPattern = httpRequestPattern,
             httpResponsePattern = httpResponsePattern,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
         
         // Test that the API description includes SOAPAction
@@ -61,7 +62,7 @@ class ScenarioSOAPActionTest {
             name = "test",
             httpRequestPattern = httpRequestPattern,
             httpResponsePattern = httpResponsePattern,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
         
         // Test that the API description works normally
@@ -91,7 +92,7 @@ class ScenarioSOAPActionTest {
             name = "test",
             httpRequestPattern = httpRequestPattern,
             httpResponsePattern = httpResponsePattern,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
         
         // Test that the API description includes SOAPAction regardless of case
@@ -120,7 +121,7 @@ class ScenarioSOAPActionTest {
             name = "test",
             httpRequestPattern = httpRequestPattern,
             httpResponsePattern = httpResponsePattern,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
         
         // Test that the API description does not include SOAPAction for non-exact patterns
@@ -150,7 +151,7 @@ class ScenarioSOAPActionTest {
             name = "SOAP Service Test",
             httpRequestPattern = httpRequestPattern,
             httpResponsePattern = httpResponsePattern,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
         
         // Test that the test description includes SOAPAction

@@ -14,6 +14,7 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.NamedExampleMismatchMessages
 import io.specmatic.toViolationReportString
 import org.apache.http.HttpHeaders.AUTHORIZATION
@@ -81,7 +82,7 @@ class ScenarioTest {
             ),
             emptyMap(),
             emptyMap(),
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         assertThatThrownBy {
@@ -126,7 +127,7 @@ class ScenarioTest {
             ),
             emptyMap(),
             emptyMap(),
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         assertThatThrownBy {
@@ -171,7 +172,7 @@ class ScenarioTest {
             ),
             emptyMap(),
             emptyMap(),
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         assertThatCode {
@@ -212,7 +213,7 @@ class ScenarioTest {
             ),
             emptyMap(),
             emptyMap(),
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         assertThatCode {
@@ -256,7 +257,7 @@ class ScenarioTest {
             ),
             emptyMap(),
             emptyMap(),
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         assertThatCode {
@@ -301,7 +302,7 @@ class ScenarioTest {
             ),
             emptyMap(),
             emptyMap(),
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         assertThatThrownBy {
@@ -333,7 +334,7 @@ class ScenarioTest {
             httpRequestPattern,
             HttpResponsePattern(status = 200),
             exampleName = "example",
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
         val scenarioMetadata = scenario.toScenarioMetadata()
 
@@ -359,7 +360,7 @@ class ScenarioTest {
                     listOf(Row(requestExample = HttpRequest(path = "/", method = "POST")))
                 )
             ),
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         assertDoesNotThrow { scenario.validExamplesOrException(DefaultStrategies) }
@@ -387,7 +388,7 @@ class ScenarioTest {
                     )
                 )
             ),
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val exception = assertThrows<ContractException> { scenario.validExamplesOrException(DefaultStrategies) }
@@ -439,7 +440,7 @@ class ScenarioTest {
                     )
                 )
             ),
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val exception = assertThrows<ContractException> { scenario.validExamplesOrException(DefaultStrategies) }
@@ -499,7 +500,7 @@ class ScenarioTest {
                     )
                 )
             ),
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val exception = assertThrows<ContractException> { scenario.validExamplesOrException(DefaultStrategies) }
@@ -558,7 +559,7 @@ class ScenarioTest {
                     )
                 )
             ),
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         Flags.using(Flags.EXTENSIBLE_SCHEMA to "true") {
@@ -574,7 +575,7 @@ class ScenarioTest {
             httpRequestPattern = HttpRequestPattern(method = "GET", httpPathPattern = HttpPathPattern.from("/")),
             httpResponsePattern = HttpResponsePattern(status = 200),
             disambiguate = { "[1] " },
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
         assertThat(scenario.testDescription().trim()).isEqualTo("Scenario: GET / [1] -> 200")
     }
@@ -606,7 +607,7 @@ class ScenarioTest {
                     queryParamKey = "fields",
                     defaultFields = emptyList()
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
 
             val httpRequest = HttpRequest(
@@ -661,7 +662,7 @@ class ScenarioTest {
                     queryParamKey = "fields",
                     defaultFields = emptyList()
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
 
             val httpRequest = HttpRequest(
@@ -712,7 +713,7 @@ class ScenarioTest {
                     status = 200,
                     body = StringPattern()
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
             val httpRequest = HttpRequest(
                 method = "POST",
@@ -737,7 +738,7 @@ class ScenarioTest {
                     status = 200,
                     body = StringPattern()
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
             val httpRequest = HttpRequest(
                 method = "POST",
@@ -766,7 +767,7 @@ class ScenarioTest {
                     status = 200,
                     body = StringPattern()
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
             val httpRequest = HttpRequest(
                 method = "POST",
@@ -791,7 +792,7 @@ class ScenarioTest {
                     status = 200,
                     body = StringPattern()
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
             val httpRequest = HttpRequest(
                 method = "POST",
@@ -816,7 +817,7 @@ class ScenarioTest {
                     status = 200,
                     body = StringPattern()
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
             val httpRequest = HttpRequest(
                 method = "POST",
@@ -843,7 +844,7 @@ class ScenarioTest {
                     status = 200,
                     body = StringPattern()
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
             val httpRequest = HttpRequest(
                 method = "POST",
@@ -882,7 +883,7 @@ class ScenarioTest {
                     status = 200,
                     body = StringPattern()
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
             val httpRequest = HttpRequest(
                 method = "POST",
@@ -922,7 +923,7 @@ class ScenarioTest {
                     body = StringPattern()
                 ),
                 patterns = patterns,
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
             val httpRequest = HttpRequest(
                 method = "POST",
@@ -947,7 +948,7 @@ class ScenarioTest {
                     status = 200,
                     body = StringPattern()
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
             val httpRequest = HttpRequest(
                 method = "POST",
@@ -967,7 +968,7 @@ class ScenarioTest {
             name = "test scenario",
             httpRequestPattern = HttpRequestPattern(method = "GET", httpPathPattern = HttpPathPattern.from("/")),
             httpResponsePattern = HttpResponsePattern(status = 200, body = JSONObjectPattern(mapOf("error" to StringPattern()))),
-            protocol = SpecmaticProtocol.HTTP,
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
         )
 
         val response = scenario.responseWithStubError("error")

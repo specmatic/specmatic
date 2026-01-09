@@ -3,6 +3,7 @@ package io.specmatic.test.reports.coverage
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.OpenAPIOperation
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.API
 import io.specmatic.test.TestResultRecord
@@ -19,7 +20,7 @@ class OpenApiCoverageReportInputTest {
             request = null,
             response = null,
             result = TestResult.Success,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val input = OpenApiCoverageReportInput(
@@ -42,7 +43,7 @@ class OpenApiCoverageReportInputTest {
             request = null,
             response = null,
             result = TestResult.Success,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val previousRecord = TestResultRecord(
@@ -52,7 +53,7 @@ class OpenApiCoverageReportInputTest {
             request = null,
             response = null,
             result = TestResult.Success,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val input = OpenApiCoverageReportInput(
@@ -70,15 +71,15 @@ class OpenApiCoverageReportInputTest {
     fun `should calculate coverage percentage with only current results`() {
         val endpoint1 = Endpoint(
             path = "/current", method = "GET", responseStatus = 200,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
         val endpoint2 = Endpoint(
             path = "/previous", method = "POST", responseStatus = 201,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
         val endpoint3 = Endpoint(
             path = "/uncovered", method = "GET", responseStatus = 404,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val allEndpoints = mutableListOf(endpoint1, endpoint2, endpoint3)
@@ -89,7 +90,7 @@ class OpenApiCoverageReportInputTest {
             request = null,
             response = null,
             result = TestResult.Success,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val input = OpenApiCoverageReportInput(
@@ -111,15 +112,15 @@ class OpenApiCoverageReportInputTest {
     fun `should calculate coverage percentage including previous test results and uncovered endpoints`() {
         val endpoint1 = Endpoint(
             path = "/current", method = "GET", responseStatus = 200,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
         val endpoint2 = Endpoint(
             path = "/previous", method = "POST", responseStatus = 201,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
         val endpoint3 = Endpoint(
             path = "/uncovered", method = "GET", responseStatus = 404,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val allEndpoints = mutableListOf(endpoint1, endpoint2, endpoint3)
@@ -130,7 +131,7 @@ class OpenApiCoverageReportInputTest {
             request = null,
             response = null,
             result = TestResult.Success,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val previousRecord = TestResultRecord(
@@ -140,7 +141,7 @@ class OpenApiCoverageReportInputTest {
             request = null,
             response = null,
             result = TestResult.Success,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val input = OpenApiCoverageReportInput(
@@ -162,15 +163,15 @@ class OpenApiCoverageReportInputTest {
     fun `should calculate coverage for a single path with mixed results when no previous runs`() {
         val endpoint1 = Endpoint(
             path = "/resource", method = "GET", responseStatus = 200,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
         val endpoint2 = Endpoint(
             path = "/resource", method = "POST", responseStatus = 201,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
         val endpoint3 = Endpoint(
             path = "/resource", method = "DELETE", responseStatus = 204,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val allEndpoints = mutableListOf(endpoint1, endpoint2, endpoint3)
@@ -181,7 +182,7 @@ class OpenApiCoverageReportInputTest {
             request = null,
             response = null,
             result = TestResult.Success,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val input = OpenApiCoverageReportInput(
@@ -209,15 +210,15 @@ class OpenApiCoverageReportInputTest {
     fun `should calculate coverage for a single path with mixed results including previous runs when provided`() {
         val endpoint1 = Endpoint(
             path = "/resource", method = "GET", responseStatus = 200,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
         val endpoint2 = Endpoint(
             path = "/resource", method = "POST", responseStatus = 201,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
         val endpoint3 = Endpoint(
             path = "/resource", method = "DELETE", responseStatus = 204,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val allEndpoints = mutableListOf(endpoint1, endpoint2, endpoint3)
@@ -228,7 +229,7 @@ class OpenApiCoverageReportInputTest {
             request = null,
             response = null,
             result = TestResult.Success,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val previousRecord = TestResultRecord(
@@ -238,7 +239,7 @@ class OpenApiCoverageReportInputTest {
             request = null,
             response = null,
             result = TestResult.Success,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val input = OpenApiCoverageReportInput(
@@ -267,23 +268,23 @@ class OpenApiCoverageReportInputTest {
         val allEndpoints = mutableListOf(
             Endpoint(
                 "/test", "POST", 200,
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             ), Endpoint(
                 "/filtered", "POST", 200,
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         )
         val filtered = mutableListOf(
             Endpoint(
                 "/test", "POST", 200,
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         )
         val testResultRecords = mutableListOf(
             TestResultRecord(
                 "/test", "POST", 200,
                 request = null, response = null, result = TestResult.Failed, actualResponseStatus = 200,
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             ),
         )
 
@@ -303,16 +304,16 @@ class OpenApiCoverageReportInputTest {
         val allEndpoints = mutableListOf(
             Endpoint(
                 "/test", "POST", 200,
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             ), Endpoint(
                 "/filtered", "POST", 200,
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         )
         val filtered = mutableListOf(
             Endpoint(
                 "/test", "POST", 200,
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         )
         val applicationAPIs = mutableListOf(API("POST", "/test"), API("POST", "/filtered"))
@@ -320,7 +321,7 @@ class OpenApiCoverageReportInputTest {
             TestResultRecord(
                 "/test", "POST", 200,
                 request = null, response = null, result = TestResult.Failed, actualResponseStatus = 200,
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             ),
         )
 
@@ -339,23 +340,23 @@ class OpenApiCoverageReportInputTest {
         val allEndpoints = mutableListOf(
             Endpoint(
                 "/test", "POST", 200,
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             ), Endpoint(
                 "/filtered", "POST", 200,
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         )
         val filtered = mutableListOf(
             Endpoint(
                 "/test", "POST", 200,
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         )
         val testResultRecords = mutableListOf(
             TestResultRecord(
                 "/test", "POST", 200,
                 request = null, response = null, result = TestResult.Failed, actualResponseStatus = 0,
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         )
 
@@ -376,7 +377,7 @@ class OpenApiCoverageReportInputTest {
         val allEndpoints = mutableListOf(
             Endpoint(
                 path = "/current", method = "GET", responseStatus = 200,
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         )
 
@@ -389,7 +390,7 @@ class OpenApiCoverageReportInputTest {
                 response = null,
                 result = TestResult.Success,
                 actualResponseStatus = 200,
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             ),
             TestResultRecord(
                 "/current",
@@ -399,7 +400,7 @@ class OpenApiCoverageReportInputTest {
                 response = null,
                 result = TestResult.Failed,
                 actualResponseStatus = 400,
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             ),
         )
 
@@ -434,7 +435,7 @@ class OpenApiCoverageReportInputTest {
         val allEndpoints = mutableListOf(
             Endpoint(
                 path = "/current", method = "GET", responseStatus = 200,
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         )
 
@@ -447,7 +448,7 @@ class OpenApiCoverageReportInputTest {
                 response = null,
                 result = TestResult.Success,
                 actualResponseStatus = 200,
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             ),
             TestResultRecord(
                 "/current",
@@ -457,7 +458,7 @@ class OpenApiCoverageReportInputTest {
                 response = null,
                 result = TestResult.Success,
                 actualResponseStatus = 400,
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             ),
         )
 
@@ -487,11 +488,11 @@ class OpenApiCoverageReportInputTest {
     fun `should retain requestContentTypes for not covered endpoints`() {
         val endpoint1 = Endpoint(
             path = "/current", method = "GET", responseStatus = 200,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
         val endpoint2 = Endpoint(
             path = "/previous", method = "POST", requestContentType = "application/json", responseStatus = 201,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val allEndpoints = mutableListOf(endpoint1, endpoint2)
@@ -502,7 +503,7 @@ class OpenApiCoverageReportInputTest {
             request = null,
             response = null,
             result = TestResult.Success,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val input = OpenApiCoverageReportInput(
@@ -524,7 +525,7 @@ class OpenApiCoverageReportInputTest {
     fun `should report requestContentTypes as null wherever it is not applicable or available`() {
         val endpoint1 = Endpoint(
             path = "/current", method = "GET", responseStatus = 200,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val allEndpoints = mutableListOf(endpoint1)
@@ -535,7 +536,7 @@ class OpenApiCoverageReportInputTest {
             request = null,
             response = null,
             result = TestResult.Success,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val input = OpenApiCoverageReportInput(

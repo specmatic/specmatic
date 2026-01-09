@@ -1,5 +1,6 @@
 import io.specmatic.core.filters.TestRecordFilter
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -16,7 +17,7 @@ class TestRecordFilterTest {
         request = null,
         response = null,
         result = TestResult.Success,
-        protocol = SpecmaticProtocol.HTTP
+        protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
     )
 
     @Test

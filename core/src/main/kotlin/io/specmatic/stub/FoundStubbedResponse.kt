@@ -2,6 +2,7 @@ package io.specmatic.stub
 
 import io.specmatic.core.HttpRequest
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.report.StubEndpoint
 
 class FoundStubbedResponse(override val response: HttpStubResponse) : StubbedResponseResult {
@@ -17,6 +18,7 @@ class FoundStubbedResponse(override val response: HttpStubResponse) : StubbedRes
                 response.feature?.sourceRepositoryBranch,
                 response.feature?.specification,
                 response.scenario?.protocol ?: SpecmaticProtocol.HTTP,
+                response.scenario?.specType ?: SpecType.OPENAPI
             )
         )
     }

@@ -14,6 +14,7 @@ import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.*
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.FuzzyExampleMisMatchMessages
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.toViolationReportString
 import io.specmatic.stub.captureStandardOutput
 import io.specmatic.stub.createStubFromContracts
@@ -3027,7 +3028,7 @@ paths:
             httpRequestPattern,
             HttpResponsePattern(status = 200),
             exampleName = "example",
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val feature = Feature(name = "", scenarios = listOf(scenario))
@@ -3063,11 +3064,11 @@ paths:
             scenarios = listOf(
                 Scenario(
                     "uppercase headers", requestPatternUpper, responsePatternUpper,
-                    protocol = SpecmaticProtocol.HTTP
+                    protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
                 ),
                 Scenario(
                     "lowercase headers", requestPatternLower, responsePatternLower,
-                    protocol = SpecmaticProtocol.HTTP
+                    protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
                 )
             )
         )
@@ -3145,7 +3146,7 @@ paths:
                     status = 200,
                     body = StringPattern()
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
             val feature = Feature(scenarios = listOf(scenario), name = "TestFeature")
             val httpRequest = HttpRequest(method = "GET", path = "/test", body = StringValue("test"))
@@ -3172,7 +3173,7 @@ paths:
                     status = 200,
                     body = StringPattern()
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
             val scenario2 = Scenario(
                 name = "scenario2",
@@ -3189,7 +3190,7 @@ paths:
                     status = 200,
                     body = StringPattern()
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
             val feature = Feature(scenarios = listOf(scenario1, scenario2), name = "TestFeature")
             val httpRequest = HttpRequest(
@@ -3220,7 +3221,7 @@ paths:
                     status = 400,
                     body = StringPattern()
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
             val feature = Feature(scenarios = listOf(scenario), name = "TestFeature")
 
@@ -3250,7 +3251,7 @@ paths:
                     status = 200,
                     body = StringPattern()
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
             val scenario2 = Scenario(
                 name = "scenario2",
@@ -3270,7 +3271,7 @@ paths:
                     status = 200,
                     body = StringPattern()
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
             val feature = Feature(scenarios = listOf(scenario1, scenario2), name = "TestFeature")
             val httpRequest = HttpRequest(
@@ -3299,7 +3300,7 @@ paths:
                     status = 200,
                     body = StringPattern()
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
             val feature = Feature(scenarios = listOf(scenario), name = "TestFeature")
             val httpRequest = HttpRequest(
@@ -3332,7 +3333,7 @@ paths:
                         rows = listOf(Row(columnNames = listOf("id"), values = listOf("1")))
                     )
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
 
             val scenarioWithoutRows = Scenario(
@@ -3343,7 +3344,7 @@ paths:
                 ),
                 httpResponsePattern = HttpResponsePattern(status = 201),
                 examples = emptyList(),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
 
             val featureWithStrictMode = Feature(
@@ -3374,7 +3375,7 @@ paths:
                         rows = listOf(Row(columnNames = listOf("id"), values = listOf("1")))
                     )
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
 
             val scenarioWithoutRows = Scenario(
@@ -3385,7 +3386,7 @@ paths:
                 ),
                 httpResponsePattern = HttpResponsePattern(status = 201),
                 examples = emptyList(),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
 
             val featureWithoutStrictMode = Feature(
@@ -3417,7 +3418,7 @@ paths:
                         rows = listOf(Row(columnNames = listOf("id"), values = listOf("1")))
                     )
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
 
             val scenarioWithoutRows = Scenario(
@@ -3428,7 +3429,7 @@ paths:
                 ),
                 httpResponsePattern = HttpResponsePattern(status = 200),
                 examples = emptyList(),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
 
             val configWithResiliency = SpecmaticConfig().enableResiliencyTests()

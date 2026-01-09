@@ -35,6 +35,7 @@ import io.specmatic.mock.ScenarioStub
 import io.specmatic.mock.TRANSIENT_MOCK
 import io.specmatic.reporter.generated.dto.stub.usage.SpecmaticStubUsageReport
 import io.specmatic.reporter.internal.dto.stub.usage.merge
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.stub.listener.MockEvent
 import io.specmatic.stub.listener.MockEventListener
@@ -349,6 +350,7 @@ class HttpStub(
                         response = httpResponse,
                         result = httpLogMessage.toResult(),
                         protocol = httpLogMessage.scenario?.protocol ?: SpecmaticProtocol.HTTP,
+                        specType = httpLogMessage.scenario?.specType ?: SpecType.OPENAPI,
                         requestContentType = httpLogMessage.scenario?.requestContentType
                             ?: httpRequest.headers["Content-Type"],
                         specification = httpStubResponse.scenario?.specification,
@@ -780,7 +782,7 @@ class HttpStub(
                 testResultRecords = ctrfTestResultRecords,
                 startTime = startTime.toEpochMilli(),
                 endTime = Instant.now().toEpochMilli(),
-                specConfigs = ctrfSpecConfigsFrom(specmaticConfig, ctrfTestResultRecords, SpecmaticProtocol.HTTP.key),
+                specConfigs = ctrfSpecConfigsFrom(specmaticConfig, ctrfTestResultRecords, SpecmaticProtocol.HTTP.key, SpecType.OPENAPI.value),
                 coverage = 0,
                 reportDir = File("$ARTIFACTS_PATH/stub")
             )
@@ -805,7 +807,8 @@ class HttpStub(
                 result = TestResult.NotCovered,
                 specification = endpoint.specification.orEmpty(),
                 testType = STUB_TEST_TYPE,
-                protocol = endpoint.protocol ?: SpecmaticProtocol.HTTP
+                protocol = endpoint.protocol,
+                specType = endpoint.specType
             )
         }
     }
@@ -843,7 +846,8 @@ class HttpStub(
                 scenario.sourceRepository,
                 scenario.sourceRepositoryBranch,
                 scenario.specification,
-                scenario.protocol
+                scenario.protocol,
+                scenario.specType
             )
         }
     }

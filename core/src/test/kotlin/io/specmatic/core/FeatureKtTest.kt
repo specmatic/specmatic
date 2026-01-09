@@ -13,6 +13,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.specmatic.core.utilities.OpenApiPath
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.captureStandardOutput
 import io.swagger.v3.core.util.Yaml
 import org.junit.jupiter.api.*
@@ -771,7 +772,7 @@ paths:
                     "(RequestBody)" to toJSONObjectPattern("""{"name": "(string)"}""", "(RequestBody"),
                     "(ResponseBody)" to toJSONObjectPattern("""{"id": "(uuid)"}""", "(ResponseBody)")
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             ))
 
             val orderPostBadRequest = Scenario(ScenarioInfo(
@@ -781,7 +782,7 @@ paths:
                     "(RequestBody)" to toJSONObjectPattern("""{"name": "(string)"}""", "(RequestBody"),
                     "(ResponseBody)" to toJSONObjectPattern("""{"error": "(string)"}""", "(ResponseBody)")
                 ),
-                protocol = SpecmaticProtocol.HTTP,
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
             ))
 
             val feature = Feature(name = "TEST", scenarios = listOf(orderPostOk, orderPostBadRequest))
@@ -832,7 +833,7 @@ paths:
                     "(RequestBody)" to toJSONObjectPattern("""{"name": "(string)", "status": "(string)"}""", "(RequestBody)"),
                     "(ResponseBody)" to toJSONObjectPattern("""{"updated": "(boolean)"}""", "(ResponseBody)"),
                 ),
-                protocol = SpecmaticProtocol.HTTP,
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
             ))
 
             val jsonPatchScenario = Scenario(ScenarioInfo(
@@ -842,7 +843,7 @@ paths:
                     "(RequestBody)" to JSONArrayPattern("""[{"op": "(string)", "path": "(string)", "value": "(string)"}]""", "(RequestBody)"),
                     "(ResponseBody)" to toJSONObjectPattern("""{"updated": "(boolean)"}""", "(ResponseBody)"),
                 ),
-                protocol = SpecmaticProtocol.HTTP,
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
             ))
 
             val mergePatchScenario = Scenario(ScenarioInfo(
@@ -852,7 +853,7 @@ paths:
                     "(RequestBody)" to toJSONObjectPattern("""{"status": "(string)"}""", "(RequestBody)"),
                     "(ResponseBody)" to toJSONObjectPattern("""{"updated": "(boolean)"}""", "(ResponseBody)"),
                 ),
-                protocol = SpecmaticProtocol.HTTP,
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
             ))
 
             val feature = Feature(name = "TEST", scenarios = listOf(jsonScenario, jsonPatchScenario, mergePatchScenario))
@@ -887,7 +888,7 @@ paths:
                 patterns = mapOf(
                     "(ResponseBody)" to toJSONObjectPattern("""{"order": {"id": "(uuid)", "status": "(string)"}}""", "(ResponseBody)")
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             ))
 
             val success200HalJson = Scenario(ScenarioInfo(
@@ -900,7 +901,7 @@ paths:
                 patterns = mapOf(
                     "(ResponseBody)" to toJSONObjectPattern("""{"id": "(uuid)", "_links": {"self": {"href": "(string)"}}}""", "(ResponseBody)")
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             ))
 
             val notFound404Json = Scenario(ScenarioInfo(
@@ -913,7 +914,7 @@ paths:
                 patterns = mapOf(
                     "(ResponseBody)" to toJSONObjectPattern("""{"error": "(string)", "code": "(number)"}""", "(ResponseBody)")
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             ))
 
             val notFound404ProblemJson = Scenario(ScenarioInfo(
@@ -926,7 +927,7 @@ paths:
                 patterns = mapOf(
                     "(ResponseBody)" to toJSONObjectPattern("""{"type": "(string)", "title": "(string)", "status": "(number)", "detail": "(string)"}""", "(ResponseBody)")
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             ))
 
             val feature = Feature(name = "TEST", scenarios = listOf(success200Json, success200HalJson, notFound404Json, notFound404ProblemJson))
@@ -966,7 +967,7 @@ paths:
                     "(RequestBody)" to toJSONObjectPattern("""{"name": "(string)", "price": "(number)"}""", "(RequestBody)"),
                     "(ResponseBody)" to toJSONObjectPattern("""{"productId": "(uuid)", "created": "(boolean)"}""", "(ResponseBody)")
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             ))
 
             val jsonToHal201 = Scenario(ScenarioInfo(
@@ -985,7 +986,7 @@ paths:
                     "(RequestBody)" to toJSONObjectPattern("""{"name": "(string)", "price": "(number)"}""", "(RequestBody)"),
                     "(ResponseBody)" to toJSONObjectPattern("""{"productId": "(uuid)", "_links": {"self": {"href": "(string)"}}}""", "(ResponseBody)")
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             ))
 
             val jsonPatchTo200 = Scenario(ScenarioInfo(
@@ -1004,7 +1005,7 @@ paths:
                     "(RequestBody)" to JSONArrayPattern("""[{"op": "(string)", "path": "(string)", "value": "(string)"}]""", "(RequestBody)"),
                     "(ResponseBody)" to toJSONObjectPattern("""{"updated": "(boolean)", "productId": "(uuid)"}""", "(ResponseBody)")
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             ))
 
             val jsonToProblem400 = Scenario(ScenarioInfo(
@@ -1023,7 +1024,7 @@ paths:
                     "(RequestBody)" to toJSONObjectPattern("""{"name": "(string)", "price": "(number)"}""", "(RequestBody)"),
                     "(ResponseBody)" to toJSONObjectPattern("""{"type": "(string)", "detail": "(string)"}""", "(ResponseBody)")
                 ),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             ))
 
             val feature = Feature(name = "TEST", scenarios = listOf(jsonToJson200, jsonToHal201, jsonPatchTo200, jsonToProblem400))
@@ -1061,7 +1062,7 @@ paths:
                     "(RequestBody)" to toJSONObjectPattern("""{"name": "(string)"}""", "(RequestBody"),
                     "(ResponseBody)" to toJSONObjectPattern("""{"id": "(uuid)"}""", "(ResponseBody)"),
                 ),
-                protocol = SpecmaticProtocol.HTTP,
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
             ))
 
             val orderPostBadRequest = Scenario(ScenarioInfo(
@@ -1071,7 +1072,7 @@ paths:
                     "(RequestBody)" to toJSONObjectPattern("""{"name": "(string)"}""", "(RequestBody"),
                     "(ResponseBody)" to toJSONObjectPattern("""{"error": "(string)"}""", "(ResponseBody)"),
                 ),
-                protocol = SpecmaticProtocol.HTTP,
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
             ))
 
             val feature = Feature(name = "TEST", scenarios = listOf(orderPostOk, orderPostBadRequest))
@@ -1194,13 +1195,13 @@ paths:
             httpRequestPattern = HttpRequestPattern(httpPathPattern = HttpPathPattern.from(path), method = "POST", body = DeferredPattern("(RequestBody)")),
             httpResponsePattern = HttpResponsePattern(status = 201),
             patterns = mapOf("(RequestBody)" to toJSONObjectPattern("""{"digit": "(number)"}""", "(RequestBody")),
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         ))
 
         val orderPostBadRequest = Scenario(ScenarioInfo(
             httpRequestPattern = HttpRequestPattern(httpPathPattern = HttpPathPattern.from(path), method = "POST"),
             httpResponsePattern = HttpResponsePattern(status = 400),
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         ))
 
         val allScenarios = listOf(orderPostOk, orderPostBadRequest)
@@ -1219,13 +1220,13 @@ paths:
             httpRequestPattern = HttpRequestPattern(httpPathPattern = HttpPathPattern.from(path), method = "POST", body = DeferredPattern("(RequestBody)")),
             httpResponsePattern = HttpResponsePattern(status = 201),
             patterns = mapOf("(RequestBody)" to toJSONObjectPattern("""{"digit": "(number)"}""", "(RequestBody")),
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         ))
 
         val orderPostBadRequest = Scenario(ScenarioInfo(
             httpRequestPattern = HttpRequestPattern(httpPathPattern = HttpPathPattern.from(path), method = "POST"),
             httpResponsePattern = HttpResponsePattern(status = 400),
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         ))
 
         val featureComplete = Feature(name = "Orders Complete", scenarios = listOf(orderPostOk, orderPostBadRequest))
@@ -1240,7 +1241,7 @@ paths:
             httpRequestPattern = HttpRequestPattern(httpPathPattern = HttpPathPattern.from(path), method = "POST", body = DeferredPattern("(RequestBody)")),
             httpResponsePattern = HttpResponsePattern(status = 201),
             patterns = mapOf("(RequestBody)" to toJSONObjectPattern("""{"digit": "(number)"}""", "(RequestBody")),
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         ))
 
         val featureComplete = Feature(name = "Orders Complete", scenarios = listOf(orderPostOk))

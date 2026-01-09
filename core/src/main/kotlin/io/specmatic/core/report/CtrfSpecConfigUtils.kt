@@ -4,13 +4,11 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.ctrf.model.CtrfTestResultRecord
 
-const val SPEC_TYPE_OPENAPI = "openapi"
-
 fun ctrfSpecConfigsFrom(
     specmaticConfig: SpecmaticConfig,
     testResultRecords: List<CtrfTestResultRecord>,
     protocol: String,
-    specType: String = SPEC_TYPE_OPENAPI,
+    specType: String,
 ): List<CtrfSpecConfig> {
     val specConfigs = testResultRecords.mapNotNull {
         val absoluteSpecPath = it.specification

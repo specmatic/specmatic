@@ -11,6 +11,7 @@ import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.internal.dto.spec.operation.APIOperation
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.reporter.model.OpenAPIOperation
+import io.specmatic.reporter.model.SpecType
 import java.time.Duration
 import java.time.Instant
 
@@ -26,6 +27,7 @@ data class TestResultRecord(
     override val branch: String? = null,
     override val specification: String? = null,
     val protocol: SpecmaticProtocol,
+    val specType: SpecType,
     val actualResponseStatus: Int = 0,
     val scenarioResult: Result? = null,
     val isValid: Boolean = true,

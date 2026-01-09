@@ -17,6 +17,7 @@ import io.specmatic.core.value.True
 import io.specmatic.core.value.Value
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.NamedExampleMismatchMessages
 import io.specmatic.stub.RequestContext
 import io.specmatic.test.ExampleProcessor
@@ -58,6 +59,7 @@ data class Scenario(
     val sourceRepositoryBranch:String? = null,
     val specification:String? = null,
     val protocol: SpecmaticProtocol,
+    val specType: SpecType,
     val generativePrefix: String = "",
     val statusInDescription: String = httpResponsePattern.status.toString(),
     val disambiguate: () -> String = { "" },
@@ -98,6 +100,7 @@ data class Scenario(
         sourceRepositoryBranch = scenarioInfo.sourceRepositoryBranch,
         specification = scenarioInfo.specification,
         protocol = scenarioInfo.protocol,
+        specType = scenarioInfo.specType,
         operationMetadata = scenarioInfo.operationMetadata
     )
 

@@ -15,7 +15,6 @@ import io.specmatic.core.pattern.Examples
 import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.report.ReportGenerator
-import io.specmatic.core.report.SPEC_TYPE_OPENAPI
 import io.specmatic.core.utilities.*
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_TIMEOUT
 import io.specmatic.core.utilities.Flags.Companion.getLongValue
@@ -27,6 +26,7 @@ import io.specmatic.license.core.LicensedProduct
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.license.core.util.LicenseConfig
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.hasOpenApiFileExtension
 import io.specmatic.stub.isOpenAPI
 import io.specmatic.test.TestResultRecord.Companion.getCoverageStatus
@@ -206,7 +206,7 @@ open class SpecmaticJUnitSupport {
                 groupedEndpoints.map {
                     CtrfSpecConfig(
                         protocol = it.protocol.key,
-                        specType = SPEC_TYPE_OPENAPI,
+                        specType = it.specType.value,
                         specification = it.specification.orEmpty(),
                         sourceProvider = it.sourceProvider,
                         repository = it.sourceRepository,
@@ -626,7 +626,8 @@ open class SpecmaticJUnitSupport {
                 scenario.specification,
                 scenario.protocol,
                 scenario.requestContentType,
-                scenario.httpResponsePattern.headersPattern.contentType
+                scenario.httpResponsePattern.headersPattern.contentType,
+                scenario.specType
             )
         }
 
@@ -654,7 +655,8 @@ open class SpecmaticJUnitSupport {
                 scenario.specification,
                 scenario.protocol,
                 scenario.requestContentType,
-                scenario.httpResponsePattern.headersPattern.contentType
+                scenario.httpResponsePattern.headersPattern.contentType,
+                scenario.specType
             )
         }.toList()
 
@@ -707,7 +709,8 @@ open class SpecmaticJUnitSupport {
                 listOf(examples),
                 emptyMap(),
                 emptyMap(),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI
             )
         }
     }

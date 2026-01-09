@@ -42,6 +42,7 @@ import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.StandardRuleViolation
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.toViolationReportString
 import io.specmatic.stub.HttpStub
 import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
@@ -529,7 +530,7 @@ class DictionaryTest {
                 ), typeAlias = "(OBJECT)")
             ),
             httpResponsePattern = HttpResponsePattern(status = 200),
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )).copy(dictionary = dictionary.let(Dictionary::from))
         val feature = Feature(listOf(scenario), name = "")
 
@@ -754,7 +755,7 @@ class DictionaryTest {
             val scenario = Scenario(ScenarioInfo(
                 httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/orders/(id:number)"), method = "GET"),
                 httpResponsePattern = HttpResponsePattern(status = 200),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )).copy(dictionary = dictionary)
             val feature = Feature(scenario.withBadRequest(), name = "")
 
@@ -791,7 +792,7 @@ class DictionaryTest {
                     httpQueryParamPattern = HttpQueryParamPattern(mapOf("id" to QueryParameterScalarPattern(NumberPattern())))
                 ),
                 httpResponsePattern = HttpResponsePattern(status = 200),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )).copy(dictionary = dictionary)
             val feature = Feature(scenario.withBadRequest(), name = "")
 
@@ -830,7 +831,7 @@ class DictionaryTest {
                     headersPattern = HttpHeadersPattern(mapOf("ID" to NumberPattern()))
                 ),
                 httpResponsePattern = HttpResponsePattern(status = 200),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )).copy(dictionary = dictionary)
             val feature = Feature(scenario.withBadRequest(), name = "")
 
@@ -870,7 +871,7 @@ class DictionaryTest {
                     ), typeAlias = "(OBJECT)")
                 ),
                 httpResponsePattern = HttpResponsePattern(status = 200),
-                protocol = SpecmaticProtocol.HTTP
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )).copy(dictionary = dictionary)
             val feature = Feature(scenario.withBadRequest(), name = "")
 

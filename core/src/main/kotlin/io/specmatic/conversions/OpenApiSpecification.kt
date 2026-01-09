@@ -33,6 +33,7 @@ import io.specmatic.core.wsdl.parser.message.MULTIPLE_ATTRIBUTE_VALUE
 import io.specmatic.core.wsdl.parser.message.OCCURS_ATTRIBUTE_NAME
 import io.specmatic.core.wsdl.parser.message.OPTIONAL_ATTRIBUTE_VALUE
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.SpecType
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.Operation
 import io.swagger.v3.oas.models.PathItem
@@ -413,7 +414,6 @@ class OpenApiSpecification(
         }
     }
 
-    val protocol: SpecmaticProtocol = SpecmaticProtocol.HTTP
     val patterns = mutableMapOf<String, Pattern>()
 
     fun isOpenAPI31(): Boolean {
@@ -438,7 +438,6 @@ class OpenApiSpecification(
             sourceRepository = sourceRepository,
             sourceRepositoryBranch = sourceRepositoryBranch,
             specification = specificationPath,
-            protocol = protocol,
             stubsFromExamples = stubsFromExamples,
             specmaticConfig = specmaticConfig,
             strictMode = strictMode
@@ -696,7 +695,8 @@ class OpenApiSpecification(
                             sourceRepository = sourceRepository,
                             sourceRepositoryBranch = sourceRepositoryBranch,
                             specification = specificationPath,
-                            protocol = protocol,
+                            protocol = SpecmaticProtocol.HTTP,
+                            specType = SpecType.OPENAPI,
                             operationMetadata = operationMetadata
                         )
                     }

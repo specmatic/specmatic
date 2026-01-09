@@ -6,6 +6,7 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.SpecType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -68,7 +69,7 @@ internal class CalculatePathTest {
             name = "test",
             httpRequestPattern = httpRequestPattern,
             httpResponsePattern = httpResponsePattern,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val httpRequest = HttpRequest(
@@ -99,7 +100,7 @@ internal class CalculatePathTest {
                 status = 200,
                 body = StringPattern()
             ),
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val httpRequest = HttpRequest(
@@ -221,7 +222,7 @@ internal class CalculatePathTest {
             name = "scenario1",
             httpRequestPattern = requestPattern1,
             httpResponsePattern = responsePattern1,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val requestPattern2 = HttpRequestPattern(
@@ -244,7 +245,7 @@ internal class CalculatePathTest {
             name = "scenario2",
             httpRequestPattern = requestPattern2,
             httpResponsePattern = responsePattern2,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val feature = Feature(
@@ -421,7 +422,7 @@ internal class CalculatePathTest {
                 body = StringPattern()
             ),
             patterns = patterns,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val httpRequest = HttpRequest(
@@ -464,7 +465,7 @@ internal class CalculatePathTest {
                 body = StringPattern()
             ),
             patterns = patterns,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val httpRequest = HttpRequest(
@@ -503,7 +504,7 @@ internal class CalculatePathTest {
                 body = StringPattern()
             ),
             patterns = patterns,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val httpRequest = HttpRequest(
@@ -553,7 +554,7 @@ internal class CalculatePathTest {
                 body = StringPattern()
             ),
             patterns = patterns,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val httpRequest = HttpRequest(
@@ -604,7 +605,7 @@ internal class CalculatePathTest {
                 body = StringPattern()
             ),
             patterns = patterns,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
         val httpRequest = HttpRequest(
@@ -664,7 +665,7 @@ internal class CalculatePathTest {
                 body = StringPattern()
             ),
             patterns = patterns,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
         
         val httpRequest = HttpRequest(
@@ -727,7 +728,7 @@ internal class CalculatePathTest {
                 body = StringPattern()
             ),
             patterns = patterns,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
         
         val httpRequest = HttpRequest(
