@@ -62,7 +62,7 @@ open class SpecmaticJUnitSupport {
 
     private val specmaticConfig: SpecmaticConfig? =
         settings.getAdjustedConfig()
-            ?: settings.adjust(loadSpecmaticConfigOrNull(getConfigFilePath()))
+            ?: settings.adjust(loadSpecmaticConfigIfExists(getConfigFilePath()))
 
     private val testFilter = ScenarioMetadataFilter.from(settings.filter)
 
