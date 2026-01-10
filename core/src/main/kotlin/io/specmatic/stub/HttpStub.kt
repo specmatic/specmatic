@@ -28,7 +28,6 @@ import io.specmatic.core.utilities.*
 import io.specmatic.core.value.*
 import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.LicensedProduct
-import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.license.core.util.LicenseConfig
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
@@ -773,14 +772,13 @@ class HttpStub(
     override fun close() {
         server.stop(gracePeriodMillis = timeoutMillis, timeoutMillis = timeoutMillis)
         printUsageReport()
-        val specmaticConfig = loadSpecmaticConfigOrDefault(specmaticConfigPath)
         synchronized(ctrfTestResultRecords) {
             ctrfTestResultRecords.addAll(notCoveredTestResultRecords())
             ReportGenerator.generateReport(
                 testResultRecords = ctrfTestResultRecords,
                 startTime = startTime.toEpochMilli(),
                 endTime = Instant.now().toEpochMilli(),
-                specConfigs = ctrfSpecConfigsFrom(specmaticConfig, ctrfTestResultRecords),
+                specConfigs = ctrfSpecConfigsFrom(specmaticConfigInstance, ctrfTestResultRecords),
                 coverage = 0,
                 reportDir = File("$ARTIFACTS_PATH/stub")
             )
