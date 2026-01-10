@@ -1088,6 +1088,24 @@ fun loadSpecmaticConfigOrNull(configFileName: String? = null): SpecmaticConfig? 
     }
 }
 
+fun loadSpecmaticConfigIfExists(configFileName: String? = null): SpecmaticConfig? {
+    if (configFileName == null) {
+        return SpecmaticConfig()
+    }
+
+    if (!File(configFileName).exists()) {
+        logger.debug("Specmatic config file $configFileName does not exist")
+        return null
+    }
+
+    return try {
+        loadSpecmaticConfig(configFileName)
+    } catch (e: ContractException) {
+        logger.log(exceptionCauseMessage(e))
+        null
+    }
+}
+
 fun loadSpecmaticConfig(configFileName: String? = null): SpecmaticConfig {
     val configFile = File(configFileName ?: configFilePath)
 

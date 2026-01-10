@@ -4,6 +4,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import io.specmatic.core.CONTRACT_EXTENSION
+import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_TIMEOUT
 import io.specmatic.core.utilities.newXMLBuilder
@@ -42,6 +43,8 @@ internal class TestCommandTest {
     fun `clean up test command`() {
         testCommand.contractPaths = arrayListOf()
         testCommand.junitReportDirName = null
+        testCommand.verboseMode = false
+        testCommand.configFileName = null
         System.clearProperty(CONTRACT_PATHS)
     }
 
@@ -60,6 +63,35 @@ internal class TestCommandTest {
         CommandLine(testCommand, factory).execute(contractsToBeRunAsTests[0], contractsToBeRunAsTests[1])
         verify(exactly = 0) { specmaticConfig.contractTestPaths() }
         assertThat(System.getProperty(CONTRACT_PATHS)).isEqualTo(contractsToBeRunAsTests.joinToString(","))
+    }
+
+    @Test
+    fun `missing config is not logged without debug`() {
+        every { junitLauncher.discover(any()) }.returns(mockk())
+        every { junitLauncher.execute(any<LauncherDiscoveryRequest>()) }.returns(Unit)
+
+        val (output, _) = captureStandardOutput {
+            CommandLine(testCommand, factory).execute()
+        }
+
+        assertThat(output).doesNotContain("Specmatic config file")
+    }
+
+    @Test
+    fun `missing config is debug logged with debug enabled`() {
+        every { junitLauncher.discover(any()) }.returns(mockk())
+        every { junitLauncher.execute(any<LauncherDiscoveryRequest>()) }.returns(Unit)
+
+        val defaultLogger = logger
+        val output = try {
+            captureStandardOutput {
+                CommandLine(testCommand, factory).execute("--debug")
+            }.first
+        } finally {
+            logger = defaultLogger
+        }
+
+        assertThat(output).contains("Specmatic config file").contains("does not exist")
     }
 
     @Test

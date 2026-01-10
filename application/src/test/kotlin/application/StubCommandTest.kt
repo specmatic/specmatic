@@ -51,7 +51,6 @@ internal class StubCommandTest {
     fun cleanUp() {
         clearAllMocks()
         stubCommand.contractPaths = arrayListOf()
-        stubCommand.specmaticConfigPath = null
     }
 
     @Test
