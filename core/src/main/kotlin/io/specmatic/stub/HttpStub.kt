@@ -256,14 +256,6 @@ class HttpStub(
                 var responseErrors: List<InterceptorError> = emptyList()
 
                 try {
-                    val protocolsInUse = features.flatMap { it.protocols() }.distinct()
-
-                    LicenseResolver.utilize(
-                        product = LicensedProduct.OPEN_SOURCE,
-                        feature = SpecmaticFeature.VIRTUAL_SERVICE_REQUESTS_SERVED,
-                        protocol = protocolsInUse
-                    )
-
                     val rawHttpRequest = ktorHttpRequestToHttpRequest(call).also {
                         if (it.isHealthCheckRequest()) return@intercept
                     }
@@ -274,6 +266,12 @@ class HttpStub(
                         val result = requestInterceptor.interceptRequestAndReturnErrors(request)
                         (result.value ?: request) to (errors + result.errors)
                     }
+
+                    LicenseResolver.utilize(
+                        product = LicensedProduct.OPEN_SOURCE,
+                        feature = SpecmaticFeature.MOCK,
+                        protocol = listOf(httpRequest.protocol),
+                    )
 
                     // Add the decoded request to the log message
                     httpLogMessage.addRequestWithCurrentTime(httpRequest)
