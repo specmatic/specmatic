@@ -16,6 +16,8 @@ import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.Value
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.OpenAPIOperation
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
 import io.specmatic.test.handlers.ResponseHandler
 import io.specmatic.test.handlers.ResponseHandlerRegistry
@@ -30,7 +32,8 @@ data class ScenarioAsTest(
     private val sourceRepository: String? = null,
     private val sourceRepositoryBranch: String? = null,
     private val specification: String? = null,
-    private val serviceType: String? = null,
+    override val protocol: SpecmaticProtocol,
+    override val specType: SpecType,
     private val annotations: String? = null,
     private val validators: List<ResponseValidator> = emptyList(),
     private val originalScenario: Scenario,
@@ -44,16 +47,15 @@ data class ScenarioAsTest(
     private var startTime: Instant? = null
     private var endTime: Instant? = null
 
-    override val protocol: SpecmaticProtocol? = feature.protocol
-
     override fun toScenarioMetadata() = scenario.toScenarioMetadata()
 
     override fun testResultRecord(executionResult: ContractTestExecutionResult): TestResultRecord {
         val (result, request, response) = executionResult
         val resultStatus = result.testResult()
+        val path = convertPathParameterStyle(scenario.path)
 
         return TestResultRecord(
-            convertPathParameterStyle(scenario.path),
+            path = path,
             method = scenario.method,
             requestContentType = scenario.requestContentType,
             responseStatus = scenario.status,
@@ -64,13 +66,16 @@ data class ScenarioAsTest(
             repository = sourceRepository,
             branch = sourceRepositoryBranch,
             specification = specification,
-            serviceType = serviceType,
+            specType = specType,
             actualResponseStatus = response?.status ?: 0,
             scenarioResult = result,
             soapAction = scenario.httpRequestPattern.getSOAPAction().takeIf { scenario.isGherkinScenario },
             isGherkin = scenario.isGherkinScenario,
             requestTime = startTime,
-            responseTime = Instant.now()
+            responseTime = Instant.now(),
+            operations = setOf(
+                openAPIOperationFrom(scenario, path)
+            )
         )
     }
 

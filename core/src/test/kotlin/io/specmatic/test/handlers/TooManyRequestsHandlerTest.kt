@@ -6,6 +6,8 @@ import io.specmatic.core.pattern.JSONObjectPattern
 import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
+import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.toViolationReportString
 import io.specmatic.test.MonitorResult
 import io.specmatic.test.TestExecutor
@@ -26,6 +28,7 @@ class TooManyRequestsHandlerTest {
                 body = JSONObjectPattern(mapOf("age" to NumberPattern()))
             ),
             httpResponsePattern = HttpResponsePattern(status = 201),
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         ))
 
         private val tooManyRequestsScenario = Scenario(ScenarioInfo(
@@ -34,6 +37,7 @@ class TooManyRequestsHandlerTest {
                 body = JSONObjectPattern(mapOf("age" to NumberPattern()))
             ),
             httpResponsePattern = HttpResponsePattern(status = HttpStatusCode.TooManyRequests.value),
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         ))
 
         private val throwAwayExecutor = object : TestExecutor {
@@ -43,7 +47,7 @@ class TooManyRequestsHandlerTest {
 
     @Test
     fun `should retry failure if too-many-requests response is not possible`() {
-        val feature = Feature(name = "", scenarios = listOf(postScenario))
+        val feature = Feature(name = "", scenarios = listOf(postScenario), protocol = SpecmaticProtocol.HTTP)
         val handler = TooManyRequestsHandler(feature, postScenario)
         val result = handler.handle(
             HttpRequest(),
@@ -60,7 +64,7 @@ class TooManyRequestsHandlerTest {
 
     @Test
     fun `should return failure when response doesn't mach tooManyRequests response`() {
-        val feature = Feature(name = "", scenarios = listOf(postScenario, tooManyRequestsScenario))
+        val feature = Feature(name = "", scenarios = listOf(postScenario, tooManyRequestsScenario), protocol = SpecmaticProtocol.HTTP)
         val handler = TooManyRequestsHandler(feature, postScenario)
         val result = handler.handle(
             HttpRequest(),
@@ -85,7 +89,7 @@ class TooManyRequestsHandlerTest {
 
     @Test
     fun `should retry the original request while respecting retry-after header`() {
-        val feature = Feature(name = "", scenarios = listOf(postScenario, tooManyRequestsScenario))
+        val feature = Feature(name = "", scenarios = listOf(postScenario, tooManyRequestsScenario), protocol = SpecmaticProtocol.HTTP)
         val sleepDurations = mutableListOf<Long>()
         val customRetryHandler = RetryHandler<MonitorResult, HttpResponse>(
             maxAttempts = 3,
@@ -117,7 +121,7 @@ class TooManyRequestsHandlerTest {
 
     @Test
     fun `should retry for specified times while following the next retry-after delay from response`() {
-        val feature = Feature(name = "", scenarios = listOf(postScenario, tooManyRequestsScenario))
+        val feature = Feature(name = "", scenarios = listOf(postScenario, tooManyRequestsScenario), protocol = SpecmaticProtocol.HTTP)
         val sleepSequence = sequenceOf(1, 2, 3, 4, 5)
         val sleepDurations = mutableListOf<Long>()
         val customRetryHandler = RetryHandler<MonitorResult, HttpResponse>(
@@ -156,7 +160,7 @@ class TooManyRequestsHandlerTest {
 
     @Test
     fun `should work with retry-after with ISO date-time string format`() {
-        val feature = Feature(name = "", scenarios = listOf(postScenario, tooManyRequestsScenario))
+        val feature = Feature(name = "", scenarios = listOf(postScenario, tooManyRequestsScenario), protocol = SpecmaticProtocol.HTTP)
         val expectedDelay = 10.seconds.inWholeMilliseconds
         val tolerance: Long = 0.5.seconds.inWholeMilliseconds
         val sleepDurations = mutableListOf<Long>()
@@ -191,7 +195,7 @@ class TooManyRequestsHandlerTest {
 
     @Test
     fun `should return failure immediately without retires when response doesn't match the expected 2xx`() {
-        val feature = Feature(name = "", scenarios = listOf(postScenario, tooManyRequestsScenario))
+        val feature = Feature(name = "", scenarios = listOf(postScenario, tooManyRequestsScenario), protocol = SpecmaticProtocol.HTTP)
         var retryAttempts = 0
         val customRetryHandler = RetryHandler<MonitorResult, HttpResponse>(
             maxAttempts = 3,
@@ -233,7 +237,7 @@ class TooManyRequestsHandlerTest {
     @Test
     fun `should match any 2xx response in-case the testScenario was for tooManyRequests`() {
         val acceptedScenario = postScenario.copy(httpResponsePattern = HttpResponsePattern(status = 202))
-        val feature = Feature(name = "", scenarios = listOf(acceptedScenario, postScenario, tooManyRequestsScenario))
+        val feature = Feature(name = "", scenarios = listOf(acceptedScenario, postScenario, tooManyRequestsScenario), protocol = SpecmaticProtocol.HTTP)
         val handler = TooManyRequestsHandler(feature, tooManyRequestsScenario)
         val initialRequest = HttpRequest("POST", "/ABC", body = JSONObjectValue(mapOf("age" to NumberValue(10))))
 
@@ -254,7 +258,7 @@ class TooManyRequestsHandlerTest {
 
     @Test
     fun `should return failure if response never resolves`() {
-        val feature = Feature(name = "", scenarios = listOf(postScenario, tooManyRequestsScenario))
+        val feature = Feature(name = "", scenarios = listOf(postScenario, tooManyRequestsScenario), protocol = SpecmaticProtocol.HTTP)
         val customRetryHandler = RetryHandler<MonitorResult, HttpResponse>(
             maxAttempts = 5,
             delayStrategy = DelayStrategy.RespectRetryAfter(),

@@ -41,6 +41,8 @@ import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.StandardRuleViolation
+import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.toViolationReportString
 import io.specmatic.stub.HttpStub
 import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
@@ -527,9 +529,10 @@ class DictionaryTest {
                     "name" to StringPattern()
                 ), typeAlias = "(OBJECT)")
             ),
-            httpResponsePattern = HttpResponsePattern(status = 200)
+            httpResponsePattern = HttpResponsePattern(status = 200),
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )).copy(dictionary = dictionary.let(Dictionary::from))
-        val feature = Feature(listOf(scenario), name = "")
+        val feature = Feature(listOf(scenario), name = "", protocol = SpecmaticProtocol.HTTP)
 
 
         feature.enableGenerativeTesting().executeTests(object : TestExecutor {
@@ -751,9 +754,10 @@ class DictionaryTest {
             val dictionary = "PARAMETERS: { PATH: { id: 123 } }".let(Dictionary::fromYaml)
             val scenario = Scenario(ScenarioInfo(
                 httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/orders/(id:number)"), method = "GET"),
-                httpResponsePattern = HttpResponsePattern(status = 200)
+                httpResponsePattern = HttpResponsePattern(status = 200),
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )).copy(dictionary = dictionary)
-            val feature = Feature(scenario.withBadRequest(), name = "")
+            val feature = Feature(scenario.withBadRequest(), name = "", protocol = SpecmaticProtocol.HTTP)
 
             val result = feature.enableGenerativeTesting().executeTests(object: TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
@@ -787,9 +791,10 @@ class DictionaryTest {
                     httpPathPattern = buildHttpPathPattern("/orders"), method = "GET",
                     httpQueryParamPattern = HttpQueryParamPattern(mapOf("id" to QueryParameterScalarPattern(NumberPattern())))
                 ),
-                httpResponsePattern = HttpResponsePattern(status = 200)
+                httpResponsePattern = HttpResponsePattern(status = 200),
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )).copy(dictionary = dictionary)
-            val feature = Feature(scenario.withBadRequest(), name = "")
+            val feature = Feature(scenario.withBadRequest(), name = "", protocol = SpecmaticProtocol.HTTP)
 
             val result = feature.enableGenerativeTesting().executeTests(object: TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
@@ -825,9 +830,10 @@ class DictionaryTest {
                     httpPathPattern = buildHttpPathPattern("/orders"), method = "GET",
                     headersPattern = HttpHeadersPattern(mapOf("ID" to NumberPattern()))
                 ),
-                httpResponsePattern = HttpResponsePattern(status = 200)
+                httpResponsePattern = HttpResponsePattern(status = 200),
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )).copy(dictionary = dictionary)
-            val feature = Feature(scenario.withBadRequest(), name = "")
+            val feature = Feature(scenario.withBadRequest(), name = "", protocol = SpecmaticProtocol.HTTP)
 
             val result = feature.enableGenerativeTesting().executeTests(object: TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
@@ -864,9 +870,10 @@ class DictionaryTest {
                         "id" to NumberPattern()
                     ), typeAlias = "(OBJECT)")
                 ),
-                httpResponsePattern = HttpResponsePattern(status = 200)
+                httpResponsePattern = HttpResponsePattern(status = 200),
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )).copy(dictionary = dictionary)
-            val feature = Feature(scenario.withBadRequest(), name = "")
+            val feature = Feature(scenario.withBadRequest(), name = "", protocol = SpecmaticProtocol.HTTP)
 
             val result = feature.enableGenerativeTesting().executeTests(object: TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {

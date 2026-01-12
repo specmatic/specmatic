@@ -32,6 +32,8 @@ import io.specmatic.core.value.Value
 import io.specmatic.core.wsdl.parser.message.MULTIPLE_ATTRIBUTE_VALUE
 import io.specmatic.core.wsdl.parser.message.OCCURS_ATTRIBUTE_NAME
 import io.specmatic.core.wsdl.parser.message.OPTIONAL_ATTRIBUTE_VALUE
+import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.SpecType
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.Operation
 import io.swagger.v3.oas.models.PathItem
@@ -54,7 +56,6 @@ import java.io.File
 import kotlin.collections.orEmpty
 
 private const val BEARER_SECURITY_SCHEME = "bearer"
-const val SERVICE_TYPE_HTTP = "HTTP"
 
 private const val X_SPECMATIC_HINT = "x-specmatic-hint"
 private const val HINT_BOUNDARY_TESTING_ENABLED = "boundary_testing_enabled"
@@ -415,6 +416,8 @@ class OpenApiSpecification(
 
     val patterns = mutableMapOf<String, Pattern>()
 
+    val protocol = SpecmaticProtocol.HTTP
+
     fun isOpenAPI31(): Boolean {
         return parsedOpenApi.openapi.startsWith("3.1")
     }
@@ -437,10 +440,10 @@ class OpenApiSpecification(
             sourceRepository = sourceRepository,
             sourceRepositoryBranch = sourceRepositoryBranch,
             specification = specificationPath,
-            serviceType = SERVICE_TYPE_HTTP,
             stubsFromExamples = stubsFromExamples,
             specmaticConfig = specmaticConfig,
-            strictMode = strictMode
+            strictMode = strictMode,
+            protocol = protocol
         )
     }
 
@@ -695,7 +698,8 @@ class OpenApiSpecification(
                             sourceRepository = sourceRepository,
                             sourceRepositoryBranch = sourceRepositoryBranch,
                             specification = specificationPath,
-                            serviceType = SERVICE_TYPE_HTTP,
+                            protocol = protocol,
+                            specType = SpecType.OPENAPI,
                             operationMetadata = operationMetadata
                         )
                     }

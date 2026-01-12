@@ -3,13 +3,16 @@ package io.specmatic.test
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
+import io.specmatic.core.Scenario
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.ctrf.model.CtrfTestMetadata
 import io.specmatic.reporter.ctrf.model.CtrfTestResultRecord
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
-import io.specmatic.reporter.internal.dto.spec.operation.APIOperation
-import io.specmatic.reporter.model.TestResult
+import io.specmatic.reporter.internal.dto.operation.APIOperation
 import io.specmatic.reporter.model.OpenAPIOperation
+import io.specmatic.reporter.model.TestResult
+import io.specmatic.reporter.model.SpecType
 import java.time.Duration
 import java.time.Instant
 
@@ -24,7 +27,7 @@ data class TestResultRecord(
     override val repository: String? = null,
     override val branch: String? = null,
     override val specification: String? = null,
-    val serviceType: String? = null,
+    override val specType: SpecType,
     val actualResponseStatus: Int = 0,
     val scenarioResult: Result? = null,
     val isValid: Boolean = true,
@@ -37,11 +40,14 @@ data class TestResultRecord(
     override val duration: Long = durationFrom(requestTime, responseTime),
     override val rawStatus: String? = result.toString(),
     override val testType: String = CONTRACT_TEST_TEST_TYPE,
-    override val operation: APIOperation = OpenAPIOperation(
-        path = path,
-        method = method,
-        contentType = requestContentType,
-        responseCode = responseStatus
+    override val operations: Set<APIOperation> = setOf(
+        OpenAPIOperation(
+            path = path,
+            method = method,
+            contentType = requestContentType,
+            responseCode = responseStatus,
+            protocol = SpecmaticProtocol.HTTP
+        )
     )
 ): CtrfTestResultRecord {
     val isExercised = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
@@ -131,3 +137,13 @@ private fun durationFrom(requestTime: Instant?, responseTime: Instant?) =
     if (requestTime != null && responseTime != null)
         Duration.between(requestTime, responseTime).toMillis()
     else 0L
+
+fun openAPIOperationFrom(scenario: Scenario, path: String): OpenAPIOperation {
+    return OpenAPIOperation(
+        path = path,
+        method = scenario.method,
+        contentType = scenario.requestContentType,
+        responseCode = scenario.status,
+        protocol = scenario.protocol
+    )
+}

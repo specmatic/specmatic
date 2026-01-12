@@ -5,6 +5,8 @@ import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.value.*
 import io.specmatic.core.wsdl.parser.message.*
+import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.SpecType
 import java.io.File
 
 private fun namespaceToPrefixMap(wsdlNode: XMLNode): Map<String, String> {

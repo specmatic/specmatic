@@ -1,6 +1,8 @@
 package io.specmatic.stub.report
 
 import io.specmatic.conversions.convertPathParameterStyle
+import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.test.TestResultRecord
 
 data class StubEndpoint(
@@ -12,7 +14,8 @@ data class StubEndpoint(
     val sourceRepository: String? = null,
     val sourceRepositoryBranch: String? = null,
     val specification: String? = null,
-    val serviceType: String? = null
+    val protocol: SpecmaticProtocol,
+    val specType: SpecType
 ) {
     fun isEqualTo(testResultRecord: TestResultRecord): Boolean {
         return convertPathParameterStyle(path.orEmpty()) == testResultRecord.path

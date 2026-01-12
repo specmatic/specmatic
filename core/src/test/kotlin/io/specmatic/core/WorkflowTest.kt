@@ -2,6 +2,8 @@ package io.specmatic.core
 
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.StringValue
+import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.SpecType
 import org.assertj.core.api.Assertions.*
 import org.junit.jupiter.api.Test
 
@@ -25,6 +27,7 @@ class WorkflowTest {
         emptyList(),
         emptyMap(),
         emptyMap(),
+        protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
     )
 
     val postScenarioReturningString = Scenario(
@@ -46,6 +49,7 @@ class WorkflowTest {
         emptyList(),
         emptyMap(),
         emptyMap(),
+        protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
     )
 
     private val getScenarioAcceptingNumberInPath = Scenario(
@@ -67,6 +71,7 @@ class WorkflowTest {
         emptyList(),
         emptyMap(),
         emptyMap(),
+        protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
     )
 
     @Test

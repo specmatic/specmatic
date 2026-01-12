@@ -13,12 +13,12 @@ import io.specmatic.core.filters.HttpResponseFilterContext
 import io.specmatic.core.log.logger
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.configureHealthCheckModule
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.isHealthCheckRequest
-import io.specmatic.core.utilities.TrackingFeature
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.utilities.openApiYamlFromExampleDir
 import io.specmatic.core.utilities.uniqueNameForApiOperation
 import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.LicensedProduct
+import io.specmatic.license.core.SpecmaticFeature
 import io.specmatic.mock.MOCK_HTTP_REQUEST
 import io.specmatic.mock.MOCK_HTTP_RESPONSE
 import io.specmatic.mock.ScenarioStub
@@ -150,7 +150,7 @@ class Proxy(
                                 try {
                                     LicenseResolver.utilize(
                                         product = LicensedProduct.OPEN_SOURCE,
-                                        feature = TrackingFeature.PROXY,
+                                        feature = SpecmaticFeature.PROXY_RECORD,
                                         protocol = listOf(httpRequest.protocol)
                                     )
 

@@ -12,7 +12,9 @@ import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.*
+import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.FuzzyExampleMisMatchMessages
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.toViolationReportString
 import io.specmatic.stub.captureStandardOutput
 import io.specmatic.stub.createStubFromContracts
@@ -272,12 +274,14 @@ paths:
             contract.generateContractTestScenarios(emptyList()).toList().map { it.second.value }.first()
         assertThat(scenario.testDescription()).contains("[WIP] SUCCESS")
     }
+
     @DisplayName("Single Feature Contract")
     @ParameterizedTest
     @MethodSource("singleFeatureContractSource")
     @Throws(Throwable::class)
     fun `should lookup a single feature contract`(gherkinData: String?, accountId: String?, expectedBody: String?) {
-        val httpRequest = HttpRequest().updateMethod("GET").updatePath("/balance").updateQueryParam("account-id", accountId ?: "")
+        val httpRequest =
+            HttpRequest().updateMethod("GET").updatePath("/balance").updateQueryParam("account-id", accountId ?: "")
         val contractBehaviour = parseGherkinStringToFeature(gherkinData!!)
         val httpResponse = contractBehaviour.lookupResponse(httpRequest)
         assertThat(httpResponse.status).isEqualTo(200)
@@ -319,17 +323,19 @@ paths:
         val httpRequest = HttpRequest().updateMethod("GET").updatePath("/balance").updateHeader("y-loginId", "abc123")
         val httpResponse = contractBehaviour.lookupResponse(httpRequest)
         assertThat(httpResponse.status).isEqualTo(400)
-        assertThat(httpResponse.body.toStringLiteral()).isEqualToIgnoringWhitespace("""
+        assertThat(httpResponse.body.toStringLiteral()).isEqualToIgnoringWhitespace(
+            """
         In scenario "Get balance info"
         API: GET /balance -> 200
         ${
-            toViolationReportString(
-                breadCrumb = "REQUEST.PARAMETERS.HEADER.x-loginId",
-                details = DefaultMismatchMessages.expectedKeyWasMissing("header", "x-loginId"),
-                StandardRuleViolation.REQUIRED_PROPERTY_MISSING
-            )
-        }
-      """.trimIndent())
+                toViolationReportString(
+                    breadCrumb = "REQUEST.PARAMETERS.HEADER.x-loginId",
+                    details = DefaultMismatchMessages.expectedKeyWasMissing("header", "x-loginId"),
+                    StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+                )
+            }
+      """.trimIndent()
+        )
     }
 
     @Test
@@ -380,7 +386,8 @@ paths:
                 "    And request-body {calls_made: [3, 10, \"(number)\"]}\n" +
                 "    Then status 200"
         val contractBehaviour = parseGherkinStringToFeature(contractGherkin)
-        val httpRequest = HttpRequest().updateMethod("POST").updatePath("/balance").updateBody("{calls_made: [3, 10, 2]}")
+        val httpRequest =
+            HttpRequest().updateMethod("POST").updatePath("/balance").updateBody("{calls_made: [3, 10, 2]}")
         val httpResponse = contractBehaviour.lookupResponse(httpRequest)
         assertEquals(200, httpResponse.status)
     }
@@ -399,17 +406,19 @@ paths:
         val httpRequest = HttpRequest().updateMethod("POST").updatePath("/balance").updateBody("{calls_made: [3, 10]}")
         val httpResponse = contractBehaviour.lookupResponse(httpRequest)
         assertThat(httpResponse.status).isEqualTo(400)
-        assertThat(httpResponse.body.toStringLiteral()).isEqualToIgnoringWhitespace("""
+        assertThat(httpResponse.body.toStringLiteral()).isEqualToIgnoringWhitespace(
+            """
         In scenario "Update balance"
         API: POST /balance -> 200
         ${
-            toViolationReportString(
-                breadCrumb = "REQUEST.BODY.calls_made",
-                details = DefaultMismatchMessages.valueMismatch("array of length 3", "array of length 2"),
-                StandardRuleViolation.CONSTRAINT_VIOLATION
-            )
-        }
-        """.trimIndent())
+                toViolationReportString(
+                    breadCrumb = "REQUEST.BODY.calls_made",
+                    details = DefaultMismatchMessages.valueMismatch("array of length 3", "array of length 2"),
+                    StandardRuleViolation.CONSTRAINT_VIOLATION
+                )
+            }
+        """.trimIndent()
+        )
     }
 
     @Test
@@ -423,20 +432,23 @@ paths:
                     Then status 200
                 """
         val contractBehaviour = parseGherkinStringToFeature(contractGherkin)
-        val httpRequest = HttpRequest().updateMethod("POST").updatePath("/balance").updateBody("{calls_made: [3, 10, \"test\"]}")
+        val httpRequest =
+            HttpRequest().updateMethod("POST").updatePath("/balance").updateBody("{calls_made: [3, 10, \"test\"]}")
         val httpResponse = contractBehaviour.lookupResponse(httpRequest)
         assertThat(httpResponse.status).isEqualTo(400)
-        assertThat(httpResponse.body.toStringLiteral()).isEqualToIgnoringWhitespace("""
+        assertThat(httpResponse.body.toStringLiteral()).isEqualToIgnoringWhitespace(
+            """
         In scenario "Update balance"
         API: POST /balance -> 200
         ${
-            toViolationReportString(
-                breadCrumb = "REQUEST.BODY.calls_made[2]",
-                details = DefaultMismatchMessages.typeMismatch("number", "\"test\"", "string"),
-                StandardRuleViolation.TYPE_MISMATCH
-            )
-        }
-        """.trimIndent())
+                toViolationReportString(
+                    breadCrumb = "REQUEST.BODY.calls_made[2]",
+                    details = DefaultMismatchMessages.typeMismatch("number", "\"test\"", "string"),
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
+        """.trimIndent()
+        )
     }
 
     @Test
@@ -448,7 +460,8 @@ paths:
                 "    Then status 200\n" +
                 "    And response-body {calls_left: 10, messages_left: 30}"
         val contractBehaviour = parseGherkinStringToFeature(contractGherkin)
-        val httpRequest = HttpRequest().updateMethod("GET").updatePath("/balance").updateQueryParam("account-id", "10.1")
+        val httpRequest =
+            HttpRequest().updateMethod("GET").updatePath("/balance").updateQueryParam("account-id", "10.1")
         val httpResponse = contractBehaviour.lookupResponse(httpRequest)
         assertNotNull(httpResponse)
         assertEquals(200, httpResponse.status)
@@ -471,17 +484,19 @@ paths:
         val httpRequest = HttpRequest().updatePath("/balance").updateQueryParam("account-id", "abc").updateMethod("GET")
         val httpResponse = contractBehaviour.lookupResponse(httpRequest)
         assertThat(httpResponse.status).isEqualTo(400)
-        assertThat(httpResponse.body.toStringLiteral()).isEqualToIgnoringWhitespace("""
+        assertThat(httpResponse.body.toStringLiteral()).isEqualToIgnoringWhitespace(
+            """
         In scenario "Get account balance"
         API: GET /balance -> 200
         ${
-            toViolationReportString(
-                breadCrumb = "REQUEST.PARAMETERS.QUERY.account-id",
-                details = DefaultMismatchMessages.typeMismatch("number", "\"abc\"", "string"),
-                StandardRuleViolation.TYPE_MISMATCH
-            )
-        }
-        """.trimIndent())
+                toViolationReportString(
+                    breadCrumb = "REQUEST.PARAMETERS.QUERY.account-id",
+                    details = DefaultMismatchMessages.typeMismatch("number", "\"abc\"", "string"),
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
+        """.trimIndent()
+        )
     }
 
     @Test
@@ -515,7 +530,8 @@ Feature: Contract for /balance API
     Then status 200
     And response-body {calls_left: "(number)", messages_left: "(number)"}"""
         val contractBehaviour = parseGherkinStringToFeature(contractGherkin)
-        val httpRequest = HttpRequest().updateMethod("POST").updatePath("/accounts").updateBody("{name: \"Holmes\", address: \"221 Baker Street\"}")
+        val httpRequest = HttpRequest().updateMethod("POST").updatePath("/accounts")
+            .updateBody("{name: \"Holmes\", address: \"221 Baker Street\"}")
         val httpResponse = contractBehaviour.lookupResponse(httpRequest)
         assertEquals(200, httpResponse.status)
         val actual = JSONObject(httpResponse.body.displayableValue())
@@ -537,14 +553,16 @@ Feature: Contract for /balance API
                 "    And request-body {name: \"(string)\", address: \"(string)\"}\n" +
                 "    Then status 200\n"
         val contractBehaviour = parseGherkinStringToFeature(contractGherkin)
-        var httpRequest: HttpRequest = HttpRequest().updateMethod("GET").updatePath("/balance").updateQueryParam("id", "100")
+        var httpRequest: HttpRequest =
+            HttpRequest().updateMethod("GET").updatePath("/balance").updateQueryParam("id", "100")
         var httpResponse: HttpResponse = contractBehaviour.lookupResponse(httpRequest)
         val jsonResponse = JSONObject(httpResponse.body.displayableValue())
         assertNotNull(httpResponse)
         assertEquals(200, httpResponse.status)
         assertTrue(jsonResponse["calls_left"] is Int)
         assertTrue(jsonResponse["messages_left"] is Int)
-        httpRequest = HttpRequest().updateMethod("POST").updatePath("/accounts").updateBody("{name: \"Holmes\", address: \"221 Baker Street\"}")
+        httpRequest = HttpRequest().updateMethod("POST").updatePath("/accounts")
+            .updateBody("{name: \"Holmes\", address: \"221 Baker Street\"}")
         httpResponse = contractBehaviour.lookupResponse(httpRequest)
         assertNotNull(httpResponse)
         assertEquals(200, httpResponse.status)
@@ -596,7 +614,8 @@ Feature: Contract for /balance API
                 "    Then status 200\n" +
                 "    And response-body {calls_left: \"(number)\", messages_left: \"(number)\"}"
         val contractBehaviour = parseGherkinStringToFeature(contractGherkin)
-        val httpRequest = HttpRequest().updateMethod("POST").updatePath("/accounts").updateBody("{name: \"Holmes\", address: \"221 Baker Street\"}")
+        val httpRequest = HttpRequest().updateMethod("POST").updatePath("/accounts")
+            .updateBody("{name: \"Holmes\", address: \"221 Baker Street\"}")
         val httpResponse = contractBehaviour.lookupResponse(httpRequest)
         val actual = JSONObject(httpResponse.body.displayableValue())
         assertNotNull(httpResponse)
@@ -638,7 +657,8 @@ Feature: Contract for /balance API
             assertTrue(actual["messages_left"] is Int)
         }
 
-        val baseRequest = HttpRequest().updateMethod("POST").updateBody("{name: \"Holmes\", address: \"221 Baker Street\"}")
+        val baseRequest =
+            HttpRequest().updateMethod("POST").updateBody("{name: \"Holmes\", address: \"221 Baker Street\"}")
 
         for (path in listOf("/accounts1", "/accounts2")) {
             test(baseRequest.updatePath(path))
@@ -715,7 +735,12 @@ Feature: Contract for /balance API
         val httpResponse = contractBehaviour.lookupResponse(httpRequest)
         assertNotNull(httpResponse)
         assertEquals(200, httpResponse.status)
-        assertTrue( NumberPattern().matches(NumberValue(httpResponse.body.toStringLiteral().toInt()), Resolver()) is Result.Success)
+        assertTrue(
+            NumberPattern().matches(
+                NumberValue(httpResponse.body.toStringLiteral().toInt()),
+                Resolver()
+            ) is Result.Success
+        )
     }
 
     @Test
@@ -735,7 +760,8 @@ Feature: Contract for /balance API
         """.trimIndent()
 
         val behaviour = parseGherkinStringToFeature(contractGherkin)
-        val httpRequest = HttpRequest().updateMethod("POST").updatePath("/user").updateBody("""{"id": 10, "name": "John Doe"}""")
+        val httpRequest =
+            HttpRequest().updateMethod("POST").updatePath("/user").updateBody("""{"id": 10, "name": "John Doe"}""")
         val httpResponse = behaviour.lookupResponse(httpRequest)
 
         assertEquals(200, httpResponse.status)
@@ -758,7 +784,8 @@ Feature: Contract for /balance API
         """.trimIndent()
 
         val behaviour = parseGherkinStringToFeature(contractGherkin)
-        val httpRequest = HttpRequest().updateMethod("POST").updatePath("/user").updateBody("""[{"id": 10, "name": "John Doe"}, {"id": 20, "name": "Jane Doe"}]""")
+        val httpRequest = HttpRequest().updateMethod("POST").updatePath("/user")
+            .updateBody("""[{"id": 10, "name": "John Doe"}, {"id": 20, "name": "Jane Doe"}]""")
         val httpResponse = behaviour.lookupResponse(httpRequest)
 
         assertEquals(200, httpResponse.status)
@@ -782,7 +809,8 @@ Feature: Contract for /balance API
         """.trimIndent()
 
         val behaviour = parseGherkinStringToFeature(contractGherkin)
-        val httpRequest = HttpRequest().updateMethod("POST").updatePath("/user").updateBody("""[{"id": 10, "name": "John Doe"}, {"id": 20, "name": "Jane Doe"}]""")
+        val httpRequest = HttpRequest().updateMethod("POST").updatePath("/user")
+            .updateBody("""[{"id": 10, "name": "John Doe"}, {"id": 20, "name": "Jane Doe"}]""")
         val httpResponse = behaviour.lookupResponse(httpRequest)
 
         assertEquals(200, httpResponse.status)
@@ -836,11 +864,11 @@ Feature: Contract for /balance API
 
         assertTrue(array is JSONArrayValue)
 
-        if(array is JSONArrayValue) {
-            for(value in array.list) {
+        if (array is JSONArrayValue) {
+            for (value in array.list) {
                 assertTrue(value is JSONObjectValue)
 
-                if(value is JSONObjectValue) {
+                if (value is JSONObjectValue) {
                     assertTrue(value.jsonObject.getValue("id") is NumberValue)
                     assertTrue(value.jsonObject.getValue("name") is StringValue)
                 }
@@ -871,11 +899,11 @@ Feature: Contract for /balance API
         val jsonObject = httpResponse.body
 
         assertTrue(jsonObject is JSONObjectValue)
-        if(jsonObject is JSONObjectValue) {
+        if (jsonObject is JSONObjectValue) {
             val ids = jsonObject.jsonObject.getValue("ids")
             assert(ids is JSONArrayValue)
 
-            if(ids is JSONArrayValue) {
+            if (ids is JSONArrayValue) {
                 for (value in ids.list) {
                     assertTrue(value is NumberValue)
                 }
@@ -906,32 +934,37 @@ Feature: Contract for /balance API
         val jsonObject = httpResponse.body
 
         assertTrue(jsonObject is JSONObjectValue)
-        assertTrue(if(jsonObject is JSONObjectValue) {
-            val ids = jsonObject.jsonObject["ids"] ?: EmptyString
-            assertTrue(ids is JSONArrayValue)
+        assertTrue(
+            if (jsonObject is JSONObjectValue) {
+                val ids = jsonObject.jsonObject["ids"] ?: EmptyString
+                assertTrue(ids is JSONArrayValue)
 
-            if(ids is JSONArrayValue) {
-                for (value in ids.list) {
-                    assertTrue(value is NumberValue)
-                }
+                if (ids is JSONArrayValue) {
+                    for (value in ids.list) {
+                        assertTrue(value is NumberValue)
+                    }
 
-                true
+                    true
+                } else false
             } else false
-        } else false)
+        )
     }
 
     @Test
     fun `successfully matches valid form fields`() {
-        val requestPattern = HttpRequestPattern(HttpHeadersPattern(), formFieldsPattern = mapOf("Data" to NumberPattern()))
+        val requestPattern =
+            HttpRequestPattern(HttpHeadersPattern(), formFieldsPattern = mapOf("Data" to NumberPattern()))
         val request = HttpRequest().copy(formFields = mapOf("Data" to "10"))
         assertTrue(requestPattern.matchFormFields(Triple(request, Resolver(), emptyList())) is MatchSuccess)
     }
 
     @Test
     fun `returns error for form fields`() {
-        val requestPattern = HttpRequestPattern(HttpHeadersPattern(), formFieldsPattern =  mapOf("Data" to NumberPattern()))
+        val requestPattern =
+            HttpRequestPattern(HttpHeadersPattern(), formFieldsPattern = mapOf("Data" to NumberPattern()))
         val request = HttpRequest().copy(formFields = mapOf("Data" to "hello"))
-        val result: MatchingResult<Triple<HttpRequest, Resolver, List<Result.Failure>>> = requestPattern.matchFormFields(Triple(request, Resolver(), emptyList()))
+        val result: MatchingResult<Triple<HttpRequest, Resolver, List<Result.Failure>>> =
+            requestPattern.matchFormFields(Triple(request, Resolver(), emptyList()))
         result as MatchSuccess<Triple<HttpRequest, Resolver, List<Result.Failure>>>
         val failures = result.value.third
         assertThat(failures).hasSize(1)
@@ -950,7 +983,7 @@ Then status 200
 """.trim()
 
         val behaviour = parseGherkinStringToFeature(contractGherkin)
-        val httpRequest = HttpRequest(method="POST", path="/squareOf", formFields=mapOf("number" to "10"))
+        val httpRequest = HttpRequest(method = "POST", path = "/squareOf", formFields = mapOf("number" to "10"))
         val httpResponse = behaviour.lookupResponse(httpRequest)
 
         assertEquals(200, httpResponse.status)
@@ -970,7 +1003,7 @@ Then status 200
 """.trim()
 
         val behaviour = parseGherkinStringToFeature(contractGherkin)
-        val httpRequest = HttpRequest(method="POST", path="/squareOf", formFields=mapOf("number" to "hello"))
+        val httpRequest = HttpRequest(method = "POST", path = "/squareOf", formFields = mapOf("number" to "hello"))
         val httpResponse = behaviour.lookupResponse(httpRequest)
 
         assertEquals(400, httpResponse.status)
@@ -990,7 +1023,7 @@ Then status 200
 """.trim()
 
         val behaviour = parseGherkinStringToFeature(contractGherkin)
-        val httpRequest = HttpRequest(method="POST", path="/product", formFields=mapOf("number" to "[1]"))
+        val httpRequest = HttpRequest(method = "POST", path = "/product", formFields = mapOf("number" to "[1]"))
         val httpResponse = behaviour.lookupResponse(httpRequest)
 
         assertEquals(400, httpResponse.status)
@@ -1010,7 +1043,7 @@ Then status 200
 """.trim()
 
         val behaviour = parseGherkinStringToFeature(contractGherkin)
-        val httpRequest = HttpRequest(method="POST", path="/product", formFields=mapOf("number" to "[1, 2]"))
+        val httpRequest = HttpRequest(method = "POST", path = "/product", formFields = mapOf("number" to "[1, 2]"))
         val httpResponse = behaviour.lookupResponse(httpRequest)
 
         assertEquals(200, httpResponse.status)
@@ -1032,7 +1065,11 @@ Then status 200
 """.trim()
 
         val behaviour = parseGherkinStringToFeature(contractGherkin)
-        val httpRequest = HttpRequest(method="POST", path="/product", formFields=mapOf("number" to """{"val1": 10, "val2": 20}"""))
+        val httpRequest = HttpRequest(
+            method = "POST",
+            path = "/product",
+            formFields = mapOf("number" to """{"val1": 10, "val2": 20}""")
+        )
         val httpResponse = behaviour.lookupResponse(httpRequest)
 
         assertEquals(200, httpResponse.status)
@@ -1054,7 +1091,11 @@ Then status 200
 """.trim()
 
         val behaviour = parseGherkinStringToFeature(contractGherkin)
-        val httpRequest = HttpRequest(method="POST", path="/product", formFields=mapOf("number" to """{"val1": 10, "val2": 20}"""))
+        val httpRequest = HttpRequest(
+            method = "POST",
+            path = "/product",
+            formFields = mapOf("number" to """{"val1": 10, "val2": 20}""")
+        )
         val httpResponse = behaviour.lookupResponse(httpRequest)
 
         assertEquals(200, httpResponse.status)
@@ -1073,7 +1114,11 @@ Then status 200
 """.trim()
 
         val behaviour = parseGherkinStringToFeature(contractGherkin)
-        val httpRequest = HttpRequest(method="POST", path="/order", body = JSONObjectValue(mapOf("soap" to NumberValue(2), "toothpaste" to NumberValue(3))))
+        val httpRequest = HttpRequest(
+            method = "POST",
+            path = "/order",
+            body = JSONObjectValue(mapOf("soap" to NumberValue(2), "toothpaste" to NumberValue(3)))
+        )
         val httpResponse = behaviour.lookupResponse(httpRequest)
 
         assertEquals(200, httpResponse.status)
@@ -1092,15 +1137,15 @@ Then status 200
 """.trim()
 
         val behaviour = parseGherkinStringToFeature(contractGherkin)
-        val httpRequest = HttpRequest(method="GET", path="/order")
+        val httpRequest = HttpRequest(method = "GET", path = "/order")
         val httpResponse = behaviour.lookupResponse(httpRequest)
 
         assertEquals(200, httpResponse.status)
         val json = httpResponse.body
 
-        if(json !is JSONObjectValue) fail("Expected JSONObjectValue")
+        if (json !is JSONObjectValue) fail("Expected JSONObjectValue")
 
-        for((key, value) in json.jsonObject) {
+        for ((key, value) in json.jsonObject) {
             assertThat(key.length).isPositive()
             assertThat(value).isInstanceOf(NumberValue::class.java)
         }
@@ -1119,13 +1164,13 @@ And response-body
 """.trim()
 
         val behaviour = parseGherkinStringToFeature(contractGherkin)
-        val httpRequest = HttpRequest(method="GET", path="/number")
+        val httpRequest = HttpRequest(method = "GET", path = "/number")
         val httpResponse = behaviour.lookupResponse(httpRequest)
 
         assertEquals(200, httpResponse.status)
         val json = httpResponse.body
 
-        if(json !is JSONObjectValue) fail("Expected json object")
+        if (json !is JSONObjectValue) fail("Expected json object")
 
         assertThat(json.jsonObject.getValue("number")).isInstanceOf(StringValue::class.java)
         assertDoesNotThrow {
@@ -1157,15 +1202,20 @@ Then status 200
             try {
                 val response = feature.lookupResponse(request)
                 assertThat(response.status).isEqualTo(200).withFailMessage(response.toLogString())
-            } catch(e: Throwable) {
+            } catch (e: Throwable) {
                 println(e.stackTrace)
             }
         }
 
         test(HttpRequest("POST", path = "/number", body = toXMLNode("""<request><number>10</number></request>""")))
-        test(HttpRequest("POST", path = "/number", body = toXMLNode("""<request>
-        <number>10</number> </request>""")
-        ))
+        test(
+            HttpRequest(
+                "POST", path = "/number", body = toXMLNode(
+                    """<request>
+        <number>10</number> </request>"""
+                )
+            )
+        )
     }
 
     @Test
@@ -1352,7 +1402,9 @@ paths:
                     type: string
 """.trimIndent(), ""
         ).toFeature()
-        val scenarios: List<Scenario> = contract.enableGenerativeTesting().generateContractTestScenarios(emptyList()).toList().map { it.second.value }
+        val scenarios: List<Scenario> =
+            contract.enableGenerativeTesting().generateContractTestScenarios(emptyList()).toList()
+                .map { it.second.value }
         val negativeTestScenarios = scenarios.filter { it.testDescription().contains("-ve") }
         assertThat(negativeTestScenarios.count()).isEqualTo(2)
     }
@@ -1570,7 +1622,8 @@ paths:
 
     @Test
     fun `positive examples of 4xx should be able to have non-string non-spec-conformant examples`() {
-        val specification = OpenApiSpecification.fromYAML("""
+        val specification = OpenApiSpecification.fromYAML(
+            """
 openapi: 3.0.0
 info:
   title: Sample Product API
@@ -1625,14 +1678,15 @@ paths:
                   value: "Bad request was received and could not be handled"
                 BAD_REQUEST_NULL:
                   value: "Bad request was received and could not be handled"
-""".trimIndent(), "").toFeature()
+""".trimIndent(), ""
+        ).toFeature()
 
         val results = specification.executeTests(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
                 print(request.toLogString())
-                return when(val body = request.body) {
+                return when (val body = request.body) {
                     is JSONObjectValue -> {
-                        if(body.jsonObject["name"] is StringValue) {
+                        if (body.jsonObject["name"] is StringValue) {
                             HttpResponse.ok("10")
                         } else {
                             HttpResponse(422, "Bad request was received and could not be handled")
@@ -1653,7 +1707,8 @@ paths:
 
     @Test
     fun `errors during test realisation should bubble up via results`() {
-        val feature = OpenApiSpecification.fromYAML("""
+        val feature = OpenApiSpecification.fromYAML(
+            """
 openapi: 3.0.0
 info:
   title: Sample Pet API
@@ -1693,7 +1748,8 @@ components:
           type: string
         related:
           ${"$"}ref: '#/components/schemas/NewPet'
-""".trimIndent(), "").toFeature()
+""".trimIndent(), ""
+        ).toFeature()
 
         val contractTests = feature.generateContractTests(emptyList()).toList()
         assertThat(contractTests).hasSize(1)
@@ -1709,7 +1765,8 @@ components:
 
     @Test
     fun `errors during test sequence generation should interrupt sequence generation and return a single error via results`() {
-        val feature = OpenApiSpecification.fromYAML("""
+        val feature = OpenApiSpecification.fromYAML(
+            """
 openapi: 3.0.0
 info:
   title: Sample Pet API
@@ -1750,7 +1807,8 @@ components:
       properties:
         name:
           type: string
-""".trimIndent(), "").toFeature()
+""".trimIndent(), ""
+        ).toFeature()
 
         val contractTests = feature.generateContractTests(emptyList()).toList()
         assertThat(contractTests).hasSize(1)
@@ -1765,7 +1823,7 @@ components:
 
 
     @Test
-    fun `invalid request body example should be caught by the validator` () {
+    fun `invalid request body example should be caught by the validator`() {
         val feature = OpenApiSpecification.fromYAML(
             """
 openapi: 3.0.0
@@ -1810,7 +1868,7 @@ paths:
     }
 
     @Test
-    fun `invalid mandatory request header example should be caught by the validator` () {
+    fun `invalid mandatory request header example should be caught by the validator`() {
         val feature = OpenApiSpecification.fromYAML(
             """
 openapi: 3.0.0
@@ -1864,7 +1922,7 @@ paths:
     }
 
     @Test
-    fun `invalid optional request header example should be caught by the validator` () {
+    fun `invalid optional request header example should be caught by the validator`() {
         val feature = OpenApiSpecification.fromYAML(
             """
 openapi: 3.0.0
@@ -1918,7 +1976,7 @@ paths:
     }
 
     @Test
-    fun `invalid mandatory query parameter example should be caught by the validator` () {
+    fun `invalid mandatory query parameter example should be caught by the validator`() {
         val feature = OpenApiSpecification.fromYAML(
             """
 openapi: 3.0.0
@@ -1972,7 +2030,7 @@ paths:
     }
 
     @Test
-    fun `invalid optional query parameter example should be caught by the validator` () {
+    fun `invalid optional query parameter example should be caught by the validator`() {
         val feature = OpenApiSpecification.fromYAML(
             """
 openapi: 3.0.0
@@ -2025,7 +2083,7 @@ paths:
     }
 
     @Test
-    fun `invalid mandatory response header example should be caught by the validator` () {
+    fun `invalid mandatory response header example should be caught by the validator`() {
         val feature = OpenApiSpecification.fromYAML(
             """
 openapi: 3.0.0
@@ -2079,7 +2137,7 @@ paths:
     }
 
     @Test
-    fun `invalid path parameter example should be caught by the validator` () {
+    fun `invalid path parameter example should be caught by the validator`() {
         val feature = OpenApiSpecification.fromYAML(
             """
 openapi: 3.0.0
@@ -2132,7 +2190,7 @@ paths:
     }
 
     @Test
-    fun `invalid optional response header example should be caught by the validator` () {
+    fun `invalid optional response header example should be caught by the validator`() {
         val feature = OpenApiSpecification.fromYAML(
             """
 openapi: 3.0.0
@@ -2186,7 +2244,7 @@ paths:
     }
 
     @Test
-    fun `all errors across request body and response headers and body should be caught and returned together` () {
+    fun `all errors across request body and response headers and body should be caught and returned together`() {
         val feature = OpenApiSpecification.fromYAML(
             """
 openapi: 3.0.0
@@ -2245,7 +2303,7 @@ paths:
     }
 
     @Test
-    fun `all errors across path and params and headers and response headers and body should be caught and returned together` () {
+    fun `all errors across path and params and headers and response headers and body should be caught and returned together`() {
         val feature = OpenApiSpecification.fromYAML(
             """
 openapi: 3.0.0
@@ -2320,7 +2378,7 @@ components:
     }
 
     @Test
-    fun `invalid response body example should be caught by the validator` () {
+    fun `invalid response body example should be caught by the validator`() {
         val feature = OpenApiSpecification.fromYAML(
             """
 openapi: 3.0.0
@@ -2371,7 +2429,7 @@ paths:
     }
 
     @Test
-    fun `validation errors should contain the name of the test` () {
+    fun `validation errors should contain the name of the test`() {
         val feature = OpenApiSpecification.fromYAML(
             """
 openapi: 3.0.0
@@ -2423,7 +2481,8 @@ paths:
 
     @Test
     fun `show the reason why an example was ignored when loading it for test`() {
-        val feature = OpenApiSpecification.fromFile("src/test/resources/openapi/has_irrelevant_externalized_test.yaml").toFeature()
+        val feature = OpenApiSpecification.fromFile("src/test/resources/openapi/has_irrelevant_externalized_test.yaml")
+            .toFeature()
 
         val (output, _) = captureStandardOutput {
             feature.loadExternalisedExamples()
@@ -2482,7 +2541,9 @@ paths:
 
     @Test
     fun `validate an invalid query param in the path of an externalised example`() {
-        val feature = OpenApiSpecification.fromFile("src/test/resources/openapi/spec_with_invalid_external_query_in_url.yaml").toFeature().loadExternalisedExamples()
+        val feature =
+            OpenApiSpecification.fromFile("src/test/resources/openapi/spec_with_invalid_external_query_in_url.yaml")
+                .toFeature().loadExternalisedExamples()
 
         assertThatThrownBy {
             feature.validateExamplesOrException()
@@ -2491,7 +2552,9 @@ paths:
 
     @Test
     fun `validate and use an query param in the path of an externalised example`() {
-        val feature = OpenApiSpecification.fromFile("src/test/resources/openapi/spec_with_valid_external_query_in_url.yaml").toFeature().loadExternalisedExamples()
+        val feature =
+            OpenApiSpecification.fromFile("src/test/resources/openapi/spec_with_valid_external_query_in_url.yaml")
+                .toFeature().loadExternalisedExamples()
 
         val results = feature.executeTests(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
@@ -2507,7 +2570,10 @@ paths:
     @Test
     @Disabled
     fun `should be able to stub out enum with string type using substitution`() {
-        createStubFromContracts(listOf("src/test/resources/openapi/spec_with_empoyee_enum.yaml"), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(
+            listOf("src/test/resources/openapi/spec_with_empoyee_enum.yaml"),
+            timeoutMillis = 0
+        ).use { stub ->
             val request = HttpRequest("GET", "/person", queryParametersMap = mapOf("type" to "employee"))
             val response = stub.client.execute(request)
 
@@ -2520,7 +2586,10 @@ paths:
     @Test
     @Disabled
     fun `should be able to stub out enum with string type using data substitution`() {
-        createStubFromContracts(listOf("src/test/resources/openapi/spec_with_empoyee_enum2.yaml"), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(
+            listOf("src/test/resources/openapi/spec_with_empoyee_enum2.yaml"),
+            timeoutMillis = 0
+        ).use { stub ->
             val request = HttpRequest("GET", "/person", queryParametersMap = mapOf("type" to "manager"))
             val response = stub.client.execute(request)
 
@@ -2820,36 +2889,38 @@ paths:
         }).result
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
+        assertThat(result.reportString()).isEqualToNormalizingWhitespace(
+            """
         In scenario "Test Example. Response: Successful response"
         API: POST /test -> 200
         ${
-            toViolationReportString(
-                breadCrumb = "RESPONSE.BODY.name",
-                details = "Expected \"Jane Doe\" to equal \"John Doe\"",
-                StandardRuleViolation.VALUE_MISMATCH
-            )
-        }
+                toViolationReportString(
+                    breadCrumb = "RESPONSE.BODY.name",
+                    details = "Expected \"Jane Doe\" to equal \"John Doe\"",
+                    StandardRuleViolation.VALUE_MISMATCH
+                )
+            }
         ${
-            toViolationReportString(
-                breadCrumb = "RESPONSE.BODY.age",
-                details = "Expected 123 to equal 999",
-                StandardRuleViolation.VALUE_MISMATCH
-            )
-        }
+                toViolationReportString(
+                    breadCrumb = "RESPONSE.BODY.age",
+                    details = "Expected 123 to equal 999",
+                    StandardRuleViolation.VALUE_MISMATCH
+                )
+            }
         ${
-            toViolationReportString(
-                breadCrumb = "RESPONSE.BODY.isEligible",
-                details = "Expected false to equal true",
-                StandardRuleViolation.VALUE_MISMATCH
-            )
-        }
-        """.trimIndent())
+                toViolationReportString(
+                    breadCrumb = "RESPONSE.BODY.isEligible",
+                    details = "Expected false to equal true",
+                    StandardRuleViolation.VALUE_MISMATCH
+                )
+            }
+        """.trimIndent()
+        )
     }
 
     @Nested
     inner class GenerateDiscriminatorDetailsBasedRequestResponsePairsTest {
-        private val feature = Feature(name = "feature")
+        private val feature = Feature(name = "feature", protocol = SpecmaticProtocol.HTTP)
         private val scenario = mockk<Scenario>()
 
         @Test
@@ -2956,10 +3027,11 @@ paths:
             "",
             httpRequestPattern,
             HttpResponsePattern(status = 200),
-            exampleName = "example"
+            exampleName = "example",
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
-        val feature = Feature(name = "", scenarios = listOf(scenario))
+        val feature = Feature(name = "", scenarios = listOf(scenario), protocol = SpecmaticProtocol.HTTP)
 
         val openAPI = feature.toOpenApi()
         assertThat(openAPI.paths["/data"]?.post?.requestBody).isNull()
@@ -2990,9 +3062,16 @@ paths:
         val feature = Feature(
             name = "Header case",
             scenarios = listOf(
-                Scenario("uppercase headers", requestPatternUpper, responsePatternUpper),
-                Scenario("lowercase headers", requestPatternLower, responsePatternLower)
-            )
+                Scenario(
+                    "uppercase headers", requestPatternUpper, responsePatternUpper,
+                    protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+                ),
+                Scenario(
+                    "lowercase headers", requestPatternLower, responsePatternLower,
+                    protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+                )
+            ),
+            protocol = SpecmaticProtocol.HTTP
         )
 
         val openAPI = feature.toOpenApi()
@@ -3015,25 +3094,30 @@ paths:
         @JvmStatic
         fun singleFeatureContractSource(): Stream<Arguments> {
             val featureData = arrayOf(
-                    "Feature: Contract for /balance API\n\n" +
-                            "  Scenario: api call\n\n" +
-                            "    When GET /balance?account-id=10\n" +
-                            "    Then status 200\n" +
-                            "    And response-body {calls_left: 10, messages_left: 20}",
-                    "Feature: Contract for /balance API\n\n" +
-                            "  Scenario: api call\n\n" +
-                            "    When GET /balance?account-id=20\n" +
-                            "    Then status 200\n" +
-                            "    And response-body {calls_left: 10, messages_left: 30}"
+                "Feature: Contract for /balance API\n\n" +
+                        "  Scenario: api call\n\n" +
+                        "    When GET /balance?account-id=10\n" +
+                        "    Then status 200\n" +
+                        "    And response-body {calls_left: 10, messages_left: 20}",
+                "Feature: Contract for /balance API\n\n" +
+                        "  Scenario: api call\n\n" +
+                        "    When GET /balance?account-id=20\n" +
+                        "    Then status 200\n" +
+                        "    And response-body {calls_left: 10, messages_left: 30}"
             )
             return Stream.of(
-                    Arguments.of(featureData[0], "10", "{calls_left: 10, messages_left: 20}"),
-                    Arguments.of(featureData[1], "20", "{calls_left: 10, messages_left: 30}")
+                Arguments.of(featureData[0], "10", "{calls_left: 10, messages_left: 20}"),
+                Arguments.of(featureData[1], "20", "{calls_left: 10, messages_left: 30}")
             )
         }
 
         private fun unexpectedKeyButMatches(unexpectedKey: String, candidate: String): String {
-            return "${FuzzyExampleMisMatchMessages.unexpectedKey("property", unexpectedKey)}. Did you mean \"$candidate\"?"
+            return "${
+                FuzzyExampleMisMatchMessages.unexpectedKey(
+                    "property",
+                    unexpectedKey
+                )
+            }. Did you mean \"$candidate\"?"
         }
     }
 
@@ -3041,7 +3125,7 @@ paths:
     inner class CalculatePathTests {
         @Test
         fun `calculatePath should return empty set when no scenarios exist`() {
-            val feature = Feature(scenarios = emptyList(), name = "EmptyFeature")
+            val feature = Feature(scenarios = emptyList(), name = "EmptyFeature", protocol = SpecmaticProtocol.HTTP)
             val httpRequest = HttpRequest(method = "GET", path = "/test", body = StringValue("test"))
 
             val paths = feature.calculatePath(httpRequest, 200)
@@ -3062,9 +3146,10 @@ paths:
                     headersPattern = HttpHeadersPattern(),
                     status = 200,
                     body = StringPattern()
-                )
+                ),
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
-            val feature = Feature(scenarios = listOf(scenario), name = "TestFeature")
+            val feature = Feature(scenarios = listOf(scenario), name = "TestFeature", protocol = SpecmaticProtocol.HTTP)
             val httpRequest = HttpRequest(method = "GET", path = "/test", body = StringValue("test"))
 
             val paths = feature.calculatePath(httpRequest, 200)
@@ -3088,7 +3173,8 @@ paths:
                     headersPattern = HttpHeadersPattern(),
                     status = 200,
                     body = StringPattern()
-                )
+                ),
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
             val scenario2 = Scenario(
                 name = "scenario2",
@@ -3104,9 +3190,10 @@ paths:
                     headersPattern = HttpHeadersPattern(),
                     status = 200,
                     body = StringPattern()
-                )
+                ),
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
-            val feature = Feature(scenarios = listOf(scenario1, scenario2), name = "TestFeature")
+            val feature = Feature(scenarios = listOf(scenario1, scenario2), name = "TestFeature", protocol = SpecmaticProtocol.HTTP)
             val httpRequest = HttpRequest(
                 method = "POST",
                 path = "/test",
@@ -3134,9 +3221,10 @@ paths:
                     headersPattern = HttpHeadersPattern(),
                     status = 400,
                     body = StringPattern()
-                )
+                ),
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
-            val feature = Feature(scenarios = listOf(scenario), name = "TestFeature")
+            val feature = Feature(scenarios = listOf(scenario), name = "TestFeature", protocol = SpecmaticProtocol.HTTP)
 
             val pathWithInvalidDatatype = "/test/abc123"
             val httpRequest = HttpRequest(
@@ -3163,7 +3251,8 @@ paths:
                     headersPattern = HttpHeadersPattern(),
                     status = 200,
                     body = StringPattern()
-                )
+                ),
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
             val scenario2 = Scenario(
                 name = "scenario2",
@@ -3182,9 +3271,10 @@ paths:
                     headersPattern = HttpHeadersPattern(),
                     status = 200,
                     body = StringPattern()
-                )
+                ),
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
-            val feature = Feature(scenarios = listOf(scenario1, scenario2), name = "TestFeature")
+            val feature = Feature(scenarios = listOf(scenario1, scenario2), name = "TestFeature", protocol = SpecmaticProtocol.HTTP)
             val httpRequest = HttpRequest(
                 method = "POST",
                 path = "/test",
@@ -3210,9 +3300,10 @@ paths:
                     headersPattern = HttpHeadersPattern(),
                     status = 200,
                     body = StringPattern()
-                )
+                ),
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
-            val feature = Feature(scenarios = listOf(scenario), name = "TestFeature")
+            val feature = Feature(scenarios = listOf(scenario), name = "TestFeature", protocol = SpecmaticProtocol.HTTP)
             val httpRequest = HttpRequest(
                 method = "POST",
                 path = "/test",
@@ -3232,22 +3323,36 @@ paths:
         fun `strict mode filters out positive scenarios without example rows`() {
             val scenarioWithRows = Scenario(
                 name = "Scenario with rows",
-                httpRequestPattern = HttpRequestPattern(method = "GET", httpPathPattern = HttpPathPattern(path = "/test", pathSegmentPatterns = listOf())),
+                httpRequestPattern = HttpRequestPattern(
+                    method = "GET",
+                    httpPathPattern = HttpPathPattern(path = "/test", pathSegmentPatterns = listOf())
+                ),
                 httpResponsePattern = HttpResponsePattern(status = 200),
-                examples = listOf(Examples(columnNames = listOf("id"), rows = listOf(Row(columnNames = listOf("id"), values = listOf("1")))))
+                examples = listOf(
+                    Examples(
+                        columnNames = listOf("id"),
+                        rows = listOf(Row(columnNames = listOf("id"), values = listOf("1")))
+                    )
+                ),
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
 
             val scenarioWithoutRows = Scenario(
                 name = "Scenario without rows",
-                httpRequestPattern = HttpRequestPattern(method = "POST", httpPathPattern = HttpPathPattern(path = "/test", pathSegmentPatterns = listOf())),
+                httpRequestPattern = HttpRequestPattern(
+                    method = "POST",
+                    httpPathPattern = HttpPathPattern(path = "/test", pathSegmentPatterns = listOf())
+                ),
                 httpResponsePattern = HttpResponsePattern(status = 201),
-                examples = emptyList()
+                examples = emptyList(),
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
 
             val featureWithStrictMode = Feature(
                 scenarios = listOf(scenarioWithRows, scenarioWithoutRows),
                 name = "TestFeature",
-                strictMode = true
+                strictMode = true,
+                protocol = SpecmaticProtocol.HTTP
             ).enableGenerativeTesting()
 
             val tests = featureWithStrictMode.generateContractTestScenarios(emptyList()).toList()
@@ -3261,22 +3366,36 @@ paths:
         fun `strict mode false allows all scenarios to generate tests`() {
             val scenarioWithRows = Scenario(
                 name = "Scenario with rows",
-                httpRequestPattern = HttpRequestPattern(method = "GET", httpPathPattern = HttpPathPattern(path = "/test", pathSegmentPatterns = listOf())),
+                httpRequestPattern = HttpRequestPattern(
+                    method = "GET",
+                    httpPathPattern = HttpPathPattern(path = "/test", pathSegmentPatterns = listOf())
+                ),
                 httpResponsePattern = HttpResponsePattern(status = 200),
-                examples = listOf(Examples(columnNames = listOf("id"), rows = listOf(Row(columnNames = listOf("id"), values = listOf("1")))))
+                examples = listOf(
+                    Examples(
+                        columnNames = listOf("id"),
+                        rows = listOf(Row(columnNames = listOf("id"), values = listOf("1")))
+                    )
+                ),
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
 
             val scenarioWithoutRows = Scenario(
                 name = "Scenario without rows",
-                httpRequestPattern = HttpRequestPattern(method = "POST", httpPathPattern = HttpPathPattern(path = "/test", pathSegmentPatterns = listOf())),
+                httpRequestPattern = HttpRequestPattern(
+                    method = "POST",
+                    httpPathPattern = HttpPathPattern(path = "/test", pathSegmentPatterns = listOf())
+                ),
                 httpResponsePattern = HttpResponsePattern(status = 201),
-                examples = emptyList()
+                examples = emptyList(),
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
 
             val featureWithoutStrictMode = Feature(
                 scenarios = listOf(scenarioWithRows, scenarioWithoutRows),
                 name = "TestFeature",
-                strictMode = false
+                strictMode = false,
+                protocol = SpecmaticProtocol.HTTP
             ).enableGenerativeTesting()
 
             val tests = featureWithoutStrictMode.generateContractTestScenarios(emptyList()).toList()
@@ -3291,16 +3410,29 @@ paths:
         fun `strict mode filters negative scenarios without rows`() {
             val scenarioWithRows = Scenario(
                 name = "Scenario with rows",
-                httpRequestPattern = HttpRequestPattern(method = "GET", httpPathPattern = HttpPathPattern(path = "/test", pathSegmentPatterns = listOf())),
+                httpRequestPattern = HttpRequestPattern(
+                    method = "GET",
+                    httpPathPattern = HttpPathPattern(path = "/test", pathSegmentPatterns = listOf())
+                ),
                 httpResponsePattern = HttpResponsePattern(status = 200),
-                examples = listOf(Examples(columnNames = listOf("id"), rows = listOf(Row(columnNames = listOf("id"), values = listOf("1")))))
+                examples = listOf(
+                    Examples(
+                        columnNames = listOf("id"),
+                        rows = listOf(Row(columnNames = listOf("id"), values = listOf("1")))
+                    )
+                ),
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
 
             val scenarioWithoutRows = Scenario(
                 name = "Scenario without rows",
-                httpRequestPattern = HttpRequestPattern(method = "POST", httpPathPattern = HttpPathPattern(path = "/test", pathSegmentPatterns = listOf())),
+                httpRequestPattern = HttpRequestPattern(
+                    method = "POST",
+                    httpPathPattern = HttpPathPattern(path = "/test", pathSegmentPatterns = listOf())
+                ),
                 httpResponsePattern = HttpResponsePattern(status = 200),
-                examples = emptyList()
+                examples = emptyList(),
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
 
             val configWithResiliency = SpecmaticConfig().enableResiliencyTests()
@@ -3308,7 +3440,8 @@ paths:
                 scenarios = listOf(scenarioWithRows, scenarioWithoutRows),
                 name = "TestFeature",
                 strictMode = true,
-                specmaticConfig = configWithResiliency
+                specmaticConfig = configWithResiliency,
+                protocol = SpecmaticProtocol.HTTP
             ).enableGenerativeTesting()
 
             val allTests = featureWithStrictMode.generateContractTestScenarios(emptyList()).toList()

@@ -1,13 +1,14 @@
 package io.specmatic.test.reports.coverage
 
-import io.specmatic.conversions.SERVICE_TYPE_HTTP
 import io.specmatic.core.filters.ExpressionStandardizer
 import io.specmatic.core.filters.TestRecordFilter
 import io.specmatic.core.log.HttpLogMessage
+import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.generated.dto.coverage.CoverageEntry
 import io.specmatic.reporter.generated.dto.coverage.OpenAPICoverageOperation
 import io.specmatic.reporter.generated.dto.coverage.SpecmaticCoverageReport
 import io.specmatic.reporter.model.OpenAPIOperation
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.API
 import io.specmatic.test.HttpInteractionsLog
@@ -174,7 +175,16 @@ class OpenApiCoverageReportInput(
                     repository = endpoint.sourceRepository,
                     branch = endpoint.sourceRepositoryBranch,
                     specification = endpoint.specification,
-                    serviceType = endpoint.serviceType
+                    specType = endpoint.specType,
+                    operations = setOf(
+                        OpenAPIOperation(
+                            path = endpoint.path,
+                            method = endpoint.method,
+                            contentType = endpoint.requestContentType,
+                            responseCode = endpoint.responseStatus,
+                            protocol = endpoint.protocol
+                        )
+                    )
                 )
             }
         )
@@ -197,7 +207,7 @@ class OpenApiCoverageReportInput(
                 it.repository,
                 it.branch,
                 it.specification,
-                it.serviceType
+                it.operations.firstOrNull()?.protocol?.key?.uppercase()
             )
         }.map { (key, recordsOfGroup) ->
             CoverageEntry()
@@ -250,7 +260,16 @@ class OpenApiCoverageReportInput(
                 request = null,
                 response = null,
                 result = TestResult.MissingInSpec,
-                serviceType = SERVICE_TYPE_HTTP
+                specType = SpecType.OPENAPI,
+                operations = setOf(
+                    OpenAPIOperation(
+                        path = api.path,
+                        method = api.method,
+                        contentType = null,
+                        responseCode = 0,
+                        protocol = SpecmaticProtocol.HTTP
+                    )
+                )
             )
         }
 
@@ -295,7 +314,15 @@ class OpenApiCoverageReportInput(
 
     private fun createMissingInSpecRecordAndIncludeOriginalRecordIfApplicable(testResult: TestResultRecord): List<TestResultRecord> = listOfNotNull(
         testResult.copy(
-            operation = OpenAPIOperation(testResult.path, testResult.method, testResult.requestContentType.orEmpty(), testResult.actualResponseStatus),
+            operations = setOf(
+                OpenAPIOperation(
+                    path = testResult.path,
+                    method = testResult.method,
+                    contentType = testResult.requestContentType,
+                    responseCode = testResult.actualResponseStatus,
+                    protocol = SpecmaticProtocol.HTTP
+                )
+            ),
             responseStatus = testResult.actualResponseStatus,
             result = TestResult.MissingInSpec,
             actualResponseStatus = testResult.actualResponseStatus
@@ -367,7 +394,8 @@ data class Endpoint(
     val sourceRepository: String? = null,
     val sourceRepositoryBranch: String? = null,
     val specification: String? = null,
-    val serviceType: String? = null,
     val requestContentType: String? = null,
-    val responseContentType: String? = null
+    val responseContentType: String? = null,
+    val protocol: SpecmaticProtocol,
+    val specType: SpecType,
 )
