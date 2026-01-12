@@ -400,9 +400,9 @@ paths:
                 path = "/products",
                 method = "POST",
                 responseStatus = 201,
-                protocol = SpecmaticProtocol.HTTP,
                 requestContentType = "application/json",
-                responseContentType = "application/json", specType = SpecType.OPENAPI
+                responseContentType = "application/json",
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         )
         assertThat(testData.filteredEndpoints).doesNotContain(
@@ -410,9 +410,9 @@ paths:
                 path = "/products",
                 method = "POST",
                 responseStatus = 201,
-                protocol = SpecmaticProtocol.HTTP,
                 requestContentType = "application/json",
-                responseContentType = "application/json", specType = SpecType.OPENAPI
+                responseContentType = "application/json",
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         )
     }

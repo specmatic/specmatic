@@ -63,7 +63,13 @@ class ApiCoverageReportTest {
     @Test
     fun `POST 201 and 400 in spec not implemented with actuator`() {
         val endpointsInSpec = mutableListOf(
-            Endpoint("/order/{id}", "POST", 201, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI), Endpoint("/order/{id}", "POST", 400, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
+            Endpoint("/order/{id}", "POST", 201, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI), Endpoint(
+                "/order/{id}",
+                "POST",
+                400,
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI
+            )
         )
         val applicationAPIs = mutableListOf<API>()
         val testResultRecords = mutableListOf(
@@ -104,7 +110,13 @@ class ApiCoverageReportTest {
 
     @Test
     fun `GET 200 in spec not implemented without actuator`() {
-        val endpointsInSpec = mutableListOf(Endpoint("/order/{id}", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI))
+        val endpointsInSpec = mutableListOf(Endpoint(
+            "/order/{id}",
+            "GET",
+            200,
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        ))
         val testResultRecords =
             mutableListOf(TestResultRecord("/order/{id}", "GET", 200,  request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404, specType = SpecType.OPENAPI))
         val apiCoverageReport = generateCoverageReport(testResultRecords, endpointsInSpec)
@@ -124,7 +136,13 @@ class ApiCoverageReportTest {
     @Test
     fun `POST 201 and 400 in spec not implemented without actuator`() {
         val endpointsInSpec = mutableListOf(
-            Endpoint("/order/{id}", "POST", 201, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI), Endpoint("/order/{id}", "POST", 400, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
+            Endpoint("/order/{id}", "POST", 201, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI), Endpoint(
+                "/order/{id}",
+                "POST",
+                400,
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI
+            )
         )
         val testResultRecords = mutableListOf(
             TestResultRecord("/order/{id}", "POST", 201,  request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404, specType = SpecType.OPENAPI),
@@ -146,7 +164,13 @@ class ApiCoverageReportTest {
     @Test
     fun `GET 200 and 404 in spec not implemented with actuator`() {
         val endpointsInSpec = mutableListOf(
-            Endpoint("/order/{id}", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI), Endpoint("/order/{id}", "GET", 404, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
+            Endpoint("/order/{id}", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI), Endpoint(
+                "/order/{id}",
+                "GET",
+                404,
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI
+            )
         )
         val applicationAPIs = mutableListOf<API>()
         val testResultRecords = mutableListOf(
@@ -193,7 +217,13 @@ class ApiCoverageReportTest {
     @Test
     fun `GET 200 and 404 in spec not implemented without actuator`() {
         val endpointsInSpec = mutableListOf(
-            Endpoint("/order/{id}", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI), Endpoint("/order/{id}", "GET", 404, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
+            Endpoint("/order/{id}", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI), Endpoint(
+                "/order/{id}",
+                "GET",
+                404,
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI
+            )
         )
         val testResultRecords = mutableListOf(
             TestResultRecord("/order/{id}", "GET", 200,   request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404,  specType = SpecType.OPENAPI)
@@ -237,7 +267,13 @@ class ApiCoverageReportTest {
     @Test
     fun `GET 200 and 404 in spec implemented with actuator`() {
         val endpointsInSpec = mutableListOf(
-            Endpoint("/order/{id}", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI), Endpoint("/order/{id}", "GET", 404, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
+            Endpoint("/order/{id}", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI), Endpoint(
+                "/order/{id}",
+                "GET",
+                404,
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI
+            )
         )
         val applicationAPIs = mutableListOf(
             API("GET", "/order/{id}")
@@ -289,7 +325,13 @@ class ApiCoverageReportTest {
     @Test
     fun `GET 200 and 400 in spec implemented without actuator`() {
         val endpointsInSpec = mutableListOf(
-            Endpoint("/order/{id}", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI), Endpoint("/order/{id}", "GET", 400, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
+            Endpoint("/order/{id}", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI), Endpoint(
+                "/order/{id}",
+                "GET",
+                400,
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI
+            )
         )
         val testResultRecords = mutableListOf(
             TestResultRecord("/order/{id}", "GET", 200,   request = null, response = null, result = TestResult.Success, actualResponseStatus = 200,  specType = SpecType.OPENAPI)
@@ -378,7 +420,13 @@ class ApiCoverageReportTest {
     @Test
     fun `GET 200 and 404 in spec implemented with actuator bad request`() {
         val endpointsInSpec = mutableListOf(
-            Endpoint("/order/{id}", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI), Endpoint("/order/{id}", "GET", 404, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
+            Endpoint("/order/{id}", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI), Endpoint(
+                "/order/{id}",
+                "GET",
+                404,
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI
+            )
         )
         val applicationAPIs = mutableListOf(
             API("GET", "/order/{id}")
@@ -401,7 +449,13 @@ class ApiCoverageReportTest {
     @Test
     fun `GET 200 and 404 in spec implemented without actuator bad request`() {
         val endpointsInSpec = mutableListOf(
-            Endpoint("/order/{id}", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI), Endpoint("/order/{id}", "GET", 404, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
+            Endpoint("/order/{id}", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI), Endpoint(
+                "/order/{id}",
+                "GET",
+                404,
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI
+            )
         )
         val testResultRecords = mutableListOf(
             TestResultRecord("/order/{id}", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404,  specType = SpecType.OPENAPI)
@@ -445,7 +499,13 @@ class ApiCoverageReportTest {
     @Test
     fun `No Param GET 200 and 404 in spec not implemented without actuator`() {
         val endpointsInSpec = mutableListOf(
-            Endpoint("/orders", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI), Endpoint("/orders", "GET", 404, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
+            Endpoint(
+                "/orders",
+                "GET",
+                200,
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI
+            ), Endpoint("/orders", "GET", 404, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
         )
 
         val testResultRecords = mutableListOf(
@@ -468,7 +528,13 @@ class ApiCoverageReportTest {
     @Test
     fun `No Param GET 200 and 404 in spec implemented with actuator`() {
         val endpointsInSpec = mutableListOf(
-            Endpoint("/orders", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI), Endpoint("/orders", "GET", 404, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
+            Endpoint(
+                "/orders",
+                "GET",
+                200,
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI
+            ), Endpoint("/orders", "GET", 404, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
         )
         val applicationAPIs = mutableListOf(
             API("GET", "/orders")

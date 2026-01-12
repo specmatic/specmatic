@@ -491,7 +491,7 @@ class OpenApiCoverageReportInputTest {
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
         val endpoint2 = Endpoint(
-            path = "/previous", method = "POST", requestContentType = "application/json", responseStatus = 201,
+            path = "/previous", method = "POST", responseStatus = 201, requestContentType = "application/json",
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 

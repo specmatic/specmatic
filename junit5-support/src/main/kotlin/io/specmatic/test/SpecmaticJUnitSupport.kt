@@ -625,9 +625,9 @@ open class SpecmaticJUnitSupport {
                 scenario.sourceRepository,
                 scenario.sourceRepositoryBranch,
                 scenario.specification,
-                scenario.protocol,
                 scenario.requestContentType,
                 scenario.httpResponsePattern.headersPattern.contentType,
+                scenario.protocol,
                 scenario.specType
             )
         }
@@ -654,9 +654,9 @@ open class SpecmaticJUnitSupport {
                 scenario.sourceRepository,
                 scenario.sourceRepositoryBranch,
                 scenario.specification,
-                scenario.protocol,
                 scenario.requestContentType,
                 scenario.httpResponsePattern.headersPattern.contentType,
+                scenario.protocol,
                 scenario.specType
             )
         }.toList()
