@@ -352,26 +352,6 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
     fun getSchemaNamespacePrefix(namespace: String): String {
         return namespaceToPrefix[namespace] ?: throw ContractException("Tried to lookup a prefix for the namespace $namespace but could not find one")
     }
-
-    companion object {
-        fun getProtocol(isWSDL: Boolean): SpecmaticProtocol {
-            // TODO - use SOAP and WSDL when the WSDL reporting is in place.
-            //    val protocol = if(isWSDL) SpecmaticProtocol.SOAP else SpecmaticProtocol.HTTP
-            // The older coverage report shows protocol SOAP but specType OpenAPI if these changes are made.
-            // Hence, leaving this as is for now, need to fix latter once WSDL reporting is better implemented.
-            val protocol = SpecmaticProtocol.HTTP
-            return protocol
-        }
-
-        fun getSpecType(isWSDL: Boolean): SpecType {
-            // TODO - use SOAP and WSDL when the WSDL reporting is in place.
-            //    val specType = if(isWSDL) SpecType.WSDL else SpecType.OPENAPI
-            // The older coverage report shows protocol SOAP but specType OpenAPI if these changes are made.
-            // Hence, leaving this as is for now, need to fix latter once WSDL reporting is better implemented.
-            val specType = SpecType.OPENAPI
-            return specType
-        }
-    }
 }
 
 fun namespaceOrSchemaNamespace(namespace: String, schema: XMLNode?) =
