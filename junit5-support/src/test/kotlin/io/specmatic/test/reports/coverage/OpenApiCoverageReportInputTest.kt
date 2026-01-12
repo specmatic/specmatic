@@ -20,7 +20,7 @@ class OpenApiCoverageReportInputTest {
             request = null,
             response = null,
             result = TestResult.Success,
-            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+             specType = SpecType.OPENAPI
         )
 
         val input = OpenApiCoverageReportInput(
@@ -43,7 +43,7 @@ class OpenApiCoverageReportInputTest {
             request = null,
             response = null,
             result = TestResult.Success,
-            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+             specType = SpecType.OPENAPI
         )
 
         val previousRecord = TestResultRecord(
@@ -53,7 +53,7 @@ class OpenApiCoverageReportInputTest {
             request = null,
             response = null,
             result = TestResult.Success,
-            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+             specType = SpecType.OPENAPI
         )
 
         val input = OpenApiCoverageReportInput(
@@ -90,7 +90,7 @@ class OpenApiCoverageReportInputTest {
             request = null,
             response = null,
             result = TestResult.Success,
-            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+             specType = SpecType.OPENAPI
         )
 
         val input = OpenApiCoverageReportInput(
@@ -131,7 +131,7 @@ class OpenApiCoverageReportInputTest {
             request = null,
             response = null,
             result = TestResult.Success,
-            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+             specType = SpecType.OPENAPI
         )
 
         val previousRecord = TestResultRecord(
@@ -141,7 +141,7 @@ class OpenApiCoverageReportInputTest {
             request = null,
             response = null,
             result = TestResult.Success,
-            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+             specType = SpecType.OPENAPI
         )
 
         val input = OpenApiCoverageReportInput(
@@ -182,7 +182,7 @@ class OpenApiCoverageReportInputTest {
             request = null,
             response = null,
             result = TestResult.Success,
-            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+             specType = SpecType.OPENAPI
         )
 
         val input = OpenApiCoverageReportInput(
@@ -229,7 +229,7 @@ class OpenApiCoverageReportInputTest {
             request = null,
             response = null,
             result = TestResult.Success,
-            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+             specType = SpecType.OPENAPI
         )
 
         val previousRecord = TestResultRecord(
@@ -239,7 +239,7 @@ class OpenApiCoverageReportInputTest {
             request = null,
             response = null,
             result = TestResult.Success,
-            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+             specType = SpecType.OPENAPI
         )
 
         val input = OpenApiCoverageReportInput(
@@ -284,7 +284,7 @@ class OpenApiCoverageReportInputTest {
             TestResultRecord(
                 "/test", "POST", 200,
                 request = null, response = null, result = TestResult.Failed, actualResponseStatus = 200,
-                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+                 specType = SpecType.OPENAPI
             ),
         )
 
@@ -321,7 +321,7 @@ class OpenApiCoverageReportInputTest {
             TestResultRecord(
                 "/test", "POST", 200,
                 request = null, response = null, result = TestResult.Failed, actualResponseStatus = 200,
-                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+                 specType = SpecType.OPENAPI
             ),
         )
 
@@ -356,7 +356,7 @@ class OpenApiCoverageReportInputTest {
             TestResultRecord(
                 "/test", "POST", 200,
                 request = null, response = null, result = TestResult.Failed, actualResponseStatus = 0,
-                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+                 specType = SpecType.OPENAPI
             )
         )
 
@@ -390,7 +390,7 @@ class OpenApiCoverageReportInputTest {
                 response = null,
                 result = TestResult.Success,
                 actualResponseStatus = 200,
-                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+                 specType = SpecType.OPENAPI
             ),
             TestResultRecord(
                 "/current",
@@ -400,7 +400,7 @@ class OpenApiCoverageReportInputTest {
                 response = null,
                 result = TestResult.Failed,
                 actualResponseStatus = 400,
-                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+                 specType = SpecType.OPENAPI
             ),
         )
 
@@ -427,7 +427,7 @@ class OpenApiCoverageReportInputTest {
 
         // Assert that the responseStatus of testResultRecord's operation is updated
         val missingInSpecTestResult = report.testResultRecords.single { it.result == TestResult.MissingInSpec }
-        assertThat(missingInSpecTestResult.operation).isEqualTo(OpenAPIOperation("/current", "GET", "", 400))
+        assertThat(missingInSpecTestResult.operations.first()).isEqualTo(OpenAPIOperation("/current", "GET", null, 400, SpecmaticProtocol.HTTP))
     }
 
     @Test
@@ -448,7 +448,7 @@ class OpenApiCoverageReportInputTest {
                 response = null,
                 result = TestResult.Success,
                 actualResponseStatus = 200,
-                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+                 specType = SpecType.OPENAPI
             ),
             TestResultRecord(
                 "/current",
@@ -458,7 +458,7 @@ class OpenApiCoverageReportInputTest {
                 response = null,
                 result = TestResult.Success,
                 actualResponseStatus = 400,
-                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+                 specType = SpecType.OPENAPI
             ),
         )
 
@@ -503,7 +503,7 @@ class OpenApiCoverageReportInputTest {
             request = null,
             response = null,
             result = TestResult.Success,
-            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+            specType = SpecType.OPENAPI
         )
 
         val input = OpenApiCoverageReportInput(
@@ -536,7 +536,7 @@ class OpenApiCoverageReportInputTest {
             request = null,
             response = null,
             result = TestResult.Success,
-            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+             specType = SpecType.OPENAPI
         )
 
         val input = OpenApiCoverageReportInput(

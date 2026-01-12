@@ -8,11 +8,14 @@ fun ctrfSpecConfigsFrom(
     specmaticConfig: SpecmaticConfig,
     testResultRecords: List<CtrfTestResultRecord>
 ): List<CtrfSpecConfig> {
-    val specConfigs = testResultRecords.mapNotNull {
-        val absoluteSpecPath = it.specification
-        when {
-            absoluteSpecPath.isNullOrBlank() -> null
-            else -> specmaticConfig.getCtrfSpecConfig(absoluteSpecPath, it.testType, it.protocol.key, it.specType.value)
+    val protocols = testResultRecords.flatMap { it.protocols() }
+    val specConfigs = protocols.flatMap { protocol ->
+        testResultRecords.mapNotNull {
+            val absoluteSpecPath = it.specification
+            when {
+                absoluteSpecPath.isNullOrBlank() -> null
+                else -> specmaticConfig.getCtrfSpecConfig(absoluteSpecPath, it.testType, protocol.key, it.specType.value)
+            }
         }
     }
     return specConfigs.distinct()

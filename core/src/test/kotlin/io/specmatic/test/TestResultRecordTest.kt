@@ -22,7 +22,7 @@ class TestResultRecordTest {
                 responseStatus = 200,
                 request = null,
                 response = null,
-                result = it, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+                result = it,  specType = SpecType.OPENAPI
             )
             assertFalse(record.isExercised, "Record should not be considered exercised for Result: $it")
         }
@@ -37,7 +37,7 @@ class TestResultRecordTest {
                 responseStatus = 200,
                 request = null,
                 response = null,
-                result = it, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+                result = it,  specType = SpecType.OPENAPI
             )
             assertTrue(record.isExercised, "Record should be considered exercised for Result: $it")
         }
@@ -52,7 +52,7 @@ class TestResultRecordTest {
                 responseStatus = 200,
                 request = null,
                 response = null,
-                result = it, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+                result = it,  specType = SpecType.OPENAPI
             )
             assertTrue(record.isCovered, "Record should be considered covered for result $it")
         }
@@ -67,7 +67,7 @@ class TestResultRecordTest {
                 responseStatus = 200,
                 request = null,
                 response = null,
-                result = it, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+                result = it,  specType = SpecType.OPENAPI
             )
             assertFalse(record.isCovered, "Record should not be considered covered for result $it")
         }
@@ -95,7 +95,7 @@ class TestResultRecordTest {
             isValid = true,
             isWip = false,
             requestTime = requestTime,
-            responseTime = responseTime, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+            responseTime = responseTime,  specType = SpecType.OPENAPI
         )
 
         val meta = record.extraFields()
@@ -120,7 +120,7 @@ class TestResultRecordTest {
             isValid = false,
             isWip = true,
             requestTime = null,
-            responseTime = null, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+            responseTime = null,  specType = SpecType.OPENAPI
         )
 
         val meta = record.extraFields()

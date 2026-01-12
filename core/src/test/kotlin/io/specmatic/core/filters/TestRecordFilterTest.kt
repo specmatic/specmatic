@@ -17,7 +17,7 @@ class TestRecordFilterTest {
         request = null,
         response = null,
         result = TestResult.Success,
-        protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+         specType = SpecType.OPENAPI
     )
 
     @Test

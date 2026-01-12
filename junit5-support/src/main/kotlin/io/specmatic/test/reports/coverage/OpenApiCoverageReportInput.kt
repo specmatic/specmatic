@@ -175,8 +175,16 @@ class OpenApiCoverageReportInput(
                     repository = endpoint.sourceRepository,
                     branch = endpoint.sourceRepositoryBranch,
                     specification = endpoint.specification,
-                    protocol = endpoint.protocol,
-                    specType = endpoint.specType
+                    specType = endpoint.specType,
+                    operations = setOf(
+                        OpenAPIOperation(
+                            path = endpoint.path,
+                            method = endpoint.method,
+                            contentType = endpoint.requestContentType,
+                            responseCode = endpoint.responseStatus,
+                            protocol = endpoint.protocol
+                        )
+                    )
                 )
             }
         )
@@ -199,7 +207,7 @@ class OpenApiCoverageReportInput(
                 it.repository,
                 it.branch,
                 it.specification,
-                it.protocol.key.uppercase()
+                it.operations.firstOrNull()?.protocol?.key?.uppercase()
             )
         }.map { (key, recordsOfGroup) ->
             CoverageEntry()
@@ -252,8 +260,16 @@ class OpenApiCoverageReportInput(
                 request = null,
                 response = null,
                 result = TestResult.MissingInSpec,
-                protocol = SpecmaticProtocol.HTTP,
-                specType = SpecType.OPENAPI
+                specType = SpecType.OPENAPI,
+                operations = setOf(
+                    OpenAPIOperation(
+                        path = api.path,
+                        method = api.method,
+                        contentType = null,
+                        responseCode = 0,
+                        protocol = SpecmaticProtocol.HTTP
+                    )
+                )
             )
         }
 
@@ -298,7 +314,15 @@ class OpenApiCoverageReportInput(
 
     private fun createMissingInSpecRecordAndIncludeOriginalRecordIfApplicable(testResult: TestResultRecord): List<TestResultRecord> = listOfNotNull(
         testResult.copy(
-            operation = OpenAPIOperation(testResult.path, testResult.method, testResult.requestContentType.orEmpty(), testResult.actualResponseStatus),
+            operations = setOf(
+                OpenAPIOperation(
+                    path = testResult.path,
+                    method = testResult.method,
+                    contentType = testResult.requestContentType,
+                    responseCode = testResult.actualResponseStatus,
+                    protocol = SpecmaticProtocol.HTTP
+                )
+            ),
             responseStatus = testResult.actualResponseStatus,
             result = TestResult.MissingInSpec,
             actualResponseStatus = testResult.actualResponseStatus

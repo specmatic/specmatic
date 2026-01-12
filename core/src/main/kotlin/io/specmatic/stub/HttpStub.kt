@@ -35,6 +35,7 @@ import io.specmatic.mock.ScenarioStub
 import io.specmatic.mock.TRANSIENT_MOCK
 import io.specmatic.reporter.generated.dto.stub.usage.SpecmaticStubUsageReport
 import io.specmatic.reporter.internal.dto.stub.usage.merge
+import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.stub.listener.MockEvent
@@ -341,23 +342,8 @@ class HttpStub(
                         httpLogMessage.addResponse(httpStubResponse)
                     }
 
-                    if(!isInternalStubPath(httpRequest.path)) {
-                    val ctrfTestResultRecord = TestResultRecord(
-                        path = convertPathParameterStyle(httpLogMessage.scenario?.path ?: httpRequest.path),
-                        method = httpLogMessage.scenario?.method ?: httpRequest.method.orEmpty(),
-                        responseStatus = httpLogMessage.scenario?.status ?: 0,
-                        request = httpRequest,
-                        response = httpResponse,
-                        result = httpLogMessage.toResult(),
-                        protocol = httpLogMessage.scenario?.protocol ?: SpecmaticProtocol.HTTP,
-                        specType = httpLogMessage.scenario?.specType ?: SpecType.OPENAPI,
-                        requestContentType = httpLogMessage.scenario?.requestContentType
-                            ?: httpRequest.headers["Content-Type"],
-                        specification = httpStubResponse.scenario?.specification,
-                        testType = STUB_TEST_TYPE,
-                        actualResponseStatus = httpResponse.status
-                    )
-                    synchronized(ctrfTestResultRecords) { ctrfTestResultRecords.add(ctrfTestResultRecord) }
+                    if (!isInternalStubPath(httpRequest.path)) {
+                        addCtrfTestResultRecord(httpLogMessage, httpRequest, httpResponse, httpStubResponse)
                     }
                 } catch (e: ContractException) {
                     val response = badRequest(e.report())
@@ -403,6 +389,37 @@ class HttpStub(
         }
 
         configureHostPorts()
+    }
+
+    private fun addCtrfTestResultRecord(
+        httpLogMessage: HttpLogMessage,
+        httpRequest: HttpRequest,
+        httpResponse: HttpResponse,
+        httpStubResponse: HttpStubResponse
+    ) {
+        val path = convertPathParameterStyle(httpLogMessage.scenario?.path ?: httpRequest.path.orEmpty())
+        val method = httpLogMessage.scenario?.method ?: httpRequest.method.orEmpty()
+        val requestContentType = httpLogMessage.scenario?.requestContentType
+            ?: httpRequest.headers["Content-Type"]
+        val responseStatus = httpLogMessage.scenario?.status ?: 0
+        val protocol = httpLogMessage.scenario?.protocol ?: SpecmaticProtocol.HTTP
+        val ctrfTestResultRecord = TestResultRecord(
+            path = path,
+            method = method,
+            responseStatus = responseStatus,
+            request = httpRequest,
+            response = httpResponse,
+            result = httpLogMessage.toResult(),
+            specType = httpLogMessage.scenario?.specType ?: SpecType.OPENAPI,
+            requestContentType = requestContentType,
+            specification = httpStubResponse.scenario?.specification,
+            testType = STUB_TEST_TYPE,
+            actualResponseStatus = httpResponse.status,
+            operations = setOf(
+                OpenAPIOperation(path, method, requestContentType, responseStatus, protocol)
+            )
+        )
+        synchronized(ctrfTestResultRecords) { ctrfTestResultRecords.add(ctrfTestResultRecord) }
     }
 
     private suspend fun handleSse(
@@ -807,8 +824,16 @@ class HttpStub(
                 result = TestResult.NotCovered,
                 specification = endpoint.specification.orEmpty(),
                 testType = STUB_TEST_TYPE,
-                protocol = endpoint.protocol,
-                specType = endpoint.specType
+                specType = endpoint.specType,
+                operations = setOf(
+                    OpenAPIOperation(
+                        path = endpoint.path.orEmpty(),
+                        method = endpoint.method.orEmpty(),
+                        contentType = null,
+                        responseCode = endpoint.responseCode,
+                        protocol = endpoint.protocol
+                    )
+                )
             )
         }
     }

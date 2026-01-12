@@ -8,9 +8,9 @@ import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.ctrf.model.CtrfTestMetadata
 import io.specmatic.reporter.ctrf.model.CtrfTestResultRecord
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
-import io.specmatic.reporter.internal.dto.spec.operation.APIOperation
-import io.specmatic.reporter.model.TestResult
+import io.specmatic.reporter.internal.dto.operation.APIOperation
 import io.specmatic.reporter.model.OpenAPIOperation
+import io.specmatic.reporter.model.TestResult
 import io.specmatic.reporter.model.SpecType
 import java.time.Duration
 import java.time.Instant
@@ -26,7 +26,6 @@ data class TestResultRecord(
     override val repository: String? = null,
     override val branch: String? = null,
     override val specification: String? = null,
-    override val protocol: SpecmaticProtocol,
     override val specType: SpecType,
     val actualResponseStatus: Int = 0,
     val scenarioResult: Result? = null,
@@ -40,11 +39,14 @@ data class TestResultRecord(
     override val duration: Long = durationFrom(requestTime, responseTime),
     override val rawStatus: String? = result.toString(),
     override val testType: String = CONTRACT_TEST_TEST_TYPE,
-    override val operation: APIOperation = OpenAPIOperation(
-        path = path,
-        method = method,
-        contentType = requestContentType,
-        responseCode = responseStatus
+    override val operations: Set<APIOperation> = setOf(
+        OpenAPIOperation(
+            path = path,
+            method = method,
+            contentType = requestContentType,
+            responseCode = responseStatus,
+            protocol = SpecmaticProtocol.HTTP
+        )
     )
 ): CtrfTestResultRecord {
     val isExercised = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)

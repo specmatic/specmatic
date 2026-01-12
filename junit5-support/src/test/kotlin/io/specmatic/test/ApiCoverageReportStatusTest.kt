@@ -27,7 +27,7 @@ class ApiCoverageReportStatusTest {
         )
 
         val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, specType = SpecType.OPENAPI),
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(
@@ -53,7 +53,7 @@ class ApiCoverageReportStatusTest {
         val applicationAPIs = mutableListOf<API>()
 
         val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, specType = SpecType.OPENAPI),
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(
@@ -81,7 +81,7 @@ class ApiCoverageReportStatusTest {
         )
 
         val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 400, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 400, specType = SpecType.OPENAPI)
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(
@@ -105,7 +105,7 @@ class ApiCoverageReportStatusTest {
             Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
         )
         val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 400, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 400, specType = SpecType.OPENAPI),
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(
@@ -135,8 +135,8 @@ class ApiCoverageReportStatusTest {
         )
 
         val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, actualResponseStatus = 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
-            TestResultRecord("/route2", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, actualResponseStatus = 200, specType = SpecType.OPENAPI),
+            TestResultRecord("/route2", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404, specType = SpecType.OPENAPI),
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(
@@ -167,7 +167,7 @@ class ApiCoverageReportStatusTest {
         )
 
         val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, specType = SpecType.OPENAPI)
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(
@@ -197,7 +197,7 @@ class ApiCoverageReportStatusTest {
         )
 
         val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, specType = SpecType.OPENAPI)
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(

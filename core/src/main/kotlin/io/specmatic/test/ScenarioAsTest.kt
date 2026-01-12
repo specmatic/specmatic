@@ -16,6 +16,7 @@ import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.Value
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
 import io.specmatic.test.handlers.ResponseHandler
@@ -51,9 +52,10 @@ data class ScenarioAsTest(
     override fun testResultRecord(executionResult: ContractTestExecutionResult): TestResultRecord {
         val (result, request, response) = executionResult
         val resultStatus = result.testResult()
+        val path = convertPathParameterStyle(scenario.path)
 
         return TestResultRecord(
-            convertPathParameterStyle(scenario.path),
+            path = path,
             method = scenario.method,
             requestContentType = scenario.requestContentType,
             responseStatus = scenario.status,
@@ -64,14 +66,18 @@ data class ScenarioAsTest(
             repository = sourceRepository,
             branch = sourceRepositoryBranch,
             specification = specification,
-            protocol = protocol,
             specType = specType,
             actualResponseStatus = response?.status ?: 0,
             scenarioResult = result,
             soapAction = scenario.httpRequestPattern.getSOAPAction().takeIf { scenario.isGherkinScenario },
             isGherkin = scenario.isGherkinScenario,
             requestTime = startTime,
-            responseTime = Instant.now()
+            responseTime = Instant.now(),
+            operations = setOf(
+                OpenAPIOperation(
+                    path, scenario.method, scenario.requestContentType, scenario.status, protocol
+                )
+            )
         )
     }
 

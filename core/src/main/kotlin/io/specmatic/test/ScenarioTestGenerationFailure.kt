@@ -7,6 +7,7 @@ import io.specmatic.core.Scenario
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.logger
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 
 class ScenarioTestGenerationFailure(
@@ -30,8 +31,9 @@ class ScenarioTestGenerationFailure(
 
     override fun testResultRecord(executionResult: ContractTestExecutionResult): TestResultRecord {
         val (result, request, response) = executionResult
+        val path = convertPathParameterStyle(scenario.path)
         return TestResultRecord(
-            path = convertPathParameterStyle(scenario.path),
+            path = path,
             method = scenario.method,
             requestContentType = scenario.requestContentType,
             responseStatus = scenario.status,
@@ -42,12 +44,16 @@ class ScenarioTestGenerationFailure(
             repository = scenario.sourceRepository,
             branch = scenario.sourceRepositoryBranch,
             specification = scenario.specification,
-            protocol = scenario.protocol,
             specType = scenario.specType,
             actualResponseStatus = 0,
             scenarioResult = result,
             soapAction = scenario.httpRequestPattern.getSOAPAction().takeIf { scenario.isGherkinScenario },
-            isGherkin = scenario.isGherkinScenario
+            isGherkin = scenario.isGherkinScenario,
+            operations = setOf(
+                OpenAPIOperation(
+                    path, scenario.method, scenario.requestContentType, scenario.status, scenario.protocol
+                )
+            )
         )
     }
 
