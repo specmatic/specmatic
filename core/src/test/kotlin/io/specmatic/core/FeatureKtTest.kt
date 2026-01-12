@@ -785,7 +785,7 @@ paths:
                 protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
             ))
 
-            val feature = Feature(name = "TEST", scenarios = listOf(orderPostOk, orderPostBadRequest))
+            val feature = Feature(name = "TEST", scenarios = listOf(orderPostOk, orderPostBadRequest), protocol = SpecmaticProtocol.HTTP)
             val openAPI = feature.toOpenApi()
 
             val parsedSpecification = OpenApiSpecification(parsedOpenApi = openAPI, openApiFilePath = "TEST")
@@ -856,7 +856,7 @@ paths:
                 protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
             ))
 
-            val feature = Feature(name = "TEST", scenarios = listOf(jsonScenario, jsonPatchScenario, mergePatchScenario))
+            val feature = Feature(name = "TEST", scenarios = listOf(jsonScenario, jsonPatchScenario, mergePatchScenario), protocol = SpecmaticProtocol.HTTP)
             val openAPI = feature.toOpenApi()
             val parsedSpecification = OpenApiSpecification(parsedOpenApi = openAPI, openApiFilePath = "TEST")
             val parsedFeature = parsedSpecification.toFeature()
@@ -930,7 +930,7 @@ paths:
                 protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             ))
 
-            val feature = Feature(name = "TEST", scenarios = listOf(success200Json, success200HalJson, notFound404Json, notFound404ProblemJson))
+            val feature = Feature(name = "TEST", scenarios = listOf(success200Json, success200HalJson, notFound404Json, notFound404ProblemJson), protocol = SpecmaticProtocol.HTTP)
             val openAPI = feature.toOpenApi()
             val parsedSpecification = OpenApiSpecification(parsedOpenApi = openAPI, openApiFilePath = "TEST")
             val parsedFeature = parsedSpecification.toFeature()
@@ -1027,7 +1027,7 @@ paths:
                 protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             ))
 
-            val feature = Feature(name = "TEST", scenarios = listOf(jsonToJson200, jsonToHal201, jsonPatchTo200, jsonToProblem400))
+            val feature = Feature(name = "TEST", scenarios = listOf(jsonToJson200, jsonToHal201, jsonPatchTo200, jsonToProblem400), protocol = SpecmaticProtocol.HTTP)
             val openAPI = feature.toOpenApi()
             val parsedSpecification = OpenApiSpecification(parsedOpenApi = openAPI, openApiFilePath = "TEST")
             val parsedFeature = parsedSpecification.toFeature()
@@ -1075,7 +1075,7 @@ paths:
                 protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
             ))
 
-            val feature = Feature(name = "TEST", scenarios = listOf(orderPostOk, orderPostBadRequest))
+            val feature = Feature(name = "TEST", scenarios = listOf(orderPostOk, orderPostBadRequest), protocol = SpecmaticProtocol.HTTP)
             val openAPI = feature.toOpenApi()
 
             val parsedSpecification = OpenApiSpecification(parsedOpenApi = openAPI, openApiFilePath = "TEST")
@@ -1205,7 +1205,7 @@ paths:
         ))
 
         val allScenarios = listOf(orderPostOk, orderPostBadRequest)
-        val featureSubset = Feature(name = "Orders Subset", scenarios = listOf(orderPostOk))
+        val featureSubset = Feature(name = "Orders Subset", scenarios = listOf(orderPostOk), protocol = SpecmaticProtocol.HTTP)
 
         val results = featureSubset.negativeTestScenarios(originalScenarios = allScenarios).toList()
         assertThat(results)
@@ -1229,7 +1229,7 @@ paths:
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         ))
 
-        val featureComplete = Feature(name = "Orders Complete", scenarios = listOf(orderPostOk, orderPostBadRequest))
+        val featureComplete = Feature(name = "Orders Complete", scenarios = listOf(orderPostOk, orderPostBadRequest), protocol = SpecmaticProtocol.HTTP)
         val results = featureComplete.negativeTestScenarios(originalScenarios = featureComplete.scenarios).toList()
         assertThat(results).hasSize(3)
     }
@@ -1244,7 +1244,7 @@ paths:
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         ))
 
-        val featureComplete = Feature(name = "Orders Complete", scenarios = listOf(orderPostOk))
+        val featureComplete = Feature(name = "Orders Complete", scenarios = listOf(orderPostOk), protocol = SpecmaticProtocol.HTTP)
         val results = featureComplete.negativeTestScenarios(originalScenarios = featureComplete.scenarios).toList()
         assertThat(results).hasSize(3)
     }

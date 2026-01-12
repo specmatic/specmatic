@@ -416,6 +416,8 @@ class OpenApiSpecification(
 
     val patterns = mutableMapOf<String, Pattern>()
 
+    val protocol = SpecmaticProtocol.HTTP
+
     fun isOpenAPI31(): Boolean {
         return parsedOpenApi.openapi.startsWith("3.1")
     }
@@ -440,7 +442,8 @@ class OpenApiSpecification(
             specification = specificationPath,
             stubsFromExamples = stubsFromExamples,
             specmaticConfig = specmaticConfig,
-            strictMode = strictMode
+            strictMode = strictMode,
+            protocol = protocol
         )
     }
 
@@ -695,7 +698,7 @@ class OpenApiSpecification(
                             sourceRepository = sourceRepository,
                             sourceRepositoryBranch = sourceRepositoryBranch,
                             specification = specificationPath,
-                            protocol = SpecmaticProtocol.HTTP,
+                            protocol = protocol,
                             specType = SpecType.OPENAPI,
                             operationMetadata = operationMetadata
                         )

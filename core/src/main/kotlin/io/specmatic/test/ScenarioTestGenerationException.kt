@@ -53,9 +53,7 @@ class ScenarioTestGenerationException(
             soapAction = scenario.httpRequestPattern.getSOAPAction().takeIf { scenario.isGherkinScenario },
             isGherkin = scenario.isGherkinScenario,
             operations = setOf(
-                OpenAPIOperation(
-                    path, scenario.method, scenario.requestContentType, scenario.status, scenario.protocol
-                )
+                openAPIOperationFrom(scenario, path)
             )
         )
     }

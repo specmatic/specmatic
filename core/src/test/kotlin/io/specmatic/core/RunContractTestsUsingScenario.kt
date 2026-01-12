@@ -574,7 +574,7 @@ paths:
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         ))
 
-        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario, monitorScenario))
+        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario, monitorScenario), protocol = SpecmaticProtocol.HTTP)
         val contractTest = ScenarioAsTest(postScenario, feature, feature.flagsBased, originalScenario = postScenario,
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
 
@@ -637,7 +637,7 @@ paths:
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         ))
 
-        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario, monitorScenario))
+        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario, monitorScenario), protocol = SpecmaticProtocol.HTTP)
         val contractTest = ScenarioAsTest(postScenario, feature, feature.flagsBased, originalScenario = postScenario,
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
 
@@ -712,7 +712,7 @@ paths:
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         ))
 
-        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario))
+        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario), protocol = SpecmaticProtocol.HTTP)
         val contractTest = ScenarioAsTest(postScenario, feature, feature.flagsBased, originalScenario = postScenario,
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
 
@@ -747,7 +747,7 @@ paths:
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         ))
 
-        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario))
+        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario), protocol = SpecmaticProtocol.HTTP)
         val contractTest = ScenarioAsTest(postScenario, feature, feature.flagsBased, originalScenario = postScenario,
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
 
@@ -791,7 +791,7 @@ paths:
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
         ))
 
-        val feature = Feature(name = "", scenarios = listOf(postScenario, tooManyRequestsScenario))
+        val feature = Feature(name = "", scenarios = listOf(postScenario, tooManyRequestsScenario), protocol = SpecmaticProtocol.HTTP)
         val contractTest = ScenarioAsTest(postScenario, feature, feature.flagsBased, originalScenario = postScenario,
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
         val (result) = contractTest.runTest(object : TestExecutor {
@@ -833,7 +833,7 @@ paths:
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
         ))
 
-        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario, tooManyRequestsScenario))
+        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario, tooManyRequestsScenario), protocol = SpecmaticProtocol.HTTP)
         val contractTest = ScenarioAsTest(tooManyRequestsScenario, feature, feature.flagsBased, originalScenario = tooManyRequestsScenario,
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
         val (result) = contractTest.runTest(object : TestExecutor {
@@ -867,7 +867,7 @@ paths:
             ),
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
-        val feature = Feature(name = "", scenarios = listOf(scenario))
+        val feature = Feature(name = "", scenarios = listOf(scenario), protocol = SpecmaticProtocol.HTTP)
 
         val extractValue: (HttpRequest) -> String = { it ->
             when(securitySchema) {
@@ -920,7 +920,7 @@ paths:
             ),
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
-        val feature = Feature(name = "", scenarios = listOf(scenario))
+        val feature = Feature(name = "", scenarios = listOf(scenario), protocol = SpecmaticProtocol.HTTP)
 
         val results = feature.executeTests(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {

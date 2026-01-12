@@ -3,6 +3,7 @@ package io.specmatic.test
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
+import io.specmatic.core.Scenario
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.ctrf.model.CtrfTestMetadata
@@ -136,3 +137,13 @@ private fun durationFrom(requestTime: Instant?, responseTime: Instant?) =
     if (requestTime != null && responseTime != null)
         Duration.between(requestTime, responseTime).toMillis()
     else 0L
+
+fun openAPIOperationFrom(scenario: Scenario, path: String): OpenAPIOperation {
+    return OpenAPIOperation(
+        path = path,
+        method = scenario.method,
+        contentType = scenario.requestContentType,
+        responseCode = scenario.status,
+        protocol = scenario.protocol
+    )
+}

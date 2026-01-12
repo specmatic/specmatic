@@ -49,7 +49,7 @@ class AcceptedResponseHandlerTest {
 
     @Test
     fun `should return failure if accepted scenario doesn't exist`() {
-        val feature = Feature(name = "", scenarios = listOf(postScenario))
+        val feature = Feature(name = "", scenarios = listOf(postScenario), protocol = SpecmaticProtocol.HTTP)
         val handler = AcceptedResponseHandler(feature, postScenario)
         val result = handler.handle(
             HttpRequest(),
@@ -67,7 +67,7 @@ class AcceptedResponseHandlerTest {
 
     @Test
     fun `should return failure when response doesn't mach accepted response`() {
-        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario))
+        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario), protocol = SpecmaticProtocol.HTTP)
         val handler = AcceptedResponseHandler(feature, postScenario)
         val result = handler.handle(
             HttpRequest(),
@@ -96,7 +96,7 @@ class AcceptedResponseHandlerTest {
 
     @Test
     fun `should return failure if monitor link is not found in the response`() {
-        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario))
+        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario), protocol = SpecmaticProtocol.HTTP)
         val handler = AcceptedResponseHandler(feature, postScenario)
         val result = handler.handle(
             HttpRequest(),
@@ -133,7 +133,7 @@ class AcceptedResponseHandlerTest {
                 headersPattern = HttpHeadersPattern(mapOf("Link" to StringPattern())),
             ), protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         ))
-        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario))
+        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario), protocol = SpecmaticProtocol.HTTP)
 
         val handler = AcceptedResponseHandler(feature, postScenario)
         val result = handler.handle(
@@ -152,7 +152,7 @@ class AcceptedResponseHandlerTest {
 
     @Test
     fun `should make a request to the monitor link provided in headers`() {
-        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario, monitorScenario))
+        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario, monitorScenario), protocol = SpecmaticProtocol.HTTP)
         val handler = AcceptedResponseHandler(feature, postScenario)
 
         val result = handler.handle(
@@ -198,7 +198,7 @@ class AcceptedResponseHandlerTest {
     @Test
     fun `should retry if the monitor response is not complete`() {
         var count = 0
-        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario, monitorScenario))
+        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario, monitorScenario), protocol = SpecmaticProtocol.HTTP)
         val customRetryHandler = RetryHandler<MonitorResult, HttpResponse>(
             delayStrategy = DelayStrategy.RespectRetryAfter(),
             sleeper = object : Sleeper {
@@ -271,7 +271,7 @@ class AcceptedResponseHandlerTest {
     fun `should return failure when max retries have exceeded`() {
         var count = 0
         val maxRetries = 2
-        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario, monitorScenario))
+        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario, monitorScenario), protocol = SpecmaticProtocol.HTTP)
         val customRetryHandler = RetryHandler<MonitorResult, HttpResponse>(
             maxAttempts = maxRetries,
             delayStrategy = DelayStrategy.RespectRetryAfter(),
@@ -321,7 +321,7 @@ class AcceptedResponseHandlerTest {
     @Test
     fun `should perform exponential backoff between retries`() {
         val sleepDurations = mutableListOf<Long>()
-        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario, monitorScenario))
+        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario, monitorScenario), protocol = SpecmaticProtocol.HTTP)
         val customRetryHandler = RetryHandler<MonitorResult, HttpResponse>(
             maxAttempts = 5,
             delayStrategy = DelayStrategy.RespectRetryAfter(),
@@ -368,7 +368,7 @@ class AcceptedResponseHandlerTest {
 
     @Test
     fun `should return an error when monitor response is invalid`() {
-        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario, monitorScenario))
+        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario, monitorScenario), protocol = SpecmaticProtocol.HTTP)
         val handler = AcceptedResponseHandler(feature, postScenario)
 
         val result = handler.handle(
@@ -426,7 +426,7 @@ class AcceptedResponseHandlerTest {
 
     @Test
     fun `extraHeaders from monitor response payload should be allowed`() {
-        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario, monitorScenario))
+        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario, monitorScenario), protocol = SpecmaticProtocol.HTTP)
         val response = JSONObjectValue(mapOf(
             "statusCode" to NumberValue(201),
             "body" to JSONObjectValue(mapOf("name" to StringValue("John"), "age" to NumberValue(20))),

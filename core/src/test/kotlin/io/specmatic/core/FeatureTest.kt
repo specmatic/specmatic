@@ -2920,7 +2920,7 @@ paths:
 
     @Nested
     inner class GenerateDiscriminatorDetailsBasedRequestResponsePairsTest {
-        private val feature = Feature(name = "feature")
+        private val feature = Feature(name = "feature", protocol = SpecmaticProtocol.HTTP)
         private val scenario = mockk<Scenario>()
 
         @Test
@@ -3031,7 +3031,7 @@ paths:
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
-        val feature = Feature(name = "", scenarios = listOf(scenario))
+        val feature = Feature(name = "", scenarios = listOf(scenario), protocol = SpecmaticProtocol.HTTP)
 
         val openAPI = feature.toOpenApi()
         assertThat(openAPI.paths["/data"]?.post?.requestBody).isNull()
@@ -3070,7 +3070,8 @@ paths:
                     "lowercase headers", requestPatternLower, responsePatternLower,
                     protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
                 )
-            )
+            ),
+            protocol = SpecmaticProtocol.HTTP
         )
 
         val openAPI = feature.toOpenApi()
@@ -3124,7 +3125,7 @@ paths:
     inner class CalculatePathTests {
         @Test
         fun `calculatePath should return empty set when no scenarios exist`() {
-            val feature = Feature(scenarios = emptyList(), name = "EmptyFeature")
+            val feature = Feature(scenarios = emptyList(), name = "EmptyFeature", protocol = SpecmaticProtocol.HTTP)
             val httpRequest = HttpRequest(method = "GET", path = "/test", body = StringValue("test"))
 
             val paths = feature.calculatePath(httpRequest, 200)
@@ -3148,7 +3149,7 @@ paths:
                 ),
                 protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
-            val feature = Feature(scenarios = listOf(scenario), name = "TestFeature")
+            val feature = Feature(scenarios = listOf(scenario), name = "TestFeature", protocol = SpecmaticProtocol.HTTP)
             val httpRequest = HttpRequest(method = "GET", path = "/test", body = StringValue("test"))
 
             val paths = feature.calculatePath(httpRequest, 200)
@@ -3192,7 +3193,7 @@ paths:
                 ),
                 protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
-            val feature = Feature(scenarios = listOf(scenario1, scenario2), name = "TestFeature")
+            val feature = Feature(scenarios = listOf(scenario1, scenario2), name = "TestFeature", protocol = SpecmaticProtocol.HTTP)
             val httpRequest = HttpRequest(
                 method = "POST",
                 path = "/test",
@@ -3223,7 +3224,7 @@ paths:
                 ),
                 protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
-            val feature = Feature(scenarios = listOf(scenario), name = "TestFeature")
+            val feature = Feature(scenarios = listOf(scenario), name = "TestFeature", protocol = SpecmaticProtocol.HTTP)
 
             val pathWithInvalidDatatype = "/test/abc123"
             val httpRequest = HttpRequest(
@@ -3273,7 +3274,7 @@ paths:
                 ),
                 protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
-            val feature = Feature(scenarios = listOf(scenario1, scenario2), name = "TestFeature")
+            val feature = Feature(scenarios = listOf(scenario1, scenario2), name = "TestFeature", protocol = SpecmaticProtocol.HTTP)
             val httpRequest = HttpRequest(
                 method = "POST",
                 path = "/test",
@@ -3302,7 +3303,7 @@ paths:
                 ),
                 protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
-            val feature = Feature(scenarios = listOf(scenario), name = "TestFeature")
+            val feature = Feature(scenarios = listOf(scenario), name = "TestFeature", protocol = SpecmaticProtocol.HTTP)
             val httpRequest = HttpRequest(
                 method = "POST",
                 path = "/test",
@@ -3350,7 +3351,8 @@ paths:
             val featureWithStrictMode = Feature(
                 scenarios = listOf(scenarioWithRows, scenarioWithoutRows),
                 name = "TestFeature",
-                strictMode = true
+                strictMode = true,
+                protocol = SpecmaticProtocol.HTTP
             ).enableGenerativeTesting()
 
             val tests = featureWithStrictMode.generateContractTestScenarios(emptyList()).toList()
@@ -3392,7 +3394,8 @@ paths:
             val featureWithoutStrictMode = Feature(
                 scenarios = listOf(scenarioWithRows, scenarioWithoutRows),
                 name = "TestFeature",
-                strictMode = false
+                strictMode = false,
+                protocol = SpecmaticProtocol.HTTP
             ).enableGenerativeTesting()
 
             val tests = featureWithoutStrictMode.generateContractTestScenarios(emptyList()).toList()
@@ -3437,7 +3440,8 @@ paths:
                 scenarios = listOf(scenarioWithRows, scenarioWithoutRows),
                 name = "TestFeature",
                 strictMode = true,
-                specmaticConfig = configWithResiliency
+                specmaticConfig = configWithResiliency,
+                protocol = SpecmaticProtocol.HTTP
             ).enableGenerativeTesting()
 
             val allTests = featureWithStrictMode.generateContractTestScenarios(emptyList()).toList()

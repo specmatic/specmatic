@@ -74,9 +74,7 @@ data class ScenarioAsTest(
             requestTime = startTime,
             responseTime = Instant.now(),
             operations = setOf(
-                OpenAPIOperation(
-                    path, scenario.method, scenario.requestContentType, scenario.status, protocol
-                )
+                openAPIOperationFrom(scenario, path)
             )
         )
     }

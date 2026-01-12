@@ -8,7 +8,7 @@ fun ctrfSpecConfigsFrom(
     specmaticConfig: SpecmaticConfig,
     testResultRecords: List<CtrfTestResultRecord>
 ): List<CtrfSpecConfig> {
-    val protocols = testResultRecords.flatMap { it.protocols() }
+    val protocols = testResultRecords.flatMap { it.protocols() }.distinct()
     val specConfigs = protocols.flatMap { protocol ->
         testResultRecords.mapNotNull {
             val absoluteSpecPath = it.specification

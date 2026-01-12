@@ -1,5 +1,6 @@
 package io.specmatic.core
 
+import io.specmatic.core.wsdl.parser.WSDL
 import io.cucumber.gherkin.GherkinParser
 import io.cucumber.messages.types.*
 import io.cucumber.messages.types.Examples
@@ -102,7 +103,7 @@ fun parseContractFileToFeature(
             overlayContent = overlayContent,
             strictMode = strictMode
         ).toFeature()
-        WSDL -> wsdlContentToFeature(checkExists(file).readText(), file.canonicalPath)
+        io.specmatic.core.WSDL -> wsdlContentToFeature(checkExists(file).readText(), file.canonicalPath)
         in CONTRACT_EXTENSIONS -> parseGherkinStringToFeature(checkExists(file).readText().trim(), file.canonicalPath)
         else -> throw unsupportedFileExtensionContractException(file.path, file.extension)
     }
@@ -123,7 +124,7 @@ fun unsupportedFileExtensionContractException(
 fun parseGherkinStringToFeature(gherkinData: String, sourceFilePath: String = "", isWSDL: Boolean = false): Feature {
     val gherkinDocument = parseGherkinString(gherkinData, sourceFilePath)
     val (name, scenarios) = lex(gherkinDocument, sourceFilePath, isWSDL)
-    return Feature(scenarios = scenarios, name = name, path = sourceFilePath)
+    return Feature(scenarios = scenarios, name = name, path = sourceFilePath, protocol = WSDL.getProtocol(isWSDL))
 }
 
 data class Feature(
@@ -140,10 +141,9 @@ data class Feature(
     val specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
     val flagsBased: FlagsBased = strategiesFromFlags(specmaticConfig),
     val strictMode: Boolean = false,
-    val exampleStore: ExampleStore = ExampleStore.empty()
+    val exampleStore: ExampleStore = ExampleStore.empty(),
+    val protocol: SpecmaticProtocol
 ): IFeature {
-
-    fun protocols() = scenarios.map { it.protocol }.distinct()
 
     val stubsFromExamples: Map<String, List<Pair<HttpRequest, HttpResponse>>>
         get() {
@@ -2261,7 +2261,8 @@ data class Feature(
             stubsFromExamples: Map<String, List<Pair<HttpRequest, HttpResponse>>> = emptyMap(),
             specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
             flagsBased: FlagsBased = strategiesFromFlags(specmaticConfig),
-            strictMode: Boolean = false
+            strictMode: Boolean = false,
+            protocol: SpecmaticProtocol
         ): Feature {
             return Feature(
                 scenarios = scenarios,
@@ -2277,7 +2278,8 @@ data class Feature(
                 specmaticConfig = specmaticConfig,
                 flagsBased = flagsBased,
                 strictMode = strictMode,
-                exampleStore = ExampleStore.from(stubsFromExamples, type = ExampleType.INLINE)
+                exampleStore = ExampleStore.from(stubsFromExamples, type = ExampleType.INLINE),
+                protocol = protocol
             )
         }
     }
@@ -2660,19 +2662,33 @@ internal fun parseGherkinString(gherkinData: String, sourceFilePath: String): Gh
     return gherkinDocument ?: throw ContractException("There was no contract in the file $sourceFilePath.")
 }
 
-internal fun lex(gherkinDocument: GherkinDocument, filePath: String = "", isWSDL: Boolean = false): Pair<String, List<Scenario>> {
+internal fun lex(
+    gherkinDocument: GherkinDocument,
+    filePath: String = "",
+    isWSDL: Boolean = false,
+    protocol: SpecmaticProtocol = WSDL.getProtocol(isWSDL),
+    specType: SpecType = WSDL.getSpecType(isWSDL),
+): Pair<String, List<Scenario>> {
     val feature = gherkinDocument.unwrapFeature()
-    return Pair(feature.name, lex(feature.children, filePath, isWSDL))
+    return Pair(feature.name, lex(feature.children, filePath, isWSDL, protocol, specType))
 }
 
-internal fun lex(featureChildren: List<FeatureChild>, filePath: String, isWSDL: Boolean = false): List<Scenario> {
-    return scenarioInfos(featureChildren, filePath, isWSDL).map { scenarioInfo -> Scenario(scenarioInfo) }
+internal fun lex(
+    featureChildren: List<FeatureChild>,
+    filePath: String,
+    isWSDL: Boolean = false,
+    protocol: SpecmaticProtocol,
+    specType: SpecType
+): List<Scenario> {
+    return scenarioInfos(featureChildren, filePath, isWSDL, protocol, specType).map { scenarioInfo -> Scenario(scenarioInfo) }
 }
 
 fun scenarioInfos(
     featureChildren: List<FeatureChild>,
     filePath: String,
     isWSDL: Boolean = false,
+    protocol: SpecmaticProtocol = WSDL.getProtocol(isWSDL),
+    specType: SpecType = WSDL.getSpecType(isWSDL),
 ): List<ScenarioInfo> {
     val openApiSpecification =
         toIncludedSpecification(featureChildren, { backgroundOpenApi(it) }) {
@@ -2690,13 +2706,6 @@ fun scenarioInfos(
     val scenarioInfosBelongingToIncludedSpecifications =
         includedSpecifications.map { it.toScenarioInfos().first }.flatten()
 
-    // TODO - use SOAP and WSDL when the WSDL reporting is in place.
-//    val protocol = if(isWSDL) SpecmaticProtocol.SOAP else SpecmaticProtocol.HTTP
-//    val specType = if(isWSDL) SpecType.WSDL else SpecType.OPENAPI
-    // The older coverage report shows protocol SOAP but specType OpenAPI if these changes are made.
-    // Hence, leaving this as is for now, need to fix latter once WSDL reporting is better implemented.
-    val protocol = SpecmaticProtocol.HTTP
-    val specType = SpecType.OPENAPI
     val backgroundInfo = backgroundScenario(featureChildren)?.let { feature ->
         lexScenario(
             feature.unwrapBackground().steps

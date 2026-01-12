@@ -250,7 +250,8 @@ internal class CalculatePathTest {
 
         val feature = Feature(
             scenarios = listOf(scenario1, scenario2),
-            name = "TestFeature"
+            name = "TestFeature",
+            protocol = SpecmaticProtocol.HTTP
         )
 
         val httpRequest = HttpRequest(
