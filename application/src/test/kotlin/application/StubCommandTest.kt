@@ -54,12 +54,50 @@ internal class StubCommandTest {
     }
 
     @Test
-    fun `when contract files are not given it should load from specmatic config`() {
-        every { specmaticConfig.contractStubPathData() }.returns(arrayListOf("/config/path/to/contract.$CONTRACT_EXTENSION").map { ContractPathData("", it) })
+    fun `when contract files are not given it should load from specmatic config`(@TempDir tempDir: File) {
+        val contractPath = tempDir.resolve("contract.$CONTRACT_EXTENSION").apply {
+            writeText(
+                """
+                Feature: Example API
+                  Scenario: Example scenario
+                    When GET /
+                    Then status 200
+                """.trimIndent()
+            )
+        }.path
+        val dummyConfigFile = tempDir.resolve("specmatic.yaml").apply { writeText("sources: []") }
+        stubCommand.configFileName = dummyConfigFile.path
+
+        every { specmaticConfig.contractStubPathData(false) }
+            .returns(listOf(ContractPathData("", contractPath)))
+        every { watchMaker.make(listOf(contractPath)) }.returns(watcher)
+        every {
+            stubLoaderEngine.loadStubs(
+                listOf(contractPath).map { ContractPathData("", it) },
+                emptyList(),
+                any(),
+                false
+            )
+        }.returns(emptyList())
+        every {
+            httpStubEngine.runHTTPStub(
+                emptyList(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                specmaticConfigPath = any(),
+                httpClientFactory = any(),
+                workingDirectory = any(),
+                gracefulRestartTimeoutInMs = any(),
+                specToBaseUrlMap = any()
+            )
+        }.returns(mockk(relaxUnitFun = true))
 
         CommandLine(stubCommand).execute()
 
-        verify(exactly = 1) { specmaticConfig.contractStubPathData() }
+        verify(exactly = 1) { specmaticConfig.contractStubPathData(false) }
     }
 
     @Test
@@ -112,6 +150,7 @@ internal class StubCommandTest {
                     certInfo,
                     strictMode,
                     any(),
+                    specmaticConfigPath = any(),
                     httpClientFactory = any(),
                     workingDirectory = any(),
                     gracefulRestartTimeoutInMs = any(),
@@ -136,6 +175,7 @@ internal class StubCommandTest {
                     certInfo,
                     strictMode,
                     any(),
+                    specmaticConfigPath = any(),
                     httpClientFactory = any(),
                     workingDirectory = any(),
                     gracefulRestartTimeoutInMs = any(),
@@ -222,6 +262,7 @@ internal class StubCommandTest {
                     certInfo,
                     strictMode,
                     passThroughTargetBase,
+                    specmaticConfigPath = any(),
                     httpClientFactory = any(),
                     workingDirectory = any(),
                     gracefulRestartTimeoutInMs = any(),
@@ -249,6 +290,7 @@ internal class StubCommandTest {
                     certInfo,
                     strictMode,
                     any(),
+                    specmaticConfigPath = any(),
                     httpClientFactory = any(),
                     workingDirectory = any(),
                     gracefulRestartTimeoutInMs = any(),
@@ -289,4 +331,3 @@ internal class StubCommandTest {
         return path.replace("/", File.separator)
     }
 }
-
