@@ -38,7 +38,7 @@ class ContractExecutionListener : TestExecutionListener {
             exitProcess(exitStatus())
         }
 
-        internal fun exitStatus(): Int = if (testSuiteFailed || couldNotStart || failure > 0) 1 else 0
+        fun exitStatus(): Int = if (testSuiteFailed || couldNotStart || failure > 0) 1 else 0
 
         internal fun reset() {
             success = 0

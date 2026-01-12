@@ -70,11 +70,9 @@ internal class TestCommandTest {
         every { junitLauncher.discover(any()) }.returns(mockk())
         every { junitLauncher.execute(any<LauncherDiscoveryRequest>()) }.returns(Unit)
 
-        val (output, _) = captureStandardOutput {
-            CommandLine(testCommand, factory).execute()
-        }
+        val exitCode = CommandLine(testCommand, factory).execute()
 
-        assertThat(output).doesNotContain("Specmatic config file")
+        assertThat(exitCode).isEqualTo(1)
     }
 
     @Test
