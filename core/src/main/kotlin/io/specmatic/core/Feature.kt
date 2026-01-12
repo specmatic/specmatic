@@ -2693,6 +2693,8 @@ fun scenarioInfos(
     // TODO - use SOAP and WSDL when the WSDL reporting is in place.
 //    val protocol = if(isWSDL) SpecmaticProtocol.SOAP else SpecmaticProtocol.HTTP
 //    val specType = if(isWSDL) SpecType.WSDL else SpecType.OPENAPI
+    // The older coverage report shows protocol SOAP but specType OpenAPI if these changes are made.
+    // Hence, leaving this as is for now, need to fix latter once WSDL reporting is better implemented.
     val protocol = SpecmaticProtocol.HTTP
     val specType = SpecType.OPENAPI
     val backgroundInfo = backgroundScenario(featureChildren)?.let { feature ->
