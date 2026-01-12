@@ -9,11 +9,10 @@ dependencies {
         exclude(group = "commons-logging", module = "commons-logging")
     }
 
-    implementation("io.netty:netty-codec-http:4.2.7.Final")
     implementation("joda-time:joda-time:2.14.0")
     implementation("net.minidev:json-smart:2.6.0")
 
-    implementation("com.ezylang:EvalEx:3.5.0")
+    implementation("com.ezylang:EvalEx:3.6.0")
     implementation("com.arakelian:java-jq:2.0.0")
     testImplementation("com.arakelian:java-jq:2.0.0")
 

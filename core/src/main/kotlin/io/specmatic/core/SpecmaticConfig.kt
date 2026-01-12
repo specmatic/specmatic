@@ -79,6 +79,8 @@ const val EXAMPLES_DIR_SUFFIX = "_examples"
 const val SPECMATIC_GITHUB_ISSUES = "https://github.com/specmatic/specmatic/issues"
 const val DEFAULT_WORKING_DIRECTORY = ".$APPLICATION_NAME_LOWER_CASE"
 
+const val SPECMATIC_DISABLE_TELEMETRY = "SPECMATIC_DISABLE_TELEMETRY"
+
 const val SPECMATIC_STUB_DICTIONARY = "SPECMATIC_STUB_DICTIONARY"
 
 const val MISSING_CONFIG_FILE_MESSAGE = "Config file does not exist. (Could not find file ./specmatic.json OR ./specmatic.yaml OR ./specmatic.yml)"
@@ -220,21 +222,23 @@ data class SpecmaticConfig(
     private val pipeline: Pipeline? = null,
     private val environments: Map<String, Environment>? = null,
     private val hooks: Map<String, String> = emptyMap(),
+    private val proxy: ProxyConfig? = null,
     private val repository: RepositoryInfo? = null,
     private val report: ReportConfigurationDetails? = null,
     private val security: SecurityConfiguration? = null,
-    private val test: TestConfiguration? = TestConfiguration(),
-    private val stub: StubConfiguration = StubConfiguration(),
-    private val virtualService: VirtualServiceConfiguration = VirtualServiceConfiguration(),
+    private val test: TestConfiguration? = null,
+    private val stub: StubConfiguration? = null,
+    private val virtualService: VirtualServiceConfiguration? = null,
     private val examples: List<String>? = null,
     private val workflow: WorkflowConfiguration? = null,
     private val ignoreInlineExamples: Boolean? = null,
     private val additionalExampleParamsFilePath: String? = null,
-    private val attributeSelectionPattern: AttributeSelectionPattern = AttributeSelectionPattern(),
+    private val attributeSelectionPattern: AttributeSelectionPattern? = null,
     private val allPatternsMandatory: Boolean? = null,
     private val defaultPatternValues: Map<String, Any> = emptyMap(),
     private val matchBranch: Boolean? = null,
-    private val version: SpecmaticConfigVersion? = null
+    private val version: SpecmaticConfigVersion? = null,
+    private val disableTelemetry: Boolean? = null
 ) {
     companion object {
         fun getReport(specmaticConfig: SpecmaticConfig): ReportConfigurationDetails? {
@@ -273,7 +277,7 @@ data class SpecmaticConfig(
 
         @JsonIgnore
         fun getVirtualServiceConfiguration(specmaticConfig: SpecmaticConfig): VirtualServiceConfiguration {
-            return specmaticConfig.virtualService
+            return specmaticConfig.virtualService ?: VirtualServiceConfiguration()
         }
 
         @JsonIgnore
@@ -288,12 +292,32 @@ data class SpecmaticConfig(
 
         @JsonIgnore
         fun getAttributeSelectionPattern(specmaticConfig: SpecmaticConfig): AttributeSelectionPattern {
-            return specmaticConfig.attributeSelectionPattern
+            return specmaticConfig.attributeSelectionPattern ?: AttributeSelectionPattern()
         }
 
         @JsonIgnore
         fun getStubConfiguration(specmaticConfig: SpecmaticConfig): StubConfiguration {
+            return specmaticConfig.stub ?: StubConfiguration()
+        }
+
+        @JsonIgnore
+        fun getTestConfigOrNull(specmaticConfig: SpecmaticConfig): TestConfiguration? {
+            return specmaticConfig.test
+        }
+
+        @JsonIgnore
+        fun getStubConfigOrNull(specmaticConfig: SpecmaticConfig): StubConfiguration? {
             return specmaticConfig.stub
+        }
+
+        @JsonIgnore
+        fun getVirtualServiceConfigOrNull(specmaticConfig: SpecmaticConfig): VirtualServiceConfiguration? {
+            return specmaticConfig.virtualService
+        }
+
+        @JsonIgnore
+        fun getAttributeSelectionConfigOrNull(specmaticConfig: SpecmaticConfig): AttributeSelectionPattern? {
+            return specmaticConfig.attributeSelectionPattern
         }
 
         fun getEnvironments(specmaticConfig: SpecmaticConfig): Map<String, Environment>? {
@@ -304,6 +328,38 @@ data class SpecmaticConfig(
         fun getHooks(specmaticConfig: SpecmaticConfig): Map<String, String> {
             return specmaticConfig.hooks
         }
+
+        @JsonIgnore
+        fun getProxyConfig(specmaticConfig: SpecmaticConfig): ProxyConfig? {
+            return specmaticConfig.proxy
+        }
+    }
+
+    @JsonIgnore
+    fun isTelemetryDisabled(): Boolean {
+        val disableTelemetryFromEnvVarOrSystemProp = readEnvVarOrProperty(
+            SPECMATIC_DISABLE_TELEMETRY, SPECMATIC_DISABLE_TELEMETRY
+        )
+
+        return disableTelemetryFromEnvVarOrSystemProp?.toBoolean()
+            ?: (disableTelemetry == true)
+    }
+
+    @JsonIgnore
+    fun testConfigFor(specPath: String, specType: String): Map<String, Any> {
+        return sources.flatMap { it.test.orEmpty() }.configWith(specPath, specType)
+    }
+
+    @JsonIgnore
+    fun stubConfigFor(specPath: String, specType: String): Map<String, Any> {
+        return sources.flatMap { it.stub.orEmpty() }.configWith(specPath, specType)
+    }
+
+    @JsonIgnore
+    private fun List<SpecExecutionConfig>.configWith(specPath: String, specType: String): Map<String, Any> {
+        return this.filterIsInstance<SpecExecutionConfig.ConfigValue>().firstOrNull {
+            it.contains(specPath, specType)
+        }?.config.orEmpty()
     }
 
     @JsonIgnore
@@ -330,7 +386,7 @@ data class SpecmaticConfig(
 
     @JsonIgnore
     fun getHotReload(): Switch? {
-        return stub.getHotReload()
+        return getStubConfiguration(this).getHotReload()
     }
 
     @JsonIgnore
@@ -357,7 +413,7 @@ data class SpecmaticConfig(
 
     @JsonIgnore
     fun getAttributeSelectionPattern(): AttributeSelectionPatternDetails {
-        return attributeSelectionPattern
+        return getAttributeSelectionPattern(this)
     }
 
     @JsonIgnore
@@ -365,10 +421,7 @@ data class SpecmaticConfig(
         sources
             .flatMap { source ->
                 source.stub.orEmpty().map { consumes ->
-                    when (consumes) {
-                        is SpecExecutionConfig.StringValue -> defaultBaseUrl
-                        is SpecExecutionConfig.ObjectValue -> consumes.toBaseUrl(defaultBaseUrl)
-                    }
+                    baseUrlFrom(consumes, defaultBaseUrl)
                 }
             }.distinct()
 
@@ -379,6 +432,7 @@ data class SpecmaticConfig(
                 when (consumes) {
                     is SpecExecutionConfig.StringValue -> listOf(consumes.value to defaultBaseUrl)
                     is SpecExecutionConfig.ObjectValue -> consumes.specs.map { it to consumes.toBaseUrl(defaultBaseUrl) }
+                    is SpecExecutionConfig.ConfigValue -> consumes.specs.map { it to defaultBaseUrl }
                 }
             }
         }
@@ -394,8 +448,14 @@ data class SpecmaticConfig(
 
     @JsonIgnore
     fun getStubStartTimeoutInMilliseconds(): Long {
-        return stub.getStartTimeoutInMilliseconds() ?: 20_000L
+        return getStubConfiguration(this).getStartTimeoutInMilliseconds() ?: 20_000L
     }
+
+    @JsonIgnore
+    private fun baseUrlFrom(
+        consumes: SpecExecutionConfig,
+        defaultBaseUrl: String
+    ): String = if (consumes is SpecExecutionConfig.ObjectValue) consumes.toBaseUrl(defaultBaseUrl) else defaultBaseUrl
 
     fun logDependencyProjects(azure: AzureAPI) {
         logger.log("Dependency projects")
@@ -474,7 +534,7 @@ data class SpecmaticConfig(
 
     @JsonIgnore
     fun attributeSelectionQueryParamKey(): String {
-        return attributeSelectionPattern.getQueryParamKey()
+        return getAttributeSelectionPattern().getQueryParamKey()
     }
 
     @JsonIgnore
@@ -519,9 +579,10 @@ data class SpecmaticConfig(
 
     @JsonIgnore
     fun copyResiliencyTestsConfig(onlyPositive: Boolean): SpecmaticConfig {
+        val testConfig = test ?: TestConfiguration()
         return this.copy(
-            test = test?.copy(
-                resiliencyTests = (test.resiliencyTests ?: ResiliencyTestsConfig.fromSystemProperties()).copy(
+            test = testConfig.copy(
+                resiliencyTests = (testConfig.resiliencyTests ?: ResiliencyTestsConfig.fromSystemProperties()).copy(
                     enable = if (onlyPositive) ResiliencyTestSuite.positiveOnly else ResiliencyTestSuite.all
                 )
             )
@@ -530,27 +591,27 @@ data class SpecmaticConfig(
 
     @JsonIgnore
     fun getStubIncludeMandatoryAndRequestedKeysInResponse(): Boolean {
-        return stub.getIncludeMandatoryAndRequestedKeysInResponse() ?: true
+        return getStubConfiguration(this).getIncludeMandatoryAndRequestedKeysInResponse() ?: true
     }
 
     @JsonIgnore
     fun getStubGenerative(): Boolean {
-        return stub.getGenerative() ?: false
+        return getStubConfiguration(this).getGenerative() ?: false
     }
 
     @JsonIgnore
     fun getStubDelayInMilliseconds(): Long? {
-        return stub.getDelayInMilliseconds()
+        return getStubConfiguration(this).getDelayInMilliseconds()
     }
 
     @JsonIgnore
     fun getStubDictionary(): String? {
-        return stub.getDictionary()
+        return getStubConfiguration(this).getDictionary()
     }
 
     @JsonIgnore
     fun getStubStrictMode(): Boolean? {
-        return stub.getStrictMode()
+        return getStubConfiguration(this).getStrictMode()
     }
 
     @JsonIgnore
@@ -571,6 +632,11 @@ data class SpecmaticConfig(
     @JsonIgnore
     fun getHooks(): Map<String, String> {
         return hooks
+    }
+
+    @JsonIgnore
+    fun getProxyConfig(): ProxyConfig? {
+        return proxy
     }
 
     @JsonIgnore
@@ -645,17 +711,14 @@ data class SpecmaticConfig(
 
     @JsonIgnore
     fun getVirtualServiceNonPatchableKeys(): Set<String> {
-        return virtualService.getNonPatchableKeys()
+        return getVirtualServiceConfiguration(this).getNonPatchableKeys()
     }
 
     @JsonIgnore
     fun stubContracts(relativeTo: File = File(".")): List<String> {
         return sources.flatMap { source ->
             source.stub.orEmpty().flatMap { stub ->
-                when (stub) {
-                    is SpecExecutionConfig.StringValue -> listOf(stub.value)
-                    is SpecExecutionConfig.ObjectValue -> stub.specs
-                }
+                stub.specs()
             }.map { spec ->
                 if (source.provider == web) spec
                 else spec.canonicalPath(relativeTo)
@@ -679,14 +742,13 @@ data class SpecmaticConfig(
     }
 
     fun enableResiliencyTests(): SpecmaticConfig {
+        val testConfig = test ?: TestConfiguration()
         return this.copy(
-            test =
-                (test ?: TestConfiguration()).copy(
-                    resiliencyTests =
-                        (test?.resiliencyTests ?: ResiliencyTestsConfig()).copy(
-                            enable = ResiliencyTestSuite.all,
-                        ),
+            test = testConfig.copy(
+                resiliencyTests = (testConfig.resiliencyTests ?: ResiliencyTestsConfig()).copy(
+                    enable = ResiliencyTestSuite.all,
                 ),
+            ),
         )
     }
 
@@ -709,21 +771,14 @@ data class SpecmaticConfig(
     @JsonIgnore
     private fun testSourceFromConfig(absoluteSpecPath: String): Source? {
         return sources.firstOrNull { source ->
-            source.test.orEmpty().any { test ->
-                absoluteSpecPath.contains(test)
-            }
+            source.test.orEmpty().any { test -> test.contains(absoluteSpecPath) }
         }
     }
 
     @JsonIgnore
     private fun stubSourceFromConfig(absoluteSpecPath: String): Source? {
         return sources.firstOrNull { source ->
-            source.stub.orEmpty().any { stub ->
-                when (stub) {
-                    is SpecExecutionConfig.StringValue -> absoluteSpecPath.contains(stub.value)
-                    is SpecExecutionConfig.ObjectValue -> stub.specs.any { absoluteSpecPath.contains(it) }
-                }
-            }
+            source.stub.orEmpty().any { stub -> stub.contains(absoluteSpecPath) }
         }
     }
 
@@ -814,65 +869,48 @@ data class Source(
     val repository: String? = null,
     val branch: String? = null,
     @field:JsonAlias("provides")
-    val test: List<String>? = null,
+    @JsonDeserialize(using = ConsumesDeserializer::class)
+    val test: List<SpecExecutionConfig>? = null,
     @field:JsonAlias("consumes")
     @JsonDeserialize(using = ConsumesDeserializer::class)
     val stub: List<SpecExecutionConfig>? = null,
     val directory: String? = null,
-    @JsonIgnore val testConsumes: List<SpecExecutionConfig>? = null,
     val matchBranch: Boolean? = null,
 ) {
     constructor(test: List<String>? = null, stub: List<String>? = null) : this(
-        test = test,
+        test = test?.map { SpecExecutionConfig.StringValue(it) },
         stub = stub?.map { SpecExecutionConfig.StringValue(it) }
     )
 
     fun specsUsedAsStub(): List<String> {
-        return stub.orEmpty().flatMap {
-            when (it) {
-                is SpecExecutionConfig.StringValue -> listOf(it.value)
-                is SpecExecutionConfig.ObjectValue -> it.specs
-            }
-        }
+        return stub.orEmpty().flatMap { it.specs() }
     }
 
     fun specsUsedAsTest(): List<String> {
-        return testConsumes?.flatMap {
-            when (it) {
-                is SpecExecutionConfig.StringValue -> listOf(it.value)
-                is SpecExecutionConfig.ObjectValue -> it.specs
-            }
-        } ?: test.orEmpty()
+        return test?.flatMap { it.specs() } ?: test.orEmpty().flatMap { it.specs() }
     }
 
     fun specToStubBaseUrlMap(defaultBaseUrl: String? = null): Map<String, String?> {
-        return stub.orEmpty().flatMap {
-            when (it) {
-                is SpecExecutionConfig.StringValue -> listOf(it.value to null)
-                is SpecExecutionConfig.ObjectValue -> it.specs.map { specPath ->
-                    specPath to it.toBaseUrl(defaultBaseUrl)
-                }
-            }
-        }.toMap()
+        return stub.orEmpty().flatMap { it.specToBaseUrlPairList(defaultBaseUrl) }.toMap()
     }
 
     fun specToTestBaseUrlMap(defaultBaseUrl: String? = null): Map<String, String?> {
-        return testConsumes?.flatMap {
-            when (it) {
-                is SpecExecutionConfig.StringValue -> listOf(it.value to null)
-                is SpecExecutionConfig.ObjectValue -> it.specs.map { specPath ->
-                    specPath to it.toBaseUrl(defaultBaseUrl)
-                }
-            }
-        }?.toMap() ?: test.orEmpty().associateWith { null }
+        return test?.flatMap {
+            it.specToBaseUrlPairList(defaultBaseUrl)
+        }?.toMap() ?: test.orEmpty().flatMap {
+            it.specToBaseUrlPairList(defaultBaseUrl)
+        }.toMap()
     }
 
     fun specToTestGenerativeMap(): Map<String, ResiliencyTestSuite?> {
-        return testConsumes?.flatMap {
+        return test?.flatMap {
             when (it) {
                 is SpecExecutionConfig.StringValue -> listOf(it.value to null)
                 is SpecExecutionConfig.ObjectValue -> it.specs.map { specPath ->
                     specPath to it.resiliencyTests?.enable
+                }
+                is SpecExecutionConfig.ConfigValue -> it.specs.map { specPath ->
+                    specPath to null
                 }
             }
         }?.toMap() ?: emptyMap()
@@ -891,7 +929,6 @@ data class RepositoryInfo(
         return collectionName
     }
 }
-
 
 interface ReportConfiguration {
     fun getSuccessCriteria(): SuccessCriteria

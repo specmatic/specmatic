@@ -322,12 +322,18 @@ data class XMLNode(val name: String, val realName: String, val attributes: Map<S
     }
 
     override fun specificity(): Int {
-        TODO("Not yet implemented")
+        return 1 + childNodes.sumOf { it.specificity() } + attributes.entries.sumOf { it.value.specificity() }
     }
 
     fun remove(header: XMLNode): XMLNode {
         val updatedChildNodes = childNodes.filterNot { it == header }
         return this.copy(childNodes = updatedChildNodes)
+    }
+
+    override fun replace(oldString: String, newString: String): Value {
+        val newAttributes = attributes.mapValues { it.value.replace(oldString, newString) }
+        val newChildNodes = childNodes.map { it.replace(oldString, newString) as XMLValue }
+        return this.copy(attributes = newAttributes, childNodes = newChildNodes)
     }
 }
 

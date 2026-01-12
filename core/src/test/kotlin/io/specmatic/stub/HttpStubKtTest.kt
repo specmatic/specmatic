@@ -4,6 +4,7 @@ import integration_tests.testCount
 import io.mockk.InternalPlatformDsl.toStr
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.APPLICATION_NAME_LOWER_CASE
+import io.specmatic.core.DefaultMismatchMessages
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.HttpResponsePattern
@@ -11,7 +12,10 @@ import io.specmatic.core.KeyData
 import io.specmatic.core.QueryParameters
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
+import io.specmatic.core.Results
 import io.specmatic.core.SPECMATIC_RESULT_HEADER
+import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.StubConfiguration
 import io.specmatic.core.log.consoleLog
 import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.parseGherkinStringToFeature
@@ -26,11 +30,13 @@ import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.XMLValue
 import io.specmatic.core.value.toXMLNode
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.core.examples.server.ExampleMismatchMessages
+import io.specmatic.toViolationReportString
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stubResponse
 import io.specmatic.test.LegacyHttpClient
 import io.specmatic.test.TestExecutor
-import io.specmatic.trimmedLinesList
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -335,17 +341,155 @@ Feature: Test
         val stubData = feature.matchingStub(scenarioStub)
         val stubResponse = stubResponse(HttpRequest(method = "POST", path = "/", body = StringValue("Hello")), listOf(feature), listOf(stubData), true)
 
-        assertResponseFailure(stubResponse, """STRICT MODE ON
+        assertResponseFailure(stubResponse, """
+        STRICT MODE ON
+        ${toViolationReportString(
+            breadCrumb = "REQUEST.BODY",
+            details = """
+            ${ExampleAndRequestMismatchMessages(null).typeMismatch("number", "\"Hello\"", "string")}
+            ${DefaultMismatchMessages.mismatchMessage("number", "\"Hello\"")}
+            """.trimIndent()
+        )}
+        """.trimIndent())
+    }
 
->> REQUEST.BODY
+    @Test
+    fun `in strict mode uses the 400 response payload and inserts the mismatch report`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Strict mode error payload
+              version: 1.0.0
+            paths:
+              /:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          required:
+                            - number
+                          properties:
+                            number:
+                              type: number
+                  responses:
+                    '200':
+                      description: OK
+                    '400':
+                      description: Bad request
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - message
+                            properties:
+                              message:
+                                type: string
+            """.trimIndent(), ""
+        ).toFeature()
 
-   Expected number, actual was "Hello"""")
+        val stubRequest = HttpRequest(method = "POST", path = "/", body = parsedJSON("""{"number": 10}"""))
+        val scenarioStub = ScenarioStub(stubRequest, HttpResponse.OK, null)
+        val stubData = feature.matchingStub(scenarioStub)
+
+        val request = HttpRequest(method = "POST", path = "/", body = parsedJSON("""{"number": "Hello"}"""))
+        val response = stubResponse(request, listOf(feature), listOf(stubData), true)
+
+        val strictModeReport = Results(listOf(stubData.matches(request)))
+            .withoutFluff()
+            .withoutViolationReport()
+            .strictModeReport(request)
+
+        assertThat(response.response.status).isEqualTo(400)
+        val responseBody = response.response.body as JSONObjectValue
+        assertThat(responseBody.jsonObject.getValue("message").toStringLiteral()).isEqualTo(strictModeReport)
+    }
+
+    @Test
+    fun `fake response should honor response schema constraints when error report does not match`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Generative error payload
+              version: 1.0.0
+            paths:
+              /hello:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          required:
+                            - data
+                          properties:
+                            data:
+                              type: string
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        text/plain:
+                          schema:
+                            type: string
+                    '400':
+                      description: Bad request
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - message
+                            properties:
+                              message:
+                                type: string
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val request = HttpRequest(method = "POST", path = "/hello", body = parsedJSONObject("""{"data": 10}"""))
+        val result = fakeHttpResponse(
+            listOf(feature),
+            request,
+            SpecmaticConfig(stub = StubConfiguration(generative = true))
+        )
+
+        assertThat(result).isInstanceOf(FoundStubbedResponse::class.java)
+        val response = (result as FoundStubbedResponse).response.response
+        assertThat(response.status).isEqualTo(400)
+
+        val responseBody = response.body as JSONObjectValue
+        val messageValue = responseBody.jsonObject.getValue("message")
+        assertThat(messageValue).isInstanceOf(StringValue::class.java)
+        val expectedMessageValue =
+            """
+            In scenario "POST /hello. Response: OK"
+            API: POST /hello -> 200
+            >> REQUEST.BODY.data
+            R1001: Type mismatch
+            Documentation: https://docs.specmatic.io/rules#r1001
+            Summary: The value type does not match the expected type defined in the specification
+            Specification expected type string but request contained value 10 of type number
+            In scenario "POST /hello. Response: Bad request"
+            API: POST /hello -> 400
+            >> REQUEST.BODY.data
+            R1001: Type mismatch
+            Documentation: https://docs.specmatic.io/rules#r1001
+            Summary: The value type does not match the expected type defined in the specification
+            Specification expected type string but request contained value 10 of type number
+            """.trimIndent()
+        assertThat(messageValue.toStringLiteral()).isEqualToIgnoringWhitespace(expectedMessageValue)
     }
 
     private fun assertResponseFailure(stubResponse: HttpStubResponse, errorMessage: String) {
         assertThat(stubResponse.response.status).isEqualTo(400)
         assertThat(stubResponse.response.headers).containsEntry(SPECMATIC_RESULT_HEADER, "failure")
-        assertThat(stubResponse.response.body.toStringLiteral().trimmedLinesList()).isEqualTo(errorMessage.trimmedLinesList())
+        assertThat(stubResponse.response.body.toStringLiteral()).isEqualToIgnoringWhitespace(errorMessage)
     }
 
     @Test
@@ -363,15 +507,17 @@ Feature: POST API
 
         val stubResponse = stubResponse(request, listOf(feature), emptyList(), false)
 
-        assertResponseFailure(stubResponse,
-            """
-            In scenario "Test"
-            API: POST / -> 200
-            
-              >> REQUEST.BODY.undeclared
-              
-                 ${ContractAndRequestsMismatch.unexpectedKey("key", "undeclared")}
-            """.trimIndent())
+        assertResponseFailure(stubResponse, """
+        In scenario "Test"
+        API: POST / -> 200
+        ${
+            toViolationReportString(
+                breadCrumb = "REQUEST.BODY.undeclared",
+                details = SpecificationAndRequestMismatchMessages.unexpectedKey("property", "undeclared"),
+                StandardRuleViolation.UNKNOWN_PROPERTY
+            )
+        }
+        """.trimIndent())
     }
 
     @Test
@@ -427,15 +573,17 @@ Scenario: Square of a number
         val request = HttpRequest(method = "POST", path = "/number", body = parsedValue("""{"number": 10, "unexpected": "data"}"""))
         val response = stubResponse(request, listOf(feature), emptyList(), false)
 
-        assertResponseFailure(response,
-            """
-            In scenario "Square of a number"
-            API: POST /number -> 200
-            
-              >> REQUEST.BODY.unexpected
-              
-                 ${ContractAndRequestsMismatch.unexpectedKey("key", "unexpected")}
-            """.trimIndent())
+        assertResponseFailure(response, """
+        In scenario "Square of a number"
+        API: POST /number -> 200
+        ${
+            toViolationReportString(
+                breadCrumb = "REQUEST.BODY.unexpected",
+                details = SpecificationAndRequestMismatchMessages.unexpectedKey("property", "unexpected"),
+                StandardRuleViolation.UNKNOWN_PROPERTY
+            )
+        }
+        """.trimIndent())
     }
 
     @Test
@@ -455,7 +603,8 @@ Scenario: Square of a number
             stubRequest.toPattern(),
             stubResponse,
             Resolver(),
-            responsePattern = HttpResponsePattern()
+            responsePattern = HttpResponsePattern(),
+            name = "TestExample"
         )
 
         val request = HttpRequest(method = "GET", path = "/count")
@@ -463,11 +612,13 @@ Scenario: Square of a number
         assertThat(response.response.status).isEqualTo(200)
 
         val strictResponse = stubResponse(request, listOf(feature), listOf(stubData), true)
-        assertResponseFailure(strictResponse, """STRICT MODE ON
-
->> REQUEST.PARAMETERS.QUERY.status
-
-   ${StubAndRequestMismatchMessages.expectedKeyWasMissing("query param", "status")}""")
+        assertResponseFailure(strictResponse, """
+        STRICT MODE ON
+        ${toViolationReportString(
+            breadCrumb = "REQUEST.PARAMETERS.QUERY.status",
+            details = ExampleAndRequestMismatchMessages("TestExample").expectedKeyWasMissing("query param", "status")
+        )}
+        """.trimIndent())
     }
 
     @Test
@@ -716,7 +867,7 @@ paths:
 
         println(response.response.toLogString())
 
-        assertThat(response.response.body.toStringLiteral()).contains("Contract expected")
+        assertThat(response.response.body.toStringLiteral()).contains("Specification expected")
         assertThat(response.response.body.toStringLiteral()).contains("request contained")
     }
 
@@ -764,7 +915,7 @@ paths:
             val reportText = it.report()
             println(reportText)
 
-            assertThat(reportText).contains("Contract expected")
+            assertThat(reportText).contains("Specification expected")
             assertThat(reportText).contains("response from external command")
         })
     }
@@ -809,7 +960,7 @@ paths:
 
         println(requestString)
 
-        assertThat(requestString).contains("Stub expected")
+        assertThat(requestString).contains("Example expected")
         assertThat(requestString).contains("request contained")
     }
 
@@ -862,7 +1013,7 @@ paths:
             val responseString = response.toLogString()
             println(responseString)
 
-            assertThat(responseString).contains("Contract expected number but stub contained \"abc\"")
+            assertThat(responseString).contains(ExampleMismatchMessages.typeMismatch("number", "\"abc\"",  "string"))
         }
     }
 
@@ -901,7 +1052,7 @@ paths:
             val responseString = response.toLogString()
             println(responseString)
 
-            assertThat(responseString).contains("Contract expected")
+            assertThat(responseString).contains("Specification expected")
             assertThat(responseString).contains("request contained")
         }
     }

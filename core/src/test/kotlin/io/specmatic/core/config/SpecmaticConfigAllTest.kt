@@ -86,12 +86,12 @@ internal class SpecmaticConfigAllTest {
                 provider = git,
                 repository = "https://contracts",
                 branch = "1.0.1",
-                test = listOf("com/petstore/1.yaml"),
+                test = listOf(SpecExecutionConfig.StringValue("com/petstore/1.yaml")),
                 stub = listOf(SpecExecutionConfig.StringValue("com/petstore/payment.yaml"))
             ),
             Source(
                 provider = filesystem,
-                test = listOf("com/petstore/1.yaml"),
+                test = listOf(SpecExecutionConfig.StringValue("com/petstore/1.yaml")),
                 stub = listOf(
                     SpecExecutionConfig.StringValue("com/petstore/payment.yaml"),
                     SpecExecutionConfig.StringValue("com/petstore/order.yaml")
@@ -117,12 +117,12 @@ internal class SpecmaticConfigAllTest {
                 provider = git,
                 repository = "https://contracts",
                 branch = "1.0.1",
-                test = listOf("com/petstore/1.yaml"),
+                test = listOf(SpecExecutionConfig.StringValue("com/petstore/1.yaml")),
                 stub = listOf(SpecExecutionConfig.StringValue("com/petstore/payment.yaml"))
             ),
             Source(
                 provider = filesystem,
-                test = listOf("com/petstore/1.yaml"),
+                test = listOf(SpecExecutionConfig.StringValue("com/petstore/1.yaml")),
                 stub = listOf(
                     SpecExecutionConfig.StringValue("com/petstore/payment.yaml"),
                     SpecExecutionConfig.ObjectValue.FullUrl(
@@ -482,7 +482,7 @@ internal class SpecmaticConfigAllTest {
         val config = objectMapper.readValue(configYaml, SpecmaticConfigV1::class.java).transform()
         val configV2 = SpecmaticConfigV2.loadFrom(config) as SpecmaticConfigV2
 
-        assertThat(configV2.virtualService.getNonPatchableKeys()).containsExactly("description", "url")
+        assertThat(configV2.virtualService?.getNonPatchableKeys()).containsExactly("description", "url")
     }
 
     @Test
@@ -498,7 +498,7 @@ internal class SpecmaticConfigAllTest {
         val config = objectMapper.readValue(configYaml, SpecmaticConfigV2::class.java).transform()
         val configV3 = SpecmaticConfigV2.loadFrom(config) as SpecmaticConfigV2
 
-        assertThat(configV3.virtualService.getNonPatchableKeys()).containsExactly("description", "url")
+        assertThat(configV3.virtualService?.getNonPatchableKeys()).containsExactly("description", "url")
     }
 
     @Test
@@ -535,8 +535,8 @@ internal class SpecmaticConfigAllTest {
         val config = objectMapper.readValue(configYaml, SpecmaticConfigV1::class.java).transform()
         val configV2 = SpecmaticConfigV2.loadFrom(config) as SpecmaticConfigV2
 
-        assertThat(configV2.attributeSelectionPattern.getDefaultFields()).containsExactly("description", "url")
-        assertThat(configV2.attributeSelectionPattern.getQueryParamKey()).isEqualTo("web")
+        assertThat(configV2.attributeSelectionPattern?.getDefaultFields()).containsExactly("description", "url")
+        assertThat(configV2.attributeSelectionPattern?.getQueryParamKey()).isEqualTo("web")
     }
 
     @Test
@@ -553,8 +553,8 @@ internal class SpecmaticConfigAllTest {
         val config = objectMapper.readValue(configYaml, SpecmaticConfigV2::class.java).transform()
         val configV3 = SpecmaticConfigV2.loadFrom(config) as SpecmaticConfigV2
 
-        assertThat(configV3.attributeSelectionPattern.getDefaultFields()).containsExactly("description", "url")
-        assertThat(configV3.attributeSelectionPattern.getQueryParamKey()).isEqualTo("web")
+        assertThat(configV3.attributeSelectionPattern?.getDefaultFields()).containsExactly("description", "url")
+        assertThat(configV3.attributeSelectionPattern?.getQueryParamKey()).isEqualTo("web")
     }
 
     @Test
@@ -736,7 +736,7 @@ internal class SpecmaticConfigAllTest {
         val configFromV1 = objectMapper.readValue(configYaml, SpecmaticConfigV1::class.java).transform()
         val configV2 = SpecmaticConfigV2.loadFrom(configFromV1) as SpecmaticConfigV2
 
-        configV2.stub.apply {
+        configV2.stub!!.apply {
             assertThat(getGenerative()).isTrue()
             assertThat(getDelayInMilliseconds()).isEqualTo(1000L)
             assertThat(getDictionary()).isEqualTo("stubDictionary")
@@ -758,7 +758,7 @@ internal class SpecmaticConfigAllTest {
         val configFromV2 = objectMapper.readValue(configYaml, SpecmaticConfigV2::class.java).transform()
         val configV3 = SpecmaticConfigV2.loadFrom(configFromV2) as SpecmaticConfigV2
 
-        configV3.stub.apply {
+        configV3.stub!!.apply {
             assertThat(getGenerative()).isTrue()
             assertThat(getDelayInMilliseconds()).isEqualTo(1000L)
             assertThat(getDictionary()).isEqualTo("stubDictionary")

@@ -1,5 +1,8 @@
 package io.specmatic.core
 
+import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.mockk.every
 import io.mockk.mockk
 import io.specmatic.conversions.OpenApiSpecification
@@ -9,12 +12,13 @@ import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.*
+import io.specmatic.mock.FuzzyExampleMisMatchMessages
+import io.specmatic.toViolationReportString
 import io.specmatic.stub.captureStandardOutput
 import io.specmatic.stub.createStubFromContracts
 import io.specmatic.test.ScenarioTestGenerationException
 import io.specmatic.test.ScenarioTestGenerationFailure
 import io.specmatic.test.TestExecutor
-import io.specmatic.trimmedLinesList
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.json.JSONObject
@@ -315,15 +319,17 @@ paths:
         val httpRequest = HttpRequest().updateMethod("GET").updatePath("/balance").updateHeader("y-loginId", "abc123")
         val httpResponse = contractBehaviour.lookupResponse(httpRequest)
         assertThat(httpResponse.status).isEqualTo(400)
-        assertThat(httpResponse.body.toStringLiteral().trimmedLinesList()).isEqualTo(
-            """
-            In scenario "Get balance info"
-            API: GET /balance -> 200
-            
-              >> REQUEST.PARAMETERS.HEADER.x-loginId
-              
-                 Expected header named "x-loginId" was missing
-              """.trimIndent().trimmedLinesList())
+        assertThat(httpResponse.body.toStringLiteral()).isEqualToIgnoringWhitespace("""
+        In scenario "Get balance info"
+        API: GET /balance -> 200
+        ${
+            toViolationReportString(
+                breadCrumb = "REQUEST.PARAMETERS.HEADER.x-loginId",
+                details = DefaultMismatchMessages.expectedKeyWasMissing("header", "x-loginId"),
+                StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+            )
+        }
+      """.trimIndent())
     }
 
     @Test
@@ -393,15 +399,17 @@ paths:
         val httpRequest = HttpRequest().updateMethod("POST").updatePath("/balance").updateBody("{calls_made: [3, 10]}")
         val httpResponse = contractBehaviour.lookupResponse(httpRequest)
         assertThat(httpResponse.status).isEqualTo(400)
-        assertThat(httpResponse.body.toStringLiteral().trimmedLinesList()).isEqualTo(
-            """
-            In scenario "Update balance"
-            API: POST /balance -> 200
-            
-              >> REQUEST.BODY.calls_made
-              
-                 Expected an array of length 3, actual length 2
-            """.trimIndent().trimmedLinesList())
+        assertThat(httpResponse.body.toStringLiteral()).isEqualToIgnoringWhitespace("""
+        In scenario "Update balance"
+        API: POST /balance -> 200
+        ${
+            toViolationReportString(
+                breadCrumb = "REQUEST.BODY.calls_made",
+                details = DefaultMismatchMessages.valueMismatch("array of length 3", "array of length 2"),
+                StandardRuleViolation.CONSTRAINT_VIOLATION
+            )
+        }
+        """.trimIndent())
     }
 
     @Test
@@ -418,15 +426,17 @@ paths:
         val httpRequest = HttpRequest().updateMethod("POST").updatePath("/balance").updateBody("{calls_made: [3, 10, \"test\"]}")
         val httpResponse = contractBehaviour.lookupResponse(httpRequest)
         assertThat(httpResponse.status).isEqualTo(400)
-        assertThat(httpResponse.body.toStringLiteral().trimmedLinesList()).isEqualTo(
-            """
-            In scenario "Update balance"
-            API: POST /balance -> 200
-            
-              >> REQUEST.BODY.calls_made[2]
-              
-                 Expected number, actual was "test"
-            """.trimIndent().trimmedLinesList())
+        assertThat(httpResponse.body.toStringLiteral()).isEqualToIgnoringWhitespace("""
+        In scenario "Update balance"
+        API: POST /balance -> 200
+        ${
+            toViolationReportString(
+                breadCrumb = "REQUEST.BODY.calls_made[2]",
+                details = DefaultMismatchMessages.typeMismatch("number", "\"test\"", "string"),
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        """.trimIndent())
     }
 
     @Test
@@ -461,15 +471,17 @@ paths:
         val httpRequest = HttpRequest().updatePath("/balance").updateQueryParam("account-id", "abc").updateMethod("GET")
         val httpResponse = contractBehaviour.lookupResponse(httpRequest)
         assertThat(httpResponse.status).isEqualTo(400)
-        assertThat(httpResponse.body.toStringLiteral().trimmedLinesList()).isEqualTo(
-            """
-            In scenario "Get account balance"
-            API: GET /balance -> 200
-            
-              >> REQUEST.PARAMETERS.QUERY.account-id
-              
-                 Expected number, actual was "abc"
-            """.trimIndent().trimmedLinesList())
+        assertThat(httpResponse.body.toStringLiteral()).isEqualToIgnoringWhitespace("""
+        In scenario "Get account balance"
+        API: GET /balance -> 200
+        ${
+            toViolationReportString(
+                breadCrumb = "REQUEST.PARAMETERS.QUERY.account-id",
+                details = DefaultMismatchMessages.typeMismatch("number", "\"abc\"", "string"),
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        """.trimIndent())
     }
 
     @Test
@@ -2459,10 +2471,13 @@ paths:
             feature.loadExternalisedExamples()
         }
 
-        assertThat(error.report()).isEqualToNormalizingWhitespace("""
-        >> http-respons
-        Key named "http-respons" is invalid. Did you mean "http-response"?
-        """.trimIndent())
+        assertThat(error.report()).isEqualToNormalizingWhitespace(
+            toViolationReportString(
+                breadCrumb = "http-respons",
+                details = unexpectedKeyButMatches("http-respons", "http-response"),
+                StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+            )
+        )
     }
 
     @Test
@@ -2808,12 +2823,27 @@ paths:
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
         In scenario "Test Example. Response: Successful response"
         API: POST /test -> 200
-        >> RESPONSE.BODY.name
-        Expected "Jane Doe" to equal "John Doe"
-        >> RESPONSE.BODY.age
-        Expected 123 to equal 999
-        >> RESPONSE.BODY.isEligible
-        Expected false to equal true
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY.name",
+                details = "Expected \"Jane Doe\" to equal \"John Doe\"",
+                StandardRuleViolation.VALUE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY.age",
+                details = "Expected 123 to equal 999",
+                StandardRuleViolation.VALUE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "RESPONSE.BODY.isEligible",
+                details = "Expected false to equal true",
+                StandardRuleViolation.VALUE_MISMATCH
+            )
+        }
         """.trimIndent())
     }
 
@@ -2935,6 +2965,52 @@ paths:
         assertThat(openAPI.paths["/data"]?.post?.requestBody).isNull()
     }
 
+    @Test
+    fun `toOpenApi should de-dupe headers case-insensitively across scenarios`() {
+        val requestPatternUpper = HttpRequestPattern(
+            method = "GET",
+            httpPathPattern = HttpPathPattern.from("/balance"),
+            headersPattern = HttpHeadersPattern(mapOf("X-Request-ID" to StringPattern()))
+        )
+        val responsePatternUpper = HttpResponsePattern(
+            status = 200,
+            headersPattern = HttpHeadersPattern(mapOf("X-Response-ID" to StringPattern()))
+        )
+
+        val requestPatternLower = HttpRequestPattern(
+            method = "GET",
+            httpPathPattern = HttpPathPattern.from("/balance"),
+            headersPattern = HttpHeadersPattern(mapOf("x-request-id" to StringPattern()))
+        )
+        val responsePatternLower = HttpResponsePattern(
+            status = 200,
+            headersPattern = HttpHeadersPattern(mapOf("x-response-id" to StringPattern()))
+        )
+
+        val feature = Feature(
+            name = "Header case",
+            scenarios = listOf(
+                Scenario("uppercase headers", requestPatternUpper, responsePatternUpper),
+                Scenario("lowercase headers", requestPatternLower, responsePatternLower)
+            )
+        )
+
+        val openAPI = feature.toOpenApi()
+        val objectMapper =
+            ObjectMapper().registerKotlinModule().setSerializationInclusion(JsonInclude.Include.NON_EMPTY)
+        val openApiJson = objectMapper.readTree(objectMapper.writeValueAsString(openAPI))
+
+        val requestHeaderNames = openApiJson.at("/paths/~1balance/get/parameters")
+            .mapNotNull { it["name"]?.asText() }
+        assertThat(requestHeaderNames.map { it.lowercase(Locale.US) }.distinct()).containsExactly("x-request-id")
+        assertThat(requestHeaderNames).hasSize(1)
+
+        val responseHeaderNames = openApiJson.at("/paths/~1balance/get/responses/200/headers")
+            .fieldNames().asSequence().toList()
+        assertThat(responseHeaderNames.map { it.lowercase(Locale.US) }.distinct()).containsExactly("x-response-id")
+        assertThat(responseHeaderNames).hasSize(1)
+    }
+
     companion object {
         @JvmStatic
         fun singleFeatureContractSource(): Stream<Arguments> {
@@ -2954,6 +3030,10 @@ paths:
                     Arguments.of(featureData[0], "10", "{calls_left: 10, messages_left: 20}"),
                     Arguments.of(featureData[1], "20", "{calls_left: 10, messages_left: 30}")
             )
+        }
+
+        private fun unexpectedKeyButMatches(unexpectedKey: String, candidate: String): String {
+            return "${FuzzyExampleMisMatchMessages.unexpectedKey("property", unexpectedKey)}. Did you mean \"$candidate\"?"
         }
     }
 

@@ -11,6 +11,7 @@ import io.specmatic.mock.mockFromJSON
 import io.specmatic.osAgnosticPath
 import io.mockk.every
 import io.mockk.mockk
+import io.specmatic.core.utilities.OpenApiPath
 import io.specmatic.stub.captureStandardOutput
 import io.swagger.v3.core.util.Yaml
 import org.junit.jupiter.api.*
@@ -430,7 +431,32 @@ class FeatureKtTest {
                         type: array
                         items:
                           ${"$"}ref: #/components/schemas/Addresses
-        """.trimIndent())
+                """.trimIndent())
+    }
+
+    @Test
+    fun `large numeric path segments should be treated as ids when comparing similar URLs once normalized`() {
+        val feature = parseGherkinStringToFeature(
+            """
+            Feature: Orders API
+
+            Scenario: Order 1
+              When GET /orders/5432154321
+              Then status 200
+
+            Scenario: Order 2
+              When GET /orders/9876543210
+              Then status 200
+            """.trimIndent()
+        )
+
+        val (firstScenario, secondScenario) = feature.scenarios
+        val firstScenarioNormalizedPath = OpenApiPath.from(firstScenario.path).normalize().toHttpPathPattern()
+        val secondScenarioNormalizedPath = OpenApiPath.from(secondScenario.path).normalize().toHttpPathPattern()
+        assertThat(similarURLPath(
+            baseScenario = firstScenario.copy(httpRequestPattern = firstScenario.httpRequestPattern.copy(httpPathPattern = firstScenarioNormalizedPath)),
+            newScenario = secondScenario.copy(httpRequestPattern = firstScenario.httpRequestPattern.copy(httpPathPattern = secondScenarioNormalizedPath)),
+        )).isTrue
     }
 
     private fun deferredToJsonPatternData(pattern: Pattern, resolver: Resolver): Map<String, Pattern> =
@@ -708,6 +734,26 @@ paths:
 
     @Nested
     inner class FeatureToOpenAPI {
+        @Test
+        fun `should treat large numeric path segments as ids when generating OpenAPI`() {
+            val feature = parseGherkinStringToFeature(
+                """
+                Feature: Orders API
+
+                Scenario: Get order
+                  When GET /orders/5432154321
+                  Then status 200
+                """.trimIndent()
+            )
+
+            val openAPI = feature.toOpenApi()
+            val pathItem = openAPI.paths["/orders/{param}"]
+            val getOperation = requireNotNull(pathItem?.get) { "Expected GET operation for /orders/{param}" }
+
+            assertThat(pathItem).isNotNull
+            assertThat(getOperation.parameters.map { it.name }).contains("param")
+        }
+
         @Test
         fun `should provide unique names to body schemas under the same endpoint`() {
             val requestPattern = HttpRequestPattern(

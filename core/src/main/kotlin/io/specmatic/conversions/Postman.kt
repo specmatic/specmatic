@@ -8,6 +8,9 @@ import io.specmatic.core.utilities.parseXML
 import io.specmatic.core.value.*
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.core.log.dontPrintToConsole
+import io.specmatic.core.utilities.TrackingFeature
+import io.specmatic.license.core.LicenseResolver
+import io.specmatic.license.core.LicensedProduct
 import io.specmatic.test.LegacyHttpClient
 import java.net.URI
 import java.net.URL
@@ -28,6 +31,13 @@ fun postmanCollectionToGherkin(postmanContent: String): List<ImportedPostmanCont
         val collection = PostmanCollection(postmanCollection.name, stubInfo)
         val gherkinString = toGherkinFeature(collection)
 
+        val protocolsInUse = stubInfo.map { (_, namedStub) -> namedStub.protocol }
+
+        LicenseResolver.utilize(
+            product = LicensedProduct.OPEN_SOURCE,
+            feature = TrackingFeature.IMPORT_FROM_POSTMAN,
+            protocol = protocolsInUse,
+        )
         ImportedPostmanContracts(collection.name, gherkinString, baseURLInfo, postmanCollection.stubs.map { it.second })
     }
 }

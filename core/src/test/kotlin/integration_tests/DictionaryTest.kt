@@ -2,6 +2,7 @@ package integration_tests
 
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.Dictionary
+import io.specmatic.core.DictionaryMismatchMessages
 import io.specmatic.core.Feature
 import io.specmatic.core.HttpHeadersPattern
 import io.specmatic.core.HttpQueryParamPattern
@@ -39,6 +40,8 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.toViolationReportString
 import io.specmatic.stub.HttpStub
 import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
 import io.specmatic.stub.captureStandardOutput
@@ -647,11 +650,17 @@ class DictionaryTest {
             val resolver = Resolver(dictionary = dictionary.copy(strictMode = true))
             val exception = assertThrows<ContractException> { pattern.generate(resolver) }
 
-            assertThat(exception.report()).isEqualToNormalizingWhitespace("""
-            >> array[1]
-            Invalid Dictionary value at "Schema.array"
-            Expected number, actual was "abc"
-            """.trimIndent())
+
+            assertThat(exception.report()).isEqualToNormalizingWhitespace(
+                toViolationReportString(
+                    breadCrumb = "array[1]",
+                    details = """
+                    Invalid Dictionary value at "Schema.array"
+                    ${DictionaryMismatchMessages.typeMismatch("number", "\"abc\"", "string")}
+                    """.trimIndent(),
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            )
         }
 
         @Test
@@ -1023,18 +1032,23 @@ class DictionaryTest {
 
             val commonKeyValue = value.jsonObject.getValue("commonKey")
             assertThat(commonKeyValue).isInstanceOf(BooleanValue::class.java)
-            assertThat(stdout).containsIgnoringWhitespaces("""
-            >> DICTIONARY..commonKey
-            Expected boolean but got "Twenty" in the dictionary
-            """.trimIndent())
-            assertThat(stdout).containsIgnoringWhitespaces("""
-            >> DICTIONARY..commonKey
-            Expected boolean but got 10 (number) in the dictionary
-            """.trimIndent())
-            assertThat(stdout).containsIgnoringWhitespaces("""
-            >> DICTIONARY..commonKey
-            Expected boolean but got "specmatic@test.io" in the dictionary
-            """.trimIndent())
+            assertThat(stdout).containsIgnoringWhitespaces(toViolationReportString(
+                breadCrumb = "DICTIONARY..commonKey",
+                details = DictionaryMismatchMessages.typeMismatch("boolean", "\"Twenty\"", "string"),
+                StandardRuleViolation.TYPE_MISMATCH
+            ))
+
+            assertThat(stdout).containsIgnoringWhitespaces(toViolationReportString(
+                breadCrumb = "DICTIONARY..commonKey",
+                details = DictionaryMismatchMessages.typeMismatch("boolean", "10", "number"),
+                StandardRuleViolation.TYPE_MISMATCH
+            ))
+
+            assertThat(stdout).containsIgnoringWhitespaces(toViolationReportString(
+                breadCrumb = "DICTIONARY..commonKey",
+                details = DictionaryMismatchMessages.typeMismatch("boolean", "\"specmatic@test.io\"", "string"),
+                StandardRuleViolation.TYPE_MISMATCH
+            ))
         }
 
         @Test

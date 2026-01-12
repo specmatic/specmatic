@@ -2,18 +2,18 @@ package io.specmatic.test
 
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.HttpRequest
-import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
 import io.specmatic.core.Scenario
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.logger
+import io.specmatic.license.core.SpecmaticProtocol
 
 class ScenarioTestGenerationFailure(
     var scenario: Scenario,
     val failure: Result.Failure,
     val message: String,
-): ContractTest {
-
+    override val protocol: SpecmaticProtocol?,
+) : ContractTest {
     init {
         val exampleRow = scenario.examples.flatMap { it.rows }.firstOrNull { it.name == message }
         if (exampleRow != null) {

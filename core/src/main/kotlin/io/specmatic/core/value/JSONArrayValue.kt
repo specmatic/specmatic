@@ -14,6 +14,8 @@ data class JSONArrayValue(override val list: List<Value> = emptyList()) : Value,
 
     override fun displayableValue(): String = toStringLiteral()
     override fun toStringLiteral() = valueArrayToJsonString(list)
+    override fun toNativeValue(): Any = list.map(Value::toNativeValue)
+
     override fun displayableType(): String = "json array"
     override fun exactMatchElseType(): Pattern = JSONArrayPattern(list.map { it.exactMatchElseType() })
     override fun type(): Pattern = JSONArrayPattern()
@@ -106,5 +108,11 @@ data class JSONArrayValue(override val list: List<Value> = emptyList()) : Value,
 
     override fun toUnformattedString(): String {
         return valueArrayToUnformattedJsonString(list)
+    }
+
+    override fun replace(oldString: String, newString: String): Value {
+        return this.copy(
+            list = list.map { it.replace(oldString, newString) }
+        )
     }
 }

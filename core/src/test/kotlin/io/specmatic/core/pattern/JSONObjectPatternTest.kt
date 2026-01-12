@@ -15,8 +15,9 @@ import io.specmatic.core.utilities.Flags.Companion.IGNORE_INLINE_EXAMPLE_WARNING
 import io.specmatic.core.utilities.Flags.Companion.MAX_TEST_REQUEST_COMBINATIONS
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.*
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.toViolationReportString
 import io.specmatic.shouldNotMatch
-import io.specmatic.trimmedLinesString
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.*
@@ -219,6 +220,65 @@ internal class JSONObjectPatternTest {
     }
 
     @Test
+    fun `addToFirstString should update nested string and preserve top level keys`() {
+        val errorReport = "boom"
+        val pattern = JSONObjectPattern(
+            mapOf(
+                "id" to NumberPattern(),
+                "details" to JSONObjectPattern(
+                    mapOf(
+                        "message" to StringPattern(),
+                        "code" to NumberPattern()
+                    )
+                ),
+                "other" to StringPattern()
+            )
+        )
+
+        val updated = pattern.addToFirstString(errorReport, Resolver())
+
+        assertThat(updated.pattern.keys).containsExactly("id", "details", "other")
+        val details = updated.pattern.getValue("details") as JSONObjectPattern
+        assertThat(details.pattern.getValue("message"))
+            .isEqualTo(ExactValuePattern(StringValue(errorReport)))
+        assertThat(details.pattern.getValue("code")).isEqualTo(NumberPattern())
+        assertThat(updated.pattern.getValue("other")).isEqualTo(StringPattern())
+    }
+
+    @Test
+    fun `addToFirstString should update deep nested string and preserve keys`() {
+        val errorReport = "boom"
+        val pattern = JSONObjectPattern(
+            mapOf(
+                "meta" to JSONObjectPattern(
+                    mapOf(
+                        "details" to JSONObjectPattern(
+                            mapOf(
+                                "message" to StringPattern(),
+                                "code" to NumberPattern()
+                            )
+                        ),
+                        "note" to StringPattern()
+                    )
+                ),
+                "status" to NumberPattern()
+            )
+        )
+
+        val updated = pattern.addToFirstString(errorReport, Resolver())
+
+        assertThat(updated.pattern.keys).containsExactly("meta", "status")
+        val meta = updated.pattern.getValue("meta") as JSONObjectPattern
+        assertThat(meta.pattern.keys).containsExactly("details", "note")
+        val details = meta.pattern.getValue("details") as JSONObjectPattern
+        assertThat(details.pattern.getValue("message"))
+            .isEqualTo(ExactValuePattern(StringValue(errorReport)))
+        assertThat(details.pattern.getValue("code")).isEqualTo(NumberPattern())
+        assertThat(meta.pattern.getValue("note")).isEqualTo(StringPattern())
+        assertThat(updated.pattern.getValue("status")).isEqualTo(NumberPattern())
+    }
+
+    @Test
     fun `it should encompass another with the optional key missing`() {
         val bigger = parsedPattern("""{"required": "(number)", "optional?": "(number)"}""")
         val smaller = parsedPattern("""{"required": "(number)"}""")
@@ -281,15 +341,22 @@ internal class JSONObjectPatternTest {
             it as Result.Failure
             assertThat(it.causes).hasSize(2)
 
-            assertThat(it.toFailureReport().toString().trimmedLinesString()).isEqualTo("""
-                >> id
-
-                   Expected number, actual was "abc123"
-
-                >> address.flat
-
-                   Expected number, actual was "10"
-            """.trimIndent().trim().trimmedLinesString())
+            assertThat(it.toFailureReport().toText()).isEqualToIgnoringWhitespace("""
+            ${
+                toViolationReportString(
+                    breadCrumb = "id",
+                    details = DefaultMismatchMessages.typeMismatch("number", "\"abc123\"", "string"),
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "address.flat",
+                    details = DefaultMismatchMessages.typeMismatch("number", "\"10\"", "string"),
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
+            """.trimIndent())
         })
     }
 
@@ -562,7 +629,7 @@ internal class JSONObjectPatternTest {
                 val result = pattern.matches(JSONObjectValue(mapOf("id" to StringValue("abc"))), Resolver())
                 result is Result.Failure && result.toMatchFailureDetails() == MatchFailureDetails(
                     listOf("id"),
-                    listOf("""Expected number, actual was "abc"""")
+                    listOf(DefaultMismatchMessages.typeMismatch("number", "\"abc\"", "string"))
                 )
             }).isNotNull()
         }
@@ -1143,7 +1210,7 @@ internal class JSONObjectPatternTest {
             },
             "subOptionalObject?": {
                 "subMandatoryKey": "(string)",
-                "subOptionalKey": "(number)"
+                "subOptionalKey?": "(number)"
             }
         }
         """.trimIndent())
@@ -1162,12 +1229,27 @@ internal class JSONObjectPatternTest {
 
             assertThat(result).isInstanceOf(Result.Failure::class.java)
             assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-            >> subOptionalObject.subOptionalKey
-            Expected key named "subOptionalKey" was missing
-            >> topLevelOptionalKey
-            Expected optional key named "topLevelOptionalKey" was missing
-            >> subMandatoryObject.subOptionalKey
-            Expected optional key named "subOptionalKey" was missing
+            ${
+                toViolationReportString(
+                    breadCrumb = "topLevelOptionalKey",
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "topLevelOptionalKey"),
+                    StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "subMandatoryObject.subOptionalKey",
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "subOptionalKey"),
+                    StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "subOptionalObject.subOptionalKey",
+                    details = DefaultMismatchMessages.optionalKeyMissing("property", "subOptionalKey"),
+                    StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+                )
+            }
             """.trimIndent())
         }
 
@@ -1820,10 +1902,20 @@ components:
 
             assertThat(result).isInstanceOf(Result.Failure::class.java)
             assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-            >> name
-            Expected key named "name" was missing
-            >> extraKey
-            Key named "extraKey" was unexpected
+            ${
+                toViolationReportString(
+                    breadCrumb = "name",
+                    details = DefaultMismatchMessages.expectedKeyWasMissing("property", "name"),
+                    StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+                )
+            }
+            ${
+                toViolationReportString(
+                    breadCrumb = "extraKey",
+                    details = DefaultMismatchMessages.unexpectedKey("property", "extraKey"),
+                    StandardRuleViolation.UNKNOWN_PROPERTY
+                )
+            }
             """.trimIndent())
         }
 
@@ -1836,8 +1928,13 @@ components:
 
             assertThat(result).isInstanceOf(Result.Failure::class.java)
             assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-            >> extraKey
-            Expected string, actual was 999 (number)
+            ${
+                toViolationReportString(
+                    breadCrumb = "extraKey",
+                    details = DefaultMismatchMessages.typeMismatch("string", "999", "number"),
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
             """.trimIndent())
         }
 
@@ -2558,10 +2655,11 @@ components:
 
             val result = jsonObjectPattern.fillInTheBlanks(jsonObject, resolver)
             assertThat(result).isInstanceOf(HasFailure::class.java); result as HasFailure
-            assertThat(result.failure.reportString()).isEqualToNormalizingWhitespace("""
-            >> name
-            Expected string, actual was number
-            """.trimIndent())
+            assertThat(result.failure.reportString()).isEqualToNormalizingWhitespace(toViolationReportString(
+                breadCrumb = "name",
+                details = "Expected string, actual was number",
+                StandardRuleViolation.TYPE_MISMATCH
+            ))
         }
 
         @Test
@@ -2605,7 +2703,7 @@ components:
                 assertThat(result).isInstanceOf(HasFailure::class.java); result as HasFailure
                 assertThat(result.failure.reportString()).satisfiesAnyOf(
                     { report -> assertThat(report).containsIgnoringWhitespaces("Expected json type") },
-                    { report -> assertThat(report).containsIgnoringWhitespaces("Expected key named \"name\" was missing") },
+                    { report -> assertThat(report).containsIgnoringWhitespaces("Expected property \"name\" was missing") },
                 )
             }
         }

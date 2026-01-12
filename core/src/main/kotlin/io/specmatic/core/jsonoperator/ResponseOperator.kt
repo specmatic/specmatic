@@ -50,7 +50,7 @@ data class ResponseOperator(
         fun from(response: HttpResponse): ResponseOperator {
             return ResponseOperator(
                 originalHttpResponse = response,
-                headersOperator = ObjectValueOperator(response.headers.mapValues { StringValue(it.value) }),
+                headersOperator = ObjectValueOperator(response.headers.mapValues { StringValue(it.value) }, caseInsensitive = true),
                 body = ValueOperator.from(response.body),
             )
         }

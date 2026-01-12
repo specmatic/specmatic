@@ -1,5 +1,6 @@
 package application.backwardCompatibility
 
+import io.specmatic.core.Feature
 import io.specmatic.core.IFeature
 import io.specmatic.core.Results
 import io.specmatic.core.git.GitCommand
@@ -7,6 +8,9 @@ import io.specmatic.core.git.SystemGit
 import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.SystemExit
+import io.specmatic.core.utilities.TrackingFeature
+import io.specmatic.license.core.LicenseResolver
+import io.specmatic.license.core.LicensedProduct
 import io.specmatic.reporter.backwardcompat.dto.OperationUsageResponse
 import picocli.CommandLine.Option
 import java.io.File
@@ -258,6 +262,12 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
                     val result =
                         if (backwardCompatibilityResult.success()) CompatibilityResult.PASSED else CompatibilityResult.FAILED
 
+                    LicenseResolver.utilize(
+                        product = LicensedProduct.OPEN_SOURCE,
+                        feature = TrackingFeature.BACKWARD_COMPATIBILITY_CHECK,
+                        protocol = listOfNotNull((older as? Feature)?.protocol)
+                    )
+
                     return@mapNotNull ProcessedSpec(
                         specFilePath = specFilePath,
                         backwardCompatibilityResult = backwardCompatibilityResult,
@@ -352,7 +362,7 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
         if (backwardCompatibilityResult.success().not()) {
             logger.log("_".repeat(40).prependIndent(ONE_INDENT))
             logger.log("The Incompatibility Report:$newLine".prependIndent(ONE_INDENT))
-            logger.log(backwardCompatibilityResult.report().prependIndent(TWO_INDENTS))
+            logger.log(backwardCompatibilityResult.withoutViolationReport().report().prependIndent(TWO_INDENTS))
 
             val verdict = failedVerdictMessage(processedSpec, hook, strictMode, baseBranch())
 

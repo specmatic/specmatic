@@ -3,6 +3,7 @@ package io.specmatic.core.pattern
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
@@ -43,7 +44,7 @@ object AnythingPattern: Pattern {
     }
 
     override fun listOf(valueList: List<Value>, resolver: Resolver): Value {
-        return StringValue()
+        return JSONArrayValue(valueList)
     }
 
     override val typeAlias: String? = null

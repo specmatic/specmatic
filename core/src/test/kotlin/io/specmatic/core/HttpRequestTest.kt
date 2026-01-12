@@ -19,6 +19,7 @@ import io.mockk.verify
 import io.specmatic.core.jsonoperator.value.ObjectValueOperator
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.value.*
+import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.MOCK_HTTP_REQUEST
 import java.util.stream.Stream
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -232,7 +233,7 @@ internal class HttpRequestTest {
             this.url.host = "test.com"
             this.url.port = 80
         }
-        HttpRequest("GET", "/").buildKTORRequest(builderWithPort80, null)
+        HttpRequest("GET", "/").buildKTORRequest(builderWithPort80)
         assertThat(builderWithPort80.headers["Host"]).isEqualTo("test.com")
 
         val httpRequestBuilderWithHTTPS = HttpRequestBuilder().apply {
@@ -240,18 +241,19 @@ internal class HttpRequestTest {
             this.url.host = "test.com"
             this.url.port = 443
         }
-        HttpRequest("GET", "/").buildKTORRequest(httpRequestBuilderWithHTTPS, null)
+        HttpRequest("GET", "/").buildKTORRequest(httpRequestBuilderWithHTTPS)
         assertThat(httpRequestBuilderWithHTTPS.headers["Host"]).isEqualTo("test.com")
     }
 
     @Test
-    fun `by default do not override the host header unless a default port is used`() {
-        val httpRequestBuilder2 = HttpRequestBuilder().apply {
-            this.url.host = "test.com"
-            this.url.port = 8080
+    fun `should remove lowercase host header to avoid duplicates`() {
+        val httpRequestBuilder = HttpRequestBuilder().apply {
+            this.url.host = "target.com"
+            this.url.port = 80
         }
-        HttpRequest("GET", "/").buildKTORRequest(httpRequestBuilder2, null)
-        assertThat(httpRequestBuilder2.headers["Host"]).isNull()
+        HttpRequest("GET", "/", headers = mapOf("host" to "original.com"))
+            .buildKTORRequest(httpRequestBuilder)
+        assertThat(httpRequestBuilder.headers["Host"]).isEqualTo("target.com")
     }
 
     @Test
@@ -668,13 +670,56 @@ internal class HttpRequestTest {
         fun `should not parse stringified XML in body to XMLNode if content-type does not indicates xml`() {
             val exampleFile = File("src/test/resources/openapi/has_xml_payloads/api_examples/createInventory.json")
             val example = readValueAs<JSONObjectValue>(exampleFile)
-            val rawResponseJson = ObjectValueOperator(example.getJSONObject(MOCK_HTTP_REQUEST)).let {
+            val rawRequestJson = ObjectValueOperator(example.getJSONObject(MOCK_HTTP_REQUEST)).let {
                 it.update("headers/Content-Type", StringValue("plain/text"))
                     .unwrapOrContractException().finalize().value as JSONObjectValue
             }
 
-            val response = requestFromJSON(rawResponseJson.jsonObject)
-            assertThat(response.body).isInstanceOf(StringValue::class.java)
+            val request = requestFromJSON(rawRequestJson.jsonObject)
+            assertThat(request.body).isInstanceOf(StringValue::class.java)
+        }
+    }
+
+    // SOAPAction header exists
+    // Content-Type = application/soap+xml; action=SOAPActionName -- double check
+    // Any other content type
+    // no content type
+
+    @Nested
+    inner class ProtocolDetectionTests {
+        @Test
+        fun `should return the SOAP protocol for SOAP 1_1`() {
+            val httpRequest =
+                HttpRequest(
+                    "POST",
+                    "/soap-service",
+                    headers = mapOf("Content-Type" to "text/xml", "SOAPAction" to "SomeAction"),
+                )
+            assertThat(httpRequest.protocol).isEqualTo(SpecmaticProtocol.SOAP)
+        }
+
+        @Test
+        fun `should return the SOAP protocol for for SOAP 1_2`() {
+            val httpRequest =
+                HttpRequest("POST", "/soap-service", headers = mapOf("Content-Type" to "application/soap+xml"))
+            assertThat(httpRequest.protocol).isEqualTo(SpecmaticProtocol.SOAP)
+
+            val httpRequest2 =
+                HttpRequest("POST", "/soap-service", headers = mapOf("Content-Type" to "application/soap+xml; action=SomeSOAPAction"))
+            assertThat(httpRequest2.protocol).isEqualTo(SpecmaticProtocol.SOAP)
+        }
+
+        @Test
+        fun `should return the HTTP protocol for any non-soap content-type`() {
+            val httpRequest =
+                HttpRequest("POST", "/rest-service", headers = mapOf("Content-Type" to "application/json"))
+            assertThat(httpRequest.protocol).isEqualTo(SpecmaticProtocol.HTTP)
+        }
+
+        @Test
+        fun `should return the HTTP protocol for a missing content-type`() {
+            val httpRequest = HttpRequest("POST", "/rest-service", headers = emptyMap())
+            assertThat(httpRequest.protocol).isEqualTo(SpecmaticProtocol.HTTP)
         }
     }
 }

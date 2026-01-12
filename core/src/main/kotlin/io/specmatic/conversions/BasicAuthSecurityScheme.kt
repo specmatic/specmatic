@@ -14,14 +14,16 @@ data class BasicAuthSecurityScheme(private val token: String? = null) : OpenAPIS
             true -> Result.Success()
             else -> Result.Failure(
                 breadCrumb = BreadCrumb.HEADER.with(AUTHORIZATION),
-                message = resolver.mismatchMessages.expectedKeyWasMissing("Header", AUTHORIZATION)
+                message = resolver.mismatchMessages.expectedKeyWasMissing("header", AUTHORIZATION),
+                ruleViolation = StandardRuleViolation.REQUIRED_PROPERTY_MISSING
             )
         }
 
         if (!authHeaderValue.lowercase().startsWith("basic")) {
             return Result.Failure(
                 breadCrumb = BreadCrumb.HEADER.with(AUTHORIZATION),
-                message = "$AUTHORIZATION header must be prefixed with \"Basic\""
+                message = "$AUTHORIZATION header must be prefixed with \"Basic\"",
+                ruleViolation = StandardRuleViolation.TYPE_MISMATCH
             )
         }
 
@@ -36,12 +38,14 @@ data class BasicAuthSecurityScheme(private val token: String? = null) : OpenAPIS
 
             if (!credentials.contains(":")) return Result.Failure(
                 breadCrumb = BreadCrumb.HEADER.with(AUTHORIZATION),
-                message = "Base64-encoded credentials in $AUTHORIZATION header is not in the form username:password"
+                message = "Base64-encoded credentials in $AUTHORIZATION header is not in the form username:password",
+                ruleViolation = StandardRuleViolation.TYPE_MISMATCH
             )
         } catch (e: IllegalArgumentException) {
             return Result.Failure(
                 breadCrumb = BreadCrumb.HEADER.with(AUTHORIZATION),
-                message = "Invalid base64 encoding in $AUTHORIZATION header"
+                message = "Invalid base64 encoding in $AUTHORIZATION header",
+                ruleViolation = StandardRuleViolation.TYPE_MISMATCH
             )
         }
 

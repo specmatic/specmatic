@@ -58,6 +58,15 @@ fun <K, ValueType> Map<K, ReturnValue<out ValueType>>.mapFold(): ReturnValue<Map
     }
 }
 
+fun <K, ValueType> Map<ReturnValue<K>, ValueType>.mapFoldKeys(): ReturnValue<Map<K, ValueType>> {
+    val initial: ReturnValue<Map<K, ValueType>> = HasValue(emptyMap())
+    return entries.fold(initial) { accR, (key, value) ->
+        accR.combine(key) { acc, actualKey ->
+            acc + (actualKey to value)
+        }
+    }
+}
+
 fun <ValueType> List<ReturnValue<ValueType>>.listFoldException(): ReturnValue<List<ValueType>> {
     val initial: ReturnValue<List<ValueType>> = HasValue(emptyList())
 

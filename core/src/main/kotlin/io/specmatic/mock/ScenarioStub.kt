@@ -40,6 +40,8 @@ data class ScenarioStub(
         if (strictMode && !validationErrors.isSuccess()) validationErrors.throwOnFailure()
     }
 
+    val protocol = request.protocol
+
     fun requestMethod() = request.method ?: partial?.request?.method
 
     fun requestPath() = request.path ?: partial?.request?.path
@@ -57,6 +59,8 @@ data class ScenarioStub(
     fun isInvalid(): Boolean = requestMethod() == null || requestPath() == null || responseStatus() == null
 
     val name: String? = this.data.jsonObject["name"]?.toStringLiteral() ?: partial?.name
+
+    val nameOrFileName: String? = runCatching { name ?: filePath?.let(::File)?.nameWithoutExtension }.getOrNull()
 
     fun toJSON(): JSONObjectValue {
         val requestResponse: Map<String, Value> =

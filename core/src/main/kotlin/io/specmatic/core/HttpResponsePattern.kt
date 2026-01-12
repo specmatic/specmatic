@@ -4,6 +4,7 @@ import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.discriminator.DiscriminatorBasedValueGenerator
 import io.specmatic.core.discriminator.DiscriminatorMetadata
 import io.specmatic.core.pattern.*
+import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.specmatic.stub.softCastValueToXML
@@ -19,10 +20,11 @@ data class HttpResponsePattern(
 ) {
     constructor(response: HttpResponse) : this(HttpHeadersPattern(response.headers.mapValues { stringToPattern(it.value, it.key) }), response.status, response.body.exactMatchElseType())
 
-    fun fillInTheBlanks(resolver: Resolver): HttpResponse {
+    fun fillInTheBlanks(resolver: Resolver, resultHeaderValue: String = "success"): HttpResponse {
         return generateResponseWith(
             value = resolver.withCyclePrevention(body, body::generate),
-            resolver = resolver
+            resolver = resolver,
+            resultHeaderValue = resultHeaderValue
         )
     }
 
@@ -90,16 +92,17 @@ data class HttpResponsePattern(
     fun matchesMock(response: HttpResponse, resolver: Resolver) = matchesResponse(response, resolver)
 
     private fun matchStatus(parameters: Pair<HttpResponse, Resolver>): MatchingResult<Pair<HttpResponse, Resolver>> {
-        if(status == DEFAULT_RESPONSE_CODE)
-            return MatchSuccess(parameters)
+        if(status == DEFAULT_RESPONSE_CODE) return MatchSuccess(parameters)
 
-        val (response, _) = parameters
-
-        val body = response.body
-
+        val (response, resolver) = parameters
         return when (response.status) {
             status -> MatchSuccess(parameters)
-            else -> MatchFailure(mismatchResult("status $status", "status ${response.status}").copy(breadCrumb = "RESPONSE.STATUS", failureReason = FailureReason.StatusMismatch))
+            else -> MatchFailure(mismatchFailure(
+                expected = "status $status",
+                actual = "status ${response.status}",
+                ruleViolation = OpenApiRuleViolation.STATUS_MISMATCH,
+                mismatchMessages = resolver.mismatchMessages
+            ).copy(breadCrumb = "RESPONSE.STATUS", failureReason = FailureReason.StatusMismatch))
         }
     }
 
@@ -217,12 +220,17 @@ data class HttpResponsePattern(
         }.breadCrumb("RESPONSE").value
     }
 
-    private fun generateResponseWith(value: Value, resolver: Resolver): HttpResponse {
+    private fun generateResponseWith(value: Value, resolver: Resolver, resultHeaderValue: String = "success"): HttpResponse {
         return attempt(breadCrumb = "RESPONSE") {
-            val generatedBody = softCastValueToXML(value)
+            val generatedBody =
+                if (headersPattern.isXML(resolver)) {
+                    adjustPayloadForContentType(value, mapOf("Content-Type" to "application/xml"))
+                } else {
+                    value
+                }
             val headers = headersPattern.generate(
                 resolver = resolver.updateLookupPath(BreadCrumb.RESPONSE.value)
-            ).plus(SPECMATIC_RESULT_HEADER to "success").let { headers ->
+            ).plus(SPECMATIC_RESULT_HEADER to resultHeaderValue).let { headers ->
                 if ((headers.containsKey("Content-Type").not() && generatedBody.httpContentType.isBlank().not()))
                     headers.plus("Content-Type" to generatedBody.httpContentType)
                 else headers
@@ -246,6 +254,16 @@ data class HttpResponsePattern(
             body = body.fixValue(response.body, resolver)
         )
     }
+
+    fun addErrorToPayload(errorReport: String, resolver: Resolver): HttpResponsePattern {
+        val bodyPattern = resolvedHop(body, resolver)
+        if (bodyPattern !is JSONObjectPattern) {
+            return this
+        }
+
+        val newBodyPattern: Pattern = bodyPattern.addToFirstString(errorReport, resolver)
+        return this.copy(body = newBodyPattern)
+    }
 }
 
 private val valueMismatchMessages = object : MismatchMessages {
@@ -254,11 +272,14 @@ private val valueMismatchMessages = object : MismatchMessages {
     }
 
     override fun unexpectedKey(keyLabel: String, keyName: String): String {
-        return "Value mismatch: $keyLabel $keyName in value was unexpected"
+        return "Value mismatch: $keyLabel \"$keyName\" was unexpected"
     }
 
     override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
-        return "Value mismatch: $keyLabel $keyName was missing"
+        return "Value mismatch: $keyLabel \"$keyName\" was missing"
     }
 
+    override fun optionalKeyMissing(keyLabel: String, keyName: String): String {
+        return "Value mismatch: $keyLabel \"$keyName\" was missing"
+    }
 }

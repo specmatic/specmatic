@@ -1,8 +1,11 @@
 package io.specmatic.conversions
 
+import io.specmatic.core.DefaultMismatchMessages
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -14,10 +17,11 @@ class APIKeyInHeaderSecuritySchemeTest {
         val result = APIKeyInHeaderSecurityScheme(name = "API-KEY", apiKey = "123").matches(httpRequest, resolver)
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> HEADER.API-KEY
-        Expected api-key named "API-KEY" was missing
-        """.trimIndent())
+        assertThat(result.reportString()).isEqualToNormalizingWhitespace(toViolationReportString(
+            breadCrumb = "HEADER.API-KEY",
+            details = DefaultMismatchMessages.expectedKeyWasMissing(apiKeyParamName, "API-KEY"),
+            StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+        ))
     }
 
     @Test

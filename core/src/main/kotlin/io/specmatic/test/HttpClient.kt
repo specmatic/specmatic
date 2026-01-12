@@ -32,6 +32,7 @@ import java.util.zip.GZIPInputStream
 fun createHttpClient(baseURL: String, timeoutInMilliseconds: Long) = LegacyHttpClient(baseURL, timeoutInMilliseconds)
 
 private const val SERVER_STATE_URL = "/_$APPLICATION_NAME_LOWER_CASE/state"
+internal const val SET_COOKIE_SEPARATOR = "~~"
 
 data class HttpClient(
     private val baseURL: String,
@@ -54,14 +55,14 @@ data class HttpClient(
         return try {
             runBlocking {
                 val ktorResponse: io.ktor.client.statement.HttpResponse = httpClient.value.request(url) {
-                    requestWithFileContent.buildKTORRequest(this, url)
+                    requestWithFileContent.buildKTORRequest(this)
                 }
 
                 val outboundRequest: HttpRequest = ktorHttpRequestToHttpRequestForLogging(ktorResponse.request, requestWithFileContent)
                 httpLogMessage.request = outboundRequest
 
                 ktorResponseToHttpResponse(ktorResponse)
-                    .adjustPayloadForContentType(request.headers)
+                    .adjustPayloadForContentType()
                     .also {
                         httpLogMessage.addResponseWithCurrentTime(it)
                         log(httpLogMessage)
@@ -206,12 +207,31 @@ suspend fun ktorResponseToHttpResponse(ktorResponse: io.ktor.client.statement.Ht
 
 suspend fun decodeBody(ktorResponse: io.ktor.client.statement.HttpResponse): Pair<Map<String, String>, String> {
     val encoding = ktorResponse.headers["Content-Encoding"]
-    val headers = ktorResponse.headers.toMap().mapValues { it.value.first() }
+    val headers = ktorHeadersToInternalHeaders(ktorResponse.headers.toMap())
 
     return try {
         decodeBody(ktorResponse.readBytes(), encoding, ktorResponse.charset(), headers)
     } catch (e: ClientRequestException) {
         decodeBody(e.response.readBytes(), encoding, ktorResponse.charset(), headers)
+    }
+}
+
+internal fun ktorHeadersToInternalHeaders(headers: Map<String, List<String>>): Map<String, String> {
+    return headers.entries.associateBy (
+        keySelector = { it.key },
+        valueTransform = { (name, values) ->
+            if (!name.equals(HttpHeaders.SetCookie, ignoreCase = true)) return@associateBy values.first()
+            values.joinToString(separator = SET_COOKIE_SEPARATOR)
+        }
+    )
+}
+
+internal fun internalHeadersToKtorHeaders(headers: Map<String, String>): Map<String, List<String>> {
+    return headers.mapValues { (name, value) ->
+        when {
+            name.equals(HttpHeaders.SetCookie, ignoreCase = true) -> value.split(SET_COOKIE_SEPARATOR)
+            else -> listOf(value)
+        }
     }
 }
 

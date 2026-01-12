@@ -101,6 +101,7 @@ specmatic {
 
         dockerBuild {
             imageName = "specmatic"
+            dockerOrgNames = listOf("specmatic")
         }
         publish {
             pom {
@@ -160,5 +161,12 @@ specmatic {
                 }
             }
         }
+    }
+}
+
+
+subprojects {
+    tasks.withType<Test> {
+        systemProperty("specmatic.license.utilization.shipDisabled", "true")
     }
 }

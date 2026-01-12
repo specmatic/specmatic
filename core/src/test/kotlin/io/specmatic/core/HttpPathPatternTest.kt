@@ -8,6 +8,7 @@ import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import io.specmatic.core.pattern.*
+import io.specmatic.toViolationReportString
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Tag
@@ -211,10 +212,7 @@ internal class HttpPathPatternTest {
                 )
             } returns StringValue("pets")
             every {
-                it.withCyclePrevention<NumberValue>(
-                    DeferredPattern("(number)", "petid"),
-                    any()
-                )
+                it.withCyclePrevention<NumberValue>(NumberPattern(), any())
             } returns NumberValue(123)
             every {
                 it.withCyclePrevention<StringValue>(
@@ -223,10 +221,7 @@ internal class HttpPathPatternTest {
                 )
             } returns StringValue("owner")
             every {
-                it.withCyclePrevention<StringValue>(
-                    DeferredPattern("(string)", "owner"),
-                    any()
-                )
+                it.withCyclePrevention<StringValue>(StringPattern(), any())
             } returns StringValue("hari")
         }
         urlPattern.generate(resolver).let {
@@ -331,7 +326,7 @@ internal class HttpPathPatternTest {
                 URLPathSegmentPattern(ExactValuePattern(StringValue("organizations"))),
                 URLPathSegmentPattern(BooleanPattern(), "orgId"),
                 URLPathSegmentPattern(ExactValuePattern(StringValue("employees"))),
-                URLPathSegmentPattern(DeferredPattern("(number)"), "empId"),
+                URLPathSegmentPattern(NumberPattern(), "empId"),
             )
         )
         assertThat(negativePatterns[1].value).containsExactlyElementsOf(
@@ -339,13 +334,13 @@ internal class HttpPathPatternTest {
                 URLPathSegmentPattern(ExactValuePattern(StringValue("organizations"))),
                 URLPathSegmentPattern(StringPattern(), "orgId"),
                 URLPathSegmentPattern(ExactValuePattern(StringValue("employees"))),
-                URLPathSegmentPattern(DeferredPattern("(number)"), "empId"),
+                URLPathSegmentPattern(NumberPattern(), "empId"),
             )
         )
         assertThat(negativePatterns[2].value).containsExactlyElementsOf(
             listOf(
                 URLPathSegmentPattern(ExactValuePattern(StringValue("organizations"))),
-                URLPathSegmentPattern(DeferredPattern("(number)"), "orgId"),
+                URLPathSegmentPattern(NumberPattern(), "orgId"),
                 URLPathSegmentPattern(ExactValuePattern(StringValue("employees"))),
                 URLPathSegmentPattern(BooleanPattern(), "empId"),
             )
@@ -353,7 +348,7 @@ internal class HttpPathPatternTest {
         assertThat(negativePatterns[3].value).containsExactlyElementsOf(
             listOf(
                 URLPathSegmentPattern(ExactValuePattern(StringValue("organizations"))),
-                URLPathSegmentPattern(DeferredPattern("(number)"), "orgId"),
+                URLPathSegmentPattern(NumberPattern(), "orgId"),
                 URLPathSegmentPattern(ExactValuePattern(StringValue("employees"))),
                 URLPathSegmentPattern(StringPattern(), "empId"),
             )
@@ -456,6 +451,15 @@ internal class HttpPathPatternTest {
             val generated = pattern.generate(resolver)
             assertThat(generated).isEqualTo("/test/specmatic_test")
         }
+    }
+
+    @Test
+    fun `should not encompass a path pattern which is structurally different`() {
+        val simplestPathPattern = HttpPathPattern.from("/")
+        val complexPathPattern = HttpPathPattern.from("/api/order/(param:integer)")
+
+        assertThat(complexPathPattern.encompasses(simplestPathPattern, Resolver(), Resolver())).isInstanceOf(Result.Failure::class.java)
+        assertThat(simplestPathPattern.encompasses(complexPathPattern, Resolver(), Resolver())).isInstanceOf(Result.Failure::class.java)
     }
 
     @Nested
@@ -590,10 +594,13 @@ internal class HttpPathPatternTest {
                 pathPattern.fillInTheBlanks(path, Resolver(dictionary = dictionary)).value
             }
 
-            assertThat(exception.failure().reportString()).isEqualToNormalizingWhitespace("""
-            >> id
-            Expected number, actual was string
-            """.trimIndent())
+            assertThat(exception.failure().reportString()).isEqualToNormalizingWhitespace(
+                toViolationReportString(
+                    breadCrumb = "id",
+                    details = DefaultMismatchMessages.patternMismatch("number", "string"),
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            )
         }
 
         @Test

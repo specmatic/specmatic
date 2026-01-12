@@ -5,17 +5,16 @@ plugins {
 }
 
 dependencies {
-    // Pinned dependencies
-    implementation("io.netty:netty-codec-http2:4.2.7.Final")
+    implementation("io.netty:netty-codec-http:4.2.9.Final")
+    implementation("io.netty:netty-codec-http2:4.2.9.Final")
 
     implementation("io.specmatic.build-reporter:specmatic-reporter-min:${project.ext["specmaticReporterVersion"]}") {
         exclude(group = "commons-logging", module = "commons-logging")
     }
-    implementation("io.netty:netty-codec-http:4.2.7.Final")
     implementation("joda-time:joda-time:2.14.0")
     implementation("net.minidev:json-smart:2.6.0")
 
-    implementation("com.ezylang:EvalEx:3.5.0")
+    implementation("com.ezylang:EvalEx:3.6.0")
     implementation("org.apache.commons:commons-lang3:3.20.0")
     implementation("io.cucumber:gherkin:33.0.0")
     implementation("io.ktor:ktor-server-netty:2.3.13")

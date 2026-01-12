@@ -53,6 +53,8 @@ sealed class Result {
     abstract fun withBindings(bindings: Map<String, String>, response: HttpResponse): Result
     abstract fun breadCrumb(breadCrumb: String): Result
     abstract fun failureReason(failureReason: FailureReason?): Result
+    open fun toIssues(breadCrumbToJsonPathConverter: BreadCrumbToJsonPathConverter = BreadCrumbToJsonPathConverter()): List<Issue> = emptyList()
+    open fun withRuleViolation(ruleViolation: RuleViolation): Result = this
 
     abstract fun shouldBeIgnored(): Boolean
 
@@ -106,6 +108,10 @@ sealed class Result {
             return this.copy(cause = cause?._removeReasonsFromCauses())
         }
 
+        fun removeViolationReport(): FailureCause {
+            return this.copy(cause = cause?.removeViolationReport())
+        }
+
         fun reasonIs(reasonFilter: (failureReason: FailureReason) -> Boolean): Boolean {
             return (cause ?: return false).reasonIs(reasonFilter)
         }
@@ -115,8 +121,21 @@ sealed class Result {
         }
     }
 
-    data class Failure(val causes: List<FailureCause> = emptyList(), val breadCrumb: String = "", val failureReason: FailureReason? = null, val isPartial: Boolean = false) : Result() {
-        constructor(message: String="", cause: Failure? = null, breadCrumb: String = "", failureReason: FailureReason? = null, isPartial: Boolean? = false): this(listOf(FailureCause(message, cause)), breadCrumb, failureReason, isPartial ?: false)
+    data class Failure(val causes: List<FailureCause> = emptyList(), val breadCrumb: String = "", val failureReason: FailureReason? = null, val isPartial: Boolean = false, val ruleViolationReport: RuleViolationReport? = null) : Result() {
+        constructor(
+            message: String = "",
+            cause: Failure? = null,
+            breadCrumb: String = "",
+            failureReason: FailureReason? = null,
+            isPartial: Boolean? = false,
+            ruleViolation: RuleViolation? = null
+        ) : this (
+            causes = listOf(element = FailureCause(message, cause)),
+            breadCrumb = breadCrumb,
+            failureReason = failureReason,
+            isPartial = isPartial ?: false,
+            ruleViolationReport = ruleViolation?.let(RuleViolationReport::from)
+        )
 
         companion object {
             fun fromFailures(failures: List<Failure>): Failure {
@@ -221,9 +240,14 @@ sealed class Result {
                         else -> matchFailureDetails
                     }
 
-                    when {
+                    val withBreadCrumbs = when {
                         breadCrumb.isNotEmpty() -> withReason.copy(breadCrumbs = listOf(breadCrumb).plus(withReason.breadCrumbs))
                         else -> withReason
+                    }
+
+                    when {
+                        ruleViolationReport != null -> withBreadCrumbs.copy(ruleViolationReport = ruleViolationReport.plus(withBreadCrumbs.ruleViolationReport))
+                        else -> withBreadCrumbs
                     }
                 }
             }
@@ -234,6 +258,20 @@ sealed class Result {
         }
 
         override fun isSuccess() = false
+
+        override fun withRuleViolation(ruleViolation: RuleViolation): Failure {
+            val ruleViolationReport = this.ruleViolationReport ?: RuleViolationReport()
+            return copy(ruleViolationReport = ruleViolationReport.withViolation(ruleViolation))
+        }
+
+        override fun toIssues(breadCrumbToJsonPathConverter: BreadCrumbToJsonPathConverter): List<Issue> {
+            return toFailureReport().toIssues(breadCrumbToJsonPathConverter)
+        }
+
+        fun withRuleViolationReport(ruleViolationReport: RuleViolationReport? = null): Failure {
+            if (this.ruleViolationReport == null) return copy(ruleViolationReport = ruleViolationReport)
+            return copy(ruleViolationReport = this.ruleViolationReport.plus(ruleViolationReport))
+        }
 
         fun traverseFailureReason(): FailureReason? {
             return failureReason ?: causes.asSequence().map {
@@ -262,6 +300,10 @@ sealed class Result {
 
         fun isEmpty(): Boolean {
             return this.causes.isEmpty()
+        }
+
+        fun removeViolationReport(): Failure {
+            return this.copy(causes = causes.map { it.removeViolationReport() }, ruleViolationReport = null)
         }
 
         fun removeReasonsFromCauses(): Failure {
@@ -346,18 +388,60 @@ enum class FailureReason(val fluffLevel: Int, val objectMatchOccurred: Boolean) 
     ScenarioMismatch(2, false)
 }
 
-data class MatchFailureDetails(val breadCrumbs: List<String> = emptyList(), val errorMessages: List<String> = emptyList(), val path: String? = null, val isPartial: Boolean = false)
+data class MatchFailureDetails(
+    val breadCrumbs: List<String> = emptyList(),
+    val errorMessages: List<String> = emptyList(),
+    val path: String? = null,
+    val isPartial: Boolean = false,
+    val ruleViolationReport: RuleViolationReport? = null
+)
 
 interface MismatchMessages {
     fun mismatchMessage(expected: String, actual: String): String
     fun unexpectedKey(keyLabel: String, keyName: String): String
     fun expectedKeyWasMissing(keyLabel: String, keyName: String): String
+
     fun optionalKeyMissing(keyLabel: String, keyName: String): String {
-        return expectedKeyWasMissing("optional ${keyLabel.lowercase()}", keyName)
+        return expectedKeyWasMissing("optional $keyLabel", keyName)
     }
-    fun valueMismatchFailure(expected: String, actual: Value?, mismatchMessages: MismatchMessages = this): Failure {
-        return mismatchResult(expected, valueError(actual) ?: "null", mismatchMessages)
+
+    fun valueMismatch(expected: String, actual: String): String {
+        return mismatchMessage(expected, actual)
     }
+
+    fun typeMismatch(expectedType: String, actualValue: String?, actualType: String?): String {
+        val expectedPart = "type $expectedType"
+        val actualPart = if (actualValue == null || setOf(null, "null").contains(actualType)) {
+            "null"
+        } else {
+            "value $actualValue of type $actualType"
+        }
+        return mismatchMessage(expectedPart, actualPart)
+    }
+
+    fun patternMismatch(expected: String, actual: String): String {
+        return mismatchMessage(expected, actual)
+    }
+
+    fun patternMismatch(expected: Pattern, actual: Pattern): String {
+        return patternMismatch(inferTypeFromPattern(expected), inferTypeFromPattern(actual))
+    }
+
+    fun valueMismatch(expected: Value, actual: Value?): String {
+        return mismatchMessage(toPartFromValue(expected), toPartFromValue(actual))
+    }
+
+    fun typeMismatch(expectedType: Pattern, actualValue: Value?): String {
+        return typeMismatch(
+            inferTypeFromPattern(expectedType),
+            toPartFromValue(actualValue),
+            inferTypeFromValue(actualValue)
+        )
+    }
+
+    fun inferTypeFromPattern(pattern: Pattern): String = pattern.typeName
+    fun inferTypeFromValue(value: Value?): String? = value?.displayableType()
+    fun toPartFromValue(value: Value?): String = value?.displayableValue() ?: "null"
 }
 
 object DefaultMismatchMessages: MismatchMessages {
@@ -366,27 +450,125 @@ object DefaultMismatchMessages: MismatchMessages {
     }
 
     override fun unexpectedKey(keyLabel: String, keyName: String): String {
-        return "${keyLabel.lowercase().capitalizeFirstChar()} named \"$keyName\" was unexpected"
+        return "${keyLabel.capitalizeFirstChar()} \"$keyName\" was unexpected"
     }
 
     override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
-        return "Expected ${keyLabel.lowercase()} named \"$keyName\" was missing"
+        return "Expected $keyLabel \"$keyName\" was missing"
     }
 
     override fun optionalKeyMissing(keyLabel: String, keyName: String): String {
-        return "Expected optional ${keyLabel.lowercase()} named \"$keyName\" was missing"
+        return "Expected optional $keyLabel \"$keyName\" was missing"
     }
 }
 
-fun mismatchResult(expected: String, actual: String, mismatchMessages: MismatchMessages = DefaultMismatchMessages): Failure = Failure(mismatchMessages.mismatchMessage(expected, actual))
-fun mismatchResult(expected: String, actual: Value?, mismatchMessages: MismatchMessages = DefaultMismatchMessages): Failure = mismatchMessages.valueMismatchFailure(expected, actual, mismatchMessages)
-fun mismatchResult(expected: Value, actual: Value?, mismatchMessages: MismatchMessages = DefaultMismatchMessages): Failure = mismatchResult(valueError(expected) ?: "null", valueError(actual) ?: "nothing", mismatchMessages)
-fun mismatchResult(expected: Pattern, actual: String, mismatchMessages: MismatchMessages = DefaultMismatchMessages): Failure = mismatchResult(expected.typeName, actual, mismatchMessages)
-fun mismatchResult(pattern: Pattern, sampleData: Value?, mismatchMessages: MismatchMessages = DefaultMismatchMessages): Failure = mismatchResult(pattern, sampleData?.toStringLiteral() ?: "null", mismatchMessages)
-fun mismatchResult(thisPattern: Pattern, otherPattern: Pattern, mismatchMessages: MismatchMessages = DefaultMismatchMessages): Failure {
-    return mismatchResult(thisPattern.typeName, otherPattern.typeName, mismatchMessages)
-}
+fun mismatchFailure(
+    expected: String,
+    actual: String,
+    mismatchMessages: MismatchMessages,
+    ruleViolation: RuleViolation,
+): Failure = Failure(message = mismatchMessages.mismatchMessage(expected, actual), ruleViolation = ruleViolation)
 
-fun valueError(value: Value?): String? {
-    return value?.valueErrorSnippet()
-}
+// Value Mismatch Result
+fun valueMismatchResult(
+    expected: String,
+    actual: String,
+    mismatchMessages: MismatchMessages = DefaultMismatchMessages
+): Failure = Failure(
+    message = mismatchMessages.valueMismatch(expected, actual),
+    ruleViolation = StandardRuleViolation.VALUE_MISMATCH
+)
+
+fun valueMismatchResult(
+    expected: String,
+    actual: Value?,
+    mismatchMessages: MismatchMessages = DefaultMismatchMessages
+): Failure = Failure(
+    message = mismatchMessages.valueMismatch(expected, mismatchMessages.toPartFromValue(actual)),
+    ruleViolation = StandardRuleViolation.VALUE_MISMATCH
+)
+
+fun valueMismatchResult(
+    expected: Value,
+    actual: Value?,
+    mismatchMessages: MismatchMessages = DefaultMismatchMessages
+): Failure = Failure(
+    message = mismatchMessages.valueMismatch(expected, actual),
+    ruleViolation = StandardRuleViolation.VALUE_MISMATCH
+)
+
+// Data Type Mismatch Result
+fun dataTypeMismatchResult(
+    expectedType: String,
+    actual: String?,
+    actualType: String?,
+    mismatchMessages: MismatchMessages = DefaultMismatchMessages
+): Failure = Failure(
+    message = mismatchMessages.typeMismatch(expectedType, actual, actualType),
+    ruleViolation = StandardRuleViolation.TYPE_MISMATCH
+)
+
+fun dataTypeMismatchResult(
+    expected: Pattern,
+    actual: String?,
+    actualType: String?,
+    mismatchMessages: MismatchMessages = DefaultMismatchMessages
+): Failure = Failure(
+    message = mismatchMessages.typeMismatch(mismatchMessages.inferTypeFromPattern(expected), actual, actualType),
+    ruleViolation = StandardRuleViolation.TYPE_MISMATCH
+)
+
+fun dataTypeMismatchResult(
+    expected: String,
+    sampleData: Value?,
+    mismatchMessages: MismatchMessages = DefaultMismatchMessages
+): Failure = Failure(
+    message = mismatchMessages.typeMismatch(
+        expectedType = expected,
+        actualValue = mismatchMessages.toPartFromValue(sampleData),
+        actualType = mismatchMessages.inferTypeFromValue(sampleData)
+    ),
+    ruleViolation = StandardRuleViolation.TYPE_MISMATCH
+)
+
+fun dataTypeMismatchResult(
+    pattern: Pattern,
+    sampleData: Value?,
+    mismatchMessages: MismatchMessages = DefaultMismatchMessages
+): Failure = Failure(
+    message = mismatchMessages.typeMismatch(pattern, sampleData),
+    ruleViolation = StandardRuleViolation.TYPE_MISMATCH
+)
+
+// Constraint Mismatch
+fun constraintMismatchResult(
+    expected: String,
+    actual: String,
+    mismatchMessages: MismatchMessages = DefaultMismatchMessages
+): Failure = Failure(
+    message = mismatchMessages.valueMismatch(expected = expected, actual = actual),
+    ruleViolation = StandardRuleViolation.CONSTRAINT_VIOLATION
+)
+
+fun constraintMismatchResult(
+    expected: String,
+    actual: Value?,
+    mismatchMessages: MismatchMessages = DefaultMismatchMessages
+): Failure = Failure(
+    message = mismatchMessages.typeMismatch(
+        expectedType = expected,
+        actualValue = mismatchMessages.toPartFromValue(actual),
+        actualType = mismatchMessages.inferTypeFromValue(actual)
+    ),
+    ruleViolation = StandardRuleViolation.CONSTRAINT_VIOLATION
+)
+
+// Pattern Mismatch Result
+fun patternMismatchResult(
+    thisPattern: Pattern,
+    otherPattern: Pattern,
+    mismatchMessages: MismatchMessages = DefaultMismatchMessages
+): Failure = Failure(
+    message = mismatchMessages.patternMismatch(thisPattern, otherPattern),
+    ruleViolation = StandardRuleViolation.TYPE_MISMATCH
+)

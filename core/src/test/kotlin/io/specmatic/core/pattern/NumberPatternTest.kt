@@ -1,12 +1,15 @@
 package io.specmatic.core.pattern
 
 import io.specmatic.GENERATION
+import io.specmatic.core.DefaultMismatchMessages
 import io.specmatic.core.Resolver
 import io.specmatic.core.UseDefaultExample
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.shouldNotMatch
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.toViolationReportString
 import org.apache.commons.lang3.RandomStringUtils
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Tag
@@ -65,7 +68,13 @@ internal class NumberPatternTest {
     fun `should reject example values when minimum keyword is not met`() {
         val result = NumberPattern(minimum = BigDecimal(3)).matches(NumberValue(2), Resolver())
         assertThat(result.isSuccess()).isFalse()
-        assertThat(result.reportString()).isEqualTo("""Expected number >= 3, actual was 2 (number)""")
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace(
+            toViolationReportString(
+                breadCrumb = null,
+                details = DefaultMismatchMessages.typeMismatch("number >= 3", "2", "number"),
+                StandardRuleViolation.CONSTRAINT_VIOLATION
+            )
+        )
     }
 
     @Test
@@ -78,7 +87,13 @@ internal class NumberPatternTest {
     fun `should reject example values when exclusiveMinimum keyword is not met`() {
         val result = NumberPattern(minimum = BigDecimal(3), exclusiveMinimum = true).matches(NumberValue(3), Resolver())
         assertThat(result.isSuccess()).isFalse()
-        assertThat(result.reportString()).isEqualTo("""Expected number >= 4, actual was 3 (number)""")
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace(
+            toViolationReportString(
+                breadCrumb = null,
+                details = DefaultMismatchMessages.typeMismatch("number >= 4", "3", "number"),
+                StandardRuleViolation.CONSTRAINT_VIOLATION
+            )
+        )
     }
 
     @Test
@@ -91,7 +106,13 @@ internal class NumberPatternTest {
     fun `should reject example values when maximum keyword is not met`() {
         val result = NumberPattern(maximum = BigDecimal(99.0)).matches(NumberValue(100), Resolver())
         assertThat(result.isSuccess()).isFalse()
-        assertThat(result.reportString()).isEqualTo("""Expected number <= 99, actual was 100 (number)""")
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace(
+            toViolationReportString(
+                breadCrumb = null,
+                details = DefaultMismatchMessages.typeMismatch("number <= 99", "100", "number"),
+                StandardRuleViolation.CONSTRAINT_VIOLATION
+            )
+        )
     }
 
     @Test
@@ -104,7 +125,13 @@ internal class NumberPatternTest {
     fun `should reject example values when exclusiveMaximum keyword is not met`() {
         val result = NumberPattern(maximum = BigDecimal(99), exclusiveMaximum = true).matches(NumberValue(99), Resolver())
         assertThat(result.isSuccess()).isFalse()
-        assertThat(result.reportString()).isEqualTo("""Expected number <= 98, actual was 99 (number)""")
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace(
+            toViolationReportString(
+                breadCrumb = null,
+                details = DefaultMismatchMessages.typeMismatch("number <= 98", "99", "number"),
+                StandardRuleViolation.CONSTRAINT_VIOLATION
+            )
+        )
     }
 
     @Test
@@ -167,7 +194,7 @@ internal class NumberPatternTest {
 
     @Test
     fun `should match number of any length when min and max are not specified`() {
-        val randomNumber = RandomStringUtils.randomNumeric((1..9).random()).toInt()
+        val randomNumber = RandomStringUtils.randomNumeric((1..9).random()).toLong()
         assertThat(NumberPattern().matches(NumberValue(randomNumber), Resolver()).isSuccess()).isTrue
     }
 
@@ -177,7 +204,7 @@ internal class NumberPatternTest {
         val generatedValues = (0..5).map { NumberPattern(minimum = minimum).generate(Resolver()) }
         assertThat(generatedValues).allSatisfy {
             it as NumberValue
-            assertThat(it.number as Int).isGreaterThanOrEqualTo(minimum.toInt())
+            assertThat(it.number as Long).isGreaterThanOrEqualTo(minimum.toLong())
         }
     }
 
@@ -187,7 +214,7 @@ internal class NumberPatternTest {
         val generatedValues = (0..5).map { NumberPattern(maximum = maximum).generate(Resolver()) }
         assertThat(generatedValues).allSatisfy {
             it as NumberValue
-            assertThat(it.number as Int).isLessThanOrEqualTo(maximum.toInt())
+            assertThat(it.number as Long).isLessThanOrEqualTo(maximum.toLong())
         }
     }
 
@@ -198,7 +225,7 @@ internal class NumberPatternTest {
         val generatedValues = (0..5).map { NumberPattern(minimum = minimum, maximum = maximum).generate(Resolver()) }
         assertThat(generatedValues).allSatisfy {
             it as NumberValue
-            assertThat(it.number as Int).isGreaterThanOrEqualTo(minimum.toInt()).isLessThanOrEqualTo(maximum.toInt())
+            assertThat(it.number as Long).isGreaterThanOrEqualTo(minimum.toLong()).isLessThanOrEqualTo(maximum.toLong())
         }
     }
 
@@ -227,7 +254,7 @@ internal class NumberPatternTest {
         val generatedValues = (0..5).map { NumberPattern(maximum = maximum).generate(Resolver()) }
         assertThat(generatedValues).allSatisfy {
             it as NumberValue
-            assertThat(it.number as Int).isLessThanOrEqualTo(maximum.toInt())
+            assertThat(it.number as Long).isLessThanOrEqualTo(maximum.toLong())
         }
     }
 
@@ -238,7 +265,7 @@ internal class NumberPatternTest {
         val generatedValues = (0..5).map { NumberPattern(minimum = minimum, maximum = maximum).generate(Resolver()) }
         assertThat(generatedValues).allSatisfy {
             it as NumberValue
-            assertThat(it.number as Int).isGreaterThanOrEqualTo(minimum.toInt()).isLessThanOrEqualTo(maximum.toInt())
+            assertThat(it.number as Long).isGreaterThanOrEqualTo(minimum.toLong()).isLessThanOrEqualTo(maximum.toLong())
         }
     }
 
@@ -255,7 +282,7 @@ internal class NumberPatternTest {
         }
         assertThat(generatedValues).allSatisfy {
             it as NumberValue
-            assertThat(it.number as Int).isGreaterThanOrEqualTo(minimum.toInt()).isLessThanOrEqualTo(maximum.toInt())
+            assertThat(it.number as Long).isGreaterThanOrEqualTo(minimum.toLong()).isLessThanOrEqualTo(maximum.toLong())
         }
     }
 
@@ -263,14 +290,26 @@ internal class NumberPatternTest {
     fun `should not match when number is shorter than minLength`() {
         val result = NumberPattern(minLength = 4).matches(NumberValue(123), Resolver())
         assertThat(result.isSuccess()).isFalse
-        assertThat(result.reportString()).isEqualTo("""Expected number with minLength 4, actual was 123 (number)""")
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace(
+            toViolationReportString(
+                breadCrumb = null,
+                details = DefaultMismatchMessages.typeMismatch("number with minLength 4", "123", "number"),
+                StandardRuleViolation.CONSTRAINT_VIOLATION
+            )
+        )
     }
 
     @Test
     fun `should not match when number is longer than maxLength`() {
         val result = NumberPattern(maxLength = 3).matches(NumberValue(1234), Resolver())
         assertThat(result.isSuccess()).isFalse
-        assertThat(result.reportString()).isEqualTo("""Expected number with maxLength 3, actual was 1234 (number)""")
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace(
+            toViolationReportString(
+                breadCrumb = null,
+                details = DefaultMismatchMessages.typeMismatch("number with maxLength 3", "1234", "number"),
+                StandardRuleViolation.CONSTRAINT_VIOLATION
+            )
+        )
     }
 
     @Test
@@ -351,12 +390,12 @@ internal class NumberPatternTest {
     @ParameterizedTest
     @CsvSource(
         "givenMin, givenMax, givenType, expectedTestMin, expectedTestMax, exclusive",
-        "none, 10, int, INT_MIN, 10, non-exclusive",
-        "-10, none, int, -10, INT_MAX, non-exclusive",
+        "none, 10, int, LONG_MIN, 10, non-exclusive",
+        "-10, none, int, -10, LONG_MAX, non-exclusive",
         "none, 10.0, double, DOUBLE_MIN, 10.0, non-exclusive",
         "-10.0, none, double, -10.0, DOUBLE_MAX, non-exclusive",
-        "none, 10, int, INT_MIN+1, 10, exclusive",
-        "-10, none, int, -10, INT_MAX-1, exclusive",
+        "none, 10, int, LONG_MIN+1, 10, exclusive",
+        "-10, none, int, -10, LONG_MAX-1, exclusive",
         "none, 10.0, double, DOUBLE_MIN+1, 10.0, exclusive",
         "-10.0, none, double, -10.0, DOUBLE_MAX-1, exclusive",
         useHeadersInDisplayName = true,
@@ -369,18 +408,15 @@ internal class NumberPatternTest {
         expectedTestMax: String,
         exclusivity: String,
     ) {
-        val parseNumber =
-            if (givenType == "int") {
-                { s: String -> BigDecimal(s.toInt()) }
-            } else {
-                { s: String -> BigDecimal(s.toDouble()) }
-            }
+        val parseNumber = when (givenType) {
+            "long" -> { s: String -> BigDecimal(s.toLong()) }
+            else -> { s: String -> BigDecimal(s.toDouble()) }
+        }
 
         val minimum = if (givenMin == "none") null else parseNumber(givenMin)
         val maximum = if (givenMax == "none") null else parseNumber(givenMax)
-
         val exclusive = exclusivity == "exclusive"
-        val isDoubleFormat = givenType != "int"
+        val isDoubleFormat = givenType == "double"
 
         val testValues =
             NumberPattern(
@@ -393,14 +429,14 @@ internal class NumberPatternTest {
 
         val expectedMinTestNumber =
             when (expectedTestMin) {
-                "INT_MIN" -> {
-                    Int.MIN_VALUE
+                "LONG_MIN" -> {
+                    Long.MIN_VALUE
                 }
                 "DOUBLE_MIN" -> {
                     -Double.MAX_VALUE
                 }
-                "INT_MIN+1" -> {
-                    Int.MIN_VALUE + 1
+                "LONG_MIN+1" -> {
+                    Long.MIN_VALUE + 1L
                 }
                 "DOUBLE_MIN+1" -> {
                     -Double.MAX_VALUE + 1
@@ -412,14 +448,14 @@ internal class NumberPatternTest {
 
         val expectedMaxTestNumber =
             when (expectedTestMax) {
-                "INT_MAX" -> {
-                    Int.MAX_VALUE
+                "LONG_MAX" -> {
+                    Long.MAX_VALUE
                 }
                 "DOUBLE_MAX" -> {
                     Double.MAX_VALUE
                 }
-                "INT_MAX-1" -> {
-                    Int.MAX_VALUE - 1
+                "LONG_MAX-1" -> {
+                    Long.MAX_VALUE - 1L
                 }
                 "DOUBLE_MAX-1" -> {
                     Double.MAX_VALUE - 1
@@ -439,12 +475,10 @@ internal class NumberPatternTest {
             it is ExactValuePattern && it.pattern.let { it is NumberValue && it.nativeValue == expectedMaxTestNumber }
         }
 
-        val cast =
-            if (isDoubleFormat) {
-                { number: Number -> BigDecimal(number.toDouble()) }
-            } else {
-                { number: Number -> BigDecimal(number.toInt()) }
-            }
+        val cast = when (givenType) {
+            "long" -> { number: Number -> BigDecimal(number.toLong()) }
+            else -> { number: Number -> BigDecimal(number.toDouble()) }
+        }
 
         assertThat(testValues).anySatisfy {
             it is ExactValuePattern &&
@@ -563,8 +597,8 @@ internal class NumberPatternTest {
 
     @Test
     fun `newBasedOn should include boundary values when enabled boundary testing is enabled`() {
-        val intMinimum = BigDecimal(Int.MIN_VALUE)
-        val intMaximum = BigDecimal(Int.MAX_VALUE)
+        val longMinimum = BigDecimal(Long.MIN_VALUE)
+        val longMaximum = BigDecimal(Long.MAX_VALUE)
 
         val generated =
             NumberPattern(boundaryTestingEnabled = true)
@@ -574,6 +608,25 @@ internal class NumberPatternTest {
 
         val boundaryExactValues = generated.filterIsInstance<ExactValuePattern>().map { (it.pattern as NumberValue).nativeValue as BigDecimal }
 
-        assertThat(boundaryExactValues).contains(intMinimum, intMaximum)
+        assertThat(boundaryExactValues).contains(longMinimum, longMaximum)
+    }
+
+    @Test
+    fun `should match numbers beyond Int range`() {
+        val pattern = NumberPattern(isDoubleFormat = false)
+        val smallerThanIntMin = NumberValue(Int.MIN_VALUE.toLong() - 1L)
+        val largerThanIntMax = NumberValue(Int.MAX_VALUE.toLong() + 1L)
+
+        val resolver = Resolver()
+        val smallerResult = pattern.matches(smallerThanIntMin, resolver)
+        val largerResult = pattern.matches(largerThanIntMax, resolver)
+
+        assertThat(smallerResult.isSuccess())
+            .withFailMessage("Expected value smaller than Int.MIN_VALUE to match, but it failed with: ${smallerResult.reportString()}")
+            .isTrue()
+
+        assertThat(largerResult.isSuccess())
+            .withFailMessage("Expected value larger than Int.MAX_VALUE to match, but it failed with: ${largerResult.reportString()}")
+            .isTrue()
     }
 }

@@ -21,6 +21,9 @@ import io.specmatic.core.utilities.Flags.Companion.getLongValue
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
+import io.specmatic.license.core.LicenseResolver
+import io.specmatic.license.core.LicensedProduct
+import io.specmatic.license.core.util.LicenseConfig
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.stub.hasOpenApiFileExtension
 import io.specmatic.stub.isOpenAPI
@@ -217,7 +220,7 @@ open class SpecmaticJUnitSupport {
             specConfigs = specConfigs,
             coverage = report.totalCoveragePercentage,
             reportDir = File("$ARTIFACTS_PATH/test")
-        ){ ctrfTestResultRecords ->
+        ) { ctrfTestResultRecords ->
             ctrfTestResultRecords.filterIsInstance<TestResultRecord>().getCoverageStatus()
         }
 
@@ -257,6 +260,11 @@ open class SpecmaticJUnitSupport {
 
     @TestFactory
     fun contractTest(): Stream<DynamicTest> {
+        LicenseResolver.setCurrentExecutorIfNotSet(SpecmaticJUnitSupport::class.java.simpleName)
+
+        specmaticConfig?.let {
+            LicenseConfig.instance.utilization.shipDisabled = it.isTelemetryDisabled()
+        }
         partialSuccesses.clear()
 
         val givenWorkingDirectory = System.getProperty(WORKING_DIRECTORY)
@@ -454,6 +462,12 @@ open class SpecmaticJUnitSupport {
         startTime = Instant.now()
         return testScenarios.map { (contractTest, baseURL) ->
             DynamicTest.dynamicTest(contractTest.testDescription()) {
+                LicenseResolver.utilize(
+                    product = LicensedProduct.OPEN_SOURCE,
+                    feature = TrackingFeature.TEST_EXECUTED,
+                    protocol = listOfNotNull(contractTest.protocol),
+                )
+
                 threads.add(Thread.currentThread().name)
 
                 var testResult: ContractTestExecutionResult? = null
@@ -463,19 +477,19 @@ open class SpecmaticJUnitSupport {
                         logger.log(logMessage)
                     }
 
-                    val httpClient = HttpClient(
-                        baseURL,
-                        log = log,
-                        timeoutInMilliseconds = timeoutInMilliseconds,
-                        httpInteractionsLog = httpInteractionsLog
-                    )
+                    val httpClient =
+                        HttpClient(
+                            baseURL,
+                            log = log,
+                            timeoutInMilliseconds = timeoutInMilliseconds,
+                            httpInteractionsLog = httpInteractionsLog,
+                        )
 
-                    try {
-                        testResult = contractTest.runTest(httpClient)
-                    } finally {
-                        httpClient.close()
-                    }
-                    val (result) = testResult!!
+                    testResult =
+                        httpClient.use { httpClient ->
+                            contractTest.runTest(httpClient)
+                        }
+                    val (result) = testResult
 
                     if (result is Result.Success && result.isPartialSuccess()) {
                         partialSuccesses.add(result)

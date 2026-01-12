@@ -6,6 +6,8 @@ import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.toViolationReportString
 import io.specmatic.test.asserts.AssertComparisonTest.Companion.toFactStore
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -66,8 +68,13 @@ class AssertArrayTest {
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
-        >> BODY[*].name
-        None of the values matched "ENTITY.name" of value "John"
+        ${
+            toViolationReportString(
+                breadCrumb = "BODY[*].name",
+                details = "None of the values matched \"ENTITY.name\" of value \"John\"",
+                StandardRuleViolation.VALUE_MISMATCH
+            )
+        }
         """.trimIndent())
     }
 
@@ -96,8 +103,13 @@ class AssertArrayTest {
         }
 
         assertThat(exception.report()).isEqualToNormalizingWhitespace("""
-        >> BODY.name
-        Array Asserts can only be used on arrays
+        ${
+            toViolationReportString(
+                breadCrumb = "BODY.name",
+                details = "Array Asserts can only be used on arrays",
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
         """.trimIndent())
     }
 

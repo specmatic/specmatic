@@ -467,7 +467,7 @@ class PostmanKtTests {
     When GET /stuff
     Then status 200
     And response-header Connection (string)
-    And response-header Content-Type text/plain
+    And response-header Content-Type application/json
     And response-body (integer)
   
   Scenario: With JSON body
@@ -477,7 +477,7 @@ class PostmanKtTests {
     And request-body (RequestBody)
     Then status 200
     And response-header Connection (string)
-    And response-header Content-Type text/plain
+    And response-header Content-Type application/json
     And response-body (integer)
   
     Examples:
@@ -488,7 +488,7 @@ class PostmanKtTests {
     When GET /stuff?one=(integer)
     Then status 200
     And response-header Connection (string)
-    And response-header Content-Type text/plain
+    And response-header Content-Type application/json
     And response-body (integer)
   
     Examples:
@@ -512,7 +512,7 @@ class PostmanKtTests {
     And form-field field1 (integer)
     Then status 200
     And response-header Connection (string)
-    And response-header Content-Type text/plain
+    And response-header Content-Type application/json
     And response-body (integer)
   
     Examples:
@@ -524,7 +524,7 @@ class PostmanKtTests {
     And request-part part1 (integer)
     Then status 200
     And response-header Connection (string)
-    And response-header Content-Type text/plain
+    And response-header Content-Type application/json
     And response-body (integer)
   
     Examples:
@@ -625,7 +625,7 @@ class PostmanKtTests {
         val cleanedUpStubs = stubs.map { it.stub }.map {
             it.copy(
                 response = it.response.copy(
-                    headers = dropConversionExcludedHeaders(it.response.headers) + additionalHeaders
+                    headers = additionalHeaders.plus(dropConversionExcludedHeaders(it.response.headers))
                 )
             )
         }
@@ -879,11 +879,13 @@ class PostmanKtTests {
 Scenario: With no body or params
   When GET /stuff
   Then status 200
+  And response-header Content-Type application/json
   And response-body (number)
 
 Scenario: With query
   When GET /stuff?one=(string)
   Then status 200
+  And response-header Content-Type application/json
   And response-body (number)
 
 Scenario: With JSON body
@@ -892,18 +894,21 @@ Scenario: With JSON body
   When POST /stuff
   And request-body (Request)
   Then status 200
+  And response-header Content-Type application/json
   And response-body (number)
 
 Scenario: With form fields
   When POST /stuff
   And form-field field1 (string)
   Then status 200
+  And response-header Content-Type application/json
   And response-body (number)
 
 Scenario: With form data
   When POST /stuff
   And request-part part1 (string)
   Then status 200
+  And response-header Content-Type application/json
   And response-body (number)
 """
 

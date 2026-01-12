@@ -10,6 +10,7 @@ import io.specmatic.core.AttributeSelectionPattern
 import io.specmatic.core.Feature
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
+import io.specmatic.core.Result
 import io.specmatic.core.Results
 import io.specmatic.core.Scenario
 import io.specmatic.core.SpecmaticConfig
@@ -1260,7 +1261,7 @@ class GenerativeTests {
             "name mutated to number"
         )
 
-        assertThat(results.failureCount).isEqualTo(0)
+        assertThat(results.failureCount).withFailMessage { Result.fromResults(results.results).reportString() }.isEqualTo(0)
 
         assertThat(results.results).hasSize(testType.size)
     }

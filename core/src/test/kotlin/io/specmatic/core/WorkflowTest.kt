@@ -129,6 +129,8 @@ class WorkflowTest {
 
         assertThatThrownBy {
             workflow.updateRequest(request, getScenarioAcceptingNumberInPath)
-        }.hasMessageContaining("Expected number")
+        }.hasMessageContaining(
+            DefaultMismatchMessages.typeMismatch("number", "\"abc\"", "string")
+        )
     }
 }

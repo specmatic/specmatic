@@ -6,6 +6,7 @@ import io.specmatic.core.*
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.utilities.ContractPathData
 import io.specmatic.core.value.*
+import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.trimmedLinesList
@@ -348,7 +349,7 @@ Feature: Math API
 
         val stubInfo = loadContractStubs(listOf(Pair("math.$CONTRACT_EXTENSION", feature)), listOf(Pair("sample.json", ScenarioStub(
             HttpRequest(method = "POST", path = "/square", body = StringValue("10")),
-            HttpResponse(status = 200, body = "20")
+            HttpResponse(status = 200, body = StringValue("20"))
         ))))
         assertThat(stubInfo.single().first).isEqualTo(feature)
 
@@ -392,7 +393,7 @@ Feature: Math API
         assertThat(stdout).contains("""In scenario "Square of a number"""")
         assertThat(stdout).contains("API: POST /square -> 200")
         assertThat(stdout).contains(">> RESPONSE.BODY")
-        assertThat(stdout).contains(ContractAndStubMismatchMessages.mismatchMessage("number", """"not a number""""))
+        assertThat(stdout).contains(ExampleMismatchMessages.typeMismatch("number", """"not a number"""", "string"))
     }
 
     @Test
@@ -418,7 +419,7 @@ Feature: Cube API
         val features = listOf(Pair("square.$CONTRACT_EXTENSION", squareFeature), Pair("cube.$CONTRACT_EXTENSION", cubeFeature))
         val rawStubInfo = listOf(Pair("sample.json", ScenarioStub(
             HttpRequest(method = "POST", path = "/square", body = StringValue("10")),
-            HttpResponse(status = 200, body = "20")
+            HttpResponse(status = 200, body = StringValue("20"))
         )))
         val stubInfo = loadContractStubs(features, rawStubInfo)
         assertThat(stubInfo.map { it.first }).contains(squareFeature)
@@ -468,7 +469,7 @@ Feature: Math API
         assertThat(output).contains("""In scenario "Square of a number"""")
         assertThat(output).contains("API: POST /square -> 200")
         assertThat(output).contains(">> REQUEST.BODY.unexpected")
-        assertThat(output).contains(ContractAndStubMismatchMessages.unexpectedKey("key", "unexpected"))
+        assertThat(output).contains(ExampleMismatchMessages.unexpectedKey("property", "unexpected"))
     }
 
     @Test
@@ -504,7 +505,7 @@ Feature: Math API
         assertThat(output).contains("""In scenario "Square of a number"""")
         assertThat(output).contains("API: POST /square -> 200")
         assertThat(output).contains(">> RESPONSE.BODY.unexpected")
-        assertThat(output).contains(ContractAndStubMismatchMessages.unexpectedKey("key", "unexpected"))
+        assertThat(output).contains(ExampleMismatchMessages.unexpectedKey("property", "unexpected"))
     }
 
     private fun fakeResponse(request: HttpRequest, behaviour: Feature): HttpResponse {

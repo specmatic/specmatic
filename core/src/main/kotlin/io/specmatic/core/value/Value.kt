@@ -19,6 +19,8 @@ interface Value {
         return this.toStringLiteral()
     }
 
+    fun toNativeValue(): Any? = toUnformattedString()
+
     fun displayableType(): String
     fun exactMatchElseType(): Pattern
     fun type(): Pattern
@@ -62,6 +64,9 @@ interface Value {
         }
     }
 
+    fun replace(oldString: String, newString: String): Value {
+        return this
+    }
 }
 
 fun Value.mergeWith(other: Value): Value {

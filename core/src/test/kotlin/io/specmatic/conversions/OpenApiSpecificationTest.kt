@@ -23,6 +23,8 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
+import io.specmatic.core.StandardRuleViolation
+import io.specmatic.toViolationReportString
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpStub
@@ -567,12 +569,12 @@ Scenario: Get product by id
                     in: "path"
                     required: true
                     schema:
-                      type: "number"
+                      type: "integer"
                   - name: "variantId"
                     in: "path"
                     required: true
                     schema:
-                      type: "number"
+                      type: "integer"
                   - name: "tag"
                     in: "query"
                     schema:
@@ -6189,28 +6191,27 @@ paths:
               title: API
               version: 1
             paths:
-              /data/{id}:
+              /data/{param}:
                 post:
                   summary: API 1
                   parameters:
-                  - name: id
+                  - name: param
                     in: path
                     required: true
                     schema:
                       type: integer
-                      format: int32
                   requestBody:
                     content:
                       application/json:
                         schema:
-                          ${"$"}ref: '#/components/schemas/Data_ID_POST_RequestBody'
+                          ${"$"}ref: '#/components/schemas/Data_param_POST_RequestBody'
                     required: true
                   responses:
                     200:
                       description: API 1
             components:
               schemas:
-                Data_ID_POST_RequestBody:
+                Data_param_POST_RequestBody:
                   required:
                   - hello
                   type: object
@@ -6259,28 +6260,27 @@ paths:
               title: API
               version: 1
             paths:
-              /data/{id}:
+              /data/{param}:
                 post:
                   summary: API 1
                   parameters:
-                  - name: id
+                  - name: param
                     in: path
                     required: true
                     schema:
                       type: integer
-                      format: int32
                   requestBody:
                     content:
                       application/json:
                         schema:
-                          ${"$"}ref: '#/components/schemas/Data_ID_POST_RequestBody'
+                          ${"$"}ref: '#/components/schemas/Data_param_POST_RequestBody'
                     required: true
                   responses:
                     200:
                       description: API 1
             components:
               schemas:
-                Data_ID_POST_RequestBody:
+                Data_param_POST_RequestBody:
                   required:
                   - hello
                   type: object
@@ -6677,13 +6677,15 @@ paths:
                     ), HttpResponse.ok("success")
                 )
 
-            assertThat(result.reportString().trimmedLinesString()).isEqualTo(
-                """
-                >> REQUEST.BODY[1].name
-
-                   Expected key named "name" was missing
-            """.trimIndent().trimmedLinesString()
-            )
+            assertThat(result.reportString().trimmedLinesString()).isEqualTo("""
+            ${
+                toViolationReportString(
+                    breadCrumb = "REQUEST.BODY[1].name",
+                    details = DefaultMismatchMessages.expectedKeyWasMissing("property", "name"),
+                    StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+                )
+            }
+            """.trimIndent().trimmedLinesString())
         }
     }
 
@@ -7447,7 +7449,7 @@ paths:
 
         assertThat(result.success()).isFalse()
 
-        assertThat(result.report()).contains("expects query param named \"id\"")
+        assertThat(result.report()).contains(NewAndOldSpecificationRequestMismatches.expectedKeyWasMissing("query param", "id"))
     }
 
     @Test
@@ -7883,7 +7885,7 @@ paths:
         })
 
         assertThat(results.testCount).isEqualTo(1)
-        assertThat(results.success()).isTrue()
+        assertThat(results.success()).withFailMessage { results.toResultIfAny().reportString() }.isTrue()
     }
 
     @Test
@@ -10872,7 +10874,7 @@ paths:
             }
         })
 
-        assertThat(results.report()).contains("""expected "application/json; charset=utf-8" but found value "application/json"""")
+        assertThat(results.report()).contains("""expected "application/json; charset=utf-8" but example contained "application/json"""")
     }
 
     @Test
@@ -11155,7 +11157,7 @@ paths:
         })
 
         println(results.report())
-        assertThat(results.report()).contains("""expected "application/json; charset=utf-8" but found value "application/json"""")
+        assertThat(results.report()).contains("""expected "application/json; charset=utf-8" but example contained "application/json"""")
     }
 
     @Test

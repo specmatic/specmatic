@@ -9,9 +9,8 @@ dependencies {
         exclude(group = "commons-logging", module = "commons-logging")
     }
 
-    implementation("io.netty:netty-codec-http:4.2.7.Final")
     implementation("net.minidev:json-smart:2.6.0")
-    implementation("com.ezylang:EvalEx:3.5.0")
+    implementation("com.ezylang:EvalEx:3.6.0")
     implementation(project(":specmatic-core"))
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     implementation("org.assertj:assertj-core:3.27.6")

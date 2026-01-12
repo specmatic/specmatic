@@ -3,6 +3,7 @@ package io.specmatic.conversions
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Results
+import io.specmatic.core.pattern.RegExSpec
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.value.JSONObjectValue
@@ -97,6 +98,59 @@ class RegexSupportTest {
         val results: Results = feature.executeTests(mockTestClient)
 
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
+    }
+
+    @Test
+    fun `a test having string with a non-capturing group pattern should generate a matching string`() {
+        val nonCapturingRegex = "[A-Z]+(?:_[A-Z]+)"
+        val feature = OpenApiSpecification.fromYAML(
+            """
+                ---
+                openapi: "3.0.1"
+                info:
+                  title: "Person API"
+                  version: "1"
+                paths:
+                  /person:
+                    post:
+                      summary: "Get person by id"
+                      requestBody:
+                        content:
+                          application/json:
+                            schema:
+                              type: object
+                              required:
+                              - id
+                              properties:
+                                id:
+                                  type: string
+                                  pattern: '$nonCapturingRegex'
+                      responses:
+                        204:
+                          description: "Get person by id"
+                          content: {}
+                """.trimIndent(), "").toFeature()
+
+        val mockTestClient = object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                val requestBodyAsJSON = request.body as JSONObjectValue
+                assertThat(requestBodyAsJSON.getString("id")).matches(nonCapturingRegex)
+                return HttpResponse(204)
+            }
+        }
+
+        val results: Results = feature.executeTests(mockTestClient)
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+    }
+
+    @Test
+    fun `non-capturing groups are stripped from the regex used for generation`() {
+        val nonCapturingRegex = "[A-Z]+(?:_[A-Z]+)"
+        val cleanedRegex = RegExSpec(nonCapturingRegex).toString()
+
+        assertThat(cleanedRegex).isEqualTo("[A-Z]+(_[A-Z]+)")
+        assertThat(cleanedRegex).doesNotContain("?:")
     }
 
     @Test
