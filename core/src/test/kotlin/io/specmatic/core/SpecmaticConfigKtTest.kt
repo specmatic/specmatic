@@ -240,6 +240,68 @@ internal class SpecmaticConfigKtTest {
     }
 
     @Test
+    fun `should resolve template defaults for scalar values in config`() {
+        val propertyKey = "SPECMATIC_TEST_TEMPLATE_GENERATIVE"
+        val configYaml = """
+            version: 2
+            contracts: []
+            stub:
+              generative: "{$propertyKey:true}"
+        """.trimIndent()
+        val configFile = File.createTempFile("specmatic-template", ".yaml")
+        try {
+            System.clearProperty(propertyKey)
+            configFile.writeText(configYaml)
+            val config = loadSpecmaticConfig(configFile.path)
+            assertThat(config.getStubGenerative()).isTrue()
+        } finally {
+            System.clearProperty(propertyKey)
+            configFile.delete()
+        }
+    }
+
+    @Test
+    fun `should resolve template values from system properties`() {
+        val propertyKey = "SPECMATIC_TEST_TEMPLATE_DELAY"
+        val configYaml = """
+            version: 2
+            contracts: []
+            stub:
+              delayInMilliseconds: "{$propertyKey:100}"
+        """.trimIndent()
+        val configFile = File.createTempFile("specmatic-template", ".yaml")
+        try {
+            System.setProperty(propertyKey, "250")
+            configFile.writeText(configYaml)
+            val config = loadSpecmaticConfig(configFile.path)
+            assertThat(config.getStubDelayInMilliseconds()).isEqualTo(250L)
+        } finally {
+            System.clearProperty(propertyKey)
+            configFile.delete()
+        }
+    }
+
+    @Test
+    fun `should error when resolved template value cannot be parsed`() {
+        val propertyKey = "SPECMATIC_TEST_TEMPLATE_INVALID"
+        val configYaml = """
+            version: 2
+            contracts: []
+            stub:
+              generative: "{$propertyKey:false}"
+        """.trimIndent()
+        val configFile = File.createTempFile("specmatic-template", ".yaml")
+        try {
+            System.setProperty(propertyKey, "abc")
+            configFile.writeText(configYaml)
+            assertThrows<Exception> { loadSpecmaticConfig(configFile.path) }
+        } finally {
+            System.clearProperty(propertyKey)
+            configFile.delete()
+        }
+    }
+
+    @Test
     fun `isResiliencyTestingEnabled should return true if either of SPECMATIC_GENERATIVE_TESTS and ONLY_POSITIVE is true`() {
         try {
             System.setProperty(SPECMATIC_GENERATIVE_TESTS, "true")
