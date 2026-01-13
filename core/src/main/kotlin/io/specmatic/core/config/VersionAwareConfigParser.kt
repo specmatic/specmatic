@@ -66,7 +66,7 @@ private fun resolveTemplates(node: JsonNode): JsonNode {
 private fun resolveTemplateValue(value: String): JsonNode? {
     val template = parseTemplate(value) ?: return null
     val resolved = readEnvVarOrProperty(template.key, template.key) ?: template.defaultValue
-    return objectMapper.nodeFactory.textNode(resolved)
+    return parseResolvedTemplateValue(resolved)
 }
 
 private data class TemplateDefinition(val key: String, val defaultValue: String)
@@ -78,6 +78,34 @@ private fun parseTemplate(value: String): TemplateDefinition? {
     val key = value.substring(1, separatorIndex)
     val defaultValue = value.substring(separatorIndex + 1, value.length - 1)
     return if (key.isBlank()) null else TemplateDefinition(key, defaultValue)
+}
+
+private fun parseResolvedTemplateValue(value: String): JsonNode {
+    val trimmed = value.trim()
+    return when {
+        trimmed.startsWith("\"") && trimmed.endsWith("\"") ->
+            parseJsonStringValue(value) ?: objectMapper.nodeFactory.textNode(value)
+        trimmed.startsWith("{") || trimmed.startsWith("[") ->
+            parseStructuredValue(value) ?: objectMapper.nodeFactory.textNode(value)
+        else -> objectMapper.nodeFactory.textNode(value)
+    }
+}
+
+private fun parseStructuredValue(value: String): JsonNode? {
+    return try {
+        objectMapper.readTree(value).takeIf { it.isObject || it.isArray }
+    } catch (_: Exception) {
+        null
+    }
+}
+
+private fun parseJsonStringValue(value: String): JsonNode? {
+    return try {
+        val parsed = objectMapper.readTree(value)
+        if (parsed.isTextual) objectMapper.nodeFactory.textNode(parsed.asText()) else null
+    } catch (_: Exception) {
+        null
+    }
 }
 
 fun String.getVersion(): SpecmaticConfigVersion? {
