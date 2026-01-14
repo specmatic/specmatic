@@ -656,7 +656,10 @@ paths:
         In scenario ""
         API: POST / -> 201
         >> RESPONSE.STATUS
-        Expected status 201, actual was status 202
+        R0002: HTTP status mismatch
+        Documentation: https://docs.specmatic.io/rules#r0002
+        Summary: The HTTP status code does not match the expected status code defined in the specification
+        Specification expected status 201 but response contained status 202
         """.trimIndent())
     }
 
@@ -720,7 +723,7 @@ paths:
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
         In scenario ""
-        API: POST / -> 201
+        API: POST / -> 202
         
         ${
             toViolationReportString(
@@ -870,7 +873,7 @@ paths:
 
         println(result.reportString())
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).contains("Expected status 201, actual was status 429")
+        assertThat(result.reportString()).contains("expected status 201 but response contained status 429")
     }
 
     @Test
