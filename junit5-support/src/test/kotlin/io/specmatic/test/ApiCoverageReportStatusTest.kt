@@ -1,6 +1,8 @@
 package io.specmatic.test
 
+import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.reports.coverage.Endpoint
 import io.specmatic.test.reports.coverage.OpenApiCoverageReportInput
@@ -17,7 +19,7 @@ class ApiCoverageReportStatusTest {
     @Test
     fun `identifies endpoint as 'covered' when contract test passes and route+method is present in actuator`() {
         val endpointsInSpec = mutableListOf(
-            Endpoint("/route1", "GET", 200)
+            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
         )
 
         val applicationAPIs = mutableListOf(
@@ -25,7 +27,7 @@ class ApiCoverageReportStatusTest {
         )
 
         val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success),
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, specType = SpecType.OPENAPI),
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(
@@ -45,13 +47,13 @@ class ApiCoverageReportStatusTest {
     @Test
     fun `identifies endpoint as 'covered' when contract test passes and route+method is not present in actuator`() {
         val endpointsInSpec = mutableListOf(
-            Endpoint("/route1", "GET", 200),
+            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
         )
 
         val applicationAPIs = mutableListOf<API>()
 
         val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success),
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, specType = SpecType.OPENAPI),
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(
@@ -71,7 +73,7 @@ class ApiCoverageReportStatusTest {
     @Test
     fun `identifies endpoint as 'covered' when contract test fails and route+method is present in actuator`() {
         val endpointsInSpec = mutableListOf(
-            Endpoint("/route1", "GET", 200),
+            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
         )
 
         val applicationAPIs = mutableListOf(
@@ -79,7 +81,7 @@ class ApiCoverageReportStatusTest {
         )
 
         val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 400)
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 400, specType = SpecType.OPENAPI)
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(
@@ -100,19 +102,16 @@ class ApiCoverageReportStatusTest {
     @Test
     fun `identifies endpoint as 'covered' when contract test fails and actuator is not available`() {
         val endpointsInSpec = mutableListOf(
-            Endpoint("/route1", "GET", 200)
+            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
         )
-
-        val applicationAPIs = mutableListOf<API>()
-
         val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 400),
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 400, specType = SpecType.OPENAPI),
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(
-            CONFIG_FILE_PATH,
-            contractTestResults,
-            applicationAPIs,
+            configFilePath = CONFIG_FILE_PATH,
+            testResultRecords = contractTestResults,
+            applicationAPIs = mutableListOf(),
             allEndpoints = endpointsInSpec,
             endpointsAPISet = false
         ).generate()
@@ -127,8 +126,8 @@ class ApiCoverageReportStatusTest {
     @Test
     fun `identifies endpoint as 'not implemented' when contract test fails, and route+method is not present in actuator`() {
         val endpointsInSpec = mutableListOf(
-            Endpoint("/route1", "GET", 200),
-            Endpoint("/route2", "GET", 200)
+            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route2", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
         )
 
         val applicationAPIs = mutableListOf(
@@ -136,8 +135,8 @@ class ApiCoverageReportStatusTest {
         )
 
         val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, actualResponseStatus = 200),
-            TestResultRecord("/route2", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404),
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, actualResponseStatus = 200, specType = SpecType.OPENAPI),
+            TestResultRecord("/route2", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404, specType = SpecType.OPENAPI),
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(
@@ -159,7 +158,7 @@ class ApiCoverageReportStatusTest {
     @Test
     fun `identifies endpoint as 'missing in spec' when route+method is present in actuator but not present in the spec`() {
         val endpointsInSpec = mutableListOf(
-            Endpoint("/route1", "GET", 200)
+            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
         )
 
         val applicationAPIs = mutableListOf(
@@ -168,7 +167,7 @@ class ApiCoverageReportStatusTest {
         )
 
         val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success)
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, specType = SpecType.OPENAPI)
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(
@@ -189,8 +188,8 @@ class ApiCoverageReportStatusTest {
     @Test
     fun `identifies endpoint as 'Not Covered' when contract test is not generated for an endpoint present in the spec`() {
         val endpointsInSpec = mutableListOf(
-            Endpoint("/route1", "GET", 200),
-            Endpoint("/route1", "GET", 400),
+            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/route1", "GET", 400, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
         )
 
         val applicationAPIs = mutableListOf(
@@ -198,7 +197,7 @@ class ApiCoverageReportStatusTest {
         )
 
         val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success)
+            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, specType = SpecType.OPENAPI)
         )
 
         val apiCoverageReport = OpenApiCoverageReportInput(

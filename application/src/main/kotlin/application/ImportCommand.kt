@@ -8,13 +8,13 @@ import io.specmatic.core.*
 import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.logger
 import io.specmatic.core.log.logException
-import io.specmatic.core.utilities.TrackingFeature
 import io.specmatic.core.utilities.jsonStringToValueMap
 import io.specmatic.core.utilities.parseXML
 import io.specmatic.core.value.toXMLNode
 import io.specmatic.core.wsdl.parser.WSDL
 import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.LicensedProduct
+import io.specmatic.license.core.SpecmaticFeature
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.license.core.cli.Category
 import io.specmatic.mock.mockFromJSON
@@ -66,7 +66,7 @@ fun convertStub(path: String, userSpecifiedOutFile: String?) {
 
     LicenseResolver.utilize(
         product = LicensedProduct.OPEN_SOURCE,
-        feature = TrackingFeature.IMPORT_FROM_STUB,
+        feature = SpecmaticFeature.EXAMPLES_IMPORTED_FROM_STUB,
         protocol = listOfNotNull(stub.protocol)
     )
 
@@ -108,7 +108,7 @@ fun convertWSDL(path: String, userSpecifiedOutFile: String?) {
     val outFile = userSpecifiedOutFile ?: "${inputFile.nameWithoutExtension}.$CONTRACT_EXTENSION"
     LicenseResolver.utilize(
         product = LicensedProduct.OPEN_SOURCE,
-        feature = TrackingFeature.IMPORT_FROM_WSDL,
+        feature = SpecmaticFeature.EXAMPLES_IMPORTED_FROM_WSDL,
         protocol = listOf(SpecmaticProtocol.SOAP)
     )
 

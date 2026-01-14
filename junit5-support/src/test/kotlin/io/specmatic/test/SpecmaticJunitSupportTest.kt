@@ -4,6 +4,8 @@ import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.TestConfig
 import io.specmatic.core.filters.ScenarioMetadataFilter
+import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.HOST
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.PORT
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.PROTOCOL
@@ -398,9 +400,9 @@ paths:
                 path = "/products",
                 method = "POST",
                 responseStatus = 201,
-                serviceType = "HTTP",
                 requestContentType = "application/json",
-                responseContentType = "application/json"
+                responseContentType = "application/json",
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         )
         assertThat(testData.filteredEndpoints).doesNotContain(
@@ -408,9 +410,9 @@ paths:
                 path = "/products",
                 method = "POST",
                 responseStatus = 201,
-                serviceType = "HTTP",
                 requestContentType = "application/json",
-                responseContentType = "application/json"
+                responseContentType = "application/json",
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         )
     }

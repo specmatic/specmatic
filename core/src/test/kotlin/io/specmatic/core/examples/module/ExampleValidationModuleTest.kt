@@ -11,6 +11,8 @@ import io.specmatic.core.value.StringValue
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.examples.server.ExampleMismatchMessages
+import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -32,7 +34,8 @@ class ExampleValidationModuleTest {
             httpResponsePattern = HttpResponsePattern(
                 status = 200,
                 body = JSONObjectPattern(mapOf("result" to NumberPattern()))
-            )
+            ),
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
         )
         val example = ScenarioStub(
@@ -52,7 +55,7 @@ class ExampleValidationModuleTest {
             )
         )
 
-        val result = exampleValidationModule.validateExample(Feature(listOf(scenario), name= ""), example)
+        val result = exampleValidationModule.validateExample(Feature(listOf(scenario), name= "", protocol = SpecmaticProtocol.HTTP), example)
         assertThat(result.toResultIfAny()).isInstanceOf(Result.Success::class.java)
     }
 
@@ -68,7 +71,8 @@ class ExampleValidationModuleTest {
             httpResponsePattern = HttpResponsePattern(
                 status = 200,
                 body = JSONObjectPattern(mapOf("result" to NumberPattern()))
-            )
+            ),
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
         )
         val example = ScenarioStub(
@@ -88,7 +92,7 @@ class ExampleValidationModuleTest {
             )
         )
 
-        val result = exampleValidationModule.validateExample(Feature(listOf(scenario), name= ""), example)
+        val result = exampleValidationModule.validateExample(Feature(listOf(scenario), name= "", protocol = SpecmaticProtocol.HTTP), example)
         assertThat(result.report()).isEqualToNormalizingWhitespace("""
         In scenario ""
         API: POST /add -> 200
@@ -114,8 +118,9 @@ class ExampleValidationModuleTest {
         val pattern = JSONObjectPattern(mapOf("first" to NumberPattern(), "second" to NumberPattern()))
         val example = JSONObjectValue(mapOf("first" to StringValue("(number)"), "second" to NumberValue(10)))
 
-        val scenario = Scenario(ScenarioInfo(patterns = mapOf("(Test)" to pattern)))
-        val feature = Feature(listOf(scenario), name= "")
+        val scenario = Scenario(ScenarioInfo(patterns = mapOf("(Test)" to pattern),
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI))
+        val feature = Feature(listOf(scenario), name= "", protocol = SpecmaticProtocol.HTTP)
 
         val result = feature.matchResultSchemaFlagBased(null, "Test", example, DefaultMismatchMessages)
         assertThat(result).isInstanceOf(Result.Success::class.java)
@@ -126,8 +131,9 @@ class ExampleValidationModuleTest {
         val pattern = JSONObjectPattern(mapOf("first" to NumberPattern(), "second" to NumberPattern()))
         val example = JSONObjectValue(mapOf("first" to StringValue("(string)"), "second" to NumberValue(10)))
 
-        val scenario = Scenario(ScenarioInfo(patterns = mapOf("(Test)" to pattern)))
-        val feature = Feature(listOf(scenario), name= "")
+        val scenario = Scenario(ScenarioInfo(patterns = mapOf("(Test)" to pattern),
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI))
+        val feature = Feature(listOf(scenario), name= "", protocol = SpecmaticProtocol.HTTP)
 
         val result = feature.matchResultSchemaFlagBased(null, "Test", example, DefaultMismatchMessages)
         assertThat(result).isInstanceOf(Result.Failure::class.java)
@@ -147,10 +153,11 @@ class ExampleValidationModuleTest {
         val scenario = Scenario(
             ScenarioInfo(
                 httpRequestPattern = HttpRequestPattern(method = "GET", httpPathPattern = buildHttpPathPattern("/test/(id:number)/name/(name:string)")),
-                httpResponsePattern = HttpResponsePattern(status = 200)
+                httpResponsePattern = HttpResponsePattern(status = 200),
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         )
-        val feature = Feature(listOf(scenario), name = "")
+        val feature = Feature(listOf(scenario), name = "", protocol = SpecmaticProtocol.HTTP)
         val example = ScenarioStub(request = HttpRequest(method = "GET", path = "/test/abc/name/123"), response = HttpResponse.OK)
         val result = exampleValidationModule.validateExample(feature, example).toResultIfAny()
 
@@ -171,10 +178,11 @@ class ExampleValidationModuleTest {
         val scenario = Scenario(
             ScenarioInfo(
                 httpRequestPattern = HttpRequestPattern(method = "GET", httpPathPattern = buildHttpPathPattern("/test/(id:number)/name/(name:string)")),
-                httpResponsePattern = HttpResponsePattern(status = 400)
+                httpResponsePattern = HttpResponsePattern(status = 400),
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         )
-        val feature = Feature(listOf(scenario), name = "")
+        val feature = Feature(listOf(scenario), name = "", protocol = SpecmaticProtocol.HTTP)
         val example = ScenarioStub(request = HttpRequest(method = "GET", path = "/test/abc/name/123"), response = HttpResponse(status = 400))
         val result = exampleValidationModule.validateExample(feature, example)
 
@@ -193,10 +201,11 @@ class ExampleValidationModuleTest {
                 httpResponsePattern = HttpResponsePattern(
                     status = 201,
                     body = JSONObjectPattern(mapOf("id" to NumberPattern(), "name" to StringPattern(), "age" to NumberPattern()))
-                )
+                ),
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         )
-        val feature = Feature(listOf(scenario), name = "")
+        val feature = Feature(listOf(scenario), name = "", protocol = SpecmaticProtocol.HTTP)
 
         val example = ScenarioStub(
             request = HttpRequest("POST", "/test", body = parsedJSONObject("""{"name": "John"}""")),
@@ -220,10 +229,11 @@ class ExampleValidationModuleTest {
                 httpResponsePattern = HttpResponsePattern(
                     status = 201,
                     body = JSONObjectPattern(mapOf("id" to NumberPattern(), "name" to StringPattern(), "age" to NumberPattern()))
-                )
+                ),
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         )
-        val feature = Feature(listOf(scenario), name = "")
+        val feature = Feature(listOf(scenario), name = "", protocol = SpecmaticProtocol.HTTP)
 
         val example = ScenarioStub(
             request = HttpRequest("POST", "/test", body = parsedJSONObject("""{"name": 123}""")),
@@ -263,10 +273,11 @@ class ExampleValidationModuleTest {
                 httpResponsePattern = HttpResponsePattern(
                     status = 201,
                     body = JSONObjectPattern(mapOf("id" to NumberPattern(), "name" to StringPattern(), "age" to NumberPattern()))
-                )
+                ),
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         )
-        val feature = Feature(listOf(scenario), name = "")
+        val feature = Feature(listOf(scenario), name = "", protocol = SpecmaticProtocol.HTTP)
 
         val example = ScenarioStub(
             request = HttpRequest("POST", "/test", body = parsedJSONObject("""{"name": "(number)", "age": "(number)"}""")),
@@ -306,10 +317,11 @@ class ExampleValidationModuleTest {
                 httpResponsePattern = HttpResponsePattern(
                     status = 201,
                     body = JSONObjectPattern(mapOf("id" to NumberPattern(), "name" to StringPattern(), "age" to NumberPattern()))
-                )
+                ),
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         )
-        val feature = Feature(listOf(scenario), name = "")
+        val feature = Feature(listOf(scenario), name = "", protocol = SpecmaticProtocol.HTTP)
 
         val example = ScenarioStub(
             request = HttpRequest("POST", "/test", body = parsedJSONObject("""{"name": "John"}""")),
@@ -364,10 +376,11 @@ class ExampleValidationModuleTest {
                 httpResponsePattern = HttpResponsePattern(
                     status = 201,
                     body = ListPattern(JSONObjectPattern(mapOf("id" to NumberPattern(), "name" to StringPattern(), "age" to NumberPattern())))
-                )
+                ),
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         ).copy(attributeSelectionPattern = AttributeSelectionPattern(defaultFields = listOf("id"), queryParamKey = "columns"))
-        val feature = Feature(listOf(scenario), name = "")
+        val feature = Feature(listOf(scenario), name = "", protocol = SpecmaticProtocol.HTTP)
 
         val example = ScenarioStub(
             request = HttpRequest("GET", "/test", queryParams = QueryParameters(mapOf("columns" to "name"))),
@@ -421,10 +434,11 @@ class ExampleValidationModuleTest {
                 httpResponsePattern = HttpResponsePattern(
                     status = 201,
                     body = ListPattern(JSONObjectPattern(mapOf("id" to NumberPattern(), "name" to StringPattern(), "age" to NumberPattern())))
-                )
+                ),
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         ).copy(attributeSelectionPattern = AttributeSelectionPattern(defaultFields = listOf("id"), queryParamKey = "columns"))
-        val feature = Feature(listOf(scenario), name = "")
+        val feature = Feature(listOf(scenario), name = "", protocol = SpecmaticProtocol.HTTP)
 
         val example = ScenarioStub(
             request = HttpRequest("GET", "/test", queryParams = QueryParameters(mapOf("columns" to "name"))),
@@ -448,10 +462,11 @@ class ExampleValidationModuleTest {
                 httpResponsePattern = HttpResponsePattern(
                     status = 201,
                     body = ListPattern(JSONObjectPattern(mapOf("id" to NumberPattern(), "name" to StringPattern(), "age" to NumberPattern())))
-                )
+                ),
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         ).copy(attributeSelectionPattern = AttributeSelectionPattern(defaultFields = listOf("id"), queryParamKey = "columns"))
-        val feature = Feature(listOf(scenario), name = "")
+        val feature = Feature(listOf(scenario), name = "", protocol = SpecmaticProtocol.HTTP)
 
         val invalidExample = ScenarioStub(
             request = HttpRequest("GET", "/test", queryParams = QueryParameters(mapOf("columns" to "name"))),
@@ -514,9 +529,10 @@ class ExampleValidationModuleTest {
             httpResponsePattern = HttpResponsePattern(
                 status = 200,
                 headersPattern = HttpHeadersPattern(mapOf("RESPONSE-HEADER" to StringPattern()))
-            )
+            ),
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         ))
-        val feature = Feature(listOf(scenario), name = "")
+        val feature = Feature(listOf(scenario), name = "", protocol = SpecmaticProtocol.HTTP)
         val example = ScenarioStub(
             request = HttpRequest("GET", "/test", headers = mapOf("REQUEST-HEADER" to "request-value", "EXTRA-HEADER" to "extra-value")),
             response = HttpResponse(status = 200, headers = mapOf("RESPONSE-HEADER" to "response-value", "EXTRA-HEADER" to "extra-value"))
@@ -553,9 +569,10 @@ class ExampleValidationModuleTest {
             httpResponsePattern = HttpResponsePattern(
                 status = 200,
                 headersPattern = HttpHeadersPattern(mapOf("RESPONSE-HEADER" to StringPattern()))
-            )
+            ),
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         ))
-        val feature = Feature(listOf(scenario), name = "")
+        val feature = Feature(listOf(scenario), name = "", protocol = SpecmaticProtocol.HTTP)
         val example = ScenarioStub(
             request = HttpRequest("GET", "/test", headers = mapOf("REQUEST-HEADER" to "request-value", "EXTRA-HEADER" to "extra-value")),
             response = HttpResponse(status = 200, headers = mapOf("RESPONSE-HEADER" to "response-value", "EXTRA-HEADER" to "extra-value"))
@@ -592,7 +609,8 @@ class ExampleValidationModuleTest {
             httpResponsePattern = HttpResponsePattern(
                 status = 200,
                 headersPattern = HttpHeadersPattern(mapOf("RESPONSE-HEADER" to StringPattern()))
-            )
+            ),
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         ))
         val example = ScenarioStub(
             request = HttpRequest("GET", "/test", headers = mapOf("REQUEST-HEADER" to "request-value", "EXTRA-HEADER" to "extra-value")),
@@ -600,7 +618,7 @@ class ExampleValidationModuleTest {
         ).toExample(tempDir)
 
         Flags.using(Flags.EXTENSIBLE_SCHEMA to "true") {
-            val feature = Feature(listOf(scenario), name = "")
+            val feature = Feature(listOf(scenario), name = "", protocol = SpecmaticProtocol.HTTP)
             val result = exampleValidationModule.validateExample(feature, example)
             assertThat(result).isInstanceOf(Result.Success::class.java)
         }
@@ -614,13 +632,14 @@ class ExampleValidationModuleTest {
                 httpPathPattern = buildHttpPathPattern("/test"),
                 headersPattern = HttpHeadersPattern(contentType = "application/json-patch-query+json")
             ),
-            httpResponsePattern = HttpResponsePattern(status = 400)
+            httpResponsePattern = HttpResponsePattern(status = 400),
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         ))
         val example = ScenarioStub(
             request = HttpRequest("GET", "/test", headers = mapOf("Content-Type" to "application/json")),
             response = HttpResponse(status = 400, headers = mapOf("Content-Type" to "application/json"))
         ).toExample(tempDir)
-        val feature = Feature(listOf(scenario), name = "")
+        val feature = Feature(listOf(scenario), name = "", protocol = SpecmaticProtocol.HTTP)
         val result = exampleValidationModule.validateExample(feature, example)
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)

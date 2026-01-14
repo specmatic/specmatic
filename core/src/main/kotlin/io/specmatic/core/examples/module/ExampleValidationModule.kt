@@ -8,10 +8,10 @@ import io.specmatic.core.examples.server.SchemaExample
 import io.specmatic.core.lifecycle.ExamplesUsedFor
 import io.specmatic.core.lifecycle.LifecycleHooks
 import io.specmatic.core.log.logger
-import io.specmatic.core.utilities.TrackingFeature
 import io.specmatic.core.value.NullValue
 import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.LicensedProduct
+import io.specmatic.license.core.SpecmaticFeature
 import io.specmatic.mock.PARTIAL
 import io.specmatic.mock.ScenarioStub
 import java.io.File
@@ -96,8 +96,8 @@ class ExampleValidationModule {
 
         LicenseResolver.utilize(
             product = LicensedProduct.OPEN_SOURCE,
-            feature = TrackingFeature.EXAMPLE_VALIDATION,
-            protocol = listOfNotNull(feature.protocol),
+            feature = SpecmaticFeature.EXAMPLES_VALIDATED,
+            protocol = listOf(feature.protocol)
         )
 
         return ExampleFromFile.fromFile(exampleFile, strictMode = false).realise(
