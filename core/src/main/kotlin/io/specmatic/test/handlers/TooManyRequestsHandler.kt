@@ -26,7 +26,9 @@ class TooManyRequestsHandler(
 ): ResponseHandler {
     override fun canHandle(response: HttpResponse, scenario: Scenario): Boolean {
         val isTooManyRequestsPossible= feature.isResponseStatusPossible(scenario, HttpStatusCode.TooManyRequests.value)
-        return response.status == HttpStatusCode.TooManyRequests.value && isTooManyRequestsPossible
+        return scenario.status == HttpStatusCode.TooManyRequests.value
+                && response.status == HttpStatusCode.TooManyRequests.value
+                && isTooManyRequestsPossible
     }
 
     override fun handle(request: HttpRequest, response: HttpResponse, testScenario: Scenario, testExecutor: TestExecutor): ResponseHandlingResult {
