@@ -689,25 +689,38 @@ paths:
             httpResponsePattern = HttpResponsePattern(
                 status = 201,
                 body = JSONObjectPattern(mapOf("name" to StringPattern(), "age" to NumberPattern()))
-            )
+            ),
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
         ))
         val acceptedScenario = Scenario(ScenarioInfo(
             httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/"), method = "POST"),
             httpResponsePattern = HttpResponsePattern(
                 status = 202,
                 headersPattern = HttpHeadersPattern(mapOf("Link" to StringPattern()))
-            )
+            ),
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
         ))
         val monitorScenario = Scenario(ScenarioInfo(
             httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/monitor/(id:number)"), method = "GET"),
             httpResponsePattern = HttpResponsePattern(
                 status = 200,
                 body = JSONObjectPattern(mapOf("request" to AnyNonNullJSONValue(), "response?" to AnyNonNullJSONValue()))
-            )
+            ),
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
         ))
 
-        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario, monitorScenario))
-        val contractTest = ScenarioAsTest(acceptedScenario, feature, feature.flagsBased, originalScenario = postScenario)
+        val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario, monitorScenario), protocol = SpecmaticProtocol.HTTP)
+        val contractTest = ScenarioAsTest(
+            acceptedScenario,
+            feature,
+            feature.flagsBased,
+            originalScenario = postScenario,
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        )
 
         val (result, _) = contractTest.runTest(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
@@ -882,6 +895,8 @@ paths:
                 body = JSONObjectPattern(mapOf("age" to NumberPattern()))
             ),
             httpResponsePattern = HttpResponsePattern(status = 201),
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
         ))
         val tooManyRequestsScenario = Scenario(ScenarioInfo(
             httpRequestPattern = HttpRequestPattern(
@@ -889,10 +904,19 @@ paths:
                 body = JSONObjectPattern(mapOf("age" to NumberPattern()))
             ),
             httpResponsePattern = HttpResponsePattern(status = HttpStatusCode.TooManyRequests.value),
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
         ))
 
-        val feature = Feature(name = "", scenarios = listOf(postScenario, tooManyRequestsScenario))
-        val contractTest = ScenarioAsTest(postScenario, feature, feature.flagsBased, originalScenario = postScenario)
+        val feature = Feature(name = "", scenarios = listOf(postScenario, tooManyRequestsScenario), protocol = SpecmaticProtocol.HTTP)
+        val contractTest = ScenarioAsTest(
+            postScenario,
+            feature,
+            feature.flagsBased,
+            originalScenario = postScenario,
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        )
         val (result) = contractTest.runTest(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
                 return HttpResponse(429, headers = mapOf(HttpHeaders.RetryAfter to "0"))
