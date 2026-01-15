@@ -35,6 +35,12 @@ private fun AnyValueMap.list(key: String, block: MutableList<AnyValueMap>.() -> 
     block(value as MutableList<AnyValueMap>)
 }
 
+private fun MutableList<AnyValueMap>.requirement(vararg schemes: String) {
+    val map = mutableMapOf<String, Any?>()
+    schemes.forEach { map[it] = emptyList<String>() }
+    add(map)
+}
+
 data class LenientParseTestCase(val openApi: Map<String, Any?>, val checks: List<(Feature) -> Unit>, val asserts: List<RuleViolationAssertion> = emptyList()) {
     companion object {
         fun singleVersionLenientCase(name: String, version: OpenApiVersion, block: Builder.() -> Unit): List<Arguments> {
@@ -95,6 +101,12 @@ data class LenientParseTestCase(val openApi: Map<String, Any?>, val checks: List
         fun components(block: ComponentsDsl.() -> Unit) {
             val components = root.map("components") { }
             block(ComponentsDsl(components))
+        }
+
+        fun security(block: MutableList<AnyValueMap>.() -> Unit) {
+            val list = mutableListOf<AnyValueMap>()
+            block(list)
+            root["security"] = list
         }
 
         fun build(): AnyValueMap = root
@@ -204,8 +216,9 @@ data class LenientParseTestCase(val openApi: Map<String, Any?>, val checks: List
                 block(SchemasDsl(schemas))
             }
 
-            fun securitySchemes(block: AnyValueMap.() -> Unit) {
-                components.map("securitySchemes", block)
+            fun securitySchemes(block: SecuritySchemeDsl.() -> Unit) {
+                val schemas = components.map("securitySchemes") { }
+                block(SecuritySchemeDsl(schemas))
             }
 
             fun requestBodies(block: RequestBodiesDsl.() -> Unit) {
@@ -226,6 +239,12 @@ data class LenientParseTestCase(val openApi: Map<String, Any?>, val checks: List
 
         class SchemasDsl(private val schemas: AnyValueMap) {
             fun schema(name: String, block: AnyValueMap.() -> Unit) {
+                schemas[name] = mutableMapOf<String, Any?>().apply(block)
+            }
+        }
+
+        class SecuritySchemeDsl(private val schemas: AnyValueMap) {
+            fun scheme(name: String, block: AnyValueMap.() -> Unit) {
                 schemas[name] = mutableMapOf<String, Any?>().apply(block)
             }
         }
@@ -282,6 +301,10 @@ class LenientParserTest {
     @ParameterizedTest
     @MethodSource("headerParameterTestCases")
     fun `header parameter test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
+
+    @ParameterizedTest
+    @MethodSource("securitySchemeTestCases")
+    fun `security scheme test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
 
     @ParameterizedTest
     @MethodSource("requestBodyTestCases")
@@ -970,335 +993,177 @@ class LenientParserTest {
         }
 
         @JvmStatic
-        fun responseHeaderTestCases(): Stream<Arguments> {
+        fun securitySchemeTestCases(): Stream<Arguments> {
             return listOf(
-                multiVersionLenientCase(name = "has no schema", *OpenApiVersion.allVersions()) {
+                multiVersionLenientCase(name = "missing global security scheme reference", *OpenApiVersion.allVersions()) {
                     openApi {
-                        paths {
-                            path("/test") {
-                                operation("get") {
-                                    response("200") {
-                                        header("X-Request-Id", block = {})
-                                    }
+                        components {
+                            securitySchemes {
+                                scheme("validScheme") {
+                                    put("type", "http")
+                                    put("scheme", "bearer")
                                 }
                             }
                         }
+                        security {
+                            requirement("missingScheme")
+                        }
+                        paths {
+                            path("/test") {
+                                operation("get") {}
+                            }
+                        }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(1) }
-                    assert("paths./test.get.responses.200.headers.X-Request-Id") {
-                        toMatchText("No schema defined, defaulting to empty schema")
-                    }
-                    assert("paths./test.get.responses.200.headers.X-Request-Id.schema") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("security[0].missingScheme") {
+                        toContainViolation(OpenApiLintViolations.SECURITY_SCHEME_MISSING)
+                        toMatchText("Didn't find Security schema with name missingScheme, ignoring this scheme")
                     }
                 },
-                multiVersionLenientCase(name = "array with no items schema", *OpenApiVersion.allVersions()) {
+                multiVersionLenientCase(name = "missing operation security scheme reference", *OpenApiVersion.allVersions()) {
                     openApi {
+                        components {
+                            securitySchemes {
+                                scheme("validScheme") {
+                                    put("type", "http")
+                                    put("scheme", "bearer")
+                                }
+                            }
+                        }
                         paths {
                             path("/test") {
                                 operation("get") {
-                                    response("200") {
-                                        header("X-Ids") {
-                                            put("schema", mapOf("type" to "array"))
-                                        }
+                                    security {
+                                        requirement("missingScheme")
                                     }
                                 }
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(1) }
-                    assert("paths./test.get.responses.200.headers.X-Ids.schema") {
-                        toMatchText("No items schema defined for array schema defaulting to empty schema")
-                    }
-                    assert("paths./test.get.responses.200.headers.X-Ids.schema.items") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.get.security[0].missingScheme") {
+                        toContainViolation(OpenApiLintViolations.SECURITY_SCHEME_MISSING)
                     }
                 },
 
-                multiVersionLenientCase(name = "refed header has no schema", *OpenApiVersion.allVersions()) {
+                multiVersionLenientCase(name = "unsupported global security scheme type", *OpenApiVersion.allVersions()) {
                     openApi {
-                        paths {
-                            path("/test") {
-                                operation("get") {
-                                    response("200") {
-                                        headerRef("X-Request-Id", "HeaderId")
-                                    }
+                        components {
+                            securitySchemes {
+                                scheme("digestAuth") {
+                                    put("type", "http")
+                                    put("scheme", "digest")
                                 }
                             }
                         }
-                        components {
-                            headers {
-                                header("HeaderId") { }
+                        security {
+                            requirement("digestAuth")
+                        }
+                        paths {
+                            path("/test") {
+                                operation("get") {}
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(1) }
-                    assert("components.headers.HeaderId") {
-                        toMatchText("No schema defined, defaulting to empty schema")
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(2) }
+                    assert("components.securitySchemes.digestAuth") {
+                        toContainViolation(OpenApiLintViolations.UNSUPPORTED_FEATURE)
                     }
-                    assert("components.headers.HeaderId.schema") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
+                    assert("security[0].digestAuth") {
+                        toContainViolation(OpenApiLintViolations.SECURITY_SCHEME_MISSING)
                     }
                 },
-                multiVersionLenientCase(name = "refed header array no items schema", *OpenApiVersion.allVersions()) {
+                multiVersionLenientCase(name = "unsupported operation security scheme type", *OpenApiVersion.allVersions()) {
                     openApi {
+                        components {
+                            securitySchemes {
+                                scheme("digestAuth") {
+                                    put("type", "http")
+                                    put("scheme", "digest")
+                                }
+                            }
+                        }
                         paths {
                             path("/test") {
                                 operation("get") {
-                                    response("200") {
-                                        headerRef("X-Ids", "HeaderIdArray")
+                                    security {
+                                        requirement("digestAuth")
                                     }
                                 }
                             }
                         }
-                        components {
-                            headers {
-                                header("HeaderIdArray") {
-                                    put("schema", mapOf("type" to "array"))
-                                }
-                            }
-                        }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(1) }
-                    assert("components.headers.HeaderIdArray.schema") {
-                        toHaveSeverity(IssueSeverity.ERROR)
-                        toMatchText("No items schema defined for array schema defaulting to empty schema")
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(2) }
+                    assert("components.securitySchemes.digestAuth") {
+                        toContainViolation(OpenApiLintViolations.UNSUPPORTED_FEATURE)
                     }
-                    assert("components.headers.HeaderIdArray.schema.items") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
+                    assert("paths./test.get.security[0].digestAuth") {
+                        toContainViolation(OpenApiLintViolations.SECURITY_SCHEME_MISSING)
                     }
                 },
 
-                multiVersionLenientCase(name = "schema has issue", *OpenApiVersion.allVersions()) {
+                multiVersionLenientCase(name = "api key header parameter duplication", *OpenApiVersion.allVersions()) {
                     openApi {
-                        paths {
-                            path("/test") {
-                                operation("get") {
-                                    response("200") {
-                                        header("X-Request-Id") {
-                                            put("schema", mapOf("type" to "string", "minLength" to REASONABLE_STRING_LENGTH.plus(10)))
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
-                    assert("paths./test.get.responses.200.headers.X-Request-Id.schema.minLength") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
-                        toContainText("We will use a more reasonable minLength of 4MB")
-                    }
-                },
-                multiVersionLenientCase(name = "refed header schema has issue", *OpenApiVersion.allVersions()) {
-                    openApi {
-                        paths {
-                            path("/test") {
-                                operation("get") {
-                                    response("200") {
-                                        headerRef("X-Request-Id", "TooLongHeader")
-                                    }
-                                }
-                            }
-                        }
                         components {
-                            headers {
-                                header("TooLongHeader") {
-                                    put("schema", mapOf("type" to "string", "minLength" to REASONABLE_STRING_LENGTH.plus(10)))
+                            securitySchemes {
+                                scheme("apiKeyAuth") {
+                                    put("type", "apiKey")
+                                    put("in", "header")
+                                    put("name", "X-API-KEY")
+                                }
+                            }
+                        }
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    security {
+                                        requirement("apiKeyAuth")
+                                    }
+                                    parameter {
+                                        put("name", "X-API-KEY")
+                                        put("in", "header")
+                                        put("schema", mapOf("type" to "string"))
+                                    }
                                 }
                             }
                         }
                     }
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
-                    assert("components.headers.TooLongHeader.schema.minLength") {
+                    assert("paths./test.get.parameters[0].name") {
                         toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
+                        toContainViolation(OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED)
                     }
                 },
-            ).flatten().stream()
-        }
-
-        @JvmStatic
-        fun responseTestCases(): Stream<Arguments> {
-            return listOf(
-                multiVersionLenientCase(name = "status code is not a valid integer", *OpenApiVersion.allVersions()) {
+                multiVersionLenientCase(name = "api key query parameter duplication", *OpenApiVersion.allVersions()) {
                     openApi {
-                        paths {
-                            path("/test") {
-                                operation("get") {
-                                    response("foo") {
-                                        content {
-                                            mediaType("application/json") {
-                                                schema {
-                                                    put("type", "string")
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
-                    assert("paths./test.get.responses.foo") {
-                        toContainViolation(OpenApiLintViolations.INVALID_OPERATION_STATUS)
-                        toMatchText("Expected status codes to be numbers or default, but \"foo\" was found, defaulting to 'default'")
-                    }
-                },
-                multiVersionLenientCase(name = "invalid reference to a response", *OpenApiVersion.allVersions()) {
-                    openApi {
-                        paths {
-                            path("/test") {
-                                operation("get") {
-                                    responseRef("200", "MissingResponse")
-                                }
-                            }
-                        }
-                    }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
-                    assert("paths./test.get.responses.200.\$ref") {
-                        toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
-                        toMatchText("Response reference '#/components/responses/MissingResponse' could not be resolved, defaulting to empty response")
-                    }
-                },
-                multiVersionLenientCase(name = "media type has no schema", *OpenApiVersion.allVersions()) {
-                    openApi {
-                        paths {
-                            path("/test") {
-                                operation("get") {
-                                    response("200") {
-                                        content {
-                                            mediaType("application/json") { }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
-                    assert("paths./test.get.responses.200.content.application/json") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toMatchText(" No schema property defined under mediaType application/json, defaulting to free-form object")
-                    }
-                },
-                multiVersionLenientCase(name = "refed media type schema has no schema", *OpenApiVersion.allVersions()) {
-                    openApi {
-                        paths {
-                            path("/test") {
-                                operation("get") {
-                                    response("200") {
-                                        content {
-                                            mediaType("application/json") {
-                                                schemaRef("JsonMedia")
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
                         components {
-                            schemas {
-                                schema("JsonMedia") { }
+                            securitySchemes {
+                                scheme("apiKeyAuth") {
+                                    put("type", "apiKey")
+                                    put("in", "query")
+                                    put("name", "token")
+                                }
                             }
                         }
-                    }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
-                    assert("components.schemas.JsonMedia") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
-                        toMatchText("Schema is unclear, defaulting to non-null json schema")
-                    }
-                },
-                multiVersionLenientCase(name = "schema has issue", *OpenApiVersion.allVersions()) {
-                    openApi {
                         paths {
                             path("/test") {
                                 operation("get") {
-                                    response("200") {
-                                        content {
-                                            mediaType("application/json") {
-                                                schema {
-                                                    put("type", "string")
-                                                    put("maxLength", REASONABLE_STRING_LENGTH.plus(10))
-                                                }
-                                            }
-                                        }
+                                    security {
+                                        requirement("apiKeyAuth")
+                                    }
+                                    parameter {
+                                        put("name", "token")
+                                        put("in", "query")
+                                        put("schema", mapOf("type" to "string"))
                                     }
                                 }
                             }
                         }
                     }
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
-                    assert("paths./test.get.responses.200.content.application/json.schema.maxLength") {
+                    assert("paths./test.get.parameters[0].name") {
                         toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
-                    }
-                },
-                multiVersionLenientCase(name = "refed schema has issue", *OpenApiVersion.allVersions()) {
-                    openApi {
-                        paths {
-                            path("/test") {
-                                operation("get") {
-                                    response("200") {
-                                        content {
-                                            mediaType("application/json") {
-                                                schemaRef("TooLongString")
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        components {
-                            schemas {
-                                schema("TooLongString") {
-                                    put("type", "string")
-                                    put("maxLength", REASONABLE_STRING_LENGTH.plus(10))
-                                }
-                            }
-                        }
-                    }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
-                    assert("components.schemas.TooLongString.maxLength") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
-                    }
-                },
-                multiVersionLenientCase(name = "reference to a response content schema has issue", *OpenApiVersion.allVersions()) {
-                    openApi {
-                        paths {
-                            path("/test") {
-                                operation("get") {
-                                    responseRef("200", "RefedResponse")
-                                }
-                            }
-                        }
-                        components {
-                            responses {
-                                response("RefedResponse") {
-                                    content {
-                                        mediaType("application/json") {
-                                            schemaRef("TooLongString")
-                                        }
-                                    }
-                                }
-                            }
-                            schemas {
-                                schema("TooLongString") {
-                                    put("type", "string")
-                                    put("maxLength", REASONABLE_STRING_LENGTH.plus(10))
-                                }
-                            }
-                        }
-                    }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
-                    assert("components.schemas.TooLongString.maxLength") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
+                        toContainViolation(OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED)
                     }
                 },
             ).flatten().stream()
@@ -1655,6 +1520,341 @@ class LenientParserTest {
                         toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
                     }
                 }
+            ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun responseHeaderTestCases(): Stream<Arguments> {
+            return listOf(
+                multiVersionLenientCase(name = "has no schema", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response("200") {
+                                        header("X-Request-Id", block = {})
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(1) }
+                    assert("paths./test.get.responses.200.headers.X-Request-Id") {
+                        toMatchText("No schema defined, defaulting to empty schema")
+                    }
+                    assert("paths./test.get.responses.200.headers.X-Request-Id.schema") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
+                    }
+                },
+                multiVersionLenientCase(name = "array with no items schema", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response("200") {
+                                        header("X-Ids") {
+                                            put("schema", mapOf("type" to "array"))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(1) }
+                    assert("paths./test.get.responses.200.headers.X-Ids.schema") {
+                        toMatchText("No items schema defined for array schema defaulting to empty schema")
+                    }
+                    assert("paths./test.get.responses.200.headers.X-Ids.schema.items") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
+                    }
+                },
+
+                multiVersionLenientCase(name = "refed header has no schema", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response("200") {
+                                        headerRef("X-Request-Id", "HeaderId")
+                                    }
+                                }
+                            }
+                        }
+                        components {
+                            headers {
+                                header("HeaderId") { }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(1) }
+                    assert("components.headers.HeaderId") {
+                        toMatchText("No schema defined, defaulting to empty schema")
+                    }
+                    assert("components.headers.HeaderId.schema") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
+                    }
+                },
+                multiVersionLenientCase(name = "refed header array no items schema", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response("200") {
+                                        headerRef("X-Ids", "HeaderIdArray")
+                                    }
+                                }
+                            }
+                        }
+                        components {
+                            headers {
+                                header("HeaderIdArray") {
+                                    put("schema", mapOf("type" to "array"))
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(1) }
+                    assert("components.headers.HeaderIdArray.schema") {
+                        toHaveSeverity(IssueSeverity.ERROR)
+                        toMatchText("No items schema defined for array schema defaulting to empty schema")
+                    }
+                    assert("components.headers.HeaderIdArray.schema.items") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
+                    }
+                },
+
+                multiVersionLenientCase(name = "schema has issue", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response("200") {
+                                        header("X-Request-Id") {
+                                            put("schema", mapOf("type" to "string", "minLength" to REASONABLE_STRING_LENGTH.plus(10)))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.get.responses.200.headers.X-Request-Id.schema.minLength") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
+                        toContainText("We will use a more reasonable minLength of 4MB")
+                    }
+                },
+                multiVersionLenientCase(name = "refed header schema has issue", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response("200") {
+                                        headerRef("X-Request-Id", "TooLongHeader")
+                                    }
+                                }
+                            }
+                        }
+                        components {
+                            headers {
+                                header("TooLongHeader") {
+                                    put("schema", mapOf("type" to "string", "minLength" to REASONABLE_STRING_LENGTH.plus(10)))
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.headers.TooLongHeader.schema.minLength") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
+                    }
+                },
+            ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun responseTestCases(): Stream<Arguments> {
+            return listOf(
+                multiVersionLenientCase(name = "status code is not a valid integer", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response("foo") {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", "string")
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.get.responses.foo") {
+                        toContainViolation(OpenApiLintViolations.INVALID_OPERATION_STATUS)
+                        toMatchText("Expected status codes to be numbers or default, but \"foo\" was found, defaulting to 'default'")
+                    }
+                },
+                multiVersionLenientCase(name = "invalid reference to a response", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    responseRef("200", "MissingResponse")
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.get.responses.200.\$ref") {
+                        toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
+                        toMatchText("Response reference '#/components/responses/MissingResponse' could not be resolved, defaulting to empty response")
+                    }
+                },
+                multiVersionLenientCase(name = "media type has no schema", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response("200") {
+                                        content {
+                                            mediaType("application/json") { }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
+                    assert("paths./test.get.responses.200.content.application/json") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toMatchText(" No schema property defined under mediaType application/json, defaulting to free-form object")
+                    }
+                },
+                multiVersionLenientCase(name = "refed media type schema has no schema", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response("200") {
+                                        content {
+                                            mediaType("application/json") {
+                                                schemaRef("JsonMedia")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        components {
+                            schemas {
+                                schema("JsonMedia") { }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.schemas.JsonMedia") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
+                        toMatchText("Schema is unclear, defaulting to non-null json schema")
+                    }
+                },
+                multiVersionLenientCase(name = "schema has issue", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response("200") {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", "string")
+                                                    put("maxLength", REASONABLE_STRING_LENGTH.plus(10))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.get.responses.200.content.application/json.schema.maxLength") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
+                    }
+                },
+                multiVersionLenientCase(name = "refed schema has issue", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response("200") {
+                                        content {
+                                            mediaType("application/json") {
+                                                schemaRef("TooLongString")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        components {
+                            schemas {
+                                schema("TooLongString") {
+                                    put("type", "string")
+                                    put("maxLength", REASONABLE_STRING_LENGTH.plus(10))
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.schemas.TooLongString.maxLength") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
+                    }
+                },
+                multiVersionLenientCase(name = "reference to a response content schema has issue", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    responseRef("200", "RefedResponse")
+                                }
+                            }
+                        }
+                        components {
+                            responses {
+                                response("RefedResponse") {
+                                    content {
+                                        mediaType("application/json") {
+                                            schemaRef("TooLongString")
+                                        }
+                                    }
+                                }
+                            }
+                            schemas {
+                                schema("TooLongString") {
+                                    put("type", "string")
+                                    put("maxLength", REASONABLE_STRING_LENGTH.plus(10))
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.schemas.TooLongString.maxLength") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
+                    }
+                },
             ).flatten().stream()
         }
 
