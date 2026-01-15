@@ -1052,11 +1052,9 @@ class OpenApiSpecification(
         return response.headers.orEmpty().map { (headerName, header) ->
             logger.debug("Processing response header $headerName")
             val parameterInternalName = toSpecmaticParamName(header.required != true, headerName)
-            val (resolvedHeader, context) = resolveResponseHeader(header, headersContext)
-            parameterInternalName to toSpecmaticPattern(
-                schema = resolvedHeader.schema, typeStack = emptyList(),
-                collectorContext = context.at(headerName).at("schema")
-            )
+            val (resolvedHeader, context) = resolveResponseHeader(header, headersContext.at(headerName))
+            val headerToProcess = context.requirePojo(message = { "No schema defined, defaulting to empty schema" }, extract = { resolvedHeader.schema }, createDefault = { Schema<Any>() })
+            parameterInternalName to toSpecmaticPattern(schema = headerToProcess, typeStack = emptyList(), collectorContext = context.at("schema"))
         }.toMap()
     }
 
@@ -1070,19 +1068,20 @@ class OpenApiSpecification(
     private fun resolveResponseHeader(header: Header, collectorContext: CollectorContext): Pair<Header, CollectorContext> {
         if (header.`$ref` == null) return Pair(header, collectorContext)
         val headerComponentName = header.`$ref`.substringAfterLast("/")
-        val resolvedHeader = collectorContext.requirePojo(
-            name = "\$ref",
-            message = { "Header reference '${header.`$ref`}' could not be resolved, defaulting to empty schema" },
-            extract = { parsedOpenApi.components?.headers?.get(headerComponentName) },
-            ruleViolation = { OpenApiLintViolations.UNRESOLVED_REFERENCE },
-            createDefault = {
-                Header().apply {
-                    schema = Schema<Any>()
-                    required = false
-                }
-            },
+        val hasReusableHeader = parsedOpenApi.components?.headers?.contains(headerComponentName) == true
+        return Pair(
+            first = collectorContext.at("\$ref").requirePojo(
+                message = { "Header reference '${header.`$ref`}' could not be resolved, defaulting to empty schema" },
+                extract = { parsedOpenApi.components?.headers?.get(headerComponentName) },
+                ruleViolation = { OpenApiLintViolations.UNRESOLVED_REFERENCE },
+                createDefault = { Header().apply { schema = Schema<Any>(); required = false } },
+            ),
+            second = if (hasReusableHeader) {
+                collectorContext.withPath("components").at("headers").at(headerComponentName)
+            } else {
+                collectorContext
+            }
         )
-        return Pair(resolvedHeader, collectorContext.withPath("components").at("headers"))
     }
 
     private fun openAPIResponseToSpecmatic(response: ApiResponse, status: String, headersMap: Map<String, Pattern>, collectorContext: CollectorContext): List<ResponsePatternData> {
@@ -1716,8 +1715,14 @@ class OpenApiSpecification(
     }
 
     private fun resolveSchemaIfRefElseAtSchema(schema: Schema<*>, collectorContext: CollectorContext): Pair<Schema<*>, CollectorContext> {
-        if (schema.`$ref` == null) return Pair(schema, collectorContext.at("schema"))
-        return resolveSchema(schema, collectorContext.at("schema")).let { Pair(it.resolvedSchema, it.collectorContext) }
+        val schemaToProcess = collectorContext.requirePojo(
+            message = { "No schema defined, defaulting to empty schema" },
+            extract = { schema },
+            createDefault = { Schema<Any>() }
+        )
+
+        if (schemaToProcess.`$ref` == null) return Pair(schemaToProcess, collectorContext.at("schema"))
+        return resolveSchema(schemaToProcess, collectorContext.at("schema")).let { Pair(it.resolvedSchema, it.collectorContext) }
     }
 
     private fun List<Pattern>.toPatternOrAny(typeAlias: String? = null): Pattern {
@@ -2238,6 +2243,7 @@ class OpenApiSpecification(
         return Pair(
             first = collectorContext.at("\$ref").requirePojo(
                 message = { "Failed to resolve reference to requestBodies $componentName, defaulting to empty requestBody" },
+                ruleViolation = { OpenApiLintViolations.UNRESOLVED_REFERENCE },
                 extract = { parsedOpenApi.components?.requestBodies?.get(componentName) },
                 createDefault = { RequestBody() }
             ),
