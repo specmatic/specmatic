@@ -43,6 +43,7 @@ import io.swagger.v3.oas.models.SpecVersion
 import io.swagger.v3.oas.models.examples.Example
 import io.swagger.v3.oas.models.headers.Header
 import io.swagger.v3.oas.models.media.BinarySchema
+import io.swagger.v3.oas.models.media.Content
 import io.swagger.v3.oas.models.media.Schema
 import io.swagger.v3.oas.models.media.MediaType
 import io.swagger.v3.oas.models.media.ObjectSchema
@@ -1255,16 +1256,27 @@ class OpenApiSpecification(
             securitySchemesForRequestPattern
         )
 
-        val requestBody = resolveRequestBody(operation, collectorContext)
-            ?: return listOf(
-                RequestPatternsData(
-                    requestPattern.copy(body = NoBodyPattern),
-                    exampleRequestBuilder.examplesBasedOnParameters
-                )
+        val (requestBody, requestBodyContext) = resolveRequestBody(operation, collectorContext) ?: return listOf(
+            RequestPatternsData(
+                requestPattern.copy(body = NoBodyPattern),
+                exampleRequestBuilder.examplesBasedOnParameters
             )
+        )
 
-        val contentContext = collectorContext.at("requestBody").at("content")
-        return requestBody.content.map { (contentType, mediaType) ->
+        val contentTypes = requestBodyContext.requirePojo(
+            message = { "requestBody doesn't contain the content map, defaulting to no body" },
+            extract = { requestBody.content },
+            createDefault = { Content() }
+        )
+
+        if (contentTypes.isEmpty()) {
+            return listOf(
+                RequestPatternsData(requestPattern.copy(body = NoBodyPattern), exampleRequestBuilder.examplesBasedOnParameters)
+            )
+        }
+
+        val contentContext = requestBodyContext.at("content")
+        return contentTypes.map { (contentType, mediaType) ->
             logger.debug("Processing request payload with media type $contentType")
             val mediaTypeContext = contentContext.at(contentType)
             when (contentType.lowercase()) {
@@ -1401,10 +1413,13 @@ class OpenApiSpecification(
             }
     }
 
-    private fun resolveRequestBody(operation: Operation, collectorContext: CollectorContext): RequestBody? =
-        operation.requestBody?.`$ref`?.let {
-            resolveReferenceToRequestBody(it, collectorContext).second
-        } ?: operation.requestBody
+    private fun resolveRequestBody(operation: Operation, collectorContext: CollectorContext): Pair<RequestBody, CollectorContext>? {
+        return operation.requestBody?.`$ref`?.let {
+            resolveReferenceToRequestBody(it, collectorContext.at("requestBody"))
+        } ?: operation.requestBody?.let {
+            it to collectorContext.at("requestBody")
+        }
+    }
 
     private fun toSecurityScheme(schemeName: String, securityScheme: SecurityScheme, collectorContext: CollectorContext): OpenAPISecurityScheme? {
         val securitySchemeConfiguration = securityConfiguration?.getOpenAPISecurityScheme(schemeName)
@@ -2211,10 +2226,21 @@ class OpenApiSpecification(
         )
     }
 
-    private fun resolveReferenceToRequestBody(component: String, collectorContext: CollectorContext): Pair<String, RequestBody> {
+    private fun resolveReferenceToRequestBody(component: String, collectorContext: CollectorContext): Pair<RequestBody, CollectorContext> {
         val componentName = extractComponentName(component, collectorContext)
-        val requestBody = parsedOpenApi.components.requestBodies[componentName] ?: RequestBody()
-        return componentName to requestBody
+        val hasRefedOutBody = parsedOpenApi.components?.requestBodies?.contains(componentName) == true
+        return Pair(
+            first = collectorContext.at("\$ref").requirePojo(
+                message = { "Failed to resolve reference to requestBodies $componentName, defaulting to empty requestBody" },
+                extract = { parsedOpenApi.components?.requestBodies?.get(componentName) },
+                createDefault = { RequestBody() }
+            ),
+            second = if (hasRefedOutBody) {
+                collectorContext.withPath("components").at("requestBodies").at(componentName)
+            } else {
+                collectorContext
+            }
+        )
     }
 
     private fun extractComponentName(component: String, collectorContext: CollectorContext): String {
