@@ -1836,7 +1836,7 @@ class OpenApiSpecification(
             isWarning = true
         )
 
-        return ResolvedRef(componentName, resolvedSchema, referredSchema, collectorContext.withPath("components").at("schemas").at(componentName))
+return ResolvedRef(componentName, resolvedSchema, referredSchema, collectorContext.withPath("components").at("schemas").at(componentName))
     }
 
     private fun convertAndCacheResolvedRef(
@@ -1897,8 +1897,12 @@ class OpenApiSpecification(
     }
 
     private fun numberPattern(schema: Schema<*>, collectorContext: CollectorContext, isDoubleFormat: Boolean, example: String?) : NumberPattern {
+        val minSource = if (schema.exclusiveMinimumValue != null) NumericBoundSource.EXCLUSIVE_MINIMUM else if (schema.minimum != null) NumericBoundSource.MINIMUM else null
+        val maxSource = if (schema.exclusiveMaximumValue != null) NumericBoundSource.EXCLUSIVE_MAXIMUM else if (schema.maximum != null) NumericBoundSource.MAXIMUM else null
         return NumberConstraints(
             example = example,
+            minSource = minSource,
+            maxSource = maxSource,
             isDoubleFormat = isDoubleFormat,
             minimum = schema.exclusiveMinimumValue ?: schema.minimum,
             maximum = schema.exclusiveMaximumValue ?: schema.maximum,

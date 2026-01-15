@@ -1,6 +1,7 @@
 package integration_tests
 
 import integration_tests.LenientParseTestCase.Companion.multiVersionLenientCase
+import integration_tests.LenientParseTestCase.Companion.singleVersionLenientCase
 import io.specmatic.conversions.OpenApiLintViolations
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.REASONABLE_STRING_LENGTH
@@ -321,8 +322,12 @@ class LenientParserTest {
     @ParameterizedTest
     @MethodSource("responseTestCases") fun `response content test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
 
+    @ParameterizedTest
+    @MethodSource("numberSchemaTestCases")
+    fun `number schema constraint test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
+
     companion object {
-        @JvmStatic // DONE
+        @JvmStatic
         fun pathParameterTestCases(): Stream<Arguments> {
             return listOf(
                 multiVersionLenientCase(name = "missing", *OpenApiVersion.allVersions()) {
@@ -462,7 +467,7 @@ class LenientParserTest {
             ).flatten().stream()
         }
 
-        @JvmStatic // DONE
+        @JvmStatic
         fun queryParameterTestCases(): Stream<Arguments> {
             return listOf(
                 multiVersionLenientCase(name = "has no schema", *OpenApiVersion.allVersions()) {
@@ -1853,6 +1858,189 @@ class LenientParserTest {
                     assert("components.schemas.TooLongString.maxLength") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
+                    }
+                },
+            ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun numberSchemaTestCases(): Stream<Arguments> {
+            return listOf(
+                multiVersionLenientCase(name = "number schema maximum less than minimum (inline)", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", "number")
+                                                    put("minimum", 10)
+                                                    put("maximum", 5)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.get.responses.200.content.application/json.schema.maximum") {
+                        toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
+                        toMatchText("maximum 5 cannot be less than minimum 10")
+                    }
+                },
+                multiVersionLenientCase(name = "number schema maximum less than minimum (ref)", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        components {
+                            schemas {
+                                schema("BadNumber") {
+                                    put("type", "number")
+                                    put("minimum", 10)
+                                    put("maximum", 5)
+                                }
+                            }
+                        }
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schemaRef("BadNumber")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.schemas.BadNumber.maximum") {
+                        toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
+                        toMatchText("maximum 5 cannot be less than minimum 10")
+                    }
+                },
+
+                singleVersionLenientCase(name = "number schema exclusive bounds collapse (inline)", version = OpenApiVersion.OAS30) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", "number")
+                                                    put("minimum", 5)
+                                                    put("maximum", 6)
+                                                    put("exclusiveMinimum", true)
+                                                    put("exclusiveMaximum", true)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.get.responses.200.content.application/json.schema.maximum") {
+                        toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
+                        toMatchText("maximum 5 cannot be less than minimum 6")
+                    }
+                },
+                singleVersionLenientCase(name = "number schema exclusive bounds collapse (ref)", version = OpenApiVersion.OAS30) {
+                    openApi {
+                        components {
+                            schemas {
+                                schema("BadNumber") {
+                                    put("type", "number")
+                                    put("minimum", 5)
+                                    put("maximum", 6)
+                                    put("exclusiveMinimum", true)
+                                    put("exclusiveMaximum", true)
+                                }
+                            }
+                        }
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schemaRef("BadNumber")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.schemas.BadNumber.maximum") {
+                        toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
+                        toMatchText("maximum 5 cannot be less than minimum 6")
+                    }
+                },
+
+                singleVersionLenientCase(name = "number schema exclusive bounds collapse (inline)", version = OpenApiVersion.OAS31) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", "number")
+                                                    put("exclusiveMinimum", 6)
+                                                    put("exclusiveMaximum", 5)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.get.responses.200.content.application/json.schema.exclusiveMaximum") {
+                        toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
+                        toMatchText("exclusiveMaximum 4 cannot be less than exclusiveMinimum 7")
+                    }
+                },
+                singleVersionLenientCase(name = "number schema exclusive bounds collapse (ref)", version = OpenApiVersion.OAS31) {
+                    openApi {
+                        components {
+                            schemas {
+                                schema("BadNumber") {
+                                    put("type", "number")
+                                    put("exclusiveMinimum", 6)
+                                    put("exclusiveMaximum", 5)
+                                }
+                            }
+                        }
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schemaRef("BadNumber")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.schemas.BadNumber.exclusiveMaximum") {
+                        toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
+                        toMatchText("exclusiveMaximum 4 cannot be less than exclusiveMinimum 7")
                     }
                 },
             ).flatten().stream()

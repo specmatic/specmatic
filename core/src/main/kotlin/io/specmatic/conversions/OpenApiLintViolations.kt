@@ -35,12 +35,6 @@ enum class OpenApiLintViolations(override val id: String, override val title: St
         summary = "Maximum must be greater than or equal to minimum"
     ),
 
-    INVALID_EFFECTIVE_BOUNDS(
-        id = "OAS0006",
-        title = "Invalid effective bounds",
-        summary = "Effective maximum must be greater than or equal to effective minimum"
-    ),
-
     /* -------- Parameters -------- */
     INVALID_PARAMETER_DEFINITION(
         id = "OAS0010",

@@ -6,11 +6,20 @@ import io.specmatic.conversions.lenient.requireMinimum
 import io.specmatic.core.pattern.NumberPattern
 import java.math.BigDecimal
 
+enum class NumericBoundSource(val field: String) {
+    MINIMUM("minimum"),
+    EXCLUSIVE_MINIMUM("exclusiveMinimum"),
+    MAXIMUM("maximum"),
+    EXCLUSIVE_MAXIMUM("exclusiveMaximum");
+}
+
 data class NumberConstraints(
     val minLength: Int? = null,
     val maxLength: Int? = null,
     val minimum: BigDecimal? = null,
     val maximum: BigDecimal? = null,
+    val minSource: NumericBoundSource? = null,
+    val maxSource: NumericBoundSource? = null,
     val isExclusiveMinimum: Boolean,
     val isExclusiveMaximum: Boolean,
     val isDoubleFormat: Boolean,
@@ -56,21 +65,18 @@ data class NumberConstraints(
 
     private fun computeNumericBounds(collectorContext: CollectorContext): Pair<BigDecimal?, BigDecimal?> {
         if (minimum == null || maximum == null) return minimum to maximum
-        val correctedMax = collectorContext.requireGreaterThanOrEqualOrDrop(
-            name = "maximum", value = maximum, minimum = minimum,
-            message = { current, min -> "maximum $current cannot be less than minimum $min" },
-            ruleViolation = OpenApiLintViolations.INVALID_NUMERIC_BOUNDS
-        ) ?: return minimum to null
+        val realizedMaxSource = maxSource?.field ?: NumericBoundSource.MAXIMUM.field
+        val realizedMinSource = minSource?.field ?: NumericBoundSource.MINIMUM.field
 
         val effectiveMin = if (isExclusiveMinimum) minimum.plus(smallestInc) else minimum
-        val effectiveMax = if (isExclusiveMaximum) correctedMax.minus(smallestInc) else correctedMax
+        val effectiveMax = if (isExclusiveMaximum) maximum.minus(smallestInc) else maximum
         val correctedEffectiveMaximum = collectorContext.check(
-            name = "maximum", value = correctedMax,
+            name = realizedMaxSource, value = maximum,
             isValid = { effectiveMax >= effectiveMin }
         ).violation {
-            OpenApiLintViolations.INVALID_EFFECTIVE_BOUNDS
+            OpenApiLintViolations.INVALID_NUMERIC_BOUNDS
         }.message {
-            "effective maximum $effectiveMax cannot be less than effective minimum $effectiveMin"
+            "$realizedMaxSource $effectiveMax cannot be less than $realizedMinSource $effectiveMin"
         }.orUse {
             effectiveMin.plus(smallestInc)
         }.build()
