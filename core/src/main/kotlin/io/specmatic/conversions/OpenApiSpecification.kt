@@ -43,7 +43,6 @@ import io.swagger.v3.oas.models.SpecVersion
 import io.swagger.v3.oas.models.examples.Example
 import io.swagger.v3.oas.models.headers.Header
 import io.swagger.v3.oas.models.media.BinarySchema
-import io.swagger.v3.oas.models.media.Content
 import io.swagger.v3.oas.models.media.Schema
 import io.swagger.v3.oas.models.media.MediaType
 import io.swagger.v3.oas.models.media.ObjectSchema
@@ -1034,6 +1033,7 @@ class OpenApiSpecification(
         return responses.orEmpty().map { (status, response) ->
             logger.debug("Processing response payload with status $status")
             val statusContext = responsesContext.at(status)
+            val (resolvedResponse, responseContext) = resolveResponse(response, statusContext)
             val headersMap = openAPIHeadersToSpecmatic(response, statusContext)
             val finalizedStatus = statusContext.check<String>(value = status, isValid = { isNumber(status) || status == "default" })
                 .violation { OpenApiLintViolations.INVALID_OPERATION_STATUS }
@@ -1042,7 +1042,7 @@ class OpenApiSpecification(
                 .build()
 
             attempt(breadCrumb = status) {
-                openAPIResponseToSpecmatic(response, finalizedStatus, headersMap, statusContext)
+                openAPIResponseToSpecmatic(resolvedResponse, finalizedStatus, headersMap, responseContext)
             }
         }.flatten()
     }
@@ -1078,6 +1078,25 @@ class OpenApiSpecification(
             ),
             second = if (hasReusableHeader) {
                 collectorContext.withPath("components").at("headers").at(headerComponentName)
+            } else {
+                collectorContext
+            }
+        )
+    }
+
+    private fun resolveResponse(response: ApiResponse, collectorContext: CollectorContext): Pair<ApiResponse, CollectorContext> {
+        if (response.`$ref` == null) return Pair(response, collectorContext)
+        val responseComponentName = response.`$ref`.substringAfterLast("/")
+        val hasReusableResponse = parsedOpenApi.components?.responses?.contains(responseComponentName) == true
+        return Pair(
+            first = collectorContext.at("\$ref").requirePojo(
+                message = { "Response reference '${response.`$ref`}' could not be resolved, defaulting to empty response" },
+                extract = { parsedOpenApi.components?.responses?.get(responseComponentName) },
+                ruleViolation = { OpenApiLintViolations.UNRESOLVED_REFERENCE },
+                createDefault = { ApiResponse() }
+            ),
+            second = if (hasReusableResponse) {
+                collectorContext.withPath("components").at("responses").at(responseComponentName)
             } else {
                 collectorContext
             }
@@ -1262,20 +1281,13 @@ class OpenApiSpecification(
             )
         )
 
-        val contentTypes = requestBodyContext.requirePojo(
-            message = { "requestBody doesn't contain the content map, defaulting to no body" },
-            extract = { requestBody.content },
-            createDefault = { Content() }
-        )
-
-        if (contentTypes.isEmpty()) {
-            return listOf(
-                RequestPatternsData(requestPattern.copy(body = NoBodyPattern), exampleRequestBuilder.examplesBasedOnParameters)
-            )
+        if (requestBody.content == null || requestBody.content.isEmpty()) {
+            val patternData = RequestPatternsData(requestPattern.copy(body = NoBodyPattern), exampleRequestBuilder.examplesBasedOnParameters)
+            return listOf(patternData)
         }
 
         val contentContext = requestBodyContext.at("content")
-        return contentTypes.map { (contentType, mediaType) ->
+        return requestBody.content.map { (contentType, mediaType) ->
             logger.debug("Processing request payload with media type $contentType")
             val mediaTypeContext = contentContext.at(contentType)
             when (contentType.lowercase()) {

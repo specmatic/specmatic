@@ -1,7 +1,6 @@
 package integration_tests
 
 import integration_tests.LenientParseTestCase.Companion.multiVersionLenientCase
-import integration_tests.LenientParseTestCase.Companion.singleVersionLenientCase
 import io.specmatic.conversions.OpenApiLintViolations
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.REASONABLE_STRING_LENGTH
@@ -140,6 +139,13 @@ data class LenientParseTestCase(val openApi: Map<String, Any?>, val checks: List
                 }
             }
 
+            fun responseRef(status: Any, name: String) {
+                op.map("responses") {
+                    val resp = mapOf("\$ref" to "#/components/responses/$name")
+                    put(status.toString(), resp)
+                }
+            }
+
             fun security(block: MutableList<AnyValueMap>.() -> Unit) {
                 val list = mutableListOf<AnyValueMap>()
                 block(list)
@@ -156,6 +162,11 @@ data class LenientParseTestCase(val openApi: Map<String, Any?>, val checks: List
             fun headerRef(name: String, refName: String) {
                 val headers = response.map("headers") { }
                 headers[name] = mapOf("\$ref" to "#/components/headers/$refName")
+            }
+
+            fun content(block: ContentDsl.() -> Unit) {
+                val content = response.map("content") { }
+                block(ContentDsl(content))
             }
         }
 
@@ -206,6 +217,11 @@ data class LenientParseTestCase(val openApi: Map<String, Any?>, val checks: List
                 val headers = components.map("headers") { }
                 block(HeaderDsl(headers))
             }
+
+            fun responses(block: ResponsesDsl.() -> Unit) {
+                val responses = components.map("responses") { }
+                block(ResponsesDsl(responses))
+            }
         }
 
         class SchemasDsl(private val schemas: AnyValueMap) {
@@ -225,6 +241,14 @@ data class LenientParseTestCase(val openApi: Map<String, Any?>, val checks: List
                 val body = mutableMapOf<String, Any?>()
                 block(RequestBodyDsl(body))
                 bodies[name] = body
+            }
+        }
+
+        class ResponsesDsl(private val responses: AnyValueMap) {
+            fun response(name: String, block: ResponseDsl.() -> Unit) {
+                val response = mutableMapOf<String, Any?>()
+                block(ResponseDsl(response))
+                responses[name] = response
             }
         }
     }
@@ -269,7 +293,10 @@ class LenientParserTest {
 
     @ParameterizedTest
     @MethodSource("responseHeaderTestCases")
-    fun `response header test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
+    fun `response test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
+
+    @ParameterizedTest
+    @MethodSource("responseTestCases") fun `response content test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
 
     companion object {
         @JvmStatic // DONE
@@ -1096,44 +1123,190 @@ class LenientParserTest {
         }
 
         @JvmStatic
-        fun requestBodyTestCases(): Stream<Arguments> {
+        fun responseTestCases(): Stream<Arguments> {
             return listOf(
-                multiVersionLenientCase(name = "has no content", *OpenApiVersion.allVersions()) {
+                multiVersionLenientCase(name = "status code is not a valid integer", *OpenApiVersion.allVersions()) {
                     openApi {
                         paths {
                             path("/test") {
-                                operation("post") {
-                                    requestBody {}
+                                operation("get") {
+                                    response("foo") {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", "string")
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.get.responses.foo") {
+                        toContainViolation(OpenApiLintViolations.INVALID_OPERATION_STATUS)
+                        toMatchText("Expected status codes to be numbers or default, but \"foo\" was found, defaulting to 'default'")
+                    }
+                },
+                multiVersionLenientCase(name = "invalid reference to a response", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    responseRef("200", "MissingResponse")
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.get.responses.200.\$ref") {
+                        toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
+                        toMatchText("Response reference '#/components/responses/MissingResponse' could not be resolved, defaulting to empty response")
+                    }
+                },
+                multiVersionLenientCase(name = "media type has no schema", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response("200") {
+                                        content {
+                                            mediaType("application/json") { }
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
-                    assert("paths./test.post.requestBody") {
-                        toMatchText("requestBody doesn't contain the content map, defaulting to no body")
+                    assert("paths./test.get.responses.200.content.application/json") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toMatchText(" No schema property defined under mediaType application/json, defaulting to free-form object")
                     }
                 },
-                singleVersionLenientCase(name = "reference to a request body has no content", OpenApiVersion.OAS31) {
-                    // TODO: OAS 3.0 Parser has issues parsing ref requestBodies when ref has no contenet and mediaType
+                multiVersionLenientCase(name = "refed media type schema has no schema", *OpenApiVersion.allVersions()) {
                     openApi {
                         paths {
                             path("/test") {
-                                operation("post") {
-                                    requestBodyRef("RefedOutBody")
+                                operation("get") {
+                                    response("200") {
+                                        content {
+                                            mediaType("application/json") {
+                                                schemaRef("JsonMedia")
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
                         components {
-                            requestBodies {
-                                requestBody("RefedOutBody") {}
+                            schemas {
+                                schema("JsonMedia") { }
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
-                    assert("components.requestBodies.RefedOutBody") {
-                        toMatchText("requestBody doesn't contain the content map, defaulting to no body")
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.schemas.JsonMedia") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
+                        toMatchText("Schema is unclear, defaulting to non-null json schema")
                     }
                 },
+                multiVersionLenientCase(name = "schema has issue", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response("200") {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", "string")
+                                                    put("maxLength", REASONABLE_STRING_LENGTH.plus(10))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.get.responses.200.content.application/json.schema.maxLength") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
+                    }
+                },
+                multiVersionLenientCase(name = "refed schema has issue", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response("200") {
+                                        content {
+                                            mediaType("application/json") {
+                                                schemaRef("TooLongString")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        components {
+                            schemas {
+                                schema("TooLongString") {
+                                    put("type", "string")
+                                    put("maxLength", REASONABLE_STRING_LENGTH.plus(10))
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.schemas.TooLongString.maxLength") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
+                    }
+                },
+                multiVersionLenientCase(name = "reference to a response content schema has issue", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    responseRef("200", "RefedResponse")
+                                }
+                            }
+                        }
+                        components {
+                            responses {
+                                response("RefedResponse") {
+                                    content {
+                                        mediaType("application/json") {
+                                            schemaRef("TooLongString")
+                                        }
+                                    }
+                                }
+                            }
+                            schemas {
+                                schema("TooLongString") {
+                                    put("type", "string")
+                                    put("maxLength", REASONABLE_STRING_LENGTH.plus(10))
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.schemas.TooLongString.maxLength") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
+                    }
+                },
+            ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun requestBodyTestCases(): Stream<Arguments> {
+            return listOf(
                 multiVersionLenientCase(name = "invalid reference to a request body", *OpenApiVersion.allVersions()) {
                     openApi {
                         paths {
@@ -1144,16 +1317,12 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.post.requestBody.\$ref") {
                         toMatchText("Failed to resolve reference to requestBodies RefedOutBody, defaulting to empty requestBody")
                         toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
                     }
-                    assert("paths./test.post.requestBody") {
-                        toMatchText("requestBody doesn't contain the content map, defaulting to no body")
-                    }
                 },
-
                 multiVersionLenientCase(name = "schema has issue", *OpenApiVersion.allVersions()) {
                     openApi {
                         paths {
