@@ -1,5 +1,6 @@
 package io.specmatic.core.pattern
 
+import io.specmatic.conversions.lenient.CollectorContext
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.Substitution
@@ -128,5 +129,66 @@ data class EnumPattern(override val pattern: AnyPattern, val nullable: Boolean) 
     override fun toNullable(defaultValue: String?): EnumPattern {
         if (nullable) return this
         return copy(nullable = true, pattern = pattern.copy(pattern = pattern.pattern.plus(ExactValuePattern(NullValue))))
+    }
+
+    companion object {
+        fun from(values: List<Value>, pattern: Pattern, isNullable: Boolean, isMultiType: Boolean, typeAlias: String, collectorContext: CollectorContext): EnumPattern {
+            val nullableFixed = fixNullableMismatch(values.distinct(), isNullable, collectorContext)
+            val (fixedValues, derivedMultiType) = fixEnumPatternMismatch(nullableFixed, pattern, isMultiType, collectorContext)
+            return collectorContext.at("enum").safely(
+                fallback = { EnumPattern(values = fixedValues, typeAlias = typeAlias, nullable = true, multiType = true) },
+                message =  "Failed to validate enum values, please check the schema, entries and nullability, defaulting to lenient enum",
+                block =  {
+                    EnumPattern(values = fixedValues, typeAlias = typeAlias, nullable = isNullable, multiType = derivedMultiType)
+                }
+            )
+        }
+
+        private fun fixNullableMismatch(values: List<Value>, isNullable: Boolean, collectorContext: CollectorContext): List<Value> {
+            val indexOfNullValue = values.indexOfFirst { it is NullValue }
+            return collectorContext.at("enum").at(indexOfNullValue).check(
+                value = values,
+                isValid = {
+                    val containsNull = it.any { v -> v is NullValue }
+                    when {
+                        isNullable && !containsNull -> false
+                        !isNullable && containsNull -> false
+                        else -> true
+                    }
+                }
+            ).message {
+                if (isNullable) "Enum values must contain null if the enum is marked nullable, adding null value"
+                else "Enum values cannot contain null if the enum is not nullable, ignoring null value"
+            }.orUse {
+                if (isNullable) values + NullValue else values.filterNot { it is NullValue }
+            }.build()
+        }
+
+        private fun fixEnumPatternMismatch(values: List<Value>, pattern: Pattern, isMultiType: Boolean, collectorContext: CollectorContext): Pair<List<Value>, Boolean> {
+            if (isMultiType || values.none { it !is NullValue }) return values to true
+            val validValues = values.withIndex().mapNotNull { (index, value) ->
+                if (value is NullValue) return@mapNotNull value
+                val indexContext = collectorContext.at("enum").at(index)
+                indexContext.check<Value?>(value = value, isValid = { pattern.matches(it, Resolver()).isSuccess() })
+                    .message {
+                        val successFullParse = runCatching { pattern.parse(value.toUnformattedString(), Resolver()) }.isSuccess
+                        val defaultSuffix = if (successFullParse) "Converted to expected type" else "ignoring this value"
+                        "Enum value ${value.displayableValue()} does not match the declared enum schema, $defaultSuffix"
+                    }
+                    .orUse {
+                        runCatching { pattern.parse(value.toUnformattedString(), Resolver()) }.getOrNull()
+                    }
+                    .build()
+            }
+
+            return when {
+                validValues.isEmpty() || validValues.none { it !is NullValue } -> {
+                    collectorContext.record("No enum value matches the declared schema. Retaining all values and treating enum as multi-type")
+                    values to true
+                }
+                validValues.size < values.size -> validValues to false
+                else -> validValues to false
+            }
+        }
     }
 }

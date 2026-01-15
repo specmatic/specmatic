@@ -12,7 +12,6 @@ import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.cucumber.messages.types.Step
 import io.ktor.util.reflect.*
 import io.specmatic.conversions.SchemaUtils.mergeResolvedIfJsonSchema
-import io.specmatic.conversions.SchemaUtils.modifyDeepCopySchema
 import io.specmatic.conversions.lenient.CollectorContext
 import io.specmatic.conversions.lenient.DEFAULT_ARRAY_INDEX
 import io.specmatic.core.*
@@ -1697,7 +1696,7 @@ class OpenApiSpecification(
 
     private fun resolveSchemaIfRefElseAtSchema(schema: Schema<*>, collectorContext: CollectorContext): Pair<Schema<*>, CollectorContext> {
         if (schema.`$ref` == null) return Pair(schema, collectorContext.at("schema"))
-        return resolveSchema(schema, collectorContext).let { Pair(it.resolvedSchema, it.collectorContext) }
+        return resolveSchema(schema, collectorContext.at("schema")).let { Pair(it.resolvedSchema, it.collectorContext) }
     }
 
     private fun List<Pattern>.toPatternOrAny(typeAlias: String? = null): Pattern {
@@ -1794,7 +1793,7 @@ class OpenApiSpecification(
             value = schema,
             message = { "Schema has both \$ref (${schema.`$ref`}) and a type ${schema.type} defined, ignoring other properties" },
             isValid = { parsedOpenApi.specVersion == SpecVersion.V31 || it.type == null },
-            createDefault = { modifyDeepCopySchema(it) { schema -> schema.`$ref`(null) } },
+            createDefault = { it },
             ruleViolation = { OpenApiLintViolations.REF_HAS_SIBLINGS },
             isWarning = true
         )
@@ -1873,19 +1872,31 @@ class OpenApiSpecification(
 
     private fun enumPattern(schema: Schema<*>, patternName: String, types: List<String>, collectorContext: CollectorContext, example: String? = null): EnumPattern {
         val enumDataTypes = types.sortedWith(compareBy { it == "string" }).map(::withPatternDelimiters)
-        val converter: (String) -> Value = { value ->
+        val converter: (Any) -> Value = { value ->
             enumDataTypes.firstNotNullOfOrNull {
                 val pattern = builtInPatterns[it] ?: return@firstNotNullOfOrNull null
-                runCatching { pattern.parse(value, Resolver()) }.getOrNull()
+                runCatching { pattern.parse(value.toString(), Resolver()) }.getOrNull()
             } ?: run {
-                logger.log("Failed to validate enum value $value against provided list of types $enumDataTypes")
-                parsedScalarValue(value)
+                logger.debug("Failed to convert enum value $value against provided list of types $enumDataTypes, defaulting to any scalar")
+                parsedScalarValue(value.toString())
             }
         }
 
-        return toEnum(schema, schema.isNullable(), patternName, multiType = types.size > 1, collectorContext = collectorContext) { enumValue ->
-            converter(enumValue.toString())
-        }.withExample(example)
+        val enumValuesPattern = toSpecmaticPattern(
+            schema = SchemaUtils.modifyDeepCopySchema(schema) { it.apply { enum = null } },
+            typeStack = emptyList(),
+            collectorContext = CollectorContext()
+        )
+
+        return toEnum(
+            schema = schema,
+            pattern = enumValuesPattern,
+            isNullable = schema.isNullable(),
+            patternName = patternName,
+            multiType = types.size > 1,
+            collectorContext = collectorContext,
+            toSpecmaticValue = converter
+        ).withExample(example)
     }
 
     private fun isBoundaryTestingEnabled(schema: Schema<*>): Boolean {
@@ -2152,7 +2163,7 @@ class OpenApiSpecification(
         }.toMap()
     }
 
-    private fun toEnum(schema: Schema<*>, isNullable: Boolean, patternName: String, multiType: Boolean = false, collectorContext: CollectorContext, toSpecmaticValue: (Any) -> Value): EnumPattern {
+    private fun toEnum(schema: Schema<*>, pattern: Pattern, isNullable: Boolean, patternName: String, multiType: Boolean = false, collectorContext: CollectorContext, toSpecmaticValue: (Any) -> Value): EnumPattern {
         val specmaticValues = schema.enum.map { enumValue ->
             when (enumValue) {
                 null -> NullValue
@@ -2170,18 +2181,14 @@ class OpenApiSpecification(
             )
         }
 
-        // TODO: Deal with multi-type enum and null values in OAS 30 Case leniently
-        return collectorContext.safely(
-            message = "Failed to parse enum values, please check the schema, entries and nullability, defaulting to lenient enum",
-            fallback = {
-                EnumPattern(specmaticValues, nullable = true, typeAlias = patternName, multiType = true)
-            },
-            block = {
-                EnumPattern(specmaticValues, nullable = isNullable, typeAlias = patternName, multiType = multiType)
-            }
-        ).also {
-            cacheComponentPattern(patternName, it)
-        }
+        return EnumPattern.from(
+            values = specmaticValues,
+            pattern = pattern,
+            isNullable = isNullable,
+            isMultiType = multiType,
+            typeAlias = patternName,
+            collectorContext = collectorContext,
+        )
     }
 
     private fun toSpecmaticParamName(optional: Boolean, name: String) = when (optional) {

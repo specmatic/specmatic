@@ -496,7 +496,7 @@ class WarningsForRefWithSiblings {
 
         assertThat(stdout).containsIgnoringWhitespaces(
             toViolationReportString(
-                breadCrumb = "paths./test.get.parameters[0]",
+                breadCrumb = "paths./test.get.parameters[0].schema",
                 details = "Schema has both \$ref (#/components/schemas/CityType) and a type string defined, ignoring other properties",
                 OpenApiLintViolations.REF_HAS_SIBLINGS
             )
