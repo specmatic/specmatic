@@ -1283,7 +1283,7 @@ class OpenApiSpecification(
                 "multipart/form-data" -> {
                     val partSchemas = resolveSchemaIfRef(mediaType.schema, collectorContext = mediaTypeContext)
                     val parts: List<MultiPartFormDataPattern> =
-                        partSchemas.resolvedSchema.properties.map { (partName, partSchema) ->
+                        partSchemas.resolvedSchema.properties.orEmpty().map { (partName, partSchema) ->
                             val partNameContext = partSchemas.collectorContext.at("properties").at(partName)
                             val partContentType = mediaType.encoding?.get(partName)?.contentType
                             val partNameWithPresence = if (partSchemas.resolvedSchema.required?.contains(partName) == true)
@@ -1466,7 +1466,7 @@ class OpenApiSpecification(
 
     private fun toFormFields(mediaType: MediaType, collectorContext: CollectorContext): Map<String, Pattern> {
         val resolvedSchema = resolveSchemaIfRef(mediaType.schema, collectorContext = collectorContext)
-        return resolvedSchema.resolvedSchema.properties.map { (formFieldName, formFieldValue) ->
+        return resolvedSchema.resolvedSchema.properties.orEmpty().map { (formFieldName, formFieldValue) ->
             val formFieldContext = resolvedSchema.collectorContext.at("properties").at(formFieldName)
             formFieldName to toSpecmaticPattern(
                 schema = formFieldValue, typeStack = emptyList(),
@@ -1704,9 +1704,15 @@ class OpenApiSpecification(
         }
     }
 
-    private fun resolveSchemaIfRef(schema: Schema<*>, patternName: String? = null, collectorContext: CollectorContext): ResolvedRef {
-        if (schema.`$ref` == null) return ResolvedRef(patternName.orEmpty(), schema, schema, collectorContext)
-        return resolveSchema(schema, collectorContext)
+    private fun resolveSchemaIfRef(schema: Schema<*>?, patternName: String? = null, collectorContext: CollectorContext): ResolvedRef {
+        val schemaToProcess = collectorContext.requirePojo(
+            message = { "No schema defined, defaulting to empty schema" },
+            extract = { schema },
+            createDefault = { Schema<Any>() }
+        )
+
+        if (schemaToProcess.`$ref` == null) return ResolvedRef(patternName.orEmpty(), schemaToProcess, schemaToProcess, collectorContext)
+        return resolveSchema(schemaToProcess, collectorContext)
     }
 
     private fun resolveSchemaIfRefElseAtSchema(schema: Schema<*>, collectorContext: CollectorContext): Pair<Schema<*>, CollectorContext> {

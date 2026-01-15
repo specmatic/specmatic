@@ -135,7 +135,7 @@ data class RuleViolationAssertion(
         private var toContainText: String? = null
         private var totalViolations: Int? = null
         private var totalIssues: Int? = null
-        private var severity: IssueSeverity? = null
+        private var severity: IssueSeverity? = IssueSeverity.ERROR.takeUnless { path == ALL_ISSUES }
 
         fun toContainViolation(ruleViolation: RuleViolation) {
             this.ruleViolation += ruleViolation

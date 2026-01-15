@@ -238,6 +238,10 @@ class LenientParserTest {
     @MethodSource("requestBodyTestCases")
     fun `request body test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
 
+    @ParameterizedTest
+    @MethodSource("mediaTypeTestCases")
+    fun `media type test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
+
     companion object {
         @JvmStatic // DONE
         fun pathParameterTestCases(): Stream<Arguments> {
@@ -257,7 +261,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(2); totalViolations(2) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(2) }
                     assert("paths./test/{id}.get.parameters[-1]") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toContainViolation(OpenApiLintViolations.PATH_PARAMETER_MISSING)
@@ -284,7 +288,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(2); totalViolations(2) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(2) }
                     assert("paths./test/{id}.get.parameters[0]") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toContainViolation(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION)
@@ -316,7 +320,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("components.schemas.PathItem") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
@@ -339,7 +343,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test/{id}.get.parameters[0].schema.minLength") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
@@ -369,7 +373,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("components.schemas.TooLongString.minLength") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
@@ -396,7 +400,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(2); totalViolations(2) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(2) }
                     assert("paths./test.get.parameters[0]") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toContainViolation(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION)
@@ -428,7 +432,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("components.schemas.QueryItem") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
@@ -450,7 +454,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.parameters[0].schema.minLength") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
@@ -480,7 +484,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("components.schemas.TooLongQueryString.minLength") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
@@ -502,7 +506,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(2); totalViolations(2) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(2) }
                     assert("paths./test.get.parameters[0].schema") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toMatchText("Array Parameter has no items schema defined, defaulting to empty schema")
@@ -534,7 +538,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(2); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(1) }
                     assert("components.schemas.IdArray") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toMatchText("No items schema defined for array schema defaulting to empty schema")
@@ -560,7 +564,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.parameters[0].schema.items") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
@@ -589,7 +593,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("components.schemas.IdArray.items") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
@@ -611,7 +615,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.parameters[0].schema") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.UNSUPPORTED_FEATURE)
@@ -639,7 +643,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.parameters[0].schema") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.UNSUPPORTED_FEATURE)
@@ -666,7 +670,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(2); totalViolations(2) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(2) }
                     assert("paths./test.get.parameters[0]") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toContainViolation(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION)
@@ -698,7 +702,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("components.schemas.HeaderId") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
@@ -720,7 +724,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(2); totalViolations(2) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(2) }
                     assert("paths./test.get.parameters[0].schema") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toContainViolation(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION)
@@ -753,7 +757,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(2); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(1) }
                     assert("components.schemas.HeaderIdArray") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toMatchText("No items schema defined for array schema defaulting to empty schema")
@@ -807,7 +811,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("components.schemas.HeaderIdArray.items") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
@@ -829,7 +833,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(0) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(0) }
                 },
                 multiVersionLenientCase(name = "refed out object schema", *OpenApiVersion.allVersions()) {
                     openApi {
@@ -852,7 +856,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(0) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(0) }
                 },
 
                 multiVersionLenientCase(name = "schema has issue", *OpenApiVersion.allVersions()) {
@@ -869,7 +873,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.parameters[0].schema.minLength") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
@@ -899,7 +903,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("components.schemas.TooLongHeaderString.minLength") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
@@ -922,7 +926,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
                     assert("paths./test.post.requestBody") {
                         toMatchText("requestBody doesn't contain the content map, defaulting to no body")
                     }
@@ -943,7 +947,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
                     assert("components.requestBodies.RefedOutBody") {
                         toMatchText("requestBody doesn't contain the content map, defaulting to no body")
                     }
@@ -958,7 +962,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(2); totalViolations(0) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(0) }
                     assert("paths./test.post.requestBody.\$ref") {
                         toMatchText("Failed to resolve reference to requestBodies RefedOutBody, defaulting to empty requestBody")
                     }
@@ -986,7 +990,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.post.requestBody.content.application/json.schema.maxLength") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
@@ -1016,7 +1020,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("components.schemas.TooLongString.maxLength") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
@@ -1049,12 +1053,256 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.Companion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("components.schemas.TooLongString.maxLength") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
                     }
                 },
+            ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun mediaTypeTestCases(): Stream<Arguments> {
+            return listOf(
+                multiVersionLenientCase(name = "has no schema", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("post") {
+                                    requestBody {
+                                        content {
+                                            mediaType("application/json") {}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
+                    assert("paths./test.post.requestBody.content.application/json") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toMatchText("No schema property defined under mediaType application/json, defaulting to free-form object")
+                    }
+                },
+
+                multiVersionLenientCase(name = "form-urlencoded has no schema", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("post") {
+                                    requestBody {
+                                        content {
+                                            mediaType("application/x-www-form-urlencoded") {}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
+                    assert("paths./test.post.requestBody.content.application/x-www-form-urlencoded") {
+                        toMatchText("No schema defined, defaulting to empty schema")
+                    }
+                },
+                multiVersionLenientCase(name = "form-urlencoded schema has issue", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("post") {
+                                    requestBody {
+                                        content {
+                                            mediaType("application/x-www-form-urlencoded") {
+                                                schema {
+                                                    put("type", "object")
+                                                    put("properties", mapOf("name" to mapOf("type" to "string", "maxLength" to REASONABLE_STRING_LENGTH.plus(10))))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.post.requestBody.content.application/x-www-form-urlencoded.properties.name.maxLength") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
+                    }
+                },
+                multiVersionLenientCase(name = "form-urlencoded refed schema has issue", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("post") {
+                                    requestBody {
+                                        content {
+                                            mediaType("application/x-www-form-urlencoded") {
+                                                schemaRef("TooLongFormField")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        components {
+                            schemas {
+                                schema("TooLongFormField") {
+                                    put("type", "object")
+                                    put("properties", mapOf("name" to mapOf("type" to "string", "maxLength" to REASONABLE_STRING_LENGTH.plus(10))))
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.schemas.TooLongFormField.properties.name.maxLength") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
+                    }
+                },
+                multiVersionLenientCase(name = "form-urlencoded schema refed property has issue", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("post") {
+                                    requestBody {
+                                        content {
+                                            mediaType("application/x-www-form-urlencoded") {
+                                                schemaRef("LevelOne")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        components {
+                            schemas {
+                                schema("LevelOne") {
+                                    put("type", "object")
+                                    put("properties", mapOf("name" to mapOf("\$ref" to "#/components/schemas/LevelTwo")))
+                                }
+                                schema("LevelTwo") {
+                                    put("type", "string")
+                                    put("maxLength", REASONABLE_STRING_LENGTH.plus(10))
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.schemas.LevelTwo.maxLength") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
+                    }
+                },
+
+                multiVersionLenientCase(name = "multipart has no schema", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("post") {
+                                    requestBody {
+                                        content {
+                                            mediaType("multipart/form-data") {}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
+                    assert("paths./test.post.requestBody.content.multipart/form-data") {
+                        toMatchText("No schema defined, defaulting to empty schema")
+                    }
+                },
+                multiVersionLenientCase(name = "multipart schema has issue", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("post") {
+                                    requestBody {
+                                        content {
+                                            mediaType("multipart/form-data") {
+                                                schema {
+                                                    put("type", "object")
+                                                    put("properties", mapOf("comment" to mapOf("type" to "string", "maxLength" to REASONABLE_STRING_LENGTH.plus(10))))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.post.requestBody.content.multipart/form-data.properties.comment.maxLength") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
+                    }
+                },
+                multiVersionLenientCase(name = "multipart refed schema has issue", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("post") {
+                                    requestBody {
+                                        content {
+                                            mediaType("multipart/form-data") {
+                                                schemaRef("MultipartPayload")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        components {
+                            schemas {
+                                schema("MultipartPayload") {
+                                    put("type", "object")
+                                    put("properties", mapOf("comment" to mapOf("type" to "string", "maxLength" to REASONABLE_STRING_LENGTH.plus(10))))
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.schemas.MultipartPayload.properties.comment.maxLength") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
+                    }
+                },
+                multiVersionLenientCase(name = "multipart refed schemas refed property has issue", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("post") {
+                                    requestBody {
+                                        content {
+                                            mediaType("multipart/form-data") {
+                                                schemaRef("MultipartPayload")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        components {
+                            schemas {
+                                schema("MultipartPayload") {
+                                    put("type", "object")
+                                    put("properties", mapOf("comment" to mapOf("\$ref" to "#/components/schemas/CommentSchema")))
+                                }
+                                schema("CommentSchema") {
+                                    put("type", "string")
+                                    put("maxLength", REASONABLE_STRING_LENGTH.plus(10))
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.schemas.CommentSchema.maxLength") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
+                    }
+                }
             ).flatten().stream()
         }
 
