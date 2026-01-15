@@ -19,11 +19,12 @@ import java.util.stream.Stream
 data class RuleViolationAssertion(
     private val path: String? = null,
     private val totalViolations: Int? = null,
+    private val totalIssues: Int? = null,
     private val shouldContainRuleViolation: List<RuleViolation>,
     private val shouldNotContainRuleViolation: List<RuleViolation>,
     private val shouldMatchText: String? = null,
     private val shouldContainText: String? = null,
-    private val severity: IssueSeverity
+    private val severity: IssueSeverity? = null
 ) {
     fun assertViolation(result: Result) {
         val softly = SoftAssertions()
@@ -33,6 +34,7 @@ data class RuleViolationAssertion(
         assertViolationInIssues(softly, issues)
         assertSeverity(softly, issues)
         assertTotalViolations(softly, issues)
+        assertTotalIssues(softly, issues)
         assertText(softly, issues)
         softly.assertAll()
     }
@@ -73,18 +75,25 @@ data class RuleViolationAssertion(
 
     private fun assertTotalViolations(softly: SoftAssertions, issues: List<Issue>) {
         if (totalViolations == null) return
-        softly.forMatchingIssue(issues, path) { matchingIssue ->
-            softly.assertThat(matchingIssue.sumOf { it.ruleViolations.size }).isEqualTo(totalViolations)
-        }
+        val matchingIssues = findMatchingIssue(issues).orEmpty()
+        softly.assertThat(matchingIssues.sumOf { it.ruleViolations.size }).isEqualTo(totalViolations)
+    }
+
+    private fun assertTotalIssues(softly: SoftAssertions, issues: List<Issue>) {
+        if (totalIssues == null) return
+        val matchingIssues = findMatchingIssue(issues).orEmpty()
+        softly.assertThat(matchingIssues.size).isEqualTo(totalIssues)
     }
 
     private fun assertSeverity(softly: SoftAssertions, issues: List<Issue>) {
+        if (totalIssues == 0 || severity == null) return
         softly.forMatchingIssue(issues, path) { matchingIssue ->
             softly.assertThat(matchingIssue).allSatisfy { issue -> softly.assertThat(issue.severity).isEqualTo(severity) }
         }
     }
 
     private fun assertText(softly: SoftAssertions, issues: List<Issue>) {
+        if (totalIssues == 0) return
         softly.forMatchingIssue(issues, path) { matchingIssue ->
             shouldMatchText?.let { expected ->
                 softly.assertThat(matchingIssue).allSatisfy { issue ->
@@ -101,6 +110,7 @@ data class RuleViolationAssertion(
     }
 
     private fun findMatchingIssue(issues: List<Issue>): List<Issue>? {
+        if (path == ALL_ISSUES) return issues
         return issues.filter { issue ->
             issue.breadCrumb == path || issue.path.joinToString(prefix = "/", separator = "/") == path || (path == null && issue.path.isEmpty())
         }.takeUnless { it.isEmpty() }
@@ -124,7 +134,8 @@ data class RuleViolationAssertion(
         private var shouldMatchText: String? = null
         private var toContainText: String? = null
         private var totalViolations: Int? = null
-        private var severity: IssueSeverity = IssueSeverity.ERROR
+        private var totalIssues: Int? = null
+        private var severity: IssueSeverity? = null
 
         fun toContainViolation(ruleViolation: RuleViolation) {
             this.ruleViolation += ruleViolation
@@ -150,9 +161,17 @@ data class RuleViolationAssertion(
             this.totalViolations = totalViolations
         }
 
-        fun build(): RuleViolationAssertion {
-            return RuleViolationAssertion(path, totalViolations, ruleViolation, shouldNotContainRuleViolation, shouldMatchText, toContainText, severity)
+        fun totalIssues(totalIssues: Int) {
+            this.totalIssues = totalIssues
         }
+
+        fun build(): RuleViolationAssertion {
+            return RuleViolationAssertion(path, totalViolations, totalIssues, ruleViolation, shouldNotContainRuleViolation, shouldMatchText, toContainText, severity)
+        }
+    }
+
+    companion object {
+        const val ALL_ISSUES = "__SPECMATIC__ASSERT__ALL__ISSUES__"
     }
 }
 

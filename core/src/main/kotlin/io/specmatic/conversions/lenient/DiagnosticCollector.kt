@@ -21,7 +21,7 @@ class DiagnosticCollectorImpl: DiagnosticCollector {
         return if (entries.isEmpty())
             Result.Success()
         else
-            FailureDeDuper(entries).deDuplicate()
+            Result.fromFailures(entries.distinctBy { it.reportString() })
     }
 
     override fun getEntries(): List<Result.Failure> = entries

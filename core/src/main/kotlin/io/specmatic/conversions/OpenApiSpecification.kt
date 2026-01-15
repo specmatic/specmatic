@@ -1219,7 +1219,7 @@ class OpenApiSpecification(
         val parameters = operation.parameters.orEmpty()
         validateSecuritySchemeParameterDuplication(
             securitySchemes = securitySchemesForRequestPattern,
-            parameters = parameters.safeFilter<Parameter>(CollectorContext()),
+            parameters = parameters.safeFilter<Parameter>(collectorContext),
             collectorContext = collectorContext
         )
 
@@ -1229,7 +1229,7 @@ class OpenApiSpecification(
             toSpecmaticParamName(parameter.required != true, parameter.name) to toSpecmaticPattern(
                 schema = parameter.schema,
                 typeStack = emptyList(),
-                collectorContext = headerParamScope
+                collectorContext = headerParamScope.at("schema")
             )
         }
 
@@ -1590,8 +1590,7 @@ class OpenApiSpecification(
         if (typeStack.filter { it == patternName }.size > 1) return DeferredPattern("($patternName)")
 
         val schemaToProcess = collectorContext.requirePojo(
-            name = "schema",
-            message = { "No schema property defined, defaulting to empty schema" },
+            message = { "No schema defined, defaulting to empty schema" },
             extract = { schema },
             createDefault = { Schema<Any>() }
         )
@@ -1694,6 +1693,11 @@ class OpenApiSpecification(
     private fun resolveSchemaIfRef(schema: Schema<*>, patternName: String? = null, collectorContext: CollectorContext): ResolvedRef {
         if (schema.`$ref` == null) return ResolvedRef(patternName.orEmpty(), schema, schema, collectorContext)
         return resolveSchema(schema, collectorContext)
+    }
+
+    private fun resolveSchemaIfRefElseAtSchema(schema: Schema<*>, collectorContext: CollectorContext): Pair<Schema<*>, CollectorContext> {
+        if (schema.`$ref` == null) return Pair(schema, collectorContext.at("schema"))
+        return resolveSchema(schema, collectorContext).let { Pair(it.resolvedSchema, it.collectorContext) }
     }
 
     private fun List<Pattern>.toPatternOrAny(typeAlias: String? = null): Pattern {
@@ -1838,8 +1842,8 @@ class OpenApiSpecification(
             typeStack = typeStack,
             patternName = patternName.orEmpty(),
             collectorContext = collectorContext,
-            build = { resolvedSchema, typeStack, componentName, _, refCollector ->
-                toXMLPattern(resolvedSchema, componentName, typeStack, refCollector)
+            build = { resolvedSchema, newTypeStack, componentName, _, refCollector ->
+                toXMLPattern(resolvedSchema, componentName, newTypeStack, refCollector)
             }
         )
 
@@ -2230,14 +2234,14 @@ class OpenApiSpecification(
         val queryPattern: Map<String, Pattern> = queryParameters.associate { (index, it) ->
             logger.debug("Processing query parameter ${it.name}")
             val queryParamContext = parametersContext.at(index)
-            val specmaticPattern: Pattern? = if (it.schema.isSchema(ARRAY_TYPE)) {
-                val itemsContext = queryParamContext.at("schema").at("items")
-                QueryParameterArrayPattern(listOf(toSpecmaticPattern(schema = it.schema.items, typeStack = emptyList(), collectorContext = itemsContext)), it.name)
-            } else if (!it.schema.isSchema(OBJECT_TYPE)) {
-                val schemaContext = queryParamContext.at("schema")
-                QueryParameterScalarPattern(toSpecmaticPattern(schema = it.schema, typeStack = emptyList(), collectorContext = schemaContext))
+            val (resolvedSchema, paramContext) = resolveSchemaIfRefElseAtSchema(it.schema, collectorContext = queryParamContext)
+            val specmaticPattern: Pattern? = if (resolvedSchema.isSchema(ARRAY_TYPE)) {
+                val itemsSchema = paramContext.requirePojo(extract = { resolvedSchema.items }, createDefault = { Schema<Any>() }, message = { "No items schema defined for array schema defaulting to empty schema" })
+                QueryParameterArrayPattern(listOf(toSpecmaticPattern(schema = itemsSchema, typeStack = emptyList(), collectorContext = paramContext.at("items"))), it.name)
+            } else if (!resolvedSchema.isSchema(OBJECT_TYPE)) {
+                QueryParameterScalarPattern(toSpecmaticPattern(schema = resolvedSchema, typeStack = emptyList(), collectorContext = paramContext))
             } else {
-                queryParamContext.record(
+                queryParamContext.at("schema").record(
                     message = "Query parameter ${it.name} is an object, and not yet supported",
                     ruleViolation = OpenApiLintViolations.UNSUPPORTED_FEATURE,
                     isWarning = true
@@ -2302,10 +2306,11 @@ class OpenApiSpecification(
                 }
             )
 
-            val pathParameterContext = parameterContext.at(pathParamMap[paramName]?.index ?: DEFAULT_ARRAY_INDEX).at("schema")
+            val pathParameterContext = parameterContext.at(pathParamMap[paramName]?.index ?: DEFAULT_ARRAY_INDEX)
+            val (resolvedSchema, paramContext) = resolveSchemaIfRefElseAtSchema(parameter.schema, collectorContext = pathParameterContext)
             URLPathSegmentPattern(
-                pattern = toSpecmaticPattern(parameter.schema, typeStack = emptyList(), collectorContext = pathParameterContext),
-                key = paramName
+                key = paramName,
+                pattern = toSpecmaticPattern(resolvedSchema, typeStack = emptyList(), collectorContext = paramContext),
             )
         }
 
@@ -2373,8 +2378,7 @@ class OpenApiSpecification(
                 toXMLPattern(this, typeStack = typeStack, collectorContext = collectorContext)
             } else {
                 val itemsSchema = collectorContext.requirePojo(
-                    name = "items",
-                    message = { "No items property defined for array schema defaulting to empty schema" },
+                    message = { "No items schema defined for array schema defaulting to empty schema" },
                     extract = { this.items },
                     createDefault = { Schema<Any>() }
                 )
@@ -2470,11 +2474,13 @@ class OpenApiSpecification(
                 .build() ?: return@mapIndexedNotNull null
 
             val schemaEnsuredParameter = itemContext.check(value = validNameParam) { it.schema != null }
+                .violation { OpenApiLintViolations.INVALID_PARAMETER_DEFINITION }
                 .message { "Parameter has no schema defined, defaulting to empty schema" }
                 .orUse { validNameParam.apply { schema = Schema<Any>() } }
                 .build()
 
             val itemsSchemaEnsuredParameter = itemContext.at("schema").check(value = schemaEnsuredParameter) { !it.schema.isSchema("array") || it.schema.items != null }
+                .violation { OpenApiLintViolations.INVALID_PARAMETER_DEFINITION }
                 .message { "Array Parameter has no items schema defined, defaulting to empty schema" }
                 .orUse { schemaEnsuredParameter.apply { schema.apply { items = Schema<Any>() } } }
                 .build()
