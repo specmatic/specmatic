@@ -334,6 +334,10 @@ class LenientParserTest {
     @MethodSource("enumSchemaTestCases")
     fun `enum schema constraint test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
 
+    @ParameterizedTest
+    @MethodSource("objectSchemaTestCases")
+    fun `object schema constraint test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
+
     companion object {
         @JvmStatic
         fun pathParameterTestCases(): Stream<Arguments> {
@@ -2478,6 +2482,238 @@ class LenientParserTest {
                     }
                     assert("components.schemas.OnlyNullEnum.enum") {
                         toContainText("Only nullable enums can contain null, converting the enum to be nullable")
+                    }
+                }
+            ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun objectSchemaTestCases(): Stream<Arguments> {
+            return listOf(
+                multiVersionLenientCase(name = "object property has no schema", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", "object")
+                                                    put("properties", mapOf("foo" to emptyMap<String, Any>()))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.get.responses.200.content.application/json.schema.properties.foo") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
+                    }
+                },
+                multiVersionLenientCase(name = "property schema has invalid bounds", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", "object")
+                                                    put("properties", mapOf("age" to mapOf("type" to "integer", "minimum" to 10, "maximum" to 5)))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.get.responses.200.content.application/json.schema.properties.age.maximum") {
+                        toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
+                        toMatchText("maximum 5 cannot be less than minimum 10")
+                    }
+                },
+                multiVersionLenientCase(name = "property schema has invalid bounds (ref)", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        components {
+                            schemas {
+                                schema("BadObject") {
+                                    put("type", "object")
+                                    put("properties", mapOf("age" to mapOf("type" to "integer", "minimum" to 10, "maximum" to 5)))
+                                }
+                            }
+                        }
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schemaRef("BadObject")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.schemas.BadObject.properties.age.maximum") {
+                        toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
+                    }
+                },
+                multiVersionLenientCase(name = "property schema has invalid bounds (property ref)", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        components {
+                            schemas {
+                                schema("BadNumber") {
+                                    put("type", "integer")
+                                    put("minimum", 10)
+                                    put("maximum", 5)
+                                }
+                                schema("ObjectWithRefProperty") {
+                                    put("type", "object")
+                                    put("properties", mapOf("age" to mapOf("\$ref" to "#/components/schemas/BadNumber")))
+                                }
+                            }
+                        }
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schemaRef("ObjectWithRefProperty")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.schemas.BadNumber.maximum") {
+                        toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
+                        toMatchText("maximum 5 cannot be less than minimum 10")
+                    }
+                },
+                multiVersionLenientCase(name = "required property missing from properties", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", "object")
+                                                    put("required", listOf("id"))
+                                                    put("properties", emptyMap<String, Any>())
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
+                    assert("paths./test.get.responses.200.content.application/json.schema.required[0]") {
+                        toContainText("Required property \"id\" is not defined in properties, ignoring this requirement")
+                    }
+                },
+                multiVersionLenientCase(name = "additionalProperties schema has invalid bounds (inline)", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", "object")
+                                                    put("additionalProperties", mapOf("type" to "number", "minimum" to 10, "maximum" to 5))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.get.responses.200.content.application/json.schema.additionalProperties.maximum") {
+                        toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
+                    }
+                },
+                multiVersionLenientCase(name = "additionalProperties schema has invalid bounds (object ref)", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        components {
+                            schemas {
+                                schema("BadObject") {
+                                    put("type", "object")
+                                    put("additionalProperties", mapOf("type" to "number", "minimum" to 10, "maximum" to 5))
+                                }
+                            }
+                        }
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schemaRef("BadObject")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.schemas.BadObject.additionalProperties.maximum") {
+                        toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
+                    }
+                },
+                multiVersionLenientCase(name = "additionalProperties schema has invalid bounds (ref)", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        components {
+                            schemas {
+                                schema("BadNumber") {
+                                    put("type", "number")
+                                    put("minimum", 10)
+                                    put("maximum", 5)
+                                }
+                            }
+                        }
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", "object")
+                                                    put("additionalProperties", mapOf("\$ref" to "#/components/schemas/BadNumber"))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.schemas.BadNumber.maximum") {
+                        toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
+                        toMatchText("maximum 5 cannot be less than minimum 10")
                     }
                 }
             ).flatten().stream()

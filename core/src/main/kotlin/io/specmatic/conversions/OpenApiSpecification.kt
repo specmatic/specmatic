@@ -2188,6 +2188,14 @@ return ResolvedRef(componentName, resolvedSchema, referredSchema, collectorConte
         collectorContext: CollectorContext
     ): Map<String, Pattern> {
         val propertiesContext = collectorContext.at("properties")
+        val properties = schema.properties.orEmpty()
+        val fixedRequiredFields = requiredFields.withIndex().mapNotNull { (index, field) ->
+            collectorContext.at("required").at(index).check<String?>(value = field, isValid = { properties.contains(field) })
+            .message { "Required property \"$field\" is not defined in properties, ignoring this requirement" }
+            .orUse { null }
+            .build()
+        }
+
         return schema.properties.orEmpty().map { (propertyName, propertyType) ->
             val propertyContext = propertiesContext.at(propertyName)
             if (schema.discriminator?.propertyName == propertyName)
@@ -2195,7 +2203,7 @@ return ResolvedRef(componentName, resolvedSchema, referredSchema, collectorConte
             else if (discriminatorDetails.hasValueForKey(propertyName)) {
                 propertyName to discriminatorDetails.valueFor(propertyName)
             } else {
-                val optional = !requiredFields.contains(propertyName)
+                val optional = !fixedRequiredFields.contains(propertyName)
                 toSpecmaticParamName(optional, propertyName) to toSpecmaticPattern(
                     schema = propertyType,
                     typeStack = typeStack,
