@@ -5,16 +5,8 @@ import io.cucumber.messages.types.*
 import io.cucumber.messages.types.Examples
 import io.cucumber.messages.types.Source
 import io.ktor.http.*
-import io.specmatic.conversions.ExampleFromFile
-import io.specmatic.conversions.IncludedSpecification
-import io.specmatic.conversions.OpenApiSpecification
-import io.specmatic.conversions.WSDLFile
-import io.specmatic.conversions.WsdlSpecification
-import io.specmatic.conversions.testDirectoryEnvironmentVariable
-import io.specmatic.conversions.testDirectoryProperty
-import io.specmatic.conversions.unwrapBackground
-import io.specmatic.conversions.unwrapFeature
-import io.specmatic.conversions.wsdlContentToFeature
+import io.specmatic.conversions.*
+import io.specmatic.core.Result.Success
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.discriminator.DiscriminatorMetadata
 import io.specmatic.core.log.logger
@@ -22,15 +14,15 @@ import io.specmatic.core.pattern.*
 import io.specmatic.core.pattern.Examples.Companion.examplesFrom
 import io.specmatic.core.utilities.*
 import io.specmatic.core.value.*
-import io.specmatic.core.Result.Success
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.reporter.model.SpecType
-import io.specmatic.stub.NamedExampleMismatchMessages
 import io.specmatic.stub.HttpStubData
+import io.specmatic.stub.NamedExampleMismatchMessages
 import io.specmatic.test.*
 import io.swagger.v3.oas.models.*
+import io.swagger.v3.oas.models.Operation
 import io.swagger.v3.oas.models.headers.Header
 import io.swagger.v3.oas.models.info.Info
 import io.swagger.v3.oas.models.media.*
@@ -39,6 +31,7 @@ import io.swagger.v3.oas.models.responses.ApiResponse
 import io.swagger.v3.oas.models.responses.ApiResponses
 import java.io.File
 import java.net.URI
+import java.util.*
 import kotlin.jvm.optionals.getOrNull
 
 fun parseContractFileToFeature(
@@ -160,8 +153,10 @@ data class Feature(
     val flagsBased: FlagsBased = strategiesFromFlags(specmaticConfig),
     val strictMode: Boolean = false,
     val exampleStore: ExampleStore = ExampleStore.empty(),
-    val protocol: SpecmaticProtocol
+    val protocol: SpecmaticProtocol,
 ): IFeature {
+
+    override val specId: UUID = UUID.nameUUIDFromBytes(this.hashCode().toString().toByteArray())
 
     val stubsFromExamples: Map<String, List<Pair<HttpRequest, HttpResponse>>>
         get() {
@@ -743,10 +738,10 @@ data class Feature(
                     scenarioAsTest(concreteTestScenario, comment, workflow, originalScenario, originalScenarios)
                 },
                 orFailure = {
-                    ScenarioTestGenerationFailure(originalScenario, it.failure, it.message, originalScenario.protocol, originalScenario.specType)
+                    ScenarioTestGenerationFailure(originalScenario, it.failure, it.message, originalScenario.protocol, originalScenario.specType, specId)
                 },
                 orException = {
-                    ScenarioTestGenerationException(originalScenario, it.t, it.message, it.breadCrumb, originalScenario.protocol, originalScenario.specType)
+                    ScenarioTestGenerationException(originalScenario, it.t, it.message, it.breadCrumb, originalScenario.protocol, originalScenario.specType, specId)
                 }
             )
         }

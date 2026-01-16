@@ -23,6 +23,7 @@ import io.specmatic.test.handlers.ResponseHandler
 import io.specmatic.test.handlers.ResponseHandlerRegistry
 import io.specmatic.test.handlers.ResponseHandlingResult
 import java.time.Instant
+import java.util.UUID
 
 data class ScenarioAsTest(
     val scenario: Scenario,
@@ -46,6 +47,9 @@ data class ScenarioAsTest(
 
     private var startTime: Instant? = null
     private var endTime: Instant? = null
+
+    override val specId: UUID
+        get() = feature.specId
 
     override fun toScenarioMetadata() = scenario.toScenarioMetadata()
 

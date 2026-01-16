@@ -1,3 +1,7 @@
 package io.specmatic.core
 
-interface IFeature
+import java.util.*
+
+interface IFeature {
+    val specId: UUID
+}
