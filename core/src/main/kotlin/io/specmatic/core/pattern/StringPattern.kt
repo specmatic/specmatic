@@ -189,23 +189,19 @@ data class StringPattern (
                 }
 
                 val effectiveRegex: String? = regexSpec?.let {
-                    safeContext.at("pattern").check(value = regex) {
-                        val regexMatchesMinLength = attempt(
-                            message = "pattern allows strings shorter than minLength $effectiveMinLength",
-                            block = { regexSpec.validateMinLength(effectiveMinLength) }
-                        )
+                    val regexMatchesMinLength = safeContext.at("pattern").attempt(
+                        message = "longest pattern generation is shorter than minLength of $effectiveMinLength",
+                        ruleViolation = OpenApiLintViolations.PATTERN_LENGTH_INCOMPATIBLE,
+                        block = { regexSpec.validateMinLength(effectiveMinLength) }
+                    )
 
-                        val regexMatchesMaxLength = attempt(
-                            message = "pattern allows strings longer than maxLength $effectiveMaxLength",
-                            block = { regexSpec.validateMaxLength(effectiveMaxLength) }
-                        )
+                    val regexMatchesMaxLength = safeContext.at("pattern").attempt(
+                        message = "shortest pattern generation is longer than maxLength of $effectiveMaxLength",
+                        ruleViolation = OpenApiLintViolations.PATTERN_LENGTH_INCOMPATIBLE,
+                        block = { regexSpec.validateMaxLength(effectiveMaxLength) },
+                    )
 
-                        regexMatchesMinLength && regexMatchesMaxLength
-                    }
-                    .violation { OpenApiLintViolations.PATTERN_LENGTH_INCOMPATIBLE }
-                    .message { "Regex pattern conflicts with length constraints" }
-                    .orUse { null }
-                    .build()
+                    regex.takeIf { regexMatchesMinLength && regexMatchesMaxLength }
                 }
 
                 StringPattern(

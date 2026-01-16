@@ -326,6 +326,10 @@ class LenientParserTest {
     @MethodSource("numberSchemaTestCases")
     fun `number schema constraint test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
 
+    @ParameterizedTest
+    @MethodSource("stringSchemaTestCases")
+    fun `string schema constraint test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
+
     companion object {
         @JvmStatic
         fun pathParameterTestCases(): Stream<Arguments> {
@@ -2041,6 +2045,237 @@ class LenientParserTest {
                     assert("components.schemas.BadNumber.exclusiveMaximum") {
                         toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
                         toMatchText("exclusiveMaximum 4 cannot be less than exclusiveMinimum 7")
+                    }
+                },
+            ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun stringSchemaTestCases(): Stream<Arguments> {
+            return listOf(
+                multiVersionLenientCase(name = "inline string minLength negative", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", "string")
+                                                    put("minLength", -5)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.get.responses.200.content.application/json.schema.minLength") {
+                        toContainViolation(OpenApiLintViolations.INVALID_MIN_LENGTH)
+                        toMatchText("minLength -5 cannot be less than 0")
+                    }
+                },
+                multiVersionLenientCase(name = "ref string minLength negative", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        components {
+                            schemas {
+                                schema("NegativeMinLength") {
+                                    put("type", "string")
+                                    put("minLength", -3)
+                                }
+                            }
+                        }
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schemaRef("NegativeMinLength")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.schemas.NegativeMinLength.minLength") {
+                        toContainViolation(OpenApiLintViolations.INVALID_MIN_LENGTH)
+                        toMatchText("minLength -3 cannot be less than 0")
+                    }
+                },
+
+                multiVersionLenientCase(name = "inline string minLength > maxLength", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", "string")
+                                                    put("minLength", 10)
+                                                    put("maxLength", 5)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.get.responses.200.content.application/json.schema.maxLength") {
+                        toContainViolation(OpenApiLintViolations.INVALID_MAX_LENGTH)
+                        toMatchText("maxLength 5 cannot be less than minLength 10")
+                    }
+                },
+                multiVersionLenientCase(name = "ref string minLength > maxLength", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        components {
+                            schemas {
+                                schema("BadString") {
+                                    put("type", "string")
+                                    put("minLength", 10)
+                                    put("maxLength", 5)
+                                }
+                            }
+                        }
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schemaRef("BadString")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.schemas.BadString.maxLength") {
+                        toContainViolation(OpenApiLintViolations.INVALID_MAX_LENGTH)
+                        toMatchText("maxLength 5 cannot be less than minLength 10")
+                    }
+                },
+
+                multiVersionLenientCase(name = "inline string invalid regex", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", "string")
+                                                    put("pattern", "*abc")
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
+                    assert("paths./test.get.responses.200.content.application/json.schema.pattern") {
+                        toContainText("Invalid Regex format")
+                    }
+                },
+                multiVersionLenientCase(name = "ref string invalid regex", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        components {
+                            schemas {
+                                schema("BadRegex") {
+                                    put("type", "string")
+                                    put("pattern", "[abc")
+                                }
+                            }
+                        }
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schemaRef("BadRegex")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
+                    assert("components.schemas.BadRegex.pattern") {
+                        toContainText("Invalid Regex format")
+                    }
+                },
+
+                multiVersionLenientCase(name = "inline string regex shorter than minLength", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", "string")
+                                                    put("minLength", 5)
+                                                    put("pattern", "a{1,3}")
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.get.responses.200.content.application/json.schema.pattern") {
+                        toContainViolation(OpenApiLintViolations.PATTERN_LENGTH_INCOMPATIBLE)
+                        toContainText("longest pattern generation is shorter than minLength of 5")
+                    }
+                },
+                multiVersionLenientCase(name = "ref string regex longer than maxLength", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        components {
+                            schemas {
+                                schema("TooLongString") {
+                                    put("type", "string")
+                                    put("maxLength", 4)
+                                    put("pattern", "a{10,20}")
+                                }
+                            }
+                        }
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schemaRef("TooLongString")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.schemas.TooLongString.pattern") {
+                        toContainViolation(OpenApiLintViolations.PATTERN_LENGTH_INCOMPATIBLE)
+                        toContainText("shortest pattern generation is longer than maxLength of 4")
                     }
                 },
             ).flatten().stream()

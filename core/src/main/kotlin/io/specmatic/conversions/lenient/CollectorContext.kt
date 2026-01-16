@@ -91,7 +91,7 @@ fun <T: Number> CollectorContext.requireMinimum(name: String, value: T, minimum:
     val minimumInBigDecimal = minimum.toBigDecimal()
     return check(name = name, value = value, isValid = { valueInBigDecimal >= minimumInBigDecimal })
         .violation { ruleViolation }
-        .message { message?.invoke(value, minimum) ?: "$name cannot be less than $minimum" }
+        .message { message?.invoke(value, minimum) ?: "$name $value cannot be less than $minimum" }
         .orUse { minimum }
         .build()
 }
