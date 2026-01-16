@@ -1,8 +1,6 @@
 package io.specmatic.conversions
 
 import io.specmatic.conversions.lenient.CollectorContext
-import io.specmatic.conversions.lenient.requireGreaterThanOrEqualOrDrop
-import io.specmatic.conversions.lenient.requireMinimum
 import io.specmatic.core.pattern.NumberPattern
 import java.math.BigDecimal
 

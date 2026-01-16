@@ -187,7 +187,7 @@ data class EnumPattern(override val pattern: AnyPattern, val nullable: Boolean) 
             }
 
             return when {
-                validValues.isEmpty() || validValues.none { it !is NullValue } -> {
+                validValues.isEmpty() || validValues.all { it is NullValue } -> {
                     collectorContext.record("No enum value matches the declared schema. Retaining all values and treating enum as multi-type")
                     values to true
                 }

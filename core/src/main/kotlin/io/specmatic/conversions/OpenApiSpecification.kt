@@ -430,7 +430,7 @@ class OpenApiSpecification(
 
     fun toFeature(): Feature {
         val (feature, result) = toFeatureLenient()
-        return result.unwrapValue(lenientMode, feature)
+        return result.returnLenientlyElseFail(lenientMode, feature)
     }
 
     fun toFeatureLenient(): Pair<Feature, Result> {
@@ -464,7 +464,7 @@ class OpenApiSpecification(
     fun parseUnreferencedSchemas(): Map<String, Pattern> {
         val context = CollectorContext()
         val patterns = parseUnreferencedSchemas(context)
-        return context.toCollector().toResult().unwrapValue(lenientMode, patterns)
+        return context.toCollector().toResult().returnLenientlyElseFail(lenientMode, patterns)
     }
 
     fun parseUnreferencedSchemas(rootContext: CollectorContext): Map<String, Pattern> {
@@ -488,7 +488,7 @@ class OpenApiSpecification(
     override fun toScenarioInfos(): Pair<List<ScenarioInfo>, Map<String, List<Pair<HttpRequest, HttpResponse>>>> {
         val rootContext = CollectorContext()
         val scenarioInfos = toScenarioInfos(rootContext)
-        return rootContext.toCollector().toResult().unwrapValue(lenientMode, scenarioInfos)
+        return rootContext.toCollector().toResult().returnLenientlyElseFail(lenientMode, scenarioInfos)
     }
 
     fun toScenarioInfos(rootContext: CollectorContext): Pair<List<ScenarioInfo>, Map<String, List<Pair<HttpRequest, HttpResponse>>>> {
@@ -1851,7 +1851,7 @@ class OpenApiSpecification(
             isWarning = true
         )
 
-return ResolvedRef(componentName, resolvedSchema, referredSchema, collectorContext.withPath("components").at("schemas").at(componentName))
+        return ResolvedRef(componentName, resolvedSchema, referredSchema, collectorContext.withPath("components").at("schemas").at(componentName))
     }
 
     private fun convertAndCacheResolvedRef(
@@ -2253,7 +2253,9 @@ return ResolvedRef(componentName, resolvedSchema, referredSchema, collectorConte
             isMultiType = multiType,
             typeAlias = patternName,
             collectorContext = collectorContext,
-        )
+        ).also {
+            cacheComponentPattern(patternName, it)
+        }
     }
 
     private fun toSpecmaticParamName(optional: Boolean, name: String) = when (optional) {
@@ -2272,9 +2274,9 @@ return ResolvedRef(componentName, resolvedSchema, referredSchema, collectorConte
         }
 
         return componentName to schemaRefContext.requirePojo(
-            message = { "Failed to resolve reference to schema $componentName, defaulting to free-form object" },
+            message = { "Failed to resolve reference to schema $componentName, defaulting to non-null json schema" },
             extract = { schemas[componentName] },
-            createDefault = { ObjectSchema().apply { additionalProperties = true } },
+            createDefault = { Schema<Any>().also { it.properties = emptyMap() } },
             ruleViolation = { OpenApiLintViolations.UNRESOLVED_REFERENCE }
         )
     }
@@ -2326,7 +2328,7 @@ return ResolvedRef(componentName, resolvedSchema, referredSchema, collectorConte
                 val itemsSchema = paramContext.requirePojo(extract = { resolvedSchema.items }, createDefault = { Schema<Any>() }, message = { "No items schema defined for array schema defaulting to empty schema" })
                 QueryParameterArrayPattern(listOf(toSpecmaticPattern(schema = itemsSchema, typeStack = emptyList(), collectorContext = paramContext.at("items"))), it.name)
             } else if (!resolvedSchema.isSchema(OBJECT_TYPE)) {
-                QueryParameterScalarPattern(toSpecmaticPattern(schema = resolvedSchema, typeStack = emptyList(), collectorContext = paramContext))
+                QueryParameterScalarPattern(toSpecmaticPattern(schema = it.schema, typeStack = emptyList(), collectorContext = queryParamContext))
             } else {
                 queryParamContext.at("schema").record(
                     message = "Query parameter ${it.name} is an object, and not yet supported",
@@ -2594,7 +2596,7 @@ return ResolvedRef(componentName, resolvedSchema, referredSchema, collectorConte
     }
 }
 
-private fun <T> Result.unwrapValue(lenient: Boolean = false, value: T): T {
+private fun <T> Result.returnLenientlyElseFail(lenient: Boolean = false, value: T): T {
     if ((this is Failure && this.isPartial) || lenient) {
         logger.log(this.reportString())
         return value

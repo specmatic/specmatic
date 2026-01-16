@@ -8,7 +8,7 @@ import io.specmatic.core.value.toBigDecimal
 import io.specmatic.test.asserts.toFailure
 
 const val DEFAULT_ARRAY_INDEX = -1
-data class CollectorContext(private val collector: DiagnosticCollector = DiagnosticCollectorImpl(), private val pathSegments: List<PathSegment> = emptyList()) {
+data class CollectorContext(private val collector: DiagnosticCollector = DiagnosticCollector(), private val pathSegments: List<PathSegment> = emptyList()) {
     val path: String? = pathSegments.joinToString(".", transform = PathSegment::internalPointerRepresentation).takeUnless(String::isBlank)
     val hasPath: Boolean = path != null
     val pathOrRoot: String = path ?: "/"
@@ -84,24 +84,24 @@ data class CollectorContext(private val collector: DiagnosticCollector = Diagnos
     }
 
     private fun recordError(failure: Result.Failure) = recordEntry(failure.breadCrumb(pathOrRoot))
-}
 
-fun <T: Number> CollectorContext.requireMinimum(name: String, value: T, minimum: T, ruleViolation: RuleViolation, message: ((T, T) -> String)? = null): T {
-    val valueInBigDecimal = value.toBigDecimal()
-    val minimumInBigDecimal = minimum.toBigDecimal()
-    return check(name = name, value = value, isValid = { valueInBigDecimal >= minimumInBigDecimal })
-        .violation { ruleViolation }
-        .message { message?.invoke(value, minimum) ?: "$name $value cannot be less than $minimum" }
-        .orUse { minimum }
-        .build()
-}
+    fun <T: Number> requireMinimum(name: String, value: T, minimum: T, ruleViolation: RuleViolation, message: ((T, T) -> String)? = null): T {
+        val valueInBigDecimal = value.toBigDecimal()
+        val minimumInBigDecimal = minimum.toBigDecimal()
+        return check(name = name, value = value, isValid = { valueInBigDecimal >= minimumInBigDecimal })
+            .violation { ruleViolation }
+            .message { message?.invoke(value, minimum) ?: "$name $value cannot be less than $minimum" }
+            .orUse { minimum }
+            .build()
+    }
 
-fun <T: Number> CollectorContext.requireGreaterThanOrEqualOrDrop(name: String, value: T, minimum: T, ruleViolation: RuleViolation, message: ((T, T) -> String)? = null): T? {
-    val valueInBigDecimal = value.toBigDecimal()
-    val minimumInBigDecimal = minimum.toBigDecimal()
-    return check<T?>(name = name, value = value, isValid = { valueInBigDecimal >= minimumInBigDecimal })
-        .violation { ruleViolation }
-        .message { message?.invoke(value, minimum) ?: "$name must be greater than or equal to $minimum" }
-        .orUse { null }
-        .build()
+    fun <T: Number> requireGreaterThanOrEqualOrDrop(name: String, value: T, minimum: T, ruleViolation: RuleViolation, message: ((T, T) -> String)? = null): T? {
+        val valueInBigDecimal = value.toBigDecimal()
+        val minimumInBigDecimal = minimum.toBigDecimal()
+        return check<T?>(name = name, value = value, isValid = { valueInBigDecimal >= minimumInBigDecimal })
+            .violation { ruleViolation }
+            .message { message?.invoke(value, minimum) ?: "$name must be greater than or equal to $minimum" }
+            .orUse { null }
+            .build()
+    }
 }
