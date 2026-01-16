@@ -127,7 +127,7 @@ open class SpecmaticJUnitSupport {
         val response = httpClient.execute(request)
 
         if (response.status != 200) {
-            logger.log("Failed to query swaggerUI, status code: ${response.status}")
+            logger.debug("Failed to query swaggerUI, status code: ${response.status}")
             return ActuatorSetupResult.Failure
         }
 
@@ -148,7 +148,7 @@ open class SpecmaticJUnitSupport {
         val response = LegacyHttpClient(endpointsAPI, log = ignoreLog).execute(request)
 
         if (response.status != 200) {
-            logger.log("Failed to query actuator, status code: ${response.status}")
+            logger.debug("Failed to query actuator, status code: ${response.status}")
             return ActuatorSetupResult.Failure
         }
 
@@ -453,11 +453,12 @@ open class SpecmaticJUnitSupport {
         try {
             if (queryActuator().failed && actuatorFromSwagger(actuatorBaseURL).failed) {
                 openApiCoverageReportInput.setEndpointsAPIFlag(false)
-                logger.log("EndpointsAPI and SwaggerUI URL missing; cannot calculate actual coverage")
+                logger.boundary()
+                logger.log("Endpoints API and SwaggerUI URL were not exposed by the application, so cannot calculate actual coverage")
             }
         } catch (exception: Throwable) {
             openApiCoverageReportInput.setEndpointsAPIFlag(false)
-            logger.log(exception, "Failed to query actuator with error")
+            logger.debug(exception, "Failed to query actuator with error")
         }
 
         logger.newLine()
