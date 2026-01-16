@@ -1568,13 +1568,18 @@ class OpenApiSpecification(
             }
         }
 
-        val schemasToProcess = schema.allOf.orEmpty().plus(schema)
-        val allOfs = schemasToProcess.mapNotNull { constituentSchema ->
+        val schemasToProcess = schema.allOf.orEmpty().withIndex().map {
+            Pair(collectorContext.at("allOf").at(it.index), it.value)
+        }.plus(
+            Pair(first = collectorContext, second = schema)
+        )
+
+        val allOfs = schemasToProcess.mapNotNull { (schemaContext, constituentSchema) ->
             if (constituentSchema.`$ref` == null) {
-                return@mapNotNull listOf(DeepAllOfSchema(constituentSchema, patternName = null, collectorContext)) to discriminatorDetails
+                return@mapNotNull listOf(DeepAllOfSchema(constituentSchema, patternName = null, schemaContext)) to discriminatorDetails
             }
 
-            val resolvedRefDetails = resolveSchemaIfRef(constituentSchema, collectorContext = collectorContext)
+            val resolvedRefDetails = resolveSchemaIfRef(constituentSchema, collectorContext = schemaContext)
             val refEntry = DeepAllOfSchema(resolvedRefDetails.resolvedSchema, resolvedRefDetails.componentName, resolvedRefDetails.collectorContext)
             if (resolvedRefDetails.componentName in typeStack) return@mapNotNull listOf(refEntry) to discriminatorDetails
             resolveDeepAllOfs(
@@ -1644,8 +1649,7 @@ class OpenApiSpecification(
     }
 
     private fun handleAllOf(schema: Schema<*>, typeStack: List<String>, patternName: String, collectorContext: CollectorContext): Pattern {
-        val allOfContext = collectorContext.at("allOf")
-        val (deepListOfAllOfs, allDiscriminators) = resolveDeepAllOfs(schema, DiscriminatorDetails(), emptySet(), topLevel = true, collectorContext = allOfContext)
+        val (deepListOfAllOfs, allDiscriminators) = resolveDeepAllOfs(schema, DiscriminatorDetails(), emptySet(), topLevel = true, collectorContext = collectorContext)
         val explodedDiscriminators = allDiscriminators.explode()
         val topLevelRequired = schema.required.orEmpty()
 
