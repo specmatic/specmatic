@@ -351,6 +351,10 @@ class LenientParserTest {
     @MethodSource("oneOfSchemaTestCases")
     fun `oneOf schema constraint test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
 
+    @ParameterizedTest
+    @MethodSource("anyOfSchemaTestCases")
+    fun `anyOf schema constraint test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
+
     companion object {
         @JvmStatic
         fun pathParameterTestCases(): Stream<Arguments> {
@@ -3236,6 +3240,136 @@ class LenientParserTest {
                     }
                 }
             ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun anyOfSchemaTestCases(): Stream<Arguments> {
+             return listOf(
+                 multiVersionLenientCase(name = "anyOf element has invalid bounds", *OpenApiVersion.allVersions()) {
+                     openApi {
+                         paths {
+                             path("/test") {
+                                 operation("get") {
+                                     response(200) {
+                                         content {
+                                             mediaType("application/json") {
+                                                 schema {
+                                                     put("anyOf", listOf(
+                                                         mapOf(
+                                                             "type" to "object",
+                                                             "properties" to mapOf("value" to mapOf("type" to "number", "minimum" to 10, "maximum" to 5))
+                                                         )
+                                                     ))
+                                                 }
+                                             }
+                                         }
+                                     }
+                                 }
+                             }
+                         }
+                     }
+                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                     assert("paths./test.get.responses.200.content.application/json.schema.anyOf[0].properties.value.maximum") {
+                         toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
+                     }
+                 },
+                 multiVersionLenientCase(name = "anyOf element schema has invalid bounds (ref)", *OpenApiVersion.allVersions()) {
+                     openApi {
+                         components {
+                             schemas {
+                                 schema("BadObject") {
+                                     put("type", "object")
+                                     put("properties", mapOf("value" to mapOf("type" to "number", "minimum" to 10, "maximum" to 5)))
+                                 }
+                             }
+                         }
+                         paths {
+                             path("/test") {
+                                 operation("get") {
+                                     response(200) {
+                                         content {
+                                             mediaType("application/json") {
+                                                 schema {
+                                                     put("anyOf", listOf(mapOf("\$ref" to "#/components/schemas/BadObject")))
+                                                 }
+                                             }
+                                         }
+                                     }
+                                 }
+                             }
+                         }
+                     }
+                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                     assert("components.schemas.BadObject.properties.value.maximum") {
+                         toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
+                     }
+                 },
+                 multiVersionLenientCase(name = "anyOf with mixed valid and invalid schemas", *OpenApiVersion.allVersions()) {
+                     openApi {
+                         paths {
+                             path("/test") {
+                                 operation("get") {
+                                     response(200) {
+                                         content {
+                                             mediaType("application/json") {
+                                                 schema {
+                                                     put("anyOf", listOf(
+                                                         mapOf(
+                                                             "type" to "object",
+                                                             "properties" to mapOf("ok" to mapOf("type" to "string"))
+                                                         ),
+                                                         mapOf(
+                                                             "type" to "object",
+                                                             "properties" to mapOf("bad" to mapOf("type" to "number", "minimum" to 10, "maximum" to 5))
+                                                         )
+                                                     ))
+                                                 }
+                                             }
+                                         }
+                                     }
+                                 }
+                             }
+                         }
+                     }
+                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                     assert("paths./test.get.responses.200.content.application/json.schema.anyOf[1].properties.bad.maximum") {
+                         toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
+                     }
+                 },
+                 multiVersionLenientCase(name = "anyOf inside referenced schema has invalid bounds", *OpenApiVersion.allVersions()) {
+                     openApi {
+                         components {
+                             schemas {
+                                 schema("BadAnyOf") {
+                                     put("anyOf", listOf(
+                                         mapOf(
+                                             "type" to "object",
+                                             "properties" to mapOf("value" to mapOf("type" to "number", "minimum" to 10, "maximum" to 5))
+                                         )
+                                     ))
+                                 }
+                             }
+                         }
+                         paths {
+                             path("/test") {
+                                 operation("get") {
+                                     response(200) {
+                                         content {
+                                             mediaType("application/json") {
+                                                 schemaRef("BadAnyOf")
+                                             }
+                                         }
+                                     }
+                                 }
+                             }
+                         }
+                     }
+                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                     assert("components.schemas.BadAnyOf.anyOf[0].properties.value.maximum") {
+                         toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
+                     }
+                 }
+             ).flatten().stream()
         }
 
         @Suppress("UnusedReceiverParameter") // Use this to skip certain test cases if needed
