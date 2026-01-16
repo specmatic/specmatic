@@ -1582,7 +1582,7 @@ class OpenApiSpecification(
 
             val resolvedRefDetails = resolveSchemaIfRef(constituentSchema, collectorContext = schemaContext)
             val refEntry = DeepAllOfSchema(resolvedRefDetails.resolvedSchema, resolvedRefDetails.componentName, resolvedRefDetails.collectorContext)
-            if (resolvedRefDetails.componentName in typeStack) return@mapNotNull listOf(refEntry) to discriminatorDetails
+            if (resolvedRefDetails.componentName in typeStack) return@mapNotNull null
             resolveDeepAllOfs(
                 resolvedRefDetails.resolvedSchema,
                 discriminatorDetails.plus(newDiscriminatorDetailsDetails),
@@ -2208,7 +2208,7 @@ return ResolvedRef(componentName, resolvedSchema, referredSchema, collectorConte
             collectorContext.at("required").at(index).check<String?>(value = field, isValid = { properties.contains(field) })
             .message { "Required property \"$field\" is not defined in properties, ignoring this requirement" }
             .orUse { null }
-            .build()
+            .build(isWarning = true)
         }
 
         return schema.properties.orEmpty().map { (propertyName, propertyType) ->
@@ -2574,12 +2574,6 @@ return ResolvedRef(componentName, resolvedSchema, referredSchema, collectorConte
 
             IndexedValue(index, itemsSchemaEnsuredParameter)
         }
-    }
-
-    private fun <T> CollectorContext.requirePojo(name: String, extract: (String) -> T?, createDefault: (String) -> T, message: () -> String, ruleViolation: () -> RuleViolation? = { null }, isWarning: Boolean = false): T {
-        val extractParameter = { this.safely(fallback = { null }) { extract(name) } }
-        val defaultParameter = { createDefault(name) }
-        return this.at(name).requirePojo(message = message, isWarning = isWarning, extract = extractParameter, createDefault = defaultParameter, ruleViolation = ruleViolation)
     }
 
     private fun <T> CollectorContext.requirePojo(extract: () -> T?, createDefault: () -> T, message: () -> String, ruleViolation: () -> RuleViolation? = { null }, isWarning: Boolean = false): T {

@@ -2648,6 +2648,7 @@ class LenientParserTest {
                     }
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
                     assert("paths./test.get.responses.200.content.application/json.schema.required[0]") {
+                        toHaveSeverity(IssueSeverity.WARNING)
                         toContainText("Required property \"id\" is not defined in properties, ignoring this requirement")
                     }
                 },
