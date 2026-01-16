@@ -330,6 +330,10 @@ class LenientParserTest {
     @MethodSource("stringSchemaTestCases")
     fun `string schema constraint test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
 
+    @ParameterizedTest
+    @MethodSource("enumSchemaTestCases")
+    fun `enum schema constraint test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
+
     companion object {
         @JvmStatic
         fun pathParameterTestCases(): Stream<Arguments> {
@@ -2278,6 +2282,204 @@ class LenientParserTest {
                         toContainText("shortest pattern generation is longer than maxLength of 4")
                     }
                 },
+            ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun enumSchemaTestCases(): Stream<Arguments> {
+            return listOf(
+                singleVersionLenientCase(name = "marked nullable but missing null value", OpenApiVersion.OAS30) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", "string")
+                                                    put("nullable", true)
+                                                    put("enum", listOf("A", "B"))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
+                    assert("paths./test.get.responses.200.content.application/json.schema.enum[-1]") {
+                        toContainText("Enum values must contain null if the enum is marked nullable")
+                    }
+                },
+                singleVersionLenientCase(name = "marked nullable but missing null value", OpenApiVersion.OAS31) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", listOf("string", "null"))
+                                                    put("enum", listOf("A", "B"))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
+                    assert("paths./test.get.responses.200.content.application/json.schema.enum[-1]") {
+                        toContainText("Enum values must contain null if the enum is marked nullable")
+                    }
+                },
+
+                singleVersionLenientCase(name = "not nullable but contains null value", OpenApiVersion.OAS30) {
+                    openApi {
+                        components {
+                            schemas {
+                                schema("BadEnum") {
+                                    put("type", "string")
+                                    put("nullable", false)
+                                    put("enum", listOf("A", null, "B"))
+                                }
+                            }
+                        }
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schemaRef("BadEnum")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert("components.schemas.BadEnum.enum[1]") {
+                        toContainText("Enum values cannot contain null if the enum is not nullable")
+                    }
+                },
+                singleVersionLenientCase(name = "not nullable but contains null value", OpenApiVersion.OAS31) {
+                    openApi {
+                        components {
+                            schemas {
+                                schema("BadEnum") {
+                                    put("type", "string")
+                                    put("enum", listOf("A", null, "B"))
+                                }
+                            }
+                        }
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schemaRef("BadEnum")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert("components.schemas.BadEnum.enum[1]") {
+                        toContainText("Enum values cannot contain null if the enum is not nullable")
+                    }
+                },
+
+                singleVersionLenientCase(name = "value does not match declared schema type", OpenApiVersion.OAS30) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", "integer")
+                                                    put("enum", listOf(1, "two", 3))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(0) }
+                    assert("paths./test.get.responses.200.content.application/json.schema.enum") {
+                        // OpenApi 3.0 Parser parser implicitly coerces
+                        toContainText(" Failed to parse enum. One or more enum values were parsed as null")
+                    }
+                    assert("paths./test.get.responses.200.content.application/json.schema.enum[1]") {
+                        toMatchText("Enum values cannot contain null if the enum is not nullable, ignoring null value")
+                    }
+                },
+                singleVersionLenientCase(name = "value does not match declared schema type", OpenApiVersion.OAS31) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", "integer")
+                                                    put("enum", listOf(1, "two", 3))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
+                    assert("paths./test.get.responses.200.content.application/json.schema.enum[1]") {
+                        toContainText("Enum value \"two\" does not match the declared enum schema, ignoring this value")
+                    }
+                },
+
+                singleVersionLenientCase(name = "only null enum value with nullable false", OpenApiVersion.OAS30) {
+                    openApi {
+                        components {
+                            schemas {
+                                schema("OnlyNullEnum") {
+                                    put("type", "string")
+                                    put("nullable", false)
+                                    put("enum", listOf(null))
+                                }
+                            }
+                        }
+                    }
+                    assert("components.schemas.OnlyNullEnum.enum") {
+                        toContainText("Only nullable enums can contain null, converting the enum to be nullable")
+                    }
+                },
+                singleVersionLenientCase(name = "only null enum value with nullable false", OpenApiVersion.OAS31) {
+                    openApi {
+                        components {
+                            schemas {
+                                schema("OnlyNullEnum") {
+                                    put("type", "string")
+                                    put("enum", listOf(null))
+                                }
+                            }
+                        }
+                    }
+                    assert("components.schemas.OnlyNullEnum.enum") {
+                        toContainText("Only nullable enums can contain null, converting the enum to be nullable")
+                    }
+                }
             ).flatten().stream()
         }
 

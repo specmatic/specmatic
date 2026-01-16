@@ -133,26 +133,31 @@ data class EnumPattern(override val pattern: AnyPattern, val nullable: Boolean) 
 
     companion object {
         fun from(values: List<Value>, pattern: Pattern, isNullable: Boolean, isMultiType: Boolean, typeAlias: String, collectorContext: CollectorContext): EnumPattern {
-            val nullableFixed = fixNullableMismatch(values.distinct(), isNullable, collectorContext)
+            val (nullableFixed, derivedNullable) = fixNullableMismatch(values, isNullable, collectorContext)
             val (fixedValues, derivedMultiType) = fixEnumPatternMismatch(nullableFixed, pattern, isMultiType, collectorContext)
             return collectorContext.at("enum").safely(
                 fallback = { EnumPattern(values = fixedValues, typeAlias = typeAlias, nullable = true, multiType = true) },
                 message =  "Failed to validate enum values, please check the schema, entries and nullability, defaulting to lenient enum",
                 block =  {
-                    EnumPattern(values = fixedValues, typeAlias = typeAlias, nullable = isNullable, multiType = derivedMultiType)
+                    EnumPattern(values = fixedValues, typeAlias = typeAlias, nullable = derivedNullable, multiType = derivedMultiType)
                 }
             )
         }
 
-        private fun fixNullableMismatch(values: List<Value>, isNullable: Boolean, collectorContext: CollectorContext): List<Value> {
-            val indexOfNullValue = values.indexOfFirst { it is NullValue }
+        private fun fixNullableMismatch(values: List<Value>, isNullable: Boolean, collectorContext: CollectorContext): Pair<List<Value>, Boolean> {
+            if (!isNullable && values.all { it is NullValue }) {
+                collectorContext.at("enum").record("Only nullable enums can contain null, converting the enum to be nullable")
+                return Pair(values.distinct(), true)
+            }
+
+            val distinctValues = values.distinct()
+            val indexOfNullValue = distinctValues.indexOfFirst { it is NullValue }
             return collectorContext.at("enum").at(indexOfNullValue).check(
-                value = values,
+                value = Pair(distinctValues, isNullable),
                 isValid = {
-                    val containsNull = it.any { v -> v is NullValue }
                     when {
-                        isNullable && !containsNull -> false
-                        !isNullable && containsNull -> false
+                        isNullable && indexOfNullValue == -1 -> false
+                        !isNullable && indexOfNullValue != -1 -> false
                         else -> true
                     }
                 }
@@ -160,7 +165,7 @@ data class EnumPattern(override val pattern: AnyPattern, val nullable: Boolean) 
                 if (isNullable) "Enum values must contain null if the enum is marked nullable, adding null value"
                 else "Enum values cannot contain null if the enum is not nullable, ignoring null value"
             }.orUse {
-                if (isNullable) values + NullValue else values.filterNot { it is NullValue }
+                Pair(if (isNullable) distinctValues.plus(NullValue) else distinctValues.filterNot { it is NullValue }, isNullable)
             }.build()
         }
 

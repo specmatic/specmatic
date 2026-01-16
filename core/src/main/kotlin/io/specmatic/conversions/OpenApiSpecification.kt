@@ -2213,8 +2213,8 @@ return ResolvedRef(componentName, resolvedSchema, referredSchema, collectorConte
             }
         }
 
-        if (parsedOpenApi.specVersion != SpecVersion.V31 && NullValue in specmaticValues && !isNullable) {
-            collectorContext.record(
+        if (parsedOpenApi.specVersion != SpecVersion.V31 && NullValue in specmaticValues && !isNullable && specmaticValues.size != 1) {
+            collectorContext.at("enum").record(
                 message = """
                 Failed to parse enum. One or more enum values were parsed as null
                 This often happens in OpenAPI 3.0.x when enum values have mixed or invalid types and the parser implicitly coerces those values to null
