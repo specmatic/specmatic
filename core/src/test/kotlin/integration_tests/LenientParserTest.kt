@@ -317,10 +317,11 @@ class LenientParserTest {
 
     @ParameterizedTest
     @MethodSource("responseHeaderTestCases")
-    fun `response test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
+    fun `response header test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
 
     @ParameterizedTest
-    @MethodSource("responseTestCases") fun `response content test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
+    @MethodSource("responseTestCases")
+    fun `response content test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
 
     @ParameterizedTest
     @MethodSource("numberSchemaTestCases")
@@ -337,6 +338,10 @@ class LenientParserTest {
     @ParameterizedTest
     @MethodSource("objectSchemaTestCases")
     fun `object schema constraint test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
+
+    @ParameterizedTest
+    @MethodSource("arraySchemaTestCases")
+    fun `array schema constraint test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
 
     companion object {
         @JvmStatic
@@ -1580,6 +1585,7 @@ class LenientParserTest {
                     }
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(1) }
                     assert("paths./test.get.responses.200.headers.X-Ids.schema") {
+                        toHaveSeverity(IssueSeverity.ERROR)
                         toMatchText("No items schema defined for array schema defaulting to empty schema")
                     }
                     assert("paths./test.get.responses.200.headers.X-Ids.schema.items") {
@@ -2714,6 +2720,152 @@ class LenientParserTest {
                     assert("components.schemas.BadNumber.maximum") {
                         toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
                         toMatchText("maximum 5 cannot be less than minimum 10")
+                    }
+                }
+            ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun arraySchemaTestCases(): Stream<Arguments> {
+            return listOf(
+                multiVersionLenientCase(name = "array schema has no items", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", "array")
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(1) }
+                    assert("paths./test.get.responses.200.content.application/json.schema") {
+                        toHaveSeverity(IssueSeverity.ERROR)
+                        toContainText("No items schema defined for array schema defaulting to empty schema")
+                    }
+                    assert("paths./test.get.responses.200.content.application/json.schema.items") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
+                    }
+                },
+                multiVersionLenientCase(name = "array items has no schema", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", "array")
+                                                    put("items", emptyMap<String, Any>())
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.get.responses.200.content.application/json.schema.items") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
+                    }
+                },
+                multiVersionLenientCase(name = "array schema ref with invalid items", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        components {
+                            schemas {
+                                schema("BadArray") {
+                                    put("type", "array")
+                                    put("items", mapOf("type" to "integer", "minimum" to 10, "maximum" to 5))
+                                }
+                            }
+                        }
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schemaRef("BadArray")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.schemas.BadArray.items.maximum") {
+                        toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
+                    }
+                },
+                multiVersionLenientCase(name = "array items schema has invalid bounds", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", "array")
+                                                    put("items", mapOf("type" to "integer", "minimum" to 10, "maximum" to 5))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.get.responses.200.content.application/json.schema.items.maximum") {
+                        toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
+                        toMatchText("maximum 5 cannot be less than minimum 10")
+                    }
+                },
+                multiVersionLenientCase(name = "array items schema has invalid bounds (ref)", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        components {
+                            schemas {
+                                schema("BadNumber") {
+                                    put("type", "integer")
+                                    put("minimum", 10)
+                                    put("maximum", 5)
+                                }
+                            }
+                        }
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", "array")
+                                                    put("items", mapOf("\$ref" to "#/components/schemas/BadNumber"))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.schemas.BadNumber.maximum") {
+                        toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
                     }
                 }
             ).flatten().stream()
