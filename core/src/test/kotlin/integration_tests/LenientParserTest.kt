@@ -337,23 +337,27 @@ class LenientParserTest {
 
     @ParameterizedTest
     @MethodSource("objectSchemaTestCases")
-    fun `object schema constraint test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
+    fun `object schema test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
 
     @ParameterizedTest
     @MethodSource("arraySchemaTestCases")
-    fun `array schema constraint test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
+    fun `array schema test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
 
     @ParameterizedTest
     @MethodSource("allOfSchemaTestCases")
-    fun `allOf schema constraint test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
+    fun `allOf schema test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
 
     @ParameterizedTest
     @MethodSource("oneOfSchemaTestCases")
-    fun `oneOf schema constraint test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
+    fun `oneOf schema test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
 
     @ParameterizedTest
     @MethodSource("anyOfSchemaTestCases")
-    fun `anyOf schema constraint test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
+    fun `anyOf schema test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
+
+    @ParameterizedTest
+    @MethodSource("refTestCases")
+    fun `ref test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
 
     companion object {
         @JvmStatic
@@ -3370,6 +3374,287 @@ class LenientParserTest {
                      }
                  }
              ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun refTestCases(): Stream<Arguments> {
+            return listOf(
+                multiVersionLenientCase(name = "schema has invalid ref", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("\$ref", "#/components/schemas/DoesNotExist")
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.get.responses.200.content.application/json.schema.\$ref") {
+                        toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
+                    }
+                },
+                multiVersionLenientCase(name = "component schema has invalid ref", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        components {
+                            schemas {
+                                schema("BadSchema") {
+                                    put("\$ref", "#/components/schemas/Missing")
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.schemas.BadSchema.\$ref") {
+                        toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
+                    }
+                },
+                multiVersionLenientCase(name = "property schema has invalid ref", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", "object")
+                                                    put("properties", mapOf(
+                                                        "age" to mapOf("\$ref" to "#/components/schemas/Nope")))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.get.responses.200.content.application/json.schema.properties.age.\$ref") {
+                        toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
+                    }
+                },
+                multiVersionLenientCase(name = "array items schema has invalid ref", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", "array")
+                                                    put("items", mapOf("\$ref" to "#/components/schemas/MissingItem"))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1);totalViolations(1) }
+                    assert("paths./test.get.responses.200.content.application/json.schema.items.\$ref") {
+                        toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
+                    }
+                },
+                multiVersionLenientCase(name = "oneOf element has invalid ref", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("oneOf", listOf(mapOf("\$ref" to "#/components/schemas/MissingOne")))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2);totalViolations(2) }
+                    assert("paths./test.get.responses.200.content.application/json.schema.oneOf[0].\$ref") {
+                        toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
+                    }
+                    assert("paths./test.get.responses.200.content.application/json.schema.discriminator.mapping.MissingOne") {
+                        toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
+                    }
+                },
+                multiVersionLenientCase(name = "anyOf element has invalid ref", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("anyOf", listOf(mapOf("\$ref" to "#/components/schemas/MissingAny")))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2);totalViolations(2) }
+                    assert("paths./test.get.responses.200.content.application/json.schema.anyOf[0].\$ref") {
+                        toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
+                    }
+                    assert("paths./test.get.responses.200.content.application/json.schema.discriminator.mapping.MissingAny") {
+                        toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
+                    }
+                },
+                multiVersionLenientCase(name = "allOf element has invalid ref", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("allOf", listOf(mapOf("\$ref" to "#/components/schemas/MissingAll")))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1);totalViolations(1) }
+                    assert("paths./test.get.responses.200.content.application/json.schema.allOf[0].\$ref") {
+                        toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
+                    }
+                },
+                multiVersionLenientCase(name = "additionalProperties schema has invalid ref", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", "object")
+                                                    put("additionalProperties", mapOf("\$ref" to "#/components/schemas/MissingAP"))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1);totalViolations(1) }
+                    assert("paths./test.get.responses.200.content.application/json.schema.additionalProperties.\$ref") {
+                        toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
+                    }
+                },
+                multiVersionLenientCase(name = "oneOf discriminator mapping has invalid ref", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("oneOf", listOf(mapOf("type" to "object")))
+                                                    put("discriminator", mapOf(
+                                                        "propertyName" to "kind",
+                                                        "mapping" to mapOf("X" to "#/components/schemas/NoSuchSchema")
+                                                    ))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.get.responses.200.content.application/json.schema.discriminator.mapping.X") {
+                        toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
+                    }
+                },
+                multiVersionLenientCase(name = "oneOf discriminator mapping has invalid ref", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("oneOf", listOf(mapOf("type" to "object")))
+                                                    put(
+                                                        "discriminator",
+                                                        mapOf(
+                                                            "propertyName" to "kind",
+                                                            "mapping" to mapOf("X" to "#/components/schemas/NoSuchSchema")
+                                                        )
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1);totalViolations(1) }
+                    assert("paths./test.get.responses.200.content.application/json.schema.discriminator.mapping.X") {
+                        toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
+                    }
+                },
+                multiVersionLenientCase(name = "deep allOf discriminator mapping has invalid ref", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        components {
+                            schemas {
+                                schema("Inner") {
+                                    put("allOf", listOf(mapOf("type" to "object")))
+                                    put("discriminator", mapOf("propertyName" to "kind", "mapping" to mapOf("BAD" to "#/components/schemas/MissingAllOf")))
+                                }
+                                schema("Base") {
+                                    put("allOf", listOf(mapOf("\$ref" to "#/components/schemas/Inner")))
+                                }
+                            }
+                        }
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schemaRef("Base")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1);totalViolations(1) }
+                    assert("components.schemas.Inner.discriminator.mapping.BAD") {
+                        toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
+                    }
+                }
+            ).flatten().stream()
         }
 
         @Suppress("UnusedReceiverParameter") // Use this to skip certain test cases if needed

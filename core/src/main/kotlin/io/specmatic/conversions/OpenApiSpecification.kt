@@ -1536,7 +1536,8 @@ class OpenApiSpecification(
 
                 val mappingWithSchemaListAndDiscriminator =
                     mapping.entries.mapNotNull { (discriminatorValue, refPath) ->
-                        val (mappedSchemaName, mappedSchema) = resolveReferenceToSchema(refPath, collectorContext)
+                        val mappingContext = collectorContext.at("discriminator").at("mapping").at(discriminatorValue)
+                        val (mappedSchemaName, mappedSchema) = resolveReferenceToSchema(refPath, mappingContext, includeRefToCollector = false)
                         val mappedComponentName = extractComponentName(refPath, collectorContext)
                         if (mappedComponentName !in typeStack) {
                             val value = mappedSchemaName to resolveDeepAllOfs(
@@ -1778,6 +1779,7 @@ class OpenApiSpecification(
         val nullable = if (schema.oneOf.any { nullableEmptyObject(it) }) listOf(NullPattern) else emptyList()
         val impliedDiscriminatorMappings = schema.oneOf.impliedDiscriminatorMappings()
         val finalDiscriminatorMappings = schema.discriminator?.mapping.orEmpty().plus(impliedDiscriminatorMappings).distinctByValue()
+        validateMappings(finalDiscriminatorMappings, collectorContext)
 
         return AnyPattern(
             candidatePatterns.plus(nullable),
@@ -1801,6 +1803,8 @@ class OpenApiSpecification(
 
         val impliedDiscriminatorMappings = schema.anyOf.impliedDiscriminatorMappings()
         val finalDiscriminatorMappings = schema.discriminator?.mapping.orEmpty().plus(impliedDiscriminatorMappings).distinctByValue()
+        validateMappings(finalDiscriminatorMappings, collectorContext)
+
         return AnyOfPattern(
             pattern = ensureAllObjectPatternsHaveAdditionalProperties(candidatePatterns),
             typeAlias = "($patternName)",
@@ -1811,6 +1815,13 @@ class OpenApiSpecification(
             ),
         ).let {
             cacheComponentPattern(patternName, it)
+        }
+    }
+
+    private fun validateMappings(mappings: Map<String, String>, collectorContext: CollectorContext) {
+        mappings.forEach { (discriminatorValue, refPath) ->
+            val mappingContext = collectorContext.at("discriminator").at("mapping").at(discriminatorValue)
+            resolveReferenceToSchema(refPath, mappingContext, includeRefToCollector = false)
         }
     }
 
@@ -2250,14 +2261,17 @@ return ResolvedRef(componentName, resolvedSchema, referredSchema, collectorConte
         false -> name
     }
 
-    private fun resolveReferenceToSchema(component: String, collectorContext: CollectorContext): Pair<String, Schema<*>> {
+    private fun resolveReferenceToSchema(component: String, collectorContext: CollectorContext, includeRefToCollector: Boolean = true): Pair<String, Schema<*>> {
         val componentName = extractComponentName(component, collectorContext)
         val components = parsedOpenApi.components ?: Components()
         val schemas = components.schemas.orEmpty()
+        val schemaRefContext = if (includeRefToCollector) {
+            collectorContext.at("\$ref")
+        } else {
+            collectorContext
+        }
 
-        val schemaRefContext = collectorContext.at("\$ref")
         return componentName to schemaRefContext.requirePojo(
-            name = componentName,
             message = { "Failed to resolve reference to schema $componentName, defaulting to free-form object" },
             extract = { schemas[componentName] },
             createDefault = { ObjectSchema().apply { additionalProperties = true } },
