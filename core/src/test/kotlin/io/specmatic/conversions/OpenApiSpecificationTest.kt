@@ -11819,4 +11819,84 @@ paths:
             "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains only the mandatory keys AND the key quantity is mutated from number to string"
         )
     }
+
+    @Test
+    fun `should parse two levels of anonymous oneOf objects`() {
+        val spec =
+            """
+            openapi: 3.0.3
+            paths:
+              /order:
+                post:
+                  summary: Create a payment order
+                  requestBody:
+                    content:
+                      application/json:
+                        schema:
+                          ${"$"}ref: '#/components/schemas/OrderInfo'
+                  responses:
+                    '200':
+                      description: Payment order created successfully
+            components:
+              schemas:
+                Details:
+                  oneOf:
+                    - type: object
+                      required:
+                      - id
+                      properties:
+                        id:
+                          type: string
+                      required:
+                        - id
+                    - type: object
+                      required:
+                        - ref_id
+                      properties:
+                        ref_id:
+                          type: string
+                      required:
+                        - ref_id
+                OrderInfo:
+                  type: object
+                  required:
+                  - orderInfo
+                  properties:
+                    orderInfo:
+                      oneOf:
+                        - type: object
+                          required:
+                          - orderRef
+                          properties:
+                            orderRef:
+                              type: string
+                        - type: object
+                          properties:
+                            order:
+                              type: object
+                              properties:
+                                details:
+                                  ${"$"}ref: '#/components/schemas/Details'
+                OrderRef:
+                  type: object
+                  required:
+                  - orderRef
+                  properties:
+                    orderRef:
+                      type: string
+                Order:
+                  type: object
+                  properties:
+                    order:
+                      type: object
+                      properties:
+                        details:
+                          ${"$"}ref: '#/components/schemas/Details'
+            """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+        val anyPattern = feature.scenarios.first().resolver.getPattern("(Details)") as? AnyPattern ?: fail("Expected AnyPattern")
+
+        assertThat(anyPattern.pattern).doesNotHaveAnyElementsOfTypes(DeferredPattern::class.java)
+    }
 }

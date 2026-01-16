@@ -1593,9 +1593,12 @@ class OpenApiSpecification(
 
         logger.debug(debugMessage)
 
-        val preExistingResult = patterns["($patternName)"]
-        if (preExistingResult != null && patternName.isNotBlank()) return preExistingResult
-        if (typeStack.filter { it == patternName }.size > 1) return DeferredPattern("($patternName)")
+        if (patternName.isNotBlank()) {
+            val preExistingResult = patterns["($patternName)"]
+            if (preExistingResult != null) return preExistingResult
+            if (typeStack.filter { it == patternName }.size > 1) return DeferredPattern("($patternName)")
+            preExistingResult
+        }
 
         val pattern = schema.toSpecmaticPattern(patternName, typeStack, breadCrumb)
         val withFormData = if (pattern.instanceOf(JSONObjectPattern::class) && jsonInFormData) {
