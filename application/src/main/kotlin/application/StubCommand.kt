@@ -161,7 +161,10 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         System.setProperty(SPECMATIC_BASE_URL, baseUrl)
 
         try {
-            val configMatchBranch = loadSpecmaticConfigOrNull(Configuration.configFilePath)?.getMatchBranch() ?: false
+            val configMatchBranch = loadSpecmaticConfigOrNull(
+                Configuration.configFilePath,
+                explicitlySpecifiedByUser = configFileName != null
+            )?.getMatchBranch() ?: false
             val matchBranchEnabled = useCurrentBranchForCentralRepo || Flags.getBooleanValue(MATCH_BRANCH, false) || configMatchBranch
             
             contractSources = when (contractPaths.isEmpty()) {
