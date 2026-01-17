@@ -18,262 +18,6 @@ import org.junit.jupiter.params.provider.MethodSource
 import java.util.stream.Stream
 import kotlin.collections.set
 
-private typealias AnyValueMap = MutableMap<String, Any?>
-
-private fun AnyValueMap.map(key: String, block: AnyValueMap.() -> Unit): AnyValueMap {
-    val value = computeIfAbsent(key) { mutableMapOf<String, Any?>() }
-    require(value is MutableMap<*, *>) { "$key is not a map" }
-    @Suppress("UNCHECKED_CAST")
-    val m = value as AnyValueMap
-    block(m)
-    return m
-}
-
-private fun AnyValueMap.list(key: String, block: MutableList<AnyValueMap>.() -> Unit) {
-    val value = computeIfAbsent(key) { mutableListOf<AnyValueMap>() }
-    require(value is MutableList<*>) { "$key is not a list" }
-    @Suppress("UNCHECKED_CAST")
-    block(value as MutableList<AnyValueMap>)
-}
-
-private fun MutableList<AnyValueMap>.requirement(vararg schemes: String) {
-    val map = mutableMapOf<String, Any?>()
-    schemes.forEach { map[it] = emptyList<String>() }
-    add(map)
-}
-
-data class LenientParseTestCase(val openApi: Map<String, Any?>, val checks: List<(Feature) -> Unit>, val asserts: List<RuleViolationAssertion> = emptyList()) {
-    companion object {
-        fun singleVersionLenientCase(name: String, version: OpenApiVersion, block: Builder.() -> Unit): List<Arguments> {
-            val builder = Builder()
-            builder.block()
-            val testCase = builder.build()
-            return listOf(Arguments.of(version, Named.of(name, testCase)))
-        }
-
-        fun multiVersionLenientCase(name: String, vararg versions: OpenApiVersion, block: Builder.() -> Unit): List<Arguments> {
-            val builder = Builder()
-            builder.block()
-            val testCase = builder.build()
-            return versions.map { Arguments.of(it, Named.of(name, testCase)) }
-        }
-    }
-
-    class Builder {
-        private lateinit var openApi: Map<String, Any?>
-        private var asserts: MutableList<RuleViolationAssertion> = mutableListOf()
-        private var checks: MutableList<(Feature) -> Unit> = mutableListOf()
-
-        fun openApi(block: OpenApiDsl.() -> Unit) {
-            val dsl = OpenApiDsl()
-            dsl.block()
-            openApi = dsl.build()
-        }
-
-        fun assert(path: String? = null, block: RuleViolationAssertion.Builder.() -> Unit) {
-            val ruleViolationBuilder = RuleViolationAssertion.Builder(path)
-            block(ruleViolationBuilder)
-            asserts.add(ruleViolationBuilder.build())
-        }
-
-        fun check(block: (Feature) -> Unit) {
-            checks.add(block)
-        }
-
-        fun build(): LenientParseTestCase = LenientParseTestCase(openApi, checks, asserts)
-    }
-
-    class OpenApiDsl {
-        private val root: AnyValueMap = mutableMapOf()
-
-        fun openapi(version: String) {
-            root["openapi"] = version
-        }
-
-        fun info(block: AnyValueMap.() -> Unit) {
-            root.map("info", block)
-        }
-
-        fun paths(block: PathsDsl.() -> Unit) {
-            val paths = root.map("paths") { }
-            block(PathsDsl(paths))
-        }
-
-        fun components(block: ComponentsDsl.() -> Unit) {
-            val components = root.map("components") { }
-            block(ComponentsDsl(components))
-        }
-
-        fun security(block: MutableList<AnyValueMap>.() -> Unit) {
-            val list = mutableListOf<AnyValueMap>()
-            block(list)
-            root["security"] = list
-        }
-
-        fun build(): AnyValueMap = root
-
-        class PathsDsl(private val paths: AnyValueMap) {
-
-            fun path(path: String, block: PathItemDsl.() -> Unit) {
-                val item = paths.map(path) { }
-                block(PathItemDsl(item))
-            }
-        }
-
-        class PathItemDsl(private val item: AnyValueMap) {
-            fun operation(method: String, block: OperationDsl.() -> Unit) {
-                val op = item.map(method) { }
-                block(OperationDsl(op))
-            }
-        }
-
-        class OperationDsl(private val op: AnyValueMap) {
-            fun parameter(block: AnyValueMap.() -> Unit) {
-                op.list("parameters") {
-                    add(mutableMapOf<String, Any?>().apply(block))
-                }
-            }
-
-            fun requestBody(block: RequestBodyDsl.() -> Unit) {
-                val body = mutableMapOf<String, Any?>()
-                block(RequestBodyDsl(body))
-                op["requestBody"] = body
-            }
-
-            fun requestBodyRef(name: String) {
-                op["requestBody"] = mapOf("\$ref" to "#/components/requestBodies/$name")
-            }
-
-            fun response(status: Any, block: ResponseDsl.() -> Unit) {
-                op.map("responses") {
-                    val resp = mutableMapOf<String, Any?>()
-                    block(ResponseDsl(resp))
-                    put(status.toString(), resp)
-                }
-            }
-
-            fun responseRef(status: Any, name: String) {
-                op.map("responses") {
-                    val resp = mapOf("\$ref" to "#/components/responses/$name")
-                    put(status.toString(), resp)
-                }
-            }
-
-            fun security(block: MutableList<AnyValueMap>.() -> Unit) {
-                val list = mutableListOf<AnyValueMap>()
-                block(list)
-                op["security"] = list
-            }
-        }
-
-        class ResponseDsl(private val response: AnyValueMap) {
-            fun header(name: String, block: AnyValueMap.() -> Unit) {
-                val headers = response.map("headers") { }
-                headers[name] = mutableMapOf<String, Any?>().apply(block)
-            }
-
-            fun headerRef(name: String, refName: String) {
-                val headers = response.map("headers") { }
-                headers[name] = mapOf("\$ref" to "#/components/headers/$refName")
-            }
-
-            fun content(block: ContentDsl.() -> Unit) {
-                val content = response.map("content") { }
-                block(ContentDsl(content))
-            }
-        }
-
-        class RequestBodyDsl(private val body: AnyValueMap) {
-            fun required(value: Boolean = true) {
-                body["required"] = value
-            }
-
-            fun content(block: ContentDsl.() -> Unit) {
-                val content = body.map("content") { }
-                block(ContentDsl(content))
-            }
-        }
-
-        class ContentDsl(private val content: AnyValueMap) {
-            fun mediaType(type: String, block: MediaTypeDsl.() -> Unit) {
-                val media = content.map(type) { }
-                block(MediaTypeDsl(media))
-            }
-        }
-
-        class MediaTypeDsl(private val media: AnyValueMap) {
-            fun schema(block: AnyValueMap.() -> Unit) {
-                media["schema"] = mutableMapOf<String, Any?>().apply(block)
-            }
-
-            fun schemaRef(name: String) {
-                media["schema"] = mapOf("\$ref" to "#/components/schemas/$name")
-            }
-        }
-
-        class ComponentsDsl(private val components: AnyValueMap) {
-            fun schemas(block: SchemasDsl.() -> Unit) {
-                val schemas = components.map("schemas") { }
-                block(SchemasDsl(schemas))
-            }
-
-            fun securitySchemes(block: SecuritySchemeDsl.() -> Unit) {
-                val schemas = components.map("securitySchemes") { }
-                block(SecuritySchemeDsl(schemas))
-            }
-
-            fun requestBodies(block: RequestBodiesDsl.() -> Unit) {
-                val bodies = components.map("requestBodies") { }
-                block(RequestBodiesDsl(bodies))
-            }
-
-            fun headers(block: HeaderDsl.() -> Unit) {
-                val headers = components.map("headers") { }
-                block(HeaderDsl(headers))
-            }
-
-            fun responses(block: ResponsesDsl.() -> Unit) {
-                val responses = components.map("responses") { }
-                block(ResponsesDsl(responses))
-            }
-        }
-
-        class SchemasDsl(private val schemas: AnyValueMap) {
-            fun schema(name: String, block: AnyValueMap.() -> Unit) {
-                schemas[name] = mutableMapOf<String, Any?>().apply(block)
-            }
-        }
-
-        class SecuritySchemeDsl(private val schemas: AnyValueMap) {
-            fun scheme(name: String, block: AnyValueMap.() -> Unit) {
-                schemas[name] = mutableMapOf<String, Any?>().apply(block)
-            }
-        }
-
-        class HeaderDsl(private val headers: AnyValueMap) {
-            fun header(name: String, block: AnyValueMap.() -> Unit) {
-                headers[name] = mutableMapOf<String, Any?>().apply(block)
-            }
-        }
-
-        class RequestBodiesDsl(private val bodies: AnyValueMap) {
-            fun requestBody(name: String, block: RequestBodyDsl.() -> Unit) {
-                val body = mutableMapOf<String, Any?>()
-                block(RequestBodyDsl(body))
-                bodies[name] = body
-            }
-        }
-
-        class ResponsesDsl(private val responses: AnyValueMap) {
-            fun response(name: String, block: ResponseDsl.() -> Unit) {
-                val response = mutableMapOf<String, Any?>()
-                block(ResponseDsl(response))
-                responses[name] = response
-            }
-        }
-    }
-}
-
 class LenientParserTest {
     private fun runLenientCase(version: OpenApiVersion, case: LenientParseTestCase) {
         val root = linkedMapOf("openapi" to version.value, "info" to mapOf("title" to "Test", "version" to "1.0")) + case.openApi.filterKeys { it != "info" && it != "openapi" }
@@ -3351,5 +3095,261 @@ class LenientParserTest {
 
         @Suppress("UnusedReceiverParameter") // Use this to skip certain test cases if needed
         private fun List<Arguments>.skip(): List<Arguments> = emptyList()
+    }
+}
+
+private typealias AnyValueMap = MutableMap<String, Any?>
+
+private fun AnyValueMap.map(key: String, block: AnyValueMap.() -> Unit): AnyValueMap {
+    val value = computeIfAbsent(key) { mutableMapOf<String, Any?>() }
+    require(value is MutableMap<*, *>) { "$key is not a map" }
+    @Suppress("UNCHECKED_CAST")
+    val m = value as AnyValueMap
+    block(m)
+    return m
+}
+
+private fun AnyValueMap.list(key: String, block: MutableList<AnyValueMap>.() -> Unit) {
+    val value = computeIfAbsent(key) { mutableListOf<AnyValueMap>() }
+    require(value is MutableList<*>) { "$key is not a list" }
+    @Suppress("UNCHECKED_CAST")
+    block(value as MutableList<AnyValueMap>)
+}
+
+private fun MutableList<AnyValueMap>.requirement(vararg schemes: String) {
+    val map = mutableMapOf<String, Any?>()
+    schemes.forEach { map[it] = emptyList<String>() }
+    add(map)
+}
+
+data class LenientParseTestCase(val openApi: Map<String, Any?>, val checks: List<(Feature) -> Unit>, val asserts: List<RuleViolationAssertion> = emptyList()) {
+    companion object {
+        fun singleVersionLenientCase(name: String, version: OpenApiVersion, block: Builder.() -> Unit): List<Arguments> {
+            val builder = Builder()
+            builder.block()
+            val testCase = builder.build()
+            return listOf(Arguments.of(version, Named.of(name, testCase)))
+        }
+
+        fun multiVersionLenientCase(name: String, vararg versions: OpenApiVersion, block: Builder.() -> Unit): List<Arguments> {
+            val builder = Builder()
+            builder.block()
+            val testCase = builder.build()
+            return versions.map { Arguments.of(it, Named.of(name, testCase)) }
+        }
+    }
+
+    class Builder {
+        private lateinit var openApi: Map<String, Any?>
+        private var asserts: MutableList<RuleViolationAssertion> = mutableListOf()
+        private var checks: MutableList<(Feature) -> Unit> = mutableListOf()
+
+        fun openApi(block: OpenApiDsl.() -> Unit) {
+            val dsl = OpenApiDsl()
+            dsl.block()
+            openApi = dsl.build()
+        }
+
+        fun assert(path: String? = null, block: RuleViolationAssertion.Builder.() -> Unit) {
+            val ruleViolationBuilder = RuleViolationAssertion.Builder(path)
+            block(ruleViolationBuilder)
+            asserts.add(ruleViolationBuilder.build())
+        }
+
+        fun check(block: (Feature) -> Unit) {
+            checks.add(block)
+        }
+
+        fun build(): LenientParseTestCase = LenientParseTestCase(openApi, checks, asserts)
+    }
+
+    class OpenApiDsl {
+        private val root: AnyValueMap = mutableMapOf()
+
+        fun openapi(version: String) {
+            root["openapi"] = version
+        }
+
+        fun info(block: AnyValueMap.() -> Unit) {
+            root.map("info", block)
+        }
+
+        fun paths(block: PathsDsl.() -> Unit) {
+            val paths = root.map("paths") { }
+            block(PathsDsl(paths))
+        }
+
+        fun components(block: ComponentsDsl.() -> Unit) {
+            val components = root.map("components") { }
+            block(ComponentsDsl(components))
+        }
+
+        fun security(block: MutableList<AnyValueMap>.() -> Unit) {
+            val list = mutableListOf<AnyValueMap>()
+            block(list)
+            root["security"] = list
+        }
+
+        fun build(): AnyValueMap = root
+
+        class PathsDsl(private val paths: AnyValueMap) {
+
+            fun path(path: String, block: PathItemDsl.() -> Unit) {
+                val item = paths.map(path) { }
+                block(PathItemDsl(item))
+            }
+        }
+
+        class PathItemDsl(private val item: AnyValueMap) {
+            fun operation(method: String, block: OperationDsl.() -> Unit) {
+                val op = item.map(method) { }
+                block(OperationDsl(op))
+            }
+        }
+
+        class OperationDsl(private val op: AnyValueMap) {
+            fun parameter(block: AnyValueMap.() -> Unit) {
+                op.list("parameters") {
+                    add(mutableMapOf<String, Any?>().apply(block))
+                }
+            }
+
+            fun requestBody(block: RequestBodyDsl.() -> Unit) {
+                val body = mutableMapOf<String, Any?>()
+                block(RequestBodyDsl(body))
+                op["requestBody"] = body
+            }
+
+            fun requestBodyRef(name: String) {
+                op["requestBody"] = mapOf("\$ref" to "#/components/requestBodies/$name")
+            }
+
+            fun response(status: Any, block: ResponseDsl.() -> Unit) {
+                op.map("responses") {
+                    val resp = mutableMapOf<String, Any?>()
+                    block(ResponseDsl(resp))
+                    put(status.toString(), resp)
+                }
+            }
+
+            fun responseRef(status: Any, name: String) {
+                op.map("responses") {
+                    val resp = mapOf("\$ref" to "#/components/responses/$name")
+                    put(status.toString(), resp)
+                }
+            }
+
+            fun security(block: MutableList<AnyValueMap>.() -> Unit) {
+                val list = mutableListOf<AnyValueMap>()
+                block(list)
+                op["security"] = list
+            }
+        }
+
+        class ResponseDsl(private val response: AnyValueMap) {
+            fun header(name: String, block: AnyValueMap.() -> Unit) {
+                val headers = response.map("headers") { }
+                headers[name] = mutableMapOf<String, Any?>().apply(block)
+            }
+
+            fun headerRef(name: String, refName: String) {
+                val headers = response.map("headers") { }
+                headers[name] = mapOf("\$ref" to "#/components/headers/$refName")
+            }
+
+            fun content(block: ContentDsl.() -> Unit) {
+                val content = response.map("content") { }
+                block(ContentDsl(content))
+            }
+        }
+
+        class RequestBodyDsl(private val body: AnyValueMap) {
+            fun required(value: Boolean = true) {
+                body["required"] = value
+            }
+
+            fun content(block: ContentDsl.() -> Unit) {
+                val content = body.map("content") { }
+                block(ContentDsl(content))
+            }
+        }
+
+        class ContentDsl(private val content: AnyValueMap) {
+            fun mediaType(type: String, block: MediaTypeDsl.() -> Unit) {
+                val media = content.map(type) { }
+                block(MediaTypeDsl(media))
+            }
+        }
+
+        class MediaTypeDsl(private val media: AnyValueMap) {
+            fun schema(block: AnyValueMap.() -> Unit) {
+                media["schema"] = mutableMapOf<String, Any?>().apply(block)
+            }
+
+            fun schemaRef(name: String) {
+                media["schema"] = mapOf("\$ref" to "#/components/schemas/$name")
+            }
+        }
+
+        class ComponentsDsl(private val components: AnyValueMap) {
+            fun schemas(block: SchemasDsl.() -> Unit) {
+                val schemas = components.map("schemas") { }
+                block(SchemasDsl(schemas))
+            }
+
+            fun securitySchemes(block: SecuritySchemeDsl.() -> Unit) {
+                val schemas = components.map("securitySchemes") { }
+                block(SecuritySchemeDsl(schemas))
+            }
+
+            fun requestBodies(block: RequestBodiesDsl.() -> Unit) {
+                val bodies = components.map("requestBodies") { }
+                block(RequestBodiesDsl(bodies))
+            }
+
+            fun headers(block: HeaderDsl.() -> Unit) {
+                val headers = components.map("headers") { }
+                block(HeaderDsl(headers))
+            }
+
+            fun responses(block: ResponsesDsl.() -> Unit) {
+                val responses = components.map("responses") { }
+                block(ResponsesDsl(responses))
+            }
+        }
+
+        class SchemasDsl(private val schemas: AnyValueMap) {
+            fun schema(name: String, block: AnyValueMap.() -> Unit) {
+                schemas[name] = mutableMapOf<String, Any?>().apply(block)
+            }
+        }
+
+        class SecuritySchemeDsl(private val schemas: AnyValueMap) {
+            fun scheme(name: String, block: AnyValueMap.() -> Unit) {
+                schemas[name] = mutableMapOf<String, Any?>().apply(block)
+            }
+        }
+
+        class HeaderDsl(private val headers: AnyValueMap) {
+            fun header(name: String, block: AnyValueMap.() -> Unit) {
+                headers[name] = mutableMapOf<String, Any?>().apply(block)
+            }
+        }
+
+        class RequestBodiesDsl(private val bodies: AnyValueMap) {
+            fun requestBody(name: String, block: RequestBodyDsl.() -> Unit) {
+                val body = mutableMapOf<String, Any?>()
+                block(RequestBodyDsl(body))
+                bodies[name] = body
+            }
+        }
+
+        class ResponsesDsl(private val responses: AnyValueMap) {
+            fun response(name: String, block: ResponseDsl.() -> Unit) {
+                val response = mutableMapOf<String, Any?>()
+                block(ResponseDsl(response))
+                responses[name] = response
+            }
+        }
     }
 }

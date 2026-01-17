@@ -472,7 +472,7 @@ class OpenApiSpecification(
         return openApiSchemas().filterNot { withPatternDelimiters(it.key) in patterns }.map {
             val schemaContext = componentSchemasContext.at(it.key)
             withPatternDelimiters(it.key) to schemaContext.safely(
-                message = "Failed to convert OpenAPI schema to internal format, defaulting to any json schema",
+                message = "Failed to convert schema to internal format, defaulting to any schema",
                 fallback = { AnythingPattern },
                 block = { schemaScope ->
                     toSpecmaticPattern(schema = it.value, typeStack = emptyList(), patternName = it.key, collectorContext = schemaScope)
@@ -2275,7 +2275,7 @@ class OpenApiSpecification(
         val components = parsedOpenApi.components ?: Components()
         val schemas = components.schemas.orEmpty()
         return componentName to collectorContext.at("\$ref").requirePojo(
-            message = { "Failed to resolve reference to schema $componentName, defaulting to any json schema\"" },
+            message = { "Failed to resolve reference to schema $componentName, defaulting to any schema" },
             extract = { schemas[componentName] },
             createDefault = { Schema<Any>().also { it.properties = emptyMap() } },
             ruleViolation = { OpenApiLintViolations.UNRESOLVED_REFERENCE }
@@ -2428,7 +2428,7 @@ class OpenApiSpecification(
         ).filter { (_, value) -> value != null }.map { (key, value) -> key to value!! }.toMap()
     }
 
-    private fun Schema<*>.toSpecmaticPattern(patternName: String, typeStack: List<String>, collectorContext: CollectorContext): Pattern = collectorContext.safely(fallback = { AnythingPattern }, message = "Failed to convert schema to internal representation, defaulting to any json schema") {
+    private fun Schema<*>.toSpecmaticPattern(patternName: String, typeStack: List<String>, collectorContext: CollectorContext): Pattern = collectorContext.safely(fallback = { AnythingPattern }, message = "Failed to convert schema to internal representation, defaulting to any schema") {
         if (this.`$ref` != null) return@safely handleReference(this, typeStack, patternName, collectorContext)
         if (this.allOf != null) return@safely handleAllOf(this, typeStack, patternName, collectorContext)
         if (this.oneOf != null) return@safely handleOneOf(this, typeStack, patternName, collectorContext)
@@ -2499,7 +2499,7 @@ class OpenApiSpecification(
         return collectorContext
             .check(AnythingPattern, isValid = { declaredTypes.isEmpty() })
             .violation { OpenApiLintViolations.SCHEMA_UNCLEAR }
-            .message { "Schema is unclear, defaulting to any json schema" }
+            .message { "Schema is unclear, defaulting to any schema" }
             .orUse { AnythingPattern }
             .build(isWarning = true)
     }
