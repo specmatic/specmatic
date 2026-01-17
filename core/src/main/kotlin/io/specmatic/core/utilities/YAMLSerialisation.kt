@@ -14,7 +14,11 @@ val yamlMapper: ObjectMapper = ObjectMapper(yamlFactory).registerKotlinModule()
 
 fun yamlStringToValue(stringContent: String): Value {
     val cleaned = stringContent.cleanBOM()
-    val raw: Any = yamlMapper.readValue(cleaned, Any::class.java)
+    val raw: Any = try {
+        yamlMapper.readValue(cleaned, Any::class.java)
+    } catch(_: Throwable) {
+        NullValue
+    }
     return toValue(raw)
 }
 
