@@ -2495,8 +2495,12 @@ class OpenApiSpecification(
         val hasAdditionalProps = schema.additionalProperties != null && schema.additionalProperties != false
         if (hasProperties || hasAdditionalProps) return toJsonObjectPattern(schema, patternName, typeStack, collectorContext)
 
-        collectorContext.record(message = "Schema is unclear, defaulting to non-null json schema", ruleViolation = OpenApiLintViolations.SCHEMA_UNCLEAR, isWarning = true)
-        return AnyNonNullJSONValue()
+        return collectorContext
+            .check(AnythingPattern, isValid = { schema.type == null })
+            .violation { OpenApiLintViolations.SCHEMA_UNCLEAR }
+            .message { "Schema is unclear, defaulting to any json schema" }
+            .orUse { AnythingPattern }
+            .build(isWarning = true)
     }
 
     private fun Schema<*>.extractFirstExampleAsString(): String? {
