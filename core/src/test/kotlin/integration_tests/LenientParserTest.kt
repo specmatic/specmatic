@@ -359,6 +359,10 @@ class LenientParserTest {
     @MethodSource("refTestCases")
     fun `ref test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
 
+    @ParameterizedTest
+    @MethodSource("schemaTestCases")
+    fun `schema test cases`(version: OpenApiVersion, case: LenientParseTestCase, info: TestInfo) = runLenientCase(version, case)
+
     companion object {
         @JvmStatic
         fun pathParameterTestCases(): Stream<Arguments> {
@@ -378,19 +382,13 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(2) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test/{id}.get.parameters[-1]") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toContainViolation(OpenApiLintViolations.PATH_PARAMETER_MISSING)
                         toMatchText("Expected path parameter with name id is missing, defaulting to empty schema")
                     }
-                    assert("paths./test/{id}.get.parameters[-1].schema") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
-                        toMatchText("Schema is unclear, defaulting to non-null json schema")
-                    }
                 },
-
                 multiVersionLenientCase(name = "has no schema", *OpenApiVersion.allVersions()) {
                     openApi {
                         paths {
@@ -405,46 +403,13 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(2) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test/{id}.get.parameters[0]") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toContainViolation(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION)
                         toMatchText("Parameter has no schema defined, defaulting to empty schema")
                     }
-                    assert("paths./test/{id}.get.parameters[0].schema") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
-                        toMatchText("Schema is unclear, defaulting to non-null json schema")
-                    }
                 },
-                multiVersionLenientCase(name = "refed out and has no schema", *OpenApiVersion.allVersions()) {
-                    openApi {
-                        paths {
-                            path("/test/{id}") {
-                                operation("get") {
-                                    parameter {
-                                        put("name", "id")
-                                        put("in", "path")
-                                        put("required", true)
-                                        put("schema", mapOf("\$ref" to "#/components/schemas/PathItem"))
-                                    }
-                                }
-                            }
-                            components {
-                                schemas {
-                                    schema("PathItem", block = {})
-                                }
-                            }
-                        }
-                    }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
-                    assert("components.schemas.PathItem") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
-                        toMatchText("Schema is unclear, defaulting to non-null json schema")
-                    }
-                },
-
                 multiVersionLenientCase(name = "schema has issue", *OpenApiVersion.allVersions()) {
                     openApi {
                         paths {
@@ -517,43 +482,11 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(2) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.parameters[0]") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toContainViolation(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION)
                         toMatchText("Parameter has no schema defined, defaulting to empty schema")
-                    }
-                    assert("paths./test.get.parameters[0].schema") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
-                        toMatchText("Schema is unclear, defaulting to non-null json schema")
-                    }
-                },
-                multiVersionLenientCase(name = "refed out and has no schema", *OpenApiVersion.allVersions()) {
-                    openApi {
-                        paths {
-                            path("/test") {
-                                operation("get") {
-                                    parameter {
-                                        put("name", "q")
-                                        put("in", "query")
-                                        put("required", true)
-                                        put("schema", mapOf("\$ref" to "#/components/schemas/QueryItem"))
-                                    }
-                                }
-                            }
-                            components {
-                                schemas {
-                                    schema("QueryItem", block = {})
-                                }
-                            }
-                        }
-                    }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
-                    assert("components.schemas.QueryItem") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
-                        toMatchText("Schema is unclear, defaulting to non-null json schema")
                     }
                 },
 
@@ -623,15 +556,10 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(2) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.parameters[0].schema") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toMatchText("Array Parameter has no items schema defined, defaulting to empty schema")
-                    }
-                    assert("paths./test.get.parameters[0].schema.items") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
-                        toMatchText("Schema is unclear, defaulting to non-null json schema")
                     }
                 },
                 multiVersionLenientCase(name = "refed out array with no items schema", *OpenApiVersion.allVersions()) {
@@ -655,66 +583,10 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
                     assert("components.schemas.IdArray") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toMatchText("No items schema defined for array schema defaulting to empty schema")
-                    }
-                    assert("components.schemas.IdArray.items") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
-                        toMatchText("Schema is unclear, defaulting to non-null json schema")
-                    }
-                },
-
-                multiVersionLenientCase(name = "array with empty items schema", *OpenApiVersion.allVersions()) {
-                    openApi {
-                        paths {
-                            path("/test") {
-                                operation("get") {
-                                    parameter {
-                                        put("name", "ids")
-                                        put("in", "query")
-                                        put("schema", mapOf("type" to "array", "items" to emptyMap<String, Any>()))
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
-                    assert("paths./test.get.parameters[0].schema.items") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
-                        toMatchText("Schema is unclear, defaulting to non-null json schema")
-                    }
-                },
-                multiVersionLenientCase(name = "refed out array with empty items schema", *OpenApiVersion.allVersions()) {
-                    openApi {
-                        paths {
-                            path("/test") {
-                                operation("get") {
-                                    parameter {
-                                        put("name", "ids")
-                                        put("in", "query")
-                                        put("schema", mapOf("\$ref" to "#/components/schemas/IdArray"))
-                                    }
-                                }
-                            }
-                            components {
-                                schemas {
-                                    schema("IdArray") {
-                                        put("type", "array")
-                                        put("items", emptyMap<String, Any>())
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
-                    assert("components.schemas.IdArray.items") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
-                        toMatchText("Schema is unclear, defaulting to non-null json schema")
                     }
                 },
 
@@ -787,43 +659,11 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(2) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.parameters[0]") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toContainViolation(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION)
                         toMatchText("Parameter has no schema defined, defaulting to empty schema")
-                    }
-                    assert("paths./test.get.parameters[0].schema") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
-                        toMatchText("Schema is unclear, defaulting to non-null json schema")
-                    }
-                },
-                multiVersionLenientCase(name = "refed out and has no schema", *OpenApiVersion.allVersions()) {
-                    openApi {
-                        paths {
-                            path("/test") {
-                                operation("get") {
-                                    parameter {
-                                        put("name", "X-Request-Id")
-                                        put("in", "header")
-                                        put("required", true)
-                                        put("schema", mapOf("\$ref" to "#/components/schemas/HeaderId"))
-                                    }
-                                }
-                            }
-                            components {
-                                schemas {
-                                    schema("HeaderId", block = {})
-                                }
-                            }
-                        }
-                    }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
-                    assert("components.schemas.HeaderId") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
-                        toMatchText("Schema is unclear, defaulting to non-null json schema")
                     }
                 },
 
@@ -841,16 +681,11 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(2) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.parameters[0].schema") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toContainViolation(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION)
                         toMatchText("Array Parameter has no items schema defined, defaulting to empty schema")
-                    }
-                    assert("paths./test.get.parameters[0].schema.items") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
-                        toMatchText("Schema is unclear, defaulting to non-null json schema")
                     }
                 },
                 multiVersionLenientCase(name = "refed out array with no items schema", *OpenApiVersion.allVersions()) {
@@ -874,65 +709,10 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
                     assert("components.schemas.HeaderIdArray") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toMatchText("No items schema defined for array schema defaulting to empty schema")
-                    }
-                    assert("components.schemas.HeaderIdArray.items") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
-                        toMatchText("Schema is unclear, defaulting to non-null json schema")
-                    }
-                },
-
-                multiVersionLenientCase(name = "array with empty items schema", *OpenApiVersion.allVersions()) {
-                    openApi {
-                        paths {
-                            path("/test") {
-                                operation("get") {
-                                    parameter {
-                                        put("name", "X-Ids")
-                                        put("in", "header")
-                                        put("schema", mapOf("type" to "array", "items" to emptyMap<String, Any>()))
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    assert("paths./test.get.parameters[0].schema.items") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
-                        toMatchText("Schema is unclear, defaulting to non-null json schema")
-                    }
-                },
-                multiVersionLenientCase(name = "refed out array with empty items schema", *OpenApiVersion.allVersions()) {
-                    openApi {
-                        paths {
-                            path("/test") {
-                                operation("get") {
-                                    parameter {
-                                        put("name", "X-Ids")
-                                        put("in", "header")
-                                        put("schema", mapOf("\$ref" to "#/components/schemas/HeaderIdArray"))
-                                    }
-                                }
-                            }
-                            components {
-                                schemas {
-                                    schema("HeaderIdArray") {
-                                        put("type", "array")
-                                        put("items", emptyMap<String, Any>())
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
-                    assert("components.schemas.HeaderIdArray.items") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
-                        toMatchText("Schema is unclear, defaulting to non-null json schema")
                     }
                 },
 
@@ -1576,13 +1356,9 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
                     assert("paths./test.get.responses.200.headers.X-Request-Id") {
                         toMatchText("No schema defined, defaulting to empty schema")
-                    }
-                    assert("paths./test.get.responses.200.headers.X-Request-Id.schema") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
                     }
                 },
                 multiVersionLenientCase(name = "array with no items schema", *OpenApiVersion.allVersions()) {
@@ -1599,14 +1375,10 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
                     assert("paths./test.get.responses.200.headers.X-Ids.schema") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toMatchText("No items schema defined for array schema defaulting to empty schema")
-                    }
-                    assert("paths./test.get.responses.200.headers.X-Ids.schema.items") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
                     }
                 },
 
@@ -1627,13 +1399,9 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
                     assert("components.headers.HeaderId") {
                         toMatchText("No schema defined, defaulting to empty schema")
-                    }
-                    assert("components.headers.HeaderId.schema") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
                     }
                 },
                 multiVersionLenientCase(name = "refed header array no items schema", *OpenApiVersion.allVersions()) {
@@ -1655,14 +1423,10 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
                     assert("components.headers.HeaderIdArray.schema") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toMatchText("No items schema defined for array schema defaulting to empty schema")
-                    }
-                    assert("components.headers.HeaderIdArray.schema.items") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
                     }
                 },
 
@@ -1776,34 +1540,6 @@ class LenientParserTest {
                     assert("paths./test.get.responses.200.content.application/json") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toMatchText(" No schema property defined under mediaType application/json, defaulting to free-form object")
-                    }
-                },
-                multiVersionLenientCase(name = "refed media type schema has no schema", *OpenApiVersion.allVersions()) {
-                    openApi {
-                        paths {
-                            path("/test") {
-                                operation("get") {
-                                    response("200") {
-                                        content {
-                                            mediaType("application/json") {
-                                                schemaRef("JsonMedia")
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        components {
-                            schemas {
-                                schema("JsonMedia") { }
-                            }
-                        }
-                    }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
-                    assert("components.schemas.JsonMedia") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
-                        toMatchText("Schema is unclear, defaulting to non-null json schema")
                     }
                 },
                 multiVersionLenientCase(name = "schema has issue", *OpenApiVersion.allVersions()) {
@@ -2512,31 +2248,6 @@ class LenientParserTest {
         @JvmStatic
         fun objectSchemaTestCases(): Stream<Arguments> {
             return listOf(
-                multiVersionLenientCase(name = "object property has no schema", *OpenApiVersion.allVersions()) {
-                    openApi {
-                        paths {
-                            path("/test") {
-                                operation("get") {
-                                    response(200) {
-                                        content {
-                                            mediaType("application/json") {
-                                                schema {
-                                                    put("type", "object")
-                                                    put("properties", mapOf("foo" to emptyMap<String, Any>()))
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
-                    assert("paths./test.get.responses.200.content.application/json.schema.properties.foo") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
-                    }
-                },
                 multiVersionLenientCase(name = "property schema has invalid bounds", *OpenApiVersion.allVersions()) {
                     openApi {
                         paths {
@@ -2763,39 +2474,10 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
                     assert("paths./test.get.responses.200.content.application/json.schema") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toContainText("No items schema defined for array schema defaulting to empty schema")
-                    }
-                    assert("paths./test.get.responses.200.content.application/json.schema.items") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
-                    }
-                },
-                multiVersionLenientCase(name = "array items has no schema", *OpenApiVersion.allVersions()) {
-                    openApi {
-                        paths {
-                            path("/test") {
-                                operation("get") {
-                                    response(200) {
-                                        content {
-                                            mediaType("application/json") {
-                                                schema {
-                                                    put("type", "array")
-                                                    put("items", emptyMap<String, Any>())
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
-                    assert("paths./test.get.responses.200.content.application/json.schema.items") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
                     }
                 },
                 multiVersionLenientCase(name = "array schema ref with invalid items", *OpenApiVersion.allVersions()) {
@@ -3123,36 +2805,6 @@ class LenientParserTest {
         @JvmStatic
         fun oneOfSchemaTestCases(): Stream<Arguments> {
             return listOf(
-                multiVersionLenientCase(name = "oneOf contains nullable empty object", *OpenApiVersion.allVersions()) {
-                    openApi {
-                        paths {
-                            path("/test") {
-                                operation("get") {
-                                    response(200) {
-                                        content {
-                                            mediaType("application/json") {
-                                                schema {
-                                                    put("oneOf", listOf(
-                                                        emptyMap<String, Any>(),
-                                                        mapOf(
-                                                            "type" to "object",
-                                                            "properties" to mapOf("id" to mapOf("type" to "string"))
-                                                        )
-                                                    ))
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
-                    assert("paths./test.get.responses.200.content.application/json.schema.oneOf[0]") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
-                    }
-                },
                 multiVersionLenientCase(name = "oneOf element has invalid bounds", *OpenApiVersion.allVersions()) {
                     openApi {
                         paths {
@@ -3655,6 +3307,38 @@ class LenientParserTest {
                         toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
                     }
                 }
+            ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun schemaTestCases(): Stream<Arguments> {
+            return listOf(
+                multiVersionLenientCase(name = "schema is empty should have no issues", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        components {
+                            schemas {
+                                schema("UnknownSchema") {}
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(0); totalViolations(0) }
+                },
+                multiVersionLenientCase(name = "schema is of unknown type", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        components {
+                            schemas {
+                                schema("UnknownSchema") {
+                                    put("type", "unknownType")
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.schemas.UnknownSchema") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
+                    }
+                },
             ).flatten().stream()
         }
 

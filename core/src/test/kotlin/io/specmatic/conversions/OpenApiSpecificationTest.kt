@@ -7656,7 +7656,7 @@ paths:
     }
 
     @Test
-    fun `a JSON key with no type cannot hold a null`() {
+    fun `a JSON key with no type can hold a null`() {
         val feature = OpenApiSpecification.fromYAML(
             """
                 ---
@@ -7691,7 +7691,7 @@ paths:
             HttpRequest("POST", "/person", body = parsedJSONObject("""{"id": null}""")),
             HttpResponse.OK
         ).let { matchResult ->
-            assertThat(matchResult).isInstanceOf(Result.Failure::class.java)
+            assertThat(matchResult).isInstanceOf(Result.Success::class.java)
         }
     }
 

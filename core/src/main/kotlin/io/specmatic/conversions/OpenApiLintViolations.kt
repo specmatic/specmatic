@@ -90,7 +90,7 @@ enum class OpenApiLintViolations(override val id: String, override val title: St
     SCHEMA_UNCLEAR(
         id = "OAS0043",
         title = "Unclear schema",
-        summary = "Schemas should be sufficiently defined to determine intent"
+        summary = "The intent of this schema is unclear or may not be supported. Consider reaching out if this is an issue"
     ),
 
     /* -------- Others -------- */
