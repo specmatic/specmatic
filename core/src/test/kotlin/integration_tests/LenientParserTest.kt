@@ -2358,7 +2358,7 @@ class LenientParserTest {
                         }
                     }
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
-                    assert("paths./test.get.responses.200.content.application/json.schema.required[0]") {
+                    assert("paths./test.get.responses.200.content.application/json.schema.required") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainText("Required property \"id\" is not defined in properties, ignoring this requirement")
                     }
@@ -3243,6 +3243,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.responses.200.content.application/json.schema.discriminator.mapping.X") {
                         toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
+                        toContainText("Failed to resolve reference to discriminator mapping")
                     }
                 },
                 multiVersionLenientCase(name = "oneOf discriminator mapping has invalid ref", *OpenApiVersion.allVersions()) {
@@ -3273,6 +3274,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1);totalViolations(1) }
                     assert("paths./test.get.responses.200.content.application/json.schema.discriminator.mapping.X") {
                         toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
+                        toContainText("Failed to resolve reference to discriminator mapping")
                     }
                 },
                 multiVersionLenientCase(name = "deep allOf discriminator mapping has invalid ref", *OpenApiVersion.allVersions()) {
@@ -3302,9 +3304,14 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1);totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2);totalViolations(2) }
                     assert("components.schemas.Inner.discriminator.mapping.BAD") {
                         toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
+                        toContainText("Failed to resolve reference to discriminator mapping BAD")
+                    }
+                    assert("components.schemas.Inner.\$ref") {
+                        toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
+                        toContainText("Failed to resolve reference to schema MissingAllOf")
                     }
                 }
             ).flatten().stream()

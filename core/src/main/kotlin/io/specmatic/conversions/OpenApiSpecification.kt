@@ -1034,7 +1034,7 @@ class OpenApiSpecification(
             logger.debug("Processing response payload with status $status")
             val statusContext = responsesContext.at(status)
             val (resolvedResponse, responseContext) = resolveResponse(response, statusContext)
-            val headersMap = openAPIHeadersToSpecmatic(response, statusContext)
+            val headersMap = openAPIHeadersToSpecmatic(response, responseContext)
             val finalizedStatus = statusContext.check<String>(value = status, isValid = { isNumber(status) || status == "default" })
                 .violation { OpenApiLintViolations.INVALID_OPERATION_STATUS }
                 .message { "Expected status codes to be numbers or default, but \"$status\" was found, defaulting to 'default'" }
@@ -1201,20 +1201,20 @@ class OpenApiSpecification(
         }
 
         if (securitySchemes.isNullOrEmpty()) return listOf(NoSecurityScheme())
-        fun getSecurityScheme(name: String, collectorContext: CollectorContext): OpenAPISecurityScheme {
-            return collectorContext.checkOptional(name = name, value = securitySchemeComponents[name], isValid = { it != null })
+        fun getSecurityScheme(name: String, collectorContext: CollectorContext): OpenAPISecurityScheme? {
+            return collectorContext.checkOptional<OpenAPISecurityScheme?>(name = name, value = securitySchemeComponents[name], isValid = { it != null })
                 .violation { OpenApiLintViolations.SECURITY_SCHEME_MISSING }
                 .message { "Didn't find Security schema with name $name, ignoring this scheme" }
-                .orUse { NoSecurityScheme() }
+                .orUse { null }
                 .build()
         }
 
-        return securitySchemes.mapIndexed { index, securityScheme ->
+        return securitySchemes.withIndex().mapNotNull { (index, securityScheme) ->
             val indexedCollectorContext = baseCollectorContext.at(index)
             when (securityScheme.keys.size) {
                 0 -> NoSecurityScheme()
                 1 -> getSecurityScheme(securityScheme.keys.single(), indexedCollectorContext)
-                else -> CompositeSecurityScheme(securityScheme.keys.map { getSecurityScheme(it, indexedCollectorContext) })
+                else -> CompositeSecurityScheme(securityScheme.keys.mapNotNull { getSecurityScheme(it, indexedCollectorContext) })
             }
         }
     }
@@ -1534,10 +1534,10 @@ class OpenApiSpecification(
             rawDiscriminator.propertyName?.let { propertyName ->
                 val mapping = rawDiscriminator.mapping ?: emptyMap()
 
+                validateMappings(mapping, collectorContext)
                 val mappingWithSchemaListAndDiscriminator =
                     mapping.entries.mapNotNull { (discriminatorValue, refPath) ->
-                        val mappingContext = collectorContext.at("discriminator").at("mapping").at(discriminatorValue)
-                        val (mappedSchemaName, mappedSchema) = resolveReferenceToSchema(refPath, mappingContext, includeRefToCollector = false)
+                        val (mappedSchemaName, mappedSchema) = resolveReferenceToSchema(refPath, collectorContext)
                         val mappedComponentName = extractComponentName(refPath, collectorContext)
                         if (mappedComponentName !in typeStack) {
                             val value = mappedSchemaName to resolveDeepAllOfs(
@@ -1819,9 +1819,16 @@ class OpenApiSpecification(
     }
 
     private fun validateMappings(mappings: Map<String, String>, collectorContext: CollectorContext) {
+        val components = parsedOpenApi.components ?: Components()
+        val schemas = components.schemas.orEmpty()
         mappings.forEach { (discriminatorValue, refPath) ->
-            val mappingContext = collectorContext.at("discriminator").at("mapping").at(discriminatorValue)
-            resolveReferenceToSchema(refPath, mappingContext, includeRefToCollector = false)
+            val componentName = extractComponentName(refPath, collectorContext)
+            collectorContext.at("discriminator").at("mapping").at(discriminatorValue).requirePojo<Schema<*>?>(
+                message = { "Failed to resolve reference to discriminator mapping $discriminatorValue" },
+                extract = { schemas[componentName] },
+                createDefault = { null },
+                ruleViolation = { OpenApiLintViolations.UNRESOLVED_REFERENCE }
+            )
         }
     }
 
@@ -2204,8 +2211,8 @@ class OpenApiSpecification(
     ): Map<String, Pattern> {
         val propertiesContext = collectorContext.at("properties")
         val properties = schema.properties.orEmpty()
-        val fixedRequiredFields = requiredFields.withIndex().mapNotNull { (index, field) ->
-            collectorContext.at("required").at(index).check<String?>(value = field, isValid = { properties.contains(field) })
+        val fixedRequiredFields = requiredFields.map { field ->
+            collectorContext.at("required").check<String?>(value = field, isValid = { properties.contains(field) })
             .message { "Required property \"$field\" is not defined in properties, ignoring this requirement" }
             .orUse { null }
             .build(isWarning = true)
@@ -2263,18 +2270,12 @@ class OpenApiSpecification(
         false -> name
     }
 
-    private fun resolveReferenceToSchema(component: String, collectorContext: CollectorContext, includeRefToCollector: Boolean = true): Pair<String, Schema<*>> {
+    private fun resolveReferenceToSchema(component: String, collectorContext: CollectorContext): Pair<String, Schema<*>> {
         val componentName = extractComponentName(component, collectorContext)
         val components = parsedOpenApi.components ?: Components()
         val schemas = components.schemas.orEmpty()
-        val schemaRefContext = if (includeRefToCollector) {
-            collectorContext.at("\$ref")
-        } else {
-            collectorContext
-        }
-
-        return componentName to schemaRefContext.requirePojo(
-            message = { "Failed to resolve reference to schema $componentName, defaulting to any json schema" },
+        return componentName to collectorContext.at("\$ref").requirePojo(
+            message = { "Failed to resolve reference to schema $componentName, defaulting to any json schema\"" },
             extract = { schemas[componentName] },
             createDefault = { Schema<Any>().also { it.properties = emptyMap() } },
             ruleViolation = { OpenApiLintViolations.UNRESOLVED_REFERENCE }
@@ -2396,10 +2397,9 @@ class OpenApiSpecification(
             )
 
             val pathParameterContext = parameterContext.at(pathParamMap[paramName]?.index ?: DEFAULT_ARRAY_INDEX)
-            val (resolvedSchema, paramContext) = resolveSchemaIfRefElseAtSchema(parameter.schema, collectorContext = pathParameterContext)
             URLPathSegmentPattern(
                 key = paramName,
-                pattern = toSpecmaticPattern(resolvedSchema, typeStack = emptyList(), collectorContext = paramContext),
+                pattern = toSpecmaticPattern(parameter.schema, typeStack = emptyList(), collectorContext = pathParameterContext.at("schema")),
             )
         }
 
