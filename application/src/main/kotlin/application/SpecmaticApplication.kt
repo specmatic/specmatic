@@ -4,6 +4,7 @@ import io.specmatic.core.loadSpecmaticConfigOrNull
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.SystemExit
 import io.specmatic.core.utilities.UncaughtExceptionHandler
+import io.specmatic.license.core.Executor
 import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.util.LicenseConfig
 import io.specmatic.specmatic.executable.JULForwarder
@@ -15,7 +16,7 @@ open class SpecmaticApplication {
 
         @JvmStatic
         fun main(args: Array<String>) {
-            LicenseResolver.setCurrentExecutorIfNotSet("jar")
+            LicenseResolver.setCurrentExecutorIfNotSet(Executor.JAR)
 
             val specmaticConfig = loadSpecmaticConfigOrNull()
             specmaticConfig?.let {
