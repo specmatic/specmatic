@@ -77,21 +77,6 @@ class BreadCrumbToJsonPathConverterTest {
     }
 
     @Test
-    fun `should trim leading slashes from individual components`() {
-        val customConfig = TransformationConfig(
-            transformations = listOf(
-                TransformationStrategy.DirectReplacement("SLASHY", "/starts-with-slash")
-            )
-        )
-
-        val customConverter = BreadCrumbToJsonPathConverter(customConfig)
-        val breadcrumbs = listOf("SLASHY", "end")
-        val result = customConverter.toJsonPath(breadcrumbs)
-
-        assertThat(result).isEqualTo("/starts-with-slash/end")
-    }
-
-    @Test
     fun `should not rewrite header keys that contain REQUEST as a substring`() {
         val breadcrumbs = listOf("REQUEST", "HEADER", "X-Request-ID")
         val result = converter.toJsonPath(breadcrumbs)

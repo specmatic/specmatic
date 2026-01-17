@@ -51,7 +51,8 @@ fun parseContractFileToFeature(
     securityConfiguration: SecurityConfiguration? = null,
     specmaticConfig: SpecmaticConfig = loadSpecmaticConfigOrDefault(getConfigFilePath()),
     overlayContent: String = "",
-    strictMode: Boolean = false
+    strictMode: Boolean = false,
+    lenientMode: Boolean = false,
 ): Feature {
     return parseContractFileToFeature(
         File(contractPath),
@@ -63,7 +64,8 @@ fun parseContractFileToFeature(
         securityConfiguration,
         specmaticConfig,
         overlayContent,
-        strictMode
+        strictMode,
+        lenientMode
     )
 }
 
@@ -72,8 +74,8 @@ fun checkExists(file: File) = file.also {
         throw ContractException("File ${file.path} does not exist (absolute path ${file.canonicalPath})")
 }
 
-fun parseContractFileWithNoMissingConfigWarning(contractFile: File): Feature {
-    return parseContractFileToFeature(contractFile, specmaticConfig = SpecmaticConfig())
+fun parseContractFileWithNoMissingConfigWarning(contractFile: File, lenientMode: Boolean = false): Feature {
+    return parseContractFileToFeature(contractFile, specmaticConfig = SpecmaticConfig(), lenientMode = lenientMode)
 }
 
 fun parseContractFileToFeature(
@@ -86,7 +88,8 @@ fun parseContractFileToFeature(
     securityConfiguration: SecurityConfiguration? = null,
     specmaticConfig: SpecmaticConfig = loadSpecmaticConfigOrDefault(getConfigFilePath()),
     overlayContent: String = "",
-    strictMode: Boolean = false
+    strictMode: Boolean = false,
+    lenientMode: Boolean = false,
 ): Feature {
     logger.debug("Parsing spec file ${file.path}, absolute path ${file.canonicalPath}")
     return when (file.extension) {
@@ -100,7 +103,8 @@ fun parseContractFileToFeature(
             securityConfiguration = securityConfiguration,
             specmaticConfig = specmaticConfig,
             overlayContent = overlayContent,
-            strictMode = strictMode
+            strictMode = strictMode,
+            lenientMode = lenientMode
         ).toFeature()
         io.specmatic.core.WSDL -> wsdlContentToFeature(checkExists(file).readText(), file.canonicalPath)
         in CONTRACT_EXTENSIONS -> parseGherkinStringToFeature(checkExists(file).readText().trim(), file.canonicalPath)

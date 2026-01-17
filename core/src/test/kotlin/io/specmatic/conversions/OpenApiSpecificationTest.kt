@@ -7297,7 +7297,7 @@ paths:
         }.satisfies(
             {
                 println(exceptionCauseMessage(it))
-                assertThat(exceptionCauseMessage(it)).contains("""A parameter does not have a nam""")
+                assertThat(exceptionCauseMessage(it)).contains("""Parameter has no name defined""")
             }
         )
     }
@@ -7328,7 +7328,7 @@ paths:
         }.satisfies(
             {
                 println(exceptionCauseMessage(it))
-                assertThat(exceptionCauseMessage(it)).contains("""A parameter does not have a schema""")
+                assertThat(exceptionCauseMessage(it)).contains("""Parameter has no schema defined""")
             }
         )
     }
@@ -7361,7 +7361,7 @@ paths:
         }.satisfies(
             {
                 println(exceptionCauseMessage(it))
-                assertThat(exceptionCauseMessage(it)).contains("""A parameter of type "array" has not defined "items"""")
+                assertThat(exceptionCauseMessage(it)).contains("Array Parameter has no items schema defined")
             }
         )
     }
@@ -7656,7 +7656,7 @@ paths:
     }
 
     @Test
-    fun `a JSON key with no type cannot hold a null`() {
+    fun `a JSON key with no type can hold a null`() {
         val feature = OpenApiSpecification.fromYAML(
             """
                 ---
@@ -7691,7 +7691,7 @@ paths:
             HttpRequest("POST", "/person", body = parsedJSONObject("""{"id": null}""")),
             HttpResponse.OK
         ).let { matchResult ->
-            assertThat(matchResult).isInstanceOf(Result.Failure::class.java)
+            assertThat(matchResult).isInstanceOf(Result.Success::class.java)
         }
     }
 
@@ -10609,7 +10609,13 @@ paths:
             OpenApiSpecification.fromYAML(spec, "").toFeature()
         }
 
-        assertThat(output).contains("WARNING: Media type \"application/json\" in request of POST /products does not match the respective Content-Type header. Using the Content-Type header as an override.")
+        assertThat(output).containsIgnoringWhitespaces(
+            toViolationReportString(
+                breadCrumb = "paths./products.post.requestBody.content.application/json",
+                details = "Media type \"application/json\" does not match the respective Content-Type header. Using the Content-Type header as an override",
+                OpenApiLintViolations.MEDIA_TYPE_OVERRIDDEN
+            )
+        )
     }
 
     @Test

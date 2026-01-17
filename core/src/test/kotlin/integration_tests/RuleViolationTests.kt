@@ -7,7 +7,7 @@ import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.toValue
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.Value
-import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.SoftAssertions
 import org.junit.jupiter.api.Named
 import org.junit.jupiter.api.TestInfo
 import org.junit.jupiter.api.fail
@@ -19,62 +19,111 @@ import java.util.stream.Stream
 data class RuleViolationAssertion(
     private val path: String? = null,
     private val totalViolations: Int? = null,
+    private val totalIssues: Int? = null,
     private val shouldContainRuleViolation: List<RuleViolation>,
     private val shouldNotContainRuleViolation: List<RuleViolation>,
-    private val severity: IssueSeverity
+    private val shouldMatchText: String? = null,
+    private val shouldContainText: String? = null,
+    private val severity: IssueSeverity? = null
 ) {
     fun assertViolation(result: Result) {
+        val softly = SoftAssertions()
         val reportText = result.reportString()
         val issues = result.toIssues()
-        assertViolationInText(reportText)
-        assertViolationInIssues(issues)
-        assertSeverity(issues)
-        assertTotalViolations(issues)
+        assertViolationInText(softly, reportText)
+        assertViolationInIssues(softly, issues)
+        assertSeverity(softly, issues)
+        assertTotalViolations(softly, issues)
+        assertTotalIssues(softly, issues)
+        assertText(softly, issues)
+        softly.assertAll()
     }
 
-    private fun assertViolationInText(text: String) {
-        assertThat(shouldContainRuleViolation).allSatisfy { ruleViolation ->
+    private fun assertViolationInText(softly: SoftAssertions, text: String) {
+        softly.assertThat(shouldContainRuleViolation).allSatisfy { ruleViolation ->
             val violationReport = RuleViolationReport(ruleViolations = setOf(ruleViolation))
             val ruleViolationString = violationReport.toText().orEmpty()
-            assertThat(text).containsIgnoringWhitespaces(ruleViolationString)
+            softly.assertThat(text).containsIgnoringWhitespaces(ruleViolationString)
         }
 
-        assertThat(shouldNotContainRuleViolation).allSatisfy { ruleViolation ->
+        softly.assertThat(shouldNotContainRuleViolation).allSatisfy { ruleViolation ->
             val violationReport = RuleViolationReport(ruleViolations = setOf(ruleViolation))
             val ruleViolationString = violationReport.toText().orEmpty()
-            assertThat(text.normalizeWs()).doesNotContain(ruleViolationString.normalizeWs())
+            softly.assertThat(text.normalizeWs()).doesNotContain(ruleViolationString.normalizeWs())
         }
     }
 
-    private fun assertViolationInIssues(issues: List<Issue>) {
-        assertThat(shouldContainRuleViolation).allSatisfy { ruleViolation ->
-            val matchingIssue = findMatchingIssue(issues) ?: fail("No matching issue found for path $path")
-            val violationSnapShot = RuleViolationReport(ruleViolations = setOf(ruleViolation)).toSnapShots().first()
-            assertThat(matchingIssue).anySatisfy { assertThat(it.ruleViolations).contains(violationSnapShot) }
+    private fun assertViolationInIssues(softly: SoftAssertions, issues: List<Issue>) {
+        softly.assertThat(shouldContainRuleViolation).allSatisfy { ruleViolation ->
+            softly.forMatchingIssue(issues, path) { matchingIssue ->
+                val violationSnapShot = RuleViolationReport(ruleViolations = setOf(ruleViolation)).toSnapShots().first()
+                softly.assertThat(matchingIssue).anySatisfy { issue ->
+                    softly.assertThat(issue.ruleViolations).contains(violationSnapShot)
+                }
+            }
         }
 
-        assertThat(shouldNotContainRuleViolation).allSatisfy { ruleViolation ->
-            val matchingIssue = findMatchingIssue(issues) ?: fail("No matching issue found for path $path")
-            val violationSnapShot = RuleViolationReport(ruleViolations = setOf(ruleViolation)).toSnapShots().first()
-            assertThat(matchingIssue).anySatisfy { assertThat(it.ruleViolations).doesNotContain(violationSnapShot) }
+        softly.assertThat(shouldNotContainRuleViolation).allSatisfy { ruleViolation ->
+            softly.forMatchingIssue(issues, path) { matchingIssue ->
+                val violationSnapShot = RuleViolationReport(ruleViolations = setOf(ruleViolation)).toSnapShots().first()
+                softly.assertThat(matchingIssue).anySatisfy { issue ->
+                    softly.assertThat(issue.ruleViolations).doesNotContain(violationSnapShot)
+                }
+            }
         }
     }
 
-    private fun assertTotalViolations(issues: List<Issue>) {
+    private fun assertTotalViolations(softly: SoftAssertions, issues: List<Issue>) {
         if (totalViolations == null) return
-        val matchingIssue = findMatchingIssue(issues) ?: fail("No matching issue found for path $path")
-        assertThat(matchingIssue.sumOf { it.ruleViolations.size }).isEqualTo(totalViolations)
+        val matchingIssues = findMatchingIssue(issues).orEmpty()
+        softly.assertThat(matchingIssues.sumOf { it.ruleViolations.size }).isEqualTo(totalViolations)
     }
 
-    private fun assertSeverity(issues: List<Issue>) {
-        val matchingIssue = findMatchingIssue(issues) ?: fail("No matching issue found for path $path")
-        assertThat(matchingIssue).allSatisfy { assertThat(it.severity).isEqualTo(severity) }
+    private fun assertTotalIssues(softly: SoftAssertions, issues: List<Issue>) {
+        if (totalIssues == null) return
+        val matchingIssues = findMatchingIssue(issues).orEmpty()
+        softly.assertThat(matchingIssues.size).isEqualTo(totalIssues)
+    }
+
+    private fun assertSeverity(softly: SoftAssertions, issues: List<Issue>) {
+        if (totalIssues == 0 || severity == null) return
+        softly.forMatchingIssue(issues, path) { matchingIssue ->
+            softly.assertThat(matchingIssue).allSatisfy { issue -> softly.assertThat(issue.severity).isEqualTo(severity) }
+        }
+    }
+
+    private fun assertText(softly: SoftAssertions, issues: List<Issue>) {
+        if (totalIssues == 0) return
+        softly.forMatchingIssue(issues, path) { matchingIssue ->
+            shouldMatchText?.let { expected ->
+                softly.assertThat(matchingIssue).allSatisfy { issue ->
+                    softly.assertThat(issue.details).isEqualToIgnoringWhitespace(expected)
+                }
+            }
+
+            shouldContainText?.let { expected ->
+                softly.assertThat(matchingIssue).allSatisfy { issue ->
+                    softly.assertThat(issue.details).containsIgnoringWhitespaces(expected)
+                }
+            }
+        }
     }
 
     private fun findMatchingIssue(issues: List<Issue>): List<Issue>? {
+        if (path == ALL_ISSUES) return issues
         return issues.filter { issue ->
             issue.breadCrumb == path || issue.path.joinToString(prefix = "/", separator = "/") == path || (path == null && issue.path.isEmpty())
         }.takeUnless { it.isEmpty() }
+    }
+
+    private fun SoftAssertions.forMatchingIssue(issues: List<Issue>?, path: String?, block: (List<Issue>) -> Unit) {
+        val matchingIssue = softRequireNonEmpty(findMatchingIssue(issues ?: emptyList()), "Expected at least one issue for path $path")
+        block(matchingIssue)
+    }
+
+    private fun <T> SoftAssertions.softRequireNonEmpty(list: List<T>?, desc: String): List<T> {
+        this.assertThat(list).describedAs(desc).isNotEmpty()
+        return list ?: emptyList()
     }
 
     private fun String.normalizeWs() = replace("\\s+".toRegex(), " ")
@@ -82,8 +131,11 @@ data class RuleViolationAssertion(
     class Builder(private val path: String? = null) {
         private var ruleViolation: List<RuleViolation> = emptyList()
         private var shouldNotContainRuleViolation: List<RuleViolation> = emptyList()
+        private var shouldMatchText: String? = null
+        private var toContainText: String? = null
         private var totalViolations: Int? = null
-        private var severity: IssueSeverity = IssueSeverity.ERROR
+        private var totalIssues: Int? = null
+        private var severity: IssueSeverity? = IssueSeverity.ERROR.takeUnless { path == ALL_ISSUES }
 
         fun toContainViolation(ruleViolation: RuleViolation) {
             this.ruleViolation += ruleViolation
@@ -97,13 +149,29 @@ data class RuleViolationAssertion(
             this.severity = severity
         }
 
+        fun toMatchText(text: String) {
+            this.shouldMatchText = text
+        }
+
+        fun toContainText(text: String) {
+            this.toContainText = text
+        }
+
         fun totalViolations(totalViolations: Int) {
             this.totalViolations = totalViolations
         }
 
-        fun build(): RuleViolationAssertion {
-            return RuleViolationAssertion(path, totalViolations, ruleViolation, shouldNotContainRuleViolation, severity)
+        fun totalIssues(totalIssues: Int) {
+            this.totalIssues = totalIssues
         }
+
+        fun build(): RuleViolationAssertion {
+            return RuleViolationAssertion(path, totalViolations, totalIssues, ruleViolation, shouldNotContainRuleViolation, shouldMatchText, toContainText, severity)
+        }
+    }
+
+    companion object {
+        const val ALL_ISSUES = "__SPECMATIC__ASSERT__ALL__ISSUES__"
     }
 }
 
@@ -409,7 +477,7 @@ class RuleViolationTests {
                     forPattern(name = "AnyOfPattern") {
                         withValue(mapOf("c" to 10))
                         expect(path = "/c") {
-                            totalViolations(3)
+                            totalViolations(1)
                             toContainViolation(StandardRuleViolation.ANY_OF_UNKNOWN_KEY)
                         }
                     }

@@ -1,5 +1,8 @@
 package io.specmatic.core.pattern
 
+import io.specmatic.conversions.OpenApiLintViolations
+import io.specmatic.conversions.StringConstraints
+import io.specmatic.conversions.lenient.CollectorContext
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.constraintMismatchResult
@@ -160,6 +163,61 @@ data class StringPattern (
 
     override val pattern: Any = "(string)"
     override fun toString(): String = pattern.toString()
+
+    companion object {
+        fun from(stringConstraints: StringConstraints, regex: String? = null, example: String? = null, collectorContext: CollectorContext): StringPattern {
+            val effectiveMinLength = stringConstraints.resolvedMinLength?.let {
+                collectorContext.requireMinimum(
+                    "minLength",
+                    it,
+                    0,
+                    ruleViolation = OpenApiLintViolations.INVALID_MIN_LENGTH
+                )
+            }
+
+            val effectiveMaxLength = stringConstraints.resolvedMaxLength?.let {
+                collectorContext.requireGreaterThanOrEqualOrDrop(
+                    name = "maxLength",
+                    value = it,
+                    minimum = effectiveMinLength ?: 0,
+                    message = { current, minimum -> "maxLength $current cannot be less than minLength $minimum" },
+                    ruleViolation = OpenApiLintViolations.INVALID_MAX_LENGTH
+                )
+            }
+
+            val regexSpec = collectorContext.at("pattern").safely(fallback = { null }, message = "Invalid Regex format") {
+                if (regex == null) return@safely null
+                RegExSpec(regex)
+            }
+
+            val effectiveRegex: String? = regexSpec?.let {
+                val regexMatchesMinLength = collectorContext.at("pattern").attempt(
+                    message = "longest pattern generation is shorter than minLength of $effectiveMinLength",
+                    ruleViolation = OpenApiLintViolations.PATTERN_LENGTH_INCOMPATIBLE,
+                    block = { regexSpec.validateMinLength(effectiveMinLength) }
+                )
+
+                val regexMatchesMaxLength = collectorContext.at("pattern").attempt(
+                    message = "shortest pattern generation is longer than maxLength of $effectiveMaxLength",
+                    ruleViolation = OpenApiLintViolations.PATTERN_LENGTH_INCOMPATIBLE,
+                    block = { regexSpec.validateMaxLength(effectiveMaxLength) },
+                )
+
+                regex.takeIf { regexMatchesMinLength && regexMatchesMaxLength }
+            }
+
+            return collectorContext.safely(fallback = { StringPattern() }) {
+                StringPattern(
+                    example = example,
+                    regex = effectiveRegex,
+                    minLength = effectiveMinLength,
+                    maxLength = effectiveMaxLength,
+                    downsampledMax = stringConstraints.downsampledMax,
+                    downsampledMin = stringConstraints.downsampledMin,
+                )
+            }
+        }
+    }
 }
 
 fun randomString(length: Int = 5): String {

@@ -607,6 +607,7 @@ open class SpecmaticJUnitSupport {
                 specmaticConfig = effectiveSpecmaticConfig,
                 overlayContent = overlayContent,
                 strictMode = strictMode,
+                lenientMode = settings.lenientMode
             ).copy(testVariables = config.variables, testBaseURLs = config.baseURLs)
                 .loadExternalisedExamples()
                 .also { it.validateExamplesOrException() }

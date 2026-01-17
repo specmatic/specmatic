@@ -1,5 +1,6 @@
 package io.specmatic.conversions
 
+import io.specmatic.conversions.lenient.CollectorContext
 import io.specmatic.core.*
 import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.StringPattern
@@ -42,19 +43,14 @@ data class APIKeyInHeaderSecurityScheme(val name: String, private val apiKey:Str
         return request.hasHeader(name)
     }
 
-    override fun warnIfExistsInParameters(parameters: List<Parameter>, method: String, path: String) {
-        val matchingHeaders = parameters.filterIsInstance<HeaderParameter>().filter {
-            it.name.equals(name, ignoreCase = true)
-        }
-
-        if(matchingHeaders.isNotEmpty()) {
-            printWarningsForOverriddenSecurityParameters(
-                matchingParameters = matchingHeaders,
-                securitySchemeDescription = "API key with header $name",
-                httpParameterType = "header",
-                method = method,
-                path = path
-            )
+    override fun collectErrorIfExistsInParameters(parameter: List<IndexedValue<Parameter>>, collectorContext: CollectorContext) {
+        parameter.filter { indexedValue -> indexedValue.value is HeaderParameter }.forEach { (index, value) ->
+            val paramContext = collectorContext.at("parameters").at(index)
+            paramContext.check(name = "name", value = value, isValid = { !it.name.equals(name, ignoreCase = true) })
+                .violation { OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED }
+                .message { "Found header parameter with same name as header api-key security scheme \"$name\"" }
+                .orUse { value }
+                .build(isWarning = true)
         }
     }
 

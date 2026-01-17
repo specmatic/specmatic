@@ -22,7 +22,7 @@ data class TransformationConfig(val transformations: List<TransformationStrategy
     }
 }
 
-class BreadCrumbToJsonPathConverter(private val config: TransformationConfig = defaultConfig) {
+class BreadCrumbToJsonPathConverter(private val config: TransformationConfig = exampleConfig) {
     fun toJsonPath(breadcrumbs: List<String>): String {
         val components = convert(breadcrumbs)
         return buildJsonPath(components)
@@ -37,7 +37,7 @@ class BreadCrumbToJsonPathConverter(private val config: TransformationConfig = d
     private fun applyTransformations(breadcrumb: String): String {
         return config.transformations.fold(breadcrumb) { acc, mapping ->
             mapping.transform(acc)
-        }.trimStart('/')
+        }
     }
 
     private fun buildJsonPath(components: List<String>): String {
@@ -54,7 +54,18 @@ class BreadCrumbToJsonPathConverter(private val config: TransformationConfig = d
 
     companion object {
         private const val ARRAY_START_BRACKET = "["
-        val defaultConfig = TransformationConfig(
+        val commonConfig = TransformationConfig(
+            transformations = listOf(
+                // Tilde transformations
+                TransformationStrategy.DirectReplacement(".(~~~", " (when "),
+                TransformationStrategy.RegexReplacement(Regex("^\\(~~~")) { "(when " },
+
+                // Indices transformations
+                TransformationStrategy.RegexReplacement(Regex("\\[(\\d+)]")) { match -> match.groupValues[1] }
+            )
+        )
+
+        val exampleConfig = TransformationConfig(
             transformations = listOf(
                 // Parameters
                 TransformationStrategy.ExactReplacement(BreadCrumb.PARAMETERS.value, ""),
@@ -76,14 +87,7 @@ class BreadCrumbToJsonPathConverter(private val config: TransformationConfig = d
                 // QUERY variants
                 TransformationStrategy.ExactReplacement(BreadCrumb.PARAM_QUERY.value, "query"),
                 TransformationStrategy.ExactReplacement(BreadCrumb.QUERY.value, "query"),
-
-                // Tilde transformations
-                TransformationStrategy.DirectReplacement(".(~~~", " (when "),
-                TransformationStrategy.RegexReplacement(Regex("^\\(~~~")) { "(when " },
-
-                // Indices transformations
-                TransformationStrategy.RegexReplacement(Regex("\\[(\\d+)]")) { match -> "/${match.groupValues[1]}" }
-            )
+            ).plus(commonConfig.transformations)
         )
     }
 }

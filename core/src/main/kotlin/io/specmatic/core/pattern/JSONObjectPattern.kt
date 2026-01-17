@@ -182,6 +182,11 @@ data class JSONObjectPattern(
         return this
     }
 
+    override fun ensureAdditionalProperties(resolver: Resolver): JSONObjectPattern {
+        if (this.additionalProperties != AdditionalProperties.NoAdditionalProperties) return this
+        return this.copy(additionalProperties = AdditionalProperties.FreeForm)
+    }
+
     override fun equals(other: Any?): Boolean = when (other) {
         is JSONObjectPattern -> this.pattern == other.pattern
         else -> false

@@ -51,6 +51,13 @@ data class DeferredPattern(
         return null
     }
 
+    override fun ensureAdditionalProperties(resolver: Resolver): Pattern {
+        return resolvePattern(resolver).let {
+            if (it !is PossibleJsonObjectPatternContainer) return@let this
+            it.ensureAdditionalProperties(resolver)
+        }
+    }
+
     override fun equals(other: Any?): Boolean = when(other) {
         is DeferredPattern -> other.pattern == pattern
         else -> false

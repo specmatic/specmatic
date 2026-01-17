@@ -740,44 +740,6 @@ internal class ScenarioStubKtTest {
     }
 
     @Test
-    fun `null in request body throws an exception`() {
-        val stubText = """
-{
-  "http-request": {
-    "method": "POST",
-    "path": "/square",
-    "body": null
-  },
-
-  "http-response": {
-    "status": 200
-  }
-}
-        """.trim()
-
-        assertThatThrownBy { mockFromJSON(jsonStringToValueMap(stubText)) }.isInstanceOf(ContractException::class.java)
-    }
-
-    @Test
-    fun `null in response body throws an exception`() {
-        val stubText = """
-{
-  "http-request": {
-    "method": "POST",
-    "path": "/square"
-  },
-
-  "http-response": {
-    "status": 200,
-    "body": null
-  }
-}
-        """.trim()
-
-        assertThatThrownBy { mockFromJSON(jsonStringToValueMap(stubText)) }.isInstanceOf(ContractException::class.java)
-    }
-
-    @Test
     fun `load delay from stub info in seconds`() {
         val stubText = """
 {
@@ -1073,16 +1035,6 @@ paths:
                     )
                 ),
                 Arguments.of("""{
-                    "http-request": { "path": "/add", "method": "POST", body: null },
-                    "http-response": { "status": 200 }
-                    }""".trimIndent(),
-                    toViolationReportString(
-                        breadCrumb = "http-request.body",
-                        details = FuzzyExampleMisMatchMessages.mismatchMessage("non-null value", "null"),
-                        StandardRuleViolation.VALUE_MISMATCH
-                    )
-                ),
-                Arguments.of("""{
                     "http-request": { "path": "/add", "method": "POST" },
                     "http-response": { "supposed-to-be-status": 200 }
                     }""".trimIndent(),
@@ -1090,16 +1042,6 @@ paths:
                         breadCrumb = "http-response.supposed-to-be-status",
                         details = unexpectedKeyButMatches("supposed-to-be-status", "status"),
                         StandardRuleViolation.REQUIRED_PROPERTY_MISSING
-                    )
-                ),
-                Arguments.of("""{
-                    "http-request": { "path": "/add", "method": "POST" },
-                    "http-response": { "status": 200,  body: null }
-                    }""".trimIndent(),
-                    toViolationReportString(
-                        breadCrumb = "http-response.body",
-                        details = FuzzyExampleMisMatchMessages.mismatchMessage("non-null value", "null"),
-                        StandardRuleViolation.VALUE_MISMATCH
                     )
                 )
             )

@@ -16,7 +16,7 @@ import io.specmatic.mock.PARTIAL
 import io.specmatic.mock.ScenarioStub
 import java.io.File
 
-class ExampleValidationModule {
+class ExampleValidationModule(private val lenientMode: Boolean = false) {
 
     fun validateInlineExamples(
         feature: Feature,
@@ -55,7 +55,7 @@ class ExampleValidationModule {
     }
 
     fun validateExample(contractFile: File, exampleFile: File): ValidationResult {
-        val feature = parseContractFileWithNoMissingConfigWarning(contractFile)
+        val feature = parseContractFileWithNoMissingConfigWarning(contractFile, lenientMode = lenientMode)
         return ValidationResult(
             validateExample(feature, exampleFile),
             callLifecycleHook(feature, ExampleModule().getExamplesFromFiles(listOf(exampleFile)))

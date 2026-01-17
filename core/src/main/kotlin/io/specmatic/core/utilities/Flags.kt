@@ -30,6 +30,7 @@ class Flags {
         const val MAX_TEST_COUNT = "MAX_TEST_COUNT"
         const val MATCH_BRANCH = "MATCH_BRANCH"
         const val TEST_STRICT_MODE = "SPECMATIC_TEST_STRICT_MODE"
+        const val TEST_LENIENT_MODE = "SPECMATIC_TEST_LENIENT_MODE"
         const val STUB_STRICT_MODE = "SPECMATIC_STUB_STRICT_MODE"
 
         fun getStringValue(flagName: String): String? = System.getenv(flagName) ?: System.getProperty(flagName)

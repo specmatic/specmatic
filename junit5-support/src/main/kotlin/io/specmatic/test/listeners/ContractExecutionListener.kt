@@ -87,14 +87,9 @@ class ContractExecutionListener : TestExecutionListener {
         }
     }
 
-    private fun printAndLogFailure(
-        testExecutionResult: TestExecutionResult,
-        testIdentifier: TestIdentifier?
-    ) {
-        val message = testExecutionResult.throwable?.get()?.message?.replace("\n", "\n\t")?.trimIndent()
-            ?: ""
-
-        val reason = "Reason: $message"
+    private fun printAndLogFailure(testExecutionResult: TestExecutionResult, testIdentifier: TestIdentifier?) {
+        val message = testExecutionResult.throwable?.get()?.message?.trimIndent().orEmpty()
+        val reason = "Reason:\n$message"
         println("$reason\n\n")
 
         val log = """"${testIdentifier?.displayName} ${testExecutionResult.status}"

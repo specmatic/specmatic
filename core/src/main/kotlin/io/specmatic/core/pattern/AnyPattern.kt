@@ -98,6 +98,13 @@ data class AnyPattern(
         return null
     }
 
+    override fun ensureAdditionalProperties(resolver: Resolver): AnyPattern {
+        return this.copy(pattern = this.pattern.map { pattern ->
+            if (pattern !is PossibleJsonObjectPatternContainer) return@map pattern
+            pattern.ensureAdditionalProperties(resolver)
+        })
+    }
+
     override fun eliminateOptionalKey(value: Value, resolver: Resolver): Value {
         val matchingPattern = pattern.find { it.matches(value, resolver) is Result.Success } ?: return value
         return matchingPattern.eliminateOptionalKey(value, resolver)
@@ -121,7 +128,7 @@ data class AnyPattern(
         if (isPatternToken(value) && patternToConsider == this) return HasValue(resolver.generate(this))
 
         val updatedPatterns = getUpdatedPattern(resolver)
-        val newPatterns = updatedPatterns.filter { it.typeAlias != null }.associateBy { it.typeAlias.orEmpty() }
+        val newPatterns = updatedPatterns.filter { it.typeAlias != null && it !is DeferredPattern }.associateBy { it.typeAlias.orEmpty() }
         val updatedResolver = resolver.copy(newPatterns = resolver.newPatterns.plus(newPatterns) ).updateLookupPath(this.typeAlias)
 
         val results = updatedPatterns.asSequence().map { it.fillInTheBlanks(value, updatedResolver, removeExtraKeys) }

@@ -96,6 +96,9 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         )
         var filterNotName: String = ""
 
+        @Option(names = ["--lenient"], description = ["Parse the OpenAPI Specification with leniency"], required = false)
+        var lenientMode: Boolean = false
+
         @Option(
             names = ["--examples-to-validate"],
             description = ["Whether to validate inline, external, or both examples. Options: INLINE, EXTERNAL, BOTH"],
@@ -112,13 +115,13 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             }
         }
 
-        private val exampleValidationModule = ExampleValidationModule()
+        private val exampleValidationModule = ExampleValidationModule(lenientMode = lenientMode)
 
         override fun call(): Int {
             configureLogger(this.verbose)
 
             if(contractFile != null) {
-                OpenApiSpecification.checkSpecValidity(contractFile!!.canonicalPath)
+                OpenApiSpecification.checkSpecValidity(contractFile!!.canonicalPath, lenientMode)
 
                 if(exampleFile != null) return validateExampleFile(contractFile!!, exampleFile)
                 if(examplesDir != null) {
@@ -179,7 +182,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         }
 
         private fun validateExamplesDir(contractFile: File, examplesDir: File): Pair<Int, ValidationResults> =
-            validateExamplesDir(parseContractFileWithNoMissingConfigWarning(contractFile), examplesDir)
+            validateExamplesDir(parseContractFileWithNoMissingConfigWarning(contractFile, lenientMode = lenientMode), examplesDir)
 
         private fun validateExamplesDir(feature: Feature, examplesDir: File): Pair<Int, ValidationResults> {
             val (externalExampleDir, externalExamples) = ExampleModule().loadExternalExamples(examplesDir = examplesDir)
@@ -197,7 +200,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         private fun validateAllExamplesAssociatedToEachSpecIn(specsDir: File, examplesBaseDir: File): List<ValidationResults> {
             val ordinal = AtomicInteger(1)
             val allSpecFiles = specsDir.walk().filter(File::isFile).filter { isOpenAPI(it.canonicalPath) }.onEach {
-                OpenApiSpecification.checkSpecValidity(it.canonicalPath)
+                OpenApiSpecification.checkSpecValidity(it.canonicalPath, lenientMode)
             }
 
             val validationResults = allSpecFiles.map { specFile ->
@@ -205,7 +208,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
                 logger.log("${ordinal.getAndIncrement()}. Validating examples associated to '$relativeSpecPath'...")
                 logger.boundary()
 
-                val feature = parseContractFileWithNoMissingConfigWarning(specFile)
+                val feature = parseContractFileWithNoMissingConfigWarning(specFile, lenientMode = lenientMode)
                 val inlineExampleValidationResults = validateInlineExamples(feature)
                 printValidationResult(inlineExampleValidationResults, "Inline example")
                 logger.boundary()
@@ -227,7 +230,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         }
 
         private fun validateImplicitExamplesFrom(contractFile: File): Int {
-            val feature = parseContractFileWithNoMissingConfigWarning(contractFile)
+            val feature = parseContractFileWithNoMissingConfigWarning(contractFile, lenientMode = lenientMode)
 
             val (validateInline, validateExternal) = getValidateInlineAndValidateExternalFlags()
 

@@ -1,5 +1,6 @@
 package io.specmatic.conversions
 
+import io.specmatic.conversions.lenient.CollectorContext
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.ExactValuePattern
 import io.specmatic.core.pattern.Pattern
@@ -8,8 +9,9 @@ import io.swagger.v3.oas.models.media.Schema
 
 private typealias PropertyName = String
 private typealias SchemaName = String
-private typealias DiscriminatorData = Map<PropertyName, Map<SchemaName, Pair<SchemaName, List<Schema<*>>>>>
+private typealias DiscriminatorData = Map<PropertyName, Map<SchemaName, Pair<SchemaName, List<DeepAllOfSchema>>>>
 
+data class DeepAllOfSchema(val schema: Schema<*>, val patternName: String?, val collectorContext: CollectorContext)
 data class DiscriminatorDetails(private val discriminatorData: DiscriminatorData = emptyMap()) {
     fun isNotEmpty(): Boolean {
         return discriminatorData.isNotEmpty()
@@ -30,7 +32,7 @@ data class DiscriminatorDetails(private val discriminatorData: DiscriminatorData
             return discriminatorData.entries.firstOrNull()?.key
         }
 
-    val schemas: List<Schema<*>>
+    val schemas: List<DeepAllOfSchema>
         get() {
             return discriminatorData.entries.flatMap {
                 it.value.values.flatMap {
@@ -39,15 +41,10 @@ data class DiscriminatorDetails(private val discriminatorData: DiscriminatorData
             }
         }
 
-    fun plus(newDiscriminatorDetailsDetails: Triple<PropertyName, Map<SchemaName, Pair<SchemaName, List<Schema<*>>>>, DiscriminatorDetails>?): DiscriminatorDetails {
-        if(newDiscriminatorDetailsDetails == null)
-            return this
-
-        val (propertyName, valuesAndSchemas: Map<SchemaName, Pair<SchemaName, List<Schema<*>>>>, newDiscriminator) = newDiscriminatorDetailsDetails
-
-        val updatedDiscriminatorData: DiscriminatorData =
-            discriminatorData.plus(propertyName to valuesAndSchemas)
-
+    fun plus(newDiscriminatorDetailsDetails: Triple<PropertyName, Map<SchemaName, Pair<SchemaName, List<DeepAllOfSchema>>>, DiscriminatorDetails>?): DiscriminatorDetails {
+        if (newDiscriminatorDetailsDetails == null) return this
+        val (propertyName, valuesAndSchemas: Map<SchemaName, Pair<SchemaName, List<DeepAllOfSchema>>>, newDiscriminator) = newDiscriminatorDetailsDetails
+        val updatedDiscriminatorData: DiscriminatorData = discriminatorData.plus(propertyName to valuesAndSchemas)
         return this.copy(discriminatorData = updatedDiscriminatorData).plus(newDiscriminator)
     }
 
@@ -94,7 +91,7 @@ data class DiscriminatorDetails(private val discriminatorData: DiscriminatorData
 
         val valueOptionsWithSchemasForProperty = discriminatorData.getValue(propertyName)
 
-        return valueOptionsWithSchemasForProperty.flatMap { valueOption: Map.Entry<String, Pair<String, List<Schema<*>>>> ->
+        return valueOptionsWithSchemasForProperty.flatMap { valueOption: Map.Entry<String, Pair<String, List<DeepAllOfSchema>>> ->
             explode(discriminatorDetailsWithOneKeyLess).map { discriminator ->
                 discriminator.plus(Triple(propertyName, mapOf(valueOption.toPair()), DiscriminatorDetails()))
             }

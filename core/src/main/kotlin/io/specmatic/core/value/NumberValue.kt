@@ -4,6 +4,7 @@ import io.specmatic.core.ExampleDeclarations
 import io.specmatic.core.pattern.ExactValuePattern
 import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.pattern.Pattern
+import java.math.BigDecimal
 
 data class NumberValue(val number: Number) : Value, ScalarValue {
     override val httpContentType = "text/plain"
@@ -63,4 +64,15 @@ data class NumberValue(val number: Number) : Value, ScalarValue {
     override fun specificity(): Int = 1
 
     override fun toString() = number.toString()
+}
+
+fun Number.toBigDecimal(): BigDecimal {
+    return when (this) {
+        is BigDecimal -> this
+        is Double -> BigDecimal.valueOf(this)
+        is Float -> BigDecimal.valueOf(this.toDouble())
+        is Long -> BigDecimal.valueOf(this)
+        is Int -> BigDecimal.valueOf(this.toLong())
+        else -> BigDecimal(this.toString())
+    }
 }

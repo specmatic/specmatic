@@ -1,5 +1,6 @@
 package io.specmatic.conversions
 
+import io.specmatic.conversions.lenient.CollectorContext
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpRequestPattern
 import io.specmatic.core.Resolver
@@ -44,7 +45,7 @@ class NoSecurityScheme : OpenAPISecurityScheme {
         return false
     }
 
-    override fun warnIfExistsInParameters(parameters: List<Parameter>, method: String, path: String) {
+    override fun collectErrorIfExistsInParameters(parameter: List<IndexedValue<Parameter>>, collectorContext: CollectorContext) {
         return
     }
 }
