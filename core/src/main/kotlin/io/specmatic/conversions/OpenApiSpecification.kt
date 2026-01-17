@@ -472,8 +472,8 @@ class OpenApiSpecification(
         return openApiSchemas().filterNot { withPatternDelimiters(it.key) in patterns }.map {
             val schemaContext = componentSchemasContext.at(it.key)
             withPatternDelimiters(it.key) to schemaContext.safely(
-                message = "Failed to convert OpenAPI schema to internal format, defaulting to non-null schema",
-                fallback = { AnyNonNullJSONValue() },
+                message = "Failed to convert schema to internal format, defaulting to any schema",
+                fallback = { AnythingPattern },
                 block = { schemaScope ->
                     toSpecmaticPattern(schema = it.value, typeStack = emptyList(), patternName = it.key, collectorContext = schemaScope)
                 }
@@ -1034,7 +1034,7 @@ class OpenApiSpecification(
             logger.debug("Processing response payload with status $status")
             val statusContext = responsesContext.at(status)
             val (resolvedResponse, responseContext) = resolveResponse(response, statusContext)
-            val headersMap = openAPIHeadersToSpecmatic(response, statusContext)
+            val headersMap = openAPIHeadersToSpecmatic(response, responseContext)
             val finalizedStatus = statusContext.check<String>(value = status, isValid = { isNumber(status) || status == "default" })
                 .violation { OpenApiLintViolations.INVALID_OPERATION_STATUS }
                 .message { "Expected status codes to be numbers or default, but \"$status\" was found, defaulting to 'default'" }
@@ -1201,20 +1201,20 @@ class OpenApiSpecification(
         }
 
         if (securitySchemes.isNullOrEmpty()) return listOf(NoSecurityScheme())
-        fun getSecurityScheme(name: String, collectorContext: CollectorContext): OpenAPISecurityScheme {
-            return collectorContext.checkOptional(name = name, value = securitySchemeComponents[name], isValid = { it != null })
+        fun getSecurityScheme(name: String, collectorContext: CollectorContext): OpenAPISecurityScheme? {
+            return collectorContext.checkOptional<OpenAPISecurityScheme?>(name = name, value = securitySchemeComponents[name], isValid = { it != null })
                 .violation { OpenApiLintViolations.SECURITY_SCHEME_MISSING }
                 .message { "Didn't find Security schema with name $name, ignoring this scheme" }
-                .orUse { NoSecurityScheme() }
+                .orUse { null }
                 .build()
         }
 
-        return securitySchemes.mapIndexed { index, securityScheme ->
+        return securitySchemes.withIndex().mapNotNull { (index, securityScheme) ->
             val indexedCollectorContext = baseCollectorContext.at(index)
             when (securityScheme.keys.size) {
                 0 -> NoSecurityScheme()
                 1 -> getSecurityScheme(securityScheme.keys.single(), indexedCollectorContext)
-                else -> CompositeSecurityScheme(securityScheme.keys.map { getSecurityScheme(it, indexedCollectorContext) })
+                else -> CompositeSecurityScheme(securityScheme.keys.mapNotNull { getSecurityScheme(it, indexedCollectorContext) })
             }
         }
     }
@@ -1534,10 +1534,10 @@ class OpenApiSpecification(
             rawDiscriminator.propertyName?.let { propertyName ->
                 val mapping = rawDiscriminator.mapping ?: emptyMap()
 
+                validateMappings(mapping, collectorContext)
                 val mappingWithSchemaListAndDiscriminator =
                     mapping.entries.mapNotNull { (discriminatorValue, refPath) ->
-                        val mappingContext = collectorContext.at("discriminator").at("mapping").at(discriminatorValue)
-                        val (mappedSchemaName, mappedSchema) = resolveReferenceToSchema(refPath, mappingContext, includeRefToCollector = false)
+                        val (mappedSchemaName, mappedSchema) = resolveReferenceToSchema(refPath, collectorContext)
                         val mappedComponentName = extractComponentName(refPath, collectorContext)
                         if (mappedComponentName !in typeStack) {
                             val value = mappedSchemaName to resolveDeepAllOfs(
@@ -1819,9 +1819,16 @@ class OpenApiSpecification(
     }
 
     private fun validateMappings(mappings: Map<String, String>, collectorContext: CollectorContext) {
+        val components = parsedOpenApi.components ?: Components()
+        val schemas = components.schemas.orEmpty()
         mappings.forEach { (discriminatorValue, refPath) ->
-            val mappingContext = collectorContext.at("discriminator").at("mapping").at(discriminatorValue)
-            resolveReferenceToSchema(refPath, mappingContext, includeRefToCollector = false)
+            val componentName = extractComponentName(refPath, collectorContext)
+            collectorContext.at("discriminator").at("mapping").at(discriminatorValue).requirePojo<Schema<*>?>(
+                message = { "Failed to resolve reference to discriminator mapping $discriminatorValue" },
+                extract = { schemas[componentName] },
+                createDefault = { null },
+                ruleViolation = { OpenApiLintViolations.UNRESOLVED_REFERENCE }
+            )
         }
     }
 
@@ -2020,7 +2027,7 @@ class OpenApiSpecification(
     }
 
     private fun restrictivePatternBetween(pattern1: Pattern, pattern2: Pattern): Pattern {
-        return if (pattern1 !is AnyNonNullJSONValue && pattern2 is AnyNonNullJSONValue)
+        return if (pattern1 !is AnythingPattern && pattern2 is AnythingPattern)
             pattern1
         else
             pattern2
@@ -2190,7 +2197,7 @@ class OpenApiSpecification(
 
     private fun processAdditionalPropertiesSchema(schema: Schema<*>, typeStack: List<String>, collectorContext: CollectorContext): AdditionalProperties {
         val parsedPattern = toSpecmaticPattern(schema, typeStack, collectorContext = collectorContext)
-        return if (parsedPattern is AnyNonNullJSONValue) AdditionalProperties.FreeForm
+        return if (parsedPattern is AnythingPattern) AdditionalProperties.FreeForm
         else AdditionalProperties.PatternConstrained(parsedPattern)
     }
 
@@ -2204,8 +2211,8 @@ class OpenApiSpecification(
     ): Map<String, Pattern> {
         val propertiesContext = collectorContext.at("properties")
         val properties = schema.properties.orEmpty()
-        val fixedRequiredFields = requiredFields.withIndex().mapNotNull { (index, field) ->
-            collectorContext.at("required").at(index).check<String?>(value = field, isValid = { properties.contains(field) })
+        val fixedRequiredFields = requiredFields.map { field ->
+            collectorContext.at("required").check<String?>(value = field, isValid = { properties.contains(field) })
             .message { "Required property \"$field\" is not defined in properties, ignoring this requirement" }
             .orUse { null }
             .build(isWarning = true)
@@ -2263,18 +2270,12 @@ class OpenApiSpecification(
         false -> name
     }
 
-    private fun resolveReferenceToSchema(component: String, collectorContext: CollectorContext, includeRefToCollector: Boolean = true): Pair<String, Schema<*>> {
+    private fun resolveReferenceToSchema(component: String, collectorContext: CollectorContext): Pair<String, Schema<*>> {
         val componentName = extractComponentName(component, collectorContext)
         val components = parsedOpenApi.components ?: Components()
         val schemas = components.schemas.orEmpty()
-        val schemaRefContext = if (includeRefToCollector) {
-            collectorContext.at("\$ref")
-        } else {
-            collectorContext
-        }
-
-        return componentName to schemaRefContext.requirePojo(
-            message = { "Failed to resolve reference to schema $componentName, defaulting to non-null json schema" },
+        return componentName to collectorContext.at("\$ref").requirePojo(
+            message = { "Failed to resolve reference to schema $componentName, defaulting to any schema" },
             extract = { schemas[componentName] },
             createDefault = { Schema<Any>().also { it.properties = emptyMap() } },
             ruleViolation = { OpenApiLintViolations.UNRESOLVED_REFERENCE }
@@ -2328,7 +2329,7 @@ class OpenApiSpecification(
                 val itemsSchema = paramContext.requirePojo(extract = { resolvedSchema.items }, createDefault = { Schema<Any>() }, message = { "No items schema defined for array schema defaulting to empty schema" })
                 QueryParameterArrayPattern(listOf(toSpecmaticPattern(schema = itemsSchema, typeStack = emptyList(), collectorContext = paramContext.at("items"))), it.name)
             } else if (!resolvedSchema.isSchema(OBJECT_TYPE)) {
-                QueryParameterScalarPattern(toSpecmaticPattern(schema = it.schema, typeStack = emptyList(), collectorContext = queryParamContext))
+                QueryParameterScalarPattern(toSpecmaticPattern(schema = it.schema, typeStack = emptyList(), collectorContext = queryParamContext.at("schema")))
             } else {
                 queryParamContext.at("schema").record(
                     message = "Query parameter ${it.name} is an object, and not yet supported",
@@ -2396,10 +2397,9 @@ class OpenApiSpecification(
             )
 
             val pathParameterContext = parameterContext.at(pathParamMap[paramName]?.index ?: DEFAULT_ARRAY_INDEX)
-            val (resolvedSchema, paramContext) = resolveSchemaIfRefElseAtSchema(parameter.schema, collectorContext = pathParameterContext)
             URLPathSegmentPattern(
                 key = paramName,
-                pattern = toSpecmaticPattern(resolvedSchema, typeStack = emptyList(), collectorContext = paramContext),
+                pattern = toSpecmaticPattern(parameter.schema, typeStack = emptyList(), collectorContext = pathParameterContext.at("schema")),
             )
         }
 
@@ -2428,7 +2428,7 @@ class OpenApiSpecification(
         ).filter { (_, value) -> value != null }.map { (key, value) -> key to value!! }.toMap()
     }
 
-    private fun Schema<*>.toSpecmaticPattern(patternName: String, typeStack: List<String>, collectorContext: CollectorContext): Pattern = collectorContext.safely(fallback = { AnyNonNullJSONValue() }, message = "Failed to convert schema to internal representation") {
+    private fun Schema<*>.toSpecmaticPattern(patternName: String, typeStack: List<String>, collectorContext: CollectorContext): Pattern = collectorContext.safely(fallback = { AnythingPattern }, message = "Failed to convert schema to internal representation, defaulting to any schema") {
         if (this.`$ref` != null) return@safely handleReference(this, typeStack, patternName, collectorContext)
         if (this.allOf != null) return@safely handleAllOf(this, typeStack, patternName, collectorContext)
         if (this.oneOf != null) return@safely handleOneOf(this, typeStack, patternName, collectorContext)
@@ -2495,10 +2495,11 @@ class OpenApiSpecification(
         val hasAdditionalProps = schema.additionalProperties != null && schema.additionalProperties != false
         if (hasProperties || hasAdditionalProps) return toJsonObjectPattern(schema, patternName, typeStack, collectorContext)
 
+        val declaredTypes = schema.types ?: setOfNotNull(schema.type)
         return collectorContext
-            .check(AnythingPattern, isValid = { schema.type == null })
+            .check(AnythingPattern, isValid = { declaredTypes.isEmpty() })
             .violation { OpenApiLintViolations.SCHEMA_UNCLEAR }
-            .message { "Schema is unclear, defaulting to any json schema" }
+            .message { "Schema is unclear, defaulting to any schema" }
             .orUse { AnythingPattern }
             .build(isWarning = true)
     }

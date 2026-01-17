@@ -11,6 +11,7 @@ import io.specmatic.core.examples.server.ScenarioFilter
 import io.specmatic.core.pattern.AnyNonNullJSONValue
 import io.specmatic.core.pattern.AnyOfPattern
 import io.specmatic.core.pattern.AnyPattern
+import io.specmatic.core.pattern.AnythingPattern
 import io.specmatic.core.pattern.BooleanPattern
 import io.specmatic.core.pattern.DeferredPattern
 import io.specmatic.core.pattern.EmailPattern
@@ -287,7 +288,7 @@ class OpenApi31Test {
         assertThat(requestBody).isEqualTo(responseBody)
         assertThat(requestBody).isInstanceOf(JSONObjectPattern::class.java); requestBody as JSONObjectPattern
         assertThat(requestBody.pattern["iHaveAnIdea"]).isInstanceOf(AnyOfPattern::class.java)
-        assertThat(requestBody.pattern["noIdea"]).isInstanceOf(AnyNonNullJSONValue::class.java) // Unimplemented type
+        assertThat(requestBody.pattern["noIdea"]).isInstanceOf(AnythingPattern::class.java) // Unimplemented type
         assertThat((requestBody.pattern.getValue("iHaveAnIdea") as AnyOfPattern).pattern.map { it::class.java })
             .containsExactlyInAnyOrder(StringPattern::class.java, NumberPattern::class.java)
     }
