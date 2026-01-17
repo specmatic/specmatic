@@ -49,6 +49,7 @@ interface Matcher {
             add(CompositeMatcher.Companion)
             add(PatternMatcher.Companion)
             add(RepetitionMatcher.Companion)
+            add(RegexMatcher.Companion)
         }
 
         private val registry: MatcherRegistry by lazy { MatcherRegistry.build(defaultFactories) }
