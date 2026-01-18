@@ -1037,7 +1037,9 @@ class OpenApiSpecification(
             val headersMap = openAPIHeadersToSpecmatic(response, responseContext)
             val finalizedStatus = statusContext.check<String>(value = status, isValid = { isNumber(status) || status == "default" })
                 .violation { OpenApiLintViolations.INVALID_OPERATION_STATUS }
-                .message { "Expected status codes to be numbers or default, but \"$status\" was found, defaulting to 'default'" }
+                .message {
+                    "The response status code must be a valid integer, or the string value \"default\", but was \"$status\". Please use a valid status code or remove the status code section."
+                }
                 .orUse { "default" }
                 .build()
 
@@ -1053,7 +1055,11 @@ class OpenApiSpecification(
             logger.debug("Processing response header $headerName")
             val parameterInternalName = toSpecmaticParamName(header.required != true, headerName)
             val (resolvedHeader, context) = resolveResponseHeader(header, headersContext.at(headerName))
-            val headerToProcess = context.requirePojo(message = { "No schema defined, defaulting to empty schema" }, extract = { resolvedHeader.schema }, createDefault = { Schema<Any>() })
+            val headerToProcess = context.requirePojo(
+                message = { "No schema found. Please add the missing schema." },
+                extract = { resolvedHeader.schema },
+                createDefault = { Schema<Any>() }
+            )
             parameterInternalName to toSpecmaticPattern(schema = headerToProcess, typeStack = emptyList(), collectorContext = context.at("schema"))
         }.toMap()
     }
@@ -1071,7 +1077,9 @@ class OpenApiSpecification(
         val hasReusableHeader = parsedOpenApi.components?.headers?.contains(headerComponentName) == true
         return Pair(
             first = collectorContext.at("\$ref").requirePojo(
-                message = { "Header reference '${header.`$ref`}' could not be resolved, defaulting to empty schema" },
+                message = {
+                    "The element referred to at this path was not found in the spec. Please add the missing header/schema/etc named \"$headerComponentName\"."
+                },
                 extract = { parsedOpenApi.components?.headers?.get(headerComponentName) },
                 ruleViolation = { OpenApiLintViolations.UNRESOLVED_REFERENCE },
                 createDefault = { Header().apply { schema = Schema<Any>(); required = false } },
@@ -1090,7 +1098,9 @@ class OpenApiSpecification(
         val hasReusableResponse = parsedOpenApi.components?.responses?.contains(responseComponentName) == true
         return Pair(
             first = collectorContext.at("\$ref").requirePojo(
-                message = { "Response reference '${response.`$ref`}' could not be resolved, defaulting to empty response" },
+                message = {
+                    "The element referred to at this path was not found in the spec. Please add the missing header/schema/etc named \"$responseComponentName\"."
+                },
                 extract = { parsedOpenApi.components?.responses?.get(responseComponentName) },
                 ruleViolation = { OpenApiLintViolations.UNRESOLVED_REFERENCE },
                 createDefault = { ApiResponse() }
@@ -1204,7 +1214,9 @@ class OpenApiSpecification(
         fun getSecurityScheme(name: String, collectorContext: CollectorContext): OpenAPISecurityScheme? {
             return collectorContext.checkOptional<OpenAPISecurityScheme?>(name = name, value = securitySchemeComponents[name], isValid = { it != null })
                 .violation { OpenApiLintViolations.SECURITY_SCHEME_MISSING }
-                .message { "Didn't find Security schema with name $name, ignoring this scheme" }
+                .message {
+                    "Security scheme named \"$name\" was used, but no such security scheme has been defined in the spec. Either drop the security scheme, or add a definition to the spec."
+                }
                 .orUse { null }
                 .build()
         }
@@ -1383,8 +1395,11 @@ class OpenApiSpecification(
             val generated1 = concretePattern.generate(Resolver()).toStringLiteral()
             val generated2 = concretePattern.generate(Resolver()).toStringLiteral()
             if (generated1 == generated2 && generated1 != contentType) {
-                val warning = "Media type \"$contentType\" does not match the respective Content-Type header. Using the Content-Type header as an override"
-                collectorContext.record(warning, isWarning = true, ruleViolation = OpenApiLintViolations.MEDIA_TYPE_OVERRIDDEN)
+                collectorContext.record(
+                    "Content-Type was declared in the spec, and will be ignored. Please remove it.",
+                    isWarning = true,
+                    ruleViolation = OpenApiLintViolations.MEDIA_TYPE_OVERRIDDEN
+                )
                 return generated1
             }
         } catch (_: ContractException) {
@@ -1444,8 +1459,10 @@ class OpenApiSpecification(
 
         if (securityScheme.type == SecurityScheme.Type.APIKEY) {
             val apiKey = getSecurityTokenForApiKeyScheme(securitySchemeConfiguration, schemeName)
-            if (securityScheme.`in` == SecurityScheme.In.HEADER) return APIKeyInHeaderSecurityScheme(securityScheme.name, apiKey)
-            if (securityScheme.`in` == SecurityScheme.In.QUERY) return APIKeyInQueryParamSecurityScheme(securityScheme.name, apiKey)
+            if (securityScheme.`in` == SecurityScheme.In.HEADER)
+                return APIKeyInHeaderSecurityScheme(name = securityScheme.name, apiKey = apiKey, schemeName = schemeName)
+            if (securityScheme.`in` == SecurityScheme.In.QUERY)
+                return APIKeyInQueryParamSecurityScheme(name = securityScheme.name, apiKey = apiKey, schemeName = schemeName)
         }
 
         if (securityScheme.type == SecurityScheme.Type.HTTP && securityScheme.scheme == "basic") {
@@ -1453,7 +1470,7 @@ class OpenApiSpecification(
         }
 
         collectorContext.record(
-            message = "Specmatic only supports oauth2, bearer, and api key authentication (header, query) security schemes at the moment, ignoring this scheme",
+            message = "Specmatic currently supports oauth2, bearer, and api key authentication. Other security schemes will be ignored. Please reach out to the Specmatic team if you need support for this feature.",
             ruleViolation = OpenApiLintViolations.UNSUPPORTED_FEATURE
         )
         return null
@@ -1461,18 +1478,18 @@ class OpenApiSpecification(
 
     private fun toBearerSecurityScheme(
         securitySchemeConfiguration: SecuritySchemeConfiguration?,
-        environmentVariable: String,
+        schemeName: String,
     ): BearerSecurityScheme {
-        val token = getSecurityTokenForBearerScheme(securitySchemeConfiguration, environmentVariable)
-        return BearerSecurityScheme(token)
+        val token = getSecurityTokenForBearerScheme(securitySchemeConfiguration, schemeName)
+        return BearerSecurityScheme(configuredToken = token, schemeName = schemeName)
     }
 
     private fun toBasicAuthSecurityScheme(
         securitySchemeConfiguration: SecuritySchemeConfiguration?,
-        environmentVariable: String,
+        schemeName: String,
     ): BasicAuthSecurityScheme {
-        val token = getSecurityTokenForBasicAuthScheme(securitySchemeConfiguration, environmentVariable)
-        return BasicAuthSecurityScheme(token)
+        val token = getSecurityTokenForBasicAuthScheme(securitySchemeConfiguration, schemeName)
+        return BasicAuthSecurityScheme(token = token, schemeName = schemeName)
     }
 
     private fun toFormFields(mediaType: MediaType, collectorContext: CollectorContext): Map<String, Pattern> {
@@ -1624,7 +1641,7 @@ class OpenApiSpecification(
         }
 
         val schemaToProcess = collectorContext.requirePojo(
-            message = { "No schema defined, defaulting to empty schema" },
+            message = { "No schema found. Please add the missing schema." },
             extract = { schema },
             createDefault = { Schema<Any>() }
         )
@@ -1725,7 +1742,7 @@ class OpenApiSpecification(
 
     private fun resolveSchemaIfRef(schema: Schema<*>?, patternName: String? = null, collectorContext: CollectorContext): ResolvedRef {
         val schemaToProcess = collectorContext.requirePojo(
-            message = { "No schema defined, defaulting to empty schema" },
+            message = { "No schema found. Please add the missing schema." },
             extract = { schema },
             createDefault = { Schema<Any>() }
         )
@@ -1736,7 +1753,7 @@ class OpenApiSpecification(
 
     private fun resolveSchemaIfRefElseAtSchema(schema: Schema<*>, collectorContext: CollectorContext): Pair<Schema<*>, CollectorContext> {
         val schemaToProcess = collectorContext.requirePojo(
-            message = { "No schema defined, defaulting to empty schema" },
+            message = { "No schema found. Please add the missing schema." },
             extract = { schema },
             createDefault = { Schema<Any>() }
         )
@@ -1827,7 +1844,9 @@ class OpenApiSpecification(
         mappings.forEach { (discriminatorValue, refPath) ->
             val componentName = extractComponentName(refPath, collectorContext)
             collectorContext.at("discriminator").at("mapping").at(discriminatorValue).requirePojo<Schema<*>?>(
-                message = { "Failed to resolve reference to discriminator mapping $discriminatorValue" },
+                message = {
+                    "The element referred to at this path was not found in the spec. Please add the missing header/schema/etc named \"$componentName\"."
+                },
                 extract = { schemas[componentName] },
                 createDefault = { null },
                 ruleViolation = { OpenApiLintViolations.UNRESOLVED_REFERENCE }
@@ -1854,7 +1873,9 @@ class OpenApiSpecification(
 
         collectorContext.checkPojo(
             value = schema,
-            message = { "Schema has both \$ref (${schema.`$ref`}) and a type ${schema.type} defined, ignoring other properties" },
+            message = {
+                "This reference has sibling properties. In accordance with the OpenAPI 3.0 standard, they will be ignored. Please remove them."
+            },
             isValid = { parsedOpenApi.specVersion == SpecVersion.V31 || it.type == null },
             createDefault = { it },
             ruleViolation = { OpenApiLintViolations.REF_HAS_SIBLINGS },
@@ -2278,7 +2299,9 @@ class OpenApiSpecification(
         val components = parsedOpenApi.components ?: Components()
         val schemas = components.schemas.orEmpty()
         return componentName to collectorContext.at("\$ref").requirePojo(
-            message = { "Failed to resolve reference to schema $componentName, defaulting to any schema" },
+            message = {
+                "The element referred to at this path was not found in the spec. Please add the missing header/schema/etc named \"$componentName\"."
+            },
             extract = { schemas[componentName] },
             createDefault = { Schema<Any>().also { it.properties = emptyMap() } },
             ruleViolation = { OpenApiLintViolations.UNRESOLVED_REFERENCE }
@@ -2290,7 +2313,9 @@ class OpenApiSpecification(
         val hasRefedOutBody = parsedOpenApi.components?.requestBodies?.contains(componentName) == true
         return Pair(
             first = collectorContext.at("\$ref").requirePojo(
-                message = { "Failed to resolve reference to requestBodies $componentName, defaulting to empty requestBody" },
+                message = {
+                    "The element referred to at this path was not found in the spec. Please add the missing header/schema/etc named \"$componentName\"."
+                },
                 ruleViolation = { OpenApiLintViolations.UNRESOLVED_REFERENCE },
                 extract = { parsedOpenApi.components?.requestBodies?.get(componentName) },
                 createDefault = { RequestBody() }
@@ -2304,17 +2329,18 @@ class OpenApiSpecification(
     }
 
     private fun extractComponentName(component: String, collectorContext: CollectorContext): String {
+        val componentName = componentNameFromReference(component)
         if (!component.startsWith("#")) {
             val refContext = collectorContext.at("\$ref")
             val componentPath = component.substringAfterLast("#")
             val filePath = component.substringBeforeLast("#")
             refContext.record(
-                message = "Could not dereference $component. Either the file $filePath does not exist, or $componentPath is missing from it",
+                message = "The element referred to at this path was not found in the spec. Please add the missing header/schema/etc named \"$componentName\".",
                 ruleViolation = OpenApiLintViolations.UNRESOLVED_REFERENCE
             )
         }
 
-        return componentNameFromReference(component)
+        return componentName
     }
 
     private fun componentNameFromReference(component: String) = component.substringAfterLast("/")
@@ -2335,7 +2361,7 @@ class OpenApiSpecification(
                 QueryParameterScalarPattern(toSpecmaticPattern(schema = it.schema, typeStack = emptyList(), collectorContext = queryParamContext.at("schema")))
             } else {
                 queryParamContext.at("schema").record(
-                    message = "Query parameter ${it.name} is an object, and not yet supported",
+                    message = "Specmatic does not currently support query parameters serialized as objects. Specmatic will ignore this query parameter. Please reach out to the Specmatic team if you need support for this feature.",
                     ruleViolation = OpenApiLintViolations.UNSUPPORTED_FEATURE,
                     isWarning = true
                 )
@@ -2386,7 +2412,9 @@ class OpenApiSpecification(
 
             val paramName = pathSegment.removeSurrounding("{", "}")
             val parameter = parameterContext.at(pathParamMap[paramName]?.index ?: DEFAULT_ARRAY_INDEX).requirePojo(
-                message = { "Expected path parameter with name $paramName is missing, defaulting to empty schema" },
+                message = {
+                    "The path parameter named \"$paramName\" was declared, but no path parameter definition for \"$paramName\" was found. Please add a definition for \"$paramName\" to the spec."
+                },
                 extract = { pathParamMap[paramName]?.value },
                 ruleViolation = { OpenApiLintViolations.PATH_PARAMETER_MISSING },
                 createDefault = {
@@ -2502,7 +2530,10 @@ class OpenApiSpecification(
         return collectorContext
             .check(AnythingPattern, isValid = { declaredTypes.isEmpty() })
             .violation { OpenApiLintViolations.SCHEMA_UNCLEAR }
-            .message { "Schema is unclear, defaulting to any schema" }
+            .message {
+                val declaredType = declaredTypes.joinToString(", ").ifBlank { "unknown-type" }
+                "Could not recognize type \"$declaredType\". Please share this error with the Specmatic team."
+            }
             .orUse { AnythingPattern }
             .build(isWarning = true)
     }
@@ -2566,18 +2597,18 @@ class OpenApiSpecification(
             val itemContext = parameterContext.at(index)
             val validNameParam = itemContext.check<T?>(parameter) { it?.name != null }
                 .violation { OpenApiLintViolations.INVALID_PARAMETER_DEFINITION }
-                .message { "Parameter has no name defined, ignoring this parameter" }
+                .message {
+                    "\"name\" is mandatory for parameters, but it was missing. It will be ignored by Specmatic. Please add a name, or remove the parameter."
+                }
                 .orUse { null }
                 .build() ?: return@mapIndexedNotNull null
 
             val schemaEnsuredParameter = itemContext.check(value = validNameParam) { it.schema != null }
-                .violation { OpenApiLintViolations.INVALID_PARAMETER_DEFINITION }
                 .message { "Parameter has no schema defined, defaulting to empty schema" }
                 .orUse { validNameParam.apply { schema = Schema<Any>() } }
                 .build()
 
             val itemsSchemaEnsuredParameter = itemContext.at("schema").check(value = schemaEnsuredParameter) { !it.schema.isSchema("array") || it.schema.items != null }
-                .violation { OpenApiLintViolations.INVALID_PARAMETER_DEFINITION }
                 .message { "Array Parameter has no items schema defined, defaulting to empty schema" }
                 .orUse { schemaEnsuredParameter.apply { schema.apply { items = Schema<Any>() } } }
                 .build()

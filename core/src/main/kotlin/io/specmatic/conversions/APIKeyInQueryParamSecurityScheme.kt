@@ -9,7 +9,11 @@ import io.swagger.v3.oas.models.parameters.QueryParameter
 
 const val apiKeyParamName = "API-Key"
 
-data class APIKeyInQueryParamSecurityScheme(val name: String, private val apiKey:String?) : OpenAPISecurityScheme {
+data class APIKeyInQueryParamSecurityScheme(
+    val name: String,
+    private val apiKey: String?,
+    private val schemeName: String = name
+) : OpenAPISecurityScheme {
     override fun matches(httpRequest: HttpRequest, resolver: Resolver): Result {
         return if (httpRequest.queryParams.containsKey(name) || resolver.mockMode) Result.Success()
         else Result.Failure(
@@ -65,7 +69,9 @@ data class APIKeyInQueryParamSecurityScheme(val name: String, private val apiKey
             val paramContext = collectorContext.at("parameters").at(index)
             paramContext.check(name = "name", value = value, isValid = { !it.name.equals(name, ignoreCase = true) })
                 .violation { OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED }
-                .message { "Found query parameter with same name as query api-key security scheme \"$name\"" }
+                .message {
+                    "The header/query param named \"$name\" for security scheme named \"$schemeName\" was explicitly re-defined as a parameter. The parameter will be ignored, and should be removed."
+                }
                 .orUse { value }
                 .build(isWarning = true)
         }

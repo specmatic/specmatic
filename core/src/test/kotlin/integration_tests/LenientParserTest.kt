@@ -130,7 +130,7 @@ class LenientParserTest {
                     assert("paths./test/{id}.get.parameters[-1]") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toContainViolation(OpenApiLintViolations.PATH_PARAMETER_MISSING)
-                        toMatchText("Expected path parameter with name id is missing, defaulting to empty schema")
+                        toMatchText("The path parameter named \"id\" was declared, but no path parameter definition for \"id\" was found. Please add a definition for \"id\" to the spec.")
                     }
                 },
                 multiVersionLenientCase(name = "has no schema", *OpenApiVersion.allVersions()) {
@@ -147,10 +147,9 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
                     assert("paths./test/{id}.get.parameters[0]") {
                         toHaveSeverity(IssueSeverity.ERROR)
-                        toContainViolation(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION)
                         toMatchText("Parameter has no schema defined, defaulting to empty schema")
                     }
                 },
@@ -173,7 +172,7 @@ class LenientParserTest {
                     assert("paths./test/{id}.get.parameters[0].schema.minLength") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
-                        toContainText("We will use a more reasonable minLength of 4MB")
+                        toContainText("Limiting the minLength for now to the more practical 4MB")
                     }
                 },
                 multiVersionLenientCase(name = "refed out schema has issue", *OpenApiVersion.allVersions()) {
@@ -203,7 +202,7 @@ class LenientParserTest {
                     assert("components.schemas.TooLongString.minLength") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
-                        toContainText("We will use a more reasonable minLength of 4MB")
+                        toContainText("Limiting the minLength for now to the more practical 4MB")
                     }
                 },
             ).flatten().stream()
@@ -226,10 +225,9 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
                     assert("paths./test.get.parameters[0]") {
                         toHaveSeverity(IssueSeverity.ERROR)
-                        toContainViolation(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION)
                         toMatchText("Parameter has no schema defined, defaulting to empty schema")
                     }
                 },
@@ -252,7 +250,7 @@ class LenientParserTest {
                     assert("paths./test.get.parameters[0].schema.minLength") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
-                        toContainText("We will use a more reasonable minLength of 4MB")
+                        toContainText("Limiting the minLength for now to the more practical 4MB")
                     }
                 },
                 multiVersionLenientCase(name = "refed out schema has issue", *OpenApiVersion.allVersions()) {
@@ -282,7 +280,7 @@ class LenientParserTest {
                     assert("components.schemas.TooLongQueryString.minLength") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
-                        toContainText("We will use a more reasonable minLength of 4MB")
+                        toContainText("Limiting the minLength for now to the more practical 4MB")
                     }
                 },
 
@@ -300,7 +298,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
                     assert("paths./test.get.parameters[0].schema") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toMatchText("Array Parameter has no items schema defined, defaulting to empty schema")
@@ -352,7 +350,7 @@ class LenientParserTest {
                     assert("paths./test.get.parameters[0].schema") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.UNSUPPORTED_FEATURE)
-                        toMatchText("Query parameter filter is an object, and not yet supported")
+                        toMatchText("Specmatic does not currently support query parameters serialized as objects. Specmatic will ignore this query parameter. Please reach out to the Specmatic team if you need support for this feature.")
                     }
                 },
                 multiVersionLenientCase(name = "refed out object schema not supported", *OpenApiVersion.allVersions()) {
@@ -380,7 +378,7 @@ class LenientParserTest {
                     assert("paths./test.get.parameters[0].schema") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.UNSUPPORTED_FEATURE)
-                        toMatchText("Query parameter filter is an object, and not yet supported")
+                        toMatchText("Specmatic does not currently support query parameters serialized as objects. Specmatic will ignore this query parameter. Please reach out to the Specmatic team if you need support for this feature.")
                     }
                 },
             ).flatten().stream()
@@ -403,10 +401,9 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
                     assert("paths./test.get.parameters[0]") {
                         toHaveSeverity(IssueSeverity.ERROR)
-                        toContainViolation(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION)
                         toMatchText("Parameter has no schema defined, defaulting to empty schema")
                     }
                 },
@@ -425,10 +422,9 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
                     assert("paths./test.get.parameters[0].schema") {
                         toHaveSeverity(IssueSeverity.ERROR)
-                        toContainViolation(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION)
                         toMatchText("Array Parameter has no items schema defined, defaulting to empty schema")
                     }
                 },
@@ -518,7 +514,7 @@ class LenientParserTest {
                     assert("paths./test.get.parameters[0].schema.minLength") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
-                        toContainText("We will use a more reasonable minLength of 4MB")
+                        toContainText("Limiting the minLength for now to the more practical 4MB")
                     }
                 },
                 multiVersionLenientCase(name = "refed out schema has issue", *OpenApiVersion.allVersions()) {
@@ -548,7 +544,7 @@ class LenientParserTest {
                     assert("components.schemas.TooLongHeaderString.minLength") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
-                        toContainText("We will use a more reasonable minLength of 4MB")
+                        toContainText("Limiting the minLength for now to the more practical 4MB")
                     }
                 },
             ).flatten().stream()
@@ -579,7 +575,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("security[0].missingScheme") {
                         toContainViolation(OpenApiLintViolations.SECURITY_SCHEME_MISSING)
-                        toMatchText("Didn't find Security schema with name missingScheme, ignoring this scheme")
+                        toMatchText("Security scheme named \"missingScheme\" was used, but no such security scheme has been defined in the spec. Either drop the security scheme, or add a definition to the spec.")
                     }
                 },
                 multiVersionLenientCase(name = "missing operation security scheme reference", *OpenApiVersion.allVersions()) {
@@ -746,7 +742,7 @@ class LenientParserTest {
                     }
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.post.requestBody.\$ref") {
-                        toMatchText("Failed to resolve reference to requestBodies RefedOutBody, defaulting to empty requestBody")
+                        toMatchText("The element referred to at this path was not found in the spec. Please add the missing header/schema/etc named \"RefedOutBody\".")
                         toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
                     }
                 },
@@ -881,7 +877,7 @@ class LenientParserTest {
                     }
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
                     assert("paths./test.post.requestBody.content.application/x-www-form-urlencoded") {
-                        toMatchText("No schema defined, defaulting to empty schema")
+                        toMatchText("No schema found. Please add the missing schema.")
                     }
                 },
                 multiVersionLenientCase(name = "form-urlencoded schema has issue", *OpenApiVersion.allVersions()) {
@@ -990,7 +986,7 @@ class LenientParserTest {
                     }
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
                     assert("paths./test.post.requestBody.content.multipart/form-data") {
-                        toMatchText("No schema defined, defaulting to empty schema")
+                        toMatchText("No schema found. Please add the missing schema.")
                     }
                 },
                 multiVersionLenientCase(name = "multipart schema has issue", *OpenApiVersion.allVersions()) {
@@ -1102,7 +1098,7 @@ class LenientParserTest {
                     }
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
                     assert("paths./test.get.responses.200.headers.X-Request-Id") {
-                        toMatchText("No schema defined, defaulting to empty schema")
+                        toMatchText("No schema found. Please add the missing schema.")
                     }
                 },
                 multiVersionLenientCase(name = "array with no items schema", *OpenApiVersion.allVersions()) {
@@ -1145,7 +1141,7 @@ class LenientParserTest {
                     }
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
                     assert("components.headers.HeaderId") {
-                        toMatchText("No schema defined, defaulting to empty schema")
+                        toMatchText("No schema found. Please add the missing schema.")
                     }
                 },
                 multiVersionLenientCase(name = "refed header array no items schema", *OpenApiVersion.allVersions()) {
@@ -1192,7 +1188,7 @@ class LenientParserTest {
                     assert("paths./test.get.responses.200.headers.X-Request-Id.schema.minLength") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
-                        toContainText("We will use a more reasonable minLength of 4MB")
+                        toContainText("Limiting the minLength for now to the more practical 4MB")
                     }
                 },
                 multiVersionLenientCase(name = "refed header schema has issue", *OpenApiVersion.allVersions()) {
@@ -1247,7 +1243,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.responses.foo") {
                         toContainViolation(OpenApiLintViolations.INVALID_OPERATION_STATUS)
-                        toMatchText("Expected status codes to be numbers or default, but \"foo\" was found, defaulting to 'default'")
+                        toMatchText("The response status code must be a valid integer, or the string value \"default\", but was \"foo\". Please use a valid status code or remove the status code section.")
                     }
                 },
                 multiVersionLenientCase(name = "invalid reference to a response", *OpenApiVersion.allVersions()) {
@@ -1263,7 +1259,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.responses.200.\$ref") {
                         toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
-                        toMatchText("Response reference '#/components/responses/MissingResponse' could not be resolved, defaulting to empty response")
+                        toMatchText("The element referred to at this path was not found in the spec. Please add the missing header/schema/etc named \"MissingResponse\".")
                     }
                 },
                 multiVersionLenientCase(name = "media type has no schema", *OpenApiVersion.allVersions()) {
@@ -1403,7 +1399,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.responses.200.content.application/json.schema.maximum") {
                         toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
-                        toMatchText("maximum 5 cannot be less than minimum 10")
+                        toMatchText("maximum 5 should have been greater than minimum 10. Please make sure that maximum and minimum are not in conflict.")
                     }
                 },
                 multiVersionLenientCase(name = "number schema maximum less than minimum (ref)", *OpenApiVersion.allVersions()) {
@@ -1434,7 +1430,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("components.schemas.BadNumber.maximum") {
                         toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
-                        toMatchText("maximum 5 cannot be less than minimum 10")
+                        toMatchText("maximum 5 should have been greater than minimum 10. Please make sure that maximum and minimum are not in conflict.")
                     }
                 },
 
@@ -1463,7 +1459,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.responses.200.content.application/json.schema.maximum") {
                         toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
-                        toMatchText("maximum 5 cannot be less than minimum 6")
+                        toMatchText("maximum 5 should have been greater than minimum 6. Please make sure that maximum and minimum are not in conflict.")
                     }
                 },
                 singleVersionLenientCase(name = "number schema exclusive bounds collapse (ref)", version = OpenApiVersion.OAS30) {
@@ -1496,7 +1492,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("components.schemas.BadNumber.maximum") {
                         toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
-                        toMatchText("maximum 5 cannot be less than minimum 6")
+                        toMatchText("maximum 5 should have been greater than minimum 6. Please make sure that maximum and minimum are not in conflict.")
                     }
                 },
 
@@ -1523,7 +1519,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.responses.200.content.application/json.schema.exclusiveMaximum") {
                         toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
-                        toMatchText("exclusiveMaximum 4 cannot be less than exclusiveMinimum 7")
+                        toMatchText("exclusiveMaximum 4 should have been greater than exclusiveMinimum 7. Please make sure that exclusiveMaximum and exclusiveMinimum are not in conflict.")
                     }
                 },
                 singleVersionLenientCase(name = "number schema exclusive bounds collapse (ref)", version = OpenApiVersion.OAS31) {
@@ -1554,7 +1550,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("components.schemas.BadNumber.exclusiveMaximum") {
                         toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
-                        toMatchText("exclusiveMaximum 4 cannot be less than exclusiveMinimum 7")
+                        toMatchText("exclusiveMaximum 4 should have been greater than exclusiveMinimum 7. Please make sure that exclusiveMaximum and exclusiveMinimum are not in conflict.")
                     }
                 },
             ).flatten().stream()
@@ -1585,7 +1581,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.responses.200.content.application/json.schema.minLength") {
                         toContainViolation(OpenApiLintViolations.INVALID_MIN_LENGTH)
-                        toMatchText("minLength -5 cannot be less than 0")
+                        toMatchText("minLength should never be less than 0, but it is -5. Please use a positive minLength, or drop the constraint.")
                     }
                 },
                 multiVersionLenientCase(name = "ref string minLength negative", *OpenApiVersion.allVersions()) {
@@ -1615,7 +1611,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("components.schemas.NegativeMinLength.minLength") {
                         toContainViolation(OpenApiLintViolations.INVALID_MIN_LENGTH)
-                        toMatchText("minLength -3 cannot be less than 0")
+                        toMatchText("minLength should never be less than 0, but it is -3. Please use a positive minLength, or drop the constraint.")
                     }
                 },
 
@@ -1642,7 +1638,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.responses.200.content.application/json.schema.maxLength") {
                         toContainViolation(OpenApiLintViolations.INVALID_MAX_LENGTH)
-                        toMatchText("maxLength 5 cannot be less than minLength 10")
+                        toMatchText("maxLength 5 should have been greater than minLength 10. Please make sure that maxLength and minLength are not in conflict.")
                     }
                 },
                 multiVersionLenientCase(name = "ref string minLength > maxLength", *OpenApiVersion.allVersions()) {
@@ -1673,7 +1669,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("components.schemas.BadString.maxLength") {
                         toContainViolation(OpenApiLintViolations.INVALID_MAX_LENGTH)
-                        toMatchText("maxLength 5 cannot be less than minLength 10")
+                        toMatchText("maxLength 5 should have been greater than minLength 10. Please make sure that maxLength and minLength are not in conflict.")
                     }
                 },
 
@@ -1754,7 +1750,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.responses.200.content.application/json.schema.pattern") {
                         toContainViolation(OpenApiLintViolations.PATTERN_LENGTH_INCOMPATIBLE)
-                        toContainText("longest pattern generation is shorter than minLength of 5")
+                        toContainText("The regex pattern \"a{1,3}\" is incompatible with minLength 5. Either remove minLength, or ensure that it is less than or equal to the shortest possible regex.")
                     }
                 },
                 multiVersionLenientCase(name = "ref string regex longer than maxLength", *OpenApiVersion.allVersions()) {
@@ -1785,7 +1781,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("components.schemas.TooLongString.pattern") {
                         toContainViolation(OpenApiLintViolations.PATTERN_LENGTH_INCOMPATIBLE)
-                        toContainText("shortest pattern generation is longer than maxLength of 4")
+                        toContainText("The regex pattern \"a{10,20}\" is incompatible with maxLength 4. Either remove maxLength, or ensure that it is greater than the largest possible regex.")
                     }
                 },
             ).flatten().stream()
@@ -2014,7 +2010,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.responses.200.content.application/json.schema.properties.age.maximum") {
                         toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
-                        toMatchText("maximum 5 cannot be less than minimum 10")
+                        toMatchText("maximum 5 should have been greater than minimum 10. Please make sure that maximum and minimum are not in conflict.")
                     }
                 },
                 multiVersionLenientCase(name = "property schema has invalid bounds (ref)", *OpenApiVersion.allVersions()) {
@@ -2078,7 +2074,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("components.schemas.BadNumber.maximum") {
                         toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
-                        toMatchText("maximum 5 cannot be less than minimum 10")
+                        toMatchText("maximum 5 should have been greater than minimum 10. Please make sure that maximum and minimum are not in conflict.")
                     }
                 },
                 multiVersionLenientCase(name = "required property missing from properties", *OpenApiVersion.allVersions()) {
@@ -2191,7 +2187,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("components.schemas.BadNumber.maximum") {
                         toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
-                        toMatchText("maximum 5 cannot be less than minimum 10")
+                        toMatchText("maximum 5 should have been greater than minimum 10. Please make sure that maximum and minimum are not in conflict.")
                     }
                 }
             ).flatten().stream()
@@ -2275,7 +2271,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.responses.200.content.application/json.schema.items.maximum") {
                         toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
-                        toMatchText("maximum 5 cannot be less than minimum 10")
+                        toMatchText("maximum 5 should have been greater than minimum 10. Please make sure that maximum and minimum are not in conflict.")
                     }
                 },
                 multiVersionLenientCase(name = "array items schema has invalid bounds (ref)", *OpenApiVersion.allVersions()) {
@@ -2343,7 +2339,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.responses.200.content.application/json.schema.allOf[0].properties.value.maximum") {
                         toContainViolation(OpenApiLintViolations.INVALID_NUMERIC_BOUNDS)
-                        toMatchText("maximum 5 cannot be less than minimum 10")
+                        toMatchText("maximum 5 should have been greater than minimum 10. Please make sure that maximum and minimum are not in conflict.")
                     }
                 },
                 multiVersionLenientCase(name = "ref element schema has invalid bounds", *OpenApiVersion.allVersions()) {
@@ -2987,7 +2983,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.responses.200.content.application/json.schema.discriminator.mapping.X") {
                         toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
-                        toContainText("Failed to resolve reference to discriminator mapping")
+                        toContainText("The element referred to at this path was not found in the spec. Please add the missing header/schema/etc named \"NoSuchSchema\".")
                     }
                 },
                 multiVersionLenientCase(name = "oneOf discriminator mapping has invalid ref", *OpenApiVersion.allVersions()) {
@@ -3018,7 +3014,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1);totalViolations(1) }
                     assert("paths./test.get.responses.200.content.application/json.schema.discriminator.mapping.X") {
                         toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
-                        toContainText("Failed to resolve reference to discriminator mapping")
+                        toContainText("The element referred to at this path was not found in the spec. Please add the missing header/schema/etc named \"NoSuchSchema\".")
                     }
                 },
                 multiVersionLenientCase(name = "deep allOf discriminator mapping has invalid ref", *OpenApiVersion.allVersions()) {
@@ -3051,11 +3047,11 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2);totalViolations(2) }
                     assert("components.schemas.Inner.discriminator.mapping.BAD") {
                         toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
-                        toContainText("Failed to resolve reference to discriminator mapping BAD")
+                        toContainText("The element referred to at this path was not found in the spec. Please add the missing header/schema/etc named \"MissingAllOf\".")
                     }
                     assert("components.schemas.Inner.\$ref") {
                         toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
-                        toContainText("Failed to resolve reference to schema MissingAllOf")
+                        toContainText("The element referred to at this path was not found in the spec. Please add the missing header/schema/etc named \"MissingAllOf\".")
                     }
                 }
             ).flatten().stream()

@@ -179,7 +179,7 @@ class OpenApiSpecificationInfoTest {
         assertThat(output).containsIgnoringWhitespaces(
             toViolationReportString(
                 breadCrumb = "paths./greet.get.parameters[0].name",
-                details = "Found header parameter with same name as Bearer Authorization security scheme",
+                details = "The header/query param named \"Authorization\" for security scheme named \"bearerAuth\" was explicitly re-defined as a parameter. The parameter will be ignored, and should be removed.",
                 OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
             )
         )
@@ -230,7 +230,7 @@ class OpenApiSpecificationInfoTest {
         assertThat(output).containsIgnoringWhitespaces(
             toViolationReportString(
                 breadCrumb = "paths./greet.get.parameters[0].name",
-                details = "Found header parameter with same name as Bearer Authorization security scheme",
+                details = "The header/query param named \"Authorization\" for security scheme named \"bearerAuth\" was explicitly re-defined as a parameter. The parameter will be ignored, and should be removed.",
                 OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
             )
         )

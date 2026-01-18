@@ -761,7 +761,11 @@ Background:
   Given openapi openapi/unsupported-authentication.yaml
         """.trimIndent(), sourceSpecPath
                 )
-            }.also { assertThat(exceptionCauseMessage(it)).contains("Specmatic only supports oauth2, bearer, and api key authentication (header, query) security schemes at the moment") }
+            }.also {
+                assertThat(exceptionCauseMessage(it)).contains(
+                    "Specmatic currently supports oauth2, bearer, and api key authentication. Other security schemes will be ignored. Please reach out to the Specmatic team if you need support for this feature."
+                )
+            }
         }
 
         @Test
@@ -775,7 +779,11 @@ Background:
   Given openapi openapi/apiKeyAuthCookie.yaml
         """.trimIndent(), sourceSpecPath
                 )
-            }.also { assertThat(exceptionCauseMessage(it)).contains("Specmatic only supports oauth2, bearer, and api key authentication (header, query) security schemes at the moment") }
+            }.also {
+                assertThat(exceptionCauseMessage(it)).contains(
+                    "Specmatic currently supports oauth2, bearer, and api key authentication. Other security schemes will be ignored. Please reach out to the Specmatic team if you need support for this feature."
+                )
+            }
         }
 
         @Test

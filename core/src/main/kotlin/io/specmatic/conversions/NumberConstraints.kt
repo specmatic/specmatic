@@ -45,7 +45,15 @@ data class NumberConstraints(
 
     private fun checkMinLength(min: Int?, collectorContext: CollectorContext): Int? {
         return min?.let {
-            collectorContext.requireMinimum("minLength", it, 1, ruleViolation = OpenApiLintViolations.INVALID_MIN_LENGTH)
+            collectorContext.requireMinimum(
+                "minLength",
+                it,
+                1,
+                ruleViolation = OpenApiLintViolations.INVALID_MIN_LENGTH,
+                message = { current, minimum ->
+                    "minLength should never be less than $minimum, but it is $current. Please use a positive minLength, or drop the constraint."
+                }
+            )
         }
     }
 
@@ -55,7 +63,9 @@ data class NumberConstraints(
                 name = "maxLength",
                 value = it,
                 minimum = effectiveMin ?: 1,
-                message = { current, minimum -> "maxLength $current cannot be less than minLength $minimum" },
+                message = { current, minimum ->
+                    "maxLength $current should have been greater than minLength $minimum. Please make sure that maxLength and minLength are not in conflict."
+                },
                 ruleViolation = OpenApiLintViolations.INVALID_MAX_LENGTH
             )
         }
@@ -74,7 +84,7 @@ data class NumberConstraints(
         ).violation {
             OpenApiLintViolations.INVALID_NUMERIC_BOUNDS
         }.message {
-            "$realizedMaxSource $effectiveMax cannot be less than $realizedMinSource $effectiveMin"
+            "$realizedMaxSource $effectiveMax should have been greater than $realizedMinSource $effectiveMin. Please make sure that $realizedMaxSource and $realizedMinSource are not in conflict."
         }.orUse {
             effectiveMin.plus(smallestInc)
         }.build()
