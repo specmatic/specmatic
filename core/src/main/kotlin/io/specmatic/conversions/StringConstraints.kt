@@ -30,7 +30,7 @@ internal fun rightSizedLength(length: Int?, paramName: String, patternName: Stri
     collectorContext.at(paramName).record(
         message = "A length of $length is impractical. Limiting the $paramName for now to the more practical 4MB, which is enough for most purposes. Please double-check the $paramName needed for this value and adjust accordingly.",
         isWarning = true,
-        ruleViolation = OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT
+        ruleViolation = SchemaLintViolations.LENGTH_EXCEEDS_LIMIT
     )
     return REASONABLE_STRING_LENGTH to true
 }
