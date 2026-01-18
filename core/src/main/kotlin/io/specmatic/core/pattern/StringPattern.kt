@@ -1,6 +1,6 @@
 package io.specmatic.core.pattern
 
-import io.specmatic.conversions.OpenApiLintViolations
+import io.specmatic.conversions.SchemaLintViolations
 import io.specmatic.conversions.StringConstraints
 import io.specmatic.conversions.lenient.CollectorContext
 import io.specmatic.core.Resolver
@@ -171,7 +171,7 @@ data class StringPattern (
                     "minLength",
                     it,
                     0,
-                    ruleViolation = OpenApiLintViolations.INVALID_MIN_LENGTH,
+                    ruleViolation = SchemaLintViolations.INVALID_MIN_LENGTH,
                     message = { current, minimum ->
                         "minLength should never be less than $minimum, but it is $current. Please use a positive minLength, or drop the constraint."
                     }
@@ -186,7 +186,7 @@ data class StringPattern (
                     message = { current, minimum ->
                         "maxLength $current should have been greater than minLength $minimum. Please make sure that maxLength and minLength are not in conflict."
                     },
-                    ruleViolation = OpenApiLintViolations.INVALID_MAX_LENGTH
+                    ruleViolation = SchemaLintViolations.INVALID_MAX_LENGTH
                 )
             }
 
@@ -198,13 +198,13 @@ data class StringPattern (
             val effectiveRegex: String? = regexSpec?.let {
                 val regexMatchesMinLength = collectorContext.at("pattern").attempt(
                     message = "The regex pattern \"$regex\" is incompatible with minLength $effectiveMinLength. Either remove minLength, or ensure that it is less than or equal to the shortest possible regex.",
-                    ruleViolation = OpenApiLintViolations.PATTERN_LENGTH_INCOMPATIBLE,
+                    ruleViolation = SchemaLintViolations.PATTERN_LENGTH_INCOMPATIBLE,
                     block = { regexSpec.validateMinLength(effectiveMinLength) }
                 )
 
                 val regexMatchesMaxLength = collectorContext.at("pattern").attempt(
                     message = "The regex pattern \"$regex\" is incompatible with maxLength $effectiveMaxLength. Either remove maxLength, or ensure that it is greater than the largest possible regex.",
-                    ruleViolation = OpenApiLintViolations.PATTERN_LENGTH_INCOMPATIBLE,
+                    ruleViolation = SchemaLintViolations.PATTERN_LENGTH_INCOMPATIBLE,
                     block = { regexSpec.validateMaxLength(effectiveMaxLength) },
                 )
 
