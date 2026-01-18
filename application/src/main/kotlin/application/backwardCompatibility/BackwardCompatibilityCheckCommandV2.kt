@@ -6,6 +6,7 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.exceptionCauseMessage
+import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.license.core.cli.Category
 import io.specmatic.stub.isOpenAPI
 import picocli.CommandLine.Command
@@ -22,7 +23,8 @@ import kotlin.io.path.pathString
     description = ["Checks backward compatibility of OpenAPI specifications"]
 )
 @Category("Specmatic core")
-class BackwardCompatibilityCheckCommandV2 : BackwardCompatibilityCheckBaseCommand() {
+class BackwardCompatibilityCheckCommandV2(override val protocols: List<SpecmaticProtocol> = listOf(SpecmaticProtocol.HTTP)) :
+    BackwardCompatibilityCheckBaseCommand() {
 
     override fun checkBackwardCompatibility(oldFeature: IFeature, newFeature: IFeature): Results {
         return testBackwardCompatibility(oldFeature as Feature, newFeature as Feature)

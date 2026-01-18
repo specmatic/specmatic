@@ -21,6 +21,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import java.io.File
 import java.nio.file.Paths
+import java.util.UUID
 
 class BackwardCompatibilityCheckCommandV2Test {
     @TempDir
@@ -361,7 +362,9 @@ class BackwardCompatibilityCheckCommandV2Test {
         val processedSpec = BackwardCompatibilityCheckBaseCommand.ProcessedSpec(
             specFilePath = "spec.yaml",
             backwardCompatibilityResult = Results(),
-            newer = object : IFeature {},
+            newer = object : IFeature {
+                override val specId: UUID = UUID.randomUUID()
+            },
             unusedExamples = emptySet(),
             precomputedCompatibilityResult = CompatibilityResult.FAILED,
             computedCompatibilityCheckHookResult = Pair(CompatibilityResult.UNKNOWN, emptyList()),
