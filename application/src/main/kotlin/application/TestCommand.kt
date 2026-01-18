@@ -189,7 +189,10 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         System.setProperty(TEST_STRICT_MODE, strictMode.toString())
         System.setProperty(TEST_LENIENT_MODE, lenientMode.toString())
 
-        val configMatchBranch = loadSpecmaticConfigOrNull(Configuration.configFilePath)?.getMatchBranch() ?: false
+        val configMatchBranch = loadSpecmaticConfigOrNull(
+            Configuration.configFilePath,
+            explicitlySpecifiedByUser = configFileName != null
+        )?.getMatchBranch() ?: false
         val matchBranchEnabled = useCurrentBranchForCentralRepo || Flags.getBooleanValue(MATCH_BRANCH, false) || configMatchBranch
         if(matchBranchEnabled) {
             System.setProperty(MATCH_BRANCH, matchBranchEnabled.toString())
