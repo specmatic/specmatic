@@ -25,7 +25,7 @@ class SecuritySchemeWarnIfExistsInParametersTest {
         assertThat(context.toCollector().toResult().reportString()).isEqualToIgnoringWhitespace(
             toViolationReportString(
                 breadCrumb = "parameters[0].name",
-                details = "Found header parameter with same name as header api-key security scheme \"X-API-KEY\"",
+                details = "The header/query param named \"X-API-KEY\" for security scheme named \"X-API-KEY\" was explicitly re-defined as a parameter. The parameter will be ignored, and should be removed.",
                 OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
             )
         )
@@ -45,7 +45,7 @@ class SecuritySchemeWarnIfExistsInParametersTest {
         assertThat(context.toCollector().toResult().reportString()).isEqualToIgnoringWhitespace(
             toViolationReportString(
                 breadCrumb = "parameters[1].name",
-                details = "Found query parameter with same name as query api-key security scheme \"apiKey\"",
+                details = "The header/query param named \"apiKey\" for security scheme named \"apiKey\" was explicitly re-defined as a parameter. The parameter will be ignored, and should be removed.",
                 OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
             )
         )
@@ -66,7 +66,7 @@ class SecuritySchemeWarnIfExistsInParametersTest {
         assertThat(context.toCollector().toResult().reportString()).isEqualToIgnoringWhitespace(
             toViolationReportString(
                 breadCrumb = "parameters[0].name",
-                details = "Found header parameter with same name as Basic Auth security scheme",
+                details = "The header/query param named \"Authorization\" for security scheme named \"basic\" was explicitly re-defined as a parameter. The parameter will be ignored, and should be removed.",
                 OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
             )
         )
@@ -87,7 +87,7 @@ class SecuritySchemeWarnIfExistsInParametersTest {
         assertThat(context.toCollector().toResult().reportString()).isEqualToIgnoringWhitespace(
             toViolationReportString(
                 breadCrumb = "parameters[0].name",
-                details = "Found header parameter with same name as Bearer Authorization security scheme",
+                details = "The header/query param named \"Authorization\" for security scheme named \"bearer\" was explicitly re-defined as a parameter. The parameter will be ignored, and should be removed.",
                 OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
             )
         )
@@ -111,14 +111,14 @@ class SecuritySchemeWarnIfExistsInParametersTest {
         ${
             toViolationReportString(
                 breadCrumb = "parameters[1].name",
-                details = "Found header parameter with same name as header api-key security scheme \"X-API-KEY\"",
+                details = "The header/query param named \"X-API-KEY\" for security scheme named \"X-API-KEY\" was explicitly re-defined as a parameter. The parameter will be ignored, and should be removed.",
                 OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "parameters[0].name",
-                details = "Found header parameter with same name as Bearer Authorization security scheme",
+                details = "The header/query param named \"Authorization\" for security scheme named \"bearer\" was explicitly re-defined as a parameter. The parameter will be ignored, and should be removed.",
                 OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
             )
         }

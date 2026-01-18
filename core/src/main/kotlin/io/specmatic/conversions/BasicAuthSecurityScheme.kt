@@ -9,7 +9,10 @@ import io.swagger.v3.oas.models.parameters.Parameter
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import java.util.Base64
 
-data class BasicAuthSecurityScheme(private val token: String? = null) : OpenAPISecurityScheme {
+data class BasicAuthSecurityScheme(
+    private val token: String? = null,
+    private val schemeName: String = "basic"
+) : OpenAPISecurityScheme {
     override fun matches(httpRequest: HttpRequest, resolver: Resolver): Result {
         val authHeaderValue: String = httpRequest.headers[AUTHORIZATION] ?: return when(resolver.mockMode) {
             true -> Result.Success()
@@ -141,7 +144,9 @@ data class BasicAuthSecurityScheme(private val token: String? = null) : OpenAPIS
             val paramContext = collectorContext.at("parameters").at(index)
             paramContext.check(name = "name", value = value, isValid = { !it.name.equals(AUTHORIZATION, ignoreCase = true) })
                 .violation { OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED }
-                .message { "Found header parameter with same name as Basic Auth security scheme" }
+                .message {
+                    "The header/query param named \"$AUTHORIZATION\" for security scheme named \"$schemeName\" was explicitly re-defined as a parameter. The parameter will be ignored, and should be removed."
+                }
                 .orUse { value }
                 .build(isWarning = true)
         }

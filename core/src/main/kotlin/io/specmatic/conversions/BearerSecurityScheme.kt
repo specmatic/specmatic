@@ -8,7 +8,10 @@ import io.swagger.v3.oas.models.parameters.HeaderParameter
 import io.swagger.v3.oas.models.parameters.Parameter
 import org.apache.http.HttpHeaders.AUTHORIZATION
 
-data class BearerSecurityScheme(private val configuredToken: String? = null) : OpenAPISecurityScheme {
+data class BearerSecurityScheme(
+    private val configuredToken: String? = null,
+    private val schemeName: String = "bearer"
+) : OpenAPISecurityScheme {
     override fun matches(httpRequest: HttpRequest, resolver: Resolver): Result {
         val authHeaderValue = httpRequest.headers.entries.find {
             it.key.equals(AUTHORIZATION, ignoreCase = true)
@@ -72,7 +75,9 @@ data class BearerSecurityScheme(private val configuredToken: String? = null) : O
             val paramContext = collectorContext.at("parameters").at(index)
             paramContext.check(name = "name", value = value, isValid = { !it.name.equals(AUTHORIZATION, ignoreCase = true) })
                 .violation { OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED }
-                .message { "Found header parameter with same name as Bearer Authorization security scheme" }
+                .message {
+                    "The header/query param named \"$AUTHORIZATION\" for security scheme named \"$schemeName\" was explicitly re-defined as a parameter. The parameter will be ignored, and should be removed."
+                }
                 .orUse { value }
                 .build(isWarning = true)
         }

@@ -43,9 +43,8 @@ class StringConstraintsTest {
 
         assertThat(result.first).isEqualTo(FOUR_MB)
         assertThat(result.second).isTrue()
-        assertThat(errors).contains("The maxLength of $tooLarge for Example.field is very large")
-        assertThat(errors).contains("more reasonable maxLength of 4MB")
-        assertThat(errors).contains("Boundary testing will not be done")
+        assertThat(errors).contains("A length of $tooLarge is impractical.")
+        assertThat(errors).contains("Limiting the maxLength for now to the more practical 4MB")
     }
 
     @Test
@@ -65,9 +64,9 @@ class StringConstraintsTest {
         assertThat(constraints.resolvedMinLength).isEqualTo(FOUR_MB)
         assertThat(constraints.downsampledMin).isTrue()
 
-        assertThat(errors).contains("maxLength of $tooLarge for User.name")
-        assertThat(errors).contains("minLength of $tooLarge for User.name")
-        assertThat(errors).contains("4MB")
+        assertThat(errors).contains("A length of $tooLarge is impractical.")
+        assertThat(errors).contains("Limiting the maxLength for now to the more practical 4MB")
+        assertThat(errors).contains("Limiting the minLength for now to the more practical 4MB")
     }
 
     @Test
@@ -81,7 +80,7 @@ class StringConstraintsTest {
 
         assertThat(constraints.resolvedMaxLength).isEqualTo(FOUR_MB)
         assertThat(constraints.downsampledMax).isTrue()
-        assertThat(errors).contains("for schema MyPattern")
+        assertThat(errors).contains("Limiting the maxLength for now to the more practical 4MB")
         assertThat(errors).doesNotContain("ignored.breadcrumb")
     }
 
@@ -114,4 +113,3 @@ class StringConstraintsTest {
         assertThat(output).isBlank()
     }
 }
-
