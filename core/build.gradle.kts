@@ -33,12 +33,12 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.9.25")
     implementation("org.eclipse.jgit:org.eclipse.jgit:7.4.0.202509020913-r")
     implementation("org.eclipse.jgit:org.eclipse.jgit.ssh.apache:7.4.0.202509020913-r")
-    implementation("com.fasterxml.jackson.core:jackson-core:2.20.1")
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.20.1")
+    implementation("com.fasterxml.jackson.core:jackson-core:2.21.0")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.21.0")
 
     implementation("com.flipkart.zjsonpatch:zjsonpatch:0.4.16")
 
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.20.1")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.21.0")
 
     implementation("io.swagger.parser.v3:swagger-parser:2.1.36")
 
