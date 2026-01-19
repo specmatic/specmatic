@@ -322,9 +322,7 @@ paths:
         }
             .isInstanceOf(ContractException::class.java)
             .satisfies( {
-                assertThat(exceptionCauseMessage(it)).contains(
-                    "The element referred to at this path was not found in the spec. Please add the missing header/schema/etc named \"HelloResponseHeader\"."
-                )
+                assertThat(exceptionCauseMessage(it)).contains("The element referred to at this path was not found in the spec. Please add the missing header named \"HelloResponseHeader\"")
             })
     }
 

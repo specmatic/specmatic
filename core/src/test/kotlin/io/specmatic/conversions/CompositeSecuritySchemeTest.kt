@@ -13,13 +13,13 @@ import org.junit.jupiter.api.Test
 class CompositeSecuritySchemeTest {
 
     private val securityScheme = CompositeSecurityScheme(listOf(
-        BearerSecurityScheme(configuredToken = "API-SECRET"),
-        APIKeyInQueryParamSecurityScheme(name = "apiKey", apiKey = null)
+        BearerSecurityScheme(configuredToken = "API-SECRET", schemeName = "BearerScheme"),
+        APIKeyInQueryParamSecurityScheme(name = "apiKey", apiKey = null, schemeName = "ApikeyQueryScheme")
     ))
 
     private val securitySchemeWithToken = CompositeSecurityScheme(listOf(
-        BearerSecurityScheme(configuredToken = "API-SECRET"),
-        APIKeyInQueryParamSecurityScheme(name = "apiKey", apiKey = "1234")
+        BearerSecurityScheme(configuredToken = "API-SECRET", schemeName = "BearerScheme"),
+        APIKeyInQueryParamSecurityScheme(name = "apiKey", apiKey = "1234", schemeName = "ApikeyQueryScheme")
     ))
 
     @Test

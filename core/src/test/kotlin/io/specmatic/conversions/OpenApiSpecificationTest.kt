@@ -7297,9 +7297,7 @@ paths:
         }.satisfies(
             {
                 println(exceptionCauseMessage(it))
-                assertThat(exceptionCauseMessage(it)).contains(
-                    "\"name\" is mandatory for parameters, but it was missing. It will be ignored by Specmatic. Please add a name, or remove the parameter."
-                )
+                assertThat(exceptionCauseMessage(it)).contains("\"name\" is mandatory for parameters, but it was missing. It will be ignored by Specmatic. Please add a name, or remove the parameter.")
             }
         )
     }
@@ -10614,7 +10612,7 @@ paths:
         assertThat(output).containsIgnoringWhitespaces(
             toViolationReportString(
                 breadCrumb = "paths./products.post.parameters[0]",
-                details = "Content-Type was declared in the spec, and will be ignored. Please remove it.",
+                details = "Media type \"application/json\" does not match the respective Content-Type header. Using the Content-Type header as an override",
                 OpenApiLintViolations.MEDIA_TYPE_OVERRIDDEN
             )
         )
@@ -11207,9 +11205,7 @@ paths:
             APIKeyInQueryParamSecurityScheme(name = "apiKey", apiKey = "1234", schemeName = "apiKeyQuery")
         ))
 
-        assertThat(insecure.httpRequestPattern.securitySchemes).isEqualTo(listOf(
-            NoSecurityScheme()
-        ))
+        assertThat(insecure.httpRequestPattern.securitySchemes).isEqualTo(listOf(NoSecurityScheme()))
     }
 
     @Test

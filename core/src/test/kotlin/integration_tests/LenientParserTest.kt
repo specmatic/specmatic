@@ -148,7 +148,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test/{id}.get.parameters[0]") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toMatchText("Parameter has no schema defined, defaulting to empty schema")
@@ -226,7 +226,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.parameters[0]") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toMatchText("Parameter has no schema defined, defaulting to empty schema")
@@ -299,7 +299,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.parameters[0].schema") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toMatchText("Array Parameter has no items schema defined, defaulting to empty schema")
@@ -402,7 +402,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.parameters[0]") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toMatchText("Parameter has no schema defined, defaulting to empty schema")
@@ -423,7 +423,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.parameters[0].schema") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toMatchText("Array Parameter has no items schema defined, defaulting to empty schema")
@@ -743,7 +743,7 @@ class LenientParserTest {
                     }
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.post.requestBody.\$ref") {
-                        toMatchText("The element referred to at this path was not found in the spec. Please add the missing header/schema/etc named \"RefedOutBody\".")
+                        toContainText("Please add the missing requestBody named \"RefedOutBody\"")
                         toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
                     }
                 },
@@ -858,7 +858,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
                     assert("paths./test.post.requestBody.content.application/json") {
                         toHaveSeverity(IssueSeverity.WARNING)
-                        toMatchText("No schema property defined under mediaType application/json, defaulting to free-form object")
+                        toMatchText("No schema property defined under mediaType application/json, defaulting to free-form object.")
                     }
                 },
 
@@ -1396,7 +1396,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.responses.200.\$ref") {
                         toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
-                        toMatchText("The element referred to at this path was not found in the spec. Please add the missing header/schema/etc named \"MissingResponse\".")
+                        toContainText("Please add the missing response named \"MissingResponse\"")
                     }
                 },
                 multiVersionLenientCase(name = "media type has no schema", *OpenApiVersion.allVersions()) {
@@ -1416,7 +1416,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
                     assert("paths./test.get.responses.200.content.application/json") {
                         toHaveSeverity(IssueSeverity.WARNING)
-                        toMatchText(" No schema property defined under mediaType application/json, defaulting to free-form object")
+                        toMatchText(" No schema property defined under mediaType application/json, defaulting to free-form object.")
                     }
                 },
                 multiVersionLenientCase(name = "schema has issue", *OpenApiVersion.allVersions()) {
@@ -1887,7 +1887,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.responses.200.content.application/json.schema.pattern") {
                         toContainViolation(SchemaLintViolations.PATTERN_LENGTH_INCOMPATIBLE)
-                        toContainText("The regex pattern \"a{1,3}\" is incompatible with minLength 5. Either remove minLength, or ensure that it is less than or equal to the shortest possible regex.")
+                        toContainText("The regex pattern \"a{1,3}\" is incompatible with minLength 5")
                     }
                 },
                 multiVersionLenientCase(name = "ref string regex longer than maxLength", *OpenApiVersion.allVersions()) {
@@ -1918,7 +1918,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("components.schemas.TooLongString.pattern") {
                         toContainViolation(SchemaLintViolations.PATTERN_LENGTH_INCOMPATIBLE)
-                        toContainText("The regex pattern \"a{10,20}\" is incompatible with maxLength 4. Either remove maxLength, or ensure that it is greater than the largest possible regex.")
+                        toContainText("The regex pattern \"a{10,20}\" is incompatible with maxLength 4")
                     }
                 },
             ).flatten().stream()
@@ -3120,7 +3120,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
                     assert("paths./test.get.responses.200.content.application/json.schema.discriminator.mapping.X") {
                         toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
-                        toContainText("The element referred to at this path was not found in the spec. Please add the missing header/schema/etc named \"NoSuchSchema\".")
+                        toContainText("Please add the missing schema named \"NoSuchSchema\"")
                     }
                 },
                 multiVersionLenientCase(name = "oneOf discriminator mapping has invalid ref", *OpenApiVersion.allVersions()) {
@@ -3151,7 +3151,7 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1);totalViolations(1) }
                     assert("paths./test.get.responses.200.content.application/json.schema.discriminator.mapping.X") {
                         toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
-                        toContainText("The element referred to at this path was not found in the spec. Please add the missing header/schema/etc named \"NoSuchSchema\".")
+                        toContainText("Please add the missing schema named \"NoSuchSchema\"")
                     }
                 },
                 multiVersionLenientCase(name = "deep allOf discriminator mapping has invalid ref", *OpenApiVersion.allVersions()) {
@@ -3184,11 +3184,11 @@ class LenientParserTest {
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(2);totalViolations(2) }
                     assert("components.schemas.Inner.discriminator.mapping.BAD") {
                         toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
-                        toContainText("The element referred to at this path was not found in the spec. Please add the missing header/schema/etc named \"MissingAllOf\".")
+                        toContainText("Please add the missing schema named \"MissingAllOf\"")
                     }
                     assert("components.schemas.Inner.\$ref") {
                         toContainViolation(OpenApiLintViolations.UNRESOLVED_REFERENCE)
-                        toContainText("The element referred to at this path was not found in the spec. Please add the missing header/schema/etc named \"MissingAllOf\".")
+                        toContainText("Please add the missing schema named \"MissingAllOf\".")
                     }
                 }
             ).flatten().stream()

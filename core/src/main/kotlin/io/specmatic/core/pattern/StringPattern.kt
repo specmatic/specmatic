@@ -183,10 +183,10 @@ data class StringPattern (
                     name = "maxLength",
                     value = it,
                     minimum = effectiveMinLength ?: 0,
+                    ruleViolation = SchemaLintViolations.INVALID_MAX_LENGTH,
                     message = { current, minimum ->
                         "maxLength $current should have been greater than minLength $minimum. Please make sure that maxLength and minLength are not in conflict."
                     },
-                    ruleViolation = SchemaLintViolations.INVALID_MAX_LENGTH
                 )
             }
 
@@ -197,13 +197,13 @@ data class StringPattern (
 
             val effectiveRegex: String? = regexSpec?.let {
                 val regexMatchesMinLength = collectorContext.at("pattern").attempt(
-                    message = "The regex pattern \"$regex\" is incompatible with minLength $effectiveMinLength. Either remove minLength, or ensure that it is less than or equal to the shortest possible regex.",
+                    message = "The regex pattern \"$regex\" is incompatible with minLength $effectiveMinLength because its longest possible value is shorter than minLength. Drop minLength or fix the pattern.",
                     ruleViolation = SchemaLintViolations.PATTERN_LENGTH_INCOMPATIBLE,
                     block = { regexSpec.validateMinLength(effectiveMinLength) }
                 )
 
                 val regexMatchesMaxLength = collectorContext.at("pattern").attempt(
-                    message = "The regex pattern \"$regex\" is incompatible with maxLength $effectiveMaxLength. Either remove maxLength, or ensure that it is greater than the largest possible regex.",
+                    message = "The regex pattern \"$regex\" is incompatible with maxLength $effectiveMaxLength because its shortest possible value is greater than maxLength. Drop maxLength or fix the pattern.",
                     ruleViolation = SchemaLintViolations.PATTERN_LENGTH_INCOMPATIBLE,
                     block = { regexSpec.validateMaxLength(effectiveMaxLength) },
                 )

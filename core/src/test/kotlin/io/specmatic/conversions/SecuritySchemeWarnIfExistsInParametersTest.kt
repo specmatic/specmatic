@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test
 class SecuritySchemeWarnIfExistsInParametersTest {
     @Test
     fun `APIKeyInHeaderSecurityScheme should collect error if header param exists`() {
-        val scheme = APIKeyInHeaderSecurityScheme("X-API-KEY", null)
+        val scheme = APIKeyInHeaderSecurityScheme("X-API-KEY", null, schemeName = "ApikeyQueryScheme")
         val context = CollectorContext()
         val parameters = listOf(
             IndexedValue(index = 0, value = HeaderParameter().apply { name = "X-API-KEY" }),
@@ -25,7 +25,7 @@ class SecuritySchemeWarnIfExistsInParametersTest {
         assertThat(context.toCollector().toResult().reportString()).isEqualToIgnoringWhitespace(
             toViolationReportString(
                 breadCrumb = "parameters[0].name",
-                details = "The header/query param named \"X-API-KEY\" for security scheme named \"X-API-KEY\" was explicitly re-defined as a parameter. The parameter will be ignored, and should be removed.",
+                details = "The header parameter named \"X-API-KEY\" for api-key security scheme named \"ApikeyQueryScheme\" was explicitly re-defined as a parameter. The parameter should be removed.",
                 OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
             )
         )
@@ -33,7 +33,7 @@ class SecuritySchemeWarnIfExistsInParametersTest {
 
     @Test
     fun `APIKeyInQueryParamSecurityScheme should print warning if query param exists`() {
-        val scheme = APIKeyInQueryParamSecurityScheme("apiKey", null)
+        val scheme = APIKeyInQueryParamSecurityScheme("apiKey", null, schemeName = "ApikeyQueryScheme")
         val context = CollectorContext()
         val parameters = listOf(
             IndexedValue(index = 0, value = HeaderParameter().apply { name = "X-API-KEY" }),
@@ -45,7 +45,7 @@ class SecuritySchemeWarnIfExistsInParametersTest {
         assertThat(context.toCollector().toResult().reportString()).isEqualToIgnoringWhitespace(
             toViolationReportString(
                 breadCrumb = "parameters[1].name",
-                details = "The header/query param named \"apiKey\" for security scheme named \"apiKey\" was explicitly re-defined as a parameter. The parameter will be ignored, and should be removed.",
+                details = "The query parameter named \"apiKey\" for api-key security scheme named \"ApikeyQueryScheme\" was explicitly re-defined as a parameter. The parameter should be removed.",
                 OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
             )
         )
@@ -53,7 +53,7 @@ class SecuritySchemeWarnIfExistsInParametersTest {
 
     @Test
     fun `BasicAuthSecurityScheme should print warning if Authorization header param exists`() {
-        val scheme = BasicAuthSecurityScheme()
+        val scheme = BasicAuthSecurityScheme(schemeName = "ApikeyQueryScheme")
         val context = CollectorContext()
         val parameters = listOf(
             IndexedValue(index = 0, value = HeaderParameter().apply { name = AUTHORIZATION }),
@@ -66,7 +66,7 @@ class SecuritySchemeWarnIfExistsInParametersTest {
         assertThat(context.toCollector().toResult().reportString()).isEqualToIgnoringWhitespace(
             toViolationReportString(
                 breadCrumb = "parameters[0].name",
-                details = "The header/query param named \"Authorization\" for security scheme named \"basic\" was explicitly re-defined as a parameter. The parameter will be ignored, and should be removed.",
+                details = "The header parameter named \"Authorization\" for api-key security scheme named \"ApikeyQueryScheme\" was explicitly re-defined as a parameter. The parameter should be removed.",
                 OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
             )
         )
@@ -74,7 +74,7 @@ class SecuritySchemeWarnIfExistsInParametersTest {
 
     @Test
     fun `BearerSecurityScheme should print warning if Authorization header param exists`() {
-        val scheme = BearerSecurityScheme()
+        val scheme = BearerSecurityScheme(schemeName = "BearerScheme")
         val context = CollectorContext()
         val parameters = listOf(
             IndexedValue(index = 0, value = HeaderParameter().apply { name = AUTHORIZATION }),
@@ -87,7 +87,7 @@ class SecuritySchemeWarnIfExistsInParametersTest {
         assertThat(context.toCollector().toResult().reportString()).isEqualToIgnoringWhitespace(
             toViolationReportString(
                 breadCrumb = "parameters[0].name",
-                details = "The header/query param named \"Authorization\" for security scheme named \"bearer\" was explicitly re-defined as a parameter. The parameter will be ignored, and should be removed.",
+                details = "The header parameter named \"Authorization\" for api-key security scheme named \"BearerScheme\" was explicitly re-defined as a parameter. The parameter should be removed.",
                 OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
             )
         )
@@ -95,8 +95,8 @@ class SecuritySchemeWarnIfExistsInParametersTest {
 
     @Test
     fun `CompositeSecurityScheme should print warnings for all child schemes`() {
-        val headerScheme = APIKeyInHeaderSecurityScheme("X-API-KEY", null)
-        val bearerScheme = BearerSecurityScheme()
+        val headerScheme = APIKeyInHeaderSecurityScheme("X-API-KEY", null, schemeName = "ApikeyHeaderScheme")
+        val bearerScheme = BearerSecurityScheme(schemeName = "BearerScheme")
         val composite = CompositeSecurityScheme(listOf(headerScheme, bearerScheme))
         val context = CollectorContext()
         val parameters = listOf(
@@ -111,14 +111,14 @@ class SecuritySchemeWarnIfExistsInParametersTest {
         ${
             toViolationReportString(
                 breadCrumb = "parameters[1].name",
-                details = "The header/query param named \"X-API-KEY\" for security scheme named \"X-API-KEY\" was explicitly re-defined as a parameter. The parameter will be ignored, and should be removed.",
+                details = "The header parameter named \"X-API-KEY\" for api-key security scheme named \"ApikeyHeaderScheme\" was explicitly re-defined as a parameter. The parameter should be removed.",
                 OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "parameters[0].name",
-                details = "The header/query param named \"Authorization\" for security scheme named \"bearer\" was explicitly re-defined as a parameter. The parameter will be ignored, and should be removed.",
+                details = "The header parameter named \"Authorization\" for api-key security scheme named \"BearerScheme\" was explicitly re-defined as a parameter. The parameter should be removed.",
                 OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
             )
         }
@@ -127,7 +127,7 @@ class SecuritySchemeWarnIfExistsInParametersTest {
 
     @Test
     fun `no warning if header security scheme and query param have same name`() {
-        val scheme = APIKeyInHeaderSecurityScheme("X-API-KEY", null)
+        val scheme = APIKeyInHeaderSecurityScheme("X-API-KEY", null, schemeName = "ApikeyHeaderScheme")
         val context = CollectorContext()
         val parameters = listOf(IndexedValue(index = 2, value = QueryParameter().apply { name = "X-API-KEY" }))
 
@@ -156,10 +156,10 @@ class SecuritySchemeWarnIfExistsInParametersTest {
         val context = CollectorContext()
         val parameters = emptyList<IndexedValue<Parameter>>()
         val composite = CompositeSecurityScheme(listOf(
-            APIKeyInHeaderSecurityScheme("X-API-KEY", null),
-            APIKeyInQueryParamSecurityScheme("api_key", null),
-            BearerSecurityScheme(),
-            BasicAuthSecurityScheme()
+            APIKeyInHeaderSecurityScheme("X-API-KEY", null, schemeName = "ApikeyHeaderScheme"),
+            APIKeyInQueryParamSecurityScheme("api_key", null, schemeName = "ApikeyQueryScheme"),
+            BearerSecurityScheme(schemeName = "BearerScheme"),
+            BasicAuthSecurityScheme(schemeName = "BasicScheme")
         ))
 
         composite.collectErrorIfExistsInParameters(parameters, context)
@@ -170,10 +170,10 @@ class SecuritySchemeWarnIfExistsInParametersTest {
     @Test
     fun `no warning if there are security schemes and parameters but no naming collisions`() {
         val composite = CompositeSecurityScheme(listOf(
-            APIKeyInHeaderSecurityScheme("X-API-KEY", null),
-            APIKeyInQueryParamSecurityScheme("api_key", null),
-            BearerSecurityScheme(),
-            BasicAuthSecurityScheme()
+            APIKeyInHeaderSecurityScheme("X-API-KEY", null, schemeName = "ApikeyHeaderScheme"),
+            APIKeyInQueryParamSecurityScheme("api_key", null, schemeName = "ApikeyQueryScheme"),
+            BearerSecurityScheme(schemeName = "BearerScheme"),
+            BasicAuthSecurityScheme(schemeName = "BasicScheme")
         ))
 
         val context = CollectorContext()

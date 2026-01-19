@@ -11,7 +11,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 
 class BearerSecuritySchemeTest {
-    private val scheme = BearerSecurityScheme()
+    private val scheme = BearerSecurityScheme(schemeName = "TEST")
 
     @Test
     fun `authentication header starts with Bearer when using Bearer security scheme`() {
@@ -53,14 +53,14 @@ class BearerSecuritySchemeTest {
 
     @Test
     fun `adds authorization header with the token to request when request does not contain authorization header`() {
-        val updatedHttpRequest = BearerSecurityScheme("abcd1234").addTo(HttpRequest())
+        val updatedHttpRequest = BearerSecurityScheme("abcd1234", schemeName = "BearerSchme").addTo(HttpRequest())
         assertThat(updatedHttpRequest.headers[AUTHORIZATION]).isEqualTo("Bearer abcd1234")
     }
 
     @ParameterizedTest
     @ValueSource(strings = [AUTHORIZATION, "authorization", "AUTHORIZATION"])
     fun `replaces existing authorization header with any case with a new authorization header along with set token`(authorizationHeaderName: String) {
-        val updatedHttpRequest = BearerSecurityScheme("abcd1234").addTo(HttpRequest(
+        val updatedHttpRequest = BearerSecurityScheme("abcd1234", schemeName = "BearerSchme").addTo(HttpRequest(
             headers = mapOf(authorizationHeaderName to "Bearer efgh5678")
         ))
         assertThat(updatedHttpRequest.headers[AUTHORIZATION]).isEqualTo("Bearer abcd1234")
@@ -76,7 +76,7 @@ class BearerSecuritySchemeTest {
     fun `should not result in failure when authorization header is missing and resolver is in mock mode`() {
         val httpRequest = HttpRequest(headers = emptyMap())
         val resolver = Resolver(mockMode = true)
-        val result = BearerSecurityScheme("abcd1234").matches(httpRequest, resolver)
+        val result = BearerSecurityScheme("abcd1234", schemeName = "BearerSchme").matches(httpRequest, resolver)
 
         assertThat(result).isInstanceOf(Result.Success::class.java)
     }

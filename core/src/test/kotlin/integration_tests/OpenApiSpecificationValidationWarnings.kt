@@ -38,7 +38,7 @@ class OpenApiSpecificationValidationWarnings {
 
         assertThat(stdout).containsIgnoringWhitespaces("""
         >> paths./test.get.responses.200.content.application/json
-        No schema property defined under mediaType application/json, defaulting to free-form object
+        No schema property defined under mediaType application/json, defaulting to free-form object.
         """.trimIndent())
     }
 
@@ -70,7 +70,7 @@ class OpenApiSpecificationValidationWarnings {
 
         assertThat(output).containsIgnoringWhitespaces("""
         >> paths./api/nocontent.post.requestBody.content.application/json
-        No schema property defined under mediaType application/json, defaulting to free-form object
+        No schema property defined under mediaType application/json, defaulting to free-form object.
         """.trimIndent())
     }
 
@@ -109,7 +109,7 @@ class OpenApiSpecificationValidationWarnings {
 
         assertThat(output).containsIgnoringWhitespaces("""
         >> paths./api/nocontent.post.responses.200.content.text/plain
-        No schema property defined under mediaType text/plain, defaulting to string
+        No schema property defined under mediaType text/plain, defaulting to string.
         """.trimIndent())
     }
 
@@ -238,13 +238,13 @@ class OpenApiSpecificationValidationWarnings {
         ${
             toViolationReportString(
                 breadCrumb = "paths./users.post.responses.200.content.application/json",
-                details = "No schema property defined under mediaType application/json, defaulting to free-form object"
+                details = "No schema property defined under mediaType application/json, defaulting to free-form object."
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "paths./users.post.parameters[0].name",
-                details = "The header/query param named \"Authorization\" for security scheme named \"bearerAuth\" was explicitly re-defined as a parameter. The parameter will be ignored, and should be removed.",
+                details = "The header parameter named \"Authorization\" for api-key security scheme named \"bearerAuth\" was explicitly re-defined as a parameter. The parameter should be removed.",
                 OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
             )
         }

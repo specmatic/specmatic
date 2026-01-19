@@ -891,9 +891,9 @@ internal class HttpRequestPatternTest {
     companion object {
         @JvmStatic
         fun headersBasedSecuritySchemesProvider(): Stream<OpenAPISecurityScheme> = Stream.of(
-            APIKeyInHeaderSecurityScheme(AUTHORIZATION, "1234"),
-            BasicAuthSecurityScheme("1234"),
-            BearerSecurityScheme("1234"),
+            APIKeyInHeaderSecurityScheme(AUTHORIZATION, "1234", schemeName = "BasicScheme"),
+            BasicAuthSecurityScheme("1234", schemeName = "BearerScheme"),
+            BearerSecurityScheme("1234", schemeName = "BearerScheme"),
         )
     }
 }
