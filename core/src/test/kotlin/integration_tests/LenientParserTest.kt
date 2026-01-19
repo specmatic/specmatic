@@ -1108,7 +1108,7 @@ class LenientParserTest {
                     assert("paths./test.post.parameters[0]") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.MEDIA_TYPE_OVERRIDDEN)
-                        toMatchText("The Media Type must not be overridden in the parameters as per the OAS standards")
+                        toMatchText("Content-Type should not be declared as a header per OAS standards")
                     }
                 },
                 multiVersionLenientCase(name = "media type is overriden in request case insensitive", *OpenApiVersion.allVersions()) {
@@ -1137,7 +1137,7 @@ class LenientParserTest {
                     assert("paths./test.post.parameters[0]") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.MEDIA_TYPE_OVERRIDDEN)
-                        toMatchText("The Media Type must not be overridden in the parameters as per the OAS standards")
+                        toMatchText("Content-Type should not be declared as a header per OAS standards")
                     }
                 },
 
@@ -1162,7 +1162,7 @@ class LenientParserTest {
                     assert("paths./test.get.responses.200.headers.Content-Type") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.MEDIA_TYPE_OVERRIDDEN)
-                        toMatchText("The Media Type must not be overridden in the parameters as per the OAS standards")
+                        toMatchText("Content-Type should not be declared as a header per OAS standards")
                     }
                 },
                 multiVersionLenientCase(name = "media type is overriden in response case insensitive", *OpenApiVersion.allVersions()) {
@@ -1186,7 +1186,7 @@ class LenientParserTest {
                     assert("paths./test.get.responses.200.headers.CoNtEnT-TyPe") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.MEDIA_TYPE_OVERRIDDEN)
-                        toMatchText("The Media Type must not be overridden in the parameters as per the OAS standards")
+                        toMatchText("Content-Type should not be declared as a header per OAS standards")
                     }
                 },
                 multiVersionLenientCase(name = "media type is overriden in response ref", *OpenApiVersion.allVersions()) {
@@ -1215,7 +1215,7 @@ class LenientParserTest {
                     assert("components.headers.Content-Type-Ref") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.MEDIA_TYPE_OVERRIDDEN)
-                        toMatchText("The Media Type must not be overridden in the parameters as per the OAS standards")
+                        toMatchText("Content-Type should not be declared as a header per OAS standards")
                     }
                 }
             ).flatten().stream()

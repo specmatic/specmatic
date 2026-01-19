@@ -1380,7 +1380,7 @@ class OpenApiSpecification(
     }
 
     private fun getAndLogActualContentTypeHeader(contentTypeHeaderPattern: Pattern, contentType: String?, collectorContext: CollectorContext): String? {
-        val warning = "The Media Type must not be overridden in the parameters as per the OAS standards"
+        val warning = "Content-Type should not be declared as a header per OAS standards"
         collectorContext.record(warning, isWarning = true, ruleViolation = OpenApiLintViolations.MEDIA_TYPE_OVERRIDDEN)
 
         val concretePattern = resolvedHop(contentTypeHeaderPattern, Resolver(newPatterns = patterns))

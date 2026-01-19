@@ -10611,7 +10611,7 @@ paths:
 
         assertThat(output).containsIgnoringWhitespaces(
             toViolationReportString(
-                breadCrumb = "paths./products.post.requestBody.content.application/json",
+                breadCrumb = "paths./products.post.parameters[0]",
                 details = "Media type \"application/json\" does not match the respective Content-Type header. Using the Content-Type header as an override",
                 OpenApiLintViolations.MEDIA_TYPE_OVERRIDDEN
             )
