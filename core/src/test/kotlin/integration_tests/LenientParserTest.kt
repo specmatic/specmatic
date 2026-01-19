@@ -128,7 +128,7 @@ class LenientParserTest {
                         }
                     }
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
-                    assert("paths./test/{id}.get.parameters[-1]") {
+                    assert("paths./test/{id}.get.parameters") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toContainViolation(OpenApiLintViolations.PATH_PARAMETER_MISSING)
                         toMatchText("The path parameter named \"id\" was declared, but no path parameter definition for \"id\" was found. Please add a definition for \"id\" to the spec.")
@@ -1950,7 +1950,7 @@ class LenientParserTest {
                         }
                     }
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
-                    assert("paths./test.get.responses.200.content.application/json.schema.enum[-1]") {
+                    assert("paths./test.get.responses.200.content.application/json.schema.enum") {
                         toContainViolation(SchemaLintViolations.CONFLICTING_CONSTRAINTS)
                         toContainText("Enum values must contain null if the enum is marked nullable")
                     }
@@ -1975,7 +1975,7 @@ class LenientParserTest {
                         }
                     }
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
-                    assert("paths./test.get.responses.200.content.application/json.schema.enum[-1]") {
+                    assert("paths./test.get.responses.200.content.application/json.schema.enum") {
                         toContainViolation(SchemaLintViolations.CONFLICTING_CONSTRAINTS)
                         toContainText("Enum values must contain null if the enum is marked nullable")
                     }

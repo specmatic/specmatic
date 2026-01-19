@@ -7,7 +7,6 @@ import io.specmatic.core.jsonoperator.PathSegment
 import io.specmatic.core.value.toBigDecimal
 import io.specmatic.test.asserts.toFailure
 
-const val DEFAULT_ARRAY_INDEX = -1
 data class CollectorContext(private val collector: DiagnosticCollector = DiagnosticCollector(), private val pathSegments: List<PathSegment> = emptyList()) {
     val path: String? = pathSegments.joinToString(".", transform = PathSegment::internalPointerRepresentation).takeUnless(String::isBlank)
     val hasPath: Boolean = path != null

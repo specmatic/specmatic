@@ -156,7 +156,13 @@ data class EnumPattern(override val pattern: AnyPattern, val nullable: Boolean) 
 
             val distinctValues = values.distinct()
             val indexOfNullValue = distinctValues.indexOfFirst { it is NullValue }
-            return collectorContext.at("enum").at(indexOfNullValue).check(
+            val nullValueContext = if (indexOfNullValue != -1) {
+                collectorContext.at("enum").at(indexOfNullValue)
+            } else {
+                collectorContext.at("enum")
+            }
+
+            return nullValueContext.check(
                 value = Pair(distinctValues, isNullable),
                 isValid = {
                     when {
