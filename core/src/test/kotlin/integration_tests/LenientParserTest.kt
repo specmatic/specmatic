@@ -1081,6 +1081,142 @@ class LenientParserTest {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
                     }
+                },
+
+                multiVersionLenientCase(name = "media type is overriden in request", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("post") {
+                                    parameter {
+                                        parameter {
+                                            put("name", "Content-Type")
+                                            put("in", "header")
+                                            put("schema", mapOf("type" to "string"))
+                                        }
+                                    }
+                                    requestBody {
+                                        content {
+                                            mediaType("application/json") { schema {} }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.post.parameters[0]") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.MEDIA_TYPE_OVERRIDDEN)
+                        toMatchText("The Media Type must not be overridden in the parameters as per the OAS standards")
+                    }
+                },
+                multiVersionLenientCase(name = "media type is overriden in request case insensitive", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("post") {
+                                    parameter {
+                                        parameter {
+                                            put("name", "CoNtEnT-TyPe")
+                                            put("in", "header")
+                                            put("schema", mapOf("type" to "string"))
+                                            put("required", true)
+                                        }
+                                    }
+                                    requestBody {
+                                        content {
+                                            mediaType("application/json") { schema {} }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.post.parameters[0]") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.MEDIA_TYPE_OVERRIDDEN)
+                        toMatchText("The Media Type must not be overridden in the parameters as per the OAS standards")
+                    }
+                },
+
+                multiVersionLenientCase(name = "media type is overriden in response", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response("200") {
+                                        content {
+                                            mediaType("application/json") { schema {} }
+                                        }
+                                        header("Content-Type") {
+                                            put("schema", mapOf("type" to "string"))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.get.responses.200.headers.Content-Type") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.MEDIA_TYPE_OVERRIDDEN)
+                        toMatchText("The Media Type must not be overridden in the parameters as per the OAS standards")
+                    }
+                },
+                multiVersionLenientCase(name = "media type is overriden in response case insensitive", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response("200") {
+                                        content {
+                                            mediaType("application/json") { schema {} }
+                                        }
+                                        header("CoNtEnT-TyPe") {
+                                            put("schema", mapOf("type" to "string"))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.get.responses.200.headers.CoNtEnT-TyPe") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.MEDIA_TYPE_OVERRIDDEN)
+                        toMatchText("The Media Type must not be overridden in the parameters as per the OAS standards")
+                    }
+                },
+                multiVersionLenientCase(name = "media type is overriden in response ref", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response("200") {
+                                        content {
+                                            mediaType("application/json") { schema {} }
+                                        }
+                                        headerRef("Content-Type", "Content-Type-Ref")
+                                    }
+                                }
+                            }
+                            components {
+                                headers {
+                                    header("Content-Type-Ref") {
+                                        put("schema", mapOf("type" to "string"))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.headers.Content-Type-Ref") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.MEDIA_TYPE_OVERRIDDEN)
+                        toMatchText("The Media Type must not be overridden in the parameters as per the OAS standards")
+                    }
                 }
             ).flatten().stream()
         }

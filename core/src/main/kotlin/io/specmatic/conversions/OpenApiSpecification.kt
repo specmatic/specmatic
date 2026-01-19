@@ -1047,14 +1047,17 @@ class OpenApiSpecification(
         }.flatten()
     }
 
-    private fun openAPIHeadersToSpecmatic(response: ApiResponse, collectorContext: CollectorContext): Map<String, Pattern> {
+    private fun openAPIHeadersToSpecmatic(response: ApiResponse, collectorContext: CollectorContext): Map<String, Pair<Pattern, CollectorContext>> {
         val headersContext = collectorContext.at("headers")
         return response.headers.orEmpty().map { (headerName, header) ->
             logger.debug("Processing response header $headerName")
             val parameterInternalName = toSpecmaticParamName(header.required != true, headerName)
             val (resolvedHeader, context) = resolveResponseHeader(header, headersContext.at(headerName))
             val headerToProcess = context.requirePojo(message = { "No schema defined, defaulting to empty schema" }, extract = { resolvedHeader.schema }, createDefault = { Schema<Any>() })
-            parameterInternalName to toSpecmaticPattern(schema = headerToProcess, typeStack = emptyList(), collectorContext = context.at("schema"))
+            parameterInternalName to Pair(
+                first = toSpecmaticPattern(schema = headerToProcess, typeStack = emptyList(), collectorContext = context.at("schema")),
+                second = context
+            )
         }.toMap()
     }
 
@@ -1103,7 +1106,7 @@ class OpenApiSpecification(
         )
     }
 
-    private fun openAPIResponseToSpecmatic(response: ApiResponse, status: String, headersMap: Map<String, Pattern>, collectorContext: CollectorContext): List<ResponsePatternData> {
+    private fun openAPIResponseToSpecmatic(response: ApiResponse, status: String, headersMap: Map<String, Pair<Pattern, CollectorContext>>, collectorContext: CollectorContext): List<ResponsePatternData> {
         val headerExamples =
             if (specmaticConfig.getIgnoreInlineExamples() || getBooleanValue(Flags.IGNORE_INLINE_EXAMPLES))
                 emptyMap()
@@ -1115,7 +1118,7 @@ class OpenApiSpecification(
         if (response.content == null || response.content.isEmpty()) {
             val responsePattern =
                 HttpResponsePattern(
-                    headersPattern = HttpHeadersPattern(headersMap),
+                    headersPattern = HttpHeadersPattern(headersMap.mapValues { it.value.first }),
                     body = NoBodyPattern,
                     status = status.toIntOrNull() ?: DEFAULT_RESPONSE_CODE,
                 )
@@ -1135,21 +1138,20 @@ class OpenApiSpecification(
             return listOf(ResponsePatternData(response, MediaType(), responsePattern, examples))
         }
 
-        // TODO: This needs to be case-insensitive
-        val contentTypeHeaderPattern = headersMap.entries.find { it.key.lowercase() in listOf("content-type", "content-type?") }?.value
+        val contentTypeHeader = headersMap.entries.find { it.key.lowercase() in listOf("content-type", "content-type?") }?.value
         val contentContext = collectorContext.at("content")
-
         return response.content.map { (contentType, mediaType) ->
             logger.debug("Processing response with content type $contentType")
             val mediaTypeContext = contentContext.at(contentType)
-            val actualContentType = if (contentTypeHeaderPattern != null) {
-                getAndLogActualContentTypeHeader(contentTypeHeaderPattern, contentType, mediaTypeContext) ?: contentType
+            val actualContentType = if (contentTypeHeader != null) {
+                val (pattern, context) = contentTypeHeader
+                getAndLogActualContentTypeHeader(pattern, contentType, context) ?: contentType
             } else {
                 contentType
             }
 
             val responsePattern = HttpResponsePattern(
-                headersPattern = HttpHeadersPattern(headersMap, contentType = contentType),
+                headersPattern = HttpHeadersPattern(headersMap.mapValues { it.value.first }, contentType = contentType),
                 status = if (status == "default") 1000 else status.toInt(),
                 body = when (contentType) {
                     "application/xml" -> toXMLPattern(mediaType, mediaTypeContext)
@@ -1244,15 +1246,14 @@ class OpenApiSpecification(
         val headersMap = parameters.safeFilter<HeaderParameter>(collectorContext).associate { (index, parameter) ->
             logger.debug("Processing request header ${parameter.name}")
             val headerParamScope = collectorContext.at("parameters").at(index)
-            toSpecmaticParamName(parameter.required != true, parameter.name) to toSpecmaticPattern(
-                schema = parameter.schema,
-                typeStack = emptyList(),
-                collectorContext = headerParamScope.at("schema")
+            toSpecmaticParamName(parameter.required != true, parameter.name) to Pair(
+                first = toSpecmaticPattern(schema = parameter.schema, typeStack = emptyList(), collectorContext = headerParamScope.at("schema")),
+                second = headerParamScope
             )
         }
 
-        val contentTypeHeaderPattern = headersMap.entries.find { it.key.lowercase() in listOf("content-type", "content-type?") }?.value
-        val headersPattern = HttpHeadersPattern(headersMap)
+        val contentTypeHeader = headersMap.entries.find { it.key.lowercase() in listOf("content-type", "content-type?") }?.value
+        val headersPattern = HttpHeadersPattern(headersMap.mapValues { it.value.first })
         val requestPattern = HttpRequestPattern(
             httpPathPattern = httpPathPattern,
             httpQueryParamPattern = httpQueryParamPattern,
@@ -1340,8 +1341,9 @@ class OpenApiSpecification(
                 )
 
                 else -> {
-                    val actualContentType = if(contentTypeHeaderPattern != null) {
-                        getAndLogActualContentTypeHeader(contentTypeHeaderPattern, contentType, mediaTypeContext) ?: contentType
+                    val actualContentType = if (contentTypeHeader != null) {
+                        val (pattern, context) = contentTypeHeader
+                        getAndLogActualContentTypeHeader(pattern, contentType, context) ?: contentType
                     } else {
                         contentType
                     }
@@ -1378,6 +1380,9 @@ class OpenApiSpecification(
     }
 
     private fun getAndLogActualContentTypeHeader(contentTypeHeaderPattern: Pattern, contentType: String?, collectorContext: CollectorContext): String? {
+        val warning = "The Media Type must not be overridden in the parameters as per the OAS standards"
+        collectorContext.record(warning, isWarning = true, ruleViolation = OpenApiLintViolations.MEDIA_TYPE_OVERRIDDEN)
+
         val concretePattern = resolvedHop(contentTypeHeaderPattern, Resolver(newPatterns = patterns))
         try {
             val generated1 = concretePattern.generate(Resolver()).toStringLiteral()
