@@ -1,0 +1,16 @@
+{
+    "http-request": {
+        "path": "/test",
+        "method": "GET"
+    },
+    "http-response": {
+        "status": 200,
+        "body": {
+            "id": "This-Should-Be-A-Number"
+        },
+        "status-text": "OK",
+        "headers": {
+            "Content-Type": "application/json"
+        }
+    }
+}

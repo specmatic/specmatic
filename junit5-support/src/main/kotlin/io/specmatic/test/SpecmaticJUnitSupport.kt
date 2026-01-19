@@ -610,8 +610,6 @@ open class SpecmaticJUnitSupport {
                 strictMode = strictMode,
                 lenientMode = settings.lenientMode
             ).copy(testVariables = config.variables, testBaseURLs = config.baseURLs)
-                .loadExternalisedExamples()
-                .also { it.validateExamplesOrException() }
 
         val suggestions = when {
             suggestionsPath.isNotEmpty() -> suggestionsFromFile(suggestionsPath)
@@ -664,17 +662,19 @@ open class SpecmaticJUnitSupport {
             )
         }.toList()
 
-        val tests: Sequence<ContractTest> = feature
+        val filteredFeature = feature
             .copy(scenarios = filteredScenarios.toList())
-            .also {
-                if (it.scenarios.isEmpty())
-                    logger.log("All scenarios were filtered out.")
-                else if (it.scenarios.size < feature.scenarios.size) {
-                    logger.debug("Selected scenarios:")
-                    it.scenarios.forEach { scenario -> logger.debug(scenario.testDescription().prependIndent("  ")) }
-                }
+            .loadExternalisedExamples()
+            .also { it.validateExamplesOrException() }
+
+        val tests: Sequence<ContractTest> = filteredFeature.also {
+            if (it.scenarios.isEmpty()) {
+                logger.log("All scenarios were filtered out.")
+            } else if (it.scenarios.size < feature.scenarios.size) {
+                logger.debug("Selected scenarios:")
+                it.scenarios.forEach { scenario -> logger.debug(scenario.testDescription().prependIndent("  ")) }
             }
-            .generateContractTests(suggestions, originalScenarios = feature.scenarios)
+        }.generateContractTests(suggestions, originalScenarios = feature.scenarios)
 
         return LoadedTestScenarios(tests, allEndpoints, filteredEndpoints)
     }

@@ -16,6 +16,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatCode
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
@@ -415,6 +416,18 @@ paths:
                 protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         )
+    }
+
+    @Test
+    fun `should load only example of scenarios which have been filtered`() {
+        val specFile = File("src/test/resources/invalid_example/openapi.yaml")
+        assertDoesNotThrow {
+            SpecmaticJUnitSupport().loadTestScenarios(
+                path = specFile.canonicalPath, suggestionsPath = "", suggestionsData = "",
+                config = TestConfig(emptyMap(), emptyMap()), filterName = null, filterNotName = null,
+                filter = ScenarioMetadataFilter.from("PATH='/test' && METHOD='post'")
+            )
+        }
     }
 
     @AfterEach

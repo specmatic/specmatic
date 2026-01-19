@@ -1,0 +1,36 @@
+openapi: 3.0.0
+info:
+  version: 1.0.0
+  title: Simple API
+paths:
+  /test:
+    get:
+      description: get request
+      responses:
+        '200':
+          description: get response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Body'
+    post:
+      description: post request
+      requestBody:
+        description: post to the endpoint
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Body'
+      responses:
+        '201':
+          description: post response
+components:
+  schemas:
+    Body:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: number
