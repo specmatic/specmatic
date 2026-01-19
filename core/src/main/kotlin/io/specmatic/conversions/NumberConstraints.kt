@@ -49,7 +49,7 @@ data class NumberConstraints(
                 name = "minLength",
                 value = it,
                 minimum = 1,
-                ruleViolation = SchemaLintViolations.INVALID_MIN_LENGTH,
+                ruleViolation = SchemaLintViolations.BAD_VALUE,
                 message = { current, minimum ->
                     "minLength should never be less than $minimum, but it is $current. Please use a positive minLength, or drop the constraint."
                 }
@@ -63,7 +63,7 @@ data class NumberConstraints(
                 name = "maxLength",
                 value = it,
                 minimum = effectiveMin ?: 1,
-                ruleViolation = SchemaLintViolations.INVALID_MAX_LENGTH,
+                ruleViolation = SchemaLintViolations.CONFLICTING_CONSTRAINTS,
                 message = { current, minimum ->
                     "maxLength $current should have been greater than minLength $minimum. Please make sure that maxLength and minLength are not in conflict."
                 },
@@ -82,7 +82,7 @@ data class NumberConstraints(
             name = realizedMaxSource, value = maximum,
             isValid = { effectiveMax >= effectiveMin }
         ).violation {
-            SchemaLintViolations.INVALID_NUMERIC_BOUNDS
+            SchemaLintViolations.CONFLICTING_CONSTRAINTS
         }.message {
             "$realizedMaxSource $effectiveMax should have been greater than $realizedMinSource $effectiveMin. Please make sure that $realizedMaxSource and $realizedMinSource are not in conflict."
         }.orUse {

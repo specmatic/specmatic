@@ -1,5 +1,6 @@
 package io.specmatic.core.pattern
 
+import io.specmatic.conversions.SchemaLintViolations
 import io.specmatic.conversions.lenient.CollectorContext
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
@@ -146,7 +147,10 @@ data class EnumPattern(override val pattern: AnyPattern, val nullable: Boolean) 
 
         private fun fixNullableMismatch(values: List<Value>, isNullable: Boolean, collectorContext: CollectorContext): Pair<List<Value>, Boolean> {
             if (!isNullable && values.all { it is NullValue }) {
-                collectorContext.at("enum").record("Only nullable enums can contain null, converting the enum to be nullable")
+                collectorContext.at("enum").record(
+                    message = "Only nullable enums can contain null, converting the enum to be nullable",
+                    ruleViolation = SchemaLintViolations.CONFLICTING_CONSTRAINTS
+                )
                 return Pair(values.distinct(), true)
             }
 
@@ -161,7 +165,7 @@ data class EnumPattern(override val pattern: AnyPattern, val nullable: Boolean) 
                         else -> true
                     }
                 }
-            ).message {
+            ).violation { SchemaLintViolations.CONFLICTING_CONSTRAINTS }.message {
                 if (isNullable) "Enum values must contain null if the enum is marked nullable, adding null value"
                 else "Enum values cannot contain null if the enum is not nullable, ignoring null value"
             }.orUse {
@@ -175,20 +179,21 @@ data class EnumPattern(override val pattern: AnyPattern, val nullable: Boolean) 
                 if (value is NullValue) return@mapNotNull value
                 val indexContext = collectorContext.at("enum").at(index)
                 indexContext.check<Value?>(value = value, isValid = { pattern.matches(it, Resolver()).isSuccess() })
-                    .message {
+                    .violation { SchemaLintViolations.BAD_VALUE }.message {
                         val successFullParse = runCatching { pattern.parse(value.toUnformattedString(), Resolver()) }.isSuccess
                         val defaultSuffix = if (successFullParse) "Converted to expected type" else "ignoring this value"
                         "Enum value ${value.displayableValue()} does not match the declared enum schema, $defaultSuffix"
-                    }
-                    .orUse {
+                    }.orUse {
                         runCatching { pattern.parse(value.toUnformattedString(), Resolver()) }.getOrNull()
-                    }
-                    .build()
+                    }.build()
             }
 
             return when {
                 validValues.isEmpty() || validValues.all { it is NullValue } -> {
-                    collectorContext.record("No enum value matches the declared schema. Retaining all values and treating enum as multi-type")
+                    collectorContext.record(
+                        message = "No enum value matches the declared schema. Retaining all values and treating enum as multi-type",
+                        ruleViolation = SchemaLintViolations.BAD_VALUE,
+                    )
                     values to true
                 }
                 validValues.size < values.size -> validValues to false

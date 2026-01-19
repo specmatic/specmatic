@@ -11,6 +11,7 @@ import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.pattern.XMLTypeData
 import io.specmatic.core.pattern.resolvedHop
 import io.specmatic.core.utilities.yamlMapper
+import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -72,15 +73,23 @@ class OpenApiSpecificationParseTest {
             Failed to parse enum. One or more enum values were parsed as null
             This often happens in OpenAPI 3.0.x when enum values have mixed or invalid types and the parser implicitly coerces those values to null
             Please check the enum schema and entries or mark then schema as nullable if this was intentional
-
-            >> components.schemas.EnumPattern.enum[1]
-            Enum values cannot contain null if the enum is not nullable, ignoring null value
+            
+            ${
+                toViolationReportString(
+                    breadCrumb = "components.schemas.EnumPattern.enum[1]",
+                    details = "Enum values cannot contain null if the enum is not nullable, ignoring null value",
+                    SchemaLintViolations.CONFLICTING_CONSTRAINTS
+                )
+            }
             """.trimIndent())
         } else {
-            assertThat(exception.report()).isEqualToIgnoringWhitespace("""
-            >> components.schemas.EnumPattern.enum[1]
-            Enum value "ABC" does not match the declared enum schema, ignoring this value
-            """.trimIndent())
+            assertThat(exception.report()).isEqualToIgnoringWhitespace(
+                toViolationReportString(
+                    breadCrumb = "components.schemas.EnumPattern.enum[1]",
+                    details = "Enum value \"ABC\" does not match the declared enum schema, ignoring this value",
+                    SchemaLintViolations.BAD_VALUE
+                )
+            )
         }
     }
 
