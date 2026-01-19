@@ -16,5 +16,7 @@ class DiagnosticCollector {
             Result.fromFailures(entries.distinctBy { it.reportString() })
     }
 
+    fun addEntries(entries: List<Result.Failure>) { this.entries.addAll(entries) }
+
     fun getEntries(): List<Result.Failure> = entries
 }

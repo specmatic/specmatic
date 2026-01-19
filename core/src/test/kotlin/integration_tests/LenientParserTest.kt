@@ -3226,6 +3226,65 @@ class LenientParserTest {
                         toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
                     }
                 },
+                multiVersionLenientCase(name = "additionalProps on non-objects", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    requestBody {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", "string")
+                                                    put("additionalProperties", true)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.get.requestBody.content.application/json.schema.additionalProperties") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.INVALID_ADDITIONAL_PROPERTIES_USAGE)
+                        toContainText("additionalProperties should only be defined for object schema")
+                    }
+                },
+                multiVersionLenientCase(name = "additionalProps on non-objects ref", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    requestBody {
+                                        requestBody {
+                                            content {
+                                                mediaType("application/json") {
+                                                    schemaRef("NonObjectSchema")
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        components {
+                            schemas {
+                                schema("NonObjectSchema") {
+                                    put("type", "string")
+                                    put("additionalProperties", true)
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.schemas.NonObjectSchema.additionalProperties") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.INVALID_ADDITIONAL_PROPERTIES_USAGE)
+                        toContainText("additionalProperties should only be defined for object schema")
+                    }
+                },
             ).flatten().stream()
         }
 

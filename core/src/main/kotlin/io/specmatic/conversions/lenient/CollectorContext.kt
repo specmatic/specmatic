@@ -13,6 +13,12 @@ data class CollectorContext(private val collector: DiagnosticCollector = Diagnos
     val hasPath: Boolean = path != null
     val pathOrRoot: String = path ?: "/"
 
+    fun combineImmutable(other: CollectorContext): CollectorContext {
+        val otherCollector = other.toCollector()
+        collector.addEntries(otherCollector.getEntries())
+        return this
+    }
+
     fun at(name: String): CollectorContext {
         val newFullPath = BreadCrumb.combine(pathOrRoot, name)
         return CollectorContext(collector, pathSegments + PathSegment.Key(name, newFullPath))

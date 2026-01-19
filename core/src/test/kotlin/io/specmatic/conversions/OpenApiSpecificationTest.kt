@@ -8,13 +8,12 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkAll
-import io.mockk.verify
+import io.specmatic.conversions.lenient.CollectorContext
 import io.specmatic.core.*
 import io.specmatic.core.SPECMATIC_RESULT_HEADER
 import io.specmatic.core.log.CompositePrinter
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.LogStrategy
-import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.exceptionCauseMessage
@@ -337,18 +336,18 @@ components:
 
     val method = OpenApiSpecification.Companion::class.java.getDeclaredMethod(
       "preprocessYamlForAdditionalProperties",
-      String::class.java
+      String::class.java,
+      CollectorContext::class.java
     )
     method.isAccessible = true
 
-    val processedYaml = method.invoke(OpenApiSpecification.Companion, yaml) as String
-
+    val processedYaml = method.invoke(OpenApiSpecification.Companion, yaml, CollectorContext()) as String
     val mapper = ObjectMapper(YAMLFactory())
     val processedRoot = mapper.readTree(processedYaml)
 
     val processedSchemaNode = processedRoot.path("components").path("schemas").path("NonObject")
     assertThat(processedSchemaNode.has("additionalProperties")).isFalse()
-  assertThat(processedSchemaNode.path("type").textValue()).isEqualTo("string")
+    assertThat(processedSchemaNode.path("type").textValue()).isEqualTo("string")
 
     val exampleNode = processedRoot
       .path("paths")
@@ -381,18 +380,15 @@ components:
         type: string
         additionalProperties: {}
 """.trimIndent()
-
-        val originalLogger = logger
-        val mockLogger = mockk<LogStrategy>(relaxed = true)
-  val expectedLog = "Ignoring 'additionalProperties' from components.schemas.Person.name (additionalProperties only applies to 'type: object', but found 'type: string')"
-
-        try {
-            logger = mockLogger
-            OpenApiSpecification.fromYAML(yaml, "spec.yaml")
-            verify { mockLogger.debug(expectedLog) }
-        } finally {
-            logger = originalLogger
+        val (stdout, _) = captureStandardOutput {
+            OpenApiSpecification.fromYAML(yaml, "spec.yaml").toFeature()
         }
+
+        assertThat(stdout).containsIgnoringWhitespaces(toViolationReportString(
+            breadCrumb = "components.schemas.Person.name.additionalProperties",
+            details = "additionalProperties should only be defined for object schema, found for type \"string\", this will be ignored, Please remove it.",
+            OpenApiLintViolations.INVALID_ADDITIONAL_PROPERTIES_USAGE
+        ))
     }
 
     @AfterEach
