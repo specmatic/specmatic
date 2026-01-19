@@ -1,0 +1,16 @@
+{
+    "http-request": {
+        "path": "/test",
+        "method": "POST",
+        "headers": {
+            "Content-Type": "application/json"
+        },
+        "body": {
+            "id": 154.0
+        }
+    },
+    "http-response": {
+        "status": 201,
+        "status-text": "Created"
+    }
+}
