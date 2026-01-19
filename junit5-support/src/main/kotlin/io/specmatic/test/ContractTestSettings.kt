@@ -17,7 +17,8 @@ data class ContractTestSettings(
     val reportBaseDirectory: String?,
     val coverageHooks: List<TestReportListener>,
     val strictMode: Boolean?,
-    val previousTestRuns: List<TestResultRecord> = emptyList()
+    val lenientMode: Boolean = false,
+    val previousTestRuns: List<TestResultRecord> = emptyList(),
 ) {
     fun adjust(specmaticConfig: SpecmaticConfig?): SpecmaticConfig? =
         if (generative == true) {
@@ -49,7 +50,7 @@ data class ContractTestSettings(
         reportBaseDirectory = contractTestSettings.get()?.reportBaseDirectory,
         coverageHooks = contractTestSettings.get()?.coverageHooks ?: emptyList(),
         strictMode = contractTestSettings.get()?.strictMode ?: Flags.getStringValue(Flags.TEST_STRICT_MODE)?.toBoolean(),
+        lenientMode = contractTestSettings.get()?.lenientMode ?: Flags.getStringValue(Flags.TEST_LENIENT_MODE)?.toBoolean() ?: false,
         previousTestRuns = contractTestSettings.get()?.previousTestRuns.orEmpty()
-
     )
 }

@@ -9,7 +9,7 @@ import io.specmatic.core.value.EmptyString
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 
-class AnyOfPattern(
+data class AnyOfPattern(
     override val pattern: List<Pattern>,
     private val key: String? = null,
     override val typeAlias: String? = null,
@@ -152,6 +152,16 @@ class AnyOfPattern(
         }
 
         return newPatterns
+    }
+
+    override fun ensureAdditionalProperties(resolver: Resolver): Pattern {
+        return this.copy(
+            pattern = this.pattern.map { pattern ->
+                if (pattern !is PossibleJsonObjectPatternContainer) return@map pattern
+                pattern.ensureAdditionalProperties(resolver)
+            },
+            delegate = this.delegate.ensureAdditionalProperties(resolver)
+        )
     }
 
     private fun combineJSONPatterns(pattern: List<JSONObjectPattern>): Pattern {

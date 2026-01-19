@@ -40,7 +40,11 @@ import java.util.stream.Stream
 
 enum class OpenApiVersion(val value: String) {
     OAS30("3.0.0"),
-    OAS31("3.1.0")
+    OAS31("3.1.0");
+
+    companion object {
+        fun allVersions(): Array<OpenApiVersion> = OpenApiVersion.entries.toTypedArray()
+    }
 }
 
 data class PatternTestCase(val schema: Map<String, Any?>, val validate: (Pattern) -> Unit) {
@@ -639,16 +643,6 @@ class YamlToPatternTests {
         @JvmStatic
         fun arrayScenarios(): Stream<Arguments> {
             return listOf(
-                multiVersionCase("basic array no items", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
-                    schema {
-                        put("type", "array")
-                    }
-                    validate { pattern ->
-                         assertThat(pattern).isInstanceOf(ListPattern::class.java)
-                         assertSuccess(pattern.match(emptyList<Any>()))
-                         assertSuccess(pattern.match(listOf("any")))
-                    }
-                },
                 multiVersionCase("array with items (scalar)", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
                     schema {
                         put("type", "array")
@@ -1168,12 +1162,13 @@ class YamlToPatternTests {
                                 "mapping" to mapOf("dog" to "#/components/schemas/Dog", "cat" to "#/components/schemas/Cat")
                             ))
                         }
-                        validate { pattern ->
-                            assertSuccess(pattern.match(mapOf("petType" to "dog", "name" to "Fido")))
-                            assertSuccess(pattern.match(mapOf("petType" to "cat", "age" to 4)))
-                            assertFailure(pattern.match(mapOf("petType" to "dog", "age" to 4)))
-                            assertFailure(pattern.match(mapOf("petType" to "bird", "name" to "Tweety")))
-                        }
+                    }
+                    validate { patterns, resolver ->
+                        val petPattern = patterns.getValue("Pet")
+                        assertSuccess(petPattern.match(mapOf("petType" to "dog", "name" to "Fido"), resolver))
+                        assertSuccess(petPattern.match(mapOf("petType" to "cat", "age" to 4), resolver))
+                        assertFailure(petPattern.match(mapOf("petType" to "dog", "age" to 4), resolver))
+                        assertFailure(petPattern.match(mapOf("petType" to "bird", "name" to "Tweety"), resolver))
                     }
                 }
             ).flatten().stream()

@@ -1075,14 +1075,28 @@ fun loadSpecmaticConfigOrDefault(configFileName: String? = null): SpecmaticConfi
     return loadSpecmaticConfigOrNull(configFileName) ?: SpecmaticConfig()
 }
 
-fun loadSpecmaticConfigOrNull(configFileName: String? = null): SpecmaticConfig? {
+fun loadSpecmaticConfigOrNull(configFileName: String? = null): SpecmaticConfig? =
+    loadSpecmaticConfigOrNull(configFileName, explicitlySpecifiedByUser = false)
+
+fun loadSpecmaticConfigOrNull(
+    configFileName: String? = null,
+    explicitlySpecifiedByUser: Boolean = false
+): SpecmaticConfig? {
     return if (configFileName == null) {
         SpecmaticConfig()
     } else {
         try {
             loadSpecmaticConfig(configFileName)
         } catch (e: ContractException) {
-            logger.log(exceptionCauseMessage(e))
+            val message = exceptionCauseMessage(e)
+            val configFile = File(configFileName)
+
+            if (!configFile.exists() && !explicitlySpecifiedByUser) {
+                logger.debug(message)
+            } else {
+                logger.log(message)
+            }
+
             null
         }
     }

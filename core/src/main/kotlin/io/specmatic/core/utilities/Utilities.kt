@@ -360,6 +360,7 @@ data class ContractPathData(
     val baseUrl: String? = null,
     val generative: ResiliencyTestSuite? = null,
     val port: Int? = null,
+    val lenientMode: Boolean = false
 ) {
     companion object {
         fun List<ContractPathData>.specToBaseUrlMap(): Map<String, String?> = this.associate { File(it.path).path to it.baseUrl }

@@ -68,16 +68,18 @@ class OpenApiSpecificationParseTest {
 
         if (openApiVersion == OpenApiVersion.OAS30) {
             assertThat(exception.report()).isEqualToIgnoringWhitespace("""
-            >> components.schemas.EnumPattern
+            >> components.schemas.EnumPattern.enum
             Failed to parse enum. One or more enum values were parsed as null
             This often happens in OpenAPI 3.0.x when enum values have mixed or invalid types and the parser implicitly coerces those values to null
             Please check the enum schema and entries or mark then schema as nullable if this was intentional
+
+            >> components.schemas.EnumPattern.enum[1]
+            Enum values cannot contain null if the enum is not nullable, ignoring null value
             """.trimIndent())
         } else {
             assertThat(exception.report()).isEqualToIgnoringWhitespace("""
-            >> components.schemas.EnumPattern
-            Failed to parse enum values, please check the schema and entries:
-            One or more enum values do not match the specified type, Found types: number, string
+            >> components.schemas.EnumPattern.enum[1]
+            Enum value "ABC" does not match the declared enum schema, ignoring this value
             """.trimIndent())
         }
     }

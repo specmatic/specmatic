@@ -14,6 +14,11 @@ object SchemaUtils {
         return props.isNotEmpty()
     }
 
+    fun modifyDeepCopySchema(schema: Schema<*>, modify: (Schema<*>) -> Schema<*>): Schema<*> {
+        val clone = openAPI31Traverser.deepcopy(schema, Schema::class.java)
+        return modify(clone)
+    }
+
     fun mergeResolvedIfJsonSchema(resolvedSchema: Schema<*>, refSchema: Schema<*>): Schema<*> {
         if (resolvedSchema !is JsonSchema) return resolvedSchema
         if (!refHasSiblings(refSchema)) return resolvedSchema

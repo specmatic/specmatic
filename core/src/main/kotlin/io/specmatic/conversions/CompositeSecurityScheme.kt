@@ -1,5 +1,6 @@
 package io.specmatic.conversions
 
+import io.specmatic.conversions.lenient.CollectorContext
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpRequestPattern
 import io.specmatic.core.Resolver
@@ -46,9 +47,9 @@ data class CompositeSecurityScheme(val schemes: List<OpenAPISecurityScheme>): Op
         else schemes.all { it.isInRequest(request, true) }
     }
 
-    override fun warnIfExistsInParameters(parameters: List<Parameter>, method: String, path: String) {
+    override fun collectErrorIfExistsInParameters(parameter: List<IndexedValue<Parameter>>, collectorContext: CollectorContext) {
         schemes.forEach { securityScheme ->
-            securityScheme.warnIfExistsInParameters(parameters, method, path)
+            securityScheme.collectErrorIfExistsInParameters(parameter, collectorContext)
         }
     }
 }

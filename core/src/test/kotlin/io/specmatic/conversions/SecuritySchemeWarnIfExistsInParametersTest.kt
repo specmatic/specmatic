@@ -1,52 +1,96 @@
 package io.specmatic.conversions
 
-import io.specmatic.stub.captureStandardOutput
+import io.specmatic.conversions.lenient.CollectorContext
+import io.specmatic.core.Result
+import io.specmatic.toViolationReportString
 import io.swagger.v3.oas.models.parameters.HeaderParameter
 import io.swagger.v3.oas.models.parameters.Parameter
 import io.swagger.v3.oas.models.parameters.QueryParameter
 import org.apache.http.HttpHeaders.AUTHORIZATION
-import org.junit.jupiter.api.Assertions.assertTrue
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 class SecuritySchemeWarnIfExistsInParametersTest {
     @Test
-    fun `APIKeyInHeaderSecurityScheme should print warning if header param exists`() {
+    fun `APIKeyInHeaderSecurityScheme should collect error if header param exists`() {
         val scheme = APIKeyInHeaderSecurityScheme("X-API-KEY", null)
-        val parameters = listOf(HeaderParameter().apply { name = "X-API-KEY" })
-        val (output, _) = captureStandardOutput {
-            scheme.warnIfExistsInParameters(parameters, "GET", "/path")
-        }
-        assertTrue(output.contains("API key with header X-API-KEY"))
+        val context = CollectorContext()
+        val parameters = listOf(
+            IndexedValue(index = 0, value = HeaderParameter().apply { name = "X-API-KEY" }),
+            IndexedValue(index = 1, value = QueryParameter().apply { name = "apiKey" })
+        )
+
+        scheme.collectErrorIfExistsInParameters(parameters, context)
+        assertThat(context.toCollector().getEntries()).hasSize(1)
+        assertThat(context.toCollector().toResult().reportString()).isEqualToIgnoringWhitespace(
+            toViolationReportString(
+                breadCrumb = "parameters[0].name",
+                details = "Found header parameter with same name as header api-key security scheme \"X-API-KEY\"",
+                OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
+            )
+        )
     }
 
     @Test
     fun `APIKeyInQueryParamSecurityScheme should print warning if query param exists`() {
-        val scheme = APIKeyInQueryParamSecurityScheme("api_key", null)
-        val parameters = listOf(QueryParameter().apply { name = "api_key" })
-        val (output, _) = captureStandardOutput {
-            scheme.warnIfExistsInParameters(parameters, "POST", "/path")
-        }
-        assertTrue(output.contains("API key with query parameter api_key"))
+        val scheme = APIKeyInQueryParamSecurityScheme("apiKey", null)
+        val context = CollectorContext()
+        val parameters = listOf(
+            IndexedValue(index = 0, value = HeaderParameter().apply { name = "X-API-KEY" }),
+            IndexedValue(index = 1, value = QueryParameter().apply { name = "apiKey" })
+        )
+
+        scheme.collectErrorIfExistsInParameters(parameters, context)
+        assertThat(context.toCollector().getEntries()).hasSize(1)
+        assertThat(context.toCollector().toResult().reportString()).isEqualToIgnoringWhitespace(
+            toViolationReportString(
+                breadCrumb = "parameters[1].name",
+                details = "Found query parameter with same name as query api-key security scheme \"apiKey\"",
+                OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
+            )
+        )
     }
 
     @Test
     fun `BasicAuthSecurityScheme should print warning if Authorization header param exists`() {
         val scheme = BasicAuthSecurityScheme()
-        val parameters = listOf(HeaderParameter().apply { name = AUTHORIZATION })
-        val (output, _) = captureStandardOutput {
-            scheme.warnIfExistsInParameters(parameters, "PUT", "/path")
-        }
-        assertTrue(output.contains("Basic Auth"))
+        val context = CollectorContext()
+        val parameters = listOf(
+            IndexedValue(index = 0, value = HeaderParameter().apply { name = AUTHORIZATION }),
+            IndexedValue(index = 1, value = HeaderParameter().apply { name = "X-API-KEY" }),
+            IndexedValue(index = 2, value = QueryParameter().apply { name = "apiKey" })
+        )
+
+        scheme.collectErrorIfExistsInParameters(parameters, context)
+        assertThat(context.toCollector().getEntries()).hasSize(1)
+        assertThat(context.toCollector().toResult().reportString()).isEqualToIgnoringWhitespace(
+            toViolationReportString(
+                breadCrumb = "parameters[0].name",
+                details = "Found header parameter with same name as Basic Auth security scheme",
+                OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
+            )
+        )
     }
 
     @Test
     fun `BearerSecurityScheme should print warning if Authorization header param exists`() {
         val scheme = BearerSecurityScheme()
-        val parameters = listOf(HeaderParameter().apply { name = AUTHORIZATION })
-        val (output, _) = captureStandardOutput {
-            scheme.warnIfExistsInParameters(parameters, "DELETE", "/path")
-        }
-        assertTrue(output.contains("Bearer Authorization"))
+        val context = CollectorContext()
+        val parameters = listOf(
+            IndexedValue(index = 0, value = HeaderParameter().apply { name = AUTHORIZATION }),
+            IndexedValue(index = 1, value = HeaderParameter().apply { name = "X-API-KEY" }),
+            IndexedValue(index = 2, value = QueryParameter().apply { name = "apiKey" })
+        )
+
+        scheme.collectErrorIfExistsInParameters(parameters, context)
+        assertThat(context.toCollector().getEntries()).hasSize(1)
+        assertThat(context.toCollector().toResult().reportString()).isEqualToIgnoringWhitespace(
+            toViolationReportString(
+                breadCrumb = "parameters[0].name",
+                details = "Found header parameter with same name as Bearer Authorization security scheme",
+                OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
+            )
+        )
     }
 
     @Test
@@ -54,47 +98,73 @@ class SecuritySchemeWarnIfExistsInParametersTest {
         val headerScheme = APIKeyInHeaderSecurityScheme("X-API-KEY", null)
         val bearerScheme = BearerSecurityScheme()
         val composite = CompositeSecurityScheme(listOf(headerScheme, bearerScheme))
-        val parameters = listOf(HeaderParameter().apply { name = "X-API-KEY" }, HeaderParameter().apply { name = AUTHORIZATION })
-        val (output, _) = captureStandardOutput {
-            composite.warnIfExistsInParameters(parameters, "PATCH", "/path")
+        val context = CollectorContext()
+        val parameters = listOf(
+            IndexedValue(index = 0, value = HeaderParameter().apply { name = AUTHORIZATION }),
+            IndexedValue(index = 1, value = HeaderParameter().apply { name = "X-API-KEY" }),
+            IndexedValue(index = 2, value = QueryParameter().apply { name = "apiKey" })
+        )
+
+        composite.collectErrorIfExistsInParameters(parameters, context)
+        assertThat(context.toCollector().getEntries()).hasSize(2)
+        assertThat(context.toCollector().toResult().reportString()).isEqualToIgnoringWhitespace("""
+        ${
+            toViolationReportString(
+                breadCrumb = "parameters[1].name",
+                details = "Found header parameter with same name as header api-key security scheme \"X-API-KEY\"",
+                OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
+            )
         }
-        assertTrue(output.contains("API key with header X-API-KEY"))
-        assertTrue(output.contains("Bearer Authorization"))
+        ${
+            toViolationReportString(
+                breadCrumb = "parameters[0].name",
+                details = "Found header parameter with same name as Bearer Authorization security scheme",
+                OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
+            )
+        }
+        """.trimIndent())
     }
 
     @Test
     fun `no warning if header security scheme and query param have same name`() {
         val scheme = APIKeyInHeaderSecurityScheme("X-API-KEY", null)
-        val parameters = listOf(QueryParameter().apply { name = "X-API-KEY" })
-        val (output, _) = captureStandardOutput {
-            scheme.warnIfExistsInParameters(parameters, "GET", "/path")
-        }
-        assertTrue(output.isBlank(), "Expected no warning, but got: $output")
+        val context = CollectorContext()
+        val parameters = listOf(IndexedValue(index = 2, value = QueryParameter().apply { name = "X-API-KEY" }))
+
+        scheme.collectErrorIfExistsInParameters(parameters, context)
+        assertThat(context.toCollector().getEntries()).isEmpty()
+        assertThat(context.toCollector().toResult()).isInstanceOf(Result.Success::class.java)
     }
 
     @Test
     fun `no warning if there are no security schemes`() {
-        val composite = NoSecurityScheme()
-        val parameters = listOf(HeaderParameter().apply { name = "X-API-KEY" })
-        val (output, _) = captureStandardOutput {
-            composite.warnIfExistsInParameters(parameters, "GET", "/path")
-        }
-        assertTrue(output.isBlank(), "Expected no warning, but got: $output")
+        val scheme = NoSecurityScheme()
+        val context = CollectorContext()
+        val parameters = listOf(
+            IndexedValue(index = 0, value = HeaderParameter().apply { name = AUTHORIZATION }),
+            IndexedValue(index = 1, value = HeaderParameter().apply { name = "X-API-KEY" }),
+            IndexedValue(index = 2, value = QueryParameter().apply { name = "apiKey" })
+        )
+
+        scheme.collectErrorIfExistsInParameters(parameters, context)
+        assertThat(context.toCollector().getEntries()).isEmpty()
+        assertThat(context.toCollector().toResult()).isInstanceOf(Result.Success::class.java)
     }
 
     @Test
     fun `no warning if there are security schemes and no parameters`() {
+        val context = CollectorContext()
+        val parameters = emptyList<IndexedValue<Parameter>>()
         val composite = CompositeSecurityScheme(listOf(
             APIKeyInHeaderSecurityScheme("X-API-KEY", null),
             APIKeyInQueryParamSecurityScheme("api_key", null),
             BearerSecurityScheme(),
             BasicAuthSecurityScheme()
         ))
-        val parameters = emptyList<Parameter>()
-        val (output, _) = captureStandardOutput {
-            composite.warnIfExistsInParameters(parameters, "GET", "/path")
-        }
-        assertTrue(output.isBlank(), "Expected no warning, but got: $output")
+
+        composite.collectErrorIfExistsInParameters(parameters, context)
+        assertThat(context.toCollector().getEntries()).isEmpty()
+        assertThat(context.toCollector().toResult()).isInstanceOf(Result.Success::class.java)
     }
 
     @Test
@@ -105,13 +175,15 @@ class SecuritySchemeWarnIfExistsInParametersTest {
             BearerSecurityScheme(),
             BasicAuthSecurityScheme()
         ))
+
+        val context = CollectorContext()
         val parameters = listOf(
-            HeaderParameter().apply { name = "SOME-OTHER-HEADER" },
-            QueryParameter().apply { name = "some_other_query" }
+            IndexedValue(index = 1, value = HeaderParameter().apply { name = "SOME-OTHER-HEADER" }),
+            IndexedValue(index = 2, value = QueryParameter().apply { name = "some_other_query" })
         )
-        val (output, _) = captureStandardOutput {
-            composite.warnIfExistsInParameters(parameters, "GET", "/path")
-        }
-        assertTrue(output.isBlank(), "Expected no warning, but got: $output")
+
+        composite.collectErrorIfExistsInParameters(parameters, context)
+        assertThat(context.toCollector().getEntries()).isEmpty()
+        assertThat(context.toCollector().toResult()).isInstanceOf(Result.Success::class.java)
     }
 }

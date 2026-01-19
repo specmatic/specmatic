@@ -1058,6 +1058,7 @@ fun loadIfSupportedAPISpecification(
         logger.log("Skipping the file '${contractPathData.path}' as it does not exist")
         return null
     }
+
     if (!isSupportedAPISpecification(contractPathData.path)) {
         logger.log("Skipping the file '${contractPathData.path}' as it is not a supported API specification")
         return null
@@ -1073,7 +1074,8 @@ fun loadIfSupportedAPISpecification(
                 contractPathData.repository,
                 contractPathData.branch,
                 contractPathData.specificationPath,
-                strictMode = specmaticConfig.getStubStrictMode() ?: false
+                strictMode = specmaticConfig.getStubStrictMode() ?: false,
+                lenientMode = contractPathData.lenientMode
             ).copy(specmaticConfig = specmaticConfig),
         )
     } catch (e: Throwable) {

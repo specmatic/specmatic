@@ -1,9 +1,10 @@
 package integration_tests
 
+import io.specmatic.conversions.OpenApiLintViolations
 import io.specmatic.conversions.OpenApiSpecification
-import io.specmatic.conversions.getEmptySchemaWarning
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.stub.captureStandardOutput
+import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -35,9 +36,10 @@ class OpenApiSpecificationValidationWarnings {
             OpenApiSpecification.fromYAML(spec, "").toFeature()
         }
 
-        assertThat(stdout).contains(
-            getEmptySchemaWarning("application/json", breadCrumb = "GET /test -> 200 (application/json).RESPONSE.BODY", valueType = "free form JSON object").toLogString()
-        )
+        assertThat(stdout).containsIgnoringWhitespaces("""
+        >> paths./test.get.responses.200.content.application/json
+        No schema property defined under mediaType application/json, defaulting to free-form object
+        """.trimIndent())
     }
 
     @Test
@@ -66,9 +68,10 @@ class OpenApiSpecificationValidationWarnings {
             ).toFeature()
         }
 
-        assertThat(output).contains(
-            getEmptySchemaWarning("application/json", breadCrumb="POST /api/nocontent (application/json).REQUEST.BODY", valueType="free form JSON object").toLogString()
-        )
+        assertThat(output).containsIgnoringWhitespaces("""
+        >> paths./api/nocontent.post.requestBody.content.application/json
+        No schema property defined under mediaType application/json, defaulting to free-form object
+        """.trimIndent())
     }
 
     @Test
@@ -93,6 +96,7 @@ class OpenApiSpecificationValidationWarnings {
                               properties:
                                 name:
                                   description: The name of the entity
+                                  type: string
                       responses:
                         "200":
                           description: Random
@@ -103,10 +107,10 @@ class OpenApiSpecificationValidationWarnings {
             ).toFeature()
         }
 
-        assertThat(output).contains(
-            getEmptySchemaWarning("text/plain", breadCrumb="POST /api/nocontent -> 200 (text/plain).RESPONSE.BODY", valueType="text").toLogString()
-        )
-
+        assertThat(output).containsIgnoringWhitespaces("""
+        >> paths./api/nocontent.post.responses.200.content.text/plain
+        No schema property defined under mediaType text/plain, defaulting to string
+        """.trimIndent())
     }
 
     @Test
@@ -161,9 +165,7 @@ class OpenApiSpecificationValidationWarnings {
             OpenApiSpecification.fromYAML(spec, "").toFeature()
         }
 
-        assertThat(stdout).doesNotContain(
-            getEmptySchemaWarning("application/json", breadCrumb = "GET /bar -> 200 (application/json).RESPONSE.BODY", valueType = "free form JSON object").toLogString()
-        )
+        assertThat(stdout).doesNotContain("Schema has both \${'$'}ref ")
     }
 
     @Test
@@ -232,10 +234,27 @@ class OpenApiSpecificationValidationWarnings {
                 OpenApiSpecification.fromYAML(spec, "").toFeature()
             }
 
-        assertThat(stdout)
-            .contains("POST /users -> 200 (application/json).RESPONSE.BODY")
-            .contains("Bearer Authorization")
-            .contains("Authorization")
-            .contains("POST /users (application/json).REQUEST.BODY")
+        assertThat(stdout).containsIgnoringWhitespaces("""
+        ${
+            toViolationReportString(
+                breadCrumb = "paths./users.post.responses.200.content.application/json",
+                details = "No schema property defined under mediaType application/json, defaulting to free-form object"
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "paths./users.post.parameters[0].name",
+                details = "Found header parameter with same name as Bearer Authorization security scheme",
+                OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "paths./users.post.requestBody.content.application/json.schema",
+                details = "Schema has both \$ref (#/components/schemas/User) and a type object defined, ignoring other properties",
+                OpenApiLintViolations.REF_HAS_SIBLINGS
+            )
+        }
+        """.trimIndent())
     }
 }

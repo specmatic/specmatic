@@ -128,6 +128,9 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     )
     var useCurrentBranchForCentralRepo: Boolean = false
 
+    @Option(names = ["--lenient"], description = ["Parse the OpenAPI Specification with leniency"], required = false)
+    var lenientMode: Boolean = false
+
     private var contractSources: List<ContractPathData> = emptyList()
 
     var specmaticConfigPath: String? = null
@@ -161,7 +164,10 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         System.setProperty(SPECMATIC_BASE_URL, baseUrl)
 
         try {
-            val configMatchBranch = loadSpecmaticConfigOrNull(Configuration.configFilePath)?.getMatchBranch() ?: false
+            val configMatchBranch = loadSpecmaticConfigOrNull(
+                Configuration.configFilePath,
+                explicitlySpecifiedByUser = configFileName != null
+            )?.getMatchBranch() ?: false
             val matchBranchEnabled = useCurrentBranchForCentralRepo || Flags.getBooleanValue(MATCH_BRANCH, false) || configMatchBranch
             
             contractSources = when (contractPaths.isEmpty()) {
@@ -169,10 +175,10 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
                     specmaticConfigPath = File(Configuration.configFilePath).canonicalPath
 
                     logger.debug("Using the spec paths configured for stubs in the configuration file '$specmaticConfigPath'")
-                    specmaticConfig.contractStubPathData(matchBranchEnabled)
+                    specmaticConfig.contractStubPathData(matchBranchEnabled).map { it.copy(lenientMode = lenientMode) }
                 }
                 else -> contractPaths.map {
-                    ContractPathData("", it)
+                    ContractPathData("", it, lenientMode = lenientMode)
                 }
             }
             contractPaths = contractSources.map { it.path }
