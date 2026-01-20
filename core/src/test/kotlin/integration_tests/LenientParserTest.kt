@@ -127,7 +127,7 @@ class LenientParserTest {
                         }
                     }
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
-                    assert("paths./test/{id}.get.parameters[-1]") {
+                    assert("paths./test/{id}.get.parameters") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toContainViolation(OpenApiLintViolations.PATH_PARAMETER_MISSING)
                         toMatchText("Expected path parameter with name id is missing, defaulting to empty schema")
@@ -1951,7 +1951,7 @@ class LenientParserTest {
                         }
                     }
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
-                    assert("paths./test.get.responses.200.content.application/json.schema.enum[-1]") {
+                    assert("paths./test.get.responses.200.content.application/json.schema.enum") {
                         toContainText("Enum values must contain null if the enum is marked nullable")
                     }
                 },
@@ -1975,7 +1975,7 @@ class LenientParserTest {
                         }
                     }
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
-                    assert("paths./test.get.responses.200.content.application/json.schema.enum[-1]") {
+                    assert("paths./test.get.responses.200.content.application/json.schema.enum") {
                         toContainText("Enum values must contain null if the enum is marked nullable")
                     }
                 },

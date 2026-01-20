@@ -13,7 +13,6 @@ import io.cucumber.messages.types.Step
 import io.ktor.util.reflect.*
 import io.specmatic.conversions.SchemaUtils.mergeResolvedIfJsonSchema
 import io.specmatic.conversions.lenient.CollectorContext
-import io.specmatic.conversions.lenient.DEFAULT_ARRAY_INDEX
 import io.specmatic.core.*
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.log.LogStrategy
@@ -2388,7 +2387,13 @@ class OpenApiSpecification(
             }
 
             val paramName = pathSegment.removeSurrounding("{", "}")
-            val parameter = parameterContext.at(pathParamMap[paramName]?.index ?: DEFAULT_ARRAY_INDEX).requirePojo(
+            val pathParamContext = if (pathParamMap.containsKey(paramName)) {
+                parameterContext.at(pathParamMap.getValue(paramName).index)
+            } else {
+                parameterContext
+            }
+
+            val parameter = pathParamContext.requirePojo(
                 message = { "Expected path parameter with name $paramName is missing, defaulting to empty schema" },
                 extract = { pathParamMap[paramName]?.value },
                 ruleViolation = { OpenApiLintViolations.PATH_PARAMETER_MISSING },
@@ -2402,10 +2407,9 @@ class OpenApiSpecification(
                 }
             )
 
-            val pathParameterContext = parameterContext.at(pathParamMap[paramName]?.index ?: DEFAULT_ARRAY_INDEX)
             URLPathSegmentPattern(
                 key = paramName,
-                pattern = toSpecmaticPattern(parameter.schema, typeStack = emptyList(), collectorContext = pathParameterContext.at("schema")),
+                pattern = toSpecmaticPattern(parameter.schema, typeStack = emptyList(), collectorContext = pathParamContext.at("schema")),
             )
         }
 
