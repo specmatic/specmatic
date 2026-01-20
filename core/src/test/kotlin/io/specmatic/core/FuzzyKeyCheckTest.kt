@@ -8,6 +8,7 @@ import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.pattern.withOptionality
 import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import java.util.stream.Stream
@@ -65,6 +66,43 @@ class FuzzyKeyCheckTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("io.specmatic.core.FuzzyKeyCheckTest#scenarios")
     fun checkPatternButIgnoreUnexpected(scenario: FuzzyScenario) = assertScenario(FuzzyTestConfig.CheckPatternButIgnoreUnexpected, scenario)
+
+    @Test
+    fun `toPartialKeyCheck should return partialized FuzzyKeyCheck`() {
+        val keyCheck = FuzzyKeyCheck()
+        val result = keyCheck.toPartialKeyCheck()
+
+        assertThat(result).isInstanceOf(FuzzyKeyCheck::class.java)
+        assertThat(keyCheck.isPartial).isFalse
+        assertThat(result.isPartial).isTrue
+    }
+
+    @Test
+    fun `withUnexpectedKeyCheck should return extensible FuzzyKeyCheck`() {
+        val keyCheck: KeyCheck = FuzzyKeyCheck()
+        val result = keyCheck.withUnexpectedKeyCheck(IgnoreUnexpectedKeys)
+
+        assertThat(result).isInstanceOf(FuzzyKeyCheck::class.java)
+        assertThat(keyCheck.isExtensible).isFalse
+        assertThat(result.isExtensible).isTrue
+    }
+
+    @Test
+    fun `disableOverrideUnexpectedKeyCheck should return FuzzyKeyCheck with extensible override disabled`() {
+        val keyCheck = FuzzyKeyCheck()
+
+        val overrideDisabled = keyCheck.disableOverrideUnexpectedKeyCheck()
+        assertThat(overrideDisabled).isInstanceOf(FuzzyKeyCheck::class.java)
+        assertThat(overrideDisabled.isExtensible).isFalse
+
+        val tryToConvertToPartial = overrideDisabled.toPartialKeyCheck()
+        assertThat(tryToConvertToPartial).isInstanceOf(FuzzyKeyCheck::class.java)
+        assertThat(tryToConvertToPartial.isPartial).isTrue
+
+        val tryToConvertToExtensible = overrideDisabled.withUnexpectedKeyCheck(IgnoreUnexpectedKeys)
+        assertThat(tryToConvertToExtensible).isInstanceOf(FuzzyKeyCheck::class.java)
+        assertThat(tryToConvertToExtensible.isExtensible).isFalse
+    }
 
     companion object {
         private val pattern = mapOf("name" to StringPattern(), "email" to StringPattern(), "age?" to StringPattern())

@@ -8,16 +8,35 @@ import io.specmatic.core.pattern.withoutOptionality
 private typealias UnexpectedKeysFinder = (AnyValueMap, AnyValueMap) -> List<UnexpectedKeyError>
 private typealias AnyValueMap = Map<String, Any>
 
-class FuzzyKeyCheck(private val delegate: KeyCheck = DefaultKeyCheckImpl()): KeyCheck by delegate {
+data class FuzzyKeyCheck(private val delegate: KeyCheck = DefaultKeyCheckImpl()): KeyCheck {
     constructor(keyErrorCheck: KeyErrorCheck = CheckOnlyPatternKeys, unexpectedKeyCheck: UnexpectedKeyCheck = ValidateUnexpectedKeys) : this(
         DefaultKeyCheckImpl(keyErrorCheck, unexpectedKeyCheck)
     )
+
+    override val isPartial: Boolean = delegate.isPartial
+    override val isExtensible: Boolean = delegate.isExtensible
 
     override fun validateAllCaseInsensitive(pattern: AnyValueMap, actual: AnyValueMap): List<KeyError> {
         val delegateErrors = delegate.validateAllCaseInsensitive(pattern, actual)
         return refineKeyErrors(pattern, actual, delegateErrors) { pattern, actual ->
             ValidateUnexpectedKeys.validateListCaseInsensitive(pattern, actual)
         }
+    }
+
+    override fun toPartialKeyCheck(): FuzzyKeyCheck {
+        return this.copy(delegate  = delegate.toPartialKeyCheck())
+    }
+
+    override fun disableOverrideUnexpectedKeyCheck(): FuzzyKeyCheck {
+        return this.copy(delegate  = delegate.disableOverrideUnexpectedKeyCheck())
+    }
+
+    override fun withUnexpectedKeyCheck(unexpectedKeyCheck: UnexpectedKeyCheck): FuzzyKeyCheck {
+        return this.copy(delegate  = delegate.withUnexpectedKeyCheck(unexpectedKeyCheck))
+    }
+
+    override fun validate(pattern: Map<String, Any>, actual: Map<String, Any>): KeyError? {
+        return this.validateAll(pattern, actual).firstOrNull()
     }
 
     override fun validateAll(pattern: AnyValueMap, actual: AnyValueMap): List<KeyError> {
