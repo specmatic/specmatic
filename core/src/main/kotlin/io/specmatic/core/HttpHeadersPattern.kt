@@ -411,18 +411,14 @@ data class HttpHeadersPattern(
     }
 
     fun fillInTheBlanks(headers: Map<String, String>, resolver: Resolver): ReturnValue<Map<String, String>> {
-        val headersWithContentType = if (contentType != null && CONTENT_TYPE !in headers) {
-            headers.plus(CONTENT_TYPE to contentType)
-        } else headers
-
-        if (headersWithContentType.isEmpty() && pattern.isEmpty()) return HasValue(emptyMap())
-        val headersValue = headersWithContentType.mapValues { (key, value) ->
-            val pattern = pattern[key] ?: pattern["$key?"] ?: return@mapValues StringValue(value)
+        val patternWithContentType = adjustPatternAccordanceWithHeaders(headers)
+        val headersValue = headers.mapValues { (key, value) ->
+            val pattern = patternWithContentType[key] ?: patternWithContentType["$key?"] ?: return@mapValues StringValue(value)
             runCatching { pattern.parse(value, resolver) }.getOrDefault(StringValue(value))
         }
 
         return fill(
-            jsonPatternMap = pattern, jsonValueMap = headersValue,
+            jsonPatternMap = patternWithContentType, jsonValueMap = headersValue,
             resolver = resolver.updateLookupForParam(BreadCrumb.HEADER.value).withUnexpectedKeyCheck(IgnoreUnexpectedKeys),
             typeAlias = null
         ).realise(
@@ -432,23 +428,29 @@ data class HttpHeadersPattern(
     }
 
     fun fixValue(headers: Map<String, String>, resolver: Resolver): Map<String, String> {
-        val headersWithContentType = if (contentType != null) {
-            headers.plus(CONTENT_TYPE to contentType)
-        } else headers
-
-        if (headersWithContentType.isEmpty() && pattern.isEmpty()) return emptyMap()
-        val headersValue = headersWithContentType.mapValues { (key, value) ->
-            val pattern = pattern[key] ?: pattern["$key?"] ?: return@mapValues StringValue(value)
-            try { pattern.parse(value, resolver) } catch(e: Exception) { StringValue(value) }
+        val patternWithContentType = adjustPatternAccordanceWithHeaders(headers)
+        val headersValue = headers.mapValues { (key, value) ->
+            val pattern = patternWithContentType[key] ?: patternWithContentType["$key?"] ?: return@mapValues StringValue(value)
+            try { pattern.parse(value, resolver) } catch(_: Exception) { StringValue(value) }
         }
 
         val fixedHeaders = fix(
-            jsonPatternMap = pattern, jsonValueMap = headersValue,
+            jsonPatternMap = patternWithContentType, jsonValueMap = headersValue,
             resolver = resolver.updateLookupForParam(BreadCrumb.HEADER.value).withUnexpectedKeyCheck(IgnoreUnexpectedKeys).withoutAllPatternsAsMandatory(),
-            jsonPattern = JSONObjectPattern(pattern, typeAlias = null)
+            jsonPattern = JSONObjectPattern(patternWithContentType, typeAlias = null)
         )
 
         return fixedHeaders.mapValues { it.value.toStringLiteral() }
+    }
+
+    private fun adjustPatternAccordanceWithHeaders(headers: Map<String, String>): Map<String, Pattern> {
+        return if (contentType != null) {
+            pattern.addIfNotExistCaseInsensitiveCheckOptional(CONTENT_TYPE, ExactValuePattern(StringValue(contentType)))
+        } else if (headers.getCaseInsensitive(CONTENT_TYPE) != null) {
+            pattern.addIfNotExistCaseInsensitiveCheckOptional(CONTENT_TYPE, AnyValuePattern)
+        } else {
+            pattern
+        }
     }
 
     private fun withModifiedSoapActionIfNotInRow(row: Row?, resolver: Resolver): HttpHeadersPattern {
@@ -539,6 +541,18 @@ private fun parseOrString(pattern: Pattern, sampleValue: String, resolver: Resol
 
 fun Map<String, String>.withoutTransportHeaders(): Map<String, String> =
     this.filterKeys { key -> key.lowercase() !in HTTP_TRANSPORT_HEADERS }
+
+fun <T> Map<String, T>.getCaseInsensitive(key: String): Map.Entry<String, T>? = this.entries.find { it.key.equals(key, ignoreCase = true) }
+
+fun Map<String, Pattern>.addIfNotExistCaseInsensitiveCheckOptional(key: String, value: Pattern): Map<String, Pattern> {
+    val mandatoryEntry = this.getCaseInsensitive(withoutOptionality(key))
+    if (mandatoryEntry != null) return this
+
+    val optionalEntry = this.getCaseInsensitive(withOptionality(key))
+    if (optionalEntry != null) return this
+
+    return this.plus(key to value)
+}
 
 val HTTP_TRANSPORT_HEADERS: Set<String> =
     listOf(

@@ -949,7 +949,7 @@ data class HttpRequestPattern(
             method = method,
             path = httpPathPattern?.fixValue(request.path, resolver),
             queryParams = httpQueryParamPattern.fixValue(request.queryParams, resolver),
-            headers = headersPattern.fixValue(request.headers, resolver.updateLookupPath(BreadCrumb.PARAMETERS.value)),
+            headers = headersPattern.fixValue(request.headers, resolver.disableOverrideUnexpectedKeyCheck().updateLookupPath(BreadCrumb.PARAMETERS.value)),
             body = body.fixValue(request.body, resolver)
         )
     }

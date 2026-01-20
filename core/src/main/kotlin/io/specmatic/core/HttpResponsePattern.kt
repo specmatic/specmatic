@@ -248,9 +248,7 @@ data class HttpResponsePattern(
     fun fixResponse(response: HttpResponse, resolver: Resolver): HttpResponse {
         return response.copy(
             status = status,
-            headers = headersPattern.fixValue(
-                response.headers, resolver.updateLookupPath(BreadCrumb.RESPONSE.value)
-            ),
+            headers = headersPattern.fixValue(response.headers, resolver.disableOverrideUnexpectedKeyCheck().updateLookupPath(BreadCrumb.RESPONSE.value)),
             body = body.fixValue(response.body, resolver)
         )
     }
