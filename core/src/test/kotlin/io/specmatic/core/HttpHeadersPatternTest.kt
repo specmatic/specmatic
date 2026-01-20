@@ -745,6 +745,53 @@ internal class HttpHeadersPatternTest {
 
             assertThat(fixedValue).isEqualTo(mapOf("number" to "999"))
         }
+
+        @Test
+        fun `should not allow extra keys when override key check is disabled`() {
+            val httpHeaders = HttpHeadersPattern(mapOf("key" to ExactValuePattern(StringValue("value"))))
+            val resolver = Resolver().disableOverrideUnexpectedKeyCheck()
+            val valueWithExtraKey = mapOf("key" to "value", "extraKey" to "extraValue")
+            val fixedValue = httpHeaders.fixValue(valueWithExtraKey, resolver)
+            assertThat(fixedValue).isEqualTo(mapOf("key" to "value"))
+        }
+
+        @Test
+        fun `should drop extra keys and fix invalid values when override key check is disabled`() {
+            val httpHeaders = HttpHeadersPattern(mapOf("key" to ExactValuePattern(StringValue("value")), "age" to NumberPattern()))
+            val resolver = Resolver().disableOverrideUnexpectedKeyCheck()
+            val invalidValue = mapOf("key" to "value", "age" to "invalid", "extraKey" to "extraValue")
+            val dictionary = "{ (number): 42 }".let(Dictionary::fromYaml)
+            val fixedValue = httpHeaders.fixValue(invalidValue, resolver.copy(dictionary = dictionary))
+            assertThat(fixedValue).isEqualTo(mapOf("key" to "value", "age" to "42"))
+        }
+
+        @Test
+        fun `should not allow extra keys but still allow content-type when override key check is disabled`() {
+            val httpHeaders = HttpHeadersPattern(emptyMap(), contentType = "application/json")
+            val resolver = Resolver().disableOverrideUnexpectedKeyCheck()
+            val valueWithExtraKey = mapOf("Content-Type" to "invalid", "extraKey" to "extraValue")
+            val fixedValue = httpHeaders.fixValue(valueWithExtraKey, resolver)
+            assertThat(fixedValue).isEqualTo(mapOf("Content-Type" to "application/json"))
+        }
+
+        @Test
+        fun `should allow extra keys when resolver is extensible even if override disabled`() {
+            val httpHeaders = HttpHeadersPattern(mapOf("key" to ExactValuePattern(StringValue("value"))))
+            val resolver = Resolver().withUnexpectedKeyCheck(IgnoreUnexpectedKeys).disableOverrideUnexpectedKeyCheck()
+            val valueWithExtraKey = mapOf("key" to "value", "extraKey" to "extraValue")
+            val fixedValue = httpHeaders.fixValue(valueWithExtraKey, resolver)
+            assertThat(fixedValue).isEqualTo(valueWithExtraKey)
+        }
+
+        @Test
+        fun `should allow extra keys and still fix invalid declared values when resolver is extensible but override is disabled`() {
+            val httpHeaders = HttpHeadersPattern(mapOf("age" to NumberPattern()))
+            val resolver = Resolver().withUnexpectedKeyCheck(IgnoreUnexpectedKeys).disableOverrideUnexpectedKeyCheck()
+            val dictionary = "{ (number): 99 }".let(Dictionary::fromYaml)
+            val invalidValue = mapOf("age" to "invalid", "extraKey" to "extraValue")
+            val fixedValue = httpHeaders.fixValue(invalidValue, resolver.copy(dictionary = dictionary))
+            assertThat(fixedValue).isEqualTo(mapOf("age" to "99", "extraKey" to "extraValue"))
+        }
     }
 
     @ParameterizedTest
