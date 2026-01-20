@@ -15,7 +15,7 @@ class APIKeyInQueryParamSecuritySchemeTest {
     fun `should result in failure when query api key is missing`() {
         val httpRequest = HttpRequest(headers = emptyMap())
         val resolver = Resolver(mockMode = false)
-        val result = APIKeyInQueryParamSecurityScheme(name = "API-KEY", apiKey = "123").matches(httpRequest, resolver)
+        val result = APIKeyInQueryParamSecurityScheme(name = "API-KEY", apiKey = "123", schemeName = "ApikeyQueryScheme").matches(httpRequest, resolver)
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).isEqualToNormalizingWhitespace(toViolationReportString(
@@ -29,7 +29,7 @@ class APIKeyInQueryParamSecuritySchemeTest {
     fun `should not result in failure when query api key is missing and resolver is in mock mode`() {
         val httpRequest = HttpRequest(headers = emptyMap())
         val resolver = Resolver(mockMode = true)
-        val result = APIKeyInQueryParamSecurityScheme(name = "API-KEY", apiKey = "123").matches(httpRequest, resolver)
+        val result = APIKeyInQueryParamSecurityScheme(name = "API-KEY", apiKey = "123", schemeName = "ApikeyQueryScheme").matches(httpRequest, resolver)
 
         assertThat(result).isInstanceOf(Result.Success::class.java)
     }

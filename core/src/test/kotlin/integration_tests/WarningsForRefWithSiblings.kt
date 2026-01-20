@@ -70,7 +70,7 @@ class WarningsForRefWithSiblings {
         assertThat(stdout).containsIgnoringWhitespaces(
             toViolationReportString(
                 breadCrumb = "components.schemas.Address.properties.building",
-                details = "Schema has both \$ref (#/components/schemas/BuildingDetails) and a type object defined, ignoring other properties",
+                details = "This reference has sibling properties. In accordance with the OpenAPI 3.0 standard, they will be ignored. Please remove them.",
                 OpenApiLintViolations.REF_HAS_SIBLINGS
             )
         )
@@ -141,7 +141,7 @@ class WarningsForRefWithSiblings {
         assertThat(stdout).containsIgnoringWhitespaces(
             toViolationReportString(
                 breadCrumb = "components.schemas.Address.properties.building.properties.details",
-                details = "Schema has both \$ref (#/components/schemas/BuildingDetails) and a type object defined, ignoring other properties",
+                details = "This reference has sibling properties. In accordance with the OpenAPI 3.0 standard, they will be ignored. Please remove them.",
                 OpenApiLintViolations.REF_HAS_SIBLINGS
             )
         )
@@ -202,7 +202,7 @@ class WarningsForRefWithSiblings {
         assertThat(stdout).containsIgnoringWhitespaces(
             toViolationReportString(
                 breadCrumb = "components.schemas.Employee.properties.phoneNumbers.items",
-                details = "Schema has both \$ref (#/components/schemas/PhoneNumber) and a type object defined, ignoring other properties",
+                details = "This reference has sibling properties. In accordance with the OpenAPI 3.0 standard, they will be ignored. Please remove them.",
                 OpenApiLintViolations.REF_HAS_SIBLINGS
             )
         )
@@ -266,7 +266,7 @@ class WarningsForRefWithSiblings {
         assertThat(stdout).containsIgnoringWhitespaces(
             toViolationReportString(
                 breadCrumb = "paths./test.get.responses.200.content.application/json.schema.properties.address.properties.building",
-                details = "Schema has both \$ref (#/components/schemas/BuildingDetails) and a type object defined, ignoring other properties",
+                details = "This reference has sibling properties. In accordance with the OpenAPI 3.0 standard, they will be ignored. Please remove them.",
                 OpenApiLintViolations.REF_HAS_SIBLINGS
             )
         )
@@ -338,7 +338,7 @@ class WarningsForRefWithSiblings {
         assertThat(stdout).containsIgnoringWhitespaces(
             toViolationReportString(
                 breadCrumb = "paths./test.post.requestBody.content.application/json.schema.properties.address.properties.building",
-                details = "Schema has both \$ref (#/components/schemas/BuildingDetails) and a type object defined, ignoring other properties",
+                details = "This reference has sibling properties. In accordance with the OpenAPI 3.0 standard, they will be ignored. Please remove them.",
                 OpenApiLintViolations.REF_HAS_SIBLINGS
             )
         )
@@ -391,7 +391,7 @@ class WarningsForRefWithSiblings {
         assertThat(stdout).containsIgnoringWhitespaces(
             toViolationReportString(
                 breadCrumb = "paths./test.get.parameters[0].schema",
-                details = "Schema has both \$ref (#/components/schemas/CityType) and a type string defined, ignoring other properties",
+                details = "This reference has sibling properties. In accordance with the OpenAPI 3.0 standard, they will be ignored. Please remove them.",
                 OpenApiLintViolations.REF_HAS_SIBLINGS
             )
         )
@@ -444,7 +444,7 @@ class WarningsForRefWithSiblings {
         assertThat(stdout).containsIgnoringWhitespaces(
             toViolationReportString(
                 breadCrumb = "paths./test/{cityType}.get.parameters[0].schema",
-                details = "Schema has both \$ref (#/components/schemas/CityType) and a type string defined, ignoring other properties",
+                details = "This reference has sibling properties. In accordance with the OpenAPI 3.0 standard, they will be ignored. Please remove them.",
                 OpenApiLintViolations.REF_HAS_SIBLINGS
             )
         )
@@ -497,7 +497,7 @@ class WarningsForRefWithSiblings {
         assertThat(stdout).containsIgnoringWhitespaces(
             toViolationReportString(
                 breadCrumb = "paths./test.get.parameters[0].schema",
-                details = "Schema has both \$ref (#/components/schemas/CityType) and a type string defined, ignoring other properties",
+                details = "This reference has sibling properties. In accordance with the OpenAPI 3.0 standard, they will be ignored. Please remove them.",
                 OpenApiLintViolations.REF_HAS_SIBLINGS
             )
         )
@@ -547,7 +547,7 @@ class WarningsForRefWithSiblings {
         assertThat(stdout).containsIgnoringWhitespaces(
             toViolationReportString(
                 breadCrumb = "paths./test.get.responses.200.headers.X-Unique-ID.schema",
-                details = "Schema has both \$ref (#/components/schemas/UniqueIDType) and a type string defined, ignoring other properties",
+                details = "This reference has sibling properties. In accordance with the OpenAPI 3.0 standard, they will be ignored. Please remove them.",
                 OpenApiLintViolations.REF_HAS_SIBLINGS
             )
         )

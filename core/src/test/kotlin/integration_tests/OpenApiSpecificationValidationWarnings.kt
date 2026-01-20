@@ -38,7 +38,7 @@ class OpenApiSpecificationValidationWarnings {
 
         assertThat(stdout).containsIgnoringWhitespaces("""
         >> paths./test.get.responses.200.content.application/json
-        No schema property defined under mediaType application/json, defaulting to free-form object
+        No schema property defined under mediaType application/json, defaulting to free-form object.
         """.trimIndent())
     }
 
@@ -70,7 +70,7 @@ class OpenApiSpecificationValidationWarnings {
 
         assertThat(output).containsIgnoringWhitespaces("""
         >> paths./api/nocontent.post.requestBody.content.application/json
-        No schema property defined under mediaType application/json, defaulting to free-form object
+        No schema property defined under mediaType application/json, defaulting to free-form object.
         """.trimIndent())
     }
 
@@ -109,7 +109,7 @@ class OpenApiSpecificationValidationWarnings {
 
         assertThat(output).containsIgnoringWhitespaces("""
         >> paths./api/nocontent.post.responses.200.content.text/plain
-        No schema property defined under mediaType text/plain, defaulting to string
+        No schema property defined under mediaType text/plain, defaulting to string.
         """.trimIndent())
     }
 
@@ -238,20 +238,20 @@ class OpenApiSpecificationValidationWarnings {
         ${
             toViolationReportString(
                 breadCrumb = "paths./users.post.responses.200.content.application/json",
-                details = "No schema property defined under mediaType application/json, defaulting to free-form object"
+                details = "No schema property defined under mediaType application/json, defaulting to free-form object."
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "paths./users.post.parameters[0].name",
-                details = "Found header parameter with same name as Bearer Authorization security scheme",
+                details = "The header parameter named \"Authorization\" for api-key security scheme named \"bearerAuth\" was explicitly re-defined as a parameter. The parameter should be removed.",
                 OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
             )
         }
         ${
             toViolationReportString(
                 breadCrumb = "paths./users.post.requestBody.content.application/json.schema",
-                details = "Schema has both \$ref (#/components/schemas/User) and a type object defined, ignoring other properties",
+                details = "This reference has sibling properties. In accordance with the OpenAPI 3.0 standard, they will be ignored. Please remove them.",
                 OpenApiLintViolations.REF_HAS_SIBLINGS
             )
         }

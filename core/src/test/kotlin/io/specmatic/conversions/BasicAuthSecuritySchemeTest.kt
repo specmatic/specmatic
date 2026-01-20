@@ -14,7 +14,7 @@ import org.junit.jupiter.params.provider.ValueSource
 import java.util.*
 
 class BasicAuthSecuritySchemeTest {
-    private val basicAuthSecurityScheme = BasicAuthSecurityScheme()
+    private val basicAuthSecurityScheme = BasicAuthSecurityScheme(schemeName = "TEST")
 
     @Test
     fun `matches should return failure when authorization header is missing`() {

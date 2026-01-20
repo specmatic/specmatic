@@ -34,13 +34,13 @@ class ScenarioTest {
         @JvmStatic
         fun securitySchemaProvider(): Stream<OpenAPISecurityScheme> {
             return Stream.of(
-                APIKeyInHeaderSecurityScheme(name = "API-KEY", apiKey = "1234"),
-                APIKeyInQueryParamSecurityScheme(name = "API-KEY", apiKey = "1234"),
-                BasicAuthSecurityScheme("am9objoxMjM0"),
-                BearerSecurityScheme("1234"),
+                APIKeyInHeaderSecurityScheme(name = "API-KEY", apiKey = "1234", schemeName = "ApikeyHeaderScheme"),
+                APIKeyInQueryParamSecurityScheme(name = "API-KEY", apiKey = "1234", schemeName = "ApikeyQueryScheme"),
+                BasicAuthSecurityScheme("am9objoxMjM0", schemeName = "BasicScheme"),
+                BearerSecurityScheme("1234", schemeName = "BearerScheme"),
                 CompositeSecurityScheme(listOf(
-                    BearerSecurityScheme("1234"),
-                    APIKeyInQueryParamSecurityScheme(name = "API-KEY", apiKey = "1234"),
+                    BearerSecurityScheme("1234", schemeName = "BearerScheme"),
+                    APIKeyInQueryParamSecurityScheme(name = "API-KEY", apiKey = "1234", schemeName = "ApikeyQueryScheme"),
                 ))
             )
         }
@@ -372,7 +372,7 @@ class ScenarioTest {
             name = "SIMPLE POST",
             httpRequestPattern = HttpRequestPattern(
                 httpPathPattern = buildHttpPathPattern("/"), method = "POST",
-                securitySchemes = listOf(BasicAuthSecurityScheme())
+                securitySchemes = listOf(BasicAuthSecurityScheme(schemeName = "BasicScheme"))
             ),
             httpResponsePattern = HttpResponsePattern(status = 200),
             examples = listOf(

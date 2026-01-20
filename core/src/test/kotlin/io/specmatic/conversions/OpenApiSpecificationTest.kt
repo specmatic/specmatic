@@ -7293,7 +7293,7 @@ paths:
         }.satisfies(
             {
                 println(exceptionCauseMessage(it))
-                assertThat(exceptionCauseMessage(it)).contains("""Parameter has no name defined""")
+                assertThat(exceptionCauseMessage(it)).contains("\"name\" is mandatory for parameters, but it was missing. It will be ignored by Specmatic. Please add a name, or remove the parameter.")
             }
         )
     }
@@ -11183,27 +11183,25 @@ paths:
 
         assertThat(secure.httpRequestPattern.securitySchemes).isEqualTo(listOf(
             CompositeSecurityScheme(listOf(
-                BearerSecurityScheme(configuredToken = "API-SECRET"),
-                APIKeyInQueryParamSecurityScheme(name = "apiKey", apiKey = "1234")
+                BearerSecurityScheme(configuredToken = "API-SECRET", schemeName = "bearerAuth"),
+                APIKeyInQueryParamSecurityScheme(name = "apiKey", apiKey = "1234", schemeName = "apiKeyQuery")
             ))
         ))
 
         assertThat(overlap.httpRequestPattern.securitySchemes).isEqualTo(listOf(
             CompositeSecurityScheme(listOf(
-                BearerSecurityScheme(configuredToken = "API-SECRET"),
-                APIKeyInQueryParamSecurityScheme(name = "apiKey", apiKey = "1234")
+                BearerSecurityScheme(configuredToken = "API-SECRET", schemeName = "bearerAuth"),
+                APIKeyInQueryParamSecurityScheme(name = "apiKey", apiKey = "1234", schemeName = "apiKeyQuery")
             )),
-            BearerSecurityScheme(configuredToken = "API-SECRET"),
+            BearerSecurityScheme(configuredToken = "API-SECRET", schemeName = "bearerAuth"),
         ))
 
         assertThat(partial.httpRequestPattern.securitySchemes).isEqualTo(listOf(
-            BearerSecurityScheme(configuredToken = "API-SECRET"),
-            APIKeyInQueryParamSecurityScheme(name = "apiKey", apiKey = "1234")
+            BearerSecurityScheme(configuredToken = "API-SECRET", schemeName = "bearerAuth"),
+            APIKeyInQueryParamSecurityScheme(name = "apiKey", apiKey = "1234", schemeName = "apiKeyQuery")
         ))
 
-        assertThat(insecure.httpRequestPattern.securitySchemes).isEqualTo(listOf(
-            NoSecurityScheme()
-        ))
+        assertThat(insecure.httpRequestPattern.securitySchemes).isEqualTo(listOf(NoSecurityScheme()))
     }
 
     @Test

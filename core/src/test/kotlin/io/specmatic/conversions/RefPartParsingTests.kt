@@ -322,7 +322,7 @@ paths:
         }
             .isInstanceOf(ContractException::class.java)
             .satisfies( {
-                assertThat(exceptionCauseMessage(it)).contains("Header reference '#/components/headers/HelloResponseHeader' could not be resolved")
+                assertThat(exceptionCauseMessage(it)).contains("The element referred to at this path was not found in the spec. Please add the missing header named \"HelloResponseHeader\"")
             })
     }
 

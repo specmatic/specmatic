@@ -28,14 +28,9 @@ internal fun rightSizedLength(length: Int?, paramName: String, patternName: Stri
     length ?: return null to false
     if (length <= REASONABLE_STRING_LENGTH) return length to false
     collectorContext.at(paramName).record(
-        message = """
-        The $paramName of $length for ${collectorContext.path ?: "schema $patternName"} is very large.
-        We will use a more reasonable $paramName of 4MB.
-        Boundary testing will not be done for $paramName, and string lengths generated for test or stub will not exceed 4MB in length.
-        Please review the $paramName of $length on this field
-        """.trimIndent(),
+        message = "A length of $length is impractical. Limiting the $paramName for now to the more practical 4MB, which is enough for most purposes. Please double-check the $paramName needed for this value and adjust accordingly.",
         isWarning = true,
-        ruleViolation = OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT
+        ruleViolation = SchemaLintViolations.IMPRACTICAL_VALUE
     )
     return REASONABLE_STRING_LENGTH to true
 }
