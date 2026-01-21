@@ -820,7 +820,7 @@ internal class HttpHeadersPatternTest {
         }
 
         @Test
-        fun `should not remove content-type when not declared in pattern without override`() {
+        fun `should not remove content-type when not declared in pattern and override is not disabled`() {
             val httpHeaders = HttpHeadersPattern(emptyMap())
             val value = mapOf("Content-Type" to "application/json")
             val fixedValue = httpHeaders.fixValue(value, Resolver())
@@ -828,7 +828,7 @@ internal class HttpHeadersPatternTest {
         }
 
         @Test
-        fun `should remove content-type when not declared in pattern on override key check`() {
+        fun `should remove content-type when not declared in pattern on and override is disabled`() {
             val httpHeaders = HttpHeadersPattern(emptyMap())
             val value = mapOf("Content-Type" to "application/json")
             val fixedValue = httpHeaders.fixValue(value, Resolver().disableOverrideUnexpectedKeyCheck())
