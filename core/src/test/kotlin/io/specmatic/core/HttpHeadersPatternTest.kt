@@ -9,10 +9,12 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.value.*
 import io.specmatic.test.TestExecutor
 import io.specmatic.toViolationReportString
+import org.assertj.core.api.Assertions.assertThatCode
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
@@ -792,6 +794,54 @@ internal class HttpHeadersPatternTest {
             val fixedValue = httpHeaders.fixValue(invalidValue, resolver.copy(dictionary = dictionary))
             assertThat(fixedValue).isEqualTo(mapOf("age" to "99", "extraKey" to "extraValue"))
         }
+
+        @Test
+        fun `should not fix content-type when parsed content-type matches`() {
+            val httpHeaders = HttpHeadersPattern(emptyMap(), contentType = "application/json")
+            val validValue = mapOf("Content-Type" to "Application/JSON; charset=utf-8")
+            val fixedValue = httpHeaders.fixValue(validValue, Resolver())
+            assertThat(fixedValue).isEqualTo(validValue)
+        }
+
+        @Test
+        fun `should fix content-type when parsed content-type does not match`() {
+            val httpHeaders = HttpHeadersPattern(emptyMap(), contentType = "application/json")
+            val invalidValue = mapOf("Content-Type" to "application/xml; charset=utf-8")
+            val fixedValue = httpHeaders.fixValue(invalidValue, Resolver())
+            assertThat(fixedValue).isEqualTo(mapOf("Content-Type" to "application/json"))
+        }
+
+        @Test
+        fun `should add content-type when declared in pattern but missing`() {
+            val httpHeaders = HttpHeadersPattern(emptyMap(), contentType = "application/json")
+            val value = emptyMap<String, String>()
+            val fixedValue = httpHeaders.fixValue(value, Resolver())
+            assertThat(fixedValue).isEqualTo(mapOf("Content-Type" to "application/json"))
+        }
+
+        @Test
+        fun `should not remove content-type when not declared in pattern without override`() {
+            val httpHeaders = HttpHeadersPattern(emptyMap())
+            val value = mapOf("Content-Type" to "application/json")
+            val fixedValue = httpHeaders.fixValue(value, Resolver())
+            assertThat(fixedValue).isEqualTo(value)
+        }
+
+        @Test
+        fun `should remove content-type when not declared in pattern on override key check`() {
+            val httpHeaders = HttpHeadersPattern(emptyMap())
+            val value = mapOf("Content-Type" to "application/json")
+            val fixedValue = httpHeaders.fixValue(value, Resolver().disableOverrideUnexpectedKeyCheck())
+            assertThat(fixedValue).isEmpty()
+        }
+
+        @Test
+        fun `should not add content-type when not declared in pattern`() {
+            val httpHeaders = HttpHeadersPattern(emptyMap())
+            val value = emptyMap<String, String>()
+            val fixedValue = httpHeaders.fixValue(value, Resolver())
+            assertThat(fixedValue).isEqualTo(value)
+        }
     }
 
     @ParameterizedTest
@@ -959,6 +1009,46 @@ internal class HttpHeadersPatternTest {
                 assertThat(result).isInstanceOf(HasValue::class.java); result as HasValue
                 println(result.value)
             }
+        }
+
+        @Test
+        fun `should not throw when parsed content-type matches`() {
+            val httpHeaders = HttpHeadersPattern(emptyMap(), contentType = "application/json")
+            val headers = mapOf("Content-Type" to "Application/JSON; charset=utf-8")
+            val value = assertDoesNotThrow { httpHeaders.fillInTheBlanks(headers, Resolver()).value }
+            assertThat(value).isEqualTo(headers)
+        }
+
+        @Test
+        fun `should throw when parsed content-type does not match`() {
+            val httpHeaders = HttpHeadersPattern(emptyMap(), contentType = "application/json")
+            val headers = mapOf("Content-Type" to "application/xml; charset=utf-8")
+            val value = assertDoesNotThrow { httpHeaders.fillInTheBlanks(headers, Resolver()).value }
+            assertThat(value).isEqualTo(headers)
+        }
+
+        @Test
+        fun `should not throw when content-type is declared but missing in value`() {
+            val httpHeaders = HttpHeadersPattern(emptyMap(), contentType = "application/json")
+            val headers = emptyMap<String, String>()
+            val value = assertDoesNotThrow { httpHeaders.fillInTheBlanks(headers, Resolver()).value }
+            assertThat(value).isEqualTo(headers)
+        }
+
+        @Test
+        fun `should not throw when content-type is present but not declared in pattern`() {
+            val httpHeaders = HttpHeadersPattern(emptyMap())
+            val headers = mapOf("Content-Type" to "application/json")
+            val value = assertDoesNotThrow { httpHeaders.fillInTheBlanks(headers, Resolver()).value }
+            assertThat(value).isEqualTo(headers)
+        }
+
+        @Test
+        fun `should not throw when content-type is absent and not declared in pattern`() {
+            val httpHeaders = HttpHeadersPattern(emptyMap())
+            val headers = emptyMap<String, String>()
+            val value = assertDoesNotThrow { httpHeaders.fillInTheBlanks(headers, Resolver()).value }
+            assertThat(value).isEqualTo(headers)
         }
     }
 }
