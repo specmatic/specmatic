@@ -13,10 +13,41 @@ import io.ktor.server.response.*
 import io.ktor.util.*
 import io.ktor.util.pipeline.*
 import io.specmatic.conversions.convertPathParameterStyle
-import io.specmatic.core.*
+import io.specmatic.core.APPLICATION_NAME
+import io.specmatic.core.APPLICATION_NAME_LOWER_CASE
 import io.specmatic.core.Constants.Companion.ARTIFACTS_PATH
+import io.specmatic.core.Feature
+import io.specmatic.core.HttpRequest
+import io.specmatic.core.HttpResponse
+import io.specmatic.core.KeyData
+import io.specmatic.core.MismatchMessages
+import io.specmatic.core.MissingDataException
+import io.specmatic.core.MultiPartContent
+import io.specmatic.core.MultiPartContentValue
+import io.specmatic.core.MultiPartFileValue
+import io.specmatic.core.MultiPartFormDataValue
+import io.specmatic.core.NoBodyValue
+import io.specmatic.core.QueryParameters
+import io.specmatic.core.ResponseBuilder
+import io.specmatic.core.Result
+import io.specmatic.core.Results
+import io.specmatic.core.SPECMATIC_EMPTY_HEADER
+import io.specmatic.core.SPECMATIC_RESULT_HEADER
+import io.specmatic.core.Scenario
+import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.WorkingDirectory
 import io.specmatic.core.examples.server.ExampleMismatchMessages
-import io.specmatic.core.log.*
+import io.specmatic.core.listOfExcludedHeaders
+import io.specmatic.core.loadSpecmaticConfigOrDefault
+import io.specmatic.core.log.HttpLogMessage
+import io.specmatic.core.log.LogMessage
+import io.specmatic.core.log.LogTail
+import io.specmatic.core.log.NewLineLogMessage
+import io.specmatic.core.log.StringLog
+import io.specmatic.core.log.consoleLog
+import io.specmatic.core.log.dontPrintToConsole
+import io.specmatic.core.log.logger
+import io.specmatic.core.parseGherkinStringToFeature
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.pattern.parsedValue
@@ -24,8 +55,20 @@ import io.specmatic.core.report.ReportGenerator
 import io.specmatic.core.report.ctrfSpecConfigsFrom
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.configureHealthCheckModule
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.isHealthCheckRequest
-import io.specmatic.core.utilities.*
-import io.specmatic.core.value.*
+import io.specmatic.core.urlDecodePathSegments
+import io.specmatic.core.utilities.URIValidationResult
+import io.specmatic.core.utilities.capitalizeFirstChar
+import io.specmatic.core.utilities.exceptionCauseMessage
+import io.specmatic.core.utilities.exitWithMessage
+import io.specmatic.core.utilities.saveJsonFile
+import io.specmatic.core.utilities.toMap
+import io.specmatic.core.utilities.validateTestOrStubUri
+import io.specmatic.core.value.EmptyString
+import io.specmatic.core.value.JSONArrayValue
+import io.specmatic.core.value.JSONObjectValue
+import io.specmatic.core.value.StringValue
+import io.specmatic.core.value.Value
+import io.specmatic.core.value.toXMLNode
 import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.LicensedProduct
 import io.specmatic.license.core.SpecmaticFeature
@@ -49,7 +92,11 @@ import io.specmatic.test.TestResultRecord.Companion.STUB_TEST_TYPE
 import io.specmatic.test.TestResultRecord.Companion.getCoverageStatus
 import io.specmatic.test.internalHeadersToKtorHeaders
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.*
+import kotlinx.coroutines.channels.BroadcastChannel
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ReceiveChannel
+import kotlinx.coroutines.channels.broadcast
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -96,7 +143,7 @@ class HttpStub(
         specToStubBaseUrlMap: Map<String, String> = mapOf(
             feature.path to endPointFromHostAndPort(host, port, null)
         ),
-        listeners: List<MockEventListener> = emptyList()
+        listeners: List<MockEventListener> = emptyList(),
     ) : this(
         listOf(feature),
         contractInfoToHttpExpectations(listOf(Pair(feature, scenarioStubs))),
@@ -104,7 +151,7 @@ class HttpStub(
         port,
         log,
         specToStubBaseUrlMap = specToStubBaseUrlMap,
-        listeners = listeners
+        listeners = listeners,
     )
 
     constructor(
@@ -112,7 +159,7 @@ class HttpStub(
         scenarioStubs: List<ScenarioStub> = emptyList(),
         host: String = "localhost",
         port: Int = 9000,
-        log: (event: LogMessage) -> Unit = dontPrintToConsole
+        log: (event: LogMessage) -> Unit = dontPrintToConsole,
     ) : this(
         parseGherkinStringToFeature(gherkinData),
         scenarioStubs,
@@ -121,7 +168,7 @@ class HttpStub(
         log,
         specToStubBaseUrlMap = mapOf(
             parseGherkinStringToFeature(gherkinData).path to endPointFromHostAndPort(host, port, null)
-        )
+        ),
     )
 
     companion object {
@@ -790,7 +837,12 @@ class HttpStub(
 
     override fun close() {
         server.stop(gracePeriodMillis = timeoutMillis, timeoutMillis = timeoutMillis)
-        printUsageReport()
+        val protocols = features.map { it.protocol }.distinct()
+        if (SpecmaticProtocol.HTTP in protocols) generateReports()
+    }
+
+    private fun generateReports() {
+        generateStubUsageReport()
         val specmaticConfig = loadSpecmaticConfigOrDefault(specmaticConfigPath)
         synchronized(ctrfTestResultRecords) {
             ctrfTestResultRecords.addAll(notCoveredTestResultRecords())
@@ -876,7 +928,7 @@ class HttpStub(
         }
     }
 
-    private fun printUsageReport() {
+    private fun generateStubUsageReport() {
         specmaticConfigPath?.let {
             val stubUsageReport = StubUsageReport(specmaticConfigPath, _allEndpoints, _logs)
             println("Saving Stub Usage Report json to $JSON_REPORT_PATH ...")
