@@ -127,7 +127,7 @@ class LenientParserTest {
                         }
                     }
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
-                    assert("paths./test/{id}.get.parameters[-1]") {
+                    assert("paths./test/{id}.get.parameters") {
                         toHaveSeverity(IssueSeverity.ERROR)
                         toContainViolation(OpenApiLintViolations.PATH_PARAMETER_MISSING)
                         toMatchText("Expected path parameter with name id is missing, defaulting to empty schema")
@@ -1951,7 +1951,7 @@ class LenientParserTest {
                         }
                     }
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
-                    assert("paths./test.get.responses.200.content.application/json.schema.enum[-1]") {
+                    assert("paths./test.get.responses.200.content.application/json.schema.enum") {
                         toContainText("Enum values must contain null if the enum is marked nullable")
                     }
                 },
@@ -1975,7 +1975,7 @@ class LenientParserTest {
                         }
                     }
                     assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(0) }
-                    assert("paths./test.get.responses.200.content.application/json.schema.enum[-1]") {
+                    assert("paths./test.get.responses.200.content.application/json.schema.enum") {
                         toContainText("Enum values must contain null if the enum is marked nullable")
                     }
                 },
@@ -3224,6 +3224,65 @@ class LenientParserTest {
                     assert("components.schemas.UnknownSchema") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.SCHEMA_UNCLEAR)
+                    }
+                },
+                multiVersionLenientCase(name = "additionalProps on non-objects", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    requestBody {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("type", "string")
+                                                    put("additionalProperties", true)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test.get.requestBody.content.application/json.schema.additionalProperties") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.INVALID_ADDITIONAL_PROPERTIES_USAGE)
+                        toContainText("additionalProperties should only be defined for object schema")
+                    }
+                },
+                multiVersionLenientCase(name = "additionalProps on non-objects ref", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    requestBody {
+                                        requestBody {
+                                            content {
+                                                mediaType("application/json") {
+                                                    schemaRef("NonObjectSchema")
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        components {
+                            schemas {
+                                schema("NonObjectSchema") {
+                                    put("type", "string")
+                                    put("additionalProperties", true)
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.schemas.NonObjectSchema.additionalProperties") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.INVALID_ADDITIONAL_PROPERTIES_USAGE)
+                        toContainText("additionalProperties should only be defined for object schema")
                     }
                 },
             ).flatten().stream()

@@ -80,7 +80,6 @@ class Proxy(
     )
 
     private val stubs = mutableListOf<NamedStub>()
-
     private val requestInterceptors: MutableList<RequestInterceptor> = mutableListOf()
     private val responseInterceptors: MutableList<ResponseInterceptor> = mutableListOf()
     private val proxyRequestHandlers: MutableList<ProxyRequestHandler> = mutableListOf()
@@ -394,9 +393,9 @@ class Proxy(
         }
     }
 
-    fun record(specName: String, operationDetails: List<ProxyOperation> = emptyList(), clearPrevious: Boolean = false): Boolean {
+    fun record(specName: String, operationDetails: List<ProxyOperation> = emptyList()): Boolean {
         return runBlocking {
-            recordInternal(specName, operationDetails, clearPrevious)
+            recordInternal(specName, operationDetails)
         }
     }
 
@@ -428,32 +427,30 @@ class Proxy(
             .booleanValue
     }
 
-    private suspend fun recordInternal(specName: String, operationDetails: List<ProxyOperation>, clearPrevious: Boolean = false): Boolean =
+    private suspend fun recordInternal(specName: String, operationDetails: List<ProxyOperation>): Boolean =
         recordMutex.withLock {
             val basePath = specName.dropExtension()
             val examplesDirName = "${basePath}$EXAMPLES_DIR_SUFFIX"
             val examplesDir = File(outputDirectory.fileName(examplesDirName))
             val stubDataDirectory = outputDirectory.subDirectory(examplesDirName)
 
-            if (clearPrevious) stubDataDirectory.clearDirectory()
             outputDirectory.createDirectory()
             stubDataDirectory.createDirectory()
 
-            val matchingStubs = stubs.filter { stub ->
-                if (operationDetails.isEmpty()) return@filter true
-                operationDetails.any { stub.matches(it) }
-            }
-
-            if (matchingStubs.isNotEmpty()) {
-                val existingCount = examplesDir.listFiles().orEmpty().count { it.isFile && it.extension == "json" }
-                matchingStubs.forEachIndexed { index, namedStub ->
-                    val fileName = "${namedStub.shortName}_${existingCount + index + 1}.json"
-                    println("Writing stub data to $fileName")
-                    stubDataDirectory.writeText(fileName, namedStub.stub.toJSON().toStringLiteral())
+            val (matchingStubs, remainingStubs) =
+                if (operationDetails.isEmpty()) {
+                    copyOfRecordings() to emptyList()
+                } else {
+                    stubs.partition { stub ->
+                        operationDetails.any { stub.matches(it) }
+                    }
                 }
-            }
 
-            val openApiYaml = openApiYamlFromExampleDir(examplesDir, File(basePath).name)
+            stubs.clear()
+            stubs.addAll(remainingStubs)
+            writeMatchingStubs(examplesDir, stubDataDirectory, matchingStubs)
+
+            val openApiYaml = openApiYamlFromExampleDir(examplesDir, File(basePath).name, operationDetails)
             if (openApiYaml == null) {
                 println("No stubs were recorded. No contract will be written.")
                 return false
@@ -463,6 +460,19 @@ class Proxy(
             outputDirectory.writeText(specName, openApiYaml)
             return true
         }
+
+    private fun copyOfRecordings(): List<NamedStub> = stubs.toList()
+
+    private fun writeMatchingStubs(examplesDir: File, stubDataDirectory: FileWriter, matchingStubs: List<NamedStub>) {
+        if (matchingStubs.isEmpty()) return
+        val existingFiles = examplesDir.listFiles().orEmpty().filter { it.isFile && it.extension == "json" }.map(File::getName).toMutableSet()
+        matchingStubs.forEach { namedStub ->
+            val fileName = generateSequence(1) { it + 1 }.map { "${namedStub.shortName}_$it.json" }.first { it !in existingFiles }
+            println("Writing stub data to $fileName")
+            stubDataDirectory.writeText(fileName, namedStub.stub.toJSON().toStringLiteral())
+            existingFiles.add(fileName)
+        }
+    }
 
     private suspend fun dumpSpecAndExamplesIntoOutputDir() =
         recordInternal("$specificationFileName.yaml", emptyList())

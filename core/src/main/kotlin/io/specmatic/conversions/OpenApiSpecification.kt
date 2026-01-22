@@ -13,7 +13,6 @@ import io.cucumber.messages.types.Step
 import io.ktor.util.reflect.*
 import io.specmatic.conversions.SchemaUtils.mergeResolvedIfJsonSchema
 import io.specmatic.conversions.lenient.CollectorContext
-import io.specmatic.conversions.lenient.DEFAULT_ARRAY_INDEX
 import io.specmatic.core.*
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.log.LogStrategy
@@ -98,7 +97,8 @@ class OpenApiSpecification(
     private val strictMode: Boolean = false,
     private val lenientMode: Boolean = false,
     private val dictionary: Dictionary = loadDictionary(openApiFilePath, specmaticConfig.getStubDictionary(), strictMode),
-    private val logger: LogStrategy = io.specmatic.core.log.logger
+    private val logger: LogStrategy = io.specmatic.core.log.logger,
+    private val parseCollectorContext: CollectorContext = CollectorContext(),
 ) : IncludedSpecification, ApiSpecification {
     init {
         StringProviders // Trigger early initialization of StringProviders to ensure all providers are loaded at startup
@@ -263,9 +263,10 @@ class OpenApiSpecification(
             strictMode: Boolean = false,
             lenientMode: Boolean = false,
         ): OpenApiSpecification {
+            val collectorContext = CollectorContext()
             val implicitOverlayFile = getImplicitOverlayContent(openApiFilePath)
             val mergedYaml = yamlContent.applyOverlay(overlayContent).applyOverlay(implicitOverlayFile)
-            val preprocessedYaml = preprocessYamlForAdditionalProperties(mergedYaml)
+            val preprocessedYaml = preprocessYamlForAdditionalProperties(mergedYaml, collectorContext)
 
             val parseResult: SwaggerParseResult =
                 OpenAPIV3Parser().readContents(
@@ -303,7 +304,8 @@ class OpenApiSpecification(
                 specmaticConfig,
                 strictMode = strictMode,
                 lenientMode = lenientMode,
-                logger = logger
+                logger = logger,
+                parseCollectorContext = collectorContext
             )
         }
 
@@ -346,12 +348,12 @@ class OpenApiSpecification(
             ).registerKotlinModule()
         }
 
-        private fun preprocessYamlForAdditionalProperties(yaml: String): String {
+        private fun preprocessYamlForAdditionalProperties(yaml: String, collectorContext: CollectorContext): String {
             if (yaml.isBlank()) return yaml
 
             return try {
                 val root = yamlPreprocessorMapper.readTree(yaml) ?: return yaml
-                removeInvalidAdditionalProperties(root)
+                removeInvalidAdditionalProperties(root, collectorContext = collectorContext)
                 yamlPreprocessorMapper.writeValueAsString(root)
             } catch (exception: Exception) {
                 logger.debug("Skipping additionalProperties preprocessing due to error: ${exception.message}")
@@ -359,13 +361,12 @@ class OpenApiSpecification(
             }
         }
 
-        private fun removeInvalidAdditionalProperties(node: JsonNode?, skipProcessing: Boolean = false, currentPath: String = "") {
+        private fun removeInvalidAdditionalProperties(node: JsonNode?, skipProcessing: Boolean = false, collectorContext: CollectorContext) {
             if (node == null || skipProcessing) return
 
             when (node) {
                 is ObjectNode -> {
                     if (node.has("additionalProperties") && shouldRemoveAdditionalProperties(node.get("type"))) {
-                        val logPath = currentPath.ifBlank { "root" }
                         val typeDescription = node.get("type")?.let { typeNode ->
                             when {
                                 typeNode.isTextual -> typeNode.asText()
@@ -373,7 +374,11 @@ class OpenApiSpecification(
                                 else -> typeNode.toString()
                             }
                         } ?: "unspecified"
-                        logger.debug("Ignoring 'additionalProperties' from $logPath (additionalProperties only applies to 'type: object', but found 'type: $typeDescription')")
+                        collectorContext.at("additionalProperties").record(
+                            isWarning = true,
+                            ruleViolation = OpenApiLintViolations.INVALID_ADDITIONAL_PROPERTIES_USAGE,
+                            message = "additionalProperties should only be defined for object schema, found for type \"$typeDescription\", this will be ignored, Please remove it.",
+                        )
                         node.remove("additionalProperties")
                     }
 
@@ -382,22 +387,15 @@ class OpenApiSpecification(
                         val fieldName = fieldNames.next()
                         val value = node.get(fieldName)
                         val shouldSkipChild = fieldName == "example" || fieldName == "examples"
-                        val childPath = when {
-                            currentPath.isBlank() -> fieldName
-                            else -> "$currentPath.$fieldName"
-                        }
-
-                        removeInvalidAdditionalProperties(value, shouldSkipChild, childPath)
+                        val childContext = collectorContext.at(fieldName)
+                        removeInvalidAdditionalProperties(value, shouldSkipChild, childContext)
                     }
                 }
 
                 is ArrayNode -> {
                     node.forEachIndexed { index, element ->
-                        val elementPath = when {
-                            currentPath.isBlank() -> index.toString()
-                            else -> "$currentPath.$index"
-                        }
-                        removeInvalidAdditionalProperties(element, skipProcessing, elementPath)
+                        val childContext = collectorContext.at(index)
+                        removeInvalidAdditionalProperties(element ,collectorContext = childContext)
                     }
                 }
             }
@@ -434,7 +432,7 @@ class OpenApiSpecification(
     }
 
     fun toFeatureLenient(): Pair<Feature, Result> {
-        val rootContext = CollectorContext()
+        val rootContext = CollectorContext().combineImmutable(parseCollectorContext)
         val name = File(openApiFilePath).name
 
         val (scenarioInfos, stubsFromExamples) = toScenarioInfos(rootContext)
@@ -1586,7 +1584,6 @@ class OpenApiSpecification(
             }
 
             val resolvedRefDetails = resolveSchemaIfRef(constituentSchema, collectorContext = schemaContext)
-            val refEntry = DeepAllOfSchema(resolvedRefDetails.resolvedSchema, resolvedRefDetails.componentName, resolvedRefDetails.collectorContext)
             if (resolvedRefDetails.componentName in typeStack) return@mapNotNull null
             resolveDeepAllOfs(
                 resolvedRefDetails.resolvedSchema,
@@ -2390,7 +2387,13 @@ class OpenApiSpecification(
             }
 
             val paramName = pathSegment.removeSurrounding("{", "}")
-            val parameter = parameterContext.at(pathParamMap[paramName]?.index ?: DEFAULT_ARRAY_INDEX).requirePojo(
+            val pathParamContext = if (pathParamMap.containsKey(paramName)) {
+                parameterContext.at(pathParamMap.getValue(paramName).index)
+            } else {
+                parameterContext
+            }
+
+            val parameter = pathParamContext.requirePojo(
                 message = { "Expected path parameter with name $paramName is missing, defaulting to empty schema" },
                 extract = { pathParamMap[paramName]?.value },
                 ruleViolation = { OpenApiLintViolations.PATH_PARAMETER_MISSING },
@@ -2404,10 +2407,9 @@ class OpenApiSpecification(
                 }
             )
 
-            val pathParameterContext = parameterContext.at(pathParamMap[paramName]?.index ?: DEFAULT_ARRAY_INDEX)
             URLPathSegmentPattern(
                 key = paramName,
-                pattern = toSpecmaticPattern(parameter.schema, typeStack = emptyList(), collectorContext = pathParameterContext.at("schema")),
+                pattern = toSpecmaticPattern(parameter.schema, typeStack = emptyList(), collectorContext = pathParamContext.at("schema")),
             )
         }
 

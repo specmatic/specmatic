@@ -2,6 +2,7 @@ package io.specmatic.core
 
 import io.ktor.http.*
 import io.specmatic.core.filters.caseInsensitiveContains
+import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.*
 import io.specmatic.core.pattern.isOptional
 import io.specmatic.core.utilities.Flags
@@ -411,18 +412,14 @@ data class HttpHeadersPattern(
     }
 
     fun fillInTheBlanks(headers: Map<String, String>, resolver: Resolver): ReturnValue<Map<String, String>> {
-        val headersWithContentType = if (contentType != null && CONTENT_TYPE !in headers) {
-            headers.plus(CONTENT_TYPE to contentType)
-        } else headers
-
-        if (headersWithContentType.isEmpty() && pattern.isEmpty()) return HasValue(emptyMap())
-        val headersValue = headersWithContentType.mapValues { (key, value) ->
-            val pattern = pattern[key] ?: pattern["$key?"] ?: return@mapValues StringValue(value)
+        val patternWithContentType = adjustPatternForFixAndFill(headers)
+        val headersValue = headers.mapValues { (key, value) ->
+            val pattern = patternWithContentType[key] ?: patternWithContentType["$key?"] ?: return@mapValues StringValue(value)
             runCatching { pattern.parse(value, resolver) }.getOrDefault(StringValue(value))
         }
 
         return fill(
-            jsonPatternMap = pattern, jsonValueMap = headersValue,
+            jsonPatternMap = patternWithContentType, jsonValueMap = headersValue,
             resolver = resolver.updateLookupForParam(BreadCrumb.HEADER.value).withUnexpectedKeyCheck(IgnoreUnexpectedKeys),
             typeAlias = null
         ).realise(
@@ -432,23 +429,50 @@ data class HttpHeadersPattern(
     }
 
     fun fixValue(headers: Map<String, String>, resolver: Resolver): Map<String, String> {
-        val headersWithContentType = if (contentType != null) {
-            headers.plus(CONTENT_TYPE to contentType)
-        } else headers
-
-        if (headersWithContentType.isEmpty() && pattern.isEmpty()) return emptyMap()
-        val headersValue = headersWithContentType.mapValues { (key, value) ->
-            val pattern = pattern[key] ?: pattern["$key?"] ?: return@mapValues StringValue(value)
-            try { pattern.parse(value, resolver) } catch(e: Exception) { StringValue(value) }
+        val patternWithContentType = adjustPatternForFixAndFill(headers)
+        val headersValue = headers.mapValues { (key, value) ->
+            val pattern = patternWithContentType[key] ?: patternWithContentType["$key?"] ?: return@mapValues StringValue(value)
+            try { pattern.parse(value, resolver) } catch(_: Exception) { StringValue(value) }
         }
 
         val fixedHeaders = fix(
-            jsonPatternMap = pattern, jsonValueMap = headersValue,
+            jsonPatternMap = patternWithContentType, jsonValueMap = headersValue,
             resolver = resolver.updateLookupForParam(BreadCrumb.HEADER.value).withUnexpectedKeyCheck(IgnoreUnexpectedKeys).withoutAllPatternsAsMandatory(),
-            jsonPattern = JSONObjectPattern(pattern, typeAlias = null)
+            jsonPattern = JSONObjectPattern(patternWithContentType, typeAlias = null)
         )
 
-        return fixedHeaders.mapValues { it.value.toStringLiteral() }
+        return if (pattern.containsCaseInsensitiveCheckOptional(CONTENT_TYPE)) {
+            fixedHeaders.mapValues { it.value.toStringLiteral() }
+        } else {
+            fixContentTypeIfMismatch(fixedHeaders).mapValues { it.value.toStringLiteral() }
+        }
+    }
+
+    private fun fixContentTypeIfMismatch(headers: Map<String, Value>): Map<String, Value> {
+        val contentTypeFromSpec = contentType ?: return headers
+        val contentTypeEntry = headers.getCaseInsensitive(CONTENT_TYPE) ?: return headers.plus(
+            CONTENT_TYPE to StringValue(contentTypeFromSpec)
+        )
+
+        return runCatching {
+            val specContentType = simplifiedContentType(contentTypeFromSpec.lowercase())
+            val valueContentType = simplifiedContentType(contentTypeEntry.value.toUnformattedString().lowercase())
+            if (specContentType.equals(valueContentType, ignoreCase = true)) return headers
+            headers.plus(contentTypeEntry.key to StringValue(contentTypeFromSpec))
+        }.getOrElse { e ->
+            logger.debug(e, "Failed to fix $CONTENT_TYPE for entry \"${contentTypeEntry.key}\" with value ${contentTypeEntry.value}")
+            headers.plus(contentTypeEntry.key to StringValue(contentTypeFromSpec))
+        }
+    }
+
+    private fun adjustPatternForFixAndFill(headers: Map<String, String>): Map<String, Pattern> {
+        val contentTypeInSpec = contentType != null
+        val contentTypeInHeaders = headers.getCaseInsensitive(CONTENT_TYPE) != null
+        return if (contentTypeInSpec && contentTypeInHeaders) {
+            pattern.addIfNotExistCaseInsensitiveCheckOptional(CONTENT_TYPE, AnyValuePattern)
+        } else {
+            pattern
+        }
     }
 
     private fun withModifiedSoapActionIfNotInRow(row: Row?, resolver: Resolver): HttpHeadersPattern {
@@ -539,6 +563,23 @@ private fun parseOrString(pattern: Pattern, sampleValue: String, resolver: Resol
 
 fun Map<String, String>.withoutTransportHeaders(): Map<String, String> =
     this.filterKeys { key -> key.lowercase() !in HTTP_TRANSPORT_HEADERS }
+
+fun <T> Map<String, T>.getCaseInsensitive(key: String): Map.Entry<String, T>? = this.entries.find { it.key.equals(key, ignoreCase = true) }
+
+fun Map<String, Pattern>.containsCaseInsensitiveCheckOptional(key: String): Boolean {
+    val mandatoryEntry = this.getCaseInsensitive(withoutOptionality(key))
+    if (mandatoryEntry != null) return true
+
+    val optionalEntry = this.getCaseInsensitive(withOptionality(key))
+    if (optionalEntry != null) return true
+
+    return false
+}
+
+fun Map<String, Pattern>.addIfNotExistCaseInsensitiveCheckOptional(key: String, value: Pattern): Map<String, Pattern> {
+    if (this.containsCaseInsensitiveCheckOptional(key)) return this
+    return this.plus(key to value)
+}
 
 val HTTP_TRANSPORT_HEADERS: Set<String> =
     listOf(

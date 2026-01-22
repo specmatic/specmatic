@@ -23,7 +23,9 @@ interface MatcherFactory {
         val hasColonPattern = value.nativeValue.contains(COLON_SEPARATED_PROPERTIES)
         val hasMultiplePairs = value.nativeValue.count { it == ',' } > 0 || value.nativeValue.count { it == ':' } > 0
         if (!hasColonPattern || !hasMultiplePairs) return null
-        return fromYamlProperties(value.nativeValue).takeUnless(Map<String, Value>::isEmpty)
+        return runCatching {
+            fromYamlProperties(value.nativeValue).takeUnless(Map<String, Value>::isEmpty)
+        }.getOrNull()
     }
 
     companion object {

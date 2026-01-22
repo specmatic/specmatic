@@ -87,6 +87,12 @@ enum class OpenApiLintViolations(override val id: String, override val title: St
         summary = "A \$ref should not define sibling properties as per OAS 3.0 standards"
     ),
 
+    INVALID_ADDITIONAL_PROPERTIES_USAGE(
+        id = "OAS0044",
+        title = "Invalid additionalProperties usage",
+        summary = "additionalProperties should only be used within object schemas"
+    ),
+
     SCHEMA_UNCLEAR(
         id = "OAS0043",
         title = "Unclear schema",
