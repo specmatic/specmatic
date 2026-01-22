@@ -44,7 +44,9 @@ import org.junit.jupiter.api.parallel.Execution
 import org.junit.jupiter.api.parallel.ExecutionMode
 import org.opentest4j.TestAbortedException
 import java.io.File
+import java.net.HttpURLConnection
 import java.net.URI
+import java.net.URL
 import java.time.Instant
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedDeque
@@ -389,6 +391,24 @@ open class SpecmaticJUnitSupport {
             return loadExceptionAsTestError(e)
         } catch (e: Throwable) {
             return loadExceptionAsTestError(e)
+        }
+
+        val resolvedBaseURL = testBuildResult.testBaseURL
+
+        if(resolvedBaseURL.isNotBlank()){
+            if(!isBaseURLReachable(resolvedBaseURL)){
+                return loadExceptionAsTestError(
+                    ContractException(
+                        """
+                            Cannot connect to server at: $resolvedBaseURL
+                            
+                            Please check:
+                            - Is the server running?
+                            - Is the testBaseURL correct?
+                        """.trimIndent()
+                    )
+                )
+            }
         }
 
         openApiCoverageReportInput.addEndpoints(testBuildResult.allEndpoints, testBuildResult.filteredEndpoints)
@@ -785,4 +805,22 @@ fun <T> selectTestsToRun(
         filteredByName
 
     return filteredByNotName
+}
+
+
+fun isBaseURLReachable(baseUrl: String,timeOutMs: Int = 3000): Boolean{
+    return try{
+        val url = if(baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+        val connection = URL(url).openConnection() as HttpURLConnection
+        connection.requestMethod = "HEAD"
+        connection.connectTimeout = timeOutMs
+        connection.readTimeout = timeOutMs
+        connection.instanceFollowRedirects = true
+        connection.connect()
+
+        val code = connection.responseCode
+        code in 200..499
+    }catch (e: Exception){
+        false
+    }
 }
