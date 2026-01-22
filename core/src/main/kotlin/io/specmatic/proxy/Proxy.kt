@@ -437,9 +437,14 @@ class Proxy(
             outputDirectory.createDirectory()
             stubDataDirectory.createDirectory()
 
-            val (matchingStubs, remainingStubs) = stubs.partition { stub ->
-                operationDetails.isNotEmpty() && operationDetails.any { stub.matches(it) }
-            }
+            val (matchingStubs, remainingStubs) =
+                if (operationDetails.isEmpty()) {
+                    copyOfRecordings() to emptyList()
+                } else {
+                    stubs.partition { stub ->
+                        operationDetails.any { stub.matches(it) }
+                    }
+                }
 
             stubs.clear()
             stubs.addAll(remainingStubs)
@@ -455,6 +460,8 @@ class Proxy(
             outputDirectory.writeText(specName, openApiYaml)
             return true
         }
+
+    private fun copyOfRecordings(): List<NamedStub> = stubs.toList()
 
     private fun writeMatchingStubs(examplesDir: File, stubDataDirectory: FileWriter, matchingStubs: List<NamedStub>) {
         if (matchingStubs.isEmpty()) return
