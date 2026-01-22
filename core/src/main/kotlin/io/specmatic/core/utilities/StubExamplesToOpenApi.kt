@@ -39,7 +39,12 @@ private fun orderStubsByProxyOperations(namedStubs: List<NamedStub>, sortOrder: 
     for (stub in namedStubs) {
         val request = stub.stub.requestElsePartialRequest()
         val method = request.method?.lowercase()
-        val opIndex = operationsByMethod[method]?.firstOrNull { it.value.matches(request) }?.index ?: sortOrder.size
+        val opIndex =
+            operationsByMethod[method]
+                ?.firstOrNull { (_, proxyOperation) ->
+                    proxyOperation.matches(request)
+                }?.index
+                ?: sortOrder.size
         buckets[opIndex].add(stub)
     }
 
