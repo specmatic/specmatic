@@ -1,8 +1,10 @@
 package io.specmatic.core.report
 
+import com.fasterxml.jackson.core.type.TypeReference
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.log.consoleLog
-import io.specmatic.reporter.commands.VersionProvider
 import io.specmatic.reporter.ctrf.CtrfReportGenerator
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.ctrf.model.CtrfTestResultRecord
@@ -10,7 +12,6 @@ import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.reporting.ReportProvider
 import io.specmatic.specmatic.core.VersionInfo
 import java.io.File
-import java.util.*
 
 object ReportGenerator {
     fun generateReport(
@@ -42,9 +43,17 @@ object ReportGenerator {
             toolName = toolName
         )
 
-        ServiceLoader.load(ReportProvider::class.java).forEach { hook ->
-            hook.generateReport(report, reportDir)
-        }
+        ReportProvider.generateCtrfReport(report, reportDir)
+        ReportProvider.generateHtmlReport(report, reportDir, specmaticConfigAsMap())
+    }
+
+    private fun specmaticConfigAsMap(): Map<String, Any> {
+        return runCatching {
+            ObjectMapper(YAMLFactory()).readValue(
+                File(getConfigFilePath()).readText(),
+                object : TypeReference<Map<String, Any>>() {}
+            )
+        }.getOrElse { emptyMap() }
     }
 
     private fun isCtrfSpecConfigsValid(specConfigs: List<CtrfSpecConfig>): Boolean {
