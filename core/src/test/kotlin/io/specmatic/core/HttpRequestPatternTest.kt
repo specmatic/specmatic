@@ -234,7 +234,7 @@ internal class HttpRequestPatternTest {
     @Test
     fun `request with a part json body with a key in a row should result in a request with the row value`() {
         val part = MultiPartContentPattern("data", parsedPattern("""{"name": "(string)"}"""))
-        val example = Row(listOf("name"), listOf("John Doe"))
+        val example = Row(mapOf("name" to "John Doe"))
 
         val requestPattern = HttpRequestPattern(
             method = "GET",
@@ -259,7 +259,7 @@ internal class HttpRequestPatternTest {
     @Test
     fun `request having a part name the same as a key in a row should result in a request with a part having the specified value`() {
         val part = MultiPartContentPattern("name", StringPattern())
-        val example = Row(listOf("name"), listOf("John Doe"))
+        val example = Row(mapOf("name" to "John Doe"))
 
         val requestPattern = HttpRequestPattern(
             method = "GET",
@@ -284,7 +284,7 @@ internal class HttpRequestPatternTest {
     @Test
     fun `request having an optional part name the same as a key in a row should result in a request with a part having the specified value`() {
         val part = MultiPartContentPattern("name?", StringPattern())
-        val example = Row(listOf("name"), listOf("John Doe"))
+        val example = Row(mapOf("name" to "John Doe"))
 
         val requestPattern = HttpRequestPattern(
             method = "GET",
@@ -319,7 +319,7 @@ internal class HttpRequestPatternTest {
 
     @Test
     fun `should generate a request with an array value if the array is in an example`() {
-        val example = Row(listOf("csv"), listOf("[1, 2, 3]"))
+        val example = Row(mapOf("csv" to "[1, 2, 3]"))
 
         val type = parsedPattern("""{"csv": "(number*)"}""")
         val newTypes = type.newBasedOn(example, Resolver()).map { it.value }.toList()
@@ -343,7 +343,7 @@ internal class HttpRequestPatternTest {
 
     @Test
     fun `should generate a request with an object value if the object is in an example`() {
-        val example = Row(listOf("data"), listOf("""{"one": 1}"""))
+        val example = Row(mapOf("data" to """{"one": 1}"""))
 
         val type = parsedPattern("""{"data": "(Data)"}""")
         val newTypes = type.newBasedOn(
@@ -370,7 +370,7 @@ internal class HttpRequestPatternTest {
 
     @Test
     fun `should generate a request with an array body if the array is in an example`() {
-        val example = Row(listOf("body"), listOf("[1, 2, 3]"))
+        val example = Row(mapOf("body" to "[1, 2, 3]"))
 
         val requestType =
             HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/"), body = parsedPattern("(body: RequestBody)"))
@@ -399,7 +399,7 @@ internal class HttpRequestPatternTest {
 
     @Test
     fun `should generate a request with an object body if the object is in an example`() {
-        val example = Row(listOf("body"), listOf("""{"one": 1}"""))
+        val example = Row(mapOf("body" to """{"one": 1}"""))
 
         val requestType =
             HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/"), body = parsedPattern("(body: RequestBody)"))
@@ -546,7 +546,7 @@ internal class HttpRequestPatternTest {
             body = JSONObjectPattern(mapOf("id" to NumberPattern()))
         )
 
-        val row = Row(listOf("(REQUEST-BODY)"), listOf("""{ "id": 10 }"""))
+        val row = Row(mapOf("(REQUEST-BODY)" to """{ "id": 10 }"""))
         val patterns =
             pattern.newBasedOn(row, Resolver(generation = GenerativeTestsEnabled(false))).map { it.value }.toList()
 

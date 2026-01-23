@@ -44,7 +44,7 @@ internal class MultiPartContentPatternTest {
     @Test
     fun `it should generate a new pattern for test`() {
         val pattern = MultiPartContentPattern("employeeid", StringPattern())
-        val newPattern = pattern.newBasedOn(Row(), Resolver())
+        val newPattern = pattern.newBasedOn(Row(mapOf()), Resolver())
         assertThat(newPattern.single()).isEqualTo(pattern)
     }
 
@@ -58,7 +58,7 @@ internal class MultiPartContentPatternTest {
     @Test
     fun `should generate a new pattern based on row values when the row has a column with the part name`() {
         val pattern = MultiPartContentPattern("id", NumberPattern())
-        val row = Row(listOf("id"), listOf("10"))
+        val row = Row(mapOf("id" to "10"))
         val patterns = pattern.newBasedOn(row, Resolver()).map { it as MultiPartContentPattern }.toList()
 
         assertThat(patterns).hasSize(1)
@@ -72,7 +72,7 @@ internal class MultiPartContentPatternTest {
         val fileContainingNumber = tempDir.resolve("fileContainingNumber.txt")
         fileContainingNumber.writeText("10")
         val pattern = MultiPartContentPattern("id", NumberPattern())
-        val row = Row(listOf("id"), listOf("(@${fileContainingNumber.path})"))
+        val row = Row(mapOf("id" to "(@${fileContainingNumber.path})"))
         val patterns = pattern.newBasedOn(row, Resolver()).map { it as MultiPartContentPattern }.toList()
 
         assertThat(patterns).hasSize(1)
@@ -84,7 +84,7 @@ internal class MultiPartContentPatternTest {
     @Test
     fun `should generate a new pattern based on row values with the specified contentType when the row has a column with the part name`() {
         val pattern = MultiPartContentPattern("id", NumberPattern(), contentType = "application/json")
-        val row = Row(listOf("id"), listOf("10"))
+        val row = Row(mapOf("id" to "10"))
         val patterns = pattern.newBasedOn(row, Resolver()).map { it as MultiPartContentPattern }.toList()
 
         assertThat(patterns).hasSize(1)

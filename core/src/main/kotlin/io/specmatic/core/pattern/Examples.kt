@@ -13,7 +13,11 @@ data class Examples(val columnNames: List<String> = emptyList(), val rows: List<
 
         fun examplesFrom(examples: Examples): io.specmatic.core.pattern.Examples {
             val columns = getColumnNames(examples)
-            val rows = examples.tableBody.map { Row(columns, getValues(it)) }
+            val rows = examples.tableBody.map { tableRow ->
+                val values = getValues(tableRow)
+                val exampleFields = columns.zip(values.map { it }).toMap()
+                Row(exampleFields)
+            }
 
             return Examples(columns, rows)
         }

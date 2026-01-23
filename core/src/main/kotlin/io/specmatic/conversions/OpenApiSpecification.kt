@@ -838,7 +838,7 @@ class OpenApiSpecification(
 
                 val updatedExamples: List<Examples> = listOf(
                     Examples(
-                        rows.first().columnNames,
+                        rows.first().exampleFields.keys.toList(),
                         scenarioInfo.examples.firstOrNull()?.rows.orEmpty() + rows
                     )
                 )
@@ -870,11 +870,10 @@ class OpenApiSpecification(
                 val allExamples = if (scenarioInfo.httpRequestPattern.body is NoBodyPattern) {
                     paramExamples + pathParameterExamples
                 } else
-                    listOf("(REQUEST-BODY)" to request.body.toStringLiteral()) + paramExamples
+                    listOf(REQUEST_BODY_FIELD to request.body.toStringLiteral()) + paramExamples
                 Row(
                     name = key,
-                    columnNames = allExamples.map { it.first },
-                    values = allExamples.map { it.second }
+                    exampleFields = allExamples.toMap()
                 )
             }
         }
@@ -906,7 +905,7 @@ class OpenApiSpecification(
             emptyList<Row>() -> emptyList()
             else -> {
                 val examples = Examples(
-                    specmaticExampleRows.first().columnNames,
+                    specmaticExampleRows.first().exampleFields.keys.toList(),
                     specmaticExampleRows
                 )
 
@@ -941,22 +940,19 @@ class OpenApiSpecification(
             }
 
             val resolvedResponseExample: ResponseExample? =
-                when {
-                    specmaticConfig.isResponseValueValidationEnabled() ->
-                        ResponseValueExample(responseExample)
+                ResponseValueExample(responseExample).takeIf { specmaticConfig.isResponseValueValidationEnabled() }
 
-                    else ->
-                        null
-                }
+            val objectMapper = ObjectMapper()
+            val exampleFields = requestExamples.mapValues { (_, value) ->
+                val valueAsString = value.toString()
+                if(valueAsString.contains("externalValue"))
+                    objectMapper.readValue(valueAsString, Map::class.java).values.first().toString()
+                else
+                    valueAsString
+            }
 
             Row(
-                requestExamples.keys.toList().map { keyName: String -> keyName },
-                requestExamples.values.toList().map { value: Any? -> value?.toString() ?: "" }
-                    .map { valueString: String ->
-                        if (valueString.contains("externalValue")) {
-                            ObjectMapper().readValue(valueString, Map::class.java).values.first().toString()
-                        } else valueString
-                    },
+                exampleFields = exampleFields,
                 name = exampleName,
                 exactResponseExample = if(resolvedResponseExample != null && responseExample.isNotEmpty()) resolvedResponseExample else null,
                 requestExample = requestExampleAsHttpRequests[exampleName]?.first(),
@@ -992,7 +988,7 @@ class OpenApiSpecification(
                     key to value.toString()
                 }.toMap()
             } else {
-                mapOf("(REQUEST-BODY)" to requestExampleValue)
+                mapOf(REQUEST_BODY_FIELD to requestExampleValue)
             }
         } else {
             emptyMap()

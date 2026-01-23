@@ -37,22 +37,13 @@ class ExampleFromFile(private val scenarioStub: ScenarioStub, val file: File) {
 
         val examples: Map<String, String> = request.headers
             .plus(queryParams)
-            .plus(requestBody?.let { mapOf("(REQUEST-BODY)" to it.toStringLiteral()) } ?: emptyMap())
+            .plus(requestBody?.let { mapOf(REQUEST_BODY_FIELD to it.toStringLiteral()) } ?: emptyMap())
 
-        val (columnNames, values) = examples.entries.let { entry ->
-            entry.map { it.key } to entry.map { it.value }
-        }
-
-        val responseExample: ResponseExample? = response.let { httpResponse ->
-            when {
-                specmaticConfig.isResponseValueValidationEnabled() -> ResponseValueExample(httpResponse)
-                else -> null
-            }
-        }
+        val responseExample: ResponseExample? =
+            ResponseValueExample(response).takeIf { specmaticConfig.isResponseValueValidationEnabled() }
 
         return Row(
-            columnNames,
-            values,
+            exampleFields = examples,
             name = testName,
             fileSource = this.file.canonicalPath,
             exactResponseExample = responseExample,

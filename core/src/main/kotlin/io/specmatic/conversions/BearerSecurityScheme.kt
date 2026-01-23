@@ -46,7 +46,7 @@ data class BearerSecurityScheme(private val configuredToken: String? = null) : O
     }
 
     override fun isInRow(row: Row): Boolean {
-        return row.columnNames.any { it.equals(AUTHORIZATION, ignoreCase = true) }
+        return row.exampleFields.keys.any { it.equals(AUTHORIZATION, ignoreCase = true) }
     }
 
     override fun isInRequest(request: HttpRequest, complete: Boolean): Boolean {

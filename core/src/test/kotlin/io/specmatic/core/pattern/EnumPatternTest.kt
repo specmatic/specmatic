@@ -110,7 +110,7 @@ class EnumPatternTest {
             val jsonPattern =
                 JSONObjectPattern(mapOf("type" to EnumPattern(listOf(StringValue("01"), StringValue("02")))))
 
-            val newPatterns = jsonPattern.newBasedOn(Row(listOf("type"), values = listOf("01")), Resolver())
+            val newPatterns = jsonPattern.newBasedOn(Row(mapOf("type" to "01")), Resolver())
                 .map { it.value as JSONObjectPattern }
 
             val values = newPatterns.map { it.generate(Resolver()) }.toList()
@@ -126,7 +126,7 @@ class EnumPatternTest {
         fun `it should only pick the value in the row when the row is NOT empty with multiValue`() {
             val enumPattern = toMultiValueEnum("Four", 4, false)
             val jsonPattern = JSONObjectPattern(mapOf("type" to enumPattern))
-            val row = Row(listOf("type"), values = listOf("Four"))
+            val row = Row(mapOf("type" to "Four"))
 
             val newPatterns = jsonPattern.newBasedOn(row, Resolver()).map { it.value as JSONObjectPattern }
             val values = newPatterns.map { it.generate(Resolver()) }.toList()

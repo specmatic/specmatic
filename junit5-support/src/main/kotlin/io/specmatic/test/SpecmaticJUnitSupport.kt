@@ -20,7 +20,6 @@ import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_TIMEOUT
 import io.specmatic.core.utilities.Flags.Companion.getLongValue
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
-import io.specmatic.core.value.Value
 import io.specmatic.license.core.Executor
 import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.LicensedProduct
@@ -693,13 +692,18 @@ open class SpecmaticJUnitSupport {
                 exampleData !is JSONArrayValue -> throw ContractException("The value of a scenario must be a list of examples")
                 exampleData.list.isEmpty() -> Examples()
                 else -> {
-                    val columns = columnsFromExamples(exampleData)
-
-                    val rows = exampleData.list.map { row ->
-                        asJSONObjectValue(row)
-                    }.map { row ->
-                        Row(columns, columns.map { row.getValue(it).toStringLiteral() })
-                    }.toMutableList()
+                    val isListWithJSONObjectValue = exampleData.list.all { it is JSONObjectValue }
+                    if(isListWithJSONObjectValue.not()) {
+                        throw ContractException("Each value in the list of suggestions must be a json object containing column name as key and sample value as the value")
+                    }
+                    val columns = (exampleData.list[0] as JSONObjectValue).jsonObject.keys.toList()
+                    val rows =
+                        exampleData.list.filterIsInstance<JSONObjectValue>().map { jsonObjectValue ->
+                            val exampleFields = jsonObjectValue.jsonObject.mapValues { (_, value) ->
+                                value.toStringLiteral()
+                            }
+                            Row(exampleFields)
+                        }.toMutableList()
 
                     Examples(columns, rows)
                 }
@@ -742,23 +746,6 @@ private data class TestData(
     val filteredEndpoints: List<Endpoint>,
     val testBaseURL: String
 )
-
-private fun columnsFromExamples(exampleData: JSONArrayValue): List<String> {
-    val firstRow = exampleData.list[0]
-    if (firstRow !is JSONObjectValue)
-        throw ContractException("Each value in the list of suggestions must be a json object containing column name as key and sample value as the value")
-
-    return firstRow.jsonObject.keys.toList()
-}
-
-private fun asJSONObjectValue(value: Value): Map<String, Value> {
-    val errorMessage =
-        "Each value in the list of suggestions must be a json object containing column name as key and sample value as the value"
-    if (value !is JSONObjectValue)
-        throw ContractException(errorMessage)
-
-    return value.jsonObject
-}
 
 fun <T> selectTestsToRun(
     testScenarios: Sequence<T>,

@@ -95,9 +95,11 @@ object ExampleProcessor {
     /* RESOLVER HELPERS */
     fun resolve(row: Row, ifNotExists: (lookupKey: String, type: SubstitutionType) -> Value = ::ifNotExitsToLookupPattern): Row {
         return row.copy(
+            exampleFields = row.exampleFields.mapValues { (_, value) ->
+                resolve(parsedValue(value), ifNotExists).toStringLiteral()
+            },
             requestExample = row.requestExample?.let { resolve(it, ifNotExists) },
-            responseExample = row.responseExample?.let { resolve(it, ifNotExists) },
-            values = row.values.map { resolve(parsedValue(it), ifNotExists).toStringLiteral() }
+            responseExample = row.responseExample?.let { resolve(it, ifNotExists) }
         )
     }
 

@@ -43,7 +43,7 @@ internal class RunContractTestsUsingScenario {
 
     @Test
     fun `should generate two test scenarios when there are two rows in examples`() {
-        val patterns = Examples(emptyList(), listOf(Row(), Row()))
+        val patterns = Examples(emptyList(), listOf(Row(mapOf()), Row(mapOf())))
         val scenario = Scenario(
             "test",
             HttpRequestPattern(),
@@ -81,7 +81,7 @@ internal class RunContractTestsUsingScenario {
 
     @Test
     fun `given a pattern in an example, facts declare without a value should pick up the pattern`() {
-        val row = Row(listOf("id"), listOf("(string)"))
+        val row = Row(mapOf("id" to "(string)"))
 
         val newState = newExpectedServerStateBasedOn(row, mapOf("id" to True), HashMap(), Resolver())
 
@@ -91,7 +91,7 @@ internal class RunContractTestsUsingScenario {
 
     @Test
     fun `given a pattern in an example in a scenario generated based on a row, facts declare without a value should pick up the pattern`() {
-        val row = Row(listOf("id"), listOf("(string)"))
+        val row = Row(mapOf("id" to "(string)"))
         val example = Examples(listOf("id"), listOf(row))
 
         val state = HashMap(mapOf<String, Value>("id" to True))

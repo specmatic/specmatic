@@ -30,7 +30,7 @@ internal class AnythingPatternTest {
     @Test
     fun `row value gets picked up when in an xml type`() {
         val type = XMLPattern("<data>(anything)</data>")
-        val row = Row(listOf("data"), listOf("abcxyz"))
+        val row = Row(mapOf("data" to "abcxyz"))
 
         val newType = type.newBasedOn(row, Resolver()).map { it.value as XMLPattern }
 

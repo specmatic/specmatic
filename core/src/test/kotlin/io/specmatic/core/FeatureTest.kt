@@ -3331,7 +3331,7 @@ paths:
                 examples = listOf(
                     Examples(
                         columnNames = listOf("id"),
-                        rows = listOf(Row(columnNames = listOf("id"), values = listOf("1")))
+                        rows = listOf(Row(mapOf("id" to "1")))
                     )
                 ),
                 protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
@@ -3374,7 +3374,7 @@ paths:
                 examples = listOf(
                     Examples(
                         columnNames = listOf("id"),
-                        rows = listOf(Row(columnNames = listOf("id"), values = listOf("1")))
+                        rows = listOf(Row(mapOf("id" to "1")))
                     )
                 ),
                 protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
@@ -3418,7 +3418,7 @@ paths:
                 examples = listOf(
                     Examples(
                         columnNames = listOf("id"),
-                        rows = listOf(Row(columnNames = listOf("id"), values = listOf("1")))
+                        rows = listOf(Row(mapOf("id" to "1")))
                     )
                 ),
                 protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI

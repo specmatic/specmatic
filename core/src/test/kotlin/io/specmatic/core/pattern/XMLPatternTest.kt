@@ -535,7 +535,7 @@ internal class XMLPatternTest {
         @Test
         fun `should pick up node names from examples`() {
             val xmlType = XMLPattern("<data><name>(string)</name><age>(number)</age></data>")
-            val example = Row(listOf("name", "age"), listOf("John Doe", "10"))
+            val example = Row(mapOf("name" to "John Doe", "age" to "10"))
 
             val newTypes = xmlType.newBasedOn(example, Resolver()).map { it.value as XMLPattern }.toList()
 
@@ -546,7 +546,7 @@ internal class XMLPatternTest {
         @Test
         fun `should pick up attribute names from examples`() {
             val xmlType = XMLPattern("""<data name="(string)" age="(number)"></data>""")
-            val example = Row(listOf("name", "age"), listOf("John Doe", "10"))
+            val example = Row(mapOf("name" to "John Doe", "age" to "10"))
 
             val newTypes = xmlType.newBasedOn(example, Resolver()).map { it.value as XMLPattern }.toList()
 
@@ -557,7 +557,7 @@ internal class XMLPatternTest {
         @Test
         fun `should pick up attribute names with optional values from examples`() {
             val xmlType = XMLPattern("""<data name="(string?)" age="(number?)"></data>""")
-            val example = Row(listOf("name", "age"), listOf("John Doe", "10"))
+            val example = Row(mapOf("name" to "John Doe", "age" to "10"))
 
             val newTypes = xmlType.newBasedOn(example, Resolver()).map { it.value as XMLPattern }.toList()
 
@@ -568,7 +568,7 @@ internal class XMLPatternTest {
         @Test
         fun `should pick up attribute names with optional values from empty examples`() {
             val xmlType = XMLPattern("""<data name="(string?)" age="(number?)"></data>""")
-            val example = Row(listOf("name", "age"), listOf("", ""))
+            val example = Row(mapOf("name" to "", "age" to ""))
 
             val newTypes = xmlType.newBasedOn(example, Resolver()).map { it.value as XMLPattern }.toList()
             assertThat(newTypes.size).isOne()
@@ -580,7 +580,7 @@ internal class XMLPatternTest {
         @Test
         fun `optional attribute should pick up example value`() {
             val type = XMLPattern("""<number val$XML_ATTR_OPTIONAL_SUFFIX="(number)"></number>""")
-            val example = Row(listOf("val"), listOf("10"))
+            val example = Row(mapOf("val" to "10"))
 
             val newTypes = type.newBasedOn(example, Resolver()).map { it.value as XMLPattern }.toList()
             assertThat(newTypes.size).isOne()
@@ -638,7 +638,7 @@ internal class XMLPatternTest {
         @Test
         fun `should pick up node names with optional values from examples`() {
             val xmlType = XMLPattern("<data><name>(string?)</name><age>(number?)</age></data>")
-            val example = Row(listOf("name", "age"), listOf("John Doe", "10"))
+            val example = Row(mapOf("name" to "John Doe", "age" to "10"))
 
             val newTypes = xmlType.newBasedOn(example, Resolver()).map { it.value as XMLPattern }.toList()
 
@@ -649,7 +649,7 @@ internal class XMLPatternTest {
         @Test
         fun `will not pick up node names with values from invalid examples`() {
             val xmlType = XMLPattern("<data><name>(string?)</name><age>(number?)</age></data>")
-            val example = Row(listOf("name", "age"), listOf("John Doe", "ABC"))
+            val example = Row(mapOf("name" to "John Doe", "age" to "ABC"))
 
             assertThatThrownBy { xmlType.newBasedOn(example, Resolver()).map { it.value as XMLPattern }.toList() }.isInstanceOf(ContractException::class.java)
         }
@@ -815,7 +815,7 @@ internal class XMLPatternTest {
             val nameType = XMLPattern("<name><nameid $isOptional $TYPE_ATTRIBUTE_NAME=\"Nameid\" /></name>")
             val nameIdType = XMLPattern("<nameid>(number)</nameid>")
             val resolver = Resolver(newPatterns = mapOf("(Nameid)" to nameIdType))
-            val row = Row(listOf("nameid"), listOf("10"))
+            val row = Row(mapOf("nameid" to "10"))
             val newValues =
                 nameType.newBasedOn(row, resolver).map {
                     it.value as XMLPattern
@@ -907,7 +907,7 @@ internal class XMLPatternTest {
             val nameType = XMLPattern("<name><nameid $occursMultipleTimes $TYPE_ATTRIBUTE_NAME=\"Nameid\" /></name>")
             val nameIdType = XMLPattern("<nameid>(number)</nameid>")
             val resolver = Resolver(newPatterns = mapOf("(Nameid)" to nameIdType))
-            val row = Row(listOf("nameid"), listOf("10"))
+            val row = Row(mapOf("nameid" to "10"))
             val newValues =
                 nameType.newBasedOn(row, resolver).map { it.value as XMLPattern }.map { it.generate(resolver) }
                     .toList()

@@ -11,7 +11,7 @@ internal class LookupRowPatternTest {
     @Test
     fun `it should return a new exact value pattern when generating pattern from row with a matching key`() {
         val pattern = LookupRowPattern(NumberPattern(), "customerId")
-        val row = Row(listOf("customerId"), listOf("10"))
+        val row = Row(mapOf("customerId" to "10"))
 
         val newPattern = pattern.newBasedOn(row, Resolver()).map { it.value }
         assertThat(newPattern.single()).isEqualTo(ExactValuePattern(NumberValue(10)))
@@ -20,7 +20,7 @@ internal class LookupRowPatternTest {
     @Test
     fun `it should return new exact value patterns when generating pattern from row with no matching key`() {
         val pattern = LookupRowPattern(NumberPattern(), "customerId")
-        val row = Row(emptyList(), emptyList())
+        val row = Row(emptyMap())
 
         val newPattern = pattern.newBasedOn(row, Resolver()).map { it.value }
         assertThat(newPattern.toList()).containsExactlyInAnyOrder(

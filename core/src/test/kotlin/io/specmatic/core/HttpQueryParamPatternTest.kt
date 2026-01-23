@@ -128,7 +128,12 @@ class HttpQueryParamPatternTest {
     @Tag(GENERATION)
     fun `should generate a valid query string when there is a single row with matching columns`() {
         val resolver = Resolver()
-        val row = Row(listOf("status", "type"), listOf("available", "dog"))
+        val row = Row(
+            mapOf(
+                "status" to "available",
+                "type" to "dog"
+            )
+        )
         val generatedPatterns = buildQueryPattern(URI("/pets?status=(string)&type=(string)")).newBasedOn(row, resolver).toList()
         assertEquals(1, generatedPatterns.size)
         val values = generatedPatterns.first().value.generate(resolver)

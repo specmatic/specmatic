@@ -183,7 +183,7 @@ Given pattern User
 """.trim()
 
         val pattern = rowsToTabularPattern(getRows(gherkin))
-        val newPattern = pattern.newBasedOn(Row(listOf("id"), listOf("10")), Resolver()).map { it.value }.first()
+        val newPattern = pattern.newBasedOn(Row(mapOf("id" to "10")), Resolver()).map { it.value }.first()
 
         val value = newPattern.generate(Resolver())
         if (value !is JSONObjectValue)
@@ -211,7 +211,7 @@ And pattern Address
         val userPattern = rowsToTabularPattern(getRows(scenario, stepIdx = 0))
         val addressPattern = rowsToTabularPattern(getRows(scenario, stepIdx = 1))
 
-        val row = Row(listOf("id", "flat"), listOf("10", "100"))
+        val row = Row(mapOf("id" to "10", "flat" to "100"))
 
         val resolver = Resolver(newPatterns = mapOf("(User)" to userPattern, "(Address)" to addressPattern))
 
@@ -275,7 +275,7 @@ Given request-body
         val scenario = getScenario(gherkin)
 
         val patternWithNullValue = rowsToTabularPattern(getRows(scenario, stepIdx = 0))
-        val example = Row(listOf("nothing"), listOf("(null)"))
+        val example = Row(mapOf("nothing" to "(null)"))
         val newPatterns = patternWithNullValue.newBasedOn(example, Resolver()).map { it.value }.toList()
 
         assertEquals(1, newPatterns.size)
@@ -300,7 +300,7 @@ Given request-body
         val scenario = getScenario(gherkin)
 
         val patternWithNullValue = rowsToTabularPattern(getRows(scenario, stepIdx = 0))
-        val example = Row(listOf("nothing"), listOf("(null)"))
+        val example = Row(mapOf("nothing" to "(null)"))
         assertThrows<ContractException> {
             patternWithNullValue.newBasedOn(example, Resolver()).map { it.value }.toList()
         }
@@ -543,3 +543,4 @@ data class Data(
     @JsonProperty("id") val name: Int,
     @JsonProperty("data") val data: Data?
 )
+

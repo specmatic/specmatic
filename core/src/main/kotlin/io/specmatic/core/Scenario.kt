@@ -779,7 +779,7 @@ data class Scenario(
 
             val rowsWithPathData: List<Row> = rows.map { row -> httpRequestPattern.addPathParamsToRows(operationId.requestPath, row, resolver) }
 
-            val columns = rowsWithPathData.first().columnNames
+            val columns = rowsWithPathData.first().exampleFields.keys.toList()
 
             listOf(Examples(columns, rowsWithPathData))
         }.flatten()

@@ -51,7 +51,7 @@ internal class JSONObjectPatternTest {
         )
 
         val patterns = pattern.negativeBasedOn(
-            Row(),
+            Row(mapOf()),
             resolver,
             NegativePatternConfiguration(withDataTypeNegatives = withDataTypeNegatives)
         ).toList()
@@ -82,7 +82,7 @@ internal class JSONObjectPatternTest {
 
         val exception = assertThrows<ContractException> {
             pattern.negativeBasedOn(
-                Row(),
+                Row(mapOf()),
                 resolver,
                 NegativePatternConfiguration(withDataTypeNegatives = withDataTypeNegatives)
             ).toList()
@@ -507,7 +507,7 @@ internal class JSONObjectPatternTest {
     inner class TestGeneration {
         @Test
         fun `Given an optional key, the unsuffixed key should be looked up in the row when generating a pattern`() {
-            val row = Row(listOf("id"), listOf("12345"))
+            val row = Row(mapOf("id" to "12345"))
             val patterns = parsedPattern("""{"id?": "(number)"}""", null).newBasedOn(row, Resolver()).map { it.value }
 
             val value = patterns.map { it.generate(Resolver()) }.map {
@@ -524,7 +524,7 @@ internal class JSONObjectPatternTest {
 
         @Test
         fun `Given a column name in the examples, a json key must be replaced by the example`() {
-            val row = Row(listOf("id"), listOf("10"))
+            val row = Row(mapOf("id" to "10"))
             val pattern =
                 parsedPattern("""{"id": "(number)"}""", null).newBasedOn(row, Resolver()).map { it.value }.first()
 
@@ -537,7 +537,7 @@ internal class JSONObjectPatternTest {
 
         @Test
         fun `Given a column name in the examples, a json key in a lazily looked up pattern must be replaced by the example`() {
-            val row = Row(listOf("id"), listOf("10"))
+            val row = Row(mapOf("id" to "10"))
             val actualPattern =
                 parsedPattern("""{"id": "(number)"}""", null).newBasedOn(row, Resolver()).map { it.value }.first()
 
@@ -559,7 +559,7 @@ internal class JSONObjectPatternTest {
 
             val personPattern = parsedPattern("""{"name": "(string)", "address": "(Address)"}""")
 
-            val row = Row(listOf("city"), listOf("Mumbai"))
+            val row = Row(mapOf("city" to "Mumbai"))
 
             val newPattern = personPattern.newBasedOn(row, resolver).map { it.value }.first()
             if (newPattern !is JSONObjectPattern)
@@ -597,7 +597,7 @@ internal class JSONObjectPatternTest {
             val objPattern = parsedPattern("""{"p1": "(enum1)", "p2": "(enum2)", "p3": "(enum3)", "p4": "(enum4)", "p5": "(enum5)", "p6": "(enum6)"}""")
 
             val newPatterns = try {
-                objPattern.newBasedOn(Row(), resolver).map { it.value }.toList()
+                objPattern.newBasedOn(Row(mapOf()), resolver).map { it.value }.toList()
             } finally {
                 System.clearProperty("MAX_TEST_REQUEST_COMBINATIONS")
             }
@@ -612,7 +612,7 @@ internal class JSONObjectPatternTest {
 
             val personPattern = parsedPattern("""{"name": "(string)"}""")
 
-            val newPattern = personPattern.newBasedOn(Row(), resolver).map { it.value }.first()
+            val newPattern = personPattern.newBasedOn(Row(mapOf()), resolver).map { it.value }.first()
 
             if (newPattern !is JSONObjectPattern)
                 throw AssertionError("Expected JSONObjectPattern, got ${newPattern.javaClass.name}")
@@ -623,7 +623,7 @@ internal class JSONObjectPatternTest {
         @Test
         fun `should return errors with id field`() {
             val patterns =
-                parsedPattern("""{"id?": "(number)"}""", null).newBasedOn(Row(), Resolver()).map { it.value }
+                parsedPattern("""{"id?": "(number)"}""", null).newBasedOn(Row(mapOf()), Resolver()).map { it.value }
 
             assertThat(patterns.find { pattern ->
                 val result = pattern.matches(JSONObjectValue(mapOf("id" to StringValue("abc"))), Resolver())
@@ -718,7 +718,7 @@ internal class JSONObjectPatternTest {
                 maxProperties = 3
             )
 
-            val newPatterns: List<JSONObjectPattern> = pattern.newBasedOn(Row(), Resolver()).toList().map { it.value as JSONObjectPattern }
+            val newPatterns: List<JSONObjectPattern> = pattern.newBasedOn(Row(mapOf()), Resolver()).toList().map { it.value as JSONObjectPattern }
 
             assertThat(newPatterns).allSatisfy {
                 assertThat(it.pattern.keys).hasSizeGreaterThanOrEqualTo(2)
@@ -815,7 +815,7 @@ internal class JSONObjectPatternTest {
                 )
             )
 
-            val negativePatterns: List<Pattern> = pattern.negativeBasedOn(Row(), Resolver()).map { it.value }.toList()
+            val negativePatterns: List<Pattern> = pattern.negativeBasedOn(Row(mapOf()), Resolver()).map { it.value }.toList()
 
             val jsonInternalPatterns = negativePatterns.filterIsInstance<JSONObjectPattern>().map { it.pattern }
 

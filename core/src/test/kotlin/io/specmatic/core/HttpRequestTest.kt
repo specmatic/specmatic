@@ -171,8 +171,8 @@ internal class HttpRequestTest {
 
         val feature = parseGherkinStringToFeature(featureGherkin)
         val generatedRequest = feature.scenarios.first().generateHttpRequest()
-        val columns = listOf("RequestBody")
-        val examples = Examples(columns, listOf(Row(columns, listOf("10"))))
+        val exampleFields = mapOf("RequestBody" to "10")
+        val examples = Examples(exampleFields.keys.toList(), listOf(Row(exampleFields)))
 
         assertThat(generatedRequest.method).isEqualTo("POST")
         assertThat(generatedRequest.path).isEqualTo("/square")
