@@ -96,7 +96,7 @@ object ExampleProcessor {
     fun resolve(row: Row, ifNotExists: (lookupKey: String, type: SubstitutionType) -> Value = ::ifNotExitsToLookupPattern): Row {
         return row.copy(
             exampleFields = row.exampleFields.mapValues { (_, value) ->
-                resolve(parsedValue(value), ifNotExists).toStringLiteral()
+                resolve(value, ifNotExists)
             },
             requestExample = row.requestExample?.let { resolve(it, ifNotExists) },
             responseExample = row.responseExample?.let { resolve(it, ifNotExists) }

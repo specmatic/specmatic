@@ -447,8 +447,9 @@ data class JSONObjectPattern(
         }.toMap()
     }
 
-    override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> =
-        allOrNothingCombinationIn(
+    override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> {
+        val row = row.withBodyFieldsLookupEnabled()
+        return allOrNothingCombinationIn(
             pattern.minus("..."),
             resolver.resolveRow(row),
             minProperties,
@@ -459,6 +460,7 @@ data class JSONObjectPattern(
             patternWithKeyCombinationDetails(it) { patternMap ->
                 toJSONObjectPattern(patternMap.mapKeys { (key, _) -> withoutOptionality(key) }, typeAlias)
             }
+        }
     }
 
     override fun newBasedOn(resolver: Resolver): Sequence<JSONObjectPattern> =
@@ -473,14 +475,16 @@ data class JSONObjectPattern(
         row: Row,
         resolver: Resolver,
         config: NegativePatternConfiguration
-    ): Sequence<ReturnValue<Pattern>> =
-        allOrNothingCombinationIn(pattern.minus("...")) { pattern ->
+    ): Sequence<ReturnValue<Pattern>> {
+        val row = row.withBodyFieldsLookupEnabled()
+        return allOrNothingCombinationIn(pattern.minus("...")) { pattern ->
             AllNegativePatterns().negativeBasedOn(pattern, row, withNullPattern(resolver), config)
         }.map {
             patternWithKeyCombinationDetails(it) { patternMap ->
                 toJSONObjectPattern(patternMap, typeAlias)
             }
         }
+    }
 
     override fun parse(value: String, resolver: Resolver): Value = parsedJSONObject(value, resolver.mismatchMessages)
     override fun hashCode(): Int = pattern.hashCode()

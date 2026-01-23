@@ -100,7 +100,7 @@ class BasicAuthSecuritySchemeTest {
 
     @Test
     fun `isInRow should return false when authorization header is not present in row`() {
-        val row = Row(emptyMap())
+        val row = Row()
 
         val result = basicAuthSecurityScheme.isInRow(row)
 

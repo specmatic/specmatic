@@ -38,7 +38,7 @@ object ExamplePostValidator: ResponseValidator {
 
     private fun HttpRequest.toFactStore(scenario: Scenario): Map<String, Value> {
         val pathParams = if (scenario.httpRequestPattern.httpPathPattern != null && this.path != null) {
-            val paramsMap = scenario.httpRequestPattern.httpPathPattern.extractPathParams(this.path, scenario.resolver)
+            val paramsMap = scenario.httpRequestPattern.httpPathPattern.extractPathParams(this.path)
             val patternMap = scenario.httpRequestPattern.httpPathPattern.pathParameters().associate { it.key.orEmpty() to it.pattern }
             paramsMap.toFactStore(
                 prefix = BreadCrumb.REQUEST.plus(BreadCrumb.PARAM_PATH).value,

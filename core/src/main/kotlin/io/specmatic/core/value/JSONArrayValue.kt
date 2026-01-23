@@ -9,7 +9,7 @@ import io.specmatic.core.utilities.valueArrayToUnformattedJsonString
 
 typealias TypeDeclarationsCallType = (Value, String, Map<String, Pattern>, ExampleDeclarations) -> Pair<TypeDeclaration, ExampleDeclarations>
 
-data class JSONArrayValue(override val list: List<Value> = emptyList()) : Value, ListValue, JSONComposite {
+data class JSONArrayValue(override val list: List<Value> = emptyList()) : ListValue, JSONComposite {
     override val httpContentType: String = "application/json"
 
     override fun displayableValue(): String = toStringLiteral()

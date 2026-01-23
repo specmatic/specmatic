@@ -402,6 +402,7 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
     }
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> {
+        val row = row.withBodyFieldsLookupEnabled()
         return forEachKeyCombinationIn(
             pattern.attributes,
             row, returnValues { attributePattern: Map<String, Pattern> ->

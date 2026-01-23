@@ -22,7 +22,7 @@ class JSONCompositeTest {
     @Test
     fun `get value from top level keys`() {
         val jsonExample = JSONObjectValue(mapOf("key" to StringValue("value")))
-        assertEquals("value", jsonExample.getValueFromTopLevelKeys("key"))
+        assertEquals(StringValue("value"), jsonExample.getValueFromTopLevelKeys("key"))
     }
 
     @Test

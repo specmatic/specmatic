@@ -473,7 +473,7 @@ data class Scenario(
         return runCatching {
             fillInTheBlanksAndResolvePatterns(row.requestExample, resolver)
         }.mapCatching { filledInResolvedRequest ->
-            row.updateRequest(filledInResolvedRequest, httpRequestPattern, resolver)
+            row.updateRequest(filledInResolvedRequest, httpRequestPattern)
         }.map(::HasValue).getOrElse { e ->
             when(e) {
                 is ContractException -> HasFailure(e.failure(), message = row.name)
@@ -812,7 +812,10 @@ data class Scenario(
         if (!hasSoapActionField) return false
 
         return runCatching {
-            val soapAction = soapActionPattern.parse(row.getField(BreadCrumb.SOAP_ACTION.value), resolver)
+            val soapAction = soapActionPattern.parse(
+                row.getField(BreadCrumb.SOAP_ACTION.value),
+                resolver
+            )
             soapActionPattern.matches(soapAction, resolver).isSuccess()
         }.getOrDefault(false)
     }

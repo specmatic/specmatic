@@ -6,7 +6,7 @@ import io.specmatic.core.Result
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.*
 
-data class JSONObjectValue(val jsonObject: Map<String, Value> = emptyMap()) : Value, JSONComposite {
+data class JSONObjectValue(val jsonObject: Map<String, Value> = emptyMap()) : JSONComposite {
     override val httpContentType = "application/json"
 
     override fun valueErrorSnippet(): String {

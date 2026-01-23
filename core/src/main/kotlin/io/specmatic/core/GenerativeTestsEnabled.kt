@@ -26,7 +26,7 @@ data class GenerativeTestsEnabled(private val positiveOnly: Boolean) : Generatio
         // TODO generate value outside
         val requestsFromFlattenedRow: Sequence<ReturnValue<Pattern>> =
             resolver.withCyclePrevention(body) { cyclePreventedResolver ->
-                body.newBasedOn(row.noteRequestBody(), cyclePreventedResolver)
+                body.newBasedOn(row, cyclePreventedResolver)
             }
 
         var matchFound = false

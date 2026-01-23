@@ -4,7 +4,8 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.ContractException
 
-sealed interface JSONComposite {
+sealed interface JSONComposite: Value {
+
     fun checkIfAllRootLevelKeysAreAttributeSelected(attributeSelectedFields: Set<String>, resolver: Resolver): Result
 
     fun removeKey(key: String): JSONComposite {
@@ -19,10 +20,10 @@ sealed interface JSONComposite {
         }
     }
 
-    fun getValueFromTopLevelKeys(columnName: String): String {
+    fun getValueFromTopLevelKeys(key: String): Value? {
         if (this !is JSONObjectValue)
-            throw ContractException("The example provided is a JSON array, while the specification expects a JSON object with key $columnName")
+            throw ContractException("The example provided is a JSON array, while the specification expects a JSON object with key $key")
 
-        return this.jsonObject.getValue(columnName).toStringLiteral()
+        return this.jsonObject[key]
     }
 }

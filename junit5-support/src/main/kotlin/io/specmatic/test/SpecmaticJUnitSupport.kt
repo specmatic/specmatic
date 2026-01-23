@@ -699,10 +699,7 @@ open class SpecmaticJUnitSupport {
                     val columns = (exampleData.list[0] as JSONObjectValue).jsonObject.keys.toList()
                     val rows =
                         exampleData.list.filterIsInstance<JSONObjectValue>().map { jsonObjectValue ->
-                            val exampleFields = jsonObjectValue.jsonObject.mapValues { (_, value) ->
-                                value.toStringLiteral()
-                            }
-                            Row(exampleFields)
+                            Row(jsonObjectValue.jsonObject.mapValues { it.value.toStringLiteral() })
                         }.toMutableList()
 
                     Examples(columns, rows)

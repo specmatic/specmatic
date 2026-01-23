@@ -290,44 +290,11 @@ data class HttpPathPattern(
         return negatively(pathSegmentPatterns, row, resolver)
     }
 
-    private fun patternFromExample(
-        key: String?,
-        row: Row,
-        urlPathPattern: URLPathSegmentPattern,
-        resolver: Resolver
-    ): Sequence<ReturnValue<Pattern>> = when {
-        key !== null && row.containsField(key) -> {
-            val rowValue = row.getField(key)
-            when {
-                isPatternToken(rowValue) -> attempt("Pattern mismatch in example of path param \"${urlPathPattern.key}\"") {
-                    val rowPattern = resolver.getPattern(rowValue)
-                    when (val result = urlPathPattern.encompasses(rowPattern, resolver, resolver)) {
-                        is Success -> sequenceOf(urlPathPattern.copy(pattern = rowPattern))
-                        is Failure -> throw ContractException(result.toFailureReport())
-                    }
-                }
-
-                else -> attempt("Format error in example of path parameter \"$key\"") {
-                    val value = urlPathPattern.parse(rowValue, resolver)
-
-                    val matchResult = urlPathPattern.matches(value, resolver)
-                    if (matchResult is Failure)
-                        throw ContractException("""Could not run contract test, the example value ${value.toStringLiteral()} provided "id" does not match the contract.""")
-
-                    sequenceOf(URLPathSegmentPattern(ExactValuePattern(value)))
-                }
-            }.map { HasValue(it) }
-        }
-
-        else -> returnValueSequence {
-            val positives: Sequence<Pattern> = urlPathPattern.newBasedOnWrapper(row, resolver)
-            val negatives: Sequence<ReturnValue<Pattern>> = urlPathPattern.negativeBasedOn(row, resolver)
-
-            positives.map { HasValue(it) } + negatives
-        }
+    fun extractPathParamsAsValueMap(requestPath: String): Map<String, String> {
+       return Row.valueMapFrom(extractPathParams(requestPath))
     }
 
-    fun extractPathParams(requestPath: String, resolver: Resolver): Map<String, String> {
+    fun extractPathParams(requestPath: String): Map<String, String> {
         val pathSegments = requestPath.split("/").filter { it.isNotEmpty() }
 
         return pathSegmentPatterns.zip(pathSegments).mapNotNull { (pattern, value) ->

@@ -1,5 +1,6 @@
 package io.specmatic.core.pattern
 
+import io.specmatic.core.value.StringValue
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 

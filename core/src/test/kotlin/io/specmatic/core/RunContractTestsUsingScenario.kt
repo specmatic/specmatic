@@ -43,7 +43,7 @@ internal class RunContractTestsUsingScenario {
 
     @Test
     fun `should generate two test scenarios when there are two rows in examples`() {
-        val patterns = Examples(emptyList(), listOf(Row(mapOf()), Row(mapOf())))
+        val patterns = Examples(emptyList(), listOf(Row(), Row()))
         val scenario = Scenario(
             "test",
             HttpRequestPattern(),

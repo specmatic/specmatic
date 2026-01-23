@@ -853,7 +853,7 @@ data class HttpRequestPattern(
                 val rawRequestBody = row.getFieldOrNull(REQUEST_BODY_FIELD) ?: return@returnNewBodies body.negativeBasedOn(row, resolver)
                 val parsedValue = body.parse(rawRequestBody, resolver)
                 body.matches(parsedValue, resolver).throwOnFailure()
-                this.body.negativeBasedOn(row.noteRequestBody(), resolver)
+                this.body.negativeBasedOn(row, resolver)
             }
 
             val newHeadersPattern = headersPattern.negativeBasedOn(row, resolver, BreadCrumb.PARAM_HEADER.value)
@@ -916,7 +916,7 @@ data class HttpRequestPattern(
 
     fun addPathParamsToRows(requestPath: String, row: Row, resolver: Resolver): Row {
         return httpPathPattern?.let { httpPathPattern ->
-            val pathParams = httpPathPattern.extractPathParams(requestPath, resolver)
+            val pathParams = httpPathPattern.extractPathParams(requestPath)
             return row.copy(exampleFields = row.exampleFields + pathParams)
         } ?: row
     }

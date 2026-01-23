@@ -35,7 +35,10 @@ class ExampleFromFile(private val scenarioStub: ScenarioStub, val file: File) {
     fun toRow(specmaticConfig: SpecmaticConfig = SpecmaticConfig()): Row {
         logger.log("Loading test file ${this.expectationFilePath}")
 
-        val examples: Map<String, String> = request.headers
+        val headers = Row.valueMapFrom(request.headers)
+        val queryParams = Row.valueMapFrom(this.queryParams)
+
+        val examples: Map<String, String> = headers
             .plus(queryParams)
             .plus(requestBody?.let { mapOf(REQUEST_BODY_FIELD to it.toStringLiteral()) } ?: emptyMap())
 

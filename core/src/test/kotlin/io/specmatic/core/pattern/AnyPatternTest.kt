@@ -194,7 +194,7 @@ internal class AnyPatternTest {
                 EnumPattern(listOf(StringValue("one"), StringValue("two")))
             ),
             extensions = emptyMap()
-        ).newBasedOn(Row(mapOf()), Resolver()).map { it.value }.toList().let { patterns ->
+        ).newBasedOn(Row(), Resolver()).map { it.value }.toList().let { patterns ->
             patterns.map { it.typeName } shouldContainInAnyOrder listOf("number", "\"one\"", "\"two\"")
         }
     }
@@ -220,7 +220,7 @@ internal class AnyPatternTest {
     @Tag(GENERATION)
     fun `should create new patterns when the row has no values`() {
         val pattern = AnyPattern(listOf(parsedPattern("""{"id": "(number)"}""")), extensions = emptyMap())
-        val value = pattern.newBasedOn(Row(mapOf()), Resolver()).map { it.value }.first().generate(Resolver())
+        val value = pattern.newBasedOn(Row(), Resolver()).map { it.value }.first().generate(Resolver())
 
         value as JSONObjectValue
 
@@ -356,7 +356,7 @@ internal class AnyPatternTest {
     @Tag(GENERATION)
     fun `values for negative tests`() {
         val negativeTypes =
-            AnyPattern(listOf(NullPattern, StringPattern()), extensions = emptyMap()).negativeBasedOn(Row(mapOf()), Resolver()).map { it.value }
+            AnyPattern(listOf(NullPattern, StringPattern()), extensions = emptyMap()).negativeBasedOn(Row(), Resolver()).map { it.value }
                 .toList()
 
         assertThat(negativeTypes).containsExactlyInAnyOrder(

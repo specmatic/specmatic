@@ -44,7 +44,7 @@ internal class MultiPartContentPatternTest {
     @Test
     fun `it should generate a new pattern for test`() {
         val pattern = MultiPartContentPattern("employeeid", StringPattern())
-        val newPattern = pattern.newBasedOn(Row(mapOf()), Resolver())
+        val newPattern = pattern.newBasedOn(Row(), Resolver())
         assertThat(newPattern.single()).isEqualTo(pattern)
     }
 

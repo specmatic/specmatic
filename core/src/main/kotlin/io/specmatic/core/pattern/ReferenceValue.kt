@@ -2,6 +2,8 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.References
 import io.specmatic.core.breakIntoPartsMaxLength
+import io.specmatic.core.value.StringValue
+import io.specmatic.core.value.Value
 
 data class ReferenceValue(private val valueReference: ValueReference, private val references: Map<String, References> = emptyMap()): RowValue {
     override fun fetch(): String {
@@ -12,7 +14,9 @@ data class ReferenceValue(private val valueReference: ValueReference, private va
         val name = parts[0]
         val selector = parts[1]
 
-        return references[name]?.lookup(selector) ?: throw ContractException("Could not find reference to value \"${valueReference.name}\"")
+        val reference = references[name]?.lookup(selector) ?: throw ContractException("Could not find reference to value \"${valueReference.name}\"")
+
+        return reference
     }
 
     private fun breakUpIntoParts() =
