@@ -16,6 +16,7 @@ import io.specmatic.core.config.SpecmaticVersionedConfig
 import io.specmatic.core.config.SpecmaticVersionedConfigLoader
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
+import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
 import io.specmatic.core.utilities.Flags.Companion.getStringValue
 
 data class SpecmaticConfigV2(
@@ -36,6 +37,7 @@ data class SpecmaticConfigV2(
     val examples: List<String> = getStringValue(EXAMPLE_DIRECTORIES)?.split(",") ?: emptyList(),
     val workflow: WorkflowConfiguration? = null,
     val ignoreInlineExamples: Boolean? = null,
+    val ignoreInlineExampleWarnings: Boolean? = getBooleanValue(Flags.IGNORE_INLINE_EXAMPLE_WARNINGS),
     val additionalExampleParamsFilePath: String? = getStringValue(Flags.ADDITIONAL_EXAMPLE_PARAMS_FILE),
     @field:JsonAlias("attribute_selection_pattern")
     val attributeSelectionPattern: AttributeSelectionPattern? = null,
@@ -64,6 +66,7 @@ data class SpecmaticConfigV2(
             examples = this.examples,
             workflow = this.workflow,
             ignoreInlineExamples = this.ignoreInlineExamples,
+            ignoreInlineExampleWarnings = this.ignoreInlineExampleWarnings,
             additionalExampleParamsFilePath = this.additionalExampleParamsFilePath,
             attributeSelectionPattern = this.attributeSelectionPattern,
             allPatternsMandatory = this.allPatternsMandatory,
@@ -95,6 +98,7 @@ data class SpecmaticConfigV2(
                 examples = config.getExamples(),
                 workflow = getWorkflowConfiguration(config),
                 ignoreInlineExamples = SpecmaticConfig.getIgnoreInlineExamples(config),
+                ignoreInlineExampleWarnings = config.getIgnoreInlineExampleWarnings(),
                 additionalExampleParamsFilePath = config.getAdditionalExampleParamsFilePath(),
                 attributeSelectionPattern = getAttributeSelectionConfigOrNull(config),
                 allPatternsMandatory = getAllPatternsMandatory(config),

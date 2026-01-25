@@ -17,7 +17,6 @@ import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.report.ReportGenerator
 import io.specmatic.core.utilities.*
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_TIMEOUT
-import io.specmatic.core.utilities.Flags.Companion.getLongValue
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
@@ -282,8 +281,8 @@ open class SpecmaticJUnitSupport {
         val overlayContent = if (overlayFilePath.isNullOrBlank()) "" else readFrom(overlayFilePath, "overlay")
         val useCurrentBranchForCentralRepo =
             specmaticConfig?.getMatchBranch() ?: Flags.getBooleanValue(Flags.MATCH_BRANCH) ?: false
-        val timeoutInMilliseconds = specmaticConfig?.getTestTimeoutInMilliseconds() ?: try {
-            getLongValue(SPECMATIC_TEST_TIMEOUT)
+        val timeoutInMilliseconds = try {
+            (specmaticConfig ?: SpecmaticConfig()).getTestTimeoutInMilliseconds()
         } catch (e: NumberFormatException) {
             throw ContractException("$SPECMATIC_TEST_TIMEOUT should be a value of type long")
         } ?: DEFAULT_TIMEOUT_IN_MILLISECONDS
