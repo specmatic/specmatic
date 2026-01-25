@@ -13,7 +13,7 @@ dependencies {
     implementation("com.ezylang:EvalEx:3.6.0")
     implementation(project(":specmatic-core"))
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
-    implementation("org.assertj:assertj-core:3.27.6")
+    implementation("org.assertj:assertj-core:3.27.7")
 
     implementation("com.fasterxml.jackson.core:jackson-databind:2.21.0")
 
