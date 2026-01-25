@@ -232,6 +232,7 @@ data class SpecmaticConfig(
     private val examples: List<String>? = null,
     private val workflow: WorkflowConfiguration? = null,
     private val ignoreInlineExamples: Boolean? = null,
+    private val ignoreInlineExampleWarnings: Boolean? = null,
     private val additionalExampleParamsFilePath: String? = null,
     private val attributeSelectionPattern: AttributeSelectionPattern? = null,
     private val allPatternsMandatory: Boolean? = null,
@@ -617,6 +618,11 @@ data class SpecmaticConfig(
     @JsonIgnore
     fun getIgnoreInlineExamples(): Boolean {
         return ignoreInlineExamples ?: getBooleanValue(Flags.IGNORE_INLINE_EXAMPLES)
+    }
+
+    @JsonIgnore
+    fun getIgnoreInlineExampleWarnings(): Boolean {
+        return ignoreInlineExampleWarnings ?: getBooleanValue(Flags.IGNORE_INLINE_EXAMPLE_WARNINGS)
     }
 
     @JsonIgnore

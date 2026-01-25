@@ -22,8 +22,6 @@ import io.specmatic.core.overlay.OverlayParser
 import io.specmatic.core.pattern.*
 import io.specmatic.core.pattern.Discriminator
 import io.specmatic.core.utilities.Flags
-import io.specmatic.core.utilities.Flags.Companion.IGNORE_INLINE_EXAMPLE_WARNINGS
-import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
 import io.specmatic.core.utilities.toValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NullValue
@@ -775,7 +773,7 @@ class OpenApiSpecification(
 
                 val unusedRequestExampleNames = requestExampleNames - usedExamples
 
-                if(getBooleanValue(IGNORE_INLINE_EXAMPLE_WARNINGS).not()) {
+                if (specmaticConfig.getIgnoreInlineExampleWarnings().not()) {
                     unusedRequestExampleNames.forEach { unusedRequestExampleName ->
                         // TODO: Collect as warning
                         logger.log(missingResponseExampleErrorMessageForTest(unusedRequestExampleName))
@@ -935,7 +933,7 @@ class OpenApiSpecification(
 
             if (requestExamples.containsKey(SPECMATIC_TEST_WITH_NO_REQ_EX) && responseExample.status != first2xxResponseStatus) {
                 // TODO: Collect as warning
-                if (getBooleanValue(IGNORE_INLINE_EXAMPLE_WARNINGS).not())
+                if (specmaticConfig.getIgnoreInlineExampleWarnings().not())
                     logger.log(missingRequestExampleErrorMessageForTest(exampleName))
                 return@mapNotNull null
             }
@@ -1106,7 +1104,7 @@ class OpenApiSpecification(
 
     private fun openAPIResponseToSpecmatic(response: ApiResponse, status: String, headersMap: Map<String, Pair<Pattern, CollectorContext>>, collectorContext: CollectorContext): List<ResponsePatternData> {
         val headerExamples =
-            if (specmaticConfig.getIgnoreInlineExamples() || getBooleanValue(Flags.IGNORE_INLINE_EXAMPLES))
+            if (specmaticConfig.getIgnoreInlineExamples())
                 emptyMap()
             else
                 response.headers.orEmpty().entries.fold(emptyMap<String, Map<String, String>>()) { acc, (headerName, header) ->
@@ -1162,7 +1160,7 @@ class OpenApiSpecification(
             )
 
             val exampleBodies: Map<String, String?> =
-                if (specmaticConfig.getIgnoreInlineExamples() || getBooleanValue(Flags.IGNORE_INLINE_EXAMPLES))
+                if (specmaticConfig.getIgnoreInlineExamples())
                     emptyMap()
                 else
                     mediaType.examples?.mapValues {
@@ -1352,7 +1350,7 @@ class OpenApiSpecification(
                     }
 
                     val allExamples =
-                        if (specmaticConfig.getIgnoreInlineExamples() || getBooleanValue(Flags.IGNORE_INLINE_EXAMPLES))
+                        if (specmaticConfig.getIgnoreInlineExamples())
                             emptyMap()
                         else
                             exampleRequestBuilder.examplesWithRequestBodies(exampleBodies, actualContentType)
@@ -1405,7 +1403,7 @@ class OpenApiSpecification(
     )
 
     private inline fun <reified T : Parameter> namedExampleParams(operation: Operation): Map<String, Map<String, String>> {
-        if (specmaticConfig.getIgnoreInlineExamples() || getBooleanValue(Flags.IGNORE_INLINE_EXAMPLES))
+        if (specmaticConfig.getIgnoreInlineExamples())
             return emptyMap()
 
         return operation.parameters.orEmpty().safeFilter<T>(CollectorContext()).map { it.value }.fold(emptyMap()) { acc, parameter ->
