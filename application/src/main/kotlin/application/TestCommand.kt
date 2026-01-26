@@ -3,6 +3,7 @@ package application
 import io.specmatic.core.APPLICATION_NAME_LOWER_CASE
 import io.specmatic.core.Configuration
 import io.specmatic.core.DEFAULT_TIMEOUT_IN_MILLISECONDS
+import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
@@ -11,9 +12,7 @@ import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_PARALLELISM
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_TIMEOUT
-import io.specmatic.core.utilities.Flags.Companion.MATCH_BRANCH
 import io.specmatic.core.utilities.Flags.Companion.TEST_STRICT_MODE
-import io.specmatic.core.utilities.Flags.Companion.getStringValue
 import io.specmatic.core.utilities.exitWithMessage
 import io.specmatic.core.loadSpecmaticConfigOrNull
 import io.specmatic.core.utilities.Flags.Companion.TEST_LENIENT_MODE
@@ -151,8 +150,6 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     var lenientMode: Boolean = false
 
     override fun call() = try {
-        setParallelism()
-
         if(verboseMode) {
             logger = Verbose()
         }
@@ -168,6 +165,13 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
                 else -> 9000
             }
         }
+
+        val specmaticConfig = loadSpecmaticConfigOrNull(
+            Configuration.configFilePath,
+            explicitlySpecifiedByUser = configFileName != null
+        ) ?: SpecmaticConfig()
+
+        setParallelism(specmaticConfig)
 
         val protocol = when {
             port == 443 -> "https"
@@ -189,13 +193,9 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         System.setProperty(TEST_STRICT_MODE, strictMode.toString())
         System.setProperty(TEST_LENIENT_MODE, lenientMode.toString())
 
-        val configMatchBranch = loadSpecmaticConfigOrNull(
-            Configuration.configFilePath,
-            explicitlySpecifiedByUser = configFileName != null
-        )?.getMatchBranch() ?: false
-        val matchBranchEnabled = useCurrentBranchForCentralRepo || Flags.getBooleanValue(MATCH_BRANCH, false) || configMatchBranch
+        val matchBranchEnabled = useCurrentBranchForCentralRepo || specmaticConfig.getMatchBranchEnabled()
         if(matchBranchEnabled) {
-            System.setProperty(MATCH_BRANCH, matchBranchEnabled.toString())
+            System.setProperty(Flags.MATCH_BRANCH, matchBranchEnabled.toString())
         }
 
         if(exampleDirs.isNotEmpty()) {
@@ -249,8 +249,8 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         logger.log(e)
     }
 
-    private fun setParallelism() {
-        getStringValue(SPECMATIC_TEST_PARALLELISM)?.let { parallelism ->
+    private fun setParallelism(specmaticConfig: SpecmaticConfig) {
+        specmaticConfig.getTestParallelism()?.let { parallelism ->
             validateParallelism(parallelism)
 
             System.setProperty("junit.jupiter.execution.parallel.enabled", "true")

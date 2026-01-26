@@ -11,7 +11,6 @@ import io.specmatic.core.log.*
 import io.specmatic.core.utilities.*
 import io.specmatic.core.utilities.ContractPathData.Companion.specToBaseUrlMap
 import io.specmatic.core.loadSpecmaticConfigOrNull
-import io.specmatic.core.utilities.Flags.Companion.MATCH_BRANCH
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_BASE_URL
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_STUB_DELAY
 import io.specmatic.license.core.cli.Category
@@ -164,11 +163,11 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         System.setProperty(SPECMATIC_BASE_URL, baseUrl)
 
         try {
-            val configMatchBranch = loadSpecmaticConfigOrNull(
+            val loadedConfig: io.specmatic.core.SpecmaticConfig = loadSpecmaticConfigOrNull(
                 Configuration.configFilePath,
                 explicitlySpecifiedByUser = configFileName != null
-            )?.getMatchBranch() ?: false
-            val matchBranchEnabled = useCurrentBranchForCentralRepo || Flags.getBooleanValue(MATCH_BRANCH, false) || configMatchBranch
+            ) ?: io.specmatic.core.SpecmaticConfig()
+            val matchBranchEnabled = useCurrentBranchForCentralRepo || loadedConfig.getMatchBranchEnabled()
             
             contractSources = when (contractPaths.isEmpty()) {
                 true -> {

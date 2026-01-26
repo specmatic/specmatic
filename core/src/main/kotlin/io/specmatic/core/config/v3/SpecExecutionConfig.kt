@@ -18,10 +18,12 @@ sealed class SpecExecutionConfig {
     sealed class ObjectValue : SpecExecutionConfig() {
         abstract val specs: List<String>
         abstract val resiliencyTests: ResiliencyTestsConfig?
-        private val defaultBaseUrl: URI get() = URI(Flags.getStringValue(Flags.SPECMATIC_BASE_URL) ?: DEFAULT_BASE_URL)
 
         fun toBaseUrl(defaultBaseUrl: String? = null): String {
-            val baseUrl = defaultBaseUrl?.let(::URI) ?: this.defaultBaseUrl
+            val resolvedBaseUrl = defaultBaseUrl
+                ?: Flags.getStringValue(Flags.SPECMATIC_BASE_URL)
+                ?: DEFAULT_BASE_URL
+            val baseUrl = URI(resolvedBaseUrl)
             return toUrl(baseUrl).toString()
         }
 

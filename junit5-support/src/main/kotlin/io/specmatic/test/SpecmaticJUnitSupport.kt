@@ -61,13 +61,15 @@ data class API(
 @Execution(ExecutionMode.CONCURRENT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 open class SpecmaticJUnitSupport {
+    private val configFilePathFromSettings = settingsStaging.get()?.configFile ?: getConfigFilePath()
+    private val baseSpecmaticConfig = loadSpecmaticConfigOrNull(configFilePathFromSettings)
     private val settings = ContractTestSettings(settingsStaging)
     private val httpInteractionsLog: HttpInteractionsLog = HttpInteractionsLog()
     private var startTime: Instant? = null
 
     private val specmaticConfig: SpecmaticConfig? =
         settings.getAdjustedConfig()
-            ?: settings.adjust(loadSpecmaticConfigOrNull(getConfigFilePath()))
+            ?: settings.adjust(baseSpecmaticConfig)
 
     private val testFilter = ScenarioMetadataFilter.from(settings.filter)
 
@@ -280,7 +282,7 @@ open class SpecmaticJUnitSupport {
         val overlayFilePath: String? = System.getProperty(OVERLAY_FILE_PATH) ?: System.getenv(OVERLAY_FILE_PATH)
         val overlayContent = if (overlayFilePath.isNullOrBlank()) "" else readFrom(overlayFilePath, "overlay")
         val useCurrentBranchForCentralRepo =
-            specmaticConfig?.getMatchBranch() ?: Flags.getBooleanValue(Flags.MATCH_BRANCH) ?: false
+            specmaticConfig?.getMatchBranchEnabled() ?: SpecmaticConfig().getMatchBranchEnabled()
         val timeoutInMilliseconds = try {
             (specmaticConfig ?: SpecmaticConfig()).getTestTimeoutInMilliseconds()
         } catch (e: NumberFormatException) {
@@ -461,7 +463,7 @@ open class SpecmaticJUnitSupport {
     }
 
     private fun firstNScenarios(testScenarios: Sequence<Pair<ContractTest, String>>): Sequence<Pair<ContractTest, String>> {
-        val maxTestCount = Flags.getIntValue(Flags.MAX_TEST_COUNT) ?: return testScenarios
+        val maxTestCount = (specmaticConfig ?: SpecmaticConfig()).getMaxTestCount() ?: return testScenarios
         return testScenarios.take(maxTestCount)
     }
 
@@ -604,8 +606,8 @@ open class SpecmaticJUnitSupport {
         }
 
         val contractFile = File(path)
-        val strictMode = settings.strictMode
-            ?: specmaticConfig?.getTestStrictMode()
+        val strictMode = specmaticConfig?.getTestStrictMode()
+            ?: settings.strictMode
             ?: false
         val rawSpecmaticConfig = specmaticConfig ?: SpecmaticConfig()
         val effectiveSpecmaticConfig =
@@ -627,7 +629,7 @@ open class SpecmaticJUnitSupport {
                 specmaticConfig = effectiveSpecmaticConfig,
                 overlayContent = overlayContent,
                 strictMode = strictMode,
-                lenientMode = settings.lenientMode
+                lenientMode = specmaticConfig?.getTestLenientMode() ?: settings.lenientMode
             ).copy(testVariables = config.variables, testBaseURLs = config.baseURLs)
 
         val suggestions = when {

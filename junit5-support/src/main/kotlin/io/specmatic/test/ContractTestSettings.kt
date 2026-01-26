@@ -3,7 +3,6 @@ package io.specmatic.test
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.loadSpecmaticConfig
-import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.readEnvVarOrProperty
 import io.specmatic.test.reports.TestReportListener
 import java.io.File
@@ -20,12 +19,14 @@ data class ContractTestSettings(
     val lenientMode: Boolean = false,
     val previousTestRuns: List<TestResultRecord> = emptyList(),
 ) {
-    fun adjust(specmaticConfig: SpecmaticConfig?): SpecmaticConfig? =
-        if (generative == true) {
-            (specmaticConfig ?: SpecmaticConfig()).enableResiliencyTests()
+    fun adjust(specmaticConfig: SpecmaticConfig?): SpecmaticConfig? {
+        val updatedConfig = (specmaticConfig ?: SpecmaticConfig()).withTestModes(strictMode, lenientMode)
+        return if (generative == true) {
+            updatedConfig.enableResiliencyTests()
         } else {
-            specmaticConfig
+            updatedConfig
         }
+    }
 
     fun getAdjustedConfig(): SpecmaticConfig? {
         if (configFile.isBlank()) return null
@@ -37,7 +38,9 @@ data class ContractTestSettings(
         return adjust(loadSpecmaticConfig(configFile))
     }
 
-    internal constructor(contractTestSettings: ThreadLocal<ContractTestSettings?>) : this(
+    constructor(
+        contractTestSettings: ThreadLocal<ContractTestSettings?>,
+    ) : this(
         testBaseURL = contractTestSettings.get()?.testBaseURL ?: System.getProperty(SpecmaticJUnitSupport.TEST_BASE_URL),
         contractPaths = contractTestSettings.get()?.contractPaths ?: System.getProperty(SpecmaticJUnitSupport.CONTRACT_PATHS),
         filter =
@@ -49,8 +52,14 @@ data class ContractTestSettings(
         generative = contractTestSettings.get()?.generative,
         reportBaseDirectory = contractTestSettings.get()?.reportBaseDirectory,
         coverageHooks = contractTestSettings.get()?.coverageHooks ?: emptyList(),
-        strictMode = contractTestSettings.get()?.strictMode ?: Flags.getStringValue(Flags.TEST_STRICT_MODE)?.toBoolean(),
-        lenientMode = contractTestSettings.get()?.lenientMode ?: Flags.getStringValue(Flags.TEST_LENIENT_MODE)?.toBoolean() ?: false,
+        strictMode =
+            contractTestSettings.get()?.strictMode
+                ?: SpecmaticConfig().getTestStrictMode(),
+        lenientMode =
+            contractTestSettings.get()?.lenientMode
+                ?: SpecmaticConfig().getTestLenientMode()
+                ?: false,
         previousTestRuns = contractTestSettings.get()?.previousTestRuns.orEmpty()
     )
+
 }

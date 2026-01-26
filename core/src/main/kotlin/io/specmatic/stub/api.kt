@@ -27,7 +27,6 @@ import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.parseGherkinStringToFeature
 import io.specmatic.core.utilities.ContractPathData
 import io.specmatic.core.utilities.ContractPathData.Companion.specToBaseUrlMap
-import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.contractStubPaths
 import io.specmatic.core.utilities.examplesDirFor
 import io.specmatic.core.utilities.exceptionCauseMessage
@@ -156,7 +155,7 @@ fun createStub(
     val configFileName = givenConfigFileName ?: getConfigFilePath()
     val specmaticConfig = loadSpecmaticConfigOrDefault(configFileName)
     val useCurrentBranchForCentralRepo =
-        specmaticConfig.getMatchBranch() == true || Flags.getBooleanValue(Flags.MATCH_BRANCH)
+        specmaticConfig.getMatchBranchEnabled()
     val effectiveStrictMode = if (strict) true else (specmaticConfig.getStubStrictMode() ?: false)
 
     val timeoutMessage =
@@ -680,7 +679,7 @@ private fun specPathToImplicitDataDirPaths(
     dataDirPaths: List<String>,
     contractPathDataList: List<ContractPathData>,
 ): List<Pair<String, List<ImplicitOriginalDataDirPair>>> {
-    val useCurrentBranchForCentralRepo = specmaticConfig.getMatchBranch() == true
+    val useCurrentBranchForCentralRepo = specmaticConfig.getMatchBranchEnabled()
     return specmaticConfig
         .loadSources(useCurrentBranchForCentralRepo)
         .flatMap { contractSource ->
