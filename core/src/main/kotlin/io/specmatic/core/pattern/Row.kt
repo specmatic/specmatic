@@ -174,10 +174,4 @@ data class Row(
             parsedBodyField as? JSONComposite
         }.getOrNull()
     }
-
-    companion object {
-        fun valueMapFrom(stringMap: Map<String, String>): Map<String, String> {
-            return stringMap
-        }
-    }
 }

@@ -291,7 +291,7 @@ data class HttpPathPattern(
     }
 
     fun extractPathParamsAsValueMap(requestPath: String): Map<String, String> {
-       return Row.valueMapFrom(extractPathParams(requestPath))
+       return extractPathParams(requestPath)
     }
 
     fun extractPathParams(requestPath: String): Map<String, String> {

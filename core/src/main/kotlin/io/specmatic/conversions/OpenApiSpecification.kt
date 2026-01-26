@@ -859,7 +859,7 @@ class OpenApiSpecification(
     ): List<Row> {
         return requestExample.flatMap { (key, requests) ->
             requests.map { request ->
-                val paramExamples = Row.valueMapFrom(request.headers + request.queryParams.asMap())
+                val paramExamples = request.headers + request.queryParams.asMap()
                 val pathParameterExamples = try {
                     parameterExamples(operation, key).mapValues { (it.value as? String) ?: jsonMapper.writeValueAsString(it.value) }
                 } catch (_: Exception) {
@@ -867,7 +867,7 @@ class OpenApiSpecification(
                 }
 
                 val allExamples = when (scenarioInfo.httpRequestPattern.body) {
-                    is NoBodyPattern -> paramExamples + Row.valueMapFrom(pathParameterExamples)
+                    is NoBodyPattern -> paramExamples + pathParameterExamples
                     else -> mapOf(REQUEST_BODY_FIELD to request.body.toStringLiteral()) + paramExamples
                 }
                 Row(
@@ -951,7 +951,7 @@ class OpenApiSpecification(
             }
 
             Row(
-                exampleFields = Row.valueMapFrom(exampleFields),
+                exampleFields = exampleFields,
                 name = exampleName,
                 exactResponseExample = if(resolvedResponseExample != null && responseExample.isNotEmpty()) resolvedResponseExample else null,
                 requestExample = requestExampleAsHttpRequests[exampleName]?.first(),

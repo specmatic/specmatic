@@ -16,7 +16,7 @@ data class Examples(val columnNames: List<String> = emptyList(), val rows: List<
             val rows = examples.tableBody.map { tableRow ->
                 val values = getValues(tableRow)
                 val exampleFields = columns.zip(values.map { it }).toMap()
-                Row(Row.valueMapFrom(exampleFields))
+                Row(exampleFields)
             }
 
             return Examples(columns, rows)
