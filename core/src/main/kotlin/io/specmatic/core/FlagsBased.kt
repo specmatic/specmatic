@@ -1,9 +1,6 @@
 package io.specmatic.core
 
 import io.specmatic.core.pattern.IgnoreUnexpectedKeys
-import io.specmatic.core.utilities.Flags
-import io.specmatic.core.utilities.Flags.Companion.SCHEMA_EXAMPLE_DEFAULT
-import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
 
 const val POSITIVE_TEST_DESCRIPTION_PREFIX = "+ve "
 const val NEGATIVE_TEST_DESCRIPTION_PREFIX = "-ve "
@@ -14,18 +11,21 @@ data class FlagsBased(
     val unexpectedKeyCheck: UnexpectedKeyCheck?,
     val positivePrefix: String,
     val negativePrefix: String,
-    val allPatternsAreMandatory: Boolean
+    val allPatternsAreMandatory: Boolean,
+    val useFuzzyMatching: Boolean,
+    val maxTestRequestCombinations: Int
 ) {
     fun update(resolver: Resolver): Resolver {
         val findKeyErrorCheck = resolver.findKeyErrorCheck
             .let { unexpectedKeyCheck?.let(it::withUnexpectedKeyCheck) ?: it }
-            .let { if (getBooleanValue(Flags.SPECMATIC_FUZZY)) FuzzyKeyCheck(it) else it }
+            .let { if (useFuzzyMatching) FuzzyKeyCheck(it) else it }
 
         return resolver.copy(
             defaultExampleResolver = defaultExampleResolver,
             generation = generation,
             findKeyErrorCheck = findKeyErrorCheck,
-            allPatternsAreMandatory = allPatternsAreMandatory
+            allPatternsAreMandatory = allPatternsAreMandatory,
+            maxTestRequestCombinations = maxTestRequestCombinations
         )
     }
 
@@ -42,7 +42,7 @@ fun strategiesFromFlags(specmaticConfig: SpecmaticConfig): FlagsBased {
             Pair("", "")
 
     return FlagsBased(
-        defaultExampleResolver = if (getBooleanValue(SCHEMA_EXAMPLE_DEFAULT)) UseDefaultExample else DoNotUseDefaultExample,
+        defaultExampleResolver = if (specmaticConfig.getSchemaExampleDefault()) UseDefaultExample else DoNotUseDefaultExample,
         generation = when {
             specmaticConfig.isResiliencyTestingEnabled() -> GenerativeTestsEnabled(positiveOnly = specmaticConfig.isOnlyPositiveTestingEnabled())
             else -> NonGenerativeTests
@@ -50,15 +50,11 @@ fun strategiesFromFlags(specmaticConfig: SpecmaticConfig): FlagsBased {
         unexpectedKeyCheck = if (specmaticConfig.isExtensibleSchemaEnabled()) IgnoreUnexpectedKeys else null,
         positivePrefix = positivePrefix,
         negativePrefix = negativePrefix,
-        allPatternsAreMandatory = specmaticConfig.getAllPatternsMandatory()
+        allPatternsAreMandatory = specmaticConfig.getAllPatternsMandatory(),
+        useFuzzyMatching = specmaticConfig.getFuzzyMatchingEnabled(),
+        maxTestRequestCombinations = specmaticConfig.getMaxTestRequestCombinations() ?: Int.MAX_VALUE
     )
 }
 
-val DefaultStrategies = FlagsBased (
-    DoNotUseDefaultExample,
-    NonGenerativeTests,
-    null,
-    "",
-    "",
-    Flags.getBooleanValue(Flags.ALL_PATTERNS_MANDATORY, false)
-)
+val DefaultStrategies: FlagsBased
+    get() = strategiesFromFlags(SpecmaticConfig())

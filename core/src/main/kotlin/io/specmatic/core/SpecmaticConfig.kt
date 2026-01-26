@@ -23,6 +23,7 @@ import io.specmatic.core.SourceProvider.web
 import io.specmatic.core.azure.AzureAPI
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.SpecmaticConfigVersion.VERSION_1
+import io.specmatic.core.config.SpecmaticConfigVersion.VERSION_2
 import io.specmatic.core.config.Switch
 import io.specmatic.core.config.toSpecmaticConfig
 import io.specmatic.core.config.v3.SpecExecutionConfig
@@ -36,6 +37,7 @@ import io.specmatic.core.utilities.ContractSourceEntry
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_SCHEMA
+import io.specmatic.core.utilities.Flags.Companion.MAX_TEST_REQUEST_COMBINATIONS
 import io.specmatic.core.utilities.Flags.Companion.MAX_TEST_COUNT
 import io.specmatic.core.utilities.Flags.Companion.ONLY_POSITIVE
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_BASE_URL
@@ -244,6 +246,8 @@ data class SpecmaticConfig(
     private val workflow: WorkflowConfiguration? = null,
     private val ignoreInlineExamples: Boolean? = null,
     private val ignoreInlineExampleWarnings: Boolean? = null,
+    private val schemaExampleDefault: Boolean? = null,
+    private val fuzzy: Boolean? = null,
     private val additionalExampleParamsFilePath: String? = null,
     private val attributeSelectionPattern: AttributeSelectionPattern? = null,
     private val allPatternsMandatory: Boolean? = null,
@@ -585,6 +589,12 @@ data class SpecmaticConfig(
     }
 
     @JsonIgnore
+    fun getMaxTestRequestCombinations(): Int? {
+        val configValue = if (getVersion() == VERSION_2) test?.maxTestRequestCombinations else null
+        return configValue ?: getIntValue(MAX_TEST_REQUEST_COMBINATIONS)
+    }
+
+    @JsonIgnore
     fun getTestStrictMode(): Boolean? {
         return test?.strictMode ?: getStringValue(TEST_STRICT_MODE)?.toBoolean()
     }
@@ -661,6 +671,18 @@ data class SpecmaticConfig(
     @JsonIgnore
     fun getAllPatternsMandatory(): Boolean {
         return allPatternsMandatory ?: getBooleanValue(Flags.ALL_PATTERNS_MANDATORY)
+    }
+
+    @JsonIgnore
+    fun getSchemaExampleDefault(): Boolean {
+        val configValue = if (getVersion() == VERSION_2) schemaExampleDefault else null
+        return configValue ?: getBooleanValue(Flags.SCHEMA_EXAMPLE_DEFAULT)
+    }
+
+    @JsonIgnore
+    fun getFuzzyMatchingEnabled(): Boolean {
+        val configValue = if (getVersion() == VERSION_2) fuzzy else null
+        return configValue ?: getBooleanValue(Flags.SPECMATIC_FUZZY)
     }
 
     @JsonIgnore
@@ -845,6 +867,7 @@ data class TestConfiguration(
     val strictMode: Boolean? = null,
     val lenientMode: Boolean? = null,
     val parallelism: String? = null,
+    val maxTestRequestCombinations: Int? = null,
     val maxTestCount: Int? = null
 )
 

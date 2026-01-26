@@ -1184,6 +1184,7 @@ class GenerativeTests {
         val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true) {
             every { isResiliencyTestingEnabled() } returns true
             every { getWorkflowDetails() } returns null
+            every { getMaxTestRequestCombinations() } returns null
         }
         mockkObject(SpecmaticConfig.Companion)
         every { SpecmaticConfig.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
@@ -1273,6 +1274,7 @@ class GenerativeTests {
                 every { isResiliencyTestingEnabled() } returns true
                 every { isOnlyPositiveTestingEnabled() } returns true
                 every { getWorkflowDetails() } returns null
+                every { getMaxTestRequestCombinations() } returns null
             }
             mockkObject(SpecmaticConfig.Companion)
             every { SpecmaticConfig.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()

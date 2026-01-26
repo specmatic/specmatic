@@ -231,6 +231,8 @@ internal class SpecmaticConfigKtTest {
             assertThat(config.isOnlyPositiveTestingEnabled()).isFalse()
             assertThat(config.isResponseValueValidationEnabled()).isTrue()
             assertThat(config.isExtensibleSchemaEnabled()).isFalse()
+            assertThat(config.getSchemaExampleDefault()).isTrue()
+            assertThat(config.getMaxTestRequestCombinations()).isEqualTo(50)
             assertThat(config.getExamples()).isEqualTo(listOf("folder1/examples", "folder2/examples"))
             assertThat(config.getTestTimeoutInMilliseconds()).isEqualTo(5000)
             assertThat(config.getStubDelayInMilliseconds()).isEqualTo(1000L)

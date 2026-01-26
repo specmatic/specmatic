@@ -38,7 +38,7 @@ abstract class NegativePatternsTemplate {
             return sequenceOf(HasValue(emptyMap()))
 
         return modifiedPatternMap.values.asSequence().filterNotNull().flatMap {
-            patternList(it)
+            patternList(it, resolver.maxTestRequestCombinations)
         }
 
     }
