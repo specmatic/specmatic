@@ -36,12 +36,18 @@ import io.specmatic.core.utilities.ContractSourceEntry
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_SCHEMA
+import io.specmatic.core.utilities.Flags.Companion.MAX_TEST_COUNT
 import io.specmatic.core.utilities.Flags.Companion.ONLY_POSITIVE
+import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_BASE_URL
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_GENERATIVE_TESTS
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_STUB_DELAY
+import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_PARALLELISM
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_TIMEOUT
+import io.specmatic.core.utilities.Flags.Companion.TEST_LENIENT_MODE
+import io.specmatic.core.utilities.Flags.Companion.TEST_STRICT_MODE
 import io.specmatic.core.utilities.Flags.Companion.VALIDATE_RESPONSE_VALUE
 import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
+import io.specmatic.core.utilities.Flags.Companion.getIntValue
 import io.specmatic.core.utilities.Flags.Companion.getLongValue
 import io.specmatic.core.utilities.Flags.Companion.getStringValue
 import io.specmatic.core.utilities.GitMonoRepo
@@ -116,7 +122,8 @@ data class StubConfiguration(
     private val includeMandatoryAndRequestedKeysInResponse: Boolean? = null,
     private val startTimeoutInMilliseconds: Long? = null,
     private val hotReload: Switch? = null,
-    private val strictMode: Boolean? = null
+    private val strictMode: Boolean? = null,
+    private val baseUrl: String? = null
 ) {
     fun getGenerative(): Boolean? {
         return generative
@@ -144,6 +151,10 @@ data class StubConfiguration(
 
     fun getStrictMode(): Boolean? {
         return strictMode ?: getBooleanValue(Flags.STUB_STRICT_MODE, false)
+    }
+
+    fun getBaseUrl(): String? {
+        return baseUrl
     }
 }
 
@@ -237,7 +248,6 @@ data class SpecmaticConfig(
     private val attributeSelectionPattern: AttributeSelectionPattern? = null,
     private val allPatternsMandatory: Boolean? = null,
     private val defaultPatternValues: Map<String, Any> = emptyMap(),
-    private val matchBranch: Boolean? = null,
     private val version: SpecmaticConfigVersion? = null,
     private val disableTelemetry: Boolean? = null
 ) {
@@ -486,8 +496,9 @@ data class SpecmaticConfig(
     @JsonIgnore
     fun loadSources(useCurrentBranchForCentralRepo: Boolean = false): List<ContractSource> {
         return sources.map { source ->
-            val stubPaths = source.specToStubBaseUrlMap().entries.map { ContractSourceEntry(it.key, it.value) }
-            val testBaseUrlMap = source.specToTestBaseUrlMap()
+            val defaultBaseUrl = getDefaultBaseUrl()
+            val stubPaths = source.specToStubBaseUrlMap(defaultBaseUrl).entries.map { ContractSourceEntry(it.key, it.value) }
+            val testBaseUrlMap = source.specToTestBaseUrlMap(defaultBaseUrl)
             val testGenerativeMap = source.specToTestGenerativeMap()
             val testPaths = testBaseUrlMap.entries.map { ContractSourceEntry(it.key, it.value, testGenerativeMap[it.key]) }
 
@@ -575,7 +586,22 @@ data class SpecmaticConfig(
 
     @JsonIgnore
     fun getTestStrictMode(): Boolean? {
-        return test?.strictMode
+        return test?.strictMode ?: getStringValue(TEST_STRICT_MODE)?.toBoolean()
+    }
+
+    @JsonIgnore
+    fun getTestLenientMode(): Boolean? {
+        return test?.lenientMode ?: getStringValue(TEST_LENIENT_MODE)?.toBoolean()
+    }
+
+    @JsonIgnore
+    fun getTestParallelism(): String? {
+        return test?.parallelism ?: getStringValue(SPECMATIC_TEST_PARALLELISM)
+    }
+
+    @JsonIgnore
+    fun getMaxTestCount(): Int? {
+        return test?.maxTestCount ?: getIntValue(MAX_TEST_COUNT)
     }
 
     @JsonIgnore
@@ -613,6 +639,13 @@ data class SpecmaticConfig(
     @JsonIgnore
     fun getStubStrictMode(): Boolean? {
         return getStubConfiguration(this).getStrictMode()
+    }
+
+    @JsonIgnore
+    fun getDefaultBaseUrl(): String {
+        return getStubConfiguration(this).getBaseUrl()
+            ?: getStringValue(SPECMATIC_BASE_URL)
+            ?: Configuration.DEFAULT_BASE_URL
     }
 
     @JsonIgnore
@@ -655,8 +688,8 @@ data class SpecmaticConfig(
     }
 
     @JsonIgnore
-    fun getMatchBranch(): Boolean? {
-        return matchBranch
+    fun getMatchBranchEnabled(): Boolean {
+        return sources.any { it.matchBranch == true } || getBooleanValue(Flags.MATCH_BRANCH)
     }
 
 
@@ -758,6 +791,16 @@ data class SpecmaticConfig(
         )
     }
 
+    fun withTestModes(strictMode: Boolean?, lenientMode: Boolean): SpecmaticConfig {
+        val testConfig = test ?: TestConfiguration()
+        return this.copy(
+            test = testConfig.copy(
+                strictMode = strictMode ?: testConfig.strictMode,
+                lenientMode = lenientMode,
+            ),
+        )
+    }
+
     @JsonIgnore
     fun testSpecPathFromConfigFor(absoluteSpecPath: String): String? {
         val source = testSourceFromConfig(absoluteSpecPath) ?: return null
@@ -799,7 +842,10 @@ data class TestConfiguration(
     val validateResponseValues: Boolean? = null,
     val allowExtensibleSchema: Boolean? = null,
     val timeoutInMilliseconds: Long? = null,
-    val strictMode: Boolean? = null
+    val strictMode: Boolean? = null,
+    val lenientMode: Boolean? = null,
+    val parallelism: String? = null,
+    val maxTestCount: Int? = null
 )
 
 enum class ResiliencyTestSuite {
