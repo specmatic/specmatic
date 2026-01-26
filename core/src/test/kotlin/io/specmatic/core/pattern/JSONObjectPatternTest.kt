@@ -12,7 +12,6 @@ import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_QUERY_PARAMS
 import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_SCHEMA
 import io.specmatic.core.utilities.Flags.Companion.IGNORE_INLINE_EXAMPLES
 import io.specmatic.core.utilities.Flags.Companion.IGNORE_INLINE_EXAMPLE_WARNINGS
-import io.specmatic.core.utilities.Flags.Companion.MAX_TEST_REQUEST_COMBINATIONS
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.*
 import io.specmatic.core.StandardRuleViolation
@@ -584,9 +583,8 @@ internal class JSONObjectPatternTest {
 
         @Test
         fun `Should avoid combinatorial explosion when many request properties with many possible values`() {
-            System.setProperty(MAX_TEST_REQUEST_COMBINATIONS, "64")
-
             val resolver = Resolver(
+                maxTestRequestCombinations = 64,
                 newPatterns = (1..6).associate { paramIndex ->
                     "(enum${paramIndex})" to AnyPattern((0..9).map { possibleValueIndex ->
                         ExactValuePattern(StringValue("${paramIndex}${possibleValueIndex}"))
@@ -596,14 +594,8 @@ internal class JSONObjectPatternTest {
 
             val objPattern = parsedPattern("""{"p1": "(enum1)", "p2": "(enum2)", "p3": "(enum3)", "p4": "(enum4)", "p5": "(enum5)", "p6": "(enum6)"}""")
 
-            val newPatterns = try {
-                objPattern.newBasedOn(Row(), resolver).map { it.value }.toList()
-            } finally {
-                System.clearProperty("MAX_TEST_REQUEST_COMBINATIONS")
-            }
+            val newPatterns = objPattern.newBasedOn(Row(), resolver).map { it.value }.toList()
             assertThat(newPatterns).hasSize(64)
-
-            System.clearProperty(MAX_TEST_REQUEST_COMBINATIONS)
         }
 
         @Test
