@@ -501,6 +501,8 @@ components:
             every { getIgnoreInlineExamples() } returns false
             every { getIgnoreInlineExampleWarnings() } returns false
             every { getStubDictionary() } returns null
+            every { getExtensibleQueryParams() } returns false
+            every { getEscapeSoapAction() } returns false
         }
         val openApiSpecification = OpenApiSpecification(
             openApiFilePath = openApiFile,

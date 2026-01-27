@@ -106,8 +106,16 @@ fun parseContractFileToFeature(
             strictMode = strictMode,
             lenientMode = lenientMode
         ).toFeature()
-        io.specmatic.core.WSDL -> wsdlContentToFeature(checkExists(file).readText(), file.canonicalPath)
-        in CONTRACT_EXTENSIONS -> parseGherkinStringToFeature(checkExists(file).readText().trim(), file.canonicalPath)
+        io.specmatic.core.WSDL -> wsdlContentToFeature(
+            checkExists(file).readText(),
+            file.canonicalPath,
+            specmaticConfig
+        )
+        in CONTRACT_EXTENSIONS -> parseGherkinStringToFeature(
+            checkExists(file).readText().trim(),
+            file.canonicalPath,
+            specmaticConfig = specmaticConfig
+        )
         else -> throw unsupportedFileExtensionContractException(file.path, file.extension)
     }
 }
@@ -124,9 +132,19 @@ fun unsupportedFileExtensionContractException(
         }."
     )
 
-fun parseGherkinStringToFeature(gherkinData: String, sourceFilePath: String = "", isWSDL: Boolean = false): Feature {
+fun parseGherkinStringToFeature(
+    gherkinData: String,
+    sourceFilePath: String = "",
+    isWSDL: Boolean = false,
+    specmaticConfig: SpecmaticConfig = SpecmaticConfig()
+): Feature {
     val gherkinDocument = parseGherkinString(gherkinData, sourceFilePath)
-    val (name, scenarios) = lex(gherkinDocument, sourceFilePath, isWSDL)
+    val (name, scenarios) = lex(
+        gherkinDocument,
+        sourceFilePath,
+        isWSDL,
+        specmaticConfig = specmaticConfig
+    )
     return Feature(scenarios = scenarios, name = name, path = sourceFilePath, protocol = getProtocol(isWSDL))
 }
 
@@ -2361,12 +2379,32 @@ private fun lexScenario(
     includedSpecifications: List<IncludedSpecification?>,
     isWSDL: Boolean,
     protocol: SpecmaticProtocol,
-    specType: SpecType
+    specType: SpecType,
+    extensibleQueryParams: Boolean,
+    preferEscapedSoapAction: Boolean
 ): ScenarioInfo {
     val filteredSteps =
         steps.map { step -> StepInfo(step.text, listOfDatatableRows(step), step) }.filterNot { it.isEmpty }
 
-    val parsedScenarioInfo = filteredSteps.fold(backgroundScenarioInfo ?: ScenarioInfo(httpRequestPattern = HttpRequestPattern(), protocol = protocol, specType = specType)) { scenarioInfo, step ->
+    val defaultRequestPattern = HttpRequestPattern(
+        headersPattern = HttpHeadersPattern(preferEscapedSoapAction = preferEscapedSoapAction),
+        httpQueryParamPattern = HttpQueryParamPattern(
+            emptyMap(),
+            extensibleQueryParams = extensibleQueryParams
+        )
+    )
+    val defaultResponsePattern = HttpResponsePattern(
+        headersPattern = HttpHeadersPattern(preferEscapedSoapAction = preferEscapedSoapAction)
+    )
+
+    val parsedScenarioInfo = filteredSteps.fold(
+        backgroundScenarioInfo ?: ScenarioInfo(
+            httpRequestPattern = defaultRequestPattern,
+            httpResponsePattern = defaultResponsePattern,
+            protocol = protocol,
+            specType = specType
+        )
+    ) { scenarioInfo, step ->
         when (step.keyword) {
             in HTTP_METHODS -> {
                 step.words.getOrNull(1)?.let {
@@ -2380,7 +2418,10 @@ private fun lexScenario(
                         )
                     }
 
-                    val queryParamPattern = buildQueryPattern(URI.create(urlInSpec))
+                    val queryParamPattern = buildQueryPattern(
+                        URI.create(urlInSpec),
+                        extensibleQueryParams = extensibleQueryParams
+                    )
 
                     scenarioInfo.copy(
                         httpRequestPattern = scenarioInfo.httpRequestPattern.copy(
@@ -2690,9 +2731,10 @@ internal fun lex(
     isWSDL: Boolean = false,
     protocol: SpecmaticProtocol = getProtocol(isWSDL),
     specType: SpecType = getSpecType(isWSDL),
+    specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
 ): Pair<String, List<Scenario>> {
     val feature = gherkinDocument.unwrapFeature()
-    return Pair(feature.name, lex(feature.children, filePath, isWSDL, protocol, specType))
+    return Pair(feature.name, lex(feature.children, filePath, isWSDL, protocol, specType, specmaticConfig))
 }
 
 internal fun lex(
@@ -2700,9 +2742,11 @@ internal fun lex(
     filePath: String,
     isWSDL: Boolean = false,
     protocol: SpecmaticProtocol,
-    specType: SpecType
+    specType: SpecType,
+    specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
 ): List<Scenario> {
-    return scenarioInfos(featureChildren, filePath, isWSDL, protocol, specType).map { scenarioInfo -> Scenario(scenarioInfo) }
+    return scenarioInfos(featureChildren, filePath, isWSDL, protocol, specType, specmaticConfig)
+        .map { scenarioInfo -> Scenario(scenarioInfo) }
 }
 
 fun scenarioInfos(
@@ -2711,22 +2755,41 @@ fun scenarioInfos(
     isWSDL: Boolean = false,
     protocol: SpecmaticProtocol = getProtocol(isWSDL),
     specType: SpecType = getSpecType(isWSDL),
+    specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
 ): List<ScenarioInfo> {
+    val extensibleQueryParams = specmaticConfig.getExtensibleQueryParams()
+    val preferEscapedSoapAction = specmaticConfig.getEscapeSoapAction()
     val openApiSpecification =
         toIncludedSpecification(featureChildren, { backgroundOpenApi(it) }) {
             OpenApiSpecification.fromFile(
                 it,
-                filePath
+                filePath,
+                specmaticConfig
             )
         }
 
     val wsdlSpecification =
-        toIncludedSpecification(featureChildren, { backgroundWsdl(it) }) { WsdlSpecification(WSDLFile(it)) }
+        toIncludedSpecification(featureChildren, { backgroundWsdl(it) }) { WsdlSpecification(WSDLFile(it), specmaticConfig) }
 
     val includedSpecifications = listOfNotNull(openApiSpecification, wsdlSpecification)
 
     val scenarioInfosBelongingToIncludedSpecifications =
         includedSpecifications.map { it.toScenarioInfos().first }.flatten()
+
+    val defaultScenarioInfo = ScenarioInfo(
+        httpRequestPattern = HttpRequestPattern(
+            headersPattern = HttpHeadersPattern(preferEscapedSoapAction = preferEscapedSoapAction),
+            httpQueryParamPattern = HttpQueryParamPattern(
+                emptyMap(),
+                extensibleQueryParams = extensibleQueryParams
+            )
+        ),
+        httpResponsePattern = HttpResponsePattern(
+            headersPattern = HttpHeadersPattern(preferEscapedSoapAction = preferEscapedSoapAction)
+        ),
+        protocol = protocol,
+        specType = specType
+    )
 
     val backgroundInfo = backgroundScenario(featureChildren)?.let { feature ->
         lexScenario(
@@ -2740,9 +2803,11 @@ fun scenarioInfos(
             includedSpecifications,
             isWSDL,
             protocol,
-            specType
+            specType,
+            extensibleQueryParams,
+            preferEscapedSoapAction
         )
-    } ?: ScenarioInfo(protocol = protocol, specType = specType)
+    } ?: defaultScenarioInfo
 
     val specmaticScenarioInfos = scenarios(featureChildren).map { featureChild ->
         val scenario = featureChild.scenario.orElseThrow {
@@ -2762,7 +2827,9 @@ fun scenarioInfos(
             includedSpecifications,
             isWSDL,
             protocol,
-            specType
+            specType,
+            extensibleQueryParams,
+            preferEscapedSoapAction
         )
     }
 

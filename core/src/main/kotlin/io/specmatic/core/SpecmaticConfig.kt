@@ -36,12 +36,15 @@ import io.specmatic.core.utilities.ContractSource
 import io.specmatic.core.utilities.ContractSourceEntry
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
+import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_QUERY_PARAMS
 import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_SCHEMA
 import io.specmatic.core.utilities.Flags.Companion.MAX_TEST_REQUEST_COMBINATIONS
 import io.specmatic.core.utilities.Flags.Companion.MAX_TEST_COUNT
 import io.specmatic.core.utilities.Flags.Companion.ONLY_POSITIVE
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_BASE_URL
+import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_ESCAPE_SOAP_ACTION
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_GENERATIVE_TESTS
+import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_PRETTY_PRINT
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_STUB_DELAY
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_PARALLELISM
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_TIMEOUT
@@ -209,8 +212,10 @@ interface AttributeSelectionPatternDetails {
 }
 
 data class AttributeSelectionPattern(
+    @param:JsonAlias("default_fields")
     @field:JsonAlias("default_fields")
     private val defaultFields: List<String>? = null,
+    @param:JsonAlias("query_param_key")
     @field:JsonAlias("query_param_key")
     private val queryParamKey: String? = null
 ) : AttributeSelectionPatternDetails {
@@ -248,6 +253,9 @@ data class SpecmaticConfig(
     private val ignoreInlineExampleWarnings: Boolean? = null,
     private val schemaExampleDefault: Boolean? = null,
     private val fuzzy: Boolean? = null,
+    private val extensibleQueryParams: Boolean? = null,
+    private val escapeSoapAction: Boolean? = null,
+    private val prettyPrint: Boolean? = null,
     private val additionalExampleParamsFilePath: String? = null,
     private val attributeSelectionPattern: AttributeSelectionPattern? = null,
     private val allPatternsMandatory: Boolean? = null,
@@ -683,6 +691,24 @@ data class SpecmaticConfig(
     fun getFuzzyMatchingEnabled(): Boolean {
         val configValue = if (getVersion() == VERSION_2) fuzzy else null
         return configValue ?: getBooleanValue(Flags.SPECMATIC_FUZZY)
+    }
+
+    @JsonIgnore
+    fun getExtensibleQueryParams(): Boolean {
+        val configValue = if (getVersion() == VERSION_2) extensibleQueryParams else null
+        return configValue ?: getBooleanValue(EXTENSIBLE_QUERY_PARAMS)
+    }
+
+    @JsonIgnore
+    fun getEscapeSoapAction(): Boolean {
+        val configValue = if (getVersion() == VERSION_2) escapeSoapAction else null
+        return configValue ?: getBooleanValue(SPECMATIC_ESCAPE_SOAP_ACTION)
+    }
+
+    @JsonIgnore
+    fun getPrettyPrint(): Boolean {
+        val configValue = if (getVersion() == VERSION_2) prettyPrint else null
+        return configValue ?: getBooleanValue(SPECMATIC_PRETTY_PRINT, true)
     }
 
     @JsonIgnore

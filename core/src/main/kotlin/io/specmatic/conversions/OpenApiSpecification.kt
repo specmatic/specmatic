@@ -98,6 +98,9 @@ class OpenApiSpecification(
     private val logger: LogStrategy = io.specmatic.core.log.logger,
     private val parseCollectorContext: CollectorContext = CollectorContext(),
 ) : IncludedSpecification, ApiSpecification {
+    private val extensibleQueryParams: Boolean = specmaticConfig.getExtensibleQueryParams()
+    private val preferEscapedSoapAction: Boolean = specmaticConfig.getEscapeSoapAction()
+
     init {
         StringProviders // Trigger early initialization of StringProviders to ensure all providers are loaded at startup
         logger.log(openApiSpecificationInfo(openApiFilePath, parsedOpenApi))
@@ -173,6 +176,23 @@ class OpenApiSpecification(
             }
 
             return fromFile(openApiFile.canonicalPath, lenientMode)
+        }
+
+        fun fromFile(
+            openApiFilePath: String,
+            relativeTo: String,
+            specmaticConfig: SpecmaticConfig,
+            lenientMode: Boolean = false
+        ): OpenApiSpecification {
+            val openApiFile = File(openApiFilePath).let { openApiFile ->
+                if (openApiFile.isAbsolute) {
+                    openApiFile
+                } else {
+                    File(relativeTo).canonicalFile.parentFile.resolve(openApiFile)
+                }
+            }
+
+            return fromFile(openApiFile.canonicalPath, specmaticConfig, lenientMode)
         }
 
         fun fromFile(openApiFilePath: String, lenientMode: Boolean = false): OpenApiSpecification {
@@ -610,7 +630,11 @@ class OpenApiSpecification(
 
             val httpPathPattern =
                 HttpPathPattern(pathPatterns, openApiScenario.httpRequestPattern.httpPathPattern?.path ?: "")
-            val httpQueryParamPattern = HttpQueryParamPattern(queryPattern)
+            val existingQueryParamPattern = openApiScenario.httpRequestPattern.httpQueryParamPattern
+            val httpQueryParamPattern = HttpQueryParamPattern(
+                queryPattern,
+                extensibleQueryParams = existingQueryParamPattern.extensibleQueryParams
+            )
 
             val httpRequestPattern = openApiScenario.httpRequestPattern.copy(
                 httpPathPattern = httpPathPattern,
@@ -639,7 +663,11 @@ class OpenApiSpecification(
                         collectorContext = methodContext
                     )
 
-                    val specmaticQueryParam = toSpecmaticQueryParam(operation = openApiOperation, collectorContext = methodContext)
+                    val specmaticQueryParam = toSpecmaticQueryParam(
+                        operation = openApiOperation,
+                        collectorContext = methodContext,
+                        extensibleQueryParams = extensibleQueryParams
+                    )
                     val httpResponsePatterns: List<ResponsePatternData> = attempt(breadCrumb = "$httpMethod $openApiPath -> RESPONSE") {
                         toHttpResponsePatterns(responses = openApiOperation.responses, collectorContext = methodContext)
                     }
@@ -1114,7 +1142,10 @@ class OpenApiSpecification(
         if (response.content == null || response.content.isEmpty()) {
             val responsePattern =
                 HttpResponsePattern(
-                    headersPattern = HttpHeadersPattern(headersMap.mapValues { it.value.first }),
+                    headersPattern = HttpHeadersPattern(
+                        headersMap.mapValues { it.value.first },
+                        preferEscapedSoapAction = preferEscapedSoapAction
+                    ),
                     body = NoBodyPattern,
                     status = status.toIntOrNull() ?: DEFAULT_RESPONSE_CODE,
                 )
@@ -1147,7 +1178,11 @@ class OpenApiSpecification(
             }
 
             val responsePattern = HttpResponsePattern(
-                headersPattern = HttpHeadersPattern(headersMap.mapValues { it.value.first }, contentType = contentType),
+                headersPattern = HttpHeadersPattern(
+                    headersMap.mapValues { it.value.first },
+                    contentType = contentType,
+                    preferEscapedSoapAction = preferEscapedSoapAction
+                ),
                 status = if (status == "default") 1000 else status.toInt(),
                 body = when (contentType) {
                     "application/xml" -> toXMLPattern(mediaType, mediaTypeContext)
@@ -1249,7 +1284,10 @@ class OpenApiSpecification(
         }
 
         val contentTypeHeader = headersMap.entries.find { it.key.lowercase() in listOf("content-type", "content-type?") }?.value
-        val headersPattern = HttpHeadersPattern(headersMap.mapValues { it.value.first })
+        val headersPattern = HttpHeadersPattern(
+            headersMap.mapValues { it.value.first },
+            preferEscapedSoapAction = preferEscapedSoapAction
+        )
         val requestPattern = HttpRequestPattern(
             httpPathPattern = httpPathPattern,
             httpQueryParamPattern = httpQueryParamPattern,
@@ -2319,8 +2357,15 @@ class OpenApiSpecification(
 
     private fun componentNameFromReference(component: String) = component.substringAfterLast("/")
 
-    private fun toSpecmaticQueryParam(operation: Operation, collectorContext: CollectorContext): HttpQueryParamPattern {
-        val parameters = operation.parameters ?: return HttpQueryParamPattern(emptyMap())
+    private fun toSpecmaticQueryParam(
+        operation: Operation,
+        collectorContext: CollectorContext,
+        extensibleQueryParams: Boolean
+    ): HttpQueryParamPattern {
+        val parameters = operation.parameters ?: return HttpQueryParamPattern(
+            emptyMap(),
+            extensibleQueryParams = extensibleQueryParams
+        )
         val queryParameters = parameters.safeFilter<QueryParameter>(collectorContext)
 
         val parametersContext = collectorContext.at("parameters")
@@ -2347,7 +2392,11 @@ class OpenApiSpecification(
         }.filterValues { it != null }.mapValues { it.value!! }
 
         val additionalProperties = additionalPropertiesInQueryParam(queryParameters, collectorContext)
-        return HttpQueryParamPattern(queryPattern, additionalProperties)
+        return HttpQueryParamPattern(
+            queryPattern,
+            additionalProperties,
+            extensibleQueryParams = extensibleQueryParams
+        )
     }
 
     private fun additionalPropertiesInQueryParam(queryParameters: List<IndexedValue<QueryParameter>>, collectorContext: CollectorContext): Pattern? {
