@@ -110,7 +110,7 @@ fun createStub(
     strict: Boolean = false,
 ): ContractStub = createStub(dataDirPaths, host, port, timeoutMillis = HTTP_STUB_SHUTDOWN_TIMEOUT, strict = strict)
 
-fun createStubFromContracts(
+internal fun createStubFromContracts(
     contractPaths: List<String>,
     dataDirPaths: List<String>,
     host: String = "localhost",
@@ -258,10 +258,11 @@ internal fun createStubFromContracts(
     timeoutMillis: Long,
 ): ContractStub {
     val defaultImplicitDirs: List<String> = implicitContractDataDirs(contractPaths)
+    val implicitStubBase = customImplicitStubBase()
 
     val completeList =
-        if (customImplicitStubBase() != null) {
-            defaultImplicitDirs.plus(implicitContractDataDirs(contractPaths, customImplicitStubBase()))
+        if (implicitStubBase != null) {
+            defaultImplicitDirs.plus(implicitContractDataDirs(contractPaths, implicitStubBase))
         } else {
             defaultImplicitDirs
         }
@@ -298,7 +299,7 @@ fun loadContractStubsFromImplicitPathsAsResults(
                         emptyList()
                     } else {
                         try {
-                            val implicitDataDirs = implicitDirsForSpecifications(specFile)
+                            val implicitDataDirs = implicitDirsForSpecifications(specFile, specmaticConfig)
                             val externalDataDirs = dataDirFiles(externalDataDirPaths)
 
                             val dataFiles = implicitDataDirs.flatMap { filesInDir(it).orEmpty() }
@@ -408,12 +409,12 @@ fun loadContractStubsFromImplicitPaths(
         processedInvalidSpecs,
     ).filterIsInstance<FeatureStubsResult.Success>().map { Pair(it.feature, it.scenarioStubs) }
 
-fun implicitDirsForSpecifications(contractPath: File) =
+fun implicitDirsForSpecifications(contractPath: File, specmaticConfig: SpecmaticConfig) =
     listOf(implicitContractDataDir(contractPath.path))
         .plus(
-            if (customImplicitStubBase() != null) {
+            if (customImplicitStubBase(specmaticConfig) != null) {
                 listOf(
-                    implicitContractDataDir(contractPath.path, customImplicitStubBase()),
+                    implicitContractDataDir(contractPath.path, customImplicitStubBase(specmaticConfig)),
                 )
             } else {
                 emptyList()
@@ -1030,7 +1031,8 @@ fun implicitContractDataDirs(
     customBase: String? = null,
 ) = contractPaths.map { implicitContractDataDir(it, customBase).absolutePath }
 
-fun customImplicitStubBase(): String? = System.getenv("SPECMATIC_CUSTOM_IMPLICIT_STUB_BASE") ?: System.getProperty("customImplicitStubBase")
+fun customImplicitStubBase(specmaticConfig: SpecmaticConfig = SpecmaticConfig()): String? =
+    specmaticConfig.getCustomImplicitStubBase()
 
 fun implicitContractDataDir(
     contractPath: String,
