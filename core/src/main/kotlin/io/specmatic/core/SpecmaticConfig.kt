@@ -23,6 +23,8 @@ import io.specmatic.core.SourceProvider.filesystem
 import io.specmatic.core.SourceProvider.git
 import io.specmatic.core.SourceProvider.web
 import io.specmatic.core.azure.AzureAPI
+import io.specmatic.core.config.HttpsConfiguration
+import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.SpecmaticConfigVersion.VERSION_1
 import io.specmatic.core.config.SpecmaticConfigVersion.VERSION_2
@@ -139,6 +141,10 @@ data class StubConfiguration(
     private val strictMode: Boolean? = null,
     private val baseUrl: String? = null,
     private val customImplicitStubBase: String? = null,
+    private val filter: String? = null,
+    private val gracefulRestartTimeoutInMilliseconds: Long? = null,
+    private val https: HttpsConfiguration? = null,
+    private val lenientMode: Boolean? = null
 ) {
     fun getGenerative(): Boolean? {
         return generative
@@ -166,6 +172,14 @@ data class StubConfiguration(
 
     fun getStrictMode(): Boolean? {
         return strictMode ?: getBooleanValue(Flags.STUB_STRICT_MODE, false)
+    }
+
+    fun getHttpsConfiguration(): HttpsConfiguration? {
+        return https
+    }
+
+    fun getGracefulRestartTimeoutInMilliseconds(): Long? {
+        return gracefulRestartTimeoutInMilliseconds
     }
 
     fun getBaseUrl(): String? {
@@ -311,7 +325,8 @@ data class SpecmaticConfig(
     private val allPatternsMandatory: Boolean? = null,
     private val defaultPatternValues: Map<String, Any> = emptyMap(),
     private val version: SpecmaticConfigVersion? = null,
-    private val disableTelemetry: Boolean? = null
+    private val disableTelemetry: Boolean? = null,
+    private val logging: LoggingConfiguration? = null,
 ) {
     companion object {
         fun getReport(specmaticConfig: SpecmaticConfig): ReportConfigurationDetails? {
@@ -406,6 +421,13 @@ data class SpecmaticConfig(
         fun getProxyConfig(specmaticConfig: SpecmaticConfig): ProxyConfig? {
             return specmaticConfig.proxy
         }
+
+        fun SpecmaticConfig?.orDefault(): SpecmaticConfig = this ?: SpecmaticConfig()
+    }
+
+    @JsonIgnore
+    fun getLogConfigurationOrDefault(): LoggingConfiguration {
+        return this.logging ?: LoggingConfiguration.default()
     }
 
     @JsonIgnore
@@ -716,6 +738,16 @@ data class SpecmaticConfig(
     }
 
     @JsonIgnore
+    fun getStubHttpsConfiguration(): HttpsConfiguration? {
+        return getStubConfiguration(this).getHttpsConfiguration()
+    }
+
+    @JsonIgnore
+    fun getStubGracefulRestartTimeoutInMilliseconds(): Long? {
+        return getStubConfiguration(this).getGracefulRestartTimeoutInMilliseconds()
+    }
+
+    @JsonIgnore
     fun getDefaultBaseUrl(): String {
         return getStubConfiguration(this).getBaseUrl()
             ?: getStringValue(SPECMATIC_BASE_URL)
@@ -801,7 +833,12 @@ data class SpecmaticConfig(
     fun getMatchBranchEnabled(): Boolean {
         return sources.any { it.matchBranch == true } || getBooleanValue(Flags.MATCH_BRANCH)
     }
-
+    
+    @JsonIgnore
+    fun mapSources(transform: (Source) -> Source): SpecmaticConfig {
+        val transformedSources = this.sources.map(transform)
+        return this.copy(sources = transformedSources)
+    }
 
     @JsonIgnore
     fun getAuth(): Auth? {
@@ -977,6 +1014,11 @@ data class SpecmaticConfig(
                 lenientMode = lenientMode,
             ),
         )
+    }
+
+    fun withGlobalMockDelay(delayInMilliseconds: Long): SpecmaticConfig {
+        val stubConfig = this.stub ?: StubConfiguration()
+        return this.copy(stub = stubConfig.copy(delayInMilliseconds = delayInMilliseconds))
     }
 
     @JsonIgnore
@@ -1348,6 +1390,11 @@ fun loadSpecmaticConfig(configFileName: String? = null): SpecmaticConfig {
     } catch (e: Throwable) {
         throw Exception("Error parsing config: ${e.message}")
     }
+}
+
+fun loadSpecmaticConfigIfAvailableElseDefault(configFileName: String? = null): SpecmaticConfig {
+    val configFile = File(configFileName ?: configFilePath).canonicalFile
+    return loadSpecmaticConfigOrDefault(configFile.canonicalPath)
 }
 
 fun configErrorMessage(e: DatabindException): String {

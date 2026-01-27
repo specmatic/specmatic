@@ -1,13 +1,69 @@
 package io.specmatic.core.log
 
-var logger: LogStrategy = newLogger()
+import io.specmatic.core.config.ConfigLoggingLevel
+import io.specmatic.core.config.LoggingConfiguration
+import io.specmatic.core.loadSpecmaticConfigIfAvailableElseDefault
 
-fun newLogger(): LogStrategy = newLogger(listOf(ConsolePrinter))
+var logger: LogStrategy = logStrategyFromConfig()
 
-fun newLogger(printers: List<LogPrinter>): LogStrategy = ThreadSafeLog(NonVerbose(CompositePrinter(printers)))
+fun logStrategyFromConfig(): LogStrategy {
+    val specmaticConfig = loadSpecmaticConfigIfAvailableElseDefault()
+    return logStrategyFromConfig(specmaticConfig.getLogConfigurationOrDefault())
+}
 
+fun logStrategyFromConfig(logConfig: LoggingConfiguration): LogStrategy {
+    return newLogger(printers = textPrinters(logConfig) + jsonPrinters(logConfig), logConfig)
+}
+
+private fun textPrinters(config: LoggingConfiguration): List<LogPrinter> {
+    if (!config.hasTextConfiguration()) return listOf(ConsolePrinter)
+    val textConfig = config.textConfigurationOrDefault()
+    val prefix = textConfig.getLogPrefixOrDefault()
+    val directory = textConfig.getLogDirectory()?.canonicalPath
+    return buildList {
+        if (directory != null) {
+            add(TextFilePrinter(LogDirectory(directory, prefix, ".log")))
+        }
+
+        if (textConfig.isConsoleLoggingEnabled(default = true)) {
+            add(ConsolePrinter)
+        }
+    }
+}
+
+private fun jsonPrinters(config: LoggingConfiguration): List<LogPrinter> {
+    if (!config.hasJsonConfiguration()) return emptyList()
+    val jsonConfig = config.jsonConfigurationOrDefault()
+    val prefix = jsonConfig.getLogPrefixOrDefault()
+    val directory = jsonConfig.getLogDirectory()?.canonicalPath
+    return buildList {
+        if (directory != null) {
+            add(JSONFilePrinter(LogDirectory(directory, prefix, "-json.log")))
+        }
+
+        if (jsonConfig.isConsoleLoggingEnabled(default = false)) {
+            add(JSONConsoleLogPrinter)
+        }
+    }
+}
+
+fun newLogger(printers: List<LogPrinter>, config: LoggingConfiguration): LogStrategy {
+    val base = CompositePrinter(printers)
+    val verbosity = when (config.levelOrDefault()) {
+        ConfigLoggingLevel.DEBUG -> Verbose(base)
+        ConfigLoggingLevel.INFO -> NonVerbose(base)
+    }
+
+    return ThreadSafeLog(verbosity)
+}
+
+@Suppress("unused") // Being used in other modules
 fun resetLogger() {
-    logger = NonVerbose(CompositePrinter())
+    logger = logStrategyFromConfig()
+}
+
+fun setLoggerUsing(logConfig: LoggingConfiguration) {
+    logger = logStrategyFromConfig(logConfig)
 }
 
 @Suppress("unused")
