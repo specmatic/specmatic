@@ -6,8 +6,6 @@ import io.specmatic.GENERATION
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
 import io.specmatic.core.pattern.*
-import io.specmatic.core.utilities.Flags
-import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_QUERY_PARAMS
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.toViolationReportString
@@ -655,12 +653,13 @@ class HttpQueryParamPatternTest {
 
         @Test
         fun `should allow extra keys in the value when EXTENSIBLE_QUERY_PARAMS is set`() {
-            val queryPattern = HttpQueryParamPattern(mapOf("petId" to NumberPattern(), "owner" to StringPattern()))
+            val queryPattern = HttpQueryParamPattern(
+                mapOf("petId" to NumberPattern(), "owner" to StringPattern()),
+                extensibleQueryParams = true
+            )
             val value = QueryParameters(listOf("petId" to "999", "owner" to "TODO", "extra" to "value"))
 
-            val fixedValue = Flags.using(EXTENSIBLE_QUERY_PARAMS to "true") {
-                queryPattern.fixValue(value, Resolver())
-            }
+            val fixedValue = queryPattern.fixValue(value, Resolver())
             println(fixedValue)
 
             assertThat(fixedValue.paramPairs).isNotEmpty
@@ -828,7 +827,10 @@ class HttpQueryParamPatternTest {
 
         @Test
         fun `should allow extra keys when extensible-query-params or resolver is negative`() {
-            val queryParamsPattern = HttpQueryParamPattern(mapOf("number" to NumberPattern()))
+            val queryParamsPattern = HttpQueryParamPattern(
+                mapOf("number" to NumberPattern()),
+                extensibleQueryParams = true
+            )
             val queryParameters = mapOf("number" to "(number)", "extraKey" to "(string)")
             val dictionary = "PARAMETERS: { QUERY: { number: 999, extraKey: ExtraValue } }".let(Dictionary::fromYaml)
 
@@ -837,14 +839,12 @@ class HttpQueryParamPatternTest {
             assertThat(negativeFilledParams.asMap()).isEqualTo(
                 mapOf("number" to "999", "extraKey" to "ExtraValue")
             )
-            
-            Flags.using(EXTENSIBLE_QUERY_PARAMS to "true") {
-                val resolver = Resolver(dictionary = dictionary)
-                val filledParams = queryParamsPattern.fillInTheBlanks(QueryParameters(queryParameters), resolver).value
-                assertThat(filledParams.asMap()).isEqualTo(
-                    mapOf("number" to "999", "extraKey" to "ExtraValue")
-                )
-            }
+
+            val resolver = Resolver(dictionary = dictionary)
+            val filledParams = queryParamsPattern.fillInTheBlanks(QueryParameters(queryParameters), resolver).value
+            assertThat(filledParams.asMap()).isEqualTo(
+                mapOf("number" to "999", "extraKey" to "ExtraValue")
+            )
         }
 
         @Test

@@ -16,6 +16,7 @@ import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.report.ReportGenerator
 import io.specmatic.core.utilities.*
+import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_PRETTY_PRINT
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_TIMEOUT
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
@@ -72,6 +73,11 @@ open class SpecmaticJUnitSupport {
             ?: settings.adjust(baseSpecmaticConfig)
 
     private val testFilter = ScenarioMetadataFilter.from(settings.filter)
+
+    init {
+        val resolvedConfig = specmaticConfig ?: SpecmaticConfig()
+        System.setProperty(SPECMATIC_PRETTY_PRINT, resolvedConfig.getPrettyPrint().toString())
+    }
 
     companion object {
         val settingsStaging = ThreadLocal<ContractTestSettings?>()
