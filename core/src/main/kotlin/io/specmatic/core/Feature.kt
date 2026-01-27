@@ -10,8 +10,6 @@ import io.specmatic.conversions.IncludedSpecification
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.WSDLFile
 import io.specmatic.conversions.WsdlSpecification
-import io.specmatic.conversions.testDirectoryEnvironmentVariable
-import io.specmatic.conversions.testDirectoryProperty
 import io.specmatic.conversions.unwrapBackground
 import io.specmatic.conversions.unwrapFeature
 import io.specmatic.conversions.wsdlContentToFeature
@@ -2159,7 +2157,7 @@ data class Feature(
     }
 
     fun loadExternalisedExamplesAndListUnloadableExamples(): Pair<Feature, Set<String>> {
-        val testsDirectory = getTestsDirectory(File(this.path))
+        val testsDirectory = getTestsDirectory(File(this.path), specmaticConfig)
         val externalisedExamplesFromDefaultDirectory = loadExternalisedJSONExamples(testsDirectory)
         val externalisedExampleDirsFromConfig = specmaticConfig.getExamples()
 
@@ -2259,8 +2257,10 @@ data class Feature(
         private const val OBJECT_TYPE = "object"
         private val OPENAPI_MAP_KEY_NEGATED_PATTERN = Regex("[^a-zA-Z0-9._-]")
 
-        private fun getTestsDirectory(contractFile: File): File? {
-            val testDirectory = testDirectoryFileFromSpecificationPath(contractFile.path) ?: testDirectoryFileFromEnvironmentVariable()
+        private fun getTestsDirectory(contractFile: File, specmaticConfig: SpecmaticConfig): File? {
+            val testDirectory =
+                testDirectoryFileFromSpecificationPath(contractFile.path)
+                    ?: testDirectoryFileFromConfig(specmaticConfig)
 
             return when {
                 testDirectory?.exists() == true -> {
@@ -2274,10 +2274,8 @@ data class Feature(
             }
         }
 
-        private fun testDirectoryFileFromEnvironmentVariable(): File? {
-            return readEnvVarOrProperty(testDirectoryEnvironmentVariable, testDirectoryProperty)?.let {
-                File(System.getenv(testDirectoryEnvironmentVariable))
-            }
+        private fun testDirectoryFileFromConfig(specmaticConfig: SpecmaticConfig): File? {
+            return specmaticConfig.getTestsDirectory()?.let { File(it) }
         }
 
         private fun testDirectoryFileFromSpecificationPath(openApiFilePath: String): File? {

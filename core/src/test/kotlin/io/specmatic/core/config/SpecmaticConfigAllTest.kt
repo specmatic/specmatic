@@ -657,6 +657,20 @@ internal class SpecmaticConfigAllTest {
     }
 
     @Test
+    fun `should deserialize tests directory in SpecmaticConfig successfully`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml")
+        val configYaml = """
+            test:
+                testsDirectory: examples/tests
+        """.trimIndent()
+        configFile.writeText(configYaml)
+
+        val specmaticConfig = configFile.toSpecmaticConfig()
+
+        assertThat(specmaticConfig.getTestsDirectory()).isEqualTo("examples/tests")
+    }
+
+    @Test
     fun `should convert config from v1 to v2 when test configuration is present`() {
         val configYaml = """
             test:
@@ -721,6 +735,20 @@ internal class SpecmaticConfigAllTest {
             assertThat(getStubDictionary()).isEqualTo("stubDictionary")
             assertThat(getStubIncludeMandatoryAndRequestedKeysInResponse()).isTrue()
         }
+    }
+
+    @Test
+    fun `should deserialize custom implicit stub base in SpecmaticConfig successfully`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml")
+        val configYaml = """
+            stub:
+                customImplicitStubBase: stub-data
+        """.trimIndent()
+        configFile.writeText(configYaml)
+
+        val specmaticConfig = configFile.toSpecmaticConfig()
+
+        assertThat(specmaticConfig.getCustomImplicitStubBase()).isEqualTo("stub-data")
     }
 
     @Test

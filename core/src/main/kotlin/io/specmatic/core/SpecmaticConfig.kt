@@ -72,6 +72,11 @@ import java.net.URI
 private const val excludedEndpointsWarning =
     "WARNING: excludedEndpoints is not supported in Specmatic config v2. . Refer to https://specmatic.io/documentation/configuration.html#report-configuration to see how to exclude endpoints."
 
+private const val TESTS_DIRECTORY_ENV_VAR = "SPECMATIC_TESTS_DIRECTORY"
+private const val TESTS_DIRECTORY_PROPERTY = "specmaticTestsDirectory"
+private const val CUSTOM_IMPLICIT_STUB_BASE_ENV_VAR = "SPECMATIC_CUSTOM_IMPLICIT_STUB_BASE"
+private const val CUSTOM_IMPLICIT_STUB_BASE_PROPERTY = "customImplicitStubBase"
+
 const val APPLICATION_NAME = "Specmatic"
 const val APPLICATION_NAME_LOWER_CASE = "specmatic"
 const val CONFIG_FILE_NAME_WITHOUT_EXT = "specmatic"
@@ -128,7 +133,8 @@ data class StubConfiguration(
     private val startTimeoutInMilliseconds: Long? = null,
     private val hotReload: Switch? = null,
     private val strictMode: Boolean? = null,
-    private val baseUrl: String? = null
+    private val baseUrl: String? = null,
+    private val customImplicitStubBase: String? = null,
 ) {
     fun getGenerative(): Boolean? {
         return generative
@@ -160,6 +166,10 @@ data class StubConfiguration(
 
     fun getBaseUrl(): String? {
         return baseUrl
+    }
+
+    fun getCustomImplicitStubBase(): String? {
+        return customImplicitStubBase
     }
 }
 
@@ -618,6 +628,12 @@ data class SpecmaticConfig(
     }
 
     @JsonIgnore
+    fun getTestsDirectory(): String? {
+        return test?.testsDirectory
+            ?: readEnvVarOrProperty(TESTS_DIRECTORY_ENV_VAR, TESTS_DIRECTORY_PROPERTY)
+    }
+
+    @JsonIgnore
     fun getMaxTestCount(): Int? {
         return test?.maxTestCount ?: getIntValue(MAX_TEST_COUNT)
     }
@@ -664,6 +680,12 @@ data class SpecmaticConfig(
         return getStubConfiguration(this).getBaseUrl()
             ?: getStringValue(SPECMATIC_BASE_URL)
             ?: Configuration.DEFAULT_BASE_URL
+    }
+
+    @JsonIgnore
+    fun getCustomImplicitStubBase(): String? {
+        return getStubConfiguration(this).getCustomImplicitStubBase()
+            ?: readEnvVarOrProperty(CUSTOM_IMPLICIT_STUB_BASE_ENV_VAR, CUSTOM_IMPLICIT_STUB_BASE_PROPERTY)
     }
 
     @JsonIgnore
@@ -894,7 +916,8 @@ data class TestConfiguration(
     val lenientMode: Boolean? = null,
     val parallelism: String? = null,
     val maxTestRequestCombinations: Int? = null,
-    val maxTestCount: Int? = null
+    val maxTestCount: Int? = null,
+    val testsDirectory: String? = null,
 )
 
 enum class ResiliencyTestSuite {
