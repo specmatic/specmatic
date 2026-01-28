@@ -174,6 +174,10 @@ data class StubConfiguration(
         return strictMode ?: getBooleanValue(Flags.STUB_STRICT_MODE, false)
     }
 
+    fun getFilter(): String? {
+        return filter
+    }
+
     fun getHttpsConfiguration(): HttpsConfiguration? {
         return https
     }
@@ -738,6 +742,11 @@ data class SpecmaticConfig(
     }
 
     @JsonIgnore
+    fun getStubFilter(): String? {
+        return getStubConfiguration(this).getFilter()
+    }
+
+    @JsonIgnore
     fun getStubHttpsConfiguration(): HttpsConfiguration? {
         return getStubConfiguration(this).getHttpsConfiguration()
     }
@@ -1014,6 +1023,18 @@ data class SpecmaticConfig(
                 lenientMode = lenientMode,
             ),
         )
+    }
+
+    fun withStubModes(strictMode: Boolean? = null): SpecmaticConfig {
+        if (strictMode == null) return this
+        val stubConfig = this.stub ?: StubConfiguration()
+        return this.copy(stub = stubConfig.copy(strictMode = strictMode))
+    }
+
+    fun withStubFilter(filter: String? = null): SpecmaticConfig {
+        if (filter == null) return this
+        val stubConfig = this.stub ?: StubConfiguration()
+        return this.copy(stub = stubConfig.copy(filter = filter))
     }
 
     fun withGlobalMockDelay(delayInMilliseconds: Long): SpecmaticConfig {
