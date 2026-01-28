@@ -26,6 +26,7 @@ import io.specmatic.core.azure.AzureAPI
 import io.specmatic.core.config.BackwardCompatibilityConfig
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.LoggingConfiguration
+import io.specmatic.core.config.McpConfiguration
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.SpecmaticConfigVersion.VERSION_1
 import io.specmatic.core.config.SpecmaticConfigVersion.VERSION_2
@@ -334,6 +335,7 @@ data class SpecmaticConfig(
     private val version: SpecmaticConfigVersion? = null,
     private val disableTelemetry: Boolean? = null,
     private val logging: LoggingConfiguration? = null,
+    private val mcp: McpConfiguration? = null,
 ) {
     companion object {
         fun getReport(specmaticConfig: SpecmaticConfig): ReportConfigurationDetails? {
@@ -899,6 +901,11 @@ data class SpecmaticConfig(
     @JsonIgnore
     fun getBackwardCompatibilityConfig(): BackwardCompatibilityConfig? {
         return this.backwardCompatibility
+    }
+
+    @JsonIgnore
+    fun getMcpConfiguration(): McpConfiguration? {
+        return this.mcp
     }
 
     @JsonIgnore
