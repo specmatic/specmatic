@@ -5,6 +5,8 @@ import io.specmatic.core.DefaultMismatchMessages
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.SPECMATIC_STUB_DICTIONARY
+import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.StubConfiguration
 import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSONObject
@@ -664,24 +666,25 @@ class StubSubstitutionTest {
     @Test
     fun `data substitution in response body using dictionary`() {
         val specWithSubstitution = osAgnosticPath("src/test/resources/openapi/substitutions/spec_with_no_substitutions.yaml")
+        val dictionaryPath = osAgnosticPath("src/test/resources/openapi/substitutions/dictionary.json")
+        val specmaticConfig = SpecmaticConfig(stub = StubConfiguration(dictionary = dictionaryPath))
 
-        try {
-            System.setProperty(SPECMATIC_STUB_DICTIONARY, "src/test/resources/openapi/substitutions/dictionary.json")
+        createStubFromContracts(
+            listOf(specWithSubstitution),
+            dataDirPaths = emptyList(),
+            timeoutMillis = 0,
+            specmaticConfig = specmaticConfig,
+        ).use { stub ->
+            val request = HttpRequest("POST", "/person", body = parsedJSONObject("""{"name": "Charles"}"""))
+            val response = stub.client.execute(request)
 
-            createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0).use { stub ->
-                val request = HttpRequest("POST", "/person", body = parsedJSONObject("""{"name": "Charles"}"""))
-                val response = stub.client.execute(request)
+            assertThat(response.status).isEqualTo(200)
+            assertThat(response.headers["X-Region"]).isEqualTo("Asia")
 
-                assertThat(response.status).isEqualTo(200)
-                assertThat(response.headers["X-Region"]).isEqualTo("Asia")
+            val responseBody = response.body as JSONObjectValue
 
-                val responseBody = response.body as JSONObjectValue
-
-                assertThat(responseBody.findFirstChildByPath("id")).isEqualTo(NumberValue(10))
-                assertThat(responseBody.findFirstChildByPath("name")).isEqualTo(StringValue("George"))
-            }
-        } finally {
-            System.clearProperty(SPECMATIC_STUB_DICTIONARY)
+            assertThat(responseBody.findFirstChildByPath("id")).isEqualTo(NumberValue(10))
+            assertThat(responseBody.findFirstChildByPath("name")).isEqualTo(StringValue("George"))
         }
     }
 

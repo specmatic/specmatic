@@ -10,7 +10,6 @@ import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
-import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_PRETTY_PRINT
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_PARALLELISM
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_TIMEOUT
 import io.specmatic.core.utilities.Flags.Companion.TEST_STRICT_MODE
@@ -173,7 +172,6 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         ) ?: SpecmaticConfig()
 
         setParallelism(specmaticConfig)
-        System.setProperty(SPECMATIC_PRETTY_PRINT, specmaticConfig.getPrettyPrint().toString())
 
         val protocol = when {
             port == 443 -> "https"

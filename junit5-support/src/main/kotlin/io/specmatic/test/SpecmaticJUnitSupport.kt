@@ -16,7 +16,6 @@ import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.report.ReportGenerator
 import io.specmatic.core.utilities.*
-import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_PRETTY_PRINT
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_TIMEOUT
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
@@ -73,11 +72,7 @@ open class SpecmaticJUnitSupport {
             ?: settings.adjust(baseSpecmaticConfig)
 
     private val testFilter = ScenarioMetadataFilter.from(settings.filter)
-
-    init {
-        val resolvedConfig = specmaticConfig ?: SpecmaticConfig()
-        System.setProperty(SPECMATIC_PRETTY_PRINT, resolvedConfig.getPrettyPrint().toString())
-    }
+    private val prettyPrint = (specmaticConfig ?: SpecmaticConfig()).getPrettyPrint()
 
     companion object {
         val settingsStaging = ThreadLocal<ContractTestSettings?>()
@@ -131,7 +126,7 @@ open class SpecmaticJUnitSupport {
 
     fun actuatorFromSwagger(testBaseURL: String, client: TestExecutor? = null): ActuatorSetupResult {
         val baseURL = Flags.getStringValue(SWAGGER_UI_BASEURL) ?: testBaseURL
-        val httpClient = client ?: LegacyHttpClient(baseURL, log = ignoreLog)
+        val httpClient = client ?: LegacyHttpClient(baseURL, log = ignoreLog, prettyPrint = prettyPrint)
 
         val request = HttpRequest(path = "/swagger/v1/swagger.yaml", method = "GET")
         val response = httpClient.execute(request)
@@ -155,7 +150,7 @@ open class SpecmaticJUnitSupport {
     fun queryActuator(): ActuatorSetupResult {
         val endpointsAPI: String = Flags.getStringValue(ENDPOINTS_API) ?: return ActuatorSetupResult.Failure
         val request = HttpRequest("GET")
-        val response = LegacyHttpClient(endpointsAPI, log = ignoreLog).execute(request)
+        val response = LegacyHttpClient(endpointsAPI, log = ignoreLog, prettyPrint = prettyPrint).execute(request)
 
         if (response.status != 200) {
             logger.debug("Failed to query actuator, status code: ${response.status}")
@@ -514,6 +509,7 @@ open class SpecmaticJUnitSupport {
                             baseURL,
                             log = log,
                             timeoutInMilliseconds = timeoutInMilliseconds,
+                            prettyPrint = prettyPrint,
                             httpInteractionsLog = httpInteractionsLog,
                         )
 

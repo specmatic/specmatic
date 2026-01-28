@@ -115,6 +115,7 @@ class Proxy(
 
     private val loadedSpecmaticConfig = specmaticConfigSource.load()
     private val specmaticConfigInstance: SpecmaticConfig = loadedSpecmaticConfig.config
+    private val prettyPrint = specmaticConfigInstance.getPrettyPrint()
 
     private val targetHost =
         baseURL.let {
@@ -138,7 +139,10 @@ class Proxy(
                             "CONNECT" -> {
                                 val errorResponse = HttpResponse(400, "CONNECT is not supported")
                                 println(
-                                    listOf(httpRequestLog(httpRequest), httpResponseLog(errorResponse)).joinToString(
+                                    listOf(
+                                        httpRequestLog(httpRequest, prettyPrint),
+                                        httpResponseLog(errorResponse, prettyPrint),
+                                    ).joinToString(
                                         System.lineSeparator(),
                                     ),
                                 )
@@ -283,8 +287,8 @@ class Proxy(
                                     respondToKtorHttpResponse(call, errorResponse)
                                     logger.debug(
                                         listOf(
-                                            httpRequestLog(httpRequest),
-                                            httpResponseLog(errorResponse),
+                                            httpRequestLog(httpRequest, prettyPrint),
+                                            httpResponseLog(errorResponse, prettyPrint),
                                         ).joinToString(System.lineSeparator()),
                                     )
                                 }

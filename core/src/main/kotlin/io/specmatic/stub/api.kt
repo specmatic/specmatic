@@ -27,7 +27,6 @@ import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.parseGherkinStringToFeature
 import io.specmatic.core.utilities.ContractPathData
 import io.specmatic.core.utilities.ContractPathData.Companion.specToBaseUrlMap
-import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_PRETTY_PRINT
 import io.specmatic.core.utilities.contractStubPaths
 import io.specmatic.core.utilities.examplesDirFor
 import io.specmatic.core.utilities.exceptionCauseMessage
@@ -155,7 +154,6 @@ fun createStub(
 ): ContractStub {
     val configFileName = givenConfigFileName ?: getConfigFilePath()
     val specmaticConfig = loadSpecmaticConfigOrDefault(configFileName)
-    System.setProperty(SPECMATIC_PRETTY_PRINT, specmaticConfig.getPrettyPrint().toString())
     val useCurrentBranchForCentralRepo =
         specmaticConfig.getMatchBranchEnabled()
     val effectiveStrictMode = if (strict) true else (specmaticConfig.getStubStrictMode() ?: false)
@@ -1077,6 +1075,7 @@ fun loadIfSupportedAPISpecification(
                 contractPathData.repository,
                 contractPathData.branch,
                 contractPathData.specificationPath,
+                specmaticConfig = specmaticConfig,
                 strictMode = specmaticConfig.getStubStrictMode() ?: false,
                 lenientMode = contractPathData.lenientMode
             ).copy(specmaticConfig = specmaticConfig),

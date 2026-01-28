@@ -38,7 +38,8 @@ data class HttpClient(
     private val baseURL: String,
     val timeoutInMilliseconds: Long = 6000,
     private val log: (event: LogMessage) -> Unit = ::consoleLog,
-    private var httpLogMessage: HttpLogMessage = HttpLogMessage(targetServer = baseURL),
+    private val prettyPrint: Boolean = true,
+    private var httpLogMessage: HttpLogMessage = HttpLogMessage(targetServer = baseURL, prettyPrint = prettyPrint),
     private val httpClientFactory: Lazy<ApacheHttpClientFactory> = lazy { ApacheHttpClientFactory(timeoutInMilliseconds) },
     private val httpClient: Lazy<io.ktor.client.HttpClient> = lazy { httpClientFactory.value.create() },
     private val httpInteractionsLog: HttpInteractionsLog = HttpInteractionsLog()
@@ -149,18 +150,19 @@ data class LegacyHttpClient(
     val baseURL: String,
     val timeoutInMilliseconds: Long = 6000,
     val log: (event: LogMessage) -> Unit = ::consoleLog,
+    val prettyPrint: Boolean = true,
 ) : TestExecutor {
 
     override fun execute(request: HttpRequest): HttpResponse {
-        return HttpClient(baseURL, timeoutInMilliseconds, log).use { it.execute(request) }
+        return HttpClient(baseURL, timeoutInMilliseconds, log, prettyPrint).use { it.execute(request) }
     }
 
     override fun setServerState(serverState: Map<String, Value>) {
-        HttpClient(baseURL, timeoutInMilliseconds, log).use { it.setServerState(serverState) }
+        HttpClient(baseURL, timeoutInMilliseconds, log, prettyPrint).use { it.setServerState(serverState) }
     }
 
     override fun preExecuteScenario(scenario: Scenario, request: HttpRequest) {
-        HttpClient(baseURL, timeoutInMilliseconds, log).preExecuteScenario(scenario, request)
+        HttpClient(baseURL, timeoutInMilliseconds, log, prettyPrint).preExecuteScenario(scenario, request)
     }
 }
 

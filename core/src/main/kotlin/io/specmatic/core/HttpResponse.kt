@@ -82,13 +82,13 @@ data class HttpResponse(
             if (headers.isNotEmpty()) json["headers"] = JSONObjectValue(headers.mapValues { StringValue(it.value) })
         })
 
-    fun toLogString(prefix: String = ""): String {
+    fun toLogString(prefix: String = "", prettyPrint: Boolean = true): String {
         val statusLine = "$status $statusText"
         val headerString = headers.map { "${it.key}: ${it.value}" }.joinToString("\n")
 
         val firstPart = listOf(statusLine, headerString).joinToString("\n").trim()
 
-        val formattedBody = formatJson(body.toStringLiteral())
+        val formattedBody = formatJson(body.toStringLiteral(), prettyPrint)
 
         val responseString = listOf(firstPart, "", formattedBody).joinToString("\n")
         return startLinesWith(responseString, prefix)

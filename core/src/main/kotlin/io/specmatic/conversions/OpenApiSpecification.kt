@@ -21,7 +21,6 @@ import io.specmatic.core.overlay.OverlayMerger
 import io.specmatic.core.overlay.OverlayParser
 import io.specmatic.core.pattern.*
 import io.specmatic.core.pattern.Discriminator
-import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.toValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NullValue
@@ -333,8 +332,7 @@ class OpenApiSpecification(
         }
 
         private fun getDictionaryFile(openApiFile: File, dictionaryPathFromConfig: String?): File? {
-            val explicitDictionaryPath = dictionaryPathFromConfig ?: Flags.getStringValue(SPECMATIC_STUB_DICTIONARY)
-            if (!explicitDictionaryPath.isNullOrEmpty()) return File(explicitDictionaryPath)
+            if (!dictionaryPathFromConfig.isNullOrEmpty()) return File(dictionaryPathFromConfig)
 
             val implicitPaths = sequenceOf("_dictionary.yml", "_dictionary.yaml", "_dictionary.json")
             return implicitPaths.map {

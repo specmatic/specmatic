@@ -12,7 +12,6 @@ import io.specmatic.core.utilities.*
 import io.specmatic.core.utilities.ContractPathData.Companion.specToBaseUrlMap
 import io.specmatic.core.loadSpecmaticConfigOrNull
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_BASE_URL
-import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_PRETTY_PRINT
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_STUB_DELAY
 import io.specmatic.license.core.cli.Category
 import io.specmatic.mock.ScenarioStub
@@ -168,7 +167,6 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
                 Configuration.configFilePath,
                 explicitlySpecifiedByUser = configFileName != null
             ) ?: io.specmatic.core.SpecmaticConfig()
-            System.setProperty(SPECMATIC_PRETTY_PRINT, loadedConfig.getPrettyPrint().toString())
             val matchBranchEnabled = useCurrentBranchForCentralRepo || loadedConfig.getMatchBranchEnabled()
             
             contractSources = when (contractPaths.isEmpty()) {
