@@ -1,65 +1,143 @@
 package io.specmatic.test
 
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.SpecmaticConfig.Companion.orDefault
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.loadSpecmaticConfig
+import io.specmatic.core.loadSpecmaticConfigOrNull
+import io.specmatic.core.utilities.Flags
+import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.readEnvVarOrProperty
+import io.specmatic.test.SpecmaticJUnitSupport.Companion.ENV_NAME
+import io.specmatic.test.SpecmaticJUnitSupport.Companion.FILTER_NAME_ENVIRONMENT_VARIABLE
+import io.specmatic.test.SpecmaticJUnitSupport.Companion.FILTER_NAME_PROPERTY
+import io.specmatic.test.SpecmaticJUnitSupport.Companion.FILTER_NOT_NAME_ENVIRONMENT_VARIABLE
+import io.specmatic.test.SpecmaticJUnitSupport.Companion.FILTER_NOT_NAME_PROPERTY
+import io.specmatic.test.SpecmaticJUnitSupport.Companion.HOST
+import io.specmatic.test.SpecmaticJUnitSupport.Companion.INLINE_SUGGESTIONS
+import io.specmatic.test.SpecmaticJUnitSupport.Companion.OVERLAY_FILE_PATH
+import io.specmatic.test.SpecmaticJUnitSupport.Companion.PORT
+import io.specmatic.test.SpecmaticJUnitSupport.Companion.PROTOCOL
+import io.specmatic.test.SpecmaticJUnitSupport.Companion.SUGGESTIONS_PATH
+import io.specmatic.test.SpecmaticJUnitSupport.Companion.VARIABLES_FILE_NAME
 import io.specmatic.test.reports.TestReportListener
 import java.io.File
+import java.lang.System
+
+data class DeprecatedArguments(
+    val host: String? = null,
+    val port: String? = null,
+    val envName: String? = null,
+    val protocol: String? = null,
+    val filterName: String? = null,
+    val filterNotName: String? = null,
+    val overlayFilePath: File? = null,
+    val suggestionsPath: String? = null,
+    val inlineSuggestions: String? = null,
+    val variablesFileName: String? = null,
+    val exampleDirectories: List<String>? = null,
+    val useCurrentBranchForCentralRepo: Boolean? = null
+)
 
 data class ContractTestSettings(
-    val testBaseURL: String?,
-    val contractPaths: String?,
-    val filter: String,
-    val configFile: String,
-    val generative: Boolean?,
-    val reportBaseDirectory: String?,
-    val coverageHooks: List<TestReportListener>,
-    val strictMode: Boolean?,
+    val testBaseURL: String? = null,
+    val contractPaths: String? = null,
+    val filter: String? = null,
+    val configFile: String? = null,
+    val generative: Boolean? = null,
+    val reportBaseDirectory: String? = null,
+    val coverageHooks: List<TestReportListener> = emptyList(),
+    val strictMode: Boolean? = null,
     val lenientMode: Boolean = false,
     val previousTestRuns: List<TestResultRecord> = emptyList(),
+    val timeoutInMilliSeconds: Long? = null,
+    val otherArguments: DeprecatedArguments? = null,
 ) {
-    fun adjust(specmaticConfig: SpecmaticConfig?): SpecmaticConfig? {
-        val updatedConfig = (specmaticConfig ?: SpecmaticConfig()).withTestModes(strictMode, lenientMode)
+    val host: String? = otherArguments?.host
+    val port: String? = otherArguments?.port
+    val envName: String? = otherArguments?.envName
+    val protocol: String? = otherArguments?.protocol
+    val filterName: String? = otherArguments?.filterName
+    val filterNotName: String? = otherArguments?.filterNotName
+    val overlayFilePath: File? = otherArguments?.overlayFilePath
+    val suggestionsPath: String? = otherArguments?.suggestionsPath
+    val inlineSuggestions: String? = otherArguments?.inlineSuggestions
+    val variablesFileName: String? = otherArguments?.variablesFileName
+
+    fun getSpecmaticConfig(): SpecmaticConfig {
+        val specmaticConfig = loadSpecmaticConfigOrNull(configFile, explicitlySpecifiedByUser = configFile != null).orDefault()
+        return adjust(specmaticConfig)
+    }
+
+    private fun adjust(specmaticConfig: SpecmaticConfig): SpecmaticConfig {
+        return specmaticConfig
+            .let(::adjustFilter)
+            .let(::adjustExamples)
+            .let(::adjustTestModes)
+            .let(::adjustResilience)
+            .let(::adjustTestTimeout)
+            .let(::adjustUseCurrentBranch)
+    }
+
+    private fun adjustFilter(specmaticConfig: SpecmaticConfig): SpecmaticConfig {
+        if (filter == null) return specmaticConfig
+        return specmaticConfig.withTestFilter(filter)
+    }
+
+    private fun adjustResilience(specmaticConfig: SpecmaticConfig): SpecmaticConfig {
         return if (generative == true) {
-            updatedConfig.enableResiliencyTests()
+            specmaticConfig.enableResiliencyTests()
         } else {
-            updatedConfig
+            specmaticConfig
         }
     }
 
-    fun getAdjustedConfig(): SpecmaticConfig? {
-        if (configFile.isBlank()) return null
-
-        if (File(configFile).exists().not()) {
-            return null
-        }
-
-        return adjust(loadSpecmaticConfig(configFile))
+    private fun adjustTestModes(specmaticConfig: SpecmaticConfig): SpecmaticConfig {
+        return specmaticConfig.withTestModes(strictMode, lenientMode)
     }
 
-    constructor(
-        contractTestSettings: ThreadLocal<ContractTestSettings?>,
-    ) : this(
-        testBaseURL = contractTestSettings.get()?.testBaseURL ?: System.getProperty(SpecmaticJUnitSupport.TEST_BASE_URL),
-        contractPaths = contractTestSettings.get()?.contractPaths ?: System.getProperty(SpecmaticJUnitSupport.CONTRACT_PATHS),
-        filter =
-            contractTestSettings.get()?.filter ?: readEnvVarOrProperty(
-                SpecmaticJUnitSupport.FILTER,
-                SpecmaticJUnitSupport.FILTER,
-            ).orEmpty(),
-        configFile = contractTestSettings.get()?.configFile ?: getConfigFilePath(),
+    private fun adjustExamples(specmaticConfig: SpecmaticConfig): SpecmaticConfig {
+        if (otherArguments?.exampleDirectories == null) return specmaticConfig
+        return specmaticConfig.copy(examples = specmaticConfig.getExamples().plus(otherArguments.exampleDirectories))
+    }
+
+    private fun adjustUseCurrentBranch(specmaticConfig: SpecmaticConfig): SpecmaticConfig {
+        if (otherArguments?.useCurrentBranchForCentralRepo == null) return specmaticConfig
+        return specmaticConfig.mapSources { source ->
+            source.copy(matchBranch = otherArguments.useCurrentBranchForCentralRepo)
+        }
+    }
+
+    private fun adjustTestTimeout(specmaticConfig: SpecmaticConfig): SpecmaticConfig {
+        if (timeoutInMilliSeconds == null) return specmaticConfig
+        return specmaticConfig.withTestTimeout(timeoutInMilliSeconds)
+    }
+
+    constructor(contractTestSettings: ThreadLocal<ContractTestSettings?>) : this(
         generative = contractTestSettings.get()?.generative,
         reportBaseDirectory = contractTestSettings.get()?.reportBaseDirectory,
         coverageHooks = contractTestSettings.get()?.coverageHooks ?: emptyList(),
-        strictMode =
-            contractTestSettings.get()?.strictMode
-                ?: SpecmaticConfig().getTestStrictMode(),
-        lenientMode =
-            contractTestSettings.get()?.lenientMode
-                ?: SpecmaticConfig().getTestLenientMode()
-                ?: false,
-        previousTestRuns = contractTestSettings.get()?.previousTestRuns.orEmpty()
+        previousTestRuns = contractTestSettings.get()?.previousTestRuns.orEmpty(),
+        configFile = contractTestSettings.get()?.configFile ?: getConfigFilePath(),
+        strictMode = contractTestSettings.get()?.strictMode ?: SpecmaticConfig().getTestStrictMode(),
+        lenientMode = contractTestSettings.get()?.lenientMode ?: SpecmaticConfig().getTestLenientMode() ?: false,
+        testBaseURL = contractTestSettings.get()?.testBaseURL ?: Flags.getStringValue(SpecmaticJUnitSupport.TEST_BASE_URL),
+        contractPaths = contractTestSettings.get()?.contractPaths ?: Flags.getStringValue(SpecmaticJUnitSupport.CONTRACT_PATHS),
+        timeoutInMilliSeconds = contractTestSettings.get()?.timeoutInMilliSeconds,
+        filter = contractTestSettings.get()?.filter ?: readEnvVarOrProperty(SpecmaticJUnitSupport.FILTER, SpecmaticJUnitSupport.FILTER,).orEmpty(),
+        otherArguments = DeprecatedArguments(
+            host = contractTestSettings.get()?.otherArguments?.host ?: Flags.getStringValue(HOST),
+            port = contractTestSettings.get()?.otherArguments?.port ?: Flags.getStringValue(PORT),
+            envName = contractTestSettings.get()?.otherArguments?.envName ?: Flags.getStringValue(ENV_NAME),
+            protocol = contractTestSettings.get()?.otherArguments?.protocol ?: Flags.getStringValue(PROTOCOL),
+            useCurrentBranchForCentralRepo = contractTestSettings.get()?.otherArguments?.useCurrentBranchForCentralRepo,
+            suggestionsPath = contractTestSettings.get()?.otherArguments?.suggestionsPath ?: Flags.getStringValue(SUGGESTIONS_PATH),
+            inlineSuggestions = contractTestSettings.get()?.otherArguments?.inlineSuggestions ?:Flags.getStringValue(INLINE_SUGGESTIONS),
+            variablesFileName = contractTestSettings.get()?.otherArguments?.variablesFileName ?: Flags.getStringValue(VARIABLES_FILE_NAME),
+            exampleDirectories = contractTestSettings.get()?.otherArguments?.exampleDirectories ?: Flags.getCommaSeparatedList(EXAMPLE_DIRECTORIES),
+            filterName = contractTestSettings.get()?.otherArguments?.filterName ?: Flags.getStringValue(FILTER_NAME_PROPERTY) ?: System.getenv(FILTER_NAME_ENVIRONMENT_VARIABLE),
+            filterNotName = contractTestSettings.get()?.otherArguments?.filterNotName ?: Flags.getStringValue(FILTER_NOT_NAME_PROPERTY) ?: System.getenv(FILTER_NOT_NAME_ENVIRONMENT_VARIABLE),
+            overlayFilePath = contractTestSettings.get()?.otherArguments?.overlayFilePath ?: (Flags.getStringValue(OVERLAY_FILE_PATH) ?: System.getenv(OVERLAY_FILE_PATH))?.let(::File),
+        ),
     )
-
 }

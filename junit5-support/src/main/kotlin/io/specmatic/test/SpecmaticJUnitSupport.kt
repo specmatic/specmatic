@@ -61,17 +61,11 @@ data class API(
 @Execution(ExecutionMode.CONCURRENT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 open class SpecmaticJUnitSupport {
-    private val configFilePathFromSettings = settingsStaging.get()?.configFile ?: getConfigFilePath()
-    private val baseSpecmaticConfig = loadSpecmaticConfigOrNull(configFilePathFromSettings)
-    private val settings = ContractTestSettings(settingsStaging)
-    private val httpInteractionsLog: HttpInteractionsLog = HttpInteractionsLog()
     private var startTime: Instant? = null
-
-    private val specmaticConfig: SpecmaticConfig? =
-        settings.getAdjustedConfig()
-            ?: settings.adjust(baseSpecmaticConfig)
-
-    private val testFilter = ScenarioMetadataFilter.from(settings.filter)
+    private val settings = ContractTestSettings(settingsStaging)
+    private val specmaticConfig: SpecmaticConfig = settings.getSpecmaticConfig()
+    private val httpInteractionsLog: HttpInteractionsLog = HttpInteractionsLog()
+    private val testFilter = ScenarioMetadataFilter.from(specmaticConfig.getTestFilter().orEmpty())
     private val prettyPrint = (specmaticConfig ?: SpecmaticConfig()).getPrettyPrint()
 
     companion object {
@@ -102,7 +96,7 @@ open class SpecmaticJUnitSupport {
     internal val openApiCoverageReportInput: OpenApiCoverageReportInput =
         OpenApiCoverageReportInput(
             configFilePath = getConfigFileWithAbsolutePath(),
-            filterExpression = settings.filter,
+            filterExpression = specmaticConfig.getTestFilter().orEmpty(),
             coverageHooks = settings.coverageHooks,
             httpInteractionsLog = httpInteractionsLog,
             previousTestResultRecord = settings.previousTestRuns,
@@ -111,7 +105,7 @@ open class SpecmaticJUnitSupport {
     private val threads: Vector<String> = Vector<String>()
 
     private fun getReportConfiguration(): ReportConfiguration {
-        val reportConfiguration = specmaticConfig?.getReport()
+        val reportConfiguration = specmaticConfig.getReport()
 
         if (reportConfiguration == null) {
             logger.log("Could not load report configuration, coverage will be calculated but no coverage threshold will be enforced")
@@ -125,10 +119,15 @@ open class SpecmaticJUnitSupport {
     }
 
     fun actuatorFromSwagger(testBaseURL: String, client: TestExecutor? = null): ActuatorSetupResult {
-        val baseURL = Flags.getStringValue(SWAGGER_UI_BASEURL) ?: testBaseURL
-        val httpClient = client ?: LegacyHttpClient(baseURL, log = ignoreLog, prettyPrint = prettyPrint)
+        // TODO: Deprecate and remove SWAGGER_UI_BASEURL
+        val defaultBaseURL = Flags.getStringValue(SWAGGER_UI_BASEURL) ?:  testBaseURL
+        val swaggerDocUrl = when {
+            specmaticConfig.getTestSwaggerUrl() != null -> specmaticConfig.getTestSwaggerUrl().orEmpty()
+            else -> "$defaultBaseURL/swagger/v1/swagger.yaml"
+        }
 
-        val request = HttpRequest(path = "/swagger/v1/swagger.yaml", method = "GET")
+        val httpClient = client ?: LegacyHttpClient(swaggerDocUrl, log = ignoreLog, prettyPrint = prettyPrint)
+        val request = HttpRequest(path = "/", method = "GET")
         val response = httpClient.execute(request)
 
         if (response.status != 200) {
@@ -148,7 +147,7 @@ open class SpecmaticJUnitSupport {
     }
 
     fun queryActuator(): ActuatorSetupResult {
-        val endpointsAPI: String = Flags.getStringValue(ENDPOINTS_API) ?: return ActuatorSetupResult.Failure
+        val endpointsAPI = specmaticConfig.getActuatorUrl() ?: return ActuatorSetupResult.Failure
         val request = HttpRequest("GET")
         val response = LegacyHttpClient(endpointsAPI, log = ignoreLog, prettyPrint = prettyPrint).execute(request)
 
@@ -196,8 +195,7 @@ open class SpecmaticJUnitSupport {
         val reportProcessors =
             listOf(OpenApiCoverageReportProcessor(openApiCoverageReportInput, settings.reportBaseDirectory ?: "."))
         val reportConfiguration = getReportConfiguration()
-        val config = specmaticConfig?.updateReportConfiguration(reportConfiguration)
-            ?: SpecmaticConfig().updateReportConfiguration(reportConfiguration)
+        val config = specmaticConfig.updateReportConfiguration(reportConfiguration)
 
         reportProcessors.forEach { it.process(config) }
 
@@ -270,34 +268,27 @@ open class SpecmaticJUnitSupport {
     fun contractTest(): Stream<DynamicTest> {
         LicenseResolver.setCurrentExecutorIfNotSet(Executor.PROGRAMMATIC)
 
-        specmaticConfig?.let {
-            LicenseConfig.instance.utilization.shipDisabled = it.isTelemetryDisabled()
-        }
+        LicenseConfig.instance.utilization.shipDisabled = specmaticConfig.isTelemetryDisabled()
         partialSuccesses.clear()
 
         val givenWorkingDirectory = System.getProperty(WORKING_DIRECTORY)
-        val filterName: String? =
-            System.getProperty(FILTER_NAME_PROPERTY) ?: System.getenv(FILTER_NAME_ENVIRONMENT_VARIABLE)
-        val filterNotName: String? =
-            System.getProperty(FILTER_NOT_NAME_PROPERTY) ?: System.getenv(FILTER_NOT_NAME_ENVIRONMENT_VARIABLE)
-        val overlayFilePath: String? = System.getProperty(OVERLAY_FILE_PATH) ?: System.getenv(OVERLAY_FILE_PATH)
+        val filterName: String? = settings.filterName
+        val filterNotName: String? = settings.filterNotName
+        val overlayFilePath: String? = settings.overlayFilePath?.canonicalPath
         val overlayContent = if (overlayFilePath.isNullOrBlank()) "" else readFrom(overlayFilePath, "overlay")
-        val useCurrentBranchForCentralRepo =
-            specmaticConfig?.getMatchBranchEnabled() ?: SpecmaticConfig().getMatchBranchEnabled()
+        val useCurrentBranchForCentralRepo = specmaticConfig.getMatchBranchEnabled()
         val timeoutInMilliseconds = try {
-            (specmaticConfig ?: SpecmaticConfig()).getTestTimeoutInMilliseconds()
-        } catch (e: NumberFormatException) {
+            specmaticConfig.getTestTimeoutInMilliseconds()
+        } catch (_: NumberFormatException) {
             throw ContractException("$SPECMATIC_TEST_TIMEOUT should be a value of type long")
         } ?: DEFAULT_TIMEOUT_IN_MILLISECONDS
 
-        val suggestionsData = System.getProperty(INLINE_SUGGESTIONS) ?: ""
-        val suggestionsPath = System.getProperty(SUGGESTIONS_PATH) ?: ""
-
         val workingDirectory = WorkingDirectory(givenWorkingDirectory ?: DEFAULT_WORKING_DIRECTORY)
-
-        val envConfig = getEnvConfig(System.getProperty(ENV_NAME))
+        val suggestionsData = settings.inlineSuggestions.orEmpty()
+        val suggestionsPath = settings.suggestionsPath.orEmpty()
+        val envConfig = getEnvConfig(settings.envName)
         val testConfig = try {
-            loadTestConfig(envConfig).withVariablesFromFilePath(System.getProperty(VARIABLES_FILE_NAME))
+            loadTestConfig(envConfig).withVariablesFromFilePath(settings.variablesFileName)
         } catch (e: Throwable) {
             return loadExceptionAsTestError(e)
         }
@@ -335,12 +326,12 @@ open class SpecmaticJUnitSupport {
                 }
 
                 else -> {
-                    if (File(settings.configFile).exists().not()) exitWithMessage(MISSING_CONFIG_FILE_MESSAGE)
+                    if (File(settings.configFile.orEmpty()).exists().not()) exitWithMessage(MISSING_CONFIG_FILE_MESSAGE)
 
                     createIfDoesNotExist(workingDirectory.path)
 
                     val contractFilePaths = contractTestPathsFrom(
-                        settings.configFile,
+                        settings.configFile.orEmpty(),
                         workingDirectory.path,
                         useCurrentBranchForCentralRepo
                     )
@@ -440,7 +431,7 @@ open class SpecmaticJUnitSupport {
                 }
                 if (testFilter.expression != null) {
                     if (isNotEmpty()) append(", ")
-                    append("expression filter: \"${System.getProperty(FILTER, "")}\"")
+                    append("expression filter: \"${specmaticConfig.getTestFilter()}\"")
                 }
             }
             val reason = if (filterDetails.isNotEmpty()) {
@@ -464,7 +455,7 @@ open class SpecmaticJUnitSupport {
     }
 
     private fun firstNScenarios(testScenarios: Sequence<Pair<ContractTest, String>>): Sequence<Pair<ContractTest, String>> {
-        val maxTestCount = (specmaticConfig ?: SpecmaticConfig()).getMaxTestCount() ?: return testScenarios
+        val maxTestCount = specmaticConfig.getMaxTestCount() ?: return testScenarios
         return testScenarios.take(maxTestCount)
     }
 
@@ -557,20 +548,19 @@ open class SpecmaticJUnitSupport {
         }
 
         // If testBaseURL is not provided, assume http://localhost:9000 by default.
-        val hostProperty = System.getProperty(HOST)
-        val port = System.getProperty(PORT)
-        if (!hostProperty.isNullOrBlank() && !port.isNullOrBlank()) {
-            val host = if (hostProperty.startsWith("http")) {
-                URI(hostProperty).host
-            } else hostProperty
+        if (!settings.host.isNullOrBlank() && !settings.port.isNullOrBlank()) {
+            val host = if (settings.host.startsWith("http")) {
+                URI(settings.host).host
+            } else {
+                settings.host
+            }
 
-            val protocol = System.getProperty(PROTOCOL) ?: "http"
-
-            if (!isNumeric(port)) {
+            if (!isNumeric(settings.port)) {
                 throw TestAbortedException("Please specify a number value for $PORT environment variable")
             }
 
-            val urlConstructedFromProtocolHostAndPort = "$protocol://$host:$port"
+            val protocol = settings.protocol ?: "http"
+            val urlConstructedFromProtocolHostAndPort = "$protocol://$host:${settings.port}"
             return when (validateTestOrStubUri(urlConstructedFromProtocolHostAndPort)) {
                 URIValidationResult.Success -> urlConstructedFromProtocolHostAndPort
                 else -> throw TestAbortedException("Please specify a valid $PROTOCOL, $HOST and $PORT environment variables")
@@ -608,9 +598,7 @@ open class SpecmaticJUnitSupport {
         }
 
         val contractFile = File(path)
-        val strictMode = specmaticConfig?.getTestStrictMode()
-            ?: settings.strictMode
-            ?: false
+        val strictMode = specmaticConfig?.getTestStrictMode() ?: false
         val rawSpecmaticConfig = specmaticConfig ?: SpecmaticConfig()
         val effectiveSpecmaticConfig =
             when (generative) {
@@ -631,7 +619,7 @@ open class SpecmaticJUnitSupport {
                 specmaticConfig = effectiveSpecmaticConfig,
                 overlayContent = overlayContent,
                 strictMode = strictMode,
-                lenientMode = specmaticConfig?.getTestLenientMode() ?: settings.lenientMode
+                lenientMode = specmaticConfig?.getTestLenientMode() ?: false
             ).copy(testVariables = config.variables, testBaseURLs = config.baseURLs)
 
         val suggestions = when {

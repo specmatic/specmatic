@@ -82,6 +82,7 @@ private const val TESTS_DIRECTORY_ENV_VAR = "SPECMATIC_TESTS_DIRECTORY"
 private const val TESTS_DIRECTORY_PROPERTY = "specmaticTestsDirectory"
 private const val CUSTOM_IMPLICIT_STUB_BASE_ENV_VAR = "SPECMATIC_CUSTOM_IMPLICIT_STUB_BASE"
 private const val CUSTOM_IMPLICIT_STUB_BASE_PROPERTY = "customImplicitStubBase"
+private const val TEST_ENDPOINTS_API = "endpointsAPI"
 
 const val APPLICATION_NAME = "Specmatic"
 const val APPLICATION_NAME_LOWER_CASE = "specmatic"
@@ -705,6 +706,21 @@ data class SpecmaticConfig(
     }
 
     @JsonIgnore
+    fun getTestFilter(): String? {
+        return getTestConfiguration(this)?.filter
+    }
+
+    @JsonIgnore
+    fun getTestSwaggerUrl(): String? {
+        return getTestConfiguration(this)?.swaggerUrl
+    }
+
+    @JsonIgnore
+    fun getActuatorUrl(): String? {
+        return getTestConfiguration(this)?.actuatorUrl ?: getStringValue(TEST_ENDPOINTS_API)
+    }
+
+    @JsonIgnore
     fun copyResiliencyTestsConfig(onlyPositive: Boolean): SpecmaticConfig {
         val testConfig = test ?: TestConfiguration()
         return this.copy(
@@ -1025,6 +1041,18 @@ data class SpecmaticConfig(
         )
     }
 
+    fun withTestFilter(filter: String? = null): SpecmaticConfig {
+        if (filter == null) return this
+        val testConfig = this.test ?: TestConfiguration()
+        return this.copy(test = testConfig.copy(filter = filter))
+    }
+
+    fun withTestTimeout(timeoutInMilliseconds: Long? = null): SpecmaticConfig {
+        if (timeoutInMilliseconds == null) return this
+        val testConfig = this.test ?: TestConfiguration()
+        return this.copy(test = testConfig.copy(timeoutInMilliseconds = timeoutInMilliseconds))
+    }
+
     fun withStubModes(strictMode: Boolean? = null): SpecmaticConfig {
         if (strictMode == null) return this
         val stubConfig = this.stub ?: StubConfiguration()
@@ -1089,6 +1117,9 @@ data class TestConfiguration(
     val maxTestRequestCombinations: Int? = null,
     val maxTestCount: Int? = null,
     val testsDirectory: String? = null,
+    val swaggerUrl: String? = null,
+    val actuatorUrl: String? = null,
+    val filter: String? = null,
 )
 
 enum class ResiliencyTestSuite {
