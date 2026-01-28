@@ -16,6 +16,8 @@ import com.fasterxml.jackson.databind.exc.InvalidFormatException
 import com.fasterxml.jackson.databind.exc.InvalidNullException
 import com.fasterxml.jackson.databind.exc.MismatchedInputException
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException
+import io.specmatic.core.Configuration.Companion.DEFAULT_HTTP_STUB_HOST
+import io.specmatic.core.Configuration.Companion.DEFAULT_HTTP_STUB_PORT
 import io.specmatic.core.Configuration.Companion.configFilePath
 import io.specmatic.core.SourceProvider.filesystem
 import io.specmatic.core.SourceProvider.git
@@ -174,8 +176,44 @@ data class StubConfiguration(
 }
 
 data class VirtualServiceConfiguration(
+    private val host: String? = null,
+    private val port: Int? = null,
+    private val specs: List<String>? = null,
+    private val specsDirPath: String? = null,
+    private val logsDirPath: String? = null,
+    private val logMode: VSLogMode? = null,
     private val nonPatchableKeys: Set<String> = emptySet()
 ) {
+
+    enum class VSLogMode {
+        ALL,
+        REQUEST_RESPONSE
+    }
+
+    fun getHost(): String? {
+        return host
+    }
+
+    fun getPort(): Int? {
+        return port
+    }
+
+    fun getSpecs(): List<String>? {
+        return specs
+    }
+
+    fun getSpecsDirPath(): String? {
+        return specsDirPath
+    }
+
+    fun getLogsDirPath(): String? {
+        return logsDirPath
+    }
+
+    fun getLogMode(): VSLogMode? {
+        return logMode
+    }
+
     fun getNonPatchableKeys(): Set<String> {
         return nonPatchableKeys
     }
@@ -816,6 +854,36 @@ data class SpecmaticConfig(
     @JsonIgnore
     fun getOpenAPISecurityConfigurationScheme(scheme: String): SecuritySchemeConfiguration? {
         return security?.getOpenAPISecurityScheme(scheme)
+    }
+
+    @JsonIgnore
+    fun getVirtualServiceHost(): String? {
+        return getVirtualServiceConfiguration(this).getHost()
+    }
+
+    @JsonIgnore
+    fun getVirtualServicePort(): Int? {
+        return getVirtualServiceConfiguration(this).getPort()
+    }
+
+    @JsonIgnore
+    fun getVirtualServiceSpecs(): List<String>? {
+        return getVirtualServiceConfiguration(this).getSpecs()
+    }
+
+    @JsonIgnore
+    fun getVirtualServiceSpecsDirPath(): String? {
+        return getVirtualServiceConfiguration(this).getSpecsDirPath()
+    }
+
+    @JsonIgnore
+    fun getVirtualServiceLogsDirPath(): String? {
+        return getVirtualServiceConfiguration(this).getLogsDirPath()
+    }
+
+    @JsonIgnore
+    fun getVirtualServiceLogMode(): VirtualServiceConfiguration.VSLogMode? {
+        return getVirtualServiceConfiguration(this).getLogMode()
     }
 
     @JsonIgnore
