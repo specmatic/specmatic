@@ -76,7 +76,7 @@ internal fun missingRequestExampleErrorMessageForTest(exampleName: String): Stri
 internal fun missingResponseExampleErrorMessageForTest(exampleName: String): String =
     missingResponseExampleErrorMessageForTest.format(exampleName, exampleName)
 
-internal const val SPECMATIC_TEST_WITH_NO_REQ_EX = "SPECMATIC-TEST-WITH-NO-REQ-EX"
+private const val SPECMATIC_TEST_WITH_NO_REQ_EX = "SPECMATIC-TEST-WITH-NO-REQ-EX"
 
 data class OperationMetadata(
     val tags: List<String> = emptyList(),

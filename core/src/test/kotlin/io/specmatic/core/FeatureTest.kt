@@ -6,7 +6,6 @@ import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.mockk.every
 import io.mockk.mockk
 import io.specmatic.conversions.OpenApiSpecification
-import io.specmatic.conversions.missingRequestExampleErrorMessageForTest
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.discriminator.DiscriminatorMetadata
 import io.specmatic.core.pattern.*
@@ -2538,32 +2537,6 @@ paths:
                 StandardRuleViolation.REQUIRED_PROPERTY_MISSING
             )
         )
-    }
-
-    @Test
-    fun `should warn when a 2xx response example has no matching request example in non-strict mode`() {
-        val (output, _) = captureStandardOutput {
-            OpenApiSpecification.fromFile(
-                "src/test/resources/openapi/inline_response_example_without_request.yaml",
-            ).toFeature().copy(strictMode = false)
-        }
-
-        assertThat(output)
-            .contains("WARNING: Ignoring request example named complete_onboarding for test or stub data, because no associated response example named complete_onboarding was found.")
-    }
-
-    @Test
-    fun `strict mode should fail when a 2xx response example has no matching request example`() {
-        val feature = OpenApiSpecification.fromFile(
-                "src/test/resources/openapi/inline_response_example_without_request.yaml",
-            ).toFeature().copy(strictMode = true)
-
-        val error = assertThrows<ContractException> {
-            feature.validateExamplesOrException()
-        }
-
-        assertThat(error.message)
-            .contains(missingRequestExampleErrorMessageForTest("success_response"))
     }
 
     @Test

@@ -11678,6 +11678,19 @@ paths:
     }
 
     @Test
+    fun `should throw exception when a request example has no matching response example during conversion in strict mode`() {
+        val specPath = "src/test/resources/openapi/inline_response_example_without_request.yaml"
+        val error = assertThrows<ContractException> {
+            OpenApiSpecification.fromYAML(yamlContent= File(specPath).readText(), openApiFilePath = specPath, strictMode = true).toFeature()
+        }
+
+        assertThat(error.message)
+            .contains(missingRequestExampleErrorMessageForTest("success_response"))
+    }
+
+
+
+    @Test
     fun `should handle stringified json in response header value`() {
         val spec = OpenApiSpecification.fromFile("src/test/resources/openapi/specification/proxy_generated.yaml")
         val feature = spec.toFeature()
