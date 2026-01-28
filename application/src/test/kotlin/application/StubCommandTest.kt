@@ -102,7 +102,6 @@ internal class StubCommandTest {
 
             val host = "0.0.0.0"
             val port = 9000
-            val certInfo = CertInfo()
             val strictMode = false
 
             every {
@@ -110,13 +109,14 @@ internal class StubCommandTest {
                     stubInfo,
                     host,
                     port,
-                    certInfo,
+                    null,
                     strictMode,
                     any(),
                     httpClientFactory = any(),
                     workingDirectory = any(),
                     gracefulRestartTimeoutInMs = any(),
-                    specToBaseUrlMap = any()
+                    specToBaseUrlMap = any(),
+                    specmaticConfig = any(),
                 )
             }.returns(
                 mockk {
@@ -134,13 +134,14 @@ internal class StubCommandTest {
                     any(),
                     any(),
                     any(),
-                    certInfo,
+                    null,
                     strictMode,
                     any(),
                     httpClientFactory = any(),
                     workingDirectory = any(),
                     gracefulRestartTimeoutInMs = any(),
-                    specToBaseUrlMap = any()
+                    specToBaseUrlMap = any(),
+                    specmaticConfig = any(),
                 )
             }
         } finally {
@@ -211,7 +212,6 @@ internal class StubCommandTest {
 
             val host = "0.0.0.0"
             val port = 9000
-            val certInfo = CertInfo()
             val strictMode = false
             val passThroughTargetBase = "http://passthroughTargetBase"
 
@@ -220,13 +220,14 @@ internal class StubCommandTest {
                     stubInfo,
                     host,
                     port,
-                    certInfo,
+                    null,
                     strictMode,
                     passThroughTargetBase,
                     httpClientFactory = any(),
                     workingDirectory = any(),
                     gracefulRestartTimeoutInMs = any(),
-                    specToBaseUrlMap = any()
+                    specToBaseUrlMap = any(),
+                    specmaticConfig = any(),
                 )
             }.returns(
                 mockk {
@@ -247,13 +248,14 @@ internal class StubCommandTest {
                     stubInfo,
                     host,
                     any(),
-                    certInfo,
+                    null,
                     strictMode,
                     any(),
                     httpClientFactory = any(),
                     workingDirectory = any(),
                     gracefulRestartTimeoutInMs = any(),
-                    specToBaseUrlMap = any()
+                    specToBaseUrlMap = any(),
+                    specmaticConfig = any(),
                 )
             }
         } finally {

@@ -30,7 +30,6 @@ import kotlin.io.path.absolutePathString
 abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
     protected val specmaticConfig: SpecmaticConfig = loadSpecmaticConfigIfAvailableElseDefault()
     protected val backwardCompConfig = specmaticConfig.getBackwardCompatibilityConfig()
-    private lateinit var gitCommand: GitCommand
     private val newLine = System.lineSeparator()
     private var areLocalChangesStashed = false
 
@@ -68,10 +67,11 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
     )
     var strictMode: Boolean? = null
 
-    protected val effectiveBaseBranch = baseBranch ?: backwardCompConfig?.baseBranch ?: gitCommand.getCurrentBranch()
-    protected val effectiveTargetPath = targetPath ?: backwardCompConfig?.targetPath.orEmpty()
-    protected val effectiveRepoDir = repoDir ?: backwardCompConfig?.repoDirectory ?: "."
-    protected val effectiveStrictMode = strictMode ?: backwardCompConfig?.strictMode ?: false
+    protected val effectiveRepoDir: String by lazy { repoDir ?: backwardCompConfig?.repoDirectory ?: "." }
+    protected val gitCommand: GitCommand by lazy { SystemGit(workingDirectory = Paths.get(effectiveRepoDir).absolutePathString()) }
+    protected val effectiveBaseBranch: String by lazy { baseBranch ?: backwardCompConfig?.baseBranch ?: gitCommand.currentRemoteBranch() }
+    protected val effectiveTargetPath: String by lazy { targetPath ?: backwardCompConfig?.targetPath.orEmpty() }
+    protected val effectiveStrictMode: Boolean by lazy { strictMode ?: backwardCompConfig?.strictMode ?: false }
 
     abstract fun checkBackwardCompatibility(oldFeature: IFeature, newFeature: IFeature): Results
     abstract fun File.isValidFileFormat(): Boolean
@@ -88,8 +88,6 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
 
     final override fun call() {
         configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = debugLog))
-        gitCommand = SystemGit(workingDirectory = Paths.get(effectiveRepoDir).absolutePathString())
-
         addShutdownHook()
         val filteredSpecs = getChangedSpecs()
         val result = try {

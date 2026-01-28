@@ -4,19 +4,16 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import io.specmatic.core.CONTRACT_EXTENSION
-import io.specmatic.core.utilities.Flags
-import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_TIMEOUT
 import io.specmatic.core.utilities.newXMLBuilder
+import io.specmatic.test.ContractTestSettings
+import io.specmatic.test.SpecmaticJUnitSupport
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.CONTRACT_PATHS
-import io.specmatic.test.SpecmaticJUnitSupport.Companion.HOST
-import io.specmatic.test.SpecmaticJUnitSupport.Companion.PORT
 import io.specmatic.test.listeners.ContractExecutionListener
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.fail
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import org.junit.platform.launcher.Launcher
 import org.junit.platform.launcher.LauncherDiscoveryRequest
@@ -59,7 +56,7 @@ internal class TestCommandTest {
     fun `when contract files are given it should not load from specmatic config`() {
         CommandLine(testCommand, factory).execute(contractsToBeRunAsTests[0], contractsToBeRunAsTests[1])
         verify(exactly = 0) { specmaticConfig.contractTestPaths() }
-        assertThat(System.getProperty(CONTRACT_PATHS)).isEqualTo(contractsToBeRunAsTests.joinToString(","))
+        assertThat(SpecmaticJUnitSupport.settingsStaging.get()?.contractPaths).isEqualTo(contractsToBeRunAsTests.joinToString(","))
     }
 
     @Test
@@ -87,19 +84,12 @@ internal class TestCommandTest {
 
     @ParameterizedTest
     @MethodSource("commandLineArguments")
-    fun `applies command line arguments`(
-            optionName: String,
-            optionValue: String,
-            systemPropertyName: String,
-            systemPropertyValue: String
-    ) {
+    fun `applies command line arguments`(testCase: TestCommandCase) {
         every { specmaticConfig.contractTestPaths() }.returns(contractsToBeRunAsTests)
-        try {
-            CommandLine(testCommand, factory).execute(optionName, optionValue)
-            assertThat(System.getProperty(systemPropertyName)).isEqualTo(systemPropertyValue)
-        } finally {
-            System.clearProperty(systemPropertyName)
-        }
+        CommandLine(testCommand, factory).execute(testCase.argument, testCase.value.toString())
+        val settings = SpecmaticJUnitSupport.settingsStaging.get()!!
+        val expectedValue = testCase.extract(settings)
+        assertThat(expectedValue).isEqualTo(testCase.expected)
     }
 
     @Test
@@ -135,15 +125,15 @@ internal class TestCommandTest {
         assertThat(testCaseNode.attributes.getNamedItem("name").nodeValue).isEqualTo("Scenario: GET /pets/(petid:number) -> 200 — EX:200_OKAY")
     }
 
-    private companion object {
+    companion object {
+        data class TestCommandCase(val argument: String, val value: Any?, val extract: (ContractTestSettings) -> Any?, val expected: Any)
         @JvmStatic
-        fun commandLineArguments(): Stream<Arguments> = Stream.of(
-                Arguments.of("--port", "9999", PORT, "9999"),
-                Arguments.of("--host", "10.10.10.10", HOST, "10.10.10.10"),
-                Arguments.of("--timeout", "3", SPECMATIC_TEST_TIMEOUT, "3000"),
-                Arguments.of("--timeout-in-ms","12000", SPECMATIC_TEST_TIMEOUT, "12000"),
-                Arguments.of("--examples", "test/data", Flags.EXAMPLE_DIRECTORIES, "test/data")
-        )
+        fun commandLineArguments(): Stream<TestCommandCase> = listOf(
+            TestCommandCase("--port", "9999", { it.otherArguments?.port }, "9999"),
+            TestCommandCase("--host", "10.10.10.10", { it.otherArguments?.host }, "10.10.10.10"),
+            TestCommandCase("--timeout", "3", { it.timeoutInMilliSeconds }, 3000L),
+            TestCommandCase("--timeout-in-ms", "12000", { it.timeoutInMilliSeconds }, 12000L),
+            TestCommandCase("--examples", "test/data", { it.getSpecmaticConfig().getExamples() }, listOf("test/data"))
+        ).stream()
     }
-
 }

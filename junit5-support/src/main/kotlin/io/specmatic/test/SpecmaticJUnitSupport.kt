@@ -66,7 +66,7 @@ open class SpecmaticJUnitSupport {
     private val specmaticConfig: SpecmaticConfig = settings.getSpecmaticConfig()
     private val httpInteractionsLog: HttpInteractionsLog = HttpInteractionsLog()
     private val testFilter = ScenarioMetadataFilter.from(specmaticConfig.getTestFilter().orEmpty())
-    private val prettyPrint = (specmaticConfig ?: SpecmaticConfig()).getPrettyPrint()
+    private val prettyPrint = specmaticConfig.getPrettyPrint()
 
     companion object {
         val settingsStaging = ThreadLocal<ContractTestSettings?>()
@@ -187,7 +187,7 @@ open class SpecmaticJUnitSupport {
         return ActuatorSetupResult.Success
     }
 
-    private fun getConfigFileWithAbsolutePath() = File(settings.configFile).canonicalPath
+    private fun getConfigFileWithAbsolutePath() = File(settings.configFile.orEmpty()).canonicalPath
 
     @AfterAll
     fun report() {
@@ -588,7 +588,7 @@ open class SpecmaticJUnitSupport {
         securityConfiguration: SecurityConfiguration? = null,
         filterName: String?,
         filterNotName: String?,
-        specmaticConfig: SpecmaticConfig? = null,
+        specmaticConfig: SpecmaticConfig = settings.getSpecmaticConfig(),
         generative: ResiliencyTestSuite? = null,
         overlayContent: String = "",
         filter: ScenarioMetadataFilter,
@@ -598,8 +598,8 @@ open class SpecmaticJUnitSupport {
         }
 
         val contractFile = File(path)
-        val strictMode = specmaticConfig?.getTestStrictMode() ?: false
-        val rawSpecmaticConfig = specmaticConfig ?: SpecmaticConfig()
+        val strictMode = specmaticConfig.getTestStrictMode() ?: false
+        val rawSpecmaticConfig = specmaticConfig
         val effectiveSpecmaticConfig =
             when (generative) {
                 ResiliencyTestSuite.positiveOnly -> rawSpecmaticConfig.copyResiliencyTestsConfig(onlyPositive = true)
@@ -619,7 +619,7 @@ open class SpecmaticJUnitSupport {
                 specmaticConfig = effectiveSpecmaticConfig,
                 overlayContent = overlayContent,
                 strictMode = strictMode,
-                lenientMode = specmaticConfig?.getTestLenientMode() ?: false
+                lenientMode = specmaticConfig.getTestLenientMode() ?: false
             ).copy(testVariables = config.variables, testBaseURLs = config.baseURLs)
 
         val suggestions = when {

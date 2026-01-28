@@ -319,7 +319,6 @@ paths:
                 TestConfig(emptyMap(), emptyMap()),
                 filterName = null,
                 filterNotName = null,
-                specmaticConfig = null,
                 filter = ScenarioMetadataFilter.from("")
             )
 
@@ -360,7 +359,6 @@ paths:
                 TestConfig(emptyMap(), emptyMap()),
                 filterName = null,
                 filterNotName = null,
-                specmaticConfig = null,
                 filter = ScenarioMetadataFilter.from("")
             )
 

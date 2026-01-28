@@ -22,6 +22,7 @@ import io.specmatic.core.Configuration.Companion.configFilePath
 import io.specmatic.core.SourceProvider.filesystem
 import io.specmatic.core.SourceProvider.git
 import io.specmatic.core.SourceProvider.web
+import io.specmatic.core.SpecmaticConfig.Companion.orDefault
 import io.specmatic.core.azure.AzureAPI
 import io.specmatic.core.config.BackwardCompatibilityConfig
 import io.specmatic.core.config.HttpsConfiguration
@@ -1411,7 +1412,7 @@ data class APIKeySecuritySchemeConfiguration(
 ) : SecuritySchemeConfiguration()
 
 fun loadSpecmaticConfigOrDefault(configFileName: String? = null): SpecmaticConfig {
-    return loadSpecmaticConfigOrNull(configFileName) ?: SpecmaticConfig()
+    return loadSpecmaticConfigOrNull(configFileName).orDefault()
 }
 
 fun loadSpecmaticConfigOrNull(configFileName: String? = null): SpecmaticConfig? =

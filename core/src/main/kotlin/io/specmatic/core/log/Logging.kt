@@ -4,7 +4,7 @@ import io.specmatic.core.config.ConfigLoggingLevel
 import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.loadSpecmaticConfigIfAvailableElseDefault
 
-var logger: LogStrategy = logStrategyFromConfig()
+var logger: LogStrategy = ThreadSafeLog(NonVerbose(CompositePrinter()))
 
 fun logStrategyFromConfig(): LogStrategy {
     val specmaticConfig = loadSpecmaticConfigIfAvailableElseDefault()
