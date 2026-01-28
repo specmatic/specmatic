@@ -1,7 +1,10 @@
 package io.specmatic.core
 
 import io.specmatic.conversions.OpenApiSpecification
+import io.specmatic.conversions.SPECMATIC_TEST_WITH_NO_REQ_EX
+import io.specmatic.conversions.missingRequestExampleErrorMessageForTest
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
@@ -68,6 +71,33 @@ class FeatureKtTest {
         val response = contractBehaviour.lookupResponse(request)
 
         assertThat(response.body).isInstanceOf(NumberValue::class.java)
+    }
+
+    @Test
+    fun `strict mode should fail validation when a row signals missing request example`() {
+        val row = Row(
+            columnNames = listOf(SPECMATIC_TEST_WITH_NO_REQ_EX),
+            values = listOf(""),
+            name = "success_response"
+        )
+        val examples = Examples(columnNames = row.columnNames, rows = listOf(row))
+        val scenario = Scenario(
+            name = "GET /test -> 200",
+            httpRequestPattern = HttpRequestPattern(method = "GET", httpPathPattern = HttpPathPattern.from("/test")),
+            httpResponsePattern = HttpResponsePattern(status = 200),
+            examples = listOf(examples),
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        )
+        val feature = Feature(
+            scenarios = listOf(scenario),
+            name = "Test Feature",
+            protocol = SpecmaticProtocol.HTTP,
+            strictMode = true
+        )
+
+        assertThatThrownBy { feature.validateExamplesOrException() }
+            .hasMessageContaining(missingRequestExampleErrorMessageForTest("success_response"))
     }
 
     @Test

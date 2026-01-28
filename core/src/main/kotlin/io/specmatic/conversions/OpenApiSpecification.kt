@@ -76,7 +76,7 @@ internal fun missingRequestExampleErrorMessageForTest(exampleName: String): Stri
 internal fun missingResponseExampleErrorMessageForTest(exampleName: String): String =
     missingResponseExampleErrorMessageForTest.format(exampleName, exampleName)
 
-private const val SPECMATIC_TEST_WITH_NO_REQ_EX = "SPECMATIC-TEST-WITH-NO-REQ-EX"
+internal const val SPECMATIC_TEST_WITH_NO_REQ_EX = "SPECMATIC-TEST-WITH-NO-REQ-EX"
 
 data class OperationMetadata(
     val tags: List<String> = emptyList(),
@@ -933,11 +933,16 @@ class OpenApiSpecification(
                 else key to value
             }.toMap().ifEmpty { mapOf(SPECMATIC_TEST_WITH_NO_REQ_EX to "") }
 
-            if (requestExamples.containsKey(SPECMATIC_TEST_WITH_NO_REQ_EX) && responseExample.status != first2xxResponseStatus) {
-                // TODO: Collect as warning
-                if (getBooleanValue(IGNORE_INLINE_EXAMPLE_WARNINGS).not())
-                    logger.log(missingRequestExampleErrorMessageForTest(exampleName))
-                return@mapNotNull null
+            if (requestExamples.containsKey(SPECMATIC_TEST_WITH_NO_REQ_EX)) {
+                if (strictMode) {
+                    throw ContractException(missingRequestExampleErrorMessageForTest(exampleName))
+                }
+                if (responseExample.status != first2xxResponseStatus) {
+                    // TODO: Collect as warning
+                    if (getBooleanValue(IGNORE_INLINE_EXAMPLE_WARNINGS).not())
+                        logger.log(missingRequestExampleErrorMessageForTest(exampleName))
+                    return@mapNotNull null
+                }
             }
 
             val resolvedResponseExample: ResponseExample? =

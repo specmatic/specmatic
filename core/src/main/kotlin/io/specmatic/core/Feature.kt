@@ -6,6 +6,8 @@ import io.cucumber.messages.types.Examples
 import io.cucumber.messages.types.Source
 import io.ktor.http.*
 import io.specmatic.conversions.ExampleFromFile
+import io.specmatic.conversions.SPECMATIC_TEST_WITH_NO_REQ_EX
+import io.specmatic.conversions.missingRequestExampleErrorMessageForTest
 import io.specmatic.conversions.IncludedSpecification
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.WSDLFile
@@ -2211,6 +2213,22 @@ data class Feature(
     }
 
     fun validateExamplesOrException(disallowExtraHeaders: Boolean = true) {
+        if (strictMode) {
+            val missingRequestExampleErrors = scenarios.flatMap { scenario ->
+                scenario.examples.flatMap { examples ->
+                    examples.rows.filter { row ->
+                        row.columnNames.contains(SPECMATIC_TEST_WITH_NO_REQ_EX)
+                    }.map { row ->
+                        missingRequestExampleErrorMessageForTest(row.name.ifBlank { "unknown" })
+                    }
+                }
+            }
+
+            if (missingRequestExampleErrors.isNotEmpty()) {
+                throw ContractException(missingRequestExampleErrors.joinToString(System.lineSeparator()))
+            }
+        }
+
         val errors = scenarios.mapNotNull { scenario ->
             try {
                 scenario.validExamplesOrException(flagsBased.copy(generation = NonGenerativeTests), disallowExtraHeaders)

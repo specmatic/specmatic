@@ -11666,6 +11666,18 @@ paths:
     }
 
     @Test
+    fun `should warn when a request example has no matching response example during conversion`() {
+        val (output, _) = captureStandardOutput {
+            OpenApiSpecification.fromFile(
+                "src/test/resources/openapi/inline_response_example_without_request.yaml",
+            ).toFeature()
+        }
+
+        assertThat(output)
+            .contains(missingResponseExampleErrorMessageForTest("complete_onboarding"))
+    }
+
+    @Test
     fun `should handle stringified json in response header value`() {
         val spec = OpenApiSpecification.fromFile("src/test/resources/openapi/specification/proxy_generated.yaml")
         val feature = spec.toFeature()
