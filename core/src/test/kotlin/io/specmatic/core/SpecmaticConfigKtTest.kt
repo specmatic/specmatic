@@ -7,6 +7,7 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import io.specmatic.core.config.v3.SpecExecutionConfig
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.specmatic.core.config.v2.ContractConfig
+import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.utilities.ContractSourceEntry
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.config.v2.SpecmaticConfigV2
@@ -239,6 +240,98 @@ internal class SpecmaticConfigKtTest {
         } finally {
             properties.forEach { System.clearProperty(it.key) }
         }
+    }
+
+    @Test
+    fun `should read test configuration from system properties when config is absent`() {
+        val properties = mapOf(
+            io.specmatic.core.utilities.Flags.TEST_STRICT_MODE to "true",
+            io.specmatic.core.utilities.Flags.TEST_LENIENT_MODE to "false",
+            io.specmatic.core.utilities.Flags.SPECMATIC_TEST_PARALLELISM to "dynamic",
+            io.specmatic.core.utilities.Flags.MAX_TEST_COUNT to "100",
+            MAX_TEST_REQUEST_COMBINATIONS to "50"
+        )
+        try {
+            properties.forEach { System.setProperty(it.key, it.value) }
+            val config = SpecmaticConfig()
+
+            assertThat(config.getTestStrictMode()).isTrue()
+            assertThat(config.getTestLenientMode()).isFalse()
+            assertThat(config.getTestParallelism()).isEqualTo("dynamic")
+            assertThat(config.getMaxTestCount()).isEqualTo(100)
+            assertThat(config.getMaxTestRequestCombinations()).isEqualTo(50)
+        } finally {
+            properties.forEach { System.clearProperty(it.key) }
+        }
+    }
+
+    @Test
+    fun `should read stub configuration from system properties when config is absent`() {
+        val properties = mapOf(
+            io.specmatic.core.utilities.Flags.SPECMATIC_BASE_URL to "http://localhost:8080"
+        )
+        try {
+            properties.forEach { System.setProperty(it.key, it.value) }
+            val config = SpecmaticConfig()
+
+            assertThat(config.getDefaultBaseUrl()).isEqualTo("http://localhost:8080")
+        } finally {
+            properties.forEach { System.clearProperty(it.key) }
+        }
+    }
+
+    @Test
+    fun `should read v2-only properties from system properties when config is v1 or absent`() {
+        val properties = mapOf(
+            io.specmatic.core.utilities.Flags.SPECMATIC_FUZZY to "true",
+            io.specmatic.core.utilities.Flags.SPECMATIC_ESCAPE_SOAP_ACTION to "true",
+            io.specmatic.core.utilities.Flags.SPECMATIC_PRETTY_PRINT to "false",
+            io.specmatic.core.utilities.Flags.IGNORE_INLINE_EXAMPLE_WARNINGS to "true"
+        )
+        try {
+            properties.forEach { System.setProperty(it.key, it.value) }
+
+            // Test with v1 config (should fall back to system properties)
+            val configV1 = SpecmaticConfig(version = SpecmaticConfigVersion.VERSION_1)
+            assertThat(configV1.getFuzzyMatchingEnabled()).isTrue()
+            assertThat(configV1.getEscapeSoapAction()).isTrue()
+            assertThat(configV1.getPrettyPrint()).isFalse()
+            assertThat(configV1.getIgnoreInlineExampleWarnings()).isTrue()
+
+            // Test with no config (should also use system properties)
+            val configEmpty = SpecmaticConfig()
+            assertThat(configEmpty.getFuzzyMatchingEnabled()).isTrue()
+            assertThat(configEmpty.getEscapeSoapAction()).isTrue()
+            assertThat(configEmpty.getPrettyPrint()).isFalse()
+            assertThat(configEmpty.getIgnoreInlineExampleWarnings()).isTrue()
+        } finally {
+            properties.forEach { System.clearProperty(it.key) }
+        }
+    }
+
+    @Test
+    fun `should use default value for prettyPrint when neither config nor system property is set`() {
+        val config = SpecmaticConfig()
+
+        // prettyPrint defaults to true
+        assertThat(config.getPrettyPrint()).isTrue()
+    }
+
+    @Test
+    fun `should handle null values gracefully`() {
+        val config = SpecmaticConfig(
+            test = TestConfiguration(
+                strictMode = null,
+                lenientMode = null,
+                parallelism = null
+            ),
+            stub = StubConfiguration()
+        )
+
+        // Should return null or fallback values, not throw
+        assertThat(config.getTestStrictMode()).isNull()
+        assertThat(config.getTestLenientMode()).isNull()
+        assertThat(config.getTestParallelism()).isNull()
     }
 
     @Test
