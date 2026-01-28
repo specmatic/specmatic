@@ -23,6 +23,7 @@ import io.specmatic.core.SourceProvider.filesystem
 import io.specmatic.core.SourceProvider.git
 import io.specmatic.core.SourceProvider.web
 import io.specmatic.core.azure.AzureAPI
+import io.specmatic.core.config.BackwardCompatibilityConfig
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.config.SpecmaticConfigVersion
@@ -315,6 +316,7 @@ data class SpecmaticConfig(
     private val security: SecurityConfiguration? = null,
     private val test: TestConfiguration? = null,
     private val stub: StubConfiguration? = null,
+    private val backwardCompatibility: BackwardCompatibilityConfig? = null,
     private val virtualService: VirtualServiceConfiguration? = null,
     private val examples: List<String>? = null,
     private val workflow: WorkflowConfiguration? = null,
@@ -580,7 +582,6 @@ data class SpecmaticConfig(
             }
         }
     }
-
 
     @JsonIgnore
     fun loadSources(useCurrentBranchForCentralRepo: Boolean = false): List<ContractSource> {
@@ -893,6 +894,11 @@ data class SpecmaticConfig(
     @JsonIgnore
     fun getRepositoryCollectionName(): String? {
         return repository?.getCollectionName()
+    }
+
+    @JsonIgnore
+    fun getBackwardCompatibilityConfig(): BackwardCompatibilityConfig? {
+        return this.backwardCompatibility
     }
 
     @JsonIgnore
