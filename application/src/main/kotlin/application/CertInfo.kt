@@ -60,6 +60,8 @@ private fun loadKeyStoreFromFile(keyStoreFile: String, keyStorePassword: String)
     }
 
     return KeyStore.getInstance(keyStoreType).apply {
-        this.load(certFilePath.inputStream(), keyStorePassword.toCharArray())
+        certFilePath.inputStream().use { inputStream ->
+            load(inputStream, keyStorePassword.toCharArray())
+        }
     }
 }

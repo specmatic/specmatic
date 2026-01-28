@@ -111,7 +111,7 @@ data class HttpsConfiguration(private val keyStore: KeyStoreConfiguration? = nul
 
         fun from(opts: HttpsFromOpts): HttpsConfiguration {
             return HttpsConfiguration(
-                keyPassword = opts.keyStorePassword,
+                keyPassword = opts.keyPassword,
                 keyStore = when {
                     opts.keyStoreFile != null -> KeyStoreConfiguration.FileBasedConfig(file = File(opts.keyStoreFile), password = opts.keyStorePassword, alias = opts.keyStoreAlias)
                     opts.keyStoreDir != null -> KeyStoreConfiguration.DirectoryBasedConfig(directory = File(opts.keyStoreDir), password = opts.keyStorePassword, alias = opts.keyStoreAlias)

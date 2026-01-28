@@ -18,7 +18,7 @@ import picocli.CommandLine.Option
     description = ["Runs auto tests against a mcp server"]
 )
 @Category("AI Assisted Contract Programming")
-class McpTestCommand : Callable<Int> {
+open class McpTestCommand : Callable<Int> {
     @Option(names = ["--url"], description = ["URL of the mcp server"], required = false)
     var baseUrl: String? = null
 
@@ -75,7 +75,7 @@ class McpTestCommand : Callable<Int> {
         McpBaseCommand.configureLogger(verbose)
         try {
             val exitCode: Int = runBlocking {
-                McpAutoTest(
+                createAutoTest(
                     baseUrl = effectiveBaseUrl(),
                     transport = effectiveTransport(),
                     enableResiliency = effectiveEnableResiliency(),
@@ -91,6 +91,16 @@ class McpTestCommand : Callable<Int> {
             return FAILURE_EXIT_CODE
         }
     }
+
+    protected open fun createAutoTest(
+        baseUrl: String,
+        transport: McpTransport,
+        enableResiliency: Boolean,
+        dictionaryFile: File?,
+        bearerToken: String?,
+        filterTools: Set<String>,
+        skipTools: Set<String>
+    ): McpAutoTest = McpAutoTest(baseUrl, transport, enableResiliency, dictionaryFile, bearerToken, filterTools, skipTools)
 
     private fun effectiveTransport(): McpTransport {
         if (transportKind != null) return transportKind as McpTransport

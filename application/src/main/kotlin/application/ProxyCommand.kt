@@ -29,7 +29,7 @@ import java.util.concurrent.Callable
     description = ["Proxies requests to the specified target and converts the result into contracts and stubs"],
 )
 @Category("Specmatic core")
-class ProxyCommand : Callable<Unit> {
+open class ProxyCommand : Callable<Unit> {
     @Option(names = ["--target"], description = ["Base URL of the target to proxy"], required = false)
     var targetBaseURL: String? = null
 
@@ -114,19 +114,31 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         val effectiveTarget = targetBaseURL?.takeUnless(String::isBlank) ?: configProxy.getTargetUrl {
             throw ContractException("Proxy targetURL must be provided through CLI or Specmatic Config")
         }
-
-        val startupLogs = "Proxy server is running on ${consolePrintableURL(effectiveHost, effectivePort, keyStoreData)}. Ctrl + C to stop."
-        validatedProxySettings(targetBaseURL, effectiveOutDir.canonicalPath)
-        return Proxy(
+        return createProxy(
             filter = filter,
             host = effectiveHost,
             port = effectivePort,
-            requestObserver = null,
+            outDir = effectiveOutDir,
+            timeout = effectiveTimeout,
+            target = effectiveTarget,
             keyData = keyStoreData,
-            baseURL = effectiveTarget,
-            timeoutInMilliseconds = effectiveTimeout,
             specmaticConfigSource = specmaticConfigSource,
-            proxySpecmaticDataDir = effectiveOutDir.canonicalPath,
+        )
+    }
+
+    protected open fun createProxy(filter: String, host: String, port: Int, outDir: File, timeout: Long, target: String, keyData: KeyData?, specmaticConfigSource: SpecmaticConfigSource): Proxy {
+        val startupLogs = "Proxy server is running on ${consolePrintableURL(host, port, keyData)}. Ctrl + C to stop."
+        validatedProxySettings(targetBaseURL, outDir.canonicalPath)
+        return Proxy(
+            filter = filter,
+            host = host,
+            port = port,
+            requestObserver = null,
+            keyData = keyData,
+            baseURL = target,
+            timeoutInMilliseconds = timeout,
+            specmaticConfigSource = specmaticConfigSource,
+            proxySpecmaticDataDir = outDir.canonicalPath,
         ).also { consoleLog(StringLog(startupLogs)) }
     }
 
@@ -149,7 +161,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         }
     }
 
-    private fun addShutdownHook() {
+    protected open fun addShutdownHook() {
         Runtime.getRuntime().addShutdownHook(object : Thread() {
             override fun run() {
                 try {

@@ -4,6 +4,9 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import io.specmatic.core.CONTRACT_EXTENSION
+import io.specmatic.core.log.ThreadSafeLog
+import io.specmatic.core.log.Verbose
+import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.newXMLBuilder
 import io.specmatic.test.ContractTestSettings
 import io.specmatic.test.SpecmaticJUnitSupport
@@ -86,7 +89,8 @@ internal class TestCommandTest {
     @MethodSource("commandLineArguments")
     fun `applies command line arguments`(testCase: TestCommandCase) {
         every { specmaticConfig.contractTestPaths() }.returns(contractsToBeRunAsTests)
-        CommandLine(testCommand, factory).execute(testCase.argument, testCase.value.toString())
+        val arguments = listOfNotNull(testCase.argument, testCase.value).map { it.toString() }.toTypedArray()
+        CommandLine(testCommand, factory).execute(*arguments)
         val settings = SpecmaticJUnitSupport.settingsStaging.get()!!
         val expectedValue = testCase.extract(settings)
         assertThat(expectedValue).isEqualTo(testCase.expected)
@@ -126,14 +130,51 @@ internal class TestCommandTest {
     }
 
     companion object {
-        data class TestCommandCase(val argument: String, val value: Any?, val extract: (ContractTestSettings) -> Any?, val expected: Any)
+        data class TestCommandCase(val argument: String?, val value: Any?, val extract: (ContractTestSettings) -> Any?, val expected: Any)
         @JvmStatic
         fun commandLineArguments(): Stream<TestCommandCase> = listOf(
-            TestCommandCase("--port", "9999", { it.otherArguments?.port }, "9999"),
-            TestCommandCase("--host", "10.10.10.10", { it.otherArguments?.host }, "10.10.10.10"),
+            // -------- positional arguments --------
+            TestCommandCase("contract1.yaml", null, { it.contractPaths }, "contract1.yaml"),
+
+            // -------- host / port / base url --------
+            TestCommandCase("--host", "10.10.10.10", { it.host }, "10.10.10.10"),
+            TestCommandCase("--port", "9999", { it.port }, "9999"),
+            TestCommandCase("--port", "-1", { it.port }, "9000"),
+            TestCommandCase("--testBaseURL", "https://example.com", { it.testBaseURL }, "https://example.com"),
+
+            // -------- timeouts --------
             TestCommandCase("--timeout", "3", { it.timeoutInMilliSeconds }, 3000L),
+            TestCommandCase("--timeout", "0", { it.timeoutInMilliSeconds }, 0L),
             TestCommandCase("--timeout-in-ms", "12000", { it.timeoutInMilliSeconds }, 12000L),
-            TestCommandCase("--examples", "test/data", { it.getSpecmaticConfig().getExamples() }, listOf("test/data"))
+
+            // -------- filtering --------
+            TestCommandCase("--filter", "METHOD=GET", { it.filter }, "METHOD=GET"),
+            TestCommandCase("--filter-name", "Foo", { it.filterName }, "Foo"),
+            TestCommandCase("--filter-not-name", "Bar", { it.filterNotName }, "Bar"),
+
+            // -------- examples / suggestions --------
+            TestCommandCase("--examples", "test/data", { it.getSpecmaticConfig().getExamples() }, listOf("test/data")),
+            TestCommandCase("--suggestionsPath", "suggestions.json", { it.suggestionsPath }, "suggestions.json"),
+            TestCommandCase("--suggestions", """{"scenario":"s1","suggestions":["a","b"]}""", { it.inlineSuggestions }, """{"scenario":"s1","suggestions":["a","b"]}"""),
+
+            // -------- environment / config --------
+            TestCommandCase("--env", "staging", { it.envName }, "staging"),
+            TestCommandCase("--config", "specmatic-test.json", { it.configFile }, "specmatic-test.json"),
+            TestCommandCase("--variables", "vars.json", { it.variablesFileName }, "vars.json"),
+            TestCommandCase("--overlay-file", "overlay.yaml", { it.overlayFilePath?.path }, "overlay.yaml"),
+
+            // -------- reporting --------
+            TestCommandCase("--junitReportDir", "build/reports", { it.reportBaseDirectory }, "build/reports"),
+
+            // -------- execution modes --------
+            TestCommandCase("--strict", null, { it.strictMode }, true),
+            TestCommandCase("--lenient", null, { it.lenientMode }, true),
+            TestCommandCase("--match-branch", null, { it.otherArguments?.useCurrentBranchForCentralRepo }, true),
+            TestCommandCase("--debug", null, { logger is ThreadSafeLog && (logger as ThreadSafeLog).logger is Verbose }, true),
+
+            // -------- https / protocol mutations --------
+            TestCommandCase(null, null, { it.protocol }, "http"),
+            TestCommandCase("--https", true, { it.protocol }, "https"),
         ).stream()
     }
 }

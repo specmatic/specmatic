@@ -11,6 +11,9 @@ import io.specmatic.core.SpecmaticConfig.Companion.getStubConfigOrNull
 import io.specmatic.core.SpecmaticConfig.Companion.getWorkflowConfiguration
 import io.specmatic.core.SpecmaticConfig.Companion.getTestConfigOrNull
 import io.specmatic.core.SpecmaticConfig.Companion.getVirtualServiceConfigOrNull
+import io.specmatic.core.config.BackwardCompatibilityConfig
+import io.specmatic.core.config.LoggingConfiguration
+import io.specmatic.core.config.McpConfiguration
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.SpecmaticVersionedConfig
 import io.specmatic.core.config.SpecmaticVersionedConfigLoader
@@ -32,6 +35,7 @@ data class SpecmaticConfigV2(
     val security: SecurityConfiguration? = null,
     val test: TestConfiguration? = null,
     val stub: StubConfiguration? = null,
+    private val backwardCompatibility: BackwardCompatibilityConfig? = null,
     @field:JsonAlias("virtual_service")
     val virtualService: VirtualServiceConfiguration? = null,
     val examples: List<String> = getStringValue(EXAMPLE_DIRECTORIES)?.split(",") ?: emptyList(),
@@ -52,6 +56,8 @@ data class SpecmaticConfigV2(
     val defaultPatternValues: Map<String, Any> = emptyMap(),
     @field:JsonAlias("disable_telemetry")
     val disableTelemetry: Boolean? = null,
+    private val logging: LoggingConfiguration? = null,
+    private val mcp: McpConfiguration? = null,
 ) : SpecmaticVersionedConfig {
     override fun transform(): SpecmaticConfig {
         return SpecmaticConfig(
@@ -67,6 +73,7 @@ data class SpecmaticConfigV2(
             security = this.security,
             test = this.test,
             stub = this.stub,
+            backwardCompatibility = this.backwardCompatibility,
             virtualService = this.virtualService,
             examples = this.examples,
             workflow = this.workflow,
@@ -81,7 +88,9 @@ data class SpecmaticConfigV2(
             attributeSelectionPattern = this.attributeSelectionPattern,
             allPatternsMandatory = this.allPatternsMandatory,
             defaultPatternValues = this.defaultPatternValues,
-            disableTelemetry = this.disableTelemetry
+            disableTelemetry = this.disableTelemetry,
+            logging = this.logging,
+            mcp = this.mcp
         )
     }
 
