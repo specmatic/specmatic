@@ -17,12 +17,14 @@ import io.specmatic.core.WorkingDirectory
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.isContractFile
+import io.specmatic.core.loadSpecmaticConfigIfAvailableElseDefault
 import io.specmatic.core.loadSpecmaticConfigOrDefault
 import io.specmatic.core.log.StringLog
 import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.consoleDebug
 import io.specmatic.core.log.consoleLog
 import io.specmatic.core.log.logger
+import io.specmatic.core.log.setLoggerUsing
 import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.parseGherkinStringToFeature
 import io.specmatic.core.utilities.ContractPathData
@@ -48,6 +50,7 @@ fun createStubFromContractAndData(
     host: String = "localhost",
     port: Int = 9000,
 ): ContractStub {
+    setLoggerUsing(loadSpecmaticConfigIfAvailableElseDefault().getLogConfigurationOrDefault())
     val contractBehaviour = parseGherkinStringToFeature(contractGherkin)
 
     val mocks =
@@ -191,6 +194,7 @@ fun createStub(
             }
         }
 
+    setLoggerUsing(specmaticConfig.getLogConfigurationOrDefault())
     return HttpStub(
         stubValues.features,
         stubValues.expectations,
@@ -236,6 +240,7 @@ internal fun createStubFromContracts(
     val features = contractInfo.map { it.first }
     val httpExpectations = contractInfoToHttpExpectations(contractInfo)
 
+    setLoggerUsing(specmaticConfig.getLogConfigurationOrDefault())
     return HttpStub(
         features,
         httpExpectations,

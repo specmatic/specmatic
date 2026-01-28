@@ -10,6 +10,7 @@ import io.specmatic.core.filters.ScenarioMetadataFilter.Companion.filterUsing
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.ignoreLog
 import io.specmatic.core.log.logger
+import io.specmatic.core.log.setLoggerUsing
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Examples
 import io.specmatic.core.pattern.Row
@@ -67,6 +68,8 @@ open class SpecmaticJUnitSupport {
     private val httpInteractionsLog: HttpInteractionsLog = HttpInteractionsLog()
     private val testFilter = ScenarioMetadataFilter.from(specmaticConfig.getTestFilter().orEmpty())
     private val prettyPrint = specmaticConfig.getPrettyPrint()
+
+    init { setLoggerUsing(specmaticConfig.getLogConfigurationOrDefault()) }
 
     companion object {
         val settingsStaging = ThreadLocal<ContractTestSettings?>()
