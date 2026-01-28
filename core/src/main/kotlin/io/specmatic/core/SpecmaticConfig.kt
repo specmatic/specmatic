@@ -30,6 +30,8 @@ import io.specmatic.core.config.Switch
 import io.specmatic.core.config.toSpecmaticConfig
 import io.specmatic.core.config.v3.SpecExecutionConfig
 import io.specmatic.core.config.v3.ConsumesDeserializer
+import io.specmatic.conversions.SPECMATIC_BASIC_AUTH_TOKEN
+import io.specmatic.conversions.SPECMATIC_OAUTH2_TOKEN
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
@@ -854,6 +856,44 @@ data class SpecmaticConfig(
     @JsonIgnore
     fun getOpenAPISecurityConfigurationScheme(scheme: String): SecuritySchemeConfiguration? {
         return security?.getOpenAPISecurityScheme(scheme)
+    }
+
+    @JsonIgnore
+    fun getBasicAuthSecurityToken(
+        schemeName: String,
+        securitySchemeConfiguration: SecuritySchemeConfiguration?
+    ): String? {
+        val tokenFromConfig = (securitySchemeConfiguration as? BasicAuthSecuritySchemeConfiguration)?.token
+        return resolveSecurityToken(tokenFromConfig, schemeName, SPECMATIC_BASIC_AUTH_TOKEN)
+    }
+
+    @JsonIgnore
+    fun getBearerSecurityToken(
+        schemeName: String,
+        securitySchemeConfiguration: SecuritySchemeConfiguration?
+    ): String? {
+        val tokenFromConfig = (securitySchemeConfiguration as? SecuritySchemeWithOAuthToken)?.token
+        return resolveSecurityToken(tokenFromConfig, schemeName, SPECMATIC_OAUTH2_TOKEN)
+    }
+
+    @JsonIgnore
+    fun getApiKeySecurityToken(
+        schemeName: String,
+        securitySchemeConfiguration: SecuritySchemeConfiguration?
+    ): String? {
+        val tokenFromConfig = (securitySchemeConfiguration as? APIKeySecuritySchemeConfiguration)?.value
+        return resolveSecurityToken(tokenFromConfig, schemeName)
+    }
+
+    private fun resolveSecurityToken(
+        tokenFromConfig: String?,
+        schemeName: String,
+        defaultEnvVar: String? = null
+    ): String? {
+        val configuredToken = tokenFromConfig?.takeIf { it.isNotBlank() }
+        return configuredToken
+            ?: getStringValue(schemeName)
+            ?: defaultEnvVar?.let { getStringValue(it) }
     }
 
     @JsonIgnore

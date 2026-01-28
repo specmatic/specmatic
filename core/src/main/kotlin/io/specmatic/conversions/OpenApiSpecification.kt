@@ -1480,7 +1480,7 @@ class OpenApiSpecification(
         }
 
         if (securityScheme.type == SecurityScheme.Type.APIKEY) {
-            val apiKey = getSecurityTokenForApiKeyScheme(securitySchemeConfiguration, schemeName)
+            val apiKey = getSecurityTokenForApiKeyScheme(specmaticConfig, securitySchemeConfiguration, schemeName)
             if (securityScheme.`in` == SecurityScheme.In.HEADER) return APIKeyInHeaderSecurityScheme(securityScheme.name, apiKey)
             if (securityScheme.`in` == SecurityScheme.In.QUERY) return APIKeyInQueryParamSecurityScheme(securityScheme.name, apiKey)
         }
@@ -1498,17 +1498,17 @@ class OpenApiSpecification(
 
     private fun toBearerSecurityScheme(
         securitySchemeConfiguration: SecuritySchemeConfiguration?,
-        environmentVariable: String,
+        schemeName: String,
     ): BearerSecurityScheme {
-        val token = getSecurityTokenForBearerScheme(securitySchemeConfiguration, environmentVariable)
+        val token = getSecurityTokenForBearerScheme(specmaticConfig, securitySchemeConfiguration, schemeName)
         return BearerSecurityScheme(token)
     }
 
     private fun toBasicAuthSecurityScheme(
         securitySchemeConfiguration: SecuritySchemeConfiguration?,
-        environmentVariable: String,
+        schemeName: String,
     ): BasicAuthSecurityScheme {
-        val token = getSecurityTokenForBasicAuthScheme(securitySchemeConfiguration, environmentVariable)
+        val token = getSecurityTokenForBasicAuthScheme(specmaticConfig, securitySchemeConfiguration, schemeName)
         return BasicAuthSecurityScheme(token)
     }
 
