@@ -7,15 +7,16 @@ import io.specmatic.core.Scenario
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.logger
 import io.specmatic.license.core.SpecmaticProtocol
-import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
+import java.util.*
 
 class ScenarioTestGenerationFailure(
     var scenario: Scenario,
     val failure: Result.Failure,
     val message: String,
     override val protocol: SpecmaticProtocol?,
-    override val specType: SpecType
+    override val specType: SpecType,
+    override val specId: UUID
 ) : ContractTest {
     init {
         val exampleRow = scenario.examples.flatMap { it.rows }.firstOrNull { it.name == message }

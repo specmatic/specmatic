@@ -11,6 +11,7 @@ import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
+import java.util.UUID
 
 class ScenarioTestGenerationException(
     var scenario: Scenario,
@@ -18,7 +19,8 @@ class ScenarioTestGenerationException(
     val message: String,
     val breadCrumb: String?,
     override val protocol: SpecmaticProtocol?,
-    override val specType: SpecType
+    override val specType: SpecType,
+    override val specId: UUID,
 ) : ContractTest {
     init {
         val exampleRow = scenario.examples.flatMap { it.rows }.firstOrNull { it.name == message }
