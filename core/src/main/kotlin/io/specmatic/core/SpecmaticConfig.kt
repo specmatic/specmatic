@@ -57,6 +57,7 @@ import io.specmatic.stub.isSameBaseIgnoringHost
 import io.specmatic.test.TestResultRecord.Companion.CONTRACT_TEST_TEST_TYPE
 import java.io.File
 import java.net.URI
+import java.nio.file.Path
 
 private const val excludedEndpointsWarning =
     "WARNING: excludedEndpoints is not supported in Specmatic config v2. . Refer to https://specmatic.io/documentation/configuration.html#report-configuration to see how to exclude endpoints."
@@ -238,7 +239,8 @@ data class SpecmaticConfig(
     private val defaultPatternValues: Map<String, Any> = emptyMap(),
     private val matchBranch: Boolean? = null,
     private val version: SpecmaticConfigVersion? = null,
-    private val disableTelemetry: Boolean? = null
+    private val disableTelemetry: Boolean? = null,
+    private val licensePath: Path? = null,
 ) {
     companion object {
         fun getReport(specmaticConfig: SpecmaticConfig): ReportConfigurationDetails? {
@@ -785,6 +787,11 @@ data class SpecmaticConfig(
     @JsonIgnore
     private fun String.canonicalPath(relativeTo: File): String {
         return relativeTo.parentFile?.resolve(this)?.canonicalPath ?: File(this).canonicalPath
+    }
+
+    @JsonIgnore
+    fun getLicensePath(): Path? {
+        return licensePath
     }
 }
 

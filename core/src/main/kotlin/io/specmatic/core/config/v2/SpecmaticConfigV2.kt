@@ -17,6 +17,7 @@ import io.specmatic.core.config.SpecmaticVersionedConfigLoader
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.Flags.Companion.getStringValue
+import java.nio.file.Path
 
 data class SpecmaticConfigV2(
     val version: SpecmaticConfigVersion,
@@ -45,6 +46,8 @@ data class SpecmaticConfigV2(
     val defaultPatternValues: Map<String, Any> = emptyMap(),
     @field:JsonAlias("disable_telemetry")
     val disableTelemetry: Boolean? = null,
+    @field:JsonAlias("license_path")
+    val licensePath: Path? = null,
 ) : SpecmaticVersionedConfig {
     override fun transform(): SpecmaticConfig {
         return SpecmaticConfig(
@@ -68,7 +71,8 @@ data class SpecmaticConfigV2(
             attributeSelectionPattern = this.attributeSelectionPattern,
             allPatternsMandatory = this.allPatternsMandatory,
             defaultPatternValues = this.defaultPatternValues,
-            disableTelemetry = this.disableTelemetry
+            disableTelemetry = this.disableTelemetry,
+            licensePath = this.licensePath,
         )
     }
 
@@ -98,7 +102,9 @@ data class SpecmaticConfigV2(
                 additionalExampleParamsFilePath = config.getAdditionalExampleParamsFilePath(),
                 attributeSelectionPattern = getAttributeSelectionConfigOrNull(config),
                 allPatternsMandatory = getAllPatternsMandatory(config),
-                defaultPatternValues = config.getDefaultPatternValues()
+                defaultPatternValues = config.getDefaultPatternValues(),
+                disableTelemetry = config.isTelemetryDisabled(),
+                licensePath = config.getLicensePath(),
             )
         }
     }
