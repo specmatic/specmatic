@@ -1840,6 +1840,7 @@ class OpenApiSpecification(
     private fun ensureAllObjectPatternsHaveAdditionalProperties(patterns: List<Pattern>): List<Pattern> {
         val resolver = Resolver(newPatterns = this@OpenApiSpecification.patterns)
         return patterns.map { pattern ->
+            if (pattern is DeferredPattern && !resolver.hasPattern(pattern.pattern)) return@map pattern
             if (pattern !is PossibleJsonObjectPatternContainer) return@map pattern
             pattern.ensureAdditionalProperties(resolver)
         }

@@ -11637,6 +11637,89 @@ paths:
     }
 
     @Test
+    fun `openapi 3_1 recursive anyOf refs should not report missing schema`() {
+        val spec =
+            """
+            openapi: 3.1.0
+            info:
+              title: AnyOf + Ref Example API
+              version: 1.0.0
+            paths:
+              /items:
+                post:
+                  summary: Create an item that can be one of multiple shapes
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          anyOf:
+                            - ${"$"}ref: '#/components/schemas/Book'
+                            - ${"$"}ref: '#/components/schemas/Movie'
+                  responses:
+                    '201':
+                      description: Item created
+                      content:
+                        application/json:
+                          schema:
+                            ${"$"}ref: '#/components/schemas/ItemResponse'
+            components:
+              schemas:
+                Book:
+                  type: object
+                  required:
+                    - type
+                    - title
+                    - author
+                  properties:
+                    type:
+                      const: book
+                    title:
+                      type: string
+                    author:
+                      type: string
+                    pages:
+                      type: integer
+                      minimum: 1
+                    relatedItem:
+                      description: Reference to another item, creating a cycle
+                      anyOf:
+                        - ${"$"}ref: '#/components/schemas/ItemResponse'
+                        - type: "null"
+                Movie:
+                  type: object
+                  required:
+                    - type
+                    - title
+                    - director
+                  properties:
+                    type:
+                      const: movie
+                    title:
+                      type: string
+                    director:
+                      type: string
+                    durationMinutes:
+                      type: integer
+                      minimum: 1
+                ItemResponse:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    item:
+                      anyOf:
+                        - ${"$"}ref: '#/components/schemas/Book'
+                        - ${"$"}ref: '#/components/schemas/Movie'
+            """.trimIndent()
+
+        val (output, _) = captureStandardOutput { OpenApiSpecification.fromYAML(spec, "spec.yaml").toFeature() }
+
+        assertThat(output).doesNotContain("Type (ItemResponse) does not exist")
+        assertThat(output).doesNotContain("Failed to convert schema to internal representation")
+    }
+
+    @Test
     fun `parser errors should be printed as a WARNING statement on the console`() {
         val yaml =
             """
