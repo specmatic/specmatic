@@ -69,7 +69,9 @@ import io.specmatic.core.utilities.GitRepo
 import io.specmatic.core.utilities.LocalFileSystemSource
 import io.specmatic.core.utilities.WebSource
 import io.specmatic.core.utilities.exceptionCauseMessage
+import io.specmatic.core.utilities.URIValidationResult
 import io.specmatic.core.utilities.readEnvVarOrProperty
+import io.specmatic.core.utilities.validateTestOrStubUri
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
@@ -88,6 +90,14 @@ private const val CUSTOM_IMPLICIT_STUB_BASE_PROPERTY = "customImplicitStubBase"
 private const val TEST_ENDPOINTS_API = "endpointsAPI"
 private const val TEST_FILTER_ENV_VAR = "filter"
 private const val TEST_FILTER_PROPERTY = "filter"
+private const val TEST_BASE_URL_ENV_VAR = "testBaseURL"
+private const val TEST_BASE_URL_PROPERTY = "testBaseURL"
+private const val TEST_HOST_ENV_VAR = "host"
+private const val TEST_HOST_PROPERTY = "host"
+private const val TEST_PORT_ENV_VAR = "port"
+private const val TEST_PORT_PROPERTY = "port"
+private const val TEST_PROTOCOL_ENV_VAR = "protocol"
+private const val TEST_PROTOCOL_PROPERTY = "protocol"
 private const val TEST_FILTER_NAME_ENV_VAR = "FILTER_NAME"
 private const val TEST_FILTER_NAME_PROPERTY = "filterName"
 private const val TEST_FILTER_NOT_NAME_ENV_VAR = "FILTER_NOT_NAME"
@@ -742,6 +752,46 @@ data class SpecmaticConfig(
     }
 
     @JsonIgnore
+    fun getTestBaseUrl(): String? {
+        val baseUrl = getExplicitTestBaseUrl()
+        if (baseUrl != null) return baseUrl
+
+        val rawHost = readEnvVarOrProperty(TEST_HOST_ENV_VAR, TEST_HOST_PROPERTY)
+        val port = readEnvVarOrProperty(TEST_PORT_ENV_VAR, TEST_PORT_PROPERTY)
+        if (rawHost.isNullOrBlank() || port.isNullOrBlank()) return null
+
+        val host = if (rawHost.startsWith("http")) {
+            URI(rawHost).host ?: return null
+        } else {
+            rawHost
+        }
+
+        val protocol = readEnvVarOrProperty(TEST_PROTOCOL_ENV_VAR, TEST_PROTOCOL_PROPERTY) ?: "http"
+        val constructedBaseUrl = "$protocol://$host:$port"
+        return if (validateTestOrStubUri(constructedBaseUrl) == URIValidationResult.Success) {
+            constructedBaseUrl
+        } else {
+            null
+        }
+    }
+
+    @JsonIgnore
+    fun getCoverageReportBaseUrl(): String? {
+        val baseUrl = getExplicitTestBaseUrl()
+        if (baseUrl != null) return baseUrl
+
+        val host = readEnvVarOrProperty(TEST_HOST_ENV_VAR, TEST_HOST_PROPERTY).orEmpty()
+        val port = readEnvVarOrProperty(TEST_PORT_ENV_VAR, TEST_PORT_PROPERTY).orEmpty()
+        return if (host.isNotBlank() && port.isNotBlank()) "$host:$port" else null
+    }
+
+    @JsonIgnore
+    private fun getExplicitTestBaseUrl(): String? {
+        val configValue = if (getVersion() == VERSION_2) test?.baseUrl else null
+        return configValue ?: readEnvVarOrProperty(TEST_BASE_URL_ENV_VAR, TEST_BASE_URL_PROPERTY)
+    }
+
+    @JsonIgnore
     fun getTestSwaggerUrl(): String? {
         return getTestConfiguration(this)?.swaggerUrl
     }
@@ -1166,6 +1216,7 @@ data class TestConfiguration(
     val swaggerUrl: String? = null,
     val actuatorUrl: String? = null,
     val filter: String? = null,
+    val baseUrl: String? = null,
     val filterName: String? = null,
     val filterNotName: String? = null,
     val overlayFilePath: String? = null,

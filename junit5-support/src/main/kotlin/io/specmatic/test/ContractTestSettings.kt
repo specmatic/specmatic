@@ -115,8 +115,8 @@ data class ContractTestSettings(
         configFile = contractTestSettings.get()?.configFile ?: getConfigFilePath(),
         strictMode = contractTestSettings.get()?.strictMode ?: SpecmaticConfig().getTestStrictMode(),
         lenientMode = contractTestSettings.get()?.lenientMode ?: SpecmaticConfig().getTestLenientMode() ?: false,
-        testBaseURL = contractTestSettings.get()?.testBaseURL ?: Flags.getStringValue(SpecmaticJUnitSupport.TEST_BASE_URL),
-        contractPaths = contractTestSettings.get()?.contractPaths ?: Flags.getStringValue(SpecmaticJUnitSupport.CONTRACT_PATHS),
+        testBaseURL = contractTestSettings.get()?.testBaseURL ?: specmaticConfig.getTestBaseUrl(),
+        contractPaths = contractTestSettings.get()?.contractPaths,
         timeoutInMilliSeconds = contractTestSettings.get()?.timeoutInMilliSeconds,
         filter = contractTestSettings.get()?.filter ?: specmaticConfig.getTestFilter(),
         otherArguments = DeprecatedArguments(

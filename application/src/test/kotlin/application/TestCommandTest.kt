@@ -10,7 +10,6 @@ import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.newXMLBuilder
 import io.specmatic.test.ContractTestSettings
 import io.specmatic.test.SpecmaticJUnitSupport
-import io.specmatic.test.SpecmaticJUnitSupport.Companion.CONTRACT_PATHS
 import io.specmatic.test.listeners.ContractExecutionListener
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.fail
@@ -42,7 +41,6 @@ internal class TestCommandTest {
     fun `clean up test command`() {
         testCommand.contractPaths = arrayListOf()
         testCommand.junitReportDirName = null
-        System.clearProperty(CONTRACT_PATHS)
     }
 
     @Test
@@ -52,7 +50,6 @@ internal class TestCommandTest {
         CommandLine(testCommand, factory).execute()
 
         verify(exactly = 0) { specmaticConfig.contractTestPaths() }
-        assertThat(System.getProperty(CONTRACT_PATHS)).isNull()
     }
 
     @Test

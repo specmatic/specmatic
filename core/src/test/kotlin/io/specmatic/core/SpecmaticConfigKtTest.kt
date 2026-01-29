@@ -317,6 +317,67 @@ internal class SpecmaticConfigKtTest {
         assertThat(config.getPrettyPrint()).isTrue()
     }
 
+    @Test
+    fun `should prefer v2 test base url from config over system properties`() {
+        val config = SpecmaticConfig(
+            version = SpecmaticConfigVersion.VERSION_2,
+            test = TestConfiguration(baseUrl = "http://config-base-url")
+        )
+        try {
+            System.setProperty("testBaseURL", "http://property-base-url")
+            System.setProperty("host", "property-host")
+            System.setProperty("port", "1234")
+
+            assertThat(config.getTestBaseUrl()).isEqualTo("http://config-base-url")
+        } finally {
+            System.clearProperty("testBaseURL")
+            System.clearProperty("host")
+            System.clearProperty("port")
+        }
+    }
+
+    @Test
+    fun `should use test base url from system properties when config is missing`() {
+        val config = SpecmaticConfig(version = SpecmaticConfigVersion.VERSION_2, test = TestConfiguration())
+        try {
+            System.setProperty("testBaseURL", "http://property-base-url")
+
+            assertThat(config.getTestBaseUrl()).isEqualTo("http://property-base-url")
+        } finally {
+            System.clearProperty("testBaseURL")
+        }
+    }
+
+    @Test
+    fun `should construct test base url from host and port when properties are set`() {
+        val config = SpecmaticConfig(version = SpecmaticConfigVersion.VERSION_2, test = TestConfiguration())
+        try {
+            System.setProperty("host", "property-host")
+            System.setProperty("port", "1234")
+
+            assertThat(config.getTestBaseUrl()).isEqualTo("http://property-host:1234")
+        } finally {
+            System.clearProperty("host")
+            System.clearProperty("port")
+        }
+    }
+
+    @Test
+    fun `should use protocol when constructing test base url from properties`() {
+        val config = SpecmaticConfig(version = SpecmaticConfigVersion.VERSION_2, test = TestConfiguration())
+        try {
+            System.setProperty("host", "property-host")
+            System.setProperty("port", "1234")
+            System.setProperty("protocol", "https")
+
+            assertThat(config.getTestBaseUrl()).isEqualTo("https://property-host:1234")
+        } finally {
+            System.clearProperty("host")
+            System.clearProperty("port")
+            System.clearProperty("protocol")
+        }
+    }
+
     @ParameterizedTest
     @MethodSource("testFilterPropertyCases")
     fun `should prefer v2 test config over system properties for test filter fields`(case: TestFilterPropertyCase) {
