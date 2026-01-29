@@ -49,7 +49,7 @@ class BackwardCompatibilityCheckBaseCommandTest {
             }
         }
 
-        assertThat(cmd.repoDir()).isEqualTo(tempDir.resolve("CLI").toString())
+        assertThat(cmd.repoDir()).isEqualTo(tempDir.resolve("CLI").canonicalPath.toString())
         assertThat(cmd.baseBranch()).isEqualTo("feature/foo")
         assertThat(cmd.targetPath()).isEqualTo("apis")
         assertThat(cmd.strictMode()).isTrue()
@@ -95,7 +95,7 @@ class BackwardCompatibilityCheckBaseCommandTest {
             TestBackwardCompatibilityCommand().apply { targetPath = "from-cli" }
         }
 
-        assertThat(cmd.repoDir()).isEqualTo(repoDirFromConfig.toString())
+        assertThat(cmd.repoDir()).isEqualTo(repoDirFromConfig.canonicalPath.toString())
         assertThat(cmd.baseBranch()).isEqualTo("origin/main")
         assertThat(cmd.targetPath()).isEqualTo("from-cli")
         assertThat(cmd.strictMode()).isTrue()
