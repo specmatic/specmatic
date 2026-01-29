@@ -61,7 +61,7 @@ class CertInfoTest {
         val keyData = certInfo.getHttpsCert("-dir")!!
 
         assertThat(keyData.keyStore).isNotNull
-        assertThat(keyData.keyStorePassword).isEqualTo("dir-pass")
+        assertThat(keyData.keyPassword).isEqualTo("dir-pass")
         assertThat(keyData.keyAlias).isEqualTo("dir-alias")
     }
 
@@ -97,8 +97,8 @@ class CertInfoTest {
         val keystoreFile = tempDir.resolve("base.jks")
         createEmptyKeyStore(keystoreFile, "config-pass")
 
-        val config = HttpsConfiguration(keyStore = KeyStoreConfiguration.FileBasedConfig(file = keystoreFile, password = "config-pass", alias = null))
-        val cliOpts = HttpsConfiguration.Companion.HttpsFromOpts(keyStoreFile = keystoreFile.canonicalPath, keyStoreAlias = "cli-alias")
+        val config = HttpsConfiguration(keyStore = KeyStoreConfiguration.FileBasedConfig(file = keystoreFile, password = "pass", alias = null))
+        val cliOpts = HttpsConfiguration.Companion.HttpsFromOpts(keyStoreAlias = "cli-alias", keyStorePassword = "config-pass")
 
         val certInfo = CertInfo(cliOpts, config)
         val keyData = certInfo.getHttpsCert("-x")!!

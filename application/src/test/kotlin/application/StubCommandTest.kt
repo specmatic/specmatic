@@ -342,7 +342,8 @@ internal class StubCommandTest {
                 "--host=cliHost",
                 "--port=9999",
                 "--strict",
-                "--httpsKeyStore=/cli/keystore.jks"
+                "--httpsKeyStore=${keystoreFile.canonicalPath}",
+                "--httpsKeyStorePassword=cli-pass"
             )
         }
 
@@ -371,7 +372,6 @@ internal class StubCommandTest {
           gracefulRestartTimeoutInMilliseconds: 1500
           https:
             keyStore:
-              password: pass
               file: ${keystoreFile.canonicalPath}
         """.trimIndent())
 
@@ -402,7 +402,8 @@ internal class StubCommandTest {
                 "--host=cliHost",
                 "--port=9999",
                 "--strict",
-                "--httpsKeyStore=/cli/keystore.jks",
+                "--httpsKeyStore=${keystoreFile.canonicalPath}",
+                "--httpsKeyStorePassword=pass",
                 "--passThroughTargetBase=http://passthrough"
             )
         }
@@ -497,9 +498,9 @@ internal class StubCommandTest {
         version: 2
         stub:
           https:
+            keyStorePassword: pass
             keyStore:
               file: ${keystoreFile.canonicalPath}
-              password: pass
         """.trimIndent())
 
         every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
@@ -535,7 +536,7 @@ internal class StubCommandTest {
         val timeoutSlot = slot<Long>()
 
         val keystoreFile = tempDir.resolve("config.jks")
-        createEmptyKeyStore(keystoreFile, "pass")
+        createEmptyKeyStore(keystoreFile, "key-pass")
         val configFile = writeSpecmaticYaml(tempDir, """
         version: 2
         stub:
@@ -569,7 +570,7 @@ internal class StubCommandTest {
         } returns mockk { every { close() } returns Unit }
 
         Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
-            CommandLine(stubCommand).execute("--host=cliHost", "--strict")
+            CommandLine(stubCommand).execute("--host=cliHost", "--strict", "--httpsKeyStorePassword=key-pass")
         }
 
         assertThat(hostSlot.captured).isEqualTo("cliHost")

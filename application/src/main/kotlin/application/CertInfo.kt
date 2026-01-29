@@ -22,10 +22,10 @@ data class CertInfo(val fromCli: HttpsConfiguration.Companion.HttpsFromOpts, val
             )
 
             effectiveConfig.keyStoreDir() != null -> createKeyStore(
-                effectiveConfig.keyStoreDir().orEmpty(),
-                effectiveConfig.keyStorePasswordOrDefault(),
-                effectiveConfig.keyStoreAliasOrDefault(aliasSuffix),
-                effectiveConfig.keyPasswordOrDefault()
+                keyStoreDirPath = effectiveConfig.keyStoreDir().orEmpty(),
+                keyStorePassword = effectiveConfig.keyStorePasswordOrDefault(),
+                keyAlias = effectiveConfig.keyStoreAliasOrDefault(aliasSuffix),
+                keyPassword = effectiveConfig.keyPasswordOrDefault()
             )
 
             else -> null

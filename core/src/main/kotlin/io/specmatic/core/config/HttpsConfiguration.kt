@@ -30,7 +30,8 @@ sealed interface KeyStoreConfiguration {
     ) : KeyStoreConfiguration {
         override fun overrideWith(other: KeyStoreConfiguration?): KeyStoreConfiguration {
             return when (other) {
-                is FileBasedConfig -> copy(password = other.password ?: password, alias = other.alias ?: alias)
+                is FileBasedConfig -> copy(file = other.file, password = other.password ?: password, alias = other.alias ?: alias)
+                is PartialConfig -> copy(password = other.password ?: password, alias = other.alias ?: alias)
                 null -> this
                 else -> other
             }
@@ -44,9 +45,21 @@ sealed interface KeyStoreConfiguration {
     ) : KeyStoreConfiguration {
         override fun overrideWith(other: KeyStoreConfiguration?): KeyStoreConfiguration {
             return when (other) {
-                is DirectoryBasedConfig -> copy(password = other.password ?: password, alias = other.alias ?: alias)
+                is DirectoryBasedConfig -> copy(directory = other.directory, password = other.password ?: password, alias = other.alias ?: alias)
+                is PartialConfig -> copy(password = other.password ?: password, alias = other.alias ?: alias)
                 null -> this
                 else -> other
+            }
+        }
+    }
+
+    data class PartialConfig(override val password: String? = null, override val alias: String? = null): KeyStoreConfiguration {
+        override fun overrideWith(other: KeyStoreConfiguration?): KeyStoreConfiguration {
+            return when (other) {
+                is FileBasedConfig -> other.copy(password = other.password ?: password, alias = other.alias ?: alias)
+                is DirectoryBasedConfig -> other.copy(password = other.password ?: password, alias = other.alias ?: alias)
+                is PartialConfig -> copy(password = other.password ?: password, alias = other.alias ?: alias)
+                null -> this
             }
         }
     }
@@ -82,20 +95,23 @@ sealed interface KeyStoreConfiguration {
     }
 }
 
-data class HttpsConfiguration(private val keyStore: KeyStoreConfiguration? = null, private val keyPassword: String? = null) {
+data class HttpsConfiguration(private val keyStore: KeyStoreConfiguration? = null, private val keyStorePassword: String? = null) {
     fun keyStoreFile(): String? = keyStore?.getFilePath()
 
     fun keyStoreDir(): String? = keyStore?.getDirectoryPath()
 
-    fun keyStorePasswordOrDefault(): String = keyStore?.password ?: "forgotten"
+    fun keyStorePasswordOrDefault(): String = keyStorePassword ?: "forgotten"
 
     fun keyStoreAliasOrDefault(defaultSuffix: String): String = keyStore?.alias ?: "${APPLICATION_NAME_LOWER_CASE}$defaultSuffix"
 
-    fun keyPasswordOrDefault(): String = keyPassword ?: "forgotten"
+    fun keyPasswordOrDefault(): String = keyStore?.password ?: "forgotten"
 
     fun overrideWith(other: HttpsConfiguration?): HttpsConfiguration {
         if (other == null) return this
-        return this.copy(keyStore = this.keyStore.nonNullElse(other.keyStore, KeyStoreConfiguration::overrideWith))
+        return this.copy(
+            keyStorePassword = this.keyStorePassword ?: other.keyStorePassword,
+            keyStore = this.keyStore.nonNullElse(other.keyStore, KeyStoreConfiguration::overrideWith),
+        )
     }
 
     companion object {
@@ -111,11 +127,11 @@ data class HttpsConfiguration(private val keyStore: KeyStoreConfiguration? = nul
 
         fun from(opts: HttpsFromOpts): HttpsConfiguration {
             return HttpsConfiguration(
-                keyPassword = opts.keyPassword,
+                keyStorePassword = opts.keyStorePassword,
                 keyStore = when {
-                    opts.keyStoreFile != null -> KeyStoreConfiguration.FileBasedConfig(file = File(opts.keyStoreFile), password = opts.keyStorePassword, alias = opts.keyStoreAlias)
-                    opts.keyStoreDir != null -> KeyStoreConfiguration.DirectoryBasedConfig(directory = File(opts.keyStoreDir), password = opts.keyStorePassword, alias = opts.keyStoreAlias)
-                    else -> null
+                    opts.keyStoreFile != null -> KeyStoreConfiguration.FileBasedConfig(file = File(opts.keyStoreFile), password = opts.keyPassword, alias = opts.keyStoreAlias)
+                    opts.keyStoreDir != null -> KeyStoreConfiguration.DirectoryBasedConfig(directory = File(opts.keyStoreDir), password = opts.keyPassword, alias = opts.keyStoreAlias)
+                    else -> KeyStoreConfiguration.PartialConfig(password = opts.keyPassword, alias = opts.keyStoreAlias)
                 },
             )
         }
