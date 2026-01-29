@@ -86,6 +86,8 @@ private const val TESTS_DIRECTORY_PROPERTY = "specmaticTestsDirectory"
 private const val CUSTOM_IMPLICIT_STUB_BASE_ENV_VAR = "SPECMATIC_CUSTOM_IMPLICIT_STUB_BASE"
 private const val CUSTOM_IMPLICIT_STUB_BASE_PROPERTY = "customImplicitStubBase"
 private const val TEST_ENDPOINTS_API = "endpointsAPI"
+private const val TEST_FILTER_ENV_VAR = "filter"
+private const val TEST_FILTER_PROPERTY = "filter"
 
 const val APPLICATION_NAME = "Specmatic"
 const val APPLICATION_NAME_LOWER_CASE = "specmatic"
@@ -712,11 +714,17 @@ data class SpecmaticConfig(
     @JsonIgnore
     fun getTestFilter(): String? {
         return getTestConfiguration(this)?.filter
+            ?: readEnvVarOrProperty(TEST_FILTER_ENV_VAR, TEST_FILTER_PROPERTY)
     }
 
     @JsonIgnore
     fun getTestSwaggerUrl(): String? {
         return getTestConfiguration(this)?.swaggerUrl
+    }
+
+    @JsonIgnore
+    fun getTestJunitReportDir(): String? {
+        return if (getVersion() == VERSION_2) test?.junitReportDir else null
     }
 
     @JsonIgnore
@@ -1134,6 +1142,7 @@ data class TestConfiguration(
     val swaggerUrl: String? = null,
     val actuatorUrl: String? = null,
     val filter: String? = null,
+    val junitReportDir: String? = null,
 )
 
 enum class ResiliencyTestSuite {

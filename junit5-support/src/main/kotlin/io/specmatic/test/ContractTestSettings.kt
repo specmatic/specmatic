@@ -5,7 +5,6 @@ import io.specmatic.core.SpecmaticConfig.Companion.orDefault
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.loadSpecmaticConfigOrNull
 import io.specmatic.core.utilities.Flags
-import io.specmatic.core.utilities.readEnvVarOrProperty
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.FILTER_NAME_ENVIRONMENT_VARIABLE
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.FILTER_NAME_PROPERTY
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.FILTER_NOT_NAME_ENVIRONMENT_VARIABLE
@@ -124,7 +123,7 @@ data class ContractTestSettings(
         testBaseURL = contractTestSettings.get()?.testBaseURL ?: Flags.getStringValue(SpecmaticJUnitSupport.TEST_BASE_URL),
         contractPaths = contractTestSettings.get()?.contractPaths ?: Flags.getStringValue(SpecmaticJUnitSupport.CONTRACT_PATHS),
         timeoutInMilliSeconds = contractTestSettings.get()?.timeoutInMilliSeconds,
-        filter = contractTestSettings.get()?.filter ?: readEnvVarOrProperty(SpecmaticJUnitSupport.FILTER, SpecmaticJUnitSupport.FILTER,).orEmpty(),
+        filter = contractTestSettings.get()?.filter ?: specmaticConfig.getTestFilter(),
         otherArguments = DeprecatedArguments(
             host = contractTestSettings.get()?.otherArguments?.host ?: Flags.getStringValue(HOST),
             port = contractTestSettings.get()?.otherArguments?.port ?: Flags.getStringValue(PORT),

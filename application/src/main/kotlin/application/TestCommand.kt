@@ -145,21 +145,21 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
                 .build()
 
         junitLauncher.discover(request)
-        junitReportDirName?.let { dirName ->
+        resolvedJunitReportDir()?.let { dirName ->
             val reportListener = LegacyXmlReportGeneratingListener(Paths.get(dirName), PrintWriter(System.out, true))
             junitLauncher.registerTestExecutionListeners(reportListener)
         }
 
         junitLauncher.execute(request)
-        junitReportDirName?.let {
-            val reportDirectory = File(it)
+        resolvedJunitReportDir()?.let { reportDir ->
+            val reportDirectory = File(reportDir)
             val reportFile = reportDirectory.resolve("TEST-junit-jupiter.xml")
 
             if(reportFile.isFile) {
                 val updatedJUnitXML = updateNamesInJUnitXML(reportFile.readText())
                 reportFile.writeText(updatedJUnitXML)
             } else {
-                throw ContractException("Was expecting a JUnit report file called TEST-junit-jupiter.xml inside $junitReportDirName but could not find it.")
+                throw ContractException("Was expecting a JUnit report file called TEST-junit-jupiter.xml inside $reportDir but could not find it.")
             }
         }
 
@@ -231,12 +231,16 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             testBaseURL = testBaseURL,
             configFile = configFileName,
             otherArguments = otherArguments,
-            reportBaseDirectory = junitReportDirName,
+            reportBaseDirectory = resolvedJunitReportDir(),
             contractPaths = contractPaths.joinToString(separator = ","),
             timeoutInMilliSeconds = timeoutInMs ?: timeout?.times(1000),
         )
 
         SpecmaticJUnitSupport.settingsStaging.set(settings)
+    }
+
+    private fun resolvedJunitReportDir(): String? {
+        return junitReportDirName ?: specmaticConfig.getTestJunitReportDir()
     }
 }
 

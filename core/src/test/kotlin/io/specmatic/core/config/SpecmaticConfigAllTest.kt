@@ -1143,6 +1143,77 @@ internal class SpecmaticConfigAllTest {
     }
 
     @Test
+    fun `should deserialize junit report dir from v2 test configuration`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml")
+        val configYaml = """
+            version: 2
+            test:
+                junitReportDir: build/junit
+        """.trimIndent()
+        configFile.writeText(configYaml)
+
+        val config = configFile.toSpecmaticConfig()
+
+        assertThat(config.getTestJunitReportDir()).isEqualTo("build/junit")
+    }
+
+    @Test
+    fun `should ignore junit report dir in v1 config`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml")
+        val configYaml = """
+            test:
+                junitReportDir: build/junit
+        """.trimIndent()
+        configFile.writeText(configYaml)
+
+        val config = configFile.toSpecmaticConfig()
+
+        assertThat(config.getTestJunitReportDir()).isNull()
+    }
+
+    @Test
+    fun `should use config test filter over system property`(@TempDir tempDir: File) {
+        System.setProperty("filter", "status==200")
+
+        try {
+            val configFile = tempDir.resolve("specmatic.yaml")
+            val configYaml = """
+                version: 2
+                test:
+                    filter: status==400
+            """.trimIndent()
+            configFile.writeText(configYaml)
+
+            val config = configFile.toSpecmaticConfig()
+
+            assertThat(config.getTestFilter()).isEqualTo("status==400")
+        } finally {
+            System.clearProperty("filter")
+        }
+    }
+
+    @Test
+    fun `should fall back to system property when test filter is missing`(@TempDir tempDir: File) {
+        System.setProperty("filter", "status==200")
+
+        try {
+            val configFile = tempDir.resolve("specmatic.yaml")
+            val configYaml = """
+                version: 2
+                test:
+                    strictMode: true
+            """.trimIndent()
+            configFile.writeText(configYaml)
+
+            val config = configFile.toSpecmaticConfig()
+
+            assertThat(config.getTestFilter()).isEqualTo("status==200")
+        } finally {
+            System.clearProperty("filter")
+        }
+    }
+
+    @Test
     fun `should deserialize stub configuration properties successfully`(@TempDir tempDir: File) {
         val configFile = tempDir.resolve("specmatic.yaml")
         val configYaml = """
