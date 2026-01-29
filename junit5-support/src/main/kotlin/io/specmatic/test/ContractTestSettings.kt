@@ -5,12 +5,7 @@ import io.specmatic.core.SpecmaticConfig.Companion.orDefault
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.loadSpecmaticConfigOrNull
 import io.specmatic.core.utilities.Flags
-import io.specmatic.test.SpecmaticJUnitSupport.Companion.FILTER_NAME_ENVIRONMENT_VARIABLE
-import io.specmatic.test.SpecmaticJUnitSupport.Companion.FILTER_NAME_PROPERTY
-import io.specmatic.test.SpecmaticJUnitSupport.Companion.FILTER_NOT_NAME_ENVIRONMENT_VARIABLE
-import io.specmatic.test.SpecmaticJUnitSupport.Companion.FILTER_NOT_NAME_PROPERTY
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.HOST
-import io.specmatic.test.SpecmaticJUnitSupport.Companion.OVERLAY_FILE_PATH
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.PORT
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.PROTOCOL
 import io.specmatic.test.reports.TestReportListener
@@ -134,9 +129,12 @@ data class ContractTestSettings(
             inlineSuggestions = contractTestSettings.get()?.otherArguments?.inlineSuggestions,
             variablesFileName = contractTestSettings.get()?.otherArguments?.variablesFileName,
             exampleDirectories = contractTestSettings.get()?.otherArguments?.exampleDirectories ?: specmaticConfig.getExamples(),
-            filterName = contractTestSettings.get()?.otherArguments?.filterName ?: Flags.getStringValue(FILTER_NAME_PROPERTY) ?: System.getenv(FILTER_NAME_ENVIRONMENT_VARIABLE),
-            filterNotName = contractTestSettings.get()?.otherArguments?.filterNotName ?: Flags.getStringValue(FILTER_NOT_NAME_PROPERTY) ?: System.getenv(FILTER_NOT_NAME_ENVIRONMENT_VARIABLE),
-            overlayFilePath = contractTestSettings.get()?.otherArguments?.overlayFilePath ?: (Flags.getStringValue(OVERLAY_FILE_PATH) ?: System.getenv(OVERLAY_FILE_PATH))?.let(::File),
+            filterName = contractTestSettings.get()?.otherArguments?.filterName
+                ?: specmaticConfig.getTestFilterName(),
+            filterNotName = contractTestSettings.get()?.otherArguments?.filterNotName
+                ?: specmaticConfig.getTestFilterNotName(),
+            overlayFilePath = contractTestSettings.get()?.otherArguments?.overlayFilePath
+                ?: specmaticConfig.getTestOverlayFilePath()?.let(::File),
         ),
     )
 }

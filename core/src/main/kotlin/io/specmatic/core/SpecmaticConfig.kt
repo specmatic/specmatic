@@ -88,6 +88,12 @@ private const val CUSTOM_IMPLICIT_STUB_BASE_PROPERTY = "customImplicitStubBase"
 private const val TEST_ENDPOINTS_API = "endpointsAPI"
 private const val TEST_FILTER_ENV_VAR = "filter"
 private const val TEST_FILTER_PROPERTY = "filter"
+private const val TEST_FILTER_NAME_ENV_VAR = "FILTER_NAME"
+private const val TEST_FILTER_NAME_PROPERTY = "filterName"
+private const val TEST_FILTER_NOT_NAME_ENV_VAR = "FILTER_NOT_NAME"
+private const val TEST_FILTER_NOT_NAME_PROPERTY = "filterNotName"
+private const val TEST_OVERLAY_FILE_PATH_ENV_VAR = "overlayFilePath"
+private const val TEST_OVERLAY_FILE_PATH_PROPERTY = "overlayFilePath"
 
 const val APPLICATION_NAME = "Specmatic"
 const val APPLICATION_NAME_LOWER_CASE = "specmatic"
@@ -718,6 +724,24 @@ data class SpecmaticConfig(
     }
 
     @JsonIgnore
+    fun getTestFilterName(): String? {
+        val configValue = if (getVersion() == VERSION_2) test?.filterName else null
+        return configValue ?: readEnvVarOrProperty(TEST_FILTER_NAME_ENV_VAR, TEST_FILTER_NAME_PROPERTY)
+    }
+
+    @JsonIgnore
+    fun getTestFilterNotName(): String? {
+        val configValue = if (getVersion() == VERSION_2) test?.filterNotName else null
+        return configValue ?: readEnvVarOrProperty(TEST_FILTER_NOT_NAME_ENV_VAR, TEST_FILTER_NOT_NAME_PROPERTY)
+    }
+
+    @JsonIgnore
+    fun getTestOverlayFilePath(): String? {
+        val configValue = if (getVersion() == VERSION_2) test?.overlayFilePath else null
+        return configValue ?: readEnvVarOrProperty(TEST_OVERLAY_FILE_PATH_ENV_VAR, TEST_OVERLAY_FILE_PATH_PROPERTY)
+    }
+
+    @JsonIgnore
     fun getTestSwaggerUrl(): String? {
         return getTestConfiguration(this)?.swaggerUrl
     }
@@ -1142,6 +1166,9 @@ data class TestConfiguration(
     val swaggerUrl: String? = null,
     val actuatorUrl: String? = null,
     val filter: String? = null,
+    val filterName: String? = null,
+    val filterNotName: String? = null,
+    val overlayFilePath: String? = null,
     val junitReportDir: String? = null,
 )
 

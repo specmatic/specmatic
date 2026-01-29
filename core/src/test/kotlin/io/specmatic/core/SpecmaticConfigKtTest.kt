@@ -317,6 +317,62 @@ internal class SpecmaticConfigKtTest {
         assertThat(config.getPrettyPrint()).isTrue()
     }
 
+    @ParameterizedTest
+    @MethodSource("testFilterPropertyCases")
+    fun `should prefer v2 test config over system properties for test filter fields`(case: TestFilterPropertyCase) {
+        val config = SpecmaticConfig(
+            version = SpecmaticConfigVersion.VERSION_2,
+            test = TestConfiguration(
+                filterName = "config-filter-name",
+                filterNotName = "config-filter-not-name",
+                overlayFilePath = "config-overlay-file-path",
+            )
+        )
+        try {
+            System.setProperty(case.propertyName, case.systemPropertyValue)
+
+            assertThat(getTestFilterField(config, case.propertyName)).isEqualTo(case.configValue)
+        } finally {
+            System.clearProperty(case.propertyName)
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("testFilterPropertyCases")
+    fun `should fall back to system properties for test filter fields when v2 config is missing`(case: TestFilterPropertyCase) {
+        val config = SpecmaticConfig(
+            version = SpecmaticConfigVersion.VERSION_2,
+            test = TestConfiguration()
+        )
+        try {
+            System.setProperty(case.propertyName, case.systemPropertyValue)
+
+            assertThat(getTestFilterField(config, case.propertyName)).isEqualTo(case.systemPropertyValue)
+        } finally {
+            System.clearProperty(case.propertyName)
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("testFilterPropertyCases")
+    fun `should fall back to system properties for test filter fields when config is v1`(case: TestFilterPropertyCase) {
+        val config = SpecmaticConfig(
+            version = SpecmaticConfigVersion.VERSION_1,
+            test = TestConfiguration(
+                filterName = "config-filter-name",
+                filterNotName = "config-filter-not-name",
+                overlayFilePath = "config-overlay-file-path",
+            )
+        )
+        try {
+            System.setProperty(case.propertyName, case.systemPropertyValue)
+
+            assertThat(getTestFilterField(config, case.propertyName)).isEqualTo(case.systemPropertyValue)
+        } finally {
+            System.clearProperty(case.propertyName)
+        }
+    }
+
     @Test
     fun `should handle null values gracefully`() {
         val config = SpecmaticConfig(
@@ -1645,5 +1701,47 @@ internal class SpecmaticConfigKtTest {
 
             return withDefaultBaseUrls.plus(withCustomBaseUrlCases).plus(baseUrlWithBasePath).plus(partialUrlWithMultipleValues).stream()
         }
+
+        @JvmStatic
+        fun testFilterPropertyCases(): Stream<Arguments> {
+            return Stream.of(
+                Arguments.of(
+                    TestFilterPropertyCase(
+                        propertyName = "filterName",
+                        configValue = "config-filter-name",
+                        systemPropertyValue = "property-filter-name"
+                    )
+                ),
+                Arguments.of(
+                    TestFilterPropertyCase(
+                        propertyName = "filterNotName",
+                        configValue = "config-filter-not-name",
+                        systemPropertyValue = "property-filter-not-name"
+                    )
+                ),
+                Arguments.of(
+                    TestFilterPropertyCase(
+                        propertyName = "overlayFilePath",
+                        configValue = "config-overlay-file-path",
+                        systemPropertyValue = "property-overlay-file-path"
+                    )
+                )
+            )
+        }
+
     }
+
+    private fun getTestFilterField(config: SpecmaticConfig, propertyName: String): String? =
+        when (propertyName) {
+            "filterName" -> config.getTestFilterName()
+            "filterNotName" -> config.getTestFilterNotName()
+            "overlayFilePath" -> config.getTestOverlayFilePath()
+            else -> error("Unknown test filter field: $propertyName")
+        }
+
+    data class TestFilterPropertyCase(
+        val propertyName: String,
+        val configValue: String,
+        val systemPropertyValue: String
+    )
 }
