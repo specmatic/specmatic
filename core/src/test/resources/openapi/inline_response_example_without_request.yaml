@@ -1,0 +1,75 @@
+openapi: 3.0.3
+info:
+  title: User Registration API
+  version: v1.0.0
+paths:
+  /user/register:
+    post:
+      operationId: userRegister
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/userRegistrationRequest'
+            examples:
+              complete_onboarding:
+                value:
+                  userId: "123e4567-e89b-12d3-a456-426614174000"
+                  timestamp: "2022-08-26T17:31:00Z"
+                  source: "Online"
+      responses:
+        '200':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/userRegistrationResponse'
+              examples:
+                success_response:
+                  summary: Successful Registration Response
+                  value:
+                    status: "success"
+                    message: "User onboarded successfully"
+                    userId: "123e4567-e89b-12d3-a456-426614174000"
+
+components:
+  schemas:
+    userRegistrationRequest:
+      type: object
+      required:
+        - userId
+        - source
+      properties:
+        userId:
+          type: string
+          format: uuid
+          description: Unique identifier for the registration user
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp of the registration request
+          example: "2022-08-26T17:31:00Z"
+        source:
+          type: string
+          description: Source system initiating the registration
+          example: "Online"
+
+    userRegistrationResponse:
+      type: object
+      description: Response from user registration operation
+      properties:
+        status:
+          type: string
+          description: Registration status
+          enum: ["success", "error", "pending", "partial_success"]
+          example: "success"
+        message:
+          type: string
+          description: Human-readable status message
+          example: "User onboarded successfully"
+        userId:
+          type: string
+          format: uuid
+          description: User identifier from the request
+          example: "123e4567-e89b-12d3-a456-426614174000"
