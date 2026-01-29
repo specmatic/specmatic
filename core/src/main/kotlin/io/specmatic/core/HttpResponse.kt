@@ -138,23 +138,6 @@ data class HttpResponse(
         return replaceString(oldBaseURL, newBaseURL)
     }
 
-    fun rewriteBaseURLs(): HttpResponse {
-        return System.getenv("SPECMATIC_BASE_URL_REWRITES")?.let { hostReplacement ->
-            val replacements =
-                hostReplacement
-                    .split(',')
-                    .map { it.trim() }
-                    .takeIf { it.isNotEmpty() } ?: return@let this
-
-            replacements.fold(this) { httpResponse, hostReplacement ->
-                val parts = hostReplacement.split("=>").map { it.trim() }
-                if (parts.size != 2) return@fold httpResponse
-                val (oldHost, newHost) = parts
-                httpResponse.replaceString(oldHost, newHost)
-            }
-        } ?: this
-    }
-
     companion object {
         val ERROR_400 = HttpResponse(400, "This request did not match any scenario.", mapOf(CONTENT_TYPE to "text/plain"))
         val OK = HttpResponse(200, emptyMap())

@@ -54,10 +54,10 @@ class TestCommand(private val junitLauncher: Launcher = LauncherFactory.create()
     @Option(names = ["--testBaseURL"], description = ["The base URL, use this instead of host and port"])
     var testBaseURL: String? = null
 
-    @Option(names = ["--suggestionsPath"], description = ["Location of the suggestions file"], defaultValue = "")
+    @Option(names = ["--suggestionsPath"], description = ["Location of the suggestions file"], defaultValue = "", hidden = true)
     lateinit var suggestionsPath: String
 
-    @Option(names = ["--suggestions"], description = ["A json value with scenario name and multiple suggestions"], defaultValue = "")
+    @Option(names = ["--suggestions"], description = ["A json value with scenario name and multiple suggestions"], defaultValue = "", hidden = true)
     var suggestions: String = ""
 
     @Option(names = ["--filter-name"], description = ["Run only tests with this value in their name"], defaultValue = "\${env:SPECMATIC_FILTER_NAME}", hidden = true)
@@ -83,7 +83,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     )
     var filter: String? = null
 
-    @Option(names = ["--env"], description = ["Environment name"])
+    @Option(names = ["--env"], description = ["Environment name"], hidden = true)
     var envName: String = ""
 
     @Option(names = ["--https"], description = ["Use https instead of the default http"], required = false)
@@ -101,7 +101,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     @Option(names = ["--config"], description = ["Configuration file name ($APPLICATION_NAME_LOWER_CASE.json by default)"])
     var configFileName: String? = null
 
-    @Option(names = ["--variables"], description = ["Variables file name ($APPLICATION_NAME_LOWER_CASE.json by default)"])
+    @Option(names = ["--variables"], description = ["Variables file name ($APPLICATION_NAME_LOWER_CASE.json by default)"], hidden = true)
     var variablesFileName: String? = null
 
     @Option(names = ["--debug"], description = ["Debug logs"])

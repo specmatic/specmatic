@@ -3,26 +3,19 @@ package io.specmatic.test
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.SpecmaticConfig.Companion.orDefault
 import io.specmatic.core.getConfigFilePath
-import io.specmatic.core.loadSpecmaticConfig
 import io.specmatic.core.loadSpecmaticConfigOrNull
 import io.specmatic.core.utilities.Flags
-import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.readEnvVarOrProperty
-import io.specmatic.test.SpecmaticJUnitSupport.Companion.ENV_NAME
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.FILTER_NAME_ENVIRONMENT_VARIABLE
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.FILTER_NAME_PROPERTY
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.FILTER_NOT_NAME_ENVIRONMENT_VARIABLE
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.FILTER_NOT_NAME_PROPERTY
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.HOST
-import io.specmatic.test.SpecmaticJUnitSupport.Companion.INLINE_SUGGESTIONS
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.OVERLAY_FILE_PATH
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.PORT
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.PROTOCOL
-import io.specmatic.test.SpecmaticJUnitSupport.Companion.SUGGESTIONS_PATH
-import io.specmatic.test.SpecmaticJUnitSupport.Companion.VARIABLES_FILE_NAME
 import io.specmatic.test.reports.TestReportListener
 import java.io.File
-import java.lang.System
 
 data class DeprecatedArguments(
     val host: String? = null,
@@ -113,7 +106,14 @@ data class ContractTestSettings(
         return specmaticConfig.withTestTimeout(timeoutInMilliSeconds)
     }
 
-    constructor(contractTestSettings: ThreadLocal<ContractTestSettings?>) : this(
+    constructor(contractTestSettings: ThreadLocal<ContractTestSettings?>) : this (
+        contractTestSettings,
+        contractTestSettings.get()?.configFile.takeIf { it != null }?.let {
+            loadSpecmaticConfigOrNull(it, explicitlySpecifiedByUser = true)
+        } ?: SpecmaticConfig()
+    )
+
+    constructor(contractTestSettings: ThreadLocal<ContractTestSettings?>, specmaticConfig: SpecmaticConfig) : this(
         generative = contractTestSettings.get()?.generative,
         reportBaseDirectory = contractTestSettings.get()?.reportBaseDirectory,
         coverageHooks = contractTestSettings.get()?.coverageHooks ?: emptyList(),
@@ -128,13 +128,13 @@ data class ContractTestSettings(
         otherArguments = DeprecatedArguments(
             host = contractTestSettings.get()?.otherArguments?.host ?: Flags.getStringValue(HOST),
             port = contractTestSettings.get()?.otherArguments?.port ?: Flags.getStringValue(PORT),
-            envName = contractTestSettings.get()?.otherArguments?.envName ?: Flags.getStringValue(ENV_NAME),
+            envName = contractTestSettings.get()?.otherArguments?.envName,
             protocol = contractTestSettings.get()?.otherArguments?.protocol ?: Flags.getStringValue(PROTOCOL),
             useCurrentBranchForCentralRepo = contractTestSettings.get()?.otherArguments?.useCurrentBranchForCentralRepo,
-            suggestionsPath = contractTestSettings.get()?.otherArguments?.suggestionsPath ?: Flags.getStringValue(SUGGESTIONS_PATH),
-            inlineSuggestions = contractTestSettings.get()?.otherArguments?.inlineSuggestions ?:Flags.getStringValue(INLINE_SUGGESTIONS),
-            variablesFileName = contractTestSettings.get()?.otherArguments?.variablesFileName ?: Flags.getStringValue(VARIABLES_FILE_NAME),
-            exampleDirectories = contractTestSettings.get()?.otherArguments?.exampleDirectories ?: Flags.getCommaSeparatedList(EXAMPLE_DIRECTORIES),
+            suggestionsPath = contractTestSettings.get()?.otherArguments?.suggestionsPath,
+            inlineSuggestions = contractTestSettings.get()?.otherArguments?.inlineSuggestions,
+            variablesFileName = contractTestSettings.get()?.otherArguments?.variablesFileName,
+            exampleDirectories = contractTestSettings.get()?.otherArguments?.exampleDirectories ?: specmaticConfig.getExamples(),
             filterName = contractTestSettings.get()?.otherArguments?.filterName ?: Flags.getStringValue(FILTER_NAME_PROPERTY) ?: System.getenv(FILTER_NAME_ENVIRONMENT_VARIABLE),
             filterNotName = contractTestSettings.get()?.otherArguments?.filterNotName ?: Flags.getStringValue(FILTER_NOT_NAME_PROPERTY) ?: System.getenv(FILTER_NOT_NAME_ENVIRONMENT_VARIABLE),
             overlayFilePath = contractTestSettings.get()?.otherArguments?.overlayFilePath ?: (Flags.getStringValue(OVERLAY_FILE_PATH) ?: System.getenv(OVERLAY_FILE_PATH))?.let(::File),

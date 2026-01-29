@@ -214,7 +214,6 @@ class Proxy(
                                         ).use { client ->
                                             client
                                                 .execute(requestToSend)
-                                                .rewriteBaseURLs()
                                                 .rewriteBaseURL(
                                                     baseURL.removeSuffix("/"),
                                                     "",

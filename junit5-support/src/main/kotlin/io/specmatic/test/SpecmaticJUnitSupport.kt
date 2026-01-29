@@ -75,22 +75,16 @@ open class SpecmaticJUnitSupport {
         val settingsStaging = ThreadLocal<ContractTestSettings?>()
 
         const val CONTRACT_PATHS = "contractPaths"
-        const val WORKING_DIRECTORY = "workingDirectory"
-        const val INLINE_SUGGESTIONS = "suggestions"
-        const val SUGGESTIONS_PATH = "suggestionsPath"
         const val HOST = "host"
         const val PORT = "port"
         const val PROTOCOL = "protocol"
         const val TEST_BASE_URL = "testBaseURL"
-        const val ENV_NAME = "environment"
-        const val VARIABLES_FILE_NAME = "variablesFileName"
         const val FILTER_NAME_PROPERTY = "filterName"
         const val FILTER_NOT_NAME_PROPERTY = "filterNotName"
         const val FILTER = "filter"
         const val FILTER_NAME_ENVIRONMENT_VARIABLE = "FILTER_NAME"
         const val FILTER_NOT_NAME_ENVIRONMENT_VARIABLE = "FILTER_NOT_NAME"
         const val OVERLAY_FILE_PATH = "overlayFilePath"
-        private const val ENDPOINTS_API = "endpointsAPI"
         private const val SWAGGER_UI_BASEURL = "swaggerUIBaseURL"
 
         val partialSuccesses: ConcurrentLinkedDeque<Result.Success> = ConcurrentLinkedDeque()
@@ -274,7 +268,6 @@ open class SpecmaticJUnitSupport {
         LicenseConfig.instance.utilization.shipDisabled = specmaticConfig.isTelemetryDisabled()
         partialSuccesses.clear()
 
-        val givenWorkingDirectory = System.getProperty(WORKING_DIRECTORY)
         val filterName: String? = settings.filterName
         val filterNotName: String? = settings.filterNotName
         val overlayFilePath: String? = settings.overlayFilePath?.canonicalPath
@@ -286,7 +279,7 @@ open class SpecmaticJUnitSupport {
             throw ContractException("$SPECMATIC_TEST_TIMEOUT should be a value of type long")
         } ?: DEFAULT_TIMEOUT_IN_MILLISECONDS
 
-        val workingDirectory = WorkingDirectory(givenWorkingDirectory ?: DEFAULT_WORKING_DIRECTORY)
+        val workingDirectory = WorkingDirectory(DEFAULT_WORKING_DIRECTORY)
         val suggestionsData = settings.inlineSuggestions.orEmpty()
         val suggestionsPath = settings.suggestionsPath.orEmpty()
         val envConfig = getEnvConfig(settings.envName)
