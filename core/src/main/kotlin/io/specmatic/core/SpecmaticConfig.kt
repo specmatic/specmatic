@@ -90,6 +90,8 @@ private const val CUSTOM_IMPLICIT_STUB_BASE_PROPERTY = "customImplicitStubBase"
 private const val TEST_ENDPOINTS_API = "endpointsAPI"
 private const val TEST_FILTER_ENV_VAR = "filter"
 private const val TEST_FILTER_PROPERTY = "filter"
+private const val TEST_SWAGGER_UI_BASEURL_ENV_VAR = "swaggerUIBaseURL"
+private const val TEST_SWAGGER_UI_BASEURL_PROPERTY = "swaggerUIBaseURL"
 private const val TEST_BASE_URL_ENV_VAR = "testBaseURL"
 private const val TEST_BASE_URL_PROPERTY = "testBaseURL"
 private const val TEST_HOST_ENV_VAR = "host"
@@ -797,6 +799,12 @@ data class SpecmaticConfig(
     }
 
     @JsonIgnore
+    fun getTestSwaggerUIBaseUrl(): String? {
+        val configValue = if (getVersion() == VERSION_2) test?.swaggerUIBaseURL else null
+        return configValue ?: readEnvVarOrProperty(TEST_SWAGGER_UI_BASEURL_ENV_VAR, TEST_SWAGGER_UI_BASEURL_PROPERTY)
+    }
+
+    @JsonIgnore
     fun getTestJunitReportDir(): String? {
         return if (getVersion() == VERSION_2) test?.junitReportDir else null
     }
@@ -1214,6 +1222,7 @@ data class TestConfiguration(
     val maxTestCount: Int? = null,
     val testsDirectory: String? = null,
     val swaggerUrl: String? = null,
+    val swaggerUIBaseURL: String? = null,
     val actuatorUrl: String? = null,
     val filter: String? = null,
     val baseUrl: String? = null,

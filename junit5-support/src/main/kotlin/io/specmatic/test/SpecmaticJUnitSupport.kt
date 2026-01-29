@@ -117,7 +117,7 @@ open class SpecmaticJUnitSupport {
 
     fun actuatorFromSwagger(testBaseURL: String, client: TestExecutor? = null): ActuatorSetupResult {
         // TODO: Deprecate and remove SWAGGER_UI_BASEURL
-        val defaultBaseURL = Flags.getStringValue(SWAGGER_UI_BASEURL) ?:  testBaseURL
+        val defaultBaseURL = specmaticConfig.getTestSwaggerUIBaseUrl() ?: testBaseURL
         val swaggerDocUrl = when {
             specmaticConfig.getTestSwaggerUrl() != null -> specmaticConfig.getTestSwaggerUrl().orEmpty()
             else -> "$defaultBaseURL/swagger/v1/swagger.yaml"

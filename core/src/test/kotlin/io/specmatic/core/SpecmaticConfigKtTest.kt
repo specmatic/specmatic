@@ -378,6 +378,21 @@ internal class SpecmaticConfigKtTest {
         }
     }
 
+    @Test
+    fun `should prefer v2 swagger UI base url from config over system properties`() {
+        val config = SpecmaticConfig(
+            version = SpecmaticConfigVersion.VERSION_2,
+            test = TestConfiguration(swaggerUIBaseURL = "http://config-swagger-ui")
+        )
+        try {
+            System.setProperty("swaggerUIBaseURL", "http://property-swagger-ui")
+
+            assertThat(config.getTestSwaggerUIBaseUrl()).isEqualTo("http://config-swagger-ui")
+        } finally {
+            System.clearProperty("swaggerUIBaseURL")
+        }
+    }
+
     @ParameterizedTest
     @MethodSource("testFilterPropertyCases")
     fun `should prefer v2 test config over system properties for test filter fields`(case: TestFilterPropertyCase) {
