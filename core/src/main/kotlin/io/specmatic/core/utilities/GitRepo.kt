@@ -1,6 +1,7 @@
 package io.specmatic.core.utilities
 
 import io.specmatic.core.APPLICATION_NAME_LOWER_CASE
+import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.Configuration
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.git.checkout
@@ -16,7 +17,8 @@ data class GitRepo(
     override val testContracts: List<ContractSourceEntry>,
     override val stubContracts: List<ContractSourceEntry>,
     override val type: String?,
-    val useCurrentBranchForCentralRepo: Boolean = false
+    val useCurrentBranchForCentralRepo: Boolean = false,
+    private val specmaticConfig: SpecmaticConfig = SpecmaticConfig()
 ) : ContractSource, GitSource {
     private val repoName = gitRepositoryURL.split("/").last().removeSuffix(".git")
     override fun pathDescriptor(path: String): String {
@@ -122,7 +124,7 @@ data class GitRepo(
     }
 
     private fun isBehind(contractsRepoDir: File): Boolean {
-        val sourceGit = getSystemGitWithAuth(contractsRepoDir.path)
+        val sourceGit = getSystemGitWithAuth(contractsRepoDir.path, specmaticConfig)
         val currentBranch = sourceGit.currentBranch()
         val upstreamBranch = sourceGit.currentRemoteBranch()
 
@@ -139,7 +141,7 @@ data class GitRepo(
     private fun cloneRepoAndCheckoutBranch(reposBaseDir: File, gitRepo: GitRepo): File {
         logger.log("Cloning $gitRepositoryURL into ${reposBaseDir.path}")
         reposBaseDir.mkdirs()
-        val repositoryDirectory = clone(reposBaseDir, gitRepo)
+        val repositoryDirectory = clone(reposBaseDir, gitRepo, specmaticConfig)
         when (branchName) {
             null -> logger.log("No branch specified, using default branch")
             else -> checkout(repositoryDirectory, branchName, useCurrentBranchForCentralRepo)

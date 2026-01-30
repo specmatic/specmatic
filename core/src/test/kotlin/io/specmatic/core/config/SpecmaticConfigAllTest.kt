@@ -1071,7 +1071,8 @@ internal class SpecmaticConfigAllTest {
                 branchName = "1.0.1",
                 testContracts = listOf("com/petstore/1.yaml").toContractSourceEntries(),
                 stubContracts = listOf("com/petstore/payment.yaml").toContractSourceEntries(),
-                type = git.name
+                type = git.name,
+                specmaticConfig = config
             ),
             LocalFileSystemSource(
                 directory = "contracts",
@@ -1100,7 +1101,8 @@ internal class SpecmaticConfigAllTest {
                 branchName = "1.0.1",
                 testContracts = listOf("com/petstore/1.yaml").toContractSourceEntries(),
                 stubContracts = listOf("com/petstore/payment.yaml").toContractSourceEntries(),
-                type = git.name
+                type = git.name,
+                specmaticConfig = config
             ),
             LocalFileSystemSource(
                 directory = "contracts",

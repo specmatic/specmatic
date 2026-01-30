@@ -3,6 +3,7 @@
 package io.specmatic.core.git
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.azure.AzureAuthCredentials
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.loadSpecmaticConfig
@@ -28,11 +29,11 @@ import java.net.Proxy
 import java.net.URL
 
 
-fun clone(workingDirectory: File, gitRepo: GitRepo): File {
+fun clone(workingDirectory: File, gitRepo: GitRepo, specmaticConfig: SpecmaticConfig): File {
     val cloneDirectory = gitRepo.directoryRelativeTo(workingDirectory)
 
     resetCloneDirectory(cloneDirectory)
-    clone(gitRepo.gitRepositoryURL, cloneDirectory)
+    clone(gitRepo.gitRepositoryURL, cloneDirectory, specmaticConfig)
 
     return cloneDirectory
 }
@@ -63,15 +64,15 @@ fun checkout(workingDirectory: File, branchName: String, useCurrentBranchForCent
     }
 }
 
-private fun clone(gitRepositoryURI: String, cloneDirectory: File) {
+private fun clone(gitRepositoryURI: String, cloneDirectory: File, specmaticConfig: SpecmaticConfig) {
     try {
-        SystemGit(cloneDirectory.parent, "-", AzureAuthCredentials).clone(gitRepositoryURI, cloneDirectory)
+        SystemGit(cloneDirectory.parent, "-", AzureAuthCredentials(specmaticConfig)).clone(gitRepositoryURI, cloneDirectory)
     } catch(exception: Exception) {
         logger.debug("Falling back to jgit after trying shallow clone")
         logger.debug(exception.localizedMessage ?: exception.message ?: "")
         logger.debug(exception.stackTraceToString())
 
-        jgitClone(gitRepositoryURI, cloneDirectory)
+        jgitClone(gitRepositoryURI, cloneDirectory, specmaticConfig)
     }
 }
 
@@ -96,7 +97,7 @@ internal class InsecureHttpConnectionFactory : HttpConnectionFactory {
     }
 }
 
-private fun jgitClone(gitRepositoryURI: String, cloneDirectory: File) {
+private fun jgitClone(gitRepositoryURI: String, cloneDirectory: File, specmaticConfig: SpecmaticConfig) {
     val preservedConnectionFactory: HttpConnectionFactory = HttpTransport.getConnectionFactory()
 
     try {
@@ -110,7 +111,7 @@ private fun jgitClone(gitRepositoryURI: String, cloneDirectory: File) {
             setDirectory(cloneDirectory)
         }
 
-        val accessTokenText = getPersonalAccessToken()
+        val accessTokenText = getPersonalAccessToken(specmaticConfig)
 
         if (accessTokenText != null) {
             val credentialsProvider: CredentialsProvider = UsernamePasswordCredentialsProvider(accessTokenText, "")
@@ -202,51 +203,8 @@ private fun readBearerFromFile(config: Value): String? {
     }
 }
 
-fun getPersonalAccessToken(): String? {
-    return getPersonalAccessTokenProperty() ?: getPersonalAccessTokenEnvVariable() ?: getPersonalAccessTokenConfig()
-}
-
-private fun getPersonalAccessTokenConfig(): String? {
-    val homeDir = File(System.getProperty("user.home"))
-    val configFile = homeDir.resolve("specmatic-azure.json")
-
-    if (configFile.exists()) {
-        val config = readConfig(configFile)
-
-        "azure-access-token".let { azureAccessTokenKey ->
-            if (config is JSONObjectValue && config.jsonObject.containsKey(azureAccessTokenKey)) {
-                return config.getString(azureAccessTokenKey).also {
-                    println("Using personal access token from home directory config")
-                }
-            }
-        }
-
-        "personal-access-token".let { azureAccessTokenKey ->
-            if (config is JSONObjectValue && config.jsonObject.containsKey(azureAccessTokenKey)) {
-                return config.getString(azureAccessTokenKey).also {
-                    println("Using personal access token from home directory config")
-                }
-            }
-        }
-    }
-
-    return null
-}
-
-private fun getPersonalAccessTokenEnvVariable(): String? {
-    val environmentVariableName = "PERSONAL_ACCESS_TOKEN"
-
-    return System.getenv(environmentVariableName)?.also {
-        println("Using personal access token from environment variable")
-    }
-}
-
-private fun getPersonalAccessTokenProperty(): String? {
-    val accessTokenVariableName = "personalAccessToken"
-
-    return System.getProperty(accessTokenVariableName)?.also {
-        println("Using personal access token from property")
-    }
+fun getPersonalAccessToken(specmaticConfig: SpecmaticConfig): String? {
+    return specmaticConfig.getAuthPersonalAccessToken()?.takeIf { it.isNotBlank() }
 }
 
 private fun readConfig(configFile: File): Value {

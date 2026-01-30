@@ -622,7 +622,15 @@ data class SpecmaticConfig(
             when (source.provider) {
                 git -> when (source.repository) {
                     null -> GitMonoRepo(testPaths, stubPaths, source.provider.toString())
-                    else -> GitRepo(source.repository, effectiveBranch, testPaths, stubPaths, source.provider.toString(), effectiveUseCurrentBranch)
+                    else -> GitRepo(
+                        source.repository,
+                        effectiveBranch,
+                        testPaths,
+                        stubPaths,
+                        source.provider.toString(),
+                        effectiveUseCurrentBranch,
+                        specmaticConfig = this
+                    )
                 }
 
                 filesystem -> LocalFileSystemSource(source.directory ?: ".", testPaths, stubPaths)
@@ -975,6 +983,25 @@ data class SpecmaticConfig(
     }
 
     @JsonIgnore
+    fun getAuthPersonalAccessToken(): String? {
+        val tokenFromConfig = auth?.personalAccessToken?.takeIf { it.isNotBlank() }
+        if (tokenFromConfig != null) return tokenFromConfig
+
+        val tokenFromEnv = System.getenv("PERSONAL_ACCESS_TOKEN")?.takeIf { it.isNotBlank() }
+        if (tokenFromEnv != null) {
+            logger.log("Using personal access token from environment variable")
+            return tokenFromEnv
+        }
+
+        val tokenFromProperty = System.getProperty("personalAccessToken")?.takeIf { it.isNotBlank() }
+        if (tokenFromProperty != null) {
+            logger.log("Using personal access token from system property")
+        }
+
+        return tokenFromProperty
+    }
+
+    @JsonIgnore
     fun getExamples(): List<String> {
         return examples ?: getStringValue(EXAMPLE_DIRECTORIES)?.split(",") ?: emptyList()
     }
@@ -1264,7 +1291,8 @@ data class ResiliencyTestsConfig(
 
 data class Auth(
     @param:JsonProperty("bearer-file") val bearerFile: String = "bearer.txt",
-    @param:JsonProperty("bearer-environment-variable") val bearerEnvironmentVariable: String? = null
+    @param:JsonProperty("bearer-environment-variable") val bearerEnvironmentVariable: String? = null,
+    @param:JsonProperty("personal-access-token") @JsonAlias("personalAccessToken") val personalAccessToken: String? = null
 )
 
 enum class PipelineProvider { azure }

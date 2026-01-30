@@ -8,6 +8,7 @@ import io.specmatic.core.Configuration.Companion.DEFAULT_HTTP_STUB_HOST
 import io.specmatic.core.Configuration.Companion.configFilePath
 import io.specmatic.core.azure.AzureAuthCredentials
 import io.specmatic.core.git.GitCommand
+import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.log.consoleDebug
 import io.specmatic.core.log.consoleLog
@@ -405,7 +406,8 @@ fun contractFilePathsFrom(
 
 fun getSystemGit(path: String): GitCommand = SystemGit(path)
 
-fun getSystemGitWithAuth(path: String): GitCommand = SystemGit(path, authCredentials = AzureAuthCredentials)
+fun getSystemGitWithAuth(path: String, specmaticConfig: SpecmaticConfig): GitCommand =
+    SystemGit(path, authCredentials = AzureAuthCredentials(specmaticConfig))
 
 class UncaughtExceptionHandler : Thread.UncaughtExceptionHandler {
     override fun uncaughtException(
