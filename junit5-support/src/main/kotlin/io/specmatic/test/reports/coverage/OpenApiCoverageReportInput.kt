@@ -86,7 +86,6 @@ class OpenApiCoverageReportInput(
         return addTestResultsForMissingEndpoints(testResultsWithNotImplementedEndpoints)
             .addTestResultsForTestsNotGeneratedBySpecmatic(filteredEndpoints)
             .identifyWipTestsAndUpdateResult()
-            .checkForInvalidTestsAndUpdateResult()
     }
 
     fun generate(): OpenAPICoverageConsoleReport {
@@ -349,24 +348,6 @@ class OpenApiCoverageReportInput(
     private fun TestResultRecord.sourceEndpointIsPresentInSpec(): Boolean {
         return allEndpoints.any {
             it.path == this.path && it.method == this.method && it.responseStatus == this.responseStatus
-        }
-    }
-
-    private fun List<TestResultRecord>.checkForInvalidTestsAndUpdateResult(): List<TestResultRecord> {
-        val invalidTestResults = this.filterNot(::isTestResultValid)
-        val updatedInvalidTestResults = invalidTestResults.map { it.copy(isValid = false) }
-
-        return this.minus(invalidTestResults.toSet()).plus(updatedInvalidTestResults)
-    }
-
-    private fun isTestResultValid(testResultRecord: TestResultRecord): Boolean {
-        val paramRegex = Regex("\\{.+}")
-        val isPathWithParams = paramRegex.find(testResultRecord.path) != null
-        if (isPathWithParams) return true
-
-        return when (testResultRecord.responseStatus) {
-            404 -> false
-            else -> true
         }
     }
 
