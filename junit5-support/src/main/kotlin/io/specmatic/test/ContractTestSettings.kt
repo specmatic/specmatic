@@ -1,8 +1,10 @@
 package io.specmatic.test
 
+import io.specmatic.core.Configuration
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.SpecmaticConfig.Companion.orDefault
 import io.specmatic.core.getConfigFilePath
+import io.specmatic.core.loadSpecmaticConfigOrDefault
 import io.specmatic.core.loadSpecmaticConfigOrNull
 import io.specmatic.core.utilities.Flags
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.HOST
@@ -102,9 +104,9 @@ data class ContractTestSettings(
 
     constructor(contractTestSettings: ThreadLocal<ContractTestSettings?>) : this (
         contractTestSettings,
-        contractTestSettings.get()?.configFile.takeIf { it != null }?.let {
+        contractTestSettings.get()?.configFile?.let {
             loadSpecmaticConfigOrNull(it, explicitlySpecifiedByUser = true)
-        } ?: SpecmaticConfig()
+        } ?: loadSpecmaticConfigOrDefault(Configuration.configFilePath),
     )
 
     constructor(contractTestSettings: ThreadLocal<ContractTestSettings?>, specmaticConfig: SpecmaticConfig) : this(
