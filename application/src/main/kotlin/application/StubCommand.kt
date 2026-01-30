@@ -136,6 +136,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     var specmaticConfigPath: String? = null
 
     var listeners: List<MockEventListener> = emptyList()
+    var registerShutdownHook: Boolean = true
 
     private val specmaticConfiguration: io.specmatic.core.SpecmaticConfig by lazy(LazyThreadSafetyMode.NONE) {
         if (configFileName != null) Configuration.configFilePath = configFileName as String
@@ -187,7 +188,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             startServer()
 
             if (httpStub != null) {
-                addShutdownHook()
+                if (registerShutdownHook) addShutdownHook()
 
                 val configuredHotReload = configuredHotReload()
 

@@ -52,6 +52,7 @@ internal class StubCommandTest {
     @BeforeEach
     fun setUp() {
         MockKAnnotations.init(this)
+        stubCommand.registerShutdownHook = false
     }
 
     @AfterEach
