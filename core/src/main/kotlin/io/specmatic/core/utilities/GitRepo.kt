@@ -89,13 +89,13 @@ data class GitRepo(
 
         return selector.select(this).map {
             ContractPathData(
-                repoDir.path,
-                repoDir.resolve(it.path).path,
-                type,
-                gitRepositoryURL,
-                branchName,
-                it.path,
-                it.baseUrl,
+                baseDir = repoDir.path,
+                path = repoDir.resolve(it.path).path,
+                provider = type,
+                repository = gitRepositoryURL,
+                branch = branchName,
+                specificationPath = it.path,
+                baseUrl = it.baseUrl,
                 generative = it.generative
             )
         }

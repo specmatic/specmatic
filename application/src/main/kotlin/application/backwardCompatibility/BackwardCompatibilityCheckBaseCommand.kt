@@ -88,19 +88,24 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
 
     final override fun call() {
         configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = debugLog))
+        SystemExit.exitWith(execute())
+    }
+
+    fun execute(): Int {
         addShutdownHook()
         val filteredSpecs = getChangedSpecs()
+
         val result = try {
             runBackwardCompatibilityCheckFor(files = filteredSpecs, baseBranch = effectiveBaseBranch)
         } catch (e: Throwable) {
             logger.newLine()
             logger.newLine()
             logger.log(e)
-            SystemExit.exitWith(1)
+            return 1
         }
 
         logger.log(result.report)
-        SystemExit.exitWith(result.exitCode)
+        return result.exitCode
     }
 
     private fun getChangedSpecs(): Set<String> {

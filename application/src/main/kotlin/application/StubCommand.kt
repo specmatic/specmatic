@@ -1,25 +1,17 @@
 package application
 
+import application.mock.MockInitializer
+import application.mock.MockInitializerInputs
 import io.specmatic.core.*
 import io.specmatic.core.Configuration.Companion.DEFAULT_HTTP_STUB_HOST
 import io.specmatic.core.Configuration.Companion.DEFAULT_HTTP_STUB_PORT
-import io.specmatic.core.SpecmaticConfig.Companion.orDefault
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.LoggingConfiguration.Companion.LoggingFromOpts
 import io.specmatic.core.config.Switch
-import io.specmatic.core.filters.ExpressionStandardizer
-import io.specmatic.core.filters.HttpStubFilterContext
-import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.log.*
-import io.specmatic.core.utilities.*
-import io.specmatic.core.utilities.ContractPathData.Companion.specToBaseUrlMap
-import io.specmatic.core.loadSpecmaticConfigOrNull
-import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_BASE_URL
 import io.specmatic.license.core.cli.Category
-import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.ContractStub
 import io.specmatic.stub.HttpClientFactory
-import io.specmatic.stub.endPointFromHostAndPort
 import io.specmatic.stub.listener.MockEventListener
 import picocli.CommandLine.*
 import java.io.File
@@ -131,27 +123,9 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     @Option(names = ["--lenient"], description = ["Parse the OpenAPI Specification with leniency"], required = false, hidden = true)
     var lenientMode: Boolean? = null
 
-    private var contractSources: List<ContractPathData> = emptyList()
-
-    var specmaticConfigPath: String? = null
-
     var listeners: List<MockEventListener> = emptyList()
     var registerShutdownHook: Boolean = true
-
-    private val specmaticConfiguration: io.specmatic.core.SpecmaticConfig by lazy(LazyThreadSafetyMode.NONE) {
-        if (configFileName != null) Configuration.configFilePath = configFileName as String
-        val specmaticConfigPath = File(Configuration.configFilePath).canonicalPath
-        val config = loadSpecmaticConfigOrNull(specmaticConfigPath, explicitlySpecifiedByUser = configFileName != null).orDefault()
-        val sourcesUpdated = config.mapSources { source -> source.copy(matchBranch = useCurrentBranchForCentralRepo ?: source.matchBranch) }
-        val stubConfigUpdated = sourcesUpdated.withStubModes(strictMode = strictMode).withStubFilter(filter = filter)
-        delayInMilliseconds?.let(stubConfigUpdated::withGlobalMockDelay) ?: config
-    }
-
-    private val keyData: KeyData? by lazy(LazyThreadSafetyMode.NONE) {
-        val fromCli = HttpsConfiguration.Companion.HttpsFromOpts(keyStoreFile, keyStoreDir, keyStorePassword, keyStoreAlias, keyPassword)
-        val fromConfig = specmaticConfiguration.getStubHttpsConfiguration()
-        CertInfo(fromCli, fromConfig).getHttpsCert(aliasSuffix = "mock")
-    }
+    private val mockInitializer: MockInitializer = MockInitializer()
 
     override fun call() {
         configureLogging(LoggingFromOpts(
@@ -163,35 +137,11 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             logPrefix = logPrefix
         ))
 
-        port = when (isDefaultPort(port)) {
-            true -> if (portIsInUse(host, port)) findRandomFreePort() else port
-            false -> port
-        }
-        val baseUrl = endPointFromHostAndPort(host, port, keyData = keyData)
-        System.setProperty(SPECMATIC_BASE_URL, baseUrl)
-
         try {
-            val matchBranchEnabled = specmaticConfiguration.getMatchBranchEnabled()
-            val configuredLenientMode = configuredLenientMode()
-            contractSources = when (contractPaths.isEmpty()) {
-                true -> {
-                    logger.debug("Using the spec paths configured for stubs in the configuration file '$specmaticConfigPath'")
-                    specmaticConfig.contractStubPathData(matchBranchEnabled).map { it.copy(lenientMode = configuredLenientMode) }
-                }
-                else -> contractPaths.map {
-                    ContractPathData("", it, lenientMode = configuredLenientMode)
-                }
-            }
-            contractPaths = contractSources.map { it.path }
-            exitIfAnyDoNotExist("The following specifications do not exist", contractPaths)
-            validateContractFileExtensions(contractPaths)
-            startServer()
-
+            val specmaticConfig = startServer()
             if (httpStub != null) {
                 if (registerShutdownHook) addShutdownHook()
-
-                val configuredHotReload = configuredHotReload()
-
+                val configuredHotReload = configuredHotReload(specmaticConfig)
                 when (configuredHotReload) {
                     Switch.enabled -> {
                         val watcher = watchMaker.make(contractPaths.plus(exampleDirs))
@@ -209,76 +159,38 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         }
     }
 
-    private fun configuredHotReload(): Switch = hotReload ?: specmaticConfiguration.getHotReload() ?: Switch.enabled
-
-    private fun configuredStrictMode(): Boolean = strictMode ?: specmaticConfiguration.getStubStrictMode() ?: false
-
-    private fun configuredGracefulTimeout(): Long = gracefulRestartTimeoutInMs ?: specmaticConfiguration.getStubGracefulRestartTimeoutInMilliseconds() ?: 1000
-
-    private fun configuredLenientMode(): Boolean = lenientMode ?: false
-
-    private fun startServer() {
-        val workingDirectory = WorkingDirectory()
-        val resolvedStrictMode = configuredStrictMode()
-        if (resolvedStrictMode) throwExceptionIfDirectoriesAreInvalid(exampleDirs, "example directories")
-        val stubData = stubLoaderEngine.loadStubs(
-            contractPathDataList = contractSources,
-            dataDirs = exampleDirs,
-            specmaticConfigPath = specmaticConfigPath,
-            strictMode = resolvedStrictMode,
-        )
-
-        logStubLoadingSummary(stubData)
-        val stubFilter = specmaticConfiguration.getStubFilter().orEmpty()
-        val filteredStubData = stubData.mapNotNull { (feature, scenarioStubs) ->
-            val metadataFilter = ScenarioMetadataFilter.from(stubFilter)
-            val filteredScenarios = ScenarioMetadataFilter.filterUsing(
-                feature.scenarios.asSequence(),
-                metadataFilter,
-            ).toList()
-            val stubFilterExpression = ExpressionStandardizer.filterToEvalEx(stubFilter)
-            val filteredStubScenario = scenarioStubs.filter { it ->
-                stubFilterExpression.with("context", HttpStubFilterContext(it)).evaluate().booleanValue
-            }
-            if (filteredScenarios.isNotEmpty()) {
-                val updatedFeature = feature.copy(scenarios = filteredScenarios)
-                updatedFeature to filteredStubScenario
-            } else null
-        }
-
-        if (stubFilter != "" && filteredStubData.isEmpty()) {
-            consoleLog(StringLog("FATAL: No stubs found for the given filter: $stubFilter"))
-            return
-        }
-
-        if (configuredHotReload() == Switch.disabled) {
-            val warningMessage =
-                "WARNING: Hot reload has been disabled. Specmatic will not restart the stub server automatically when the specifications or examples change."
-            logger.boundary()
-            logger.log(warningMessage)
-            logger.boundary()
-        }
-
-        httpStub = httpStubEngine.runHTTPStub(
-            stubs = filteredStubData,
-            host = host,
-            port = port,
-            keyData = keyData,
-            strictMode = resolvedStrictMode,
-            passThroughTargetBase = passThroughTargetBase,
-            specmaticConfig = specmaticConfiguration,
-            httpClientFactory = httpClientFactory,
-            workingDirectory = workingDirectory,
-            gracefulRestartTimeoutInMs = configuredGracefulTimeout(),
-            specToBaseUrlMap = contractSources.specToBaseUrlMap(),
-            listeners = listeners
-        )
-
-        LogTail.storeSnapshot()
+    private fun configuredHotReload(specmaticConfig: io.specmatic.core.SpecmaticConfig): Switch {
+        return hotReload ?: specmaticConfig.getHotReload() ?: Switch.enabled
     }
 
-    private fun isDefaultPort(port:Int): Boolean {
-        return DEFAULT_HTTP_STUB_PORT == port.toString()
+    private fun startServer(): io.specmatic.core.SpecmaticConfig {
+        val input = buildStubCommandInputs()
+        httpStub = mockInitializer.createAndStart(input)
+        return mockInitializer.getSpecmaticConfig(input)
+    }
+
+    private fun buildStubCommandInputs(): MockInitializerInputs {
+        return MockInitializerInputs(
+            contractPaths = contractPaths,
+            exampleDirs = exampleDirs,
+            host = host,
+            port = port,
+            strictMode = strictMode,
+            passThroughTargetBase = passThroughTargetBase,
+            filter = filter,
+            gracefulRestartTimeoutInMs = gracefulRestartTimeoutInMs,
+            lenientMode = lenientMode,
+            verbose = verbose,
+            configFileName = configFileName,
+            useCurrentBranchForCentralRepo = useCurrentBranchForCentralRepo,
+            httpsOpts = HttpsConfiguration.Companion.HttpsFromOpts(keyStoreFile, keyStoreDir, keyStorePassword, keyStoreAlias, keyPassword),
+            httpClientFactory = httpClientFactory,
+            listeners = listeners,
+            delayInMilliseconds = delayInMilliseconds,
+            applicationSpecmaticConfig = specmaticConfig,
+            httpStubEngine = httpStubEngine,
+            stubLoaderEngine = stubLoaderEngine
+        )
     }
 
     private fun restartServer() {
@@ -290,7 +202,9 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             consoleLog(e,"Error stopping server")
         }
 
-        try { startServer() } catch (e: Throwable) {
+        try {
+            startServer()
+        } catch (e: Throwable) {
             consoleLog(e, "Error starting server")
         }
     }
@@ -306,47 +220,10 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
                 try {
                     consoleLog(StringLog("Shutting down stub servers"))
                     httpStub?.close()
-                } catch (e: InterruptedException) {
+                } catch (_: InterruptedException) {
                     currentThread().interrupt()
                 }
             }
         })
-    }
-
-    private fun logStubLoadingSummary(stubData: List<Pair<Feature, List<ScenarioStub>>>) {
-        val totalStubs = stubData.sumOf { it.second.size }
-
-        if (verbose == true) {
-            logger.boundary()
-            consoleLog(StringLog("Loaded stubs:"))
-            stubData.forEach { (feature, stubs) ->
-                val featureName = feature.specification ?: feature.path
-                stubs.forEach { stub ->
-                    val stubDescription = buildStubDescription(stub)
-                    consoleLog(StringLog("  - $featureName: $stubDescription"))
-                }
-            }
-            consoleLog(StringLog("Total: $totalStubs example(s) loaded"))
-        }
-
-        logger.boundary()
-    }
-    
-    private fun buildStubDescription(stub: ScenarioStub): String {
-        val request = stub.partial?.request ?: stub.request
-        val method = request.method
-        val path = request.path
-        return "$method $path"
-    }
-}
-
-internal fun validateContractFileExtensions(contractPaths: List<String>) {
-    contractPaths.map(::File).filter {
-        it.isFile && it.extension !in CONTRACT_EXTENSIONS
-    }.let {
-        if (it.isNotEmpty()) {
-            val files = it.joinToString("\n") { file -> file.path }
-            exitWithMessage("The following files do not end with $CONTRACT_EXTENSIONS and cannot be used:\n$files")
-        }
     }
 }
