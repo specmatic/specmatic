@@ -5,6 +5,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
+import kotlin.io.path.Path
 
 class VersionAwareConfigParserTest {
     @TempDir
@@ -101,6 +102,107 @@ class VersionAwareConfigParserTest {
             assertThat(SpecmaticConfig.getHooks(config)["after"]).isEqualTo("hello world")
         } finally {
             restoreProperty("HOOK_VALUE", originalValue)
+        }
+    }
+
+    @Test
+    fun `interpolation works in the middle of the specified value`() {
+        val configFile =
+            tempDir.resolve("specmatic.yaml").apply {
+                writeText(
+                    """
+                    version: 2
+                    contracts: []
+                    license_path: 'start-{SOME_VAR:default}-end'
+                    """.trimIndent()
+                )
+            }
+
+        val originalValue = System.getProperty("SOME_VAR")
+        try {
+            System.setProperty("SOME_VAR", "middle")
+            val config: SpecmaticConfig = configFile.toSpecmaticConfig()
+            assertThat(config.getLicensePath()).isEqualTo(Path("start-middle-end"))
+        } finally {
+            restoreProperty("SOME_VAR", originalValue)
+        }
+    }
+
+    @Test
+    fun `OR operator on template falls back to second variable, if first variable is missing`() {
+        val configFile =
+            tempDir.resolve("specmatic.yaml").apply {
+                writeText(
+                    """
+                    version: 2
+                    contracts: []
+                    license_path: 'foo-{VAR1|VAR2:default-path}-bar'
+                    """.trimIndent()
+                )
+            }
+
+        val originalValueVar1 = System.getProperty("VAR1")
+        val originalValueVar2 = System.getProperty("VAR2")
+        try {
+            System.clearProperty("VAR1")
+            System.setProperty("VAR2", "second-var")
+            val config: SpecmaticConfig = configFile.toSpecmaticConfig()
+            assertThat(config.getLicensePath()).isEqualTo(Path("foo-second-var-bar"))
+        } finally {
+            restoreProperty("VAR1", originalValueVar1)
+            restoreProperty("VAR2", originalValueVar2)
+        }
+    }
+
+    @Test
+    fun `OR operator on template does not fallback if first variable is defined`() {
+        val configFile =
+            tempDir.resolve("specmatic.yaml").apply {
+                writeText(
+                    """
+                    version: 2
+                    contracts: []
+                    license_path: 'foo-{VAR1|VAR2:default-path}-bar'
+                    """.trimIndent()
+                )
+            }
+
+        val originalValueVar1 = System.getProperty("VAR1")
+        val originalValueVar2 = System.getProperty("VAR2")
+        try {
+            System.setProperty("VAR1", "first-path")
+            System.setProperty("VAR2", "actual-path")
+            val config: SpecmaticConfig = configFile.toSpecmaticConfig()
+            assertThat(config.getLicensePath()).isEqualTo(Path("foo-first-path-bar"))
+        } finally {
+            restoreProperty("VAR1", originalValueVar1)
+            restoreProperty("VAR2", originalValueVar2)
+        }
+    }
+
+    @Test
+    fun `OR operator on template falls back to default if both variables are missing`() {
+        val configFile =
+            tempDir.resolve("specmatic.yaml").apply {
+                writeText(
+                    """
+                    version: 2
+                    contracts: []
+                    license_path: 'foo-{VAR1|VAR2:default-path}-bar'
+                    """.trimIndent()
+                )
+            }
+
+        val originalValueVar1 = System.getProperty("VAR1")
+        val originalValueVar2 = System.getProperty("VAR2")
+        try {
+            System.clearProperty("VAR1")
+            System.clearProperty("VAR2")
+            val config: SpecmaticConfig = configFile.toSpecmaticConfig()
+            assertThat(config.getLicensePath()).isEqualTo(Path("foo-default-path-bar"))
+        } finally {
+            restoreProperty("VAR1", originalValueVar1)
+            restoreProperty("VAR2", originalValueVar2)
         }
     }
 

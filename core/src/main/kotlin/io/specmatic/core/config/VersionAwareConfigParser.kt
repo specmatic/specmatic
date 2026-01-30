@@ -64,20 +64,61 @@ private fun resolveTemplates(node: JsonNode): JsonNode {
 }
 
 private fun resolveTemplateValue(value: String): JsonNode? {
-    val template = parseTemplate(value) ?: return null
-    val resolved = readEnvVarOrProperty(template.key, template.key) ?: template.defaultValue
-    return parseResolvedTemplateValue(resolved)
+    // First, handle the existing behaviour where the entire value is a single template.
+    parseTemplate(value)?.let { template ->
+        val resolved = resolveTemplateValueFromEnvOrDefault(template)
+        return parseResolvedTemplateValue(resolved)
+    }
+
+    // Next, handle embedded templates like: "start-{VAR:default}-end".
+    val interpolated = interpolateTemplates(value) ?: return null
+    return objectMapper.nodeFactory.textNode(interpolated)
 }
 
-private data class TemplateDefinition(val key: String, val defaultValue: String)
+private data class TemplateDefinition(val keys: List<String>, val defaultValue: String)
 
 private fun parseTemplate(value: String): TemplateDefinition? {
     if (!value.startsWith("{") || !value.endsWith("}")) return null
     val separatorIndex = value.indexOf(':')
     if (separatorIndex <= 1) return null
-    val key = value.substring(1, separatorIndex)
+
+    val keyExpression = value.substring(1, separatorIndex)
+    val keys = keyExpression.split('|').map { it.trim() }.filter { it.isNotEmpty() }
+    if (keys.isEmpty()) return null
+
     val defaultValue = value.substring(separatorIndex + 1, value.length - 1)
-    return if (key.isBlank()) null else TemplateDefinition(key, defaultValue)
+    return TemplateDefinition(keys, defaultValue)
+}
+
+private fun resolveTemplateValueFromEnvOrDefault(template: TemplateDefinition): String {
+    return template.keys.asSequence()
+        .mapNotNull { key -> readEnvVarOrProperty(key, key) }
+        .firstOrNull()
+        ?: template.defaultValue
+}
+
+private val TEMPLATE_REGEX = Regex("\\{([^:{}]+):([^}]*)}")
+
+private fun interpolateTemplates(original: String): String? {
+    val matches = TEMPLATE_REGEX.findAll(original).toList()
+    if (matches.isEmpty()) return null
+
+    var result = original
+    // Replace from right to left to avoid messing up indices.
+    for (match in matches.asReversed()) {
+        val keyExpression = match.groupValues[1]
+        val defaultValue = match.groupValues[2]
+
+        val keys = keyExpression.split('|').map { it.trim() }.filter { it.isNotEmpty() }
+        val resolved = keys.asSequence()
+            .mapNotNull { key -> readEnvVarOrProperty(key, key) }
+            .firstOrNull()
+            ?: defaultValue
+
+        result = result.replaceRange(match.range, resolved)
+    }
+
+    return result
 }
 
 private fun parseResolvedTemplateValue(value: String): JsonNode {
@@ -85,8 +126,10 @@ private fun parseResolvedTemplateValue(value: String): JsonNode {
     return when {
         trimmed.startsWith("\"") && trimmed.endsWith("\"") ->
             parseJsonStringValue(value) ?: objectMapper.nodeFactory.textNode(value)
+
         trimmed.startsWith("{") || trimmed.startsWith("[") ->
             parseStructuredValue(value) ?: objectMapper.nodeFactory.textNode(value)
+
         else -> objectMapper.nodeFactory.textNode(value)
     }
 }
