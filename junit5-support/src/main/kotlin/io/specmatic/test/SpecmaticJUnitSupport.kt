@@ -30,6 +30,7 @@ import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.hasOpenApiFileExtension
 import io.specmatic.stub.isOpenAPI
+import io.specmatic.stub.isSupportedAPISpecification
 import io.specmatic.test.TestResultRecord.Companion.getCoverageStatus
 import io.specmatic.test.reports.OpenApiCoverageReportProcessor
 import io.specmatic.test.reports.coverage.Endpoint
@@ -310,7 +311,7 @@ open class SpecmaticJUnitSupport {
                     val endpoints: List<Endpoint> = testScenariosAndEndpointsPairList.flatMap { it.second }
                     val filteredEndpoints: List<Endpoint> = testScenariosAndEndpointsPairList.flatMap { it.third }
 
-                    TestData(testsWithUrls, endpoints, filteredEndpoints, defaultBaseURL)
+                    TestData(testsWithUrls, endpoints, filteredEndpoints, setOf(defaultBaseURL))
                 }
 
                 else -> {
@@ -322,7 +323,9 @@ open class SpecmaticJUnitSupport {
                         settings.configFile.orEmpty(),
                         workingDirectory.path,
                         useCurrentBranchForCentralRepo
-                    )
+                    ).filter {
+                        isSupportedAPISpecification(it.path)
+                    }
 
                     exitIfAnyDoNotExist("The following specifications do not exist", contractFilePaths.map { it.path })
 
@@ -330,6 +333,7 @@ open class SpecmaticJUnitSupport {
                     val needsDefaultBase = contractFilePaths.any { it.baseUrl.isNullOrBlank() }
                     val defaultBaseURL = if (needsDefaultBase) constructTestBaseURL() else ""
 
+                    val baseUrls = mutableSetOf<String>()
                     val testScenariosAndEndpointsPairList = contractFilePaths.filter {
                         File(it.path).extension in CONTRACT_EXTENSIONS
                     }.map { contractPathData ->
@@ -352,6 +356,7 @@ open class SpecmaticJUnitSupport {
                         )
 
                         val resolvedBaseURL = contractPathData.baseUrl ?: defaultBaseURL
+                        baseUrls.add(resolvedBaseURL)
                         Triple(tests.map { test -> Pair(test, resolvedBaseURL) }, endpoints, filteredEndpoints)
                     }
 
@@ -360,12 +365,7 @@ open class SpecmaticJUnitSupport {
                     val endpoints: List<Endpoint> = testScenariosAndEndpointsPairList.flatMap { it.second }
                     val filteredEndpoints: List<Endpoint> = testScenariosAndEndpointsPairList.flatMap { it.third }
 
-                    // Prefer settings.testBaseURL for actuator; else first provides; else default
-                    val actuatorBaseURL = settings.testBaseURL
-                        ?: contractFilePaths.firstNotNullOfOrNull { it.baseUrl }
-                        ?: if (needsDefaultBase) defaultBaseURL else constructTestBaseURL()
-
-                    TestData(testsWithUrls, endpoints, filteredEndpoints, defaultBaseURL)
+                    TestData(testsWithUrls, endpoints, filteredEndpoints, baseUrls.toSet())
                 }
             }
         } catch (e: ContractException) {
@@ -374,22 +374,14 @@ open class SpecmaticJUnitSupport {
             return loadExceptionAsTestError(e)
         }
 
-        val resolvedBaseURL = testBuildResult.testBaseURL
-
-        if(resolvedBaseURL.isNotBlank()){
-            if(!isBaseURLReachable(resolvedBaseURL)){
-                return loadExceptionAsTestError(
-                    ContractException(
-                        """
-                            Cannot connect to server at: $resolvedBaseURL
-                            
-                            Please check:
-                            - Is the server running?
-                            - Is the testBaseURL correct?
-                        """.trimIndent()
-                    )
-                )
-            }
+        testBuildResult.baseUrls.forEach { baseUrl ->
+            if (isBaseURLReachable(baseUrl)) return@forEach
+            return loadExceptionAsTestError(e = ContractException("""
+            Cannot connect to server at: $baseUrl
+            Please check:
+            - Is the server running?
+            - Is the testBaseURL correct?
+            """.trimIndent()))
         }
 
         openApiCoverageReportInput.addEndpoints(testBuildResult.allEndpoints, testBuildResult.filteredEndpoints)
@@ -430,10 +422,11 @@ open class SpecmaticJUnitSupport {
             return noTestsFoundError(reason)
         }
 
+        val actuatorBaseURL = settings.testBaseURL ?: testBuildResult.baseUrls.firstOrNull() ?: constructTestBaseURL()
         return try {
             dynamicTestStream(
                 firstNScenarios(testScenariosWithUrls),
-                testBuildResult.testBaseURL,
+                actuatorBaseURL,
                 timeoutInMilliseconds
             )
         } catch (e: Throwable) {
@@ -739,7 +732,7 @@ private data class TestData(
     val scenarios: Sequence<Pair<ContractTest, String>>,
     val allEndpoints: List<Endpoint>,
     val filteredEndpoints: List<Endpoint>,
-    val testBaseURL: String
+    val baseUrls: Set<String>,
 )
 
 private fun columnsFromExamples(exampleData: JSONArrayValue): List<String> {

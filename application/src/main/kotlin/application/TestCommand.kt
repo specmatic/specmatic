@@ -42,7 +42,7 @@ private const val DISPLAY_NAME_PREFIX_IN_SYSTEM_OUT_TAG_TEXT = "display-name: "
 @Category("Specmatic core")
 class TestCommand(private val junitLauncher: Launcher = LauncherFactory.create()) : Callable<Unit> {
     @CommandLine.Parameters(arity = "0..*", description = ["Contract file paths"])
-    var contractPaths: List<String> = emptyList()
+    var contractPaths: List<String>? = null
 
     @Option(names = ["--host"], description = ["The host to bind to, e.g. localhost or some locally bound IP"], defaultValue = "localhost")
     lateinit var host: String
@@ -54,16 +54,16 @@ class TestCommand(private val junitLauncher: Launcher = LauncherFactory.create()
     var testBaseURL: String? = null
 
     @Option(names = ["--suggestionsPath"], description = ["Location of the suggestions file"], defaultValue = "", hidden = true)
-    lateinit var suggestionsPath: String
+    var suggestionsPath: String? = null
 
     @Option(names = ["--suggestions"], description = ["A json value with scenario name and multiple suggestions"], defaultValue = "", hidden = true)
-    var suggestions: String = ""
+    var suggestions: String? = null
 
     @Option(names = ["--filter-name"], description = ["Run only tests with this value in their name"], defaultValue = "\${env:SPECMATIC_FILTER_NAME}", hidden = true)
-    var filterName: String = ""
+    var filterName: String? = null
 
     @Option(names = ["--filter-not-name"], description = ["Run only tests which do not have this value in their name"], defaultValue = "\${env:SPECMATIC_FILTER_NOT_NAME}", hidden = true)
-    var filterNotName: String = ""
+    var filterNotName: String? = null
 
     @Option(
         names= ["--filter"],
@@ -83,7 +83,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     var filter: String? = null
 
     @Option(names = ["--env"], description = ["Environment name"], hidden = true)
-    var envName: String = ""
+    var envName: String? = null
 
     @Option(names = ["--https"], description = ["Use https instead of the default http"], required = false)
     var useHttps: Boolean = false
@@ -213,26 +213,26 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             envName = envName,
             protocol = protocol,
             port = port.toString(),
-            filterName = filterName.takeIf { it.isNotBlank() },
-            filterNotName = filterNotName.takeIf { it.isNotBlank() },
-            inlineSuggestions = suggestions.takeIf { it.isNotBlank() },
-            exampleDirectories = exampleDirs.takeIf { it.isNotEmpty() },
-            suggestionsPath = suggestionsPath.takeIf { it.isNotBlank() },
-            variablesFileName = variablesFileName.takeIf { it?.isNotBlank() == true },
             overlayFilePath = overlayFilePath?.let(::File),
+            exampleDirectories = exampleDirs.takeIf { it.isNotEmpty() },
+            filterName = filterName.takeIf(::isNotNullOrBlank),
             useCurrentBranchForCentralRepo = useCurrentBranchForCentralRepo,
+            filterNotName = filterNotName.takeIf(::isNotNullOrBlank),
+            inlineSuggestions = suggestions.takeIf(::isNotNullOrBlank),
+            suggestionsPath = suggestionsPath.takeIf(::isNotNullOrBlank),
+            variablesFileName = variablesFileName.takeIf(::isNotNullOrBlank),
         )
 
         val settings = ContractTestSettings(
-            filter = filter.takeIf { it?.isNotBlank() == true },
             strictMode = strictMode,
             lenientMode = lenientMode,
-            testBaseURL = testBaseURL.takeIf { it?.isNotBlank() == true },
-            configFile = configFileName.takeIf { it?.isNotBlank() == true },
             otherArguments = otherArguments,
             reportBaseDirectory = resolvedJunitReportDir(),
-            contractPaths = contractPaths.joinToString(separator = ",").takeIf { it.isNotEmpty() },
+            filter = filter.takeIf(::isNotNullOrBlank),
+            testBaseURL = testBaseURL.takeIf(::isNotNullOrBlank),
+            configFile = configFileName.takeIf(::isNotNullOrBlank),
             timeoutInMilliSeconds = timeoutInMs ?: timeout?.times(1000),
+            contractPaths = contractPaths?.joinToString(separator = ",").takeIf(::isNotNullOrBlank),
         )
 
         SpecmaticJUnitSupport.settingsStaging.set(settings)
@@ -240,6 +240,10 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 
     private fun resolvedJunitReportDir(): String? {
         return junitReportDirName ?: specmaticConfig.getTestJunitReportDir()
+    }
+
+    private fun isNotNullOrBlank(value: String?): Boolean {
+        return value != null && value.isNotBlank()
     }
 }
 

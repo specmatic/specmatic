@@ -19,7 +19,7 @@ class HTTPStubEngine {
         keyData: KeyData?,
         strictMode: Boolean,
         passThroughTargetBase: String = "",
-        specmaticConfig: io.specmatic.core.SpecmaticConfig,
+        specmaticConfigSource: SpecmaticConfigSource,
         httpClientFactory: HttpClientFactory,
         workingDirectory: WorkingDirectory,
         gracefulRestartTimeoutInMs: Long,
@@ -37,7 +37,7 @@ class HTTPStubEngine {
             passThroughTargetBase = passThroughTargetBase,
             httpClientFactory = httpClientFactory,
             workingDirectory = workingDirectory,
-            specmaticConfigSource = SpecmaticConfigSource.fromConfig(specmaticConfig),
+            specmaticConfigSource = specmaticConfigSource,
             timeoutMillis = gracefulRestartTimeoutInMs,
             specToStubBaseUrlMap = specToBaseUrlMap,
             listeners = listeners

@@ -847,14 +847,13 @@ class HttpStub(
 
     private fun generateReports() {
         generateStubUsageReport()
-        val specmaticConfig = loadSpecmaticConfigOrDefault(specmaticConfigPath)
         synchronized(ctrfTestResultRecords) {
             ctrfTestResultRecords.addAll(notCoveredTestResultRecords())
             ReportGenerator.generateReport(
                 testResultRecords = ctrfTestResultRecords,
                 startTime = startTime.toEpochMilli(),
                 endTime = Instant.now().toEpochMilli(),
-                specConfigs = ctrfSpecConfigsFrom(specmaticConfig, ctrfTestResultRecords),
+                specConfigs = ctrfSpecConfigsFrom(specmaticConfigInstance, ctrfTestResultRecords),
                 coverage = 0,
                 reportDir = File("$ARTIFACTS_PATH/stub")
             )

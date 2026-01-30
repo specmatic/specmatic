@@ -29,8 +29,10 @@ import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_BASE_URL
 import io.specmatic.core.filters.ExpressionStandardizer
 import io.specmatic.core.filters.HttpStubFilterContext
 import io.specmatic.core.filters.ScenarioMetadataFilter
+import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.log.*
 import io.specmatic.core.utilities.exitWithMessage
+import io.specmatic.stub.SpecmaticConfigSource
 import io.specmatic.stub.isSupportedAPISpecification
 import java.io.File
 
@@ -71,12 +73,13 @@ class MockInitializer {
         val filteredStubData = filterStubs(stubData, specmaticConfig)
 
         return runStubEngine(
-            input,
-            specmaticConfig,
-            keyData,
-            resolvedPort,
-            contractSources,
-            filteredStubData
+            input = input,
+            specmaticConfigFilePath = input.configFileName ?: getConfigFilePath(),
+            specmaticConfig = specmaticConfig,
+            keyData = keyData,
+            port = resolvedPort,
+            contractSources = contractSources,
+            stubs = filteredStubData
         )
     }
 
@@ -86,6 +89,7 @@ class MockInitializer {
 
     private fun runStubEngine(
         input: MockInitializerInputs,
+        specmaticConfigFilePath: String,
         specmaticConfig: SpecmaticConfig,
         keyData: KeyData?,
         port: Int,
@@ -101,7 +105,7 @@ class MockInitializer {
             keyData = keyData,
             strictMode = resolvedStrictMode,
             passThroughTargetBase = input.passThroughTargetBase,
-            specmaticConfig = specmaticConfig,
+            specmaticConfigSource = SpecmaticConfigSource.from(path = specmaticConfigFilePath, config = specmaticConfig),
             httpClientFactory = input.httpClientFactory,
             workingDirectory = WorkingDirectory(),
             gracefulRestartTimeoutInMs = configuredGracefulTimeout,
