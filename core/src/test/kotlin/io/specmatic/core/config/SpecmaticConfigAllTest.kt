@@ -1110,7 +1110,7 @@ internal class SpecmaticConfigAllTest {
 
         val reportDirPath = specmaticConfig.getReportDirPath()
 
-        assertThat(reportDirPath.toString()).isEqualTo("build/reports/specmatic")
+        assertThat(reportDirPath.toString()).isEqualTo("build${File.separator}reports${File.separator}specmatic")
     }
 
     @Test
@@ -1135,7 +1135,7 @@ internal class SpecmaticConfigAllTest {
 
         val reportDirPath = specmaticConfig.getReportDirPath()
 
-        assertThat(reportDirPath.toString()).isEqualTo("custom/reports")
+        assertThat(reportDirPath.toString()).isEqualTo("custom${File.separator}reports")
     }
 
     @Test
@@ -1160,7 +1160,7 @@ internal class SpecmaticConfigAllTest {
 
         val reportDirPath = specmaticConfig.getReportDirPath("stub")
 
-        assertThat(reportDirPath.toString()).isEqualTo("custom/reports/stub")
+        assertThat(reportDirPath.toString()).isEqualTo("custom${File.separator}reports${File.separator}stub")
     }
 
     @Test
@@ -1184,7 +1184,7 @@ internal class SpecmaticConfigAllTest {
 
         val reportDirPath = specmaticConfig.getReportDirPath("mcp")
 
-        assertThat(reportDirPath.toString()).isEqualTo("build/reports/specmatic")
+        assertThat(reportDirPath.toString()).isEqualTo("build${File.separator}reports${File.separator}specmatic")
     }
 
 }
