@@ -21,6 +21,7 @@ import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
 import io.specmatic.core.utilities.Flags.Companion.getStringValue
+import java.nio.file.Path
 
 data class SpecmaticConfigV2(
     val version: SpecmaticConfigVersion,
@@ -58,6 +59,8 @@ data class SpecmaticConfigV2(
     val disableTelemetry: Boolean? = null,
     private val logging: LoggingConfiguration? = null,
     private val mcp: McpConfiguration? = null,
+    @field:JsonAlias("license_path")
+    val licensePath: Path? = null,
 ) : SpecmaticVersionedConfig {
     override fun transform(): SpecmaticConfig {
         return SpecmaticConfig(
@@ -90,7 +93,8 @@ data class SpecmaticConfigV2(
             defaultPatternValues = this.defaultPatternValues,
             disableTelemetry = this.disableTelemetry,
             logging = this.logging,
-            mcp = this.mcp
+            mcp = this.mcp,
+            licensePath = this.licensePath,
         )
     }
 
@@ -126,7 +130,9 @@ data class SpecmaticConfigV2(
                 additionalExampleParamsFilePath = config.getAdditionalExampleParamsFilePath(),
                 attributeSelectionPattern = getAttributeSelectionConfigOrNull(config),
                 allPatternsMandatory = getAllPatternsMandatory(config),
-                defaultPatternValues = config.getDefaultPatternValues()
+                defaultPatternValues = config.getDefaultPatternValues(),
+                disableTelemetry = config.isTelemetryDisabled(),
+                licensePath = config.getLicensePath(),
             )
         }
     }

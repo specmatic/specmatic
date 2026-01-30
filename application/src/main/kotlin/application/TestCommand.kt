@@ -115,7 +115,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 
     @Option(
         names = ["--strict"],
-        description = ["If true, tests will only run if all the examples are valid"],
+        description = ["If true, positive and negative tests will not be generated for endpoints without examples"],
         required = false
     )
     var strictMode: Boolean? = null
