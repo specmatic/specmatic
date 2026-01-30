@@ -103,7 +103,13 @@ class OpenApiCoverageReportInput(
             listeners.onEachListener { onPathCoverageCalculated(path, totalCoveragePercentage) }
             methodMap.forEach { (method, contentTypeMap) ->
                 contentTypeMap.forEach { (requestContentType, responseCodeMap) ->
-                    responseCodeMap.forEach { (responseStatus, testResults) ->
+                    val sortedResponseEntries = responseCodeMap.entries.sortedWith(
+                        compareBy(
+                            { it.key.toIntOrNull() ?: Int.MAX_VALUE },
+                            { it.key }
+                        )
+                    )
+                    sortedResponseEntries.forEach { (responseStatus, testResults) ->
                         routeAPIRows.add(
                             OpenApiCoverageConsoleRow(
                                 path = path,

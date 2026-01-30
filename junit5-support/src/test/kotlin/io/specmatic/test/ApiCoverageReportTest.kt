@@ -51,8 +51,8 @@ class ApiCoverageReportTest {
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
                 listOf(
-                    OpenApiCoverageConsoleRow("GET", "/order/{id}", 404, 0, 50, CoverageStatus.MISSING_IN_SPEC),
-                    OpenApiCoverageConsoleRow("GET", "/order/{id}", 200, 1, 50, CoverageStatus.NOT_IMPLEMENTED, showPath = false, showMethod = false),
+                    OpenApiCoverageConsoleRow("GET", "/order/{id}", 200, 1, 50, CoverageStatus.NOT_IMPLEMENTED),
+                    OpenApiCoverageConsoleRow("GET", "/order/{id}", 404, 0, 50, CoverageStatus.MISSING_IN_SPEC, showPath = false, showMethod = false),
                 ),
                 apiCoverageReport.testResultRecords,
                 totalEndpointsCount = 1, missedEndpointsCount = 0, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 1, partiallyNotImplementedAPICount = 1
@@ -97,9 +97,9 @@ class ApiCoverageReportTest {
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
                 listOf(
-                    OpenApiCoverageConsoleRow("POST", "/order/{id}", 404, 0, 67, CoverageStatus.MISSING_IN_SPEC),
-                    OpenApiCoverageConsoleRow("POST", "/order/{id}", 201, 1, 67, CoverageStatus.NOT_IMPLEMENTED, showPath = false, showMethod = false),
-                    OpenApiCoverageConsoleRow("POST", "/order/{id}", 400, 1, 67, CoverageStatus.NOT_IMPLEMENTED, showPath = false, showMethod = false)
+                    OpenApiCoverageConsoleRow("POST", "/order/{id}", 201, 1, 67, CoverageStatus.NOT_IMPLEMENTED),
+                    OpenApiCoverageConsoleRow("POST", "/order/{id}", 400, 1, 67, CoverageStatus.NOT_IMPLEMENTED, showPath = false, showMethod = false),
+                    OpenApiCoverageConsoleRow("POST", "/order/{id}", 404, 0, 67, CoverageStatus.MISSING_IN_SPEC, showPath = false, showMethod = false),
                 ),
                 apiCoverageReport.testResultRecords,
                 totalEndpointsCount = 1, missedEndpointsCount = 0, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 1, partiallyNotImplementedAPICount = 1
@@ -124,8 +124,8 @@ class ApiCoverageReportTest {
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
                 listOf(
-                    OpenApiCoverageConsoleRow("GET", "/order/{id}", 404, 0, 50, CoverageStatus.MISSING_IN_SPEC),
-                    OpenApiCoverageConsoleRow("GET", "/order/{id}", 200, 1, 50, CoverageStatus.COVERED, showPath = false, showMethod = false),
+                    OpenApiCoverageConsoleRow("GET", "/order/{id}", 200, 1, 50, CoverageStatus.COVERED),
+                    OpenApiCoverageConsoleRow("GET", "/order/{id}", 404, 0, 50, CoverageStatus.MISSING_IN_SPEC, showPath = false, showMethod = false),
                 ),
                 apiCoverageReport.testResultRecords,
                 totalEndpointsCount = 1, missedEndpointsCount = 0, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 1, partiallyNotImplementedAPICount = 0
@@ -153,9 +153,9 @@ class ApiCoverageReportTest {
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
                 listOf(
-                    OpenApiCoverageConsoleRow("POST", "/order/{id}", 404, 0, 67, CoverageStatus.MISSING_IN_SPEC),
-                    OpenApiCoverageConsoleRow("POST", "/order/{id}", 201, 1, 67, CoverageStatus.COVERED, showPath = false, showMethod = false),
+                    OpenApiCoverageConsoleRow("POST", "/order/{id}", 201, 1, 67, CoverageStatus.COVERED),
                     OpenApiCoverageConsoleRow("POST", "/order/{id}", 400, 1, 67, CoverageStatus.COVERED, showPath = false, showMethod = false),
+                    OpenApiCoverageConsoleRow("POST", "/order/{id}", 404, 0, 67, CoverageStatus.MISSING_IN_SPEC, showPath = false, showMethod = false),
                 ), apiCoverageReport.testResultRecords, totalEndpointsCount = 1, missedEndpointsCount = 0, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 1, partiallyNotImplementedAPICount = 0
             )
         )
@@ -390,8 +390,8 @@ class ApiCoverageReportTest {
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
                 listOf(
-                    OpenApiCoverageConsoleRow("GET", "/order/{id}", 404, 0, 50, CoverageStatus.MISSING_IN_SPEC),
-                    OpenApiCoverageConsoleRow("GET", "/order/{id}", 200, 1, 50, CoverageStatus.COVERED, showPath = false, showMethod = false),
+                    OpenApiCoverageConsoleRow("GET", "/order/{id}", 200, 1, 50, CoverageStatus.COVERED),
+                    OpenApiCoverageConsoleRow("GET", "/order/{id}", 404, 0, 50, CoverageStatus.MISSING_IN_SPEC, showPath = false, showMethod = false),
                 ), apiCoverageReport.testResultRecords, totalEndpointsCount = 1, missedEndpointsCount = 0, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 1, partiallyNotImplementedAPICount = 0
             )
         )
@@ -410,8 +410,8 @@ class ApiCoverageReportTest {
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
                 listOf(
-                    OpenApiCoverageConsoleRow("GET", "/order/{id}", 404, 0, 50, CoverageStatus.MISSING_IN_SPEC),
-                    OpenApiCoverageConsoleRow("GET", "/order/{id}", 200, 1, 50, CoverageStatus.COVERED, showPath = false, showMethod = false),
+                    OpenApiCoverageConsoleRow("GET", "/order/{id}", 200, 1, 50, CoverageStatus.COVERED),
+                    OpenApiCoverageConsoleRow("GET", "/order/{id}", 404, 0, 50, CoverageStatus.MISSING_IN_SPEC, showPath = false, showMethod = false),
                 ), apiCoverageReport.testResultRecords, totalEndpointsCount = 1, missedEndpointsCount = 0, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 1, partiallyNotImplementedAPICount = 0
             )
         )
@@ -490,7 +490,7 @@ class ApiCoverageReportTest {
             OpenAPICoverageConsoleReport(
                 listOf(
                     OpenApiCoverageConsoleRow("GET", "/orders", 200, 1, 50, CoverageStatus.NOT_IMPLEMENTED),
-                    OpenApiCoverageConsoleRow("GET", "/orders", 404, 0, 50, CoverageStatus.MISSING_IN_SPEC, showPath = false, showMethod = false),
+                    OpenApiCoverageConsoleRow("GET", "/orders", 404, 0, 50, CoverageStatus.MISSING_IN_SPEC, showPath=false, showMethod=false),
                 ), apiCoverageReport.testResultRecords, totalEndpointsCount = 1, missedEndpointsCount = 0, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 1, partiallyNotImplementedAPICount = 1
             )
         )
@@ -499,13 +499,8 @@ class ApiCoverageReportTest {
     @Test
     fun `No Param GET 200 and 404 in spec not implemented without actuator`() {
         val endpointsInSpec = mutableListOf(
-            Endpoint(
-                "/orders",
-                "GET",
-                200,
-                protocol = SpecmaticProtocol.HTTP,
-                specType = SpecType.OPENAPI
-            ), Endpoint("/orders", "GET", 404, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
+            Endpoint("/orders","GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/orders", "GET", 404, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
         )
 
         val testResultRecords = mutableListOf(
@@ -519,7 +514,7 @@ class ApiCoverageReportTest {
             OpenAPICoverageConsoleReport(
                 listOf(
                     OpenApiCoverageConsoleRow("GET", "/orders", 200, 1, 50, CoverageStatus.COVERED),
-                    OpenApiCoverageConsoleRow("GET", "/orders", 404, 0, 50, CoverageStatus.INVALID, showPath = false, showMethod = false),
+                    OpenApiCoverageConsoleRow("GET", "/orders", 404, 0, 50, CoverageStatus.NOT_COVERED, showPath = false, showMethod = false),
                 ), apiCoverageReport.testResultRecords, totalEndpointsCount = 1, missedEndpointsCount = 0, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 0, partiallyNotImplementedAPICount = 0
             )
         )
@@ -528,13 +523,8 @@ class ApiCoverageReportTest {
     @Test
     fun `No Param GET 200 and 404 in spec implemented with actuator`() {
         val endpointsInSpec = mutableListOf(
-            Endpoint(
-                "/orders",
-                "GET",
-                200,
-                protocol = SpecmaticProtocol.HTTP,
-                specType = SpecType.OPENAPI
-            ), Endpoint("/orders", "GET", 404, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
+            Endpoint("/orders", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/orders", "GET", 404, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
         )
         val applicationAPIs = mutableListOf(
             API("GET", "/orders")
@@ -551,7 +541,7 @@ class ApiCoverageReportTest {
             OpenAPICoverageConsoleReport(
                 listOf(
                     OpenApiCoverageConsoleRow("GET", "/orders", 200, 1, 50, CoverageStatus.COVERED),
-                    OpenApiCoverageConsoleRow("GET", "/orders", 404, 0, 50, CoverageStatus.INVALID, showPath = false, showMethod = false),
+                    OpenApiCoverageConsoleRow("GET", "/orders", 404, 0, 50, CoverageStatus.NOT_COVERED, showPath = false, showMethod = false),
                 ), apiCoverageReport.testResultRecords, totalEndpointsCount = 1, missedEndpointsCount = 0, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 0, partiallyNotImplementedAPICount = 0
             )
         )
