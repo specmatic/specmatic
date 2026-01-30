@@ -17,7 +17,6 @@ import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.report.ReportGenerator
 import io.specmatic.core.utilities.*
-import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_TIMEOUT
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
@@ -74,18 +73,11 @@ open class SpecmaticJUnitSupport {
     companion object {
         val settingsStaging = ThreadLocal<ContractTestSettings?>()
 
-        const val CONTRACT_PATHS = "contractPaths"
         const val HOST = "host"
         const val PORT = "port"
         const val PROTOCOL = "protocol"
         const val TEST_BASE_URL = "testBaseURL"
-        const val FILTER_NAME_PROPERTY = "filterName"
-        const val FILTER_NOT_NAME_PROPERTY = "filterNotName"
         const val FILTER = "filter"
-        const val FILTER_NAME_ENVIRONMENT_VARIABLE = "FILTER_NAME"
-        const val FILTER_NOT_NAME_ENVIRONMENT_VARIABLE = "FILTER_NOT_NAME"
-        const val OVERLAY_FILE_PATH = "overlayFilePath"
-        private const val SWAGGER_UI_BASEURL = "swaggerUIBaseURL"
 
         val partialSuccesses: ConcurrentLinkedDeque<Result.Success> = ConcurrentLinkedDeque()
     }
@@ -276,7 +268,7 @@ open class SpecmaticJUnitSupport {
         val timeoutInMilliseconds = try {
             specmaticConfig.getTestTimeoutInMilliseconds()
         } catch (_: NumberFormatException) {
-            throw ContractException("$SPECMATIC_TEST_TIMEOUT should be a value of type long")
+            throw ContractException("The test timeout should be a value of type long")
         } ?: DEFAULT_TIMEOUT_IN_MILLISECONDS
 
         val workingDirectory = WorkingDirectory(DEFAULT_WORKING_DIRECTORY)
