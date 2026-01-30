@@ -1637,7 +1637,7 @@ private fun expectedType(e: MismatchedInputException): String {
 private fun readablePath(path: MutableList<JsonMappingException.Reference>) =
     path.joinToString(".") { it.fieldName ?: "[${it.index}]" }.replace(".[", "[")
 
-private fun readEnvVarOrProperty(
+fun readEnvVarOrProperty(
     envVarName: String,
     propertyName: String,
 ): String? = System.getenv(envVarName) ?: System.getProperty(propertyName)

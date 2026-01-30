@@ -21,6 +21,7 @@ import io.ktor.server.netty.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.mockk.*
+import io.specmatic.core.readEnvVarOrProperty
 import io.specmatic.toContractSourceEntries
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.*
