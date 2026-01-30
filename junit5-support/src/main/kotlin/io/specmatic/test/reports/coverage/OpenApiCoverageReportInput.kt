@@ -94,39 +94,49 @@ class OpenApiCoverageReportInput(
 
     fun generateCoverageReport(listeners: List<TestReportListener> = emptyList()): OpenAPICoverageConsoleReport {
         val allTests = testResultRecords()
-        val apiCoverageRowsInternal: MutableList<OpenApiCoverageConsoleRow> = mutableListOf()
+        val apiCoverageRows: MutableList<OpenApiCoverageConsoleRow> = mutableListOf()
         val groupedTestResultRecords = allTests.groupRecords()
 
-        groupedTestResultRecords.forEach { (path, methodMap) ->
-            val routeAPIRows: MutableList<OpenApiCoverageConsoleRow> = mutableListOf()
+        // Build rows for each path -> method -> requestContentType -> responseStatus group
+        for ((path, methodMap) in groupedTestResultRecords) {
+            val rowsForPath = mutableListOf<OpenApiCoverageConsoleRow>()
             val totalCoveragePercentage = calculateTotalCoveragePercentage(methodMap)
             listeners.onEachListener { onPathCoverageCalculated(path, totalCoveragePercentage) }
-            methodMap.forEach { (method, contentTypeMap) ->
-                contentTypeMap.forEach { (requestContentType, responseCodeMap) ->
+
+            for ((method, contentTypeMap) in methodMap) {
+                for ((requestContentType, responseCodeMap) in contentTypeMap) {
+                    // Sort response status keys numerically when possible, otherwise lexicographically
                     val sortedResponseEntries = responseCodeMap.entries.sortedWith(
                         compareBy(
                             { it.key.toIntOrNull() ?: Int.MAX_VALUE },
                             { it.key }
                         )
                     )
-                    sortedResponseEntries.forEach { (responseStatus, testResults) ->
-                        routeAPIRows.add(
+
+                    for ((responseStatus, testResults) in sortedResponseEntries) {
+                        val showPath = rowsForPath.isEmpty()
+                        val showMethod = rowsForPath.none { it.method == method }
+                        val count = testResults.count { it.isExercised }.toString()
+                        val remarks = testResults.getCoverageStatus()
+
+                        rowsForPath.add(
                             OpenApiCoverageConsoleRow(
                                 path = path,
-                                showPath = routeAPIRows.isEmpty(),
+                                showPath = showPath,
                                 method = method,
-                                showMethod = routeAPIRows.none { it.method == method },
+                                showMethod = showMethod,
                                 requestContentType = requestContentType,
                                 responseStatus = responseStatus,
-                                count = testResults.count { it.isExercised }.toString(),
-                                remarks = testResults.getCoverageStatus(),
+                                count = count,
+                                remarks = remarks,
                                 coveragePercentage = totalCoveragePercentage,
-                            ),
+                            )
                         )
                     }
                 }
             }
-            apiCoverageRowsInternal.addAll(routeAPIRows)
+
+            apiCoverageRows.addAll(rowsForPath)
         }
 
         val totalAPICount = groupedTestResultRecords.keys.size
@@ -149,7 +159,7 @@ class OpenApiCoverageReportInput(
         }
 
         return OpenAPICoverageConsoleReport(
-            apiCoverageRowsInternal,
+            apiCoverageRows,
             allTests,
             totalAPICount,
             missedAPICount,
