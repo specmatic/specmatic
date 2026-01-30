@@ -1,39 +1,25 @@
 package io.specmatic.core
 
-import com.fasterxml.jackson.annotation.JsonAlias
-import com.fasterxml.jackson.annotation.JsonIgnore
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties
-import com.fasterxml.jackson.annotation.JsonProperty
-import com.fasterxml.jackson.annotation.JsonSubTypes
-import com.fasterxml.jackson.annotation.JsonTypeInfo
-import com.fasterxml.jackson.annotation.JsonTypeName
+import com.fasterxml.jackson.annotation.*
 import com.fasterxml.jackson.databind.DatabindException
 import com.fasterxml.jackson.databind.JsonMappingException
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
-import com.fasterxml.jackson.databind.exc.IgnoredPropertyException
-import com.fasterxml.jackson.databind.exc.InvalidFormatException
-import com.fasterxml.jackson.databind.exc.InvalidNullException
-import com.fasterxml.jackson.databind.exc.MismatchedInputException
-import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException
+import com.fasterxml.jackson.databind.exc.*
 import io.specmatic.core.Configuration.Companion.configFilePath
-import io.specmatic.core.SourceProvider.filesystem
-import io.specmatic.core.SourceProvider.git
-import io.specmatic.core.SourceProvider.web
+import io.specmatic.core.SourceProvider.*
 import io.specmatic.core.azure.AzureAPI
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.SpecmaticConfigVersion.VERSION_1
 import io.specmatic.core.config.Switch
 import io.specmatic.core.config.toSpecmaticConfig
-import io.specmatic.core.config.v3.SpecExecutionConfig
 import io.specmatic.core.config.v3.ConsumesDeserializer
+import io.specmatic.core.config.v3.SpecExecutionConfig
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSONObject
-import io.specmatic.core.utilities.ContractSource
-import io.specmatic.core.utilities.ContractSourceEntry
-import io.specmatic.core.utilities.Flags
+import io.specmatic.core.utilities.*
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_SCHEMA
 import io.specmatic.core.utilities.Flags.Companion.ONLY_POSITIVE
@@ -44,12 +30,6 @@ import io.specmatic.core.utilities.Flags.Companion.VALIDATE_RESPONSE_VALUE
 import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
 import io.specmatic.core.utilities.Flags.Companion.getLongValue
 import io.specmatic.core.utilities.Flags.Companion.getStringValue
-import io.specmatic.core.utilities.GitMonoRepo
-import io.specmatic.core.utilities.GitRepo
-import io.specmatic.core.utilities.LocalFileSystemSource
-import io.specmatic.core.utilities.WebSource
-import io.specmatic.core.utilities.exceptionCauseMessage
-import io.specmatic.core.utilities.readEnvVarOrProperty
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
@@ -241,6 +221,7 @@ data class SpecmaticConfig(
     private val version: SpecmaticConfigVersion? = null,
     private val disableTelemetry: Boolean? = null,
     private val licensePath: Path? = null,
+    private val reportDirPath: Path? = null,
 ) {
     companion object {
         fun getReport(specmaticConfig: SpecmaticConfig): ReportConfigurationDetails? {
@@ -792,6 +773,13 @@ data class SpecmaticConfig(
     @JsonIgnore
     fun getLicensePath(): Path? {
         return licensePath
+    }
+
+    @JsonIgnore
+    fun getReportDirPath(suffix: String? = null): Path {
+        if(reportDirPath == null) return defaultReportDirPath
+        if(suffix == null) return reportDirPath
+        return reportDirPath.resolve(suffix)
     }
 }
 
