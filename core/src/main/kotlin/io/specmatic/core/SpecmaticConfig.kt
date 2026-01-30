@@ -1,54 +1,32 @@
 package io.specmatic.core
 
-import com.fasterxml.jackson.annotation.JsonAlias
-import com.fasterxml.jackson.annotation.JsonIgnore
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties
-import com.fasterxml.jackson.annotation.JsonProperty
-import com.fasterxml.jackson.annotation.JsonSubTypes
-import com.fasterxml.jackson.annotation.JsonTypeInfo
-import com.fasterxml.jackson.annotation.JsonTypeName
+import com.fasterxml.jackson.annotation.*
 import com.fasterxml.jackson.databind.DatabindException
 import com.fasterxml.jackson.databind.JsonMappingException
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
-import com.fasterxml.jackson.databind.exc.IgnoredPropertyException
-import com.fasterxml.jackson.databind.exc.InvalidFormatException
-import com.fasterxml.jackson.databind.exc.InvalidNullException
-import com.fasterxml.jackson.databind.exc.MismatchedInputException
-import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException
-import io.specmatic.core.Configuration.Companion.DEFAULT_HTTP_STUB_HOST
-import io.specmatic.core.Configuration.Companion.DEFAULT_HTTP_STUB_PORT
-import io.specmatic.core.Configuration.Companion.configFilePath
-import io.specmatic.core.SourceProvider.filesystem
-import io.specmatic.core.SourceProvider.git
-import io.specmatic.core.SourceProvider.web
-import io.specmatic.core.SpecmaticConfig.Companion.orDefault
-import io.specmatic.core.azure.AzureAPI
-import io.specmatic.core.config.BackwardCompatibilityConfig
-import io.specmatic.core.config.HttpsConfiguration
-import io.specmatic.core.config.LoggingConfiguration
-import io.specmatic.core.config.McpConfiguration
-import io.specmatic.core.config.SpecmaticConfigVersion
-import io.specmatic.core.config.SpecmaticConfigVersion.VERSION_1
-import io.specmatic.core.config.SpecmaticConfigVersion.VERSION_2
-import io.specmatic.core.config.Switch
-import io.specmatic.core.config.toSpecmaticConfig
-import io.specmatic.core.config.v3.SpecExecutionConfig
-import io.specmatic.core.config.v3.ConsumesDeserializer
+import com.fasterxml.jackson.databind.exc.*
 import io.specmatic.conversions.SPECMATIC_BASIC_AUTH_TOKEN
 import io.specmatic.conversions.SPECMATIC_OAUTH2_TOKEN
+import io.specmatic.core.Configuration.Companion.configFilePath
+import io.specmatic.core.SourceProvider.*
+import io.specmatic.core.SpecmaticConfig.Companion.orDefault
+import io.specmatic.core.azure.AzureAPI
+import io.specmatic.core.config.*
+import io.specmatic.core.config.SpecmaticConfigVersion.VERSION_1
+import io.specmatic.core.config.SpecmaticConfigVersion.VERSION_2
+import io.specmatic.core.config.v3.ConsumesDeserializer
+import io.specmatic.core.config.v3.SpecExecutionConfig
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSONObject
-import io.specmatic.core.utilities.ContractSource
-import io.specmatic.core.utilities.ContractSourceEntry
-import io.specmatic.core.utilities.Flags
+import io.specmatic.core.utilities.*
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_QUERY_PARAMS
 import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_SCHEMA
-import io.specmatic.core.utilities.Flags.Companion.MAX_TEST_REQUEST_COMBINATIONS
 import io.specmatic.core.utilities.Flags.Companion.MAX_TEST_COUNT
+import io.specmatic.core.utilities.Flags.Companion.MAX_TEST_REQUEST_COMBINATIONS
 import io.specmatic.core.utilities.Flags.Companion.ONLY_POSITIVE
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_BASE_URL
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_ESCAPE_SOAP_ACTION
@@ -64,14 +42,6 @@ import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
 import io.specmatic.core.utilities.Flags.Companion.getIntValue
 import io.specmatic.core.utilities.Flags.Companion.getLongValue
 import io.specmatic.core.utilities.Flags.Companion.getStringValue
-import io.specmatic.core.utilities.GitMonoRepo
-import io.specmatic.core.utilities.GitRepo
-import io.specmatic.core.utilities.LocalFileSystemSource
-import io.specmatic.core.utilities.WebSource
-import io.specmatic.core.utilities.exceptionCauseMessage
-import io.specmatic.core.utilities.URIValidationResult
-import io.specmatic.core.utilities.readEnvVarOrProperty
-import io.specmatic.core.utilities.validateTestOrStubUri
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
@@ -1666,3 +1636,8 @@ private fun expectedType(e: MismatchedInputException): String {
 
 private fun readablePath(path: MutableList<JsonMappingException.Reference>) =
     path.joinToString(".") { it.fieldName ?: "[${it.index}]" }.replace(".[", "[")
+
+private fun readEnvVarOrProperty(
+    envVarName: String,
+    propertyName: String,
+): String? = System.getenv(envVarName) ?: System.getProperty(propertyName)

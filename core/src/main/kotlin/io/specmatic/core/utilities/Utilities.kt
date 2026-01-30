@@ -439,11 +439,6 @@ fun saveJsonFile(
     File(directory, fileName).writeText(jsonString)
 }
 
-fun readEnvVarOrProperty(
-    envVarName: String,
-    propertyName: String,
-): String? = System.getenv(envVarName) ?: System.getProperty(propertyName)
-
 fun examplesDirFor(
     openApiFilePath: String,
     alternateSuffix: String,

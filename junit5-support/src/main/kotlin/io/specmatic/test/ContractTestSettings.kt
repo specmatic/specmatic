@@ -122,10 +122,10 @@ data class ContractTestSettings(
         timeoutInMilliSeconds = contractTestSettings.get()?.timeoutInMilliSeconds,
         filter = contractTestSettings.get()?.filter ?: specmaticConfig.getTestFilter(),
         otherArguments = DeprecatedArguments(
-            host = contractTestSettings.get()?.otherArguments?.host ?: Flags.getStringValue(HOST),
-            port = contractTestSettings.get()?.otherArguments?.port ?: Flags.getStringValue(PORT),
+            host = contractTestSettings.get()?.otherArguments?.host,
+            port = contractTestSettings.get()?.otherArguments?.port,
             envName = contractTestSettings.get()?.otherArguments?.envName,
-            protocol = contractTestSettings.get()?.otherArguments?.protocol ?: Flags.getStringValue(PROTOCOL),
+            protocol = contractTestSettings.get()?.otherArguments?.protocol,
             useCurrentBranchForCentralRepo = contractTestSettings.get()?.otherArguments?.useCurrentBranchForCentralRepo,
             suggestionsPath = contractTestSettings.get()?.otherArguments?.suggestionsPath,
             inlineSuggestions = contractTestSettings.get()?.otherArguments?.inlineSuggestions,

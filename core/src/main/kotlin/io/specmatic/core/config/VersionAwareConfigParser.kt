@@ -8,7 +8,6 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.config.v1.SpecmaticConfigV1
 import io.specmatic.core.config.v2.SpecmaticConfigV2
 import io.specmatic.core.pattern.ContractException
-import io.specmatic.core.utilities.readEnvVarOrProperty
 import java.io.File
 
 private const val SPECMATIC_CONFIG_VERSION = "version"
@@ -65,7 +64,7 @@ private fun resolveTemplates(node: JsonNode): JsonNode {
 
 private fun resolveTemplateValue(value: String): JsonNode? {
     val template = parseTemplate(value) ?: return null
-    val resolved = readEnvVarOrProperty(template.key, template.key) ?: template.defaultValue
+    val resolved = System.getenv(template.key) ?: System.getProperty(template.key) ?: template.defaultValue
     return parseResolvedTemplateValue(resolved)
 }
 

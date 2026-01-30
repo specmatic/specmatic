@@ -7,7 +7,6 @@ import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.log.configureLogging
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
-import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_PARALLELISM
 import io.specmatic.core.utilities.exitWithMessage
 import io.specmatic.core.utilities.newXMLBuilder
 import io.specmatic.core.utilities.xmlToString
@@ -197,7 +196,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         try {
             parallelism.toInt()
         } catch(e: Throwable) {
-            exitWithMessage("The value of the $SPECMATIC_TEST_PARALLELISM environment variable must be either 'true' or an integer value")
+            exitWithMessage("Parallelism is set to $parallelism. It must be either 'auto' or an integer value")
         }
     }
 
