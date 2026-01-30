@@ -283,7 +283,7 @@ internal class HttpRequestTest {
         )
         every { request.requestNotRecognized(any<StrictRequestNotRecognizedMessages>()) }.returns("msg")
 
-        request.requestNotRecognized()
+        request.requestNotRecognizedInStrictMode()
 
         verify { request.requestNotRecognized(any<StrictRequestNotRecognizedMessages>()) }
     }

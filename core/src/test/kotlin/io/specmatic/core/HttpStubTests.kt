@@ -18,6 +18,7 @@ import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpStub
 import io.specmatic.stub.SpecificationAndRequestMismatchMessages
+import org.springframework.http.MediaType
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import org.assertj.core.api.Assertions.assertThat
 import org.json.JSONObject
