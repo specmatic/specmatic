@@ -34,13 +34,11 @@ class ContractExecutionListener : TestExecutionListener {
         private val exceptionsThrown = mutableListOf<Throwable>()
         private val printer: ContractExecutionPrinter = getContractExecutionPrinter()
 
-        fun exitProcess() {
-            exitProcess(exitStatus())
-        }
+        fun exitCode(): Int = exitStatus()
 
-        fun exitStatus(): Int = if (testSuiteFailed || couldNotStart || failure > 0) 1 else 0
+        internal fun exitStatus(): Int = if (testSuiteFailed || couldNotStart || failure > 0) 1 else 0
 
-        fun reset() {
+        internal fun reset() {
             success = 0
             failure = 0
             aborted = 0

@@ -40,7 +40,7 @@ private const val DISPLAY_NAME_PREFIX_IN_SYSTEM_OUT_TAG_TEXT = "display-name: "
 
 @Command(name = "test", mixinStandardHelpOptions = true, description = ["Run contract tests"])
 @Category("Specmatic core")
-class TestCommand(private val junitLauncher: Launcher = LauncherFactory.create()) : Callable<Unit> {
+class TestCommand(private val junitLauncher: Launcher = LauncherFactory.create()) : Callable<Int> {
     @CommandLine.Parameters(arity = "0..*", description = ["Contract file paths"])
     var contractPaths: List<String>? = null
 
@@ -134,7 +134,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         loadSpecmaticConfigOrNull(configFileName, explicitlySpecifiedByUser = configFileName != null).orDefault()
     }
 
-    override fun call() = try {
+    override fun call(): Int = try {
         configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = verboseMode))
         setParallelism(specmaticConfig)
         setTestThreadLocalSettings()
@@ -162,10 +162,11 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             }
         }
 
-        ContractExecutionListener.exitProcess()
+        ContractExecutionListener.exitCode()
     }
     catch (e: Throwable) {
         logger.log(e)
+        1
     }
 
     private fun setParallelism(specmaticConfig: SpecmaticConfig) {

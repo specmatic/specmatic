@@ -6,6 +6,7 @@ import io.specmatic.core.Feature
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.WorkingDirectory
 import io.specmatic.stub.HttpClientFactory
+import io.specmatic.stub.SpecmaticConfigSource
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -23,7 +24,7 @@ class HTTPStubEngineTest {
                 workingDirectory = WorkingDirectory(),
                 gracefulRestartTimeoutInMs = 0,
                 specToBaseUrlMap = specToBaseUrlMap,
-                specmaticConfig = SpecmaticConfig(),
+                specmaticConfigSource = SpecmaticConfigSource.fromConfig(SpecmaticConfig()),
             ).close()
         }
 

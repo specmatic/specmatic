@@ -42,7 +42,7 @@ data class LocalFileSystemSource(
 
             ContractPathData(
                 baseDir = directory,
-                path = resolvedPath.canonicalPath,
+                path = resolvedPath.path,
                 provider = type,
                 specificationPath = it.path,
                 baseUrl = it.baseUrl,

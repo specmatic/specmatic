@@ -59,6 +59,7 @@ internal class StubCommandTest {
     fun cleanUp() {
         clearAllMocks()
         stubCommand.contractPaths = arrayListOf()
+        stubCommand.specmaticConfigPath = null
     }
 
     @Test
@@ -122,7 +123,7 @@ internal class StubCommandTest {
                     workingDirectory = any(),
                     gracefulRestartTimeoutInMs = any(),
                     specToBaseUrlMap = any(),
-                    specmaticConfig = any(),
+                    specmaticConfigSource = any(),
                 )
             }.returns(
                 mockk {
@@ -147,7 +148,7 @@ internal class StubCommandTest {
                     workingDirectory = any(),
                     gracefulRestartTimeoutInMs = any(),
                     specToBaseUrlMap = any(),
-                    specmaticConfig = any(),
+                    specmaticConfigSource = any(),
                 )
             }
         } finally {
@@ -167,6 +168,11 @@ internal class StubCommandTest {
 
         every { watchMaker.make(listOf(specFilePath)) }.returns(watcher)
         every { specmaticConfig.contractStubPaths() }.returns(arrayListOf("/config/path/to/contract.$extension"))
+        every { specmaticConfig.contractStubPathData() } returns emptyList()
+        every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
+        every { httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } answers {
+            mockk<HttpStub> { every { close() } returns Unit }
+        }
 
         val execute = CommandLine(stubCommand).execute(specFilePath)
 
@@ -233,7 +239,7 @@ internal class StubCommandTest {
                     workingDirectory = any(),
                     gracefulRestartTimeoutInMs = any(),
                     specToBaseUrlMap = any(),
-                    specmaticConfig = any(),
+                    specmaticConfigSource = any(),
                 )
             }.returns(
                 mockk {
@@ -261,7 +267,7 @@ internal class StubCommandTest {
                     workingDirectory = any(),
                     gracefulRestartTimeoutInMs = any(),
                     specToBaseUrlMap = any(),
-                    specmaticConfig = any(),
+                    specmaticConfigSource = any(),
                 )
             }
         } finally {

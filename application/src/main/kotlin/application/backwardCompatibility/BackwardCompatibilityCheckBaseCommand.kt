@@ -27,7 +27,7 @@ import kotlin.collections.ArrayDeque
 import kotlin.io.path.Path
 import kotlin.io.path.absolutePathString
 
-abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
+abstract class BackwardCompatibilityCheckBaseCommand : Callable<Int> {
     protected val specmaticConfig: SpecmaticConfig = loadSpecmaticConfigIfAvailableElseDefault()
     protected val backwardCompConfig = specmaticConfig.getBackwardCompatibilityConfig()
     private val newLine = System.lineSeparator()
@@ -86,14 +86,12 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
     open fun areExamplesValid(feature: IFeature, which: String): Boolean = true
     open fun getUnusedExamples(feature: IFeature): Set<String> = emptySet()
 
-    final override fun call() {
+    final override fun call(): Int {
         configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = debugLog))
-        SystemExit.exitWith(execute())
-    }
-
-    fun execute(): Int {
         addShutdownHook()
+
         val filteredSpecs = getChangedSpecs()
+        if (filteredSpecs.isEmpty()) return 0
 
         val result = try {
             runBackwardCompatibilityCheckFor(files = filteredSpecs, baseBranch = effectiveBaseBranch)
@@ -119,7 +117,7 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
 
         if (filesChangedInCurrentBranch.isEmpty() && untrackedFiles.isEmpty()) {
             logger.log("$newLine No specs were changed, skipping the check.$newLine")
-            SystemExit.exitWith(0)
+            return emptySet()
         }
 
         val filesReferringToChangedSchemaFiles = getSpecsReferringTo(filesChangedInCurrentBranch)
