@@ -1216,9 +1216,9 @@ data class SpecmaticConfig(
 
     @JsonIgnore
     fun getReportDirPath(suffix: String? = null): Path {
-        if(reportDirPath == null) return defaultReportDirPath
-        if(suffix == null) return reportDirPath
-        return reportDirPath.resolve(suffix)
+        val reportDirPath = reportDirPath ?: defaultReportDirPath
+        return if (suffix == null) reportDirPath
+        else reportDirPath.resolve(suffix)
     }
 }
 

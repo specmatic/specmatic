@@ -1429,7 +1429,7 @@ internal class SpecmaticConfigAllTest {
 
         val reportDirPath = specmaticConfig.getReportDirPath("mcp")
 
-        assertThat(reportDirPath.toString()).isEqualTo("build${File.separator}reports${File.separator}specmatic")
+        assertThat(reportDirPath.toString()).isEqualTo("build${File.separator}reports${File.separator}specmatic${File.separator}mcp")
     }
 
 }
