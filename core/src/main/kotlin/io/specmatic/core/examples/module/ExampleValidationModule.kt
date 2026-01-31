@@ -92,15 +92,14 @@ class ExampleValidationModule(private val lenientMode: Boolean = false) {
         )
     }
 
-    fun validateExample(feature: Feature, exampleFile: File): Result {
-
+    fun validateExample(feature: Feature, exampleFile: File, strictMode: Boolean = false): Result {
         LicenseResolver.utilize(
             product = LicensedProduct.OPEN_SOURCE,
             feature = SpecmaticFeature.EXAMPLES_VALIDATED,
             protocol = listOf(feature.protocol)
         )
 
-        return ExampleFromFile.fromFile(exampleFile, strictMode = false).realise(
+        return ExampleFromFile.fromFile(exampleFile, strictMode = strictMode).realise(
             hasValue = { example, _ -> validateExample(feature, example) },
             orFailure = { validateSchemaExample(feature, exampleFile) },
             orException = { it.toHasFailure().failure }
@@ -115,7 +114,7 @@ class ExampleValidationModule(private val lenientMode: Boolean = false) {
         )
     }
 
-    private fun callLifecycleHook(feature: Feature, examples: List<ExampleFromFile>): Result {
+    fun callLifecycleHook(feature: Feature, examples: List<ExampleFromFile>): Result {
         val scenarioStubs = examples.map { ScenarioStub(request = it.request, filePath = it.file.path) }
         return LifecycleHooks.afterLoadingStaticExamples.call(
             ExamplesUsedFor.Validation,
