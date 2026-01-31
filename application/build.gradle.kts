@@ -42,7 +42,7 @@ dependencies {
     implementation("io.swagger.parser.v3:swagger-parser:2.1.36") {
         exclude(group = "org.mozilla", module = "rhino")
     }
-    implementation("org.mozilla:rhino:1.8.1")
+    implementation("org.mozilla:rhino:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.10.0")
 
     implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.0")
