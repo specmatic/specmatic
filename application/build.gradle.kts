@@ -39,7 +39,7 @@ dependencies {
     implementation(project(":specmatic-mcp"))
 
     implementation("io.ktor:ktor-client-cio-jvm:2.3.13")
-    implementation("io.swagger.parser.v3:swagger-parser:2.1.36") {
+    implementation("io.swagger.parser.v3:swagger-parser:2.1.37") {
         exclude(group = "org.mozilla", module = "rhino")
     }
     implementation("org.mozilla:rhino:1.8.1")
