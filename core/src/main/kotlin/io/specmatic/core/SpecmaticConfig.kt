@@ -331,6 +331,7 @@ data class SpecmaticConfig(
     private val mcp: McpConfiguration? = null,
     private val licensePath: Path? = null,
     private val reportDirPath: Path? = null,
+    private val globalSettings: SpecmaticGlobalSettings? = null,
 ) {
     companion object {
         fun getReport(specmaticConfig: SpecmaticConfig): ReportConfigurationDetails? {
@@ -513,6 +514,11 @@ data class SpecmaticConfig(
     @JsonIgnore
     fun getAttributeSelectionPattern(): AttributeSelectionPatternDetails {
         return getAttributeSelectionPattern(this)
+    }
+
+    @JsonIgnore
+    fun getGlobalSettingsOrDefault(): SpecmaticGlobalSettings {
+        return this.globalSettings ?: SpecmaticGlobalSettings()
     }
 
     @JsonIgnore
