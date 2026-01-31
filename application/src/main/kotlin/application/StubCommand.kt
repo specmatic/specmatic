@@ -122,7 +122,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     @Option(names = ["--graceful-restart-timeout-in-ms"], description = ["Time to wait for the server to stop before starting it again"])
     var gracefulRestartTimeoutInMs: Long? = null
 
-    @Option(names = ["--hot-reload"], description = ["Time to wait for the server to stop before starting it again"])
+    @Option(names = ["--hot-reload"], description = ["Restart the stub when the example files are updated (enabled by default)"])
     var hotReload: Switch? = null
 
     @Option(
