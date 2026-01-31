@@ -11,8 +11,6 @@ dependencies {
     implementation("io.specmatic.build-reporter:specmatic-reporter-min:${project.property("specmaticReporterVersion")}") {
         exclude(group = "commons-logging", module = "commons-logging")
     }
-    implementation("joda-time:joda-time:2.14.0")
-    implementation("net.minidev:json-smart:2.6.0")
 
     implementation("com.ezylang:EvalEx:3.6.0")
     implementation("org.apache.commons:commons-lang3:3.20.0")
@@ -24,8 +22,6 @@ dependencies {
     implementation("io.ktor:ktor-server-cors:2.3.13")
     implementation("io.ktor:ktor-server-double-receive:2.3.13")
     implementation("io.ktor:ktor-server-content-negotiation:2.3.13")
-    implementation("io.ktor:ktor-serialization-jackson:2.3.13")
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.21.0")
     implementation("com.jayway.jsonpath:json-path:2.10.0")
 
 
@@ -33,14 +29,6 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.9.25")
     implementation("org.eclipse.jgit:org.eclipse.jgit:7.4.0.202509020913-r")
     implementation("org.eclipse.jgit:org.eclipse.jgit.ssh.apache:7.4.0.202509020913-r")
-    implementation("com.fasterxml.jackson.core:jackson-core:2.21.0")
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.21.0")
-
-    implementation("com.flipkart.zjsonpatch:zjsonpatch:0.4.16")
-
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.21.0")
-
-    implementation("io.swagger.parser.v3:swagger-parser:2.1.36")
 
     implementation("dk.brics:automaton:1.12-4")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
@@ -53,7 +41,6 @@ dependencies {
     testImplementation("io.mockk:mockk:1.13.11")
     testImplementation("org.assertj:assertj-core:3.27.7")
     testImplementation("io.ktor:ktor-client-mock-jvm:2.3.13")
-    implementation("org.thymeleaf:thymeleaf:3.1.3.RELEASE")
     implementation("org.junit.platform:junit-platform-launcher:1.13.4")
 }
 
