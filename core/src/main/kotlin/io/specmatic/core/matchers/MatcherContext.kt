@@ -8,6 +8,7 @@ import io.specmatic.core.jsonoperator.JsonPointerOperator
 import io.specmatic.core.jsonoperator.Optional
 import io.specmatic.core.jsonoperator.RequestResponseOperator
 import io.specmatic.core.jsonoperator.RootMutableJsonOperator.Companion.finalizeValue
+import io.specmatic.core.jsonoperator.getOrElse
 import io.specmatic.core.jsonoperator.value.ArrayValueOperator
 import io.specmatic.core.jsonoperator.value.ObjectValueOperator
 import io.specmatic.core.pattern.HasValue
