@@ -47,6 +47,13 @@ import java.util.*
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.stream.Stream
 import kotlin.streams.asStream
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
+import javax.net.ssl.HostnameVerifier
+import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
 
 @Serializable
 data class API(
@@ -776,10 +783,26 @@ fun <T> selectTestsToRun(
 }
 
 
-fun isBaseURLReachable(baseUrl: String,timeOutMs: Int = 3000): Boolean{
-    return try{
-        val url = if(baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+fun isBaseURLReachable(baseUrl: String, timeOutMs: Int = 3000): Boolean {
+    return try {
+        val url = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
         val connection = URL(url).openConnection() as HttpURLConnection
+
+        if (connection is HttpsURLConnection) {
+            val trustAllCerts = arrayOf<TrustManager>(
+                object : X509TrustManager {
+                    override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
+                    override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) = Unit
+                    override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) = Unit
+                }
+            )
+            val sslContext = SSLContext.getInstance("TLS").apply {
+                init(null, trustAllCerts, SecureRandom())
+            }
+            connection.sslSocketFactory = sslContext.socketFactory
+            connection.hostnameVerifier = HostnameVerifier { _, _ -> true }
+        }
+
         connection.requestMethod = "HEAD"
         connection.connectTimeout = timeOutMs
         connection.readTimeout = timeOutMs
@@ -788,7 +811,7 @@ fun isBaseURLReachable(baseUrl: String,timeOutMs: Int = 3000): Boolean{
 
         val code = connection.responseCode
         code in 200..499
-    }catch (e: Exception){
+    } catch (e: Exception) {
         false
     }
 }
