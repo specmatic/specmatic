@@ -5,7 +5,7 @@ plugins {
 }
 
 dependencies {
-    implementation("io.specmatic.build-reporter:specmatic-reporter-min:${project.ext["specmaticReporterVersion"]}") {
+    implementation("io.specmatic.build-reporter:specmatic-reporter-min:${project.property("specmaticReporterVersion")}") {
         exclude(group = "commons-logging", module = "commons-logging")
     }
 

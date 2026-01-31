@@ -329,6 +329,7 @@ data class SpecmaticConfig(
     private val logging: LoggingConfiguration? = null,
     private val mcp: McpConfiguration? = null,
     private val licensePath: Path? = null,
+    private val reportDirPath: Path? = null,
 ) {
     companion object {
         fun getReport(specmaticConfig: SpecmaticConfig): ReportConfigurationDetails? {
@@ -1211,6 +1212,13 @@ data class SpecmaticConfig(
     @JsonIgnore
     fun getLicensePath(): Path? {
         return licensePath
+    }
+
+    @JsonIgnore
+    fun getReportDirPath(suffix: String? = null): Path {
+        if(reportDirPath == null) return defaultReportDirPath
+        if(suffix == null) return reportDirPath
+        return reportDirPath.resolve(suffix)
     }
 }
 

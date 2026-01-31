@@ -91,7 +91,10 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Int> {
         addShutdownHook()
 
         val filteredSpecs = getChangedSpecs()
-        if (filteredSpecs.isEmpty()) return 0
+        if (filteredSpecs.isEmpty()) {
+            logger.log(CompatibilityReport.emptyReport())
+            return 0
+        }
 
         val result = try {
             runBackwardCompatibilityCheckFor(files = filteredSpecs, baseBranch = effectiveBaseBranch)

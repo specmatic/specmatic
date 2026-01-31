@@ -111,9 +111,15 @@ class SpecmaticJunitSupportTest {
 
     @Test
     fun `host system property should be valid`() {
-        System.setProperty(PROTOCOL, "https")
-        System.setProperty(HOST, "invalid domain")
-        System.setProperty(PORT, "8080")
+        SpecmaticJUnitSupport.settingsStaging.set(
+            ContractTestSettings(
+                otherArguments = DeprecatedArguments(
+                    host = "invalid domain",
+                    port = "8080",
+                    protocol = "https"
+                )
+            )
+        )
         val ex = assertThrows<TestAbortedException> {
             SpecmaticJUnitSupport().constructTestBaseURL()
         }
@@ -122,9 +128,15 @@ class SpecmaticJunitSupportTest {
 
     @Test
     fun `protocol system property should be valid`() {
-        System.setProperty(PROTOCOL, "invalid")
-        System.setProperty(HOST, "test.com")
-        System.setProperty(PORT, "8080")
+        SpecmaticJUnitSupport.settingsStaging.set(
+            ContractTestSettings(
+                otherArguments = DeprecatedArguments(
+                    host = "test.com",
+                    port = "8080",
+                    protocol = "invalid"
+                )
+            )
+        )
         val ex = assertThrows<TestAbortedException> {
             SpecmaticJUnitSupport().constructTestBaseURL()
         }
@@ -133,9 +145,15 @@ class SpecmaticJunitSupportTest {
 
     @Test
     fun `port system property should be valid`() {
-        System.setProperty(PROTOCOL, "https")
-        System.setProperty(HOST, "test.com")
-        System.setProperty(PORT, "invalid_port")
+        SpecmaticJUnitSupport.settingsStaging.set(
+            ContractTestSettings(
+                otherArguments = DeprecatedArguments(
+                    host = "test.com",
+                    port = "invalid_port",
+                    protocol = "https"
+                )
+            )
+        )
         val ex = assertThrows<TestAbortedException> {
             SpecmaticJUnitSupport().constructTestBaseURL()
         }
