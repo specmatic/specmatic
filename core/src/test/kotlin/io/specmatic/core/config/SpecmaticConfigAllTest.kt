@@ -1088,4 +1088,103 @@ internal class SpecmaticConfigAllTest {
         assertThat(contractSources[0]).isEqualTo(expectedContractSources[0])
         assertThat(contractSources[1]).isEqualTo(expectedContractSources[1])
     }
+
+    @Test
+    fun `getReportDirPath should return default path when reportDirPath is not configured in v2 json config`() {
+        val configJson = """
+            {
+                "version": 2,
+                "contracts": [
+                    {
+                        "git": {
+                            "url": "https://contracts"
+                        },
+                        "provides": ["com/petstore/1.yaml"]
+                    }
+                ]
+            }
+        """.trimIndent()
+
+        val configV2 = objectMapper.readValue(configJson, SpecmaticConfigV2::class.java)
+        val specmaticConfig = configV2.transform()
+
+        val reportDirPath = specmaticConfig.getReportDirPath()
+
+        assertThat(reportDirPath.toString()).isEqualTo("build${File.separator}reports${File.separator}specmatic")
+    }
+
+    @Test
+    fun `getReportDirPath should return custom path when reportDirPath is configured in v2 json config`() {
+        val configJson = """
+            {
+                "version": 2,
+                "contracts": [
+                    {
+                        "git": {
+                            "url": "https://contracts"
+                        },
+                        "provides": ["com/petstore/1.yaml"]
+                    }
+                ],
+                "report_dir_path": "custom/reports"
+            }
+        """.trimIndent()
+
+        val configV2 = objectMapper.readValue(configJson, SpecmaticConfigV2::class.java)
+        val specmaticConfig = configV2.transform()
+
+        val reportDirPath = specmaticConfig.getReportDirPath()
+
+        assertThat(reportDirPath.toString()).isEqualTo("custom${File.separator}reports")
+    }
+
+    @Test
+    fun `getReportDirPath should return custom path with suffix when suffix is provided in v2 json config`() {
+        val configJson = """
+            {
+                "version": 2,
+                "contracts": [
+                    {
+                        "git": {
+                            "url": "https://contracts"
+                        },
+                        "provides": ["com/petstore/1.yaml"]
+                    }
+                ],
+                "report_dir_path": "custom/reports"
+            }
+        """.trimIndent()
+
+        val configV2 = objectMapper.readValue(configJson, SpecmaticConfigV2::class.java)
+        val specmaticConfig = configV2.transform()
+
+        val reportDirPath = specmaticConfig.getReportDirPath("stub")
+
+        assertThat(reportDirPath.toString()).isEqualTo("custom${File.separator}reports${File.separator}stub")
+    }
+
+    @Test
+    fun `getReportDirPath should return default path with suffix when reportDirPath is not configured and suffix is provided in v2 json config`() {
+        val configJson = """
+            {
+                "version": 2,
+                "contracts": [
+                    {
+                        "git": {
+                            "url": "https://contracts"
+                        },
+                        "provides": ["com/petstore/1.yaml"]
+                    }
+                ]
+            }
+        """.trimIndent()
+
+        val configV2 = objectMapper.readValue(configJson, SpecmaticConfigV2::class.java)
+        val specmaticConfig = configV2.transform()
+
+        val reportDirPath = specmaticConfig.getReportDirPath("mcp")
+
+        assertThat(reportDirPath.toString()).isEqualTo("build${File.separator}reports${File.separator}specmatic")
+    }
+
 }

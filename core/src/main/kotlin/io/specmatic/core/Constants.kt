@@ -1,7 +1,5 @@
 package io.specmatic.core
 
-class Constants {
-    companion object {
-        const val ARTIFACTS_PATH = "./build/reports/specmatic"
-    }
-}
+import java.nio.file.Path
+
+val defaultReportDirPath = Path.of("build", "reports", "specmatic")

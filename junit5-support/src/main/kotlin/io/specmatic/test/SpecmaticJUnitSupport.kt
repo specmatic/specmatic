@@ -3,7 +3,6 @@ package io.specmatic.test
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.*
-import io.specmatic.core.Constants.Companion.ARTIFACTS_PATH
 import io.specmatic.core.SpecmaticConfig.Companion.getSecurityConfiguration
 import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.filters.ScenarioMetadataFilter.Companion.filterUsing
@@ -21,11 +20,7 @@ import io.specmatic.core.utilities.Flags.Companion.getLongValue
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
-import io.specmatic.license.core.Executor
-import io.specmatic.license.core.LicenseResolver
-import io.specmatic.license.core.LicensedProduct
-import io.specmatic.license.core.SpecmaticProtocol
-import io.specmatic.license.core.SpecmaticFeature
+import io.specmatic.license.core.*
 import io.specmatic.license.core.util.LicenseConfig
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.model.SpecType
@@ -219,13 +214,14 @@ open class SpecmaticJUnitSupport {
                 }
             }
 
+        val reportDirPath = specmaticConfig?.getReportDirPath() ?: defaultReportDirPath
         ReportGenerator.generateReport(
             testResultRecords = report.testResultRecords,
             startTime = start,
             endTime = end,
             specConfigs = specConfigs,
             coverage = report.totalCoveragePercentage,
-            reportDir = File("$ARTIFACTS_PATH/test")
+            reportDir = File("$reportDirPath/test")
         ) { ctrfTestResultRecords ->
             ctrfTestResultRecords.filterIsInstance<TestResultRecord>().getCoverageStatus()
         }

@@ -48,6 +48,8 @@ data class SpecmaticConfigV2(
     val disableTelemetry: Boolean? = null,
     @field:JsonAlias("license_path")
     val licensePath: Path? = null,
+    @field:JsonAlias("report_dir_path")
+    val reportDirPath: Path? = null,
 ) : SpecmaticVersionedConfig {
     override fun transform(): SpecmaticConfig {
         return SpecmaticConfig(
@@ -73,6 +75,7 @@ data class SpecmaticConfigV2(
             defaultPatternValues = this.defaultPatternValues,
             disableTelemetry = this.disableTelemetry,
             licensePath = this.licensePath,
+            reportDirPath = this.reportDirPath
         )
     }
 
@@ -105,6 +108,7 @@ data class SpecmaticConfigV2(
                 defaultPatternValues = config.getDefaultPatternValues(),
                 disableTelemetry = config.isTelemetryDisabled(),
                 licensePath = config.getLicensePath(),
+                reportDirPath = config.getReportDirPath(),
             )
         }
     }
