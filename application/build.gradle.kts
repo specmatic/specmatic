@@ -1,7 +1,7 @@
 plugins {
     id("java")
     kotlin("jvm")
-    kotlin("plugin.serialization") version "1.9.25"
+    kotlin("plugin.serialization") version "2.3.0"
 }
 
 dependencies {
@@ -45,7 +45,7 @@ dependencies {
     implementation("org.mozilla:rhino:1.8.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.10.0")
 
-    implementation("org.jetbrains.kotlin:kotlin-reflect:1.9.25")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.0")
 
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.14.2")
 
