@@ -1,7 +1,8 @@
 package io.specmatic.mcp.report
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import io.specmatic.core.Constants.Companion.ARTIFACTS_PATH
+import io.specmatic.core.defaultReportDirPath
+import io.specmatic.core.loadSpecmaticConfigOrNull
 import io.specmatic.mcp.test.ScenarioExecutionResult
 import io.specmatic.mcp.test.logWithTag
 import java.io.File
@@ -14,7 +15,9 @@ class McpJsonReport(
 ) {
     fun generate() {
         try {
-            val directory = File(reportBaseDirectory).resolve(ARTIFACTS_PATH)
+            val specmaticConfig = loadSpecmaticConfigOrNull()
+            val reportDirPath = specmaticConfig?.getReportDirPath("mcp") ?: defaultReportDirPath
+            val directory = File(reportBaseDirectory).resolve(reportDirPath.toString())
             directory.mkdirs()
             val file = File(directory, JSON_REPORT_FILE_NAME)
             logWithTag("Saving JSON test report to ${file.canonicalPath} ...")

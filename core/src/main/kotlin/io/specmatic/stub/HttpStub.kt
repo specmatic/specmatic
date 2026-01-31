@@ -15,7 +15,6 @@ import io.ktor.util.pipeline.*
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.APPLICATION_NAME
 import io.specmatic.core.APPLICATION_NAME_LOWER_CASE
-import io.specmatic.core.Constants.Companion.ARTIFACTS_PATH
 import io.specmatic.core.Feature
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
@@ -856,7 +855,7 @@ class HttpStub(
                 endTime = Instant.now().toEpochMilli(),
                 specConfigs = ctrfSpecConfigsFrom(specmaticConfig, ctrfTestResultRecords),
                 coverage = 0,
-                reportDir = File("$ARTIFACTS_PATH/stub")
+                reportDir = File("${specmaticConfig.getReportDirPath()}/stub")
             )
             { ctrfTestResultRecords ->
                 ctrfTestResultRecords.filterIsInstance<TestResultRecord>().getCoverageStatus()
