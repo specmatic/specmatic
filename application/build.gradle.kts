@@ -43,7 +43,7 @@ dependencies {
         exclude(group = "org.mozilla", module = "rhino")
     }
     implementation("org.mozilla:rhino:1.8.1")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.6.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.10.0")
 
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.9.25")
 
