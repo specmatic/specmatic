@@ -131,7 +131,8 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 
     private val specmaticConfig: SpecmaticConfig by lazy(LazyThreadSafetyMode.NONE) {
         configFileName?.let { Configuration.configFilePath = it }
-        loadSpecmaticConfigOrNull(configFileName, explicitlySpecifiedByUser = configFileName != null).orDefault()
+        val resolvedConfigPath = configFileName ?: Configuration.configFilePath
+        loadSpecmaticConfigOrNull(resolvedConfigPath, explicitlySpecifiedByUser = configFileName != null).orDefault()
     }
 
     override fun call() = try {

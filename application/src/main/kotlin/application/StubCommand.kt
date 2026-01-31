@@ -20,6 +20,8 @@ import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.ContractStub
 import io.specmatic.stub.HttpClientFactory
 import io.specmatic.stub.endPointFromHostAndPort
+import io.specmatic.stub.extractHost
+import io.specmatic.stub.extractPort
 import io.specmatic.stub.listener.MockEventListener
 import picocli.CommandLine.*
 import java.io.File
@@ -163,6 +165,15 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             logPrefix = logPrefix
         ))
 
+        val defaultHost = DEFAULT_HTTP_STUB_HOST
+        val defaultPort = DEFAULT_HTTP_STUB_PORT.toInt()
+        if (host == defaultHost && port == defaultPort) {
+            resolveHostAndPortFromBaseUrl(specmaticConfiguration.getDefaultBaseUrl())?.let { (resolvedHost, resolvedPort) ->
+                host = resolvedHost
+                port = resolvedPort
+            }
+        }
+
         port = when (isDefaultPort(port)) {
             true -> if (portIsInUse(host, port)) findRandomFreePort() else port
             false -> port
@@ -279,6 +290,17 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 
     private fun isDefaultPort(port:Int): Boolean {
         return DEFAULT_HTTP_STUB_PORT == port.toString()
+    }
+
+    private fun resolveHostAndPortFromBaseUrl(baseUrl: String): Pair<String, Int>? {
+        return try {
+            val host = extractHost(baseUrl)
+            val port = extractPort(baseUrl)
+            if (host.isBlank()) null else host to port
+        } catch (e: Throwable) {
+            logger.log("Invalid stub baseUrl '$baseUrl' in config. Falling back to defaults.")
+            null
+        }
     }
 
     private fun restartServer() {

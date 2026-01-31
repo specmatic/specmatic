@@ -460,6 +460,47 @@ internal class StubCommandTest {
     }
 
     @Test
+    fun `uses stub baseUrl from config when CLI host and port are default`(@TempDir tempDir: File) {
+        val hostSlot = slot<String>()
+        val portSlot = slot<Int>()
+
+        val configFile = writeSpecmaticYaml(tempDir, """
+        version: 2
+        stub:
+          baseUrl: http://localhost:8080
+        """.trimIndent())
+
+        every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
+        every { watchMaker.make(any()) } returns watcher
+        every { specmaticConfig.contractStubPaths() } returns emptyList()
+        every { specmaticConfig.contractStubPathData() } returns emptyList()
+
+        every {
+            httpStubEngine.runHTTPStub(
+                any(),
+                capture(hostSlot),
+                capture(portSlot),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+            )
+        } returns mockk { every { close() } returns Unit }
+
+        Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            CommandLine(stubCommand).execute()
+        }
+
+        assertThat(hostSlot.captured).isEqualTo("localhost")
+        assertThat(portSlot.captured).isEqualTo(8080)
+    }
+
+    @Test
     fun `uses HTTPS key store from CLI if provided`(@TempDir tempDir: File) {
         val keystoreFile = tempDir.resolve("cli.jks")
         createEmptyKeyStore(keystoreFile, "cli-pass")

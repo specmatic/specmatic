@@ -8,6 +8,8 @@ import io.specmatic.core.log.ThreadSafeLog
 import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.newXMLBuilder
+import io.specmatic.core.utilities.Flags
+import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.test.ContractTestSettings
 import io.specmatic.test.SpecmaticJUnitSupport
 import io.specmatic.test.listeners.ContractExecutionListener
@@ -15,6 +17,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.fail
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import org.junit.platform.launcher.Launcher
@@ -26,6 +29,7 @@ import picocli.CommandLine
 import java.io.StringReader
 import java.util.*
 import java.util.stream.Stream
+import java.io.File
 
 
 internal class TestCommandTest {
@@ -75,6 +79,31 @@ internal class TestCommandTest {
         every { junitLauncher.registerTestExecutionListeners(any<org.junit.platform.reporting.legacy.xml.LegacyXmlReportGeneratingListener>()) }.returns(mockk())
 
         CommandLine(testCommand, factory).execute("api_1.$CONTRACT_EXTENSION", "--junitReportDir", "reports/junit")
+
+        verify(exactly = 1) { junitLauncher.discover(any()) }
+        verify { junitLauncher.registerTestExecutionListeners(any<ContractExecutionListener>()) }
+        verify { junitLauncher.registerTestExecutionListeners(any<org.junit.platform.reporting.legacy.xml.LegacyXmlReportGeneratingListener>()) }
+        verify(exactly = 1) { junitLauncher.execute(any<LauncherDiscoveryRequest>()) }
+    }
+
+    @Test
+    fun `when junit report directory is set in config it should also register legacy XML test execution listener`(@TempDir tempDir: File) {
+        every { junitLauncher.discover(any()) }.returns(mockk())
+        every { junitLauncher.registerTestExecutionListeners(any<ContractExecutionListener>()) }.returns(mockk())
+        every { junitLauncher.registerTestExecutionListeners(any<org.junit.platform.reporting.legacy.xml.LegacyXmlReportGeneratingListener>()) }.returns(mockk())
+
+        val configFile = writeSpecmaticYaml(tempDir, """
+        version: 2
+        contracts:
+        - provides:
+            - api_1.$CONTRACT_EXTENSION
+        test:
+          junitReportDir: reports/junit
+        """.trimIndent())
+
+        Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            CommandLine(testCommand, factory).execute("api_1.$CONTRACT_EXTENSION")
+        }
 
         verify(exactly = 1) { junitLauncher.discover(any()) }
         verify { junitLauncher.registerTestExecutionListeners(any<ContractExecutionListener>()) }
@@ -174,4 +203,7 @@ internal class TestCommandTest {
             TestCommandCase("--https", true, { it.protocol }, "https"),
         ).stream()
     }
+
+    private fun writeSpecmaticYaml(dir: File, content: String): File =
+        dir.resolve("specmatic.yaml").also { it.writeText(content) }
 }
