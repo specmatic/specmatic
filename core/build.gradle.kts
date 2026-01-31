@@ -1,7 +1,7 @@
 plugins {
     id("java")
     kotlin("jvm")
-    kotlin("plugin.serialization") version "1.9.25"
+    kotlin("plugin.serialization") version "2.3.0"
 }
 
 dependencies {
@@ -17,20 +17,20 @@ dependencies {
     implementation("com.ezylang:EvalEx:3.6.0")
     implementation("org.apache.commons:commons-lang3:3.20.0")
     implementation("io.cucumber:gherkin:33.0.0")
-    implementation("io.ktor:ktor-server-netty:2.3.13")
-    implementation("io.ktor:ktor-server-core:2.3.13")
+    implementation("io.ktor:ktor-server-netty-jvm:2.3.13")
+    implementation("io.ktor:ktor-server-core-jvm:2.3.13")
     implementation("io.ktor:ktor-client-core-jvm:2.3.13")
-    implementation("io.ktor:ktor-client-apache:2.3.13")
-    implementation("io.ktor:ktor-server-cors:2.3.13")
-    implementation("io.ktor:ktor-server-double-receive:2.3.13")
-    implementation("io.ktor:ktor-server-content-negotiation:2.3.13")
-    implementation("io.ktor:ktor-serialization-jackson:2.3.13")
+    implementation("io.ktor:ktor-client-apache-jvm:2.3.13")
+    implementation("io.ktor:ktor-server-cors-jvm:2.3.13")
+    implementation("io.ktor:ktor-server-double-receive-jvm:2.3.13")
+    implementation("io.ktor:ktor-server-content-negotiation-jvm:2.3.13")
+    implementation("io.ktor:ktor-serialization-jackson-jvm:2.3.13")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.21.0")
     implementation("com.jayway.jsonpath:json-path:2.10.0")
 
 
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.6.3")
-    implementation("org.jetbrains.kotlin:kotlin-reflect:1.9.25")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.10.0")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.0")
     implementation("org.eclipse.jgit:org.eclipse.jgit:7.4.0.202509020913-r")
     implementation("org.eclipse.jgit:org.eclipse.jgit.ssh.apache:7.4.0.202509020913-r")
     implementation("com.fasterxml.jackson.core:jackson-core:2.21.0")
@@ -44,17 +44,17 @@ dependencies {
 
     implementation("dk.brics:automaton:1.12-4")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.13.4")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.14.2")
     testImplementation("org.assertj:assertj-core:3.27.7")
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.13.4")
-    testImplementation("org.junit.jupiter:junit-jupiter-params:5.13.4")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.14.2")
+    testImplementation("org.junit.jupiter:junit-jupiter-params:5.14.2")
     testImplementation("org.json:json:20250517")
     testImplementation("org.springframework:spring-web:6.2.15")
-    testImplementation("io.mockk:mockk:1.13.11")
+    testImplementation("io.mockk:mockk-jvm:1.14.9")
     testImplementation("org.assertj:assertj-core:3.27.7")
     testImplementation("io.ktor:ktor-client-mock-jvm:2.3.13")
     implementation("org.thymeleaf:thymeleaf:3.1.3.RELEASE")
-    implementation("org.junit.platform:junit-platform-launcher:1.13.4")
+    implementation("org.junit.platform:junit-platform-launcher:1.14.2")
 }
 
 configurations.implementation.configure {
