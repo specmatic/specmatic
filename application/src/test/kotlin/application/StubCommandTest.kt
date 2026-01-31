@@ -58,6 +58,7 @@ internal class StubCommandTest {
     @AfterEach
     fun cleanUp() {
         clearAllMocks()
+        System.clearProperty(Flags.SPECMATIC_BASE_URL)
         stubCommand.contractPaths = arrayListOf()
         stubCommand.specmaticConfigPath = null
     }
