@@ -786,9 +786,9 @@ internal class SpecmaticConfigKtTest {
             val contractSources = specmaticConfig.loadSources()
             val entries: List<ContractSourceEntry> = contractSources.flatMap { source -> source.testContracts }
             assertThat(entries).contains(
-                ContractSourceEntry("com/petstore/a.yaml", "http://localhost:9100"),
-                ContractSourceEntry("com/petstore/b.yaml", "http://localhost:9100"),
-                ContractSourceEntry("com/petstore/c.yaml", null)
+                ContractSourceEntry("com/petstore/a.yaml", "http://localhost:9100", exampleDirPaths = emptyList()),
+                ContractSourceEntry("com/petstore/b.yaml", "http://localhost:9100", exampleDirPaths = emptyList()),
+                ContractSourceEntry("com/petstore/c.yaml", null, exampleDirPaths = null)
             )
         }
 
@@ -815,8 +815,8 @@ internal class SpecmaticConfigKtTest {
                 .flatMap { source -> source.testContracts }
 
             assertThat(entries).contains(
-                ContractSourceEntry("com/petstore/a.yaml", "http://localhost:9100", ResiliencyTestSuite.positiveOnly),
-                ContractSourceEntry("com/petstore/b.yaml", "http://localhost:9100", ResiliencyTestSuite.positiveOnly),
+                ContractSourceEntry("com/petstore/a.yaml", "http://localhost:9100", ResiliencyTestSuite.positiveOnly, emptyList()),
+                ContractSourceEntry("com/petstore/b.yaml", "http://localhost:9100", ResiliencyTestSuite.positiveOnly, emptyList()),
             )
         }
 

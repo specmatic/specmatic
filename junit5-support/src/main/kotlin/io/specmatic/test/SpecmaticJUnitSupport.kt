@@ -355,7 +355,8 @@ open class SpecmaticJUnitSupport {
                             specmaticConfig = specmaticConfig,
                             generative = contractPathData.generative,
                             overlayContent = overlayContent,
-                            filter = testFilter
+                            filter = testFilter,
+                            exampleDirPaths = contractPathData.exampleDirPaths.orEmpty()
                         )
 
                         val resolvedBaseURL = contractPathData.baseUrl ?: defaultBaseURL
@@ -576,6 +577,7 @@ open class SpecmaticJUnitSupport {
         generative: ResiliencyTestSuite? = null,
         overlayContent: String = "",
         filter: ScenarioMetadataFilter,
+        exampleDirPaths: List<String> = emptyList()
     ): LoadedTestScenarios {
         if (hasOpenApiFileExtension(path) && !isOpenAPI(path)) {
             return LoadedTestScenarios(emptySequence(), emptyList(), emptyList())
@@ -603,7 +605,8 @@ open class SpecmaticJUnitSupport {
                 specmaticConfig = effectiveSpecmaticConfig,
                 overlayContent = overlayContent,
                 strictMode = strictMode,
-                lenientMode = specmaticConfig.getTestLenientMode() ?: false
+                lenientMode = specmaticConfig.getTestLenientMode() ?: false,
+                exampleDirPaths = exampleDirPaths
             ).copy(testVariables = config.variables, testBaseURLs = config.baseURLs)
 
         val suggestions = when {

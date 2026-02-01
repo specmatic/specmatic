@@ -583,14 +583,18 @@ data class SpecmaticConfig(
     fun loadSources(useCurrentBranchForCentralRepo: Boolean = false): List<ContractSource> {
         return sources.map { source ->
             val defaultBaseUrl = getDefaultBaseUrl()
-            val stubPaths = source.specToStubBaseUrlMap(defaultBaseUrl).entries.map { ContractSourceEntry(it.key, it.value) }
+            val stubExamplesMap = source.specToStubExamplesMap()
+            val stubPaths = source.specToStubBaseUrlMap(defaultBaseUrl).entries.map { ContractSourceEntry(it.key, it.value, exampleDirPaths = stubExamplesMap[it.key]) }
+
             val testBaseUrlMap = source.specToTestBaseUrlMap(defaultBaseUrl)
             val testGenerativeMap = source.specToTestGenerativeMap()
-            val testPaths = testBaseUrlMap.entries.map { ContractSourceEntry(it.key, it.value, testGenerativeMap[it.key]) }
+            val testExamplesMap = source.specToTestExamplesMap()
+            val testPaths = testBaseUrlMap.entries.map { ContractSourceEntry(it.key, it.value, testGenerativeMap[it.key], exampleDirPaths = testExamplesMap[it.key]) }
 
             val sourceMatchBranch = source.matchBranch ?: false
             val effectiveUseCurrentBranch = useCurrentBranchForCentralRepo || sourceMatchBranch
             val effectiveBranch = getEffectiveBranchForSource(source.branch, effectiveUseCurrentBranch)
+
 
             when (source.provider) {
                 git -> when (source.repository) {
@@ -1363,6 +1367,25 @@ data class Source(
                 }
             }
         }?.toMap() ?: emptyMap()
+    }
+
+    fun specToTestExamplesMap(): Map<String, List<String>> {
+        return test?.specToExamplesMap().orEmpty()
+    }
+
+    fun specToStubExamplesMap(): Map<String, List<String>> {
+        return stub?.specToExamplesMap().orEmpty()
+    }
+
+    private fun List<SpecExecutionConfig>.specToExamplesMap(): Map<String, List<String>> {
+        return this.flatMap {
+            if(it is SpecExecutionConfig.ObjectValue) {
+                return@flatMap it.specs.map { specPath ->
+                    specPath to it.examples.orEmpty()
+                }
+            }
+            emptyList()
+        }.toMap()
     }
 }
 

@@ -18,6 +18,7 @@ sealed class SpecExecutionConfig {
     sealed class ObjectValue : SpecExecutionConfig() {
         abstract val specs: List<String>
         abstract val resiliencyTests: ResiliencyTestsConfig?
+        abstract val examples: List<String>?
 
         fun toBaseUrl(defaultBaseUrl: String? = null): String {
             val resolvedBaseUrl = defaultBaseUrl
@@ -32,7 +33,8 @@ sealed class SpecExecutionConfig {
         data class FullUrl(
             val baseUrl: String,
             override val specs: List<String>,
-            override val resiliencyTests: ResiliencyTestsConfig? = null
+            override val resiliencyTests: ResiliencyTestsConfig? = null,
+            override val examples: List<String>? = null
         ) : ObjectValue() {
             override fun toUrl(default: URI) = URI(baseUrl)
         }
@@ -42,7 +44,8 @@ sealed class SpecExecutionConfig {
             val port: Int? = null,
             val basePath: String? = null,
             override val specs: List<String>,
-            override val resiliencyTests: ResiliencyTestsConfig? = null
+            override val resiliencyTests: ResiliencyTestsConfig? = null,
+            override val examples: List<String>? = null
         ) : ObjectValue() {
             override fun toUrl(default: URI): URI {
                 return URI(
@@ -119,15 +122,23 @@ class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeseriali
         val validatedJsonNode = this.getValidatedJsonNode(p)
         val specs = validatedJsonNode.get("specs").map(JsonNode::asText)
         val resiliencyTests = parseResiliencyTestsIfApplicable(p)
+        val examples = validatedJsonNode.get("examples")?.map(JsonNode::asText)
 
         return when {
-            has("baseUrl") -> SpecExecutionConfig.ObjectValue.FullUrl(get("baseUrl").asText(), specs, resiliencyTests)
+            has("baseUrl") -> SpecExecutionConfig.ObjectValue.FullUrl(
+                get("baseUrl").asText(),
+                specs,
+                resiliencyTests,
+                examples
+            )
+
             else -> SpecExecutionConfig.ObjectValue.PartialUrl(
                 host = get("host")?.asText(),
                 port = get("port")?.asInt(),
                 basePath = get("basePath")?.asText(),
                 specs = specs,
-                resiliencyTests = resiliencyTests
+                resiliencyTests = resiliencyTests,
+                examples = examples
             )
         }
     }

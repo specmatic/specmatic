@@ -96,6 +96,7 @@ class OpenApiSpecification(
     private val dictionary: Dictionary = loadDictionary(openApiFilePath, specmaticConfig.getStubDictionary(), strictMode),
     private val logger: LogStrategy = io.specmatic.core.log.logger,
     private val parseCollectorContext: CollectorContext = CollectorContext(),
+    private val exampleDirPaths: List<String> = emptyList()
 ) : IncludedSpecification, ApiSpecification {
     private val extensibleQueryParams: Boolean = specmaticConfig.getExtensibleQueryParams()
     private val preferEscapedSoapAction: Boolean = specmaticConfig.getEscapeSoapAction()
@@ -279,6 +280,7 @@ class OpenApiSpecification(
             overlayContent: String = "",
             strictMode: Boolean = false,
             lenientMode: Boolean = false,
+            exampleDirPaths: List<String> = emptyList()
         ): OpenApiSpecification {
             val collectorContext = CollectorContext()
             val implicitOverlayFile = getImplicitOverlayContent(openApiFilePath)
@@ -322,7 +324,8 @@ class OpenApiSpecification(
                 strictMode = strictMode,
                 lenientMode = lenientMode,
                 logger = logger,
-                parseCollectorContext = collectorContext
+                parseCollectorContext = collectorContext,
+                exampleDirPaths = exampleDirPaths
             )
         }
 
@@ -469,7 +472,8 @@ class OpenApiSpecification(
             stubsFromExamples = stubsFromExamples,
             specmaticConfig = specmaticConfig,
             strictMode = strictMode,
-            protocol = protocol
+            protocol = protocol,
+            exampleDirPaths = exampleDirPaths
         )
 
         return Pair(feature, rootContext.toCollector().toResult())

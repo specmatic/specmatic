@@ -51,6 +51,7 @@ fun parseContractFileToFeature(
     overlayContent: String = "",
     strictMode: Boolean = false,
     lenientMode: Boolean = false,
+    exampleDirPaths: List<String> = emptyList()
 ): Feature {
     return parseContractFileToFeature(
         File(contractPath),
@@ -63,7 +64,8 @@ fun parseContractFileToFeature(
         specmaticConfig,
         overlayContent,
         strictMode,
-        lenientMode
+        lenientMode,
+        exampleDirPaths
     )
 }
 
@@ -88,6 +90,7 @@ fun parseContractFileToFeature(
     overlayContent: String = "",
     strictMode: Boolean = false,
     lenientMode: Boolean = false,
+    exampleDirPaths: List<String> = emptyList()
 ): Feature {
     logger.debug("Parsing spec file ${file.path}, absolute path ${file.canonicalPath}")
     return when (file.extension) {
@@ -102,7 +105,8 @@ fun parseContractFileToFeature(
             specmaticConfig = specmaticConfig,
             overlayContent = overlayContent,
             strictMode = strictMode,
-            lenientMode = lenientMode
+            lenientMode = lenientMode,
+            exampleDirPaths = exampleDirPaths
         ).toFeature()
         io.specmatic.core.WSDL -> wsdlContentToFeature(
             checkExists(file).readText(),
@@ -180,7 +184,8 @@ data class Feature(
     val flagsBased: FlagsBased = strategiesFromFlags(specmaticConfig),
     val strictMode: Boolean = false,
     val exampleStore: ExampleStore = ExampleStore.empty(),
-    val protocol: SpecmaticProtocol
+    val protocol: SpecmaticProtocol,
+    val exampleDirPaths: List<String> = emptyList()
 ): IFeature {
 
     val stubsFromExamples: Map<String, List<Pair<HttpRequest, HttpResponse>>>
@@ -2159,7 +2164,7 @@ data class Feature(
     fun loadExternalisedExamplesAndListUnloadableExamples(): Pair<Feature, Set<String>> {
         val testsDirectory = getTestsDirectory(File(this.path), specmaticConfig)
         val externalisedExamplesFromDefaultDirectory = loadExternalisedJSONExamples(testsDirectory)
-        val externalisedExampleDirsFromConfig = specmaticConfig.getExamples()
+        val externalisedExampleDirsFromConfig = specmaticConfig.getExamples() + exampleDirPaths
 
         val externalisedExamplesFromExampleDirs = externalisedExampleDirsFromConfig.flatMap { directory ->
             loadExternalisedJSONExamples(File(directory)).entries
@@ -2300,7 +2305,8 @@ data class Feature(
             specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
             flagsBased: FlagsBased = strategiesFromFlags(specmaticConfig),
             strictMode: Boolean = false,
-            protocol: SpecmaticProtocol
+            protocol: SpecmaticProtocol,
+            exampleDirPaths: List<String> = emptyList()
         ): Feature {
             return Feature(
                 scenarios = scenarios,
@@ -2317,7 +2323,8 @@ data class Feature(
                 flagsBased = flagsBased,
                 strictMode = strictMode,
                 exampleStore = ExampleStore.from(stubsFromExamples, type = ExampleType.INLINE),
-                protocol = protocol
+                protocol = protocol,
+                exampleDirPaths = exampleDirPaths
             )
         }
     }
