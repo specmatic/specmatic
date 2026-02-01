@@ -88,14 +88,14 @@ sealed class SpecExecutionConfig {
     }
 
     @JsonIgnore
-    fun specToBaseUrlPairList(defaultBaseUrl: String?): List<Pair<String, String?>> {
+    fun specToBaseUrlPairList(defaultBaseUrl: String?, baseUrlFrom: (ConfigValue) -> String?): List<Pair<String, String?>> {
         return when (this) {
             is StringValue -> listOf(this.value to null)
             is ObjectValue -> this.specs.map { specPath ->
                 specPath to this.toBaseUrl(defaultBaseUrl)
             }
             is ConfigValue -> this.specs.map { specPath ->
-                specPath to null
+                specPath to baseUrlFrom(this)
             }
         }
     }
