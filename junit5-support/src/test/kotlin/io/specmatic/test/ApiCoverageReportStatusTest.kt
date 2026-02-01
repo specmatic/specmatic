@@ -93,8 +93,8 @@ class ApiCoverageReportStatusTest {
         ).generate()
         assertThat(apiCoverageReport.coverageRows).isEqualTo(
             listOf(
-                OpenApiCoverageConsoleRow("GET", "/route1", 400, 0, 50, CoverageStatus.MISSING_IN_SPEC),
-                OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 50, CoverageStatus.COVERED, showPath = false, showMethod = false)
+                OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 50, CoverageStatus.COVERED),
+                OpenApiCoverageConsoleRow("GET", "/route1", 400, 0, 50, CoverageStatus.MISSING_IN_SPEC, showPath = false, showMethod = false),
             )
         )
     }
@@ -117,8 +117,8 @@ class ApiCoverageReportStatusTest {
         ).generate()
         assertThat(apiCoverageReport.coverageRows).isEqualTo(
             listOf(
-                OpenApiCoverageConsoleRow("GET", "/route1", 400, 0, 50, CoverageStatus.MISSING_IN_SPEC),
-                OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 50, CoverageStatus.COVERED, showPath = false, showMethod = false)
+                OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 50, CoverageStatus.COVERED),
+                OpenApiCoverageConsoleRow("GET", "/route1", 400, 0, 50, CoverageStatus.MISSING_IN_SPEC, showPath = false, showMethod = false),
             )
         )
     }

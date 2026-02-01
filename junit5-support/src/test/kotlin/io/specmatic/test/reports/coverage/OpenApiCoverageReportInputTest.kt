@@ -105,7 +105,7 @@ class OpenApiCoverageReportInputTest {
         assertThat(report.totalCoveragePercentage).isEqualTo(33)
         assertThat(report.coverageRows).anyMatch { it.path == "/current" && it.remarks.toString() == "covered" && it.coveragePercentage == 100 }
         assertThat(report.coverageRows).anyMatch { it.path == "/previous" && it.remarks.toString() == "not covered" && it.coveragePercentage == 0 }
-        assertThat(report.coverageRows).anyMatch { it.path == "/uncovered" && it.remarks.toString() == "invalid" && it.coveragePercentage == 0 }
+        assertThat(report.coverageRows).anyMatch { it.path == "/uncovered" && it.remarks.toString() == "not covered" && it.coveragePercentage == 0 }
     }
 
     @Test
@@ -119,7 +119,7 @@ class OpenApiCoverageReportInputTest {
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
         val endpoint3 = Endpoint(
-            path = "/uncovered", method = "GET", responseStatus = 404,
+            path = "/not-possible", method = "GET", responseStatus = 404,
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
@@ -144,19 +144,29 @@ class OpenApiCoverageReportInputTest {
              specType = SpecType.OPENAPI
         )
 
+        val notPossibleButCoveredRecord = TestResultRecord(
+            path = "/not-possible",
+            method = "GET",
+            responseStatus = 404,
+            request = null,
+            response = null,
+            result = TestResult.Success,
+            specType = SpecType.OPENAPI
+        )
+
         val input = OpenApiCoverageReportInput(
             configFilePath = "specmatic.yaml",
-            testResultRecords = mutableListOf(currentRecord),
+            testResultRecords = mutableListOf(currentRecord, notPossibleButCoveredRecord),
             previousTestResultRecord = listOf(previousRecord),
             allEndpoints = allEndpoints,
             filteredEndpoints = allEndpoints
         )
 
         val report = input.generate()
-        assertThat(report.totalCoveragePercentage).isEqualTo(67)
+        assertThat(report.totalCoveragePercentage).isEqualTo(100)
         assertThat(report.coverageRows).anyMatch { it.path == "/current" && it.remarks.toString() == "covered" && it.coveragePercentage == 100 }
         assertThat(report.coverageRows).anyMatch { it.path == "/previous" && it.remarks.toString() == "covered" && it.coveragePercentage == 100 }
-        assertThat(report.coverageRows).anyMatch { it.path == "/uncovered" && it.remarks.toString() == "invalid" && it.coveragePercentage == 0 }
+        assertThat(report.coverageRows).anyMatch { it.path == "/not-possible" && it.remarks.toString() == "covered" && it.coveragePercentage == 100 }
     }
 
     @Test

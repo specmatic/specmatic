@@ -396,7 +396,7 @@ class ApiCoverageReportInputTest {
                     OpenApiCoverageConsoleRow("POST", "/route1", "401", "1", 100, CoverageStatus.COVERED, showPath = false, showMethod = false),
                     OpenApiCoverageConsoleRow("GET", "/route2", 200, 1, 75, CoverageStatus.COVERED),
                     OpenApiCoverageConsoleRow("GET", "/route2", 400, 0, 75, CoverageStatus.NOT_COVERED, showPath = false, showMethod = false),
-                    OpenApiCoverageConsoleRow("GET", "/route2", 404, 1, 75, CoverageStatus.INVALID, showPath = false, showMethod = false),
+                    OpenApiCoverageConsoleRow("GET", "/route2", 404, 1, 75, CoverageStatus.COVERED, showPath = false, showMethod = false),
                     OpenApiCoverageConsoleRow("POST", "/route2", 500, 1, 75, CoverageStatus.COVERED, showPath = false)
                 ),
                 apiCoverageReport.testResultRecords,

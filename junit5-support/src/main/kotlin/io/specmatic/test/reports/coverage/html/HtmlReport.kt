@@ -152,8 +152,6 @@ class HtmlReport(private val htmlReportInformation: HtmlReportInformation, baseD
             .orEmpty()
 
         scenarioList.forEach {
-            if (!it.valid) return Pair(it.htmlResult!!, "red")
-
             when (it.htmlResult) {
                 HtmlResult.Failed -> return Pair(HtmlResult.Failed, "red")
                 HtmlResult.Error -> return Pair(HtmlResult.Error, "yellow")
@@ -221,7 +219,6 @@ data class ScenarioData(
     val baseUrl: String,
     val duration: Long,
     val testResult: TestResult,
-    val valid: Boolean,
     val wip: Boolean,
     val request: String,
     val requestTime: Long,

@@ -961,11 +961,16 @@ class OpenApiSpecification(
                 else key to value
             }.toMap().ifEmpty { mapOf(SPECMATIC_TEST_WITH_NO_REQ_EX to "") }
 
-            if (requestExamples.containsKey(SPECMATIC_TEST_WITH_NO_REQ_EX) && responseExample.status != first2xxResponseStatus) {
-                // TODO: Collect as warning
-                if (specmaticConfig.getIgnoreInlineExampleWarnings().not())
-                    logger.log(missingRequestExampleErrorMessageForTest(exampleName))
-                return@mapNotNull null
+            if (requestExamples.containsKey(SPECMATIC_TEST_WITH_NO_REQ_EX)) {
+                if (strictMode) {
+                    throw ContractException(missingRequestExampleErrorMessageForTest(exampleName))
+                }
+                if (responseExample.status != first2xxResponseStatus) {
+                    // TODO: Collect as warning
+                    if (specmaticConfig.getIgnoreInlineExampleWarnings().not())
+                        logger.log(missingRequestExampleErrorMessageForTest(exampleName))
+                    return@mapNotNull null
+                }
             }
 
             val resolvedResponseExample: ResponseExample? =
@@ -1878,6 +1883,7 @@ class OpenApiSpecification(
     private fun ensureAllObjectPatternsHaveAdditionalProperties(patterns: List<Pattern>): List<Pattern> {
         val resolver = Resolver(newPatterns = this@OpenApiSpecification.patterns)
         return patterns.map { pattern ->
+            if (pattern is DeferredPattern && !resolver.hasPattern(pattern.pattern)) return@map pattern
             if (pattern !is PossibleJsonObjectPatternContainer) return@map pattern
             pattern.ensureAdditionalProperties(resolver)
         }
