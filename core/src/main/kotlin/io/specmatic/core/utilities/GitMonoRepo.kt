@@ -42,7 +42,8 @@ data class GitMonoRepo(override val testContracts: List<ContractSourceEntry>, ov
                 provider = type,
                 specificationPath = it.path,
                 baseUrl = it.baseUrl,
-                generative = it.generative
+                generative = it.generative,
+                exampleDirPaths = it.exampleDirPaths
             )
         }
     }

@@ -45,6 +45,7 @@ import io.specmatic.core.utilities.Flags.Companion.getStringValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.isSameBaseIgnoringHost
 import io.specmatic.test.TestResultRecord.Companion.CONTRACT_TEST_TEST_TYPE
 import java.io.File
@@ -583,14 +584,18 @@ data class SpecmaticConfig(
     fun loadSources(useCurrentBranchForCentralRepo: Boolean = false): List<ContractSource> {
         return sources.map { source ->
             val defaultBaseUrl = getDefaultBaseUrl()
-            val stubPaths = source.specToStubBaseUrlMap(defaultBaseUrl).entries.map { ContractSourceEntry(it.key, it.value) }
+            val stubExamplesMap = source.specToStubExamplesMap()
+            val stubPaths = source.specToStubBaseUrlMap(defaultBaseUrl).entries.map { ContractSourceEntry(it.key, it.value, exampleDirPaths = stubExamplesMap[it.key]) }
+
             val testBaseUrlMap = source.specToTestBaseUrlMap(defaultBaseUrl)
             val testGenerativeMap = source.specToTestGenerativeMap()
-            val testPaths = testBaseUrlMap.entries.map { ContractSourceEntry(it.key, it.value, testGenerativeMap[it.key]) }
+            val testExamplesMap = source.specToTestExamplesMap()
+            val testPaths = testBaseUrlMap.entries.map { ContractSourceEntry(it.key, it.value, testGenerativeMap[it.key], exampleDirPaths = testExamplesMap[it.key]) }
 
             val sourceMatchBranch = source.matchBranch ?: false
             val effectiveUseCurrentBranch = useCurrentBranchForCentralRepo || sourceMatchBranch
             val effectiveBranch = getEffectiveBranchForSource(source.branch, effectiveUseCurrentBranch)
+
 
             when (source.provider) {
                 git -> when (source.repository) {
@@ -1340,14 +1345,23 @@ data class Source(
     }
 
     fun specToStubBaseUrlMap(defaultBaseUrl: String? = null): Map<String, String?> {
-        return stub.orEmpty().flatMap { it.specToBaseUrlPairList(defaultBaseUrl) }.toMap()
+        return stub.orEmpty().flatMap {
+            it.specToBaseUrlPairList(defaultBaseUrl) { configValue ->
+                if(configValue.specType == SpecType.OPENAPI.value) OpenAPIMockConfig.from(configValue.config).baseUrl
+                else null
+            }
+        }.toMap()
     }
 
     fun specToTestBaseUrlMap(defaultBaseUrl: String? = null): Map<String, String?> {
+        val baseUrlFromConfig : (SpecExecutionConfig.ConfigValue) -> String? = {
+            if(it.specType == SpecType.OPENAPI.value) OpenAPITestConfig.from(it.config).baseUrl
+            else null
+        }
         return test?.flatMap {
-            it.specToBaseUrlPairList(defaultBaseUrl)
+            it.specToBaseUrlPairList(defaultBaseUrl, baseUrlFromConfig)
         }?.toMap() ?: test.orEmpty().flatMap {
-            it.specToBaseUrlPairList(defaultBaseUrl)
+            it.specToBaseUrlPairList(defaultBaseUrl, baseUrlFromConfig)
         }.toMap()
     }
 
@@ -1358,12 +1372,46 @@ data class Source(
                 is SpecExecutionConfig.ObjectValue -> it.specs.map { specPath ->
                     specPath to it.resiliencyTests?.enable
                 }
-                is SpecExecutionConfig.ConfigValue -> it.specs.map { specPath ->
-                    specPath to null
+                is SpecExecutionConfig.ConfigValue  -> it.specs.map { specPath ->
+                    if(it.specType == SpecType.OPENAPI.value) specPath to OpenAPITestConfig.from(it.config).resiliencyTests?.enable
+                    else specPath to null
                 }
             }
         }?.toMap() ?: emptyMap()
     }
+
+    fun specToTestExamplesMap(): Map<String, List<String>> {
+        return test?.flatMap {
+            if (it is SpecExecutionConfig.ObjectValue) {
+                return@flatMap it.specs.map { specPath ->
+                    specPath to it.examples.orEmpty()
+                }
+            }
+            if(it is SpecExecutionConfig.ConfigValue && it.specType == SpecType.OPENAPI.value) {
+                return@flatMap it.specs.map { specPath ->
+                    specPath to OpenAPITestConfig.from(it.config).examples.orEmpty()
+                }
+            }
+            emptyList()
+        }?.toMap().orEmpty()
+    }
+
+    fun specToStubExamplesMap(): Map<String, List<String>> {
+        return stub?.flatMap {
+            if (it is SpecExecutionConfig.ObjectValue) {
+                return@flatMap it.specs.map { specPath ->
+                    specPath to it.examples.orEmpty()
+                }
+            }
+            if(it is SpecExecutionConfig.ConfigValue && it.specType == SpecType.OPENAPI.value) {
+                return@flatMap it.specs.map { specPath ->
+                    specPath to OpenAPIMockConfig.from(it.config).examples.orEmpty()
+                }
+            }
+            emptyList()
+        }?.toMap().orEmpty()
+    }
+
 }
 
 data class RepositoryInfo(

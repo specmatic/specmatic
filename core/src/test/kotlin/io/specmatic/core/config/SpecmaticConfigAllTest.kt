@@ -1109,8 +1109,8 @@ internal class SpecmaticConfigAllTest {
                 testContracts = listOf("com/petstore/1.yaml").toContractSourceEntries(),
                 stubContracts = listOf(
                     ContractSourceEntry("com/petstore/payment.yaml"),
-                    ContractSourceEntry("com/petstore/order1.yaml", "http://localhost:9001"),
-                    ContractSourceEntry("com/petstore/order2.yaml", "http://localhost:9001")
+                    ContractSourceEntry("com/petstore/order1.yaml", "http://localhost:9001", exampleDirPaths = emptyList()),
+                    ContractSourceEntry("com/petstore/order2.yaml", "http://localhost:9001", exampleDirPaths = emptyList())
                 )
             )
         )
