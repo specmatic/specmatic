@@ -119,7 +119,6 @@ class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApi
                                     baseUrl = getBaseUrl(firstLogMessage),
                                     duration = lastLogMessageTime - firstLogMessageTime,
                                     testResult = test.result,
-                                    valid = test.isValid,
                                     wip = test.isWip,
                                     request = requestString,
                                     requestTime = requestTime,

@@ -92,7 +92,6 @@ class TestResultRecordTest {
             request = request,
             response = response,
             result = TestResult.Success,
-            isValid = true,
             isWip = false,
             requestTime = requestTime,
             responseTime = responseTime,  specType = SpecType.OPENAPI
@@ -117,7 +116,6 @@ class TestResultRecordTest {
             request = null,
             response = null,
             result = TestResult.Success,
-            isValid = false,
             isWip = true,
             requestTime = null,
             responseTime = null,  specType = SpecType.OPENAPI
@@ -125,7 +123,7 @@ class TestResultRecordTest {
 
         val meta = record.extraFields()
 
-        assertFalse(meta.valid)
+        assertTrue(meta.valid)
         assertTrue(meta.wip)
         assertEquals("", meta.input)
         assertEquals("", meta.output)
