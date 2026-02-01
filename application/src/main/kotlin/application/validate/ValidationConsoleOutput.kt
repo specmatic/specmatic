@@ -118,9 +118,9 @@ class ValidationConsoleOutput {
     }
 
     fun printGlobalExampleResult(result: Result) {
-        if (result.isSuccess()) return
         logger.boundary()
-        printFailure("Issues found when considering all examples")
+        if (!result.isSuccess()) printFailure("Issues found when considering all examples")
+        if (result.isSuccess()) printSuccess("No Issues found when considering all examples")
     }
 
     fun printSpecificationSummary(result: SpecificationValidationResults<*>) {

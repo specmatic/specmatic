@@ -36,7 +36,7 @@ data class ExampleValidationOutcome(
             val result = validationResult.result
             isSpecificationSpecific && result is Result.Failure && !result.isPartial
         }
-        else ->result is Result.Failure && !result.isPartial
+        else -> result is Result.Failure && !result.isPartial
     }
 
     val result: Result = validationResult.result
@@ -47,9 +47,10 @@ data class SpecificationValidationResults<Feature>(
     val globalExamplesResult: Result = Result.Success(),
     val specificationOutcome: SpecificationValidationOutcome<Feature>,
     val sharedExampleResults: List<ExampleValidationOutcome> = emptyList(),
+    val inlineExampleResult: Map<String, ExampleValidationOutcome> = emptyMap(),
     val specificationExampleResults: List<ExampleValidationOutcome> = emptyList(),
 ) {
-    val hasErrors: Boolean = specificationOutcome.hasErrors || specificationExampleResults.any { it.hasErrors } || sharedExampleResults.any { it.hasErrors } || !globalExamplesResult.isSuccess()
+    val hasErrors: Boolean = specificationOutcome.hasErrors || specificationExampleResults.any { it.hasErrors } || sharedExampleResults.any { it.hasErrors } || !globalExamplesResult.isSuccess() || inlineExampleResult.any { it.value.hasErrors }
     val hasSpecErrors: Boolean  = specificationOutcome.hasErrors
 }
 
@@ -57,8 +58,8 @@ data class ValidationSummary<Feature>(val results: List<SpecificationValidationR
     val totalSpecifications: Int = results.size
     val isSuccess: Boolean = results.count { it.hasErrors } == 0
     val failedSpecifications: Int = results.count { it.hasSpecErrors }
-    val totalExamples: Int = results.sumOf { it.specificationExampleResults.size + it.sharedExampleResults.size }
+    val totalExamples: Int = results.sumOf { it.specificationExampleResults.size + it.sharedExampleResults.size + it.inlineExampleResult.size }
     val failedExamples: Int = results.sumOf { result ->
-        result.specificationExampleResults.count { it.hasErrors } + result.sharedExampleResults.count { it.hasErrors }
+        result.specificationExampleResults.count { it.hasErrors } + result.sharedExampleResults.count { it.hasErrors } + result.inlineExampleResult.count { it.value.hasErrors }
     }
 }

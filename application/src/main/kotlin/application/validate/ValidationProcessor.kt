@@ -1,6 +1,5 @@
 package application.validate
 
-import io.specmatic.core.Result
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.loadSpecmaticConfigIfAvailableElseDefault
 import io.specmatic.loader.SpecificationWithExamples
@@ -33,14 +32,20 @@ class ValidationProcessor<Feature>(
 
         if (specOutcome.hasErrors) {
             consoleOutput.printExamplesSkipped(specExampleCount = specData.examples.specExamples.size, sharedExampleCount = specData.examples.sharedExamples.size)
-            val result = SpecificationValidationResults(specFile = specData.specFile, specificationOutcome = specOutcome)
+            val result = SpecificationValidationResults(
+                specFile = specData.specFile,
+                specificationOutcome = specOutcome,
+            )
             consoleOutput.printSpecificationSummary(result)
             return result
         }
 
         val feature = specOutcome.feature ?: run {
             consoleOutput.printExamplesSkipped(specExampleCount = specData.examples.specExamples.size, sharedExampleCount = specData.examples.sharedExamples.size)
-            val result = SpecificationValidationResults(specFile = specData.specFile, specificationOutcome = specOutcome)
+            val result = SpecificationValidationResults(
+                specFile = specData.specFile,
+                specificationOutcome = specOutcome,
+            )
             consoleOutput.printSpecificationSummary(result)
             return result
         }
@@ -90,6 +95,7 @@ class ValidationProcessor<Feature>(
         val result = SpecificationValidationResults(
             specFile = specData.specFile,
             specificationOutcome = specOutcome,
+            inlineExampleResult = inlineExampleResult,
             globalExamplesResult = finalExampleResult,
             sharedExampleResults = sharedExampleResults,
             specificationExampleResults = specExampleResults,
