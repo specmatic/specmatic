@@ -1078,7 +1078,8 @@ fun loadIfSupportedAPISpecification(
                 contractPathData.specificationPath,
                 specmaticConfig = specmaticConfig,
                 strictMode = specmaticConfig.getStubStrictMode() ?: false,
-                lenientMode = contractPathData.lenientMode
+                lenientMode = contractPathData.lenientMode,
+                exampleDirPaths = contractPathData.exampleDirPaths.orEmpty()
             ).copy(specmaticConfig = specmaticConfig),
         )
     } catch (e: Throwable) {
