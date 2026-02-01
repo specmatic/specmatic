@@ -540,7 +540,8 @@ fun loadExpectationsForFeaturesAsResults(
     strictMode: Boolean = false,
     dirsToBeSkipped: Set<String> = emptySet(),
 ): List<FeatureStubsResult> {
-    val dataFiles = dataDirFiles(dataDirPaths, dirsToBeSkipped)
+    val exampleDirPathsFromFeatures = features.flatMap { it.second.exampleDirPaths }
+    val dataFiles = dataDirFiles(dataDirPaths + exampleDirPathsFromFeatures, dirsToBeSkipped)
     logStubScanForDebugging(features, dataFiles, dataDirPaths)
 
     val mockData =
@@ -640,11 +641,12 @@ fun loadImplicitExpectationsFromDataDirsForFeatureAsResults(
         }
         logger.debug(featuresLogForStubScan(listOf(associatedFeature)))
 
+        val exampleDirPathsFromFeature = associatedFeature.second.exampleDirPaths
         implicitOriginalDataDirPairList.flatMap { (implicitDataDir, originalDataDir) ->
             val implicitStubs =
                 loadExpectationsForFeaturesAsResults(
                     features = listOf(associatedFeature),
-                    dataDirPaths = listOf(implicitDataDir),
+                    dataDirPaths = listOf(implicitDataDir).plus(exampleDirPathsFromFeature),
                     strictMode = strictMode,
                 )
             if (implicitStubs.filterIsInstance<FeatureStubsResult.Success>().all { (_, stubs) ->
@@ -653,7 +655,7 @@ fun loadImplicitExpectationsFromDataDirsForFeatureAsResults(
             ) {
                 loadExpectationsForFeaturesAsResults(
                     features = listOf(associatedFeature),
-                    dataDirPaths = listOf(originalDataDir),
+                    dataDirPaths = listOf(originalDataDir).plus(exampleDirPathsFromFeature),
                     strictMode = strictMode,
                     dirsToBeSkipped = setOf(implicitDataDir),
                 )
