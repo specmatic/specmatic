@@ -971,7 +971,7 @@ internal class SpecmaticConfigKtTest {
 
             assertThat(exception.originalMessage).isEqualToNormalizingWhitespace("""   
             Unknown fields: url, scheme
-            Allowed fields: baseUrl, host, port, basePath, specs
+            Allowed fields: baseUrl, host, port, basePath, specs, examples
             """.trimIndent())
         }
 
@@ -1088,7 +1088,7 @@ internal class SpecmaticConfigKtTest {
 
             assertThat(exception.originalMessage).isEqualToNormalizingWhitespace("""
             Unknown fields: resiliencyTests
-            Allowed fields: baseUrl, host, port, basePath, specs
+            Allowed fields: baseUrl, host, port, basePath, specs, examples
             """.trimIndent())
         }
 
