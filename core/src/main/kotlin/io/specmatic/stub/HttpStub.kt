@@ -865,8 +865,9 @@ class HttpStub(
                 endpoint.isEqualTo(testResultRecord)
             }
         }.map { endpoint ->
+            val path = convertPathParameterStyle(endpoint.path.orEmpty())
             TestResultRecord(
-                path = endpoint.path.orEmpty(),
+                path = path,
                 method = endpoint.method.orEmpty(),
                 responseStatus = endpoint.responseCode,
                 request = null,
@@ -877,9 +878,9 @@ class HttpStub(
                 specType = endpoint.specType,
                 operations = setOf(
                     OpenAPIOperation(
-                        path = endpoint.path.orEmpty(),
+                        path = path,
                         method = endpoint.method.orEmpty(),
-                        contentType = null,
+                        contentType = endpoint.requestContentType,
                         responseCode = endpoint.responseCode,
                         protocol = endpoint.protocol
                     )
