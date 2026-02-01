@@ -24,7 +24,6 @@ sealed class SpecExecutionConfig {
     sealed class ObjectValue : SpecExecutionConfig() {
         abstract val specs: List<String>
         abstract val resiliencyTests: ResiliencyTestsConfig?
-        abstract val examples: List<String>?
 
         fun toBaseUrl(defaultBaseUrl: String? = null): String {
             val resolvedBaseUrl = defaultBaseUrl
@@ -40,7 +39,6 @@ sealed class SpecExecutionConfig {
             val baseUrl: String,
             override val specs: List<String>,
             override val resiliencyTests: ResiliencyTestsConfig? = null,
-            override val examples: List<String>? = null
         ) : ObjectValue() {
             override fun toUrl(default: URI) = URI(baseUrl)
 
@@ -55,7 +53,6 @@ sealed class SpecExecutionConfig {
             val basePath: String? = null,
             override val specs: List<String>,
             override val resiliencyTests: ResiliencyTestsConfig? = null,
-            override val examples: List<String>? = null
         ) : ObjectValue() {
             override fun toUrl(default: URI): URI {
                 return URI(
@@ -142,14 +139,12 @@ class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeseriali
         val validatedJsonNode = this.getValidatedJsonNode(p)
         val specs = validatedJsonNode.get("specs").map(JsonNode::asText)
         val resiliencyTests = parseResiliencyTestsIfApplicable(p)
-        val examples = validatedJsonNode.get("examples")?.map(JsonNode::asText)
 
         return when {
             has("baseUrl") -> SpecExecutionConfig.ObjectValue.FullUrl(
                 get("baseUrl").asText(),
                 specs,
                 resiliencyTests,
-                examples
             )
 
             else -> SpecExecutionConfig.ObjectValue.PartialUrl(
@@ -158,7 +153,6 @@ class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeseriali
                 basePath = get("basePath")?.asText(),
                 specs = specs,
                 resiliencyTests = resiliencyTests,
-                examples = examples
             )
         }
     }
@@ -220,7 +214,7 @@ class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeseriali
 
     private fun JsonNode.getValidatedJsonNode(p: JsonParser): JsonNode {
         val allowedFields = buildSet {
-            addAll(listOf("baseUrl", "host", "port", "basePath", "specs", "examples"))
+            addAll(listOf("baseUrl", "host", "port", "basePath", "specs"))
             if (!consumes) add("resiliencyTests")
         }
         val unknownFields = fieldNames().asSequence().filterNot(allowedFields::contains).toSet()

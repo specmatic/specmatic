@@ -1416,11 +1416,6 @@ data class Source(
 
     fun specToTestExamplesMap(): Map<String, List<String>> {
         return test?.flatMap {
-            if (it is SpecExecutionConfig.ObjectValue) {
-                return@flatMap it.specs.map { specPath ->
-                    specPath to it.examples.orEmpty()
-                }
-            }
             if(it is SpecExecutionConfig.ConfigValue && it.specType == SpecType.OPENAPI.value) {
                 return@flatMap it.specs.map { specPath ->
                     specPath to OpenAPITestConfig.from(it.config).examples.orEmpty()
@@ -1432,11 +1427,6 @@ data class Source(
 
     fun specToStubExamplesMap(): Map<String, List<String>> {
         return stub?.flatMap {
-            if (it is SpecExecutionConfig.ObjectValue) {
-                return@flatMap it.specs.map { specPath ->
-                    specPath to it.examples.orEmpty()
-                }
-            }
             if(it is SpecExecutionConfig.ConfigValue && it.specType == SpecType.OPENAPI.value) {
                 return@flatMap it.specs.map { specPath ->
                     specPath to OpenAPIMockConfig.from(it.config).examples.orEmpty()

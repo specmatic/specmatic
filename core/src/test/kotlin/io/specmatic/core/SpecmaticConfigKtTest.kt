@@ -786,9 +786,9 @@ internal class SpecmaticConfigKtTest {
             val contractSources = specmaticConfig.loadSources()
             val entries: List<ContractSourceEntry> = contractSources.flatMap { source -> source.testContracts }
             assertThat(entries).contains(
-                ContractSourceEntry("com/petstore/a.yaml", "http://localhost:9100", exampleDirPaths = emptyList()),
-                ContractSourceEntry("com/petstore/b.yaml", "http://localhost:9100", exampleDirPaths = emptyList()),
-                ContractSourceEntry("com/petstore/c.yaml", null, exampleDirPaths = null)
+                ContractSourceEntry("com/petstore/a.yaml", "http://localhost:9100"),
+                ContractSourceEntry("com/petstore/b.yaml", "http://localhost:9100"),
+                ContractSourceEntry("com/petstore/c.yaml", null)
             )
         }
 
@@ -815,8 +815,8 @@ internal class SpecmaticConfigKtTest {
                 .flatMap { source -> source.testContracts }
 
             assertThat(entries).contains(
-                ContractSourceEntry("com/petstore/a.yaml", "http://localhost:9100", ResiliencyTestSuite.positiveOnly, emptyList()),
-                ContractSourceEntry("com/petstore/b.yaml", "http://localhost:9100", ResiliencyTestSuite.positiveOnly, emptyList()),
+                ContractSourceEntry("com/petstore/a.yaml", "http://localhost:9100", ResiliencyTestSuite.positiveOnly),
+                ContractSourceEntry("com/petstore/b.yaml", "http://localhost:9100", ResiliencyTestSuite.positiveOnly),
             )
         }
 
@@ -926,115 +926,6 @@ internal class SpecmaticConfigKtTest {
             Unknown value 'invalid' for 'resiliencyTests.enable'. Allowed: positiveOnly, all, none
             """.trimIndent())
         }
-
-        @Test
-        fun `should parse provides with examples in FullUrl`() {
-            val providesString = """
-            provides:
-              - baseUrl: "http://localhost:9100"
-                specs:
-                  - "com/petstore/a.yaml"
-                examples:
-                  - "examples/petstore"
-                  - "examples/common"
-            """.trimIndent()
-
-            val config = mapper.readValue<ContractConfig>(providesString)
-            val provides = requireNotNull(config.provides)
-            val obj = provides.single() as SpecExecutionConfig.ObjectValue.FullUrl
-            assertThat(obj.examples).isEqualTo(listOf("examples/petstore", "examples/common"))
-        }
-
-        @Test
-        fun `should parse provides with examples in PartialUrl`() {
-            val providesString = """
-            provides:
-              - host: "127.0.0.1"
-                port: 8080
-                specs:
-                  - "com/petstore/a.yaml"
-                examples:
-                  - "examples/petstore"
-                  - "examples/common"
-            """.trimIndent()
-
-            val config = mapper.readValue<ContractConfig>(providesString)
-            val provides = requireNotNull(config.provides)
-            val obj = provides.single() as SpecExecutionConfig.ObjectValue.PartialUrl
-            assertThat(obj.examples).isEqualTo(listOf("examples/petstore", "examples/common"))
-        }
-
-        @Test
-        fun `should set examples to null when omitted in FullUrl`() {
-            val providesString = """
-            provides:
-              - baseUrl: "http://localhost:9100"
-                specs:
-                  - "com/petstore/a.yaml"
-            """.trimIndent()
-
-            val config = mapper.readValue<ContractConfig>(providesString)
-            val provides = requireNotNull(config.provides)
-            val obj = provides.single() as SpecExecutionConfig.ObjectValue.FullUrl
-            assertThat(obj.examples).isNull()
-        }
-
-        @Test
-        fun `should set examples to null when omitted in PartialUrl`() {
-            val providesString = """
-            provides:
-              - host: "127.0.0.1"
-                port: 8080
-                specs:
-                  - "com/petstore/a.yaml"
-            """.trimIndent()
-
-            val config = mapper.readValue<ContractConfig>(providesString)
-            val provides = requireNotNull(config.provides)
-            val obj = provides.single() as SpecExecutionConfig.ObjectValue.PartialUrl
-            assertThat(obj.examples).isNull()
-        }
-
-        @Test
-        fun `should parse provides with both resiliencyTests and examples in FullUrl`() {
-            val providesString = """
-            provides:
-              - baseUrl: "http://localhost:9100"
-                specs:
-                  - "com/petstore/a.yaml"
-                resiliencyTests:
-                  enable: positiveOnly
-                examples:
-                  - "examples/petstore"
-            """.trimIndent()
-
-            val config = mapper.readValue<ContractConfig>(providesString)
-            val provides = requireNotNull(config.provides)
-            val obj = provides.single() as SpecExecutionConfig.ObjectValue.FullUrl
-            assertThat(obj.resiliencyTests?.enable).isEqualTo(ResiliencyTestSuite.positiveOnly)
-            assertThat(obj.examples).isEqualTo(listOf("examples/petstore"))
-        }
-
-        @Test
-        fun `should parse provides with both resiliencyTests and examples in PartialUrl`() {
-            val providesString = """
-            provides:
-              - host: "127.0.0.1"
-                port: 8080
-                specs:
-                  - "com/petstore/a.yaml"
-                resiliencyTests:
-                  enable: all
-                examples:
-                  - "examples/petstore"
-            """.trimIndent()
-
-            val config = mapper.readValue<ContractConfig>(providesString)
-            val provides = requireNotNull(config.provides)
-            val obj = provides.single() as SpecExecutionConfig.ObjectValue.PartialUrl
-            assertThat(obj.resiliencyTests?.enable).isEqualTo(ResiliencyTestSuite.all)
-            assertThat(obj.examples).isEqualTo(listOf("examples/petstore"))
-        }
     }
 
     @Nested
@@ -1080,7 +971,7 @@ internal class SpecmaticConfigKtTest {
 
             assertThat(exception.originalMessage).isEqualToNormalizingWhitespace("""   
             Unknown fields: url, scheme
-            Allowed fields: baseUrl, host, port, basePath, specs, examples
+            Allowed fields: baseUrl, host, port, basePath, specs 
             """.trimIndent())
         }
 
@@ -1197,7 +1088,7 @@ internal class SpecmaticConfigKtTest {
 
             assertThat(exception.originalMessage).isEqualToNormalizingWhitespace("""
             Unknown fields: resiliencyTests
-            Allowed fields: baseUrl, host, port, basePath, specs, examples
+            Allowed fields: baseUrl, host, port, basePath, specs 
             """.trimIndent())
         }
 
@@ -1289,125 +1180,6 @@ internal class SpecmaticConfigKtTest {
             }
 
             assertThat(exception.originalMessage).contains("Missing required field 'specs'")
-        }
-
-        @Test
-        fun `should parse consumes with examples in FullUrl`() {
-            val consumesString = """
-            consumes:
-              - baseUrl: "http://127.0.0.1:8080/api/v2"
-                specs:
-                  - "com/order.yaml"
-                examples:
-                  - "examples/order"
-                  - "examples/common"
-            """.trimIndent()
-
-            val config = mapper.readValue<ContractConfig>(consumesString)
-            val consumes = requireNotNull(config.consumes)
-            val obj = consumes.single() as SpecExecutionConfig.ObjectValue.FullUrl
-            assertThat(obj.examples).isEqualTo(listOf("examples/order", "examples/common"))
-        }
-
-        @Test
-        fun `should parse consumes with examples in PartialUrl with host`() {
-            val consumesString = """
-            consumes:
-              - host: "127.0.0.1"
-                specs:
-                  - "com/order.yaml"
-                examples:
-                  - "examples/order"
-            """.trimIndent()
-
-            val config = mapper.readValue<ContractConfig>(consumesString)
-            val consumes = requireNotNull(config.consumes)
-            val obj = consumes.single() as SpecExecutionConfig.ObjectValue.PartialUrl
-            assertThat(obj.examples).isEqualTo(listOf("examples/order"))
-        }
-
-        @Test
-        fun `should parse consumes with examples in PartialUrl with port`() {
-            val consumesString = """
-            consumes:
-              - port: 8080
-                specs:
-                  - "com/order.yaml"
-                examples:
-                  - "examples/order"
-            """.trimIndent()
-
-            val config = mapper.readValue<ContractConfig>(consumesString)
-            val consumes = requireNotNull(config.consumes)
-            val obj = consumes.single() as SpecExecutionConfig.ObjectValue.PartialUrl
-            assertThat(obj.examples).isEqualTo(listOf("examples/order"))
-        }
-
-        @Test
-        fun `should parse consumes with examples in PartialUrl with basePath`() {
-            val consumesString = """
-            consumes:
-              - basePath: "/api/v2"
-                specs:
-                  - "com/order.yaml"
-                examples:
-                  - "examples/order"
-            """.trimIndent()
-
-            val config = mapper.readValue<ContractConfig>(consumesString)
-            val consumes = requireNotNull(config.consumes)
-            val obj = consumes.single() as SpecExecutionConfig.ObjectValue.PartialUrl
-            assertThat(obj.examples).isEqualTo(listOf("examples/order"))
-        }
-
-        @Test
-        fun `should parse consumes with examples in PartialUrl with multiple fields`() {
-            val consumesString = """
-            consumes:
-              - host: "127.0.0.1"
-                port: 8080
-                basePath: "/api/v2"
-                specs:
-                  - "com/order.yaml"
-                examples:
-                  - "examples/order"
-                  - "examples/common"
-            """.trimIndent()
-
-            val config = mapper.readValue<ContractConfig>(consumesString)
-            val consumes = requireNotNull(config.consumes)
-            val obj = consumes.single() as SpecExecutionConfig.ObjectValue.PartialUrl
-            assertThat(obj.examples).isEqualTo(listOf("examples/order", "examples/common"))
-        }
-
-        @Test
-        fun `should set examples to null when omitted in consumes FullUrl`() {
-            val consumesString = """
-            consumes:
-              - baseUrl: "http://127.0.0.1:8080/api/v2"
-                specs:
-                  - "com/order.yaml"
-            """.trimIndent()
-
-            val config = mapper.readValue<ContractConfig>(consumesString)
-            val consumes = requireNotNull(config.consumes)
-            val obj = consumes.single() as SpecExecutionConfig.ObjectValue.FullUrl
-            assertThat(obj.examples).isNull()
-        }
-
-        @Test
-        fun `should set examples to null when omitted in consumes PartialUrl`() {
-            val consumesString = """
-            consumes:
-              - host: "127.0.0.1"
-                specs:
-                  - "com/order.yaml"
-            """.trimIndent()
-
-            val config = mapper.readValue<ContractConfig>(consumesString)
-            val consumes = requireNotNull(config.consumes)
-            val obj = consumes.single() as SpecExecutionConfig.ObjectValue.PartialUrl
-            assertThat(obj.examples).isNull()
         }
     }
 
