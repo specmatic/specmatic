@@ -4,7 +4,7 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.log.logger
 import java.io.File
 
-class RecursiveSpecificationAndExampleLoader(private val specmaticConfig: SpecmaticConfig, private val strategy: LoaderStrategy) {
+class RecursiveSpecificationAndExampleClassifier(private val specmaticConfig: SpecmaticConfig, private val strategy: SpecCompatibilityChecker) {
     fun loadAll(directory: File): List<SpecificationWithExamples> {
         logger.boundary()
         logger.log("Scanning for specification and examples in entry directory ${directory.path}")

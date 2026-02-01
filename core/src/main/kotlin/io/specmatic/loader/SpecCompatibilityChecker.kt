@@ -11,12 +11,12 @@ import io.specmatic.mock.PARTIAL
 import io.specmatic.stub.isSupportedAPISpecification
 import java.io.File
 
-interface LoaderStrategy {
+interface SpecCompatibilityChecker {
     fun isCompatibleSpecification(file: File, specmaticConfig: SpecmaticConfig): Boolean
     fun isCompatibleExample(file: File, specmaticConfig: SpecmaticConfig): Boolean
 }
 
-class OpenApiLoaderStrategy : LoaderStrategy {
+class OpenApiSpecCompatibilityChecker : SpecCompatibilityChecker {
     override fun isCompatibleSpecification(file: File, specmaticConfig: SpecmaticConfig): Boolean {
         return isSupportedAPISpecification(file.canonicalPath)
     }

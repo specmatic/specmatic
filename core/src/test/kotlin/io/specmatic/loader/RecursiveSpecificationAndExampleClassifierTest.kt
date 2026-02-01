@@ -9,18 +9,18 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.nio.file.Path
 
-class RecursiveSpecificationAndExampleLoaderTest {
+class RecursiveSpecificationAndExampleClassifierTest {
     @TempDir
     lateinit var tempDir: Path
     private lateinit var rootDir: File
     private lateinit var config: TestConfig
-    private lateinit var strategy: TestLoaderStrategy
+    private lateinit var strategy: TestSpecCompatibilityChecker
 
     @BeforeEach
     fun setup() {
         rootDir = tempDir.toFile()
         config = TestConfig(specExampleTemplate = "<SPEC_FILE_NAME>_examples", sharedExampleTemplates = listOf("<SPEC_EACH_PARENT>_common", "common"))
-        strategy = TestLoaderStrategy()
+        strategy = TestSpecCompatibilityChecker()
         println("TEST SETUP")
         println("Root Directory: ${rootDir.absolutePath}")
     }
@@ -620,7 +620,7 @@ class RecursiveSpecificationAndExampleLoaderTest {
         assertThat(adminSpec.examples.sharedExamples).hasSize(3)
     }
 
-    private fun createLoader(): RecursiveSpecificationAndExampleLoader = RecursiveSpecificationAndExampleLoader(
+    private fun createLoader(): RecursiveSpecificationAndExampleClassifier = RecursiveSpecificationAndExampleClassifier(
         specmaticConfig = config.toSpecmaticConfig(),
         strategy = strategy
     )
@@ -663,7 +663,7 @@ class RecursiveSpecificationAndExampleLoaderTest {
     }
 
     companion object {
-        private class TestLoaderStrategy : LoaderStrategy {
+        private class TestSpecCompatibilityChecker : SpecCompatibilityChecker {
             override fun isCompatibleSpecification(file: File, specmaticConfig: SpecmaticConfig): Boolean = file.extension == "spec"
             override fun isCompatibleExample(file: File, specmaticConfig: SpecmaticConfig): Boolean = file.extension == "example"
         }

@@ -7,20 +7,11 @@ import io.specmatic.core.Feature
 import io.specmatic.core.Result
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.examples.module.ExampleValidationModule
-import io.specmatic.loader.OpenApiLoaderStrategy
 import io.specmatic.mock.ScenarioStub
 import java.io.File
 
-class OpenApiValidator(private val loaderStrategy: OpenApiLoaderStrategy = OpenApiLoaderStrategy()): Validator<Feature> {
+class OpenApiValidator: Validator<Feature> {
     private val exampleValidationModule: ExampleValidationModule = ExampleValidationModule()
-
-    override fun isCompatibleSpecification(file: File, specmaticConfig: SpecmaticConfig): Boolean {
-        return loaderStrategy.isCompatibleSpecification(file, specmaticConfig)
-    }
-
-    override fun isCompatibleExample(file: File, specmaticConfig: SpecmaticConfig): Boolean {
-        return loaderStrategy.isCompatibleExample(file, specmaticConfig)
-    }
 
     override fun validateSpecification(specification: File, specmaticConfig: SpecmaticConfig): SpecValidationResult<Feature> {
         val (feature, result) = OpenApiSpecification.fromFile(specification.canonicalPath, specmaticConfig).toFeatureLenient()
