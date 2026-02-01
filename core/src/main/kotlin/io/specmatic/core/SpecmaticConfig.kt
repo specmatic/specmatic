@@ -51,6 +51,8 @@ import io.specmatic.test.TestResultRecord.Companion.CONTRACT_TEST_TEST_TYPE
 import java.io.File
 import java.net.URI
 import java.nio.file.Path
+import kotlin.collections.filterIsInstance
+import kotlin.collections.orEmpty
 
 private const val excludedEndpointsWarning =
     "WARNING: excludedEndpoints is not supported in Specmatic config v2. . Refer to https://specmatic.io/documentation/configuration.html#report-configuration to see how to exclude endpoints."
@@ -448,6 +450,24 @@ data class SpecmaticConfig(
     @JsonIgnore
     fun testConfigFor(specPath: String, specType: String): Map<String, Any> {
         return sources.flatMap { it.test.orEmpty() }.configWith(specPath, specType)
+    }
+
+    @JsonIgnore
+    fun testConfigFor(file: File, specType: String): Map<String, Any> {
+        val resolvedTestConfig = this.sources.flatMap { it.getCanonicalTestConfigs() }
+        return resolvedTestConfig.filterIsInstance<SpecExecutionConfig.ConfigValue>().firstOrNull { config ->
+            if (config.specType != specType) return@firstOrNull false
+            config.specs.any { specPath -> File(specPath).sameAs(file) }
+        }?.config.orEmpty()
+    }
+
+    @JsonIgnore
+    fun stubConfigFor(file: File, specType: String): Map<String, Any> {
+        val resolvedTestConfig = this.sources.flatMap { it.getCanonicalStubConfigs() }
+        return resolvedTestConfig.filterIsInstance<SpecExecutionConfig.ConfigValue>().firstOrNull { config ->
+            if (config.specType != specType) return@firstOrNull false
+            config.specs.any { specPath -> File(specPath).sameAs(file) }
+        }?.config.orEmpty()
     }
 
     @JsonIgnore
@@ -1231,6 +1251,14 @@ data class SpecmaticConfig(
         return if (suffix == null) reportDirPath
         else reportDirPath.resolve(suffix)
     }
+
+    private fun File.sameAs(other: File): Boolean {
+        return try {
+            this.toPath().toRealPath() == other.toPath().toRealPath()
+        } catch (_: Exception) {
+            this.canonicalFile == other.canonicalFile
+        }
+    }
 }
 
 data class TestConfiguration(
@@ -1418,6 +1446,34 @@ data class Source(
         }?.toMap().orEmpty()
     }
 
+
+    fun getCanonicalTestConfigs(): List<SpecExecutionConfig> {
+        if (this.test == null) return emptyList()
+        val baseDirectory = getBaseDirectory()
+        return this.test.map { config ->  config.resolveAgainst(baseDirectory) }
+    }
+
+    fun getCanonicalStubConfigs(): List<SpecExecutionConfig> {
+        if (this.stub == null) return emptyList()
+        val baseDirectory = getBaseDirectory()
+        return this.stub.map { config ->  config.resolveAgainst(baseDirectory) }
+    }
+
+    private fun getBaseDirectory(): File {
+        val currentWorkingDirectory = File(".").canonicalFile
+        return when (provider) {
+            SourceProvider.web -> currentWorkingDirectory
+            SourceProvider.filesystem -> directory?.let(::File) ?: currentWorkingDirectory
+            SourceProvider.git -> {
+                val repository = repository?.split("/")?.lastOrNull()?.removeSuffix(".git")
+                if (repository != null) {
+                    currentWorkingDirectory.resolve(".specmatic").resolve("repos").resolve(repository)
+                } else {
+                    currentWorkingDirectory
+                }
+            }
+        }
+    }
 }
 
 data class RepositoryInfo(

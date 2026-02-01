@@ -8,9 +8,9 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.fasterxml.jackson.databind.exc.InvalidFormatException
 
 data class SpecmaticGlobalSettings(
-    @param:JsonDeserialize(using = TemplateStringDeserializer::class)
+    @field:JsonDeserialize(using = TemplateStringDeserializer::class)
     private val specExamplesDirectoryTemplate: String? = null,
-    @param:JsonDeserialize(using = TemplateStringDeserializer::class)
+    @field:JsonDeserialize(using = TemplateStringDeserializer::class)
     private val sharedExamplesDirectoryTemplate: List<String>? = null
 ) {
     @JsonIgnore

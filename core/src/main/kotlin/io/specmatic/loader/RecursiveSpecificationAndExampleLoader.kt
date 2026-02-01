@@ -24,7 +24,7 @@ class RecursiveSpecificationAndExampleLoader(private val specmaticConfig: Specma
     }
 
     fun load(specFile: File, entryDirectory: File = specFile.parentFile): SpecificationWithExamples? {
-        if (!specFile.isFile || !strategy.isCompatibleSpecification(specFile)) return null
+        if (!specFile.isFile || !strategy.isCompatibleSpecification(specFile, specmaticConfig)) return null
         logger.boundary()
         logger.log("Scanning for examples related to ${specFile.path}")
         return SpecificationWithExamples(
@@ -43,7 +43,7 @@ class RecursiveSpecificationAndExampleLoader(private val specmaticConfig: Specma
         return directory.listFiles()?.flatMap { file ->
             when {
                 file.isDirectory -> findAllSpecifications(file)
-                file.isFile && strategy.isCompatibleSpecification(file) -> {
+                file.isFile && strategy.isCompatibleSpecification(file, specmaticConfig) -> {
                     logger.log("Specification found at ${file.path}")
                     listOf(file)
                 }
@@ -136,7 +136,7 @@ class RecursiveSpecificationAndExampleLoader(private val specmaticConfig: Specma
     }
 
     private fun loadExamplesFromDirectory(directory: File): List<File> {
-        val examples = directory.listFiles()?.filter { it.isFile && strategy.isCompatibleExample(it) }.orEmpty()
+        val examples = directory.listFiles()?.filter { it.isFile && strategy.isCompatibleExample(it, specmaticConfig) }.orEmpty()
         logger.debug("Loaded ${examples.size} examples from ${directory.path}")
         return examples
     }

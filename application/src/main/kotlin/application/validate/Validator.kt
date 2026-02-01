@@ -1,6 +1,7 @@
 package application.validate
 
 import io.specmatic.core.Result
+import io.specmatic.core.SpecmaticConfig
 import io.specmatic.loader.LoaderStrategy
 import java.io.File
 
@@ -19,8 +20,8 @@ sealed interface ExampleValidationResult {
 }
 
 interface Validator<Feature> : LoaderStrategy {
-    fun validateSpecification(specification: File): SpecValidationResult<Feature>
-    fun validateInlineExamples(specification: File, feature: Feature): Map<String, ExampleValidationResult>
-    fun validateExample(feature: Feature, file: File): ExampleValidationResult
-    fun validateExamples(feature: Feature, files: List<File>): Result
+    fun validateSpecification(specification: File, specmaticConfig: SpecmaticConfig): SpecValidationResult<Feature>
+    fun validateInlineExamples(specification: File, feature: Feature, specmaticConfig: SpecmaticConfig): Map<String, ExampleValidationResult>
+    fun validateExample(feature: Feature, file: File, specmaticConfig: SpecmaticConfig): ExampleValidationResult
+    fun validateExamples(feature: Feature, files: List<File>, specmaticConfig: SpecmaticConfig): Result
 }

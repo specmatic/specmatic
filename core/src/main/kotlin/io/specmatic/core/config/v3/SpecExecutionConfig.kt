@@ -11,10 +11,16 @@ import io.specmatic.core.Configuration.Companion.DEFAULT_BASE_URL
 import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.ResiliencyTestsConfig
 import io.specmatic.core.utilities.Flags
+import java.io.File
 import java.net.URI
 
 sealed class SpecExecutionConfig {
-    data class StringValue(@get:JsonValue val value: String) : SpecExecutionConfig()
+    data class StringValue(@get:JsonValue val value: String) : SpecExecutionConfig() {
+        override fun resolveAgainst(baseDirectory: File): SpecExecutionConfig {
+            return StringValue(baseDirectory.resolve(value).canonicalPath)
+        }
+    }
+
     sealed class ObjectValue : SpecExecutionConfig() {
         abstract val specs: List<String>
         abstract val resiliencyTests: ResiliencyTestsConfig?
@@ -37,6 +43,10 @@ sealed class SpecExecutionConfig {
             override val examples: List<String>? = null
         ) : ObjectValue() {
             override fun toUrl(default: URI) = URI(baseUrl)
+
+            override fun resolveAgainst(baseDirectory: File): SpecExecutionConfig {
+                return this.copy(specs = this.specs.map { baseDirectory.resolve(it).canonicalPath })
+            }
         }
 
         data class PartialUrl(
@@ -58,6 +68,10 @@ sealed class SpecExecutionConfig {
                     default.fragment
                 )
             }
+
+            override fun resolveAgainst(baseDirectory: File): SpecExecutionConfig {
+                return this.copy(specs = this.specs.map { baseDirectory.resolve(it).canonicalPath })
+            }
         }
     }
 
@@ -68,6 +82,10 @@ sealed class SpecExecutionConfig {
     ) : SpecExecutionConfig() {
         fun contains(specPath: String, specType: String): Boolean {
             return specPath in this.specs.toSet() && specType == this.specType
+        }
+
+        override fun resolveAgainst(baseDirectory: File): SpecExecutionConfig {
+            return this.copy(specs = this.specs.map { baseDirectory.resolve(it).canonicalPath })
         }
     }
 
@@ -99,6 +117,8 @@ sealed class SpecExecutionConfig {
             }
         }
     }
+
+    abstract fun resolveAgainst(baseDirectory: File): SpecExecutionConfig
 }
 
 class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeserializer<List<SpecExecutionConfig>>() {

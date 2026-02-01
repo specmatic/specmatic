@@ -15,6 +15,7 @@ import io.specmatic.core.config.BackwardCompatibilityConfig
 import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.config.McpConfiguration
 import io.specmatic.core.config.SpecmaticConfigVersion
+import io.specmatic.core.config.SpecmaticGlobalSettings
 import io.specmatic.core.config.SpecmaticVersionedConfig
 import io.specmatic.core.config.SpecmaticVersionedConfigLoader
 import io.specmatic.core.utilities.Flags
@@ -63,6 +64,7 @@ data class SpecmaticConfigV2(
     val licensePath: Path? = null,
     @field:JsonAlias("report_dir_path")
     val reportDirPath: Path? = null,
+    private val globalSettings: SpecmaticGlobalSettings? = null,
 ) : SpecmaticVersionedConfig {
     override fun transform(): SpecmaticConfig {
         return SpecmaticConfig(
@@ -97,7 +99,8 @@ data class SpecmaticConfigV2(
             logging = this.logging,
             mcp = this.mcp,
             licensePath = this.licensePath,
-            reportDirPath = this.reportDirPath
+            reportDirPath = this.reportDirPath,
+            globalSettings = this.globalSettings
         )
     }
 

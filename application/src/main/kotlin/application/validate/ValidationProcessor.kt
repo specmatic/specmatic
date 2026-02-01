@@ -1,13 +1,16 @@
 package application.validate
 
 import io.specmatic.core.Result
+import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.loadSpecmaticConfigIfAvailableElseDefault
 import io.specmatic.loader.SpecificationWithExamples
 import io.specmatic.test.asserts.toFailure
 import java.io.File
 
 class ValidationProcessor<Feature>(
     private val validator: Validator<Feature>,
-    private val consoleOutput: ValidationConsoleOutput = ValidationConsoleOutput()
+    private val specmaticConfig: SpecmaticConfig = loadSpecmaticConfigIfAvailableElseDefault(),
+    private val consoleOutput: ValidationConsoleOutput = ValidationConsoleOutput(),
 ) {
     fun processValidation(allSpecificationData: List<SpecificationWithExamples>): ValidationSummary<Feature> {
         val totalSpecExamples = allSpecificationData.sumOf { it.examples.specExamples.size }
@@ -78,7 +81,8 @@ class ValidationProcessor<Feature>(
 
         val finalExampleResult = validator.validateExamples(
             feature = feature,
-            files = specData.examples.specExamples.plus(specData.examples.sharedExamples)
+            specmaticConfig = specmaticConfig,
+            files = specData.examples.specExamples.plus(specData.examples.sharedExamples),
         )
 
         if (finalExampleResult is Result.Failure) {
@@ -99,7 +103,7 @@ class ValidationProcessor<Feature>(
 
     private fun validateSpecification(specFile: File): SpecificationValidationOutcome<Feature> {
         val validationResult = try {
-            validator.validateSpecification(specFile)
+            validator.validateSpecification(specFile, specmaticConfig = specmaticConfig,)
         } catch (e: Exception) {
             SpecValidationResult.FailedToLoad(result = e.toFailure())
         }
@@ -114,14 +118,14 @@ class ValidationProcessor<Feature>(
     }
 
     private fun validateInlineExamples(specification: File, feature: Feature): Map<String, ExampleValidationOutcome> {
-        return validator.validateInlineExamples(specification, feature).mapValues { (_, result) ->
+        return validator.validateInlineExamples(specification, feature, specmaticConfig = specmaticConfig,).mapValues { (_, result) ->
             ExampleValidationOutcome(file = result.file, validationResult = result, isSpecificationSpecific = true)
         }
     }
 
     private fun validateExample(exampleFile: File, feature: Feature, isSpecificationSpecific: Boolean): ExampleValidationOutcome {
         val validationResult = try {
-            validator.validateExample(feature, exampleFile)
+            validator.validateExample(feature, exampleFile, specmaticConfig = specmaticConfig,)
         } catch (e: Exception) {
             ExampleValidationResult.FailedToLoad(file = exampleFile, result = e.toFailure())
         }

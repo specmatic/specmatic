@@ -664,8 +664,8 @@ class RecursiveSpecificationAndExampleLoaderTest {
 
     companion object {
         private class TestLoaderStrategy : LoaderStrategy {
-            override fun isCompatibleSpecification(file: File): Boolean = file.extension == "spec"
-            override fun isCompatibleExample(file: File): Boolean = file.extension == "example"
+            override fun isCompatibleSpecification(file: File, specmaticConfig: SpecmaticConfig): Boolean = file.extension == "spec"
+            override fun isCompatibleExample(file: File, specmaticConfig: SpecmaticConfig): Boolean = file.extension == "example"
         }
 
         private class DirectoryBuilder(private val rootDir: File) {

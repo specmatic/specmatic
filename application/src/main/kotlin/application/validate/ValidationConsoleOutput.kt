@@ -4,20 +4,32 @@ import io.specmatic.core.Result
 import io.specmatic.core.log.logger
 import java.io.File
 
+private class ConsoleTheme(unicode: Boolean) {
+    val heavySeparator = if (unicode) "━".repeat(100) else "=".repeat(150)
+    val lightSeparator = if (unicode) "─".repeat(100) else "-".repeat(150)
+    val ok = if (unicode) "✅" else "[OK]"
+    val fail = if (unicode) "❌" else "[FAIL]"
+    val info = if (unicode) "ℹ️" else "[INFO]"
+    val bullet = if (unicode) "•" else "-"
+}
+
 class ValidationConsoleOutput {
+    private val unicode = System.getenv("FORCE_UNICODE") != null
+    private val theme = ConsoleTheme(unicode)
+
     fun printValidationStart(totalSpecs: Int, totalSpecExamples: Int, totalSharedExamples: Int) {
-        printSeparator(NEW_LINE, HEAVY_SEPARATOR, NEW_LINE)
+        printSeparator(NEW_LINE, theme.heavySeparator, NEW_LINE)
         logger.log("Validating Specification and examples")
-        printSeparator(HEAVY_SEPARATOR, NEW_LINE)
+        printSeparator(theme.heavySeparator, NEW_LINE)
         logger.log("Found $totalSpecs specification(s)")
         logger.log("Found $totalSpecExamples specification-specific example(s)")
         logger.log("Found $totalSharedExamples shared example(s)")
     }
 
     fun printSpecificationHeader(specFile: File, index: Int, total: Int) {
-        printSeparator(NEW_LINE, HEAVY_SEPARATOR, NEW_LINE)
+        printSeparator(NEW_LINE, theme.heavySeparator, NEW_LINE)
         logger.log("[$index/$total] validating specification ${specFile.name} at ${specFile.path}")
-        printSeparator(HEAVY_SEPARATOR, NEW_LINE)
+        printSeparator(theme.heavySeparator, NEW_LINE)
     }
 
     fun <Feature> printSpecificationResult(outcome: SpecificationValidationOutcome<Feature>) {
@@ -48,28 +60,32 @@ class ValidationConsoleOutput {
     fun printExamplesSkipped(specExampleCount: Int, sharedExampleCount: Int) {
         if (specExampleCount > 0 || sharedExampleCount > 0) {
             printFailure("Skipped ${specExampleCount + sharedExampleCount} examples due to specification validation failure")
-            if (specExampleCount > 0) logger.withIndentation(2) { logger.log("• $specExampleCount specification-specific example(s)") }
-            if (sharedExampleCount > 0) logger.withIndentation(2) { logger.log("• $sharedExampleCount shared example(s)") }
+            if (specExampleCount > 0) logger.withIndentation(2) {
+                logger.log("${theme.bullet} $specExampleCount specification-specific example(s)")
+            }
+            if (sharedExampleCount > 0) logger.withIndentation(2) {
+                logger.log("${theme.bullet} $sharedExampleCount shared example(s)")
+            }
         }
     }
 
     fun printExamplesSection(sectionName: String, count: Int) {
-        printSeparator(NEW_LINE, HEAVY_SEPARATOR, NEW_LINE)
+        printSeparator(NEW_LINE, theme.heavySeparator, NEW_LINE)
         logger.log(sectionName.plus( if (count > 0) " (Total: $count)" else ""))
-        printSeparator(HEAVY_SEPARATOR, NEW_LINE)
+        printSeparator(theme.heavySeparator, NEW_LINE)
     }
 
     fun printExampleResult(outcome: ExampleValidationOutcome, index: Int, total: Int) {
-        printSeparator(NEW_LINE, LIGHT_SEPARATOR, NEW_LINE)
+        printSeparator(NEW_LINE, theme.lightSeparator, NEW_LINE)
         logger.log("[$index/$total] validating Example ${outcome.file.name} at ${outcome.file.path}")
-        printSeparator(LIGHT_SEPARATOR, NEW_LINE)
+        printSeparator(theme.lightSeparator, NEW_LINE)
         printExampleResult(outcome)
     }
 
     fun printInlineExampleResult(outcome: ExampleValidationOutcome, name: String) {
-        printSeparator(NEW_LINE, LIGHT_SEPARATOR, NEW_LINE)
+        printSeparator(NEW_LINE, theme.lightSeparator, NEW_LINE)
         logger.log("validating Inline-Example $name at ${outcome.file.path}")
-        printSeparator(LIGHT_SEPARATOR, NEW_LINE)
+        printSeparator(theme.lightSeparator, NEW_LINE)
         printExampleResult(outcome)
     }
 
@@ -113,28 +129,28 @@ class ValidationConsoleOutput {
 
     fun printSpecificationSummary(result: SpecificationValidationResults<*>) {
         val totalExamples = result.specificationExampleResults.size + result.sharedExampleResults.size
-        val specIcon = if (result.specificationOutcome.hasErrors) "❌" else "✅"
+        val specIcon = if (result.specificationOutcome.hasErrors) theme.fail else theme.ok
         val specStatus = if (result.specificationOutcome.hasErrors) "FAILED" else "PASSED"
 
-        printSeparator(NEW_LINE, LIGHT_SEPARATOR, NEW_LINE)
+        printSeparator(NEW_LINE, theme.lightSeparator, NEW_LINE)
         logger.log("$specIcon Specification ${result.specFile.name}: $specStatus")
 
         if (totalExamples > 0) {
             val failedExamples = result.specificationExampleResults.count { it.hasErrors } + result.sharedExampleResults.count { it.hasErrors }
             val passedExamples = totalExamples - failedExamples
-            val examplesIcon = if (failedExamples > 0) "❌" else "✅"
+            val examplesIcon = if (failedExamples > 0) theme.fail else theme.ok
             logger.log("$examplesIcon Examples: $passedExamples passed and $failedExamples failed out of $totalExamples total")
         } else {
-            logger.log("ℹ️  No examples to validate")
+            logger.log("${theme.info} No examples to validate")
         }
 
-        printSeparator(LIGHT_SEPARATOR, NEW_LINE)
+        printSeparator(theme.lightSeparator, NEW_LINE)
     }
 
     fun <Feature> printFinalSummary(summary: ValidationSummary<Feature>) {
-        printSeparator(HEAVY_SEPARATOR, NEW_LINE)
+        printSeparator(theme.heavySeparator, NEW_LINE)
         logger.log("FINAL SUMMARY")
-        printSeparator(HEAVY_SEPARATOR, NEW_LINE)
+        printSeparator(theme.heavySeparator, NEW_LINE)
 
         val passedSpecs = summary.totalSpecifications - summary.failedSpecifications
         logSummaryRow(label = "Specifications", passed = passedSpecs, failed = summary.failedSpecifications, total = summary.totalSpecifications)
@@ -145,18 +161,18 @@ class ValidationConsoleOutput {
         }
 
         logger.boundary()
-        printSeparator(HEAVY_SEPARATOR)
-        val resultIcon = if (summary.isSuccess) "✅" else "❌"
+        printSeparator(theme.heavySeparator)
+        val resultIcon = if (summary.isSuccess) theme.ok else theme.fail
         val finalResult = if (summary.isSuccess) "PASSED" else "FAILED"
         logger.log("$resultIcon OVERALL RESULT: $finalResult")
-        printSeparator(HEAVY_SEPARATOR)
+        printSeparator(theme.heavySeparator)
         logger.boundary()
     }
 
     private fun printSeparator(vararg separator: String) { separator.forEach(::print) }
-    private fun printInfo(message: String) = logger.log("ℹ️ $message")
-    private fun printSuccess(message: String) = logger.log("✅ $message")
-    private fun printFailure(message: String) = logger.log("❌ $message")
+    private fun printInfo(message: String) = logger.log("${theme.info} $message")
+    private fun printSuccess(message: String) = logger.log("${theme.ok} $message")
+    private fun printFailure(message: String) = logger.log("${theme.fail} $message")
     private fun printResult(result: Result) { logger.boundary(); logger.log(result.reportString()) }
     private fun logSummaryRow(label: String, passed: Int, failed: Int, total: Int) {
         logger.log(
@@ -169,8 +185,5 @@ class ValidationConsoleOutput {
 
     companion object {
         private const val NEW_LINE = "\n"
-        private val HEAVY_SEPARATOR = "━".times(100)
-        private val LIGHT_SEPARATOR = "─".times(100)
-        private operator fun String.times(count: Int): String = this.repeat(count)
     }
 }

@@ -48,10 +48,7 @@ data class SpecificationValidationResults<Feature>(
     val sharedExampleResults: List<ExampleValidationOutcome> = emptyList(),
     val specificationExampleResults: List<ExampleValidationOutcome> = emptyList(),
 ) {
-    val hasErrors: Boolean
-        get() = specificationOutcome.hasErrors ||
-                specificationExampleResults.any { it.hasErrors } ||
-                sharedExampleResults.any { it.hasErrors }
+    val hasErrors: Boolean = specificationOutcome.hasErrors
 }
 
 data class ValidationSummary<Feature>(val results: List<SpecificationValidationResults<Feature>>) {
