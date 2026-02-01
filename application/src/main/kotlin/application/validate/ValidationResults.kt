@@ -48,13 +48,14 @@ data class SpecificationValidationResults<Feature>(
     val sharedExampleResults: List<ExampleValidationOutcome> = emptyList(),
     val specificationExampleResults: List<ExampleValidationOutcome> = emptyList(),
 ) {
-    val hasErrors: Boolean = specificationOutcome.hasErrors
+    val hasErrors: Boolean = specificationOutcome.hasErrors || specificationExampleResults.any { it.hasErrors } || sharedExampleResults.any { it.hasErrors }
+    val hasSpecErrors: Boolean  = specificationOutcome.hasErrors
 }
 
 data class ValidationSummary<Feature>(val results: List<SpecificationValidationResults<Feature>>) {
     val totalSpecifications: Int = results.size
     val isSuccess: Boolean = results.count { it.hasErrors } == 0
-    val failedSpecifications: Int = results.count { it.hasErrors }
+    val failedSpecifications: Int = results.count { it.hasSpecErrors }
     val totalExamples: Int = results.sumOf { it.specificationExampleResults.size + it.sharedExampleResults.size }
     val failedExamples: Int = results.sumOf { result ->
         result.specificationExampleResults.count { it.hasErrors } + result.sharedExampleResults.count { it.hasErrors }
