@@ -79,22 +79,20 @@ class ValidationProcessor<Feature>(
             }
         }
 
+        consoleOutput.printExamplesSection("Global example validation", count = 0)
         val finalExampleResult = validator.validateExamples(
             feature = feature,
             specmaticConfig = specmaticConfig,
             files = specData.examples.specExamples.plus(specData.examples.sharedExamples),
         )
-
-        if (finalExampleResult is Result.Failure) {
-            consoleOutput.printExamplesSection("Global example validation", count = 0)
-            consoleOutput.printGlobalExampleResult(finalExampleResult)
-        }
+        consoleOutput.printGlobalExampleResult(finalExampleResult)
 
         val result = SpecificationValidationResults(
             specFile = specData.specFile,
             specificationOutcome = specOutcome,
+            globalExamplesResult = finalExampleResult,
+            sharedExampleResults = sharedExampleResults,
             specificationExampleResults = specExampleResults,
-            sharedExampleResults = sharedExampleResults
         )
 
         consoleOutput.printSpecificationSummary(result)

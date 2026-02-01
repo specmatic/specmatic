@@ -117,14 +117,10 @@ class ValidationConsoleOutput {
         }
     }
 
-    fun printGlobalExampleResult(result: Result.Failure) {
-        if (result.isPartialFailure()) {
-            printInfo("Issues found when considering all examples")
-            printResult(result)
-        } else {
-            printFailure("Issues found when considering all examples")
-            printResult(result)
-        }
+    fun printGlobalExampleResult(result: Result) {
+        if (result.isSuccess()) return
+        logger.boundary()
+        printFailure("Issues found when considering all examples")
     }
 
     fun printSpecificationSummary(result: SpecificationValidationResults<*>) {

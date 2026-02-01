@@ -44,11 +44,12 @@ data class ExampleValidationOutcome(
 
 data class SpecificationValidationResults<Feature>(
     val specFile: File,
+    val globalExamplesResult: Result = Result.Success(),
     val specificationOutcome: SpecificationValidationOutcome<Feature>,
     val sharedExampleResults: List<ExampleValidationOutcome> = emptyList(),
     val specificationExampleResults: List<ExampleValidationOutcome> = emptyList(),
 ) {
-    val hasErrors: Boolean = specificationOutcome.hasErrors || specificationExampleResults.any { it.hasErrors } || sharedExampleResults.any { it.hasErrors }
+    val hasErrors: Boolean = specificationOutcome.hasErrors || specificationExampleResults.any { it.hasErrors } || sharedExampleResults.any { it.hasErrors } || !globalExamplesResult.isSuccess()
     val hasSpecErrors: Boolean  = specificationOutcome.hasErrors
 }
 
