@@ -219,7 +219,7 @@ class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeseriali
         val hasBaseUrl = has("baseUrl")
 
         if (consumes) {
-            val partialFields = listOf("host", "port", "basePath", "examples").filter(::has)
+            val partialFields = listOf("host", "port", "basePath").filter(::has)
             val hasPartialFields = partialFields.isNotEmpty()
             when {
                 hasBaseUrl && hasPartialFields -> throw JsonMappingException(p, "Cannot combine baseUrl with ${partialFields.joinToString(", ")}")
