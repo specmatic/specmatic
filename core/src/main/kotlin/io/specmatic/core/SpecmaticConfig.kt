@@ -15,8 +15,8 @@ import io.specmatic.core.azure.AzureAPI
 import io.specmatic.core.config.*
 import io.specmatic.core.config.SpecmaticConfigVersion.VERSION_1
 import io.specmatic.core.config.SpecmaticConfigVersion.VERSION_2
-import io.specmatic.core.config.v3.ConsumesDeserializer
-import io.specmatic.core.config.v3.SpecExecutionConfig
+import io.specmatic.core.config.v2.ConsumesDeserializer
+import io.specmatic.core.config.v2.SpecExecutionConfig
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
@@ -252,7 +252,7 @@ interface WorkflowDetails {
 }
 
 data class WorkflowConfiguration(
-    private val ids: Map<String, WorkflowIDOperation> = emptyMap()
+    val ids: Map<String, WorkflowIDOperation> = emptyMap()
 ) : WorkflowDetails {
     private fun getOperation(operationId: String): WorkflowIDOperation? {
         return ids[operationId]

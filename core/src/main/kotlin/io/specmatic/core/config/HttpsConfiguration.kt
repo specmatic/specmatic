@@ -1,5 +1,6 @@
 package io.specmatic.core.config
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.DeserializationContext
 import com.fasterxml.jackson.databind.JsonDeserializer
@@ -7,24 +8,21 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.fasterxml.jackson.databind.node.ObjectNode
 import io.specmatic.core.APPLICATION_NAME_LOWER_CASE
 import io.specmatic.core.log.logger
-import net.minidev.json.annotate.JsonIgnore
 import java.io.File
 
 @JsonDeserialize(using = KeyStoreConfiguration.Companion.KeyStoreConfigurationDeserializer::class)
+@JsonIgnoreProperties("filePath", "directoryPath")
 sealed interface KeyStoreConfiguration {
     val password: String?
     val alias: String?
 
-    @JsonIgnore
-    fun getFilePath(): String? = (this as? FileBasedConfig)?.file?.canonicalPath
-
-    @JsonIgnore
-    fun getDirectoryPath(): String? = (this as? DirectoryBasedConfig)?.directory?.canonicalPath
+    fun getFilePath(): String? = (this as? FileBasedConfig)?.file?.let(::File)?.canonicalPath
+    fun getDirectoryPath(): String? = (this as? DirectoryBasedConfig)?.directory?.let(::File)?.canonicalPath
 
     fun overrideWith(other: KeyStoreConfiguration?): KeyStoreConfiguration
 
     data class FileBasedConfig(
-        val file: File,
+        val file: String,
         override val password: String? = null,
         override val alias: String? = null
     ) : KeyStoreConfiguration {
@@ -39,7 +37,7 @@ sealed interface KeyStoreConfiguration {
     }
 
     data class DirectoryBasedConfig(
-        val directory: File,
+        val directory: String,
         override val password: String? = null,
         override val alias: String? = null
     ) : KeyStoreConfiguration {
@@ -87,15 +85,15 @@ sealed interface KeyStoreConfiguration {
                 }
 
                 return when {
-                    hasFile -> FileBasedConfig(file = File(fileNode.asText()), password = password, alias = alias)
-                    else -> DirectoryBasedConfig(directory = File(dirNode.asText()), password = password, alias = alias)
+                    hasFile -> FileBasedConfig(file = fileNode.asText(), password = password, alias = alias)
+                    else -> DirectoryBasedConfig(directory = dirNode.asText(), password = password, alias = alias)
                 }
             }
         }
     }
 }
 
-data class HttpsConfiguration(private val keyStore: KeyStoreConfiguration? = null, private val keyStorePassword: String? = null) {
+data class HttpsConfiguration(val keyStore: KeyStoreConfiguration? = null, val keyStorePassword: String? = null) {
     fun keyStoreFile(): String? = keyStore?.getFilePath()
 
     fun keyStoreDir(): String? = keyStore?.getDirectoryPath()
@@ -129,8 +127,8 @@ data class HttpsConfiguration(private val keyStore: KeyStoreConfiguration? = nul
             return HttpsConfiguration(
                 keyStorePassword = opts.keyStorePassword,
                 keyStore = when {
-                    opts.keyStoreFile != null -> KeyStoreConfiguration.FileBasedConfig(file = File(opts.keyStoreFile), password = opts.keyPassword, alias = opts.keyStoreAlias)
-                    opts.keyStoreDir != null -> KeyStoreConfiguration.DirectoryBasedConfig(directory = File(opts.keyStoreDir), password = opts.keyPassword, alias = opts.keyStoreAlias)
+                    opts.keyStoreFile != null -> KeyStoreConfiguration.FileBasedConfig(file = opts.keyStoreFile, password = opts.keyPassword, alias = opts.keyStoreAlias)
+                    opts.keyStoreDir != null -> KeyStoreConfiguration.DirectoryBasedConfig(directory = opts.keyStoreDir, password = opts.keyPassword, alias = opts.keyStoreAlias)
                     else -> KeyStoreConfiguration.PartialConfig(password = opts.keyPassword, alias = opts.keyStoreAlias)
                 },
             )

@@ -1,4 +1,4 @@
-package io.specmatic.core.config.v3
+package io.specmatic.core.config.v2
 
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonValue
