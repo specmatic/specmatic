@@ -52,7 +52,7 @@ class CertInfoTest {
         val certInfo = CertInfo(
             fromCli = HttpsConfiguration.Companion.HttpsFromOpts(), fromConfig = HttpsConfiguration(
                 keyStore = KeyStoreConfiguration.DirectoryBasedConfig(
-                    directory = keystoreDir,
+                    directory = keystoreDir.canonicalPath,
                     password = "dir-pass",
                     alias = "dir-alias"
                 )
@@ -73,7 +73,7 @@ class CertInfoTest {
         val keystoreDir = tempDir.resolve("keystores").apply { mkdirs() }
         val config = HttpsConfiguration(
             keyStore = KeyStoreConfiguration.DirectoryBasedConfig(
-                directory = keystoreDir,
+                directory = keystoreDir.canonicalPath,
                 password = "dir-pass",
                 alias = "dir-alias"
             )
@@ -97,7 +97,7 @@ class CertInfoTest {
         val keystoreFile = tempDir.resolve("base.jks")
         createEmptyKeyStore(keystoreFile, "config-pass")
 
-        val config = HttpsConfiguration(keyStore = KeyStoreConfiguration.FileBasedConfig(file = keystoreFile, password = "pass", alias = null))
+        val config = HttpsConfiguration(keyStore = KeyStoreConfiguration.FileBasedConfig(file = keystoreFile.canonicalPath, password = "pass", alias = null))
         val cliOpts = HttpsConfiguration.Companion.HttpsFromOpts(keyStoreAlias = "cli-alias", keyStorePassword = "config-pass")
 
         val certInfo = CertInfo(cliOpts, config)

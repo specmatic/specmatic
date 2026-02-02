@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonMappingException
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.kotlin.readValue
-import io.specmatic.core.config.v3.SpecExecutionConfig
+import io.specmatic.core.config.v2.SpecExecutionConfig
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.specmatic.core.config.v2.ContractConfig
 import io.specmatic.core.config.SpecmaticConfigVersion
@@ -206,8 +206,8 @@ internal class SpecmaticConfigKtTest {
 
         assertThat(config.getProxyConfig()).isEqualTo(
             ProxyConfig(
-                port = 9000, targetUrl = "http://example.com/api",
-                consumes = listOf("openapi_spec1.yaml", "openapi_spec2.yaml")
+                port = 9000, target = "http://example.com/api",
+                mock = listOf("openapi_spec1.yaml", "openapi_spec2.yaml")
             )
         )
     }

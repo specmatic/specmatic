@@ -23,6 +23,7 @@ import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
 import io.specmatic.core.utilities.Flags.Companion.getStringValue
+import java.io.File
 import java.nio.file.Path
 
 data class SpecmaticConfigV2(
@@ -67,7 +68,7 @@ data class SpecmaticConfigV2(
     val reportDirPath: Path? = null,
     private val globalSettings: SpecmaticGlobalSettings? = null,
 ) : SpecmaticVersionedConfig {
-    override fun transform(): SpecmaticConfigV1V2Common {
+    override fun transform(file: File?): SpecmaticConfigV1V2Common {
         return SpecmaticConfigV1V2Common(
             version = currentConfigVersion(),
             sources = this.contracts.map { contract -> contract.transform() },

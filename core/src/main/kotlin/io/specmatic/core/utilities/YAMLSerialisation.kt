@@ -8,7 +8,12 @@ import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.*
 
-private val yamlFactory = YAMLFactory().disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER).enable(YAMLGenerator.Feature.MINIMIZE_QUOTES)
+private val yamlFactory = YAMLFactory().apply {
+    disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER)
+    enable(YAMLGenerator.Feature.MINIMIZE_QUOTES)
+    disable(YAMLGenerator.Feature.USE_NATIVE_TYPE_ID)
+    disable(YAMLGenerator.Feature.USE_NATIVE_OBJECT_ID)
+}
 
 val yamlMapper: ObjectMapper = ObjectMapper(yamlFactory).registerKotlinModule()
 

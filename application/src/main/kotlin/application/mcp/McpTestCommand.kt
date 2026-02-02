@@ -125,6 +125,6 @@ open class McpTestCommand : Callable<Int> {
     }
 
     private fun effectiveEnableResiliency(): Boolean = enableResiliencyTests ?: mcpConfig?.test?.enableResiliencyTests ?: false
-    private fun effectiveDictionaryFile(): File? = dictionaryFile ?: mcpConfig?.test?.dictionaryFile
+    private fun effectiveDictionaryFile(): File? = dictionaryFile ?: mcpConfig?.test?.getDictionaryIfExists()
     private fun effectiveBearerToken(): String? = bearerToken ?: mcpConfig?.test?.bearerToken
 }

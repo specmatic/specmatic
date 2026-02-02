@@ -1,7 +1,8 @@
 package io.specmatic.core.config
 
-import io.specmatic.core.SpecmaticConfigV1V2Common
+import io.specmatic.core.SpecmaticConfig
+import java.io.File
 
 interface SpecmaticVersionedConfig {
-    fun transform(): SpecmaticConfigV1V2Common
+    fun transform(file: File? = null): SpecmaticConfig
 }

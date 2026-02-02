@@ -4,25 +4,38 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
-import io.specmatic.core.SpecmaticConfigV1V2Common
+import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.config.v1.SpecmaticConfigV1
 import io.specmatic.core.config.v2.SpecmaticConfigV2
+import io.specmatic.core.config.v3.SpecmaticConfigV3
 import io.specmatic.core.pattern.ContractException
+import io.zenwave360.jsonrefparser.`$RefParser`
 import java.io.File
 
 private const val SPECMATIC_CONFIG_VERSION = "version"
 
 private val objectMapper = ObjectMapper(YAMLFactory()).registerKotlinModule()
 
-fun File.toSpecmaticConfig(): SpecmaticConfigV1V2Common {
+fun File.toSpecmaticConfig(): SpecmaticConfig {
     val configTree = resolveTemplates(objectMapper.readTree(this.readText()))
     return when (configTree.getVersion()) {
         SpecmaticConfigVersion.VERSION_1 -> {
-            objectMapper.treeToValue(configTree, SpecmaticConfigV1::class.java).transform()
+            objectMapper.treeToValue(configTree, SpecmaticConfigV1::class.java).transform(this)
         }
 
         SpecmaticConfigVersion.VERSION_2 -> {
-            objectMapper.treeToValue(configTree, SpecmaticConfigV2::class.java).transform()
+            objectMapper.treeToValue(configTree, SpecmaticConfigV2::class.java).transform(this)
+        }
+
+        SpecmaticConfigVersion.VERSION_3 -> {
+            val resolvedValue = runCatching {
+                `$RefParser`(this).parse().dereference().getRefs().schema()
+            }.getOrElse { e ->
+                throw ContractException("Failed to resolve references in Specmatic Config", exceptionCause = e)
+            }
+
+            val resolvedConfigTree = resolveTemplates(objectMapper.convertValue(resolvedValue, JsonNode::class.java))
+            objectMapper.treeToValue(resolvedConfigTree, SpecmaticConfigV3::class.java).transform(this)
         }
 
         else -> {
@@ -77,7 +90,7 @@ private fun resolveTemplateValue(value: String): JsonNode? {
 private data class TemplateDefinition(val keys: List<String>, val defaultValue: String)
 
 private fun parseTemplate(value: String): TemplateDefinition? {
-    if (!value.startsWith("{") || !value.endsWith("}")) return null
+    if (!value.removePrefix("$").startsWith("{") || !value.endsWith("}")) return null
     val separatorIndex = value.indexOf(':')
     if (separatorIndex <= 1) return null
 

@@ -18,7 +18,7 @@ fun logStrategyFromConfig(logConfig: LoggingConfiguration): LogStrategy {
 private fun textPrinters(config: LoggingConfiguration): List<LogPrinter> {
     if (!config.hasTextConfiguration()) return listOf(ConsolePrinter)
     val textConfig = config.textConfigurationOrDefault()
-    val prefix = textConfig.getLogPrefixOrDefault()
+    val prefix = textConfig.getLogFilePrefixOrDefault()
     val directory = textConfig.getLogDirectory()?.canonicalPath
     return buildList {
         if (directory != null) {
@@ -34,7 +34,7 @@ private fun textPrinters(config: LoggingConfiguration): List<LogPrinter> {
 private fun jsonPrinters(config: LoggingConfiguration): List<LogPrinter> {
     if (!config.hasJsonConfiguration()) return emptyList()
     val jsonConfig = config.jsonConfigurationOrDefault()
-    val prefix = jsonConfig.getLogPrefixOrDefault()
+    val prefix = jsonConfig.getLogFilePrefixOrDefault()
     val directory = jsonConfig.getLogDirectory()?.canonicalPath
     return buildList {
         if (directory != null) {
