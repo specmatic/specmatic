@@ -1,6 +1,5 @@
 package application.backwardCompatibility
 
-import io.specmatic.core.Feature
 import io.specmatic.core.IFeature
 import io.specmatic.core.Results
 import io.specmatic.core.git.GitCommand
@@ -11,6 +10,7 @@ import io.specmatic.core.utilities.SystemExit
 import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.LicensedProduct
 import io.specmatic.license.core.SpecmaticFeature
+import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.backwardcompat.dto.OperationUsageResponse
 import picocli.CommandLine.Option
 import java.io.File
@@ -62,6 +62,8 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
         ]
     )
     var strictMode = false
+
+    abstract val protocols: List<SpecmaticProtocol>
 
     abstract fun checkBackwardCompatibility(oldFeature: IFeature, newFeature: IFeature): Results
     abstract fun File.isValidFileFormat(): Boolean
@@ -265,7 +267,8 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Unit> {
                     LicenseResolver.utilize(
                         product = LicensedProduct.OPEN_SOURCE,
                         feature = SpecmaticFeature.BACKWARD_COMPATIBILITY_CHECK,
-                        protocol = listOfNotNull((older as? Feature)?.protocol)
+                        protocol = protocols,
+                        context = older.specId
                     )
 
                     return@mapNotNull ProcessedSpec(

@@ -97,7 +97,8 @@ class ExampleValidationModule(private val lenientMode: Boolean = false) {
         LicenseResolver.utilize(
             product = LicensedProduct.OPEN_SOURCE,
             feature = SpecmaticFeature.EXAMPLES_VALIDATED,
-            protocol = listOf(feature.protocol)
+            protocol = listOf(feature.protocol),
+            context =  feature.specId
         )
 
         return ExampleFromFile.fromFile(exampleFile, strictMode = false).realise(

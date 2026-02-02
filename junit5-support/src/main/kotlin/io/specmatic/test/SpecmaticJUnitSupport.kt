@@ -483,10 +483,12 @@ open class SpecmaticJUnitSupport {
         startTime = Instant.now()
         return testScenarios.map { (contractTest, baseURL) ->
             DynamicTest.dynamicTest(contractTest.testDescription()) {
+
                 LicenseResolver.utilize(
                     product = LicensedProduct.OPEN_SOURCE,
                     feature = SpecmaticFeature.TEST,
                     protocol = listOfNotNull(contractTest.protocol),
+                    context = contractTest.specId
                 )
 
                 threads.add(Thread.currentThread().name)

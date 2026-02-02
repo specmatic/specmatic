@@ -313,12 +313,6 @@ class HttpStub(
                         (result.value ?: request) to (errors + result.errors)
                     }
 
-                    LicenseResolver.utilize(
-                        product = LicensedProduct.OPEN_SOURCE,
-                        feature = SpecmaticFeature.MOCK,
-                        protocol = listOf(httpRequest.protocol),
-                    )
-
                     // Add the decoded request to the log message
                     httpLogMessage.addRequestWithCurrentTime(httpRequest)
 
@@ -360,6 +354,16 @@ class HttpStub(
                             responseResult.response
                         }
                     }
+
+                    if (httpStubResponse.feature != null) {
+                        LicenseResolver.utilize(
+                            product = LicensedProduct.OPEN_SOURCE,
+                            feature = SpecmaticFeature.MOCK,
+                            protocol = listOf(httpRequest.protocol),
+                            context = httpStubResponse.feature.specId
+                        )
+                    }
+
 
                     val (httpResponse, responseInterceptorErrors) = responseInterceptors.fold(
                         httpStubResponse.response to emptyList<InterceptorError>()
