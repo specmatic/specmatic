@@ -559,8 +559,6 @@ open class SpecmaticJUnitSupport {
         return port?.toIntOrNull() != null
     }
 
-    private fun portNotSpecified(parsedURI: URI) = parsedURI.port == -1
-
     fun loadTestScenarios(
         path: String,
         suggestionsPath: String,
