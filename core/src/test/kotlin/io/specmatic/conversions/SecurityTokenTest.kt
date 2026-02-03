@@ -118,40 +118,40 @@ class SecurityTokenTest {
 
     @Test
     fun `should prefer config then scheme env var then legacy env var for bearer scheme`() {
-        val configToken = "CONFIG1234"
-        val schemeEnvToken = "SCHEME_ENV_1234"
-        val legacyEnvToken = "LEGACY_ENV_1234"
+        val configBearerToken = "CONFIG1234"
+        val schemeEnvBearerToken = "SCHEME_ENV_1234"
+        val legacyEnvBearerToken = "LEGACY_ENV_1234"
         val schemeName = "oAuth2AuthCode"
         val tokenMap = mapOf(
-            schemeName to schemeEnvToken,
-            SPECMATIC_OAUTH2_TOKEN to legacyEnvToken
+            schemeName to schemeEnvBearerToken,
+            SPECMATIC_OAUTH2_TOKEN to legacyEnvBearerToken
         )
         tokenMap.forEach { System.setProperty(it.key, it.value) }
 
         try {
-            val configFirst = getSecurityTokenForBearerScheme(
+            val tokenFromConfigWhenEnvPresent = getSecurityTokenForBearerScheme(
                 SpecmaticConfig(),
-                OAuth2SecuritySchemeConfiguration("oauth2", configToken),
+                OAuth2SecuritySchemeConfiguration("oauth2", configBearerToken),
                 schemeName
             )
-            assertThat(configFirst).isEqualTo(configToken)
+            assertThat(tokenFromConfigWhenEnvPresent).isEqualTo(configBearerToken)
 
-            val schemeEnvSecond = getSecurityTokenForBearerScheme(
+            val tokenFromSchemeEnvWhenNoConfig = getSecurityTokenForBearerScheme(
                 SpecmaticConfig(),
                 null,
                 schemeName
             )
-            assertThat(schemeEnvSecond).isEqualTo(schemeEnvToken)
+            assertThat(tokenFromSchemeEnvWhenNoConfig).isEqualTo(schemeEnvBearerToken)
 
             tokenMap.forEach { System.clearProperty(it.key) }
-            System.setProperty(SPECMATIC_OAUTH2_TOKEN, legacyEnvToken)
+            System.setProperty(SPECMATIC_OAUTH2_TOKEN, legacyEnvBearerToken)
 
-            val legacyFallback = getSecurityTokenForBearerScheme(
+            val tokenFromLegacyEnvWhenSchemeEnvMissing = getSecurityTokenForBearerScheme(
                 SpecmaticConfig(),
                 null,
                 schemeName
             )
-            assertThat(legacyFallback).isEqualTo(legacyEnvToken)
+            assertThat(tokenFromLegacyEnvWhenSchemeEnvMissing).isEqualTo(legacyEnvBearerToken)
         } finally {
             tokenMap.forEach { System.clearProperty(it.key) }
             System.clearProperty(SPECMATIC_OAUTH2_TOKEN)
