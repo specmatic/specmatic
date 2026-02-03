@@ -1000,9 +1000,32 @@ data class SpecmaticConfig(
         val tokenFromProperty = System.getProperty("personalAccessToken")?.takeIf { it.isNotBlank() }
         if (tokenFromProperty != null) {
             logger.log("Using personal access token from system property")
+            return tokenFromProperty
         }
 
-        return tokenFromProperty
+        return getPersonalAccessTokenFromHomeDirectoryConfig()
+    }
+
+    private fun getPersonalAccessTokenFromHomeDirectoryConfig(): String? {
+        val homeDir = File(System.getProperty("user.home"))
+        val configFile = homeDir.resolve("specmatic-azure.json")
+
+        if (!configFile.exists()) return null
+
+        val config = parsedJSONObject(configFile.readText())
+        val tokenKeys = listOf("azure-access-token", "personal-access-token")
+
+        val tokenFromHomeConfig = tokenKeys.firstNotNullOfOrNull { tokenKey ->
+            when {
+                config.jsonObject.containsKey(tokenKey) ->
+                    config.getString(tokenKey).takeIf { it.isNotBlank() }
+                else -> null
+            }
+        }
+
+        return tokenFromHomeConfig?.also {
+            logger.log("Using personal access token from home directory config")
+        }
     }
 
     @JsonIgnore

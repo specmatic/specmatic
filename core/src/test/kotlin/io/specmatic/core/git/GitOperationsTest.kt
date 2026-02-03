@@ -4,6 +4,8 @@ import io.specmatic.core.Auth
 import io.specmatic.core.SpecmaticConfig
 import org.assertj.core.api.AssertionsForClassTypes.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Path
 
 class GitOperationsTest {
     @Test
@@ -56,5 +58,30 @@ class GitOperationsTest {
         val specmaticConfig = SpecmaticConfig()
 
         assertThat(getPersonalAccessToken(specmaticConfig)).isNull()
+    }
+
+    @Test
+    fun shouldReturnPersonalAccessTokenFromHomeDirectoryConfig(@TempDir tempDir: Path) {
+        val originalHome = System.getProperty("user.home")
+        val originalPersonalAccessTokenProperty = System.getProperty("personalAccessToken")
+
+        System.setProperty("user.home", tempDir.toString())
+        System.clearProperty("personalAccessToken")
+
+        val configFile = tempDir.resolve("specmatic-azure.json").toFile()
+        configFile.writeText("""{"azure-access-token":"token-456"}""")
+
+        try {
+            val specmaticConfig = SpecmaticConfig()
+
+            assertThat(getPersonalAccessToken(specmaticConfig)).isEqualTo("token-456")
+        } finally {
+            System.setProperty("user.home", originalHome)
+            if (originalPersonalAccessTokenProperty == null) {
+                System.clearProperty("personalAccessToken")
+            } else {
+                System.setProperty("personalAccessToken", originalPersonalAccessTokenProperty)
+            }
+        }
     }
 }
