@@ -10,6 +10,7 @@ import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.core.StandardRuleViolation
+import io.specmatic.core.config.v2.AttributeSelectionPattern
 import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.model.SpecType

@@ -37,7 +37,6 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.WorkingDirectory
 import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.core.listOfExcludedHeaders
-import io.specmatic.core.loadSpecmaticConfigOrDefault
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.LogTail
@@ -1190,7 +1189,7 @@ fun getHttpResponse(
     strictMode: Boolean,
     passThroughTargetBase: String = "",
     httpClientFactory: HttpClientFactory? = null,
-    specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
+    specmaticConfig: SpecmaticConfig = SpecmaticConfig.default(),
 ): StubbedResponseResult {
     try {
         val (matchResults, matchingStubResponse) = stubbedResponse(httpExpectations, httpRequest)
@@ -1290,7 +1289,7 @@ data class ResponseDetails(val feature: Feature, val successResponse: ResponseBu
 fun fakeHttpResponse(
     features: List<Feature>,
     httpRequest: HttpRequest,
-    specmaticConfig: SpecmaticConfig = SpecmaticConfig()
+    specmaticConfig: SpecmaticConfig = SpecmaticConfig.default()
 ): StubbedResponseResult {
 
     if (features.isEmpty())

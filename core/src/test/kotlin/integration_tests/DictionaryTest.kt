@@ -11,7 +11,7 @@ import io.specmatic.core.HttpRequestPattern
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.HttpResponsePattern
 import io.specmatic.core.Resolver
-import io.specmatic.core.SPECMATIC_STUB_DICTIONARY
+import io.specmatic.core.config.SPECMATIC_STUB_DICTIONARY
 import io.specmatic.core.Scenario
 import io.specmatic.core.ScenarioInfo
 import io.specmatic.core.buildHttpPathPattern

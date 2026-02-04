@@ -1,7 +1,9 @@
 package io.specmatic.core
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import io.specmatic.core.config.v2.SpecmaticConfigV2
+import io.specmatic.core.config.v2.SpecmaticConfigV2Impl
 import io.specmatic.core.utilities.Flags
+import io.specmatic.core.utilities.yamlMapper
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -76,11 +78,11 @@ internal class CommandHookTest {
     @Test
     fun `command hook when hook exists`(@TempDir tempDir: File) {
         val configFile = tempDir.resolve("specmatic.json")
-        val specmaticConfig = SpecmaticConfig(
+        val specmaticConfig = SpecmaticConfigV2.loadFrom(SpecmaticConfigV2Impl(
             emptyList(),
             hooks = mapOf(HookName.stub_load_contract.name to "cat ${secondary.canonicalPath}")
-        )
-        configFile.writeText(ObjectMapper().writeValueAsString(specmaticConfig))
+        ))
+        configFile.writeText(yamlMapper.writeValueAsString(specmaticConfig))
         Configuration.configFilePath = configFile.canonicalPath
         try {
             val contractInFile = CommandHook(HookName.stub_load_contract).readContract(primary.canonicalPath)

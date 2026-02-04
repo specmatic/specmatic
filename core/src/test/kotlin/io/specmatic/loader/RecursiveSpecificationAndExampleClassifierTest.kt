@@ -2,6 +2,7 @@ package io.specmatic.loader
 
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.config.SpecmaticGlobalSettings
+import io.specmatic.core.config.v2.SpecmaticConfigV2Impl
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -717,7 +718,7 @@ class RecursiveSpecificationAndExampleClassifierTest {
 
         private data class TestConfig(val specExampleTemplate: String, val sharedExampleTemplates: List<String>) {
             fun toSpecmaticConfig(): SpecmaticConfig {
-                return SpecmaticConfig(
+                return SpecmaticConfigV2Impl(
                     globalSettings = SpecmaticGlobalSettings(
                         specExamplesDirectoryTemplate = specExampleTemplate,
                         sharedExamplesDirectoryTemplate = sharedExampleTemplates

@@ -412,7 +412,7 @@ class ExampleProcessorTest {
         Flags.using(ADDITIONAL_EXAMPLE_PARAMS_FILE to "/does/not/exist") {
             val exception = assertThrows<ContractException> { ExampleProcessor.cleanStores() }
             assertThat(exception.report()).isEqualToNormalizingWhitespace("""
-            >> /does/not/exist 
+            >> ${File("/does/not/exist").path}
             Could not find the CONFIG at path ${File("/does/not/exist").canonicalPath}
             """.trimIndent())
         }

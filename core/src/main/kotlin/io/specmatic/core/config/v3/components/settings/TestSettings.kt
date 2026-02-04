@@ -1,6 +1,6 @@
 package io.specmatic.core.config.v3.components.settings
 
-import io.specmatic.core.ResiliencyTestSuite
+import io.specmatic.core.config.ResiliencyTestSuite
 
 data class TestSettings(
     val resiliencyTests: ResiliencyTestSuite? = null,

@@ -18,7 +18,7 @@ data class GitRepo(
     override val stubContracts: List<ContractSourceEntry>,
     override val type: String?,
     val useCurrentBranchForCentralRepo: Boolean = false,
-    private val specmaticConfig: SpecmaticConfig = SpecmaticConfig()
+    private val specmaticConfig: SpecmaticConfig = SpecmaticConfig.default()
 ) : ContractSource, GitSource {
     private val repoName = gitRepositoryURL.split("/").last().removeSuffix(".git")
     override fun pathDescriptor(path: String): String {

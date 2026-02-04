@@ -52,7 +52,7 @@ class VersionAwareConfigParserTest {
         try {
             System.setProperty("HOOK_VALUE", "\"{\\\"generative\\\": true}\"")
             val config: SpecmaticConfig = configFile.toSpecmaticConfig()
-            assertThat(SpecmaticConfig.getHooks(config)["after"]).isEqualTo("""{"generative": true}""")
+            assertThat(config.getHooks()["after"]).isEqualTo("""{"generative": true}""")
         } finally {
             restoreProperty("HOOK_VALUE", originalValue)
         }
@@ -99,7 +99,7 @@ class VersionAwareConfigParserTest {
         try {
             System.setProperty("HOOK_VALUE", "\"hello world\"")
             val config: SpecmaticConfig = configFile.toSpecmaticConfig()
-            assertThat(SpecmaticConfig.getHooks(config)["after"]).isEqualTo("hello world")
+            assertThat(config.getHooks()["after"]).isEqualTo("hello world")
         } finally {
             restoreProperty("HOOK_VALUE", originalValue)
         }

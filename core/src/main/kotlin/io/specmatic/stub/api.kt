@@ -16,7 +16,6 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.WorkingDirectory
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.git.SystemGit
-import io.specmatic.core.isContractFile
 import io.specmatic.core.loadSpecmaticConfigIfAvailableElseDefault
 import io.specmatic.core.loadSpecmaticConfigOrDefault
 import io.specmatic.core.log.StringLog
@@ -275,7 +274,7 @@ internal fun createStubFromContracts(
 
 fun loadContractStubsFromImplicitPathsAsResults(
     contractPathDataList: List<ContractPathData>,
-    specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
+    specmaticConfig: SpecmaticConfig = SpecmaticConfig.default(),
     externalDataDirPaths: List<String>,
     cachedFeatures: List<Feature> = emptyList(),
     processedInvalidSpecs: List<String> = emptyList(),
@@ -395,7 +394,7 @@ fun loadContractStubsFromImplicitPathsAsResults(
 // kept for b/w compatibility
 fun loadContractStubsFromImplicitPaths(
     contractPathDataList: List<ContractPathData>,
-    specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
+    specmaticConfig: SpecmaticConfig = SpecmaticConfig.default(),
     externalDataDirPaths: List<String>,
     cachedFeatures: List<Feature> = emptyList(),
     processedInvalidSpecs: List<String> = emptyList(),
@@ -1030,7 +1029,7 @@ fun implicitContractDataDirs(
     customBase: String? = null,
 ) = contractPaths.map { implicitContractDataDir(it, customBase).absolutePath }
 
-fun customImplicitStubBase(specmaticConfig: SpecmaticConfig = SpecmaticConfig()): String? =
+fun customImplicitStubBase(specmaticConfig: SpecmaticConfig = SpecmaticConfig.default()): String? =
     specmaticConfig.getCustomImplicitStubBase()
 
 fun implicitContractDataDir(
@@ -1113,4 +1112,8 @@ fun isSupportedAPISpecification(path: String): Boolean {
         "wsdl", "spec" -> true
         else -> false
     }
+}
+
+private fun String.isContractFile(): Boolean {
+    return File(this).extension in CONTRACT_EXTENSIONS
 }

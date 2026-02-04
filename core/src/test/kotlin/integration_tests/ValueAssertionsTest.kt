@@ -1,14 +1,10 @@
 package integration_tests
 
-import io.mockk.every
-import io.mockk.mockk
-import io.mockk.mockkObject
-import io.mockk.unmockkAll
 import io.specmatic.conversions.OpenApiSpecification
-import io.specmatic.core.AttributeSelectionPattern
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
-import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.config.TestConfiguration
+import io.specmatic.core.config.v2.SpecmaticConfigV2Impl
 import io.specmatic.core.value.Value
 import io.specmatic.test.TestExecutor
 import org.assertj.core.api.Assertions.assertThat
@@ -16,21 +12,9 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class ValueAssertionsTest {
-
-    @BeforeEach
-    fun setup() {
-        unmockkAll()
-    }
-
     @Test
     fun `should validate exact header and body values in the response`() {
-        val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true) {
-            every { isResponseValueValidationEnabled() } returns true
-            every { getWorkflowDetails() } returns null
-        }
-        mockkObject(SpecmaticConfig.Companion)
-        every { SpecmaticConfig.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
-
+        val specmaticConfig = SpecmaticConfigV2Impl(test = TestConfiguration(validateResponseValues = true))
         val feature = OpenApiSpecification.fromYAML(
             """
 openapi: 3.0.3
@@ -109,13 +93,7 @@ paths:
 
     @Test
     fun `should validate exact header values in the response`() {
-        val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true) {
-            every { isResponseValueValidationEnabled() } returns true
-            every { getWorkflowDetails() } returns null
-        }
-        mockkObject(SpecmaticConfig.Companion)
-        every { SpecmaticConfig.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
-
+        val specmaticConfig = SpecmaticConfigV2Impl(test = TestConfiguration(validateResponseValues = true))
         val feature = OpenApiSpecification.fromYAML(
             """
 openapi: 3.0.3
@@ -171,13 +149,7 @@ paths:
 
     @Test
     fun `validation should fail if there are extra response headers`() {
-        val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true) {
-            every { isResponseValueValidationEnabled() } returns true
-            every { getWorkflowDetails() } returns null
-        }
-        mockkObject(SpecmaticConfig.Companion)
-        every { SpecmaticConfig.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
-
+        val specmaticConfig = SpecmaticConfigV2Impl(test = TestConfiguration(validateResponseValues = true))
         val feature = OpenApiSpecification.fromYAML(
             """
 openapi: 3.0.3
@@ -241,13 +213,7 @@ paths:
 
     @Test
     fun `should validate exact body value in the response`() {
-        val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true) {
-            every { isResponseValueValidationEnabled() } returns true
-            every { getWorkflowDetails() } returns null
-        }
-        mockkObject(SpecmaticConfig.Companion)
-        every { SpecmaticConfig.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
-
+        val specmaticConfig = SpecmaticConfigV2Impl(test = TestConfiguration(validateResponseValues = true))
         val feature = OpenApiSpecification.fromYAML(
             """
 openapi: 3.0.3
@@ -319,13 +285,7 @@ paths:
 
     @Test
     fun `breadcrumb for response value validation failure should not duplicate RESPONSE`() {
-        val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true) {
-            every { isResponseValueValidationEnabled() } returns true
-            every { getWorkflowDetails() } returns null
-        }
-        mockkObject(SpecmaticConfig.Companion)
-        every { SpecmaticConfig.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
-
+        val specmaticConfig = SpecmaticConfigV2Impl(test = TestConfiguration(validateResponseValues = true))
         val feature = OpenApiSpecification.fromYAML(
             """
 openapi: 3.0.3

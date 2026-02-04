@@ -2,7 +2,7 @@ package integration_tests
 
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.HttpRequest
-import io.specmatic.core.SPECMATIC_STUB_DICTIONARY
+import io.specmatic.core.config.SPECMATIC_STUB_DICTIONARY
 import io.specmatic.core.log.DebugLogger
 import io.specmatic.core.log.withLogger
 import io.specmatic.core.pattern.parsedJSONObject

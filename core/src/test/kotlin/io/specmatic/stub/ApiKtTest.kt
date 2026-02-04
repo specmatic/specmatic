@@ -593,7 +593,7 @@ Feature: Math API
         }
 
         val contractPathData = ContractPathData("", file.path)
-        val (output, result) = captureStandardOutput { loadIfSupportedAPISpecification(contractPathData, SpecmaticConfig()) }
+        val (output, result) = captureStandardOutput { loadIfSupportedAPISpecification(contractPathData, SpecmaticConfig.default()) }
         assertThat(result).isNull()
         assertThat(output).contains("Skipping the file")
         assertThat(output).endsWith(expectedOutput)
@@ -618,7 +618,7 @@ Feature: Math API
         validSpecFile.writeText(specContent)
 
         val contractPathData = ContractPathData("", validSpecFile.path)
-        val (_, result) = captureStandardOutput { loadIfSupportedAPISpecification(contractPathData, SpecmaticConfig()) }
+        val (_, result) = captureStandardOutput { loadIfSupportedAPISpecification(contractPathData, SpecmaticConfig.default()) }
 
         assertThat(result).isNotNull()
         assertThat(result?.second).isInstanceOf(Feature::class.java)
@@ -643,7 +643,7 @@ Feature: Math API
         validAsyncAPISpecFile.writeText(specContent)
 
         val contractPathData = ContractPathData("", validAsyncAPISpecFile.path)
-        val (output, result) = captureStandardOutput { loadIfSupportedAPISpecification(contractPathData, SpecmaticConfig()) }
+        val (output, result) = captureStandardOutput { loadIfSupportedAPISpecification(contractPathData, SpecmaticConfig.default()) }
 
         assertThat(result).isNull()
         assertThat(output).contains("Skipping the file")
@@ -654,7 +654,7 @@ Feature: Math API
     fun `loadIfSupportedAPISpecification should be able to load WSDL specifications`() {
         val specFile = File("src/test/resources/wsdl/hello.wsdl")
         val contractPathData = ContractPathData("", specFile.path)
-        val result = loadIfSupportedAPISpecification(contractPathData, SpecmaticConfig())
+        val result = loadIfSupportedAPISpecification(contractPathData, SpecmaticConfig.default())
 
         assertThat(result).isNotNull
         assertThat(result!!.first).isEqualTo(specFile.path)
@@ -665,7 +665,7 @@ Feature: Math API
     fun `loadContractStubsFromFilesAsResults should be able to load WSDL specifications with external examples`() {
         val specFile = File("src/test/resources/wsdl/with_examples/order_api.wsdl")
         val contractPathData = listOf(ContractPathData("", specFile.path))
-        val result = loadContractStubsFromFilesAsResults(contractPathData, emptyList(), SpecmaticConfig(), withImplicitStubs = true)
+        val result = loadContractStubsFromFilesAsResults(contractPathData, emptyList(), SpecmaticConfig.default(), withImplicitStubs = true)
 
         assertThat(result).allSatisfy {
             assertThat(it).isInstanceOf(FeatureStubsResult.Success::class.java); it as FeatureStubsResult.Success
@@ -683,7 +683,7 @@ Feature: Math API
     fun `loadContractStubsFromFilesAsResults should return failure to load WSDL specifications with invalid external examples`() {
         val specFile = File("src/test/resources/wsdl/with_invalid_examples/order_api.wsdl")
         val contractPathData = listOf(ContractPathData("", specFile.path))
-        val result = loadContractStubsFromFilesAsResults(contractPathData, emptyList(), SpecmaticConfig(), withImplicitStubs = true)
+        val result = loadContractStubsFromFilesAsResults(contractPathData, emptyList(), SpecmaticConfig.default(), withImplicitStubs = true)
 
         assertThat(result).anySatisfy {
             assertThat(it).isInstanceOf(FeatureStubsResult.Success::class.java); it as FeatureStubsResult.Success

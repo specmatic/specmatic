@@ -2,6 +2,7 @@ package io.specmatic.core
 
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.OperationMetadata
+import io.specmatic.core.config.v2.AttributeSelectionPatternDetails
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.core.filters.HasScenarioMetadata

@@ -1,5 +1,7 @@
 package io.specmatic.core
 
+import io.specmatic.core.config.WorkflowConfiguration
+import io.specmatic.core.config.WorkflowIDOperation
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.StringValue
 import io.specmatic.license.core.SpecmaticProtocol

@@ -47,7 +47,7 @@ class HttpStubDelayTest {
                 call = applicationCall,
                 httpResponse = httpResponse,
                 delayInMilliSeconds = delayInMillis,
-                specmaticConfig = SpecmaticConfig()
+                specmaticConfig = SpecmaticConfig.default()
             )
         }
 
@@ -67,7 +67,7 @@ class HttpStubDelayTest {
                 call = applicationCall,
                 httpResponse = httpResponse,
                 delayInMilliSeconds = delayInMillis,
-                specmaticConfig = SpecmaticConfig()
+                specmaticConfig = SpecmaticConfig.default()
             )
         }
 
@@ -90,7 +90,7 @@ class HttpStubDelayTest {
             respondToKtorHttpResponse(
                 call = applicationCall,
                 httpResponse = httpResponse,
-                specmaticConfig = SpecmaticConfig()
+                specmaticConfig = SpecmaticConfig.default()
             )
         }
 
@@ -111,7 +111,7 @@ class HttpStubDelayTest {
             respondToKtorHttpResponse(
                 call = applicationCall,
                 httpResponse = httpResponse,
-                specmaticConfig = SpecmaticConfig()
+                specmaticConfig = SpecmaticConfig.default()
             )
         }
 

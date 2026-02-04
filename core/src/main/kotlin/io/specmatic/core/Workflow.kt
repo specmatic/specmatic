@@ -1,5 +1,6 @@
 package io.specmatic.core
 
+import io.specmatic.core.config.WorkflowDetails
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value

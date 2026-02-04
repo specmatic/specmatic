@@ -18,7 +18,7 @@ data class SpecmaticConfigV3(
 ) : SpecmaticVersionedConfig {
     override fun transform(): SpecmaticConfig {
         println(yamlMapper.writeValueAsString(this))
-        return SpecmaticConfig()
+        return SpecmaticConfig.default()
     }
 
     companion object : SpecmaticVersionedConfigLoader {

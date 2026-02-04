@@ -8,8 +8,8 @@ import com.fasterxml.jackson.databind.JsonDeserializer
 import com.fasterxml.jackson.databind.JsonMappingException
 import com.fasterxml.jackson.databind.JsonNode
 import io.specmatic.core.Configuration.Companion.DEFAULT_BASE_URL
-import io.specmatic.core.ResiliencyTestSuite
-import io.specmatic.core.ResiliencyTestsConfig
+import io.specmatic.core.config.ResiliencyTestSuite
+import io.specmatic.core.config.ResiliencyTestsConfig
 import io.specmatic.core.utilities.Flags
 import java.io.File
 import java.net.URI

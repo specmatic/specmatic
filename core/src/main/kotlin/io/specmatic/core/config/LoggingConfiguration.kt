@@ -1,5 +1,6 @@
 package io.specmatic.core.config
 
+import com.fasterxml.jackson.annotation.JsonAlias
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonValue
@@ -19,7 +20,7 @@ enum class ConfigLoggingLevel(private val level: String) {
     }
 }
 
-data class LogOutputConfig(val directory: String?, val console: Boolean?, val logFilePrefix: String? = null) {
+data class LogOutputConfig(val directory: String?, val console: Boolean?, @field:JsonAlias("logPrefix") val logFilePrefix: String? = null) {
     @JsonIgnore
     fun getLogDirectory(): File? = directory?.let(::File)
 

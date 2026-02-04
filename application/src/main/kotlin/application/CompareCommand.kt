@@ -1,6 +1,7 @@
 package application
 
 import io.specmatic.core.*
+import io.specmatic.core.config.v2.invalidContractExtensionMessage
 import io.specmatic.core.log.logger
 import io.specmatic.core.log.logException
 import io.specmatic.core.pattern.ContractException
@@ -8,6 +9,7 @@ import io.specmatic.license.core.cli.Category
 import picocli.CommandLine.Command
 import picocli.CommandLine.Option
 import picocli.CommandLine.Parameters
+import java.io.File
 import java.util.concurrent.Callable
 import kotlin.system.exitProcess
 
@@ -61,6 +63,17 @@ class CompareCommand : Callable<Unit> {
 
         exitProcess(exitCode)
     }
+}
+
+private fun String.isContractFile(): Boolean {
+    return File(this).extension in CONTRACT_EXTENSIONS
+}
+
+private fun String.loadContract(): Feature {
+    if(!this.isContractFile())
+        throw ContractException(invalidContractExtensionMessage(this))
+
+    return parseContractFileToFeature(File(this))
 }
 
 fun backwardCompatible(olderContract: Feature, newerContract: Feature): CompatibilityReport =

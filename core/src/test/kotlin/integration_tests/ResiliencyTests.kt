@@ -1,19 +1,18 @@
 package integration_tests
 
-import io.mockk.every
-import io.mockk.mockk
-import io.mockk.mockkObject
+
 import io.mockk.unmockkAll
 import io.specmatic.GENERATION
 import io.specmatic.conversions.OpenApiSpecification
-import io.specmatic.core.AttributeSelectionPattern
 import io.specmatic.core.Feature
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
 import io.specmatic.core.Results
 import io.specmatic.core.Scenario
-import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.config.TestConfiguration
+import io.specmatic.core.config.v2.AttributeSelectionPattern
+import io.specmatic.core.config.v2.SpecmaticConfigV2Impl
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.Flags.Companion.ONLY_POSITIVE
 import io.specmatic.core.value.JSONObjectValue
@@ -1180,14 +1179,7 @@ class GenerativeTests {
 
     @Test
     fun `the flag SPECMATIC_GENERATIVE_TESTS should be used`() {
-        val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true) {
-            every { isResiliencyTestingEnabled() } returns true
-            every { getWorkflowDetails() } returns null
-            every { getMaxTestRequestCombinations() } returns null
-        }
-        mockkObject(SpecmaticConfig.Companion)
-        every { SpecmaticConfig.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
-
+        val specmaticConfig = SpecmaticConfigV2Impl(test = TestConfiguration(allowExtensibleSchema = true), attributeSelectionPattern = AttributeSelectionPattern()).enableResiliencyTests()
         val feature = OpenApiSpecification.fromYAML(
             """
             openapi: 3.0.0
@@ -1268,16 +1260,7 @@ class GenerativeTests {
 
     @Test
     fun `the config enabling resiliency testing should be used`() {
-        val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true) {
-            every { isResiliencyTestingEnabled() } returns true
-            every { isOnlyPositiveTestingEnabled() } returns true
-            every { getWorkflowDetails() } returns null
-            every { getMaxTestRequestCombinations() } returns null
-        }
-
-        mockkObject(SpecmaticConfig.Companion)
-        every { SpecmaticConfig.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
-
+        val specmaticConfig = SpecmaticConfigV2Impl(test = TestConfiguration(allowExtensibleSchema = true), attributeSelectionPattern = AttributeSelectionPattern()).copyResiliencyTestsConfig(onlyPositive = true)
         val feature = OpenApiSpecification.fromYAML(
             """
             openapi: 3.0.0

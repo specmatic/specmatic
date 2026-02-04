@@ -24,7 +24,7 @@ class HTTPStubEngineTest {
                 workingDirectory = WorkingDirectory(),
                 gracefulRestartTimeoutInMs = 0,
                 specToBaseUrlMap = specToBaseUrlMap,
-                specmaticConfigSource = SpecmaticConfigSource.fromConfig(SpecmaticConfig()),
+                specmaticConfigSource = SpecmaticConfigSource.fromConfig(SpecmaticConfig.default()),
             ).close()
         }
 

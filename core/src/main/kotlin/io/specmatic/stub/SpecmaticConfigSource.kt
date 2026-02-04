@@ -11,7 +11,7 @@ interface SpecmaticConfigSource {
 
     companion object {
         val None: SpecmaticConfigSource = object : SpecmaticConfigSource {
-            override fun load(): LoadedSpecmaticConfig = LoadedSpecmaticConfig(SpecmaticConfig(), null)
+            override fun load(): LoadedSpecmaticConfig = LoadedSpecmaticConfig(SpecmaticConfig.default(), null)
         }
 
         fun fromPath(path: String?): SpecmaticConfigSource = when (path) {
@@ -33,7 +33,7 @@ private class SpecmaticConfigFromPath(private val path: String) : SpecmaticConfi
         val file = File(path)
 
         val resolvedPath = if (file.exists()) file.canonicalPath else path
-        val config = if (file.exists()) loadSpecmaticConfig(resolvedPath) else SpecmaticConfig()
+        val config = if (file.exists()) loadSpecmaticConfig(resolvedPath) else SpecmaticConfig.default()
 
         return SpecmaticConfigSource.LoadedSpecmaticConfig(config, resolvedPath)
     }

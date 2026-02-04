@@ -32,7 +32,7 @@ class ExampleFromFile(private val scenarioStub: ScenarioStub, val file: File) {
     constructor(file: File, strictMode: Boolean = true): this(scenarioStub = ScenarioStub.readFromFile(file, strictMode), file = file)
     constructor(json: JSONObjectValue, file: File, strictMode: Boolean = true): this(scenarioStub = ScenarioStub.parse(json, strictMode), file = file)
 
-    fun toRow(specmaticConfig: SpecmaticConfig = SpecmaticConfig()): Row {
+    fun toRow(specmaticConfig: SpecmaticConfig = SpecmaticConfig.default()): Row {
         logger.log("Loading test file ${this.expectationFilePath}")
 
         val examples: Map<String, String> = request.headers
@@ -57,7 +57,7 @@ class ExampleFromFile(private val scenarioStub: ScenarioStub, val file: File) {
             fileSource = this.file.canonicalPath,
             exactResponseExample = responseExample,
             responseExampleForAssertion = response,
-            requestExample = scenarioStub.getRequestWithAdditionalParamsIfAny(specmaticConfig.getAdditionalExampleParamsFilePath()),
+            requestExample = scenarioStub.getRequestWithAdditionalParamsIfAny(specmaticConfig.getAdditionalExampleParamsFilePath()?.path),
             responseExample = response,
             isPartial = scenarioStub.partial != null
         ).let { ExampleProcessor.resolve(it, ExampleProcessor::ifNotExitsToLookupPattern) }

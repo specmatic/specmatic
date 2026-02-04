@@ -1,8 +1,8 @@
 package io.specmatic.conversions
 
-import io.specmatic.core.APIKeySecuritySchemeConfiguration
-import io.specmatic.core.BearerSecuritySchemeConfiguration
-import io.specmatic.core.OAuth2SecuritySchemeConfiguration
+import io.specmatic.core.config.APIKeySecuritySchemeConfiguration
+import io.specmatic.core.config.BearerSecuritySchemeConfiguration
+import io.specmatic.core.config.OAuth2SecuritySchemeConfiguration
 import io.specmatic.core.SpecmaticConfig
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -13,7 +13,7 @@ class SecurityTokenTest {
     fun `should extract security token for bearer security scheme from configuration`() {
         val token = "BEARER1234"
         val securityToken = getSecurityTokenForBearerScheme(
-            SpecmaticConfig(),
+            SpecmaticConfig.default(),
             BearerSecuritySchemeConfiguration("bearer", token),
             "BearerAuth",
         )
@@ -28,7 +28,7 @@ class SecurityTokenTest {
         tokenMap.forEach { System.setProperty(it.key, it.value) }
 
         try {
-            val securityToken = getSecurityTokenForBearerScheme(SpecmaticConfig(), null, schemeName)
+            val securityToken = getSecurityTokenForBearerScheme(SpecmaticConfig.default(), null, schemeName)
             assertThat(securityToken).isEqualTo(token)
         } finally {
             tokenMap.forEach { System.clearProperty(it.key) }
@@ -45,7 +45,7 @@ class SecurityTokenTest {
 
         try {
             val securityToken = getSecurityTokenForBearerScheme(
-                SpecmaticConfig(),
+                SpecmaticConfig.default(),
                 BearerSecuritySchemeConfiguration("bearer", configToken),
                 schemeName
             )
@@ -59,7 +59,7 @@ class SecurityTokenTest {
     fun `should extract security token for oauth2 security scheme from configuration`() {
         val token = "OAUTH1234"
         val securityToken = getSecurityTokenForBearerScheme(
-            SpecmaticConfig(),
+            SpecmaticConfig.default(),
             OAuth2SecuritySchemeConfiguration("oauth2", token),
             "oAuth2AuthCode",
         )
@@ -74,7 +74,7 @@ class SecurityTokenTest {
         tokenMap.forEach { System.setProperty(it.key, it.value) }
 
         try {
-            val securityToken = getSecurityTokenForBearerScheme(SpecmaticConfig(), null, schemeName)
+            val securityToken = getSecurityTokenForBearerScheme(SpecmaticConfig.default(), null, schemeName)
             assertThat(securityToken).isEqualTo(token)
         } finally {
             tokenMap.forEach { System.clearProperty(it.key) }
@@ -91,7 +91,7 @@ class SecurityTokenTest {
 
         try {
             val securityToken = getSecurityTokenForBearerScheme(
-                SpecmaticConfig(),
+                SpecmaticConfig.default(),
                 OAuth2SecuritySchemeConfiguration("oauth2", configToken),
                 schemeName
             )
@@ -109,7 +109,7 @@ class SecurityTokenTest {
         tokenMap.forEach { System.setProperty(it.key, it.value) }
 
         try {
-            val securityToken = getSecurityTokenForBearerScheme(SpecmaticConfig(), null, schemeName)
+            val securityToken = getSecurityTokenForBearerScheme(SpecmaticConfig.default(), null, schemeName)
             assertThat(securityToken).isEqualTo(envToken)
         } finally {
             tokenMap.forEach { System.clearProperty(it.key) }
@@ -130,14 +130,14 @@ class SecurityTokenTest {
 
         try {
             val tokenFromConfigWhenEnvPresent = getSecurityTokenForBearerScheme(
-                SpecmaticConfig(),
+                SpecmaticConfig.default(),
                 OAuth2SecuritySchemeConfiguration("oauth2", configBearerToken),
                 schemeName
             )
             assertThat(tokenFromConfigWhenEnvPresent).isEqualTo(configBearerToken)
 
             val tokenFromSchemeEnvWhenNoConfig = getSecurityTokenForBearerScheme(
-                SpecmaticConfig(),
+                SpecmaticConfig.default(),
                 null,
                 schemeName
             )
@@ -147,7 +147,7 @@ class SecurityTokenTest {
             System.setProperty(SPECMATIC_OAUTH2_TOKEN, legacyEnvBearerToken)
 
             val tokenFromLegacyEnvWhenSchemeEnvMissing = getSecurityTokenForBearerScheme(
-                SpecmaticConfig(),
+                SpecmaticConfig.default(),
                 null,
                 schemeName
             )
@@ -162,7 +162,7 @@ class SecurityTokenTest {
     fun `should extract security token for apikey security scheme from configuration`() {
         val token = "APIKEY1234"
         val securityToken = getSecurityTokenForApiKeyScheme(
-            SpecmaticConfig(),
+            SpecmaticConfig.default(),
             APIKeySecuritySchemeConfiguration("apiKey", token),
             "ApiKeyAuthHeader"
         )
@@ -177,7 +177,7 @@ class SecurityTokenTest {
         tokenMap.forEach { System.setProperty(it.key, it.value) }
 
         try {
-            val securityToken = getSecurityTokenForApiKeyScheme(SpecmaticConfig(), null, schemeName)
+            val securityToken = getSecurityTokenForApiKeyScheme(SpecmaticConfig.default(), null, schemeName)
             assertThat(securityToken).isEqualTo(token)
         } finally {
             tokenMap.forEach { System.clearProperty(it.key) }
@@ -194,7 +194,7 @@ class SecurityTokenTest {
 
         try {
             val securityToken = getSecurityTokenForApiKeyScheme(
-                SpecmaticConfig(),
+                SpecmaticConfig.default(),
                 APIKeySecuritySchemeConfiguration("apikey", configToken),
                 schemeName
             )

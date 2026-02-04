@@ -6,6 +6,7 @@ import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.mockk.every
 import io.mockk.mockk
 import io.specmatic.conversions.OpenApiSpecification
+import io.specmatic.core.config.v2.SpecmaticConfigV2Impl
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.discriminator.DiscriminatorMetadata
 import io.specmatic.core.pattern.*
@@ -3435,7 +3436,7 @@ paths:
                 protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
 
-            val configWithResiliency = SpecmaticConfig().enableResiliencyTests()
+            val configWithResiliency = SpecmaticConfigV2Impl().enableResiliencyTests()
             val featureWithStrictMode = Feature(
                 scenarios = listOf(scenarioWithRows, scenarioWithoutRows),
                 name = "TestFeature",

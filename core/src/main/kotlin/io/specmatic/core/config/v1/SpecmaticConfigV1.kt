@@ -2,43 +2,56 @@ package io.specmatic.core.config.v1
 
 import com.fasterxml.jackson.annotation.JsonAlias
 import io.specmatic.core.*
+import io.specmatic.core.config.Auth
+import io.specmatic.core.config.ReportConfigurationDetails
+import io.specmatic.core.config.SecurityConfiguration
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.SpecmaticVersionedConfig
 import io.specmatic.core.config.SpecmaticVersionedConfigLoader
+import io.specmatic.core.config.StubConfiguration
+import io.specmatic.core.config.TestConfiguration
+import io.specmatic.core.config.VirtualServiceConfiguration
+import io.specmatic.core.config.WorkflowConfiguration
+import io.specmatic.core.config.v2.AttributeSelectionPattern
+import io.specmatic.core.config.v2.Environment
+import io.specmatic.core.config.v2.Pipeline
+import io.specmatic.core.config.v2.RepositoryInfo
+import io.specmatic.core.config.v2.Source
+import io.specmatic.core.config.v2.SpecmaticConfigV2Impl
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.Flags.Companion.getStringValue
 
 data class SpecmaticConfigV1 (
-	@field:JsonAlias("contract_repositories")
+    @field:JsonAlias("contract_repositories")
 	val sources: List<Source> = emptyList(),
-	val auth: Auth? = null,
-	val pipeline: Pipeline? = null,
-	val environments: Map<String, Environment>? = null,
-	val hooks: Map<String, String> = emptyMap(),
-	val repository: RepositoryInfo? = null,
-	val report: ReportConfigurationDetails? = null,
-	val security: SecurityConfiguration? = null,
-	val test: TestConfiguration? = TestConfiguration(),
-	val stub: StubConfiguration = StubConfiguration(),
-	@field:JsonAlias("virtual_service")
+    val auth: Auth? = null,
+    val pipeline: Pipeline? = null,
+    val environments: Map<String, Environment>? = null,
+    val hooks: Map<String, String> = emptyMap(),
+    val repository: RepositoryInfo? = null,
+    val report: ReportConfigurationDetails? = null,
+    val security: SecurityConfiguration? = null,
+    val test: TestConfiguration? = TestConfiguration(),
+    val stub: StubConfiguration = StubConfiguration(),
+    @field:JsonAlias("virtual_service")
 	val virtualService: VirtualServiceConfiguration = VirtualServiceConfiguration(),
-	val examples: List<String> = getStringValue(EXAMPLE_DIRECTORIES)?.split(",") ?: emptyList(),
-	val workflow: WorkflowConfiguration? = null,
-	val ignoreInlineExamples: Boolean? = null,
-	val additionalExampleParamsFilePath: String? = getStringValue(Flags.ADDITIONAL_EXAMPLE_PARAMS_FILE),
-	@field:JsonAlias("attribute_selection_pattern")
+    val examples: List<String> = getStringValue(EXAMPLE_DIRECTORIES)?.split(",") ?: emptyList(),
+    val workflow: WorkflowConfiguration? = null,
+    val ignoreInlineExamples: Boolean? = null,
+    val additionalExampleParamsFilePath: String? = getStringValue(Flags.ADDITIONAL_EXAMPLE_PARAMS_FILE),
+    @field:JsonAlias("attribute_selection_pattern")
 	val attributeSelectionPattern: AttributeSelectionPattern = AttributeSelectionPattern(),
-	@field:JsonAlias("all_patterns_mandatory")
+    @field:JsonAlias("all_patterns_mandatory")
 	val allPatternsMandatory: Boolean? = null,
-	@field:JsonAlias("default_pattern_values")
+    @field:JsonAlias("default_pattern_values")
 	val defaultPatternValues: Map<String, Any> = emptyMap(),
-	val version: SpecmaticConfigVersion? = null,
-	@field:JsonAlias("disable_telemetry")
+    val version: SpecmaticConfigVersion? = null,
+    @field:JsonAlias("disable_telemetry")
 	val disableTelemetry: Boolean? = null,
 ): SpecmaticVersionedConfig {
 	override fun transform(): SpecmaticConfig {
-		return SpecmaticConfig(
+		return SpecmaticConfigV2Impl(
 			sources = this.sources,
 			auth = this.auth,
 			pipeline = this.pipeline,

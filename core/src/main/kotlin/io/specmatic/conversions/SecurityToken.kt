@@ -1,6 +1,6 @@
 package io.specmatic.conversions
 
-import io.specmatic.core.SecuritySchemeConfiguration
+import io.specmatic.core.config.SecuritySchemeConfiguration
 import io.specmatic.core.SpecmaticConfig
 
 @Deprecated("This will be deprecated shortly.Use the security scheme name as the environment variable.")

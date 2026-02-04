@@ -1,6 +1,6 @@
 package io.specmatic.core.utilities
 
-import io.specmatic.core.ResiliencyTestSuite
+import io.specmatic.core.config.ResiliencyTestSuite
 import io.specmatic.core.git.NonZeroExitError
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.git.exitErrorMessageContains

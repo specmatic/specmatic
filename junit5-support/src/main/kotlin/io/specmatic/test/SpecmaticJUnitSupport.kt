@@ -3,7 +3,10 @@ package io.specmatic.test
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.*
-import io.specmatic.core.SpecmaticConfig.Companion.getSecurityConfiguration
+import io.specmatic.core.config.ReportConfiguration
+import io.specmatic.core.config.ResiliencyTestSuite
+import io.specmatic.core.config.SecurityConfiguration
+import io.specmatic.core.WorkingDirectory
 import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.filters.ScenarioMetadataFilter.Companion.filterUsing
 import io.specmatic.core.log.LogMessage
@@ -349,7 +352,7 @@ open class SpecmaticJUnitSupport {
                             contractPathData.repository,
                             contractPathData.branch,
                             contractPathData.specificationPath,
-                            getSecurityConfiguration(specmaticConfig),
+                            specmaticConfig.getSecurityConfiguration(),
                             filterName,
                             filterNotName,
                             specmaticConfig = specmaticConfig,

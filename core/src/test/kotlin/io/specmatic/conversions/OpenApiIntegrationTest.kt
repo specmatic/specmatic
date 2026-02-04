@@ -2,6 +2,11 @@ package io.specmatic.conversions
 
 import com.google.common.net.HttpHeaders
 import io.specmatic.core.*
+import io.specmatic.core.config.APIKeySecuritySchemeConfiguration
+import io.specmatic.core.config.BearerSecuritySchemeConfiguration
+import io.specmatic.core.config.OAuth2SecuritySchemeConfiguration
+import io.specmatic.core.config.OpenAPISecurityConfiguration
+import io.specmatic.core.config.SecurityConfiguration
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.utilities.exceptionCauseMessage

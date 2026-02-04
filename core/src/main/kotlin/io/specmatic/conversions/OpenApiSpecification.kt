@@ -15,6 +15,8 @@ import io.specmatic.conversions.SchemaUtils.mergeResolvedIfJsonSchema
 import io.specmatic.conversions.lenient.CollectorContext
 import io.specmatic.core.*
 import io.specmatic.core.Result.Failure
+import io.specmatic.core.config.SecurityConfiguration
+import io.specmatic.core.config.SecuritySchemeConfiguration
 import io.specmatic.core.log.LogStrategy
 import io.specmatic.core.log.logger
 import io.specmatic.core.overlay.OverlayMerger
@@ -90,7 +92,7 @@ class OpenApiSpecification(
     private val sourceRepositoryBranch: String? = null,
     private val specificationPath: String? = null,
     private val securityConfiguration: SecurityConfiguration? = null,
-    private val specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
+    private val specmaticConfig: SpecmaticConfig = SpecmaticConfig.default(),
     private val strictMode: Boolean = false,
     private val lenientMode: Boolean = false,
     private val dictionary: Dictionary = loadDictionary(openApiFilePath, specmaticConfig.getStubDictionary(), strictMode),
@@ -196,7 +198,7 @@ class OpenApiSpecification(
         }
 
         fun fromFile(openApiFilePath: String, lenientMode: Boolean = false): OpenApiSpecification {
-            return fromFile(openApiFilePath, SpecmaticConfig(), lenientMode)
+            return fromFile(openApiFilePath, SpecmaticConfig.default(), lenientMode)
         }
 
         fun fromFile(openApiFilePath: String, specmaticConfig: SpecmaticConfig, lenientMode: Boolean = false): OpenApiSpecification {
@@ -276,7 +278,7 @@ class OpenApiSpecification(
             sourceRepositoryBranch: String? = null,
             specificationPath: String? = null,
             securityConfiguration: SecurityConfiguration? = null,
-            specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
+            specmaticConfig: SpecmaticConfig = SpecmaticConfig.default(),
             overlayContent: String = "",
             strictMode: Boolean = false,
             lenientMode: Boolean = false,
@@ -459,7 +461,7 @@ class OpenApiSpecification(
         val updatedScenarios = scenarioInfos.map {
             Scenario(it).copy(
                 dictionary = dictionary.plus(specmaticConfig.parsedDefaultPatternValues()),
-                attributeSelectionPattern = specmaticConfig.getAttributeSelectionPattern(),
+                attributeSelectionPattern = specmaticConfig.getAttributeSelectionPatternDetails(),
                 patterns = it.patterns + unreferencedSchemaPatterns
             )
         }

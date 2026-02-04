@@ -10,6 +10,7 @@ import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.StandardRuleViolation
+import io.specmatic.core.config.v2.SpecmaticConfigV2Impl
 import io.specmatic.mock.FuzzyExampleMisMatchMessages
 import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.*
@@ -277,7 +278,7 @@ class ExampleFromFileTest {
         assertThat(example).isInstanceOf(HasValue::class.java)
         val exampleFromFile = (example as HasValue).value
 
-        val specmaticConfig = SpecmaticConfig()
+        val specmaticConfig = SpecmaticConfig.default()
         val row = exampleFromFile.toRow(specmaticConfig)
 
         assertThat(row.name).isEqualTo("row-conversion")
@@ -409,7 +410,7 @@ class ExampleFromFileTest {
         }
 
         val row =
-            example.toRow(SpecmaticConfig(additionalExampleParamsFilePath = "src/test/resources/additionalParamsFile.json"))
+            example.toRow(SpecmaticConfigV2Impl(additionalExampleParamsFilePath = "src/test/resources/additionalParamsFile.json"))
 
         assertThat(row.requestExample?.headers.orEmpty()).containsEntry("X-Tra", "info")
 

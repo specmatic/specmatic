@@ -3,7 +3,7 @@ package utilities
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.CONTRACT_EXTENSION
 import io.specmatic.core.HttpRequest
-import io.specmatic.core.SourceProvider
+import io.specmatic.core.config.v2.SourceProvider
 import io.specmatic.core.git.GitCommand
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.git.checkout
@@ -21,7 +21,7 @@ import io.ktor.server.netty.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.mockk.*
-import io.specmatic.core.readEnvVarOrProperty
+import io.specmatic.core.config.v2.readEnvVarOrProperty
 import io.specmatic.toContractSourceEntries
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.*

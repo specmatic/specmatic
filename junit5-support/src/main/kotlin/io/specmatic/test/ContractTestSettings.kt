@@ -6,10 +6,6 @@ import io.specmatic.core.SpecmaticConfig.Companion.orDefault
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.loadSpecmaticConfigOrDefault
 import io.specmatic.core.loadSpecmaticConfigOrNull
-import io.specmatic.core.utilities.Flags
-import io.specmatic.test.SpecmaticJUnitSupport.Companion.HOST
-import io.specmatic.test.SpecmaticJUnitSupport.Companion.PORT
-import io.specmatic.test.SpecmaticJUnitSupport.Companion.PROTOCOL
 import io.specmatic.test.reports.TestReportListener
 import java.io.File
 
@@ -87,14 +83,12 @@ data class ContractTestSettings(
 
     private fun adjustExamples(specmaticConfig: SpecmaticConfig): SpecmaticConfig {
         if (otherArguments?.exampleDirectories == null) return specmaticConfig
-        return specmaticConfig.copy(examples = specmaticConfig.getExamples().plus(otherArguments.exampleDirectories))
+        return specmaticConfig.withExamples(otherArguments.exampleDirectories)
     }
 
     private fun adjustUseCurrentBranch(specmaticConfig: SpecmaticConfig): SpecmaticConfig {
         if (otherArguments?.useCurrentBranchForCentralRepo == null) return specmaticConfig
-        return specmaticConfig.mapSources { source ->
-            source.copy(matchBranch = otherArguments.useCurrentBranchForCentralRepo)
-        }
+        return specmaticConfig.withUseCurrentBranchForCentralRepo(otherArguments.useCurrentBranchForCentralRepo)
     }
 
     private fun adjustTestTimeout(specmaticConfig: SpecmaticConfig): SpecmaticConfig {
@@ -115,8 +109,8 @@ data class ContractTestSettings(
         coverageHooks = contractTestSettings.get()?.coverageHooks ?: emptyList(),
         previousTestRuns = contractTestSettings.get()?.previousTestRuns.orEmpty(),
         configFile = contractTestSettings.get()?.configFile ?: getConfigFilePath(),
-        strictMode = contractTestSettings.get()?.strictMode ?: SpecmaticConfig().getTestStrictMode(),
-        lenientMode = contractTestSettings.get()?.lenientMode ?: SpecmaticConfig().getTestLenientMode() ?: false,
+        strictMode = contractTestSettings.get()?.strictMode ?: SpecmaticConfig.default().getTestStrictMode(),
+        lenientMode = contractTestSettings.get()?.lenientMode ?: SpecmaticConfig.default().getTestLenientMode() ?: false,
         testBaseURL = contractTestSettings.get()?.testBaseURL ?: specmaticConfig.getTestBaseUrl(),
         contractPaths = contractTestSettings.get()?.contractPaths,
         timeoutInMilliSeconds = contractTestSettings.get()?.timeoutInMilliSeconds,

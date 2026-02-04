@@ -34,17 +34,16 @@ object ExampleProcessor {
     private var factStore: Map<String, Value> = loadConfig().toFactStore("CONFIG")
 
     private fun loadConfig(): JSONObjectValue {
-        val configFilePath = runCatching {
+        val configFile = runCatching {
             loadSpecmaticConfig().getAdditionalExampleParamsFilePath()
-        }.getOrElse { SpecmaticConfig().getAdditionalExampleParamsFilePath() } ?: return JSONObjectValue(emptyMap())
+        }.getOrElse { SpecmaticConfig.default().getAdditionalExampleParamsFilePath() } ?: return JSONObjectValue(emptyMap())
 
-        val configFile = File(configFilePath)
         if (!configFile.exists()) {
-            throw ContractException(breadCrumb = configFilePath, errorMessage = "Could not find the CONFIG at path ${configFile.canonicalPath}")
+            throw ContractException(breadCrumb = configFile.path, errorMessage = "Could not find the CONFIG at path ${configFile.canonicalPath}")
         }
 
         return runCatching { parsedJSONObject(configFile.readText()) }.getOrElse { e ->
-            throw ContractException(breadCrumb = configFilePath, errorMessage = "Could not parse the CONFIG at path ${configFile.canonicalPath}: ${exceptionCauseMessage(e)}")
+            throw ContractException(breadCrumb = configFile.path, errorMessage = "Could not parse the CONFIG at path ${configFile.canonicalPath}: ${exceptionCauseMessage(e)}")
         }.also {
             it.findFirstChildByPath("url")?.let {
                 url -> System.setProperty("testBaseURL", url.toStringLiteral())

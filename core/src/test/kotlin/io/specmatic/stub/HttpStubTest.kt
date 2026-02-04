@@ -4,6 +4,8 @@ import io.mockk.every
 import io.mockk.mockk
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
+import io.specmatic.core.config.StubConfiguration
+import io.specmatic.core.config.v2.SpecmaticConfigV2Impl
 import io.specmatic.core.log.*
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.*
@@ -75,7 +77,7 @@ internal class HttpStubTest {
         """.trimIndent()
 
         val feature = parseGherkinStringToFeature(gherkin)
-        val specmaticConfig = SpecmaticConfig(stub = StubConfiguration(delayInMilliseconds = 123))
+        val specmaticConfig = SpecmaticConfigV2Impl(stub = StubConfiguration(delayInMilliseconds = 123))
 
         HttpStub(
             features = listOf(feature),

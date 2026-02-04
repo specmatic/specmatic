@@ -2,6 +2,9 @@ package integration_tests
 
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
+import io.specmatic.core.config.WorkflowConfiguration
+import io.specmatic.core.config.WorkflowIDOperation
+import io.specmatic.core.config.v2.SpecmaticConfigV2Impl
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.test.TestExecutor
 import org.assertj.core.api.Assertions.assertThat
@@ -11,7 +14,7 @@ class WorkflowTest {
     @Test
     fun `a spec should be able to use the id of a newly created entity in another request for the same entity`() {
         val specmaticConfig =
-            SpecmaticConfig(
+            SpecmaticConfigV2Impl(
                 workflow = WorkflowConfiguration(
                     ids = mapOf(
                         "POST /orders -> 201" to WorkflowIDOperation(extract = "BODY.id"),

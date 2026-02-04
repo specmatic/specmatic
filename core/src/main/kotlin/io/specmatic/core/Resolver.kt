@@ -2,6 +2,7 @@ package io.specmatic.core
 
 import io.specmatic.core.matchers.Matcher
 import io.specmatic.core.pattern.*
+import io.specmatic.core.utilities.applyIf
 import io.specmatic.core.value.*
 import io.specmatic.test.ExampleProcessor
 import io.specmatic.test.asserts.WILDCARD_INDEX
@@ -466,9 +467,4 @@ data class Resolver(
 
 private fun ExactValuePattern.hasPatternToken(): Boolean {
     return this.pattern is StringValue && isPatternToken(this.pattern.string)
-}
-
-private fun <T, U> T.applyIf(original: U?, block: T.(U) -> T): T {
-    val value: U = original ?: return this
-    return block(value)
 }

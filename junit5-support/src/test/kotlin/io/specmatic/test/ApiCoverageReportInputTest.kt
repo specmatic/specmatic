@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test
 class ApiCoverageReportInputTest {
     companion object {
         const val CONFIG_FILE_PATH = "./specmatic.json"
-        val specmaticConfig = SpecmaticConfig()
+        val specmaticConfig = SpecmaticConfig.default()
     }
 
     @Test

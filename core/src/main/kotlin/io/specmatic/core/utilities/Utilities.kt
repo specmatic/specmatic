@@ -9,6 +9,7 @@ import io.specmatic.core.Configuration.Companion.configFilePath
 import io.specmatic.core.azure.AzureAuthCredentials
 import io.specmatic.core.git.GitCommand
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.config.ResiliencyTestSuite
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.log.consoleDebug
 import io.specmatic.core.log.consoleLog
@@ -574,4 +575,9 @@ fun isXML(headers: Map<String, String>): Boolean {
         }
 
     return contentType.contentSubtype.let { it == "xml" || it.endsWith("+xml") }
+}
+
+fun <T, U> T.applyIf(original: U?, block: T.(U) -> T): T {
+    val value: U = original ?: return this
+    return block(value)
 }

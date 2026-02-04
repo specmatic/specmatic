@@ -21,6 +21,9 @@ import io.specmatic.core.pattern.Examples.Companion.examplesFrom
 import io.specmatic.core.utilities.*
 import io.specmatic.core.value.*
 import io.specmatic.core.Result.Success
+import io.specmatic.core.config.SecurityConfiguration
+import io.specmatic.core.config.WorkflowDetails
+import io.specmatic.core.config.ResiliencyTestSuite
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
@@ -75,7 +78,7 @@ fun checkExists(file: File) = file.also {
 }
 
 fun parseContractFileWithNoMissingConfigWarning(contractFile: File, lenientMode: Boolean = false): Feature {
-    return parseContractFileToFeature(contractFile, specmaticConfig = SpecmaticConfig(), lenientMode = lenientMode)
+    return parseContractFileToFeature(contractFile, specmaticConfig = SpecmaticConfig.default(), lenientMode = lenientMode)
 }
 
 fun parseContractFileToFeature(
@@ -138,7 +141,7 @@ fun parseGherkinStringToFeature(
     gherkinData: String,
     sourceFilePath: String = "",
     isWSDL: Boolean = false,
-    specmaticConfig: SpecmaticConfig = SpecmaticConfig()
+    specmaticConfig: SpecmaticConfig = SpecmaticConfig.default()
 ): Feature {
     val gherkinDocument = parseGherkinString(gherkinData, sourceFilePath)
     val (name, scenarios) = lex(
@@ -180,7 +183,7 @@ data class Feature(
     val sourceRepository:String? = null,
     val sourceRepositoryBranch:String? = null,
     val specification:String? = null,
-    val specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
+    val specmaticConfig: SpecmaticConfig = SpecmaticConfig.default(),
     val flagsBased: FlagsBased = strategiesFromFlags(specmaticConfig),
     val strictMode: Boolean = false,
     val exampleStore: ExampleStore = ExampleStore.empty(),
@@ -2302,7 +2305,7 @@ data class Feature(
             sourceRepositoryBranch: String? = null,
             specification: String? = null,
             stubsFromExamples: Map<String, List<Pair<HttpRequest, HttpResponse>>> = emptyMap(),
-            specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
+            specmaticConfig: SpecmaticConfig = SpecmaticConfig.default(),
             flagsBased: FlagsBased = strategiesFromFlags(specmaticConfig),
             strictMode: Boolean = false,
             protocol: SpecmaticProtocol,
@@ -2736,7 +2739,7 @@ internal fun lex(
     isWSDL: Boolean = false,
     protocol: SpecmaticProtocol = getProtocol(isWSDL),
     specType: SpecType = getSpecType(isWSDL),
-    specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
+    specmaticConfig: SpecmaticConfig = SpecmaticConfig.default(),
 ): Pair<String, List<Scenario>> {
     val feature = gherkinDocument.unwrapFeature()
     return Pair(feature.name, lex(feature.children, filePath, isWSDL, protocol, specType, specmaticConfig))
@@ -2748,7 +2751,7 @@ internal fun lex(
     isWSDL: Boolean = false,
     protocol: SpecmaticProtocol,
     specType: SpecType,
-    specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
+    specmaticConfig: SpecmaticConfig = SpecmaticConfig.default(),
 ): List<Scenario> {
     return scenarioInfos(featureChildren, filePath, isWSDL, protocol, specType, specmaticConfig)
         .map { scenarioInfo -> Scenario(scenarioInfo) }
@@ -2760,7 +2763,7 @@ fun scenarioInfos(
     isWSDL: Boolean = false,
     protocol: SpecmaticProtocol = getProtocol(isWSDL),
     specType: SpecType = getSpecType(isWSDL),
-    specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
+    specmaticConfig: SpecmaticConfig = SpecmaticConfig.default(),
 ): List<ScenarioInfo> {
     val extensibleQueryParams = specmaticConfig.getExtensibleQueryParams()
     val preferEscapedSoapAction = specmaticConfig.getEscapeSoapAction()

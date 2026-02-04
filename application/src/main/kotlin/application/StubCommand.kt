@@ -151,9 +151,10 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         if (configFileName != null) Configuration.configFilePath = configFileName as String
         val specmaticConfigPath = File(Configuration.configFilePath).canonicalPath
         val config = loadSpecmaticConfigOrNull(specmaticConfigPath, explicitlySpecifiedByUser = configFileName != null).orDefault()
-        val sourcesUpdated = config.mapSources { source -> source.copy(matchBranch = useCurrentBranchForCentralRepo ?: source.matchBranch) }
-        val stubConfigUpdated = sourcesUpdated.withStubModes(strictMode = strictMode).withStubFilter(filter = filter)
-        delayInMilliseconds?.let(stubConfigUpdated::withGlobalMockDelay) ?: stubConfigUpdated
+        return@lazy config.applyIf(useCurrentBranchForCentralRepo) { withUseCurrentBranchForCentralRepo(it) }
+            .applyIf(strictMode) { withStubModes(strictMode = it) }
+            .applyIf(filter) { withStubFilter(filter = it) }
+            .applyIf(delayInMilliseconds) { withGlobalMockDelay(delay = it) }
     }
 
     private val keyData: KeyData? by lazy(LazyThreadSafetyMode.NONE) {

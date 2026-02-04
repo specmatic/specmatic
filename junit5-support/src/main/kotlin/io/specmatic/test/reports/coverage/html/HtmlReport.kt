@@ -3,7 +3,7 @@ package io.specmatic.test.reports.coverage.html
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import io.specmatic.core.SpecmaticConfig
-import io.specmatic.core.SuccessCriteria
+import io.specmatic.core.config.SuccessCriteria
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.reports.coverage.html.HtmlTemplateConfiguration.Companion.configureTemplateEngine

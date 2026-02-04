@@ -1,14 +1,13 @@
 package integration_tests
 
 import io.specmatic.conversions.OpenApiSpecification
-import io.specmatic.core.ResiliencyTestSuite
-import io.specmatic.core.ResiliencyTestsConfig
+import io.specmatic.core.config.ResiliencyTestSuite
+import io.specmatic.core.config.ResiliencyTestsConfig
 import io.specmatic.core.Result
-import io.specmatic.core.SpecmaticConfig
-import io.specmatic.core.StubConfiguration
-import io.specmatic.core.TestConfiguration
+import io.specmatic.core.config.StubConfiguration
+import io.specmatic.core.config.TestConfiguration
+import io.specmatic.core.config.v2.SpecmaticConfigV2Impl
 import io.specmatic.core.examples.server.ScenarioFilter
-import io.specmatic.core.pattern.AnyNonNullJSONValue
 import io.specmatic.core.pattern.AnyOfPattern
 import io.specmatic.core.pattern.AnyPattern
 import io.specmatic.core.pattern.AnythingPattern
@@ -42,7 +41,7 @@ class OpenApi31Test {
     private val openApi31File = File("src/test/resources/openapi/3_1/mixed/openapi31.yaml")
     private val openApi30File = File("src/test/resources/openapi/3_1/mixed/openapi30.yaml")
     private val backwardCompatibilityFilter = "PATH!='/multiTypeEnumSchema'"
-    private val specmaticConfig = SpecmaticConfig(
+    private val specmaticConfig = SpecmaticConfigV2Impl(
         test = TestConfiguration(resiliencyTests = ResiliencyTestsConfig(enable = ResiliencyTestSuite.all)),
         stub = StubConfiguration(generative = true),
     )

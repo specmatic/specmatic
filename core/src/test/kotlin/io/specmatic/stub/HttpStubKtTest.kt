@@ -15,7 +15,7 @@ import io.specmatic.core.Result
 import io.specmatic.core.Results
 import io.specmatic.core.SPECMATIC_RESULT_HEADER
 import io.specmatic.core.SpecmaticConfig
-import io.specmatic.core.StubConfiguration
+import io.specmatic.core.config.StubConfiguration
 import io.specmatic.core.log.consoleLog
 import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.parseGherkinStringToFeature
@@ -31,6 +31,7 @@ import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.XMLValue
 import io.specmatic.core.value.toXMLNode
 import io.specmatic.core.StandardRuleViolation
+import io.specmatic.core.config.v2.SpecmaticConfigV2Impl
 import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.toViolationReportString
 import io.specmatic.mock.ScenarioStub
@@ -456,7 +457,7 @@ Feature: Test
         val result = fakeHttpResponse(
             listOf(feature),
             request,
-            SpecmaticConfig(stub = StubConfiguration(generative = true))
+            SpecmaticConfigV2Impl(stub = StubConfiguration(generative = true))
         )
 
         assertThat(result).isInstanceOf(FoundStubbedResponse::class.java)

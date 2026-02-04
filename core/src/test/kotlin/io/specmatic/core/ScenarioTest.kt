@@ -5,6 +5,7 @@ import com.ezylang.evalex.config.ExpressionConfiguration
 import io.mockk.every
 import io.mockk.mockk
 import io.specmatic.conversions.*
+import io.specmatic.core.config.v2.AttributeSelectionPattern
 import io.specmatic.core.filters.HttpFilterContext
 import io.specmatic.core.filters.ScenarioFilterVariablePopulator
 import io.specmatic.core.pattern.*
@@ -563,7 +564,7 @@ class ScenarioTest {
         )
 
         Flags.using(Flags.EXTENSIBLE_SCHEMA to "true") {
-            val flagBased = strategiesFromFlags(SpecmaticConfig())
+            val flagBased = strategiesFromFlags(SpecmaticConfig.default())
             assertDoesNotThrow { scenario.validExamplesOrException(flagBased) }
         }
     }

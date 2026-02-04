@@ -57,4 +57,4 @@ fun strategiesFromFlags(specmaticConfig: SpecmaticConfig): FlagsBased {
 }
 
 val DefaultStrategies: FlagsBased
-    get() = strategiesFromFlags(SpecmaticConfig())
+    get() = strategiesFromFlags(SpecmaticConfig.default())

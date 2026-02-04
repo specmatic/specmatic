@@ -1,7 +1,7 @@
 package io.specmatic.test.reports
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import io.specmatic.core.ReportConfiguration
+import io.specmatic.core.config.ReportConfiguration
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.log.logger
 import io.specmatic.reporter.generated.dto.coverage.SpecmaticCoverageReport

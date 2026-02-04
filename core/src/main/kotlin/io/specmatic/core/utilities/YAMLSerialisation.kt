@@ -16,9 +16,7 @@ private val yamlFactory = YAMLFactory().apply {
     disable(YAMLGenerator.Feature.USE_NATIVE_OBJECT_ID)
 }
 
-val yamlMapper: ObjectMapper = ObjectMapper(yamlFactory).registerKotlinModule().apply {
-    setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL)
-}
+val yamlMapper: ObjectMapper = ObjectMapper(yamlFactory).registerKotlinModule()
 
 fun yamlStringToValue(stringContent: String): Value {
     val cleaned = stringContent.cleanBOM()

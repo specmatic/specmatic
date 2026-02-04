@@ -22,6 +22,9 @@ import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.specmatic.core.StandardRuleViolation
+import io.specmatic.core.config.WorkflowConfiguration
+import io.specmatic.core.config.WorkflowIDOperation
+import io.specmatic.core.config.v2.SpecmaticConfigV2Impl
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.toViolationReportString
 import io.specmatic.mock.NoMatchingScenario
@@ -8196,7 +8199,7 @@ components:
           minimum: 1
         """.trimIndent()
 
-        val specmaticConfig = SpecmaticConfig(
+        val specmaticConfig = SpecmaticConfigV2Impl(
             workflow = WorkflowConfiguration(
                 mapOf(
                     "POST /orders -> 201" to WorkflowIDOperation(extract = "BODY.id"),
@@ -8352,7 +8355,7 @@ components:
                                   value:
                                     age: "person data"
                 """.trimIndent(), "",
-            specmaticConfig = SpecmaticConfig(ignoreInlineExamples = true)
+            specmaticConfig = SpecmaticConfigV2Impl(ignoreInlineExamples = true)
         ).toFeature()
 
         val results = feature.executeTests(object : TestExecutor {

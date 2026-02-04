@@ -17,6 +17,9 @@ import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_SCHEMA
 import io.specmatic.core.utilities.Flags.Companion.IGNORE_INLINE_EXAMPLES
 import io.specmatic.core.value.*
 import io.specmatic.core.StandardRuleViolation
+import io.specmatic.core.config.TestConfiguration
+import io.specmatic.core.config.v2.AttributeSelectionPattern
+import io.specmatic.core.config.v2.SpecmaticConfigV2Impl
 import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.stub.NamedExampleMismatchMessages
 import io.specmatic.toViolationReportString
@@ -353,12 +356,7 @@ class LoadTestsFromExternalisedFiles {
 
     @Test
     fun `tests from external examples validate response values when the VALIDATE_RESPONSE_VALUE flag is true`() {
-        val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true) {
-            every { isResponseValueValidationEnabled() } returns true
-            every { getWorkflowDetails() } returns null
-        }
-        mockkObject(SpecmaticConfig.Companion)
-        every { SpecmaticConfig.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
+        val specmaticConfig = SpecmaticConfigV2Impl(test = TestConfiguration(allowExtensibleSchema = true), attributeSelectionPattern = AttributeSelectionPattern())
         val feature = OpenApiSpecification
             .fromFile("src/test/resources/openapi/has_inline_and_external_examples.yaml", specmaticConfig)
             .toFeature()
@@ -387,13 +385,7 @@ class LoadTestsFromExternalisedFiles {
 
     @Test
     fun `tests from external examples reject responses with values different from the example when the VALIDATE_RESPONSE_VALUE flag is true`() {
-        val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true) {
-            every { isResponseValueValidationEnabled() } returns true
-            every { getWorkflowDetails() } returns null
-        }
-        mockkObject(SpecmaticConfig.Companion)
-        every { SpecmaticConfig.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
-
+        val specmaticConfig = SpecmaticConfigV2Impl(test = TestConfiguration(validateResponseValues = true), attributeSelectionPattern = AttributeSelectionPattern())
         val feature = OpenApiSpecification
             .fromFile(
                 "src/test/resources/openapi/has_inline_and_external_examples.yaml",

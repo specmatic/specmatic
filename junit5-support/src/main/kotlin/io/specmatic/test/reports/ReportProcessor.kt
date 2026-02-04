@@ -1,6 +1,6 @@
 package io.specmatic.test.reports
 
-import io.specmatic.core.ReportConfiguration
+import io.specmatic.core.config.ReportConfiguration
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.test.reports.renderers.ReportRenderer
 

@@ -39,7 +39,7 @@ class WSDLFile(private val location: String) : WSDLContent {
 
 class WsdlSpecification(
     private val wsdlFile: WSDLContent,
-    private val specmaticConfig: SpecmaticConfig = SpecmaticConfig()
+    private val specmaticConfig: SpecmaticConfig = SpecmaticConfig.default()
 ) : IncludedSpecification {
     private val openApiScenarioInfos: List<ScenarioInfo> = toScenarioInfos().first
 
@@ -134,7 +134,7 @@ fun FeatureChild.unwrapBackground(): Background {
 fun wsdlContentToFeature(
     wsdlContent: String,
     path: String,
-    specmaticConfig: SpecmaticConfig = SpecmaticConfig()
+    specmaticConfig: SpecmaticConfig = SpecmaticConfig.default()
 ): Feature {
     val wsdl = WSDL(toXMLNode(wsdlContent), path)
     val gherkin = wsdl.convertToGherkin().trim()

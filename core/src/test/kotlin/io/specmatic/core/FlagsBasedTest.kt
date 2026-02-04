@@ -1,6 +1,8 @@
 package io.specmatic.core
 
 import io.specmatic.core.config.SpecmaticConfigVersion
+import io.specmatic.core.config.TestConfiguration
+import io.specmatic.core.config.v2.SpecmaticConfigV2Impl
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -8,7 +10,7 @@ internal class FlagsBasedTest {
 
     @Test
     fun `strategiesFromFlags should enable fuzzy matching from config`() {
-        val config = SpecmaticConfig(
+        val config = SpecmaticConfigV2Impl(
             fuzzy = true,
             version = SpecmaticConfigVersion.VERSION_2
         )
@@ -20,7 +22,7 @@ internal class FlagsBasedTest {
 
     @Test
     fun `strategiesFromFlags should disable fuzzy matching when config is false`() {
-        val config = SpecmaticConfig(
+        val config = SpecmaticConfigV2Impl(
             fuzzy = false,
             version = SpecmaticConfigVersion.VERSION_2
         )
@@ -32,7 +34,7 @@ internal class FlagsBasedTest {
 
     @Test
     fun `strategiesFromFlags should use schema example default from config`() {
-        val config = SpecmaticConfig(
+        val config = SpecmaticConfigV2Impl(
             schemaExampleDefault = true,
             version = SpecmaticConfigVersion.VERSION_2
         )
@@ -44,7 +46,7 @@ internal class FlagsBasedTest {
 
     @Test
     fun `strategiesFromFlags should not use schema example default when config is false`() {
-        val config = SpecmaticConfig(
+        val config = SpecmaticConfigV2Impl(
             schemaExampleDefault = false,
             version = SpecmaticConfigVersion.VERSION_2
         )
@@ -56,7 +58,7 @@ internal class FlagsBasedTest {
 
     @Test
     fun `strategiesFromFlags should set maxTestRequestCombinations from config`() {
-        val config = SpecmaticConfig(
+        val config = SpecmaticConfigV2Impl(
             test = TestConfiguration(maxTestRequestCombinations = 42),
             version = SpecmaticConfigVersion.VERSION_2
         )
@@ -68,7 +70,7 @@ internal class FlagsBasedTest {
 
     @Test
     fun `strategiesFromFlags should use defaults when config has no overrides`() {
-        val config = SpecmaticConfig()
+        val config = SpecmaticConfig.default()
 
         val result = strategiesFromFlags(config)
 
@@ -151,7 +153,7 @@ internal class FlagsBasedTest {
 
     @Test
     fun `end-to-end config to FlagsBased to Resolver should propagate all values`() {
-        val config = SpecmaticConfig(
+        val config = SpecmaticConfigV2Impl(
             fuzzy = true,
             schemaExampleDefault = true,
             test = TestConfiguration(maxTestRequestCombinations = 50),

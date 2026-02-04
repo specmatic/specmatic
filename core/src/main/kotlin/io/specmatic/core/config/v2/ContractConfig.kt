@@ -4,8 +4,6 @@ import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
-import io.specmatic.core.Source
-import io.specmatic.core.SourceProvider
 
 data class ContractConfig(
     @JsonIgnore
