@@ -13,7 +13,7 @@ import picocli.CommandLine.Command
 import java.io.File
 import java.util.concurrent.Callable
 
-@Command(name = "validate", mixinStandardHelpOptions = true, description = ["Lint & Validate specification and external examples"])
+@Command(name = "validate", hidden = true, mixinStandardHelpOptions = true, description = ["Lint & Validate specification and external examples"])
 class ValidateCommand(
     private val validator: Validator<out Any?> = OpenApiValidator(),
     specCompatibilityChecker: SpecCompatibilityChecker = OpenApiSpecCompatibilityChecker()
