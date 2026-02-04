@@ -21,6 +21,7 @@ import io.specmatic.core.config.v2.SpecmaticConfigV2Impl
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.Flags.Companion.getStringValue
+import java.io.File
 
 data class SpecmaticConfigV1 (
     @field:JsonAlias("contract_repositories")
@@ -50,7 +51,7 @@ data class SpecmaticConfigV1 (
     @field:JsonAlias("disable_telemetry")
 	val disableTelemetry: Boolean? = null,
 ): SpecmaticVersionedConfig {
-	override fun transform(): SpecmaticConfig {
+	override fun transform(file: File?): SpecmaticConfig {
 		return SpecmaticConfigV2Impl(
 			sources = this.sources,
 			auth = this.auth,

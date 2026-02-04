@@ -36,7 +36,6 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.model.SpecType
-import org.mozilla.javascript.ast.Block
 import java.io.File
 import java.lang.Number
 import java.nio.file.Path
@@ -73,17 +72,18 @@ interface SpecmaticConfig {
     fun isTelemetryDisabled(): Boolean
 
     /* -------- Test / Stub configs -------- */
-    fun getTestConfiguration(): TestConfiguration?
-    fun getStubConfiguration(): StubConfiguration?
+    fun getTestConfiguration(specFile: File, specType: SpecType): TestConfiguration?
+    fun getStubConfiguration(specFile: File, specType: SpecType): StubConfiguration?
     fun testConfigFor(file: File, specType: SpecType): Map<String, Any>
     fun stubConfigFor(file: File, specType: SpecType): Map<String, Any>
     fun getVirtualServiceConfiguration(): VirtualServiceConfiguration?
 
     /* -------- Common getters -------- */
     fun getCtrfSpecConfig(absoluteSpecPath: String, testType: String, key: String, value: String): CtrfSpecConfig?
+    fun isExtensibleSchemaEnabledForTest(specFile: File, specType: SpecType): Boolean
+    fun isExtensibleSchemaEnabledForMock(specFile: File, specType: SpecType): Boolean
     fun getAttributeSelectionPatternDetails(): AttributeSelectionPatternDetails
     fun parsedDefaultPatternValues(): Map<String, Value>
-    fun isExtensibleSchemaEnabled(): Boolean
     fun getMatchBranchEnabled(): Boolean
 
     /* -------- Feature flags -------- */

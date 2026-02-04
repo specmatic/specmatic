@@ -152,11 +152,11 @@ data class SpecmaticConfigV2Impl(
             ?: (disableTelemetry == true)
     }
 
-    override fun getTestConfiguration(): TestConfiguration? {
+    override fun getTestConfiguration(specFile: File, specType: SpecType): TestConfiguration? {
         return test
     }
 
-    override fun getStubConfiguration(): StubConfiguration? {
+    override fun getStubConfiguration(specFile: File, specType: SpecType): StubConfiguration? {
         return stub
     }
 
@@ -395,8 +395,13 @@ data class SpecmaticConfigV2Impl(
     }
 
     @JsonIgnore
-    override fun isExtensibleSchemaEnabled(): Boolean {
+
+    override fun isExtensibleSchemaEnabledForMock(specFile: File, specType: SpecType): Boolean {
         return test?.allowExtensibleSchema ?: getBooleanValue(EXTENSIBLE_SCHEMA)
+    }
+
+    override fun isExtensibleSchemaEnabledForTest(specFile: File, specType: SpecType): Boolean {
+        return getBooleanValue(EXTENSIBLE_SCHEMA)
     }
 
     @JsonIgnore

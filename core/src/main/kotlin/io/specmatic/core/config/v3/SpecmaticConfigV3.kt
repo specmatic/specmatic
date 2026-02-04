@@ -4,7 +4,6 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.config.*
 import io.specmatic.core.config.v3.components.MockServiceConfig
 import io.specmatic.core.config.v3.components.TestServiceConfig
-import io.specmatic.core.utilities.yamlMapper
 import java.io.File
 
 data class SpecmaticConfigV3(
@@ -16,9 +15,8 @@ data class SpecmaticConfigV3(
     val specmatic: Specmatic? = null,
     val components: Components? = null,
 ) : SpecmaticVersionedConfig {
-    override fun transform(): SpecmaticConfig {
-        println(yamlMapper.writeValueAsString(this))
-        return SpecmaticConfig.default()
+    override fun transform(file: File?): SpecmaticConfig {
+        return SpecmaticConfigV3Impl(file, this)
     }
 
     companion object : SpecmaticVersionedConfigLoader {

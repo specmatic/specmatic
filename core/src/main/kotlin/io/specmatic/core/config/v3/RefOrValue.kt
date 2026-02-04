@@ -1,10 +1,15 @@
 package io.specmatic.core.config.v3
 
 import com.fasterxml.jackson.annotation.*
+import io.specmatic.core.utilities.yamlMapper
+
+interface RefOrValueResolver {
+    fun resolveRef(reference: String): Map<*, *>
+}
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.DEDUCTION, defaultImpl = RefOrValue.Value::class)
-sealed class RefOrValue<out T: Any> {
-    data class Reference(@param:JsonProperty("\$ref") val ref: String, @JsonIgnore val extra: Map<String, Any?> = emptyMap()) : RefOrValue<Nothing>() {
+sealed interface RefOrValue<out T: Any> {
+    data class Reference(@param:JsonProperty("\$ref") val ref: String, @JsonIgnore val extra: Map<String, Any?> = emptyMap()) : RefOrValue<Nothing> {
         @Suppress("unused")
         @JsonAnyGetter
         fun extraProperties(): Map<String, Any?> = extra
@@ -18,7 +23,7 @@ sealed class RefOrValue<out T: Any> {
         }
     }
 
-    data class Value<out T : Any>(@param:JsonUnwrapped @JsonValue val value: T) : RefOrValue<T>() {
+    data class Value<out T : Any>(@param:JsonUnwrapped @JsonValue val value: T) : RefOrValue<T> {
         companion object {
             @JvmStatic
             @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
@@ -43,5 +48,22 @@ sealed class RefOrValue<out T: Any> {
             is Value -> this.value
             is Reference -> resolveReference(this.ref)
         }
+    }
+}
+
+inline fun <reified T : Any> RefOrValue<T>.resolveElseThrow(resolver: RefOrValueResolver): T = resolve(resolver, T::class.java).getOrThrow()
+
+inline fun <reified T : Any> RefOrValue<T>.resolve(resolver: RefOrValueResolver): Result<T> = resolve(resolver, T::class.java)
+
+fun <T : Any> RefOrValue<T>.resolve(resolver: RefOrValueResolver, clazz: Class<T>): Result<T> {
+    val baseValue = when (this) {
+        is RefOrValue.Value -> return Result.success(value)
+        is RefOrValue.Reference -> resolver.resolveRef(ref)
+    }
+
+    val combined = baseValue.plus(extra)
+    return runCatching { Result.success(yamlMapper.convertValue(combined, clazz)) }.getOrElse { e ->
+        val exception = java.lang.IllegalStateException("Failed to convert resolved to value to ${clazz.simpleName}", e)
+        Result.failure(exception)
     }
 }

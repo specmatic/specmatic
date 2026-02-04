@@ -1,5 +1,10 @@
 package io.specmatic.core.config
 
+import io.specmatic.core.config.v3.components.runOptions.IRunOptions
+import io.specmatic.core.config.v3.components.runOptions.openapi.IRunOptionSpecification
+import io.specmatic.core.config.v3.components.runOptions.openapi.OpenApiMockRunOptions
+import io.specmatic.core.config.v3.components.services.SpecificationDefinition
+import io.specmatic.core.config.v3.components.settings.MockSettings
 import io.specmatic.core.utilities.Flags
 
 const val SPECMATIC_STUB_DICTIONARY = "SPECMATIC_STUB_DICTIONARY"
@@ -17,8 +22,33 @@ data class StubConfiguration(
     private val filter: String? = null,
     private val gracefulRestartTimeoutInMilliseconds: Long? = null,
     private val https: HttpsConfiguration? = null,
-    private val lenientMode: Boolean? = null
+    private val lenientMode: Boolean? = null,
+    private val overlayFilePath: String? = null,
+    private val urlPathPrefix: String? = null,
 ) {
+    constructor(
+        mockSettings: MockSettings? = null,
+        dictionary: String? = null,
+        runOptions: IRunOptions? = null,
+        cert: HttpsConfiguration? = null,
+        runOptionSpecification: IRunOptionSpecification? = null,
+        specificationDefinition: SpecificationDefinition? = null,
+    ) : this(
+        https = cert,
+        dictionary = dictionary,
+        hotReload = mockSettings?.hotReload,
+        generative = mockSettings?.generative,
+        strictMode = mockSettings?.strictMode,
+        lenientMode = mockSettings?.lenientMode,
+        delayInMilliseconds = mockSettings?.delayInMilliseconds,
+        startTimeoutInMilliseconds = mockSettings?.startTimeoutInMilliseconds,
+        gracefulRestartTimeoutInMilliseconds = mockSettings?.gracefulRestartTimeoutInMilliseconds,
+        baseUrl = (runOptions as? OpenApiMockRunOptions)?.baseUrl,
+        filter = runOptionSpecification?.getFilter(),
+        urlPathPrefix = specificationDefinition?.getUrlPathPrefix(),
+        overlayFilePath = runOptionSpecification?.getOverlayFilePath(),
+    )
+
     fun getGenerative(): Boolean? {
         return generative
     }

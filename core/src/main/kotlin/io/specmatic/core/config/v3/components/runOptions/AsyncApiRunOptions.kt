@@ -1,13 +1,16 @@
 package io.specmatic.core.config.v3.components.runOptions
 
 import com.fasterxml.jackson.annotation.*
+import io.specmatic.core.config.v3.components.runOptions.openapi.RunOptionsSpecifications
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 @JsonSubTypes(JsonSubTypes.Type(AsyncApiTestConfig::class, name = "test"), JsonSubTypes.Type(AsyncApiMockConfig::class, name = "mock"),)
-sealed interface AsyncApiRunOptions { val config: Map<String, Any?>?; val type: RunOptionType? }
+sealed interface AsyncApiRunOptions : IRunOptions { val config: Map<String, Any?>?; val type: RunOptionType? }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
-data class AsyncApiTestConfig(@get:JsonAnyGetter override val config: Map<String, Any?>? = null) : AsyncApiRunOptions {
+data class AsyncApiTestConfig(override val specs: List<RunOptionsSpecifications>? = null) : AsyncApiRunOptions {
+    private val _config: MutableMap<String, Any?> = linkedMapOf()
+
     @JsonIgnore
     override val type: RunOptionType? = null
 
@@ -18,15 +21,19 @@ data class AsyncApiTestConfig(@get:JsonAnyGetter override val config: Map<String
         }
     }
 
-    companion object {
-        @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
-        @JvmStatic
-        fun create(@JsonAnySetter config: Map<String, Any?>? = null): AsyncApiTestConfig = AsyncApiTestConfig(config)
+    @get:JsonAnyGetter
+    override val config: Map<String, Any?> get() = _config
+
+    @JsonAnySetter
+    fun put(key: String, value: Any?) {
+        _config[key] = value
     }
 }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
-data class AsyncApiMockConfig(@get:JsonAnyGetter override val config: Map<String, Any?>? = null) : AsyncApiRunOptions {
+data class AsyncApiMockConfig(override val specs: List<RunOptionsSpecifications>? = null) : AsyncApiRunOptions {
+    private val _config: MutableMap<String, Any?> = linkedMapOf()
+
     @JsonIgnore
     override val type: RunOptionType? = null
 
@@ -37,9 +44,11 @@ data class AsyncApiMockConfig(@get:JsonAnyGetter override val config: Map<String
         }
     }
 
-    companion object {
-        @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
-        @JvmStatic
-        fun create(@JsonAnySetter config: Map<String, Any?>? = null): AsyncApiMockConfig = AsyncApiMockConfig(config)
+    @get:JsonAnyGetter
+    override val config: Map<String, Any?> get() = _config
+
+    @JsonAnySetter
+    fun put(key: String, value: Any?) {
+        _config[key] = value
     }
 }
