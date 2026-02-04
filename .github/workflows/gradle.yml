@@ -22,7 +22,7 @@ jobs:
       
       - name: Publish Snapshot
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/main') && matrix.os == 'ubuntu-latest'
-        run: ./gradlew --parallel publishAllPublicationsToSpecmaticPrivateRepository publishAllPublicationsToSpecmaticSnapshotsRepository # publishAllPublicationsToMavenCentralRepository
+        run: ./gradlew publishAllPublicationsToMavenCentralRepository publishAllPublicationsToSpecmaticPrivateRepository publishAllPublicationsToSpecmaticSnapshotsRepository --parallel
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: "${{ secrets.SPECMATIC_MAVEN_CENTRAL_USERNAME }}"
           ORG_GRADLE_PROJECT_mavenCentralPassword: "${{ secrets.SPECMATIC_MAVEN_CENTRAL_PASSWORD }}"
