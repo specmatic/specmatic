@@ -20,6 +20,7 @@ import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.ContractStub
 import io.specmatic.stub.HttpClientFactory
 import io.specmatic.stub.SpecmaticConfigSource
+import io.specmatic.stub.SpecmaticMockRunner
 import io.specmatic.stub.endPointFromHostAndPort
 import io.specmatic.stub.extractHost
 import io.specmatic.stub.extractPort
@@ -43,7 +44,7 @@ class StubCommand(
     private val specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
     private val watchMaker: WatchMaker = WatchMaker(),
     private val httpClientFactory: HttpClientFactory = HttpClientFactory()
-) : Callable<Int> {
+) : SpecmaticMockRunner {
     var httpStub: ContractStub? = null
 
     @Parameters(arity = "0..*", description = ["Contract file paths", "Spec file paths"])
@@ -53,7 +54,7 @@ class StubCommand(
     var exampleDirs: List<String> = mutableListOf()
 
     @Option(names = ["--host"], description = ["Host for the http stub"], defaultValue = DEFAULT_HTTP_STUB_HOST)
-    lateinit var host: String
+    var host: String = DEFAULT_HTTP_STUB_HOST
 
     @Option(names = ["--port"], description = ["Port for the http stub"], defaultValue = DEFAULT_HTTP_STUB_PORT)
     var port: Int = 0
@@ -379,6 +380,10 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         val method = request.method
         val path = request.path
         return "$method $path"
+    }
+
+    override fun close() {
+        stopServer()
     }
 }
 
