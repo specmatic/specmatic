@@ -8,7 +8,6 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.config.v1.SpecmaticConfigV1
 import io.specmatic.core.config.v2.SpecmaticConfigV2
 import io.specmatic.core.pattern.ContractException
-import io.specmatic.core.utilities.readEnvVarOrProperty
 import java.io.File
 
 private const val SPECMATIC_CONFIG_VERSION = "version"
@@ -92,7 +91,7 @@ private fun parseTemplate(value: String): TemplateDefinition? {
 
 private fun resolveTemplateValueFromEnvOrDefault(template: TemplateDefinition): String {
     return template.keys.asSequence()
-        .mapNotNull { key -> readEnvVarOrProperty(key, key) }
+        .mapNotNull { key -> System.getenv(key) ?: System.getProperty(key) ?: template.defaultValue }
         .firstOrNull()
         ?: template.defaultValue
 }
@@ -111,7 +110,7 @@ private fun interpolateTemplates(original: String): String? {
 
         val keys = keyExpression.split('|').map { it.trim() }.filter { it.isNotEmpty() }
         val resolved = keys.asSequence()
-            .mapNotNull { key -> readEnvVarOrProperty(key, key) }
+            .mapNotNull { key -> System.getenv(key) ?: System.getProperty(key) }
             .firstOrNull()
             ?: defaultValue
 

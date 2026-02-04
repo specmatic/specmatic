@@ -1,53 +1,61 @@
 package application
 
-import picocli.CommandLine.*
-import io.specmatic.core.APPLICATION_NAME_LOWER_CASE
-import io.specmatic.core.Configuration.Companion.DEFAULT_PROXY_HOST
-import io.specmatic.core.Configuration.Companion.DEFAULT_PROXY_PORT
 import io.specmatic.core.DEFAULT_TIMEOUT_IN_MILLISECONDS
+import io.specmatic.core.KeyData
+import io.specmatic.core.ProxyConfig
+import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.config.HttpsConfiguration
+import io.specmatic.core.config.LoggingConfiguration.Companion.LoggingFromOpts
 import io.specmatic.core.getConfigFilePath
-import io.specmatic.core.log.*
+import io.specmatic.core.log.StringLog
+import io.specmatic.core.log.configureLogging
+import io.specmatic.core.log.consoleLog
+import io.specmatic.core.log.logger
+import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.consolePrintableURL
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.utilities.exitWithMessage
 import io.specmatic.license.core.cli.Category
 import io.specmatic.proxy.Proxy
 import io.specmatic.stub.SpecmaticConfigSource
+import picocli.CommandLine.*
 import java.io.File
 import java.lang.Thread.sleep
 import java.util.concurrent.Callable
 
-@Command(name = "proxy",
-        mixinStandardHelpOptions = true,
-        description = ["Proxies requests to the specified target and converts the result into contracts and stubs"])
+@Command(
+    name = "proxy",
+    mixinStandardHelpOptions = true,
+    description = ["Proxies requests to the specified target and converts the result into contracts and stubs"],
+)
 @Category("Specmatic core")
-class ProxyCommand : Callable<Unit> {
-    @Option(names = ["--target"], description = ["Base URL of the target to proxy"], required = true)
-    var targetBaseURL: String = ""
+open class ProxyCommand : Callable<Unit> {
+    @Option(names = ["--target"], description = ["Base URL of the target to proxy"], required = false)
+    var targetBaseURL: String? = null
 
-    @Option(names = ["--host"], description = ["Host for the proxy"], defaultValue = DEFAULT_PROXY_HOST)
-    lateinit var host: String
+    @Option(names = ["--host"], description = ["Host for the proxy"])
+    var host: String? = null
 
-    @Option(names = ["--port"], description = ["Port for the proxy"], defaultValue = DEFAULT_PROXY_PORT)
-    var port: Int = 9000
+    @Option(names = ["--port"], description = ["Port for the proxy"])
+    var port: Int? = null
 
-    @Parameters(description = ["Store data from the proxy interactions into this dir"], index = "0")
-    lateinit var proxySpecmaticDataDir: String
+    @Parameters(description = ["Store data from the proxy interactions into this dir"], index = "0", arity = "0..1")
+    var proxyDumpDirectory: File? = null
 
     @Option(names = ["--httpsKeyStore"], description = ["Run the proxy on https using a key in this store"])
-    var keyStoreFile = ""
+    var keyStoreFile: String? = null
 
     @Option(names = ["--httpsKeyStoreDir"], description = ["Run the proxy on https, create a store named specmatic.jks in this directory"])
-    var keyStoreDir = ""
+    var keyStoreDir: String? = null
 
     @Option(names = ["--httpsKeyStorePassword"], description = ["Run the proxy on https, password for pre-existing key store"])
-    var keyStorePassword = "forgotten"
+    var keyStorePassword: String? = null
 
     @Option(names = ["--httpsKeyAlias"], description = ["Run the proxy on https using a key by this name"])
-    var keyStoreAlias = "${APPLICATION_NAME_LOWER_CASE}proxy"
+    var keyStoreAlias: String? = null
 
     @Option(names = ["--httpsPassword"], description = ["Key password if any"])
-    var keyPassword = "forgotten"
+    var keyPassword: String? = null
 
     @Option(
         names= ["--filter"],
@@ -63,44 +71,75 @@ You can filter tests based on the following keys:
 You can find all available filters and their usage at:
 https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--operators"""
         ],
-        required = false
+        required = false,
     )
     var filter: String = ""
 
 
     @Option(names = ["--debug"], description = ["Write verbose logs to console for debugging"])
-    var debugLog = false
+    var debugLog: Boolean? = null
 
     @Option(names = ["--timeout-in-ms"], description = ["Response Timeout in milliseconds, Defaults to $DEFAULT_TIMEOUT_IN_MILLISECONDS"])
-    var timeoutInMs: Long = DEFAULT_TIMEOUT_IN_MILLISECONDS
+    var timeoutInMs: Long? = null
 
     var proxy: Proxy? = null
 
+    private val specmaticConfigSource = if (File(getConfigFilePath()).exists()) {
+        logger.log("Loading configuration from ${getConfigFilePath()}")
+        SpecmaticConfigSource.fromPath(getConfigFilePath())
+    } else {
+        logger.log("No specmatic.yaml found in current directory")
+        SpecmaticConfigSource.None
+    }
+
     override fun call() {
-        if(debugLog)
-            logger = Verbose()
+        configureLogging(LoggingFromOpts(debug = debugLog))
+        val specmaticConfigLoaded = specmaticConfigSource.load().config
+        val fromCli = HttpsConfiguration.Companion.HttpsFromOpts(keyStoreFile, keyStoreDir, keyStorePassword, keyStoreAlias, keyPassword)
+        val fromConfig = specmaticConfigLoaded.getProxyConfig()?.getHttpsConfig()
+        val keyStoreData = CertInfo(fromCli, fromConfig).getHttpsCert(aliasSuffix = "proxy")
 
-        validatedProxySettings(targetBaseURL, proxySpecmaticDataDir)
-
-        val certInfo = CertInfo(keyStoreFile, keyStoreDir, keyStorePassword, keyStoreAlias, keyPassword)
-        val keyStoreData = certInfo.getHttpsCert()
-
-        // Load specmatic.yaml config from current working directory
-        val specmaticConfigPath = getConfigFilePath()
-        val specmaticConfigSource = if (File(specmaticConfigPath).exists()) {
-            logger.log("Loading configuration from $specmaticConfigPath")
-            SpecmaticConfigSource.fromPath(specmaticConfigPath)
-        } else {
-            logger.log("No specmatic.yaml found in current directory")
-            SpecmaticConfigSource.None
-        }
-
-        proxy = Proxy(host, port, targetBaseURL, proxySpecmaticDataDir, keyStoreData, timeoutInMs, filter, requestObserver = null, specmaticConfigSource = specmaticConfigSource)
+        proxy = createProxyServer(specmaticConfigLoaded, keyStoreData)
         addShutdownHook()
-
-        consoleLog(StringLog("Proxy server is running on ${consolePrintableURL(host, port, keyStoreData)}. Ctrl + C to stop."))
         logger.boundary()
         while(true) sleep(10000)
+    }
+
+    private fun createProxyServer(specmaticConfig: SpecmaticConfig, keyStoreData: KeyData?): Proxy {
+        val configProxy = specmaticConfig.getProxyConfig() ?: ProxyConfig(targetUrl = "")
+        val effectiveHost = host ?: configProxy.getHostOrDefault()
+        val effectivePort = port.takeUnless { it == 0 || it == -1 } ?: configProxy.getPortOrDefault()
+        val effectiveOutDir = proxyDumpDirectory ?: configProxy.getOutputDirectoryOrDefault()
+        val effectiveTimeout = timeoutInMs ?: configProxy.getTimeoutInMillisecondsOrDefault()
+        val effectiveTarget = targetBaseURL?.takeUnless(String::isBlank) ?: configProxy.getTargetUrl {
+            throw ContractException("Proxy targetURL must be provided through CLI or Specmatic Config")
+        }
+        return createProxy(
+            filter = filter,
+            host = effectiveHost,
+            port = effectivePort,
+            outDir = effectiveOutDir,
+            timeout = effectiveTimeout,
+            target = effectiveTarget,
+            keyData = keyStoreData,
+            specmaticConfigSource = specmaticConfigSource,
+        )
+    }
+
+    protected open fun createProxy(filter: String, host: String, port: Int, outDir: File, timeout: Long, target: String, keyData: KeyData?, specmaticConfigSource: SpecmaticConfigSource): Proxy {
+        val startupLogs = "Proxy server is running on ${consolePrintableURL(host, port, keyData)}. Ctrl + C to stop."
+        validatedProxySettings(targetBaseURL, outDir.canonicalPath)
+        return Proxy(
+            filter = filter,
+            host = host,
+            port = port,
+            requestObserver = null,
+            keyData = keyData,
+            baseURL = target,
+            timeoutInMilliseconds = timeout,
+            specmaticConfigSource = specmaticConfigSource,
+            proxySpecmaticDataDir = outDir.canonicalPath,
+        ).also { consoleLog(StringLog(startupLogs)) }
     }
 
     private fun validatedProxySettings(unknownProxyTarget: String?, proxySpecmaticDataDir: String?) {
@@ -122,7 +161,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         }
     }
 
-    private fun addShutdownHook() {
+    protected open fun addShutdownHook() {
         Runtime.getRuntime().addShutdownHook(object : Thread() {
             override fun run() {
                 try {

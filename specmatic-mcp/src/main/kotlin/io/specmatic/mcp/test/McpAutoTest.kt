@@ -3,6 +3,7 @@ package io.specmatic.mcp.test
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.specmatic.core.Dictionary
 import io.specmatic.core.defaultReportDirPath
+import io.specmatic.core.config.McpTransport
 import io.specmatic.core.examples.module.FAILURE_EXIT_CODE
 import io.specmatic.core.examples.module.SUCCESS_EXIT_CODE
 import io.specmatic.core.loadSpecmaticConfigOrNull

@@ -7,6 +7,7 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import io.specmatic.core.config.v3.SpecExecutionConfig
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.specmatic.core.config.v2.ContractConfig
+import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.utilities.ContractSourceEntry
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.config.v2.SpecmaticConfigV2
@@ -231,12 +232,238 @@ internal class SpecmaticConfigKtTest {
             assertThat(config.isOnlyPositiveTestingEnabled()).isFalse()
             assertThat(config.isResponseValueValidationEnabled()).isTrue()
             assertThat(config.isExtensibleSchemaEnabled()).isFalse()
+            assertThat(config.getSchemaExampleDefault()).isTrue()
+            assertThat(config.getMaxTestRequestCombinations()).isEqualTo(50)
             assertThat(config.getExamples()).isEqualTo(listOf("folder1/examples", "folder2/examples"))
             assertThat(config.getTestTimeoutInMilliseconds()).isEqualTo(5000)
             assertThat(config.getStubDelayInMilliseconds()).isEqualTo(1000L)
         } finally {
             properties.forEach { System.clearProperty(it.key) }
         }
+    }
+
+    @Test
+    fun `should read test configuration from system properties when config is absent`() {
+        val properties = mapOf(
+            io.specmatic.core.utilities.Flags.TEST_STRICT_MODE to "true",
+            io.specmatic.core.utilities.Flags.TEST_LENIENT_MODE to "false",
+            io.specmatic.core.utilities.Flags.SPECMATIC_TEST_PARALLELISM to "dynamic",
+            io.specmatic.core.utilities.Flags.MAX_TEST_COUNT to "100",
+            MAX_TEST_REQUEST_COMBINATIONS to "50"
+        )
+        try {
+            properties.forEach { System.setProperty(it.key, it.value) }
+            val config = SpecmaticConfig()
+
+            assertThat(config.getTestStrictMode()).isTrue()
+            assertThat(config.getTestLenientMode()).isFalse()
+            assertThat(config.getTestParallelism()).isEqualTo("dynamic")
+            assertThat(config.getMaxTestCount()).isEqualTo(100)
+            assertThat(config.getMaxTestRequestCombinations()).isEqualTo(50)
+        } finally {
+            properties.forEach { System.clearProperty(it.key) }
+        }
+    }
+
+    @Test
+    fun `should read stub configuration from system properties when config is absent`() {
+        val properties = mapOf(
+            io.specmatic.core.utilities.Flags.SPECMATIC_BASE_URL to "http://localhost:8080"
+        )
+        try {
+            properties.forEach { System.setProperty(it.key, it.value) }
+            val config = SpecmaticConfig()
+
+            assertThat(config.getDefaultBaseUrl()).isEqualTo("http://localhost:8080")
+        } finally {
+            properties.forEach { System.clearProperty(it.key) }
+        }
+    }
+
+    @Test
+    fun `should read v2-only properties from system properties when config is v1 or absent`() {
+        val properties = mapOf(
+            io.specmatic.core.utilities.Flags.SPECMATIC_FUZZY to "true",
+            io.specmatic.core.utilities.Flags.SPECMATIC_ESCAPE_SOAP_ACTION to "true",
+            io.specmatic.core.utilities.Flags.SPECMATIC_PRETTY_PRINT to "false",
+            io.specmatic.core.utilities.Flags.IGNORE_INLINE_EXAMPLE_WARNINGS to "true"
+        )
+        try {
+            properties.forEach { System.setProperty(it.key, it.value) }
+
+            // Test with v1 config (should fall back to system properties)
+            val configV1 = SpecmaticConfig(version = SpecmaticConfigVersion.VERSION_1)
+            assertThat(configV1.getFuzzyMatchingEnabled()).isTrue()
+            assertThat(configV1.getEscapeSoapAction()).isTrue()
+            assertThat(configV1.getPrettyPrint()).isFalse()
+            assertThat(configV1.getIgnoreInlineExampleWarnings()).isTrue()
+
+            // Test with no config (should also use system properties)
+            val configEmpty = SpecmaticConfig()
+            assertThat(configEmpty.getFuzzyMatchingEnabled()).isTrue()
+            assertThat(configEmpty.getEscapeSoapAction()).isTrue()
+            assertThat(configEmpty.getPrettyPrint()).isFalse()
+            assertThat(configEmpty.getIgnoreInlineExampleWarnings()).isTrue()
+        } finally {
+            properties.forEach { System.clearProperty(it.key) }
+        }
+    }
+
+    @Test
+    fun `should use default value for prettyPrint when neither config nor system property is set`() {
+        val config = SpecmaticConfig()
+
+        // prettyPrint defaults to true
+        assertThat(config.getPrettyPrint()).isTrue()
+    }
+
+    @Test
+    fun `should prefer v2 test base url from config over system properties`() {
+        val config = SpecmaticConfig(
+            version = SpecmaticConfigVersion.VERSION_2,
+            test = TestConfiguration(baseUrl = "http://config-base-url")
+        )
+        try {
+            System.setProperty("testBaseURL", "http://property-base-url")
+            System.setProperty("host", "property-host")
+            System.setProperty("port", "1234")
+
+            assertThat(config.getTestBaseUrl()).isEqualTo("http://config-base-url")
+        } finally {
+            System.clearProperty("testBaseURL")
+            System.clearProperty("host")
+            System.clearProperty("port")
+        }
+    }
+
+    @Test
+    fun `should use test base url from system properties when config is missing`() {
+        val config = SpecmaticConfig(version = SpecmaticConfigVersion.VERSION_2, test = TestConfiguration())
+        try {
+            System.setProperty("testBaseURL", "http://property-base-url")
+
+            assertThat(config.getTestBaseUrl()).isEqualTo("http://property-base-url")
+        } finally {
+            System.clearProperty("testBaseURL")
+        }
+    }
+
+    @Test
+    fun `should construct test base url from host and port when properties are set`() {
+        val config = SpecmaticConfig(version = SpecmaticConfigVersion.VERSION_2, test = TestConfiguration())
+        try {
+            System.setProperty("host", "property-host")
+            System.setProperty("port", "1234")
+
+            assertThat(config.getTestBaseUrl()).isEqualTo("http://property-host:1234")
+        } finally {
+            System.clearProperty("host")
+            System.clearProperty("port")
+        }
+    }
+
+    @Test
+    fun `should use protocol when constructing test base url from properties`() {
+        val config = SpecmaticConfig(version = SpecmaticConfigVersion.VERSION_2, test = TestConfiguration())
+        try {
+            System.setProperty("host", "property-host")
+            System.setProperty("port", "1234")
+            System.setProperty("protocol", "https")
+
+            assertThat(config.getTestBaseUrl()).isEqualTo("https://property-host:1234")
+        } finally {
+            System.clearProperty("host")
+            System.clearProperty("port")
+            System.clearProperty("protocol")
+        }
+    }
+
+    @Test
+    fun `should prefer v2 swagger UI base url from config over system properties`() {
+        val config = SpecmaticConfig(
+            version = SpecmaticConfigVersion.VERSION_2,
+            test = TestConfiguration(swaggerUIBaseURL = "http://config-swagger-ui")
+        )
+        try {
+            System.setProperty("swaggerUIBaseURL", "http://property-swagger-ui")
+
+            assertThat(config.getTestSwaggerUIBaseUrl()).isEqualTo("http://config-swagger-ui")
+        } finally {
+            System.clearProperty("swaggerUIBaseURL")
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("testFilterPropertyCases")
+    fun `should prefer v2 test config over system properties for test filter fields`(case: TestFilterPropertyCase) {
+        val config = SpecmaticConfig(
+            version = SpecmaticConfigVersion.VERSION_2,
+            test = TestConfiguration(
+                filterName = "config-filter-name",
+                filterNotName = "config-filter-not-name",
+                overlayFilePath = "config-overlay-file-path",
+            )
+        )
+        try {
+            System.setProperty(case.propertyName, case.systemPropertyValue)
+
+            assertThat(getTestFilterField(config, case.propertyName)).isEqualTo(case.configValue)
+        } finally {
+            System.clearProperty(case.propertyName)
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("testFilterPropertyCases")
+    fun `should fall back to system properties for test filter fields when v2 config is missing`(case: TestFilterPropertyCase) {
+        val config = SpecmaticConfig(
+            version = SpecmaticConfigVersion.VERSION_2,
+            test = TestConfiguration()
+        )
+        try {
+            System.setProperty(case.propertyName, case.systemPropertyValue)
+
+            assertThat(getTestFilterField(config, case.propertyName)).isEqualTo(case.systemPropertyValue)
+        } finally {
+            System.clearProperty(case.propertyName)
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("testFilterPropertyCases")
+    fun `should fall back to system properties for test filter fields when config is v1`(case: TestFilterPropertyCase) {
+        val config = SpecmaticConfig(
+            version = SpecmaticConfigVersion.VERSION_1,
+            test = TestConfiguration(
+                filterName = "config-filter-name",
+                filterNotName = "config-filter-not-name",
+                overlayFilePath = "config-overlay-file-path",
+            )
+        )
+        try {
+            System.setProperty(case.propertyName, case.systemPropertyValue)
+
+            assertThat(getTestFilterField(config, case.propertyName)).isEqualTo(case.systemPropertyValue)
+        } finally {
+            System.clearProperty(case.propertyName)
+        }
+    }
+
+    @Test
+    fun `should handle null values gracefully`() {
+        val config = SpecmaticConfig(
+            test = TestConfiguration(
+                strictMode = null,
+                lenientMode = null,
+                parallelism = null
+            ),
+            stub = StubConfiguration()
+        )
+
+        // Should return null or fallback values, not throw
+        assertThat(config.getTestStrictMode()).isNull()
+        assertThat(config.getTestLenientMode()).isNull()
+        assertThat(config.getTestParallelism()).isNull()
     }
 
     @Test
@@ -744,7 +971,7 @@ internal class SpecmaticConfigKtTest {
 
             assertThat(exception.originalMessage).isEqualToNormalizingWhitespace("""   
             Unknown fields: url, scheme
-            Allowed fields: baseUrl, host, port, basePath, specs
+            Allowed fields: baseUrl, host, port, basePath, specs 
             """.trimIndent())
         }
 
@@ -861,7 +1088,7 @@ internal class SpecmaticConfigKtTest {
 
             assertThat(exception.originalMessage).isEqualToNormalizingWhitespace("""
             Unknown fields: resiliencyTests
-            Allowed fields: baseUrl, host, port, basePath, specs
+            Allowed fields: baseUrl, host, port, basePath, specs 
             """.trimIndent())
         }
 
@@ -1550,5 +1777,47 @@ internal class SpecmaticConfigKtTest {
 
             return withDefaultBaseUrls.plus(withCustomBaseUrlCases).plus(baseUrlWithBasePath).plus(partialUrlWithMultipleValues).stream()
         }
+
+        @JvmStatic
+        fun testFilterPropertyCases(): Stream<Arguments> {
+            return Stream.of(
+                Arguments.of(
+                    TestFilterPropertyCase(
+                        propertyName = "filterName",
+                        configValue = "config-filter-name",
+                        systemPropertyValue = "property-filter-name"
+                    )
+                ),
+                Arguments.of(
+                    TestFilterPropertyCase(
+                        propertyName = "filterNotName",
+                        configValue = "config-filter-not-name",
+                        systemPropertyValue = "property-filter-not-name"
+                    )
+                ),
+                Arguments.of(
+                    TestFilterPropertyCase(
+                        propertyName = "overlayFilePath",
+                        configValue = "config-overlay-file-path",
+                        systemPropertyValue = "property-overlay-file-path"
+                    )
+                )
+            )
+        }
+
     }
+
+    private fun getTestFilterField(config: SpecmaticConfig, propertyName: String): String? =
+        when (propertyName) {
+            "filterName" -> config.getTestFilterName()
+            "filterNotName" -> config.getTestFilterNotName()
+            "overlayFilePath" -> config.getTestOverlayFilePath()
+            else -> error("Unknown test filter field: $propertyName")
+        }
+
+    data class TestFilterPropertyCase(
+        val propertyName: String,
+        val configValue: String,
+        val systemPropertyValue: String
+    )
 }

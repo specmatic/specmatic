@@ -1,11 +1,11 @@
 package application.mcp
 
+import io.specmatic.core.config.McpTransport
 import io.specmatic.core.examples.module.FAILURE_EXIT_CODE
+import io.specmatic.core.loadSpecmaticConfigIfAvailableElseDefault
+import io.specmatic.core.pattern.ContractException
 import io.specmatic.license.core.cli.Category
-import io.specmatic.mcp.constants.BASE_URL
-import io.specmatic.mcp.constants.TRANSPORT_KIND
 import io.specmatic.mcp.test.McpAutoTest
-import io.specmatic.mcp.test.McpTransport
 import java.io.File
 import java.util.concurrent.Callable
 import kotlinx.coroutines.runBlocking
@@ -18,28 +18,23 @@ import picocli.CommandLine.Option
     description = ["Runs auto tests against a mcp server"]
 )
 @Category("AI Assisted Contract Programming")
-class McpTestCommand : Callable<Int> {
-    @Option(
-        names = ["--url"],
-        description = ["URL of the mcp server"],
-        required = true,
-    )
-    lateinit var baseUrl: String
+open class McpTestCommand : Callable<Int> {
+    @Option(names = ["--url"], description = ["URL of the mcp server"], required = false)
+    var baseUrl: String? = null
 
     @Option(
         names = ["--transport-kind"],
         description = ["Kind of transport mechanism being used by the mcp server. Valid values: \${COMPLETION-CANDIDATES}"],
         required = false
     )
-    var transportKind: McpTransport = McpTransport.STREAMABLE_HTTP
+    var transportKind: McpTransport? = null
 
     @Option(
         names = ["--enable-resiliency-tests"],
         description = ["Run resiliency tests"],
-        required = false,
-        defaultValue = "false"
+        required = false
     )
-    var enableResiliencyTests: Boolean? = false
+    var enableResiliencyTests: Boolean? = null
 
     @Option(
         names = ["--dictionary-file"],
@@ -52,7 +47,6 @@ class McpTestCommand : Callable<Int> {
         description = ["Bearer Access Token"],
     )
     var bearerToken: String? = null
-
 
     @Option(
         names = ["--filter-tools"],
@@ -71,26 +65,24 @@ class McpTestCommand : Callable<Int> {
     @Option(
         names = ["--verbose", "-v"],
         description = ["Enable verbose logging"],
-        defaultValue = "false"
     )
-    var verbose: Boolean = false
+    var verbose: Boolean? = null
+
+    private val specmaticConfig = loadSpecmaticConfigIfAvailableElseDefault()
+    private val mcpConfig = specmaticConfig.getMcpConfiguration()
 
     override fun call(): Int {
         McpBaseCommand.configureLogger(verbose)
         try {
-            System.setProperty(BASE_URL, baseUrl)
-            System.setProperty(TRANSPORT_KIND, transportKind.name)
-            var exitCode = 0
-
-            runBlocking {
-                exitCode = McpAutoTest(
-                    baseUrl = baseUrl,
-                    transport = transportKind,
-                    enableResiliency = enableResiliencyTests == true,
-                    dictionaryFile = dictionaryFile,
-                    bearerToken = bearerToken,
-                    filterTools = filterTools.toSet(),
-                    skipTools = skipTools.toSet()
+            val exitCode: Int = runBlocking {
+                createAutoTest(
+                    baseUrl = effectiveBaseUrl(),
+                    transport = effectiveTransport(),
+                    enableResiliency = effectiveEnableResiliency(),
+                    dictionaryFile = effectiveDictionaryFile(),
+                    bearerToken = effectiveBearerToken(),
+                    filterTools = effectiveFilterTools(),
+                    skipTools = effectiveSkipTools()
                 ).run()
             }
             return exitCode
@@ -99,4 +91,40 @@ class McpTestCommand : Callable<Int> {
             return FAILURE_EXIT_CODE
         }
     }
+
+    protected open fun createAutoTest(
+        baseUrl: String,
+        transport: McpTransport,
+        enableResiliency: Boolean,
+        dictionaryFile: File?,
+        bearerToken: String?,
+        filterTools: Set<String>,
+        skipTools: Set<String>
+    ): McpAutoTest = McpAutoTest(baseUrl, transport, enableResiliency, dictionaryFile, bearerToken, filterTools, skipTools)
+
+    private fun effectiveTransport(): McpTransport {
+        if (transportKind != null) return transportKind as McpTransport
+        if (mcpConfig?.test?.transportKind != null) return mcpConfig.test.transportKind as McpTransport
+        throw ContractException("Please provide transportKind through CLI arguments or Specmatic Config")
+    }
+
+    private fun effectiveBaseUrl(): String {
+        if (baseUrl != null) return baseUrl as String
+        if (mcpConfig?.test?.baseUrl != null) return mcpConfig.test.baseUrl
+        throw ContractException("Please provide baseUrl through CLI arguments or Specmatic Config")
+    }
+
+    private fun effectiveFilterTools(): Set<String> = buildSet {
+        mcpConfig?.test?.filterTools?.let { addAll(it) }
+        if (filterTools.isNotEmpty()) addAll(filterTools)
+    }
+
+    private fun effectiveSkipTools(): Set<String> = buildSet {
+        mcpConfig?.test?.skipTools?.let { addAll(it) }
+        if (skipTools.isNotEmpty()) addAll(skipTools)
+    }
+
+    private fun effectiveEnableResiliency(): Boolean = enableResiliencyTests ?: mcpConfig?.test?.enableResiliencyTests ?: false
+    private fun effectiveDictionaryFile(): File? = dictionaryFile ?: mcpConfig?.test?.dictionaryFile
+    private fun effectiveBearerToken(): String? = bearerToken ?: mcpConfig?.test?.bearerToken
 }

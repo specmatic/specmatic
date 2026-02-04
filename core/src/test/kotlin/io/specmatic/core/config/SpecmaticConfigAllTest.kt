@@ -657,6 +657,20 @@ internal class SpecmaticConfigAllTest {
     }
 
     @Test
+    fun `should deserialize tests directory in SpecmaticConfig successfully`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml")
+        val configYaml = """
+            test:
+                testsDirectory: examples/tests
+        """.trimIndent()
+        configFile.writeText(configYaml)
+
+        val specmaticConfig = configFile.toSpecmaticConfig()
+
+        assertThat(specmaticConfig.getTestsDirectory()).isEqualTo("examples/tests")
+    }
+
+    @Test
     fun `should convert config from v1 to v2 when test configuration is present`() {
         val configYaml = """
             test:
@@ -721,6 +735,20 @@ internal class SpecmaticConfigAllTest {
             assertThat(getStubDictionary()).isEqualTo("stubDictionary")
             assertThat(getStubIncludeMandatoryAndRequestedKeysInResponse()).isTrue()
         }
+    }
+
+    @Test
+    fun `should deserialize custom implicit stub base in SpecmaticConfig successfully`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml")
+        val configYaml = """
+            stub:
+                customImplicitStubBase: stub-data
+        """.trimIndent()
+        configFile.writeText(configYaml)
+
+        val specmaticConfig = configFile.toSpecmaticConfig()
+
+        assertThat(specmaticConfig.getCustomImplicitStubBase()).isEqualTo("stub-data")
     }
 
     @Test
@@ -1043,7 +1071,8 @@ internal class SpecmaticConfigAllTest {
                 branchName = "1.0.1",
                 testContracts = listOf("com/petstore/1.yaml").toContractSourceEntries(),
                 stubContracts = listOf("com/petstore/payment.yaml").toContractSourceEntries(),
-                type = git.name
+                type = git.name,
+                specmaticConfig = config
             ),
             LocalFileSystemSource(
                 directory = "contracts",
@@ -1072,7 +1101,8 @@ internal class SpecmaticConfigAllTest {
                 branchName = "1.0.1",
                 testContracts = listOf("com/petstore/1.yaml").toContractSourceEntries(),
                 stubContracts = listOf("com/petstore/payment.yaml").toContractSourceEntries(),
-                type = git.name
+                type = git.name,
+                specmaticConfig = config
             ),
             LocalFileSystemSource(
                 directory = "contracts",
@@ -1087,6 +1117,221 @@ internal class SpecmaticConfigAllTest {
 
         assertThat(contractSources[0]).isEqualTo(expectedContractSources[0])
         assertThat(contractSources[1]).isEqualTo(expectedContractSources[1])
+    }
+
+    @Test
+    fun `should deserialize all test configuration properties successfully`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml")
+        val configYaml = """
+            version: 2
+            test:
+                strictMode: true
+                lenientMode: false
+                parallelism: "dynamic"
+                maxTestCount: 100
+                maxTestRequestCombinations: 50
+                testsDirectory: build/test-results
+        """.trimIndent()
+        configFile.writeText(configYaml)
+
+        val config = configFile.toSpecmaticConfig()
+
+        assertThat(config.getTestStrictMode()).isTrue()
+        assertThat(config.getTestLenientMode()).isFalse()
+        assertThat(config.getTestParallelism()).isEqualTo("dynamic")
+        assertThat(config.getMaxTestCount()).isEqualTo(100)
+        assertThat(config.getMaxTestRequestCombinations()).isEqualTo(50)
+        assertThat(config.getTestsDirectory()).isEqualTo("build/test-results")
+    }
+
+    @Test
+    fun `should deserialize junit report dir from v2 test configuration`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml")
+        val configYaml = """
+            version: 2
+            test:
+                junitReportDir: build/junit
+        """.trimIndent()
+        configFile.writeText(configYaml)
+
+        val config = configFile.toSpecmaticConfig()
+
+        assertThat(config.getTestJunitReportDir()).isEqualTo("build/junit")
+    }
+
+    @Test
+    fun `should ignore junit report dir in v1 config`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml")
+        val configYaml = """
+            test:
+                junitReportDir: build/junit
+        """.trimIndent()
+        configFile.writeText(configYaml)
+
+        val config = configFile.toSpecmaticConfig()
+
+        assertThat(config.getTestJunitReportDir()).isNull()
+    }
+
+    @Test
+    fun `should use config test filter over system property`(@TempDir tempDir: File) {
+        System.setProperty("filter", "status==200")
+
+        try {
+            val configFile = tempDir.resolve("specmatic.yaml")
+            val configYaml = """
+                version: 2
+                test:
+                    filter: status==400
+            """.trimIndent()
+            configFile.writeText(configYaml)
+
+            val config = configFile.toSpecmaticConfig()
+
+            assertThat(config.getTestFilter()).isEqualTo("status==400")
+        } finally {
+            System.clearProperty("filter")
+        }
+    }
+
+    @Test
+    fun `should fall back to system property when test filter is missing`(@TempDir tempDir: File) {
+        System.setProperty("filter", "status==200")
+
+        try {
+            val configFile = tempDir.resolve("specmatic.yaml")
+            val configYaml = """
+                version: 2
+                test:
+                    strictMode: true
+            """.trimIndent()
+            configFile.writeText(configYaml)
+
+            val config = configFile.toSpecmaticConfig()
+
+            assertThat(config.getTestFilter()).isEqualTo("status==200")
+        } finally {
+            System.clearProperty("filter")
+        }
+    }
+
+    @Test
+    fun `should deserialize stub configuration properties successfully`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml")
+        val configYaml = """
+            version: 2
+            stub:
+                baseUrl: http://localhost:9000
+                customImplicitStubBase: custom-stubs
+        """.trimIndent()
+        configFile.writeText(configYaml)
+
+        val config = configFile.toSpecmaticConfig()
+
+        assertThat(config.getDefaultBaseUrl()).isEqualTo("http://localhost:9000")
+        assertThat(config.getCustomImplicitStubBase()).isEqualTo("custom-stubs")
+    }
+
+    @Test
+    fun `should deserialize v2-only top-level properties successfully`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml")
+        val configYaml = """
+            version: 2
+            fuzzy: true
+            escapeSoapAction: false
+            prettyPrint: false
+            ignoreInlineExampleWarnings: true
+        """.trimIndent()
+        configFile.writeText(configYaml)
+
+        val config = configFile.toSpecmaticConfig()
+
+        assertThat(config.getFuzzyMatchingEnabled()).isTrue()
+        assertThat(config.getEscapeSoapAction()).isFalse()
+        assertThat(config.getPrettyPrint()).isFalse()
+        assertThat(config.getIgnoreInlineExampleWarnings()).isTrue()
+    }
+
+    @Test
+    fun `config file test properties should take precedence over system properties`(@TempDir tempDir: File) {
+        val properties = mapOf(
+            io.specmatic.core.utilities.Flags.TEST_STRICT_MODE to "false",
+            io.specmatic.core.utilities.Flags.SPECMATIC_TEST_PARALLELISM to "same_thread",
+            io.specmatic.core.utilities.Flags.MAX_TEST_COUNT to "50"
+        )
+
+        try {
+            properties.forEach { System.setProperty(it.key, it.value) }
+
+            val configFile = tempDir.resolve("specmatic.yaml")
+            val configYaml = """
+                version: 2
+                test:
+                    strictMode: true
+                    parallelism: "dynamic"
+                    maxTestCount: 200
+            """.trimIndent()
+            configFile.writeText(configYaml)
+
+            val config = configFile.toSpecmaticConfig()
+
+            // Config file values should win
+            assertThat(config.getTestStrictMode()).isTrue()
+            assertThat(config.getTestParallelism()).isEqualTo("dynamic")
+            assertThat(config.getMaxTestCount()).isEqualTo(200)
+        } finally {
+            properties.forEach { System.clearProperty(it.key) }
+        }
+    }
+
+    @Test
+    fun `config file stub properties should take precedence over system properties`(@TempDir tempDir: File) {
+        System.setProperty(io.specmatic.core.utilities.Flags.SPECMATIC_BASE_URL, "http://localhost:7000")
+
+        try {
+            val configFile = tempDir.resolve("specmatic.yaml")
+            val configYaml = """
+                version: 2
+                stub:
+                    baseUrl: http://localhost:9000
+            """.trimIndent()
+            configFile.writeText(configYaml)
+
+            val config = configFile.toSpecmaticConfig()
+
+            // Config file value should win
+            assertThat(config.getDefaultBaseUrl()).isEqualTo("http://localhost:9000")
+        } finally {
+            System.clearProperty(io.specmatic.core.utilities.Flags.SPECMATIC_BASE_URL)
+        }
+    }
+
+    @Test
+    fun `config file v2 properties should take precedence over system properties`(@TempDir tempDir: File) {
+        val properties = mapOf(
+            io.specmatic.core.utilities.Flags.SPECMATIC_FUZZY to "false",
+            io.specmatic.core.utilities.Flags.SPECMATIC_PRETTY_PRINT to "true"
+        )
+
+        try {
+            properties.forEach { System.setProperty(it.key, it.value) }
+
+            val configFile = tempDir.resolve("specmatic.yaml")
+            val configYaml = """
+                version: 2
+                fuzzy: true
+                prettyPrint: false
+            """.trimIndent()
+            configFile.writeText(configYaml)
+
+            val config = configFile.toSpecmaticConfig()
+
+            // Config file values should win
+            assertThat(config.getFuzzyMatchingEnabled()).isTrue()
+            assertThat(config.getPrettyPrint()).isFalse()
+        } finally {
+            properties.forEach { System.clearProperty(it.key) }
+        }
     }
 
     @Test
@@ -1184,7 +1429,7 @@ internal class SpecmaticConfigAllTest {
 
         val reportDirPath = specmaticConfig.getReportDirPath("mcp")
 
-        assertThat(reportDirPath.toString()).isEqualTo("build${File.separator}reports${File.separator}specmatic")
+        assertThat(reportDirPath.toString()).isEqualTo("build${File.separator}reports${File.separator}specmatic${File.separator}mcp")
     }
 
 }

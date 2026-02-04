@@ -3,8 +3,10 @@ package application
 import io.mockk.every
 import io.mockk.mockk
 import io.specmatic.core.Feature
+import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.WorkingDirectory
 import io.specmatic.stub.HttpClientFactory
+import io.specmatic.stub.SpecmaticConfigSource
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -16,12 +18,13 @@ class HTTPStubEngineTest {
                 stubs = paths.map { it.toMockkFeature() to emptyList() },
                 host = "0.0.0.0",
                 port = 9000,
-                certInfo = CertInfo(),
+                keyData = null,
                 strictMode = false,
                 httpClientFactory = HttpClientFactory(),
                 workingDirectory = WorkingDirectory(),
                 gracefulRestartTimeoutInMs = 0,
-                specToBaseUrlMap = specToBaseUrlMap
+                specToBaseUrlMap = specToBaseUrlMap,
+                specmaticConfigSource = SpecmaticConfigSource.fromConfig(SpecmaticConfig()),
             ).close()
         }
 

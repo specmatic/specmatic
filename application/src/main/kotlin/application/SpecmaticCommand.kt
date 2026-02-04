@@ -2,6 +2,7 @@ package application
 
 import application.backwardCompatibility.BackwardCompatibilityCheckCommandV2
 import application.mcp.McpBaseCommand
+import application.validate.ValidateCommand
 import io.specmatic.license.core.cli.CliConfigurer
 import io.specmatic.reporter.commands.ReporterSubcommands
 import picocli.CommandLine
@@ -34,6 +35,7 @@ object SpecmaticCoreSubcommands : CliConfigurer {
         TestCommand(),
         ConfigCommand(),
         McpBaseCommand(),
+        ValidateCommand(),
         *ReporterSubcommands.subcommands(),
     )
 }

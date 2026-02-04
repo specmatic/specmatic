@@ -34,8 +34,6 @@ import io.specmatic.core.pattern.returnValue
 import io.specmatic.core.pattern.singleLineDescription
 import io.specmatic.core.pattern.withOptionality
 import io.specmatic.core.pattern.withoutOptionality
-import io.specmatic.core.utilities.Flags
-import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_QUERY_PARAMS
 import io.specmatic.core.value.EmptyString
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
@@ -339,7 +337,7 @@ data class HttpRequestPattern(
         val (httpRequest, resolver, failures) = parameters
 
         val updatedResolver =
-            if(Flags.getBooleanValue(EXTENSIBLE_QUERY_PARAMS))
+            if (httpQueryParamPattern.extensibleQueryParams)
                 resolver.copy(findKeyErrorCheck = resolver.findKeyErrorCheck.withUnexpectedKeyCheck(IgnoreUnexpectedKeys))
             else
                 resolver
@@ -369,7 +367,13 @@ data class HttpRequestPattern(
                 val path = request.path ?: ""
                 val pathTypes = pathToPattern(path)
                 val queryParamTypes = toTypeMapForQueryParameters(request.queryParams, httpQueryParamPattern, resolver)
-                requestPattern.copy(httpPathPattern = HttpPathPattern(pathTypes, path), httpQueryParamPattern = HttpQueryParamPattern(queryParamTypes))
+                requestPattern.copy(
+                    httpPathPattern = HttpPathPattern(pathTypes, path),
+                    httpQueryParamPattern = HttpQueryParamPattern(
+                        queryParamTypes,
+                        extensibleQueryParams = httpQueryParamPattern.extensibleQueryParams
+                    )
+                )
             }
 
             requestPattern = attempt(breadCrumb = BreadCrumb.PARAM_HEADER.value) {
@@ -501,7 +505,7 @@ data class HttpRequestPattern(
                 throw ContractException(matchResult.toFailureReport())
 
             unaccountedQueryParamsToMap(paramsUnaccountedFor)
-        } else if(Flags.getBooleanValue(EXTENSIBLE_QUERY_PARAMS)) {
+        } else if (httpQueryParamPattern.extensibleQueryParams) {
             unaccountedQueryParamsToMap(paramsUnaccountedFor)
         } else {
             emptyMap()

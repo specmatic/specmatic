@@ -207,6 +207,7 @@ class HttpStub(
 
     private val loadedSpecmaticConfig = specmaticConfigSource.load()
     private val specmaticConfigInstance: SpecmaticConfig = loadedSpecmaticConfig.config
+    private val prettyPrint = specmaticConfigInstance.getPrettyPrint()
     val specmaticConfigPath: String? = loadedSpecmaticConfig.path
 
     private val ctrfTestResultRecords = mutableListOf<TestResultRecord>()
@@ -297,7 +298,10 @@ class HttpStub(
             configure(CORS)
 
             intercept(ApplicationCallPipeline.Call) {
-                val httpLogMessage = HttpLogMessage(targetServer = "port '${call.request.local.localPort}'")
+                val httpLogMessage = HttpLogMessage(
+                    targetServer = "port '${call.request.local.localPort}'",
+                    prettyPrint = prettyPrint,
+                )
                 var transformedResponse: HttpResponse? = null
                 var responseErrors: List<InterceptorError> = emptyList()
 
@@ -327,7 +331,7 @@ class HttpStub(
                         logger.log("")
                         logger.log("--------------------")
                         logger.log("Request before hook processing:")
-                        logger.log(rawHttpRequest.toLogString().prependIndent("  "))
+                        logger.log(rawHttpRequest.toLogString(prettyPrint = prettyPrint).prependIndent("  "))
                     }
 
                     // Log request hook responseInterceeptorErrors if any occurred
@@ -416,7 +420,7 @@ class HttpStub(
                     logger.log("")
                     logger.log("--------------------")
                     logger.log("Response after hook processing:")
-                    logger.log(it.toLogString().prependIndent("  "))
+                    logger.log(it.toLogString(prettyPrint = prettyPrint).prependIndent("  "))
                 }
 
                 // Log response hook errors if any occurred
@@ -745,7 +749,7 @@ class HttpStub(
             val sseEvent: SseEvent? = ObjectMapper().readValue(httpRequest.bodyString, SseEvent::class.java)
 
             if (sseEvent == null) {
-                logger.debug("No Sse Event was found in the request:\n${httpRequest.toLogString("  ")}")
+                logger.debug("No Sse Event was found in the request:\n${httpRequest.toLogString("  ", prettyPrint)}")
             } else if (sseEvent.bufferIndex == null) {
                 logger.debug("Broadcasting event: $sseEvent")
 
@@ -835,6 +839,7 @@ class HttpStub(
     }
 
     override fun close() {
+        logger.debug("Stopping the server with grace period of $timeoutMillis")
         server.stop(gracePeriodMillis = timeoutMillis, timeoutMillis = timeoutMillis)
         val protocols = features.map { it.protocol }.distinct()
         if (SpecmaticProtocol.HTTP in protocols) generateReports()
@@ -842,16 +847,15 @@ class HttpStub(
 
     private fun generateReports() {
         generateStubUsageReport()
-        val specmaticConfig = loadSpecmaticConfigOrDefault(specmaticConfigPath)
         synchronized(ctrfTestResultRecords) {
             ctrfTestResultRecords.addAll(notCoveredTestResultRecords())
             ReportGenerator.generateReport(
                 testResultRecords = ctrfTestResultRecords,
                 startTime = startTime.toEpochMilli(),
                 endTime = Instant.now().toEpochMilli(),
-                specConfigs = ctrfSpecConfigsFrom(specmaticConfig, ctrfTestResultRecords),
+                specConfigs = ctrfSpecConfigsFrom(specmaticConfigInstance, ctrfTestResultRecords),
                 coverage = 0,
-                reportDir = File("${specmaticConfig.getReportDirPath()}/stub")
+                reportDir = File("${specmaticConfigInstance.getReportDirPath()}/stub")
             )
             { ctrfTestResultRecords ->
                 ctrfTestResultRecords.filterIsInstance<TestResultRecord>().getCoverageStatus()
@@ -1552,11 +1556,11 @@ fun internalServerError(errorMessage: String?): HttpResponse {
     )
 }
 
-internal fun httpResponseLog(response: HttpResponse): String =
-    "${response.toLogString("<- ")}\n<< Response At ${Date()} == "
+internal fun httpResponseLog(response: HttpResponse, prettyPrint: Boolean = true): String =
+    "${response.toLogString("<- ", prettyPrint)}\n<< Response At ${Date()} == "
 
-internal fun httpRequestLog(httpRequest: HttpRequest): String =
-    ">> Request Start At ${Date()}\n${httpRequest.toLogString("-> ")}"
+internal fun httpRequestLog(httpRequest: HttpRequest, prettyPrint: Boolean = true): String =
+    ">> Request Start At ${Date()}\n${httpRequest.toLogString("-> ", prettyPrint)}"
 
 fun endPointFromHostAndPort(host: String, port: Int?, keyData: KeyData?): String {
     val protocol = when (keyData) {

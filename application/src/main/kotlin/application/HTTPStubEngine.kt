@@ -1,8 +1,8 @@
 package application
 
 import io.specmatic.core.Feature
+import io.specmatic.core.KeyData
 import io.specmatic.core.WorkingDirectory
-import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.log.consoleLog
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpClientFactory
@@ -16,18 +16,16 @@ class HTTPStubEngine {
         stubs: List<Pair<Feature, List<ScenarioStub>>>,
         host: String,
         port: Int,
-        certInfo: CertInfo,
+        keyData: KeyData?,
         strictMode: Boolean,
         passThroughTargetBase: String = "",
-        specmaticConfigPath: String? = null,
+        specmaticConfigSource: SpecmaticConfigSource,
         httpClientFactory: HttpClientFactory,
         workingDirectory: WorkingDirectory,
         gracefulRestartTimeoutInMs: Long,
         specToBaseUrlMap: Map<String, String?>,
         listeners: List<MockEventListener> = emptyList()
     ): HttpStub {
-        val keyData = certInfo.getHttpsCert()
-
         return HttpStub(
             features = stubs.map { it.first },
             rawHttpStubs = contractInfoToHttpExpectations(stubs),
@@ -39,7 +37,7 @@ class HTTPStubEngine {
             passThroughTargetBase = passThroughTargetBase,
             httpClientFactory = httpClientFactory,
             workingDirectory = workingDirectory,
-            specmaticConfigSource = SpecmaticConfigSource.fromPath(specmaticConfigPath ?: getConfigFilePath()),
+            specmaticConfigSource = specmaticConfigSource,
             timeoutMillis = gracefulRestartTimeoutInMs,
             specToStubBaseUrlMap = specToBaseUrlMap,
             listeners = listeners

@@ -11,17 +11,25 @@ import io.specmatic.core.Configuration.Companion.DEFAULT_BASE_URL
 import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.ResiliencyTestsConfig
 import io.specmatic.core.utilities.Flags
+import java.io.File
 import java.net.URI
 
 sealed class SpecExecutionConfig {
-    data class StringValue(@get:JsonValue val value: String) : SpecExecutionConfig()
+    data class StringValue(@get:JsonValue val value: String) : SpecExecutionConfig() {
+        override fun resolveAgainst(baseDirectory: File): SpecExecutionConfig {
+            return StringValue(baseDirectory.resolve(value).canonicalPath)
+        }
+    }
+
     sealed class ObjectValue : SpecExecutionConfig() {
         abstract val specs: List<String>
         abstract val resiliencyTests: ResiliencyTestsConfig?
-        private val defaultBaseUrl: URI get() = URI(Flags.getStringValue(Flags.SPECMATIC_BASE_URL) ?: DEFAULT_BASE_URL)
 
         fun toBaseUrl(defaultBaseUrl: String? = null): String {
-            val baseUrl = defaultBaseUrl?.let(::URI) ?: this.defaultBaseUrl
+            val resolvedBaseUrl = defaultBaseUrl
+                ?: Flags.getStringValue(Flags.SPECMATIC_BASE_URL)
+                ?: DEFAULT_BASE_URL
+            val baseUrl = URI(resolvedBaseUrl)
             return toUrl(baseUrl).toString()
         }
 
@@ -30,9 +38,13 @@ sealed class SpecExecutionConfig {
         data class FullUrl(
             val baseUrl: String,
             override val specs: List<String>,
-            override val resiliencyTests: ResiliencyTestsConfig? = null
+            override val resiliencyTests: ResiliencyTestsConfig? = null,
         ) : ObjectValue() {
             override fun toUrl(default: URI) = URI(baseUrl)
+
+            override fun resolveAgainst(baseDirectory: File): SpecExecutionConfig {
+                return this.copy(specs = this.specs.map { baseDirectory.resolve(it).canonicalPath })
+            }
         }
 
         data class PartialUrl(
@@ -40,7 +52,7 @@ sealed class SpecExecutionConfig {
             val port: Int? = null,
             val basePath: String? = null,
             override val specs: List<String>,
-            override val resiliencyTests: ResiliencyTestsConfig? = null
+            override val resiliencyTests: ResiliencyTestsConfig? = null,
         ) : ObjectValue() {
             override fun toUrl(default: URI): URI {
                 return URI(
@@ -53,6 +65,10 @@ sealed class SpecExecutionConfig {
                     default.fragment
                 )
             }
+
+            override fun resolveAgainst(baseDirectory: File): SpecExecutionConfig {
+                return this.copy(specs = this.specs.map { baseDirectory.resolve(it).canonicalPath })
+            }
         }
     }
 
@@ -63,6 +79,10 @@ sealed class SpecExecutionConfig {
     ) : SpecExecutionConfig() {
         fun contains(specPath: String, specType: String): Boolean {
             return specPath in this.specs.toSet() && specType == this.specType
+        }
+
+        override fun resolveAgainst(baseDirectory: File): SpecExecutionConfig {
+            return this.copy(specs = this.specs.map { baseDirectory.resolve(it).canonicalPath })
         }
     }
 
@@ -83,17 +103,19 @@ sealed class SpecExecutionConfig {
     }
 
     @JsonIgnore
-    fun specToBaseUrlPairList(defaultBaseUrl: String?): List<Pair<String, String?>> {
+    fun specToBaseUrlPairList(defaultBaseUrl: String?, baseUrlFrom: (ConfigValue) -> String?): List<Pair<String, String?>> {
         return when (this) {
             is StringValue -> listOf(this.value to null)
             is ObjectValue -> this.specs.map { specPath ->
                 specPath to this.toBaseUrl(defaultBaseUrl)
             }
             is ConfigValue -> this.specs.map { specPath ->
-                specPath to null
+                specPath to baseUrlFrom(this)
             }
         }
     }
+
+    abstract fun resolveAgainst(baseDirectory: File): SpecExecutionConfig
 }
 
 class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeserializer<List<SpecExecutionConfig>>() {
@@ -119,13 +141,18 @@ class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeseriali
         val resiliencyTests = parseResiliencyTestsIfApplicable(p)
 
         return when {
-            has("baseUrl") -> SpecExecutionConfig.ObjectValue.FullUrl(get("baseUrl").asText(), specs, resiliencyTests)
+            has("baseUrl") -> SpecExecutionConfig.ObjectValue.FullUrl(
+                get("baseUrl").asText(),
+                specs,
+                resiliencyTests,
+            )
+
             else -> SpecExecutionConfig.ObjectValue.PartialUrl(
                 host = get("host")?.asText(),
                 port = get("port")?.asInt(),
                 basePath = get("basePath")?.asText(),
                 specs = specs,
-                resiliencyTests = resiliencyTests
+                resiliencyTests = resiliencyTests,
             )
         }
     }

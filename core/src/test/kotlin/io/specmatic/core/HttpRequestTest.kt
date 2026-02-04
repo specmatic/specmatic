@@ -17,7 +17,6 @@ import io.mockk.every
 import io.mockk.spyk
 import io.mockk.verify
 import io.specmatic.core.jsonoperator.value.ObjectValueOperator
-import io.specmatic.core.utilities.Flags
 import io.specmatic.core.value.*
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.MOCK_HTTP_REQUEST
@@ -364,14 +363,9 @@ internal class HttpRequestTest {
 
     @Test
     fun `should print request body in one line when flag is set to false`() {
-        try {
-            System.setProperty(Flags.SPECMATIC_PRETTY_PRINT, "false")
-            val request = HttpRequest("POST", "/", body = parsedJSONObject("""{"id": 10}"""))
-            assertThat(request.toLogString())
-                .contains("""{"id":10}""")
-        } finally {
-            System.clearProperty(Flags.SPECMATIC_PRETTY_PRINT)
-        }
+        val request = HttpRequest("POST", "/", body = parsedJSONObject("""{"id": 10}"""))
+        assertThat(request.toLogString(prettyPrint = false))
+            .contains("""{"id":10}""")
     }
 
     @ParameterizedTest

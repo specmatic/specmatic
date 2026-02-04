@@ -3,6 +3,7 @@ package io.specmatic.conversions
 import io.specmatic.core.APIKeySecuritySchemeConfiguration
 import io.specmatic.core.BearerSecuritySchemeConfiguration
 import io.specmatic.core.OAuth2SecuritySchemeConfiguration
+import io.specmatic.core.SpecmaticConfig
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -12,6 +13,7 @@ class SecurityTokenTest {
     fun `should extract security token for bearer security scheme from configuration`() {
         val token = "BEARER1234"
         val securityToken = getSecurityTokenForBearerScheme(
+            SpecmaticConfig(),
             BearerSecuritySchemeConfiguration("bearer", token),
             "BearerAuth",
         )
@@ -26,7 +28,7 @@ class SecurityTokenTest {
         tokenMap.forEach { System.setProperty(it.key, it.value) }
 
         try {
-            val securityToken = getSecurityTokenForBearerScheme( null, schemeName)
+            val securityToken = getSecurityTokenForBearerScheme(SpecmaticConfig(), null, schemeName)
             assertThat(securityToken).isEqualTo(token)
         } finally {
             tokenMap.forEach { System.clearProperty(it.key) }
@@ -34,7 +36,7 @@ class SecurityTokenTest {
     }
 
     @Test
-    fun `should pick up the security token from environment variable over the one defined in the configuration for bearer security scheme `() {
+    fun `should prefer the security token from configuration over the environment variable for bearer security scheme`() {
         val envToken = "ENV1234"
         val configToken = "CONFIG1234"
         val schemeName = "BearerAuth"
@@ -42,8 +44,12 @@ class SecurityTokenTest {
         tokenMap.forEach { System.setProperty(it.key, it.value) }
 
         try {
-            val securityToken = getSecurityTokenForBearerScheme(BearerSecuritySchemeConfiguration("bearer", configToken), schemeName)
-            assertThat(securityToken).isEqualTo(envToken)
+            val securityToken = getSecurityTokenForBearerScheme(
+                SpecmaticConfig(),
+                BearerSecuritySchemeConfiguration("bearer", configToken),
+                schemeName
+            )
+            assertThat(securityToken).isEqualTo(configToken)
         } finally {
             tokenMap.forEach { System.clearProperty(it.key) }
         }
@@ -53,6 +59,7 @@ class SecurityTokenTest {
     fun `should extract security token for oauth2 security scheme from configuration`() {
         val token = "OAUTH1234"
         val securityToken = getSecurityTokenForBearerScheme(
+            SpecmaticConfig(),
             OAuth2SecuritySchemeConfiguration("oauth2", token),
             "oAuth2AuthCode",
         )
@@ -67,7 +74,7 @@ class SecurityTokenTest {
         tokenMap.forEach { System.setProperty(it.key, it.value) }
 
         try {
-            val securityToken = getSecurityTokenForBearerScheme(null, schemeName)
+            val securityToken = getSecurityTokenForBearerScheme(SpecmaticConfig(), null, schemeName)
             assertThat(securityToken).isEqualTo(token)
         } finally {
             tokenMap.forEach { System.clearProperty(it.key) }
@@ -75,7 +82,7 @@ class SecurityTokenTest {
     }
 
     @Test
-    fun `should pick up the security token from environment variable over the one defined in the configuration for oauth2 security scheme `() {
+    fun `should prefer the security token from configuration over the environment variable for oauth2 security scheme`() {
         val envToken = "ENV1234"
         val configToken = "CONFIG1234"
         val schemeName = "oAuth2AuthCode"
@@ -83,8 +90,12 @@ class SecurityTokenTest {
         tokenMap.forEach { System.setProperty(it.key, it.value) }
 
         try {
-            val securityToken = getSecurityTokenForBearerScheme(OAuth2SecuritySchemeConfiguration("oauth2", configToken), schemeName)
-            assertThat(securityToken).isEqualTo(envToken)
+            val securityToken = getSecurityTokenForBearerScheme(
+                SpecmaticConfig(),
+                OAuth2SecuritySchemeConfiguration("oauth2", configToken),
+                schemeName
+            )
+            assertThat(securityToken).isEqualTo(configToken)
         } finally {
             tokenMap.forEach { System.clearProperty(it.key) }
         }
@@ -98,7 +109,7 @@ class SecurityTokenTest {
         tokenMap.forEach { System.setProperty(it.key, it.value) }
 
         try {
-            val securityToken = getSecurityTokenForBearerScheme(null, schemeName)
+            val securityToken = getSecurityTokenForBearerScheme(SpecmaticConfig(), null, schemeName)
             assertThat(securityToken).isEqualTo(envToken)
         } finally {
             tokenMap.forEach { System.clearProperty(it.key) }
@@ -106,9 +117,55 @@ class SecurityTokenTest {
     }
 
     @Test
+    fun `should prefer config then scheme env var then legacy env var for bearer scheme`() {
+        val configBearerToken = "CONFIG1234"
+        val schemeEnvBearerToken = "SCHEME_ENV_1234"
+        val legacyEnvBearerToken = "LEGACY_ENV_1234"
+        val schemeName = "oAuth2AuthCode"
+        val tokenMap = mapOf(
+            schemeName to schemeEnvBearerToken,
+            SPECMATIC_OAUTH2_TOKEN to legacyEnvBearerToken
+        )
+        tokenMap.forEach { System.setProperty(it.key, it.value) }
+
+        try {
+            val tokenFromConfigWhenEnvPresent = getSecurityTokenForBearerScheme(
+                SpecmaticConfig(),
+                OAuth2SecuritySchemeConfiguration("oauth2", configBearerToken),
+                schemeName
+            )
+            assertThat(tokenFromConfigWhenEnvPresent).isEqualTo(configBearerToken)
+
+            val tokenFromSchemeEnvWhenNoConfig = getSecurityTokenForBearerScheme(
+                SpecmaticConfig(),
+                null,
+                schemeName
+            )
+            assertThat(tokenFromSchemeEnvWhenNoConfig).isEqualTo(schemeEnvBearerToken)
+
+            tokenMap.forEach { System.clearProperty(it.key) }
+            System.setProperty(SPECMATIC_OAUTH2_TOKEN, legacyEnvBearerToken)
+
+            val tokenFromLegacyEnvWhenSchemeEnvMissing = getSecurityTokenForBearerScheme(
+                SpecmaticConfig(),
+                null,
+                schemeName
+            )
+            assertThat(tokenFromLegacyEnvWhenSchemeEnvMissing).isEqualTo(legacyEnvBearerToken)
+        } finally {
+            tokenMap.forEach { System.clearProperty(it.key) }
+            System.clearProperty(SPECMATIC_OAUTH2_TOKEN)
+        }
+    }
+
+    @Test
     fun `should extract security token for apikey security scheme from configuration`() {
         val token = "APIKEY1234"
-        val securityToken = getSecurityTokenForApiKeyScheme(APIKeySecuritySchemeConfiguration("apiKey", token), "ApiKeyAuthHeader")
+        val securityToken = getSecurityTokenForApiKeyScheme(
+            SpecmaticConfig(),
+            APIKeySecuritySchemeConfiguration("apiKey", token),
+            "ApiKeyAuthHeader"
+        )
         assertThat(securityToken).isEqualTo(token)
     }
 
@@ -120,7 +177,7 @@ class SecurityTokenTest {
         tokenMap.forEach { System.setProperty(it.key, it.value) }
 
         try {
-            val securityToken = getSecurityTokenForApiKeyScheme(null, schemeName)
+            val securityToken = getSecurityTokenForApiKeyScheme(SpecmaticConfig(), null, schemeName)
             assertThat(securityToken).isEqualTo(token)
         } finally {
             tokenMap.forEach { System.clearProperty(it.key) }
@@ -128,7 +185,7 @@ class SecurityTokenTest {
     }
 
     @Test
-    fun `should pick up the security token from environment variable over the one defined in the configuration for apikey security scheme `() {
+    fun `should prefer the security token from configuration over the environment variable for apikey security scheme`() {
         val envToken = "ENV1234"
         val configToken = "CONFIG1234"
         val schemeName = "ApiKeyAuthHeader"
@@ -136,8 +193,12 @@ class SecurityTokenTest {
         tokenMap.forEach { System.setProperty(it.key, it.value) }
 
         try {
-            val securityToken = getSecurityTokenForApiKeyScheme(APIKeySecuritySchemeConfiguration("apikey", configToken), schemeName)
-            assertThat(securityToken).isEqualTo(envToken)
+            val securityToken = getSecurityTokenForApiKeyScheme(
+                SpecmaticConfig(),
+                APIKeySecuritySchemeConfiguration("apikey", configToken),
+                schemeName
+            )
+            assertThat(securityToken).isEqualTo(configToken)
         } finally {
             tokenMap.forEach { System.clearProperty(it.key) }
         }

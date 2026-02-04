@@ -1,6 +1,6 @@
 package io.specmatic.mcp.test.client
 
-import io.specmatic.mcp.test.McpTransport
+import io.specmatic.core.config.McpTransport
 import io.specmatic.mcp.test.client.model.JsonRpcResponse
 import io.specmatic.mcp.test.client.model.Tool
 import io.specmatic.mcp.test.logWithTag

@@ -11,11 +11,16 @@ import io.specmatic.core.SpecmaticConfig.Companion.getStubConfigOrNull
 import io.specmatic.core.SpecmaticConfig.Companion.getWorkflowConfiguration
 import io.specmatic.core.SpecmaticConfig.Companion.getTestConfigOrNull
 import io.specmatic.core.SpecmaticConfig.Companion.getVirtualServiceConfigOrNull
+import io.specmatic.core.config.BackwardCompatibilityConfig
+import io.specmatic.core.config.LoggingConfiguration
+import io.specmatic.core.config.McpConfiguration
 import io.specmatic.core.config.SpecmaticConfigVersion
+import io.specmatic.core.config.SpecmaticGlobalSettings
 import io.specmatic.core.config.SpecmaticVersionedConfig
 import io.specmatic.core.config.SpecmaticVersionedConfigLoader
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
+import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
 import io.specmatic.core.utilities.Flags.Companion.getStringValue
 import java.nio.file.Path
 
@@ -32,11 +37,18 @@ data class SpecmaticConfigV2(
     val security: SecurityConfiguration? = null,
     val test: TestConfiguration? = null,
     val stub: StubConfiguration? = null,
+    private val backwardCompatibility: BackwardCompatibilityConfig? = null,
     @field:JsonAlias("virtual_service")
     val virtualService: VirtualServiceConfiguration? = null,
     val examples: List<String> = getStringValue(EXAMPLE_DIRECTORIES)?.split(",") ?: emptyList(),
     val workflow: WorkflowConfiguration? = null,
     val ignoreInlineExamples: Boolean? = null,
+    val ignoreInlineExampleWarnings: Boolean? = getBooleanValue(Flags.IGNORE_INLINE_EXAMPLE_WARNINGS),
+    val schemaExampleDefault: Boolean? = null,
+    val fuzzy: Boolean? = null,
+    val extensibleQueryParams: Boolean? = null,
+    val escapeSoapAction: Boolean? = null,
+    val prettyPrint: Boolean? = null,
     val additionalExampleParamsFilePath: String? = getStringValue(Flags.ADDITIONAL_EXAMPLE_PARAMS_FILE),
     @field:JsonAlias("attribute_selection_pattern")
     val attributeSelectionPattern: AttributeSelectionPattern? = null,
@@ -46,10 +58,13 @@ data class SpecmaticConfigV2(
     val defaultPatternValues: Map<String, Any> = emptyMap(),
     @field:JsonAlias("disable_telemetry")
     val disableTelemetry: Boolean? = null,
+    private val logging: LoggingConfiguration? = null,
+    private val mcp: McpConfiguration? = null,
     @field:JsonAlias("license_path")
     val licensePath: Path? = null,
     @field:JsonAlias("report_dir_path")
     val reportDirPath: Path? = null,
+    private val globalSettings: SpecmaticGlobalSettings? = null,
 ) : SpecmaticVersionedConfig {
     override fun transform(): SpecmaticConfig {
         return SpecmaticConfig(
@@ -65,17 +80,27 @@ data class SpecmaticConfigV2(
             security = this.security,
             test = this.test,
             stub = this.stub,
+            backwardCompatibility = this.backwardCompatibility,
             virtualService = this.virtualService,
             examples = this.examples,
             workflow = this.workflow,
             ignoreInlineExamples = this.ignoreInlineExamples,
+            ignoreInlineExampleWarnings = this.ignoreInlineExampleWarnings,
+            schemaExampleDefault = this.schemaExampleDefault,
+            fuzzy = this.fuzzy,
+            extensibleQueryParams = this.extensibleQueryParams,
+            escapeSoapAction = this.escapeSoapAction,
+            prettyPrint = this.prettyPrint,
             additionalExampleParamsFilePath = this.additionalExampleParamsFilePath,
             attributeSelectionPattern = this.attributeSelectionPattern,
             allPatternsMandatory = this.allPatternsMandatory,
             defaultPatternValues = this.defaultPatternValues,
             disableTelemetry = this.disableTelemetry,
+            logging = this.logging,
+            mcp = this.mcp,
             licensePath = this.licensePath,
-            reportDirPath = this.reportDirPath
+            reportDirPath = this.reportDirPath,
+            globalSettings = this.globalSettings
         )
     }
 
@@ -102,6 +127,12 @@ data class SpecmaticConfigV2(
                 examples = config.getExamples(),
                 workflow = getWorkflowConfiguration(config),
                 ignoreInlineExamples = SpecmaticConfig.getIgnoreInlineExamples(config),
+                ignoreInlineExampleWarnings = config.getIgnoreInlineExampleWarnings(),
+                schemaExampleDefault = config.getSchemaExampleDefault(),
+                fuzzy = config.getFuzzyMatchingEnabled(),
+                extensibleQueryParams = config.getExtensibleQueryParams(),
+                escapeSoapAction = config.getEscapeSoapAction(),
+                prettyPrint = config.getPrettyPrint(),
                 additionalExampleParamsFilePath = config.getAdditionalExampleParamsFilePath(),
                 attributeSelectionPattern = getAttributeSelectionConfigOrNull(config),
                 allPatternsMandatory = getAllPatternsMandatory(config),

@@ -10,8 +10,6 @@ import io.ktor.client.request.forms.*
 import io.ktor.http.*
 import io.ktor.http.content.*
 import io.specmatic.core.log.logger
-import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_PRETTY_PRINT
-import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
 import io.specmatic.core.utilities.URIUtils
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.FuzzyExampleJsonValidator
@@ -187,7 +185,7 @@ data class HttpRequest(
 
     fun setHeaders(addedHeaders: Map<String, String>): HttpRequest = copy(headers = headers.plus(addedHeaders))
 
-    fun toLogString(prefix: String = ""): String {
+    fun toLogString(prefix: String = "", prettyPrint: Boolean = true): String {
         val methodString = method ?: "NO_METHOD"
 
         val pathString = path ?: "NO_PATH"
@@ -204,7 +202,7 @@ data class HttpRequest(
             }
 
             else -> body.toString()
-        }.let { formatJson(it) }
+        }.let { formatJson(it, prettyPrint) }
 
         val firstPart = listOf(firstLine, headerString).joinToString("\n").trim()
         val requestString = listOf(firstPart, "", bodyString).joinToString("\n")
@@ -735,9 +733,5 @@ fun singleLineJson(json: String): String {
         .replace(Regex("\\s+"), " ") // Replace any remaining sequences of whitespace with a single space
 }
 
-fun formatJson(json: String): String {
-    return if (getBooleanValue(SPECMATIC_PRETTY_PRINT, true))
-        json
-    else
-        singleLineJson(json)
-}
+fun formatJson(json: String, prettyPrint: Boolean = true): String =
+    if (prettyPrint) json else singleLineJson(json)

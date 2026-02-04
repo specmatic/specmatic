@@ -5,7 +5,6 @@ import io.specmatic.core.filters.caseInsensitiveContains
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.*
 import io.specmatic.core.pattern.isOptional
-import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.withNullPattern
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
@@ -14,7 +13,8 @@ import io.specmatic.core.value.Value
 data class HttpHeadersPattern(
     val pattern: Map<String, Pattern> = emptyMap(),
     val ancestorHeaders: Map<String, Pattern>? = null,
-    val contentType: String? = null
+    val contentType: String? = null,
+    val preferEscapedSoapAction: Boolean = false
 ) {
     init {
         val uniqueHeaders = pattern.keys.map { it.lowercase() }.distinct()
@@ -278,7 +278,11 @@ data class HttpHeadersPattern(
             newMapBasedOn(pattern, row, withNullPattern(resolver))
         }.map { value: ReturnValue<Map<String, Pattern>> ->
             value.ifValue {
-                HttpHeadersPattern(it.mapKeys { entry -> withoutOptionality(entry.key) }, contentType = contentType)
+                HttpHeadersPattern(
+                    it.mapKeys { entry -> withoutOptionality(entry.key) },
+                    contentType = contentType,
+                    preferEscapedSoapAction = preferEscapedSoapAction
+                )
             }
         }
     }
@@ -322,7 +326,8 @@ data class HttpHeadersPattern(
             patternWithKeyCombinationDetailsFrom(patternMapR, HEADER_KEY_ID_IN_TEST_DETAILS) { patternMap ->
                 HttpHeadersPattern(
                     pattern = patternMap.mapKeys { withoutOptionality(it.key) }.plus(soapActionPattern),
-                    contentType = contentType
+                    contentType = contentType,
+                    preferEscapedSoapAction = preferEscapedSoapAction
                 )
             }
         }
@@ -338,7 +343,8 @@ data class HttpHeadersPattern(
             }).map { it.value }.map { patternMap ->
             HttpHeadersPattern(
                 patternMap.mapKeys { withoutOptionality(it.key) },
-                contentType = contentType
+                contentType = contentType,
+                preferEscapedSoapAction = preferEscapedSoapAction
             )
         }
 
@@ -389,7 +395,11 @@ data class HttpHeadersPattern(
             breadCrumb
         ).map { patternMapValue ->
             patternWithKeyCombinationDetailsFrom(patternMapValue, HEADER_KEY_ID_IN_TEST_DETAILS) { patternMap ->
-                HttpHeadersPattern(patternMap, contentType = contentType)
+                HttpHeadersPattern(
+                    patternMap,
+                    contentType = contentType,
+                    preferEscapedSoapAction = preferEscapedSoapAction
+                )
             }
         }
     }
@@ -407,7 +417,13 @@ data class HttpHeadersPattern(
         return attempt(breadCrumb = breadCrumb) {
             readFrom(this.pattern, row, resolver, generateMandatoryEntryIfMissing)
         }.map {
-            HasValue(HttpHeadersPattern(it, contentType = contentType))
+            HasValue(
+                HttpHeadersPattern(
+                    it,
+                    contentType = contentType,
+                    preferEscapedSoapAction = preferEscapedSoapAction
+                )
+            )
         }
     }
 
@@ -484,9 +500,8 @@ data class HttpHeadersPattern(
         val resolvedPattern = resolvedHop(soapActionPattern, resolver)
         if (resolvedPattern !is SubSchemaCompositePattern) return this
 
-        val preferEscaped = Flags.getBooleanValue(Flags.SPECMATIC_ESCAPE_SOAP_ACTION)
         val updatedSoapActionPattern = resolvedPattern.pattern.filterIsInstance<ExactValuePattern>().firstOrNull {
-            isPreferredSoapActionPattern(soapActionValue, it, preferEscaped, resolver)
+            isPreferredSoapActionPattern(soapActionValue, it, preferEscapedSoapAction, resolver)
         } ?: return this
 
         return this.copy(pattern = pattern.plus(soapActionKey to updatedSoapActionPattern))

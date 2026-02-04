@@ -21,6 +21,7 @@ import io.ktor.server.netty.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.mockk.*
+import io.specmatic.core.readEnvVarOrProperty
 import io.specmatic.toContractSourceEntries
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.*
@@ -57,7 +58,7 @@ internal class UtilitiesTest {
         every { loadSources("/configFilePath") }.returns(sources)
 
         mockkStatic("io.specmatic.core.git.GitOperations")
-        every { clone(File(".spec/repos"), any()) }.returns(File(".spec/repos/repo1"))
+        every { clone(File(".spec/repos"), any(), any()) }.returns(File(".spec/repos/repo1"))
 
 
         val contractPaths = contractFilePathsFrom("/configFilePath", ".$CONTRACT_EXTENSION") { source -> source.stubContracts }
@@ -82,7 +83,7 @@ internal class UtilitiesTest {
 
         mockkStatic("io.specmatic.core.git.GitOperations")
         val repositoryDirectory = File(".spec/repos/repo1")
-        every { clone(File(".spec/repos"), any()) }.returns(repositoryDirectory)
+        every { clone(File(".spec/repos"), any(), any()) }.returns(repositoryDirectory)
         every { checkout(repositoryDirectory, branchName) }.returns(Unit)
 
         val contractPaths = contractFilePathsFrom("/configFilePath", ".$CONTRACT_EXTENSION") { source -> source.stubContracts }
@@ -119,7 +120,7 @@ internal class UtilitiesTest {
 
         mockkStatic("io.specmatic.core.utilities.Utilities")
         every { loadSources("/configFilePath") }.returns(sources)
-        every { getSystemGitWithAuth(any()) }.returns(mockGitCommand)
+        every { getSystemGitWithAuth(any(), any()) }.returns(mockGitCommand)
         every { getSystemGit(any()) }.returns(mockGitCommand)
 
         val contractPaths = contractFilePathsFrom("/configFilePath", ".$CONTRACT_EXTENSION") { source -> source.stubContracts }
@@ -169,11 +170,11 @@ internal class UtilitiesTest {
 
         mockkStatic("io.specmatic.core.utilities.Utilities")
         every { loadSources("/configFilePath") }.returns(sources)
-        every { getSystemGitWithAuth(any()) }.returns(mockGitCommand)
+        every { getSystemGitWithAuth(any(), any()) }.returns(mockGitCommand)
         every { getSystemGit(any()) }.returns(mockGitCommand)
 
         mockkStatic("io.specmatic.core.git.GitOperations")
-        every { clone(File(".spec/repos"), any()) }.returns(File(".spec/repos/repo1"))
+        every { clone(File(".spec/repos"), any(), any()) }.returns(File(".spec/repos/repo1"))
 
 
         val contractPaths = contractFilePathsFrom("/configFilePath", ".$CONTRACT_EXTENSION") { source -> source.stubContracts }
@@ -201,11 +202,11 @@ internal class UtilitiesTest {
 
         mockkStatic("io.specmatic.core.utilities.Utilities")
         every { loadSources("/configFilePath") }.returns(sources)
-        every { getSystemGitWithAuth(any()) }.returns(mockGitCommand)
+        every { getSystemGitWithAuth(any(), any()) }.returns(mockGitCommand)
         every { getSystemGit(any()) }.returns(mockGitCommand)
 
         mockkStatic("io.specmatic.core.git.GitOperations")
-        every { clone(File(".spec/repos"), any()) }.returns(File(".spec/repos/repo1"))
+        every { clone(File(".spec/repos"), any(), any()) }.returns(File(".spec/repos/repo1"))
 
 
         val contractPaths = contractFilePathsFrom("/configFilePath", ".$CONTRACT_EXTENSION") { source -> source.stubContracts }

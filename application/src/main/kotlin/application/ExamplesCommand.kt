@@ -2,12 +2,14 @@ package application
 
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
+import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.examples.module.*
 import io.specmatic.core.examples.server.ScenarioFilter
 import io.specmatic.core.log.CompositePrinter
 import io.specmatic.core.log.ConsolePrinter
 import io.specmatic.core.log.NonVerbose
 import io.specmatic.core.log.Verbose
+import io.specmatic.core.log.configureLogging
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.license.core.cli.Category
@@ -323,10 +325,5 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 }
 
 private fun configureLogger(verbose: Boolean) {
-    val logPrinters = listOf(ConsolePrinter)
-
-    logger = if (verbose)
-        Verbose(CompositePrinter(logPrinters))
-    else
-        NonVerbose(CompositePrinter(logPrinters))
+    configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = verbose))
 }

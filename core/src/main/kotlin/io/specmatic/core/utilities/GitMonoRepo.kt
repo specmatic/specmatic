@@ -37,12 +37,13 @@ data class GitMonoRepo(override val testContracts: List<ContractSourceEntry>, ov
 
         return selector.select(this).map {
             ContractPathData(
-                monoRepoBaseDir.canonicalPath,
-                configFileLocation.resolve(it.path).canonicalPath,
+                baseDir = monoRepoBaseDir.canonicalPath,
+                path = configFileLocation.resolve(it.path).canonicalPath,
                 provider = type,
                 specificationPath = it.path,
                 baseUrl = it.baseUrl,
-                generative = it.generative
+                generative = it.generative,
+                exampleDirPaths = it.exampleDirPaths
             )
         }
     }

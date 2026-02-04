@@ -3,15 +3,31 @@ package application
 import io.ktor.network.tls.certificates.*
 import io.specmatic.core.APPLICATION_NAME_LOWER_CASE
 import io.specmatic.core.KeyData
+import io.specmatic.core.config.HttpsConfiguration
+import io.specmatic.core.config.nonNullElse
 import io.specmatic.core.utilities.exitWithMessage
 import java.io.File
 import java.security.KeyStore
 
-data class CertInfo(val keyStoreFile: String = "", val keyStoreDir: String = "", val keyStorePassword: String = "forgotten", val keyStoreAlias: String = "${APPLICATION_NAME_LOWER_CASE}proxy", val keyPassword: String = "forgotten") {
-    fun getHttpsCert(): KeyData? {
+data class CertInfo(val fromCli: HttpsConfiguration.Companion.HttpsFromOpts, val fromConfig: HttpsConfiguration?) {
+    fun getHttpsCert(aliasSuffix: String): KeyData? {
+        val fromOpts = HttpsConfiguration.from(fromCli)
+        val effectiveConfig = fromConfig.nonNullElse(fromOpts, HttpsConfiguration::overrideWith) ?: return null
         return when {
-            keyStoreFile.isNotBlank() -> KeyData(keyStore = loadKeyStoreFromFile(keyStoreFile, keyStorePassword), keyStorePassword = keyStorePassword, keyAlias = keyStoreAlias, keyPassword = keyPassword)
-            keyStoreDir.isNotBlank() -> createKeyStore(keyStoreDir, keyStorePassword, keyStoreAlias, keyPassword)
+            effectiveConfig.keyStoreFile() != null -> KeyData(
+                keyStore = loadKeyStoreFromFile(effectiveConfig.keyStoreFile().orEmpty(), effectiveConfig.keyStorePasswordOrDefault()),
+                keyStorePassword = effectiveConfig.keyStorePasswordOrDefault(),
+                keyAlias = effectiveConfig.keyStoreAliasOrDefault(aliasSuffix),
+                keyPassword = effectiveConfig.keyPasswordOrDefault()
+            )
+
+            effectiveConfig.keyStoreDir() != null -> createKeyStore(
+                keyStoreDirPath = effectiveConfig.keyStoreDir().orEmpty(),
+                keyStorePassword = effectiveConfig.keyStorePasswordOrDefault(),
+                keyAlias = effectiveConfig.keyStoreAliasOrDefault(aliasSuffix),
+                keyPassword = effectiveConfig.keyPasswordOrDefault()
+            )
+
             else -> null
         }
     }
@@ -44,6 +60,8 @@ private fun loadKeyStoreFromFile(keyStoreFile: String, keyStorePassword: String)
     }
 
     return KeyStore.getInstance(keyStoreType).apply {
-        this.load(certFilePath.inputStream(), keyStorePassword.toCharArray())
+        certFilePath.inputStream().use { inputStream ->
+            load(inputStream, keyStorePassword.toCharArray())
+        }
     }
 }

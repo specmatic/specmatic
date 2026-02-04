@@ -1,11 +1,12 @@
 package io.specmatic.core.azure
 
+import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.git.getBearerToken
 import io.specmatic.core.git.getPersonalAccessToken
 
-object AzureAuthCredentials: AuthCredentials {
+class AzureAuthCredentials(private val specmaticConfig: SpecmaticConfig) : AuthCredentials {
     override fun gitCommandAuthHeaders(): List<String> {
-        val azurePAT: String? = getPersonalAccessToken()
+        val azurePAT: String? = getPersonalAccessToken(specmaticConfig)
 
         if(azurePAT != null) {
             return listOf("-c", "http.extraHeader=Authorization: Basic ${PersonalAccessToken(azurePAT).basic()}")

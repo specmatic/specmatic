@@ -41,6 +41,11 @@ class Flags {
 
         fun getLongValue(flagName: String): Long? = getStringValue(flagName)?.toLong()
 
+        fun getCommaSeparatedList(fieldName: String): List<String>? {
+            val value = getStringValue(fieldName) ?: return null
+            return value.split(",").map(String::trim).filter(String::isNotBlank)
+        }
+
         fun <T> using(vararg properties: Pair<String, String>, fn: () -> T): T {
             try {
                 properties.forEach { (key, value) ->

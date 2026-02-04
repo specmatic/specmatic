@@ -8,6 +8,7 @@ import io.specmatic.core.Configuration.Companion.DEFAULT_HTTP_STUB_HOST
 import io.specmatic.core.Configuration.Companion.configFilePath
 import io.specmatic.core.azure.AzureAuthCredentials
 import io.specmatic.core.git.GitCommand
+import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.log.consoleDebug
 import io.specmatic.core.log.consoleLog
@@ -360,7 +361,8 @@ data class ContractPathData(
     val baseUrl: String? = null,
     val generative: ResiliencyTestSuite? = null,
     val port: Int? = null,
-    val lenientMode: Boolean = false
+    val lenientMode: Boolean = false,
+    val exampleDirPaths: List<String>? = null
 ) {
     companion object {
         fun List<ContractPathData>.specToBaseUrlMap(): Map<String, String?> = this.associate { File(it.path).path to it.baseUrl }
@@ -405,7 +407,8 @@ fun contractFilePathsFrom(
 
 fun getSystemGit(path: String): GitCommand = SystemGit(path)
 
-fun getSystemGitWithAuth(path: String): GitCommand = SystemGit(path, authCredentials = AzureAuthCredentials)
+fun getSystemGitWithAuth(path: String, specmaticConfig: SpecmaticConfig): GitCommand =
+    SystemGit(path, authCredentials = AzureAuthCredentials(specmaticConfig))
 
 class UncaughtExceptionHandler : Thread.UncaughtExceptionHandler {
     override fun uncaughtException(
@@ -436,11 +439,6 @@ fun saveJsonFile(
     directory.mkdirs()
     File(directory, fileName).writeText(jsonString)
 }
-
-fun readEnvVarOrProperty(
-    envVarName: String,
-    propertyName: String,
-): String? = System.getenv(envVarName) ?: System.getProperty(propertyName)
 
 fun examplesDirFor(
     openApiFilePath: String,
