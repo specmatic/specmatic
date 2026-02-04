@@ -26,6 +26,7 @@ import io.specmatic.stub.extractPort
 import io.specmatic.stub.isSupportedAPISpecification
 import io.specmatic.stub.listener.MockEventListener
 import picocli.CommandLine.*
+import picocli.CommandLine.Model.CommandSpec
 import java.io.File
 import java.util.concurrent.Callable
 
@@ -119,6 +120,9 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     @Option(names = ["--delay-in-ms"], description = ["Stub response delay in milliseconds"])
     var delayInMilliseconds: Long? = null
 
+    @Spec
+    lateinit var commandSpec: CommandSpec
+
     @Option(names = ["--graceful-restart-timeout-in-ms"], description = ["Time to wait for the server to stop before starting it again"])
     var gracefulRestartTimeoutInMs: Long? = null
 
@@ -171,7 +175,10 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 
         val defaultHost = DEFAULT_HTTP_STUB_HOST
         val defaultPort = DEFAULT_HTTP_STUB_PORT.toInt()
-        if (host == defaultHost && port == defaultPort) {
+        val parseResult = commandSpec.commandLine().parseResult
+        val hostSpecified = parseResult?.hasMatchedOption("--host") == true
+        val portSpecified = parseResult?.hasMatchedOption("--port") == true
+        if (!hostSpecified && !portSpecified) {
             resolveHostAndPortFromBaseUrl(specmaticConfiguration.getDefaultBaseUrl())?.let { (resolvedHost, resolvedPort) ->
                 host = resolvedHost
                 port = resolvedPort
