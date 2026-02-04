@@ -158,14 +158,16 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     }
 
     override fun call(): Int {
-        configureLogging(LoggingFromOpts(
-            debug = verbose,
-            textLogDirectory = textLogDir,
-            textConsoleLog = noConsoleLog?.let { !it },
-            jsonConsoleLog = jsonConsoleLog,
-            jsonLogDirectory = jsonLogDir,
-            logPrefix = logPrefix
-        ))
+        configureLogging(
+            LoggingFromOpts(
+                debug = verbose,
+                textLogDirectory = textLogDir,
+                textConsoleLog = noConsoleLog?.let { !it },
+                jsonConsoleLog = jsonConsoleLog,
+                jsonLogDirectory = jsonLogDir,
+                logPrefix = logPrefix,
+            ),
+            LoggingConfigSource.FromConfig(specmaticConfiguration.getLogConfigurationOrDefault()))
 
         val defaultHost = DEFAULT_HTTP_STUB_HOST
         val defaultPort = DEFAULT_HTTP_STUB_PORT.toInt()
