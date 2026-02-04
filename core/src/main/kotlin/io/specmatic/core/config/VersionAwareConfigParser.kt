@@ -31,7 +31,7 @@ fun File.toSpecmaticConfig(): SpecmaticConfig {
     }
 }
 
-private fun JsonNode.getVersion(): SpecmaticConfigVersion? {
+fun JsonNode.getVersion(): SpecmaticConfigVersion? {
     val versionNode = this[SPECMATIC_CONFIG_VERSION]
     val version = when {
         versionNode == null -> null
@@ -43,7 +43,7 @@ private fun JsonNode.getVersion(): SpecmaticConfigVersion? {
     return SpecmaticConfigVersion.getByValue(version)
 }
 
-private fun resolveTemplates(node: JsonNode): JsonNode {
+fun resolveTemplates(node: JsonNode): JsonNode {
     return when {
         node.isObject ->
             node.fields().asSequence().fold(objectMapper.nodeFactory.objectNode()) { acc, entry ->

@@ -3,6 +3,11 @@ package io.specmatic.core.report
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import io.specmatic.core.config.SpecmaticConfigVersion
+import io.specmatic.core.config.getVersion
+import io.specmatic.core.config.resolveTemplates
+import io.specmatic.core.config.v2.SpecmaticConfigV2
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.log.consoleLog
 import io.specmatic.reporter.ctrf.CtrfReportGenerator
@@ -44,17 +49,30 @@ object ReportGenerator {
         )
 
         ReportProvider.generateCtrfReport(report, reportDir)
-        ReportProvider.generateHtmlReport(report, reportDir, specmaticConfigAsMap())
+        ReportProvider.generateHtmlReport(report, reportDir, specmaticConfigV2AsMap())
     }
 
-    private fun specmaticConfigAsMap(): Map<String, Any> {
-        return runCatching {
-            ObjectMapper(YAMLFactory()).readValue(
-                File(getConfigFilePath()).readText(),
-                object : TypeReference<Map<String, Any>>() {}
-            )
-        }.getOrElse { emptyMap() }
+    // Currently HTML report generator is able to ingest specmatic config v2.
+    // Once the HTML report generator becomes independent of the specmatic config variants,
+    // this will simply read the text from the file and convert whatever is present into a map and return
+    fun specmaticConfigV2AsMap(): Map<String, Any> {
+        val objectMapper = ObjectMapper(YAMLFactory()).registerKotlinModule()
+        val configTree = resolveTemplates(objectMapper.readTree(File(getConfigFilePath())))
+        return when (configTree.getVersion()) {
+            SpecmaticConfigVersion.VERSION_2 -> {
+                runCatching {
+                    val specmaticConfigV2 = objectMapper.treeToValue(configTree, SpecmaticConfigV2::class.java)
+                    objectMapper.convertValue(
+                        specmaticConfigV2,
+                        object : TypeReference<Map<String, Any>>() {}
+                    )
+                }.getOrElse { emptyMap() }
+            }
+
+            else -> emptyMap()
+        }
     }
+
 
     private fun isCtrfSpecConfigsValid(specConfigs: List<CtrfSpecConfig>): Boolean {
         if (specConfigs.isEmpty()) {
