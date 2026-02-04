@@ -5,7 +5,6 @@ package io.specmatic.core.git
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.azure.AzureAuthCredentials
-import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.loadSpecmaticConfig
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
@@ -117,7 +116,7 @@ private fun jgitClone(gitRepositoryURI: String, cloneDirectory: File, specmaticC
             val credentialsProvider: CredentialsProvider = UsernamePasswordCredentialsProvider(accessTokenText, "")
             cloneCommand.setCredentialsProvider(credentialsProvider)
         } else {
-            val ciBearerToken = getBearerToken()
+            val ciBearerToken = getBearerToken(specmaticConfig)
 
             if (ciBearerToken != null) {
                 cloneCommand.setTransportConfigCallback(getTransportCallingCallback(ciBearerToken.encodeOAuth()))
@@ -158,36 +157,16 @@ fun loadFromPath(json: Value?, path: List<String>): Value? {
     }
 }
 
-fun getBearerToken(): String? {
-    val specmaticConfigFile = File(getConfigFilePath())
-
-    return when {
-        specmaticConfigFile.exists() ->
-            readConfig(specmaticConfigFile).let { config ->
-                readBearerFromEnvVariable(config) ?: readBearerFromFile(config)
+fun getBearerToken(specmaticConfig: SpecmaticConfig): String? {
+    return specmaticConfig.getAuthBearerEnvironmentVariable()?.let {
+        System.getenv(it).also { value ->
+            if (value == null) {
+                logger.log("$it environment variable was provided but has not been set")
+            } else {
+                logger.log("Found bearer token in environment variable $it")
             }
-        else -> null.also {
-            logger.log("Returning bearer token as null since Specmatic configuration file is not found.")
-            logger.log("Current working directory is ${File(".").absolutePath}")
         }
-    }
-}
-
-private fun readBearerFromEnvVariable(config: Value): String? {
-    return loadFromPath(config, listOf("auth", "bearer-environment-variable"))?.toStringLiteral()?.let { bearerName ->
-        logger.log("Found bearer environment variable name \"$bearerName\"")
-
-        System.getenv(bearerName).also {
-            if(it == null)
-                logger.log("$bearerName environment variable has not been set")
-        }
-    }
-}
-
-private fun readBearerFromFile(config: Value): String? {
-    return loadFromPath(config, listOf("auth", "bearer-file"))?.toStringLiteral()?.let { bearerFileName ->
-        logger.log("Found bearer file name $bearerFileName")
-
+    } ?: specmaticConfig.getAuthBearerFile()?.let { bearerFileName ->
         val bearerFile = File(bearerFileName).absoluteFile
 
         when {
@@ -195,6 +174,7 @@ private fun readBearerFromFile(config: Value): String? {
                 logger.log("Found bearer file ${bearerFile.absolutePath}")
                 bearerFile.readText().trim()
             }
+
             else -> {
                 logger.log("Could not find bearer file ${bearerFile.absolutePath}")
                 null
