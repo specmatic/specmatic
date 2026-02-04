@@ -40,7 +40,7 @@ dependencies {
 
     implementation("com.fasterxml.jackson.core:jackson-databind:2.21.0")
 
-    implementation("io.swagger.parser.v3:swagger-parser:2.1.36")
+    implementation("io.swagger.parser.v3:swagger-parser:2.1.37")
 
     implementation("dk.brics:automaton:1.12-4")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
