@@ -4,6 +4,8 @@ import io.specmatic.core.*
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.SpecmaticConfig.Companion.orDefault
 import io.specmatic.core.config.LoggingConfiguration
+import io.specmatic.core.config.LoggingConfiguration.Companion.LoggingFromOpts
+import io.specmatic.core.log.LoggingConfigSource
 import io.specmatic.core.log.configureLogging
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
@@ -136,7 +138,9 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     }
 
     override fun call(): Int = try {
-        configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = verboseMode))
+        configureLogging(
+            LoggingFromOpts(debug = verboseMode),
+            LoggingConfigSource.FromConfig(specmaticConfig.getLogConfigurationOrDefault()))
         setParallelism(specmaticConfig)
         setTestThreadLocalSettings()
 

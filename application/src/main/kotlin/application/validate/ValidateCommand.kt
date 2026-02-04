@@ -15,7 +15,7 @@ import java.util.concurrent.Callable
 
 @Command(name = "validate", mixinStandardHelpOptions = true, description = ["Lint & Validate specification and external examples"])
 class ValidateCommand(
-    private val validator: Validator<*> = OpenApiValidator(),
+    private val validator: Validator<out Any?> = OpenApiValidator(),
     specCompatibilityChecker: SpecCompatibilityChecker = OpenApiSpecCompatibilityChecker()
 ) : Callable<Int> {
     @CommandLine.Option(names = ["--debug"], description = ["Enable debug logs"])
