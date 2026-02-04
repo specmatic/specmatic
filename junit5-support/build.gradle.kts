@@ -23,8 +23,8 @@ dependencies {
 
     implementation("org.thymeleaf:thymeleaf:3.1.3.RELEASE")
 
-    implementation("io.ktor:ktor-client-core-jvm:2.3.13")
-    implementation("io.ktor:ktor-client-cio-jvm:2.3.13")
+    implementation("io.ktor:ktor-client-core-jvm:3.4.0")
+    implementation("io.ktor:ktor-client-cio-jvm:3.4.0")
 
     implementation("org.junit.platform:junit-platform-launcher:1.14.2")
     implementation("org.junit.platform:junit-platform-reporting:1.14.2")
