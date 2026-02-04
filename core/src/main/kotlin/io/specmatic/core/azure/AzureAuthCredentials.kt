@@ -12,7 +12,7 @@ class AzureAuthCredentials(private val specmaticConfig: SpecmaticConfig) : AuthC
             return listOf("-c", "http.extraHeader=Authorization: Basic ${PersonalAccessToken(azurePAT).basic()}")
         }
 
-        val bearer: String? = getBearerToken()
+        val bearer: String? = getBearerToken(specmaticConfig)
         if (bearer != null) {
             return listOf("-c", "http.extraHeader=Authorization: Bearer $bearer")
         }
