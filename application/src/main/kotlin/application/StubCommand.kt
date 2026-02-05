@@ -150,7 +150,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         if (configFileName != null) Configuration.configFilePath = configFileName as String
         val specmaticConfigPath = File(Configuration.configFilePath).canonicalPath
         val config = loadSpecmaticConfigOrNull(specmaticConfigPath, explicitlySpecifiedByUser = configFileName != null).orDefault()
-        val sourcesUpdated = config.mapSources { source -> source.copy(matchBranch = useCurrentBranchForCentralRepo ?: source.matchBranch) }
+        val sourcesUpdated = config.applyIf(useCurrentBranchForCentralRepo) { withMatchBranch(it) }
         val stubConfigUpdated = sourcesUpdated.withStubModes(strictMode = strictMode).withStubFilter(filter = filter)
         delayInMilliseconds?.let(stubConfigUpdated::withGlobalMockDelay) ?: stubConfigUpdated
     }

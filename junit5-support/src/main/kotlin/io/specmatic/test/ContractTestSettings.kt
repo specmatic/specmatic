@@ -92,9 +92,7 @@ data class ContractTestSettings(
 
     private fun adjustUseCurrentBranch(specmaticConfig: SpecmaticConfig): SpecmaticConfig {
         if (otherArguments?.useCurrentBranchForCentralRepo == null) return specmaticConfig
-        return specmaticConfig.mapSources { source ->
-            source.copy(matchBranch = otherArguments.useCurrentBranchForCentralRepo)
-        }
+        return specmaticConfig.withMatchBranch(otherArguments.useCurrentBranchForCentralRepo)
     }
 
     private fun adjustTestTimeout(specmaticConfig: SpecmaticConfig): SpecmaticConfig {

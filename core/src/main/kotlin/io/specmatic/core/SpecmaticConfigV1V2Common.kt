@@ -435,6 +435,48 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
+    override fun getSources(): List<SpecificationSources> {
+        val resiliencyTestSuite = test?.resiliencyTests?.enable
+        return this.sources.map { source ->
+            val specificationSource = SpecificationSources(source.provider, source.repository, source.directory, source.branch)
+            val sourceBaseDir = source.getBaseDirectory()
+
+            val withTestSources = source.test.orEmpty().fold(specificationSource) { acc, testExecutionConfig ->
+                val testEntries = testExecutionConfig.createSpecificationEntriesFrom(source, sourceBaseDir, resiliencyTestSuite)
+                acc.copy(test = acc.test.plus(testEntries))
+            }
+
+            source.stub.orEmpty().fold(withTestSources) { acc, mockExecutionConfig ->
+                val mockEntries = mockExecutionConfig.createSpecificationEntriesFrom(source, sourceBaseDir)
+                acc.copy(mock = acc.mock.plus(mockEntries))
+            }
+        }
+    }
+
+    @JsonIgnore
+    override fun getFirstMockSourceMatching(predicate: (SpecificationSourceEntry) -> Boolean): SpecificationSourceEntry? {
+        val resiliencyTestSuite = test?.resiliencyTests?.enable
+        return this.sources.firstNotNullOfOrNull { source ->
+            val sourceBaseDir = source.getBaseDirectory()
+            source.stub.orEmpty().firstNotNullOfOrNull { testExecutionConfig ->
+                val entries = testExecutionConfig.createSpecificationEntriesFrom(source, sourceBaseDir, resiliencyTestSuite)
+                entries.firstOrNull(predicate)
+            }
+        }
+    }
+
+    @JsonIgnore
+    override fun getFirstTestSourceMatching(predicate: (SpecificationSourceEntry) -> Boolean): SpecificationSourceEntry? {
+        return this.sources.firstNotNullOfOrNull { source ->
+            val sourceBaseDir = source.getBaseDirectory()
+            source.test.orEmpty().firstNotNullOfOrNull { testExecutionConfig ->
+                val entries = testExecutionConfig.createSpecificationEntriesFrom(source, sourceBaseDir)
+                entries.firstOrNull(predicate)
+            }
+        }
+    }
+
+    @JsonIgnore
     override fun isTelemetryDisabled(): Boolean {
         val disableTelemetryFromEnvVarOrSystemProp = readEnvVarOrProperty(
             SPECMATIC_DISABLE_TELEMETRY, SPECMATIC_DISABLE_TELEMETRY
@@ -963,12 +1005,6 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
-    override fun mapSources(transform: (Source) -> Source): SpecmaticConfigV1V2Common {
-        val transformedSources = this.sources.map(transform)
-        return this.copy(sources = transformedSources)
-    }
-
-    @JsonIgnore
     override fun getAuth(): Auth? {
         return auth
     }
@@ -1225,6 +1261,11 @@ data class SpecmaticConfigV1V2Common(
         return this.copy(stub = stubConfig.copy(delayInMilliseconds = delayInMilliseconds))
     }
 
+    override fun withMatchBranch(matchBranch: Boolean): SpecmaticConfig {
+        val transformedSources = this.sources.map { source -> source.copy(matchBranch = matchBranch) }
+        return this.copy(sources = transformedSources)
+    }
+
     @JsonIgnore
     override fun testSpecPathFromConfigFor(absoluteSpecPath: String): String? {
         val source = testSourceFromConfig(absoluteSpecPath) ?: return null
@@ -1478,18 +1519,15 @@ data class Source(
         return this.stub.map { config ->  config.resolveAgainst(baseDirectory) }
     }
 
-    private fun getBaseDirectory(): File {
-        val currentWorkingDirectory = File(".").canonicalFile
+    fun getBaseDirectory(): File {
+        val workingDirectory = File(getConfigFilePath()).parentFile ?: File(".")
         return when (provider) {
-            SourceProvider.web -> currentWorkingDirectory
-            SourceProvider.filesystem -> directory?.let(::File) ?: currentWorkingDirectory
+            SourceProvider.web -> workingDirectory
+            SourceProvider.filesystem -> workingDirectory.applyIf(directory) { resolve(it) }
             SourceProvider.git -> {
+                val specmaticFolder = File(".").resolve(WorkingDirectory(DEFAULT_WORKING_DIRECTORY).path)
                 val repository = repository?.split("/")?.lastOrNull()?.removeSuffix(".git")
-                if (repository != null) {
-                    currentWorkingDirectory.resolve(".specmatic").resolve("repos").resolve(repository)
-                } else {
-                    currentWorkingDirectory
-                }
+                if (repository != null) specmaticFolder.resolve("repos").resolve(repository) else workingDirectory
             }
         }
     }

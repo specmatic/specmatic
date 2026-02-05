@@ -575,3 +575,8 @@ fun isXML(headers: Map<String, String>): Boolean {
 
     return contentType.contentSubtype.let { it == "xml" || it.endsWith("+xml") }
 }
+
+fun <T, U> T.applyIf(original: U?, block: T.(U) -> T): T {
+    val value: U = original ?: return this
+    return block(value)
+}

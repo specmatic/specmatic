@@ -16,9 +16,51 @@ import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import java.io.File
 import java.nio.file.Path
 
+data class SpecificationSources(
+    val type: SourceProvider,
+    val repository: String? = null,
+    val directory: String? = null,
+    val branch: String? = null,
+    val test: List<SpecificationSourceEntry> = emptyList(),
+    val mock: List<SpecificationSourceEntry> = emptyList(),
+)
+
+data class SpecificationSourceEntry(
+    val specFile: File,
+    val specPathInConfig: String,
+    val port: Int? = null,
+    val baseUrl: String? = null,
+    val resiliencyTestSuite: ResiliencyTestSuite? = null,
+    val type: SourceProvider,
+    val repository: String? = null,
+    val directory: String? = null,
+    val branch: String? = null
+) {
+    constructor(source: Source, specFile: File, specPathInConfig: String, baseUrl: String? = null, port: Int? = null, resiliencyTestSuite: ResiliencyTestSuite? = null) : this(
+        specFile = specFile,
+        baseUrl = baseUrl,
+        port = port,
+        resiliencyTestSuite = resiliencyTestSuite,
+        specPathInConfig = specPathInConfig,
+        type = source.provider,
+        repository = source.repository,
+        directory = source.directory,
+        branch = source.branch
+    )
+}
+
 interface SpecmaticConfig {
     @JsonIgnore
     fun getLogConfigurationOrDefault(): LoggingConfiguration
+
+    @JsonIgnore
+    fun getSources(): List<SpecificationSources>
+
+    @JsonIgnore
+    fun getFirstMockSourceMatching(predicate: (SpecificationSourceEntry) -> Boolean): SpecificationSourceEntry?
+
+    @JsonIgnore
+    fun getFirstTestSourceMatching(predicate: (SpecificationSourceEntry) -> Boolean): SpecificationSourceEntry?
 
     @JsonIgnore
     fun isTelemetryDisabled(): Boolean
@@ -47,7 +89,7 @@ interface SpecmaticConfig {
     fun getHotReload(): Switch?
 
     @JsonIgnore
-    fun dropExcludedEndpointsAfterVersion1(latestVersion: SpecmaticConfigVersion): SpecmaticConfigV1V2Common
+    fun dropExcludedEndpointsAfterVersion1(latestVersion: SpecmaticConfigVersion): SpecmaticConfig
 
     @JsonIgnore
     fun getReport(): ReportConfiguration?
@@ -150,7 +192,7 @@ interface SpecmaticConfig {
     fun getActuatorUrl(): String?
 
     @JsonIgnore
-    fun copyResiliencyTestsConfig(onlyPositive: Boolean): SpecmaticConfigV1V2Common
+    fun copyResiliencyTestsConfig(onlyPositive: Boolean): SpecmaticConfig
 
     @JsonIgnore
     fun getStubIncludeMandatoryAndRequestedKeysInResponse(): Boolean
@@ -221,9 +263,6 @@ interface SpecmaticConfig {
 
     @JsonIgnore
     fun getMatchBranchEnabled(): Boolean
-
-    @JsonIgnore
-    fun mapSources(transform: (Source) -> Source): SpecmaticConfigV1V2Common
 
     @JsonIgnore
     fun getAuth(): Auth?
@@ -308,15 +347,16 @@ interface SpecmaticConfig {
 
     @JsonIgnore
     fun stubContracts(relativeTo: File = File(".")): List<String>
-    fun updateReportConfiguration(reportConfiguration: ReportConfiguration): SpecmaticConfigV1V2Common
+    fun updateReportConfiguration(reportConfiguration: ReportConfiguration): SpecmaticConfig
     fun getEnvironment(envName: String): JSONObjectValue
-    fun enableResiliencyTests(): SpecmaticConfigV1V2Common
-    fun withTestModes(strictMode: Boolean?, lenientMode: Boolean): SpecmaticConfigV1V2Common
-    fun withTestFilter(filter: String? = null): SpecmaticConfigV1V2Common
-    fun withTestTimeout(timeoutInMilliseconds: Long? = null): SpecmaticConfigV1V2Common
-    fun withStubModes(strictMode: Boolean? = null): SpecmaticConfigV1V2Common
-    fun withStubFilter(filter: String? = null): SpecmaticConfigV1V2Common
-    fun withGlobalMockDelay(delayInMilliseconds: Long): SpecmaticConfigV1V2Common
+    fun enableResiliencyTests(): SpecmaticConfig
+    fun withTestModes(strictMode: Boolean?, lenientMode: Boolean): SpecmaticConfig
+    fun withTestFilter(filter: String? = null): SpecmaticConfig
+    fun withTestTimeout(timeoutInMilliseconds: Long? = null): SpecmaticConfig
+    fun withStubModes(strictMode: Boolean? = null): SpecmaticConfig
+    fun withStubFilter(filter: String? = null): SpecmaticConfig
+    fun withGlobalMockDelay(delayInMilliseconds: Long): SpecmaticConfig
+    fun withMatchBranch(matchBranch: Boolean): SpecmaticConfig
 
     @JsonIgnore
     fun testSpecPathFromConfigFor(absoluteSpecPath: String): String?
