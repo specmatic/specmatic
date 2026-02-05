@@ -12,7 +12,7 @@ data class GeneralSettings(
     val logging: LoggingConfiguration? = null,
     val featureFlags: FeatureFlags? = null,
     @field:JsonDeserialize(using = ExampleTemplateStringDeserializer::class)
-    private val specExamplesDirectoryTemplate: String? = null,
+    val specExamplesDirectoryTemplate: String? = null,
     @field:JsonDeserialize(using = ExampleTemplateStringDeserializer::class)
-    private val sharedExamplesDirectoryTemplate: List<String>? = null
+    val sharedExamplesDirectoryTemplate: List<String>? = null
 )

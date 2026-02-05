@@ -4,12 +4,15 @@ import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonProperty
 import io.specmatic.core.DEFAULT_WORKING_DIRECTORY
+import io.specmatic.core.ResiliencyTestSuite
+import io.specmatic.core.SourceProvider
+import io.specmatic.core.SpecificationSourceEntry
 import io.specmatic.core.WorkingDirectory
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.utilities.applyIf
 import java.io.File
 
-class SourceV3(private val git: Git?, private val fileSystem: FileSystem?) {
+data class SourceV3(private val git: Git?, private val fileSystem: FileSystem?) {
     init {
         if (git == null && fileSystem == null) throw IllegalStateException("Must specify either 'git' or 'filesystem'")
         if (git != null && fileSystem != null) throw IllegalStateException("Specify only one of 'git' or 'filesystem'")
@@ -28,6 +31,32 @@ class SourceV3(private val git: Git?, private val fileSystem: FileSystem?) {
     fun resolveSpecification(specification: File): File {
         if (git != null) return git.resolveSpecification(specification)
         return fileSystem?.resolveSpecification(specification) ?: specification
+    }
+
+    fun toProviderType(): SourceProvider = when {
+        git != null -> SourceProvider.git
+        else -> SourceProvider.filesystem
+    }
+
+    fun toSpecificationSource(specFile: File, specPathInConfig: String, baseUrl: String?, resiliencyTestSuite: ResiliencyTestSuite?, examples: List<String>): SpecificationSourceEntry {
+        val type = if (git != null) SourceProvider.git else SourceProvider.filesystem
+        return SpecificationSourceEntry(
+            specFile = specFile,
+            specPathInConfig = specPathInConfig,
+            type = type,
+            repository = git?.url,
+            directory = fileSystem?.directory,
+            branch = git?.branch,
+            matchBranch = git?.matchBranch,
+            baseUrl = baseUrl,
+            resiliencyTestSuite = resiliencyTestSuite,
+            exampleDirs = examples
+        )
+    }
+
+    fun withMatchBranch(matchBranch: Boolean): SourceV3 {
+        if (this.git == null) return this
+        return this.copy(git = this.git.copy(matchBranch = matchBranch))
     }
 
     data class Git(val url: String? = null, val branch: String? = null, val matchBranch: Boolean? = null, val auth: GitAuthentication? = null) {

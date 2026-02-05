@@ -12,7 +12,7 @@ data class TestSettings(
     val junitReportDir: String? = null,
     val validateResponseValues: Boolean? = null,
     val allowExtensibleSchema: Boolean? = null,
-    val maxTestCount: Int?,
+    val maxTestCount: Int? = null,
 ) {
     fun merge(fallback: TestSettings?): TestSettings {
         if (fallback == null) return this

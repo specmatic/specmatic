@@ -1,7 +1,5 @@
 package io.specmatic.core.config.v3.components.settings
 
-import io.specmatic.core.config.Switch
-
 data class MockSettings(
     val generative: Boolean? = null,
     val delayInMilliseconds: Long? = null,

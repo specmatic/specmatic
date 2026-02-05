@@ -7,6 +7,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import io.specmatic.reporter.model.SpecType
 
 interface IRunOptions {
+    val baseUrl: String?
     val specs: List<IRunOptionSpecification>?
 
     @JsonIgnore

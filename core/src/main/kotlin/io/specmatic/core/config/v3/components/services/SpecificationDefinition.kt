@@ -7,6 +7,8 @@ import com.fasterxml.jackson.annotation.JsonFormat
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.annotation.JsonValue
+import io.specmatic.core.ResiliencyTestSuite
+import io.specmatic.core.SpecificationSourceEntry
 import io.specmatic.core.config.v3.components.sources.SourceV3
 import java.io.File
 
@@ -25,13 +27,40 @@ sealed interface SpecificationDefinition {
     }
 
     @JsonFormat(shape = JsonFormat.Shape.OBJECT)
-    data class ObjectValue(val spec: Specification): SpecificationDefinition
+    data class ObjectValue(val spec: Specification): SpecificationDefinition {
+        override fun toSpecificationSource(
+            source: SourceV3,
+            resiliencyTestSuite: ResiliencyTestSuite?,
+            examples: List<String>,
+            getBaseUrl: (String?) -> String?
+        ): SpecificationSourceEntry {
+            val specFile = source.resolveSpecification(File(spec.path))
+            return source.toSpecificationSource(specFile, spec.path, getBaseUrl(spec.id), resiliencyTestSuite, examples)
+        }
+
+        companion object {
+            fun from(specFile: File, id: String): ObjectValue {
+                val spec = Specification(id, specFile.canonicalPath)
+                return ObjectValue(spec)
+            }
+        }
+    }
 
     @JsonFormat(shape = JsonFormat.Shape.STRING)
     data class StringValue(val specification: String) : SpecificationDefinition {
         @Suppress("unused")
         @JsonValue
         fun asValue() = specification
+
+        override fun toSpecificationSource(
+            source: SourceV3,
+            resiliencyTestSuite: ResiliencyTestSuite?,
+            examples: List<String>,
+            getBaseUrl: (String?) -> String?
+        ): SpecificationSourceEntry {
+            val specFile = source.resolveSpecification(File(specification))
+            return source.toSpecificationSource(specFile, specification, getBaseUrl(null), resiliencyTestSuite, examples)
+        }
 
         companion object {
             @JvmStatic
@@ -67,4 +96,11 @@ sealed interface SpecificationDefinition {
             this.canonicalFile == other.canonicalFile
         }
     }
+
+    fun toSpecificationSource(
+        source: SourceV3,
+        resiliencyTestSuite: ResiliencyTestSuite?,
+        examples: List<String>,
+        getBaseUrl: (String?) -> String?
+    ): SpecificationSourceEntry
 }

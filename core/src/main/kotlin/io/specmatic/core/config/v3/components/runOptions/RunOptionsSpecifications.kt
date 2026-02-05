@@ -7,6 +7,8 @@ interface IRunOptionSpecification {
     fun getId(): String?
     fun getFilter(): String?
     fun getOverlayFilePath(): String?
+
+    fun withFilter(filter: String): IRunOptionSpecification
 }
 
 data class RunOptionsSpecifications(val spec: Value) : IRunOptionSpecification {
@@ -23,6 +25,10 @@ data class RunOptionsSpecifications(val spec: Value) : IRunOptionSpecification {
     @JsonIgnore
     override fun getOverlayFilePath(): String? {
         return spec.overlayFilePath
+    }
+
+    override fun withFilter(filter: String): IRunOptionSpecification {
+        return this.copy(spec = spec.copy(filter = filter))
     }
 
     data class Value(
@@ -46,6 +52,10 @@ data class OpenApiRunOptionsSpecifications(val spec: Value) : IRunOptionSpecific
     @JsonIgnore
     override fun getOverlayFilePath(): String? {
         return spec.overlayFilePath
+    }
+
+    override fun withFilter(filter: String): OpenApiRunOptionsSpecifications {
+        return this.copy(spec = spec.copy(filter = filter))
     }
 
     @JsonIgnore

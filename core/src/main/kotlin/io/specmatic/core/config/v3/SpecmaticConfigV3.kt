@@ -2,8 +2,8 @@ package io.specmatic.core.config.v3
 
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.config.*
-import io.specmatic.core.config.v3.components.MockServiceConfig
-import io.specmatic.core.config.v3.components.TestServiceConfig
+import io.specmatic.core.config.v3.components.services.MockServiceConfig
+import io.specmatic.core.config.v3.components.services.TestServiceConfig
 import java.io.File
 
 data class SpecmaticConfigV3(

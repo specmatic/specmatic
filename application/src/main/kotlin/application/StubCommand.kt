@@ -28,7 +28,6 @@ import io.specmatic.stub.listener.MockEventListener
 import picocli.CommandLine.*
 import picocli.CommandLine.Model.CommandSpec
 import java.io.File
-import java.util.concurrent.Callable
 
 @Command(
     name = "stub",

@@ -9,11 +9,11 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 @JsonSubTypes(JsonSubTypes.Type(ProtobufTestConfig::class, name = "test"), JsonSubTypes.Type(ProtobufMockConfig::class, name = "mock"),)
-sealed interface ProtobufRunOptions : IRunOptions { val config: Map<String, Any?>?; val type: RunOptionType? }
+sealed interface ProtobufRunOptions : IRunOptions { val config: Map<String, Any>?; val type: RunOptionType? }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
-data class ProtobufTestConfig(override val specs: List<RunOptionsSpecifications>? = null) : ProtobufRunOptions {
-    private val _config: MutableMap<String, Any?> = linkedMapOf()
+data class ProtobufTestConfig(override val baseUrl: String? = null, override val specs: List<RunOptionsSpecifications>? = null) : ProtobufRunOptions {
+    private val _config: MutableMap<String, Any> = linkedMapOf()
 
     @JsonIgnore
     override val type: RunOptionType? = null
@@ -26,17 +26,17 @@ data class ProtobufTestConfig(override val specs: List<RunOptionsSpecifications>
     }
 
     @get:JsonAnyGetter
-    override val config: Map<String, Any?> get() = _config
+    override val config: Map<String, Any> get() = _config
 
     @JsonAnySetter
-    fun put(key: String, value: Any?) {
+    fun put(key: String, value: Any) {
         _config[key] = value
     }
 }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
-data class ProtobufMockConfig(override val specs: List<RunOptionsSpecifications>? = null) : ProtobufRunOptions {
-    private val _config: MutableMap<String, Any?> = linkedMapOf()
+data class ProtobufMockConfig(override val baseUrl: String? = null, override val specs: List<RunOptionsSpecifications>? = null) : ProtobufRunOptions {
+    private val _config: MutableMap<String, Any> = linkedMapOf()
 
     @JsonIgnore
     override val type: RunOptionType? = null
@@ -49,10 +49,10 @@ data class ProtobufMockConfig(override val specs: List<RunOptionsSpecifications>
     }
 
     @get:JsonAnyGetter
-    override val config: Map<String, Any?> get() = _config
+    override val config: Map<String, Any> get() = _config
 
     @JsonAnySetter
-    fun put(key: String, value: Any?) {
+    fun put(key: String, value: Any) {
         _config[key] = value
     }
 }

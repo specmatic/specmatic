@@ -37,7 +37,6 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.WorkingDirectory
 import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.core.listOfExcludedHeaders
-import io.specmatic.core.loadSpecmaticConfigOrDefault
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.LogTail

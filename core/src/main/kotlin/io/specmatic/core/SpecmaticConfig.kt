@@ -10,10 +10,14 @@ import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.SpecmaticGlobalSettings
 import io.specmatic.core.config.Switch
 import io.specmatic.core.utilities.ContractSource
+import io.specmatic.core.utilities.ContractSourceEntry
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
+import io.specmatic.reporter.model.SpecType
+import io.specmatic.stub.isSameBaseIgnoringHost
 import java.io.File
+import java.net.URI
 import java.nio.file.Path
 
 data class SpecificationSource(
@@ -21,6 +25,7 @@ data class SpecificationSource(
     val repository: String? = null,
     val directory: String? = null,
     val branch: String? = null,
+    val matchBranch: Boolean? = null,
     val test: List<SpecificationSourceEntry> = emptyList(),
     val mock: List<SpecificationSourceEntry> = emptyList(),
 )
@@ -34,8 +39,14 @@ data class SpecificationSourceEntry(
     val type: SourceProvider,
     val repository: String? = null,
     val directory: String? = null,
-    val branch: String? = null
+    val branch: String? = null,
+    val matchBranch: Boolean? = null,
+    val exampleDirs: List<String>? = null
 ) {
+    fun toContractSourceEntry(): ContractSourceEntry {
+        return ContractSourceEntry(specPathInConfig, baseUrl, resiliencyTestSuite, exampleDirs)
+    }
+
     constructor(source: Source, specFile: File, specPathInConfig: String, baseUrl: String? = null, port: Int? = null, resiliencyTestSuite: ResiliencyTestSuite? = null) : this(
         specFile = specFile,
         baseUrl = baseUrl,
@@ -45,7 +56,8 @@ data class SpecificationSourceEntry(
         type = source.provider,
         repository = source.repository,
         directory = source.directory,
-        branch = source.branch
+        branch = source.branch,
+        matchBranch = source.matchBranch
     )
 }
 
@@ -69,10 +81,10 @@ interface SpecmaticConfig {
     fun testConfigFor(specPath: String, specType: String): Map<String, Any>
 
     @JsonIgnore
-    fun testConfigFor(file: File, specType: String): Map<String, Any>
+    fun testConfigFor(file: File, specType: SpecType): Map<String, Any>
 
     @JsonIgnore
-    fun stubConfigFor(file: File, specType: String): Map<String, Any>
+    fun stubConfigFor(file: File, specType: SpecType): Map<String, Any>
 
     @JsonIgnore
     fun stubConfigFor(specPath: String, specType: String): Map<String, Any>
@@ -86,7 +98,7 @@ interface SpecmaticConfig {
     ): CtrfSpecConfig
 
     @JsonIgnore
-    fun getHotReload(): Switch?
+    fun getHotReload(specFile: File): Switch?
 
     @JsonIgnore
     fun dropExcludedEndpointsAfterVersion1(latestVersion: SpecmaticConfigVersion): SpecmaticConfig
@@ -110,10 +122,15 @@ interface SpecmaticConfig {
     fun stubToBaseUrlList(defaultBaseUrl: String): List<Pair<String, String>>
 
     @JsonIgnore
-    fun stubBaseUrlPathAssociatedTo(url: String, defaultBaseUrl: String): String
+    fun stubBaseUrlPathAssociatedTo(url: String, defaultBaseUrl: String): String {
+        val parsedUrl = URI(url)
+        return stubBaseUrls(defaultBaseUrl).map(::URI).firstOrNull { stubBaseUrl ->
+            isSameBaseIgnoringHost(parsedUrl, stubBaseUrl)
+        }?.path.orEmpty()
+    }
 
     @JsonIgnore
-    fun getStubStartTimeoutInMilliseconds(): Long
+    fun getStubStartTimeoutInMilliseconds(specFile: File): Long
     fun logDependencyProjects(azure: AzureAPI)
 
     @JsonIgnore
@@ -123,13 +140,20 @@ interface SpecmaticConfig {
     fun attributeSelectionQueryParamKey(): String
 
     @JsonIgnore
-    fun isExtensibleSchemaEnabled(): Boolean
+    fun isTestExtensibleSchemaEnabled(): Boolean
 
     @JsonIgnore
-    fun isResiliencyTestingEnabled(): Boolean
+    fun isMockExtensibleSchemaEnabled(specFile: File): Boolean
 
     @JsonIgnore
-    fun isOnlyPositiveTestingEnabled(): Boolean
+    fun isResiliencyTestingEnabled(): Boolean {
+        return (getResiliencyTestsEnabled() != ResiliencyTestSuite.none)
+    }
+
+    @JsonIgnore
+    fun isOnlyPositiveTestingEnabled(): Boolean {
+        return (getResiliencyTestsEnabled() == ResiliencyTestSuite.positiveOnly)
+    }
 
     @JsonIgnore
     fun isResponseValueValidationEnabled(): Boolean
@@ -162,7 +186,7 @@ interface SpecmaticConfig {
     fun getMaxTestCount(): Int?
 
     @JsonIgnore
-    fun getTestFilter(): String?
+    fun getTestFilter(specFile: File, specType: SpecType): String?
 
     @JsonIgnore
     fun getTestFilterName(): String?
@@ -171,13 +195,13 @@ interface SpecmaticConfig {
     fun getTestFilterNotName(): String?
 
     @JsonIgnore
-    fun getTestOverlayFilePath(): String?
+    fun getTestOverlayFilePath(specFile: File, specType: SpecType): String?
 
     @JsonIgnore
-    fun getTestBaseUrl(): String?
+    fun getTestBaseUrl(specType: SpecType): String?
 
     @JsonIgnore
-    fun getCoverageReportBaseUrl(): String?
+    fun getCoverageReportBaseUrl(specType: SpecType): String?
 
     @JsonIgnore
     fun getTestSwaggerUrl(): String?
@@ -198,28 +222,28 @@ interface SpecmaticConfig {
     fun getStubIncludeMandatoryAndRequestedKeysInResponse(): Boolean
 
     @JsonIgnore
-    fun getStubGenerative(): Boolean
+    fun getStubGenerative(specFile: File): Boolean
 
     @JsonIgnore
-    fun getStubDelayInMilliseconds(): Long?
+    fun getStubDelayInMilliseconds(specFile: File): Long?
 
     @JsonIgnore
-    fun getStubDictionary(): String?
+    fun getStubDictionary(specFile: File): String?
 
     @JsonIgnore
-    fun getStubStrictMode(): Boolean?
+    fun getStubStrictMode(specFile: File): Boolean?
 
     @JsonIgnore
-    fun getStubFilter(): String?
+    fun getStubFilter(specFile: File, specType: SpecType): String?
 
     @JsonIgnore
-    fun getStubHttpsConfiguration(): HttpsConfiguration?
+    fun getStubHttpsConfiguration(specFile: File): HttpsConfiguration?
 
     @JsonIgnore
-    fun getStubGracefulRestartTimeoutInMilliseconds(): Long?
+    fun getStubGracefulRestartTimeoutInMilliseconds(specFile: File): Long?
 
     @JsonIgnore
-    fun getDefaultBaseUrl(): String
+    fun getDefaultBaseUrl(specFile: File): String
 
     @JsonIgnore
     fun getCustomImplicitStubBase(): String?
@@ -252,7 +276,7 @@ interface SpecmaticConfig {
     fun getAdditionalExampleParamsFilePath(): String?
 
     @JsonIgnore
-    fun getHooks(): Map<String, String>
+    fun getHooks(specFile: File): Map<String, String>
 
     @JsonIgnore
     fun getProxyConfig(): ProxyConfig?
@@ -265,19 +289,22 @@ interface SpecmaticConfig {
     fun getMatchBranchEnabled(): Boolean
 
     @JsonIgnore
-    fun getAuth(): Auth?
+    fun getAuth(repositoryUrl: String): Auth?
 
     @JsonIgnore
-    fun getAuthBearerFile(): String?
+    fun getAuthBearerFile(repositoryUrl: String): String?
 
     @JsonIgnore
-    fun getAuthBearerEnvironmentVariable(): String?
+    fun getAuthBearerEnvironmentVariable(repositoryUrl: String): String?
 
     @JsonIgnore
-    fun getAuthPersonalAccessToken(): String?
+    fun getAuthPersonalAccessToken(repositoryUrl: String): String?
 
     @JsonIgnore
-    fun getExamples(): List<String>
+    fun getTestExampleDirs(specFile: File): List<String>
+
+    @JsonIgnore
+    fun getStubExamplesDir(specFile: File): List<String>
 
     @JsonIgnore
     fun getRepositoryProvider(): String?
@@ -304,7 +331,7 @@ interface SpecmaticConfig {
     fun getPipelineProject(): String?
 
     @JsonIgnore
-    fun getOpenAPISecurityConfigurationScheme(scheme: String): SecuritySchemeConfiguration?
+    fun getOpenAPISecurityConfigurationScheme(specFile: File, scheme: String): SecuritySchemeConfiguration?
 
     @JsonIgnore
     fun getBasicAuthSecurityToken(
@@ -372,7 +399,7 @@ interface SpecmaticConfig {
     fun plusExamples(exampleDirectories: List<String>): SpecmaticConfig
 
     // TODO: REVIEW
-    fun getSecurityConfiguration(): SecurityConfiguration?
+    fun getSecurityConfiguration(specFile: File): SecurityConfiguration?
 
     companion object {
         operator fun invoke(): SpecmaticConfig = SpecmaticConfigV1V2Common()

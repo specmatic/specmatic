@@ -56,29 +56,29 @@ import kotlin.collections.orEmpty
 private const val excludedEndpointsWarning =
     "WARNING: excludedEndpoints is not supported in Specmatic config v2. . Refer to https://specmatic.io/documentation/configuration.html#report-configuration to see how to exclude endpoints."
 
-private const val TESTS_DIRECTORY_ENV_VAR = "SPECMATIC_TESTS_DIRECTORY"
-private const val TESTS_DIRECTORY_PROPERTY = "specmaticTestsDirectory"
-private const val CUSTOM_IMPLICIT_STUB_BASE_ENV_VAR = "SPECMATIC_CUSTOM_IMPLICIT_STUB_BASE"
-private const val CUSTOM_IMPLICIT_STUB_BASE_PROPERTY = "customImplicitStubBase"
+internal const val TESTS_DIRECTORY_ENV_VAR = "SPECMATIC_TESTS_DIRECTORY"
+internal const val TESTS_DIRECTORY_PROPERTY = "specmaticTestsDirectory"
+internal const val CUSTOM_IMPLICIT_STUB_BASE_ENV_VAR = "SPECMATIC_CUSTOM_IMPLICIT_STUB_BASE"
+internal const val CUSTOM_IMPLICIT_STUB_BASE_PROPERTY = "customImplicitStubBase"
 private const val TEST_ENDPOINTS_API = "endpointsAPI"
 private const val TEST_FILTER_ENV_VAR = "filter"
 private const val TEST_FILTER_PROPERTY = "filter"
 private const val TEST_SWAGGER_UI_BASEURL_ENV_VAR = "swaggerUIBaseURL"
 private const val TEST_SWAGGER_UI_BASEURL_PROPERTY = "swaggerUIBaseURL"
-private const val TEST_BASE_URL_ENV_VAR = "testBaseURL"
-private const val TEST_BASE_URL_PROPERTY = "testBaseURL"
-private const val TEST_HOST_ENV_VAR = "host"
-private const val TEST_HOST_PROPERTY = "host"
-private const val TEST_PORT_ENV_VAR = "port"
-private const val TEST_PORT_PROPERTY = "port"
+internal const val TEST_BASE_URL_ENV_VAR = "testBaseURL"
+internal const val TEST_BASE_URL_PROPERTY = "testBaseURL"
+internal const val TEST_HOST_ENV_VAR = "host"
+internal const val TEST_HOST_PROPERTY = "host"
+internal const val TEST_PORT_ENV_VAR = "port"
+internal const val TEST_PORT_PROPERTY = "port"
 private const val TEST_PROTOCOL_ENV_VAR = "protocol"
 private const val TEST_PROTOCOL_PROPERTY = "protocol"
-private const val TEST_FILTER_NAME_ENV_VAR = "FILTER_NAME"
-private const val TEST_FILTER_NAME_PROPERTY = "filterName"
-private const val TEST_FILTER_NOT_NAME_ENV_VAR = "FILTER_NOT_NAME"
-private const val TEST_FILTER_NOT_NAME_PROPERTY = "filterNotName"
-private const val TEST_OVERLAY_FILE_PATH_ENV_VAR = "overlayFilePath"
-private const val TEST_OVERLAY_FILE_PATH_PROPERTY = "overlayFilePath"
+internal const val TEST_FILTER_NAME_ENV_VAR = "FILTER_NAME"
+internal const val TEST_FILTER_NAME_PROPERTY = "filterName"
+internal const val TEST_FILTER_NOT_NAME_ENV_VAR = "FILTER_NOT_NAME"
+internal const val TEST_FILTER_NOT_NAME_PROPERTY = "filterNotName"
+internal const val TEST_OVERLAY_FILE_PATH_ENV_VAR = "overlayFilePath"
+internal const val TEST_OVERLAY_FILE_PATH_PROPERTY = "overlayFilePath"
 
 const val APPLICATION_NAME = "Specmatic"
 const val APPLICATION_NAME_LOWER_CASE = "specmatic"
@@ -333,6 +333,31 @@ data class SpecmaticConfigV1V2Common(
     private val globalSettings: SpecmaticGlobalSettings? = null,
 ) : SpecmaticConfig {
     companion object {
+        fun getEffectiveBranchForSource(
+            configuredBranch: String?,
+            useCurrentBranchForCentralRepo: Boolean,
+        ): String? {
+            if (!useCurrentBranchForCentralRepo) {
+                return configuredBranch
+            }
+
+            return try {
+                val git = SystemGit()
+                val currentBranch = git.getCurrentBranchForMatchBranch()
+                logger.debug("Current branch: $currentBranch")
+
+                logger.log("Central repo branch: '$currentBranch'")
+                currentBranch
+            } catch (e: Throwable) {
+                val fallbackBranchToLog = configuredBranch?.let { "configured branch: $configuredBranch" } ?: "default"
+
+                logger.log("Could not determine current branch for --match-branch flag: ${e.message}")
+                logger.log("Falling back to $fallbackBranchToLog")
+
+                configuredBranch
+            }
+        }
+
         fun getReport(specmaticConfig: SpecmaticConfigV1V2Common): ReportConfigurationDetails? {
             return specmaticConfig.report
         }
@@ -490,19 +515,19 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
-    override fun testConfigFor(file: File, specType: String): Map<String, Any> {
+    override fun testConfigFor(file: File, specType: SpecType): Map<String, Any> {
         val resolvedTestConfig = this.sources.flatMap { it.getCanonicalTestConfigs() }
         return resolvedTestConfig.filterIsInstance<SpecExecutionConfig.ConfigValue>().firstOrNull { config ->
-            if (config.specType != specType) return@firstOrNull false
+            if (config.specType != specType.value) return@firstOrNull false
             config.specs.any { specPath -> File(specPath).sameAs(file) }
         }?.config.orEmpty()
     }
 
     @JsonIgnore
-    override fun stubConfigFor(file: File, specType: String): Map<String, Any> {
+    override fun stubConfigFor(file: File, specType: SpecType): Map<String, Any> {
         val resolvedTestConfig = this.sources.flatMap { it.getCanonicalStubConfigs() }
         return resolvedTestConfig.filterIsInstance<SpecExecutionConfig.ConfigValue>().firstOrNull { config ->
-            if (config.specType != specType) return@firstOrNull false
+            if (config.specType != specType.value) return@firstOrNull false
             config.specs.any { specPath -> File(specPath).sameAs(file) }
         }?.config.orEmpty()
     }
@@ -542,7 +567,7 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
-    override fun getHotReload(): Switch? {
+    override fun getHotReload(specFile: File): Switch? {
         return getStubConfiguration(this).getHotReload()
     }
 
@@ -609,7 +634,7 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
-    override fun getStubStartTimeoutInMilliseconds(): Long {
+    override fun getStubStartTimeoutInMilliseconds(specFile: File): Long {
         return getStubConfiguration(this).getStartTimeoutInMilliseconds() ?: 20_000L
     }
 
@@ -681,39 +706,19 @@ data class SpecmaticConfigV1V2Common(
         }
     }
 
-    private fun getEffectiveBranchForSource(
-        configuredBranch: String?,
-        useCurrentBranchForCentralRepo: Boolean,
-    ): String? {
-        if (!useCurrentBranchForCentralRepo) {
-            return configuredBranch
-        }
-
-        return try {
-            val git = SystemGit()
-            val currentBranch = git.getCurrentBranchForMatchBranch()
-            logger.debug("Current branch: $currentBranch")
-
-            logger.log("Central repo branch: '$currentBranch'")
-            currentBranch
-        } catch (e: Throwable) {
-            val fallbackBranchToLog = configuredBranch?.let { "configured branch: $configuredBranch" } ?: "default"
-
-            logger.log("Could not determine current branch for --match-branch flag: ${e.message}")
-            logger.log("Falling back to $fallbackBranchToLog")
-
-            configuredBranch
-        }
-    }
-
     @JsonIgnore
     override fun attributeSelectionQueryParamKey(): String {
         return getAttributeSelectionPattern().getQueryParamKey()
     }
 
     @JsonIgnore
-    override fun isExtensibleSchemaEnabled(): Boolean {
+    override fun isTestExtensibleSchemaEnabled(): Boolean {
         return test?.allowExtensibleSchema ?: getBooleanValue(EXTENSIBLE_SCHEMA)
+    }
+
+    @JsonIgnore
+    override fun isMockExtensibleSchemaEnabled(specFile: File): Boolean {
+        return getBooleanValue(EXTENSIBLE_SCHEMA)
     }
 
     @JsonIgnore
@@ -779,7 +784,7 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
-    override fun getTestFilter(): String? {
+    override fun getTestFilter(specFile: File, specType: SpecType): String? {
         return getTestConfiguration(this)?.filter
             ?: readEnvVarOrProperty(TEST_FILTER_ENV_VAR, TEST_FILTER_PROPERTY)
     }
@@ -797,13 +802,13 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
-    override fun getTestOverlayFilePath(): String? {
+    override fun getTestOverlayFilePath(specFile: File, specType: SpecType): String? {
         val configValue = if (getVersion() == VERSION_2) test?.overlayFilePath else null
         return configValue ?: readEnvVarOrProperty(TEST_OVERLAY_FILE_PATH_ENV_VAR, TEST_OVERLAY_FILE_PATH_PROPERTY)
     }
 
     @JsonIgnore
-    override fun getTestBaseUrl(): String? {
+    override fun getTestBaseUrl(specType: SpecType): String? {
         val baseUrl = getExplicitTestBaseUrl()
         if (baseUrl != null) return baseUrl
 
@@ -827,7 +832,7 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
-    override fun getCoverageReportBaseUrl(): String? {
+    override fun getCoverageReportBaseUrl(specType: SpecType): String? {
         val baseUrl = getExplicitTestBaseUrl()
         if (baseUrl != null) return baseUrl
 
@@ -881,42 +886,42 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
-    override fun getStubGenerative(): Boolean {
+    override fun getStubGenerative(specFile: File): Boolean {
         return getStubConfiguration(this).getGenerative() ?: false
     }
 
     @JsonIgnore
-    override fun getStubDelayInMilliseconds(): Long? {
+    override fun getStubDelayInMilliseconds(specFile: File): Long? {
         return getStubConfiguration(this).getDelayInMilliseconds()
     }
 
     @JsonIgnore
-    override fun getStubDictionary(): String? {
+    override fun getStubDictionary(specFile: File): String? {
         return getStubConfiguration(this).getDictionary()
     }
 
     @JsonIgnore
-    override fun getStubStrictMode(): Boolean? {
+    override fun getStubStrictMode(specFile: File): Boolean? {
         return getStubConfiguration(this).getStrictMode()
     }
 
     @JsonIgnore
-    override fun getStubFilter(): String? {
+    override fun getStubFilter(specFile: File, specType: SpecType): String? {
         return getStubConfiguration(this).getFilter()
     }
 
     @JsonIgnore
-    override fun getStubHttpsConfiguration(): HttpsConfiguration? {
+    override fun getStubHttpsConfiguration(specFile: File): HttpsConfiguration? {
         return getStubConfiguration(this).getHttpsConfiguration()
     }
 
     @JsonIgnore
-    override fun getStubGracefulRestartTimeoutInMilliseconds(): Long? {
+    override fun getStubGracefulRestartTimeoutInMilliseconds(specFile: File): Long? {
         return getStubConfiguration(this).getGracefulRestartTimeoutInMilliseconds()
     }
 
     @JsonIgnore
-    override fun getDefaultBaseUrl(): String {
+    override fun getDefaultBaseUrl(specFile: File): String {
         return getStubConfiguration(this).getBaseUrl()
             ?: getStringValue(SPECMATIC_BASE_URL)
             ?: Configuration.DEFAULT_BASE_URL
@@ -979,7 +984,7 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
-    override fun getHooks(): Map<String, String> {
+    override fun getHooks(specFile: File): Map<String, String> {
         return hooks
     }
 
@@ -1003,22 +1008,22 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
-    override fun getAuth(): Auth? {
+    override fun getAuth(repositoryUrl: String): Auth? {
         return auth
     }
 
     @JsonIgnore
-    override fun getAuthBearerFile(): String? {
+    override fun getAuthBearerFile(repositoryUrl: String): String? {
         return auth?.bearerFile
     }
 
     @JsonIgnore
-    override fun getAuthBearerEnvironmentVariable(): String? {
+    override fun getAuthBearerEnvironmentVariable(repositoryUrl: String): String? {
         return auth?.bearerEnvironmentVariable
     }
 
     @JsonIgnore
-    override fun getAuthPersonalAccessToken(): String? {
+    override fun getAuthPersonalAccessToken(repositoryUrl: String): String? {
         val tokenFromConfig = auth?.personalAccessToken?.takeIf { it.isNotBlank() }
         if (tokenFromConfig != null) return tokenFromConfig
 
@@ -1060,7 +1065,12 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
-    override fun getExamples(): List<String> {
+    override fun getTestExampleDirs(specFile: File): List<String> {
+        return examples ?: getStringValue(EXAMPLE_DIRECTORIES)?.split(",") ?: emptyList()
+    }
+
+    @JsonIgnore
+    override fun getStubExamplesDir(specFile: File): List<String> {
         return examples ?: getStringValue(EXAMPLE_DIRECTORIES)?.split(",") ?: emptyList()
     }
 
@@ -1105,7 +1115,7 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
-    override fun getOpenAPISecurityConfigurationScheme(scheme: String): SecuritySchemeConfiguration? {
+    override fun getOpenAPISecurityConfigurationScheme(specFile: File, scheme: String): SecuritySchemeConfiguration? {
         return security?.getOpenAPISecurityScheme(scheme)
     }
 
@@ -1316,7 +1326,7 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
-    override fun getSecurityConfiguration(): SecurityConfiguration? {
+    override fun getSecurityConfiguration(specFile: File): SecurityConfiguration? {
         return security
     }
 

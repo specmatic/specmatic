@@ -2,7 +2,7 @@ package io.specmatic.core.config.v3
 
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.v3.components.Adapter
-import io.specmatic.core.config.v3.components.CommonServiceConfig
+import io.specmatic.core.config.v3.components.services.CommonServiceConfig
 import io.specmatic.core.config.v3.components.Dictionary
 import io.specmatic.core.config.v3.components.Examples
 import io.specmatic.core.config.v3.components.runOptions.ContextDependentRunOptions
