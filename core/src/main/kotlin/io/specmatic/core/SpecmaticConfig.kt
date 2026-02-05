@@ -16,7 +16,7 @@ import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import java.io.File
 import java.nio.file.Path
 
-data class SpecificationSources(
+data class SpecificationSource(
     val type: SourceProvider,
     val repository: String? = null,
     val directory: String? = null,
@@ -54,7 +54,7 @@ interface SpecmaticConfig {
     fun getLogConfigurationOrDefault(): LoggingConfiguration
 
     @JsonIgnore
-    fun getSources(): List<SpecificationSources>
+    fun getSpecificationSources(): List<SpecificationSource>
 
     @JsonIgnore
     fun getFirstMockSourceMatching(predicate: (SpecificationSourceEntry) -> Boolean): SpecificationSourceEntry?
