@@ -54,7 +54,7 @@ dependencies {
     testImplementation("com.ginsberg:junit5-system-exit:2.0.2")
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.14.2")
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.14.2")
-    testImplementation("io.kotest:kotest-assertions-core-jvm:6.1.2")
+    testImplementation("io.kotest:kotest-assertions-core-jvm:6.1.3")
 
 }
 
