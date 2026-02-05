@@ -10,6 +10,7 @@ import io.specmatic.core.SourceProvider.filesystem
 import io.specmatic.core.SourceProvider.git
 import io.specmatic.core.config.SpecmaticConfigVersion.Companion.convertToLatestVersionedConfig
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.config.v1.SpecmaticConfigV1
 import io.specmatic.core.config.v2.ContractConfig
 import io.specmatic.core.config.v2.ContractConfig.FileSystemContractSource
@@ -79,7 +80,7 @@ internal class SpecmaticConfigAllTest {
     fun `should create SpecmaticConfig from the versioned specmatic configuration`(version: SpecmaticConfigVersion, configFile: String) {
         val config: SpecmaticConfig = loadSpecmaticConfig(configFile)
         assertThat(config.getVersion()).isEqualTo(version)
-        val sources = SpecmaticConfig.getSources(config)
+        val sources = SpecmaticConfigV1V2Common.getSources(config as SpecmaticConfigV1V2Common)
         assertThat(sources.size).isEqualTo(2)
         val expectedSources = listOf(
             Source(
@@ -110,7 +111,7 @@ internal class SpecmaticConfigAllTest {
     fun `should create SpecmaticConfig from the v2 config with stub ports`(version: SpecmaticConfigVersion, configFile: String) {
         val config: SpecmaticConfig = loadSpecmaticConfig(configFile)
         assertThat(config.getVersion()).isEqualTo(version)
-        val sources = SpecmaticConfig.getSources(config)
+        val sources = SpecmaticConfigV1V2Common.getSources(config as SpecmaticConfigV1V2Common)
         assertThat(sources.size).isEqualTo(2)
         val expectedSources = listOf(
             Source(

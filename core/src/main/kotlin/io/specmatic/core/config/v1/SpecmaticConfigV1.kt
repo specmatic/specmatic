@@ -37,8 +37,8 @@ data class SpecmaticConfigV1 (
 	@field:JsonAlias("disable_telemetry")
 	val disableTelemetry: Boolean? = null,
 ): SpecmaticVersionedConfig {
-	override fun transform(): SpecmaticConfig {
-		return SpecmaticConfig(
+	override fun transform(): SpecmaticConfigV1V2Common {
+		return SpecmaticConfigV1V2Common(
 			sources = this.sources,
 			auth = this.auth,
 			pipeline = this.pipeline,

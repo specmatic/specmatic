@@ -9,6 +9,7 @@ import io.specmatic.core.AttributeSelectionPattern
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.value.Value
 import io.specmatic.test.TestExecutor
 import org.assertj.core.api.Assertions.assertThat
@@ -28,8 +29,8 @@ class ValueAssertionsTest {
             every { isResponseValueValidationEnabled() } returns true
             every { getWorkflowDetails() } returns null
         }
-        mockkObject(SpecmaticConfig.Companion)
-        every { SpecmaticConfig.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
+        mockkObject(SpecmaticConfigV1V2Common.Companion)
+        every { SpecmaticConfigV1V2Common.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
 
         val feature = OpenApiSpecification.fromYAML(
             """
@@ -113,8 +114,8 @@ paths:
             every { isResponseValueValidationEnabled() } returns true
             every { getWorkflowDetails() } returns null
         }
-        mockkObject(SpecmaticConfig.Companion)
-        every { SpecmaticConfig.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
+        mockkObject(SpecmaticConfigV1V2Common.Companion)
+        every { SpecmaticConfigV1V2Common.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
 
         val feature = OpenApiSpecification.fromYAML(
             """
@@ -175,8 +176,8 @@ paths:
             every { isResponseValueValidationEnabled() } returns true
             every { getWorkflowDetails() } returns null
         }
-        mockkObject(SpecmaticConfig.Companion)
-        every { SpecmaticConfig.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
+        mockkObject(SpecmaticConfigV1V2Common.Companion)
+        every { SpecmaticConfigV1V2Common.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
 
         val feature = OpenApiSpecification.fromYAML(
             """
@@ -245,8 +246,8 @@ paths:
             every { isResponseValueValidationEnabled() } returns true
             every { getWorkflowDetails() } returns null
         }
-        mockkObject(SpecmaticConfig.Companion)
-        every { SpecmaticConfig.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
+        mockkObject(SpecmaticConfigV1V2Common.Companion)
+        every { SpecmaticConfigV1V2Common.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
 
         val feature = OpenApiSpecification.fromYAML(
             """
@@ -323,8 +324,8 @@ paths:
             every { isResponseValueValidationEnabled() } returns true
             every { getWorkflowDetails() } returns null
         }
-        mockkObject(SpecmaticConfig.Companion)
-        every { SpecmaticConfig.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
+        mockkObject(SpecmaticConfigV1V2Common.Companion)
+        every { SpecmaticConfigV1V2Common.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
 
         val feature = OpenApiSpecification.fromYAML(
             """

@@ -2,8 +2,6 @@ package application
 
 import io.specmatic.core.*
 import io.specmatic.core.SpecmaticConfig
-import io.specmatic.core.SpecmaticConfig.Companion.orDefault
-import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.config.LoggingConfiguration.Companion.LoggingFromOpts
 import io.specmatic.core.log.LoggingConfigSource
 import io.specmatic.core.log.configureLogging

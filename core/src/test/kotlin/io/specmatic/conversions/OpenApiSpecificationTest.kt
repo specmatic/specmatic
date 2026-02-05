@@ -8196,7 +8196,7 @@ components:
           minimum: 1
         """.trimIndent()
 
-        val specmaticConfig = SpecmaticConfig(
+        val specmaticConfig = SpecmaticConfigV1V2Common(
             workflow = WorkflowConfiguration(
                 mapOf(
                     "POST /orders -> 201" to WorkflowIDOperation(extract = "BODY.id"),
@@ -8352,7 +8352,7 @@ components:
                                   value:
                                     age: "person data"
                 """.trimIndent(), "",
-            specmaticConfig = SpecmaticConfig(ignoreInlineExamples = true)
+            specmaticConfig = SpecmaticConfigV1V2Common(ignoreInlineExamples = true)
         ).toFeature()
 
         val results = feature.executeTests(object : TestExecutor {

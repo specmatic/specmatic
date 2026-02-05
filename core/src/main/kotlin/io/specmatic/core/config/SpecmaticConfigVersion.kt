@@ -2,7 +2,7 @@ package io.specmatic.core.config
 
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonValue
-import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.config.v1.SpecmaticConfigV1
 import io.specmatic.core.config.v2.SpecmaticConfigV2
 
@@ -28,7 +28,7 @@ enum class SpecmaticConfigVersion(@JsonValue val value: Int, val configLoader: S
             return entries.any { it == version }
         }
 
-        fun convertToLatestVersionedConfig(config: SpecmaticConfig): SpecmaticVersionedConfig {
+        fun convertToLatestVersionedConfig(config: SpecmaticConfigV1V2Common): SpecmaticVersionedConfig {
             val latestVersion = getLatestVersion()
             return latestVersion
                 .configLoader

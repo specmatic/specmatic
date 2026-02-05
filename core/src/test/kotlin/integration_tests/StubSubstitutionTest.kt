@@ -6,6 +6,7 @@ import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.SPECMATIC_STUB_DICTIONARY
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.StubConfiguration
 import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.pattern.ContractException
@@ -667,7 +668,7 @@ class StubSubstitutionTest {
     fun `data substitution in response body using dictionary`() {
         val specWithSubstitution = osAgnosticPath("src/test/resources/openapi/substitutions/spec_with_no_substitutions.yaml")
         val dictionaryPath = osAgnosticPath("src/test/resources/openapi/substitutions/dictionary.json")
-        val specmaticConfig = SpecmaticConfig(stub = StubConfiguration(dictionary = dictionaryPath))
+        val specmaticConfig = SpecmaticConfigV1V2Common(stub = StubConfiguration(dictionary = dictionaryPath))
 
         createStubFromContracts(
             listOf(specWithSubstitution),

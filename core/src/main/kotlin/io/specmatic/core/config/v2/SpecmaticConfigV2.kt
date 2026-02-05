@@ -2,15 +2,15 @@ package io.specmatic.core.config.v2
 
 import com.fasterxml.jackson.annotation.JsonAlias
 import io.specmatic.core.*
-import io.specmatic.core.SpecmaticConfig.Companion.getAllPatternsMandatory
-import io.specmatic.core.SpecmaticConfig.Companion.getAttributeSelectionConfigOrNull
-import io.specmatic.core.SpecmaticConfig.Companion.getPipeline
-import io.specmatic.core.SpecmaticConfig.Companion.getRepository
-import io.specmatic.core.SpecmaticConfig.Companion.getSecurityConfiguration
-import io.specmatic.core.SpecmaticConfig.Companion.getStubConfigOrNull
-import io.specmatic.core.SpecmaticConfig.Companion.getWorkflowConfiguration
-import io.specmatic.core.SpecmaticConfig.Companion.getTestConfigOrNull
-import io.specmatic.core.SpecmaticConfig.Companion.getVirtualServiceConfigOrNull
+import io.specmatic.core.SpecmaticConfigV1V2Common.Companion.getAllPatternsMandatory
+import io.specmatic.core.SpecmaticConfigV1V2Common.Companion.getAttributeSelectionConfigOrNull
+import io.specmatic.core.SpecmaticConfigV1V2Common.Companion.getPipeline
+import io.specmatic.core.SpecmaticConfigV1V2Common.Companion.getRepository
+import io.specmatic.core.SpecmaticConfigV1V2Common.Companion.getSecurityConfiguration
+import io.specmatic.core.SpecmaticConfigV1V2Common.Companion.getStubConfigOrNull
+import io.specmatic.core.SpecmaticConfigV1V2Common.Companion.getWorkflowConfiguration
+import io.specmatic.core.SpecmaticConfigV1V2Common.Companion.getTestConfigOrNull
+import io.specmatic.core.SpecmaticConfigV1V2Common.Companion.getVirtualServiceConfigOrNull
 import io.specmatic.core.config.BackwardCompatibilityConfig
 import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.config.McpConfiguration
@@ -18,6 +18,7 @@ import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.SpecmaticGlobalSettings
 import io.specmatic.core.config.SpecmaticVersionedConfig
 import io.specmatic.core.config.SpecmaticVersionedConfigLoader
+import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
@@ -66,8 +67,8 @@ data class SpecmaticConfigV2(
     val reportDirPath: Path? = null,
     private val globalSettings: SpecmaticGlobalSettings? = null,
 ) : SpecmaticVersionedConfig {
-    override fun transform(): SpecmaticConfig {
-        return SpecmaticConfig(
+    override fun transform(): SpecmaticConfigV1V2Common {
+        return SpecmaticConfigV1V2Common(
             version = currentConfigVersion(),
             sources = this.contracts.map { contract -> contract.transform() },
             auth = this.auth,
@@ -110,23 +111,26 @@ data class SpecmaticConfigV2(
         }
 
         override fun loadFrom(config: SpecmaticConfig): SpecmaticConfigV2 {
+            config as? SpecmaticConfigV1V2Common
+                ?: throw ContractException("Expected v1 or v2 config format, but got an incompatible config structure.")
+
             return SpecmaticConfigV2(
                 version = currentConfigVersion(),
-                contracts = SpecmaticConfig.getSources(config).map { ContractConfig(it) },
+                contracts = SpecmaticConfigV1V2Common.getSources(config).map { ContractConfig(it) },
                 auth = config.getAuth(),
                 pipeline = getPipeline(config),
-                environments = SpecmaticConfig.getEnvironments(config),
+                environments = SpecmaticConfigV1V2Common.getEnvironments(config),
                 hooks = config.getHooks(),
                 proxy = config.getProxyConfig(),
                 repository = getRepository(config),
-                report = SpecmaticConfig.getReport(config)?.validatePresenceOfExcludedEndpoints(currentConfigVersion()),
+                report = SpecmaticConfigV1V2Common.getReport(config)?.validatePresenceOfExcludedEndpoints(currentConfigVersion()),
                 security = getSecurityConfiguration(config),
                 test = getTestConfigOrNull(config),
                 stub = getStubConfigOrNull(config),
                 virtualService = getVirtualServiceConfigOrNull(config),
                 examples = config.getExamples(),
                 workflow = getWorkflowConfiguration(config),
-                ignoreInlineExamples = SpecmaticConfig.getIgnoreInlineExamples(config),
+                ignoreInlineExamples = SpecmaticConfigV1V2Common.getIgnoreInlineExamples(config),
                 ignoreInlineExampleWarnings = config.getIgnoreInlineExampleWarnings(),
                 schemaExampleDefault = config.getSchemaExampleDefault(),
                 fuzzy = config.getFuzzyMatchingEnabled(),

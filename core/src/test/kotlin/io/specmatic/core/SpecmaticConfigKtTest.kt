@@ -42,7 +42,7 @@ internal class SpecmaticConfigKtTest {
     fun `parse specmatic config file with all values`(configFile: String) {
         val config: SpecmaticConfig = loadSpecmaticConfig(configFile)
 
-        val sources = SpecmaticConfig.getSources(config)
+        val sources = SpecmaticConfigV1V2Common.getSources(config as SpecmaticConfigV1V2Common)
         assertThat(sources).isNotEmpty
 
         assertThat(sources.first().provider).isEqualTo(SourceProvider.git)
@@ -59,26 +59,26 @@ internal class SpecmaticConfigKtTest {
         assertThat(config.getPipelineDefinitionId()).isEqualTo(1)
 
         assertThat(
-            SpecmaticConfig.getEnvironments(config)?.get("staging")?.baseurls?.get("auth.spec")
+            SpecmaticConfigV1V2Common.getEnvironments(config)?.get("staging")?.baseurls?.get("auth.spec")
         ).isEqualTo("http://localhost:8080")
         assertThat(
-            SpecmaticConfig.getEnvironments(config)?.get("staging")?.variables?.get("username")
+            SpecmaticConfigV1V2Common.getEnvironments(config)?.get("staging")?.variables?.get("username")
         ).isEqualTo("jackie")
         assertThat(
-            SpecmaticConfig.getEnvironments(config)?.get("staging")?.variables?.get("password")
+            SpecmaticConfigV1V2Common.getEnvironments(config)?.get("staging")?.variables?.get("password")
         ).isEqualTo("PaSsWoRd")
 
-        assertThat(SpecmaticConfig.getReport(config)?.types?.apiCoverage?.openAPI?.successCriteria?.minThresholdPercentage).isEqualTo(
+        assertThat(SpecmaticConfigV1V2Common.getReport(config)?.types?.apiCoverage?.openAPI?.successCriteria?.minThresholdPercentage).isEqualTo(
             70
         )
-        assertThat(SpecmaticConfig.getReport(config)?.types?.apiCoverage?.openAPI?.successCriteria?.maxMissedEndpointsInSpec).isEqualTo(
+        assertThat(SpecmaticConfigV1V2Common.getReport(config)?.types?.apiCoverage?.openAPI?.successCriteria?.maxMissedEndpointsInSpec).isEqualTo(
             3
         )
-        assertThat(SpecmaticConfig.getReport(config)?.types?.apiCoverage?.openAPI?.successCriteria?.enforce).isTrue()
-        assertThat(SpecmaticConfig.getReport(config)?.types?.apiCoverage?.openAPI?.excludedEndpoints?.get(0)).isEqualTo(
+        assertThat(SpecmaticConfigV1V2Common.getReport(config)?.types?.apiCoverage?.openAPI?.successCriteria?.enforce).isTrue()
+        assertThat(SpecmaticConfigV1V2Common.getReport(config)?.types?.apiCoverage?.openAPI?.excludedEndpoints?.get(0)).isEqualTo(
             "/heartbeat"
         )
-        assertThat(SpecmaticConfig.getReport(config)?.types?.apiCoverage?.openAPI?.excludedEndpoints?.get(1)).isEqualTo(
+        assertThat(SpecmaticConfigV1V2Common.getReport(config)?.types?.apiCoverage?.openAPI?.excludedEndpoints?.get(1)).isEqualTo(
             "/health"
         )
 
@@ -124,9 +124,9 @@ internal class SpecmaticConfigKtTest {
                     }
                 ]
             }
-        """.trimIndent(), SpecmaticConfig::class.java)
+        """.trimIndent(), SpecmaticConfigV1V2Common::class.java)
 
-        val sources = SpecmaticConfig.getSources(config)
+        val sources = SpecmaticConfigV1V2Common.getSources(config as SpecmaticConfigV1V2Common)
         assertThat(sources).isNotEmpty
 
         assertThat(sources.first().provider).isEqualTo(SourceProvider.git)
@@ -142,7 +142,7 @@ internal class SpecmaticConfigKtTest {
     fun `parse specmatic config file with aliases`(configFile: String) {
         val config: SpecmaticConfig = loadSpecmaticConfig(configFile)
 
-        val sources = SpecmaticConfig.getSources(config)
+        val sources = SpecmaticConfigV1V2Common.getSources(config as SpecmaticConfigV1V2Common)
         assertThat(sources).isNotEmpty
 
         assertThat(sources.first().provider).isEqualTo(SourceProvider.git)
@@ -158,15 +158,15 @@ internal class SpecmaticConfigKtTest {
         assertThat(config.getPipelineProject()).isEqualTo("XNSIO")
         assertThat(config.getPipelineDefinitionId()).isEqualTo(1)
 
-        assertThat(SpecmaticConfig.getEnvironments(config)?.get("staging")?.baseurls?.get("auth.spec")).isEqualTo("http://localhost:8080")
-        assertThat(SpecmaticConfig.getEnvironments(config)?.get("staging")?.variables?.get("username")).isEqualTo("jackie")
-        assertThat(SpecmaticConfig.getEnvironments(config)?.get("staging")?.variables?.get("password")).isEqualTo("PaSsWoRd")
+        assertThat(SpecmaticConfigV1V2Common.getEnvironments(config)?.get("staging")?.baseurls?.get("auth.spec")).isEqualTo("http://localhost:8080")
+        assertThat(SpecmaticConfigV1V2Common.getEnvironments(config)?.get("staging")?.variables?.get("username")).isEqualTo("jackie")
+        assertThat(SpecmaticConfigV1V2Common.getEnvironments(config)?.get("staging")?.variables?.get("password")).isEqualTo("PaSsWoRd")
 
-        assertThat(SpecmaticConfig.getReport(config)?.types?.apiCoverage?.openAPI?.successCriteria?.minThresholdPercentage).isEqualTo(70)
-        assertThat(SpecmaticConfig.getReport(config)?.types?.apiCoverage?.openAPI?.successCriteria?.maxMissedEndpointsInSpec).isEqualTo(3)
-        assertThat(SpecmaticConfig.getReport(config)?.types?.apiCoverage?.openAPI?.successCriteria?.enforce).isTrue()
-        assertThat(SpecmaticConfig.getReport(config)?.types?.apiCoverage?.openAPI?.excludedEndpoints?.get(0)).isEqualTo("/heartbeat")
-        assertThat(SpecmaticConfig.getReport(config)?.types?.apiCoverage?.openAPI?.excludedEndpoints?.get(1)).isEqualTo("/health")
+        assertThat(SpecmaticConfigV1V2Common.getReport(config)?.types?.apiCoverage?.openAPI?.successCriteria?.minThresholdPercentage).isEqualTo(70)
+        assertThat(SpecmaticConfigV1V2Common.getReport(config)?.types?.apiCoverage?.openAPI?.successCriteria?.maxMissedEndpointsInSpec).isEqualTo(3)
+        assertThat(SpecmaticConfigV1V2Common.getReport(config)?.types?.apiCoverage?.openAPI?.successCriteria?.enforce).isTrue()
+        assertThat(SpecmaticConfigV1V2Common.getReport(config)?.types?.apiCoverage?.openAPI?.excludedEndpoints?.get(0)).isEqualTo("/heartbeat")
+        assertThat(SpecmaticConfigV1V2Common.getReport(config)?.types?.apiCoverage?.openAPI?.excludedEndpoints?.get(1)).isEqualTo("/health")
 
         assertThat(
             (config.getOpenAPISecurityConfigurationScheme("oAuth2AuthCode") as OAuth2SecuritySchemeConfiguration).token
@@ -292,7 +292,7 @@ internal class SpecmaticConfigKtTest {
             properties.forEach { System.setProperty(it.key, it.value) }
 
             // Test with v1 config (should fall back to system properties)
-            val configV1 = SpecmaticConfig(version = SpecmaticConfigVersion.VERSION_1)
+            val configV1 = SpecmaticConfigV1V2Common(version = SpecmaticConfigVersion.VERSION_1)
             assertThat(configV1.getFuzzyMatchingEnabled()).isTrue()
             assertThat(configV1.getEscapeSoapAction()).isTrue()
             assertThat(configV1.getPrettyPrint()).isFalse()
@@ -319,7 +319,7 @@ internal class SpecmaticConfigKtTest {
 
     @Test
     fun `should prefer v2 test base url from config over system properties`() {
-        val config = SpecmaticConfig(
+        val config = SpecmaticConfigV1V2Common(
             version = SpecmaticConfigVersion.VERSION_2,
             test = TestConfiguration(baseUrl = "http://config-base-url")
         )
@@ -338,7 +338,7 @@ internal class SpecmaticConfigKtTest {
 
     @Test
     fun `should use test base url from system properties when config is missing`() {
-        val config = SpecmaticConfig(version = SpecmaticConfigVersion.VERSION_2, test = TestConfiguration())
+        val config = SpecmaticConfigV1V2Common(version = SpecmaticConfigVersion.VERSION_2, test = TestConfiguration())
         try {
             System.setProperty("testBaseURL", "http://property-base-url")
 
@@ -350,7 +350,7 @@ internal class SpecmaticConfigKtTest {
 
     @Test
     fun `should construct test base url from host and port when properties are set`() {
-        val config = SpecmaticConfig(version = SpecmaticConfigVersion.VERSION_2, test = TestConfiguration())
+        val config = SpecmaticConfigV1V2Common(version = SpecmaticConfigVersion.VERSION_2, test = TestConfiguration())
         try {
             System.setProperty("host", "property-host")
             System.setProperty("port", "1234")
@@ -364,7 +364,7 @@ internal class SpecmaticConfigKtTest {
 
     @Test
     fun `should use protocol when constructing test base url from properties`() {
-        val config = SpecmaticConfig(version = SpecmaticConfigVersion.VERSION_2, test = TestConfiguration())
+        val config = SpecmaticConfigV1V2Common(version = SpecmaticConfigVersion.VERSION_2, test = TestConfiguration())
         try {
             System.setProperty("host", "property-host")
             System.setProperty("port", "1234")
@@ -380,7 +380,7 @@ internal class SpecmaticConfigKtTest {
 
     @Test
     fun `should prefer v2 swagger UI base url from config over system properties`() {
-        val config = SpecmaticConfig(
+        val config = SpecmaticConfigV1V2Common(
             version = SpecmaticConfigVersion.VERSION_2,
             test = TestConfiguration(swaggerUIBaseURL = "http://config-swagger-ui")
         )
@@ -396,7 +396,7 @@ internal class SpecmaticConfigKtTest {
     @ParameterizedTest
     @MethodSource("testFilterPropertyCases")
     fun `should prefer v2 test config over system properties for test filter fields`(case: TestFilterPropertyCase) {
-        val config = SpecmaticConfig(
+        val config = SpecmaticConfigV1V2Common(
             version = SpecmaticConfigVersion.VERSION_2,
             test = TestConfiguration(
                 filterName = "config-filter-name",
@@ -416,7 +416,7 @@ internal class SpecmaticConfigKtTest {
     @ParameterizedTest
     @MethodSource("testFilterPropertyCases")
     fun `should fall back to system properties for test filter fields when v2 config is missing`(case: TestFilterPropertyCase) {
-        val config = SpecmaticConfig(
+        val config = SpecmaticConfigV1V2Common(
             version = SpecmaticConfigVersion.VERSION_2,
             test = TestConfiguration()
         )
@@ -432,7 +432,7 @@ internal class SpecmaticConfigKtTest {
     @ParameterizedTest
     @MethodSource("testFilterPropertyCases")
     fun `should fall back to system properties for test filter fields when config is v1`(case: TestFilterPropertyCase) {
-        val config = SpecmaticConfig(
+        val config = SpecmaticConfigV1V2Common(
             version = SpecmaticConfigVersion.VERSION_1,
             test = TestConfiguration(
                 filterName = "config-filter-name",
@@ -451,7 +451,7 @@ internal class SpecmaticConfigKtTest {
 
     @Test
     fun `should handle null values gracefully`() {
-        val config = SpecmaticConfig(
+        val config = SpecmaticConfigV1V2Common(
             test = TestConfiguration(
                 strictMode = null,
                 lenientMode = null,
@@ -610,7 +610,7 @@ internal class SpecmaticConfigKtTest {
                 )
             )
 
-            val specmaticConfig = SpecmaticConfig(
+            val specmaticConfig = SpecmaticConfigV1V2Common(
                 sources = listOf(source1, source2)
             )
 
@@ -658,7 +658,7 @@ internal class SpecmaticConfigKtTest {
                 )
             )
 
-            val specmaticConfig = SpecmaticConfig(
+            val specmaticConfig = SpecmaticConfigV1V2Common(
                 sources = listOf(source1, source2)
             )
 
@@ -731,12 +731,12 @@ internal class SpecmaticConfigKtTest {
                 ),
             )
 
-            val specmaticConfig = SpecmaticConfig(
+            val specmaticConfig = SpecmaticConfigV1V2Common(
                 sources = listOf(source1, source2)
             )
 
             val testToBaseUrl = specmaticConfig
-                .let { SpecmaticConfig.getSources(it) }
+                .let { SpecmaticConfigV1V2Common.getSources(it) }
                 .flatMap { it.specToTestBaseUrlMap().entries }
                 .associate { it.key to it.value }
 
@@ -774,7 +774,7 @@ internal class SpecmaticConfigKtTest {
                 .readValue(providesYaml, SpecmaticConfigV2::class.java)
                 .transform()
 
-            val sources = SpecmaticConfig.getSources(specmaticConfig)
+            val sources = SpecmaticConfigV1V2Common.getSources(specmaticConfig)
             assertThat(sources).hasSize(1)
 
             val testMap = sources.single().specToTestBaseUrlMap()
@@ -940,7 +940,7 @@ internal class SpecmaticConfigKtTest {
         )
         fun `should be able to deserialize stub consumes config with simple and object value`(specmaticConfigFilePath: String) {
             val specmaticConfig = loadSpecmaticConfig(specmaticConfigFilePath)
-            val sources = SpecmaticConfig.getSources(specmaticConfig)
+            val sources = SpecmaticConfigV1V2Common.getSources(specmaticConfig as SpecmaticConfigV1V2Common)
 
             assertThat(sources).hasSize(1)
             assertThat(sources.single().stub).containsExactly(
@@ -1282,7 +1282,7 @@ internal class SpecmaticConfigKtTest {
     inner class TestConfigForTests {
         @Test
         fun `testConfigFor should return config for matching spec path and type`() {
-            val config = SpecmaticConfig(
+            val config = SpecmaticConfigV1V2Common(
                 sources = listOf(
                     Source(
                         test = listOf(
@@ -1312,7 +1312,7 @@ internal class SpecmaticConfigKtTest {
 
         @Test
         fun `testConfigFor should return empty map when spec path does not match`() {
-            val config = SpecmaticConfig(
+            val config = SpecmaticConfigV1V2Common(
                 sources = listOf(
                     Source(
                         test = listOf(
@@ -1333,7 +1333,7 @@ internal class SpecmaticConfigKtTest {
 
         @Test
         fun `testConfigFor should return empty map when spec type does not match`() {
-            val config = SpecmaticConfig(
+            val config = SpecmaticConfigV1V2Common(
                 sources = listOf(
                     Source(
                         test = listOf(
@@ -1354,7 +1354,7 @@ internal class SpecmaticConfigKtTest {
 
         @Test
         fun `testConfigFor should return empty map when no ConfigValue exists`() {
-            val config = SpecmaticConfig(
+            val config = SpecmaticConfigV1V2Common(
                 sources = listOf(
                     Source(
                         test = listOf(
@@ -1371,7 +1371,7 @@ internal class SpecmaticConfigKtTest {
 
         @Test
         fun `testConfigFor should return config from first matching source`() {
-            val config = SpecmaticConfig(
+            val config = SpecmaticConfigV1V2Common(
                 sources = listOf(
                     Source(
                         test = listOf(
@@ -1401,7 +1401,7 @@ internal class SpecmaticConfigKtTest {
 
         @Test
         fun `testConfigFor should handle multiple ConfigValues and return first match`() {
-            val config = SpecmaticConfig(
+            val config = SpecmaticConfigV1V2Common(
                 sources = listOf(
                     Source(
                         test = listOf(
@@ -1427,7 +1427,7 @@ internal class SpecmaticConfigKtTest {
 
         @Test
         fun `testConfigFor should return empty map when sources are empty`() {
-            val config = SpecmaticConfig(sources = emptyList())
+            val config = SpecmaticConfigV1V2Common(sources = emptyList())
 
             val result = config.testConfigFor("io/specmatic/order.yaml", "ASYNCAPI")
 
@@ -1436,7 +1436,7 @@ internal class SpecmaticConfigKtTest {
 
         @Test
         fun `testConfigFor should handle complex config with nested structures`() {
-            val config = SpecmaticConfig(
+            val config = SpecmaticConfigV1V2Common(
                 sources = listOf(
                     Source(
                         test = listOf(
@@ -1485,7 +1485,7 @@ internal class SpecmaticConfigKtTest {
     inner class StubConfigForTests {
         @Test
         fun `stubConfigFor should return config for matching spec path and type`() {
-            val config = SpecmaticConfig(
+            val config = SpecmaticConfigV1V2Common(
                 sources = listOf(
                     Source(
                         stub = listOf(
@@ -1515,7 +1515,7 @@ internal class SpecmaticConfigKtTest {
 
         @Test
         fun `stubConfigFor should return empty map when spec path does not match`() {
-            val config = SpecmaticConfig(
+            val config = SpecmaticConfigV1V2Common(
                 sources = listOf(
                     Source(
                         stub = listOf(
@@ -1536,7 +1536,7 @@ internal class SpecmaticConfigKtTest {
 
         @Test
         fun `stubConfigFor should return empty map when spec type does not match`() {
-            val config = SpecmaticConfig(
+            val config = SpecmaticConfigV1V2Common(
                 sources = listOf(
                     Source(
                         stub = listOf(
@@ -1557,7 +1557,7 @@ internal class SpecmaticConfigKtTest {
 
         @Test
         fun `stubConfigFor should return empty map when no ConfigValue exists`() {
-            val config = SpecmaticConfig(
+            val config = SpecmaticConfigV1V2Common(
                 sources = listOf(
                     Source(
                         stub = listOf(
@@ -1574,7 +1574,7 @@ internal class SpecmaticConfigKtTest {
 
         @Test
         fun `stubConfigFor should return config from first matching source`() {
-            val config = SpecmaticConfig(
+            val config = SpecmaticConfigV1V2Common(
                 sources = listOf(
                     Source(
                         stub = listOf(
@@ -1604,7 +1604,7 @@ internal class SpecmaticConfigKtTest {
 
         @Test
         fun `stubConfigFor should handle multiple ConfigValues and return first match`() {
-            val config = SpecmaticConfig(
+            val config = SpecmaticConfigV1V2Common(
                 sources = listOf(
                     Source(
                         stub = listOf(
@@ -1630,7 +1630,7 @@ internal class SpecmaticConfigKtTest {
 
         @Test
         fun `stubConfigFor should return empty map when sources are empty`() {
-            val config = SpecmaticConfig(sources = emptyList())
+            val config = SpecmaticConfigV1V2Common(sources = emptyList())
 
             val result = config.stubConfigFor("io/specmatic/order.yaml", "ASYNCAPI")
 
@@ -1639,7 +1639,7 @@ internal class SpecmaticConfigKtTest {
 
         @Test
         fun `stubConfigFor should handle complex config with nested structures`() {
-            val config = SpecmaticConfig(
+            val config = SpecmaticConfigV1V2Common(
                 sources = listOf(
                     Source(
                         stub = listOf(
@@ -1700,7 +1700,7 @@ internal class SpecmaticConfigKtTest {
 
             val v2 = mapper.readValue<SpecmaticConfigV2>(yaml)
             val config = v2.transform()
-            val sources = SpecmaticConfig.getSources(config)
+            val sources = SpecmaticConfigV1V2Common.getSources(config)
             assertThat(sources).hasSize(1)
             assertThat(sources.single().specsUsedAsStub()).containsExactly("abc.yaml", "def.yaml")
         }
@@ -1717,7 +1717,7 @@ internal class SpecmaticConfigKtTest {
 
             val v2 = mapper.readValue<SpecmaticConfigV2>(yaml)
             val config = v2.transform()
-            val sources = SpecmaticConfig.getSources(config)
+            val sources = SpecmaticConfigV1V2Common.getSources(config)
             assertThat(sources).hasSize(1)
             assertThat(sources.single().specsUsedAsTest()).containsExactly("abc.yaml", "def.yaml")
         }
@@ -1736,7 +1736,7 @@ internal class SpecmaticConfigKtTest {
 
             val v2 = mapper.readValue<SpecmaticConfigV2>(yaml)
             val config = v2.transform()
-            val sources = SpecmaticConfig.getSources(config)
+            val sources = SpecmaticConfigV1V2Common.getSources(config)
             val baseUrlMap = sources.single().specToTestBaseUrlMap()
             assertThat(baseUrlMap["abc.yaml"]).isEqualTo("http://localhost:9010")
             assertThat(baseUrlMap["def.yaml"]).isEqualTo("http://localhost:9010")

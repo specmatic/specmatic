@@ -2,6 +2,7 @@ package io.specmatic.core.git
 
 import io.specmatic.core.Auth
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.SpecmaticConfigV1V2Common
 import org.assertj.core.api.AssertionsForClassTypes.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -48,7 +49,7 @@ class GitOperationsTest {
 
     @Test
     fun shouldReturnPersonalAccessTokenFromAuthConfig() {
-        val specmaticConfig = SpecmaticConfig(auth = Auth(personalAccessToken = "token-123"))
+        val specmaticConfig = SpecmaticConfigV1V2Common(auth = Auth(personalAccessToken = "token-123"))
 
         assertThat(getPersonalAccessToken(specmaticConfig)).isEqualTo("token-123")
     }

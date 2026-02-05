@@ -26,8 +26,8 @@ class ExtensibleSchemaTest {
             every { isExtensibleSchemaEnabled() } returns true
             every { getWorkflowDetails() } returns null
         }
-        mockkObject(SpecmaticConfig.Companion)
-        every { SpecmaticConfig.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
+        mockkObject(SpecmaticConfigV1V2Common.Companion)
+        every { SpecmaticConfigV1V2Common.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
         val feature =
             OpenApiSpecification.fromYAML(
                 """
@@ -85,8 +85,8 @@ paths:
             every { isExtensibleSchemaEnabled() } returns true
             every { getWorkflowDetails() } returns null
         }
-        mockkObject(SpecmaticConfig.Companion)
-        every { SpecmaticConfig.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
+        mockkObject(SpecmaticConfigV1V2Common.Companion)
+        every { SpecmaticConfigV1V2Common.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
 
         val feature =
             OpenApiSpecification.fromYAML(
@@ -145,7 +145,7 @@ paths:
 
     @Test
     fun `with extensible schema and generative tests enabled both positive and negative generated tests should appear`() {
-        val specmaticConfig = SpecmaticConfig(test = TestConfiguration(allowExtensibleSchema = true))
+        val specmaticConfig = SpecmaticConfigV1V2Common(test = TestConfiguration(allowExtensibleSchema = true))
         val feature =
             OpenApiSpecification.fromYAML(
                 """

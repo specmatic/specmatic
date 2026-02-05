@@ -76,7 +76,7 @@ internal class CommandHookTest {
     @Test
     fun `command hook when hook exists`(@TempDir tempDir: File) {
         val configFile = tempDir.resolve("specmatic.json")
-        val specmaticConfig = SpecmaticConfig(
+        val specmaticConfig = SpecmaticConfigV1V2Common(
             emptyList(),
             hooks = mapOf(HookName.stub_load_contract.name to "cat ${secondary.canonicalPath}")
         )

@@ -2,10 +2,10 @@ package io.specmatic.test
 
 import io.specmatic.core.Configuration
 import io.specmatic.core.SpecmaticConfig
-import io.specmatic.core.SpecmaticConfig.Companion.orDefault
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.loadSpecmaticConfigOrDefault
 import io.specmatic.core.loadSpecmaticConfigOrNull
+import io.specmatic.core.orDefault
 import io.specmatic.core.utilities.Flags
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.HOST
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.PORT
@@ -87,7 +87,7 @@ data class ContractTestSettings(
 
     private fun adjustExamples(specmaticConfig: SpecmaticConfig): SpecmaticConfig {
         if (otherArguments?.exampleDirectories == null) return specmaticConfig
-        return specmaticConfig.copy(examples = specmaticConfig.getExamples().plus(otherArguments.exampleDirectories))
+        return specmaticConfig.plusExamples(otherArguments.exampleDirectories)
     }
 
     private fun adjustUseCurrentBranch(specmaticConfig: SpecmaticConfig): SpecmaticConfig {

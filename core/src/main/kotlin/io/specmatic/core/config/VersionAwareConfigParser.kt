@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
-import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.config.v1.SpecmaticConfigV1
 import io.specmatic.core.config.v2.SpecmaticConfigV2
 import io.specmatic.core.pattern.ContractException
@@ -14,7 +14,7 @@ private const val SPECMATIC_CONFIG_VERSION = "version"
 
 private val objectMapper = ObjectMapper(YAMLFactory()).registerKotlinModule()
 
-fun File.toSpecmaticConfig(): SpecmaticConfig {
+fun File.toSpecmaticConfig(): SpecmaticConfigV1V2Common {
     val configTree = resolveTemplates(objectMapper.readTree(this.readText()))
     return when (configTree.getVersion()) {
         SpecmaticConfigVersion.VERSION_1 -> {

@@ -1,6 +1,7 @@
 package io.specmatic.core.config
 
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.SpecmaticConfigV1V2Common
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -52,7 +53,7 @@ class VersionAwareConfigParserTest {
         try {
             System.setProperty("HOOK_VALUE", "\"{\\\"generative\\\": true}\"")
             val config: SpecmaticConfig = configFile.toSpecmaticConfig()
-            assertThat(SpecmaticConfig.getHooks(config)["after"]).isEqualTo("""{"generative": true}""")
+            assertThat(SpecmaticConfigV1V2Common.getHooks(config as SpecmaticConfigV1V2Common)["after"]).isEqualTo("""{"generative": true}""")
         } finally {
             restoreProperty("HOOK_VALUE", originalValue)
         }
@@ -99,7 +100,7 @@ class VersionAwareConfigParserTest {
         try {
             System.setProperty("HOOK_VALUE", "\"hello world\"")
             val config: SpecmaticConfig = configFile.toSpecmaticConfig()
-            assertThat(SpecmaticConfig.getHooks(config)["after"]).isEqualTo("hello world")
+            assertThat(SpecmaticConfigV1V2Common.getHooks(config as SpecmaticConfigV1V2Common)["after"]).isEqualTo("hello world")
         } finally {
             restoreProperty("HOOK_VALUE", originalValue)
         }

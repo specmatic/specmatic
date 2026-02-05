@@ -3,7 +3,6 @@ package application
 import io.specmatic.core.*
 import io.specmatic.core.Configuration.Companion.DEFAULT_HTTP_STUB_HOST
 import io.specmatic.core.Configuration.Companion.DEFAULT_HTTP_STUB_PORT
-import io.specmatic.core.SpecmaticConfig.Companion.orDefault
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.LoggingConfiguration.Companion.LoggingFromOpts
 import io.specmatic.core.config.Switch
