@@ -1,7 +1,7 @@
 package io.specmatic.core
 
 import io.specmatic.core.config.HttpsConfiguration
-import io.specmatic.core.pattern.key
+import io.specmatic.stub.normalizeHost
 import java.net.URI
 
 private sealed interface HostPortIdentifier {
@@ -45,7 +45,7 @@ class CertRegistry private constructor(private val certificates: List<Pair<HostP
     }
 
     fun plus(host: String, port: Int, cert: HttpsConfiguration): CertRegistry {
-        val entry = Pair(HostPortIdentifier.Matching(host, port), cert)
+        val entry = Pair(HostPortIdentifier.Matching(normalizeHost(host), port), cert)
         return CertRegistry(certificates.plus(entry))
     }
 
@@ -61,14 +61,14 @@ class KeyDataRegistry private constructor(private val keyData: Map<HostPortIdent
     fun hasAny(): Boolean = keyData.isNotEmpty()
 
     fun plus(host: String, port: Int, entry: KeyData): KeyDataRegistry {
-        val identifier = HostPortIdentifier.Matching(host, port)
+        val identifier = HostPortIdentifier.Matching(normalizeHost(host), port)
         return KeyDataRegistry(keyData + (identifier to entry))
     }
 
     fun plusWildCard(keyData: KeyData): KeyDataRegistry = KeyDataRegistry(this.keyData + (HostPortIdentifier.WildCard to keyData))
 
     fun get(host: String, port: Int): KeyData? {
-        val identifier = HostPortIdentifier.Matching(host, port)
+        val identifier = HostPortIdentifier.Matching(normalizeHost(host), port)
         return keyData[identifier] ?: keyData[HostPortIdentifier.WildCard]
     }
 

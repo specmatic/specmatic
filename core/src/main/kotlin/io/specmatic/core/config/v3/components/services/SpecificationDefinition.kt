@@ -32,10 +32,10 @@ sealed interface SpecificationDefinition {
             source: SourceV3,
             resiliencyTestSuite: ResiliencyTestSuite?,
             examples: List<String>,
-            getBaseUrl: (String?) -> String?
+            getBaseUrl: (File) -> String?
         ): SpecificationSourceEntry {
             val specFile = source.resolveSpecification(File(spec.path))
-            return source.toSpecificationSource(specFile, spec.path, getBaseUrl(spec.id), resiliencyTestSuite, examples)
+            return source.toSpecificationSource(specFile, spec.path, getBaseUrl(specFile), resiliencyTestSuite, examples)
         }
 
         companion object {
@@ -56,10 +56,10 @@ sealed interface SpecificationDefinition {
             source: SourceV3,
             resiliencyTestSuite: ResiliencyTestSuite?,
             examples: List<String>,
-            getBaseUrl: (String?) -> String?
+            getBaseUrl: (File) -> String?
         ): SpecificationSourceEntry {
             val specFile = source.resolveSpecification(File(specification))
-            return source.toSpecificationSource(specFile, specification, getBaseUrl(null), resiliencyTestSuite, examples)
+            return source.toSpecificationSource(specFile, specification, getBaseUrl(specFile), resiliencyTestSuite, examples)
         }
 
         companion object {
@@ -101,6 +101,6 @@ sealed interface SpecificationDefinition {
         source: SourceV3,
         resiliencyTestSuite: ResiliencyTestSuite?,
         examples: List<String>,
-        getBaseUrl: (String?) -> String?
+        getBaseUrl: (File) -> String?
     ): SpecificationSourceEntry
 }

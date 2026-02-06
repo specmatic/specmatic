@@ -17,6 +17,7 @@ import io.specmatic.core.config.v3.components.settings.MockSettings
 import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.config.v3.resolveElseThrow
 import io.specmatic.reporter.model.SpecType
+import io.specmatic.stub.isSupportedAPISpecification
 import java.io.File
 
 data class MockServiceConfig(val services: List<Value>, val data: Data? = null, val settings: RefOrValue<MockSettings>?) {
@@ -75,7 +76,7 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
                 val source = definition.source.resolveElseThrow(resolver)
                 val examples = service.data?.toExampleDirs(resolver).orEmpty()
                 definition.specs.map {
-                    it.toSpecificationSource(source, null, examples) { specId -> getFirstBaseUrlFromRunOpts(specId, service, resolver) }
+                    it.toSpecificationSource(source, null, examples) { spec -> getFirstBaseUrlFromRunOpts(spec, service, resolver) }
                 }.map { spec -> source to spec }
             }
         }.groupBy(keySelector = { it.first }, valueTransform = { it.second })
@@ -99,11 +100,16 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
     }
 
     @JsonIgnore
-    private fun getFirstBaseUrlFromRunOpts(specId: String?, service: CommonServiceConfig<MockRunOptions, MockSettings>, resolver: RefOrValueResolver): String? {
-        return SpecType.entries.firstNotNullOfOrNull { specType ->
-            val runOpts = getRunOptions(service, resolver, specType) ?: return null
-            runOpts.baseUrl.takeIf { specId == null || runOpts.getMatchingSpecification(specId) != null }
+    private fun getFirstBaseUrlFromRunOpts(specFile: File, service: CommonServiceConfig<MockRunOptions, MockSettings>, resolver: RefOrValueResolver): String? {
+        val specTypeToCheck = when {
+            isSupportedAPISpecification(specFile.canonicalPath) -> SpecType.OPENAPI
+            specFile.extension in setOf("graphql", "graphqls") -> SpecType.GRAPHQL
+            specFile.extension == "proto" -> SpecType.PROTOBUF
+            else -> SpecType.ASYNCAPI
         }
+
+        val runOpts = getRunOptions(service, resolver, specTypeToCheck) ?: return null
+        return runOpts.baseUrl
     }
 
     @JsonIgnore

@@ -16,6 +16,7 @@ import io.specmatic.core.config.v3.components.settings.TestSettings
 import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.config.v3.resolveElseThrow
 import io.specmatic.reporter.model.SpecType
+import io.specmatic.stub.isSupportedAPISpecification
 import java.io.File
 
 data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRunOptions, TestSettings>>) {
@@ -74,8 +75,8 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
             val resilientSuite = testSettings?.resiliencyTests
             val examples = getExampleDirs(resolver)
             source to definition.specs.map {
-                it.toSpecificationSource(source, resilientSuite, examples) { specId ->
-                    getFirstBaseUrlFromRunOpts(specId, resolver)
+                it.toSpecificationSource(source, resilientSuite, examples) { spec ->
+                    getFirstBaseUrlFromRunOpts(spec, resolver)
                 }
             }
         }
@@ -149,10 +150,15 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
     }
 
     @JsonIgnore
-    private fun getFirstBaseUrlFromRunOpts(specId: String?, resolver: RefOrValueResolver): String? {
-        return SpecType.entries.firstNotNullOfOrNull { specType ->
-            val runOpts = getRunOptions(resolver, specType) ?: return null
-            runOpts.baseUrl.takeIf { specId == null || runOpts.getMatchingSpecification(specId) != null }
+    private fun getFirstBaseUrlFromRunOpts(specFile: File, resolver: RefOrValueResolver): String? {
+        val specTypeToCheck = when {
+            isSupportedAPISpecification(specFile.canonicalPath) -> SpecType.OPENAPI
+            specFile.extension in setOf("graphql", "graphqls") -> SpecType.GRAPHQL
+            specFile.extension == "proto" -> SpecType.PROTOBUF
+            else -> SpecType.ASYNCAPI
         }
+
+        val runOpts = getRunOptions(resolver, specTypeToCheck) ?: return null
+        return runOpts.baseUrl
     }
 }
