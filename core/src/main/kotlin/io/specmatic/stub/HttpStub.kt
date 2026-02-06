@@ -808,8 +808,7 @@ class HttpStub(
             }
 
             else -> {
-                val requestBodyRegex = parseRegex(stub.requestBodyRegex)
-                val stubData = firstResult.second.map { it.copy(requestBodyRegex = requestBodyRegex) }
+                val stubData = firstResult.second.map { it.copy(scenarioStub = stub) }
                 val resultWithRequestBodyRegex = stubData.map { Pair(firstResult.first, it) }
 
                 if (stub.stubToken != null) {

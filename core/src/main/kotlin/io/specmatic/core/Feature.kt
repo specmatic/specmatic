@@ -963,14 +963,7 @@ data class Feature(
                 scenarioStub.request,
                 scenarioStub.response,
                 mismatchMessages
-            ).copy(
-                delayInMilliseconds = scenarioStub.delayInMilliseconds,
-                requestBodyRegex = scenarioStub.requestBodyRegex?.let { Regex(it) },
-                stubToken = scenarioStub.stubToken,
-                data = scenarioStub.data,
-                examplePath = scenarioStub.filePath,
-                name = scenarioStub.nameOrFileName
-            )
+            ).copy(scenarioStub = scenarioStub)
         }
 
         val results = scenarios.asSequence().map { scenario ->
@@ -1003,12 +996,9 @@ data class Feature(
             HttpResponse(),
             matchingScenario.resolver,
             responsePattern = responseTypeWithAncestors,
-            examplePath = scenarioStub.filePath,
             scenario = matchingScenario,
-            data = scenarioStub.data,
             contractPath = this.path,
-            partial = scenarioStub.partial.copy(response = scenarioStub.partial.response),
-            name = scenarioStub.nameOrFileName
+            scenarioStub = scenarioStub
         )
     }
 
