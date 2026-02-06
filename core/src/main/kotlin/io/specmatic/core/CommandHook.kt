@@ -13,7 +13,7 @@ enum class HookName {
 class CommandHook(private val name: HookName, private val specFile: File): Hook {
     val command: String? = name.let {
         try {
-            loadSpecmaticConfig().getHooks(specFile)[it.name]
+            loadSpecmaticConfig().getHooks()[it.name]
         } catch (e: ContractException) {
             null
         }

@@ -1,8 +1,10 @@
 package io.specmatic.core.config.v3.components.settings
 
+import com.fasterxml.jackson.annotation.JsonAlias
 import io.specmatic.core.ResiliencyTestSuite
 
 data class TestSettings(
+    @field:JsonAlias("schemaResiliencyTests")
     val resiliencyTests: ResiliencyTestSuite? = null,
     val timeoutInMilliseconds: Long? = null,
     val strictMode: Boolean? = null,

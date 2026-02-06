@@ -981,12 +981,9 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
-    override fun getHooks(specFile: File): Map<String, String> {
+    override fun getHooks(): Map<String, String> {
         return hooks
     }
-
-    @JsonIgnore
-    fun getHooks(): Map<String, String> = hooks
 
     @JsonIgnore
     override fun getProxyConfig(): ProxyConfig? {

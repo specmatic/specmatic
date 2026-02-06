@@ -272,7 +272,7 @@ interface SpecmaticConfig {
     fun getAdditionalExampleParamsFilePath(): String?
 
     @JsonIgnore
-    fun getHooks(specFile: File): Map<String, String>
+    fun getHooks(): Map<String, String>
 
     @JsonIgnore
     fun getProxyConfig(): ProxyConfig?

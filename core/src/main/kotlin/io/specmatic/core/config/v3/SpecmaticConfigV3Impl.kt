@@ -502,14 +502,14 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
         return getStringValue(Flags.ADDITIONAL_EXAMPLE_PARAMS_FILE)
     }
 
-    override fun getHooks(specFile: File): Map<String, String> {
+    override fun getHooks(): Map<String, String> {
         val fromDependencies = specmaticConfig.dependencies?.data?.adapters?.resolveElseThrow(resolver)?.hooks
-        val fromService = getMockService(specFile)?.data?.adapters?.resolveElseThrow(resolver)?.hooks
-        return fromDependencies.orEmpty().plus(fromService.orEmpty())
+        return fromDependencies.orEmpty()
     }
 
     override fun getProxyConfig(): ProxyConfig? {
-        return specmaticConfig.proxies?.firstOrNull()?.proxy
+        val proxyConfig = specmaticConfig.proxies?.firstOrNull()?.proxy ?: return null
+        return proxyConfig.toCommonConfig(resolver)
     }
 
     override fun getDefaultPatternValues(): Map<String, Any> {
