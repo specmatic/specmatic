@@ -3,6 +3,7 @@ package io.specmatic.core.config.v3.components.services
 import com.fasterxml.jackson.annotation.JsonIgnore
 import io.specmatic.core.Source
 import io.specmatic.core.SpecificationSourceEntry
+import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.nonNullElse
 import io.specmatic.core.config.v3.Data
 import io.specmatic.core.config.v3.RefOrValue
@@ -117,6 +118,15 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
         }
     }
 
+    @JsonIgnore
+    fun getCerts(resolver: RefOrValueResolver): List<Pair<String, HttpsConfiguration>> {
+        return services.map { it.service.resolveElseThrow(resolver) }.mapNotNull { service ->
+            val runOpts = getRunOptions(service, resolver, SpecType.OPENAPI) as? OpenApiMockConfig ?: return@mapNotNull null
+            val cert = runOpts.cert?.resolveElseThrow(resolver) ?: return@mapNotNull null
+            Pair(runOpts.baseUrl, cert)
+        }
+    }
+
     fun withStubMode(resolver: SpecmaticConfigV3Resolver, strictMode: Boolean): MockServiceConfig {
         val settings = this.settings?.resolveElseThrow(resolver) ?: MockSettings()
         val updatedSettings = MockSettings(strictMode = strictMode).merge(settings)
@@ -128,8 +138,8 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
             services = services.map { value ->
                 val service = value.service.resolveElseThrow(resolver)
                 val runOpts = service.runOptions?.resolveElseThrow(resolver) ?: MockRunOptions()
-                val openApiRunOpts = runOpts.openapi ?: OpenApiMockConfig()
-                val updatedOpenApiRunOpts = openApiRunOpts.copy(specs = openApiRunOpts.specs?.map { spec -> if (spec.getFilter() == null) spec.withFilter(filter) else spec })
+                val openApiRunOpts = runOpts.openapi ?: return@map value
+                val updatedOpenApiRunOpts = openApiRunOpts.copy(filter = filter)
                 val updatedRunOpts = runOpts.copy(openapi = updatedOpenApiRunOpts)
                 value.copy(service = RefOrValue.Value(service.copy(runOptions = RefOrValue.Value(updatedRunOpts))))
             }

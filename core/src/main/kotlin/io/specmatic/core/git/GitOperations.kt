@@ -65,7 +65,7 @@ fun checkout(workingDirectory: File, branchName: String, useCurrentBranchForCent
 
 private fun clone(gitRepositoryURI: String, cloneDirectory: File, specmaticConfig: SpecmaticConfig) {
     try {
-        SystemGit(cloneDirectory.parent, "-", AzureAuthCredentials(specmaticConfig)).clone(gitRepositoryURI, cloneDirectory)
+        SystemGit(cloneDirectory.parent, "-", AzureAuthCredentials(specmaticConfig, gitRepositoryURI)).clone(gitRepositoryURI, cloneDirectory)
     } catch(exception: Exception) {
         logger.debug("Falling back to jgit after trying shallow clone")
         logger.debug(exception.localizedMessage ?: exception.message ?: "")
@@ -110,13 +110,13 @@ private fun jgitClone(gitRepositoryURI: String, cloneDirectory: File, specmaticC
             setDirectory(cloneDirectory)
         }
 
-        val accessTokenText = getPersonalAccessToken(specmaticConfig)
+        val accessTokenText = getPersonalAccessToken(specmaticConfig, gitRepositoryURI)
 
         if (accessTokenText != null) {
             val credentialsProvider: CredentialsProvider = UsernamePasswordCredentialsProvider(accessTokenText, "")
             cloneCommand.setCredentialsProvider(credentialsProvider)
         } else {
-            val ciBearerToken = getBearerToken(specmaticConfig)
+            val ciBearerToken = getBearerToken(specmaticConfig, gitRepositoryURI)
 
             if (ciBearerToken != null) {
                 cloneCommand.setTransportConfigCallback(getTransportCallingCallback(ciBearerToken.encodeOAuth()))
@@ -157,8 +157,8 @@ fun loadFromPath(json: Value?, path: List<String>): Value? {
     }
 }
 
-fun getBearerToken(specmaticConfig: SpecmaticConfig): String? {
-    return specmaticConfig.getAuthBearerEnvironmentVariable()?.let {
+fun getBearerToken(specmaticConfig: SpecmaticConfig, repositoryUrl: String): String? {
+    return specmaticConfig.getAuthBearerEnvironmentVariable(repositoryUrl)?.let {
         System.getenv(it).also { value ->
             if (value == null) {
                 logger.log("$it environment variable was provided but has not been set")
@@ -166,7 +166,7 @@ fun getBearerToken(specmaticConfig: SpecmaticConfig): String? {
                 logger.log("Found bearer token in environment variable $it")
             }
         }
-    } ?: specmaticConfig.getAuthBearerFile()?.let { bearerFileName ->
+    } ?: specmaticConfig.getAuthBearerFile(repositoryUrl)?.let { bearerFileName ->
         val bearerFile = File(bearerFileName).absoluteFile
 
         when {
@@ -183,8 +183,8 @@ fun getBearerToken(specmaticConfig: SpecmaticConfig): String? {
     }
 }
 
-fun getPersonalAccessToken(specmaticConfig: SpecmaticConfig): String? {
-    return specmaticConfig.getAuthPersonalAccessToken()?.takeIf { it.isNotBlank() }
+fun getPersonalAccessToken(specmaticConfig: SpecmaticConfig, repositoryUrl: String): String? {
+    return specmaticConfig.getAuthPersonalAccessToken(repositoryUrl)?.takeIf { it.isNotBlank() }
 }
 
 private fun readConfig(configFile: File): Value {

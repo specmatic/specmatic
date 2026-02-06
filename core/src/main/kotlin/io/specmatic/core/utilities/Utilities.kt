@@ -362,7 +362,7 @@ data class ContractPathData(
     val generative: ResiliencyTestSuite? = null,
     val port: Int? = null,
     val lenientMode: Boolean = false,
-    val exampleDirPaths: List<String>? = null
+    val exampleDirPaths: List<String>? = null,
 ) {
     companion object {
         fun List<ContractPathData>.specToBaseUrlMap(): Map<String, String?> = this.associate { File(it.path).path to it.baseUrl }
@@ -407,8 +407,8 @@ fun contractFilePathsFrom(
 
 fun getSystemGit(path: String): GitCommand = SystemGit(path)
 
-fun getSystemGitWithAuth(path: String, specmaticConfig: SpecmaticConfig): GitCommand =
-    SystemGit(path, authCredentials = AzureAuthCredentials(specmaticConfig))
+fun getSystemGitWithAuth(path: String, specmaticConfig: SpecmaticConfig, gitRepositoryURL: String): GitCommand =
+    SystemGit(path, authCredentials = AzureAuthCredentials(specmaticConfig, gitRepositoryURL))
 
 class UncaughtExceptionHandler : Thread.UncaughtExceptionHandler {
     override fun uncaughtException(

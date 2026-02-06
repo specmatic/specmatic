@@ -159,7 +159,7 @@ fun createStub(
     val specmaticConfig = loadSpecmaticConfigOrDefault(configFileName)
     val useCurrentBranchForCentralRepo =
         specmaticConfig.getMatchBranchEnabled()
-    val effectiveStrictMode = if (strict) true else (specmaticConfig.getStubStrictMode() ?: false)
+    val effectiveStrictMode = if (strict) true else (specmaticConfig.getStubStrictMode(null) ?: false)
 
     val timeoutMessage =
         "FATAL: Specmatic stub failed to start within ${specmaticConfig.getStubStartTimeoutInMilliseconds()} milliseconds. You can configure the stub start timeout from Specmatic configuration. The default timeout is 20 seconds."
@@ -235,7 +235,7 @@ internal fun createStubFromContracts(
     specmaticConfig: SpecmaticConfig,
 ): HttpStub {
     val contractPathData = contractPaths.map { ContractPathData("", it) }
-    val strictMode = specmaticConfig.getStubStrictMode() ?: false
+    val strictMode = specmaticConfig.getStubStrictMode(null) ?: false
     val contractInfo = loadContractStubsFromFiles(contractPathData, dataDirPaths, specmaticConfig, strictMode)
     val features = contractInfo.map { it.first }
     val httpExpectations = contractInfoToHttpExpectations(contractInfo)
@@ -1071,13 +1071,13 @@ fun loadIfSupportedAPISpecification(
             contractPathData.path,
             parseContractFileToFeature(
                 contractPathData.path,
-                CommandHook(HookName.stub_load_contract),
+                CommandHook(HookName.stub_load_contract, File(contractPathData.path)),
                 contractPathData.provider,
                 contractPathData.repository,
                 contractPathData.branch,
                 contractPathData.specificationPath,
                 specmaticConfig = specmaticConfig,
-                strictMode = specmaticConfig.getStubStrictMode() ?: false,
+                strictMode = specmaticConfig.getStubStrictMode(null) ?: false,
                 lenientMode = contractPathData.lenientMode,
                 exampleDirPaths = contractPathData.exampleDirPaths.orEmpty()
             ).copy(specmaticConfig = specmaticConfig),

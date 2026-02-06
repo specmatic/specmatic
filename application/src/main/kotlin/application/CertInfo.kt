@@ -9,9 +9,9 @@ import io.specmatic.core.utilities.exitWithMessage
 import java.io.File
 import java.security.KeyStore
 
-data class CertInfo(val fromCli: HttpsConfiguration.Companion.HttpsFromOpts, val fromConfig: HttpsConfiguration?) {
+data class CertInfo(val fromCli: HttpsConfiguration.Companion.HttpsFromOpts? = null, val fromConfig: HttpsConfiguration?) {
     fun getHttpsCert(aliasSuffix: String): KeyData? {
-        val fromOpts = HttpsConfiguration.from(fromCli)
+        val fromOpts = fromCli?.let(HttpsConfiguration::from)
         val effectiveConfig = fromConfig.nonNullElse(fromOpts, HttpsConfiguration::overrideWith) ?: return null
         return when {
             effectiveConfig.keyStoreFile() != null -> KeyData(

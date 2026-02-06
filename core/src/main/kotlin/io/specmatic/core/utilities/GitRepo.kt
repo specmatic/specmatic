@@ -125,7 +125,7 @@ data class GitRepo(
     }
 
     private fun isBehind(contractsRepoDir: File): Boolean {
-        val sourceGit = getSystemGitWithAuth(contractsRepoDir.path, specmaticConfig)
+        val sourceGit = getSystemGitWithAuth(contractsRepoDir.path, specmaticConfig, gitRepositoryURL)
         val currentBranch = sourceGit.currentBranch()
         val upstreamBranch = sourceGit.currentRemoteBranch()
 

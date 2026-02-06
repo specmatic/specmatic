@@ -4,6 +4,7 @@ import io.specmatic.core.*
 import io.specmatic.core.Configuration.Companion.DEFAULT_HTTP_STUB_HOST
 import io.specmatic.core.Configuration.Companion.DEFAULT_HTTP_STUB_PORT
 import io.specmatic.core.config.HttpsConfiguration
+import io.specmatic.core.config.KeyStoreConfiguration
 import io.specmatic.core.config.LoggingConfiguration.Companion.LoggingFromOpts
 import io.specmatic.core.config.Switch
 import io.specmatic.core.filters.ExpressionStandardizer
@@ -154,10 +155,14 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         delayInMilliseconds?.let(stubConfigUpdated::withGlobalMockDelay) ?: stubConfigUpdated
     }
 
-    private val keyData: KeyData? by lazy(LazyThreadSafetyMode.NONE) {
+    private val keyDataRegistry: KeyDataRegistry by lazy(LazyThreadSafetyMode.NONE) {
         val fromCli = HttpsConfiguration.Companion.HttpsFromOpts(keyStoreFile, keyStoreDir, keyStorePassword, keyStoreAlias, keyPassword)
-        val fromConfig = specmaticConfiguration.getStubHttpsConfiguration()
-        CertInfo(fromCli, fromConfig).getHttpsCert(aliasSuffix = "mock")
+        val partialFromCli = fromCli.takeIf { HttpsConfiguration.from(fromCli).keyStore is KeyStoreConfiguration.PartialConfig }
+        val fullFromCli = HttpsConfiguration.from(fromCli).takeIf { it.keyStore !is KeyStoreConfiguration.PartialConfig }
+        val certRegistry = specmaticConfiguration.getStubHttpsConfiguration()
+        certRegistry.applyIf(fullFromCli) { plusWildCard(it) }.toKeyDataRegistry { cert ->
+            CertInfo(fromCli = partialFromCli, fromConfig = cert).getHttpsCert("mock")
+        }
     }
 
     override fun call(): Int {
@@ -188,7 +193,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             true -> if (portIsInUse(host, port)) findRandomFreePort() else port
             false -> port
         }
-        val baseUrl = endPointFromHostAndPort(host, port, keyData = keyData)
+        val baseUrl = endPointFromHostAndPort(host, port, keyDataRegistry.hasAny())
         System.setProperty(SPECMATIC_BASE_URL, baseUrl)
 
         try {
@@ -241,7 +246,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 
     private fun configuredHotReload(): Switch = hotReload ?: specmaticConfiguration.getHotReload() ?: Switch.enabled
 
-    private fun configuredStrictMode(): Boolean = strictMode ?: specmaticConfiguration.getStubStrictMode() ?: false
+    private fun configuredStrictMode(): Boolean = strictMode ?: specmaticConfiguration.getStubStrictMode(null) ?: false
 
     private fun configuredGracefulTimeout(): Long = gracefulRestartTimeoutInMs ?: specmaticConfiguration.getStubGracefulRestartTimeoutInMilliseconds() ?: 1000
 
@@ -259,8 +264,8 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         )
 
         logStubLoadingSummary(stubData)
-        val stubFilter = specmaticConfiguration.getStubFilter().orEmpty()
         val filteredStubData = stubData.mapNotNull { (feature, scenarioStubs) ->
+            val stubFilter = specmaticConfiguration.getStubFilter(File(feature.path)).orEmpty()
             val metadataFilter = ScenarioMetadataFilter.from(stubFilter)
             val filteredScenarios = ScenarioMetadataFilter.filterUsing(
                 feature.scenarios.asSequence(),
@@ -276,8 +281,8 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             } else null
         }
 
-        if (stubFilter != "" && filteredStubData.isEmpty()) {
-            consoleLog(StringLog("FATAL: No stubs found for the given filter: $stubFilter"))
+        if (filteredStubData.isEmpty()) {
+            consoleLog(StringLog("FATAL: No stubs found for the given filters"))
             return
         }
 
@@ -293,7 +298,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             stubs = filteredStubData,
             host = host,
             port = port,
-            keyData = keyData,
+            keyDataRegistry = keyDataRegistry,
             strictMode = resolvedStrictMode,
             passThroughTargetBase = passThroughTargetBase,
             specmaticConfigSource = SpecmaticConfigSource.from(configFileName ?: getConfigFilePath(), specmaticConfiguration),

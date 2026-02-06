@@ -13,7 +13,8 @@ sealed interface OpenApiRunOptions : IRunOptions { val type: RunOptionType? }
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
 data class OpenApiTestConfig(
     override val type: RunOptionType? = null,
-    override val baseUrl: String? = null,
+    override val baseUrl: String,
+    val filter: String? = null,
     val workflow: WorkflowConfiguration? = null,
     val swaggerUiBaseUrl: String? = null,
     val swaggerUrl: String? = null,
@@ -30,7 +31,8 @@ data class OpenApiTestConfig(
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
 data class OpenApiMockConfig(
     override val type: RunOptionType? = null,
-    override val baseUrl: String? = null,
+    override val baseUrl: String,
+    val filter: String? = null,
     val logMode: String? = null,
     val logsDirPath: String? = null,
     val cert: RefOrValue<HttpsConfiguration>? = null,

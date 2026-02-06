@@ -61,8 +61,8 @@ internal const val TESTS_DIRECTORY_PROPERTY = "specmaticTestsDirectory"
 internal const val CUSTOM_IMPLICIT_STUB_BASE_ENV_VAR = "SPECMATIC_CUSTOM_IMPLICIT_STUB_BASE"
 internal const val CUSTOM_IMPLICIT_STUB_BASE_PROPERTY = "customImplicitStubBase"
 private const val TEST_ENDPOINTS_API = "endpointsAPI"
-private const val TEST_FILTER_ENV_VAR = "filter"
-private const val TEST_FILTER_PROPERTY = "filter"
+internal const val TEST_FILTER_ENV_VAR = "filter"
+internal const val TEST_FILTER_PROPERTY = "filter"
 private const val TEST_SWAGGER_UI_BASEURL_ENV_VAR = "swaggerUIBaseURL"
 private const val TEST_SWAGGER_UI_BASEURL_PROPERTY = "swaggerUIBaseURL"
 internal const val TEST_BASE_URL_ENV_VAR = "testBaseURL"
@@ -567,7 +567,7 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
-    override fun getHotReload(specFile: File): Switch? {
+    override fun getHotReload(): Switch? {
         return getStubConfiguration(this).getHotReload()
     }
 
@@ -634,7 +634,7 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
-    override fun getStubStartTimeoutInMilliseconds(specFile: File): Long {
+    override fun getStubStartTimeoutInMilliseconds(): Long {
         return getStubConfiguration(this).getStartTimeoutInMilliseconds() ?: 20_000L
     }
 
@@ -671,7 +671,7 @@ data class SpecmaticConfigV1V2Common(
     @JsonIgnore
     override fun loadSources(useCurrentBranchForCentralRepo: Boolean): List<ContractSource> {
         return sources.map { source ->
-            val defaultBaseUrl = getDefaultBaseUrl()
+            val defaultBaseUrl = getStubConfiguration(this).getBaseUrl() ?: getStringValue(SPECMATIC_BASE_URL) ?: Configuration.DEFAULT_BASE_URL
             val stubExamplesMap = source.specToStubExamplesMap()
             val stubPaths = source.specToStubBaseUrlMap(defaultBaseUrl).entries.map { ContractSourceEntry(it.key, it.value, exampleDirPaths = stubExamplesMap[it.key]) }
 
@@ -712,13 +712,8 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
-    override fun isTestExtensibleSchemaEnabled(): Boolean {
+    override fun isExtensibleSchemaEnabled(): Boolean {
         return test?.allowExtensibleSchema ?: getBooleanValue(EXTENSIBLE_SCHEMA)
-    }
-
-    @JsonIgnore
-    override fun isMockExtensibleSchemaEnabled(specFile: File): Boolean {
-        return getBooleanValue(EXTENSIBLE_SCHEMA)
     }
 
     @JsonIgnore
@@ -784,7 +779,7 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
-    override fun getTestFilter(specFile: File, specType: SpecType): String? {
+    override fun getTestFilter(): String? {
         return getTestConfiguration(this)?.filter
             ?: readEnvVarOrProperty(TEST_FILTER_ENV_VAR, TEST_FILTER_PROPERTY)
     }
@@ -886,12 +881,12 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
-    override fun getStubGenerative(specFile: File): Boolean {
+    override fun getStubGenerative(specFile: File?): Boolean {
         return getStubConfiguration(this).getGenerative() ?: false
     }
 
     @JsonIgnore
-    override fun getStubDelayInMilliseconds(specFile: File): Long? {
+    override fun getStubDelayInMilliseconds(specFile: File?): Long? {
         return getStubConfiguration(this).getDelayInMilliseconds()
     }
 
@@ -901,27 +896,29 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
-    override fun getStubStrictMode(specFile: File): Boolean? {
+    override fun getStubStrictMode(specFile: File?): Boolean? {
         return getStubConfiguration(this).getStrictMode()
     }
 
     @JsonIgnore
-    override fun getStubFilter(specFile: File, specType: SpecType): String? {
+    override fun getStubFilter(specFile: File): String? {
         return getStubConfiguration(this).getFilter()
     }
 
     @JsonIgnore
-    override fun getStubHttpsConfiguration(specFile: File): HttpsConfiguration? {
-        return getStubConfiguration(this).getHttpsConfiguration()
+    override fun getStubHttpsConfiguration(): CertRegistry {
+        val registry = CertRegistry.empty()
+        val httpsConfiguration = getStubConfiguration(this).getHttpsConfiguration() ?: return registry
+        return registry.plusWildCard(httpsConfiguration)
     }
 
     @JsonIgnore
-    override fun getStubGracefulRestartTimeoutInMilliseconds(specFile: File): Long? {
+    override fun getStubGracefulRestartTimeoutInMilliseconds(): Long? {
         return getStubConfiguration(this).getGracefulRestartTimeoutInMilliseconds()
     }
 
     @JsonIgnore
-    override fun getDefaultBaseUrl(specFile: File): String {
+    override fun getDefaultBaseUrl(): String {
         return getStubConfiguration(this).getBaseUrl()
             ?: getStringValue(SPECMATIC_BASE_URL)
             ?: Configuration.DEFAULT_BASE_URL
@@ -989,6 +986,9 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
+    fun getHooks(): Map<String, String> = hooks
+
+    @JsonIgnore
     override fun getProxyConfig(): ProxyConfig? {
         return proxy
     }
@@ -1011,6 +1011,9 @@ data class SpecmaticConfigV1V2Common(
     override fun getAuth(repositoryUrl: String): Auth? {
         return auth
     }
+
+    @JsonIgnore
+    fun getAuth(): Auth? = auth
 
     @JsonIgnore
     override fun getAuthBearerFile(repositoryUrl: String): String? {
@@ -1070,7 +1073,7 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
-    override fun getStubExamplesDir(specFile: File): List<String> {
+    override fun getExamples(): List<String> {
         return examples ?: getStringValue(EXAMPLE_DIRECTORIES)?.split(",") ?: emptyList()
     }
 
@@ -1322,7 +1325,7 @@ data class SpecmaticConfigV1V2Common(
     }
 
     override fun plusExamples(exampleDirectories: List<String>): SpecmaticConfig {
-        return copy(examples = getExamples().plus(exampleDirectories))
+        return copy(examples = examples.orEmpty().plus(exampleDirectories))
     }
 
     @JsonIgnore

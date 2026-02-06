@@ -17,7 +17,6 @@ import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.config.v3.resolveElseThrow
 import io.specmatic.reporter.model.SpecType
 import java.io.File
-import java.util.UUID
 
 data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRunOptions, TestSettings>>) {
     @JsonIgnore
@@ -121,8 +120,8 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
     fun withTestFilter(resolver: RefOrValueResolver, filter: String): TestServiceConfig {
         val service = this.service.resolveElseThrow(resolver)
         val runOpts = service.runOptions?.resolveElseThrow(resolver) ?: TestRunOptions()
-        val openApiRunOpts = runOpts.openapi ?: OpenApiTestConfig()
-        val updatedOpenApiRunOpts = openApiRunOpts.copy(specs = openApiRunOpts.specs?.map { spec -> if (spec.getFilter() == null) spec.withFilter(filter) else spec })
+        val openApiRunOpts = runOpts.openapi ?: return this
+        val updatedOpenApiRunOpts = openApiRunOpts.copy(filter = filter)
         val updatedRunOpts = runOpts.copy(openapi = updatedOpenApiRunOpts)
         return copy(service = RefOrValue.Value(service.copy(runOptions = RefOrValue.Value(updatedRunOpts))))
     }

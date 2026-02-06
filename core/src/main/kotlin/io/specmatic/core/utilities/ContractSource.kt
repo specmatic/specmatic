@@ -10,7 +10,7 @@ data class ContractSourceEntry(
     val path: String,
     val baseUrl: String? = null,
     val generative: ResiliencyTestSuite? = null,
-    val exampleDirPaths: List<String>? = null
+    val exampleDirPaths: List<String>? = null,
 )
 
 sealed interface ContractSource {

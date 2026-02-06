@@ -11,7 +11,6 @@ data class TestSettings(
     val maxTestRequestCombinations: Int? = null,
     val junitReportDir: String? = null,
     val validateResponseValues: Boolean? = null,
-    val allowExtensibleSchema: Boolean? = null,
     val maxTestCount: Int? = null,
 ) {
     fun merge(fallback: TestSettings?): TestSettings {
@@ -25,7 +24,6 @@ data class TestSettings(
             maxTestRequestCombinations = this.maxTestRequestCombinations ?: fallback.maxTestRequestCombinations,
             junitReportDir = this.junitReportDir ?: fallback.junitReportDir,
             validateResponseValues = this.validateResponseValues ?: fallback.validateResponseValues,
-            allowExtensibleSchema = this.allowExtensibleSchema ?: fallback.allowExtensibleSchema,
             maxTestCount = this.maxTestCount ?: fallback.maxTestCount,
         )
     }

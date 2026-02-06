@@ -27,8 +27,3 @@ data class SpecmaticConfigV3(
         }
     }
 }
-
-fun main() {
-    val file = File("D:\\GitHub\\Config_V3").resolve("specmatic.yaml")
-    val specmaticConfig = file.toSpecmaticConfig()
-}
