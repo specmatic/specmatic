@@ -10,7 +10,8 @@ data class HttpStubResponse(
     val examplePath: String? = null,
     val feature: Feature? = null,
     val scenario: Scenario? = null,
-    val mock: HttpStubData? = null
+    val mock: HttpStubData? = null,
+    val isInternalStubPath: Boolean = false
 ) {
     val responseBody = response.body
 

@@ -37,7 +37,6 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.WorkingDirectory
 import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.core.listOfExcludedHeaders
-import io.specmatic.core.loadSpecmaticConfigOrDefault
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.LogTail
@@ -131,7 +130,8 @@ class HttpStub(
     },
     private val listeners: List<MockEventListener> = emptyList(),
     private val reportBaseDirectoryPath: String = ".",
-    private val startTime: Instant = Instant.now()
+    private val startTime: Instant = Instant.now(),
+    private val requestHandlers: MutableList<RequestHandler> = mutableListOf()
 ) : ContractStub {
     constructor(
         feature: Feature,
@@ -224,8 +224,6 @@ class HttpStub(
         transient = rawHttpStubs.filter { it.stubToken != null }.reversed().toMutableList(),
         specToBaseUrlMap = specToBaseUrlMap
     )
-
-    private val requestHandlers: MutableList<RequestHandler> = mutableListOf()
 
     // used by graphql/plugins
     fun ctrfTestResultRecords() = ctrfTestResultRecords.toList()
@@ -345,14 +343,14 @@ class HttpStub(
                     val responseFromRequestHandler =
                         requestHandlers.firstNotNullOfOrNull { it.handleRequest(httpRequest) }
                     val httpStubResponse: HttpStubResponse = when {
-                        isFetchLogRequest(httpRequest) -> handleFetchLogRequest()
-                        isFetchLoadLogRequest(httpRequest) -> handleFetchLoadLogRequest()
-                        isFetchContractsRequest(httpRequest) -> handleFetchContractsRequest()
+                        isFetchLogRequest(httpRequest) -> handleFetchLogRequest().copy(isInternalStubPath = true)
+                        isFetchLoadLogRequest(httpRequest) -> handleFetchLoadLogRequest().copy(isInternalStubPath = true)
+                        isFetchContractsRequest(httpRequest) -> handleFetchContractsRequest().copy(isInternalStubPath = true)
                         responseFromRequestHandler != null -> responseFromRequestHandler
-                        isExpectationCreation(httpRequest) -> handleExpectationCreationRequest(httpRequest)
-                        isSseExpectationCreation(httpRequest) -> handleSseExpectationCreationRequest(httpRequest)
-                        isStateSetupRequest(httpRequest) -> handleStateSetupRequest(httpRequest)
-                        isFlushTransientStubsRequest(httpRequest) -> handleFlushTransientStubsRequest(httpRequest)
+                        isExpectationCreation(httpRequest) -> handleExpectationCreationRequest(httpRequest).copy(isInternalStubPath = true)
+                        isSseExpectationCreation(httpRequest) -> handleSseExpectationCreationRequest(httpRequest).copy(isInternalStubPath = true)
+                        isStateSetupRequest(httpRequest) -> handleStateSetupRequest(httpRequest).copy(isInternalStubPath = true)
+                        isFlushTransientStubsRequest(httpRequest) -> handleFlushTransientStubsRequest(httpRequest).copy(isInternalStubPath = true)
                         else -> {
                             val responseResult = serveStubResponse(
                                 httpRequest,
@@ -391,7 +389,7 @@ class HttpStub(
                         httpLogMessage.addResponse(httpStubResponse)
                     }
 
-                    if (!isInternalStubPath(httpRequest.path)) {
+                    if (httpStubResponse.isInternalStubPath.not()) {
                         addCtrfTestResultRecord(httpLogMessage, httpRequest, httpResponse, httpStubResponse)
                     }
                 } catch (e: ContractException) {
@@ -466,7 +464,8 @@ class HttpStub(
             actualResponseStatus = httpResponse.status,
             operations = setOf(
                 OpenAPIOperation(path, method, requestContentType, responseStatus, protocol)
-            )
+            ),
+            exampleId = httpStubResponse.mock?.scenarioStub?.exampleId
         )
         synchronized(ctrfTestResultRecords) { ctrfTestResultRecords.add(ctrfTestResultRecord) }
     }
@@ -1617,10 +1616,6 @@ fun validateBaseUrls(specToBaseUrlMap: Map<String, String>): Result {
     }
 
     return Result.fromResults(results)
-}
-
-internal fun isInternalStubPath(path: String): Boolean {
-    return path.startsWith("/_$APPLICATION_NAME_LOWER_CASE")
 }
 
 internal fun isPath(path: String?, lastPart: String): Boolean {
