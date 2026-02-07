@@ -1,7 +1,6 @@
 package io.specmatic.core.config.v3.components.services
 
 import com.fasterxml.jackson.annotation.JsonIgnore
-import io.specmatic.core.Source
 import io.specmatic.core.SpecificationSourceEntry
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.nonNullElse
@@ -17,7 +16,7 @@ import io.specmatic.core.config.v3.components.settings.MockSettings
 import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.config.v3.resolveElseThrow
 import io.specmatic.reporter.model.SpecType
-import io.specmatic.stub.isSupportedAPISpecification
+import io.specmatic.stub.isOpenAPI
 import java.io.File
 
 data class MockServiceConfig(val services: List<Value>, val data: Data? = null, val settings: RefOrValue<MockSettings>?) {
@@ -101,15 +100,15 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
 
     @JsonIgnore
     private fun getFirstBaseUrlFromRunOpts(specFile: File, service: CommonServiceConfig<MockRunOptions, MockSettings>, resolver: RefOrValueResolver): String? {
-        val specTypeToCheck = when {
-            isSupportedAPISpecification(specFile.canonicalPath) -> SpecType.OPENAPI
-            specFile.extension in setOf("graphql", "graphqls") -> SpecType.GRAPHQL
-            specFile.extension == "proto" -> SpecType.PROTOBUF
-            else -> SpecType.ASYNCAPI
+        val specTypesToCheck = when {
+            specFile.extension == "wsdl" -> listOf(SpecType.WSDL)
+            specFile.extension == "proto" -> listOf(SpecType.PROTOBUF)
+            specFile.extension in setOf("graphql", "graphqls") -> listOf(SpecType.GRAPHQL)
+            isOpenAPI(specFile.canonicalPath, logFailure = false) -> listOf(SpecType.OPENAPI)
+            else -> listOf(SpecType.OPENAPI, SpecType.ASYNCAPI)
         }
 
-        val runOpts = getRunOptions(service, resolver, specTypeToCheck) ?: return null
-        return runOpts.baseUrl
+        return specTypesToCheck.firstNotNullOfOrNull { getRunOptions(service, resolver, it)?.baseUrl }
     }
 
     @JsonIgnore

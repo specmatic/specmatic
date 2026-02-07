@@ -27,7 +27,7 @@ data class RunOptionsSpecifications(val spec: Value) : IRunOptionSpecification {
         return spec.config
     }
 
-    data class Value(val id: String? = null, val overlayFilePath: String? = null, ) {
+    data class Value(val id: String? = null, val overlayFilePath: String? = null) {
         private val _config: MutableMap<String, Any> = linkedMapOf()
 
         @get:JsonAnyGetter

@@ -1,6 +1,7 @@
 package io.specmatic.core.config.v3
 
 import com.fasterxml.jackson.annotation.*
+import com.fasterxml.jackson.core.type.TypeReference
 import io.specmatic.core.utilities.yamlMapper
 
 interface RefOrValueResolver {
@@ -51,19 +52,17 @@ sealed interface RefOrValue<out T: Any> {
     }
 }
 
-inline fun <reified T : Any> RefOrValue<T>.resolveElseThrow(resolver: RefOrValueResolver): T = resolve(resolver, T::class.java).getOrThrow()
-
-inline fun <reified T : Any> RefOrValue<T>.resolve(resolver: RefOrValueResolver): Result<T> = resolve(resolver, T::class.java)
-
-fun <T : Any> RefOrValue<T>.resolve(resolver: RefOrValueResolver, clazz: Class<T>): Result<T> {
+inline fun <reified T : Any> RefOrValue<T>.resolveElseThrow(resolver: RefOrValueResolver): T {
     val baseValue = when (this) {
-        is RefOrValue.Value -> return Result.success(value)
+        is RefOrValue.Value -> return value
         is RefOrValue.Reference -> resolver.resolveRef(ref)
     }
 
     val combined = baseValue.plus(extra)
-    return runCatching { Result.success(yamlMapper.convertValue(combined, clazz)) }.getOrElse { e ->
-        val exception = java.lang.IllegalStateException("Failed to convert resolved to value to ${clazz.simpleName}", e)
-        Result.failure(exception)
+    return runCatching {
+        val type = yamlMapper.typeFactory.constructType(object : TypeReference<T>() {})
+        yamlMapper.convertValue(combined, type) as T
+    }.getOrElse { e ->
+        throw IllegalStateException("Failed to convert resolved value to ${T::class.simpleName}", e)
     }
 }

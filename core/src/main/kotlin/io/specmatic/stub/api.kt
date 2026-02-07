@@ -1101,13 +1101,13 @@ private fun List<ContractPathData>.excludeUnsupportedSpecifications(): List<Cont
     return this.filterNot { isSupportedAPISpecification(it.path) }
 }
 
-fun isOpenAPI(path: String): Boolean =
+fun isOpenAPI(path: String, logFailure: Boolean = true): Boolean =
     try {
         File(path).reader().use { reader ->
             Yaml().load<MutableMap<String, Any?>>(reader).contains("openapi")
         }
     } catch (e: Throwable) {
-        logger.log(e, "Could not parse $path")
+        if (logFailure) logger.log(e, "Could not parse $path")
         false
     }
 

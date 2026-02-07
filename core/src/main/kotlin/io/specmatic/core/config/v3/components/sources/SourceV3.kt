@@ -10,6 +10,7 @@ import io.specmatic.core.SpecificationSourceEntry
 import io.specmatic.core.WorkingDirectory
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.utilities.applyIf
+import io.specmatic.stub.extractPort
 import java.io.File
 
 data class SourceV3(private val git: Git?, private val fileSystem: FileSystem?) {
@@ -49,8 +50,9 @@ data class SourceV3(private val git: Git?, private val fileSystem: FileSystem?) 
             branch = git?.branch,
             matchBranch = git?.matchBranch,
             baseUrl = baseUrl,
+            port = baseUrl?.let(::extractPort),
             resiliencyTestSuite = resiliencyTestSuite,
-            exampleDirs = examples
+            exampleDirs = examples,
         )
     }
 

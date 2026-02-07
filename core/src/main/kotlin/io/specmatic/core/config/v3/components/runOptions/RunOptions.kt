@@ -26,6 +26,7 @@ interface IRunOptions {
 
 data class RunOptions(
     val openapi: OpenApiRunOptions? = null,
+    val wsdl: WsdlRunOptions? = null,
     val asyncapi: AsyncApiRunOptions? = null,
     val graphqlsdl: GraphQLSdlRunOptions? = null,
     val protobuf: ProtobufRunOptions? = null,
@@ -33,6 +34,7 @@ data class RunOptions(
 
 data class TestRunOptions(
     val openapi: OpenApiTestConfig? = null,
+    val wsdl: WsdlTestConfig? = null,
     val asyncapi: AsyncApiTestConfig? = null,
     val graphqlsdl: GraphQLSdlTestConfig? = null,
     val protobuf: ProtobufTestConfig? = null,
@@ -40,8 +42,8 @@ data class TestRunOptions(
     @JsonIgnore
     fun getRunOptionsFor(specType: SpecType): IRunOptions? {
         return when(specType) {
+            SpecType.WSDL -> wsdl
             SpecType.OPENAPI -> openapi
-            SpecType.WSDL -> openapi
             SpecType.ASYNCAPI -> asyncapi
             SpecType.PROTOBUF -> protobuf
             SpecType.GRAPHQL -> graphqlsdl
@@ -51,6 +53,7 @@ data class TestRunOptions(
 
 data class MockRunOptions(
     val openapi: OpenApiMockConfig? = null,
+    val wsdl: WsdlMockConfig? = null,
     val asyncapi: AsyncApiMockConfig? = null,
     val graphqlsdl: GraphQLSdlMockConfig? = null,
     val protobuf: ProtobufMockConfig? = null,
@@ -58,8 +61,8 @@ data class MockRunOptions(
     @JsonIgnore
     fun getRunOptionsFor(specType: SpecType): IRunOptions? {
         return when(specType) {
+            SpecType.WSDL -> wsdl
             SpecType.OPENAPI -> openapi
-            SpecType.WSDL -> openapi
             SpecType.ASYNCAPI -> asyncapi
             SpecType.PROTOBUF -> protobuf
             SpecType.GRAPHQL -> graphqlsdl
