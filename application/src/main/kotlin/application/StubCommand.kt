@@ -19,6 +19,8 @@ import io.specmatic.license.core.cli.Category
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.ContractStub
 import io.specmatic.stub.HttpClientFactory
+import io.specmatic.stub.HttpStub
+import io.specmatic.stub.RequestHandler
 import io.specmatic.stub.SpecmaticConfigSource
 import io.specmatic.stub.SpecmaticMockRunner
 import io.specmatic.stub.endPointFromHostAndPort
@@ -29,7 +31,6 @@ import io.specmatic.stub.listener.MockEventListener
 import picocli.CommandLine.*
 import picocli.CommandLine.Model.CommandSpec
 import java.io.File
-import java.util.concurrent.Callable
 
 @Command(
     name = "stub",
@@ -146,6 +147,11 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 
     var listeners: List<MockEventListener> = emptyList()
     var registerShutdownHook: Boolean = true
+    var requestHandlers: List<RequestHandler> = emptyList()
+
+    // used by plugins
+    @Suppress("unused")
+    fun ctrfTestResultRecords() = (httpStub as? HttpStub)?.ctrfTestResultRecords().orEmpty()
 
     private val specmaticConfiguration: io.specmatic.core.SpecmaticConfig by lazy(LazyThreadSafetyMode.NONE) {
         if (configFileName != null) Configuration.configFilePath = configFileName as String
@@ -303,7 +309,8 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             workingDirectory = workingDirectory,
             gracefulRestartTimeoutInMs = configuredGracefulTimeout(),
             specToBaseUrlMap = contractSources.specToBaseUrlMap(),
-            listeners = listeners
+            listeners = listeners,
+            requestHandlers = requestHandlers
         )
 
         LogTail.storeSnapshot()
