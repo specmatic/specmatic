@@ -7,7 +7,9 @@ import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.config.McpConfiguration
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.SpecmaticGlobalSettings
+import io.specmatic.core.config.SpecmaticSpecConfig
 import io.specmatic.core.config.Switch
+import io.specmatic.core.config.v3.components.runOptions.IRunOptions
 import io.specmatic.core.utilities.ContractSource
 import io.specmatic.core.utilities.ContractSourceEntry
 import io.specmatic.core.value.JSONObjectValue
@@ -77,16 +79,16 @@ interface SpecmaticConfig {
     fun isTelemetryDisabled(): Boolean
 
     @JsonIgnore
-    fun testConfigFor(specPath: String, specType: String): Map<String, Any>
+    fun testConfigFor(specPath: String, specType: String): SpecmaticSpecConfig?
 
     @JsonIgnore
-    fun testConfigFor(file: File, specType: SpecType): Map<String, Any>
+    fun testConfigFor(file: File, specType: SpecType): SpecmaticSpecConfig?
 
     @JsonIgnore
-    fun stubConfigFor(file: File, specType: SpecType): Map<String, Any>
+    fun stubConfigFor(file: File, specType: SpecType): SpecmaticSpecConfig?
 
     @JsonIgnore
-    fun stubConfigFor(specPath: String, specType: String): Map<String, Any>
+    fun stubConfigFor(specPath: String, specType: String): SpecmaticSpecConfig?
 
     @JsonIgnore
     fun getCtrfSpecConfig(

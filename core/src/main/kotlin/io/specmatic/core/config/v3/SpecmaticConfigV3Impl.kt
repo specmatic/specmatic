@@ -50,6 +50,7 @@ import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.config.McpConfiguration
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.SpecmaticGlobalSettings
+import io.specmatic.core.config.SpecmaticSpecConfig
 import io.specmatic.core.config.Switch
 import io.specmatic.core.config.v3.components.runOptions.AsyncApiRunOptions
 import io.specmatic.core.config.v3.components.runOptions.GraphQLSdlRunOptions
@@ -179,33 +180,35 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
         return disableTelemetryFromEnvVarOrSystemProp?.toBoolean() ?: (disableTelemetry == true)
     }
 
-    override fun testConfigFor(specPath: String, specType: String): Map<String, Any> {
-        val specType = SpecType.entries.firstOrNull { it.value.equals(specType, ignoreCase = true) } ?: return emptyMap()
+    override fun testConfigFor(specPath: String, specType: String): SpecmaticSpecConfig? {
+        val specType = SpecType.entries.firstOrNull { it.value.equals(specType, ignoreCase = true) } ?: return null
         return testConfigFor(File(specPath), specType)
     }
 
-    override fun testConfigFor(file: File, specType: SpecType): Map<String, Any> {
+    override fun testConfigFor(file: File, specType: SpecType): SpecmaticSpecConfig? {
+        val specId = specmaticConfig.systemUnderTest?.getSpecDefinitionFor(file, resolver)?.getSpecificationId()
         return when (val runOptions = specmaticConfig.systemUnderTest?.getRunOptions(resolver, specType)) {
-            is AsyncApiRunOptions -> runOptions.config.orEmpty()
-            is GraphQLSdlRunOptions -> runOptions.config.orEmpty()
-            is ProtobufRunOptions -> runOptions.config.orEmpty()
-            else -> emptyMap()
-        }
+            is AsyncApiRunOptions -> runOptions
+            is GraphQLSdlRunOptions -> runOptions
+            is ProtobufRunOptions -> runOptions
+            else -> null
+        }?.toSpecmaticSpecConfig(specId)
     }
 
-    override fun stubConfigFor(file: File, specType: SpecType): Map<String, Any> {
-        val service = specmaticConfig.dependencies?.getService(file, resolver) ?: return emptyMap()
+    override fun stubConfigFor(file: File, specType: SpecType): SpecmaticSpecConfig? {
+        val service = specmaticConfig.dependencies?.getService(file, resolver) ?: return null
+        val specId = specmaticConfig.dependencies.getSpecDefinitionFor(file, service, resolver)?.getSpecificationId()
         return when (val runOptions = specmaticConfig.dependencies.getRunOptions(service, resolver, specType)) {
-            is AsyncApiRunOptions -> runOptions.config.orEmpty()
-            is GraphQLSdlRunOptions -> runOptions.config.orEmpty()
-            is ProtobufRunOptions -> runOptions.config.orEmpty()
-            else -> emptyMap()
-        }
+            is AsyncApiRunOptions -> runOptions
+            is GraphQLSdlRunOptions -> runOptions
+            is ProtobufRunOptions -> runOptions
+            else -> null
+        }?.toSpecmaticSpecConfig(specId)
     }
 
-    override fun stubConfigFor(specPath: String, specType: String): Map<String, Any> {
-        val specType = SpecType.entries.firstOrNull { it.value.equals(specType, ignoreCase = true) } ?: return emptyMap()
-        return testConfigFor(File(specPath), specType)
+    override fun stubConfigFor(specPath: String, specType: String): SpecmaticSpecConfig? {
+        val specType = SpecType.entries.firstOrNull { it.value.equals(specType, ignoreCase = true) } ?: return null
+        return stubConfigFor(File(specPath), specType)
     }
 
     override fun getCtrfSpecConfig(absoluteSpecPath: String, testType: String, protocol: String, specType: String): CtrfSpecConfig {
@@ -722,12 +725,13 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
     }
 
     override fun getLicensePath(): Path? {
-        return specmaticConfig.specmatic?.license?.path?.let(Path::of)
+        return specmaticConfig.specmatic?.license?.path
     }
 
     override fun getReportDirPath(suffix: String?): Path {
-        val governance = specmaticConfig.specmatic?.governance
-        return governance?.report?.outputDirectory?.let(Path::of) ?: return defaultReportDirPath
+        val reportDirPath = specmaticConfig.specmatic?.governance?.report?.outputDirectory ?: defaultReportDirPath
+        if (suffix == null) return reportDirPath
+        return reportDirPath.resolve(suffix)
     }
 
     override fun plusExamples(exampleDirectories: List<String>): SpecmaticConfig {

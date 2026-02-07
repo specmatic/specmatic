@@ -2,6 +2,7 @@ package io.specmatic.core.config.v3.specmatic
 
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonValue
+import java.nio.file.Path
 
 enum class ReportFormat(val value: String) {
     HTML("html"),
@@ -21,4 +22,4 @@ enum class ReportFormat(val value: String) {
     }
 }
 
-data class Report(val formats: List<ReportFormat>? = null, val outputDirectory: String? = null)
+data class Report(val formats: List<ReportFormat>? = null, val outputDirectory: Path? = null)

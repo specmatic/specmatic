@@ -9,7 +9,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 @JsonSubTypes(JsonSubTypes.Type(GraphQLSdlTestConfig::class, name = "test"), JsonSubTypes.Type(GraphQLSdlMockConfig::class, name = "mock"),)
-sealed interface GraphQLSdlRunOptions : IRunOptions { val config: Map<String, Any>?; val type: RunOptionType? }
+sealed interface GraphQLSdlRunOptions : IRunOptions { val type: RunOptionType? }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
 data class GraphQLSdlTestConfig(override val baseUrl: String? = null, override val specs: List<RunOptionsSpecifications>? = null) : GraphQLSdlRunOptions {

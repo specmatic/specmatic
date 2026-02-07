@@ -21,6 +21,8 @@ data class OpenApiTestConfig(
     val actuatorUrl: String? = null,
     override val specs: List<OpenApiRunOptionsSpecifications>? = null
 ) : OpenApiRunOptions {
+    override val config: Map<String, Any> = emptyMap()
+
     init {
         require(type == null || type == RunOptionType.TEST) {
             "Invalid type '$type' for OpenApiMockConfig, expected '${RunOptionType.TEST.value}'"
@@ -38,6 +40,8 @@ data class OpenApiMockConfig(
     val cert: RefOrValue<HttpsConfiguration>? = null,
     override val specs: List<OpenApiRunOptionsSpecifications>? = null
 ) : OpenApiRunOptions {
+    override val config: Map<String, Any> = emptyMap()
+
     init {
         require(type == null || type in setOf(RunOptionType.MOCK, RunOptionType.STATEFUL_MOCK)) {
             "Invalid type '$type' for OpenApiMockConfig, expected '${RunOptionType.MOCK.value}' or '${RunOptionType.STATEFUL_MOCK}'"

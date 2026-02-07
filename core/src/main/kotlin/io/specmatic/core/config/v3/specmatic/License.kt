@@ -1,3 +1,5 @@
 package io.specmatic.core.config.v3.specmatic
 
-data class License(val path: String)
+import java.nio.file.Path
+
+data class License(val path: Path)

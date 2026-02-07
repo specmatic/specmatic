@@ -4,16 +4,24 @@ import com.fasterxml.jackson.annotation.JsonAnyGetter
 import com.fasterxml.jackson.annotation.JsonAnySetter
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonIgnore
+import io.specmatic.core.config.SpecmaticSpecConfig
 import io.specmatic.reporter.model.SpecType
 
 interface IRunOptions {
     val baseUrl: String?
     val specs: List<IRunOptionSpecification>?
+    val config: Map<String, Any>
 
     @JsonIgnore
     fun getMatchingSpecification(id: String): IRunOptionSpecification? {
         return specs?.firstOrNull { it.getId() == id }
     }
+
+    fun toSpecmaticSpecConfig(specId: String?): SpecmaticSpecConfig {
+        val matching = if (specId != null) getMatchingSpecification(specId) else null
+        return SpecmaticSpecConfig(baseUrl, matching, config)
+    }
+
 }
 
 data class RunOptions(

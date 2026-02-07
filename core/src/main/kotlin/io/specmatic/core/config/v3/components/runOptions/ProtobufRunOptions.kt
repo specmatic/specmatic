@@ -9,7 +9,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 @JsonSubTypes(JsonSubTypes.Type(ProtobufTestConfig::class, name = "test"), JsonSubTypes.Type(ProtobufMockConfig::class, name = "mock"),)
-sealed interface ProtobufRunOptions : IRunOptions { val config: Map<String, Any>?; val type: RunOptionType? }
+sealed interface ProtobufRunOptions : IRunOptions { val type: RunOptionType? }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
 data class ProtobufTestConfig(override val baseUrl: String? = null, override val specs: List<RunOptionsSpecifications>? = null) : ProtobufRunOptions {

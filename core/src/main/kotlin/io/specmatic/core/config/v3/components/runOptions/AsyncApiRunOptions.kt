@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.*
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 @JsonSubTypes(JsonSubTypes.Type(AsyncApiTestConfig::class, name = "test"), JsonSubTypes.Type(AsyncApiMockConfig::class, name = "mock"),)
-sealed interface AsyncApiRunOptions : IRunOptions { val config: Map<String, Any>?; val type: RunOptionType? }
+sealed interface AsyncApiRunOptions : IRunOptions { val type: RunOptionType? }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
 data class AsyncApiTestConfig(override val baseUrl: String? = null, override val specs: List<RunOptionsSpecifications>? = null) : AsyncApiRunOptions {

@@ -16,6 +16,8 @@ import io.specmatic.core.config.SpecmaticConfigVersion.VERSION_1
 import io.specmatic.core.config.SpecmaticConfigVersion.VERSION_2
 import io.specmatic.core.config.v2.ConsumesDeserializer
 import io.specmatic.core.config.v2.SpecExecutionConfig
+import io.specmatic.core.config.v3.components.runOptions.IRunOptionSpecification
+import io.specmatic.core.config.v3.components.runOptions.IRunOptions
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
@@ -510,38 +512,38 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
-    override fun testConfigFor(specPath: String, specType: String): Map<String, Any> {
+    override fun testConfigFor(specPath: String, specType: String): SpecmaticSpecConfig? {
         return sources.flatMap { it.test.orEmpty() }.configWith(specPath, specType)
     }
 
     @JsonIgnore
-    override fun testConfigFor(file: File, specType: SpecType): Map<String, Any> {
+    override fun testConfigFor(file: File, specType: SpecType): SpecmaticSpecConfig? {
         val resolvedTestConfig = this.sources.flatMap { it.getCanonicalTestConfigs() }
         return resolvedTestConfig.filterIsInstance<SpecExecutionConfig.ConfigValue>().firstOrNull { config ->
             if (config.specType != specType.value) return@firstOrNull false
             config.specs.any { specPath -> File(specPath).sameAs(file) }
-        }?.config.orEmpty()
+        }?.config.orEmpty().let(::SpecmaticSpecConfig)
     }
 
     @JsonIgnore
-    override fun stubConfigFor(file: File, specType: SpecType): Map<String, Any> {
+    override fun stubConfigFor(file: File, specType: SpecType): SpecmaticSpecConfig? {
         val resolvedTestConfig = this.sources.flatMap { it.getCanonicalStubConfigs() }
         return resolvedTestConfig.filterIsInstance<SpecExecutionConfig.ConfigValue>().firstOrNull { config ->
             if (config.specType != specType.value) return@firstOrNull false
             config.specs.any { specPath -> File(specPath).sameAs(file) }
-        }?.config.orEmpty()
+        }?.config.orEmpty().let(::SpecmaticSpecConfig)
     }
 
     @JsonIgnore
-    override fun stubConfigFor(specPath: String, specType: String): Map<String, Any> {
+    override fun stubConfigFor(specPath: String, specType: String): SpecmaticSpecConfig? {
         return sources.flatMap { it.stub.orEmpty() }.configWith(specPath, specType)
     }
 
     @JsonIgnore
-    private fun List<SpecExecutionConfig>.configWith(specPath: String, specType: String): Map<String, Any> {
+    private fun List<SpecExecutionConfig>.configWith(specPath: String, specType: String): SpecmaticSpecConfig? {
         return this.filterIsInstance<SpecExecutionConfig.ConfigValue>().firstOrNull {
             it.contains(specPath, specType)
-        }?.config.orEmpty()
+        }?.config.orEmpty().let(::SpecmaticSpecConfig)
     }
 
     @JsonIgnore
