@@ -27,6 +27,7 @@ import io.specmatic.core.log.logger
 import io.specmatic.core.log.setLoggerUsing
 import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.parseGherkinStringToFeature
+import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.ContractPathData
 import io.specmatic.core.utilities.ContractPathData.Companion.specToBaseUrlMap
 import io.specmatic.core.utilities.contractStubPaths
@@ -36,6 +37,7 @@ import io.specmatic.core.utilities.exitWithMessage
 import io.specmatic.core.utilities.runWithTimeout
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.reporter.model.SpecType
 import org.yaml.snakeyaml.Yaml
 import java.io.File
 
@@ -1066,6 +1068,12 @@ fun loadIfSupportedAPISpecification(
         return null
     }
 
+    val overlayFromConfig = specmaticConfig.getStubOverlayFilePath(File(contractPathData.path), SpecType.OPENAPI)?.let(::File)
+    val overlayContent = overlayFromConfig?.let {
+        if (it.exists()) it.readText()
+        throw ContractException("Specified Overlay file does not exist ${it.path}")
+    }.orEmpty()
+
     return try {
         Pair(
             contractPathData.path,
@@ -1076,6 +1084,7 @@ fun loadIfSupportedAPISpecification(
                 contractPathData.repository,
                 contractPathData.branch,
                 contractPathData.specificationPath,
+                overlayContent = overlayContent,
                 specmaticConfig = specmaticConfig,
                 strictMode = specmaticConfig.getStubStrictMode(null) ?: false,
                 lenientMode = contractPathData.lenientMode,

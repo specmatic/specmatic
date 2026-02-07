@@ -196,6 +196,9 @@ interface SpecmaticConfig {
     fun getTestOverlayFilePath(specFile: File, specType: SpecType): String?
 
     @JsonIgnore
+    fun getStubOverlayFilePath(specFile: File, specType: SpecType): String?
+
+    @JsonIgnore
     fun getTestBaseUrl(specType: SpecType): String?
 
     @JsonIgnore
@@ -300,6 +303,9 @@ interface SpecmaticConfig {
 
     @JsonIgnore
     fun getTestExampleDirs(specFile: File): List<String>
+
+    @JsonIgnore
+    fun getStubExampleDirs(specFile: File): List<String>
 
     @JsonIgnore
     fun getExamples(): List<String>

@@ -805,6 +805,11 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
+    override fun getStubOverlayFilePath(specFile: File, specType: SpecType): String? {
+        return getTestOverlayFilePath(specFile, specType)
+    }
+
+    @JsonIgnore
     override fun getTestBaseUrl(specType: SpecType): String? {
         val baseUrl = getExplicitTestBaseUrl()
         if (baseUrl != null) return baseUrl
@@ -1068,6 +1073,11 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun getTestExampleDirs(specFile: File): List<String> {
+        return examples ?: getStringValue(EXAMPLE_DIRECTORIES)?.split(",") ?: emptyList()
+    }
+
+    @JsonIgnore
+    override fun getStubExampleDirs(specFile: File): List<String> {
         return examples ?: getStringValue(EXAMPLE_DIRECTORIES)?.split(",") ?: emptyList()
     }
 

@@ -379,6 +379,13 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
         return runOpts.getMatchingSpecification(specId)?.getOverlayFilePath()
     }
 
+    override fun getStubOverlayFilePath(specFile: File, specType: SpecType): String? {
+        val service = specmaticConfig.dependencies?.getService(specFile, resolver) ?: return null
+        val specId = specmaticConfig.dependencies.getSpecDefinitionFor(specFile, service, resolver)?.getSpecificationId() ?: return null
+        val runOpts = specmaticConfig.dependencies.getRunOptions(service, resolver, specType) ?: return null
+        return runOpts.getMatchingSpecification(specId)?.getOverlayFilePath()
+    }
+
     override fun getTestBaseUrl(specType: SpecType): String? {
         val runOptions = specmaticConfig.systemUnderTest?.getRunOptions(resolver, specType)
         return runOptions?.baseUrl
@@ -560,6 +567,10 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
 
     override fun getTestExampleDirs(specFile: File): List<String> {
         return specmaticConfig.systemUnderTest?.getExampleDirs(resolver).orEmpty()
+    }
+
+    override fun getStubExampleDirs(specFile: File): List<String> {
+        return specmaticConfig.dependencies?.getExampleDirs(specFile, resolver).orEmpty()
     }
 
     override fun getExamples(): List<String> {
