@@ -5,6 +5,8 @@ import io.specmatic.core.Configuration.Companion.DEFAULT_PROXY_HOST
 import io.specmatic.core.Configuration.Companion.DEFAULT_PROXY_PORT
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.v3.components.Adapter
+import io.specmatic.stub.extractHost
+import io.specmatic.stub.extractPort
 import java.io.File
 
 data class ProxyConfig(
@@ -19,10 +21,16 @@ data class ProxyConfig(
     val outputDirectory: String? = null,
 ) {
     @JsonIgnore
-    fun getHostOrDefault(default: String = DEFAULT_PROXY_HOST): String = host ?: default
+    fun getHostOrDefault(default: String = DEFAULT_PROXY_HOST): String {
+        val hostFromBaseUrl = baseUrl?.let(::extractHost)
+        return hostFromBaseUrl ?: host ?: default
+    }
 
     @JsonIgnore
-    fun getPortOrDefault(default: Int = DEFAULT_PROXY_PORT.toInt()): Int = port.takeUnless { it == 0 || it == -1 } ?: default
+    fun getPortOrDefault(default: Int = DEFAULT_PROXY_PORT.toInt()): Int {
+        val portFromBaseUrl = baseUrl?.let(::extractPort)
+        return portFromBaseUrl ?: port.takeUnless { it == 0 || it == -1 } ?: default
+    }
 
     @JsonIgnore
     fun getTimeoutInMillisecondsOrDefault(default: Long = DEFAULT_TIMEOUT_IN_MILLISECONDS): Long = timeoutInMilliseconds ?: default
