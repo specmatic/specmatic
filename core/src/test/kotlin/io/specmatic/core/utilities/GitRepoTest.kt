@@ -94,7 +94,7 @@ class GitRepoTest {
         every { fakeGit.currentRemoteBranch() } returns "origin/main"
 
         every { getSystemGit(any()) } returns fakeGit
-        every { getSystemGitWithAuth(any(), any()) } returns fakeGit
+        every { getSystemGitWithAuth(any(), any(), "https://github.com/specmatic/specmatic.git") } returns fakeGit
         every { clone(any(), any(), any()) } returns tempDir
         every { checkout(any(), any()) } returns Unit
 
@@ -124,7 +124,7 @@ class GitRepoTest {
         every { fakeGit.statusPorcelain() } returns ""
 
         every { getSystemGit(any()) } returns fakeGit
-        every { getSystemGitWithAuth(any(), any()) } returns fakeGit
+        every { getSystemGitWithAuth(any(), any(), "https://github.com/specmatic/specmatic.git") } returns fakeGit
         every { clone(any(), any(), any()) } returns tempDir
         every { checkout(any(), any()) } returns Unit
 

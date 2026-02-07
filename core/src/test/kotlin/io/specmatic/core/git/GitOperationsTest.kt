@@ -51,14 +51,14 @@ class GitOperationsTest {
     fun shouldReturnPersonalAccessTokenFromAuthConfig() {
         val specmaticConfig = SpecmaticConfigV1V2Common(auth = Auth(personalAccessToken = "token-123"))
 
-        assertThat(getPersonalAccessToken(specmaticConfig)).isEqualTo("token-123")
+        assertThat(getPersonalAccessToken(specmaticConfig, "https://gihub.com/org/repo.git")).isEqualTo("token-123")
     }
 
     @Test
     fun shouldReturnNullWhenPersonalAccessTokenIsNotConfigured() {
         val specmaticConfig = SpecmaticConfig()
 
-        assertThat(getPersonalAccessToken(specmaticConfig)).isNull()
+        assertThat(getPersonalAccessToken(specmaticConfig, "https://gihub.com/org/repo.git")).isNull()
     }
 
     @Test
@@ -75,7 +75,7 @@ class GitOperationsTest {
         try {
             val specmaticConfig = SpecmaticConfig()
 
-            assertThat(getPersonalAccessToken(specmaticConfig)).isEqualTo("token-456")
+            assertThat(getPersonalAccessToken(specmaticConfig, "https://gihub.com/org/repo.git")).isEqualTo("token-456")
         } finally {
             System.setProperty("user.home", originalHome)
             if (originalPersonalAccessTokenProperty == null) {

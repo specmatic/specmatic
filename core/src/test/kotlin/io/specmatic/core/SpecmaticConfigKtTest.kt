@@ -19,6 +19,7 @@ import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_GENERATIVE_TESTS
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_STUB_DELAY
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_TIMEOUT
 import io.specmatic.core.utilities.Flags.Companion.VALIDATE_RESPONSE_VALUE
+import io.specmatic.reporter.model.SpecType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -50,8 +51,8 @@ internal class SpecmaticConfigKtTest {
         assertThat(sources.first().test).isEqualTo(listOf(SpecExecutionConfig.StringValue("com/petstore/1.spec")))
         assertThat(sources.first().specsUsedAsStub()).isEqualTo(listOf("com/petstore/payment.spec"))
 
-        assertThat(config.getAuthBearerFile()).isEqualTo("bearer.txt")
-        assertThat(config.getAuthBearerEnvironmentVariable()).isNull()
+        assertThat(config.getAuthBearerFile("https://contracts")).isEqualTo("bearer.txt")
+        assertThat(config.getAuthBearerEnvironmentVariable("https://contracts")).isNull()
 
         assertThat(config.getPipelineProvider()).isEqualTo(PipelineProvider.azure)
         assertThat(config.getPipelineOrganization()).isEqualTo("xnsio")
@@ -83,20 +84,20 @@ internal class SpecmaticConfigKtTest {
         )
 
         assertThat(
-            (config.getOpenAPISecurityConfigurationScheme("oAuth2AuthCode") as OAuth2SecuritySchemeConfiguration).token
+            (config.getOpenAPISecurityConfigurationScheme(File("spec.yaml"), "oAuth2AuthCode") as OAuth2SecuritySchemeConfiguration).token
         ).isEqualTo("OAUTH1234")
         assertThat(
-            (config.getOpenAPISecurityConfigurationScheme("BearerAuth") as BearerSecuritySchemeConfiguration).token
+            (config.getOpenAPISecurityConfigurationScheme(File("spec.yaml"), "BearerAuth") as BearerSecuritySchemeConfiguration).token
         ).isEqualTo("BEARER1234")
         assertThat(
-            (config.getOpenAPISecurityConfigurationScheme("ApiKeyAuthHeader") as APIKeySecuritySchemeConfiguration).value
+            (config.getOpenAPISecurityConfigurationScheme(File("spec.yaml"), "ApiKeyAuthHeader") as APIKeySecuritySchemeConfiguration).value
         ).isEqualTo("API-HEADER-USER")
         assertThat(
-            (config.getOpenAPISecurityConfigurationScheme("ApiKeyAuthQuery") as APIKeySecuritySchemeConfiguration).value
+            (config.getOpenAPISecurityConfigurationScheme(File("spec.yaml"), "ApiKeyAuthQuery") as APIKeySecuritySchemeConfiguration).value
         ).isEqualTo("API-QUERY-PARAM-USER")
 
         assertThat(
-            (config.getOpenAPISecurityConfigurationScheme("BasicAuth") as BasicAuthSecuritySchemeConfiguration).token
+            (config.getOpenAPISecurityConfigurationScheme(File("spec.yaml"), "BasicAuth") as BasicAuthSecuritySchemeConfiguration).token
         ).isEqualTo("Abc123")
 
         assertThat(config.getExamples()).isEqualTo(listOf("folder1/examples", "folder2/examples"))
@@ -105,8 +106,8 @@ internal class SpecmaticConfigKtTest {
         assertThat(config.isExtensibleSchemaEnabled()).isTrue()
         assertThat(config.isResponseValueValidationEnabled()).isTrue()
 
-        assertThat(config.getStubDelayInMilliseconds()).isEqualTo(1000L)
-        assertThat(config.getStubGenerative()).isEqualTo(false)
+        assertThat(config.getStubDelayInMilliseconds(File("spec.yaml"))).isEqualTo(1000L)
+        assertThat(config.getStubGenerative(File("spec.yaml"))).isEqualTo(false)
         assertThat(config.getTestTimeoutInMilliseconds()).isEqualTo(3000)
     }
 
@@ -150,8 +151,8 @@ internal class SpecmaticConfigKtTest {
         assertThat(sources.first().test).isEqualTo(listOf(SpecExecutionConfig.StringValue("com/petstore/1.yaml")))
         assertThat(sources.first().specsUsedAsStub()).isEqualTo(listOf("com/petstore/payment.yaml"))
 
-        assertThat(config.getAuthBearerFile()).isEqualTo("bearer.txt")
-        assertThat(config.getAuthBearerEnvironmentVariable()).isNull()
+        assertThat(config.getAuthBearerFile("https://contracts")).isEqualTo("bearer.txt")
+        assertThat(config.getAuthBearerEnvironmentVariable("https://contracts")).isNull()
 
         assertThat(config.getPipelineProvider()).isEqualTo(PipelineProvider.azure)
         assertThat(config.getPipelineOrganization()).isEqualTo("xnsio")
@@ -169,20 +170,20 @@ internal class SpecmaticConfigKtTest {
         assertThat(SpecmaticConfigV1V2Common.getReport(config)?.types?.apiCoverage?.openAPI?.excludedEndpoints?.get(1)).isEqualTo("/health")
 
         assertThat(
-            (config.getOpenAPISecurityConfigurationScheme("oAuth2AuthCode") as OAuth2SecuritySchemeConfiguration).token
+            (config.getOpenAPISecurityConfigurationScheme(File("spec.yaml"), "oAuth2AuthCode") as OAuth2SecuritySchemeConfiguration).token
         ).isEqualTo("OAUTH1234")
         assertThat(
-            (config.getOpenAPISecurityConfigurationScheme("BearerAuth") as BearerSecuritySchemeConfiguration).token
+            (config.getOpenAPISecurityConfigurationScheme(File("spec.yaml"), "BearerAuth") as BearerSecuritySchemeConfiguration).token
         ).isEqualTo("BEARER1234")
         assertThat(
-            (config.getOpenAPISecurityConfigurationScheme("ApiKeyAuthHeader") as APIKeySecuritySchemeConfiguration).value
+            (config.getOpenAPISecurityConfigurationScheme(File("spec.yaml"), "ApiKeyAuthHeader") as APIKeySecuritySchemeConfiguration).value
         ).isEqualTo("API-HEADER-USER")
         assertThat(
-            (config.getOpenAPISecurityConfigurationScheme("ApiKeyAuthQuery") as APIKeySecuritySchemeConfiguration).value
+            (config.getOpenAPISecurityConfigurationScheme(File("spec.yaml"), "ApiKeyAuthQuery") as APIKeySecuritySchemeConfiguration).value
         ).isEqualTo("API-QUERY-PARAM-USER")
 
         assertThat(
-            (config.getOpenAPISecurityConfigurationScheme("BasicAuth") as BasicAuthSecuritySchemeConfiguration).token
+            (config.getOpenAPISecurityConfigurationScheme(File("spec.yaml"), "BasicAuth") as BasicAuthSecuritySchemeConfiguration).token
         ).isEqualTo("Abc123")
     }
 
@@ -206,8 +207,8 @@ internal class SpecmaticConfigKtTest {
 
         assertThat(config.getProxyConfig()).isEqualTo(
             ProxyConfig(
-                port = 9000, target = "http://example.com/api",
-                mock = listOf("openapi_spec1.yaml", "openapi_spec2.yaml")
+                port = 9000, targetUrl = "http://example.com/api",
+                consumes = listOf("openapi_spec1.yaml", "openapi_spec2.yaml")
             )
         )
     }
@@ -236,7 +237,7 @@ internal class SpecmaticConfigKtTest {
             assertThat(config.getMaxTestRequestCombinations()).isEqualTo(50)
             assertThat(config.getExamples()).isEqualTo(listOf("folder1/examples", "folder2/examples"))
             assertThat(config.getTestTimeoutInMilliseconds()).isEqualTo(5000)
-            assertThat(config.getStubDelayInMilliseconds()).isEqualTo(1000L)
+            assertThat(config.getStubDelayInMilliseconds(File("spec.yaml"))).isEqualTo(1000L)
         } finally {
             properties.forEach { System.clearProperty(it.key) }
         }
@@ -328,7 +329,7 @@ internal class SpecmaticConfigKtTest {
             System.setProperty("host", "property-host")
             System.setProperty("port", "1234")
 
-            assertThat(config.getTestBaseUrl()).isEqualTo("http://config-base-url")
+            assertThat(config.getTestBaseUrl(SpecType.OPENAPI)).isEqualTo("http://config-base-url")
         } finally {
             System.clearProperty("testBaseURL")
             System.clearProperty("host")
@@ -342,7 +343,7 @@ internal class SpecmaticConfigKtTest {
         try {
             System.setProperty("testBaseURL", "http://property-base-url")
 
-            assertThat(config.getTestBaseUrl()).isEqualTo("http://property-base-url")
+            assertThat(config.getTestBaseUrl(SpecType.OPENAPI)).isEqualTo("http://property-base-url")
         } finally {
             System.clearProperty("testBaseURL")
         }
@@ -355,7 +356,7 @@ internal class SpecmaticConfigKtTest {
             System.setProperty("host", "property-host")
             System.setProperty("port", "1234")
 
-            assertThat(config.getTestBaseUrl()).isEqualTo("http://property-host:1234")
+            assertThat(config.getTestBaseUrl(SpecType.OPENAPI)).isEqualTo("http://property-host:1234")
         } finally {
             System.clearProperty("host")
             System.clearProperty("port")
@@ -370,7 +371,7 @@ internal class SpecmaticConfigKtTest {
             System.setProperty("port", "1234")
             System.setProperty("protocol", "https")
 
-            assertThat(config.getTestBaseUrl()).isEqualTo("https://property-host:1234")
+            assertThat(config.getTestBaseUrl(SpecType.OPENAPI)).isEqualTo("https://property-host:1234")
         } finally {
             System.clearProperty("host")
             System.clearProperty("port")
@@ -480,7 +481,7 @@ internal class SpecmaticConfigKtTest {
             System.clearProperty(propertyKey)
             configFile.writeText(configYaml)
             val config = loadSpecmaticConfig(configFile.path)
-            assertThat(config.getStubGenerative()).isTrue()
+            assertThat(config.getStubGenerative(File("spec.yaml"))).isTrue()
         } finally {
             System.clearProperty(propertyKey)
             configFile.delete()
@@ -501,7 +502,7 @@ internal class SpecmaticConfigKtTest {
             System.setProperty(propertyKey, "250")
             configFile.writeText(configYaml)
             val config = loadSpecmaticConfig(configFile.path)
-            assertThat(config.getStubDelayInMilliseconds()).isEqualTo(250L)
+            assertThat(config.getStubDelayInMilliseconds(File("spec.yaml"))).isEqualTo(250L)
         } finally {
             System.clearProperty(propertyKey)
             configFile.delete()
@@ -570,7 +571,7 @@ internal class SpecmaticConfigKtTest {
             assertThat(config.isResponseValueValidationEnabled()).isTrue()
             assertThat(config.isExtensibleSchemaEnabled()).isTrue()
             assertThat(config.getExamples()).isEqualTo(listOf("folder1/examples", "folder2/examples"))
-            assertThat(config.getStubDelayInMilliseconds()).isEqualTo(1000L)
+            assertThat(config.getStubDelayInMilliseconds(File("spec.yaml"))).isEqualTo(1000L)
             assertThat(config.getTestTimeoutInMilliseconds()).isEqualTo(3000)
         } finally {
             props.forEach { System.clearProperty(it.key) }
@@ -1302,8 +1303,7 @@ internal class SpecmaticConfigKtTest {
                 )
             )
 
-            val result = config.testConfigFor("io/specmatic/order.yaml", "ASYNCAPI")
-
+            val result = config.testConfigFor("io/specmatic/order.yaml", "ASYNCAPI")?.spec?.getConfig().orEmpty()
             assertThat(result).isNotEmpty
             assertThat(result["timeout"]).isEqualTo(30)
             assertThat(result["retries"]).isEqualTo(3)
@@ -1327,8 +1327,7 @@ internal class SpecmaticConfigKtTest {
             )
 
             val result = config.testConfigFor("io/specmatic/unknown.yaml", "ASYNCAPI")
-
-            assertThat(result).isEmpty()
+            assertThat(result?.spec?.getConfig().orEmpty()).isEmpty()
         }
 
         @Test
@@ -1348,8 +1347,7 @@ internal class SpecmaticConfigKtTest {
             )
 
             val result = config.testConfigFor("io/specmatic/order.yaml", "OPENAPI")
-
-            assertThat(result).isEmpty()
+            assertThat(result?.spec?.getConfig().orEmpty()).isEmpty()
         }
 
         @Test
@@ -1365,8 +1363,7 @@ internal class SpecmaticConfigKtTest {
             )
 
             val result = config.testConfigFor("io/specmatic/order.yaml", "ASYNCAPI")
-
-            assertThat(result).isEmpty()
+            assertThat(result?.spec?.getConfig().orEmpty()).isEmpty()
         }
 
         @Test
@@ -1394,8 +1391,7 @@ internal class SpecmaticConfigKtTest {
                 )
             )
 
-            val result = config.testConfigFor("io/specmatic/order.yaml", "ASYNCAPI")
-
+            val result = config.testConfigFor("io/specmatic/order.yaml", "ASYNCAPI")?.spec?.getConfig().orEmpty()
             assertThat(result["timeout"]).isEqualTo(30)
         }
 
@@ -1420,8 +1416,7 @@ internal class SpecmaticConfigKtTest {
                 )
             )
 
-            val result = config.testConfigFor("io/specmatic/order.yaml", "ASYNCAPI")
-
+            val result = config.testConfigFor("io/specmatic/order.yaml", "ASYNCAPI")?.spec?.getConfig().orEmpty()
             assertThat(result["timeout"]).isEqualTo(30)
         }
 
@@ -1429,8 +1424,7 @@ internal class SpecmaticConfigKtTest {
         fun `testConfigFor should return empty map when sources are empty`() {
             val config = SpecmaticConfigV1V2Common(sources = emptyList())
 
-            val result = config.testConfigFor("io/specmatic/order.yaml", "ASYNCAPI")
-
+            val result = config.testConfigFor("io/specmatic/order.yaml", "ASYNCAPI")?.spec?.getConfig().orEmpty()
             assertThat(result).isEmpty()
         }
 
@@ -1461,8 +1455,7 @@ internal class SpecmaticConfigKtTest {
                 )
             )
 
-            val result = config.testConfigFor("io/specmatic/order.yaml", "ASYNCAPI")
-
+            val result = config.testConfigFor("io/specmatic/order.yaml", "ASYNCAPI")?.spec?.getConfig().orEmpty()
             assertThat(result).isNotEmpty
             assertThat(result["timeout"]).isEqualTo(30)
             assertThat(result["retries"]).isEqualTo(3)
@@ -1505,8 +1498,7 @@ internal class SpecmaticConfigKtTest {
                 )
             )
 
-            val result = config.stubConfigFor("io/specmatic/order.yaml", "ASYNCAPI")
-
+            val result = config.stubConfigFor("io/specmatic/order.yaml", "ASYNCAPI")?.spec?.getConfig().orEmpty()
             assertThat(result).isNotEmpty
             assertThat(result["timeout"]).isEqualTo(30)
             assertThat(result["retries"]).isEqualTo(3)
@@ -1530,8 +1522,7 @@ internal class SpecmaticConfigKtTest {
             )
 
             val result = config.stubConfigFor("io/specmatic/unknown.yaml", "ASYNCAPI")
-
-            assertThat(result).isEmpty()
+            assertThat(result?.spec?.getConfig().orEmpty()).isEmpty()
         }
 
         @Test
@@ -1551,8 +1542,7 @@ internal class SpecmaticConfigKtTest {
             )
 
             val result = config.stubConfigFor("io/specmatic/order.yaml", "OPENAPI")
-
-            assertThat(result).isEmpty()
+            assertThat(result?.spec?.getConfig().orEmpty()).isEmpty()
         }
 
         @Test
@@ -1568,8 +1558,7 @@ internal class SpecmaticConfigKtTest {
             )
 
             val result = config.stubConfigFor("io/specmatic/order.yaml", "ASYNCAPI")
-
-            assertThat(result).isEmpty()
+            assertThat(result?.spec?.getConfig().orEmpty()).isEmpty()
         }
 
         @Test
@@ -1597,8 +1586,7 @@ internal class SpecmaticConfigKtTest {
                 )
             )
 
-            val result = config.stubConfigFor("io/specmatic/order.yaml", "ASYNCAPI")
-
+            val result = config.stubConfigFor("io/specmatic/order.yaml", "ASYNCAPI")?.spec?.getConfig().orEmpty()
             assertThat(result["timeout"]).isEqualTo(30)
         }
 
@@ -1623,8 +1611,7 @@ internal class SpecmaticConfigKtTest {
                 )
             )
 
-            val result = config.stubConfigFor("io/specmatic/order.yaml", "ASYNCAPI")
-
+            val result = config.stubConfigFor("io/specmatic/order.yaml", "ASYNCAPI")?.spec?.getConfig().orEmpty()
             assertThat(result["timeout"]).isEqualTo(30)
         }
 
@@ -1633,8 +1620,7 @@ internal class SpecmaticConfigKtTest {
             val config = SpecmaticConfigV1V2Common(sources = emptyList())
 
             val result = config.stubConfigFor("io/specmatic/order.yaml", "ASYNCAPI")
-
-            assertThat(result).isEmpty()
+            assertThat(result?.spec?.getConfig().orEmpty()).isEmpty()
         }
 
         @Test
@@ -1664,8 +1650,7 @@ internal class SpecmaticConfigKtTest {
                 )
             )
 
-            val result = config.stubConfigFor("io/specmatic/order.yaml", "ASYNCAPI")
-
+            val result = config.stubConfigFor("io/specmatic/order.yaml", "ASYNCAPI")?.spec?.getConfig().orEmpty()
             assertThat(result).isNotEmpty
             assertThat(result["timeout"]).isEqualTo(30)
             assertThat(result["retries"]).isEqualTo(3)
@@ -1811,7 +1796,7 @@ internal class SpecmaticConfigKtTest {
         when (propertyName) {
             "filterName" -> config.getTestFilterName()
             "filterNotName" -> config.getTestFilterNotName()
-            "overlayFilePath" -> config.getTestOverlayFilePath()
+            "overlayFilePath" -> config.getTestOverlayFilePath(File("spec.yaml"), SpecType.OPENAPI)
             else -> error("Unknown test filter field: $propertyName")
         }
 

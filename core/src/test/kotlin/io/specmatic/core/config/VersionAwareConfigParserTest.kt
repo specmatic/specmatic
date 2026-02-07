@@ -29,7 +29,7 @@ class VersionAwareConfigParserTest {
         try {
             System.setProperty("STUB_CONFIG", """{"generative": false}""")
             val config: SpecmaticConfig = configFile.toSpecmaticConfig()
-            assertThat(config.getStubGenerative()).isFalse()
+            assertThat(config.getStubGenerative(File("spec.yaml"))).isFalse()
         } finally {
             restoreProperty("STUB_CONFIG", originalValue)
         }

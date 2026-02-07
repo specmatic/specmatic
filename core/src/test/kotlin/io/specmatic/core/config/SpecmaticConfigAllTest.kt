@@ -731,9 +731,9 @@ internal class SpecmaticConfigAllTest {
         val specmaticConfig = configFile.toSpecmaticConfig()
 
         specmaticConfig.apply {
-            assertThat(getStubGenerative()).isTrue()
-            assertThat(getStubDelayInMilliseconds()).isEqualTo(1000L)
-            assertThat(getStubDictionary()).isEqualTo("stubDictionary")
+            assertThat(getStubGenerative(File("spec.yaml"))).isTrue()
+            assertThat(getStubDelayInMilliseconds(File("spec.yaml"))).isEqualTo(1000L)
+            assertThat(getStubDictionary(File("spec.yaml"))).isEqualTo("stubDictionary")
             assertThat(getStubIncludeMandatoryAndRequestedKeysInResponse()).isTrue()
         }
     }

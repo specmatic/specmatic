@@ -447,9 +447,9 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
         return fromMockService ?: fromDependencies ?: fromSysProp
     }
 
-    override fun getStubStrictMode(specFile: File?): Boolean {
+    override fun getStubStrictMode(specFile: File?): Boolean? {
         val mockSettings = if (specFile != null) getMockSettingsFor(specFile) else getMockSettings()
-        return mockSettings.strictMode ?: getBooleanValue(Flags.STUB_STRICT_MODE, false)
+        return mockSettings.strictMode ?: Flags.getBooleanValueOrNull(Flags.STUB_STRICT_MODE)
     }
 
     override fun getStubFilter(specFile: File): String? {

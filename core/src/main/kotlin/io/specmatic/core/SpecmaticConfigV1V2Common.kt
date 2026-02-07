@@ -170,7 +170,7 @@ data class StubConfiguration(
     }
 
     fun getStrictMode(): Boolean? {
-        return strictMode ?: getBooleanValue(Flags.STUB_STRICT_MODE, false)
+        return strictMode ?: Flags.getBooleanValueOrNull(Flags.STUB_STRICT_MODE)
     }
 
     fun getFilter(): String? {

@@ -106,7 +106,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     }
 
     private fun createProxyServer(specmaticConfig: SpecmaticConfig, keyStoreData: KeyData?): Proxy {
-        val configProxy = specmaticConfig.getProxyConfig() ?: ProxyConfig(target = "")
+        val configProxy = specmaticConfig.getProxyConfig() ?: ProxyConfig(targetUrl = "")
         val effectiveHost = host ?: configProxy.getHostOrDefault()
         val effectivePort = port.takeUnless { it == 0 || it == -1 } ?: configProxy.getPortOrDefault()
         val effectiveOutDir = proxyDumpDirectory ?: configProxy.getRecordingsDirectory()

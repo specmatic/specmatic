@@ -16,13 +16,13 @@ data class ProxyConfigV3(
 ) {
     fun toCommonConfig(resolver: RefOrValueResolver): ProxyConfig {
         return ProxyConfig(
-            target = target,
+            targetUrl = target,
             baseUrl = baseUrl,
             timeoutInMilliseconds = timeoutInMilliseconds,
             adapters = adapters?.resolveElseThrow(resolver),
-            mock = mock,
-            cert = cert?.resolveElseThrow(resolver),
-            recordingsDirectory = recordingsDirectory
+            consumes = mock,
+            https = cert?.resolveElseThrow(resolver),
+            outputDirectory = recordingsDirectory
         )
     }
 }

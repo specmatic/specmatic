@@ -23,7 +23,8 @@ enum class SpecmaticConfigVersion(@JsonValue val value: Int, val configLoader: S
         }
 
         fun getLatestVersion(): SpecmaticConfigVersion {
-            return entries.maxBy { it.value }
+            // TODO: Write migrator for V2 to V3
+            return entries.filter { it != SpecmaticConfigVersion.VERSION_3 }.maxBy { it.value }
         }
 
         fun isValidVersion(version: SpecmaticConfigVersion): Boolean {

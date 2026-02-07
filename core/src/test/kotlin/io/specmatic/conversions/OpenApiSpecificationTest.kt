@@ -500,7 +500,7 @@ components:
             every { isResponseValueValidationEnabled() } returns true
             every { getIgnoreInlineExamples() } returns false
             every { getIgnoreInlineExampleWarnings() } returns false
-            every { getStubDictionary() } returns null
+            every { getStubDictionary(File(openApiFile)) } returns null
             every { getExtensibleQueryParams() } returns false
             every { getEscapeSoapAction() } returns false
         }

@@ -14,7 +14,7 @@ class CertRegistry private constructor(private val certificates: List<Pair<HostP
 
     fun toKeyDataRegistry(transform: (HttpsConfiguration) -> KeyData?): KeyDataRegistry {
         val groupedCerts = certificates.groupBy({ it.first }, { it.second })
-        val conflicts = groupedCerts.filterValues { it.size > 1 }.map { (identifier, certs) -> "$identifier -> ${certs.size} certificates" }
+        val conflicts = groupedCerts.filterValues { it.distinct().size > 1 }.map { (identifier, certs) -> "$identifier -> ${certs.size} certificates" }
         if (conflicts.isNotEmpty()) {
             throw IllegalArgumentException(
                 buildString {

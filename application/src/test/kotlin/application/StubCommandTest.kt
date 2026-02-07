@@ -6,6 +6,7 @@ import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.specmatic.core.CONTRACT_EXTENSION
 import io.specmatic.core.KeyData
+import io.specmatic.core.KeyDataRegistry
 import io.specmatic.core.parseGherkinStringToFeature
 import io.specmatic.core.utilities.ContractPathData
 import io.specmatic.core.utilities.Flags
@@ -117,7 +118,7 @@ internal class StubCommandTest {
                     stubInfo,
                     host,
                     port,
-                    null,
+                    any(),
                     strictMode,
                     any(),
                     httpClientFactory = any(),
@@ -142,7 +143,7 @@ internal class StubCommandTest {
                     any(),
                     any(),
                     any(),
-                    null,
+                    any(),
                     strictMode,
                     any(),
                     httpClientFactory = any(),
@@ -233,7 +234,7 @@ internal class StubCommandTest {
                     stubInfo,
                     host,
                     port,
-                    null,
+                    any(),
                     strictMode,
                     passThroughTargetBase,
                     httpClientFactory = any(),
@@ -261,7 +262,7 @@ internal class StubCommandTest {
                     stubInfo,
                     host,
                     any(),
-                    null,
+                    any(),
                     strictMode,
                     any(),
                     httpClientFactory = any(),
@@ -306,7 +307,7 @@ internal class StubCommandTest {
         val hostSlot = slot<String>()
         val portSlot = slot<Int>()
         val strictModeSlot = slot<Boolean>()
-        val keyDataSlot = slot<KeyData>()
+        val keyDataSlot = slot<KeyDataRegistry>()
         val timeoutSlot = slot<Long>()
 
         val keystoreFile = tempDir.resolve("cli.jks")
@@ -366,7 +367,7 @@ internal class StubCommandTest {
         val hostSlot = slot<String>()
         val portSlot = slot<Int>()
         val strictModeSlot = slot<Boolean>()
-        val keyDataSlot = slot<KeyData>()
+        val keyDataSlot = slot<KeyDataRegistry>()
         val timeoutSlot = slot<Long>()
         val passThroughSlot = slot<String>()
 
@@ -552,7 +553,7 @@ internal class StubCommandTest {
         val keystoreFile = tempDir.resolve("cli.jks")
         createEmptyKeyStore(keystoreFile, "cli-pass")
 
-        val keyDataSlot = slot<KeyData>()
+        val keyDataSlot = slot<KeyDataRegistry>()
         every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
         every { watchMaker.make(any()) } returns watcher
         every { specmaticConfig.contractStubPaths() } returns emptyList()
@@ -580,7 +581,7 @@ internal class StubCommandTest {
 
     @Test
     fun `uses HTTPS key store from config if provided`(@TempDir tempDir: File) {
-        val keyDataSlot = slot<KeyData>()
+        val keyDataSlot = slot<KeyDataRegistry>()
         val keystoreFile = tempDir.resolve("config.jks")
         createEmptyKeyStore(keystoreFile, "pass")
         val configFile = writeSpecmaticYaml(tempDir, """
@@ -621,7 +622,7 @@ internal class StubCommandTest {
     fun `CLI overrides some config values while config fills missing ones`(@TempDir tempDir: File) {
         val hostSlot = slot<String>()
         val strictModeSlot = slot<Boolean>()
-        val keyDataSlot = slot<KeyData>()
+        val keyDataSlot = slot<KeyDataRegistry>()
         val timeoutSlot = slot<Long>()
 
         val keystoreFile = tempDir.resolve("config.jks")

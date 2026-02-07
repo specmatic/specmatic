@@ -4,7 +4,6 @@ import io.specmatic.core.*
 import io.specmatic.core.Configuration.Companion.DEFAULT_HTTP_STUB_HOST
 import io.specmatic.core.Configuration.Companion.DEFAULT_HTTP_STUB_PORT
 import io.specmatic.core.config.HttpsConfiguration
-import io.specmatic.core.config.KeyStoreConfiguration
 import io.specmatic.core.config.LoggingConfiguration.Companion.LoggingFromOpts
 import io.specmatic.core.config.Switch
 import io.specmatic.core.filters.ExpressionStandardizer
@@ -157,11 +156,9 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 
     private val keyDataRegistry: KeyDataRegistry by lazy(LazyThreadSafetyMode.NONE) {
         val fromCli = HttpsConfiguration.Companion.HttpsFromOpts(keyStoreFile, keyStoreDir, keyStorePassword, keyStoreAlias, keyPassword)
-        val partialFromCli = fromCli.takeIf { HttpsConfiguration.from(fromCli).keyStore is KeyStoreConfiguration.PartialConfig }
-        val fullFromCli = HttpsConfiguration.from(fromCli).takeIf { it.keyStore !is KeyStoreConfiguration.PartialConfig }
         val certRegistry = specmaticConfiguration.getStubHttpsConfiguration()
-        certRegistry.applyIf(fullFromCli) { plusWildCard(it) }.toKeyDataRegistry { cert ->
-            CertInfo(fromCli = partialFromCli, fromConfig = cert).getHttpsCert("mock")
+        certRegistry.toKeyDataRegistry { cert ->
+            CertInfo(fromCli = fromCli, fromConfig = cert).getHttpsCert("mock")
         }
     }
 
@@ -264,8 +261,10 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         )
 
         logStubLoadingSummary(stubData)
+        val filterAccumulator = mutableListOf<String>()
         val filteredStubData = stubData.mapNotNull { (feature, scenarioStubs) ->
-            val stubFilter = specmaticConfiguration.getStubFilter(File(feature.path)).orEmpty()
+            val stubFilter = specmaticConfiguration.getStubFilter(File(feature.path)) ?: return@mapNotNull feature to scenarioStubs
+            if (stubFilter.isNotBlank()) filterAccumulator.add(stubFilter)
             val metadataFilter = ScenarioMetadataFilter.from(stubFilter)
             val filteredScenarios = ScenarioMetadataFilter.filterUsing(
                 feature.scenarios.asSequence(),
@@ -281,8 +280,8 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             } else null
         }
 
-        if (filteredStubData.isEmpty()) {
-            consoleLog(StringLog("FATAL: No stubs found for the given filters"))
+        if (filterAccumulator.isNotEmpty() && filteredStubData.isEmpty()) {
+            consoleLog(StringLog("FATAL: No stubs found for the given filters $filterAccumulator"))
             return
         }
 

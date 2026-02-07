@@ -19,7 +19,7 @@ internal class StubStrictModeTest {
             val configFile = File(javaClass.getResource("/stub_strict_mode/specmatic_strict_true.yaml")!!.toURI())
             val config = loadSpecmaticConfig(configFile.path)
 
-            assertThat(config.getStubStrictMode()).isTrue()
+            assertThat(config.getStubStrictMode(File("spec.yaml"))).isTrue()
         }
 
         @Test
@@ -27,15 +27,14 @@ internal class StubStrictModeTest {
             val configFile = File(javaClass.getResource("/stub_strict_mode/specmatic_strict_false.yaml")!!.toURI())
             val config = loadSpecmaticConfig(configFile.path)
 
-            assertThat(config.getStubStrictMode()).isFalse()
+            assertThat(config.getStubStrictMode(File("spec.yaml"))).isFalse()
         }
 
         @Test
         fun `getStrictMode should return null when not set in config and no system property`() {
             val configFile = File(javaClass.getResource("/stub_strict_mode/specmatic_no_strict.yaml")!!.toURI())
             val config = loadSpecmaticConfig(configFile.path)
-
-            assertThat(config.getStubStrictMode()).isFalse()
+            assertThat(config.getStubStrictMode(File("spec.yaml"))).isNull()
         }
 
         @Test
@@ -44,7 +43,7 @@ internal class StubStrictModeTest {
 
             Flags.using(Flags.STUB_STRICT_MODE to "true") {
                 val config = loadSpecmaticConfig(configFile.path)
-                assertThat(config.getStubStrictMode()).isTrue()
+                assertThat(config.getStubStrictMode(File("spec.yaml"))).isTrue()
             }
         }
 
@@ -55,7 +54,7 @@ internal class StubStrictModeTest {
             Flags.using(Flags.STUB_STRICT_MODE to "true") {
                 val config = loadSpecmaticConfig(configFile.path)
                 // Config has false, system property has true - config should win
-                assertThat(config.getStubStrictMode()).isFalse()
+                assertThat(config.getStubStrictMode(File("spec.yaml"))).isFalse()
             }
         }
     }
