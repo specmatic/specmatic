@@ -35,7 +35,7 @@ data class ScenarioStub(
     val rawJsonData: JSONObjectValue = JSONObjectValue(),
     val validationErrors: Result = Result.Success(),
     val strictMode: Boolean = true,
-    val exampleId: String? = null
+    val id: String? = null
 ) {
     init {
         if (strictMode && !validationErrors.isSuccess()) validationErrors.throwOnFailure()
@@ -384,7 +384,7 @@ const val TRANSIENT_MOCK_ID = "$TRANSIENT_MOCK-id"
 const val REQUEST_BODY_REGEX = "bodyRegex"
 const val IS_TRANSIENT_MOCK = "transient"
 const val PARTIAL = "partial"
-const val EXAMPLE_ID = "id"
+const val ID = "id"
 private val nonMetadataDataKeys = listOf(MOCK_HTTP_REQUEST, MOCK_HTTP_RESPONSE, PARTIAL)
 
 fun mockFromJSON(mockSpec: Map<String, Value>, strictMode: Boolean = true): ScenarioStub {
@@ -433,7 +433,7 @@ private fun parseStandardExample(mockSpec: Map<String, Value>, data: Map<String,
     val isTransientMock = getBooleanOrNull(IS_TRANSIENT_MOCK, mockSpec) ?: false
     val stubToken = explicitStubToken ?: if (isTransientMock) UUID.randomUUID().toString() else null
     val requestBodyRegex = getRequestBodyRegexOrNull(mockSpec)
-    val exampleId = getStringOrNull(EXAMPLE_ID, mockSpec)
+    val id = getStringOrNull(ID, mockSpec)
 
     return ScenarioStub(
         request = mockRequest,
@@ -445,7 +445,7 @@ private fun parseStandardExample(mockSpec: Map<String, Value>, data: Map<String,
         rawJsonData = JSONObjectValue(mockSpec),
         validationErrors = validationResult,
         strictMode = strictMode,
-        exampleId = exampleId
+        id = id
     )
 }
 

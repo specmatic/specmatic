@@ -465,7 +465,7 @@ class HttpStub(
             operations = setOf(
                 OpenAPIOperation(path, method, requestContentType, responseStatus, protocol)
             ),
-            exampleId = httpStubResponse.mock?.scenarioStub?.exampleId
+            exampleId = httpStubResponse.mock?.scenarioStub?.id
         )
         synchronized(ctrfTestResultRecords) { ctrfTestResultRecords.add(ctrfTestResultRecord) }
     }
