@@ -67,6 +67,12 @@ class KeyDataRegistry private constructor(private val keyData: Map<HostPortIdent
 
     fun plusWildCard(keyData: KeyData): KeyDataRegistry = KeyDataRegistry(this.keyData + (HostPortIdentifier.WildCard to keyData))
 
+    fun plusWildCardIfEmpty(block: () -> KeyData?): KeyDataRegistry {
+        if (this.keyData.isNotEmpty()) return this
+        val keyData = block() ?: return this
+        return empty().plusWildCard(keyData)
+    }
+
     fun get(host: String, port: Int): KeyData? {
         val identifier = HostPortIdentifier.Matching(normalizeHost(host), port)
         return keyData[identifier] ?: keyData[HostPortIdentifier.WildCard]

@@ -1070,8 +1070,8 @@ fun loadIfSupportedAPISpecification(
 
     val overlayFromConfig = specmaticConfig.getStubOverlayFilePath(File(contractPathData.path), SpecType.OPENAPI)?.let(::File)
     val overlayContent = overlayFromConfig?.let {
-        if (it.exists()) it.readText()
-        throw ContractException("Specified Overlay file does not exist ${it.path}")
+        if (it.exists()) return@let it.readText()
+        throw ContractException("Specified Overlay file does not exist ${it.canonicalPath}")
     }.orEmpty()
 
     return try {

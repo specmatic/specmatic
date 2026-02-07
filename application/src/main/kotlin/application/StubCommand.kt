@@ -159,6 +159,8 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         val certRegistry = specmaticConfiguration.getStubHttpsConfiguration()
         certRegistry.toKeyDataRegistry { cert ->
             CertInfo(fromCli = fromCli, fromConfig = cert).getHttpsCert("mock")
+        }.plusWildCardIfEmpty {
+            CertInfo(fromCli = fromCli, fromConfig = null).getHttpsCert("mock")
         }
     }
 
