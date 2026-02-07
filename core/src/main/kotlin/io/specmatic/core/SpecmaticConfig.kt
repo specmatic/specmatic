@@ -135,6 +135,12 @@ interface SpecmaticConfig {
     fun logDependencyProjects(azure: AzureAPI)
 
     @JsonIgnore
+    fun getProxyIgnoreHeaders(): List<String>
+
+    @JsonIgnore
+    fun isProxyRecordEnabled(): Boolean?
+
+    @JsonIgnore
     fun loadSources(useCurrentBranchForCentralRepo: Boolean = false): List<ContractSource>
 
     @JsonIgnore

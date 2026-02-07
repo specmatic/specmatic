@@ -16,8 +16,6 @@ import io.specmatic.core.config.SpecmaticConfigVersion.VERSION_1
 import io.specmatic.core.config.SpecmaticConfigVersion.VERSION_2
 import io.specmatic.core.config.v2.ConsumesDeserializer
 import io.specmatic.core.config.v2.SpecExecutionConfig
-import io.specmatic.core.config.v3.components.runOptions.IRunOptionSpecification
-import io.specmatic.core.config.v3.components.runOptions.IRunOptions
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
@@ -668,6 +666,14 @@ data class SpecmaticConfigV1V2Common(
                 logger.newLine()
             }
         }
+    }
+
+    override fun getProxyIgnoreHeaders(): List<String> {
+        return emptyList()
+    }
+
+    override fun isProxyRecordEnabled(): Boolean? {
+        return true
     }
 
     @JsonIgnore

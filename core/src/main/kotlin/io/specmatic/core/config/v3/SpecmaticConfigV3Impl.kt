@@ -280,6 +280,16 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
         return
     }
 
+    override fun getProxyIgnoreHeaders(): List<String> {
+        val proxySettings = specmaticSettings.proxy ?: return emptyList()
+        return proxySettings.ignoreHeaders.orEmpty()
+    }
+
+    override fun isProxyRecordEnabled(): Boolean? {
+        val proxySettings = specmaticSettings.proxy ?: return null
+        return proxySettings.recordRequests
+    }
+
     override fun loadSources(useCurrentBranchForCentralRepo: Boolean): List<ContractSource> {
         val specificationSources = getSpecificationSources()
         return specificationSources.mapNotNull { specificationSourceEntry ->
