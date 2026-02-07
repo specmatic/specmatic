@@ -53,7 +53,7 @@ data class HttpStubData(
     val scenarioStub: ScenarioStub? = null
 ) {
     val name = scenarioStub?.name
-    val partial = scenarioStub?.let { it.partial?.copy(response = it.partial.response) }
+    val partial = scenarioStub?.partial
     val data = scenarioStub?.data ?: JSONObjectValue()
     val examplePath = scenarioStub?.filePath
     val stubToken = scenarioStub?.stubToken
