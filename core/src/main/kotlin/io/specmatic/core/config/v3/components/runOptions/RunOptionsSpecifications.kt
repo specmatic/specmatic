@@ -61,9 +61,15 @@ data class OpenApiRunOptionsSpecifications(val spec: Value) : IRunOptionSpecific
         return spec.securitySchemes
     }
 
+    @JsonIgnore
+    fun getBaseUrl(): String? {
+        return spec.baseUrl
+    }
+
     data class Value(
         val id: String? = null,
+        val baseUrl: String? = null,
         val overlayFilePath: String? = null,
-        val securitySchemes: Map<String, SecuritySchemeConfigurationV3>? = null
+        val securitySchemes: Map<String, SecuritySchemeConfigurationV3>? = null,
     )
 }

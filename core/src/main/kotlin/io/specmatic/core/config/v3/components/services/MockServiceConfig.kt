@@ -12,6 +12,7 @@ import io.specmatic.core.config.v3.components.ExampleDirectories
 import io.specmatic.core.config.v3.components.runOptions.IRunOptions
 import io.specmatic.core.config.v3.components.runOptions.MockRunOptions
 import io.specmatic.core.config.v3.components.runOptions.OpenApiMockConfig
+import io.specmatic.core.config.v3.components.runOptions.OpenApiRunOptionsSpecifications
 import io.specmatic.core.config.v3.components.settings.MockSettings
 import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.config.v3.resolveElseThrow
@@ -73,9 +74,11 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
             service.definitions.flatMap { defRef ->
                 val definition = defRef.definition
                 val source = definition.source.resolveElseThrow(resolver)
-                val examples = service.data?.toExampleDirs(resolver).orEmpty()
+                val examples = service.data?.toExampleDirs(resolver)
                 definition.specs.map {
-                    it.toSpecificationSource(source, null, examples) { spec -> getFirstBaseUrlFromRunOpts(spec, service, resolver) }
+                    it.toSpecificationSource(source, null, examples) { specId, file ->
+                        getFirstBaseUrlFromRunOpts(specId, file , service, resolver)
+                    }
                 }.map { spec -> source to spec }
             }
         }.groupBy(keySelector = { it.first }, valueTransform = { it.second })
@@ -99,7 +102,7 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
     }
 
     @JsonIgnore
-    private fun getFirstBaseUrlFromRunOpts(specFile: File, service: CommonServiceConfig<MockRunOptions, MockSettings>, resolver: RefOrValueResolver): String? {
+    private fun getFirstBaseUrlFromRunOpts(specId: String?, specFile: File, service: CommonServiceConfig<MockRunOptions, MockSettings>, resolver: RefOrValueResolver): String? {
         val specTypesToCheck = when {
             specFile.extension == "wsdl" -> listOf(SpecType.WSDL)
             specFile.extension == "proto" -> listOf(SpecType.PROTOBUF)
@@ -108,7 +111,11 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
             else -> listOf(SpecType.OPENAPI, SpecType.ASYNCAPI)
         }
 
-        return specTypesToCheck.firstNotNullOfOrNull { getRunOptions(service, resolver, it)?.baseUrl }
+        return specTypesToCheck.firstNotNullOfOrNull {
+            val runOptions = getRunOptions(service, resolver, it) ?: return null
+            val runOptionSpecOverride = specId?.let(runOptions::getMatchingSpecification) as? OpenApiRunOptionsSpecifications
+            runOptionSpecOverride?.getBaseUrl() ?: runOptions.baseUrl
+        }
     }
 
     @JsonIgnore

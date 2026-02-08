@@ -10,6 +10,7 @@ import io.specmatic.core.config.v3.RefOrValueResolver
 import io.specmatic.core.config.v3.SpecmaticConfigV3Resolver
 import io.specmatic.core.config.v3.components.ExampleDirectories
 import io.specmatic.core.config.v3.components.runOptions.IRunOptions
+import io.specmatic.core.config.v3.components.runOptions.OpenApiRunOptionsSpecifications
 import io.specmatic.core.config.v3.components.runOptions.OpenApiTestConfig
 import io.specmatic.core.config.v3.components.runOptions.TestRunOptions
 import io.specmatic.core.config.v3.components.settings.TestSettings
@@ -75,17 +76,17 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
             val resilientSuite = testSettings?.resiliencyTests
             val examples = getExampleDirs(resolver)
             source to definition.specs.map {
-                it.toSpecificationSource(source, resilientSuite, examples) { spec ->
-                    getFirstBaseUrlFromRunOpts(spec, resolver)
+                it.toSpecificationSource(source, resilientSuite, examples) { specId, file ->
+                    getFirstBaseUrlFromRunOpts(specId, file, resolver)
                 }
             }
         }
     }
 
     @JsonIgnore
-    fun getExampleDirs(resolver: RefOrValueResolver): List<String> {
+    fun getExampleDirs(resolver: RefOrValueResolver): List<String>? {
         val service = service.resolveElseThrow(resolver)
-        return service.data?.toExampleDirs(resolver).orEmpty()
+        return service.data?.toExampleDirs(resolver)
     }
 
     fun copyResiliencyTestsConfig(resolver: RefOrValueResolver, resiliencyTestSuite: ResiliencyTestSuite): TestServiceConfig {
@@ -141,7 +142,7 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
     }
 
     @JsonIgnore
-    private fun getFirstBaseUrlFromRunOpts(specFile: File, resolver: RefOrValueResolver): String? {
+    private fun getFirstBaseUrlFromRunOpts(specId: String?, specFile: File, resolver: RefOrValueResolver): String? {
         val specTypesToCheck = when {
             specFile.extension == "wsdl" -> listOf(SpecType.WSDL)
             specFile.extension == "proto" -> listOf(SpecType.PROTOBUF)
@@ -150,6 +151,10 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
             else -> listOf(SpecType.OPENAPI, SpecType.ASYNCAPI)
         }
 
-        return specTypesToCheck.firstNotNullOfOrNull { getRunOptions(resolver, it)?.baseUrl }
+        return specTypesToCheck.firstNotNullOfOrNull {
+            val runOptions = getRunOptions(resolver, it) ?: return null
+            val runOptionSpecOverride = specId?.let(runOptions::getMatchingSpecification) as? OpenApiRunOptionsSpecifications
+            runOptionSpecOverride?.getBaseUrl() ?: runOptions.baseUrl
+        }
     }
 }

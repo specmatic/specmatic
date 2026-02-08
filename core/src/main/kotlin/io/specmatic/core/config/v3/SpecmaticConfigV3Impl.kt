@@ -150,7 +150,8 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
         return allSources.mapNotNull { source ->
             val sourceEntry = testSources[source]?.firstOrNull() ?: mockSources[source]?.firstOrNull() ?: return@mapNotNull null
             SpecificationSource(
-                type = sourceEntry.type, repository = sourceEntry.repository, directory = sourceEntry.directory, branch = sourceEntry.branch,
+                type = sourceEntry.type, repository = sourceEntry.repository, directory = sourceEntry.directory,
+                branch = sourceEntry.branch, matchBranch = sourceEntry.matchBranch,
                 test = testSources[source].orEmpty(), mock = mockSources[source].orEmpty()
             )
         }

@@ -39,7 +39,7 @@ data class SourceV3(private val git: Git?, private val fileSystem: FileSystem?) 
         else -> SourceProvider.filesystem
     }
 
-    fun toSpecificationSource(specFile: File, specPathInConfig: String, baseUrl: String?, resiliencyTestSuite: ResiliencyTestSuite?, examples: List<String>): SpecificationSourceEntry {
+    fun toSpecificationSource(specFile: File, specPathInConfig: String, baseUrl: String?, resiliencyTestSuite: ResiliencyTestSuite?, examples: List<String>?): SpecificationSourceEntry {
         val type = if (git != null) SourceProvider.git else SourceProvider.filesystem
         return SpecificationSourceEntry(
             specFile = specFile,

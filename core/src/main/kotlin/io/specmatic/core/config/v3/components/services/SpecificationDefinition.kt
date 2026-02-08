@@ -7,9 +7,11 @@ import com.fasterxml.jackson.annotation.JsonFormat
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.annotation.JsonValue
+import io.specmatic.core.Configuration.Companion.DEFAULT_BASE_URL
 import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.SpecificationSourceEntry
 import io.specmatic.core.config.v3.components.sources.SourceV3
+import io.specmatic.core.utilities.Flags
 import java.io.File
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.DEDUCTION, defaultImpl = SpecificationDefinition.StringValue::class)
@@ -31,11 +33,12 @@ sealed interface SpecificationDefinition {
         override fun toSpecificationSource(
             source: SourceV3,
             resiliencyTestSuite: ResiliencyTestSuite?,
-            examples: List<String>,
-            getBaseUrl: (File) -> String?
+            examples: List<String>?,
+            getBaseUrl: (String?, File) -> String?
         ): SpecificationSourceEntry {
             val specFile = source.resolveSpecification(File(spec.path))
-            return source.toSpecificationSource(specFile, spec.path, getBaseUrl(specFile), resiliencyTestSuite, examples)
+            val baseUrl = getBaseUrl(getSpecificationId(), specFile).let(::getBaseUrlWithSuffixPath)
+            return source.toSpecificationSource(specFile, spec.path, baseUrl, resiliencyTestSuite, examples)
         }
 
         companion object {
@@ -55,11 +58,11 @@ sealed interface SpecificationDefinition {
         override fun toSpecificationSource(
             source: SourceV3,
             resiliencyTestSuite: ResiliencyTestSuite?,
-            examples: List<String>,
-            getBaseUrl: (File) -> String?
+            examples: List<String>?,
+            getBaseUrl: (String?, File) -> String?
         ): SpecificationSourceEntry {
             val specFile = source.resolveSpecification(File(specification))
-            val baseUrl = getBaseUrl(specFile)?.let(::getUrlPathPrefix)
+            val baseUrl = getBaseUrl(getSpecificationId(), specFile).let(::getBaseUrlWithSuffixPath)
             return source.toSpecificationSource(specFile, specification, baseUrl, resiliencyTestSuite, examples)
         }
 
@@ -77,12 +80,13 @@ sealed interface SpecificationDefinition {
     }
 
     @JsonIgnore
-    fun getUrlPathPrefix(baseUrl: String): String {
+    fun getBaseUrlWithSuffixPath(baseUrl: String?): String? {
         val prefix = (this as? ObjectValue)?.spec?.urlPathPrefix?.trim('/')
         return if (prefix.isNullOrEmpty()) {
             baseUrl
         } else {
-            "${baseUrl.removeSuffix("/")}/$prefix"
+            val effectiveBaseUrl = baseUrl ?: Flags.getStringValue(Flags.SPECMATIC_BASE_URL) ?: DEFAULT_BASE_URL
+            "${effectiveBaseUrl.removeSuffix("/")}/$prefix"
         }
     }
 
@@ -108,7 +112,7 @@ sealed interface SpecificationDefinition {
     fun toSpecificationSource(
         source: SourceV3,
         resiliencyTestSuite: ResiliencyTestSuite?,
-        examples: List<String>,
-        getBaseUrl: (File) -> String?
+        examples: List<String>?,
+        getBaseUrl: (String?, File) -> String?
     ): SpecificationSourceEntry
 }

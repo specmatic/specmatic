@@ -461,7 +461,7 @@ data class SpecmaticConfigV1V2Common(
     override fun getSpecificationSources(): List<SpecificationSource> {
         val resiliencyTestSuite = test?.resiliencyTests?.enable
         return this.sources.map { source ->
-            val specificationSource = SpecificationSource(source.provider, source.repository, source.directory, source.branch)
+            val specificationSource = SpecificationSource(source.provider, source.repository, source.directory, source.branch, source.matchBranch)
             val sourceBaseDir = source.getBaseDirectory()
 
             val withTestSources = source.test.orEmpty().fold(specificationSource) { acc, testExecutionConfig ->

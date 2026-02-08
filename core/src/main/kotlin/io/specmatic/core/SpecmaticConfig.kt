@@ -23,10 +23,10 @@ import java.nio.file.Path
 
 data class SpecificationSource(
     val type: SourceProvider,
-    val repository: String? = null,
-    val directory: String? = null,
-    val branch: String? = null,
-    val matchBranch: Boolean? = null,
+    val repository: String?,
+    val directory: String?,
+    val branch: String?,
+    val matchBranch: Boolean?,
     val test: List<SpecificationSourceEntry> = emptyList(),
     val mock: List<SpecificationSourceEntry> = emptyList(),
 )
@@ -34,31 +34,32 @@ data class SpecificationSource(
 data class SpecificationSourceEntry(
     val specFile: File,
     val specPathInConfig: String,
-    val port: Int? = null,
-    val baseUrl: String? = null,
-    val resiliencyTestSuite: ResiliencyTestSuite? = null,
+    val port: Int?,
+    val baseUrl: String?,
+    val resiliencyTestSuite: ResiliencyTestSuite?,
     val type: SourceProvider,
-    val repository: String? = null,
-    val directory: String? = null,
-    val branch: String? = null,
-    val matchBranch: Boolean? = null,
-    val exampleDirs: List<String>? = null
+    val repository: String?,
+    val directory: String?,
+    val branch: String?,
+    val matchBranch: Boolean?,
+    val exampleDirs: List<String>?,
 ) {
     fun toContractSourceEntry(): ContractSourceEntry {
-        return ContractSourceEntry(specFile.canonicalPath, baseUrl, resiliencyTestSuite, exampleDirs)
+        return ContractSourceEntry(specPathInConfig, baseUrl, resiliencyTestSuite, exampleDirs)
     }
 
-    constructor(source: Source, specFile: File, specPathInConfig: String, baseUrl: String? = null, port: Int? = null, resiliencyTestSuite: ResiliencyTestSuite? = null) : this(
+    constructor(source: Source, specFile: File, specPathInConfig: String, baseUrl: String?, port: Int?, resiliencyTestSuite: ResiliencyTestSuite?) : this(
         specFile = specFile,
-        baseUrl = baseUrl,
-        port = port,
-        resiliencyTestSuite = resiliencyTestSuite,
         specPathInConfig = specPathInConfig,
+        port = port,
+        baseUrl = baseUrl,
+        resiliencyTestSuite = resiliencyTestSuite,
         type = source.provider,
         repository = source.repository,
         directory = source.directory,
         branch = source.branch,
-        matchBranch = source.matchBranch
+        matchBranch = source.matchBranch,
+        exampleDirs = null,
     )
 }
 
