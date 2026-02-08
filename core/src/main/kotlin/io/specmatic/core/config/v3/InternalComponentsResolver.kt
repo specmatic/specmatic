@@ -38,13 +38,13 @@ class SpecmaticConfigV3Resolver(components: Components, private val originFile: 
 }
 
 private class DelegatingResolver(private val primary: Resolver, private val fallback: Resolver) : Resolver {
-    override fun resolve(`$ref`: Ref?): String? {
+    override fun resolve(@Suppress("LocalVariableName") `$ref`: Ref?): String? {
         return primary.resolve(`$ref`) ?: fallback.resolve(`$ref`)
     }
 }
 
 private class InMemoryResolver(private val documents: Map<URI, String>) : Resolver {
-    override fun resolve(`$ref`: Ref?): String? {
+    override fun resolve(@Suppress("LocalVariableName") `$ref`: Ref?): String? {
         if (`$ref` == null) return null
         val uri = `$ref`.uri ?: return null
         return documents[uri]

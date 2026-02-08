@@ -396,7 +396,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
 
     override fun getTestBaseUrl(specType: SpecType): String? {
         val runOptions = specmaticConfig.systemUnderTest?.getRunOptions(resolver, specType)
-        return runOptions?.baseUrl
+        return runOptions?.getBaseUrlIfExists()
     }
 
     override fun getCoverageReportBaseUrl(specType: SpecType): String? {

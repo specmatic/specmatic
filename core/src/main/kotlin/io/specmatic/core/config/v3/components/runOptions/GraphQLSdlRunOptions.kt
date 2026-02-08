@@ -8,11 +8,16 @@ import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
-@JsonSubTypes(JsonSubTypes.Type(GraphQLSdlTestConfig::class, name = "test"), JsonSubTypes.Type(GraphQLSdlMockConfig::class, name = "mock"),)
-sealed interface GraphQLSdlRunOptions : IRunOptions { val type: RunOptionType? }
+@JsonSubTypes(JsonSubTypes.Type(GraphQLSdlTestConfig::class, name = "test"), JsonSubTypes.Type(GraphQLSdlMockConfig::class, name = "mock"))
+sealed interface GraphQLSdlRunOptions : IRunOptions {
+    val type: RunOptionType?
+
+    @JsonIgnore
+    override fun getBaseUrlIfExists(): String? = extractBaseUrlFromMap(config)
+}
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
-data class GraphQLSdlTestConfig(override val baseUrl: String? = null, override val specs: List<RunOptionsSpecifications>? = null) : GraphQLSdlRunOptions {
+data class GraphQLSdlTestConfig(override val specs: List<RunOptionsSpecifications>? = null) : GraphQLSdlRunOptions {
     private val _config: MutableMap<String, Any> = linkedMapOf()
 
     @JsonIgnore
@@ -35,7 +40,7 @@ data class GraphQLSdlTestConfig(override val baseUrl: String? = null, override v
 }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
-data class GraphQLSdlMockConfig(override val baseUrl: String? = null, override val specs: List<RunOptionsSpecifications>? = null) : GraphQLSdlRunOptions {
+data class GraphQLSdlMockConfig(override val specs: List<RunOptionsSpecifications>? = null) : GraphQLSdlRunOptions {
     private val _config: MutableMap<String, Any> = linkedMapOf()
 
     @JsonIgnore

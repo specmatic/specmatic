@@ -82,12 +82,9 @@ sealed interface SpecificationDefinition {
     @JsonIgnore
     fun getBaseUrlWithSuffixPath(baseUrl: String?): String? {
         val prefix = (this as? ObjectValue)?.spec?.urlPathPrefix?.trim('/')
-        return if (prefix.isNullOrEmpty()) {
-            baseUrl
-        } else {
-            val effectiveBaseUrl = baseUrl ?: Flags.getStringValue(Flags.SPECMATIC_BASE_URL) ?: DEFAULT_BASE_URL
-            "${effectiveBaseUrl.removeSuffix("/")}/$prefix"
-        }
+        if (prefix.isNullOrEmpty()) return baseUrl
+        val effectiveBaseUrl = baseUrl ?: Flags.getStringValue(Flags.SPECMATIC_BASE_URL) ?: DEFAULT_BASE_URL
+        return "${effectiveBaseUrl.removeSuffix("/")}/$prefix"
     }
 
     @JsonIgnore

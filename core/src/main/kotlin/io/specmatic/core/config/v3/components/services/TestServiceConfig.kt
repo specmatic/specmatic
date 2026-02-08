@@ -10,7 +10,6 @@ import io.specmatic.core.config.v3.RefOrValueResolver
 import io.specmatic.core.config.v3.SpecmaticConfigV3Resolver
 import io.specmatic.core.config.v3.components.ExampleDirectories
 import io.specmatic.core.config.v3.components.runOptions.IRunOptions
-import io.specmatic.core.config.v3.components.runOptions.OpenApiRunOptionsSpecifications
 import io.specmatic.core.config.v3.components.runOptions.OpenApiTestConfig
 import io.specmatic.core.config.v3.components.runOptions.TestRunOptions
 import io.specmatic.core.config.v3.components.settings.TestSettings
@@ -72,9 +71,9 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
     fun getSpecificationSources(resolver: RefOrValueResolver, testSettings: TestSettings?): Map<SourceV3, List<SpecificationSourceEntry>> {
         val service = service.resolveElseThrow(resolver)
         return service.definitions.map { it.definition }.associate { definition ->
-            val source = definition.source.resolveElseThrow(resolver)
-            val resilientSuite = testSettings?.resiliencyTests
             val examples = getExampleDirs(resolver)
+            val resilientSuite = testSettings?.resiliencyTests
+            val source = definition.source.resolveElseThrow(resolver)
             source to definition.specs.map {
                 it.toSpecificationSource(source, resilientSuite, examples) { specId, file ->
                     getFirstBaseUrlFromRunOpts(specId, file, resolver)
@@ -153,8 +152,8 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
 
         return specTypesToCheck.firstNotNullOfOrNull {
             val runOptions = getRunOptions(resolver, it) ?: return null
-            val runOptionSpecOverride = specId?.let(runOptions::getMatchingSpecification) as? OpenApiRunOptionsSpecifications
-            runOptionSpecOverride?.getBaseUrl() ?: runOptions.baseUrl
+            val runOptionSpecOverride = specId?.let(runOptions::getMatchingSpecification)
+            runOptionSpecOverride?.getBaseUrl() ?: runOptions.getBaseUrlIfExists()
         }
     }
 }

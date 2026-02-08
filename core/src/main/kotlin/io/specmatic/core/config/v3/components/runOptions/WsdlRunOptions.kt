@@ -1,14 +1,28 @@
 package io.specmatic.core.config.v3.components.runOptions
 
 import com.fasterxml.jackson.annotation.*
+import io.specmatic.core.config.HttpsConfiguration
+import io.specmatic.core.config.v3.RefOrValue
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
-@JsonSubTypes(JsonSubTypes.Type(WsdlTestConfig::class, name = "test"), JsonSubTypes.Type(WsdlMockConfig::class, name = "mock"),)
+@JsonSubTypes(JsonSubTypes.Type(WsdlTestConfig::class, name = "test"), JsonSubTypes.Type(WsdlMockConfig::class, name = "mock"))
 sealed interface WsdlRunOptions : IRunOptions { val type: RunOptionType? }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
-data class WsdlTestConfig(override val baseUrl: String? = null, override val specs: List<RunOptionsSpecifications>? = null) : WsdlRunOptions {
+data class WsdlTestConfig(
+    val baseUrl: String? = null,
+    val host: String? = null,
+    val port: Int? = null,
+    override val specs: List<RunOptionsSpecifications>? = null
+) : WsdlRunOptions {
     private val _config: MutableMap<String, Any> = linkedMapOf()
+
+    @JsonIgnore
+    override fun getBaseUrlIfExists(): String? {
+        if (baseUrl != null) return baseUrl
+        if (host != null && port != null) return "http://$host:$port"
+        return null
+    }
 
     @JsonIgnore
     override val type: RunOptionType? = null
@@ -30,8 +44,22 @@ data class WsdlTestConfig(override val baseUrl: String? = null, override val spe
 }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
-data class WsdlMockConfig(override val baseUrl: String? = null, override val specs: List<RunOptionsSpecifications>? = null) : WsdlRunOptions {
+data class WsdlMockConfig(
+    val baseUrl: String? = null,
+    val host: String? = null,
+    val port: Int? = null,
+    override val cert: RefOrValue<HttpsConfiguration>? = null,
+    override val specs: List<RunOptionsSpecifications>? = null
+) : WsdlRunOptions, ConfigWithCert {
     private val _config: MutableMap<String, Any> = linkedMapOf()
+
+    @JsonIgnore
+    override fun getBaseUrlIfExists(): String? {
+        if (baseUrl != null) return baseUrl
+        if (host == null || port == null) return null
+        val scheme = if (cert == null) "http" else "https"
+        return "$scheme://$host:$port"
+    }
 
     @JsonIgnore
     override val type: RunOptionType? = null

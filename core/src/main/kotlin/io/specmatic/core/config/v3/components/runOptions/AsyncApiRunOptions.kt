@@ -3,11 +3,20 @@ package io.specmatic.core.config.v3.components.runOptions
 import com.fasterxml.jackson.annotation.*
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
-@JsonSubTypes(JsonSubTypes.Type(AsyncApiTestConfig::class, name = "test"), JsonSubTypes.Type(AsyncApiMockConfig::class, name = "mock"),)
-sealed interface AsyncApiRunOptions : IRunOptions { val type: RunOptionType? }
+@JsonSubTypes(JsonSubTypes.Type(AsyncApiTestConfig::class, name = "test"), JsonSubTypes.Type(AsyncApiMockConfig::class, name = "mock"))
+sealed interface AsyncApiRunOptions : IRunOptions {
+    val type: RunOptionType?
+
+    @JsonIgnore
+    override fun getBaseUrlIfExists(): String? {
+        val servers = config["servers"] as? List<*> ?: return null
+        val server = servers.firstOrNull() as? Map<*, *> ?: return null
+        return extractBaseUrlFromMap(server)
+    }
+}
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
-data class AsyncApiTestConfig(override val baseUrl: String? = null, override val specs: List<RunOptionsSpecifications>? = null) : AsyncApiRunOptions {
+data class AsyncApiTestConfig(override val specs: List<RunOptionsSpecifications>? = null) : AsyncApiRunOptions {
     private val _config: MutableMap<String, Any> = linkedMapOf()
 
     @JsonIgnore
@@ -30,7 +39,7 @@ data class AsyncApiTestConfig(override val baseUrl: String? = null, override val
 }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
-data class AsyncApiMockConfig(override val baseUrl: String? = null, override val specs: List<RunOptionsSpecifications>? = null) : AsyncApiRunOptions {
+data class AsyncApiMockConfig(override val specs: List<RunOptionsSpecifications>? = null) : AsyncApiRunOptions {
     private val _config: MutableMap<String, Any> = linkedMapOf()
 
     @JsonIgnore

@@ -4,6 +4,7 @@ import io.specmatic.core.config.v3.components.runOptions.IRunOptionSpecification
 
 class RawRunOptionSpecification(private val config: Map<String, Any>): IRunOptionSpecification {
     override fun getId(): String? = null
+    override fun getBaseUrl(): String? = null
     override fun getOverlayFilePath(): String? = null
     override fun getConfig(): Map<String, Any> = config
 }

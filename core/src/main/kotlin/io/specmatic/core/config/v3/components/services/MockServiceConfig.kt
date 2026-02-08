@@ -9,10 +9,9 @@ import io.specmatic.core.config.v3.RefOrValue
 import io.specmatic.core.config.v3.RefOrValueResolver
 import io.specmatic.core.config.v3.SpecmaticConfigV3Resolver
 import io.specmatic.core.config.v3.components.ExampleDirectories
+import io.specmatic.core.config.v3.components.runOptions.ConfigWithCert
 import io.specmatic.core.config.v3.components.runOptions.IRunOptions
 import io.specmatic.core.config.v3.components.runOptions.MockRunOptions
-import io.specmatic.core.config.v3.components.runOptions.OpenApiMockConfig
-import io.specmatic.core.config.v3.components.runOptions.OpenApiRunOptionsSpecifications
 import io.specmatic.core.config.v3.components.settings.MockSettings
 import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.config.v3.resolveElseThrow
@@ -113,8 +112,8 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
 
         return specTypesToCheck.firstNotNullOfOrNull {
             val runOptions = getRunOptions(service, resolver, it) ?: return null
-            val runOptionSpecOverride = specId?.let(runOptions::getMatchingSpecification) as? OpenApiRunOptionsSpecifications
-            runOptionSpecOverride?.getBaseUrl() ?: runOptions.baseUrl
+            val runOptionSpecOverride = specId?.let(runOptions::getMatchingSpecification)
+            runOptionSpecOverride?.getBaseUrl() ?: runOptions.getBaseUrlIfExists()
         }
     }
 
@@ -133,9 +132,10 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
     @JsonIgnore
     fun getCerts(resolver: RefOrValueResolver): List<Pair<String, HttpsConfiguration>> {
         return services.map { it.service.resolveElseThrow(resolver) }.mapNotNull { service ->
-            val runOpts = getRunOptions(service, resolver, SpecType.OPENAPI) as? OpenApiMockConfig ?: return@mapNotNull null
-            val cert = runOpts.cert?.resolveElseThrow(resolver) ?: return@mapNotNull null
-            Pair(runOpts.baseUrl, cert)
+            val runOpts = getRunOptions(service, resolver, SpecType.OPENAPI) ?: return@mapNotNull null
+            val baseUrl = runOpts.getBaseUrlIfExists() ?: return@mapNotNull null
+            val cert = (runOpts as? ConfigWithCert)?.cert?.resolveElseThrow(resolver) ?: return@mapNotNull null
+            Pair(baseUrl, cert)
         }
     }
 

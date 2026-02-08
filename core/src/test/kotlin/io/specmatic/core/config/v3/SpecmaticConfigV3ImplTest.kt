@@ -154,6 +154,79 @@ class SpecmaticConfigV3ImplTest {
                     """.trimIndent(),
                     extract = { it.loadSources() },
                 ),
+                TestCase(
+                    v2 = """
+                    version: 2
+                    contracts:
+                    - filesystem:
+                        directory: ./specs
+                      consumes:
+                        - port: 3000
+                          basePath: /v1
+                          specs:
+                            - simple.yaml
+                    """.trimIndent(),
+                    v3 = """
+                    version: 3
+                    dependencies:
+                      services:
+                      - service:
+                          definitions:
+                          - definition:
+                              source:
+                                filesystem:
+                                  directory: ./specs
+                              specs:
+                                - spec:
+                                    id: MyCustomId
+                                    path: simple.yaml
+                                    urlPathPrefix: /v1
+                          runOptions:
+                            openapi:
+                              host: 0.0.0.0
+                              port: 3000
+                    """.trimIndent(),
+                    extract = { it.loadSources() },
+                ),
+                TestCase(
+                    v2 = """
+                    version: 2
+                    contracts:
+                    - filesystem:
+                        directory: ./specs
+                      consumes:
+                        - port: 3000
+                          basePath: /v1
+                          specs:
+                            - simple.yaml
+                    """.trimIndent(),
+                    v3 = """
+                    version: 3
+                    dependencies:
+                      services:
+                      - service:
+                          definitions:
+                          - definition:
+                              source:
+                                filesystem:
+                                  directory: ./specs
+                              specs:
+                                - spec:
+                                    id: MyCustomId
+                                    path: simple.yaml
+                                    urlPathPrefix: /v1
+                          runOptions:
+                            openapi:
+                              host: localhost
+                              port: 9000
+                              specs:
+                              - spec:
+                                  id: MyCustomId
+                                  host: 0.0.0.0
+                                  port: 3000
+                    """.trimIndent(),
+                    extract = { it.loadSources() },
+                ),
             )
         }
     }

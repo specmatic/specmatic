@@ -8,9 +8,11 @@ import io.specmatic.core.config.SpecmaticSpecConfig
 import io.specmatic.reporter.model.SpecType
 
 interface IRunOptions {
-    val baseUrl: String?
     val specs: List<IRunOptionSpecification>?
     val config: Map<String, Any>
+
+    @JsonIgnore
+    fun getBaseUrlIfExists(): String?
 
     @JsonIgnore
     fun getMatchingSpecification(id: String): IRunOptionSpecification? {
@@ -19,9 +21,14 @@ interface IRunOptions {
 
     fun toSpecmaticSpecConfig(specId: String?): SpecmaticSpecConfig {
         val matching = if (specId != null) getMatchingSpecification(specId) else null
-        return SpecmaticSpecConfig(baseUrl, matching, config)
+        return SpecmaticSpecConfig(getBaseUrlIfExists(), matching, config)
     }
 
+    fun extractBaseUrlFromMap(map: Map<*, *>): String? {
+        val host = map["host"]?.toString() ?: return null
+        val port = map["port"]?.toString()?.toIntOrNull() ?: return null
+        return "$host:$port"
+    }
 }
 
 data class RunOptions(

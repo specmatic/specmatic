@@ -8,11 +8,16 @@ import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
-@JsonSubTypes(JsonSubTypes.Type(ProtobufTestConfig::class, name = "test"), JsonSubTypes.Type(ProtobufMockConfig::class, name = "mock"),)
-sealed interface ProtobufRunOptions : IRunOptions { val type: RunOptionType? }
+@JsonSubTypes(JsonSubTypes.Type(ProtobufTestConfig::class, name = "test"), JsonSubTypes.Type(ProtobufMockConfig::class, name = "mock"))
+sealed interface ProtobufRunOptions : IRunOptions {
+    val type: RunOptionType?
+
+    @JsonIgnore
+    override fun getBaseUrlIfExists(): String? = extractBaseUrlFromMap(config)
+}
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
-data class ProtobufTestConfig(override val baseUrl: String? = null, override val specs: List<RunOptionsSpecifications>? = null) : ProtobufRunOptions {
+data class ProtobufTestConfig(override val specs: List<RunOptionsSpecifications>? = null) : ProtobufRunOptions {
     private val _config: MutableMap<String, Any> = linkedMapOf()
 
     @JsonIgnore
@@ -35,7 +40,7 @@ data class ProtobufTestConfig(override val baseUrl: String? = null, override val
 }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
-data class ProtobufMockConfig(override val baseUrl: String? = null, override val specs: List<RunOptionsSpecifications>? = null) : ProtobufRunOptions {
+data class ProtobufMockConfig(override val specs: List<RunOptionsSpecifications>? = null) : ProtobufRunOptions {
     private val _config: MutableMap<String, Any> = linkedMapOf()
 
     @JsonIgnore

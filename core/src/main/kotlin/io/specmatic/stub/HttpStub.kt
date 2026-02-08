@@ -1583,7 +1583,8 @@ fun extractHost(url: String): String {
 }
 
 fun extractPort(url: String): Int {
-    return resolvedPort(URI.create(url))
+    val effectiveUrl = if ("://" in url) URI(url) else URI("scheme://$url")
+    return resolvedPort(effectiveUrl)
 }
 
 fun normalizeHost(host: String): String {
