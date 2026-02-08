@@ -18,6 +18,8 @@ import io.specmatic.core.config.v3.resolveElseThrow
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.isOpenAPI
 import java.io.File
+import kotlin.collections.orEmpty
+import kotlin.collections.plus
 
 data class MockServiceConfig(val services: List<Value>, val data: Data? = null, val settings: RefOrValue<MockSettings>?) {
     data class Value(val service: RefOrValue<CommonServiceConfig<MockRunOptions, MockSettings>>)
@@ -68,12 +70,14 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
 
     @JsonIgnore
     fun getSpecificationSources(resolver: RefOrValueResolver): Map<SourceV3, List<SpecificationSourceEntry>> {
+        val dependencyExamples = data?.toExampleDirs(resolver)
         return services.map { it.service }.flatMap { serviceRef ->
             val service = serviceRef.resolveElseThrow(resolver)
             service.definitions.flatMap { defRef ->
                 val definition = defRef.definition
                 val source = definition.source.resolveElseThrow(resolver)
-                val examples = service.data?.toExampleDirs(resolver)
+                val serviceExamples = service?.data?.toExampleDirs(resolver)
+                val examples = mergeExamples(dependencyExamples, dependencyExamples)
                 definition.specs.map {
                     it.toSpecificationSource(source, null, examples) { specId, file ->
                         getFirstBaseUrlFromRunOpts(specId, file , service, resolver)
@@ -85,8 +89,10 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
 
     @JsonIgnore
     fun getExampleDirs(specFile: File, resolver: RefOrValueResolver): List<String> {
+        val dependencyExamples = data?.toExampleDirs(resolver)
         val service = getService(specFile, resolver)
-        return service?.data?.toExampleDirs(resolver).orEmpty()
+        val serviceExamples = service?.data?.toExampleDirs(resolver)
+        return mergeExamples(dependencyExamples, serviceExamples).orEmpty()
     }
 
     @JsonIgnore
@@ -98,6 +104,11 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
                 definition.specs.map { it.getSpecificationPath() }
             }
         }
+    }
+
+    private fun mergeExamples(fromDeps: List<String>?, fromService: List<String>?): List<String>? {
+        if (fromDeps == null && fromService == null) return null
+        return fromService.orEmpty().plus(fromDeps.orEmpty())
     }
 
     @JsonIgnore

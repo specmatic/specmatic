@@ -31,6 +31,7 @@ import io.specmatic.core.TESTS_DIRECTORY_ENV_VAR
 import io.specmatic.core.TESTS_DIRECTORY_PROPERTY
 import io.specmatic.core.TEST_BASE_URL_ENV_VAR
 import io.specmatic.core.TEST_BASE_URL_PROPERTY
+import io.specmatic.core.TEST_ENDPOINTS_API
 import io.specmatic.core.TEST_FILTER_ENV_VAR
 import io.specmatic.core.TEST_FILTER_NAME_ENV_VAR
 import io.specmatic.core.TEST_FILTER_NAME_PROPERTY
@@ -39,6 +40,8 @@ import io.specmatic.core.TEST_FILTER_NOT_NAME_PROPERTY
 import io.specmatic.core.TEST_FILTER_PROPERTY
 import io.specmatic.core.TEST_HOST_ENV_VAR
 import io.specmatic.core.TEST_HOST_PROPERTY
+import io.specmatic.core.TEST_OVERLAY_FILE_PATH_ENV_VAR
+import io.specmatic.core.TEST_OVERLAY_FILE_PATH_PROPERTY
 import io.specmatic.core.TEST_PORT_ENV_VAR
 import io.specmatic.core.TEST_PORT_PROPERTY
 import io.specmatic.core.VirtualServiceConfiguration
@@ -70,7 +73,9 @@ import io.specmatic.core.defaultReportDirPath
 import io.specmatic.core.readEnvVarOrProperty
 import io.specmatic.core.utilities.ContractSource
 import io.specmatic.core.utilities.Flags
+import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_QUERY_PARAMS
+import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_SCHEMA
 import io.specmatic.core.utilities.Flags.Companion.MAX_TEST_COUNT
 import io.specmatic.core.utilities.Flags.Companion.MAX_TEST_REQUEST_COMBINATIONS
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_BASE_URL
@@ -127,6 +132,8 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
         val service = getMockService(specFile) ?: return globalMockSettings
         return specmaticConfig.dependencies?.getSettings(service,globalMockSettings, resolver) ?: globalMockSettings
     }
+
+    private fun exampleFromSysProp(): List<String> = getStringValue(EXAMPLE_DIRECTORIES)?.split(",")?.map { it.trim() }.orEmpty()
 
     override fun getDictionary(): String? {
         return getStringValue(SPECMATIC_STUB_DICTIONARY)
@@ -393,14 +400,14 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
     override fun getTestOverlayFilePath(specFile: File, specType: SpecType): String? {
         val specId = specmaticConfig.systemUnderTest?.getSpecDefinitionFor(specFile, resolver)?.getSpecificationId() ?: return null
         val runOpts = specmaticConfig.systemUnderTest.getRunOptions(resolver, specType) ?: return null
-        return runOpts.getMatchingSpecification(specId)?.getOverlayFilePath()
+        return runOpts.getMatchingSpecification(specId)?.getOverlayFilePath() ?: readEnvVarOrProperty(TEST_OVERLAY_FILE_PATH_ENV_VAR, TEST_OVERLAY_FILE_PATH_PROPERTY)
     }
 
     override fun getStubOverlayFilePath(specFile: File, specType: SpecType): String? {
         val service = specmaticConfig.dependencies?.getService(specFile, resolver) ?: return null
         val specId = specmaticConfig.dependencies.getSpecDefinitionFor(specFile, service, resolver)?.getSpecificationId() ?: return null
         val runOpts = specmaticConfig.dependencies.getRunOptions(service, resolver, specType) ?: return null
-        return runOpts.getMatchingSpecification(specId)?.getOverlayFilePath()
+        return runOpts.getMatchingSpecification(specId)?.getOverlayFilePath() ?: readEnvVarOrProperty(TEST_OVERLAY_FILE_PATH_ENV_VAR, TEST_OVERLAY_FILE_PATH_PROPERTY)
     }
 
     override fun getTestBaseUrl(specType: SpecType): String? {
@@ -433,7 +440,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
     }
 
     override fun getActuatorUrl(): String? {
-        return specmaticConfig.systemUnderTest?.getOpenApiTestConfig(resolver)?.actuatorUrl
+        return specmaticConfig.systemUnderTest?.getOpenApiTestConfig(resolver)?.actuatorUrl ?: getStringValue(TEST_ENDPOINTS_API)
     }
 
     override fun copyResiliencyTestsConfig(onlyPositive: Boolean): SpecmaticConfig {
@@ -551,7 +558,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
         val testSources = specmaticConfig.systemUnderTest?.getSources(resolver).orEmpty()
         val mockSources = specmaticConfig.dependencies?.getSources(resolver).orEmpty()
         val gitSources = testSources.plus(mockSources).mapNotNull { it.getGit() }
-        return gitSources.any { it.matchBranch == true }
+        return gitSources.any { it.matchBranch == true } || getBooleanValue(Flags.MATCH_BRANCH)
     }
 
     override fun getAuth(repositoryUrl: String): Auth? {
@@ -583,15 +590,21 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
     }
 
     override fun getTestExampleDirs(specFile: File): List<String> {
-        return specmaticConfig.systemUnderTest?.getExampleDirs(resolver).orEmpty()
+        return buildList {
+            addAll(specmaticConfig.systemUnderTest?.getExampleDirs(resolver).orEmpty())
+            addAll(exampleFromSysProp())
+        }
     }
 
     override fun getStubExampleDirs(specFile: File): List<String> {
-        return specmaticConfig.dependencies?.getExampleDirs(specFile, resolver).orEmpty()
+        return buildList {
+            addAll(specmaticConfig.dependencies?.getExampleDirs(specFile, resolver).orEmpty())
+            addAll(exampleFromSysProp())
+        }
     }
 
     override fun getExamples(): List<String> {
-        return emptyList()
+        return exampleFromSysProp()
     }
 
     override fun getRepositoryProvider(): String? {

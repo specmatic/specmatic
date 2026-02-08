@@ -538,6 +538,92 @@ class SpecmaticConfigV3ImplTest {
                         it.getStubDictionary(source.specFile)
                     },
                 ),
+                TestCase(
+                    v2 = """
+                    version: 2
+                    examples:
+                    - ./mock-examples
+                    """.trimIndent(),
+                    v3 = """
+                    version: 3
+                    dependencies:
+                      services:
+                      - service:
+                          definitions:
+                          - definition:
+                              source:
+                                filesystem: {}
+                              specs:
+                                - simple.yaml
+                      data:
+                        examples:
+                        - directories:
+                          - ./mock-examples
+                    """.trimIndent(),
+                    extract = {
+                        val source = it.getFirstMockSourceMatching { it.specPathInConfig == "simple.yaml" } ?: return@TestCase it.getExamples()
+                        it.getStubExampleDirs(source.specFile)
+                    },
+                ),
+                TestCase(
+                    v2 = """
+                    version: 2
+                    examples:
+                    - ./mock-examples
+                    """.trimIndent(),
+                    v3 = """
+                    version: 3
+                    dependencies:
+                      services:
+                      - service:
+                          definitions:
+                          - definition:
+                              source:
+                                filesystem: {}
+                              specs:
+                                - simple.yaml
+                          data:
+                            examples:
+                            - directories:
+                              - ./mock-examples
+                    """.trimIndent(),
+                    extract = {
+                        val source = it.getFirstMockSourceMatching { it.specPathInConfig == "simple.yaml" } ?: return@TestCase it.getExamples()
+                        it.getStubExampleDirs(source.specFile)
+                    },
+                ),
+                TestCase(
+                    v2 = """
+                    version: 2
+                    examples:
+                    - ./mock-examples
+                    - ./common-examples
+                    """.trimIndent(),
+                    v3 = """
+                    version: 3
+                    dependencies:
+                      services:
+                      - service:
+                          definitions:
+                          - definition:
+                              source:
+                                filesystem: {}
+                              specs:
+                                - simple.yaml
+                          data:
+                            examples:
+                            - directories:
+                              - ./mock-examples
+                      data:
+                        examples:
+                        - directories:
+                          - ./common-examples
+                    """.trimIndent(),
+                    extract = {
+                        val source = it.getFirstMockSourceMatching { it.specPathInConfig == "simple.yaml" } ?: return@TestCase it.getExamples()
+                        it.getStubExampleDirs(source.specFile)
+                    },
+                ),
             )
         }
 
