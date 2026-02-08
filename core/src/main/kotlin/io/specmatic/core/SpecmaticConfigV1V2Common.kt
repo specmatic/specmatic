@@ -714,6 +714,10 @@ data class SpecmaticConfigV1V2Common(
         }
     }
 
+    override fun getStubLenientMode(file: File): Boolean? {
+        return null
+    }
+
     @JsonIgnore
     override fun attributeSelectionQueryParamKey(): String {
         return getAttributeSelectionPattern().getQueryParamKey()

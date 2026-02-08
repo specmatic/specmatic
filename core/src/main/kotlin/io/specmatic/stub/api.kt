@@ -1087,7 +1087,7 @@ fun loadIfSupportedAPISpecification(
                 overlayContent = overlayContent,
                 specmaticConfig = specmaticConfig,
                 strictMode = specmaticConfig.getStubStrictMode(null) ?: false,
-                lenientMode = contractPathData.lenientMode,
+                lenientMode = contractPathData.lenientMode ?: specmaticConfig.getStubLenientMode(File(contractPathData.path)) ?: false,
                 exampleDirPaths = contractPathData.exampleDirPaths.orEmpty()
             ).copy(specmaticConfig = specmaticConfig),
         )

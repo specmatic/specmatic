@@ -181,6 +181,9 @@ interface SpecmaticConfig {
     fun getTestLenientMode(): Boolean?
 
     @JsonIgnore
+    fun getStubLenientMode(file: File): Boolean?
+
+    @JsonIgnore
     fun getTestParallelism(): String?
 
     @JsonIgnore

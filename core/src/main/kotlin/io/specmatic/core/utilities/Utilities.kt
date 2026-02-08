@@ -361,7 +361,7 @@ data class ContractPathData(
     val baseUrl: String? = null,
     val generative: ResiliencyTestSuite? = null,
     val port: Int? = null,
-    val lenientMode: Boolean = false,
+    val lenientMode: Boolean? = null,
     val exampleDirPaths: List<String>? = null,
 ) {
     companion object {

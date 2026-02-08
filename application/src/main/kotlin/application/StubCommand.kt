@@ -197,18 +197,17 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 
         try {
             val matchBranchEnabled = specmaticConfiguration.getMatchBranchEnabled()
-            val configuredLenientMode = configuredLenientMode()
             contractSources = when (contractPaths.isEmpty()) {
                 true -> {
                     logger.debug("Using the spec paths configured for stubs in the configuration file '$specmaticConfigPath'")
                     specmaticConfig.contractStubPathData(matchBranchEnabled).filter {
                         isSupportedAPISpecification(it.path)
                     }.map {
-                        it.copy(lenientMode = configuredLenientMode)
+                        it.copy(lenientMode = lenientMode)
                     }
                 }
                 else -> contractPaths.map {
-                    ContractPathData("", it, lenientMode = configuredLenientMode)
+                    ContractPathData("", it, lenientMode = lenientMode)
                 }
             }
             contractPaths = contractSources.map { it.path }
@@ -248,8 +247,6 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     private fun configuredStrictMode(): Boolean = strictMode ?: specmaticConfiguration.getStubStrictMode(null) ?: false
 
     private fun configuredGracefulTimeout(): Long = gracefulRestartTimeoutInMs ?: specmaticConfiguration.getStubGracefulRestartTimeoutInMilliseconds() ?: 1000
-
-    private fun configuredLenientMode(): Boolean = lenientMode ?: false
 
     private fun startServer() {
         val workingDirectory = WorkingDirectory()

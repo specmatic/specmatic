@@ -358,6 +358,11 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
         return testSettings.lenientMode ?: getStringValue(TEST_LENIENT_MODE)?.toBoolean()
     }
 
+    override fun getStubLenientMode(file: File): Boolean? {
+        val mockSettings = getMockSettingsFor(file)
+        return mockSettings.lenientMode
+    }
+
     override fun getTestParallelism(): String? {
         return testSettings.parallelism ?: getStringValue(SPECMATIC_TEST_PARALLELISM)
     }
