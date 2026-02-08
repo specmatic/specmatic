@@ -27,6 +27,7 @@ import io.specmatic.core.log.logger
 import io.specmatic.core.log.setLoggerUsing
 import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.parseGherkinStringToFeature
+import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.ContractPathData
 import io.specmatic.core.utilities.ContractPathData.Companion.specToBaseUrlMap
 import io.specmatic.core.utilities.contractStubPaths
@@ -36,6 +37,7 @@ import io.specmatic.core.utilities.exitWithMessage
 import io.specmatic.core.utilities.runWithTimeout
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.reporter.model.SpecType
 import org.yaml.snakeyaml.Yaml
 import java.io.File
 
@@ -159,7 +161,7 @@ fun createStub(
     val specmaticConfig = loadSpecmaticConfigOrDefault(configFileName)
     val useCurrentBranchForCentralRepo =
         specmaticConfig.getMatchBranchEnabled()
-    val effectiveStrictMode = if (strict) true else (specmaticConfig.getStubStrictMode() ?: false)
+    val effectiveStrictMode = if (strict) true else (specmaticConfig.getStubStrictMode(null) ?: false)
 
     val timeoutMessage =
         "FATAL: Specmatic stub failed to start within ${specmaticConfig.getStubStartTimeoutInMilliseconds()} milliseconds. You can configure the stub start timeout from Specmatic configuration. The default timeout is 20 seconds."
@@ -235,7 +237,7 @@ internal fun createStubFromContracts(
     specmaticConfig: SpecmaticConfig,
 ): HttpStub {
     val contractPathData = contractPaths.map { ContractPathData("", it) }
-    val strictMode = specmaticConfig.getStubStrictMode() ?: false
+    val strictMode = specmaticConfig.getStubStrictMode(null) ?: false
     val contractInfo = loadContractStubsFromFiles(contractPathData, dataDirPaths, specmaticConfig, strictMode)
     val features = contractInfo.map { it.first }
     val httpExpectations = contractInfoToHttpExpectations(contractInfo)
@@ -1066,21 +1068,30 @@ fun loadIfSupportedAPISpecification(
         return null
     }
 
+    val overlayFromConfig = specmaticConfig.getStubOverlayFilePath(File(contractPathData.path), SpecType.OPENAPI)?.let(::File)
+    val overlayContent = overlayFromConfig?.let {
+        if (it.exists()) return@let it.readText()
+        throw ContractException("Specified Overlay file does not exist ${it.canonicalPath}")
+    }.orEmpty()
+
+    val specFile = File(contractPathData.path)
+    val stubDictionary = specmaticConfig.getStubDictionary(specFile = specFile)
     return try {
         Pair(
             contractPathData.path,
             parseContractFileToFeature(
                 contractPathData.path,
-                CommandHook(HookName.stub_load_contract),
+                CommandHook(HookName.stub_load_contract, specFile),
                 contractPathData.provider,
                 contractPathData.repository,
                 contractPathData.branch,
                 contractPathData.specificationPath,
+                overlayContent = overlayContent,
                 specmaticConfig = specmaticConfig,
-                strictMode = specmaticConfig.getStubStrictMode() ?: false,
-                lenientMode = contractPathData.lenientMode,
+                strictMode = specmaticConfig.getStubStrictMode(null) ?: false,
+                lenientMode = contractPathData.lenientMode ?: specmaticConfig.getStubLenientMode(specFile) ?: false,
                 exampleDirPaths = contractPathData.exampleDirPaths.orEmpty()
-            ).copy(specmaticConfig = specmaticConfig),
+            ).copy(specmaticConfig = specmaticConfig).useDictionary(stubDictionary),
         )
     } catch (e: Throwable) {
         logger.log(exceptionCauseMessage(e))
@@ -1092,13 +1103,13 @@ private fun List<ContractPathData>.excludeUnsupportedSpecifications(): List<Cont
     return this.filterNot { isSupportedAPISpecification(it.path) }
 }
 
-fun isOpenAPI(path: String): Boolean =
+fun isOpenAPI(path: String, logFailure: Boolean = true): Boolean =
     try {
         File(path).reader().use { reader ->
             Yaml().load<MutableMap<String, Any?>>(reader).contains("openapi")
         }
     } catch (e: Throwable) {
-        logger.log(e, "Could not parse $path")
+        if (logFailure) logger.log(e, "Could not parse $path")
         false
     }
 

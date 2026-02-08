@@ -1,4 +1,4 @@
-package io.specmatic.core.config.v3
+package io.specmatic.core.config.v2
 
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonValue
@@ -10,6 +10,8 @@ import com.fasterxml.jackson.databind.JsonNode
 import io.specmatic.core.Configuration.Companion.DEFAULT_BASE_URL
 import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.ResiliencyTestsConfig
+import io.specmatic.core.Source
+import io.specmatic.core.SpecificationSourceEntry
 import io.specmatic.core.utilities.Flags
 import java.io.File
 import java.net.URI
@@ -18,6 +20,11 @@ sealed class SpecExecutionConfig {
     data class StringValue(@get:JsonValue val value: String) : SpecExecutionConfig() {
         override fun resolveAgainst(baseDirectory: File): SpecExecutionConfig {
             return StringValue(baseDirectory.resolve(value).canonicalPath)
+        }
+
+        override fun createSpecificationEntriesFrom(source: Source, baseDir: File, resiliencyTestSuite: ResiliencyTestSuite?): List<SpecificationSourceEntry> {
+            val specFile = baseDir.resolve(value).canonicalFile
+            return listOf(SpecificationSourceEntry(source, specFile, value, null, null, resiliencyTestSuite))
         }
     }
 
@@ -45,6 +52,15 @@ sealed class SpecExecutionConfig {
             override fun resolveAgainst(baseDirectory: File): SpecExecutionConfig {
                 return this.copy(specs = this.specs.map { baseDirectory.resolve(it).canonicalPath })
             }
+
+            override fun createSpecificationEntriesFrom(source: Source, baseDir: File, resiliencyTestSuite: ResiliencyTestSuite?): List<SpecificationSourceEntry> {
+                val baseUrl = toBaseUrl(null)
+                val resiliency = resiliencyTests?.enable ?: resiliencyTestSuite
+                return specs().map { spec ->
+                    val specFile = baseDir.resolve(spec)
+                    SpecificationSourceEntry(source, specFile, spec, baseUrl, null, resiliency)
+                }
+            }
         }
 
         data class PartialUrl(
@@ -69,6 +85,15 @@ sealed class SpecExecutionConfig {
             override fun resolveAgainst(baseDirectory: File): SpecExecutionConfig {
                 return this.copy(specs = this.specs.map { baseDirectory.resolve(it).canonicalPath })
             }
+
+            override fun createSpecificationEntriesFrom(source: Source, baseDir: File, resiliencyTestSuite: ResiliencyTestSuite?): List<SpecificationSourceEntry> {
+                val baseUrl = toBaseUrl(null)
+                val resiliency = resiliencyTests?.enable ?: resiliencyTestSuite
+                return specs().map { spec ->
+                    val specFile = baseDir.resolve(spec)
+                    SpecificationSourceEntry(source, specFile, spec, baseUrl, port, resiliency)
+                }
+            }
         }
     }
 
@@ -83,6 +108,13 @@ sealed class SpecExecutionConfig {
 
         override fun resolveAgainst(baseDirectory: File): SpecExecutionConfig {
             return this.copy(specs = this.specs.map { baseDirectory.resolve(it).canonicalPath })
+        }
+
+        override fun createSpecificationEntriesFrom(source: Source, baseDir: File, resiliencyTestSuite: ResiliencyTestSuite?): List<SpecificationSourceEntry> {
+            return specs().map { spec ->
+                val specFile = baseDir.resolve(spec)
+                SpecificationSourceEntry(source, specFile, spec, null, null, resiliencyTestSuite)
+            }
         }
     }
 
@@ -116,6 +148,8 @@ sealed class SpecExecutionConfig {
     }
 
     abstract fun resolveAgainst(baseDirectory: File): SpecExecutionConfig
+
+    abstract fun createSpecificationEntriesFrom(source: Source, baseDir: File, resiliencyTestSuite: ResiliencyTestSuite? = null): List<SpecificationSourceEntry>
 }
 
 class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeserializer<List<SpecExecutionConfig>>() {

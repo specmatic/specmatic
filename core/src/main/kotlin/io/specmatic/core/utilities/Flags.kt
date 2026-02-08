@@ -37,6 +37,8 @@ class Flags {
 
         fun getBooleanValue(flagName: String, default: Boolean = false) = getStringValue(flagName)?.toBoolean() ?: default
 
+        fun getBooleanValueOrNull(flagName: String): Boolean? = getStringValue(flagName)?.toBoolean()
+
         fun getIntValue(maxTestCount: String): Int? = getStringValue(maxTestCount)?.toInt()
 
         fun getLongValue(flagName: String): Long? = getStringValue(flagName)?.toLong()

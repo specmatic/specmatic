@@ -76,14 +76,14 @@ internal class CommandHookTest {
     @Test
     fun `command hook when hook exists`(@TempDir tempDir: File) {
         val configFile = tempDir.resolve("specmatic.json")
-        val specmaticConfig = SpecmaticConfig(
+        val specmaticConfig = SpecmaticConfigV1V2Common(
             emptyList(),
             hooks = mapOf(HookName.stub_load_contract.name to "cat ${secondary.canonicalPath}")
         )
         configFile.writeText(ObjectMapper().writeValueAsString(specmaticConfig))
         Configuration.configFilePath = configFile.canonicalPath
         try {
-            val contractInFile = CommandHook(HookName.stub_load_contract).readContract(primary.canonicalPath)
+            val contractInFile = CommandHook(HookName.stub_load_contract, File("spec.yaml")).readContract(primary.canonicalPath)
             assertThat(contractInFile.trimIndent()).isEqualTo(secondaryContractString)
         } finally {
             System.clearProperty(Flags.CONFIG_FILE_PATH)
@@ -96,7 +96,7 @@ internal class CommandHookTest {
         primary.createNewFile()
         primary.writeText(primaryContractString)
 
-        val contractInFile = CommandHook(HookName.stub_load_contract).readContract(primary.canonicalPath)
+        val contractInFile = CommandHook(HookName.stub_load_contract, File("spec.yaml")).readContract(primary.canonicalPath)
         assertThat(contractInFile.trimIndent()).isEqualTo(primaryContractString)
     }
 }

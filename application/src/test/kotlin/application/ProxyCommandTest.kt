@@ -121,6 +121,23 @@ class ProxyCommandTest {
         assertThat(cmd.capturedOutDir?.canonicalPath).isEqualTo(proxyDir.canonicalPath)
     }
 
+    @Test
+    fun `should prefer baseUrl from config over host and port properties`(@TempDir tempDir: File) {
+        val configFile = writeSpecmaticYaml(tempDir, """
+        version: 2
+        proxy:
+          host: 0.0.0.0
+          port: 8080
+          baseUrl: http://localhost:5000
+          targetUrl: http://config-target
+        """.trimIndent())
+
+        val cmd = Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) { TestProxyCommand() }
+        assertThrows<ProxyStartedTestException> { cmd.call() }
+        assertThat(cmd.capturedHost).isEqualTo("localhost")
+        assertThat(cmd.capturedPort).isEqualTo(5000)
+    }
+
     private fun writeSpecmaticYaml(dir: File, content: String): File = dir.resolve("specmatic.yaml").also { it.writeText(content) }
 
     private fun createEmptyKeyStore(file: File, password: String): File {

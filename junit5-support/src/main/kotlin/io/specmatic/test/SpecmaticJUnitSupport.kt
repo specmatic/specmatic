@@ -3,7 +3,6 @@ package io.specmatic.test
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.*
-import io.specmatic.core.SpecmaticConfig.Companion.getSecurityConfiguration
 import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.filters.ScenarioMetadataFilter.Companion.filterUsing
 import io.specmatic.core.log.LogMessage
@@ -266,8 +265,6 @@ open class SpecmaticJUnitSupport {
 
         val filterName: String? = settings.filterName
         val filterNotName: String? = settings.filterNotName
-        val overlayFilePath: String? = settings.overlayFilePath?.canonicalPath
-        val overlayContent = if (overlayFilePath.isNullOrBlank()) "" else readFrom(overlayFilePath, "overlay")
         val useCurrentBranchForCentralRepo = specmaticConfig.getMatchBranchEnabled()
         val timeoutInMilliseconds = try {
             specmaticConfig.getTestTimeoutInMilliseconds()
@@ -293,6 +290,8 @@ open class SpecmaticJUnitSupport {
                     val testScenariosAndEndpointsPairList = settings.contractPaths.split(",").filter {
                         File(it).extension in CONTRACT_EXTENSIONS
                     }.map {
+                        val overlayFilePath: String? = settings.overlayFilePath?.canonicalPath ?: specmaticConfig.getTestOverlayFilePath(File(it), SpecType.OPENAPI)
+                        val overlayContent = if (overlayFilePath.isNullOrBlank()) "" else readFrom(overlayFilePath, "overlay")
                         val (tests, endpoints, filteredEndpoints) = loadTestScenarios(
                             it,
                             suggestionsPath,
@@ -340,6 +339,8 @@ open class SpecmaticJUnitSupport {
                     val testScenariosAndEndpointsPairList = contractFilePaths.filter {
                         File(it.path).extension in CONTRACT_EXTENSIONS
                     }.map { contractPathData ->
+                        val overlayFilePath: String? = settings.overlayFilePath?.canonicalPath ?: specmaticConfig.getTestOverlayFilePath(File(contractPathData.path), SpecType.OPENAPI)
+                        val overlayContent = if (overlayFilePath.isNullOrBlank()) "" else readFrom(overlayFilePath, "overlay")
                         val (tests, endpoints, filteredEndpoints) = loadTestScenarios(
                             contractPathData.path,
                             "",
@@ -349,7 +350,7 @@ open class SpecmaticJUnitSupport {
                             contractPathData.repository,
                             contractPathData.branch,
                             contractPathData.specificationPath,
-                            getSecurityConfiguration(specmaticConfig),
+                            specmaticConfig.getSecurityConfiguration(File(contractPathData.path)),
                             filterName,
                             filterNotName,
                             specmaticConfig = specmaticConfig,
@@ -583,18 +584,18 @@ open class SpecmaticJUnitSupport {
 
         val contractFile = File(path)
         val strictMode = specmaticConfig.getTestStrictMode() ?: false
-        val rawSpecmaticConfig = specmaticConfig
         val effectiveSpecmaticConfig =
             when (generative) {
-                ResiliencyTestSuite.positiveOnly -> rawSpecmaticConfig.copyResiliencyTestsConfig(onlyPositive = true)
-                ResiliencyTestSuite.all -> rawSpecmaticConfig.copyResiliencyTestsConfig(onlyPositive = false)
-                ResiliencyTestSuite.none, null -> rawSpecmaticConfig
+                ResiliencyTestSuite.positiveOnly -> specmaticConfig.copyResiliencyTestsConfig(onlyPositive = true)
+                ResiliencyTestSuite.all -> specmaticConfig.copyResiliencyTestsConfig(onlyPositive = false)
+                ResiliencyTestSuite.none, null -> specmaticConfig
             }
 
+        val testDictionary = specmaticConfig.getTestDictionary()
         val feature =
             parseContractFileToFeature(
                 contractFile.path,
-                CommandHook(HookName.test_load_contract),
+                CommandHook(HookName.test_load_contract, contractFile),
                 sourceProvider,
                 sourceRepository,
                 sourceRepositoryBranch,
@@ -605,7 +606,7 @@ open class SpecmaticJUnitSupport {
                 strictMode = strictMode,
                 lenientMode = specmaticConfig.getTestLenientMode() ?: false,
                 exampleDirPaths = exampleDirPaths
-            ).copy(testVariables = config.variables, testBaseURLs = config.baseURLs)
+            ).copy(testVariables = config.variables, testBaseURLs = config.baseURLs).useDictionary(testDictionary)
 
         val suggestions = when {
             suggestionsPath.isNotEmpty() -> suggestionsFromFile(suggestionsPath)

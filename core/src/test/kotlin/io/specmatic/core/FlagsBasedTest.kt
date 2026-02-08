@@ -8,7 +8,7 @@ internal class FlagsBasedTest {
 
     @Test
     fun `strategiesFromFlags should enable fuzzy matching from config`() {
-        val config = SpecmaticConfig(
+        val config = SpecmaticConfigV1V2Common(
             fuzzy = true,
             version = SpecmaticConfigVersion.VERSION_2
         )
@@ -20,7 +20,7 @@ internal class FlagsBasedTest {
 
     @Test
     fun `strategiesFromFlags should disable fuzzy matching when config is false`() {
-        val config = SpecmaticConfig(
+        val config = SpecmaticConfigV1V2Common(
             fuzzy = false,
             version = SpecmaticConfigVersion.VERSION_2
         )
@@ -32,7 +32,7 @@ internal class FlagsBasedTest {
 
     @Test
     fun `strategiesFromFlags should use schema example default from config`() {
-        val config = SpecmaticConfig(
+        val config = SpecmaticConfigV1V2Common(
             schemaExampleDefault = true,
             version = SpecmaticConfigVersion.VERSION_2
         )
@@ -44,7 +44,7 @@ internal class FlagsBasedTest {
 
     @Test
     fun `strategiesFromFlags should not use schema example default when config is false`() {
-        val config = SpecmaticConfig(
+        val config = SpecmaticConfigV1V2Common(
             schemaExampleDefault = false,
             version = SpecmaticConfigVersion.VERSION_2
         )
@@ -56,7 +56,7 @@ internal class FlagsBasedTest {
 
     @Test
     fun `strategiesFromFlags should set maxTestRequestCombinations from config`() {
-        val config = SpecmaticConfig(
+        val config = SpecmaticConfigV1V2Common(
             test = TestConfiguration(maxTestRequestCombinations = 42),
             version = SpecmaticConfigVersion.VERSION_2
         )
@@ -151,7 +151,7 @@ internal class FlagsBasedTest {
 
     @Test
     fun `end-to-end config to FlagsBased to Resolver should propagate all values`() {
-        val config = SpecmaticConfig(
+        val config = SpecmaticConfigV1V2Common(
             fuzzy = true,
             schemaExampleDefault = true,
             test = TestConfiguration(maxTestRequestCombinations = 50),

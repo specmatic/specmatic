@@ -1,5 +1,6 @@
 package io.specmatic.core.config
 
+import com.fasterxml.jackson.annotation.JsonAlias
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonValue
@@ -19,12 +20,12 @@ enum class ConfigLoggingLevel(private val level: String) {
     }
 }
 
-data class LogOutputConfig(private val directory: File?, private val console: Boolean?, private val logPrefix: String? = null) {
+data class LogOutputConfig(val directory: String?, val console: Boolean?, @field:JsonAlias("logPrefix") val logFilePrefix: String? = null) {
     @JsonIgnore
-    fun getLogDirectory(): File? = directory
+    fun getLogDirectory(): File? = directory?.let(::File)
 
     @JsonIgnore
-    fun getLogPrefixOrDefault(): String = logPrefix ?: "specmatic"
+    fun getLogFilePrefixOrDefault(): String = logFilePrefix ?: "specmatic"
 
     @JsonIgnore
     fun isConsoleLoggingEnabled(default: Boolean): Boolean = console ?: default
@@ -34,7 +35,7 @@ data class LogOutputConfig(private val directory: File?, private val console: Bo
         return LogOutputConfig(
             directory = other.directory ?: this.directory,
             console = other.console ?: this.console,
-            logPrefix = other.logPrefix ?: this.logPrefix
+            logFilePrefix = other.logFilePrefix ?: this.logFilePrefix
         )
     }
 
@@ -46,9 +47,9 @@ data class LogOutputConfig(private val directory: File?, private val console: Bo
 }
 
 data class LoggingConfiguration(
-    private val level: ConfigLoggingLevel? = null,
-    private val json: LogOutputConfig? = null,
-    private val text: LogOutputConfig? = null
+    val level: ConfigLoggingLevel? = null,
+    val json: LogOutputConfig? = null,
+    val text: LogOutputConfig? = null
 ) {
     fun levelOrDefault(): ConfigLoggingLevel = level ?: ConfigLoggingLevel.INFO
 
@@ -76,12 +77,12 @@ data class LoggingConfiguration(
             return LoggingConfiguration(
                 level = if (data.debug == true) ConfigLoggingLevel.DEBUG else null,
                 text = if (data.textConsoleLog != null && data.textLogDirectory != null) {
-                    LogOutputConfig(directory = data.textLogDirectory, console = data.textConsoleLog, logPrefix = data.logPrefix)
+                    LogOutputConfig(directory = data.textLogDirectory.path, console = data.textConsoleLog, logFilePrefix = data.logPrefix)
                 } else {
                     null
                 },
                 json = if (data.jsonConsoleLog != null && data.jsonLogDirectory != null) {
-                    LogOutputConfig(directory = data.jsonLogDirectory, console = data.jsonConsoleLog, logPrefix = data.logPrefix)
+                    LogOutputConfig(directory = data.jsonLogDirectory.path, console = data.jsonConsoleLog, logFilePrefix = data.logPrefix)
                 } else {
                     null
                 },

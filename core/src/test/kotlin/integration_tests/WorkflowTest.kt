@@ -11,7 +11,7 @@ class WorkflowTest {
     @Test
     fun `a spec should be able to use the id of a newly created entity in another request for the same entity`() {
         val specmaticConfig =
-            SpecmaticConfig(
+            SpecmaticConfigV1V2Common(
                 workflow = WorkflowConfiguration(
                     ids = mapOf(
                         "POST /orders -> 201" to WorkflowIDOperation(extract = "BODY.id"),

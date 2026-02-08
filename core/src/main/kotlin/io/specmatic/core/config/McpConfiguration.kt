@@ -1,6 +1,7 @@
 package io.specmatic.core.config
 
 import com.fasterxml.jackson.annotation.JsonCreator
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonValue
 import java.io.File
 
@@ -21,10 +22,13 @@ data class McpTestConfiguration(
     val baseUrl: String,
     val transportKind: McpTransport? = null,
     val enableResiliencyTests: Boolean = false,
-    val dictionaryFile: File? = null,
+    val dictionaryFile: String? = null,
     val bearerToken: String? = null,
     val filterTools: List<String>? = null,
     val skipTools: List<String>? = null,
-)
+) {
+    @JsonIgnore
+    fun getDictionaryIfExists(): File? = dictionaryFile?.let(::File)
+}
 
 data class McpConfiguration(val test: McpTestConfiguration)

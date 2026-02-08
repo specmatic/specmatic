@@ -10,12 +10,13 @@ import io.specmatic.core.SourceProvider.filesystem
 import io.specmatic.core.SourceProvider.git
 import io.specmatic.core.config.SpecmaticConfigVersion.Companion.convertToLatestVersionedConfig
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.config.v1.SpecmaticConfigV1
 import io.specmatic.core.config.v2.ContractConfig
 import io.specmatic.core.config.v2.ContractConfig.FileSystemContractSource
 import io.specmatic.core.config.v2.ContractConfig.GitContractSource
 import io.specmatic.core.config.v2.SpecmaticConfigV2
-import io.specmatic.core.config.v3.SpecExecutionConfig
+import io.specmatic.core.config.v2.SpecExecutionConfig
 import io.specmatic.core.loadSpecmaticConfig
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSON
@@ -79,7 +80,7 @@ internal class SpecmaticConfigAllTest {
     fun `should create SpecmaticConfig from the versioned specmatic configuration`(version: SpecmaticConfigVersion, configFile: String) {
         val config: SpecmaticConfig = loadSpecmaticConfig(configFile)
         assertThat(config.getVersion()).isEqualTo(version)
-        val sources = SpecmaticConfig.getSources(config)
+        val sources = SpecmaticConfigV1V2Common.getSources(config as SpecmaticConfigV1V2Common)
         assertThat(sources.size).isEqualTo(2)
         val expectedSources = listOf(
             Source(
@@ -110,7 +111,7 @@ internal class SpecmaticConfigAllTest {
     fun `should create SpecmaticConfig from the v2 config with stub ports`(version: SpecmaticConfigVersion, configFile: String) {
         val config: SpecmaticConfig = loadSpecmaticConfig(configFile)
         assertThat(config.getVersion()).isEqualTo(version)
-        val sources = SpecmaticConfig.getSources(config)
+        val sources = SpecmaticConfigV1V2Common.getSources(config as SpecmaticConfigV1V2Common)
         assertThat(sources.size).isEqualTo(2)
         val expectedSources = listOf(
             Source(
@@ -730,9 +731,9 @@ internal class SpecmaticConfigAllTest {
         val specmaticConfig = configFile.toSpecmaticConfig()
 
         specmaticConfig.apply {
-            assertThat(getStubGenerative()).isTrue()
-            assertThat(getStubDelayInMilliseconds()).isEqualTo(1000L)
-            assertThat(getStubDictionary()).isEqualTo("stubDictionary")
+            assertThat(getStubGenerative(File("spec.yaml"))).isTrue()
+            assertThat(getStubDelayInMilliseconds(File("spec.yaml"))).isEqualTo(1000L)
+            assertThat(getStubDictionary(File("spec.yaml"))).isEqualTo("stubDictionary")
             assertThat(getStubIncludeMandatoryAndRequestedKeysInResponse()).isTrue()
         }
     }

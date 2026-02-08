@@ -1,5 +1,6 @@
 package io.specmatic.core.config.v3
 
+import io.specmatic.core.config.v2.SpecExecutionConfig
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test

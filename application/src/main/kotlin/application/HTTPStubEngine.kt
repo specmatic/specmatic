@@ -1,7 +1,7 @@
 package application
 
 import io.specmatic.core.Feature
-import io.specmatic.core.KeyData
+import io.specmatic.core.KeyDataRegistry
 import io.specmatic.core.WorkingDirectory
 import io.specmatic.core.log.consoleLog
 import io.specmatic.mock.ScenarioStub
@@ -17,7 +17,7 @@ class HTTPStubEngine {
         stubs: List<Pair<Feature, List<ScenarioStub>>>,
         host: String,
         port: Int,
-        keyData: KeyData?,
+        keyDataRegistry: KeyDataRegistry,
         strictMode: Boolean,
         passThroughTargetBase: String = "",
         specmaticConfigSource: SpecmaticConfigSource,
@@ -35,7 +35,7 @@ class HTTPStubEngine {
             port = port,
             log = ::consoleLog,
             strictMode = strictMode,
-            keyData = keyData,
+            keyDataRegistry = keyDataRegistry,
             passThroughTargetBase = passThroughTargetBase,
             httpClientFactory = httpClientFactory,
             workingDirectory = workingDirectory,

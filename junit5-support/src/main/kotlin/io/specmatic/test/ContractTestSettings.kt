@@ -2,14 +2,12 @@ package io.specmatic.test
 
 import io.specmatic.core.Configuration
 import io.specmatic.core.SpecmaticConfig
-import io.specmatic.core.SpecmaticConfig.Companion.orDefault
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.loadSpecmaticConfigOrDefault
 import io.specmatic.core.loadSpecmaticConfigOrNull
-import io.specmatic.core.utilities.Flags
-import io.specmatic.test.SpecmaticJUnitSupport.Companion.HOST
-import io.specmatic.test.SpecmaticJUnitSupport.Companion.PORT
-import io.specmatic.test.SpecmaticJUnitSupport.Companion.PROTOCOL
+import io.specmatic.core.orDefault
+
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.test.reports.TestReportListener
 import java.io.File
 
@@ -87,14 +85,12 @@ data class ContractTestSettings(
 
     private fun adjustExamples(specmaticConfig: SpecmaticConfig): SpecmaticConfig {
         if (otherArguments?.exampleDirectories == null) return specmaticConfig
-        return specmaticConfig.copy(examples = specmaticConfig.getExamples().plus(otherArguments.exampleDirectories))
+        return specmaticConfig.plusExamples(otherArguments.exampleDirectories)
     }
 
     private fun adjustUseCurrentBranch(specmaticConfig: SpecmaticConfig): SpecmaticConfig {
         if (otherArguments?.useCurrentBranchForCentralRepo == null) return specmaticConfig
-        return specmaticConfig.mapSources { source ->
-            source.copy(matchBranch = otherArguments.useCurrentBranchForCentralRepo)
-        }
+        return specmaticConfig.withMatchBranch(otherArguments.useCurrentBranchForCentralRepo)
     }
 
     private fun adjustTestTimeout(specmaticConfig: SpecmaticConfig): SpecmaticConfig {
@@ -117,7 +113,7 @@ data class ContractTestSettings(
         configFile = contractTestSettings.get()?.configFile ?: getConfigFilePath(),
         strictMode = contractTestSettings.get()?.strictMode ?: SpecmaticConfig().getTestStrictMode(),
         lenientMode = contractTestSettings.get()?.lenientMode ?: SpecmaticConfig().getTestLenientMode() ?: false,
-        testBaseURL = contractTestSettings.get()?.testBaseURL ?: specmaticConfig.getTestBaseUrl(),
+        testBaseURL = contractTestSettings.get()?.testBaseURL ?: specmaticConfig.getTestBaseUrl(SpecType.OPENAPI),
         contractPaths = contractTestSettings.get()?.contractPaths,
         timeoutInMilliSeconds = contractTestSettings.get()?.timeoutInMilliSeconds,
         filter = contractTestSettings.get()?.filter ?: specmaticConfig.getTestFilter(),
@@ -131,12 +127,9 @@ data class ContractTestSettings(
             inlineSuggestions = contractTestSettings.get()?.otherArguments?.inlineSuggestions,
             variablesFileName = contractTestSettings.get()?.otherArguments?.variablesFileName,
             exampleDirectories = contractTestSettings.get()?.otherArguments?.exampleDirectories ?: specmaticConfig.getExamples(),
-            filterName = contractTestSettings.get()?.otherArguments?.filterName
-                ?: specmaticConfig.getTestFilterName(),
-            filterNotName = contractTestSettings.get()?.otherArguments?.filterNotName
-                ?: specmaticConfig.getTestFilterNotName(),
-            overlayFilePath = contractTestSettings.get()?.otherArguments?.overlayFilePath
-                ?: specmaticConfig.getTestOverlayFilePath()?.let(::File),
+            filterName = contractTestSettings.get()?.otherArguments?.filterName ?: specmaticConfig.getTestFilterName(),
+            filterNotName = contractTestSettings.get()?.otherArguments?.filterNotName ?: specmaticConfig.getTestFilterNotName(),
+            overlayFilePath = contractTestSettings.get()?.otherArguments?.overlayFilePath,
         ),
     )
 }

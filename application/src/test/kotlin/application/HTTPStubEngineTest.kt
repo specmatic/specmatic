@@ -3,6 +3,7 @@ package application
 import io.mockk.every
 import io.mockk.mockk
 import io.specmatic.core.Feature
+import io.specmatic.core.KeyDataRegistry
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.WorkingDirectory
 import io.specmatic.stub.HttpClientFactory
@@ -18,7 +19,7 @@ class HTTPStubEngineTest {
                 stubs = paths.map { it.toMockkFeature() to emptyList() },
                 host = "0.0.0.0",
                 port = 9000,
-                keyData = null,
+                keyDataRegistry = KeyDataRegistry.empty(),
                 strictMode = false,
                 httpClientFactory = HttpClientFactory(),
                 workingDirectory = WorkingDirectory(),

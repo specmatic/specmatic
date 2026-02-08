@@ -14,6 +14,7 @@ import io.specmatic.core.Result
 import io.specmatic.core.Results
 import io.specmatic.core.Scenario
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.Flags.Companion.ONLY_POSITIVE
 import io.specmatic.core.value.JSONObjectValue
@@ -1185,8 +1186,8 @@ class GenerativeTests {
             every { getWorkflowDetails() } returns null
             every { getMaxTestRequestCombinations() } returns null
         }
-        mockkObject(SpecmaticConfig.Companion)
-        every { SpecmaticConfig.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
+        mockkObject(SpecmaticConfigV1V2Common.Companion)
+        every { SpecmaticConfigV1V2Common.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
 
         val feature = OpenApiSpecification.fromYAML(
             """
@@ -1275,8 +1276,8 @@ class GenerativeTests {
             every { getMaxTestRequestCombinations() } returns null
         }
 
-        mockkObject(SpecmaticConfig.Companion)
-        every { SpecmaticConfig.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
+        mockkObject(SpecmaticConfigV1V2Common.Companion)
+        every { SpecmaticConfigV1V2Common.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
 
         val feature = OpenApiSpecification.fromYAML(
             """

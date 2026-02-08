@@ -75,7 +75,7 @@ internal class HttpStubTest {
         """.trimIndent()
 
         val feature = parseGherkinStringToFeature(gherkin)
-        val specmaticConfig = SpecmaticConfig(stub = StubConfiguration(delayInMilliseconds = 123))
+        val specmaticConfig = SpecmaticConfigV1V2Common(stub = StubConfiguration(delayInMilliseconds = 123))
 
         HttpStub(
             features = listOf(feature),

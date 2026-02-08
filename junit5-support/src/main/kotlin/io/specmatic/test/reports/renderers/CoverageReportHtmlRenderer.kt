@@ -5,6 +5,7 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.log.logger
 import io.specmatic.junit5.support.VersionInfo
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.reports.coverage.OpenApiCoverageReportInput
 import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
@@ -138,7 +139,7 @@ class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApi
     }
 
     private fun getBaseUrl(httpLogMessage: HttpLogMessage?, specmaticConfig: SpecmaticConfig): String {
-        val baseUrlFromConfig = specmaticConfig.getCoverageReportBaseUrl()
+        val baseUrlFromConfig = specmaticConfig.getCoverageReportBaseUrl(SpecType.OPENAPI)
         return httpLogMessage?.targetServer ?: baseUrlFromConfig ?: "Unknown baseURL"
     }
 
