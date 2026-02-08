@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.convertValue
 import io.specmatic.core.config.toSpecmaticConfig
 import io.specmatic.core.loadSpecmaticConfig
+import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.utilities.yamlMapper
 import org.assertj.core.api.Assertions.assertThat
@@ -47,6 +48,34 @@ class SpecmaticConfigV3Test {
         // TODO: Ensure it contains all the possible fields
         val configFile = File("src/test/resources/specmaticConfigFiles/v3/refed_out.yaml")
         assertDoesNotThrow { configFile.toSpecmaticConfig() }
+    }
+
+    @Test
+    fun `should be able to resolve env var syntax in config values default if no property set`(@TempDir tempDir: File) {
+        val yaml = """
+        version: 3
+        specmatic:
+          settings:
+            test:
+              timeoutInMilliseconds: ${'$'}{MySysProp:10000}
+        """.trimIndent()
+        val file = tempDir.resolve("specmatic.yaml").apply { writeText(yaml) }
+        val config = file.toSpecmaticConfig()
+        assertThat(config.getTestTimeoutInMilliseconds()).isEqualTo(10000)
+    }
+
+    @Test
+    fun `should be able to resolve env var syntax in config values use system property when set`(@TempDir tempDir: File) {
+        val yaml = """
+        version: 3
+        specmatic:
+          settings:
+            test:
+              timeoutInMilliseconds: ${'$'}{MySysProp:10000}
+        """.trimIndent()
+        val file = tempDir.resolve("specmatic.yaml").apply { writeText(yaml) }
+        val config = Flags.using("MySysProp" to "30000") { file.toSpecmaticConfig() }
+        assertThat(config.getTestTimeoutInMilliseconds()).isEqualTo(30000)
     }
 
     @Nested

@@ -59,7 +59,8 @@ sealed interface SpecificationDefinition {
             getBaseUrl: (File) -> String?
         ): SpecificationSourceEntry {
             val specFile = source.resolveSpecification(File(specification))
-            return source.toSpecificationSource(specFile, specification, getBaseUrl(specFile), resiliencyTestSuite, examples)
+            val baseUrl = getBaseUrl(specFile)?.let(::getUrlPathPrefix)
+            return source.toSpecificationSource(specFile, specification, baseUrl, resiliencyTestSuite, examples)
         }
 
         companion object {
@@ -76,7 +77,14 @@ sealed interface SpecificationDefinition {
     }
 
     @JsonIgnore
-    fun getUrlPathPrefix(): String? = (this as? ObjectValue)?.spec?.urlPathPrefix
+    fun getUrlPathPrefix(baseUrl: String): String {
+        val prefix = (this as? ObjectValue)?.spec?.urlPathPrefix?.trim('/')
+        return if (prefix.isNullOrEmpty()) {
+            baseUrl
+        } else {
+            "${baseUrl.removeSuffix("/")}/$prefix"
+        }
+    }
 
     @JsonIgnore
     fun getSpecificationId(): String? = (this as? ObjectValue)?.spec?.id

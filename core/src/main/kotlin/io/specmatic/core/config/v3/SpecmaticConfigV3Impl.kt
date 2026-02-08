@@ -55,7 +55,6 @@ import io.specmatic.core.config.Switch
 import io.specmatic.core.config.v3.components.runOptions.AsyncApiRunOptions
 import io.specmatic.core.config.v3.components.runOptions.GraphQLSdlRunOptions
 import io.specmatic.core.config.v3.components.services.CommonServiceConfig
-import io.specmatic.core.config.v3.components.runOptions.IRunOptionSpecification
 import io.specmatic.core.config.v3.components.runOptions.IRunOptions
 import io.specmatic.core.config.v3.components.runOptions.MockRunOptions
 import io.specmatic.core.config.v3.components.runOptions.OpenApiMockConfig
@@ -121,13 +120,6 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
     private fun getMockRunOptions(specFile: File, @Suppress("SameParameterValue") specType: SpecType): IRunOptions? {
         val service = getMockService(specFile) ?: return null
         return specmaticConfig.dependencies?.getRunOptions(service, resolver, specType)
-    }
-
-    private fun getMockRunOptionsSpecDefinition(specFile: File, specType: SpecType): IRunOptionSpecification? {
-        val service = getMockService(specFile) ?: return null
-        val specificationId = specmaticConfig.dependencies?.getSpecDefinitionFor(specFile, service, resolver)?.getSpecificationId() ?: return null
-        val runOptions = specmaticConfig.dependencies.getRunOptions(service, resolver, specType) ?: return null
-        return runOptions.getMatchingSpecification(specificationId)
     }
 
     private fun getMockSettingsFor(specFile: File): MockSettings {

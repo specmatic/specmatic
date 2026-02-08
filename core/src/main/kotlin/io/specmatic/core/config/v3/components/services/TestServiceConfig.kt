@@ -88,15 +88,6 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
         return service.data?.toExampleDirs(resolver).orEmpty()
     }
 
-    @JsonIgnore
-    fun getAllSpecifications(resolver: RefOrValueResolver): List<String> {
-        val service = service.resolveElseThrow(resolver)
-        return service.definitions.flatMap { defRef ->
-            val definition = defRef.definition
-            definition.specs.map { it.getSpecificationPath() }
-        }
-    }
-
     fun copyResiliencyTestsConfig(resolver: RefOrValueResolver, resiliencyTestSuite: ResiliencyTestSuite): TestServiceConfig {
         val service = this.service.resolveElseThrow(resolver)
         val settings = service.settings?.resolveElseThrow(resolver) ?: TestSettings()

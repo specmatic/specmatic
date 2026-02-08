@@ -77,7 +77,7 @@ private fun resolveTemplates(node: JsonNode): JsonNode {
 
 private fun resolveTemplateValue(value: String): JsonNode? {
     // First, handle the existing behaviour where the entire value is a single template.
-    parseTemplate(value)?.let { template ->
+    parseTemplate(value.removePrefix("$"))?.let { template ->
         val resolved = resolveTemplateValueFromEnvOrDefault(template)
         return parseResolvedTemplateValue(resolved)
     }
@@ -90,7 +90,7 @@ private fun resolveTemplateValue(value: String): JsonNode? {
 private data class TemplateDefinition(val keys: List<String>, val defaultValue: String)
 
 private fun parseTemplate(value: String): TemplateDefinition? {
-    if (!value.removePrefix("$").startsWith("{") || !value.endsWith("}")) return null
+    if (!value.startsWith("{") || !value.endsWith("}")) return null
     val separatorIndex = value.indexOf(':')
     if (separatorIndex <= 1) return null
 

@@ -10,8 +10,6 @@ private sealed interface HostPortIdentifier {
 }
 
 class CertRegistry private constructor(private val certificates: List<Pair<HostPortIdentifier, HttpsConfiguration>>) {
-    fun hasAny(): Boolean = certificates.isNotEmpty()
-
     fun toKeyDataRegistry(transform: (HttpsConfiguration) -> KeyData?): KeyDataRegistry {
         val groupedCerts = certificates.groupBy({ it.first }, { it.second })
         val conflicts = groupedCerts.filterValues { it.distinct().size > 1 }.map { (identifier, certs) -> "$identifier -> ${certs.size} certificates" }
