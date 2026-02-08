@@ -37,7 +37,7 @@ data class OpenApiTestConfig(
 
     init {
         require(type == null || type == RunOptionType.TEST) {
-            "Invalid type '$type' for OpenApiMockConfig, expected '${RunOptionType.TEST.value}'"
+            "Invalid type '$type' for OpenApiTestConfig, expected '${RunOptionType.TEST.value}'"
         }
     }
 }

@@ -88,6 +88,12 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
         return service.data?.toExampleDirs(resolver)
     }
 
+    @JsonIgnore
+    fun getDictionaryPath(resolver: RefOrValueResolver): String? {
+        val service = service.resolveElseThrow(resolver)
+        return service.data?.dictionary?.resolveElseThrow(resolver)?.path
+    }
+
     fun copyResiliencyTestsConfig(resolver: RefOrValueResolver, resiliencyTestSuite: ResiliencyTestSuite): TestServiceConfig {
         val service = this.service.resolveElseThrow(resolver)
         val settings = service.settings?.resolveElseThrow(resolver) ?: TestSettings()

@@ -1074,12 +1074,14 @@ fun loadIfSupportedAPISpecification(
         throw ContractException("Specified Overlay file does not exist ${it.canonicalPath}")
     }.orEmpty()
 
+    val specFile = File(contractPathData.path)
+    val stubDictionary = specmaticConfig.getStubDictionary(specFile = specFile)
     return try {
         Pair(
             contractPathData.path,
             parseContractFileToFeature(
                 contractPathData.path,
-                CommandHook(HookName.stub_load_contract, File(contractPathData.path)),
+                CommandHook(HookName.stub_load_contract, specFile),
                 contractPathData.provider,
                 contractPathData.repository,
                 contractPathData.branch,
@@ -1087,9 +1089,9 @@ fun loadIfSupportedAPISpecification(
                 overlayContent = overlayContent,
                 specmaticConfig = specmaticConfig,
                 strictMode = specmaticConfig.getStubStrictMode(null) ?: false,
-                lenientMode = contractPathData.lenientMode ?: specmaticConfig.getStubLenientMode(File(contractPathData.path)) ?: false,
+                lenientMode = contractPathData.lenientMode ?: specmaticConfig.getStubLenientMode(specFile) ?: false,
                 exampleDirPaths = contractPathData.exampleDirPaths.orEmpty()
-            ).copy(specmaticConfig = specmaticConfig),
+            ).copy(specmaticConfig = specmaticConfig).useDictionary(stubDictionary),
         )
     } catch (e: Throwable) {
         logger.log(exceptionCauseMessage(e))

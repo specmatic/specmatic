@@ -591,6 +591,7 @@ open class SpecmaticJUnitSupport {
                 ResiliencyTestSuite.none, null -> specmaticConfig
             }
 
+        val testDictionary = specmaticConfig.getTestDictionary()
         val feature =
             parseContractFileToFeature(
                 contractFile.path,
@@ -605,7 +606,7 @@ open class SpecmaticJUnitSupport {
                 strictMode = strictMode,
                 lenientMode = specmaticConfig.getTestLenientMode() ?: false,
                 exampleDirPaths = exampleDirPaths
-            ).copy(testVariables = config.variables, testBaseURLs = config.baseURLs)
+            ).copy(testVariables = config.variables, testBaseURLs = config.baseURLs).useDictionary(testDictionary)
 
         val suggestions = when {
             suggestionsPath.isNotEmpty() -> suggestionsFromFile(suggestionsPath)

@@ -9,7 +9,6 @@ import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.SpecmaticGlobalSettings
 import io.specmatic.core.config.SpecmaticSpecConfig
 import io.specmatic.core.config.Switch
-import io.specmatic.core.config.v3.components.runOptions.IRunOptions
 import io.specmatic.core.utilities.ContractSource
 import io.specmatic.core.utilities.ContractSourceEntry
 import io.specmatic.core.value.JSONObjectValue
@@ -239,7 +238,13 @@ interface SpecmaticConfig {
     fun getStubDelayInMilliseconds(specFile: File?): Long?
 
     @JsonIgnore
-    fun getStubDictionary(specFile: File): String?
+    fun getStubDictionary(specFile: File?): String?
+
+    @JsonIgnore
+    fun getTestDictionary(): String?
+
+    @JsonIgnore
+    fun getDictionary(): String?
 
     @JsonIgnore
     fun getStubStrictMode(specFile: File?): Boolean?

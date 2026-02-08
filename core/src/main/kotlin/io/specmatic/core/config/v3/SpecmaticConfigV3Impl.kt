@@ -128,6 +128,15 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
         return specmaticConfig.dependencies?.getSettings(service,globalMockSettings, resolver) ?: globalMockSettings
     }
 
+    override fun getDictionary(): String? {
+        return getStringValue(SPECMATIC_STUB_DICTIONARY)
+    }
+
+    override fun getTestDictionary(): String? {
+        val fromSysProp = getStringValue(SPECMATIC_STUB_DICTIONARY)
+        return specmaticConfig.systemUnderTest?.getDictionaryPath(resolver) ?: fromSysProp
+    }
+
     private fun getMockSettings(): MockSettings {
         val globalMockSettings = specmaticSettings.mock ?: MockSettings()
         val mockSettings = specmaticConfig.dependencies?.settings?.resolveElseThrow(resolver)  ?: MockSettings()
@@ -448,11 +457,11 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
         return mockSettings.delayInMilliseconds ?: getLongValue(SPECMATIC_STUB_DELAY)
     }
 
-    override fun getStubDictionary(specFile: File): String? {
+    override fun getStubDictionary(specFile: File?): String? {
+        val mockData = if (specFile == null) { specmaticConfig.dependencies?.data } else { getMockService(specFile)?.data }
         val fromSysProp = getStringValue(SPECMATIC_STUB_DICTIONARY)
-        val fromMockService = getMockService(specFile)?.data?.dictionary?.resolveElseThrow(resolver)?.path
-        val fromDependencies = specmaticConfig.dependencies?.data?.dictionary?.resolveElseThrow(resolver)?.path
-        return fromMockService ?: fromDependencies ?: fromSysProp
+        val fromConfig = mockData?.dictionary?.resolveElseThrow(resolver)?.path
+        return fromConfig ?: fromSysProp
     }
 
     override fun getStubStrictMode(specFile: File?): Boolean? {

@@ -500,10 +500,12 @@ components:
             every { isResponseValueValidationEnabled() } returns true
             every { getIgnoreInlineExamples() } returns false
             every { getIgnoreInlineExampleWarnings() } returns false
-            every { getStubDictionary(File(openApiFile)) } returns null
+            every { getDictionary() } returns null
+            every { getStubDictionary(any()) } returns null
             every { getExtensibleQueryParams() } returns false
             every { getEscapeSoapAction() } returns false
         }
+
         val openApiSpecification = OpenApiSpecification(
             openApiFilePath = openApiFile,
             parsedOpenApi = OpenApiSpecification.getParsedOpenApi(openApiFile),

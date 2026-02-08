@@ -196,6 +196,12 @@ data class Feature(
             )
         }
 
+    fun useDictionary(dictionaryFilePath: String?): Feature {
+        if (dictionaryFilePath == null) return this
+        val dictionary = OpenApiSpecification.loadDictionary(this.path, dictionaryFilePath, this.strictMode)
+        return this.copy(scenarios = this.scenarios.map { scenario -> scenario.copy(dictionary = dictionary) })
+    }
+
     fun enableGenerativeTesting(onlyPositive: Boolean = false): Feature {
         return this.copy(
             flagsBased = this.flagsBased.copy(

@@ -93,7 +93,7 @@ class OpenApiSpecification(
     private val specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
     private val strictMode: Boolean = false,
     private val lenientMode: Boolean = false,
-    private val dictionary: Dictionary = loadDictionary(openApiFilePath, specmaticConfig.getStubDictionary(File(openApiFilePath)), strictMode),
+    private val dictionary: Dictionary = loadDictionary(openApiFilePath, specmaticConfig.getDictionary(), strictMode),
     private val logger: LogStrategy = io.specmatic.core.log.logger,
     private val parseCollectorContext: CollectorContext = CollectorContext(),
     private val exampleDirPaths: List<String> = emptyList()

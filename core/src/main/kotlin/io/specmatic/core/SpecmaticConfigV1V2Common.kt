@@ -908,7 +908,16 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
-    override fun getStubDictionary(specFile: File): String? {
+    override fun getStubDictionary(specFile: File?): String? {
+        return getStubConfiguration(this).getDictionary()
+    }
+
+    @JsonIgnore
+    override fun getTestDictionary(): String? {
+        return getStubConfiguration(this).getDictionary()
+    }
+
+    override fun getDictionary(): String? {
         return getStubConfiguration(this).getDictionary()
     }
 
