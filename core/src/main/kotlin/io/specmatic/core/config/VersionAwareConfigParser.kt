@@ -9,7 +9,6 @@ import io.specmatic.core.config.v1.SpecmaticConfigV1
 import io.specmatic.core.config.v2.SpecmaticConfigV2
 import io.specmatic.core.config.v3.SpecmaticConfigV3
 import io.specmatic.core.pattern.ContractException
-import io.zenwave360.jsonrefparser.`$RefParser`
 import java.io.File
 
 private const val SPECMATIC_CONFIG_VERSION = "version"
@@ -28,14 +27,7 @@ fun File.toSpecmaticConfig(): SpecmaticConfig {
         }
 
         SpecmaticConfigVersion.VERSION_3 -> {
-            val resolvedValue = runCatching {
-                `$RefParser`(this).parse().dereference().getRefs().schema()
-            }.getOrElse { e ->
-                throw ContractException("Failed to resolve references in Specmatic Config", exceptionCause = e)
-            }
-
-            val resolvedConfigTree = resolveTemplates(objectMapper.convertValue(resolvedValue, JsonNode::class.java))
-            objectMapper.treeToValue(resolvedConfigTree, SpecmaticConfigV3::class.java).transform(this)
+            objectMapper.treeToValue(configTree, SpecmaticConfigV3::class.java).transform(this)
         }
 
         else -> {
