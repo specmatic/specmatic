@@ -92,9 +92,9 @@ sealed interface SpecificationDefinition {
 
     fun matchesFile(source: SourceV3, file: File): Boolean {
         val resolvedSpecFile = source.resolveSpecification(File(getSpecificationPath()))
-        val resolvedSpecPath = resolvedSpecFile.toPath().normalize()
+        val specPath = File(getSpecificationPath()).toPath().normalize()
         if (file.isAbsolute && resolvedSpecFile.isAbsolute) return resolvedSpecFile.sameAs(file)
-        if (!file.isAbsolute) return file.toPath().normalize().endsWith(resolvedSpecPath)
+        if (!file.isAbsolute) return file.toPath().normalize().endsWith(specPath)
         return false
     }
 

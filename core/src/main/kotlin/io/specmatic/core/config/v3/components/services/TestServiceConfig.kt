@@ -70,16 +70,16 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
     @JsonIgnore
     fun getSpecificationSources(resolver: RefOrValueResolver, testSettings: TestSettings?): Map<SourceV3, List<SpecificationSourceEntry>> {
         val service = service.resolveElseThrow(resolver)
-        return service.definitions.map { it.definition }.associate { definition ->
+        return service.definitions.map { it.definition }.flatMap { definition ->
             val examples = getExampleDirs(resolver)
             val resilientSuite = testSettings?.resiliencyTests
             val source = definition.source.resolveElseThrow(resolver)
-            source to definition.specs.map {
+            definition.specs.map {
                 it.toSpecificationSource(source, resilientSuite, examples) { specId, file ->
                     getFirstBaseUrlFromRunOpts(specId, file, resolver)
                 }
-            }
-        }
+            }.map { spec -> source to spec }
+        }.groupBy(keySelector = { it.first }, valueTransform = { it.second })
     }
 
     @JsonIgnore
@@ -157,7 +157,7 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
         }
 
         return specTypesToCheck.firstNotNullOfOrNull {
-            val runOptions = getRunOptions(resolver, it) ?: return null
+            val runOptions = getRunOptions(resolver, it) ?: return@firstNotNullOfOrNull null
             val runOptionSpecOverride = specId?.let(runOptions::getMatchingSpecification)
             runOptionSpecOverride?.getBaseUrl() ?: runOptions.getBaseUrlIfExists()
         }

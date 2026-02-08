@@ -77,7 +77,7 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
                 val definition = defRef.definition
                 val source = definition.source.resolveElseThrow(resolver)
                 val serviceExamples = service?.data?.toExampleDirs(resolver)
-                val examples = mergeExamples(dependencyExamples, dependencyExamples)
+                val examples = mergeExamples(dependencyExamples, serviceExamples)
                 definition.specs.map {
                     it.toSpecificationSource(source, null, examples) { specId, file ->
                         getFirstBaseUrlFromRunOpts(specId, file , service, resolver)
@@ -122,7 +122,7 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
         }
 
         return specTypesToCheck.firstNotNullOfOrNull {
-            val runOptions = getRunOptions(service, resolver, it) ?: return null
+            val runOptions = getRunOptions(service, resolver, it) ?: return@firstNotNullOfOrNull null
             val runOptionSpecOverride = specId?.let(runOptions::getMatchingSpecification)
             runOptionSpecOverride?.getBaseUrl() ?: runOptions.getBaseUrlIfExists()
         }
