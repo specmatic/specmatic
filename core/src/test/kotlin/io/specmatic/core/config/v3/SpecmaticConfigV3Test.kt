@@ -2,7 +2,6 @@ package io.specmatic.core.config.v3
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.convertValue
-import com.fasterxml.jackson.module.kotlin.readValue
 import io.specmatic.core.config.toSpecmaticConfig
 import io.specmatic.core.loadSpecmaticConfig
 import io.specmatic.core.utilities.exceptionCauseMessage
@@ -248,6 +247,113 @@ class SpecmaticConfigV3Test {
 
             val exception = assertThrows<Throwable> { loadConfig(yaml) }
             assertThat(exceptionCauseMessage(exception)).contains("Authentication methods are mutually exclusive")
+        }
+    }
+
+    @Nested
+    inner class ContextDependent {
+        @Test
+        fun `should not need to specify type on runOptions under systemUnderTest`() {
+            val yaml = """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                - definition:
+                    source:
+                      filesystem: {}
+                    specs:
+                    - wsdl/soap.wsdl
+                runOptions:
+                  wsdl:
+                    baseUrl: http://localhost:8095
+            """.trimIndent()
+            assertDoesNotThrow { loadConfig(yaml)  }
+        }
+
+        @Test
+        fun `should not need to specify test under systemUnderTest settings`() {
+            val yaml = """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                - definition:
+                    source:
+                      filesystem: {}
+                    specs:
+                    - wsdl/soap.wsdl
+                runOptions:
+                  wsdl:
+                    baseUrl: http://localhost:8095
+                settings:
+                  resiliencyTests: none
+            """.trimIndent()
+            assertDoesNotThrow { loadConfig(yaml)  }
+        }
+
+        @Test
+        fun `should not need to specify type on runOptions under dependencies`() {
+            val yaml = """
+            version: 3
+            dependencies:
+              services:
+              - service:
+                  definitions:
+                  - definition:
+                      source:
+                        filesystem: {}
+                      specs:
+                      - wsdl/soap.wsdl
+                  runOptions:
+                    wsdl:
+                      baseUrl: http://localhost:8095
+            """.trimIndent()
+            assertDoesNotThrow { loadConfig(yaml)  }
+        }
+
+        @Test
+        fun `should not need to specify mock under dependencies settings`() {
+            val yaml = """
+            version: 3
+            dependencies:
+              services:
+              - service:
+                  definitions:
+                  - definition:
+                      source:
+                        filesystem: {}
+                      specs:
+                      - wsdl/soap.wsdl
+                  runOptions:
+                    wsdl:
+                      baseUrl: http://localhost:8095
+              settings:
+                delayInMilliseconds: 100
+            """.trimIndent()
+            assertDoesNotThrow { loadConfig(yaml)  }
+        }
+
+        @Test
+        fun `should not need to specify mock under dependencies dependency settings`() {
+            val yaml = """
+            version: 3
+            dependencies:
+              services:
+              - service:
+                  definitions:
+                  - definition:
+                      source:
+                        filesystem: {}
+                      specs:
+                      - wsdl/soap.wsdl
+                  runOptions:
+                    wsdl:
+                      baseUrl: http://localhost:8095
+                  settings:
+                    delayInMilliseconds: 100
+            """.trimIndent()
+            assertDoesNotThrow { loadConfig(yaml)  }
         }
     }
 }
