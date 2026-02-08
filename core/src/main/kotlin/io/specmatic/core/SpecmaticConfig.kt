@@ -44,7 +44,7 @@ data class SpecificationSourceEntry(
     val exampleDirs: List<String>?,
 ) {
     fun toContractSourceEntry(): ContractSourceEntry {
-        return ContractSourceEntry(specPathInConfig, baseUrl, resiliencyTestSuite, exampleDirs)
+        return ContractSourceEntry(specFile.canonicalPath, baseUrl, resiliencyTestSuite, exampleDirs)
     }
 
     constructor(source: Source, specFile: File, specPathInConfig: String, baseUrl: String?, port: Int?, resiliencyTestSuite: ResiliencyTestSuite?) : this(
