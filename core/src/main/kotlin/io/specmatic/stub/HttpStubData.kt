@@ -45,19 +45,21 @@ data class HttpStubData(
     val requestType: HttpRequestPattern,
     val response: HttpResponse,
     val resolver: Resolver,
-    val delayInMilliseconds: Long? = null,
     val responsePattern: HttpResponsePattern,
     val contractPath: String = "",
-    val examplePath: String? = null,
-    val stubToken: String? = null,
-    val requestBodyRegex: Regex? = null,
     val feature: Feature? = null,
     val scenario: Scenario? = null,
     private val originalRequest: HttpRequest? = null,
-    val data: JSONObjectValue = JSONObjectValue(),
-    val partial: ScenarioStub? = null,
-    val name: String? = null,
+    val scenarioStub: ScenarioStub? = null
 ) {
+    val name = scenarioStub?.name
+    val partial = scenarioStub?.partial
+    val data = scenarioStub?.data ?: JSONObjectValue()
+    val examplePath = scenarioStub?.filePath
+    val stubToken = scenarioStub?.stubToken
+    val requestBodyRegex = scenarioStub?.requestBodyRegex
+    val delayInMilliseconds = scenarioStub?.delayInMilliseconds
+
     private val matcher: CompositeMatcher? by lazy { buildMatcherFromRequest() }
     private val sharedState: Transactional<ObjectValueOperator> = Transactional(ObjectValueOperator())
     private val defaultMismatchMessages: MismatchMessages = ExampleAndRequestMismatchMessages(name)

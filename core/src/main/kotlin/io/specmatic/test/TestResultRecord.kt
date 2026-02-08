@@ -47,7 +47,8 @@ data class TestResultRecord(
             responseCode = responseStatus,
             protocol = SpecmaticProtocol.HTTP
         )
-    )
+    ),
+    val exampleId: String? = null
 ): CtrfTestResultRecord {
     val isExercised = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
     val isCovered = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)

@@ -605,7 +605,11 @@ Scenario: Square of a number
             stubResponse,
             Resolver(),
             responsePattern = HttpResponsePattern(),
-            name = "TestExample"
+            scenarioStub = ScenarioStub(
+                data = JSONObjectValue(
+                    mapOf("name" to StringValue("TestExample"))
+                )
+            )
         )
 
         val request = HttpRequest(method = "GET", path = "/count")
