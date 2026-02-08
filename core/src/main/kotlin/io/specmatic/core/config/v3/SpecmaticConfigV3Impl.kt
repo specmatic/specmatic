@@ -385,8 +385,8 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
     }
 
     override fun getTestFilter(): String? {
-        val runOpts = specmaticConfig.systemUnderTest?.getRunOptions(resolver, SpecType.OPENAPI) as? OpenApiTestConfig ?: return null
-        return runOpts.filter ?: readEnvVarOrProperty(TEST_FILTER_ENV_VAR, TEST_FILTER_PROPERTY)
+        val runOpts = specmaticConfig.systemUnderTest?.getRunOptions(resolver, SpecType.OPENAPI) as? OpenApiTestConfig
+        return runOpts?.filter ?: readEnvVarOrProperty(TEST_FILTER_ENV_VAR, TEST_FILTER_PROPERTY)
     }
 
     override fun getTestFilterName(): String? {
@@ -398,16 +398,18 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
     }
 
     override fun getTestOverlayFilePath(specFile: File, specType: SpecType): String? {
-        val specId = specmaticConfig.systemUnderTest?.getSpecDefinitionFor(specFile, resolver)?.getSpecificationId() ?: return null
-        val runOpts = specmaticConfig.systemUnderTest.getRunOptions(resolver, specType) ?: return null
-        return runOpts.getMatchingSpecification(specId)?.getOverlayFilePath() ?: readEnvVarOrProperty(TEST_OVERLAY_FILE_PATH_ENV_VAR, TEST_OVERLAY_FILE_PATH_PROPERTY)
+        val fromEnvOrProperty = readEnvVarOrProperty(TEST_OVERLAY_FILE_PATH_ENV_VAR, TEST_OVERLAY_FILE_PATH_PROPERTY)
+        val specId = specmaticConfig.systemUnderTest?.getSpecDefinitionFor(specFile, resolver)?.getSpecificationId() ?: return fromEnvOrProperty
+        val runOpts = specmaticConfig.systemUnderTest.getRunOptions(resolver, specType) ?: return fromEnvOrProperty
+        return runOpts.getMatchingSpecification(specId)?.getOverlayFilePath() ?: fromEnvOrProperty
     }
 
     override fun getStubOverlayFilePath(specFile: File, specType: SpecType): String? {
-        val service = specmaticConfig.dependencies?.getService(specFile, resolver) ?: return null
-        val specId = specmaticConfig.dependencies.getSpecDefinitionFor(specFile, service, resolver)?.getSpecificationId() ?: return null
-        val runOpts = specmaticConfig.dependencies.getRunOptions(service, resolver, specType) ?: return null
-        return runOpts.getMatchingSpecification(specId)?.getOverlayFilePath() ?: readEnvVarOrProperty(TEST_OVERLAY_FILE_PATH_ENV_VAR, TEST_OVERLAY_FILE_PATH_PROPERTY)
+        val fromEnvOrProperty = readEnvVarOrProperty(TEST_OVERLAY_FILE_PATH_ENV_VAR, TEST_OVERLAY_FILE_PATH_PROPERTY)
+        val service = specmaticConfig.dependencies?.getService(specFile, resolver) ?: return fromEnvOrProperty
+        val specId = specmaticConfig.dependencies.getSpecDefinitionFor(specFile, service, resolver)?.getSpecificationId() ?: return fromEnvOrProperty
+        val runOpts = specmaticConfig.dependencies.getRunOptions(service, resolver, specType) ?: return fromEnvOrProperty
+        return runOpts.getMatchingSpecification(specId)?.getOverlayFilePath() ?: fromEnvOrProperty
     }
 
     override fun getTestBaseUrl(specType: SpecType): String? {
@@ -761,7 +763,8 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
     }
 
     override fun stubSpecPathFromConfigFor(absoluteSpecPath: String): String? {
-        val specDefinition = specmaticConfig.systemUnderTest?.getSpecDefinitionFor(File(absoluteSpecPath), resolver)
+        val service = specmaticConfig.dependencies?.getService(File(absoluteSpecPath), resolver) ?: return null
+        val specDefinition = specmaticConfig.dependencies.getSpecDefinitionFor(File(absoluteSpecPath), service, resolver)
         return specDefinition?.getSpecificationPath()
     }
 
