@@ -10,4 +10,9 @@ class RawRunOptionSpecification(private val config: Map<String, Any>): IRunOptio
 
 class SpecmaticSpecConfig(val baseUrl: String? = null, val spec: IRunOptionSpecification? = null, val config: Map<String, Any> = emptyMap()) {
     constructor(raw: Map<String, Any>): this(spec = RawRunOptionSpecification(raw))
+
+    fun resolvedConfig(): Map<String, Any> {
+        return if(spec?.getConfig().isNullOrEmpty()) config
+        else spec?.getConfig().orEmpty()
+    }
 }
