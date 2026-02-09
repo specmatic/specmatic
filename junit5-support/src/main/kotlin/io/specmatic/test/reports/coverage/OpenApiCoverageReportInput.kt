@@ -38,6 +38,8 @@ class OpenApiCoverageReportInput(
 ) {
     fun endpoints() = allEndpoints.toList()
 
+    fun onProcessingComplete() = coverageHooks.onEachListener { onEnd() }
+
     fun totalDuration(): Long {
         return httpInteractionsLog.totalDuration()
     }

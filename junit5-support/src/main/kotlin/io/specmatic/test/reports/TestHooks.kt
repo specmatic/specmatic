@@ -30,6 +30,7 @@ interface TestReportListener {
     fun onEndpointApis(apis: List<Endpoint>)
     fun onTestResult(result: TestExecutionResult)
     fun onTestsComplete()
+    fun onEnd()
     fun onCoverageCalculated(coverage: Int)
     fun onPathCoverageCalculated(path: String, pathCoverage: Int)
 }
