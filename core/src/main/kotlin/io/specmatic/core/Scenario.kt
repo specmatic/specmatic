@@ -141,6 +141,12 @@ data class Scenario(
             return httpResponsePattern.headersPattern.contentType
         }
 
+    val soapActionUnescaped: String?
+        get() {
+            val pattern = httpRequestPattern.headersPattern.getSOAPActionPattern() ?: return null
+            return pattern.generate(resolver).toStringLiteral().removeSurrounding("\"").removePrefix("/")
+        }
+
     private fun serverStateMatches(actualState: Map<String, Value>, resolver: Resolver) =
         expectedFacts.keys == actualState.keys &&
                 mapZip(expectedFacts, actualState).all { (key, expectedStateValue, actualStateValue) ->

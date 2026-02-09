@@ -387,6 +387,7 @@ data class Endpoint(
     val path: String,
     val method: String,
     val responseStatus: Int,
+    val soapAction: String? = null,
     val sourceProvider: String? = null,
     val sourceRepository: String? = null,
     val sourceRepositoryBranch: String? = null,

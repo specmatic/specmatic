@@ -446,6 +446,39 @@ paths:
         }
     }
 
+    @Test
+    fun `should load soapAction from scenarios into Endpoints if specification is WSDL`() {
+        val specFile = File("src/test/resources/simple.wsdl")
+        val specmaticJUnitSupport = SpecmaticJUnitSupport()
+        val loadedScenarios = specmaticJUnitSupport.loadTestScenarios(
+            path = specFile.canonicalPath, suggestionsPath = "", suggestionsData = "",
+            config = TestConfig(emptyMap(), emptyMap()), filterName = null, filterNotName = null,
+            filter = ScenarioMetadataFilter.from("")
+        )
+
+        // asserting SpecType as OPENAPI because of the comment at io.specmatic.core.FeatureKt.getSpecType
+        assertThat(loadedScenarios.allEndpoints).containsExactlyInAnyOrder(
+            Endpoint(
+                path = "/ws",
+                method = "POST",
+                responseStatus = 200,
+                soapAction = "getInventory",
+                specification = specFile.canonicalPath,
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI
+            ),
+            Endpoint(
+                path = "/ws",
+                method = "POST",
+                responseStatus = 200,
+                soapAction = "addInventory",
+                specification = specFile.canonicalPath,
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI
+            )
+        )
+    }
+
     @AfterEach
     fun tearDown() {
         System.getProperties().keys.minus(initialPropertyKeys).forEach { println("Clearing $it"); System.clearProperty(it.toString()) }
