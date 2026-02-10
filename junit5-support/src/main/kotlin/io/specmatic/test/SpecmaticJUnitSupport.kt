@@ -180,35 +180,22 @@ open class SpecmaticJUnitSupport {
 
     private fun getConfigFileWithAbsolutePath() = File(settings.configFile.orEmpty()).canonicalPath
 
-    @AfterAll
-    fun report() {
-        settings.coverageHooks.forEach { it.onTestsComplete() }
-        val reportProcessors =
-            listOf(OpenApiCoverageReportProcessor(openApiCoverageReportInput, settings.reportBaseDirectory ?: "."))
-        val reportConfiguration = getReportConfiguration()
-        val config = specmaticConfig.updateReportConfiguration(reportConfiguration)
-
-        reportProcessors.forEach { it.process(config) }
-
+    fun generateCtrfReport() {
         val report = openApiCoverageReportInput.generateCoverageReport(emptyList())
         val start = startTime?.toEpochMilli() ?: 0L
         val end = startTime?.let { Instant.now().toEpochMilli() } ?: 0L
-
-        val specConfigs = openApiCoverageReportInput.endpoints()
-            .groupBy {
-                it.specification.orEmpty()
-            }.flatMap { (_, groupedEndpoints) ->
-                groupedEndpoints.map {
-                    CtrfSpecConfig(
-                        protocol = it.protocol.key,
-                        specType = it.specType.value,
-                        specification = it.specification.orEmpty(),
-                        sourceProvider = it.sourceProvider,
-                        repository = it.sourceRepository,
-                        branch = it.sourceRepositoryBranch ?: "main"
-                    )
-                }
+        val specConfigs = openApiCoverageReportInput.endpoints().groupBy { it.specification.orEmpty() }.flatMap { (_, groupedEndpoints) ->
+            groupedEndpoints.map {
+                CtrfSpecConfig(
+                    protocol = it.protocol.key,
+                    specType = it.specType.value,
+                    specification = it.specification.orEmpty(),
+                    sourceProvider = it.sourceProvider,
+                    repository = it.sourceRepository,
+                    branch = it.sourceRepositoryBranch ?: "main"
+                )
             }
+        }
 
         val reportDirPath = specmaticConfig?.getReportDirPath() ?: defaultReportDirPath
         ReportGenerator.generateReport(
@@ -221,12 +208,25 @@ open class SpecmaticJUnitSupport {
         ) { ctrfTestResultRecords ->
             ctrfTestResultRecords.filterIsInstance<TestResultRecord>().getCoverageStatus()
         }
+    }
 
+    @AfterAll
+    fun report() {
+        settings.coverageHooks.forEach { it.onTestsComplete() }
+        val reportProcessors = listOf(OpenApiCoverageReportProcessor(openApiCoverageReportInput, settings.reportBaseDirectory ?: "."))
+        val reportConfiguration = getReportConfiguration()
+        val config = specmaticConfig.updateReportConfiguration(reportConfiguration)
 
-        threads.distinct().let {
-            if (it.size > 1) {
-                logger.newLine()
-                logger.log("Executed tests in ${it.size} threads")
+        try {
+            reportProcessors.forEach { it.process(config) }
+        } finally {
+            openApiCoverageReportInput.onProcessingComplete()
+            this.generateCtrfReport()
+            threads.distinct().let {
+                if (it.size > 1) {
+                    logger.newLine()
+                    logger.log("Executed tests in ${it.size} threads")
+                }
             }
         }
     }
@@ -619,6 +619,7 @@ open class SpecmaticJUnitSupport {
                 convertPathParameterStyle(scenario.path),
                 scenario.method,
                 scenario.httpResponsePattern.status,
+                scenario.soapActionUnescaped,
                 scenario.sourceProvider,
                 scenario.sourceRepository,
                 scenario.sourceRepositoryBranch,
@@ -648,6 +649,7 @@ open class SpecmaticJUnitSupport {
                 convertPathParameterStyle(scenario.path),
                 scenario.method,
                 scenario.httpResponsePattern.status,
+                scenario.soapActionUnescaped,
                 scenario.sourceProvider,
                 scenario.sourceRepository,
                 scenario.sourceRepositoryBranch,

@@ -38,6 +38,8 @@ class OpenApiCoverageReportInput(
 ) {
     fun endpoints() = allEndpoints.toList()
 
+    fun onProcessingComplete() = coverageHooks.onEachListener { onEnd() }
+
     fun totalDuration(): Long {
         return httpInteractionsLog.totalDuration()
     }
@@ -387,6 +389,7 @@ data class Endpoint(
     val path: String,
     val method: String,
     val responseStatus: Int,
+    val soapAction: String? = null,
     val sourceProvider: String? = null,
     val sourceRepository: String? = null,
     val sourceRepositoryBranch: String? = null,
