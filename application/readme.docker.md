@@ -13,11 +13,11 @@ docker run -v "$(pwd)/openapi.yaml:/openapi.yaml" specmatic/specmatic test "/ope
 ```
 Will use the OpenAPI file `openapi.yaml` to run contract tests against the service running at `http://localhost:8080`.
 
-#### 2. Running Specmatic Service Virtualization
+#### 2. Running Specmatic Service Mocking
 ```shell
-docker run -v "$(pwd)/openapi.yaml:/openapi.yaml" -p "9000:9000"  specmatic/specmatic virtualize "/openapi.yaml"
+docker run -v "$(pwd)/openapi.yaml:/openapi.yaml" -p "9000:9000"  specmatic/specmatic mock "/openapi.yaml"
 ```
-Will use the OpenAPI file `openapi.yaml` to start a stub server on http://localhost:9000 and will respond to API requests as per the examples in the OpenAPI file.
+Will use the OpenAPI file `openapi.yaml` to start a mock server on http://localhost:9000 and will respond to API requests as per the examples in the OpenAPI file.
 
 #### 3. Running Specmatic Backward Compatibility Tests
 ```shell

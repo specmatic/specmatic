@@ -165,7 +165,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         Runtime.getRuntime().addShutdownHook(object : Thread() {
             override fun run() {
                 try {
-                    println("Shutting down stub servers")
+                    println("Shutting down mock servers")
                     proxy?.close()
                 } catch (e: InterruptedException) {
                     currentThread().interrupt()

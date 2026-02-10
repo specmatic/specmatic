@@ -32,10 +32,10 @@ import picocli.CommandLine.Model.CommandSpec
 import java.io.File
 
 @Command(
-    name = "stub",
-    aliases = ["virtualize"],
+    name = "mock",
+    aliases = ["virtualize", "stub"],
     mixinStandardHelpOptions = true,
-    description = ["Start a stub server with contract"]
+    description = ["Start a mock server with contract"]
 )
 @Category("Specmatic core")
 class StubCommand(
@@ -53,13 +53,13 @@ class StubCommand(
     @Option(names = ["--data", "--examples"], description = ["Directories containing JSON examples"], required = false)
     var exampleDirs: List<String> = mutableListOf()
 
-    @Option(names = ["--host"], description = ["Host for the http stub"], defaultValue = DEFAULT_HTTP_STUB_HOST)
+    @Option(names = ["--host"], description = ["Host for the HTTP mock server"], defaultValue = DEFAULT_HTTP_STUB_HOST)
     var host: String = DEFAULT_HTTP_STUB_HOST
 
-    @Option(names = ["--port"], description = ["Port for the http stub"], defaultValue = DEFAULT_HTTP_STUB_PORT)
+    @Option(names = ["--port"], description = ["Port for the HTTP mock server"], defaultValue = DEFAULT_HTTP_STUB_PORT)
     var port: Int = 0
 
-    @Option(names = ["--strict"], description = ["Start HTTP stub in strict mode"], required = false)
+    @Option(names = ["--strict"], description = ["Start HTTP mock server in strict mode"], required = false)
     var strictMode: Boolean? = null
 
     @Option(names = ["--passThroughTargetBase"], description = ["All requests that did not match a url in any contract will be forwarded to this service"])
@@ -118,7 +118,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     @Option(names = ["--logPrefix"], description = ["Prefix of log file"])
     var logPrefix: String? = null
 
-    @Option(names = ["--delay-in-ms"], description = ["Stub response delay in milliseconds"])
+    @Option(names = ["--delay-in-ms"], description = ["Mock response delay in milliseconds"])
     var delayInMilliseconds: Long? = null
 
     @Spec
@@ -127,7 +127,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     @Option(names = ["--graceful-restart-timeout-in-ms"], description = ["Time to wait for the server to stop before starting it again"])
     var gracefulRestartTimeoutInMs: Long? = null
 
-    @Option(names = ["--hot-reload"], description = ["Restart the stub when the example files are updated (enabled by default)"])
+    @Option(names = ["--hot-reload"], description = ["Restart the mock server when the example files are updated (enabled by default)"])
     var hotReload: Switch? = null
 
     @Option(
@@ -287,13 +287,13 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         }
 
         if (filterAccumulator.isNotEmpty() && filteredStubData.isEmpty()) {
-            consoleLog(StringLog("FATAL: No stubs found for the given filters $filterAccumulator"))
+            consoleLog(StringLog("FATAL: No examples found for the given filters $filterAccumulator"))
             return
         }
 
         if (configuredHotReload() == Switch.disabled) {
             val warningMessage =
-                "WARNING: Hot reload has been disabled. Specmatic will not restart the stub server automatically when the specifications or examples change."
+                "WARNING: Hot reload has been disabled. Specmatic will not restart the mock server automatically when the specifications or examples change."
             logger.boundary()
             logger.log(warningMessage)
             logger.boundary()
@@ -328,7 +328,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             val port = extractPort(baseUrl)
             if (host.isBlank()) null else host to port
         } catch (e: Throwable) {
-            logger.log("Invalid stub baseUrl '$baseUrl' in config. Falling back to defaults.")
+            logger.log("Invalid mock server baseUrl '$baseUrl' in config. Falling back to defaults.")
             null
         }
     }
@@ -356,7 +356,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         Runtime.getRuntime().addShutdownHook(object : Thread() {
             override fun run() {
                 try {
-                    consoleLog(StringLog("Shutting down stub servers"))
+                    consoleLog(StringLog("Shutting down mock servers"))
                     httpStub?.close()
                 } catch (e: InterruptedException) {
                     currentThread().interrupt()
@@ -370,7 +370,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 
         if (verbose == true) {
             logger.boundary()
-            consoleLog(StringLog("Loaded stubs:"))
+            consoleLog(StringLog("Loaded examples:"))
             stubData.forEach { (feature, stubs) ->
                 val featureName = feature.specification ?: feature.path
                 stubs.forEach { stub ->
