@@ -254,6 +254,7 @@ data class HttpRequest(
 
     fun buildKTORRequest(httpRequestBuilder: HttpRequestBuilder) {
         httpRequestBuilder.method = HttpMethod.parse(method as String)
+        httpRequestBuilder.headers.remove(HttpHeaders.Host)
 
         val listOfExcludedHeaders: List<String> = listOfExcludedHeaders()
         headers.map { Triple(it.key.trim(), it.key.trim().lowercase(), it.value.trim()) }
@@ -695,14 +696,22 @@ fun formFieldsToGherkin(
     return Triple(formFieldClauses, newTypes, exampleDeclarations.plus(newExamples))
 }
 
-fun listOfExcludedHeaders(): List<String> = HttpHeaders.UnsafeHeadersList.plus(
-    arrayOf(
-        HttpHeaders.ContentLength,
-        HttpHeaders.ContentType,
-        HttpHeaders.TransferEncoding,
-        HttpHeaders.Upgrade
-    )
-).distinct().map { it.lowercase() }
+fun listOfExcludedHeaders(): List<String> =
+    HttpHeaders.UnsafeHeadersList.map { it.toString().lowercase() }.plus(
+        listOf(
+            "connection",
+            HttpHeaders.ContentLength.lowercase(),
+            HttpHeaders.ContentType.lowercase(),
+            HttpHeaders.Host.lowercase(),
+            "keep-alive",
+            "proxy-authenticate",
+            "proxy-authorization",
+            "te",
+            "trailer",
+            HttpHeaders.TransferEncoding.lowercase(),
+            HttpHeaders.Upgrade.lowercase()
+        )
+    ).distinct()
 
 fun escapeSpaceInPath(path: String): String {
     return path.split("/").joinToString("/") { segment ->

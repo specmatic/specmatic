@@ -53,6 +53,8 @@ dependencies {
     testImplementation("io.mockk:mockk-jvm:1.14.9")
     testImplementation("org.assertj:assertj-core:3.27.7")
     testImplementation("io.ktor:ktor-client-mock-jvm:2.3.13")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    testImplementation("com.squareup.okhttp3:okhttp-tls:4.12.0")
     implementation("org.thymeleaf:thymeleaf:3.1.3.RELEASE")
     implementation("org.junit.platform:junit-platform-launcher:1.14.2")
 }
