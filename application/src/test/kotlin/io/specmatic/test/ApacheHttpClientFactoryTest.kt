@@ -91,4 +91,22 @@ class ApacheHttpClientFactoryTest {
             assertThat(server.takeRequest().path).isEqualTo("/")
         }
     }
+
+    @Test
+    fun `HttpClient should add Host header from request URL authority for HTTP1_1 targets`() {
+        MockWebServer().use { server ->
+            server.protocols = listOf(Protocol.HTTP_1_1)
+            server.enqueue(MockResponse().setResponseCode(200).setBody("ok"))
+            server.start()
+
+            val baseUrl = server.url("/").toString().removeSuffix("/")
+            val response = HttpClient(baseUrl).use { client ->
+                client.execute(HttpRequest(method = "GET", path = "/"))
+            }
+
+            val recordedRequest = server.takeRequest()
+            assertThat(response.status).isEqualTo(200)
+            assertThat(recordedRequest.getHeader("Host")).isEqualTo("localhost:${server.port}")
+        }
+    }
 }
