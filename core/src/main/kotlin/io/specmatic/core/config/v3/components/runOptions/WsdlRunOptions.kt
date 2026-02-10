@@ -13,7 +13,7 @@ data class WsdlTestConfig(
     val baseUrl: String? = null,
     val host: String? = null,
     val port: Int? = null,
-    override val specs: List<RunOptionsSpecifications>? = null
+    override val specs: List<WsdlRunOptionsSpecifications>? = null
 ) : WsdlRunOptions {
     private val _config: MutableMap<String, Any> = linkedMapOf()
 
@@ -35,7 +35,7 @@ data class WsdlTestConfig(
     }
 
     @get:JsonAnyGetter
-    override val config: Map<String, Any> get() = _config
+    override val config: Map<String, Any> get() = _config.toMap()
 
     @JsonAnySetter
     fun put(key: String, value: Any) {
@@ -49,7 +49,7 @@ data class WsdlMockConfig(
     val host: String? = null,
     val port: Int? = null,
     override val cert: RefOrValue<HttpsConfiguration>? = null,
-    override val specs: List<RunOptionsSpecifications>? = null
+    override val specs: List<WsdlRunOptionsSpecifications>? = null
 ) : WsdlRunOptions, ConfigWithCert {
     private val _config: MutableMap<String, Any> = linkedMapOf()
 
@@ -72,7 +72,7 @@ data class WsdlMockConfig(
     }
 
     @get:JsonAnyGetter
-    override val config: Map<String, Any> get() = _config
+    override val config: Map<String, Any> get() = _config.toMap()
 
     @JsonAnySetter
     fun put(key: String, value: Any) {

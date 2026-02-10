@@ -31,7 +31,7 @@ data class GraphQLSdlTestConfig(override val specs: List<RunOptionsSpecification
     }
 
     @get:JsonAnyGetter
-    override val config: Map<String, Any> get() = _config
+    override val config: Map<String, Any> get() = _config.toMap()
 
     @JsonAnySetter
     fun put(key: String, value: Any) {
@@ -54,7 +54,7 @@ data class GraphQLSdlMockConfig(override val specs: List<RunOptionsSpecification
     }
 
     @get:JsonAnyGetter
-    override val config: Map<String, Any> get() = _config
+    override val config: Map<String, Any> get() = _config.toMap()
 
     @JsonAnySetter
     fun put(key: String, value: Any) {
