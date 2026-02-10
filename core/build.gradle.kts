@@ -20,7 +20,7 @@ dependencies {
     implementation("io.ktor:ktor-server-netty-jvm:2.3.13")
     implementation("io.ktor:ktor-server-core-jvm:2.3.13")
     implementation("io.ktor:ktor-client-core-jvm:2.3.13")
-    implementation("io.ktor:ktor-client-apache-jvm:2.3.13")
+    implementation("io.ktor:ktor-client-apache5-jvm:2.3.13")
     implementation("io.ktor:ktor-server-cors-jvm:2.3.13")
     implementation("io.ktor:ktor-server-double-receive-jvm:2.3.13")
     implementation("io.ktor:ktor-server-content-negotiation-jvm:2.3.13")
