@@ -21,7 +21,6 @@ import io.specmatic.core.config.SpecmaticVersionedConfigLoader
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
-import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
 import io.specmatic.core.utilities.Flags.Companion.getStringValue
 import java.io.File
 import java.nio.file.Path
@@ -45,7 +44,7 @@ data class SpecmaticConfigV2(
     val examples: List<String> = getStringValue(EXAMPLE_DIRECTORIES)?.split(",") ?: emptyList(),
     val workflow: WorkflowConfiguration? = null,
     val ignoreInlineExamples: Boolean? = null,
-    val ignoreInlineExampleWarnings: Boolean? = getBooleanValue(Flags.IGNORE_INLINE_EXAMPLE_WARNINGS),
+    val ignoreInlineExampleWarnings: Boolean? = Flags.getBooleanValueOrNull(Flags.IGNORE_INLINE_EXAMPLE_WARNINGS),
     val schemaExampleDefault: Boolean? = null,
     val fuzzy: Boolean? = null,
     val extensibleQueryParams: Boolean? = null,
@@ -132,19 +131,19 @@ data class SpecmaticConfigV2(
                 examples = config.getExamples(),
                 workflow = getWorkflowConfiguration(config),
                 ignoreInlineExamples = SpecmaticConfigV1V2Common.getIgnoreInlineExamples(config),
-                ignoreInlineExampleWarnings = config.getIgnoreInlineExampleWarnings(),
-                schemaExampleDefault = config.getSchemaExampleDefault(),
-                fuzzy = config.getFuzzyMatchingEnabled(),
-                extensibleQueryParams = config.getExtensibleQueryParams(),
-                escapeSoapAction = config.getEscapeSoapAction(),
-                prettyPrint = config.getPrettyPrint(),
+                ignoreInlineExampleWarnings = SpecmaticConfigV1V2Common.getIgnoreInlineExampleWarningsOrNull(config),
+                schemaExampleDefault = SpecmaticConfigV1V2Common.getSchemaExampleDefaultOrNull(config),
+                fuzzy = SpecmaticConfigV1V2Common.getFuzzyMatchingEnabledOrNull(config),
+                extensibleQueryParams = SpecmaticConfigV1V2Common.getExtensibleQueryParamsOrNull(config),
+                escapeSoapAction = SpecmaticConfigV1V2Common.getEscapeSoapActionOrNull(config),
+                prettyPrint = SpecmaticConfigV1V2Common.getPrettyPrintOrNull(config),
                 additionalExampleParamsFilePath = config.getAdditionalExampleParamsFilePath(),
                 attributeSelectionPattern = getAttributeSelectionConfigOrNull(config),
                 allPatternsMandatory = getAllPatternsMandatory(config),
                 defaultPatternValues = config.getDefaultPatternValues(),
-                disableTelemetry = config.isTelemetryDisabled(),
+                disableTelemetry = SpecmaticConfigV1V2Common.isTelemetryDisabledOrNull(config),
                 licensePath = config.getLicensePath(),
-                reportDirPath = config.getReportDirPath(),
+                reportDirPath = SpecmaticConfigV1V2Common.getReportDirPathOrNull(config),
             )
         }
     }
