@@ -64,7 +64,8 @@ data class API(
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 open class SpecmaticJUnitSupport {
     private var startTime: Instant? = null
-    private val settings = ContractTestSettings(settingsStaging)
+    private var settings = ContractTestSettings(settingsStaging)
+
     private val specmaticConfig: SpecmaticConfig = settings.getSpecmaticConfig()
     private val httpInteractionsLog: HttpInteractionsLog = HttpInteractionsLog()
     private val testFilter = ScenarioMetadataFilter.from(specmaticConfig.getTestFilter().orEmpty())
@@ -260,6 +261,8 @@ open class SpecmaticJUnitSupport {
     fun contractTest(): Stream<DynamicTest> {
         LicenseResolver.setCurrentExecutorIfNotSet(Executor.PROGRAMMATIC)
 
+        settings = ContractTestSettings(settings, specmaticConfig)
+
         LicenseConfig.instance.utilization.shipDisabled = specmaticConfig.isTelemetryDisabled()
         partialSuccesses.clear()
 
@@ -287,7 +290,7 @@ open class SpecmaticJUnitSupport {
                     // Default base URL is mandatory for this mode
                     val defaultBaseURL = constructTestBaseURL()
 
-                    val testScenariosAndEndpointsPairList = settings.contractPaths.split(",").filter {
+                    val testScenariosAndEndpointsPairList = settings.contractPaths.orEmpty().split(",").filter {
                         File(it).extension in CONTRACT_EXTENSIONS
                     }.map {
                         val overlayFilePath: String? = settings.overlayFilePath?.canonicalPath ?: specmaticConfig.getTestOverlayFilePath(File(it), SpecType.OPENAPI)
@@ -449,7 +452,10 @@ open class SpecmaticJUnitSupport {
         testScenarios: Sequence<Pair<ContractTest, String>>,
         actuatorBaseURL: String,
         timeoutInMilliseconds: Long,
-    ): Stream<DynamicTest> {
+    ): Stream<DynamicTest>
+    {
+        val settings = settings
+
         try {
             if (queryActuator().failed && actuatorFromSwagger(actuatorBaseURL).failed) {
                 openApiCoverageReportInput.setEndpointsAPIFlag(false)
@@ -526,6 +532,8 @@ open class SpecmaticJUnitSupport {
     }
 
     fun constructTestBaseURL(): String {
+        val settings = settings
+
         if (settings.testBaseURL != null) {
             when (val validationResult = validateTestOrStubUri(settings.testBaseURL)) {
                 URIValidationResult.Success -> return settings.testBaseURL
