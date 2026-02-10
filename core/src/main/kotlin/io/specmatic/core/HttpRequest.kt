@@ -262,10 +262,6 @@ data class HttpRequest(
                 httpRequestBuilder.header(key, value)
             }
 
-        httpRequestBuilder.url.let {
-            httpRequestBuilder.headers.set(name = "Host", value = it.authority)
-        }
-
         if(body !is NoBodyValue) {
             httpRequestBuilder.setBody(
                 when {
