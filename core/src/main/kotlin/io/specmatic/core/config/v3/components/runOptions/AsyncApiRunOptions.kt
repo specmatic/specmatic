@@ -9,9 +9,8 @@ sealed interface AsyncApiRunOptions : IRunOptions {
 
     @JsonIgnore
     override fun getBaseUrlIfExists(): String? {
-        val servers = config["servers"] as? List<*> ?: return null
-        val server = servers.firstOrNull() as? Map<*, *> ?: return null
-        return extractBaseUrlFromMap(server)
+        val brokerConfig = config["inMemoryBroker"] as? Map<*, *> ?: return null
+        return extractBaseUrlFromMap(brokerConfig)
     }
 }
 

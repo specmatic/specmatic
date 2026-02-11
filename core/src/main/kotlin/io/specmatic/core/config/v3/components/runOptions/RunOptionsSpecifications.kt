@@ -11,6 +11,13 @@ interface IRunOptionSpecification {
     fun getBaseUrl(): String?
     fun getConfig(): Map<String, Any>
     fun getOverlayFilePath(): String?
+
+    fun extractBaseUrlFromMap(map: Map<*, *>?): String? {
+        if (map.isNullOrEmpty()) return null
+        val host = map["host"]?.toString() ?: "0.0.0.0"
+        val port = map["port"]?.toString()?.toIntOrNull() ?: return null
+        return "$host:$port"
+    }
 }
 
 data class RunOptionsSpecifications(val spec: Value) : IRunOptionSpecification {
@@ -26,7 +33,7 @@ data class RunOptionsSpecifications(val spec: Value) : IRunOptionSpecification {
 
     @JsonIgnore
     override fun getBaseUrl(): String? {
-        if (spec.port == null) return null
+        if (spec.port == null) return extractBaseUrlFromMap(spec.config["inMemoryBroker"] as? Map<*, *>)
         return "${spec.host ?: "0.0.0.0"}:${spec.port}"
     }
 
