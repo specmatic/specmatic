@@ -61,19 +61,12 @@ class MockServiceConfigTest {
     }
 
     @Test
-    fun `getSpecificationSources should use asyncapi base url when openapi run options are absent`(@TempDir tempDir: File) {
-        val specFile = tempDir.resolve("contract.txt").apply { writeText("not an openapi spec") }
+    fun `getSpecificationSources should use asyncapi inMemoryBroker for async runOptions`(@TempDir tempDir: File) {
+        val specFile = tempDir.resolve("contract.yaml").apply { writeText("asycnapi: 3.0.0") }
         val source = SourceV3.create(filesystem = SourceV3.FileSystem(directory = tempDir.canonicalPath))
 
         val asyncApiMockConfig = AsyncApiMockConfig().apply {
-            put(
-                "servers", listOf(
-                    mapOf(
-                        "host" to "localhost",
-                        "port" to 8081
-                    )
-                )
-            )
+            put("inMemoryBroker", mapOf("host" to "localhost", "port" to 8081))
         }
 
         val serviceConfig = CommonServiceConfig<MockRunOptions, MockSettings>(

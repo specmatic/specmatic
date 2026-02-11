@@ -428,6 +428,30 @@ data class SpecmaticConfigV1V2Common(
         }
 
         @JsonIgnore
+        fun getIgnoreInlineExampleWarningsOrNull(specmaticConfig: SpecmaticConfigV1V2Common): Boolean? = specmaticConfig.ignoreInlineExamples
+
+        @JsonIgnore
+        fun getEscapeSoapActionOrNull(specmaticConfig: SpecmaticConfigV1V2Common): Boolean? = specmaticConfig.escapeSoapAction
+
+        @JsonIgnore
+        fun getSchemaExampleDefaultOrNull(specmaticConfig: SpecmaticConfigV1V2Common): Boolean? = specmaticConfig.schemaExampleDefault
+
+        @JsonIgnore
+        fun getExtensibleQueryParamsOrNull(specmaticConfig: SpecmaticConfigV1V2Common): Boolean? = specmaticConfig.extensibleQueryParams
+
+        @JsonIgnore
+        fun getFuzzyMatchingEnabledOrNull(specmaticConfig: SpecmaticConfigV1V2Common): Boolean? = specmaticConfig.fuzzy
+
+        @JsonIgnore
+        fun getPrettyPrintOrNull(specmaticConfig: SpecmaticConfigV1V2Common): Boolean? = specmaticConfig.prettyPrint
+
+        @JsonIgnore
+        fun isTelemetryDisabledOrNull(specmaticConfig: SpecmaticConfigV1V2Common): Boolean? = specmaticConfig.disableTelemetry
+
+        @JsonIgnore
+        fun getReportDirPathOrNull(specmaticConfig: SpecmaticConfigV1V2Common): Path? = specmaticConfig.reportDirPath
+
+        @JsonIgnore
         fun getVirtualServiceConfigOrNull(specmaticConfig: SpecmaticConfigV1V2Common): VirtualServiceConfiguration? {
             return specmaticConfig.virtualService
         }

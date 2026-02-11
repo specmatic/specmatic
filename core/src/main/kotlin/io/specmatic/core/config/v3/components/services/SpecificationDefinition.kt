@@ -20,7 +20,7 @@ sealed interface SpecificationDefinition {
         private val _config: MutableMap<String, Any?> = linkedMapOf()
 
         @get:JsonAnyGetter
-        val config: Map<String, Any?> get() = _config
+        val config: Map<String, Any?> get() = _config.toMap()
 
         @JsonAnySetter
         fun put(key: String, value: Any?) {

@@ -26,6 +26,14 @@ sealed class SpecExecutionConfig {
             val specFile = baseDir.resolve(value).canonicalFile
             return listOf(SpecificationSourceEntry(source, specFile, value, null, null, resiliencyTestSuite))
         }
+
+        override fun use(baseUrl: String, resiliencyTestsConfig: ResiliencyTestsConfig): SpecExecutionConfig {
+            return ObjectValue.FullUrl(baseUrl = baseUrl, specs = specs(), resiliencyTests = resiliencyTestsConfig)
+        }
+
+        override fun use(port: Int): SpecExecutionConfig {
+            return ObjectValue.PartialUrl(port = port, specs = specs())
+        }
     }
 
     sealed class ObjectValue : SpecExecutionConfig() {
@@ -61,6 +69,14 @@ sealed class SpecExecutionConfig {
                     SpecificationSourceEntry(source, specFile, spec, baseUrl, null, resiliency)
                 }
             }
+
+            override fun use(baseUrl: String, resiliencyTestsConfig: ResiliencyTestsConfig): SpecExecutionConfig {
+                return this.copy(baseUrl = baseUrl, resiliencyTests = resiliencyTestsConfig)
+            }
+
+            override fun use(port: Int): SpecExecutionConfig {
+                return PartialUrl(port = port, specs = specs(), resiliencyTests = resiliencyTests)
+            }
         }
 
         data class PartialUrl(
@@ -94,6 +110,14 @@ sealed class SpecExecutionConfig {
                     SpecificationSourceEntry(source, specFile, spec, baseUrl, port, resiliency)
                 }
             }
+
+            override fun use(baseUrl: String, resiliencyTestsConfig: ResiliencyTestsConfig): SpecExecutionConfig {
+                return FullUrl(baseUrl = baseUrl, specs = specs(), resiliencyTests = resiliencyTestsConfig)
+            }
+
+            override fun use(port: Int): SpecExecutionConfig {
+                return this.copy(port = port)
+            }
         }
     }
 
@@ -115,6 +139,16 @@ sealed class SpecExecutionConfig {
                 val specFile = baseDir.resolve(spec)
                 SpecificationSourceEntry(source, specFile, spec, null, null, resiliencyTestSuite)
             }
+        }
+
+        override fun use(baseUrl: String, resiliencyTestsConfig: ResiliencyTestsConfig): SpecExecutionConfig {
+            // Can't convert to either of the types and the config is genric map
+            return this
+        }
+
+        override fun use(port: Int): SpecExecutionConfig {
+            // Can't convert to either of the types and the config is genric map
+            return this
         }
     }
 
@@ -150,6 +184,10 @@ sealed class SpecExecutionConfig {
     abstract fun resolveAgainst(baseDirectory: File): SpecExecutionConfig
 
     abstract fun createSpecificationEntriesFrom(source: Source, baseDir: File, resiliencyTestSuite: ResiliencyTestSuite? = null): List<SpecificationSourceEntry>
+
+    abstract fun use(baseUrl: String, resiliencyTestsConfig: ResiliencyTestsConfig): SpecExecutionConfig
+
+    abstract fun use(port: Int): SpecExecutionConfig
 }
 
 class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeserializer<List<SpecExecutionConfig>>() {

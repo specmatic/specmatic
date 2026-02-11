@@ -1,11 +1,14 @@
 package io.specmatic.core.config.v3
 
 import com.fasterxml.jackson.annotation.*
-import com.fasterxml.jackson.core.type.TypeReference
+import com.fasterxml.jackson.databind.JavaType
+import io.specmatic.core.config.v3.components.ExampleDirectories
+import io.specmatic.core.config.v3.components.services.CommonServiceConfig
 import io.specmatic.core.utilities.yamlMapper
+import kotlin.reflect.jvm.jvmName
 
 interface RefOrValueResolver {
-    fun resolveRef(reference: String): Map<*, *>
+    fun resolveRef(reference: String): Any
 }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.DEDUCTION, defaultImpl = RefOrValue.Value::class)
@@ -53,16 +56,47 @@ sealed interface RefOrValue<out T: Any> {
 }
 
 inline fun <reified T : Any> RefOrValue<T>.resolveElseThrow(resolver: RefOrValueResolver): T {
-    val baseValue = when (this) {
+    val type = yamlMapper.typeFactory.constructType(T::class.java)
+    return resolveElseThrowWithType(resolver, type, T::class.simpleName ?: T::class.jvmName)
+}
+
+inline fun <reified R : Any, reified S : Any> RefOrValue<CommonServiceConfig<R, S>>.resolveElseThrow(resolver: RefOrValueResolver): CommonServiceConfig<R, S> {
+    val type = yamlMapper.typeFactory.constructParametricType(CommonServiceConfig::class.java, R::class.java, S::class.java)
+    return resolveElseThrowWithType(
+        resolver = resolver,
+        type = type,
+        typeLabel = "CommonServiceConfig<${R::class.simpleName}, ${S::class.simpleName}>",
+    )
+}
+
+fun RefOrValue<List<RefOrValue<ExampleDirectories>>>.resolveElseThrow(resolver: RefOrValueResolver): List<RefOrValue<ExampleDirectories>> {
+    val exampleRefType = yamlMapper.typeFactory.constructParametricType(RefOrValue::class.java, ExampleDirectories::class.java)
+    val examplesType = yamlMapper.typeFactory.constructCollectionType(List::class.java, exampleRefType)
+    return resolveElseThrowWithType(
+        resolver = resolver,
+        type = examplesType,
+        typeLabel = "List<RefOrValue<ExampleDirectories>>"
+    )
+}
+
+fun <T : Any> RefOrValue<T>.resolveElseThrowWithType(resolver: RefOrValueResolver, type: JavaType, typeLabel: String): T {
+    val resolvedValue = when (this) {
         is RefOrValue.Value -> return value
         is RefOrValue.Reference -> resolver.resolveRef(ref)
     }
 
-    val combined = baseValue.plus(extra)
+    val combined = if (extra.isNotEmpty()) {
+        when (resolvedValue) {
+            is Map<*, *> -> resolvedValue.plus(extra)
+            else -> throw IllegalStateException("Cannot apply inline overrides to non-object reference: $ref")
+        }
+    } else {
+        resolvedValue
+    }
+
     return runCatching {
-        val type = yamlMapper.typeFactory.constructType(object : TypeReference<T>() {})
         yamlMapper.convertValue(combined, type) as T
     }.getOrElse { e ->
-        throw IllegalStateException("Failed to convert resolved value to ${T::class.simpleName}", e)
+        throw IllegalStateException("Failed to convert resolved value to $typeLabel", e)
     }
 }
