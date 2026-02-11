@@ -15,7 +15,7 @@ class SpecmaticConfigV3Resolver(components: Components, private val originFile: 
     private val componentsAsMap: Map<*, *> = mapper.convertValue(components, object : TypeReference<Map<*, *>>() {})
     private val internalResolver = InternalComponentsResolver(componentsAsMap)
 
-    override fun resolveRef(reference: String): Map<*, *> {
+    override fun resolveRef(reference: String): Any {
         if (reference.startsWith("#/components/")) return internalResolver.resolveRef(reference)
         val (rootUri, virtualJson) = buildVirtualJson(reference)
         val memoryResolver = InMemoryResolver(mapOf(rootUri to virtualJson))
@@ -24,9 +24,7 @@ class SpecmaticConfigV3Resolver(components: Components, private val originFile: 
         val parser = RefParser(rootUri).withResolver(RefFormat.FILE, resolver).withResolver(RefFormat.RELATIVE, resolver)
         parser.parse().dereference()
 
-        val resolved = parser.refs.schema()["__target__"] ?: error("Unable to resolve reference: $reference")
-        require(resolved is Map<*, *>) { "Resolved reference is not an object: $reference" }
-        return resolved
+        return parser.refs.schema()["__target__"] ?: error("Unable to resolve reference: $reference")
     }
 
     private fun buildVirtualJson(reference: String): Pair<URI, String> {
@@ -52,7 +50,7 @@ private class InMemoryResolver(private val documents: Map<URI, String>) : Resolv
 }
 
 private class InternalComponentsResolver(private val componentsAsMap: Map<*, *>) : RefOrValueResolver {
-    override fun resolveRef(reference: String): Map<*, *> {
+    override fun resolveRef(reference: String): Any {
         require(reference.startsWith("#/components/")) {
             "Only internal component refs are supported here: $reference"
         }
@@ -61,10 +59,6 @@ private class InternalComponentsResolver(private val componentsAsMap: Map<*, *>)
             (acc as? Map<*, *>)?.get(key)
         }
 
-        return when (path) {
-            is Map<*, *> -> path
-            null -> error("Component reference does not exist: $reference")
-            else -> error("Reference $reference does not resolve to an object")
-        }
+        return path ?: error("Component reference does not exist: $reference")
     }
 }
