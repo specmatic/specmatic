@@ -25,7 +25,7 @@ interface IRunOptions {
     }
 
     fun extractBaseUrlFromMap(map: Map<*, *>): String? {
-        val host = map["host"]?.toString() ?: return null
+        val host = map["host"]?.toString() ?: "0.0.0.0"
         val port = map["port"]?.toString()?.toIntOrNull() ?: return null
         return "$host:$port"
     }

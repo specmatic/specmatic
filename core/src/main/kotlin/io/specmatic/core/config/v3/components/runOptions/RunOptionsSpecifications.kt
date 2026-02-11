@@ -26,8 +26,8 @@ data class RunOptionsSpecifications(val spec: Value) : IRunOptionSpecification {
 
     @JsonIgnore
     override fun getBaseUrl(): String? {
-        if (spec.host == null || spec.port == null) return null
-        return "${spec.host}:${spec.port}"
+        if (spec.port == null) return null
+        return "${spec.host ?: "0.0.0.0"}:${spec.port}"
     }
 
     @JsonIgnore
@@ -78,8 +78,8 @@ data class WsdlRunOptionsSpecifications(val spec: Value) : IRunOptionSpecificati
     @JsonIgnore
     override fun getBaseUrl(): String? {
         if (spec.baseUrl != null) return spec.baseUrl
-        if (spec.host == null || spec.port == null) return null
-        return "http://${spec.host}:${spec.port}"
+        if (spec.port == null) return null
+        return "http://${spec.host ?: "0.0.0.0"}:${spec.port}"
     }
 
     data class Value(
@@ -114,8 +114,8 @@ data class OpenApiRunOptionsSpecifications(val spec: Value) : IRunOptionSpecific
     @JsonIgnore
     override fun getBaseUrl(): String? {
         if (spec.baseUrl != null) return spec.baseUrl
-        if (spec.host == null || spec.port == null) return null
-        return "http://${spec.host}:${spec.port}"
+        if (spec.port == null) return null
+        return "http://${spec.host ?: "0.0.0.0"}:${spec.port}"
     }
 
     data class Value(
