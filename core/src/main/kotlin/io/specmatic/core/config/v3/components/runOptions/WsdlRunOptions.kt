@@ -20,7 +20,7 @@ data class WsdlTestConfig(
     @JsonIgnore
     override fun getBaseUrlIfExists(): String? {
         if (baseUrl != null) return baseUrl
-        if (port != null) return "http://${host ?: "0.0.0.0"}:$port"
+        if (port != null) return "http://${host ?: "localhost"}:$port"
         return null
     }
 

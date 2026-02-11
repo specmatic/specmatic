@@ -19,19 +19,11 @@ class TestServiceConfigTest {
     }
 
     @Test
-    fun `getSpecificationSources should use asyncapi base url when openapi run options are absent`(@TempDir tempDir: File) {
-        val specFile = tempDir.resolve("contract.txt").apply { writeText("not an openapi spec") }
+    fun `getSpecificationSources should use asyncapi inMemoryBroker for async runOptions`(@TempDir tempDir: File) {
+        val specFile = tempDir.resolve("contract.yaml").apply { writeText("asycnapi: 3.0.0") }
         val source = SourceV3.create(filesystem = SourceV3.FileSystem(directory = tempDir.canonicalPath))
-
         val asyncApiTestConfig = AsyncApiTestConfig().apply {
-            put(
-                "servers", listOf(
-                    mapOf(
-                        "host" to "localhost",
-                        "port" to 8082
-                    )
-                )
-            )
+            put("inMemoryBroker", mapOf("host" to "localhost", "port" to 8082))
         }
 
         val serviceConfig = CommonServiceConfig<TestRunOptions, TestSettings>(
@@ -45,9 +37,7 @@ class TestServiceConfigTest {
             ),
             runOptions = RefOrValue.Value(TestRunOptions(asyncapi = asyncApiTestConfig))
         )
-
         val testServiceConfig = TestServiceConfig(service = RefOrValue.Value(serviceConfig))
-
         val sourceEntries = testServiceConfig.getSpecificationSources(resolver, testSettings = null).values.flatten()
 
         assertThat(sourceEntries).hasSize(1)

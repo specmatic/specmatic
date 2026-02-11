@@ -13,7 +13,10 @@ sealed interface GraphQLSdlRunOptions : IRunOptions {
     val type: RunOptionType?
 
     @JsonIgnore
-    override fun getBaseUrlIfExists(): String? = extractBaseUrlFromMap(config)
+    override fun getBaseUrlIfExists(): String? {
+        val defaultHost = if (this is GraphQLSdlTestConfig) "localhost" else "0.0.0.0"
+        return extractBaseUrlFromMap(config, defaultHost)
+    }
 }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)

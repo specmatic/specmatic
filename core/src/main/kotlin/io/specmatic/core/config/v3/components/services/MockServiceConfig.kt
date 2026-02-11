@@ -124,7 +124,7 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
         return specTypesToCheck.firstNotNullOfOrNull {
             val runOptions = getRunOptions(service, resolver, it) ?: return@firstNotNullOfOrNull null
             val runOptionSpecOverride = specId?.let(runOptions::getMatchingSpecification)
-            runOptionSpecOverride?.getBaseUrl() ?: runOptions.getBaseUrlIfExists()
+            runOptionSpecOverride?.getBaseUrl("0.0.0.0") ?: runOptions.getBaseUrlIfExists()
         }
     }
 

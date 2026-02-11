@@ -159,7 +159,7 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
         return specTypesToCheck.firstNotNullOfOrNull {
             val runOptions = getRunOptions(resolver, it) ?: return@firstNotNullOfOrNull null
             val runOptionSpecOverride = specId?.let(runOptions::getMatchingSpecification)
-            runOptionSpecOverride?.getBaseUrl() ?: runOptions.getBaseUrlIfExists()
+            runOptionSpecOverride?.getBaseUrl("localhost") ?: runOptions.getBaseUrlIfExists()
         }
     }
 }

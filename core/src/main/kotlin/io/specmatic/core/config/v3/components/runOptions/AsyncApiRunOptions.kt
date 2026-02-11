@@ -10,7 +10,7 @@ sealed interface AsyncApiRunOptions : IRunOptions {
     @JsonIgnore
     override fun getBaseUrlIfExists(): String? {
         val brokerConfig = config["inMemoryBroker"] as? Map<*, *> ?: return null
-        return extractBaseUrlFromMap(brokerConfig)
+        return extractBaseUrlFromMap(brokerConfig, defaultHost = "localhost")
     }
 }
 

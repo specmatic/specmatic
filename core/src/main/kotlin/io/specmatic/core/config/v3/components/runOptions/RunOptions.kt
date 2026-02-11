@@ -24,8 +24,8 @@ interface IRunOptions {
         return SpecmaticSpecConfig(getBaseUrlIfExists(), matching, config)
     }
 
-    fun extractBaseUrlFromMap(map: Map<*, *>): String? {
-        val host = map["host"]?.toString() ?: "0.0.0.0"
+    fun extractBaseUrlFromMap(map: Map<*, *>, defaultHost: String): String? {
+        val host = map["host"]?.toString() ?: defaultHost
         val port = map["port"]?.toString()?.toIntOrNull() ?: return null
         return "$host:$port"
     }

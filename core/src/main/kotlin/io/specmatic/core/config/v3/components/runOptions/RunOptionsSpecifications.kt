@@ -8,13 +8,13 @@ import kotlin.String
 
 interface IRunOptionSpecification {
     fun getId(): String?
-    fun getBaseUrl(): String?
+    fun getBaseUrl(defaultHost: String): String?
     fun getConfig(): Map<String, Any>
     fun getOverlayFilePath(): String?
 
-    fun extractBaseUrlFromMap(map: Map<*, *>?): String? {
+    fun extractBaseUrlFromMap(map: Map<*, *>?, defaultHost: String): String? {
         if (map.isNullOrEmpty()) return null
-        val host = map["host"]?.toString() ?: "0.0.0.0"
+        val host = map["host"]?.toString() ?: defaultHost
         val port = map["port"]?.toString()?.toIntOrNull() ?: return null
         return "$host:$port"
     }
@@ -32,9 +32,9 @@ data class RunOptionsSpecifications(val spec: Value) : IRunOptionSpecification {
     }
 
     @JsonIgnore
-    override fun getBaseUrl(): String? {
-        if (spec.port == null) return extractBaseUrlFromMap(spec.config["inMemoryBroker"] as? Map<*, *>)
-        return "${spec.host ?: "0.0.0.0"}:${spec.port}"
+    override fun getBaseUrl(defaultHost: String): String? {
+        if (spec.port == null) return extractBaseUrlFromMap(spec.config["inMemoryBroker"] as? Map<*, *>, "localhost")
+        return "${spec.host ?: defaultHost}:${spec.port}"
     }
 
     @JsonIgnore
@@ -83,10 +83,10 @@ data class WsdlRunOptionsSpecifications(val spec: Value) : IRunOptionSpecificati
     }
 
     @JsonIgnore
-    override fun getBaseUrl(): String? {
+    override fun getBaseUrl(defaultHost: String): String? {
         if (spec.baseUrl != null) return spec.baseUrl
         if (spec.port == null) return null
-        return "http://${spec.host ?: "0.0.0.0"}:${spec.port}"
+        return "http://${spec.host ?: defaultHost}:${spec.port}"
     }
 
     data class Value(
@@ -119,10 +119,10 @@ data class OpenApiRunOptionsSpecifications(val spec: Value) : IRunOptionSpecific
     }
 
     @JsonIgnore
-    override fun getBaseUrl(): String? {
+    override fun getBaseUrl(defaultHost: String): String? {
         if (spec.baseUrl != null) return spec.baseUrl
         if (spec.port == null) return null
-        return "http://${spec.host ?: "0.0.0.0"}:${spec.port}"
+        return "http://${spec.host ?: defaultHost}:${spec.port}"
     }
 
     data class Value(
