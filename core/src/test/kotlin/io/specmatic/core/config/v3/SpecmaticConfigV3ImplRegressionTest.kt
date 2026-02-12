@@ -13,6 +13,7 @@ import io.specmatic.core.config.v3.components.settings.TestSettings
 import io.specmatic.core.config.v3.components.runOptions.MockRunOptions
 import io.specmatic.core.config.v3.components.runOptions.TestRunOptions
 import io.specmatic.core.config.v3.components.sources.SourceV3
+import io.specmatic.core.utilities.contractStubPaths
 import io.specmatic.reporter.model.SpecType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -149,5 +150,36 @@ class SpecmaticConfigV3ImplRegressionTest {
         } finally {
             if (original == null) System.clearProperty(TEST_OVERLAY_FILE_PATH_PROPERTY) else System.setProperty(TEST_OVERLAY_FILE_PATH_PROPERTY, original)
         }
+    }
+
+    @Test
+    fun `contract stub paths should include service example directories from v3 config`(@TempDir tempDir: File) {
+        tempDir.resolve("order_api.wsdl").writeText("<definitions/>")
+        val configFile = tempDir.resolve("specmatic.yaml")
+        configFile.writeText(
+            """
+            version: 3
+            dependencies:
+              services:
+                - service:
+                    definitions:
+                      - definition:
+                          source:
+                            filesystem:
+                              directory: ${tempDir.canonicalPath}
+                          specs:
+                            - order_api.wsdl
+                    data:
+                      examples:
+                        - directories:
+                            - custom-examples-dir
+            """.trimIndent()
+        )
+
+        val stubPaths = contractStubPaths(configFile.canonicalPath)
+        val stubPath = stubPaths.single()
+
+        assertThat(stubPath.specificationPath).endsWith("order_api.wsdl")
+        assertThat(stubPath.exampleDirPaths).containsExactly("custom-examples-dir")
     }
 }

@@ -679,6 +679,27 @@ Feature: Math API
     }
 
     @Test
+    fun `loadContractStubsFromFilesAsResults should load WSDL examples from directory not ending with underscore examples`(@TempDir tempDir: File) {
+        val specFile = File("src/test/resources/wsdl/with_examples/order_api.wsdl")
+        val sourceExample = File("src/test/resources/wsdl/with_examples/order_api_examples/create_product.json")
+        val customExamplesDir = tempDir.resolve("wsdl-external-data")
+        customExamplesDir.mkdirs()
+        sourceExample.copyTo(customExamplesDir.resolve("create_product.json"))
+
+        val contractPathData = listOf(
+            ContractPathData("", specFile.path, exampleDirPaths = listOf(customExamplesDir.path))
+        )
+
+        val result = loadContractStubsFromFilesAsResults(contractPathData, emptyList(), SpecmaticConfig(), withImplicitStubs = false)
+
+        assertThat(result).anySatisfy {
+            assertThat(it).isInstanceOf(FeatureStubsResult.Success::class.java); it as FeatureStubsResult.Success
+            assertThat(it.scenarioStubs).hasSize(1)
+            assertThat(it.scenarioStubs.single().name).isEqualTo("createProduct")
+        }
+    }
+
+    @Test
     fun `loadContractStubsFromFilesAsResults should be able to load WSDL specifications with external examples`() {
         val specFile = File("src/test/resources/wsdl/with_examples/order_api.wsdl")
         val contractPathData = listOf(ContractPathData("", specFile.path))
