@@ -112,12 +112,12 @@ fun parseContractFileToFeature(
             checkExists(file).readText(),
             file.canonicalPath,
             specmaticConfig
-        )
+        ).copy(exampleDirPaths = exampleDirPaths)
         in CONTRACT_EXTENSIONS -> parseGherkinStringToFeature(
             checkExists(file).readText().trim(),
             file.canonicalPath,
             specmaticConfig = specmaticConfig
-        )
+        ).copy(exampleDirPaths = exampleDirPaths)
         else -> throw unsupportedFileExtensionContractException(file.path, file.extension)
     }
 }
