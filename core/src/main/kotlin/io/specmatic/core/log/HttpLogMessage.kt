@@ -7,13 +7,18 @@ import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.stub.HttpStubResponse
+import io.specmatic.stub.InterceptorResult
 import java.io.File
 
 data class HttpLogMessage(
+    var preHookRequestTime: CurrentDate? = null,
+    var preHookRequest: InterceptorResult<HttpRequest>? = null,
     var requestTime: CurrentDate = CurrentDate(),
     var request: HttpRequest = HttpRequest(),
     var responseTime: CurrentDate? = null,
     var response: HttpResponse? = null,
+    var postHookResponseTime: CurrentDate? = null,
+    var postHookResponse: InterceptorResult<HttpResponse>? = null,
     var contractPath: String = "",
     var examplePath: String? = null,
     val targetServer: String = "",
@@ -42,6 +47,16 @@ data class HttpLogMessage(
     fun addResponseWithCurrentTime(httpResponse: HttpResponse) {
         responseTime = CurrentDate()
         this.response = httpResponse
+    }
+
+    fun addPreHookRequestWithCurrentTime(interceptorResultForRequest: InterceptorResult<HttpRequest>) {
+        this.preHookRequestTime = CurrentDate()
+        this.preHookRequest = interceptorResultForRequest
+    }
+
+    fun addPostHookResponseWithCurrentTime(interceptorResultForResponse: InterceptorResult<HttpResponse>) {
+        this.postHookResponseTime = CurrentDate()
+        this.postHookResponse = interceptorResultForResponse
     }
 
     fun addException(exception: Exception) {

@@ -843,6 +843,9 @@ components:
         ).use { stub ->
 
             stub.registerRequestInterceptor(object: RequestInterceptor {
+                override val name: String
+                    get() = "requestInterceptor"
+
                 override fun interceptRequest(httpRequest: HttpRequest): HttpRequest {
                     val id = httpRequest.path?.split("/")?.last()?.toInt() ?: 0
                     val updatedPath = httpRequest.path?.split("/")?.map {
@@ -854,6 +857,9 @@ components:
             })
 
             stub.registerResponseInterceptor(object: ResponseInterceptor {
+                override val name: String
+                    get() = "responseInterceptor"
+
                 override fun interceptResponse(
                     httpRequest: HttpRequest,
                     httpResponse: HttpResponse
