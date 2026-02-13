@@ -38,6 +38,7 @@ import org.springframework.web.client.postForEntity
 import java.io.File
 import java.net.ConnectException
 import java.net.URI
+import java.nio.file.Files
 import java.nio.file.Paths
 import java.util.*
 import kotlin.io.path.absolutePathString
@@ -86,6 +87,94 @@ internal class HttpStubTest {
             val resolvedSpecmaticConfig = specmaticConfigField.get(stub)
 
             assertThat(resolvedSpecmaticConfig).isSameAs(specmaticConfig)
+        }
+    }
+
+    @Test
+    fun `should return yaml from first mocked openapi specification for yaml endpoint`() {
+        val tempDir = Files.createTempDirectory("specmatic-swagger-spec-response").toFile()
+        val openApiSpec = createOpenApiSpecWithImplicitOverlay(tempDir)
+        val feature = parseContractFileToFeature(openApiSpec.canonicalPath)
+
+        try {
+            HttpStub(features = listOf(feature)).use { stub ->
+                val response = RestTemplate().getForEntity<String>(stub.endPoint + "/swagger/v1/swagger.yaml")
+
+                assertThat(response.statusCodeValue).isEqualTo(200)
+                assertThat(response.headers.contentType?.toString()).contains("application/yaml")
+                assertThat(response.body).contains("openapi: 3.0.0")
+                assertThat(response.body).contains("title: Title from overlay")
+            }
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `should return json from first mocked openapi specification for json endpoint`() {
+        val tempDir = Files.createTempDirectory("specmatic-swagger-spec-json-response").toFile()
+        val openApiSpec = createOpenApiSpecWithImplicitOverlay(tempDir)
+        val feature = parseContractFileToFeature(openApiSpec.canonicalPath)
+
+        try {
+            HttpStub(features = listOf(feature)).use { stub ->
+                val response = RestTemplate().getForEntity<String>(stub.endPoint + "/swagger/v1/swagger.json")
+
+                assertThat(response.statusCodeValue).isEqualTo(200)
+                assertThat(response.headers.contentType?.toString()).contains("application/json")
+                assertThat(response.body).contains("\"openapi\"")
+                assertThat(response.body).contains("\"title\": \"Title from overlay\"")
+                assertThat(response.body).doesNotContain(": null")
+            }
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `should log summary and not full swagger specification payload in logs and console`() {
+        LogTail.clear()
+        val tempDir = Files.createTempDirectory("specmatic-swagger-spec-log").toFile()
+        val openApiSpec = createOpenApiSpecWithImplicitOverlay(tempDir)
+        val feature = parseContractFileToFeature(openApiSpec.canonicalPath)
+
+        try {
+            val (consoleOutput, _) = captureStandardOutput(trim = false) {
+                HttpStub(features = listOf(feature), log = ::consoleLog).use { stub ->
+                    RestTemplate().getForEntity<String>(stub.endPoint + "/swagger/v1/swagger.yaml")
+
+                    val logResponse = RestTemplate().getForEntity<String>(stub.endPoint + "/_specmatic/log")
+                    assertThat(logResponse.body).contains("returned spec for ${openApiSpec.name}")
+                    assertThat(logResponse.body).doesNotContain("\"openapi\"")
+                }
+            }
+
+            assertThat(consoleOutput).contains("returned spec for ${openApiSpec.name}")
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `should return plain text 429 from swagger endpoints when only wsdl is mocked`() {
+        val wsdlFeature = parseContractFileToFeature("src/test/resources/wsdl/hello.wsdl")
+
+        HttpStub(features = listOf(wsdlFeature)).use { stub ->
+            val yamlException = Assertions.assertThrows(HttpClientErrorException.TooManyRequests::class.java) {
+                RestTemplate().getForEntity<String>(stub.endPoint + "/swagger/v1/swagger.yaml")
+            }
+
+            assertThat(yamlException.statusCode.value()).isEqualTo(429)
+            assertThat(yamlException.responseHeaders?.contentType?.toString()).contains("text/plain")
+            assertThat(yamlException.responseBodyAsString).contains("No OpenAPI specifications are loaded in this mock server")
+
+            val jsonException = Assertions.assertThrows(HttpClientErrorException.TooManyRequests::class.java) {
+                RestTemplate().getForEntity<String>(stub.endPoint + "/swagger/v1/swagger.json")
+            }
+
+            assertThat(jsonException.statusCode.value()).isEqualTo(429)
+            assertThat(jsonException.responseHeaders?.contentType?.toString()).contains("text/plain")
+            assertThat(jsonException.responseBodyAsString).contains("No OpenAPI specifications are loaded in this mock server")
         }
     }
 
@@ -201,6 +290,38 @@ Scenario: Get a number
 
         val postResponse = RestTemplate().getForEntity<String>(fake.endPoint + "/number")
         assertThat(postResponse.body).isEqualTo(output)
+    }
+
+    private fun createOpenApiSpecWithImplicitOverlay(tempDir: File): File {
+        val openApiSpec = tempDir.resolve("first-spec.yaml")
+        openApiSpec.writeText(
+            """
+            openapi: 3.0.0
+            info:
+              title: Original title
+              version: "1.0.0"
+            paths:
+              /hello:
+                get:
+                  responses:
+                    '200':
+                      description: Says hello
+            """.trimIndent()
+        )
+        val implicitOverlay = tempDir.resolve("first-spec_overlay.yaml")
+        implicitOverlay.writeText(
+            """
+            overlay: 1.0.0
+            info:
+              title: Update title
+              version: 1.0.0
+            actions:
+              - target: ${'$'}.info.title
+                update: Title from overlay
+            """.trimIndent()
+        )
+
+        return openApiSpec
     }
 
     @Test
