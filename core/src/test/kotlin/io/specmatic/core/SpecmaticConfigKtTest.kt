@@ -34,6 +34,33 @@ import java.util.stream.Stream
 
 internal class SpecmaticConfigKtTest {
 
+    @Test
+    fun `toContractSourceEntry should preserve the path from config`() {
+        val specFile = File("./contracts/../contracts/petstore.yaml")
+        val sourceEntry = SpecificationSourceEntry(
+            specFile = specFile,
+            specPathInConfig = "contracts/petstore.yaml",
+            port = null,
+            baseUrl = "http://localhost:9000",
+            resiliencyTestSuite = ResiliencyTestSuite.positiveOnly,
+            type = SourceProvider.filesystem,
+            repository = null,
+            directory = "./contracts",
+            branch = null,
+            matchBranch = null,
+            exampleDirs = listOf("examples")
+        )
+
+        assertThat(sourceEntry.toContractSourceEntry()).isEqualTo(
+            ContractSourceEntry(
+                path = "contracts/petstore.yaml",
+                baseUrl = "http://localhost:9000",
+                generative = ResiliencyTestSuite.positiveOnly,
+                exampleDirPaths = listOf("examples")
+            )
+        )
+    }
+
     @CsvSource(
         "./src/test/resources/specmaticConfigFiles/specmatic.yaml",
         "./src/test/resources/specmaticConfigFiles/specmatic.yml",
