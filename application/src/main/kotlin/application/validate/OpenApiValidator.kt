@@ -14,7 +14,7 @@ import io.specmatic.test.asserts.toFailure
 import java.io.File
 
 class OpenApiValidator: Validator<Feature> {
-    private val exampleValidationModule: ExampleValidationModule = ExampleValidationModule()
+    private val exampleValidationModule: ExampleValidationModule = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
 
     override fun validateSpecification(specification: File, specmaticConfig: SpecmaticConfig): SpecValidationResult<Feature> {
         if (specification.extension in OPENAPI_FILE_EXTENSIONS) {

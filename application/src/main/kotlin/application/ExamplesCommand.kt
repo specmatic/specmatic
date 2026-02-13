@@ -5,10 +5,6 @@ import io.specmatic.core.*
 import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.examples.module.*
 import io.specmatic.core.examples.server.ScenarioFilter
-import io.specmatic.core.log.CompositePrinter
-import io.specmatic.core.log.ConsolePrinter
-import io.specmatic.core.log.NonVerbose
-import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.configureLogging
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.capitalizeFirstChar
@@ -117,7 +113,8 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             }
         }
 
-        private val exampleValidationModule = ExampleValidationModule(lenientMode = lenientMode)
+        private val specmaticConfig = loadSpecmaticConfigIfAvailableElseDefault()
+        private val exampleValidationModule = ExampleValidationModule(lenientMode = lenientMode, specmaticConfig = specmaticConfig)
 
         override fun call(): Int {
             configureLogger(this.verbose)
@@ -132,7 +129,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
                     printValidationResult(validationResults.exampleValidationResults, "Example directory")
                     return if (exitCode == FAILURE_EXIT_CODE) FAILURE_EXIT_CODE else validationResults.exitCode
                 }
-                return validateImplicitExamplesFrom(contractFile!!)
+                return validateImplicitAndConfigExamples(contractFile!!)
             }
 
             if (specsDir != null && examplesBaseDir != null) {
@@ -187,7 +184,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             validateExamplesDir(parseContractFileWithNoMissingConfigWarning(contractFile, lenientMode = lenientMode), examplesDir)
 
         private fun validateExamplesDir(feature: Feature, examplesDir: File): Pair<Int, ValidationResults> {
-            val (externalExampleDir, externalExamples) = ExampleModule().loadExternalExamples(examplesDir = examplesDir)
+            val (externalExampleDir, externalExamples) = ExampleModule(specmaticConfig).loadExternalExamples(examplesDir = examplesDir)
             if (!externalExampleDir.exists()) {
                 logger.log("$externalExampleDir does not exist, did not find any files to validate")
                 return FAILURE_EXIT_CODE to ValidationResults.forNoExamples()
@@ -231,7 +228,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             return validationResults
         }
 
-        private fun validateImplicitExamplesFrom(contractFile: File): Int {
+        private fun validateImplicitAndConfigExamples(contractFile: File): Int {
             val feature = parseContractFileWithNoMissingConfigWarning(contractFile, lenientMode = lenientMode)
 
             val (validateInline, validateExternal) = getValidateInlineAndValidateExternalFlags()
@@ -246,8 +243,11 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
                 if (!validateExternal)
                     ValidationResults.forNoExamples()
                 else {
-                    val (exitCode, validationResults)
-                            = validateExamplesDir(feature, ExampleModule().defaultExternalExampleDirFrom(contractFile))
+                    val exampleDirs = ExampleModule(specmaticConfig).getExamplesDirPaths(contractFile)
+                    val (exitCode, validationResults) = exampleDirs.fold(0 to ValidationResults(emptyMap(), Result.Success())) {  (accCode, accRes), dir ->
+                        val (code, res) = validateExamplesDir(feature, dir)
+                        maxOf(accCode, code) to accRes.merge(res)
+                    }
                     if(exitCode == 1) return exitCode
                     validationResults
                 }

@@ -694,16 +694,19 @@ private fun specPathToImplicitDataDirPaths(
             }
 
             val implicitExamplesPath = stubContractPath.substringBeforeLast(".").plus("_examples")
+            val stubContractFile = when {
+                File(stubContractPath).isAbsolute -> File(stubContractPath)
+                stubDirectory.isNotBlank() -> File(stubDirectory, stubContractPath)
+                else -> File(stubContractPath)
+            }
 
-            val stubContractPathWithDirectory =
-                if (stubDirectory.isNotBlank()) "$stubDirectory${File.separator}$stubContractPath" else stubContractPath
-            stubContractPathWithDirectory to
-                dataDirPaths.map { dataDirPath ->
-                    ImplicitOriginalDataDirPair(
-                        implicitDataDir = "$dataDirPath${File.separator}$implicitExamplesPath",
-                        dataDir = dataDirPath,
-                    )
+            stubContractFile.path to dataDirPaths.map { dataDirPath ->
+                val implicitDirFile = when {
+                    File(implicitExamplesPath).isAbsolute -> File(implicitExamplesPath)
+                    else -> File(dataDirPath, implicitExamplesPath)
                 }
+                ImplicitOriginalDataDirPair(implicitDataDir = implicitDirFile.path, dataDir = dataDirPath)
+            }
         }
 }
 
