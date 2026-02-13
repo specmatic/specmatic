@@ -181,7 +181,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         }
 
         private fun validateExamplesDir(contractFile: File, examplesDir: File): Pair<Int, ValidationResults> =
-            validateExamplesDir(parseContractFileWithNoMissingConfigWarning(contractFile, lenientMode = lenientMode), examplesDir)
+            validateExamplesDir(parseContractFileToFeature(contractFile, specmaticConfig = specmaticConfig, lenientMode = lenientMode), examplesDir)
 
         private fun validateExamplesDir(feature: Feature, examplesDir: File): Pair<Int, ValidationResults> {
             val (externalExampleDir, externalExamples) = ExampleModule(specmaticConfig).loadExternalExamples(examplesDir = examplesDir)
@@ -207,7 +207,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
                 logger.log("${ordinal.getAndIncrement()}. Validating examples associated to '$relativeSpecPath'...")
                 logger.boundary()
 
-                val feature = parseContractFileWithNoMissingConfigWarning(specFile, lenientMode = lenientMode)
+                val feature = parseContractFileToFeature(specFile, specmaticConfig = specmaticConfig, lenientMode = lenientMode)
                 val inlineExampleValidationResults = validateInlineExamples(feature)
                 printValidationResult(inlineExampleValidationResults, "Inline example")
                 logger.boundary()
@@ -229,7 +229,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         }
 
         private fun validateImplicitAndConfigExamples(contractFile: File): Int {
-            val feature = parseContractFileWithNoMissingConfigWarning(contractFile, lenientMode = lenientMode)
+            val feature = parseContractFileToFeature(contractFile, specmaticConfig = specmaticConfig, lenientMode = lenientMode)
 
             val (validateInline, validateExternal) = getValidateInlineAndValidateExternalFlags()
 

@@ -57,7 +57,7 @@ class ExampleValidationModule(private val lenientMode: Boolean = false, private 
     }
 
     fun validateExample(contractFile: File, exampleFile: File): ValidationResult {
-        val feature = parseContractFileWithNoMissingConfigWarning(contractFile, lenientMode = lenientMode)
+        val feature = parseContractFileToFeature(contractFile, specmaticConfig = specmaticConfig, lenientMode = lenientMode)
         return ValidationResult(
             validateExample(feature, exampleFile),
             callLifecycleHook(feature, ExampleModule(specmaticConfig).getExamplesFromFiles(listOf(exampleFile)))
