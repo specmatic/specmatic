@@ -14,8 +14,6 @@ import io.specmatic.test.asserts.toFailure
 import java.io.File
 
 class OpenApiValidator: Validator<Feature> {
-    private val exampleValidationModule: ExampleValidationModule = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
-
     override fun validateSpecification(specification: File, specmaticConfig: SpecmaticConfig): SpecValidationResult<Feature> {
         if (specification.extension in OPENAPI_FILE_EXTENSIONS) {
             val (feature, result) = OpenApiSpecification.fromFile(specification.canonicalPath, specmaticConfig).toFeatureLenient()
@@ -30,7 +28,7 @@ class OpenApiValidator: Validator<Feature> {
     }
 
     override fun validateInlineExamples(specification: File, feature: Feature, specmaticConfig: SpecmaticConfig): Map<String, ExampleValidationResult> {
-        return exampleValidationModule.validateInlineExamples(
+        return ExampleValidationModule(specmaticConfig = specmaticConfig).validateInlineExamples(
             feature = feature,
             examples = feature.stubsFromExamples.mapValues { (_, stub) ->
                 stub.map { (request, response) -> ScenarioStub(request, response) }
@@ -41,7 +39,7 @@ class OpenApiValidator: Validator<Feature> {
     }
 
     override fun validateExample(feature: Feature, file: File, specmaticConfig: SpecmaticConfig): ExampleValidationResult {
-        val result = exampleValidationModule.validateExample(feature, file)
+        val result = ExampleValidationModule(specmaticConfig = specmaticConfig).validateExample(feature, file)
         return when {
             result !is Result.Failure -> ExampleValidationResult.ValidationResult(file, result)
             result.hasReason(FailureReason.IdentifierMismatch) -> ExampleValidationResult.DoesNotBelong(file, result)
@@ -56,6 +54,6 @@ class OpenApiValidator: Validator<Feature> {
             )
         }
 
-        return exampleValidationModule.callLifecycleHook(feature, examples)
+        return ExampleValidationModule(specmaticConfig = specmaticConfig).callLifecycleHook(feature, examples)
     }
 }
