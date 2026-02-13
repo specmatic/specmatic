@@ -3,6 +3,7 @@ package io.specmatic.core.report
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+import io.specmatic.core.config.resolveTemplates
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.log.consoleLog
 import io.specmatic.reporter.ctrf.CtrfReportGenerator
@@ -47,13 +48,17 @@ object ReportGenerator {
         ReportProvider.generateHtmlReport(report, reportDir, specmaticConfigAsMap())
     }
 
-    private fun specmaticConfigAsMap(): Map<String, Any> {
-        return runCatching {
-            ObjectMapper(YAMLFactory()).readValue(
-                File(getConfigFilePath()).readText(),
-                object : TypeReference<Map<String, Any>>() {}
-            )
-        }.getOrElse { emptyMap() }
+    internal fun specmaticConfigAsMap(): Map<String, Any> {
+        val specmaticConfigAsString = File(getConfigFilePath()).readText()
+        if(specmaticConfigAsString.isEmpty()) return emptyMap()
+        try {
+            val objectMapper = ObjectMapper(YAMLFactory())
+            val specmaticConfigAsJsonNode = objectMapper.readTree(specmaticConfigAsString)
+            val resolvedSpecmaticConfig = resolveTemplates(specmaticConfigAsJsonNode)
+            return objectMapper.treeToValue(resolvedSpecmaticConfig, object : TypeReference<Map<String, Any>>() {})
+        } catch(_: Throwable) {
+            return emptyMap()
+        }
     }
 
     private fun isCtrfSpecConfigsValid(specConfigs: List<CtrfSpecConfig>): Boolean {
