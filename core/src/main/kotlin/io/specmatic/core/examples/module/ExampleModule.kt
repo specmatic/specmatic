@@ -40,8 +40,8 @@ class ExampleModule(private val specmaticConfig: SpecmaticConfig) {
     fun getExamplesDirPaths(contractFile: File): List<File> {
         val testDirs = specmaticConfig.getTestExampleDirs(contractFile).map(::File)
         val stubDirs = specmaticConfig.getStubExampleDirs(contractFile).map(::File)
-        val externalDir = listOf(defaultExternalExampleDirFrom(contractFile))
-        return listOf(testDirs, stubDirs, externalDir).flatten().distinctBy { it.normalizedPath() }
+        val implicitExamplesDir = listOf(defaultExternalExampleDirFrom(contractFile))
+        return listOf(implicitExamplesDir, testDirs, stubDirs).flatten().distinctBy { it.normalizedPath() }
     }
 
     fun getExamplesFor(contractFile: File, strictMode: Boolean = true): List<ExampleFromFile> {
