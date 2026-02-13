@@ -429,7 +429,7 @@ class HttpStub(
                         // Add the original response (before encoding) to the log message
                         val stubResponseToLog = if (shouldRedactSwaggerSpecResponseInLogs) {
                             val summary = swaggerSpecSummary ?: "returned spec"
-                            httpStubResponse.copy(response = redactedSwaggerSpecResponse(summary))
+                            httpStubResponse.copy(response = redactedSwaggerSpecResponse(httpStubResponse.response, summary))
                         } else {
                             httpStubResponse
                         }
@@ -793,8 +793,12 @@ class HttpStub(
         }.orEmpty()
     }
 
-    private fun redactedSwaggerSpecResponse(summary: String): HttpResponse =
-        HttpResponse(status = 200, body = StringValue(summary))
+    private fun redactedSwaggerSpecResponse(originalResponse: HttpResponse, summary: String): HttpResponse =
+        HttpResponse(
+            status = originalResponse.status,
+            headers = mapOf(HttpHeaders.ContentType to (originalResponse.contentType() ?: "text/plain")),
+            body = StringValue(summary)
+        )
 
     private fun handleFetchLogRequest(): HttpStubResponse =
         HttpStubResponse(HttpResponse.ok(StringValue(LogTail.getString())))

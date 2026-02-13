@@ -157,25 +157,33 @@ internal class HttpStubTest {
 
     @Test
     fun `should return plain text 429 from swagger endpoints when only wsdl is mocked`() {
+        LogTail.clear()
         val wsdlFeature = parseContractFileToFeature("src/test/resources/wsdl/hello.wsdl")
 
-        HttpStub(features = listOf(wsdlFeature)).use { stub ->
-            val yamlException = Assertions.assertThrows(HttpClientErrorException.TooManyRequests::class.java) {
-                RestTemplate().getForEntity<String>(stub.endPoint + "/swagger/v1/swagger.yaml")
+        val (consoleOutput, _) = captureStandardOutput(trim = false) {
+            HttpStub(features = listOf(wsdlFeature), log = ::consoleLog).use { stub ->
+                val yamlException = Assertions.assertThrows(HttpClientErrorException.TooManyRequests::class.java) {
+                    RestTemplate().getForEntity<String>(stub.endPoint + "/swagger/v1/swagger.yaml")
+                }
+
+                assertThat(yamlException.statusCode.value()).isEqualTo(429)
+                assertThat(yamlException.responseHeaders?.contentType?.toString()).contains("text/plain")
+                assertThat(yamlException.responseBodyAsString).contains("No OpenAPI specifications are loaded in this mock server")
+
+                val jsonException = Assertions.assertThrows(HttpClientErrorException.TooManyRequests::class.java) {
+                    RestTemplate().getForEntity<String>(stub.endPoint + "/swagger/v1/swagger.json")
+                }
+
+                assertThat(jsonException.statusCode.value()).isEqualTo(429)
+                assertThat(jsonException.responseHeaders?.contentType?.toString()).contains("text/plain")
+                assertThat(jsonException.responseBodyAsString).contains("No OpenAPI specifications are loaded in this mock server")
+
+                val logResponse = RestTemplate().getForEntity<String>(stub.endPoint + "/_specmatic/log")
+                assertThat(logResponse.body).contains("429 Too Many Requests")
             }
-
-            assertThat(yamlException.statusCode.value()).isEqualTo(429)
-            assertThat(yamlException.responseHeaders?.contentType?.toString()).contains("text/plain")
-            assertThat(yamlException.responseBodyAsString).contains("No OpenAPI specifications are loaded in this mock server")
-
-            val jsonException = Assertions.assertThrows(HttpClientErrorException.TooManyRequests::class.java) {
-                RestTemplate().getForEntity<String>(stub.endPoint + "/swagger/v1/swagger.json")
-            }
-
-            assertThat(jsonException.statusCode.value()).isEqualTo(429)
-            assertThat(jsonException.responseHeaders?.contentType?.toString()).contains("text/plain")
-            assertThat(jsonException.responseBodyAsString).contains("No OpenAPI specifications are loaded in this mock server")
         }
+
+        assertThat(consoleOutput).contains("429 Too Many Requests")
     }
 
     @Test
