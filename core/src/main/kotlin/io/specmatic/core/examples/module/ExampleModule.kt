@@ -38,15 +38,8 @@ class ExampleModule(private val specmaticConfig: SpecmaticConfig) {
     }
 
     fun getExamplesDirPaths(contractFile: File): List<File> {
-        val contractParentDir = contractFile.canonicalFile.parentFile
-        val testDirs = specmaticConfig.getTestExampleDirs(contractFile).map { exampleDirPath ->
-            resolveConfiguredExampleDir(contractParentDir, exampleDirPath)
-        }
-
-        val stubDirs = specmaticConfig.getStubExampleDirs(contractFile).map { exampleDirPath ->
-            resolveConfiguredExampleDir(contractParentDir, exampleDirPath)
-        }
-
+        val testDirs = specmaticConfig.getTestExampleDirs(contractFile).map(::File)
+        val stubDirs = specmaticConfig.getStubExampleDirs(contractFile).map(::File)
         val externalDir = listOf(defaultExternalExampleDirFrom(contractFile))
         return listOf(testDirs, stubDirs, externalDir).flatten().distinctBy { it.normalizedPath() }
     }
@@ -121,11 +114,6 @@ class ExampleModule(private val specmaticConfig: SpecmaticConfig) {
                 orFailure = { null }
             )
         }
-    }
-
-    private fun resolveConfiguredExampleDir(contractParentDir: File, exampleDirPath: String): File {
-        val configuredDir = File(exampleDirPath)
-        return if (configuredDir.isAbsolute) configuredDir else contractParentDir.resolve(exampleDirPath)
     }
 
     private fun File.normalizedPath(): String {

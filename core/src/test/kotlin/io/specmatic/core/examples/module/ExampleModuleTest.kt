@@ -142,8 +142,8 @@ class ExampleModuleTest {
         val dirPaths = module.getExamplesDirPaths(contractFile).map { it.canonicalFile.path }
         assertThat(dirPaths).containsExactlyInAnyOrder(
             absoluteExamplesDir.canonicalFile.path,
-            contractFile.parentFile.resolve("shared_examples").canonicalFile.path,
-            contractFile.parentFile.resolve("mock_examples").canonicalFile.path,
+            File(".").resolve("shared_examples").canonicalFile.path,
+            File(".").resolve("mock_examples").canonicalFile.path,
             contractFile.parentFile.resolve("api_examples").canonicalFile.path
         )
     }
@@ -174,7 +174,7 @@ class ExampleModuleTest {
         implicitDir.resolve("implicit.json").writeText(implicitExample)
 
         val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true).apply {
-            every { getTestExampleDirs(contractFile) } returns listOf("configured_examples", "missing_examples")
+            every { getTestExampleDirs(contractFile) } returns listOf(configuredDir.absolutePath, "missing_examples")
             every { getStubExampleDirs(contractFile) } returns emptyList()
         }
 
@@ -194,7 +194,7 @@ class ExampleModuleTest {
         implicitDir.resolve("resource.customer.example.json").writeText("""{"id": 20}""")
 
         val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true).apply {
-            every { getTestExampleDirs(contractFile) } returns listOf("configured_examples")
+            every { getTestExampleDirs(contractFile) } returns listOf(configuredDir.absolutePath)
             every { getStubExampleDirs(contractFile) } returns emptyList()
         }
 
