@@ -333,7 +333,7 @@ open class SpecmaticJUnitSupport {
                     contractFilePaths.filter {
                         File(it.path).exists().not()
                     }.forEach {
-                        val specPathForMessage = warningSpecPath(it.specificationPath ?: File(it.path).name)
+                        val specPathForMessage = it.specificationPath ?: File(it.path).name
                         logger.log("WARNING: Skipping spec file $specPathForMessage as it does not exist.")
                     }
 
@@ -741,11 +741,6 @@ open class SpecmaticJUnitSupport {
             throw ContractException("The $fileTag file does not have a valid extension.")
         }
         return File(path).readText()
-    }
-
-    private fun warningSpecPath(specPath: String): String {
-        val normalizedSpecPath = specPath.replace('\\', '/')
-        return normalizedSpecPath.substringAfterLast('/').ifBlank { specPath }
     }
 }
 
