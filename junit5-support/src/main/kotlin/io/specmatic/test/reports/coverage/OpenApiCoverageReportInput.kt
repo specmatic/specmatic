@@ -54,8 +54,23 @@ class OpenApiCoverageReportInput(
     }
 
     fun addAPIs(apis: List<API>) {
-        coverageHooks.onEachListener { onActuatorApis(apis) }
         applicationAPIs.addAll(apis)
+        val filterExpression = ExpressionStandardizer.filterToEvalEx(filterExpression)
+        val apisNotExcluded = apis.filter { api ->
+            val testResultRecord = TestResultRecord(
+                path = api.path,
+                method = api.method,
+                responseStatus = 0,
+                request = null,
+                response = null,
+                result = TestResult.MissingInSpec,
+                specType = SpecType.OPENAPI,
+                operations = setOf(OpenAPIOperation(path = api.path, method = api.method, contentType = null, responseCode = 0, protocol = SpecmaticProtocol.HTTP))
+            )
+            filterExpression.with("context", TestRecordFilter(testResultRecord)).evaluate().booleanValue
+        }
+        val apisExcluded = apis.toSet().minus(apisNotExcluded.toSet()).toList()
+        coverageHooks.onEachListener { onActuatorApis(apisNotExcluded = apisNotExcluded, apisExcluded = apisExcluded) }
     }
 
     fun addExcludedAPIs(apis: List<String>) {
@@ -64,8 +79,9 @@ class OpenApiCoverageReportInput(
 
     fun addEndpoints(allEndpoints: List<Endpoint>, filteredEndpoints: List<Endpoint>) {
         this.allEndpoints.addAll(allEndpoints)
-        coverageHooks.onEachListener { onEndpointApis(allEndpoints) }
         this.filteredEndpoints.addAll(filteredEndpoints)
+        val excludedEndpoints = allEndpoints.toSet().minus(filteredEndpoints.toSet()).toList()
+        coverageHooks.onEachListener { onEndpointApis(endpointsNotExcluded = filteredEndpoints, endpointsExcluded = excludedEndpoints) }
     }
 
     fun setEndpointsAPIFlag(isSet: Boolean) {
