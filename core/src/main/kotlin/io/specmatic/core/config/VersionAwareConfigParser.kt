@@ -1,5 +1,6 @@
 package io.specmatic.core.config
 
+import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -15,8 +16,19 @@ private const val SPECMATIC_CONFIG_VERSION = "version"
 
 private val objectMapper = ObjectMapper(YAMLFactory()).registerKotlinModule()
 
+internal fun File.toResolvedSpecmaticConfigTree(): JsonNode {
+    return resolveTemplates(objectMapper.readTree(this.readText()))
+}
+
+internal fun File.toResolvedSpecmaticConfigMap(): Map<String, Any> {
+    return objectMapper.treeToValue(
+        toResolvedSpecmaticConfigTree(),
+        object : TypeReference<Map<String, Any>>() {}
+    )
+}
+
 fun File.toSpecmaticConfig(): SpecmaticConfig {
-    val configTree = resolveTemplates(objectMapper.readTree(this.readText()))
+    val configTree = toResolvedSpecmaticConfigTree()
     return when (configTree.getVersion()) {
         SpecmaticConfigVersion.VERSION_1 -> {
             objectMapper.treeToValue(configTree, SpecmaticConfigV1::class.java).transform(this)
@@ -48,7 +60,7 @@ private fun JsonNode.getVersion(): SpecmaticConfigVersion? {
     return SpecmaticConfigVersion.getByValue(version)
 }
 
-fun resolveTemplates(node: JsonNode): JsonNode {
+private fun resolveTemplates(node: JsonNode): JsonNode {
     return when {
         node.isObject ->
             node.fields().asSequence().fold(objectMapper.nodeFactory.objectNode()) { acc, entry ->
