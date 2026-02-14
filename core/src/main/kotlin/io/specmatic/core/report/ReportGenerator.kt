@@ -1,9 +1,6 @@
 package io.specmatic.core.report
 
-import com.fasterxml.jackson.core.type.TypeReference
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
-import io.specmatic.core.config.resolveTemplates
+import io.specmatic.core.config.toResolvedSpecmaticConfigMap
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.log.consoleLog
 import io.specmatic.reporter.ctrf.CtrfReportGenerator
@@ -49,15 +46,10 @@ object ReportGenerator {
     }
 
     internal fun specmaticConfigAsMap(): Map<String, Any> {
-        val specmaticConfigAsString = File(getConfigFilePath()).readText()
-        if(specmaticConfigAsString.isEmpty()) return emptyMap()
-        try {
-            val objectMapper = ObjectMapper(YAMLFactory())
-            val specmaticConfigAsJsonNode = objectMapper.readTree(specmaticConfigAsString)
-            val resolvedSpecmaticConfig = resolveTemplates(specmaticConfigAsJsonNode)
-            return objectMapper.treeToValue(resolvedSpecmaticConfig, object : TypeReference<Map<String, Any>>() {})
+        return try {
+            File(getConfigFilePath()).toResolvedSpecmaticConfigMap()
         } catch(_: Throwable) {
-            return emptyMap()
+            emptyMap()
         }
     }
 
