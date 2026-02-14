@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test
 import io.specmatic.core.*
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.utilities.ContractPathData
+import io.specmatic.core.utilities.contractStubPaths
 import io.specmatic.core.value.*
 import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.mock.NoMatchingScenario
@@ -735,6 +736,144 @@ Feature: Math API
             No matching SOAP stub or contract found for SOAPAction "/orders/createProductDoesNotExist" and path /
             """.trimIndent())
         }
+    }
+
+    @Test
+    fun `loadContractStubsFromImplicitPathsAsResults should warn when configured service specification file does not exist`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml")
+        configFile.writeText(
+            """
+            version: 3
+            dependencies:
+              services:
+                - service:
+                    definitions:
+                      - definition:
+                          source:
+                            filesystem:
+                              directory: ${tempDir.canonicalPath}
+                          specs:
+                            - missing-spec.yaml
+            """.trimIndent()
+        )
+
+        val config = loadSpecmaticConfig(configFile.canonicalPath)
+        val contractPathData = contractStubPaths(configFile.canonicalPath)
+        val (output, result) = captureStandardOutput {
+            loadContractStubsFromImplicitPathsAsResults(contractPathData, config, emptyList())
+        }
+
+        assertThat(result).isEmpty()
+        assertThat(output).contains("WARNING: Skipping spec file missing-spec.yaml as it does not exist.")
+    }
+
+    @Test
+    fun `loadContractStubsFromImplicitPathsAsResults should warn when configured v2 consumes specification file does not exist`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml")
+        configFile.writeText(
+            """
+            version: 2
+            contracts:
+              - filesystem:
+                  directory: ${tempDir.canonicalPath}
+                consumes:
+                  - missing-spec.yaml
+            """.trimIndent()
+        )
+
+        val config = loadSpecmaticConfig(configFile.canonicalPath)
+        val contractPathData = contractStubPaths(configFile.canonicalPath)
+        val (output, result) = captureStandardOutput {
+            loadContractStubsFromImplicitPathsAsResults(contractPathData, config, emptyList())
+        }
+
+        assertThat(result).isEmpty()
+        assertThat(output).contains("WARNING: Skipping spec file missing-spec.yaml as it does not exist.")
+    }
+
+    @Test
+    fun `loadContractStubsFromImplicitPathsAsResults should load existing spec and warn for missing spec when both are configured`(@TempDir tempDir: File) {
+        tempDir.resolve("existing-spec.yaml").writeText(
+            """
+            openapi: 3.0.0
+            info:
+              title: Existing API
+              version: 1.0.0
+            paths:
+              /hello:
+                get:
+                  responses:
+                    '200':
+                      description: OK
+            """.trimIndent()
+        )
+
+        val configFile = tempDir.resolve("specmatic.yaml")
+        configFile.writeText(
+            """
+            version: 3
+            dependencies:
+              services:
+                - service:
+                    definitions:
+                      - definition:
+                          source:
+                            filesystem:
+                              directory: ${tempDir.canonicalPath}
+                          specs:
+                            - existing-spec.yaml
+                            - missing-spec.yaml
+            """.trimIndent()
+        )
+
+        val config = loadSpecmaticConfig(configFile.canonicalPath)
+        val contractPathData = contractStubPaths(configFile.canonicalPath)
+        val (output, result) = captureStandardOutput {
+            loadContractStubsFromImplicitPathsAsResults(contractPathData, config, emptyList())
+        }
+
+        assertThat(output).contains("WARNING: Skipping spec file missing-spec.yaml as it does not exist.")
+        assertThat(result.filterIsInstance<FeatureStubsResult.Success>()).hasSize(1)
+    }
+
+    @Test
+    fun `loadContractStubsFromImplicitPathsAsResults should load existing spec and warn for missing spec when both are configured in v2 consumes`(@TempDir tempDir: File) {
+        tempDir.resolve("existing-spec.yaml").writeText(
+            """
+            openapi: 3.0.0
+            info:
+              title: Existing API
+              version: 1.0.0
+            paths:
+              /hello:
+                get:
+                  responses:
+                    '200':
+                      description: OK
+            """.trimIndent()
+        )
+
+        val configFile = tempDir.resolve("specmatic.yaml")
+        configFile.writeText(
+            """
+            version: 2
+            contracts:
+              - filesystem:
+                  directory: ${tempDir.canonicalPath}
+                consumes:
+                  - existing-spec.yaml
+                  - missing-spec.yaml
+            """.trimIndent()
+        )
+
+        val config = loadSpecmaticConfig(configFile.canonicalPath)
+        val contractPathData = contractStubPaths(configFile.canonicalPath)
+        val (output, result) = captureStandardOutput {
+            loadContractStubsFromImplicitPathsAsResults(contractPathData, config, emptyList())
+        }
+
+        assertThat(output).contains("WARNING: Skipping spec file missing-spec.yaml as it does not exist.")
+        assertThat(result.filterIsInstance<FeatureStubsResult.Success>()).hasSize(1)
     }
 }
 

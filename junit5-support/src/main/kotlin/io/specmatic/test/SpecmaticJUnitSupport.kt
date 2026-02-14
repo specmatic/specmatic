@@ -328,18 +328,25 @@ open class SpecmaticJUnitSupport {
                         settings.configFile.orEmpty(),
                         workingDirectory.path,
                         useCurrentBranchForCentralRepo
-                    ).filter {
-                        isSupportedAPISpecification(it.path)
+                    )
+
+                    contractFilePaths.filter {
+                        File(it.path).exists().not()
+                    }.forEach {
+                        val specPathForMessage = it.specificationPath ?: File(it.path).name
+                        logger.log("WARNING: Skipping spec file $specPathForMessage as it does not exist.")
                     }
 
-                    exitIfAnyDoNotExist("The following specifications do not exist", contractFilePaths.map { it.path })
+                    val supportedContractFilePaths = contractFilePaths.filter {
+                        File(it.path).exists() && isSupportedAPISpecification(it.path)
+                    }
 
                     // Compute default base URL only if any spec lacks a provides baseUrl
-                    val needsDefaultBase = contractFilePaths.any { it.baseUrl.isNullOrBlank() }
+                    val needsDefaultBase = supportedContractFilePaths.any { it.baseUrl.isNullOrBlank() }
                     val defaultBaseURL = if (needsDefaultBase) constructTestBaseURL() else ""
 
                     val baseUrls = mutableSetOf<String>()
-                    val testScenariosAndEndpointsPairList = contractFilePaths.filter {
+                    val testScenariosAndEndpointsPairList = supportedContractFilePaths.filter {
                         File(it.path).extension in CONTRACT_EXTENSIONS
                     }.map { contractPathData ->
                         val overlayFilePath: String? = settings.overlayFilePath?.canonicalPath ?: specmaticConfig.getTestOverlayFilePath(File(contractPathData.path), SpecType.OPENAPI)

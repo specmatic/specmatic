@@ -390,7 +390,11 @@ fun loadContractStubsFromImplicitPathsAsResults(
                     )
                 }
 
-                else -> emptyList()
+                else -> {
+                    val specPathForMessage = contractSource.specificationPath ?: specFile.name
+                    logger.log("WARNING: Skipping spec file $specPathForMessage as it does not exist.")
+                    emptyList()
+                }
             }
         }
 
