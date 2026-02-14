@@ -298,7 +298,7 @@ fun loadContractStubsFromImplicitPathsAsResults(
                         cachedFeature ?: loadIfSupportedAPISpecification(
                             contractSource,
                             specmaticConfig,
-                        )?.second ?: return emptyList()
+                        )?.second ?: return@flatMap emptyList()
 
                     try {
                         val implicitDataDirs = implicitDirsForSpecifications(specFile, specmaticConfig, feature)
