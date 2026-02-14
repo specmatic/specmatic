@@ -162,6 +162,26 @@ class ExampleModuleTest {
     }
 
     @Test
+    fun `get examples dir paths should keep implicit dirs before configured dirs`(@TempDir tempDir: File) {
+        val contractFile = tempDir.resolve("contracts").apply { mkdirs() }.resolve("api.yaml")
+        val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true).apply {
+            every { getTestExampleDirs(contractFile) } returns listOf("test_examples")
+            every { getStubExampleDirs(contractFile) } returns listOf("stub_examples")
+        }
+
+        val module = ExampleModule(specmaticConfig)
+        val dirPaths = module.getExamplesDirPaths(contractFile).map { it.canonicalFile.path }
+        val defaultExternal = contractFile.parentFile.resolve("api_examples").canonicalFile.path
+
+        assertThat(dirPaths.first()).isEqualTo(defaultExternal)
+        assertThat(dirPaths).containsExactly(
+            defaultExternal,
+            File(".").resolve("test_examples").canonicalFile.path,
+            File(".").resolve("stub_examples").canonicalFile.path
+        )
+    }
+
+    @Test
     fun `get examples for should load from existing configured and implicit dirs and skip missing dirs`(@TempDir tempDir: File) {
         val contractFile = tempDir.resolve("api.yaml")
         val configuredDir = tempDir.resolve("configured_examples").apply { mkdirs() }
