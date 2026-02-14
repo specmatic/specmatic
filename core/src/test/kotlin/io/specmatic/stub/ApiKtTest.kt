@@ -17,6 +17,7 @@ import org.junit.jupiter.params.provider.CsvSource
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.PrintStream
+import java.net.ServerSocket
 
 internal class ApiKtTest {
     @Test
@@ -874,6 +875,53 @@ Feature: Math API
 
         assertThat(output).contains("WARNING: Skipping spec file missing-spec.yaml as it does not exist.")
         assertThat(result.filterIsInstance<FeatureStubsResult.Success>()).hasSize(1)
+    }
+
+    @ParameterizedTest
+    @CsvSource("2", "3")
+    fun `createStub should show warning and return no-valid-spec response when only configured spec file is missing`(version: Int, @TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml")
+        val configContent = when (version) {
+            2 -> """
+                version: 2
+                contracts:
+                  - filesystem:
+                      directory: ${tempDir.canonicalPath}
+                    consumes:
+                      - missing-spec.yaml
+            """.trimIndent()
+
+            else -> """
+                version: 3
+                dependencies:
+                  services:
+                    - service:
+                        definitions:
+                          - definition:
+                              source:
+                                filesystem:
+                                  directory: ${tempDir.canonicalPath}
+                              specs:
+                                - missing-spec.yaml
+            """.trimIndent()
+        }
+        configFile.writeText(configContent)
+        val stubPort = ServerSocket(0).use { it.localPort }
+
+        val (output, response) = captureStandardOutput {
+            createStub(
+                host = "localhost",
+                port = stubPort,
+                timeoutMillis = HTTP_STUB_SHUTDOWN_TIMEOUT,
+                givenConfigFileName = configFile.canonicalPath
+            ).use { stub ->
+                stub.client.execute(HttpRequest("GET", "/hello"))
+            }
+        }
+
+        assertThat(output).contains("WARNING: Skipping spec file missing-spec.yaml as it does not exist.")
+        assertThat(response.status).isEqualTo(400)
+        assertThat(response.body).isEqualTo(StringValue("No valid API specifications loaded"))
     }
 }
 
