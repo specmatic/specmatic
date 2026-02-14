@@ -705,6 +705,58 @@ class ExampleValidationModuleTest {
         }
     }
 
+    @Test
+    fun `should fail inline example when accept header does not allow response content type`() {
+        val scenario = Scenario(
+            ScenarioInfo(
+                httpRequestPattern = HttpRequestPattern(method = "GET", httpPathPattern = buildHttpPathPattern("/products")),
+                httpResponsePattern = HttpResponsePattern(
+                    status = 200,
+                    headersPattern = HttpHeadersPattern(contentType = "application/json")
+                ),
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI
+            )
+        )
+        val feature = Feature(listOf(scenario), name = "", protocol = SpecmaticProtocol.HTTP)
+        val example = ScenarioStub(
+            request = HttpRequest(method = "GET", path = "/products", headers = mapOf(ACCEPT to "application/xml")),
+            response = HttpResponse(status = 200, headers = mapOf("Content-Type" to "application/json"))
+        )
+
+        val result = exampleValidationModule.validateExample(feature, example).toResultIfAny()
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString())
+            .contains("Accept header \"application/xml\" does not allow response Content-Type \"application/json\"")
+    }
+
+    @Test
+    fun `should fail external example when accept header does not allow response content type`(@TempDir tempDir: File) {
+        val scenario = Scenario(
+            ScenarioInfo(
+                httpRequestPattern = HttpRequestPattern(method = "GET", httpPathPattern = buildHttpPathPattern("/products")),
+                httpResponsePattern = HttpResponsePattern(
+                    status = 200,
+                    headersPattern = HttpHeadersPattern(contentType = "application/json")
+                ),
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI
+            )
+        )
+        val feature = Feature(listOf(scenario), name = "", protocol = SpecmaticProtocol.HTTP)
+        val example = ScenarioStub(
+            request = HttpRequest(method = "GET", path = "/products", headers = mapOf(ACCEPT to "application/xml")),
+            response = HttpResponse(status = 200, headers = mapOf("Content-Type" to "application/json"))
+        ).toExample(tempDir)
+
+        val result = exampleValidationModule.validateExample(feature, example)
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString())
+            .contains("Accept header \"application/xml\" does not allow response Content-Type \"application/json\"")
+    }
+
     private fun ScenarioStub.toPartialExample(tempDir: File): File {
         val example = JSONObjectValue(mapOf("partial" to this.toJSON()))
         val exampleFile = tempDir.resolve("example.json")

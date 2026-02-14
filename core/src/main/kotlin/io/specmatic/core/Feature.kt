@@ -726,22 +726,37 @@ data class Feature(
                     mismatchMessages,
                     keyCheck
                 )) {
-                    is Success -> Pair(
-                        scenario.resolverAndResponseForExpectation(response).let { (resolver, resolvedResponse) ->
-                            val newRequestType = scenario.httpRequestPattern.generate(request, resolver)
-                            HttpStubData(
-                                requestType = newRequestType,
-                                response = resolvedResponse.adjustPayloadForContentType()
-                                    .copy(externalisedResponseCommand = response.externalisedResponseCommand),
-                                resolver = resolver,
-                                responsePattern = scenario.httpResponsePattern,
-                                contractPath = this.path,
-                                feature = this,
-                                scenario = scenario,
-                                originalRequest = request
+                    is Success -> scenario.resolverAndResponseForExpectation(response).let { (resolver, resolvedResponse) ->
+                        if (isAcceptHeaderCompatibleWithResponse(request.headers, resolvedResponse.contentType()).not()) {
+                            Pair(
+                                null,
+                                Result.Failure(
+                                    message = acceptHeaderMismatchMessage(
+                                        request.headers.getCaseInsensitive(ACCEPT)?.value.orEmpty(),
+                                        resolvedResponse.contentType().orEmpty()
+                                    ),
+                                    breadCrumb = ACCEPT,
+                                    failureReason = FailureReason.ContentTypeMismatch
+                                ).updateScenario(scenario).updatePath(path)
                             )
-                        }, Success()
-                    )
+                        } else {
+                            val newRequestType = scenario.httpRequestPattern.generate(request, resolver)
+                            Pair(
+                                HttpStubData(
+                                    requestType = newRequestType,
+                                    response = resolvedResponse.adjustPayloadForContentType()
+                                        .copy(externalisedResponseCommand = response.externalisedResponseCommand),
+                                    resolver = resolver,
+                                    responsePattern = scenario.httpResponsePattern,
+                                    contractPath = this.path,
+                                    feature = this,
+                                    scenario = scenario,
+                                    originalRequest = request
+                                ),
+                                Success()
+                            )
+                        }
+                    }
 
                     is Result.Failure -> {
                         Pair(null, matchResult.updateScenario(scenario).updatePath(path))
@@ -768,7 +783,17 @@ data class Feature(
             suggestions,
             fn,
             originalScenarios
-        ).map { (originalScenario, returnValue) ->
+        ).filter { generatedScenarioPair ->
+            generatedScenarioPair.second.withDefault(true) { generatedScenario ->
+                runCatching {
+                    isAcceptHeaderCompatibleWithResponse(
+                        requestHeaders = generatedScenario.generateHttpRequest().headers,
+                        responseContentType = generatedScenario.responseContentType ?: generatedScenario.httpResponsePattern.headersPattern.contentType
+                    )
+                }.getOrDefault(true)
+            }
+        }.map { generatedScenarioPair ->
+            val (originalScenario, returnValue) = generatedScenarioPair
             returnValue.realise(
                 hasValue = { concreteTestScenario, comment ->
                     scenarioAsTest(concreteTestScenario, comment, workflow, originalScenario, originalScenarios)

@@ -7,6 +7,7 @@ import io.specmatic.core.HttpResponse
 import io.specmatic.core.HttpResponsePattern
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
+import io.specmatic.core.ACCEPT
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.mock.ScenarioStub
@@ -16,6 +17,31 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
 class ThreadSafeListOfStubsTest {
+    @Test
+    fun `matching static stubs should reject success when accept header does not allow response content type`() {
+        val stubData = HttpStubData(
+            requestType = HttpRequest("GET", "/products").toPattern(),
+            response = HttpResponse(
+                status = 200,
+                headers = mapOf("Content-Type" to "application/json"),
+                body = "{}"
+            ),
+            responsePattern = HttpResponsePattern(
+                HttpResponse(
+                    status = 200,
+                    headers = mapOf("Content-Type" to "application/json"),
+                    body = "{}"
+                )
+            ),
+            resolver = Resolver()
+        )
+
+        val expectations = ThreadSafeListOfStubs(mutableListOf(stubData), emptyMap())
+        val result = expectations.matchingStaticStub(HttpRequest("GET", "/products", headers = mapOf(ACCEPT to "application/xml")))
+
+        assertThat(result.first).isNull()
+        assertThat(result.second.any { it.first is Result.Failure }).isTrue()
+    }
 
     @Nested
     inner class StubAssociatedToTests {

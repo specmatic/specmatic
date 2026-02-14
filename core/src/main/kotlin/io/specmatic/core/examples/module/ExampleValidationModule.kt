@@ -63,6 +63,15 @@ class ExampleValidationModule(private val lenientMode: Boolean = false) {
     }
 
     fun validateExample(feature: Feature, scenarioStub: ScenarioStub): Results {
+        val acceptHeaderValidationResult = validateAcceptHeaderCompatibility(
+            request = scenarioStub.requestElsePartialRequest(),
+            response = scenarioStub.response()
+        )
+
+        if (!acceptHeaderValidationResult.isSuccess()) {
+            return Results(listOf(acceptHeaderValidationResult))
+        }
+
         return feature.matchResultFlagBased(scenarioStub, ExampleMismatchMessages)
     }
 
@@ -75,7 +84,16 @@ class ExampleValidationModule(private val lenientMode: Boolean = false) {
         ).toResultIfAnyWithCauses()
 
         val scenarioResultWithBreadCrumb = example.breadCrumbIfPartial(scenarioResult)
-        return Result.fromResults(listOf(example.validationErrors, scenarioResultWithBreadCrumb))
+        val acceptHeaderValidationResult = example.breadCrumbIfPartial(
+            validateAcceptHeaderCompatibility(example.request, example.response)
+        )
+        return Result.fromResults(
+            listOf(
+                example.validationErrors,
+                scenarioResultWithBreadCrumb,
+                acceptHeaderValidationResult
+            )
+        )
     }
 
     private fun validateExample(feature: Feature, schemaExample: SchemaExample): Result {
@@ -119,6 +137,22 @@ class ExampleValidationModule(private val lenientMode: Boolean = false) {
         return LifecycleHooks.afterLoadingStaticExamples.call(
             ExamplesUsedFor.Validation,
             listOf(Pair(feature, scenarioStubs))
+        )
+    }
+
+    private fun validateAcceptHeaderCompatibility(request: HttpRequest, response: HttpResponse): Result {
+        val responseContentType = response.contentType()
+        if (isAcceptHeaderCompatibleWithResponse(request.headers, responseContentType)) {
+            return Result.Success()
+        }
+
+        return Result.Failure(
+            message = acceptHeaderMismatchMessage(
+                request.headers.getCaseInsensitive(ACCEPT)?.value.orEmpty(),
+                responseContentType.orEmpty()
+            ),
+            breadCrumb = ACCEPT,
+            failureReason = FailureReason.ContentTypeMismatch
         )
     }
 }
