@@ -18,16 +18,52 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 import org.junit.platform.launcher.TestExecutionListener
 import org.opentest4j.TestAbortedException
 import java.io.File
+import java.io.PrintStream
 import java.util.*
 
 class SpecmaticJunitSupportTest {
     companion object {
         val initialPropertyKeys = System.getProperties().mapKeys { it.key.toString() }.keys
+
+        @JvmStatic
+        fun missingSpecConfigTemplates(): List<String> =
+            listOf(
+                """
+                version: 3
+                systemUnderTest:
+                  service:
+                    definitions:
+                      - definition:
+                          source:
+                            filesystem:
+                              directory: %s
+                          specs:
+                            - missing.yaml
+                """.trimIndent(),
+                """
+                version: 2
+                contracts:
+                  - filesystem:
+                      directory: %s
+                    provides:
+                      - missing.yaml
+                """.trimIndent()
+            )
+
+        @JvmStatic
+        fun gitSpecCases(): List<Arguments> =
+            listOf(
+                Arguments.of("missing.yaml", false, true),
+                Arguments.of("existing.yaml", true, false)
+            )
     }
 
     @Test
@@ -232,7 +268,7 @@ class SpecmaticJunitSupportTest {
     }
 
     @Test
-    fun `strict mode only runs tests for APIs with external examples`() {
+    fun `strict mode only runs tests for APIs with external examples`(@TempDir tempDir: File) {
         // Create OpenAPI spec with 2 endpoints
         val openApiSpec = """
 openapi: 3.0.0
@@ -289,7 +325,6 @@ paths:
                     type: integer
         """.trimIndent()
 
-        val tempDir = createTempDir()
         try {
             val specFile = tempDir.resolve("api.yaml")
             specFile.writeText(openApiSpec)
@@ -395,7 +430,6 @@ paths:
                 it.contains("POST /users -> 201")
             }
         } finally {
-            tempDir.deleteRecursively()
             SpecmaticJUnitSupport.settingsStaging.remove()
         }
     }
@@ -477,6 +511,140 @@ paths:
                 specType = SpecType.OPENAPI
             )
         )
+    }
+
+    @ParameterizedTest
+    @MethodSource("missingSpecConfigTemplates")
+    fun `should warn when a config-driven filesystem specification path does not exist`(
+        configTemplate: String,
+        @TempDir tempDir: File
+    ) {
+        val configFile = tempDir.resolve("specmatic.yaml")
+        configFile.writeText(configTemplate.format(tempDir.canonicalPath))
+
+        val output = runContractTestWithConfig(configFile.canonicalPath)
+
+        assertThat(output).contains("WARNING").contains("missing.yaml")
+    }
+
+    @Test
+    fun `should report load error when explicit contract path does not exist`() {
+        val missingSpecPath = File("missing-contract.yaml").absolutePath
+
+        SpecmaticJUnitSupport.settingsStaging.set(
+            ContractTestSettings(
+                contractPaths = missingSpecPath
+            )
+        )
+
+        val tests = SpecmaticJUnitSupport().contractTest().toList()
+
+        assertThat(tests).hasSize(1)
+        assertThat(tests.single().displayName).isEqualTo("Specmatic Test Suite")
+    }
+
+    @ParameterizedTest
+    @MethodSource("gitSpecCases")
+    fun `should handle missing-spec warning for git source based on spec existence`(
+        specificationPath: String,
+        createSpecFile: Boolean,
+        expectWarning: Boolean,
+        @TempDir tempDir: File
+    ) {
+        val gitRepoName = "contracts-${UUID.randomUUID()}"
+        val gitRepoDir = tempDir.resolve(gitRepoName)
+        val originalUserDir = System.getProperty("user.dir")
+        val projectWorkingDirRepoDir = originalUserDir?.let { File(it).resolve(".specmatic/repos/$gitRepoName") }
+
+        try {
+            gitRepoDir.mkdirs()
+            runCommand(gitRepoDir, "git", "init")
+            runCommand(gitRepoDir, "git", "config", "user.email", "specmatic@test.local")
+            runCommand(gitRepoDir, "git", "config", "user.name", "Specmatic Test")
+            if (createSpecFile) {
+                gitRepoDir.resolve(specificationPath).writeText(
+                    """
+                    openapi: 3.0.0
+                    info:
+                      title: Sample
+                      version: 1.0.0
+                    paths:
+                      /health:
+                        get:
+                          responses:
+                            '200':
+                              description: OK
+                    """.trimIndent()
+                )
+            } else {
+                gitRepoDir.resolve("README.md").writeText("contracts")
+            }
+            runCommand(gitRepoDir, "git", "add", ".")
+            runCommand(gitRepoDir, "git", "commit", "-m", "initial commit")
+            System.setProperty("user.dir", tempDir.canonicalPath)
+
+            val configFile = tempDir.resolve("specmatic.yaml")
+            configFile.writeText(
+                """
+                version: 3
+                systemUnderTest:
+                  service:
+                    definitions:
+                      - definition:
+                          source:
+                            git:
+                              url: ${gitRepoDir.canonicalPath}
+                          specs:
+                            - $specificationPath
+                """.trimIndent()
+            )
+
+            val output = runContractTestWithConfig(configFile.canonicalPath)
+            if (expectWarning) {
+                assertThat(output).contains("WARNING: Specification '$specificationPath'").contains("could not be found at")
+            } else {
+                assertThat(output).doesNotContain("WARNING: Specification '$specificationPath'")
+            }
+        } finally {
+            if (originalUserDir != null) {
+                System.setProperty("user.dir", originalUserDir)
+            }
+            projectWorkingDirRepoDir?.deleteRecursively()
+        }
+    }
+
+    private fun runContractTestWithConfig(configFilePath: String): String {
+        SpecmaticJUnitSupport.settingsStaging.set(
+            ContractTestSettings(
+                configFile = configFilePath
+            )
+        )
+        return try {
+            val originalOut = System.out
+            val outputStream = java.io.ByteArrayOutputStream()
+            System.setOut(PrintStream(outputStream))
+            try {
+                SpecmaticJUnitSupport().contractTest()
+            } finally {
+                System.out.flush()
+                System.setOut(originalOut)
+            }
+            outputStream.toString()
+        } finally {
+            SpecmaticJUnitSupport.settingsStaging.remove()
+        }
+    }
+
+    private fun runCommand(workingDirectory: File, vararg command: String) {
+        val process = ProcessBuilder(*command)
+            .directory(workingDirectory)
+            .redirectErrorStream(true)
+            .start()
+        val output = process.inputStream.bufferedReader().readText()
+        val exitCode = process.waitFor()
+        assertThat(exitCode)
+            .withFailMessage("Command failed: ${command.joinToString(" ")}\n$output")
+            .isEqualTo(0)
     }
 
     @AfterEach

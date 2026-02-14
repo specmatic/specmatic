@@ -183,8 +183,6 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             ),
             LoggingConfigSource.FromConfig(specmaticConfiguration.getLogConfigurationOrDefault()))
 
-        val defaultHost = DEFAULT_HTTP_STUB_HOST
-        val defaultPort = DEFAULT_HTTP_STUB_PORT.toInt()
         val parseResult = commandSpec.commandLine().parseResult
         val hostSpecified = parseResult?.hasMatchedOption("--host") == true
         val portSpecified = parseResult?.hasMatchedOption("--port") == true

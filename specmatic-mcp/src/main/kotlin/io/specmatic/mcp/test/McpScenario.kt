@@ -107,7 +107,7 @@ data class McpScenario(
     private fun executionResultForNegativeScenario(response: JsonRpcResponse): Result {
         if (response.error != null) {
             if(response.error.isInvalidParamsStatusCode()) return Result.Success()
-            return Result.Failure("Expected an error with code -32602 but got ${response.error?.code ?: "no error"}")
+            return Result.Failure("Expected an error with code -32602 but got ${response.error.code}")
         }
 
         val toolResponse = try {
