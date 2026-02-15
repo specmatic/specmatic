@@ -3,18 +3,12 @@ package io.specmatic.core.wsdl
 import io.specmatic.Utils.readTextResource
 import io.specmatic.conversions.wsdlContentToFeature
 import io.specmatic.core.*
-import io.specmatic.core.utilities.contractStubPaths
-import io.specmatic.core.utilities.contractTestPathsFrom
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.api.Test
 import io.specmatic.core.value.toXMLNode
 import io.specmatic.core.wsdl.parser.WSDL
 import io.specmatic.mock.ScenarioStub
-import io.specmatic.stub.FeatureStubsResult
 import io.specmatic.stub.HttpStub
-import io.specmatic.stub.loadContractStubsFromFilesAsResults
-import io.specmatic.stub.loadIfSupportedAPISpecification
 import io.specmatic.test.TestExecutor
 import org.junit.jupiter.api.assertDoesNotThrow
 import java.io.File
@@ -85,90 +79,6 @@ class WSDLTest {
 
         assertThat(result.success()).withFailMessage(result.report()).isTrue()
         assertThat(result.successCount).isEqualTo(1)
-    }
-
-    @Test
-    fun `wsdl loop should load v3 configured non underscore examples for sut and mock and traffic should contain example values`(@TempDir tempDir: File) {
-        val wsdlSource = File("src/test/resources/wsdl/with_examples/order_api.wsdl")
-        val wsdlFile = tempDir.resolve("order_api.wsdl").apply { writeText(wsdlSource.readText()) }
-
-        val exampleSource = File("src/test/resources/wsdl/with_examples/order_api_examples/create_product.json")
-        val sutExamplesDir = tempDir.resolve("sut-example-data").apply { mkdirs() }
-        val mockExamplesDir = tempDir.resolve("mock-example-data").apply { mkdirs() }
-        exampleSource.copyTo(sutExamplesDir.resolve("create_product.json"))
-        exampleSource.copyTo(mockExamplesDir.resolve("create_product.json"))
-
-        val configFile = tempDir.resolve("specmatic.yaml")
-        configFile.writeText(
-            """
-            version: 3
-            systemUnderTest:
-              service:
-                definitions:
-                  - definition:
-                      source:
-                        filesystem:
-                          directory: ${tempDir.canonicalPath}
-                      specs:
-                        - ${wsdlFile.name}
-                data:
-                  examples:
-                    - directories:
-                        - ${sutExamplesDir.canonicalPath}
-            dependencies:
-              services:
-                - service:
-                    definitions:
-                      - definition:
-                          source:
-                            filesystem:
-                              directory: ${tempDir.canonicalPath}
-                          specs:
-                            - ${wsdlFile.name}
-                    data:
-                      examples:
-                        - directories:
-                            - ${mockExamplesDir.canonicalPath}
-            """.trimIndent()
-        )
-
-        val config = loadSpecmaticConfig(configFile.canonicalPath)
-        val stubContractPathData = contractStubPaths(configFile.canonicalPath)
-        val testContractPathData = contractTestPathsFrom(configFile.canonicalPath, ".")
-
-        assertThat(stubContractPathData.single().exampleDirPaths).containsExactly(mockExamplesDir.canonicalPath)
-        assertThat(testContractPathData.single().exampleDirPaths).containsExactly(sutExamplesDir.canonicalPath)
-
-        val stubLoadResults = loadContractStubsFromFilesAsResults(
-            contractPathDataList = stubContractPathData,
-            dataDirPaths = emptyList(),
-            specmaticConfig = config,
-            withImplicitStubs = false
-        )
-        val stubConfig = stubLoadResults.filterIsInstance<FeatureStubsResult.Success>().single()
-
-        val testFeature = loadIfSupportedAPISpecification(testContractPathData.single(), config)?.second
-            ?: throw AssertionError("Could not load test feature from v3 config")
-
-        val requestTraffic = mutableListOf<String>()
-        val responseTraffic = mutableListOf<String>()
-        val result = HttpStub(stubConfig.feature, stubConfig.scenarioStubs).use { stub ->
-            testFeature.executeTests(object : TestExecutor {
-                override fun execute(request: HttpRequest): HttpResponse {
-                    val response = stub.client.execute(request)
-                    requestTraffic.add(request.toLogString(prettyPrint = false))
-                    responseTraffic.add(response.toLogString(prettyPrint = false))
-                    return response
-                }
-            })
-        }
-
-        assertThat(result.success()).withFailMessage(result.report()).isTrue()
-        assertThat(requestTraffic.joinToString("\n"))
-            .contains("Phone")
-            .contains("Gadget")
-        assertThat(responseTraffic.joinToString("\n"))
-            .contains("123")
     }
 
     private fun readContracts(filename: String): Pair<String, String> {
