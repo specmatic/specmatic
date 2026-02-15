@@ -220,15 +220,15 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
         return stubConfigFor(File(specPath), specType)
     }
 
-    override fun getCtrfSpecConfig(absoluteSpecPath: String, testType: String, protocol: String, specType: String): CtrfSpecConfig {
+    override fun getCtrfSpecConfig(specFile: File, testType: String, protocol: String, specType: String): CtrfSpecConfig {
         val source = when (testType) {
-            CONTRACT_TEST_TEST_TYPE -> specmaticConfig.systemUnderTest?.getSourcesContaining(File(absoluteSpecPath), resolver)
-            else -> specmaticConfig.dependencies?.getSourcesContaining(File(absoluteSpecPath), resolver)
+            CONTRACT_TEST_TEST_TYPE -> specmaticConfig.systemUnderTest?.getSourcesContaining(specFile, resolver)
+            else -> specmaticConfig.dependencies?.getSourcesContaining(specFile, resolver)
         }
 
         val specPathFromConfig = when(testType) {
-            CONTRACT_TEST_TEST_TYPE -> testSpecPathFromConfigFor(absoluteSpecPath)
-            else -> stubSpecPathFromConfigFor(absoluteSpecPath)
+            CONTRACT_TEST_TEST_TYPE -> testSpecPathFromConfigFor(specFile)
+            else -> stubSpecPathFromConfigFor(specFile)
         }
 
         return CtrfSpecConfig(
@@ -757,14 +757,14 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
         return this.copy(specmaticConfig = updatedConfig)
     }
 
-    override fun testSpecPathFromConfigFor(absoluteSpecPath: String): String? {
-        val specDefinition = specmaticConfig.systemUnderTest?.getSpecDefinitionFor(File(absoluteSpecPath), resolver)
+    override fun testSpecPathFromConfigFor(specFile: File): String? {
+        val specDefinition = specmaticConfig.systemUnderTest?.getSpecDefinitionFor(specFile, resolver)
         return specDefinition?.getSpecificationPath()
     }
 
-    override fun stubSpecPathFromConfigFor(absoluteSpecPath: String): String? {
-        val service = specmaticConfig.dependencies?.getService(File(absoluteSpecPath), resolver) ?: return null
-        val specDefinition = specmaticConfig.dependencies.getSpecDefinitionFor(File(absoluteSpecPath), service, resolver)
+    override fun stubSpecPathFromConfigFor(specFile: File): String? {
+        val service = specmaticConfig.dependencies?.getService(specFile, resolver) ?: return null
+        val specDefinition = specmaticConfig.dependencies.getSpecDefinitionFor(specFile, service, resolver)
         return specDefinition?.getSpecificationPath()
     }
 
