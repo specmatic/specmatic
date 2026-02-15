@@ -39,10 +39,10 @@ dependencies {
     implementation(project(":specmatic-mcp"))
 
     implementation("io.ktor:ktor-client-cio-jvm:2.3.13")
-    implementation("io.swagger.parser.v3:swagger-parser:2.1.36") {
+    implementation("io.swagger.parser.v3:swagger-parser:2.1.37") {
         exclude(group = "org.mozilla", module = "rhino")
     }
-    implementation("org.mozilla:rhino:1.8.1")
+    implementation("org.mozilla:rhino:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.10.0")
 
     implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.0")
@@ -54,7 +54,7 @@ dependencies {
     testImplementation("com.ginsberg:junit5-system-exit:2.0.2")
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.14.2")
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.14.2")
-    testImplementation("io.kotest:kotest-assertions-core-jvm:6.0.7")
+    testImplementation("io.kotest:kotest-assertions-core-jvm:6.1.2")
 
 }
 

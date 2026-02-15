@@ -84,12 +84,6 @@ class Proxy(
     private val responseInterceptors: MutableList<ResponseInterceptor> = mutableListOf()
     private val proxyRequestHandlers: MutableList<ProxyRequestHandler> = mutableListOf()
     private val recordMutex = Mutex()
-    private val exampleTransformer = ExampleTransformer.from(
-        transformations = mapOf(
-            "$MOCK_HTTP_REQUEST.header.${HttpHeaders.Cookie}" to ValueTransformer.GeneralizeToType(),
-            "$MOCK_HTTP_RESPONSE.header.${HttpHeaders.SetCookie}" to ValueTransformer.CookieExpiryTransformer,
-        )
-    )
 
     fun registerRequestInterceptor(requestInterceptor: RequestInterceptor) {
         if (requestInterceptor !in requestInterceptors) {
@@ -115,6 +109,18 @@ class Proxy(
 
     private val loadedSpecmaticConfig = specmaticConfigSource.load()
     private val specmaticConfigInstance: SpecmaticConfig = loadedSpecmaticConfig.config
+    private val isRecordingEnabled = specmaticConfigInstance.isProxyRecordEnabled() ?: true
+    private val prettyPrint = specmaticConfigInstance.getPrettyPrint()
+    private val exampleTransformer = ExampleTransformer.from(
+        transformations = mapOf(
+            "$MOCK_HTTP_REQUEST.header.${HttpHeaders.Cookie}" to ValueTransformer.GeneralizeToType(),
+            "$MOCK_HTTP_RESPONSE.header.${HttpHeaders.SetCookie}" to ValueTransformer.CookieExpiryTransformer,
+        ).plus(
+            specmaticConfigInstance.getProxyIgnoreHeaders().associate { key ->
+                "$MOCK_HTTP_RESPONSE.header.$key" to ValueTransformer.RemoveValue
+            }
+        )
+    )
 
     private val targetHost =
         baseURL.let {
@@ -138,7 +144,10 @@ class Proxy(
                             "CONNECT" -> {
                                 val errorResponse = HttpResponse(400, "CONNECT is not supported")
                                 println(
-                                    listOf(httpRequestLog(httpRequest), httpResponseLog(errorResponse)).joinToString(
+                                    listOf(
+                                        httpRequestLog(httpRequest, prettyPrint),
+                                        httpResponseLog(errorResponse, prettyPrint),
+                                    ).joinToString(
                                         System.lineSeparator(),
                                     ),
                                 )
@@ -210,7 +219,6 @@ class Proxy(
                                         ).use { client ->
                                             client
                                                 .execute(requestToSend)
-                                                .rewriteBaseURLs()
                                                 .rewriteBaseURL(
                                                     baseURL.removeSuffix("/"),
                                                     "",
@@ -253,7 +261,7 @@ class Proxy(
                                     // check response for matching filter. if matches, bail!
                                     val name =
                                         "${recordedRequest.method} ${recordedRequest.path}${toQueryString(recordedRequest.queryParams.asMap())}"
-                                    stubs.add(
+                                    if (isRecordingEnabled) stubs.add(
                                         NamedStub(
                                             name,
                                             uniqueNameForApiOperation(recordedRequest, baseURL, recordedResponse.status),
@@ -283,8 +291,8 @@ class Proxy(
                                     respondToKtorHttpResponse(call, errorResponse)
                                     logger.debug(
                                         listOf(
-                                            httpRequestLog(httpRequest),
-                                            httpResponseLog(errorResponse),
+                                            httpRequestLog(httpRequest, prettyPrint),
+                                            httpResponseLog(errorResponse, prettyPrint),
                                         ).joinToString(System.lineSeparator()),
                                     )
                                 }

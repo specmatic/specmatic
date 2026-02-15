@@ -37,9 +37,16 @@ class Flags {
 
         fun getBooleanValue(flagName: String, default: Boolean = false) = getStringValue(flagName)?.toBoolean() ?: default
 
+        fun getBooleanValueOrNull(flagName: String): Boolean? = getStringValue(flagName)?.toBoolean()
+
         fun getIntValue(maxTestCount: String): Int? = getStringValue(maxTestCount)?.toInt()
 
         fun getLongValue(flagName: String): Long? = getStringValue(flagName)?.toLong()
+
+        fun getCommaSeparatedList(fieldName: String): List<String>? {
+            val value = getStringValue(fieldName) ?: return null
+            return value.split(",").map(String::trim).filter(String::isNotBlank)
+        }
 
         fun <T> using(vararg properties: Pair<String, String>, fn: () -> T): T {
             try {

@@ -15,6 +15,7 @@ import io.specmatic.core.Result
 import io.specmatic.core.Results
 import io.specmatic.core.SPECMATIC_RESULT_HEADER
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.StubConfiguration
 import io.specmatic.core.log.consoleLog
 import io.specmatic.core.parseContractFileToFeature
@@ -456,7 +457,7 @@ Feature: Test
         val result = fakeHttpResponse(
             listOf(feature),
             request,
-            SpecmaticConfig(stub = StubConfiguration(generative = true))
+            SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = true))
         )
 
         assertThat(result).isInstanceOf(FoundStubbedResponse::class.java)
@@ -604,7 +605,11 @@ Scenario: Square of a number
             stubResponse,
             Resolver(),
             responsePattern = HttpResponsePattern(),
-            name = "TestExample"
+            scenarioStub = ScenarioStub(
+                data = JSONObjectValue(
+                    mapOf("name" to StringValue("TestExample"))
+                )
+            )
         )
 
         val request = HttpRequest(method = "GET", path = "/count")

@@ -25,6 +25,12 @@ interface ValueTransformer {
         }
     }
 
+    data object RemoveValue : ValueTransformer {
+        override fun transform(value: Value?): Value? {
+            return null
+        }
+    }
+
     data object CookieExpiryTransformer: ValueTransformer {
         override fun transform(value: Value?): Value? {
             if (value !is StringValue) return value

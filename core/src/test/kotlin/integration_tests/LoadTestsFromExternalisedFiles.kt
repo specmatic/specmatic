@@ -357,8 +357,8 @@ class LoadTestsFromExternalisedFiles {
             every { isResponseValueValidationEnabled() } returns true
             every { getWorkflowDetails() } returns null
         }
-        mockkObject(SpecmaticConfig.Companion)
-        every { SpecmaticConfig.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
+        mockkObject(SpecmaticConfigV1V2Common.Companion)
+        every { SpecmaticConfigV1V2Common.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
         val feature = OpenApiSpecification
             .fromFile("src/test/resources/openapi/has_inline_and_external_examples.yaml", specmaticConfig)
             .toFeature()
@@ -391,8 +391,8 @@ class LoadTestsFromExternalisedFiles {
             every { isResponseValueValidationEnabled() } returns true
             every { getWorkflowDetails() } returns null
         }
-        mockkObject(SpecmaticConfig.Companion)
-        every { SpecmaticConfig.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
+        mockkObject(SpecmaticConfigV1V2Common.Companion)
+        every { SpecmaticConfigV1V2Common.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
 
         val feature = OpenApiSpecification
             .fromFile(

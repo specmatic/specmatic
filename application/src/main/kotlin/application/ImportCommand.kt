@@ -5,7 +5,9 @@ import io.specmatic.conversions.postmanCollectionToGherkin
 import io.specmatic.conversions.runTests
 import io.specmatic.conversions.toFragment
 import io.specmatic.core.*
+import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.log.Verbose
+import io.specmatic.core.log.configureLogging
 import io.specmatic.core.log.logger
 import io.specmatic.core.log.logException
 import io.specmatic.core.utilities.jsonStringToValueMap
@@ -34,12 +36,10 @@ class ImportCommand : Callable<Int> {
     var userSpecifiedOutFile: String? = null
 
     @Option(names = ["--debug"], required = false, defaultValue = "false")
-    var verbose: Boolean = false
+    var verbose: Boolean? = null
 
     override fun call(): Int {
-        if(verbose)
-            logger = Verbose()
-
+        configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = verbose))
         return logException {
             when {
                 path.endsWith(".postman_collection.json") ->

@@ -15,11 +15,11 @@ import io.ktor.util.pipeline.*
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.APPLICATION_NAME
 import io.specmatic.core.APPLICATION_NAME_LOWER_CASE
-import io.specmatic.core.Constants.Companion.ARTIFACTS_PATH
 import io.specmatic.core.Feature
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.KeyData
+import io.specmatic.core.KeyDataRegistry
 import io.specmatic.core.MismatchMessages
 import io.specmatic.core.MissingDataException
 import io.specmatic.core.MultiPartContent
@@ -38,7 +38,6 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.WorkingDirectory
 import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.core.listOfExcludedHeaders
-import io.specmatic.core.loadSpecmaticConfigOrDefault
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.LogTail
@@ -121,18 +120,19 @@ class HttpStub(
     private val port: Int = 9000,
     private val log: (event: LogMessage) -> Unit = dontPrintToConsole,
     private val strictMode: Boolean = false,
-    val keyData: KeyData? = null,
+    val keyDataRegistry: KeyDataRegistry = KeyDataRegistry.empty(),
     val passThroughTargetBase: String = "",
     val httpClientFactory: HttpClientFactory = HttpClientFactory(),
     val workingDirectory: WorkingDirectory? = null,
     specmaticConfigSource: SpecmaticConfigSource = SpecmaticConfigSource.None,
     private val timeoutMillis: Long = 0,
     private val specToStubBaseUrlMap: Map<String, String?> = features.associate {
-        it.path to endPointFromHostAndPort(host, port, keyData)
+        it.path to endPointFromHostAndPort(host, port, keyDataRegistry.hasAny())
     },
     private val listeners: List<MockEventListener> = emptyList(),
     private val reportBaseDirectoryPath: String = ".",
-    private val startTime: Instant = Instant.now()
+    private val startTime: Instant = Instant.now(),
+    private val requestHandlers: MutableList<RequestHandler> = mutableListOf()
 ) : ContractStub {
     constructor(
         feature: Feature,
@@ -208,13 +208,14 @@ class HttpStub(
 
     private val loadedSpecmaticConfig = specmaticConfigSource.load()
     private val specmaticConfigInstance: SpecmaticConfig = loadedSpecmaticConfig.config
+    private val prettyPrint = specmaticConfigInstance.getPrettyPrint()
     val specmaticConfigPath: String? = loadedSpecmaticConfig.path
 
     private val ctrfTestResultRecords = mutableListOf<TestResultRecord>()
 
     val specToBaseUrlMap: Map<String, String> = getValidatedBaseUrlsOrExit(
         features.associate {
-            val baseUrl = specToStubBaseUrlMap[it.path] ?: endPointFromHostAndPort(host, port, keyData)
+            val baseUrl = specToStubBaseUrlMap[it.path] ?: endPointFromHostAndPort(host, port, keyDataRegistry.hasAny())
             it.path to baseUrl
         }
     )
@@ -224,8 +225,6 @@ class HttpStub(
         transient = rawHttpStubs.filter { it.stubToken != null }.reversed().toMutableList(),
         specToBaseUrlMap = specToBaseUrlMap
     )
-
-    private val requestHandlers: MutableList<RequestHandler> = mutableListOf()
 
     // used by graphql/plugins
     fun ctrfTestResultRecords() = ctrfTestResultRecords.toList()
@@ -268,7 +267,7 @@ class HttpStub(
             return httpExpectations.transientStubCount
         }
 
-    val endPoint = endPointFromHostAndPort(host, port, keyData)
+    val endPoint = endPointFromHostAndPort(host, port, keyDataRegistry.hasAny())
 
     override val client = LegacyHttpClient(this.endPoint)
 
@@ -298,7 +297,10 @@ class HttpStub(
             configure(CORS)
 
             intercept(ApplicationCallPipeline.Call) {
-                val httpLogMessage = HttpLogMessage(targetServer = "port '${call.request.local.localPort}'")
+                val httpLogMessage = HttpLogMessage(
+                    targetServer = "port '${call.request.local.localPort}'",
+                    prettyPrint = prettyPrint,
+                )
                 var transformedResponse: HttpResponse? = null
                 var responseErrors: List<InterceptorError> = emptyList()
 
@@ -328,7 +330,7 @@ class HttpStub(
                         logger.log("")
                         logger.log("--------------------")
                         logger.log("Request before hook processing:")
-                        logger.log(rawHttpRequest.toLogString().prependIndent("  "))
+                        logger.log(rawHttpRequest.toLogString(prettyPrint = prettyPrint).prependIndent("  "))
                     }
 
                     // Log request hook responseInterceeptorErrors if any occurred
@@ -342,19 +344,19 @@ class HttpStub(
                     val responseFromRequestHandler =
                         requestHandlers.firstNotNullOfOrNull { it.handleRequest(httpRequest) }
                     val httpStubResponse: HttpStubResponse = when {
-                        isFetchLogRequest(httpRequest) -> handleFetchLogRequest()
-                        isFetchLoadLogRequest(httpRequest) -> handleFetchLoadLogRequest()
-                        isFetchContractsRequest(httpRequest) -> handleFetchContractsRequest()
+                        isFetchLogRequest(httpRequest) -> handleFetchLogRequest().copy(isInternalStubPath = true)
+                        isFetchLoadLogRequest(httpRequest) -> handleFetchLoadLogRequest().copy(isInternalStubPath = true)
+                        isFetchContractsRequest(httpRequest) -> handleFetchContractsRequest().copy(isInternalStubPath = true)
                         responseFromRequestHandler != null -> responseFromRequestHandler
-                        isExpectationCreation(httpRequest) -> handleExpectationCreationRequest(httpRequest)
-                        isSseExpectationCreation(httpRequest) -> handleSseExpectationCreationRequest(httpRequest)
-                        isStateSetupRequest(httpRequest) -> handleStateSetupRequest(httpRequest)
-                        isFlushTransientStubsRequest(httpRequest) -> handleFlushTransientStubsRequest(httpRequest)
+                        isExpectationCreation(httpRequest) -> handleExpectationCreationRequest(httpRequest).copy(isInternalStubPath = true)
+                        isSseExpectationCreation(httpRequest) -> handleSseExpectationCreationRequest(httpRequest).copy(isInternalStubPath = true)
+                        isStateSetupRequest(httpRequest) -> handleStateSetupRequest(httpRequest).copy(isInternalStubPath = true)
+                        isFlushTransientStubsRequest(httpRequest) -> handleFlushTransientStubsRequest(httpRequest).copy(isInternalStubPath = true)
                         else -> {
                             val responseResult = serveStubResponse(
                                 httpRequest,
                                 baseUrl = "${call.request.local.scheme}://${call.request.local.localHost}:${call.request.local.localPort}",
-                                defaultBaseUrl = endPointFromHostAndPort(host, port, keyData),
+                                defaultBaseUrl = endPointFromHostAndPort(host, port, keyDataRegistry.hasAny()),
                                 urlPath = call.request.path()
                             )
                             if (responseResult is NotStubbed) httpLogMessage.addResult(responseResult.stubResult)
@@ -382,13 +384,14 @@ class HttpStub(
                             call,
                             updatedHttpStubResponse.response,
                             updatedHttpStubResponse.delayInMilliSeconds,
-                            specmaticConfigInstance
+                            specmaticConfigInstance,
+                            updatedHttpStubResponse.contractPath
                         )
                         // Add the original response (before encoding) to the log message
                         httpLogMessage.addResponse(httpStubResponse)
                     }
 
-                    if (!isInternalStubPath(httpRequest.path)) {
+                    if (httpStubResponse.isInternalStubPath.not()) {
                         addCtrfTestResultRecord(httpLogMessage, httpRequest, httpResponse, httpStubResponse)
                     }
                 } catch (e: ContractException) {
@@ -417,7 +420,7 @@ class HttpStub(
                     logger.log("")
                     logger.log("--------------------")
                     logger.log("Response after hook processing:")
-                    logger.log(it.toLogString().prependIndent("  "))
+                    logger.log(it.toLogString(prettyPrint = prettyPrint).prependIndent("  "))
                 }
 
                 // Log response hook errors if any occurred
@@ -463,7 +466,8 @@ class HttpStub(
             actualResponseStatus = httpResponse.status,
             operations = setOf(
                 OpenAPIOperation(path, method, requestContentType, responseStatus, protocol)
-            )
+            ),
+            exampleId = httpStubResponse.mock?.scenarioStub?.id
         )
         synchronized(ctrfTestResultRecords) { ctrfTestResultRecords.add(ctrfTestResultRecord) }
     }
@@ -507,31 +511,15 @@ class HttpStub(
 
     private fun ApplicationEngineEnvironmentBuilder.configureHostPorts() {
         val hostPortList = getHostAndPortList()
-
-        when (keyData) {
-            null -> connectors.addAll(
-                hostPortList.map { (host, port) ->
-                    EngineConnectorBuilder().also {
-                        it.host = host
-                        it.port = port
-                    }
-                }
-            )
-
-            else -> connectors.addAll(
-                hostPortList.map { (host, port) ->
-                    EngineSSLConnectorBuilder(
-                        keyStore = keyData.keyStore,
-                        keyAlias = keyData.keyAlias,
-                        privateKeyPassword = { keyData.keyPassword.toCharArray() },
-                        keyStorePassword = { keyData.keyPassword.toCharArray() }
-                    ).also {
-                        it.host = host
-                        it.port = port
-                    }
-                }
-            )
-        }
+        connectors.addAll(hostPortList.map { (host, port) ->
+            val keyData = keyDataRegistry.get(host, port) ?: return@map EngineConnectorBuilder().also { it.host = host; it.port = port }
+            EngineSSLConnectorBuilder(
+                keyStore = keyData.keyStore,
+                keyAlias = keyData.keyAlias,
+                privateKeyPassword = { keyData.keyPassword.toCharArray() },
+                keyStorePassword = { keyData.keyPassword.toCharArray() }
+            ).also { it.host = host; it.port = port }
+        })
     }
 
     private fun Application.configure(CORS: ApplicationPlugin<CORSConfig>) {
@@ -555,7 +543,7 @@ class HttpStub(
     }
 
     private fun getHostAndPortList(): List<Pair<String, Int>> {
-        val defaultBaseUrl = endPointFromHostAndPort(this.host, this.port, this.keyData)
+        val defaultBaseUrl = endPointFromHostAndPort(this.host, this.port, keyDataRegistry.hasAny())
         val specsWithMultipleBaseUrls = specmaticConfigInstance.stubToBaseUrlList(defaultBaseUrl).groupBy(
             keySelector = { it.first }, valueTransform = { it.second }
         ).filterValues { it.size > 1 }
@@ -746,7 +734,7 @@ class HttpStub(
             val sseEvent: SseEvent? = ObjectMapper().readValue(httpRequest.bodyString, SseEvent::class.java)
 
             if (sseEvent == null) {
-                logger.debug("No Sse Event was found in the request:\n${httpRequest.toLogString("  ")}")
+                logger.debug("No Sse Event was found in the request:\n${httpRequest.toLogString("  ", prettyPrint)}")
             } else if (sseEvent.bufferIndex == null) {
                 logger.debug("Broadcasting event: $sseEvent")
 
@@ -805,8 +793,7 @@ class HttpStub(
             }
 
             else -> {
-                val requestBodyRegex = parseRegex(stub.requestBodyRegex)
-                val stubData = firstResult.second.map { it.copy(requestBodyRegex = requestBodyRegex) }
+                val stubData = firstResult.second.map { it.copy(scenarioStub = stub) }
                 val resultWithRequestBodyRegex = stubData.map { Pair(firstResult.first, it) }
 
                 if (stub.stubToken != null) {
@@ -836,6 +823,7 @@ class HttpStub(
     }
 
     override fun close() {
+        logger.debug("Stopping the server with grace period of $timeoutMillis")
         server.stop(gracePeriodMillis = timeoutMillis, timeoutMillis = timeoutMillis)
         val protocols = features.map { it.protocol }.distinct()
         if (SpecmaticProtocol.HTTP in protocols) generateReports()
@@ -843,16 +831,15 @@ class HttpStub(
 
     private fun generateReports() {
         generateStubUsageReport()
-        val specmaticConfig = loadSpecmaticConfigOrDefault(specmaticConfigPath)
         synchronized(ctrfTestResultRecords) {
             ctrfTestResultRecords.addAll(notCoveredTestResultRecords())
             ReportGenerator.generateReport(
                 testResultRecords = ctrfTestResultRecords,
                 startTime = startTime.toEpochMilli(),
                 endTime = Instant.now().toEpochMilli(),
-                specConfigs = ctrfSpecConfigsFrom(specmaticConfig, ctrfTestResultRecords),
+                specConfigs = ctrfSpecConfigsFrom(specmaticConfigInstance, ctrfTestResultRecords),
                 coverage = 0,
-                reportDir = File("$ARTIFACTS_PATH/stub")
+                reportDir = File("${specmaticConfigInstance.getReportDirPath()}/stub")
             )
             { ctrfTestResultRecords ->
                 ctrfTestResultRecords.filterIsInstance<TestResultRecord>().getCoverageStatus()
@@ -866,8 +853,9 @@ class HttpStub(
                 endpoint.isEqualTo(testResultRecord)
             }
         }.map { endpoint ->
+            val path = convertPathParameterStyle(endpoint.path.orEmpty())
             TestResultRecord(
-                path = endpoint.path.orEmpty(),
+                path = path,
                 method = endpoint.method.orEmpty(),
                 responseStatus = endpoint.responseCode,
                 request = null,
@@ -878,9 +866,9 @@ class HttpStub(
                 specType = endpoint.specType,
                 operations = setOf(
                     OpenAPIOperation(
-                        path = endpoint.path.orEmpty(),
+                        path = path,
                         method = endpoint.method.orEmpty(),
-                        contentType = null,
+                        contentType = endpoint.requestContentType,
                         responseCode = endpoint.responseCode,
                         protocol = endpoint.protocol
                     )
@@ -977,7 +965,7 @@ class HttpStub(
         val baseUrlToSpecsMap = specToStubBaseUrlMap.entries.groupBy({ it.value }, { it.key })
 
         return buildString {
-            appendLine("Stub server is running on the following URLs:")
+            appendLine("Mock server is running on the following URLs:")
             baseUrlToSpecsMap.entries.sortedBy { it.key }.forEachIndexed { urlIndex, (url, specs) ->
                 appendLine("- $url serving endpoints from specs:")
                 specs.sorted().forEachIndexed { index, spec ->
@@ -1150,7 +1138,8 @@ suspend fun respondToKtorHttpResponse(
     call: ApplicationCall,
     httpResponse: HttpResponse,
     delayInMilliSeconds: Long? = null,
-    specmaticConfig: SpecmaticConfig? = null
+    specmaticConfig: SpecmaticConfig? = null,
+    specificationPath: String? = null,
 ) {
     val headersControlledByEngine = listOfExcludedHeaders().mapTo(hashSetOf()) { it.lowercase() }
     val headers = internalHeadersToKtorHeaders(httpResponse.headers.filterNot { it.key.lowercase() in headersControlledByEngine })
@@ -1160,7 +1149,7 @@ suspend fun respondToKtorHttpResponse(
         }
     }
 
-    val delayInMs = delayInMilliSeconds ?: specmaticConfig?.getStubDelayInMilliseconds()
+    val delayInMs = delayInMilliSeconds ?: specmaticConfig?.getStubDelayInMilliseconds(specificationPath?.let(::File))
     if (delayInMs != null) {
         delay(delayInMs)
     }
@@ -1206,7 +1195,14 @@ fun getHttpResponse(
                 stubResult = Result.Success()
             )
         }
-        if (strictMode) return strictModeHttp400Response(features, httpRequest, matchResults, specmaticConfig.getStubGenerative())
+
+        val matchingFeature = features.firstOrNull { it.identifierMatchingScenario(httpRequest) != null }
+        val effectiveStrictMode = specmaticConfig.getStubStrictMode(matchingFeature?.path?.let(::File)) ?: strictMode
+        if (effectiveStrictMode) {
+            val generativeMode = specmaticConfig.getStubGenerative(matchingFeature?.path?.let(::File))
+            return strictModeHttp400Response(features, httpRequest, matchResults, generativeMode)
+        }
+
         return fakeHttpResponse(features, httpRequest, specmaticConfig)
     } finally {
         features.forEach { feature -> feature.clearServerState() }
@@ -1296,20 +1292,16 @@ fun fakeHttpResponse(
 
     return when (val fakeResponse = responses.successResponse()) {
         null -> {
-            val failureResults = responses.filter { it.successResponse == null }.map { it.results }
+            val failureResponses = responses.filter { it.successResponse == null }
+            val combinedFailureResult = Results(failureResponses.flatMap { it.results.results }).withoutFluff()
+            val firstScenarioWith400Response = failureResponses.asSequence().flatMap { response ->
+                response.results.results.asSequence().filterIsInstance<Result.Failure>().filter {
+                    it.failureReason == null && it.scenario?.let { scenario -> scenario.status == 400 || scenario.status == 422 } == true
+                }.map { failure -> response.feature to failure.scenario!! }
+            }.firstOrNull()
 
-            val combinedFailureResult = failureResults.reduce { first, second ->
-                first.plus(second)
-            }.withoutFluff()
-
-            val firstScenarioWith400Response = failureResults.flatMap { it.results }.filter {
-                it is Result.Failure
-                        && it.failureReason == null
-                        && it.scenario?.let { it.status == 400 || it.status == 422 } == true
-            }.map { it.scenario!! }.firstOrNull()
-
-            if (firstScenarioWith400Response != null && specmaticConfig.getStubGenerative()) {
-                val scenario = firstScenarioWith400Response as Scenario
+            if (firstScenarioWith400Response != null && specmaticConfig.getStubGenerative(File(firstScenarioWith400Response.first.path))) {
+                val scenario = firstScenarioWith400Response.second as Scenario
                 val errorResponse = scenario.responseWithStubError(combinedFailureResult.report())
 
                 FoundStubbedResponse(
@@ -1552,11 +1544,11 @@ fun internalServerError(errorMessage: String?): HttpResponse {
     )
 }
 
-internal fun httpResponseLog(response: HttpResponse): String =
-    "${response.toLogString("<- ")}\n<< Response At ${Date()} == "
+internal fun httpResponseLog(response: HttpResponse, prettyPrint: Boolean = true): String =
+    "${response.toLogString("<- ", prettyPrint)}\n<< Response At ${Date()} == "
 
-internal fun httpRequestLog(httpRequest: HttpRequest): String =
-    ">> Request Start At ${Date()}\n${httpRequest.toLogString("-> ")}"
+internal fun httpRequestLog(httpRequest: HttpRequest, prettyPrint: Boolean = true): String =
+    ">> Request Start At ${Date()}\n${httpRequest.toLogString("-> ", prettyPrint)}"
 
 fun endPointFromHostAndPort(host: String, port: Int?, keyData: KeyData?): String {
     val protocol = when (keyData) {
@@ -1572,12 +1564,27 @@ fun endPointFromHostAndPort(host: String, port: Int?, keyData: KeyData?): String
     return "$protocol://$host$computedPortString"
 }
 
+fun endPointFromHostAndPort(host: String, port: Int?, isHttps: Boolean): String {
+    val protocol = when (isHttps) {
+        false -> "http"
+        true -> "https"
+    }
+
+    val computedPortString = when (port) {
+        80, null -> ""
+        else -> ":$port"
+    }
+
+    return "$protocol://$host$computedPortString"
+}
+
 fun extractHost(url: String): String {
     return URI(url).host
 }
 
 fun extractPort(url: String): Int {
-    return resolvedPort(URI.create(url))
+    val effectiveUrl = if ("://" in url) URI(url) else URI("scheme://$url")
+    return resolvedPort(effectiveUrl)
 }
 
 fun normalizeHost(host: String): String {
@@ -1614,10 +1621,6 @@ fun validateBaseUrls(specToBaseUrlMap: Map<String, String>): Result {
     }
 
     return Result.fromResults(results)
-}
-
-internal fun isInternalStubPath(path: String): Boolean {
-    return path.startsWith("/_$APPLICATION_NAME_LOWER_CASE")
 }
 
 internal fun isPath(path: String?, lastPart: String): Boolean {

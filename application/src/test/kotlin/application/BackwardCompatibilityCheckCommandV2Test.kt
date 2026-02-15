@@ -143,15 +143,11 @@ class BackwardCompatibilityCheckCommandV2Test {
             commitAndPush(tempDir, "Initial commit")
             apiFile.copyTo(tempDir.resolve("contract.yaml"))
 
-            val (stdOut, exception) = captureStandardOutput {
-                assertThrows<SystemExitException> {
-                    SystemExit.throwOnExit {
-                        BackwardCompatibilityCheckCommandV2().apply { repoDir = tempDir.canonicalPath }.call()
-                    }
-                }
+            val (stdOut, exitCode) = captureStandardOutput {
+                BackwardCompatibilityCheckCommandV2().apply { repoDir = tempDir.canonicalPath }.call()
             }
 
-            assertThat(exception.code).isEqualTo(0)
+            assertThat(exitCode).isEqualTo(0)
             assertThat(stdOut).containsIgnoringWhitespaces(
                 """
             - Specs that will be skipped (untracked specs, or schema files that are not referred to in other specs):
@@ -173,15 +169,11 @@ class BackwardCompatibilityCheckCommandV2Test {
             gitApiFile.writeText(gitApiFile.readText().replace("endpoint", "modified endpoint"))
             apiFile.copyTo(tempDir.resolve("contract.yaml"))
 
-            val (stdOut, exception) = captureStandardOutput {
-                assertThrows<SystemExitException> {
-                    SystemExit.throwOnExit {
-                        BackwardCompatibilityCheckCommandV2().apply { repoDir = tempDir.canonicalPath }.call()
-                    }
-                }
+            val (stdOut, exitCode) = captureStandardOutput {
+                BackwardCompatibilityCheckCommandV2().apply { repoDir = tempDir.canonicalPath }.call()
             }
 
-            assertThat(exception.code).isEqualTo(0)
+            assertThat(exitCode).isEqualTo(0)
             assertThat(stdOut).containsIgnoringWhitespaces(
                 """
             - Specs that have changed: 
@@ -204,15 +196,11 @@ class BackwardCompatibilityCheckCommandV2Test {
             commitAndPush(tempDir, "Initial commit")
             File("src/test/resources/specifications/spec_with_external_reference/").copyRecursively(tempDir)
 
-            val (stdOut, exception) = captureStandardOutput {
-                assertThrows<SystemExitException> {
-                    SystemExit.throwOnExit {
-                        BackwardCompatibilityCheckCommandV2().apply { repoDir = tempDir.canonicalPath }.call()
-                    }
-                }
+            val (stdOut, exitCode) = captureStandardOutput {
+                BackwardCompatibilityCheckCommandV2().apply { repoDir = tempDir.canonicalPath }.call()
             }
 
-            assertThat(exception.code).isEqualTo(0)
+            assertThat(exitCode).isEqualTo(0)
             assertThat(stdOut).containsIgnoringWhitespaces(
                 """
             - Specs that will be skipped (untracked specs, or schema files that are not referred to in other specs):
@@ -259,18 +247,14 @@ class BackwardCompatibilityCheckCommandV2Test {
             commitAndPush(tempDir, "Initial commit")
             File(tempDir, "other-api.yaml").writeText(otherApiSpec)
 
-            val (stdOut, exception) = captureStandardOutput(redirectStdErrToStdout = true) {
-                assertThrows<SystemExitException> {
-                    SystemExit.throwOnExit {
-                        BackwardCompatibilityCheckCommandV2().apply {
-                            repoDir = tempDir.canonicalPath
-                            targetPath = "${tempDir.canonicalPath}/other-api.yaml"
-                        }.call()
-                    }
-                }
+            val (stdOut, exitCode) = captureStandardOutput(redirectStdErrToStdout = true) {
+                BackwardCompatibilityCheckCommandV2().apply {
+                    repoDir = tempDir.canonicalPath
+                    targetPath = "${tempDir.canonicalPath}/other-api.yaml"
+                }.call()
             }
 
-            assertThat(exception.code).isEqualTo(0)
+            assertThat(exitCode).isEqualTo(0)
             assertThat(stdOut).containsIgnoringWhitespaces(
                 """
             - Specs that will be skipped (untracked specs, or schema files that are not referred to in other specs):
@@ -425,15 +409,11 @@ class BackwardCompatibilityCheckCommandV2Test {
             val exampleFile = tempDir.resolve("api_examples").resolve("example.json")
             exampleFile.writeText(exampleFile.readText().replace("john", "jane"))
 
-            val (stdOut, exception) = captureStandardOutput {
-                assertThrows<SystemExitException> {
-                    SystemExit.throwOnExit {
-                        BackwardCompatibilityCheckCommandV2().apply { repoDir = tempDir.canonicalPath }.call()
-                    }
-                }
+            val (stdOut, exitCode) = captureStandardOutput {
+                BackwardCompatibilityCheckCommandV2().apply { repoDir = tempDir.canonicalPath }.call()
             }
 
-            assertThat(exception.code).isEqualTo(0)
+            assertThat(exitCode).isEqualTo(0)
             assertThat(stdOut).containsIgnoringWhitespaces(
                 """
             - Specs that have changed: 
@@ -447,6 +427,21 @@ class BackwardCompatibilityCheckCommandV2Test {
             Files checked: 2 (Passed: 2, Failed: 0)
             """.trimIndent()
             )
+        }
+
+        @Test
+        fun `should fail when externalised example changes but corresponding spec file is missing`() {
+            val exampleDir = tempDir.resolve("orders_examples").apply { mkdirs() }
+            val exampleFile = exampleDir.resolve("example.json").apply { writeText("""{"id":1}""") }
+            commitAndPush(tempDir, "Initial commit")
+            exampleFile.writeText("""{"id":2}""")
+
+            val (stdOut, exitCode) = captureStandardOutput(redirectStdErrToStdout = true) {
+                BackwardCompatibilityCheckCommandV2().apply { repoDir = tempDir.canonicalPath }.call()
+            }
+
+            assertThat(exitCode).isEqualTo(1)
+            assertThat(stdOut).contains("orders.yaml")
         }
 
         @ParameterizedTest

@@ -10,12 +10,13 @@ import io.specmatic.core.SourceProvider.filesystem
 import io.specmatic.core.SourceProvider.git
 import io.specmatic.core.config.SpecmaticConfigVersion.Companion.convertToLatestVersionedConfig
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.config.v1.SpecmaticConfigV1
 import io.specmatic.core.config.v2.ContractConfig
 import io.specmatic.core.config.v2.ContractConfig.FileSystemContractSource
 import io.specmatic.core.config.v2.ContractConfig.GitContractSource
 import io.specmatic.core.config.v2.SpecmaticConfigV2
-import io.specmatic.core.config.v3.SpecExecutionConfig
+import io.specmatic.core.config.v2.SpecExecutionConfig
 import io.specmatic.core.loadSpecmaticConfig
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSON
@@ -79,7 +80,7 @@ internal class SpecmaticConfigAllTest {
     fun `should create SpecmaticConfig from the versioned specmatic configuration`(version: SpecmaticConfigVersion, configFile: String) {
         val config: SpecmaticConfig = loadSpecmaticConfig(configFile)
         assertThat(config.getVersion()).isEqualTo(version)
-        val sources = SpecmaticConfig.getSources(config)
+        val sources = SpecmaticConfigV1V2Common.getSources(config as SpecmaticConfigV1V2Common)
         assertThat(sources.size).isEqualTo(2)
         val expectedSources = listOf(
             Source(
@@ -110,7 +111,7 @@ internal class SpecmaticConfigAllTest {
     fun `should create SpecmaticConfig from the v2 config with stub ports`(version: SpecmaticConfigVersion, configFile: String) {
         val config: SpecmaticConfig = loadSpecmaticConfig(configFile)
         assertThat(config.getVersion()).isEqualTo(version)
-        val sources = SpecmaticConfig.getSources(config)
+        val sources = SpecmaticConfigV1V2Common.getSources(config as SpecmaticConfigV1V2Common)
         assertThat(sources.size).isEqualTo(2)
         val expectedSources = listOf(
             Source(
@@ -657,6 +658,20 @@ internal class SpecmaticConfigAllTest {
     }
 
     @Test
+    fun `should deserialize tests directory in SpecmaticConfig successfully`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml")
+        val configYaml = """
+            test:
+                testsDirectory: examples/tests
+        """.trimIndent()
+        configFile.writeText(configYaml)
+
+        val specmaticConfig = configFile.toSpecmaticConfig()
+
+        assertThat(specmaticConfig.getTestsDirectory()).isEqualTo("examples/tests")
+    }
+
+    @Test
     fun `should convert config from v1 to v2 when test configuration is present`() {
         val configYaml = """
             test:
@@ -716,11 +731,25 @@ internal class SpecmaticConfigAllTest {
         val specmaticConfig = configFile.toSpecmaticConfig()
 
         specmaticConfig.apply {
-            assertThat(getStubGenerative()).isTrue()
-            assertThat(getStubDelayInMilliseconds()).isEqualTo(1000L)
-            assertThat(getStubDictionary()).isEqualTo("stubDictionary")
+            assertThat(getStubGenerative(File("spec.yaml"))).isTrue()
+            assertThat(getStubDelayInMilliseconds(File("spec.yaml"))).isEqualTo(1000L)
+            assertThat(getStubDictionary(File("spec.yaml"))).isEqualTo("stubDictionary")
             assertThat(getStubIncludeMandatoryAndRequestedKeysInResponse()).isTrue()
         }
+    }
+
+    @Test
+    fun `should deserialize custom implicit stub base in SpecmaticConfig successfully`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml")
+        val configYaml = """
+            stub:
+                customImplicitStubBase: stub-data
+        """.trimIndent()
+        configFile.writeText(configYaml)
+
+        val specmaticConfig = configFile.toSpecmaticConfig()
+
+        assertThat(specmaticConfig.getCustomImplicitStubBase()).isEqualTo("stub-data")
     }
 
     @Test
@@ -1043,7 +1072,8 @@ internal class SpecmaticConfigAllTest {
                 branchName = "1.0.1",
                 testContracts = listOf("com/petstore/1.yaml").toContractSourceEntries(),
                 stubContracts = listOf("com/petstore/payment.yaml").toContractSourceEntries(),
-                type = git.name
+                type = git.name,
+                specmaticConfig = config
             ),
             LocalFileSystemSource(
                 directory = "contracts",
@@ -1072,7 +1102,8 @@ internal class SpecmaticConfigAllTest {
                 branchName = "1.0.1",
                 testContracts = listOf("com/petstore/1.yaml").toContractSourceEntries(),
                 stubContracts = listOf("com/petstore/payment.yaml").toContractSourceEntries(),
-                type = git.name
+                type = git.name,
+                specmaticConfig = config
             ),
             LocalFileSystemSource(
                 directory = "contracts",
@@ -1088,4 +1119,318 @@ internal class SpecmaticConfigAllTest {
         assertThat(contractSources[0]).isEqualTo(expectedContractSources[0])
         assertThat(contractSources[1]).isEqualTo(expectedContractSources[1])
     }
+
+    @Test
+    fun `should deserialize all test configuration properties successfully`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml")
+        val configYaml = """
+            version: 2
+            test:
+                strictMode: true
+                lenientMode: false
+                parallelism: "dynamic"
+                maxTestCount: 100
+                maxTestRequestCombinations: 50
+                testsDirectory: build/test-results
+        """.trimIndent()
+        configFile.writeText(configYaml)
+
+        val config = configFile.toSpecmaticConfig()
+
+        assertThat(config.getTestStrictMode()).isTrue()
+        assertThat(config.getTestLenientMode()).isFalse()
+        assertThat(config.getTestParallelism()).isEqualTo("dynamic")
+        assertThat(config.getMaxTestCount()).isEqualTo(100)
+        assertThat(config.getMaxTestRequestCombinations()).isEqualTo(50)
+        assertThat(config.getTestsDirectory()).isEqualTo("build/test-results")
+    }
+
+    @Test
+    fun `should deserialize junit report dir from v2 test configuration`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml")
+        val configYaml = """
+            version: 2
+            test:
+                junitReportDir: build/junit
+        """.trimIndent()
+        configFile.writeText(configYaml)
+
+        val config = configFile.toSpecmaticConfig()
+
+        assertThat(config.getTestJunitReportDir()).isEqualTo("build/junit")
+    }
+
+    @Test
+    fun `should ignore junit report dir in v1 config`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml")
+        val configYaml = """
+            test:
+                junitReportDir: build/junit
+        """.trimIndent()
+        configFile.writeText(configYaml)
+
+        val config = configFile.toSpecmaticConfig()
+
+        assertThat(config.getTestJunitReportDir()).isNull()
+    }
+
+    @Test
+    fun `should use config test filter over system property`(@TempDir tempDir: File) {
+        System.setProperty("filter", "status==200")
+
+        try {
+            val configFile = tempDir.resolve("specmatic.yaml")
+            val configYaml = """
+                version: 2
+                test:
+                    filter: status==400
+            """.trimIndent()
+            configFile.writeText(configYaml)
+
+            val config = configFile.toSpecmaticConfig()
+
+            assertThat(config.getTestFilter()).isEqualTo("status==400")
+        } finally {
+            System.clearProperty("filter")
+        }
+    }
+
+    @Test
+    fun `should fall back to system property when test filter is missing`(@TempDir tempDir: File) {
+        System.setProperty("filter", "status==200")
+
+        try {
+            val configFile = tempDir.resolve("specmatic.yaml")
+            val configYaml = """
+                version: 2
+                test:
+                    strictMode: true
+            """.trimIndent()
+            configFile.writeText(configYaml)
+
+            val config = configFile.toSpecmaticConfig()
+
+            assertThat(config.getTestFilter()).isEqualTo("status==200")
+        } finally {
+            System.clearProperty("filter")
+        }
+    }
+
+    @Test
+    fun `should deserialize stub configuration properties successfully`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml")
+        val configYaml = """
+            version: 2
+            stub:
+                baseUrl: http://localhost:9000
+                customImplicitStubBase: custom-stubs
+        """.trimIndent()
+        configFile.writeText(configYaml)
+
+        val config = configFile.toSpecmaticConfig()
+
+        assertThat(config.getDefaultBaseUrl()).isEqualTo("http://localhost:9000")
+        assertThat(config.getCustomImplicitStubBase()).isEqualTo("custom-stubs")
+    }
+
+    @Test
+    fun `should deserialize v2-only top-level properties successfully`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml")
+        val configYaml = """
+            version: 2
+            fuzzy: true
+            escapeSoapAction: false
+            prettyPrint: false
+            ignoreInlineExampleWarnings: true
+        """.trimIndent()
+        configFile.writeText(configYaml)
+
+        val config = configFile.toSpecmaticConfig()
+
+        assertThat(config.getFuzzyMatchingEnabled()).isTrue()
+        assertThat(config.getEscapeSoapAction()).isFalse()
+        assertThat(config.getPrettyPrint()).isFalse()
+        assertThat(config.getIgnoreInlineExampleWarnings()).isTrue()
+    }
+
+    @Test
+    fun `config file test properties should take precedence over system properties`(@TempDir tempDir: File) {
+        val properties = mapOf(
+            io.specmatic.core.utilities.Flags.TEST_STRICT_MODE to "false",
+            io.specmatic.core.utilities.Flags.SPECMATIC_TEST_PARALLELISM to "same_thread",
+            io.specmatic.core.utilities.Flags.MAX_TEST_COUNT to "50"
+        )
+
+        try {
+            properties.forEach { System.setProperty(it.key, it.value) }
+
+            val configFile = tempDir.resolve("specmatic.yaml")
+            val configYaml = """
+                version: 2
+                test:
+                    strictMode: true
+                    parallelism: "dynamic"
+                    maxTestCount: 200
+            """.trimIndent()
+            configFile.writeText(configYaml)
+
+            val config = configFile.toSpecmaticConfig()
+
+            // Config file values should win
+            assertThat(config.getTestStrictMode()).isTrue()
+            assertThat(config.getTestParallelism()).isEqualTo("dynamic")
+            assertThat(config.getMaxTestCount()).isEqualTo(200)
+        } finally {
+            properties.forEach { System.clearProperty(it.key) }
+        }
+    }
+
+    @Test
+    fun `config file stub properties should take precedence over system properties`(@TempDir tempDir: File) {
+        System.setProperty(io.specmatic.core.utilities.Flags.SPECMATIC_BASE_URL, "http://localhost:7000")
+
+        try {
+            val configFile = tempDir.resolve("specmatic.yaml")
+            val configYaml = """
+                version: 2
+                stub:
+                    baseUrl: http://localhost:9000
+            """.trimIndent()
+            configFile.writeText(configYaml)
+
+            val config = configFile.toSpecmaticConfig()
+
+            // Config file value should win
+            assertThat(config.getDefaultBaseUrl()).isEqualTo("http://localhost:9000")
+        } finally {
+            System.clearProperty(io.specmatic.core.utilities.Flags.SPECMATIC_BASE_URL)
+        }
+    }
+
+    @Test
+    fun `config file v2 properties should take precedence over system properties`(@TempDir tempDir: File) {
+        val properties = mapOf(
+            io.specmatic.core.utilities.Flags.SPECMATIC_FUZZY to "false",
+            io.specmatic.core.utilities.Flags.SPECMATIC_PRETTY_PRINT to "true"
+        )
+
+        try {
+            properties.forEach { System.setProperty(it.key, it.value) }
+
+            val configFile = tempDir.resolve("specmatic.yaml")
+            val configYaml = """
+                version: 2
+                fuzzy: true
+                prettyPrint: false
+            """.trimIndent()
+            configFile.writeText(configYaml)
+
+            val config = configFile.toSpecmaticConfig()
+
+            // Config file values should win
+            assertThat(config.getFuzzyMatchingEnabled()).isTrue()
+            assertThat(config.getPrettyPrint()).isFalse()
+        } finally {
+            properties.forEach { System.clearProperty(it.key) }
+        }
+    }
+
+    @Test
+    fun `getReportDirPath should return default path when reportDirPath is not configured in v2 json config`() {
+        val configJson = """
+            {
+                "version": 2,
+                "contracts": [
+                    {
+                        "git": {
+                            "url": "https://contracts"
+                        },
+                        "provides": ["com/petstore/1.yaml"]
+                    }
+                ]
+            }
+        """.trimIndent()
+
+        val configV2 = objectMapper.readValue(configJson, SpecmaticConfigV2::class.java)
+        val specmaticConfig = configV2.transform()
+
+        val reportDirPath = specmaticConfig.getReportDirPath()
+
+        assertThat(reportDirPath.toString()).isEqualTo("build${File.separator}reports${File.separator}specmatic")
+    }
+
+    @Test
+    fun `getReportDirPath should return custom path when reportDirPath is configured in v2 json config`() {
+        val configJson = """
+            {
+                "version": 2,
+                "contracts": [
+                    {
+                        "git": {
+                            "url": "https://contracts"
+                        },
+                        "provides": ["com/petstore/1.yaml"]
+                    }
+                ],
+                "report_dir_path": "custom/reports"
+            }
+        """.trimIndent()
+
+        val configV2 = objectMapper.readValue(configJson, SpecmaticConfigV2::class.java)
+        val specmaticConfig = configV2.transform()
+
+        val reportDirPath = specmaticConfig.getReportDirPath()
+
+        assertThat(reportDirPath.toString()).isEqualTo("custom${File.separator}reports")
+    }
+
+    @Test
+    fun `getReportDirPath should return custom path with suffix when suffix is provided in v2 json config`() {
+        val configJson = """
+            {
+                "version": 2,
+                "contracts": [
+                    {
+                        "git": {
+                            "url": "https://contracts"
+                        },
+                        "provides": ["com/petstore/1.yaml"]
+                    }
+                ],
+                "report_dir_path": "custom/reports"
+            }
+        """.trimIndent()
+
+        val configV2 = objectMapper.readValue(configJson, SpecmaticConfigV2::class.java)
+        val specmaticConfig = configV2.transform()
+
+        val reportDirPath = specmaticConfig.getReportDirPath("stub")
+
+        assertThat(reportDirPath.toString()).isEqualTo("custom${File.separator}reports${File.separator}stub")
+    }
+
+    @Test
+    fun `getReportDirPath should return default path with suffix when reportDirPath is not configured and suffix is provided in v2 json config`() {
+        val configJson = """
+            {
+                "version": 2,
+                "contracts": [
+                    {
+                        "git": {
+                            "url": "https://contracts"
+                        },
+                        "provides": ["com/petstore/1.yaml"]
+                    }
+                ]
+            }
+        """.trimIndent()
+
+        val configV2 = objectMapper.readValue(configJson, SpecmaticConfigV2::class.java)
+        val specmaticConfig = configV2.transform()
+
+        val reportDirPath = specmaticConfig.getReportDirPath("mcp")
+
+        assertThat(reportDirPath.toString()).isEqualTo("build${File.separator}reports${File.separator}specmatic${File.separator}mcp")
+    }
+
 }

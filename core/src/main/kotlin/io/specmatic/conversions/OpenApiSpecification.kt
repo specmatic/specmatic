@@ -21,9 +21,6 @@ import io.specmatic.core.overlay.OverlayMerger
 import io.specmatic.core.overlay.OverlayParser
 import io.specmatic.core.pattern.*
 import io.specmatic.core.pattern.Discriminator
-import io.specmatic.core.utilities.Flags
-import io.specmatic.core.utilities.Flags.Companion.IGNORE_INLINE_EXAMPLE_WARNINGS
-import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
 import io.specmatic.core.utilities.toValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NullValue
@@ -96,10 +93,14 @@ class OpenApiSpecification(
     private val specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
     private val strictMode: Boolean = false,
     private val lenientMode: Boolean = false,
-    private val dictionary: Dictionary = loadDictionary(openApiFilePath, specmaticConfig.getStubDictionary(), strictMode),
+    private val dictionary: Dictionary = loadDictionary(openApiFilePath, specmaticConfig.getDictionary(), strictMode),
     private val logger: LogStrategy = io.specmatic.core.log.logger,
     private val parseCollectorContext: CollectorContext = CollectorContext(),
+    private val exampleDirPaths: List<String> = emptyList()
 ) : IncludedSpecification, ApiSpecification {
+    private val extensibleQueryParams: Boolean = specmaticConfig.getExtensibleQueryParams()
+    private val preferEscapedSoapAction: Boolean = specmaticConfig.getEscapeSoapAction()
+
     init {
         StringProviders // Trigger early initialization of StringProviders to ensure all providers are loaded at startup
         logger.log(openApiSpecificationInfo(openApiFilePath, parsedOpenApi))
@@ -175,6 +176,23 @@ class OpenApiSpecification(
             }
 
             return fromFile(openApiFile.canonicalPath, lenientMode)
+        }
+
+        fun fromFile(
+            openApiFilePath: String,
+            relativeTo: String,
+            specmaticConfig: SpecmaticConfig,
+            lenientMode: Boolean = false
+        ): OpenApiSpecification {
+            val openApiFile = File(openApiFilePath).let { openApiFile ->
+                if (openApiFile.isAbsolute) {
+                    openApiFile
+                } else {
+                    File(relativeTo).canonicalFile.parentFile.resolve(openApiFile)
+                }
+            }
+
+            return fromFile(openApiFile.canonicalPath, specmaticConfig, lenientMode)
         }
 
         fun fromFile(openApiFilePath: String, lenientMode: Boolean = false): OpenApiSpecification {
@@ -262,6 +280,7 @@ class OpenApiSpecification(
             overlayContent: String = "",
             strictMode: Boolean = false,
             lenientMode: Boolean = false,
+            exampleDirPaths: List<String> = emptyList()
         ): OpenApiSpecification {
             val collectorContext = CollectorContext()
             val implicitOverlayFile = getImplicitOverlayContent(openApiFilePath)
@@ -305,7 +324,8 @@ class OpenApiSpecification(
                 strictMode = strictMode,
                 lenientMode = lenientMode,
                 logger = logger,
-                parseCollectorContext = collectorContext
+                parseCollectorContext = collectorContext,
+                exampleDirPaths = exampleDirPaths
             )
         }
 
@@ -315,8 +335,7 @@ class OpenApiSpecification(
         }
 
         private fun getDictionaryFile(openApiFile: File, dictionaryPathFromConfig: String?): File? {
-            val explicitDictionaryPath = dictionaryPathFromConfig ?: Flags.getStringValue(SPECMATIC_STUB_DICTIONARY)
-            if (!explicitDictionaryPath.isNullOrEmpty()) return File(explicitDictionaryPath)
+            if (!dictionaryPathFromConfig.isNullOrEmpty()) return File(dictionaryPathFromConfig)
 
             val implicitPaths = sequenceOf("_dictionary.yml", "_dictionary.yaml", "_dictionary.json")
             return implicitPaths.map {
@@ -453,7 +472,8 @@ class OpenApiSpecification(
             stubsFromExamples = stubsFromExamples,
             specmaticConfig = specmaticConfig,
             strictMode = strictMode,
-            protocol = protocol
+            protocol = protocol,
+            exampleDirPaths = exampleDirPaths
         )
 
         return Pair(feature, rootContext.toCollector().toResult())
@@ -612,7 +632,11 @@ class OpenApiSpecification(
 
             val httpPathPattern =
                 HttpPathPattern(pathPatterns, openApiScenario.httpRequestPattern.httpPathPattern?.path ?: "")
-            val httpQueryParamPattern = HttpQueryParamPattern(queryPattern)
+            val existingQueryParamPattern = openApiScenario.httpRequestPattern.httpQueryParamPattern
+            val httpQueryParamPattern = HttpQueryParamPattern(
+                queryPattern,
+                extensibleQueryParams = existingQueryParamPattern.extensibleQueryParams
+            )
 
             val httpRequestPattern = openApiScenario.httpRequestPattern.copy(
                 httpPathPattern = httpPathPattern,
@@ -641,7 +665,11 @@ class OpenApiSpecification(
                         collectorContext = methodContext
                     )
 
-                    val specmaticQueryParam = toSpecmaticQueryParam(operation = openApiOperation, collectorContext = methodContext)
+                    val specmaticQueryParam = toSpecmaticQueryParam(
+                        operation = openApiOperation,
+                        collectorContext = methodContext,
+                        extensibleQueryParams = extensibleQueryParams
+                    )
                     val httpResponsePatterns: List<ResponsePatternData> = attempt(breadCrumb = "$httpMethod $openApiPath -> RESPONSE") {
                         toHttpResponsePatterns(responses = openApiOperation.responses, collectorContext = methodContext)
                     }
@@ -775,7 +803,7 @@ class OpenApiSpecification(
 
                 val unusedRequestExampleNames = requestExampleNames - usedExamples
 
-                if(getBooleanValue(IGNORE_INLINE_EXAMPLE_WARNINGS).not()) {
+                if (specmaticConfig.getIgnoreInlineExampleWarnings().not()) {
                     unusedRequestExampleNames.forEach { unusedRequestExampleName ->
                         // TODO: Collect as warning
                         logger.log(missingResponseExampleErrorMessageForTest(unusedRequestExampleName))
@@ -933,11 +961,16 @@ class OpenApiSpecification(
                 else key to value
             }.toMap().ifEmpty { mapOf(SPECMATIC_TEST_WITH_NO_REQ_EX to "") }
 
-            if (requestExamples.containsKey(SPECMATIC_TEST_WITH_NO_REQ_EX) && responseExample.status != first2xxResponseStatus) {
-                // TODO: Collect as warning
-                if (getBooleanValue(IGNORE_INLINE_EXAMPLE_WARNINGS).not())
-                    logger.log(missingRequestExampleErrorMessageForTest(exampleName))
-                return@mapNotNull null
+            if (requestExamples.containsKey(SPECMATIC_TEST_WITH_NO_REQ_EX)) {
+                if (strictMode) {
+                    throw ContractException(missingRequestExampleErrorMessageForTest(exampleName))
+                }
+                if (responseExample.status != first2xxResponseStatus) {
+                    // TODO: Collect as warning
+                    if (specmaticConfig.getIgnoreInlineExampleWarnings().not())
+                        logger.log(missingRequestExampleErrorMessageForTest(exampleName))
+                    return@mapNotNull null
+                }
             }
 
             val resolvedResponseExample: ResponseExample? =
@@ -1106,7 +1139,7 @@ class OpenApiSpecification(
 
     private fun openAPIResponseToSpecmatic(response: ApiResponse, status: String, headersMap: Map<String, Pair<Pattern, CollectorContext>>, collectorContext: CollectorContext): List<ResponsePatternData> {
         val headerExamples =
-            if (specmaticConfig.getIgnoreInlineExamples() || getBooleanValue(Flags.IGNORE_INLINE_EXAMPLES))
+            if (specmaticConfig.getIgnoreInlineExamples())
                 emptyMap()
             else
                 response.headers.orEmpty().entries.fold(emptyMap<String, Map<String, String>>()) { acc, (headerName, header) ->
@@ -1116,7 +1149,10 @@ class OpenApiSpecification(
         if (response.content == null || response.content.isEmpty()) {
             val responsePattern =
                 HttpResponsePattern(
-                    headersPattern = HttpHeadersPattern(headersMap.mapValues { it.value.first }),
+                    headersPattern = HttpHeadersPattern(
+                        headersMap.mapValues { it.value.first },
+                        preferEscapedSoapAction = preferEscapedSoapAction
+                    ),
                     body = NoBodyPattern,
                     status = status.toIntOrNull() ?: DEFAULT_RESPONSE_CODE,
                 )
@@ -1149,7 +1185,11 @@ class OpenApiSpecification(
             }
 
             val responsePattern = HttpResponsePattern(
-                headersPattern = HttpHeadersPattern(headersMap.mapValues { it.value.first }, contentType = contentType),
+                headersPattern = HttpHeadersPattern(
+                    headersMap.mapValues { it.value.first },
+                    contentType = contentType,
+                    preferEscapedSoapAction = preferEscapedSoapAction
+                ),
                 status = if (status == "default") 1000 else status.toInt(),
                 body = when (contentType) {
                     "application/xml" -> toXMLPattern(mediaType, mediaTypeContext)
@@ -1162,7 +1202,7 @@ class OpenApiSpecification(
             )
 
             val exampleBodies: Map<String, String?> =
-                if (specmaticConfig.getIgnoreInlineExamples() || getBooleanValue(Flags.IGNORE_INLINE_EXAMPLES))
+                if (specmaticConfig.getIgnoreInlineExamples())
                     emptyMap()
                 else
                     mediaType.examples?.mapValues {
@@ -1251,7 +1291,10 @@ class OpenApiSpecification(
         }
 
         val contentTypeHeader = headersMap.entries.find { it.key.lowercase() in listOf("content-type", "content-type?") }?.value
-        val headersPattern = HttpHeadersPattern(headersMap.mapValues { it.value.first })
+        val headersPattern = HttpHeadersPattern(
+            headersMap.mapValues { it.value.first },
+            preferEscapedSoapAction = preferEscapedSoapAction
+        )
         val requestPattern = HttpRequestPattern(
             httpPathPattern = httpPathPattern,
             httpQueryParamPattern = httpQueryParamPattern,
@@ -1352,7 +1395,7 @@ class OpenApiSpecification(
                     }
 
                     val allExamples =
-                        if (specmaticConfig.getIgnoreInlineExamples() || getBooleanValue(Flags.IGNORE_INLINE_EXAMPLES))
+                        if (specmaticConfig.getIgnoreInlineExamples())
                             emptyMap()
                         else
                             exampleRequestBuilder.examplesWithRequestBodies(exampleBodies, actualContentType)
@@ -1405,7 +1448,7 @@ class OpenApiSpecification(
     )
 
     private inline fun <reified T : Parameter> namedExampleParams(operation: Operation): Map<String, Map<String, String>> {
-        if (specmaticConfig.getIgnoreInlineExamples() || getBooleanValue(Flags.IGNORE_INLINE_EXAMPLES))
+        if (specmaticConfig.getIgnoreInlineExamples())
             return emptyMap()
 
         return operation.parameters.orEmpty().safeFilter<T>(CollectorContext()).map { it.value }.fold(emptyMap()) { acc, parameter ->
@@ -1446,7 +1489,7 @@ class OpenApiSpecification(
         }
 
         if (securityScheme.type == SecurityScheme.Type.APIKEY) {
-            val apiKey = getSecurityTokenForApiKeyScheme(securitySchemeConfiguration, schemeName)
+            val apiKey = getSecurityTokenForApiKeyScheme(specmaticConfig, securitySchemeConfiguration, schemeName)
             if (securityScheme.`in` == SecurityScheme.In.HEADER) return APIKeyInHeaderSecurityScheme(securityScheme.name, apiKey)
             if (securityScheme.`in` == SecurityScheme.In.QUERY) return APIKeyInQueryParamSecurityScheme(securityScheme.name, apiKey)
         }
@@ -1464,17 +1507,17 @@ class OpenApiSpecification(
 
     private fun toBearerSecurityScheme(
         securitySchemeConfiguration: SecuritySchemeConfiguration?,
-        environmentVariable: String,
+        schemeName: String,
     ): BearerSecurityScheme {
-        val token = getSecurityTokenForBearerScheme(securitySchemeConfiguration, environmentVariable)
+        val token = getSecurityTokenForBearerScheme(specmaticConfig, securitySchemeConfiguration, schemeName)
         return BearerSecurityScheme(token)
     }
 
     private fun toBasicAuthSecurityScheme(
         securitySchemeConfiguration: SecuritySchemeConfiguration?,
-        environmentVariable: String,
+        schemeName: String,
     ): BasicAuthSecurityScheme {
-        val token = getSecurityTokenForBasicAuthScheme(securitySchemeConfiguration, environmentVariable)
+        val token = getSecurityTokenForBasicAuthScheme(specmaticConfig, securitySchemeConfiguration, schemeName)
         return BasicAuthSecurityScheme(token)
     }
 
@@ -1840,6 +1883,7 @@ class OpenApiSpecification(
     private fun ensureAllObjectPatternsHaveAdditionalProperties(patterns: List<Pattern>): List<Pattern> {
         val resolver = Resolver(newPatterns = this@OpenApiSpecification.patterns)
         return patterns.map { pattern ->
+            if (pattern is DeferredPattern && !resolver.hasPattern(pattern.pattern)) return@map pattern
             if (pattern !is PossibleJsonObjectPatternContainer) return@map pattern
             pattern.ensureAdditionalProperties(resolver)
         }
@@ -2321,8 +2365,15 @@ class OpenApiSpecification(
 
     private fun componentNameFromReference(component: String) = component.substringAfterLast("/")
 
-    private fun toSpecmaticQueryParam(operation: Operation, collectorContext: CollectorContext): HttpQueryParamPattern {
-        val parameters = operation.parameters ?: return HttpQueryParamPattern(emptyMap())
+    private fun toSpecmaticQueryParam(
+        operation: Operation,
+        collectorContext: CollectorContext,
+        extensibleQueryParams: Boolean
+    ): HttpQueryParamPattern {
+        val parameters = operation.parameters ?: return HttpQueryParamPattern(
+            emptyMap(),
+            extensibleQueryParams = extensibleQueryParams
+        )
         val queryParameters = parameters.safeFilter<QueryParameter>(collectorContext)
 
         val parametersContext = collectorContext.at("parameters")
@@ -2349,7 +2400,11 @@ class OpenApiSpecification(
         }.filterValues { it != null }.mapValues { it.value!! }
 
         val additionalProperties = additionalPropertiesInQueryParam(queryParameters, collectorContext)
-        return HttpQueryParamPattern(queryPattern, additionalProperties)
+        return HttpQueryParamPattern(
+            queryPattern,
+            additionalProperties,
+            extensibleQueryParams = extensibleQueryParams
+        )
     }
 
     private fun additionalPropertiesInQueryParam(queryParameters: List<IndexedValue<QueryParameter>>, collectorContext: CollectorContext): Pattern? {

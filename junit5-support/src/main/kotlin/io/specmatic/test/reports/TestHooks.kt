@@ -16,7 +16,6 @@ data class TestExecutionResult(
     val result: Result,
     val scenario: Scenario,
     val testResult: TestResult,
-    val valid: Boolean,
     val wip: Boolean,
     val request: List<HttpRequest>,
     val requestTime: Long,
@@ -27,10 +26,11 @@ data class TestExecutionResult(
 
 interface TestReportListener {
     fun onActuator(enabled: Boolean)
-    fun onActuatorApis(apis: List<API>)
-    fun onEndpointApis(apis: List<Endpoint>)
+    fun onActuatorApis(apisNotExcluded: List<API>, apisExcluded: List<API>)
+    fun onEndpointApis(endpointsNotExcluded: List<Endpoint>, endpointsExcluded: List<Endpoint>)
     fun onTestResult(result: TestExecutionResult)
     fun onTestsComplete()
+    fun onEnd()
     fun onCoverageCalculated(coverage: Int)
     fun onPathCoverageCalculated(path: String, pathCoverage: Int)
 }
@@ -54,7 +54,6 @@ internal fun List<TestReportListener>.onTestResult(testResultRecord: TestResultR
         name = getTestName(testResultRecord, firstHttpLogMessage),
         scenario = firstHttpLogMessage.scenario!!,
         testResult = testResultRecord.result,
-        valid = testResultRecord.isValid,
         wip = testResultRecord.isWip,
         request = httpLogMessages.map(HttpLogMessage::request),
         requestTime = firstHttpLogMessage.requestTime.toEpochMillis(),

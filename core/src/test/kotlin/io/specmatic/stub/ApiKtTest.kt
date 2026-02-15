@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test
 import io.specmatic.core.*
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.utilities.ContractPathData
+import io.specmatic.core.utilities.contractStubPaths
 import io.specmatic.core.value.*
 import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.mock.NoMatchingScenario
@@ -12,7 +13,9 @@ import io.specmatic.mock.ScenarioStub
 import io.specmatic.trimmedLinesList
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.MethodSource
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.PrintStream
@@ -662,6 +665,44 @@ Feature: Math API
     }
 
     @Test
+    fun `loadContractStubsFromFilesAsResults should load WSDL external examples from configured exampleDirPaths`() {
+        val specFile = File("src/test/resources/wsdl/with_examples/order_api.wsdl")
+        val externalExamplesDir = "src/test/resources/wsdl/with_examples/order_api_examples"
+        val contractPathData = listOf(
+            ContractPathData("", specFile.path, exampleDirPaths = listOf(externalExamplesDir))
+        )
+
+        val result = loadContractStubsFromFilesAsResults(contractPathData, emptyList(), SpecmaticConfig(), withImplicitStubs = false)
+
+        assertThat(result).anySatisfy {
+            assertThat(it).isInstanceOf(FeatureStubsResult.Success::class.java); it as FeatureStubsResult.Success
+            assertThat(it.scenarioStubs).hasSize(1)
+            assertThat(it.scenarioStubs.single().name).isEqualTo("createProduct")
+        }
+    }
+
+    @Test
+    fun `loadContractStubsFromFilesAsResults should load WSDL examples from directory not ending with underscore examples`(@TempDir tempDir: File) {
+        val specFile = File("src/test/resources/wsdl/with_examples/order_api.wsdl")
+        val sourceExample = File("src/test/resources/wsdl/with_examples/order_api_examples/create_product.json")
+        val customExamplesDir = tempDir.resolve("wsdl-external-data")
+        customExamplesDir.mkdirs()
+        sourceExample.copyTo(customExamplesDir.resolve("create_product.json"))
+
+        val contractPathData = listOf(
+            ContractPathData("", specFile.path, exampleDirPaths = listOf(customExamplesDir.path))
+        )
+
+        val result = loadContractStubsFromFilesAsResults(contractPathData, emptyList(), SpecmaticConfig(), withImplicitStubs = false)
+
+        assertThat(result).anySatisfy {
+            assertThat(it).isInstanceOf(FeatureStubsResult.Success::class.java); it as FeatureStubsResult.Success
+            assertThat(it.scenarioStubs).hasSize(1)
+            assertThat(it.scenarioStubs.single().name).isEqualTo("createProduct")
+        }
+    }
+
+    @Test
     fun `loadContractStubsFromFilesAsResults should be able to load WSDL specifications with external examples`() {
         val specFile = File("src/test/resources/wsdl/with_examples/order_api.wsdl")
         val contractPathData = listOf(ContractPathData("", specFile.path))
@@ -697,6 +738,60 @@ Feature: Math API
             No matching SOAP stub or contract found for SOAPAction "/orders/createProductDoesNotExist" and path /
             """.trimIndent())
         }
+    }
+
+    @ParameterizedTest
+    @MethodSource("missingSpecConfigTemplates")
+    fun `should warn when a config-driven stub specification path does not exist`(
+        configTemplate: String,
+        @TempDir tempDir: File
+    ) {
+        val configFile = tempDir.resolve("specmatic.yaml")
+        configFile.writeText(configTemplate.format(tempDir.canonicalPath))
+
+        val (output, stubResults) = captureStandardOutput {
+            val paths = contractStubPaths(configFile.canonicalPath)
+            loadContractStubsFromImplicitPathsAsResults(
+                contractPathDataList = paths,
+                specmaticConfig = SpecmaticConfig(),
+                externalDataDirPaths = emptyList()
+            )
+        }
+
+        assertThat(stubResults).isEmpty()
+        assertThat(output).contains("WARNING").contains("missing.yaml")
+    }
+
+    companion object {
+        @JvmStatic
+        fun missingSpecConfigTemplates(): List<Arguments> =
+            listOf(
+                Arguments.of(
+                    """
+                    version: 3
+                    dependencies:
+                      services:
+                        - service:
+                            definitions:
+                              - definition:
+                                  source:
+                                    filesystem:
+                                      directory: %s
+                                  specs:
+                                    - missing.yaml
+                    """.trimIndent()
+                ),
+                Arguments.of(
+                    """
+                    version: 2
+                    contracts:
+                      - filesystem:
+                          directory: %s
+                        consumes:
+                          - missing.yaml
+                    """.trimIndent()
+                )
+            )
     }
 }
 

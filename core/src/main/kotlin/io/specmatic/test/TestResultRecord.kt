@@ -30,7 +30,6 @@ data class TestResultRecord(
     override val specType: SpecType,
     val actualResponseStatus: Int = 0,
     val scenarioResult: Result? = null,
-    val isValid: Boolean = true,
     override val isWip: Boolean = false,
     val requestContentType: String? = null,
     val soapAction: String? = null,
@@ -48,7 +47,8 @@ data class TestResultRecord(
             responseCode = responseStatus,
             protocol = SpecmaticProtocol.HTTP
         )
-    )
+    ),
+    val exampleId: String? = null
 ): CtrfTestResultRecord {
     val isExercised = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
     val isCovered = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
@@ -57,7 +57,6 @@ data class TestResultRecord(
 
     override fun extraFields(): CtrfTestMetadata {
         return CtrfTestMetadata(
-            valid = isValid,
             wip = isWip,
             input = request?.toLogString().orEmpty(),
             output = response?.toLogString().orEmpty(),
@@ -109,13 +108,6 @@ data class TestResultRecord(
 
         fun List<TestResultRecord>.getCoverageStatus(): CoverageStatus {
             if(this.any { it.isWip }) return CoverageStatus.WIP
-
-            if(!this.any { it.isValid }) {
-                return when (this.first().result) {
-                    TestResult.MissingInSpec -> CoverageStatus.MISSING_IN_SPEC
-                    else -> CoverageStatus.INVALID
-                }
-            }
 
             if (this.any { it.isExercised }) {
                 return when (this.first().result) {

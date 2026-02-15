@@ -75,7 +75,7 @@ internal class HttpStubTest {
         """.trimIndent()
 
         val feature = parseGherkinStringToFeature(gherkin)
-        val specmaticConfig = SpecmaticConfig(stub = StubConfiguration(delayInMilliseconds = 123))
+        val specmaticConfig = SpecmaticConfigV1V2Common(stub = StubConfiguration(delayInMilliseconds = 123))
 
         HttpStub(
             features = listOf(feature),
@@ -662,6 +662,22 @@ paths:
 
                 assertThat(it.jsonObject["status"]?.toStringLiteral()).isEqualTo("UP")
             }
+        }
+    }
+
+    @Test
+    fun `should return up status header when root HEAD endpoint is hit`() {
+        val specification =
+            OpenApiSpecification.fromFile("src/test/resources/openapi/spec_with_space_in_path.yaml").toFeature()
+
+        HttpStub(specification).use { stub ->
+            val request = HttpRequest("HEAD", "/")
+
+            val response = stub.client.execute(request)
+
+            assertThat(response.status).isEqualTo(200)
+            assertThat(response.headers["X-Specmatic-Status"]).isEqualTo("up")
+            assertThat(response.headers[SPECMATIC_RESULT_HEADER]).isNotEqualTo("failure")
         }
     }
 

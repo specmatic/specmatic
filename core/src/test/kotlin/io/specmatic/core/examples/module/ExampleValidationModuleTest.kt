@@ -20,7 +20,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
 class ExampleValidationModuleTest {
-    private val exampleValidationModule = ExampleValidationModule()
+    private val exampleValidationModule = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
 
     @Test
     fun `should be able to match on pattern tokens instead of literal values`() {

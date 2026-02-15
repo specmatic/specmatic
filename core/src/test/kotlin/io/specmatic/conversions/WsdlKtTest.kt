@@ -4,7 +4,8 @@ import io.specmatic.Utils.readTextResource
 import io.specmatic.core.*
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedValue
-import io.specmatic.core.utilities.Flags
+import io.specmatic.core.config.SpecmaticConfigVersion
+import io.specmatic.core.config.v2.SpecmaticConfigV2
 import io.specmatic.core.value.*
 import io.specmatic.core.wsdl.parser.WSDL
 import io.specmatic.mock.ScenarioStub
@@ -692,7 +693,7 @@ Scenario: request not matching wsdl
     }
 
     @Test
-    fun `should use escaped soap-action if specified by system property`() {
+    fun `should use escaped soap-action if specified by config`() {
         val wsdlSpec = """
 Feature: WSDL Attribute Test
 
@@ -706,19 +707,21 @@ Scenario: test spec with mandatory attributes without examples
   Then status 200
   And response-body <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleResponse>test response</SimpleResponse></soapenv:Body></soapenv:Envelope>
         """.trimIndent()
-        val wsdlFeature = parseGherkinStringToFeature(wsdlSpec)
+        val specmaticConfig = SpecmaticConfigV2(
+            version = SpecmaticConfigVersion.VERSION_2,
+            escapeSoapAction = true
+        ).transform()
+        val wsdlFeature = parseGherkinStringToFeature(wsdlSpec, specmaticConfig = specmaticConfig)
         var countWithEscapedAction = 0
 
-        val results = Flags.using(Flags.SPECMATIC_ESCAPE_SOAP_ACTION to "true") {
-            wsdlFeature.executeTests(object : TestExecutor {
-                override fun execute(request: HttpRequest): HttpResponse {
-                    logRequestCharacteristics(request, countWithEscapedAction)
-                    val responseBody = """<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleResponse>WSDL</SimpleResponse></soapenv:Body></soapenv:Envelope>"""
-                    if (request.headers["SOAPAction"]?.startsWith("\"") == true) countWithEscapedAction++
-                    return HttpResponse(200, responseBody)
-                }
-            })
-        }
+        val results = wsdlFeature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                logRequestCharacteristics(request, countWithEscapedAction)
+                val responseBody = """<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleResponse>WSDL</SimpleResponse></soapenv:Body></soapenv:Envelope>"""
+                if (request.headers["SOAPAction"]?.startsWith("\"") == true) countWithEscapedAction++
+                return HttpResponse(200, responseBody)
+            }
+        })
 
         assertTrue(results.success(), results.report())
         assertThat(countWithEscapedAction).isEqualTo(1)

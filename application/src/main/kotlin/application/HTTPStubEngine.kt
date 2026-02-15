@@ -1,12 +1,13 @@
 package application
 
 import io.specmatic.core.Feature
+import io.specmatic.core.KeyDataRegistry
 import io.specmatic.core.WorkingDirectory
-import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.log.consoleLog
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpClientFactory
 import io.specmatic.stub.HttpStub
+import io.specmatic.stub.RequestHandler
 import io.specmatic.stub.SpecmaticConfigSource
 import io.specmatic.stub.contractInfoToHttpExpectations
 import io.specmatic.stub.listener.MockEventListener
@@ -16,18 +17,17 @@ class HTTPStubEngine {
         stubs: List<Pair<Feature, List<ScenarioStub>>>,
         host: String,
         port: Int,
-        certInfo: CertInfo,
+        keyDataRegistry: KeyDataRegistry,
         strictMode: Boolean,
         passThroughTargetBase: String = "",
-        specmaticConfigPath: String? = null,
+        specmaticConfigSource: SpecmaticConfigSource,
         httpClientFactory: HttpClientFactory,
         workingDirectory: WorkingDirectory,
         gracefulRestartTimeoutInMs: Long,
         specToBaseUrlMap: Map<String, String?>,
-        listeners: List<MockEventListener> = emptyList()
+        listeners: List<MockEventListener> = emptyList(),
+        requestHandlers: List<RequestHandler> = emptyList()
     ): HttpStub {
-        val keyData = certInfo.getHttpsCert()
-
         return HttpStub(
             features = stubs.map { it.first },
             rawHttpStubs = contractInfoToHttpExpectations(stubs),
@@ -35,14 +35,15 @@ class HTTPStubEngine {
             port = port,
             log = ::consoleLog,
             strictMode = strictMode,
-            keyData = keyData,
+            keyDataRegistry = keyDataRegistry,
             passThroughTargetBase = passThroughTargetBase,
             httpClientFactory = httpClientFactory,
             workingDirectory = workingDirectory,
-            specmaticConfigSource = SpecmaticConfigSource.fromPath(specmaticConfigPath ?: getConfigFilePath()),
+            specmaticConfigSource = specmaticConfigSource,
             timeoutMillis = gracefulRestartTimeoutInMs,
             specToStubBaseUrlMap = specToBaseUrlMap,
-            listeners = listeners
+            listeners = listeners,
+            requestHandlers = requestHandlers.toMutableList()
         ).also {
             it.printStartupMessage()
         }

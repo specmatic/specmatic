@@ -6,9 +6,6 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import io.specmatic.core.Source
 import io.specmatic.core.SourceProvider
-import io.specmatic.core.config.v3.SpecExecutionConfig
-import io.specmatic.core.config.v3.ConsumesDeserializer
-import io.specmatic.core.config.v3.ProvidesDeserializer
 
 data class ContractConfig(
     @JsonIgnore

@@ -1,5 +1,6 @@
 package io.specmatic.core.config.v3
 
+import io.specmatic.core.config.v2.SpecExecutionConfig
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -250,7 +251,7 @@ class SpecExecutionConfigTest {
             fun `should return single pair with null base url`() {
                 val config = SpecExecutionConfig.StringValue("order.yaml")
 
-                val result = config.specToBaseUrlPairList(null)
+                val result = config.specToBaseUrlPairList(null) { null }
 
                 assertThat(result).containsExactly("order.yaml" to null)
             }
@@ -259,7 +260,7 @@ class SpecExecutionConfigTest {
             fun `should return single pair with null base url when default base url is provided`() {
                 val config = SpecExecutionConfig.StringValue("order.yaml")
 
-                val result = config.specToBaseUrlPairList("http://localhost:9000")
+                val result = config.specToBaseUrlPairList("http://localhost:9000") { null }
 
                 assertThat(result).containsExactly("order.yaml" to null)
             }
@@ -274,7 +275,7 @@ class SpecExecutionConfigTest {
                     specs = listOf("order.yaml", "payment.yaml")
                 )
 
-                val result = config.specToBaseUrlPairList(null)
+                val result = config.specToBaseUrlPairList(null) { null }
 
                 assertThat(result).containsExactly(
                     "order.yaml" to "http://localhost:8080",
@@ -289,7 +290,7 @@ class SpecExecutionConfigTest {
                     specs = listOf("order.yaml")
                 )
 
-                val result = config.specToBaseUrlPairList("http://localhost:9000")
+                val result = config.specToBaseUrlPairList("http://localhost:9000") { null }
 
                 assertThat(result).containsExactly("order.yaml" to "http://localhost:8080")
             }
@@ -301,7 +302,7 @@ class SpecExecutionConfigTest {
                     specs = listOf("order.yaml")
                 )
 
-                val result = config.specToBaseUrlPairList("http://localhost:9000")
+                val result = config.specToBaseUrlPairList("http://localhost:9000") { null }
 
                 assertThat(result).containsExactly("order.yaml" to "http://127.0.0.1:9000")
             }
@@ -313,7 +314,7 @@ class SpecExecutionConfigTest {
                     specs = listOf("order.yaml")
                 )
 
-                val result = config.specToBaseUrlPairList("http://localhost:9000")
+                val result = config.specToBaseUrlPairList("http://localhost:9000") { null }
 
                 assertThat(result).containsExactly("order.yaml" to "http://localhost:8080")
             }
@@ -325,7 +326,7 @@ class SpecExecutionConfigTest {
                     specs = listOf("order.yaml")
                 )
 
-                val result = config.specToBaseUrlPairList("http://localhost:9000")
+                val result = config.specToBaseUrlPairList("http://localhost:9000") { null }
 
                 assertThat(result).containsExactly("order.yaml" to "http://localhost:9000/api/v2")
             }
@@ -338,7 +339,7 @@ class SpecExecutionConfigTest {
                     specs = listOf("order.yaml", "payment.yaml")
                 )
 
-                val result = config.specToBaseUrlPairList("http://localhost:9000")
+                val result = config.specToBaseUrlPairList("http://localhost:9000") { null }
 
                 assertThat(result).containsExactly(
                     "order.yaml" to "http://127.0.0.1:8080",
@@ -355,7 +356,7 @@ class SpecExecutionConfigTest {
                     specs = listOf("order.yaml")
                 )
 
-                val result = config.specToBaseUrlPairList("http://localhost:9000/api/v1")
+                val result = config.specToBaseUrlPairList("http://localhost:9000/api/v1") { null }
 
                 assertThat(result).containsExactly("order.yaml" to "http://127.0.0.1:8080/api/v2")
             }
@@ -367,7 +368,7 @@ class SpecExecutionConfigTest {
                     specs = listOf("order.yaml", "payment.yaml", "invoice.yaml")
                 )
 
-                val result = config.specToBaseUrlPairList(null)
+                val result = config.specToBaseUrlPairList(null) { null }
 
                 assertThat(result).hasSize(3)
                 assertThat(result).containsExactly(
@@ -384,7 +385,7 @@ class SpecExecutionConfigTest {
                     specs = emptyList()
                 )
 
-                val result = config.specToBaseUrlPairList("http://localhost:9000")
+                val result = config.specToBaseUrlPairList("http://localhost:9000") { null }
 
                 assertThat(result).isEmpty()
             }
@@ -396,7 +397,7 @@ class SpecExecutionConfigTest {
                     specs = listOf("order.yaml")
                 )
 
-                val result = config.specToBaseUrlPairList("http://localhost:8080/api")
+                val result = config.specToBaseUrlPairList("http://localhost:8080/api") { null }
 
                 assertThat(result).containsExactly("order.yaml" to "http://localhost:8080/api/v2")
             }
@@ -412,7 +413,7 @@ class SpecExecutionConfigTest {
                     config = mapOf("timeout" to 30)
                 )
 
-                val result = config.specToBaseUrlPairList(null)
+                val result = config.specToBaseUrlPairList(null) { null }
 
                 assertThat(result).containsExactly(
                     "order.yaml" to null,
@@ -428,7 +429,7 @@ class SpecExecutionConfigTest {
                     config = mapOf("timeout" to 30)
                 )
 
-                val result = config.specToBaseUrlPairList("http://localhost:9000")
+                val result = config.specToBaseUrlPairList("http://localhost:9000") { null }
 
                 assertThat(result).containsExactly(
                     "order.yaml" to null,
@@ -444,7 +445,7 @@ class SpecExecutionConfigTest {
                     config = mapOf("timeout" to 30)
                 )
 
-                val result = config.specToBaseUrlPairList(null)
+                val result = config.specToBaseUrlPairList(null) { null }
 
                 assertThat(result).isEmpty()
             }
@@ -457,7 +458,7 @@ class SpecExecutionConfigTest {
                     config = mapOf("timeout" to 30, "retries" to 3)
                 )
 
-                val result = config.specToBaseUrlPairList("http://localhost:8080")
+                val result = config.specToBaseUrlPairList("http://localhost:8080") { null }
 
                 assertThat(result).hasSize(3)
                 assertThat(result).containsExactly(

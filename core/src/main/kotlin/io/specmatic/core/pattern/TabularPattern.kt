@@ -7,8 +7,6 @@ import io.specmatic.core.UnexpectedKeyCheck
 import io.specmatic.core.ValidateUnexpectedKeys
 import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
-import io.specmatic.core.utilities.Flags.Companion.MAX_TEST_REQUEST_COMBINATIONS
-import io.specmatic.core.utilities.Flags.Companion.getStringValue
 import io.specmatic.core.utilities.mapZip
 import io.specmatic.core.utilities.stringToPatternMap
 import io.specmatic.core.utilities.withNullPattern
@@ -160,7 +158,7 @@ fun newMapBasedOn(patternMap: Map<String, Pattern>, row: Row, resolver: Resolver
         }
     }
 
-    return patternList(patternCollection)
+    return patternList(patternCollection, resolver.maxTestRequestCombinations)
 }
 
 fun newBasedOn(patternMap: Map<String, Pattern>, resolver: Resolver): Sequence<Map<String, Pattern>> {
@@ -245,11 +243,13 @@ fun key(pattern: Pattern, key: String): String {
     )
 }
 
-fun <ValueType> patternList(patternCollection: Map<String, Sequence<ReturnValue<ValueType>>>): Sequence<ReturnValue<Map<String, ValueType>>> {
+fun <ValueType> patternList(
+    patternCollection: Map<String, Sequence<ReturnValue<ValueType>>>,
+    maxTestRequestCombinations: Int = Int.MAX_VALUE
+): Sequence<ReturnValue<Map<String, ValueType>>> {
     if (patternCollection.isEmpty())
         return sequenceOf(HasValue(emptyMap()))
 
-    val maxTestRequestCombinations = getStringValue(MAX_TEST_REQUEST_COMBINATIONS)?.toInt() ?: Int.MAX_VALUE
     val spec = CombinationSpec(patternCollection, maxTestRequestCombinations)
     return spec.selectedCombinations
 }

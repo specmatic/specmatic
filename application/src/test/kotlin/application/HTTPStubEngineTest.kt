@@ -3,8 +3,11 @@ package application
 import io.mockk.every
 import io.mockk.mockk
 import io.specmatic.core.Feature
+import io.specmatic.core.KeyDataRegistry
+import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.WorkingDirectory
 import io.specmatic.stub.HttpClientFactory
+import io.specmatic.stub.SpecmaticConfigSource
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -16,12 +19,13 @@ class HTTPStubEngineTest {
                 stubs = paths.map { it.toMockkFeature() to emptyList() },
                 host = "0.0.0.0",
                 port = 9000,
-                certInfo = CertInfo(),
+                keyDataRegistry = KeyDataRegistry.empty(),
                 strictMode = false,
                 httpClientFactory = HttpClientFactory(),
                 workingDirectory = WorkingDirectory(),
                 gracefulRestartTimeoutInMs = 0,
-                specToBaseUrlMap = specToBaseUrlMap
+                specToBaseUrlMap = specToBaseUrlMap,
+                specmaticConfigSource = SpecmaticConfigSource.fromConfig(SpecmaticConfig()),
             ).close()
         }
 
@@ -47,7 +51,7 @@ class HTTPStubEngineTest {
         }
 
         assertThat(stdOut).containsIgnoringNewLines("""
-        |Stub server is running on the following URLs:
+        |Mock server is running on the following URLs:
         |- http://localhost:8000/api/v3 serving endpoints from specs:
         |\t1. api.yaml
         |
@@ -69,7 +73,7 @@ class HTTPStubEngineTest {
         }
 
         assertThat(stdOut).containsIgnoringNewLines("""
-        |Stub server is running on the following URLs:
+        |Mock server is running on the following URLs:
         |- http://localhost:8000/api/v3 serving endpoints from specs:
         |\t1. api.yaml
         |
@@ -88,7 +92,7 @@ class HTTPStubEngineTest {
         }
 
         assertThat(stdOut).containsIgnoringNewLines("""
-        |Stub server is running on the following URLs:
+        |Mock server is running on the following URLs:
         |- http://0.0.0.0:9000 serving endpoints from specs:
         |\t1. api.yaml
         |\t2. uuid.yaml

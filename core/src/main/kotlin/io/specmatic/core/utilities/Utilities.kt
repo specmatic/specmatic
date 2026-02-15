@@ -8,6 +8,7 @@ import io.specmatic.core.Configuration.Companion.DEFAULT_HTTP_STUB_HOST
 import io.specmatic.core.Configuration.Companion.configFilePath
 import io.specmatic.core.azure.AzureAuthCredentials
 import io.specmatic.core.git.GitCommand
+import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.log.consoleDebug
 import io.specmatic.core.log.consoleLog
@@ -360,7 +361,8 @@ data class ContractPathData(
     val baseUrl: String? = null,
     val generative: ResiliencyTestSuite? = null,
     val port: Int? = null,
-    val lenientMode: Boolean = false
+    val lenientMode: Boolean? = null,
+    val exampleDirPaths: List<String>? = null,
 ) {
     companion object {
         fun List<ContractPathData>.specToBaseUrlMap(): Map<String, String?> = this.associate { File(it.path).path to it.baseUrl }
@@ -379,6 +381,13 @@ fun contractFilePathsFrom(
     val contractPathData =
         sources.flatMap {
             it.loadContracts(selector, workingDirectory, configFilePath)
+        }
+
+    contractPathData
+        .filter { File(it.path).exists().not() }
+        .forEach { missingContract ->
+            val configuredPath = missingContract.specificationPath ?: missingContract.path
+            logger.log("WARNING: Specification '$configuredPath' from config '$configFilePath' could not be found at '${missingContract.path}'. It will be ignored.")
         }
 
     logger.debug("Spec file paths in $configFilePath:")
@@ -405,7 +414,8 @@ fun contractFilePathsFrom(
 
 fun getSystemGit(path: String): GitCommand = SystemGit(path)
 
-fun getSystemGitWithAuth(path: String): GitCommand = SystemGit(path, authCredentials = AzureAuthCredentials)
+fun getSystemGitWithAuth(path: String, specmaticConfig: SpecmaticConfig, gitRepositoryURL: String): GitCommand =
+    SystemGit(path, authCredentials = AzureAuthCredentials(specmaticConfig, gitRepositoryURL))
 
 class UncaughtExceptionHandler : Thread.UncaughtExceptionHandler {
     override fun uncaughtException(
@@ -436,11 +446,6 @@ fun saveJsonFile(
     directory.mkdirs()
     File(directory, fileName).writeText(jsonString)
 }
-
-fun readEnvVarOrProperty(
-    envVarName: String,
-    propertyName: String,
-): String? = System.getenv(envVarName) ?: System.getProperty(propertyName)
 
 fun examplesDirFor(
     openApiFilePath: String,
@@ -576,4 +581,9 @@ fun isXML(headers: Map<String, String>): Boolean {
         }
 
     return contentType.contentSubtype.let { it == "xml" || it.endsWith("+xml") }
+}
+
+fun <T, U> T.applyIf(original: U?, block: T.(U) -> T): T {
+    val value: U = original ?: return this
+    return block(value)
 }

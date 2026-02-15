@@ -1,7 +1,5 @@
 package io.specmatic.core
 
-import io.specmatic.core.utilities.Flags
-
 data class RuleViolationReport(val ruleViolations: Set<RuleViolation> = emptySet()) {
     fun withViolation(violation: RuleViolation): RuleViolationReport {
         return copy(ruleViolations = ruleViolations.plus(violation))
@@ -35,8 +33,7 @@ data class RuleViolationReport(val ruleViolations: Set<RuleViolation> = emptySet
     }
 
     companion object {
-        private const val DEFAULT_RULES_DOCUMENTATION_URL = "https://docs.specmatic.io/rules"
-        private val RULES_DOCUMENTATION_URL = Flags.getStringValue("RULES_DOCUMENTATION_URL") ?: DEFAULT_RULES_DOCUMENTATION_URL
+        private const val RULES_DOCUMENTATION_URL = "https://docs.specmatic.io/rules"
 
         fun from(violationSegment: RuleViolation): RuleViolationReport {
             return RuleViolationReport(ruleViolations = setOf(violationSegment))

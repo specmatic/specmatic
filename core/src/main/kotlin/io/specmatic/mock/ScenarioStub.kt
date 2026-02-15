@@ -28,13 +28,16 @@ data class ScenarioStub(
     val response: HttpResponse = HttpResponse(0, emptyMap()),
     val delayInMilliseconds: Long? = null,
     val stubToken: String? = null,
-    val requestBodyRegex: String? = null,
+    val requestBodyRegex: Regex? = null,
     val data: JSONObjectValue = JSONObjectValue(),
     val filePath: String? = null,
     val partial: ScenarioStub? = null,
     val rawJsonData: JSONObjectValue = JSONObjectValue(),
     val validationErrors: Result = Result.Success(),
-    val strictMode: Boolean = true
+    val strictMode: Boolean = true,
+    val id: String? = null,
+    val beforeFixtures: List<Value> = emptyList(),
+    val afterFixtures: List<Value> = emptyList()
 ) {
     init {
         if (strictMode && !validationErrors.isSuccess()) validationErrors.throwOnFailure()
@@ -383,6 +386,9 @@ const val TRANSIENT_MOCK_ID = "$TRANSIENT_MOCK-id"
 const val REQUEST_BODY_REGEX = "bodyRegex"
 const val IS_TRANSIENT_MOCK = "transient"
 const val PARTIAL = "partial"
+const val ID = "id"
+const val BEFORE_FIXTURES = "before"
+const val AFTER_FIXTURES = "after"
 private val nonMetadataDataKeys = listOf(MOCK_HTTP_REQUEST, MOCK_HTTP_RESPONSE, PARTIAL)
 
 fun mockFromJSON(mockSpec: Map<String, Value>, strictMode: Boolean = true): ScenarioStub {
@@ -431,6 +437,9 @@ private fun parseStandardExample(mockSpec: Map<String, Value>, data: Map<String,
     val isTransientMock = getBooleanOrNull(IS_TRANSIENT_MOCK, mockSpec) ?: false
     val stubToken = explicitStubToken ?: if (isTransientMock) UUID.randomUUID().toString() else null
     val requestBodyRegex = getRequestBodyRegexOrNull(mockSpec)
+    val id = getStringOrNull(ID, mockSpec)
+    val beforeFixtures = getArrayOrNull(BEFORE_FIXTURES, mockSpec).orEmpty()
+    val afterFixtures = getArrayOrNull(AFTER_FIXTURES, mockSpec).orEmpty()
 
     return ScenarioStub(
         request = mockRequest,
@@ -441,17 +450,31 @@ private fun parseStandardExample(mockSpec: Map<String, Value>, data: Map<String,
         data = JSONObjectValue(data),
         rawJsonData = JSONObjectValue(mockSpec),
         validationErrors = validationResult,
-        strictMode = strictMode
+        strictMode = strictMode,
+        id = id,
+        beforeFixtures = beforeFixtures,
+        afterFixtures = afterFixtures
     )
 }
 
-fun getRequestBodyRegexOrNull(mockSpec: Map<String, Value>): String? {
+fun getRequestBodyRegexOrNull(mockSpec: Map<String, Value>): Regex? {
     return try {
         val requestSpec = getJSONObjectValueOrNull(MOCK_HTTP_REQUEST, mockSpec)
-        requestSpec?.get(REQUEST_BODY_REGEX)?.toStringLiteral()
+        val regexString = requestSpec?.get(REQUEST_BODY_REGEX)?.toStringLiteral()
+        parseRegex(regexString)
     } catch (e: Exception) {
         logger.debug(e, "Failed to parse $REQUEST_BODY_REGEX")
         null
+    }
+}
+
+private fun parseRegex(regex: String?): Regex? {
+    return regex?.let {
+        try {
+            Regex(it)
+        } catch (e: Throwable) {
+            throw ContractException("Couldn't parse regex $regex", exceptionCause = e)
+        }
     }
 }
 

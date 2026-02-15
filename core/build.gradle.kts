@@ -27,7 +27,7 @@ dependencies {
     implementation("io.ktor:ktor-serialization-jackson-jvm:2.3.13")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.21.0")
     implementation("com.jayway.jsonpath:json-path:2.10.0")
-
+    implementation("io.github.zenwave360:json-schema-ref-parser-jvm:0.8.10")
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.10.0")
     implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.0")
@@ -40,7 +40,7 @@ dependencies {
 
     implementation("com.fasterxml.jackson.core:jackson-databind:2.21.0")
 
-    implementation("io.swagger.parser.v3:swagger-parser:2.1.36")
+    implementation("io.swagger.parser.v3:swagger-parser:2.1.37")
 
     implementation("dk.brics:automaton:1.12-4")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

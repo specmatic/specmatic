@@ -20,11 +20,12 @@ data class HttpLogMessage(
     val comment: String? = null,
     var scenario: Scenario? = null,
     var exception: Exception? = null,
-    var result: Result? = null
+    var result: Result? = null,
+    val prettyPrint: Boolean = true,
 ) : LogMessage {
     fun combineLog(): String {
-        val request = this.request.toLogString().trim('\n')
-        val response = this.response?.toLogString()?.trim('\n') ?: "No response"
+        val request = this.request.toLogString(prettyPrint = prettyPrint).trim('\n')
+        val response = this.response?.toLogString(prettyPrint = prettyPrint)?.trim('\n') ?: "No response"
 
         return "$request\n\n$response"
     }
@@ -91,10 +92,10 @@ data class HttpLogMessage(
 
         val mainMessage = listOf(
             "${linePrefix}Request ${target()}at $requestTime",
-            request.toLogString("$linePrefix$linePrefix"),
+            request.toLogString("$linePrefix$linePrefix", prettyPrint),
             "",
             "${linePrefix}Response at $responseTime",
-            response?.toLogString("$linePrefix$linePrefix")
+            response?.toLogString("$linePrefix$linePrefix", prettyPrint)
         )
 
         val messageSuffix = listOf("")

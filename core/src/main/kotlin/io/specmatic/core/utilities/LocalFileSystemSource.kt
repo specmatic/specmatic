@@ -41,12 +41,13 @@ data class LocalFileSystemSource(
             val resolvedPath = File(directory).resolve(it.path)
 
             ContractPathData(
-                directory,
-                resolvedPath.path,
+                baseDir = directory,
+                path = resolvedPath.path,
                 provider = type,
-                specificationPath = resolvedPath.canonicalPath,
+                specificationPath = it.path,
                 baseUrl = it.baseUrl,
-                generative = it.generative
+                generative = it.generative,
+                exampleDirPaths = it.exampleDirPaths
             )
         }
     }

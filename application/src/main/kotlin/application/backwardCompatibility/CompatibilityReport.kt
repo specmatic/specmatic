@@ -13,4 +13,9 @@ class CompatibilityReport(results: List<CompatibilityResult>) {
         exitCode = if(failed) 1 else 0
     }
 
+    companion object {
+        fun emptyReport(): String {
+            return CompatibilityReport(emptyList()).report
+        }
+    }
 }

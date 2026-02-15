@@ -5,11 +5,15 @@ import io.mockk.*
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.specmatic.core.CONTRACT_EXTENSION
+import io.specmatic.core.KeyData
+import io.specmatic.core.KeyDataRegistry
 import io.specmatic.core.parseGherkinStringToFeature
 import io.specmatic.core.utilities.ContractPathData
 import io.specmatic.core.utilities.Flags
+import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.core.utilities.StubServerWatcher
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.stub.HttpStub
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -19,7 +23,10 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import picocli.CommandLine
 import java.io.File
+import java.io.FileOutputStream
 import java.nio.file.Path
+import java.security.KeyStore
+import kotlin.io.use
 
 
 internal class StubCommandTest {
@@ -45,11 +52,13 @@ internal class StubCommandTest {
     @BeforeEach
     fun setUp() {
         MockKAnnotations.init(this)
+        stubCommand.registerShutdownHook = false
     }
 
     @AfterEach
     fun cleanUp() {
         clearAllMocks()
+        System.clearProperty(Flags.SPECMATIC_BASE_URL)
         stubCommand.contractPaths = arrayListOf()
         stubCommand.specmaticConfigPath = null
     }
@@ -71,7 +80,6 @@ internal class StubCommandTest {
 
         verify(exactly = 0) { specmaticConfig.contractStubPathData() }
     }
-
 
     @Test
     fun `should attempt to start a HTTP stub`(@TempDir tempDir: File) {
@@ -102,7 +110,6 @@ internal class StubCommandTest {
 
             val host = "0.0.0.0"
             val port = 9000
-            val certInfo = CertInfo()
             val strictMode = false
 
             every {
@@ -110,13 +117,14 @@ internal class StubCommandTest {
                     stubInfo,
                     host,
                     port,
-                    certInfo,
+                    any(),
                     strictMode,
                     any(),
                     httpClientFactory = any(),
                     workingDirectory = any(),
                     gracefulRestartTimeoutInMs = any(),
-                    specToBaseUrlMap = any()
+                    specToBaseUrlMap = any(),
+                    specmaticConfigSource = any(),
                 )
             }.returns(
                 mockk {
@@ -134,13 +142,14 @@ internal class StubCommandTest {
                     any(),
                     any(),
                     any(),
-                    certInfo,
+                    any(),
                     strictMode,
                     any(),
                     httpClientFactory = any(),
                     workingDirectory = any(),
                     gracefulRestartTimeoutInMs = any(),
-                    specToBaseUrlMap = any()
+                    specToBaseUrlMap = any(),
+                    specmaticConfigSource = any(),
                 )
             }
         } finally {
@@ -160,6 +169,11 @@ internal class StubCommandTest {
 
         every { watchMaker.make(listOf(specFilePath)) }.returns(watcher)
         every { specmaticConfig.contractStubPaths() }.returns(arrayListOf("/config/path/to/contract.$extension"))
+        every { specmaticConfig.contractStubPathData() } returns emptyList()
+        every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
+        every { httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } answers {
+            mockk<HttpStub> { every { close() } returns Unit }
+        }
 
         val execute = CommandLine(stubCommand).execute(specFilePath)
 
@@ -180,6 +194,18 @@ internal class StubCommandTest {
         every { specmaticConfig.contractStubPaths() }.returns(arrayListOf("/config/path/to/contract.$CONTRACT_EXTENSION"))
 
         CommandLine(stubCommand).execute(specFilePath)
+    }
+
+    @Test
+    fun `when an explicit contract path does not exist command should return non-zero`(@TempDir tempDir: Path) {
+        val missingSpecPath = tempDir.resolve("missing.$CONTRACT_EXTENSION").toAbsolutePath().toString()
+
+        val (output, exitCode) = captureStandardOutput(redirectStdErrToStdout = true) {
+            CommandLine(stubCommand).execute(missingSpecPath)
+        }
+
+        assertThat(exitCode).isEqualTo(1)
+        assertThat(output).contains("The following specifications do not exist").contains(missingSpecPath)
     }
 
     @Test
@@ -211,7 +237,6 @@ internal class StubCommandTest {
 
             val host = "0.0.0.0"
             val port = 9000
-            val certInfo = CertInfo()
             val strictMode = false
             val passThroughTargetBase = "http://passthroughTargetBase"
 
@@ -220,13 +245,14 @@ internal class StubCommandTest {
                     stubInfo,
                     host,
                     port,
-                    certInfo,
+                    any(),
                     strictMode,
                     passThroughTargetBase,
                     httpClientFactory = any(),
                     workingDirectory = any(),
                     gracefulRestartTimeoutInMs = any(),
-                    specToBaseUrlMap = any()
+                    specToBaseUrlMap = any(),
+                    specmaticConfigSource = any(),
                 )
             }.returns(
                 mockk {
@@ -247,13 +273,14 @@ internal class StubCommandTest {
                     stubInfo,
                     host,
                     any(),
-                    certInfo,
+                    any(),
                     strictMode,
                     any(),
                     httpClientFactory = any(),
                     workingDirectory = any(),
                     gracefulRestartTimeoutInMs = any(),
-                    specToBaseUrlMap = any()
+                    specToBaseUrlMap = any(),
+                    specmaticConfigSource = any(),
                 )
             }
         } finally {
@@ -286,8 +313,382 @@ internal class StubCommandTest {
         }
     }
 
+    @Test
+    fun `uses config values when CLI is absent`(@TempDir tempDir: File) {
+        val hostSlot = slot<String>()
+        val portSlot = slot<Int>()
+        val strictModeSlot = slot<Boolean>()
+        val keyDataSlot = slot<KeyDataRegistry>()
+        val timeoutSlot = slot<Long>()
+
+        val keystoreFile = tempDir.resolve("cli.jks")
+        createEmptyKeyStore(keystoreFile, "cli-pass")
+
+        val configFile = writeSpecmaticYaml(tempDir, """
+        version: 2
+        stub:
+          strictMode: true
+          gracefulRestartTimeoutInMilliseconds: 2000
+          https:
+            keyStore:
+              password: cli-pass
+              file: ${keystoreFile.canonicalPath}
+        """.trimIndent())
+
+        every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
+        every { watchMaker.make(any()) } returns watcher
+        every { specmaticConfig.contractStubPaths() } returns emptyList()
+        every { specmaticConfig.contractStubPathData() } returns emptyList()
+        every {
+            httpStubEngine.runHTTPStub(
+                any(),
+                capture(hostSlot),
+                capture(portSlot),
+                capture(keyDataSlot),
+                capture(strictModeSlot),
+                any(),
+                any(),
+                any(),
+                any(),
+                capture(timeoutSlot),
+                any(),
+                any()
+            )
+        } returns mockk { every { close() } returns Unit }
+
+        Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            CommandLine(stubCommand).execute(
+                "--host=cliHost",
+                "--port=9999",
+                "--strict",
+                "--httpsKeyStore=${keystoreFile.canonicalPath}",
+                "--httpsKeyStorePassword=cli-pass"
+            )
+        }
+
+        assertThat(hostSlot.captured).isEqualTo("cliHost")
+        assertThat(portSlot.captured).isEqualTo(9999)
+        assertThat(strictModeSlot.captured).isTrue()
+        assertThat(keyDataSlot.captured).isNotNull
+        assertThat(timeoutSlot.captured).isEqualTo(2000L)
+    }
+
+    @Test
+    fun `CLI overrides config values`(@TempDir tempDir: File) {
+        val hostSlot = slot<String>()
+        val portSlot = slot<Int>()
+        val strictModeSlot = slot<Boolean>()
+        val keyDataSlot = slot<KeyDataRegistry>()
+        val timeoutSlot = slot<Long>()
+        val passThroughSlot = slot<String>()
+
+        val keystoreFile = tempDir.resolve("config.jks")
+        createEmptyKeyStore(keystoreFile, "pass")
+        val configFile = writeSpecmaticYaml(tempDir, """
+        version: 2
+        stub:
+          strictMode: false
+          gracefulRestartTimeoutInMilliseconds: 1500
+          https:
+            keyStore:
+              file: ${keystoreFile.canonicalPath}
+        """.trimIndent())
+
+        every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
+        every { watchMaker.make(any()) } returns watcher
+        every { specmaticConfig.contractStubPaths() } returns emptyList()
+        every { specmaticConfig.contractStubPathData() } returns emptyList()
+
+        every {
+            httpStubEngine.runHTTPStub(
+                any(),
+                capture(hostSlot),
+                capture(portSlot),
+                capture(keyDataSlot),
+                capture(strictModeSlot),
+                capture(passThroughSlot),
+                any(),
+                any(),
+                any(),
+                capture(timeoutSlot),
+                any(),
+                any()
+            )
+        } returns mockk { every { close() } returns Unit }
+
+        Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            CommandLine(stubCommand).execute(
+                "--host=cliHost",
+                "--port=9999",
+                "--strict",
+                "--httpsKeyStore=${keystoreFile.canonicalPath}",
+                "--httpsKeyStorePassword=pass",
+                "--passThroughTargetBase=http://passthrough"
+            )
+        }
+
+        assertThat(hostSlot.captured).isEqualTo("cliHost")
+        assertThat(portSlot.captured).isEqualTo(9999)
+        assertThat(strictModeSlot.captured).isTrue()
+        assertThat(keyDataSlot.captured).isNotNull
+        assertThat(timeoutSlot.captured).isEqualTo(1500L)
+        assertThat(passThroughSlot.captured).isEqualTo("http://passthrough")
+    }
+
+    @Test
+    fun `falls back to defaults when neither CLI nor config is present`() {
+        val hostSlot = slot<String>()
+        val portSlot = slot<Int>()
+        val strictModeSlot = slot<Boolean>()
+        val timeoutSlot = slot<Long>()
+        var capturedKeyData: KeyData? = null
+
+        every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
+        every { watchMaker.make(any()) } returns watcher
+        every { specmaticConfig.contractStubPaths() } returns emptyList()
+        every { specmaticConfig.contractStubPathData() } returns emptyList()
+
+        every {
+            httpStubEngine.runHTTPStub(
+                any(),
+                capture(hostSlot),
+                capture(portSlot),
+                any(),
+                capture(strictModeSlot),
+                any(),
+                any(),
+                any(),
+                any(),
+                capture(timeoutSlot),
+                any(),
+                any()
+            )
+        } answers {
+            capturedKeyData = arg(3) as KeyData?
+            mockk<HttpStub> { every { close() } returns Unit }
+        }
+
+        CommandLine(stubCommand).execute()
+
+        assertThat(capturedKeyData).isNull()
+        assertThat(hostSlot.captured).isEqualTo("0.0.0.0")
+        assertThat(portSlot.captured).isEqualTo(9000)
+        assertThat(strictModeSlot.captured).isFalse()
+        assertThat(timeoutSlot.captured).isEqualTo(1000L)
+    }
+
+    @Test
+    fun `uses stub baseUrl from config when CLI is absent`(@TempDir tempDir: File) {
+        val hostSlot = slot<String>()
+        val portSlot = slot<Int>()
+
+        val configFile = writeSpecmaticYaml(tempDir, """
+        version: 2
+        stub:
+          baseUrl: http://localhost:8080
+        """.trimIndent())
+
+        every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
+        every { watchMaker.make(any()) } returns watcher
+        every { specmaticConfig.contractStubPaths() } returns emptyList()
+        every { specmaticConfig.contractStubPathData() } returns emptyList()
+
+        every {
+            httpStubEngine.runHTTPStub(
+                any(),
+                capture(hostSlot),
+                capture(portSlot),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+            )
+        } returns mockk { every { close() } returns Unit }
+
+        Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            CommandLine(stubCommand).execute()
+        }
+
+        assertThat(hostSlot.captured).isEqualTo("localhost")
+        assertThat(portSlot.captured).isEqualTo(8080)
+    }
+
+    @Test
+    fun `does not override CLI defaults with config baseUrl`(@TempDir tempDir: File) {
+        val hostSlot = slot<String>()
+        val portSlot = slot<Int>()
+
+        val configFile = writeSpecmaticYaml(tempDir, """
+        version: 2
+        stub:
+          baseUrl: http://localhost:8080
+        """.trimIndent())
+
+        every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
+        every { watchMaker.make(any()) } returns watcher
+        every { specmaticConfig.contractStubPaths() } returns emptyList()
+        every { specmaticConfig.contractStubPathData() } returns emptyList()
+
+        every {
+            httpStubEngine.runHTTPStub(
+                any(),
+                capture(hostSlot),
+                capture(portSlot),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+            )
+        } returns mockk { every { close() } returns Unit }
+
+        Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            CommandLine(stubCommand).execute("--host=0.0.0.0", "--port=9000")
+        }
+
+        assertThat(hostSlot.captured).isEqualTo("0.0.0.0")
+        assertThat(portSlot.captured).isEqualTo(9000)
+    }
+
+    @Test
+    fun `uses HTTPS key store from CLI if provided`(@TempDir tempDir: File) {
+        val keystoreFile = tempDir.resolve("cli.jks")
+        createEmptyKeyStore(keystoreFile, "cli-pass")
+
+        val keyDataSlot = slot<KeyDataRegistry>()
+        every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
+        every { watchMaker.make(any()) } returns watcher
+        every { specmaticConfig.contractStubPaths() } returns emptyList()
+        every { specmaticConfig.contractStubPathData() } returns emptyList()
+        every {
+            httpStubEngine.runHTTPStub(
+                any(),
+                any(),
+                any(),
+                capture(keyDataSlot),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+            )
+        } returns mockk { every { close() } returns Unit }
+
+        CommandLine(stubCommand).execute("--httpsKeyStore=${keystoreFile.canonicalPath}", "--httpsKeyStorePassword=cli-pass")
+        assertThat(keyDataSlot.captured).isNotNull
+    }
+
+    @Test
+    fun `uses HTTPS key store from config if provided`(@TempDir tempDir: File) {
+        val keyDataSlot = slot<KeyDataRegistry>()
+        val keystoreFile = tempDir.resolve("config.jks")
+        createEmptyKeyStore(keystoreFile, "pass")
+        val configFile = writeSpecmaticYaml(tempDir, """
+        version: 2
+        stub:
+          https:
+            keyStorePassword: pass
+            keyStore:
+              file: ${keystoreFile.canonicalPath}
+        """.trimIndent())
+
+        every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
+        every { watchMaker.make(any()) } returns watcher
+        every { specmaticConfig.contractStubPaths() } returns emptyList()
+        every { specmaticConfig.contractStubPathData() } returns emptyList()
+        every {
+            httpStubEngine.runHTTPStub(
+                any(),
+                any(),
+                any(),
+                capture(keyDataSlot),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+            )
+        } returns mockk { every { close() } returns Unit }
+
+        Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) { CommandLine(stubCommand).execute() }
+        assertThat(keyDataSlot.captured).isNotNull
+    }
+
+    @Test
+    fun `CLI overrides some config values while config fills missing ones`(@TempDir tempDir: File) {
+        val hostSlot = slot<String>()
+        val strictModeSlot = slot<Boolean>()
+        val keyDataSlot = slot<KeyDataRegistry>()
+        val timeoutSlot = slot<Long>()
+
+        val keystoreFile = tempDir.resolve("config.jks")
+        createEmptyKeyStore(keystoreFile, "key-pass")
+        val configFile = writeSpecmaticYaml(tempDir, """
+        version: 2
+        stub:
+          strictMode: false
+          gracefulRestartTimeoutInMilliseconds: 2500
+          https:
+            keyStore:
+              file: ${keystoreFile.canonicalPath}
+              password: pass
+        """.trimIndent())
+
+        every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
+        every { watchMaker.make(any()) } returns watcher
+        every { specmaticConfig.contractStubPaths() } returns emptyList()
+        every { specmaticConfig.contractStubPathData() } returns emptyList()
+        every {
+            httpStubEngine.runHTTPStub(
+                any(),
+                capture(hostSlot),
+                any(),
+                capture(keyDataSlot),
+                capture(strictModeSlot),
+                any(),
+                any(),
+                any(),
+                any(),
+                capture(timeoutSlot),
+                any(),
+                any()
+            )
+        } returns mockk { every { close() } returns Unit }
+
+        Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            CommandLine(stubCommand).execute("--host=cliHost", "--strict", "--httpsKeyStorePassword=key-pass")
+        }
+
+        assertThat(hostSlot.captured).isEqualTo("cliHost")
+        assertThat(strictModeSlot.captured).isTrue()
+        assertThat(keyDataSlot.captured).isNotNull
+        assertThat(timeoutSlot.captured).isEqualTo(2500L)
+    }
+
     fun osAgnosticPath(path: String): String {
         return path.replace("/", File.separator)
     }
-}
 
+    private fun writeSpecmaticYaml(dir: File, content: String): File = dir.resolve("specmatic.yaml").also { it.writeText(content) }
+
+    private fun createEmptyKeyStore(file: File, password: String) {
+        val keyStore = KeyStore.getInstance("JKS")
+        keyStore.load(null, password.toCharArray())
+        FileOutputStream(file).use { keyStore.store(it, password.toCharArray()) }
+    }
+}

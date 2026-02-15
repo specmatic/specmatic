@@ -14,9 +14,9 @@ import io.specmatic.core.Result
 import io.specmatic.core.Results
 import io.specmatic.core.Scenario
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.Flags.Companion.ONLY_POSITIVE
-import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_GENERATIVE_TESTS
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.NumberValue
@@ -1184,9 +1184,10 @@ class GenerativeTests {
         val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true) {
             every { isResiliencyTestingEnabled() } returns true
             every { getWorkflowDetails() } returns null
+            every { getMaxTestRequestCombinations() } returns null
         }
-        mockkObject(SpecmaticConfig.Companion)
-        every { SpecmaticConfig.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
+        mockkObject(SpecmaticConfigV1V2Common.Companion)
+        every { SpecmaticConfigV1V2Common.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
 
         val feature = OpenApiSpecification.fromYAML(
             """
@@ -1267,103 +1268,99 @@ class GenerativeTests {
     }
 
     @Test
-    fun `the flag ONLY_POSITIVE should be used`() {
-        try {
-            val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true) {
-                every { isResiliencyTestingEnabled() } returns true
-                every { isOnlyPositiveTestingEnabled() } returns true
-                every { getWorkflowDetails() } returns null
-            }
-            mockkObject(SpecmaticConfig.Companion)
-            every { SpecmaticConfig.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
-
-
-            val feature = OpenApiSpecification.fromYAML(
-                """
-                openapi: 3.0.0
-                info:
-                  version: 1.0.0
-                  title: Product API
-                  description: API for creating a product
-                paths:
-                  /products:
-                    post:
-                      summary: Create a product
-                      requestBody:
-                        required: true
-                        content:
-                          application/json:
-                            schema:
-                              ${"$"}ref: '#/components/schemas/Product'
-                            examples:
-                              SUCCESS:
-                                value:
-                                  name: 'Soap'
-                      responses:
-                        '200':
-                          description: Product created successfully
-                          content:
-                            text/plain:
-                              schema:
-                                type: string
-                              examples:
-                                SUCCESS:
-                                  value: 'Product created successfully'
-                components:
-                  schemas:
-                    Product:
-                      type: object
-                      required:
-                        - name
-                      properties:
-                        name:
-                          type: string
-                          description: The name of the product
-                          example: 'Soap'
-                        price:
-                          type: number
-                          description: The price of the product
-                    """, "",
-                specmaticConfig = specmaticConfig
-            ).toFeature()
-
-            val testType = mutableListOf<String>()
-
-            val results = feature.executeTests(object : TestExecutor {
-                override fun execute(request: HttpRequest): HttpResponse {
-                    val body = request.body as JSONObjectValue
-
-                    if (body.jsonObject["name"] !is StringValue) {
-                        testType.add("name mutated to " + body.jsonObject["name"]!!.displayableType())
-                        return HttpResponse.ERROR_400
-                    }
-
-                    if ("price" in body.jsonObject && body.jsonObject["price"] !is NumberValue) {
-                        testType.add("price mutated to " + body.jsonObject["price"]!!.displayableType())
-                        return HttpResponse.ERROR_400
-                    }
-
-                    if ("price" in body.jsonObject)
-                        testType.add("price is present")
-                    else
-                        testType.add("price is absent")
-
-                    return HttpResponse.OK
-                }
-            })
-
-            assertThat(testType).containsExactlyInAnyOrder(
-                "price is present",
-                "price is absent",
-            )
-
-            assertThat(results.results).hasSize(testType.size)
-
-            assertThat(results.failureCount).isEqualTo(0)
-        } finally {
-            System.clearProperty(SPECMATIC_GENERATIVE_TESTS)
-            System.clearProperty(ONLY_POSITIVE)
+    fun `the config enabling resiliency testing should be used`() {
+        val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true) {
+            every { isResiliencyTestingEnabled() } returns true
+            every { isOnlyPositiveTestingEnabled() } returns true
+            every { getWorkflowDetails() } returns null
+            every { getMaxTestRequestCombinations() } returns null
         }
+
+        mockkObject(SpecmaticConfigV1V2Common.Companion)
+        every { SpecmaticConfigV1V2Common.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
+
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.0
+            info:
+              version: 1.0.0
+              title: Product API
+              description: API for creating a product
+            paths:
+              /products:
+                post:
+                  summary: Create a product
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          ${"$"}ref: '#/components/schemas/Product'
+                        examples:
+                          SUCCESS:
+                            value:
+                              name: 'Soap'
+                  responses:
+                    '200':
+                      description: Product created successfully
+                      content:
+                        text/plain:
+                          schema:
+                            type: string
+                          examples:
+                            SUCCESS:
+                              value: 'Product created successfully'
+            components:
+              schemas:
+                Product:
+                  type: object
+                  required:
+                    - name
+                  properties:
+                    name:
+                      type: string
+                      description: The name of the product
+                      example: 'Soap'
+                    price:
+                      type: number
+                      description: The price of the product
+                """, "",
+            specmaticConfig = specmaticConfig
+        ).toFeature()
+
+        val testType = mutableListOf<String>()
+
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                val body = request.body as JSONObjectValue
+
+                if (body.jsonObject["name"] !is StringValue) {
+                    testType.add("name mutated to " + body.jsonObject["name"]!!.displayableType())
+                    return HttpResponse.ERROR_400
+                }
+
+                if ("price" in body.jsonObject && body.jsonObject["price"] !is NumberValue) {
+                    testType.add("price mutated to " + body.jsonObject["price"]!!.displayableType())
+                    return HttpResponse.ERROR_400
+                }
+
+                if ("price" in body.jsonObject)
+                    testType.add("price is present")
+                else
+                    testType.add("price is absent")
+
+                return HttpResponse.OK
+            }
+        })
+
+        assertThat(testType).containsExactlyInAnyOrder(
+            "price is present",
+            "price is absent",
+        )
+
+        assertThat(results.results).hasSize(testType.size)
+
+        assertThat(results.failureCount).isEqualTo(0)
     }
 
     @Test

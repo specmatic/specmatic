@@ -4,6 +4,7 @@ import io.specmatic.core.HttpHeadersPattern
 import io.specmatic.core.NoBodyValue
 import io.specmatic.core.Resolver
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.HasException
 import io.specmatic.core.pattern.HasValue
@@ -409,7 +410,7 @@ class ExampleFromFileTest {
         }
 
         val row =
-            example.toRow(SpecmaticConfig(additionalExampleParamsFilePath = "src/test/resources/additionalParamsFile.json"))
+            example.toRow(SpecmaticConfigV1V2Common(additionalExampleParamsFilePath = "src/test/resources/additionalParamsFile.json"))
 
         assertThat(row.requestExample?.headers.orEmpty()).containsEntry("X-Tra", "info")
 

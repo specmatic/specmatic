@@ -8,7 +8,6 @@ import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.pattern.readValueAs
 import io.specmatic.core.pattern.unwrapOrContractException
-import io.specmatic.core.utilities.Flags
 import io.specmatic.core.value.*
 import io.specmatic.mock.MOCK_HTTP_RESPONSE
 import org.assertj.core.api.Assertions.assertThat
@@ -213,14 +212,9 @@ internal class HttpResponseTest {
 
     @Test
     fun `should print response body in one line when flag is set to false`() {
-        try {
-            System.setProperty(Flags.SPECMATIC_PRETTY_PRINT, "false")
-            val request = HttpResponse(200, body = parsedJSONObject("""{"id": 10}"""))
-            assertThat(request.toLogString())
-                .contains("""{"id":10}""")
-        } finally {
-            System.clearProperty(Flags.SPECMATIC_PRETTY_PRINT)
-        }
+        val request = HttpResponse(200, body = parsedJSONObject("""{"id": 10}"""))
+        assertThat(request.toLogString(prettyPrint = false))
+            .contains("""{"id":10}""")
     }
 
     @Test

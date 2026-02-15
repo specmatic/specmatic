@@ -10,8 +10,6 @@ import io.specmatic.conversions.IncludedSpecification
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.WSDLFile
 import io.specmatic.conversions.WsdlSpecification
-import io.specmatic.conversions.testDirectoryEnvironmentVariable
-import io.specmatic.conversions.testDirectoryProperty
 import io.specmatic.conversions.unwrapBackground
 import io.specmatic.conversions.unwrapFeature
 import io.specmatic.conversions.wsdlContentToFeature
@@ -53,6 +51,7 @@ fun parseContractFileToFeature(
     overlayContent: String = "",
     strictMode: Boolean = false,
     lenientMode: Boolean = false,
+    exampleDirPaths: List<String> = emptyList()
 ): Feature {
     return parseContractFileToFeature(
         File(contractPath),
@@ -65,17 +64,14 @@ fun parseContractFileToFeature(
         specmaticConfig,
         overlayContent,
         strictMode,
-        lenientMode
+        lenientMode,
+        exampleDirPaths
     )
 }
 
 fun checkExists(file: File) = file.also {
     if (!file.exists())
         throw ContractException("File ${file.path} does not exist (absolute path ${file.canonicalPath})")
-}
-
-fun parseContractFileWithNoMissingConfigWarning(contractFile: File, lenientMode: Boolean = false): Feature {
-    return parseContractFileToFeature(contractFile, specmaticConfig = SpecmaticConfig(), lenientMode = lenientMode)
 }
 
 fun parseContractFileToFeature(
@@ -90,6 +86,7 @@ fun parseContractFileToFeature(
     overlayContent: String = "",
     strictMode: Boolean = false,
     lenientMode: Boolean = false,
+    exampleDirPaths: List<String> = emptyList()
 ): Feature {
     logger.debug("Parsing spec file ${file.path}, absolute path ${file.canonicalPath}")
     return when (file.extension) {
@@ -104,10 +101,19 @@ fun parseContractFileToFeature(
             specmaticConfig = specmaticConfig,
             overlayContent = overlayContent,
             strictMode = strictMode,
-            lenientMode = lenientMode
+            lenientMode = lenientMode,
+            exampleDirPaths = exampleDirPaths
         ).toFeature()
-        io.specmatic.core.WSDL -> wsdlContentToFeature(checkExists(file).readText(), file.canonicalPath)
-        in CONTRACT_EXTENSIONS -> parseGherkinStringToFeature(checkExists(file).readText().trim(), file.canonicalPath)
+        io.specmatic.core.WSDL -> wsdlContentToFeature(
+            checkExists(file).readText(),
+            file.canonicalPath,
+            specmaticConfig
+        ).copy(exampleDirPaths = exampleDirPaths)
+        in CONTRACT_EXTENSIONS -> parseGherkinStringToFeature(
+            checkExists(file).readText().trim(),
+            file.canonicalPath,
+            specmaticConfig = specmaticConfig
+        ).copy(exampleDirPaths = exampleDirPaths)
         else -> throw unsupportedFileExtensionContractException(file.path, file.extension)
     }
 }
@@ -124,9 +130,19 @@ fun unsupportedFileExtensionContractException(
         }."
     )
 
-fun parseGherkinStringToFeature(gherkinData: String, sourceFilePath: String = "", isWSDL: Boolean = false): Feature {
+fun parseGherkinStringToFeature(
+    gherkinData: String,
+    sourceFilePath: String = "",
+    isWSDL: Boolean = false,
+    specmaticConfig: SpecmaticConfig = SpecmaticConfig()
+): Feature {
     val gherkinDocument = parseGherkinString(gherkinData, sourceFilePath)
-    val (name, scenarios) = lex(gherkinDocument, sourceFilePath, isWSDL)
+    val (name, scenarios) = lex(
+        gherkinDocument,
+        sourceFilePath,
+        isWSDL,
+        specmaticConfig = specmaticConfig
+    )
     return Feature(scenarios = scenarios, name = name, path = sourceFilePath, protocol = getProtocol(isWSDL))
 }
 
@@ -164,7 +180,8 @@ data class Feature(
     val flagsBased: FlagsBased = strategiesFromFlags(specmaticConfig),
     val strictMode: Boolean = false,
     val exampleStore: ExampleStore = ExampleStore.empty(),
-    val protocol: SpecmaticProtocol
+    val protocol: SpecmaticProtocol,
+    val exampleDirPaths: List<String> = emptyList()
 ): IFeature {
 
     val stubsFromExamples: Map<String, List<Pair<HttpRequest, HttpResponse>>>
@@ -174,6 +191,12 @@ data class Feature(
                 valueTransform = { it.example.request to it.example.response }
             )
         }
+
+    fun useDictionary(dictionaryFilePath: String?): Feature {
+        if (dictionaryFilePath == null) return this
+        val dictionary = OpenApiSpecification.loadDictionary(this.path, dictionaryFilePath, this.strictMode)
+        return this.copy(scenarios = this.scenarios.map { scenario -> scenario.copy(dictionary = dictionary) })
+    }
 
     fun enableGenerativeTesting(onlyPositive: Boolean = false): Feature {
         return this.copy(
@@ -942,14 +965,7 @@ data class Feature(
                 scenarioStub.request,
                 scenarioStub.response,
                 mismatchMessages
-            ).copy(
-                delayInMilliseconds = scenarioStub.delayInMilliseconds,
-                requestBodyRegex = scenarioStub.requestBodyRegex?.let { Regex(it) },
-                stubToken = scenarioStub.stubToken,
-                data = scenarioStub.data,
-                examplePath = scenarioStub.filePath,
-                name = scenarioStub.nameOrFileName
-            )
+            ).copy(scenarioStub = scenarioStub)
         }
 
         val results = scenarios.asSequence().map { scenario ->
@@ -982,12 +998,9 @@ data class Feature(
             HttpResponse(),
             matchingScenario.resolver,
             responsePattern = responseTypeWithAncestors,
-            examplePath = scenarioStub.filePath,
             scenario = matchingScenario,
-            data = scenarioStub.data,
             contractPath = this.path,
-            partial = scenarioStub.partial.copy(response = scenarioStub.partial.response),
-            name = scenarioStub.nameOrFileName
+            scenarioStub = scenarioStub
         )
     }
 
@@ -2141,9 +2154,9 @@ data class Feature(
     }
 
     fun loadExternalisedExamplesAndListUnloadableExamples(): Pair<Feature, Set<String>> {
-        val testsDirectory = getTestsDirectory(File(this.path))
+        val testsDirectory = getTestsDirectory(File(this.path), specmaticConfig)
         val externalisedExamplesFromDefaultDirectory = loadExternalisedJSONExamples(testsDirectory)
-        val externalisedExampleDirsFromConfig = specmaticConfig.getExamples()
+        val externalisedExampleDirsFromConfig = specmaticConfig.getTestExampleDirs(File(path)) + exampleDirPaths
 
         val externalisedExamplesFromExampleDirs = externalisedExampleDirsFromConfig.flatMap { directory ->
             loadExternalisedJSONExamples(File(directory)).entries
@@ -2241,8 +2254,10 @@ data class Feature(
         private const val OBJECT_TYPE = "object"
         private val OPENAPI_MAP_KEY_NEGATED_PATTERN = Regex("[^a-zA-Z0-9._-]")
 
-        private fun getTestsDirectory(contractFile: File): File? {
-            val testDirectory = testDirectoryFileFromSpecificationPath(contractFile.path) ?: testDirectoryFileFromEnvironmentVariable()
+        private fun getTestsDirectory(contractFile: File, specmaticConfig: SpecmaticConfig): File? {
+            val testDirectory =
+                testDirectoryFileFromSpecificationPath(contractFile.path)
+                    ?: testDirectoryFileFromConfig(specmaticConfig)
 
             return when {
                 testDirectory?.exists() == true -> {
@@ -2256,10 +2271,8 @@ data class Feature(
             }
         }
 
-        private fun testDirectoryFileFromEnvironmentVariable(): File? {
-            return readEnvVarOrProperty(testDirectoryEnvironmentVariable, testDirectoryProperty)?.let {
-                File(System.getenv(testDirectoryEnvironmentVariable))
-            }
+        private fun testDirectoryFileFromConfig(specmaticConfig: SpecmaticConfig): File? {
+            return specmaticConfig.getTestsDirectory()?.let { File(it) }
         }
 
         private fun testDirectoryFileFromSpecificationPath(openApiFilePath: String): File? {
@@ -2284,7 +2297,8 @@ data class Feature(
             specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
             flagsBased: FlagsBased = strategiesFromFlags(specmaticConfig),
             strictMode: Boolean = false,
-            protocol: SpecmaticProtocol
+            protocol: SpecmaticProtocol,
+            exampleDirPaths: List<String> = emptyList()
         ): Feature {
             return Feature(
                 scenarios = scenarios,
@@ -2301,7 +2315,8 @@ data class Feature(
                 flagsBased = flagsBased,
                 strictMode = strictMode,
                 exampleStore = ExampleStore.from(stubsFromExamples, type = ExampleType.INLINE),
-                protocol = protocol
+                protocol = protocol,
+                exampleDirPaths = exampleDirPaths
             )
         }
     }
@@ -2361,12 +2376,32 @@ private fun lexScenario(
     includedSpecifications: List<IncludedSpecification?>,
     isWSDL: Boolean,
     protocol: SpecmaticProtocol,
-    specType: SpecType
+    specType: SpecType,
+    extensibleQueryParams: Boolean,
+    preferEscapedSoapAction: Boolean
 ): ScenarioInfo {
     val filteredSteps =
         steps.map { step -> StepInfo(step.text, listOfDatatableRows(step), step) }.filterNot { it.isEmpty }
 
-    val parsedScenarioInfo = filteredSteps.fold(backgroundScenarioInfo ?: ScenarioInfo(httpRequestPattern = HttpRequestPattern(), protocol = protocol, specType = specType)) { scenarioInfo, step ->
+    val defaultRequestPattern = HttpRequestPattern(
+        headersPattern = HttpHeadersPattern(preferEscapedSoapAction = preferEscapedSoapAction),
+        httpQueryParamPattern = HttpQueryParamPattern(
+            emptyMap(),
+            extensibleQueryParams = extensibleQueryParams
+        )
+    )
+    val defaultResponsePattern = HttpResponsePattern(
+        headersPattern = HttpHeadersPattern(preferEscapedSoapAction = preferEscapedSoapAction)
+    )
+
+    val parsedScenarioInfo = filteredSteps.fold(
+        backgroundScenarioInfo ?: ScenarioInfo(
+            httpRequestPattern = defaultRequestPattern,
+            httpResponsePattern = defaultResponsePattern,
+            protocol = protocol,
+            specType = specType
+        )
+    ) { scenarioInfo, step ->
         when (step.keyword) {
             in HTTP_METHODS -> {
                 step.words.getOrNull(1)?.let {
@@ -2380,7 +2415,10 @@ private fun lexScenario(
                         )
                     }
 
-                    val queryParamPattern = buildQueryPattern(URI.create(urlInSpec))
+                    val queryParamPattern = buildQueryPattern(
+                        URI.create(urlInSpec),
+                        extensibleQueryParams = extensibleQueryParams
+                    )
 
                     scenarioInfo.copy(
                         httpRequestPattern = scenarioInfo.httpRequestPattern.copy(
@@ -2690,9 +2728,10 @@ internal fun lex(
     isWSDL: Boolean = false,
     protocol: SpecmaticProtocol = getProtocol(isWSDL),
     specType: SpecType = getSpecType(isWSDL),
+    specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
 ): Pair<String, List<Scenario>> {
     val feature = gherkinDocument.unwrapFeature()
-    return Pair(feature.name, lex(feature.children, filePath, isWSDL, protocol, specType))
+    return Pair(feature.name, lex(feature.children, filePath, isWSDL, protocol, specType, specmaticConfig))
 }
 
 internal fun lex(
@@ -2700,9 +2739,11 @@ internal fun lex(
     filePath: String,
     isWSDL: Boolean = false,
     protocol: SpecmaticProtocol,
-    specType: SpecType
+    specType: SpecType,
+    specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
 ): List<Scenario> {
-    return scenarioInfos(featureChildren, filePath, isWSDL, protocol, specType).map { scenarioInfo -> Scenario(scenarioInfo) }
+    return scenarioInfos(featureChildren, filePath, isWSDL, protocol, specType, specmaticConfig)
+        .map { scenarioInfo -> Scenario(scenarioInfo) }
 }
 
 fun scenarioInfos(
@@ -2711,22 +2752,41 @@ fun scenarioInfos(
     isWSDL: Boolean = false,
     protocol: SpecmaticProtocol = getProtocol(isWSDL),
     specType: SpecType = getSpecType(isWSDL),
+    specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
 ): List<ScenarioInfo> {
+    val extensibleQueryParams = specmaticConfig.getExtensibleQueryParams()
+    val preferEscapedSoapAction = specmaticConfig.getEscapeSoapAction()
     val openApiSpecification =
         toIncludedSpecification(featureChildren, { backgroundOpenApi(it) }) {
             OpenApiSpecification.fromFile(
                 it,
-                filePath
+                filePath,
+                specmaticConfig
             )
         }
 
     val wsdlSpecification =
-        toIncludedSpecification(featureChildren, { backgroundWsdl(it) }) { WsdlSpecification(WSDLFile(it)) }
+        toIncludedSpecification(featureChildren, { backgroundWsdl(it) }) { WsdlSpecification(WSDLFile(it), specmaticConfig) }
 
     val includedSpecifications = listOfNotNull(openApiSpecification, wsdlSpecification)
 
     val scenarioInfosBelongingToIncludedSpecifications =
         includedSpecifications.map { it.toScenarioInfos().first }.flatten()
+
+    val defaultScenarioInfo = ScenarioInfo(
+        httpRequestPattern = HttpRequestPattern(
+            headersPattern = HttpHeadersPattern(preferEscapedSoapAction = preferEscapedSoapAction),
+            httpQueryParamPattern = HttpQueryParamPattern(
+                emptyMap(),
+                extensibleQueryParams = extensibleQueryParams
+            )
+        ),
+        httpResponsePattern = HttpResponsePattern(
+            headersPattern = HttpHeadersPattern(preferEscapedSoapAction = preferEscapedSoapAction)
+        ),
+        protocol = protocol,
+        specType = specType
+    )
 
     val backgroundInfo = backgroundScenario(featureChildren)?.let { feature ->
         lexScenario(
@@ -2740,9 +2800,11 @@ fun scenarioInfos(
             includedSpecifications,
             isWSDL,
             protocol,
-            specType
+            specType,
+            extensibleQueryParams,
+            preferEscapedSoapAction
         )
-    } ?: ScenarioInfo(protocol = protocol, specType = specType)
+    } ?: defaultScenarioInfo
 
     val specmaticScenarioInfos = scenarios(featureChildren).map { featureChild ->
         val scenario = featureChild.scenario.orElseThrow {
@@ -2762,7 +2824,9 @@ fun scenarioInfos(
             includedSpecifications,
             isWSDL,
             protocol,
-            specType
+            specType,
+            extensibleQueryParams,
+            preferEscapedSoapAction
         )
     }
 

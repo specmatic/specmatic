@@ -1,10 +1,7 @@
 package io.specmatic.conversions
 
-import io.specmatic.core.APIKeySecuritySchemeConfiguration
-import io.specmatic.core.BasicAuthSecuritySchemeConfiguration
 import io.specmatic.core.SecuritySchemeConfiguration
-import io.specmatic.core.SecuritySchemeWithOAuthToken
-import io.specmatic.core.utilities.Flags.Companion.getStringValue
+import io.specmatic.core.SpecmaticConfig
 
 @Deprecated("This will be deprecated shortly.Use the security scheme name as the environment variable.")
 const val SPECMATIC_OAUTH2_TOKEN = "SPECMATIC_OAUTH2_TOKEN"
@@ -12,28 +9,25 @@ const val SPECMATIC_OAUTH2_TOKEN = "SPECMATIC_OAUTH2_TOKEN"
 const val SPECMATIC_BASIC_AUTH_TOKEN = "SPECMATIC_BASIC_AUTH_TOKEN"
 
 fun getSecurityTokenForBasicAuthScheme(
+    specmaticConfig: SpecmaticConfig,
     securitySchemeConfiguration: SecuritySchemeConfiguration?,
-    environmentVariable: String,
+    schemeName: String,
 ): String? {
-    return getStringValue(environmentVariable) ?: securitySchemeConfiguration?.let {
-        (securitySchemeConfiguration as BasicAuthSecuritySchemeConfiguration).token
-    } ?: getStringValue(SPECMATIC_BASIC_AUTH_TOKEN)
+    return specmaticConfig.getBasicAuthSecurityToken(schemeName, securitySchemeConfiguration)
 }
 
 fun getSecurityTokenForBearerScheme(
+    specmaticConfig: SpecmaticConfig,
     securitySchemeConfiguration: SecuritySchemeConfiguration?,
-    environmentVariable: String,
+    schemeName: String,
 ): String? {
-    return getStringValue(environmentVariable) ?: securitySchemeConfiguration?.let {
-        (it as SecuritySchemeWithOAuthToken).token
-    } ?: getStringValue(SPECMATIC_OAUTH2_TOKEN)
+    return specmaticConfig.getBearerSecurityToken(schemeName, securitySchemeConfiguration)
 }
 
 fun getSecurityTokenForApiKeyScheme(
+    specmaticConfig: SpecmaticConfig,
     securitySchemeConfiguration: SecuritySchemeConfiguration?,
-    environmentVariable: String,
+    schemeName: String,
 ): String? {
-    return getStringValue(environmentVariable) ?: securitySchemeConfiguration?.let {
-        (it as APIKeySecuritySchemeConfiguration).value
-    }
+    return specmaticConfig.getApiKeySecurityToken(schemeName, securitySchemeConfiguration)
 }

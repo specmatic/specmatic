@@ -4,11 +4,8 @@ import io.specmatic.core.HttpRequest
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.log.logger
-import io.specmatic.core.utilities.Flags
 import io.specmatic.junit5.support.VersionInfo
-import io.specmatic.test.SpecmaticJUnitSupport.Companion.HOST
-import io.specmatic.test.SpecmaticJUnitSupport.Companion.PORT
-import io.specmatic.test.SpecmaticJUnitSupport.Companion.TEST_BASE_URL
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.reports.coverage.OpenApiCoverageReportInput
 import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
@@ -28,7 +25,7 @@ class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApi
         val reportData = HtmlReportData(
             totalCoveragePercentage = report.totalCoveragePercentage, actuatorEnabled = actuatorEnabled,
             tableRows = makeTableRows(report),
-            scenarioData = makeScenarioData(report), totalTestDuration = getTotalDuration()
+            scenarioData = makeScenarioData(report, specmaticConfig), totalTestDuration = getTotalDuration()
         )
 
         val htmlReportInformation = HtmlReportInformation(
@@ -90,7 +87,7 @@ class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApi
         return openApiCoverageReportInput.totalDuration()
     }
 
-    private fun makeScenarioData(report: OpenAPICoverageConsoleReport): GroupedScenarioData {
+    private fun makeScenarioData(report: OpenAPICoverageConsoleReport, specmaticConfig: SpecmaticConfig): GroupedScenarioData {
         val testData: MutableMap<String, MutableMap<String, MutableMap<String, MutableMap<String, MutableList<ScenarioData>>>>> = mutableMapOf()
 
         for ((path, methodGroup) in report.getGroupedTestResultRecords(report.testResultRecords)) {
@@ -116,10 +113,9 @@ class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApi
                             scenarioDataList.add(
                                 ScenarioData(
                                     name = scenarioName,
-                                    baseUrl = getBaseUrl(firstLogMessage),
+                                    baseUrl = getBaseUrl(firstLogMessage, specmaticConfig),
                                     duration = lastLogMessageTime - firstLogMessageTime,
                                     testResult = test.result,
-                                    valid = test.isValid,
                                     wip = test.isWip,
                                     request = requestString,
                                     requestTime = requestTime,
@@ -142,11 +138,9 @@ class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApi
         return httpLogMessage?.displayName() ?: testResult.scenarioResult?.scenario?.testDescription() ?: "Scenario: ${testResult.path} -> ${testResult.responseStatus}"
     }
 
-    private fun getBaseUrl(httpLogMessage: HttpLogMessage?): String {
-        val host = Flags.getStringValue(HOST).orEmpty()
-        val port = Flags.getStringValue(PORT).orEmpty()
-        val baseUrlFromFlags = Flags.getStringValue(TEST_BASE_URL) ?: if (host.isNotBlank() && port.isNotBlank()) "$host:$port" else null
-        return httpLogMessage?.targetServer ?: baseUrlFromFlags ?: "Unknown baseURL"
+    private fun getBaseUrl(httpLogMessage: HttpLogMessage?, specmaticConfig: SpecmaticConfig): String {
+        val baseUrlFromConfig = specmaticConfig.getCoverageReportBaseUrl(SpecType.OPENAPI)
+        return httpLogMessage?.targetServer ?: baseUrlFromConfig ?: "Unknown baseURL"
     }
 
     private fun getRequestString(httpLogMessage: List<HttpLogMessage>): Pair<String, Long> {

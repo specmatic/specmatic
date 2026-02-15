@@ -1,28 +1,25 @@
 package io.specmatic.test
 
 import io.specmatic.conversions.convertPathParameterStyle
-import io.specmatic.core.SpecificationAndResponseMismatch
-import io.specmatic.core.Feature
-import io.specmatic.core.FlagsBased
-import io.specmatic.core.HttpRequest
-import io.specmatic.core.HttpResponse
-import io.specmatic.core.Result
-import io.specmatic.core.Scenario
-import io.specmatic.core.ValidateUnexpectedKeys
-import io.specmatic.core.Workflow
+import io.specmatic.core.*
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.Value
 import io.specmatic.license.core.SpecmaticProtocol
-import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
+import io.specmatic.test.fixtures.OpenAPIFixtureExecutor
 import io.specmatic.test.handlers.ResponseHandler
 import io.specmatic.test.handlers.ResponseHandlerRegistry
 import io.specmatic.test.handlers.ResponseHandlingResult
 import java.time.Instant
+import java.util.ServiceLoader
+import kotlin.jvm.java
+
+private const val BEFORE_FIXTURE_DISCRIMINATOR_KEY = "before"
+private const val AFTER_FIXTURE_DISCRIMINATOR_KEY = "after"
 
 data class ScenarioAsTest(
     val scenario: Scenario,
@@ -122,6 +119,10 @@ data class ScenarioAsTest(
         flagsBased: FlagsBased
     ): ContractTestExecutionResult {
         try {
+            val beforeFixtureExecutionResult = fixtureExecutionResult(BEFORE_FIXTURE_DISCRIMINATOR_KEY)
+            if (beforeFixtureExecutionResult.isSuccess().not()) {
+                return ContractTestExecutionResult(result = beforeFixtureExecutionResult)
+            }
             val request = testScenario.generateHttpRequest(flagsBased).let {
                 workflow.updateRequest(it, originalScenario).adjustPayloadForContentType()
             }.addHeaderIfMissing(SPECMATIC_RESPONSE_CODE_HEADER, testScenario.status.toString())
@@ -132,7 +133,19 @@ data class ScenarioAsTest(
 
             //TODO: Review - Do we need workflow anymore
             workflow.extractDataFrom(response, originalScenario)
-            val validatorResult = validators.asSequence().map { it.validate(scenario, response) }.filterNotNull().firstOrNull()
+            val validatorResult = validators.asSequence().mapNotNull { it.validate(scenario, response) }.firstOrNull()
+
+            if(validatorResult !is Result.Failure) {
+                val afterFixtureExecutionResult = fixtureExecutionResult(AFTER_FIXTURE_DISCRIMINATOR_KEY)
+                if (afterFixtureExecutionResult.isSuccess().not()) {
+                    return ContractTestExecutionResult(
+                        result = afterFixtureExecutionResult,
+                        request = request,
+                        response = response
+                    )
+                }
+            }
+
             if (validatorResult is Result.Failure) {
                 return ContractTestExecutionResult(
                     result = validatorResult.withBindings(testScenario.bindings, response),
@@ -186,6 +199,18 @@ data class ScenarioAsTest(
                     .also { failure -> failure.updateScenario(testScenario) }
             )
         }
+    }
+
+    private fun fixtureExecutionResult(fixtureDiscriminatorKey: String): Result {
+        val row = scenario.exampleRow ?: return Result.Success()
+        val scenarioStub = row.scenarioStub ?: return Result.Success()
+        val id = scenarioStub.id.orEmpty()
+        val fixtures = when (fixtureDiscriminatorKey) {
+            BEFORE_FIXTURE_DISCRIMINATOR_KEY -> scenarioStub.beforeFixtures
+            else -> scenarioStub.afterFixtures
+        }
+        return ServiceLoader.load(OpenAPIFixtureExecutor::class.java)
+            .firstOrNull()?.execute(id, fixtures, fixtureDiscriminatorKey) ?: Result.Success()
     }
 
     private fun testResult(

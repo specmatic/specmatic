@@ -51,6 +51,7 @@ data class Resolver(
     val patternsSeenSoFar: Set<String> = setOf(),
     val lookupPathsSeenSoFar: Set<String> = setOf(),
     val cycleMarker: String = "",
+    val maxTestRequestCombinations: Int = Int.MAX_VALUE,
 ) {
     constructor(facts: Map<String, Value> = emptyMap(), mockMode: Boolean = false, newPatterns: Map<String, Pattern> = emptyMap()) : this(CheckFacts(facts), mockMode, newPatterns)
     constructor() : this(emptyMap(), false)

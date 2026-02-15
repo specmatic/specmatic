@@ -12,8 +12,6 @@ import picocli.CommandLine
 
 open class SpecmaticApplication {
     companion object {
-        private const val SPECMATIC_DEBUG_MODE = "SPECMATIC_DEBUG_MODE"
-
         @JvmStatic
         fun main(args: Array<String>) {
             LicenseResolver.setCurrentExecutorIfNotSet(Executor.JAR)
@@ -25,9 +23,7 @@ open class SpecmaticApplication {
             setupPicoCli()
             setupLogging()
 
-            if (Flags.getBooleanValue(SPECMATIC_DEBUG_MODE)) {
-                Thread.setDefaultUncaughtExceptionHandler(UncaughtExceptionHandler())
-            }
+            Thread.setDefaultUncaughtExceptionHandler(UncaughtExceptionHandler())
 
             val commandLine = CommandLine(SpecmaticCommand())
             SpecmaticCoreSubcommands.configure(commandLine)

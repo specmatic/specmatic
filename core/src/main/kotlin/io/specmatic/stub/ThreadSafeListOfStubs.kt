@@ -40,7 +40,7 @@ class ThreadSafeListOfStubs(
         synchronized(this) {
             result.second.let {
                 if(it != null)
-                    httpStubs.add(0, it.copy(delayInMilliseconds = stub.delayInMilliseconds, stubToken = stub.stubToken))
+                    httpStubs.add(0, it.copy(scenarioStub = stub))
             }
         }
     }

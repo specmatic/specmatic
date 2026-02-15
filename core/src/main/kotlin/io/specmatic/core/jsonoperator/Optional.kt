@@ -23,15 +23,15 @@ sealed interface Optional<out Type> {
         is None -> HasValue(None)
     }
 
-    fun getOrElse(default: () -> @UnsafeVariance Type): Type = when (this) {
-        is Some -> value
-        is None -> default()
-    }
-
     fun getOrNull(): Type? = when (this) {
         is Some -> value
         is None -> null
     }
 
     fun getOrThrow(): Type = getOrNull() ?: throw IllegalStateException("Expected Optional to be present")
+}
+
+fun <T> Optional<T>.getOrElse(default: () -> T): T = when (this) {
+    is Optional.Some -> value
+    is Optional.None -> default()
 }
