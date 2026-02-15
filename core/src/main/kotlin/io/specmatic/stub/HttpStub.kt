@@ -132,7 +132,7 @@ class HttpStub(
     private val listeners: List<MockEventListener> = emptyList(),
     private val reportBaseDirectoryPath: String = ".",
     private val startTime: Instant = Instant.now(),
-    private val requestHandlers: MutableList<RequestHandler> = mutableListOf()
+    var requestHandlers: MutableList<RequestHandler> = mutableListOf()
 ) : ContractStub {
     constructor(
         feature: Feature,
