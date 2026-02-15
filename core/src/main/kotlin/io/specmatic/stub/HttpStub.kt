@@ -338,7 +338,7 @@ class HttpStub(
                     if (requestInterceptorErrors.isNotEmpty()) {
                         logger.boundary()
                         logger.log("--------------------")
-                        logger.log("Request hook responseInterceptorErrors:")
+                        logger.log("Request adapter errors:")
                         logger.log(InterceptorErrors(requestInterceptorErrors).toString().prependIndent("  "))
                     }
 
@@ -432,7 +432,7 @@ class HttpStub(
                 transformedResponse?.let {
                     logger.log("")
                     logger.log("--------------------")
-                    logger.log("Response after hook processing:")
+                    logger.log("Response after adapter processing:")
                     logger.log(it.toLogString(prettyPrint = prettyPrint).prependIndent("  "))
                 }
 
@@ -440,7 +440,7 @@ class HttpStub(
                 if (responseErrors.isNotEmpty()) {
                     logger.boundary()
                     logger.log("--------------------")
-                    logger.log("Response hook errors:")
+                    logger.log("Response adapter errors:")
                     logger.log(InterceptorErrors(responseErrors).toString().prependIndent("  "))
                 }
 
