@@ -797,6 +797,18 @@ Feature: POST API
         assertThat(isStateSetupRequest(HttpRequest("POST", "/_$APPLICATION_NAME_LOWER_CASE/state"))).isTrue()
     }
 
+    @Test
+    fun `swagger specification route should match expected path and method`() {
+        assertThat(isSwaggerSpecRequest(HttpRequest("GET", "/swagger/v1/swagger.yaml"))).isTrue()
+    }
+
+    @Test
+    fun `swagger specification route should not match other requests`() {
+        assertThat(isSwaggerSpecRequest(HttpRequest("POST", "/swagger/v1/swagger.yaml"))).isFalse()
+        assertThat(isSwaggerSpecRequest(HttpRequest("GET", "/swagger/v1/swagger.json"))).isTrue()
+        assertThat(isSwaggerSpecRequest(HttpRequest("GET", "/swagger/v1/swagger.xml"))).isFalse()
+    }
+
     private fun waitFor(threads: List<Thread>) = threads.forEach { it.join() }
 
     private fun start(threads: List<Thread>) = threads.forEach { it.start() }

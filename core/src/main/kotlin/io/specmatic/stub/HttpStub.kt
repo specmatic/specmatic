@@ -1,5 +1,6 @@
 package io.specmatic.stub
 
+import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.ktor.http.*
 import io.ktor.http.content.*
@@ -12,7 +13,9 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.util.*
 import io.ktor.util.pipeline.*
+import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.convertPathParameterStyle
+import io.swagger.v3.core.util.Yaml
 import io.specmatic.core.APPLICATION_NAME
 import io.specmatic.core.APPLICATION_NAME_LOWER_CASE
 import io.specmatic.core.Feature
@@ -112,6 +115,9 @@ import kotlin.text.toCharArray
 const val SPECMATIC_RESPONSE_CODE_HEADER = "Specmatic-Response-Code"
 const val HTTP_PORT = 80
 const val HTTPS_PORT = 443
+const val JSON_REPORT_PATH = "./build/reports/specmatic"
+const val JSON_REPORT_FILE_NAME = "stub_usage_report.json"
+private const val SWAGGER_SPEC_NOT_AVAILABLE_MESSAGE = "No OpenAPI specifications are loaded in this mock server"
 
 class HttpStub(
     private val features: List<Feature>,
@@ -134,6 +140,15 @@ class HttpStub(
     private val startTime: Instant = Instant.now(),
     var requestHandlers: MutableList<RequestHandler> = mutableListOf()
 ) : ContractStub {
+    private enum class SwaggerSpecResponseFormat {
+        YAML,
+        JSON
+    }
+    private data class MockedOpenApiSpec(
+        val resolvedSpecPath: String,
+        val displaySpecId: String
+    )
+
     constructor(
         feature: Feature,
         scenarioStubs: List<ScenarioStub> = emptyList(),
@@ -172,9 +187,6 @@ class HttpStub(
     )
 
     companion object {
-        const val JSON_REPORT_PATH = "./build/reports/specmatic"
-        const val JSON_REPORT_FILE_NAME = "stub_usage_report.json"
-
         fun setExpectation(
             stub: ScenarioStub,
             feature: Feature,
@@ -225,6 +237,19 @@ class HttpStub(
         transient = rawHttpStubs.filter { it.stubToken != null }.reversed().toMutableList(),
         specToBaseUrlMap = specToBaseUrlMap
     )
+    private val firstMockedOpenApiSpec: MockedOpenApiSpec? by lazy {
+        features.asSequence()
+            .filter { it.path.isNotBlank() }
+            .firstOrNull { isOpenAPI(it.path, logFailure = false) }
+            ?.let { feature ->
+                val resolvedSpecPath = feature.path
+                val displaySpecId = File(resolvedSpecPath).name.ifBlank { feature.name }
+                MockedOpenApiSpec(
+                    resolvedSpecPath = resolvedSpecPath,
+                    displaySpecId = displaySpecId
+                )
+            }
+    }
 
     // used by graphql/plugins
     fun ctrfTestResultRecords() = ctrfTestResultRecords.toList()
@@ -303,6 +328,8 @@ class HttpStub(
                 )
                 var transformedResponse: HttpResponse? = null
                 var responseErrors: List<InterceptorError> = emptyList()
+                var swaggerSpecSummary: String? = null
+                var shouldRedactSwaggerSpecResponseInLogs = false
 
                 try {
                     val rawHttpRequest = ktorHttpRequestToHttpRequest(call).also {
@@ -347,6 +374,18 @@ class HttpStub(
                         isFetchLogRequest(httpRequest) -> handleFetchLogRequest().copy(isInternalStubPath = true)
                         isFetchLoadLogRequest(httpRequest) -> handleFetchLoadLogRequest().copy(isInternalStubPath = true)
                         isFetchContractsRequest(httpRequest) -> handleFetchContractsRequest().copy(isInternalStubPath = true)
+                        isSwaggerSpecRequest(httpRequest) -> {
+                            shouldRedactSwaggerSpecResponseInLogs = true
+                            handleFetchSwaggerSpecRequest(httpRequest).also {
+                                swaggerSpecSummary = if (it.response.status == 429) {
+                                    SWAGGER_SPEC_NOT_AVAILABLE_MESSAGE
+                                } else {
+                                    val specId = it.contractPath.takeIf(String::isNotBlank)?.let { path -> File(path).name }
+                                        ?: "unknown-openapi-spec"
+                                    "returned spec for $specId"
+                                }
+                            }.copy(isInternalStubPath = true)
+                        }
                         responseFromRequestHandler != null -> responseFromRequestHandler
                         isExpectationCreation(httpRequest) -> handleExpectationCreationRequest(httpRequest).copy(isInternalStubPath = true)
                         isSseExpectationCreation(httpRequest) -> handleSseExpectationCreationRequest(httpRequest).copy(isInternalStubPath = true)
@@ -388,7 +427,13 @@ class HttpStub(
                             updatedHttpStubResponse.contractPath
                         )
                         // Add the original response (before encoding) to the log message
-                        httpLogMessage.addResponse(httpStubResponse)
+                        val stubResponseToLog = if (shouldRedactSwaggerSpecResponseInLogs) {
+                            val summary = swaggerSpecSummary ?: "returned spec"
+                            httpStubResponse.copy(response = redactedSwaggerSpecResponse(httpStubResponse.response, summary))
+                        } else {
+                            httpStubResponse
+                        }
+                        httpLogMessage.addResponse(stubResponseToLog)
                     }
 
                     if (httpStubResponse.isInternalStubPath.not()) {
@@ -413,10 +458,11 @@ class HttpStub(
                     respondToKtorHttpResponse(call, response)
                 }
 
+                swaggerSpecSummary?.let { log(StringLog(it)) }
                 log(httpLogMessage)
 
                 // Log the response after hook processing if it was transformed
-                transformedResponse?.let {
+                if (!shouldRedactSwaggerSpecResponseInLogs) transformedResponse?.let {
                     logger.log("")
                     logger.log("--------------------")
                     logger.log("Response after hook processing:")
@@ -689,6 +735,70 @@ class HttpStub(
 
     private fun handleFetchContractsRequest(): HttpStubResponse =
         HttpStubResponse(HttpResponse.ok(StringValue(features.joinToString("\n") { it.name })))
+
+    private fun handleFetchSwaggerSpecRequest(httpRequest: HttpRequest): HttpStubResponse {
+        val openApiSpec = firstMockedOpenApiSpec ?: return HttpStubResponse(
+            HttpResponse(status = 429, body = SWAGGER_SPEC_NOT_AVAILABLE_MESSAGE)
+        )
+        val resolvedSpec = File(openApiSpec.resolvedSpecPath)
+        if (!resolvedSpec.exists()) {
+            throw ContractException("Could not find mocked OpenAPI specification: ${resolvedSpec.canonicalPath}")
+        }
+
+        val overlayContent = stubOverlayContent(resolvedSpec)
+        val parsedOpenApi = OpenApiSpecification.fromYAML(
+            yamlContent = resolvedSpec.readText(),
+            openApiFilePath = resolvedSpec.canonicalPath,
+            specificationPath = openApiSpec.displaySpecId,
+            specmaticConfig = specmaticConfigInstance,
+            overlayContent = overlayContent,
+            strictMode = specmaticConfigInstance.getStubStrictMode(null) ?: false
+        ).parsedOpenApi
+
+        val format = swaggerSpecResponseFormat(httpRequest)
+            ?: throw ContractException("Unsupported swagger specification path: ${httpRequest.path.orEmpty()}")
+        val response = when (format) {
+            SwaggerSpecResponseFormat.YAML -> {
+                val openApiYaml = Yaml.pretty(parsedOpenApi)
+                HttpResponse(status = 200, headers = mapOf(HttpHeaders.ContentType to "application/yaml"), body = StringValue(openApiYaml))
+            }
+            SwaggerSpecResponseFormat.JSON -> {
+                val openApiJson = ObjectMapper()
+                    .setSerializationInclusion(JsonInclude.Include.NON_NULL)
+                    .writeValueAsString(parsedOpenApi)
+                HttpResponse.jsonResponse(openApiJson)
+            }
+        }
+
+        return HttpStubResponse(
+            response = response,
+            contractPath = resolvedSpec.canonicalPath
+        )
+    }
+
+    private fun swaggerSpecResponseFormat(httpRequest: HttpRequest): SwaggerSpecResponseFormat? =
+        when (httpRequest.path) {
+            SWAGGER_SPEC_YAML_PATH -> SwaggerSpecResponseFormat.YAML
+            SWAGGER_SPEC_JSON_PATH -> SwaggerSpecResponseFormat.JSON
+            else -> null
+        }
+
+    private fun stubOverlayContent(specFile: File): String {
+        val configuredOverlay = specmaticConfigInstance.getStubOverlayFilePath(specFile, SpecType.OPENAPI)?.let(::File)
+        return configuredOverlay?.let {
+            if (!it.exists()) {
+                throw ContractException("Specified Overlay file does not exist ${it.canonicalPath}")
+            }
+            it.readText()
+        }.orEmpty()
+    }
+
+    private fun redactedSwaggerSpecResponse(originalResponse: HttpResponse, summary: String): HttpResponse =
+        HttpResponse(
+            status = originalResponse.status,
+            headers = mapOf(HttpHeaders.ContentType to (originalResponse.contentType() ?: "text/plain")),
+            body = StringValue(summary)
+        )
 
     private fun handleFetchLogRequest(): HttpStubResponse =
         HttpStubResponse(HttpResponse.ok(StringValue(LogTail.getString())))
@@ -1635,6 +1745,12 @@ internal fun isFetchContractsRequest(httpRequest: HttpRequest): Boolean =
 
 internal fun isFetchLoadLogRequest(httpRequest: HttpRequest): Boolean =
     isPath(httpRequest.path, "load_log") && httpRequest.method == "GET"
+
+private const val SWAGGER_SPEC_YAML_PATH = "/swagger/v1/swagger.yaml"
+private const val SWAGGER_SPEC_JSON_PATH = "/swagger/v1/swagger.json"
+
+internal fun isSwaggerSpecRequest(httpRequest: HttpRequest): Boolean =
+    httpRequest.method == "GET" && (httpRequest.path == SWAGGER_SPEC_YAML_PATH || httpRequest.path == SWAGGER_SPEC_JSON_PATH)
 
 internal fun isExpectationCreation(httpRequest: HttpRequest) =
     isPath(httpRequest.path, "expectations") && httpRequest.method == "POST"
