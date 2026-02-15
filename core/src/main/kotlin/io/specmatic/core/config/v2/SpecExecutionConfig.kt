@@ -11,10 +11,13 @@ import io.specmatic.core.Configuration.Companion.DEFAULT_BASE_URL
 import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.ResiliencyTestsConfig
 import io.specmatic.core.Source
+import io.specmatic.core.SourceProvider
 import io.specmatic.core.SpecificationSourceEntry
 import io.specmatic.core.utilities.Flags
 import java.io.File
+import java.net.MalformedURLException
 import java.net.URI
+import java.net.URL
 
 sealed class SpecExecutionConfig {
     data class StringValue(@get:JsonValue val value: String) : SpecExecutionConfig() {
@@ -23,7 +26,7 @@ sealed class SpecExecutionConfig {
         }
 
         override fun createSpecificationEntriesFrom(source: Source, baseDir: File, resiliencyTestSuite: ResiliencyTestSuite?): List<SpecificationSourceEntry> {
-            val specFile = baseDir.resolve(value).canonicalFile
+            val specFile = source.resolveSpecFile(baseDir, value)
             return listOf(SpecificationSourceEntry(source, specFile, value, null, null, resiliencyTestSuite))
         }
 
@@ -65,7 +68,7 @@ sealed class SpecExecutionConfig {
                 val baseUrl = toBaseUrl(null)
                 val resiliency = resiliencyTests?.enable ?: resiliencyTestSuite
                 return specs().map { spec ->
-                    val specFile = baseDir.resolve(spec)
+                    val specFile = source.resolveSpecFile(baseDir, spec)
                     SpecificationSourceEntry(source, specFile, spec, baseUrl, null, resiliency)
                 }
             }
@@ -106,7 +109,7 @@ sealed class SpecExecutionConfig {
                 val baseUrl = toBaseUrl(null)
                 val resiliency = resiliencyTests?.enable ?: resiliencyTestSuite
                 return specs().map { spec ->
-                    val specFile = baseDir.resolve(spec)
+                    val specFile = source.resolveSpecFile(baseDir, spec)
                     SpecificationSourceEntry(source, specFile, spec, baseUrl, port, resiliency)
                 }
             }
@@ -136,7 +139,7 @@ sealed class SpecExecutionConfig {
 
         override fun createSpecificationEntriesFrom(source: Source, baseDir: File, resiliencyTestSuite: ResiliencyTestSuite?): List<SpecificationSourceEntry> {
             return specs().map { spec ->
-                val specFile = baseDir.resolve(spec)
+                val specFile = source.resolveSpecFile(baseDir, spec)
                 SpecificationSourceEntry(source, specFile, spec, null, null, resiliencyTestSuite)
             }
         }
@@ -188,6 +191,19 @@ sealed class SpecExecutionConfig {
     abstract fun use(baseUrl: String, resiliencyTestsConfig: ResiliencyTestsConfig): SpecExecutionConfig
 
     abstract fun use(port: Int): SpecExecutionConfig
+}
+
+private fun Source.resolveSpecFile(baseDir: File, specPath: String): File {
+    if (provider != SourceProvider.web) {
+        return baseDir.resolve(specPath).canonicalFile
+    }
+
+    return try {
+        val url = URL(specPath)
+        baseDir.resolve("web").resolve(url.host).resolve(url.path.removePrefix("/")).canonicalFile
+    } catch (_: MalformedURLException) {
+        baseDir.resolve(specPath).canonicalFile
+    }
 }
 
 class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeserializer<List<SpecExecutionConfig>>() {
