@@ -14,6 +14,7 @@ import io.specmatic.test.fixtures.OpenAPIFixtureExecutor
 import io.specmatic.test.handlers.ResponseHandler
 import io.specmatic.test.handlers.ResponseHandlerRegistry
 import io.specmatic.test.handlers.ResponseHandlingResult
+import io.specmatic.test.matchers.MatcherExecutor
 import java.time.Instant
 import java.util.ServiceLoader
 import kotlin.jvm.java
@@ -130,6 +131,23 @@ data class ScenarioAsTest(
             testExecutor.setServerState(testScenario.serverState)
             testExecutor.preExecuteScenario(testScenario, request)
             val response = testExecutor.execute(request)
+
+            val responseBodyFromExample = testScenario.exampleRow?.scenarioStub?.response?.body
+            val matcherExecutor = ServiceLoader.load(MatcherExecutor::class.java).firstOrNull()
+            if(responseBodyFromExample != null && matcherExecutor != null) {
+                val matchesResult = matcherExecutor.matchesResult(
+                    responseBodyFromExample,
+                    response.body,
+                    testScenario.resolver
+                )
+                if(matchesResult is Result.Failure) {
+                    return ContractTestExecutionResult(
+                        result = matchesResult.withBindings(testScenario.bindings, response),
+                        request = request,
+                        response = response
+                    )
+                }
+            }
 
             //TODO: Review - Do we need workflow anymore
             workflow.extractDataFrom(response, originalScenario)
