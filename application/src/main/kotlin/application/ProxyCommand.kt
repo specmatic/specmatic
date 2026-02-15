@@ -84,9 +84,11 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 
     var proxy: Proxy? = null
 
-    private val specmaticConfigSource = if (File(getConfigFilePath()).exists()) {
-        logger.log("Loading configuration from ${getConfigFilePath()}")
-        SpecmaticConfigSource.fromPath(getConfigFilePath())
+    private val configFilePath = getConfigFilePath()
+
+    private fun specmaticConfigSource() = if (File(configFilePath).exists()) {
+        logger.log("Loading configuration from $configFilePath")
+        SpecmaticConfigSource.fromPath(configFilePath)
     } else {
         logger.log("No specmatic.yaml found in current directory")
         SpecmaticConfigSource.None
@@ -94,18 +96,19 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 
     override fun call() {
         configureLogging(LoggingFromOpts(debug = debugLog))
-        val specmaticConfigLoaded = specmaticConfigSource.load().config
+        val configSource = specmaticConfigSource()
+        val specmaticConfigLoaded = configSource.load().config
         val fromCli = HttpsConfiguration.Companion.HttpsFromOpts(keyStoreFile, keyStoreDir, keyStorePassword, keyStoreAlias, keyPassword)
         val fromConfig = specmaticConfigLoaded.getProxyConfig()?.getHttpsConfig()
         val keyStoreData = CertInfo(fromCli, fromConfig).getHttpsCert(aliasSuffix = "proxy")
 
-        proxy = createProxyServer(specmaticConfigLoaded, keyStoreData)
+        proxy = createProxyServer(specmaticConfigLoaded, keyStoreData, configSource)
         addShutdownHook()
         logger.boundary()
         while(true) sleep(10000)
     }
 
-    private fun createProxyServer(specmaticConfig: SpecmaticConfig, keyStoreData: KeyData?): Proxy {
+    private fun createProxyServer(specmaticConfig: SpecmaticConfig, keyStoreData: KeyData?, configSource: SpecmaticConfigSource): Proxy {
         val configProxy = specmaticConfig.getProxyConfig() ?: ProxyConfig(targetUrl = "")
         val effectiveHost = host ?: configProxy.getHostOrDefault()
         val effectivePort = port.takeUnless { it == 0 || it == -1 } ?: configProxy.getPortOrDefault()
@@ -122,7 +125,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             timeout = effectiveTimeout,
             target = effectiveTarget,
             keyData = keyStoreData,
-            specmaticConfigSource = specmaticConfigSource,
+            specmaticConfigSource = configSource,
         )
     }
 
