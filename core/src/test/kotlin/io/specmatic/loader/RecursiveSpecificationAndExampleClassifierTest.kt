@@ -3,6 +3,8 @@ package io.specmatic.loader
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.config.SpecmaticGlobalSettings
+import io.mockk.every
+import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -533,6 +535,114 @@ class RecursiveSpecificationAndExampleClassifierTest {
         assertThat(paymentSpec.examples.specExamples.first().name).isEqualTo("payment_spec.example")
         assertThat(paymentSpec.examples.sharedExamples).hasSize(2)
         assertThat(paymentSpec.examples.sharedExamples.map { it.name }).containsExactlyInAnyOrder("api_shared.example", "global.example")
+    }
+
+    @Test
+    fun `load should include examples from configured test and stub example directories as spec examples`() {
+        directoryStructure {
+            dir("api") {
+                spec("user.spec")
+            }
+            dir("configured_test_examples") {
+                example("from_test.example")
+                file("ignore.txt", "not an example")
+            }
+            dir("configured_stub_examples") {
+                example("from_stub.example")
+            }
+        }
+
+        val specFile = File(rootDir, "api/user.spec")
+        val configuredTestExamplesDir = File(rootDir, "configured_test_examples")
+        val configuredStubExamplesDir = File(rootDir, "configured_stub_examples")
+
+        val mockConfig = mockk<SpecmaticConfig>()
+        every { mockConfig.getGlobalSettingsOrDefault() } returns SpecmaticGlobalSettings()
+        every { mockConfig.getTestExampleDirs(any()) } returns emptyList()
+        every { mockConfig.getStubExampleDirs(any()) } returns emptyList()
+        every { mockConfig.getTestExampleDirs(specFile) } returns listOf(configuredTestExamplesDir.absolutePath)
+        every { mockConfig.getStubExampleDirs(specFile) } returns listOf(configuredStubExamplesDir.absolutePath)
+
+        val loader = RecursiveSpecificationAndExampleClassifier(specmaticConfig = mockConfig, strategy = strategy)
+        val result = loader.load(specFile, rootDir)
+
+        assertThat(result).isNotNull
+        assertThat(result!!.examples.specExamples.map { it.name }).containsExactlyInAnyOrder("from_test.example", "from_stub.example")
+        assertThat(result.examples.sharedExamples).isEmpty()
+    }
+
+    @Test
+    fun `load should not duplicate spec examples when test and stub example dirs overlap`() {
+        directoryStructure {
+            dir("api") {
+                spec("user.spec")
+            }
+            dir("configured_examples") {
+                example("overlap.example")
+                file("ignore.txt", "not an example")
+            }
+        }
+
+        val specFile = File(rootDir, "api/user.spec")
+        val sharedExamplesDir = File(rootDir, "configured_examples")
+
+        val mockConfig = mockk<SpecmaticConfig>()
+        every { mockConfig.getGlobalSettingsOrDefault() } returns SpecmaticGlobalSettings()
+        every { mockConfig.getTestExampleDirs(any()) } returns emptyList()
+        every { mockConfig.getStubExampleDirs(any()) } returns emptyList()
+        every { mockConfig.getTestExampleDirs(specFile) } returns listOf(sharedExamplesDir.absolutePath)
+        every { mockConfig.getStubExampleDirs(specFile) } returns listOf(sharedExamplesDir.absolutePath)
+
+        val loader = RecursiveSpecificationAndExampleClassifier(specmaticConfig = mockConfig, strategy = strategy)
+        val result = loader.load(specFile, rootDir)
+
+        assertThat(result).isNotNull
+        assertThat(result!!.examples.specExamples.map { it.name }).containsExactly("overlap.example")
+        assertThat(result.examples.sharedExamples).isEmpty()
+    }
+
+    @Test
+    fun `loadAll should load configured example directories for matching spec only`() {
+        directoryStructure {
+            dir("api") {
+                spec("user.spec")
+                spec("payment.spec")
+            }
+            dir("user_test_examples") {
+                example("user_test.example")
+            }
+            dir("user_stub_examples") {
+                example("user_stub.example")
+            }
+            dir("payment_test_examples") {
+                example("payment_test.example")
+            }
+            dir("payment_stub_examples") {
+                example("payment_stub.example")
+            }
+        }
+
+        val userSpecFile = File(rootDir, "api/user.spec")
+        val paymentSpecFile = File(rootDir, "api/payment.spec")
+
+        val mockConfig = mockk<SpecmaticConfig>()
+        every { mockConfig.getGlobalSettingsOrDefault() } returns SpecmaticGlobalSettings()
+        every { mockConfig.getTestExampleDirs(any()) } returns emptyList()
+        every { mockConfig.getStubExampleDirs(any()) } returns emptyList()
+        every { mockConfig.getTestExampleDirs(userSpecFile) } returns listOf(File(rootDir, "user_test_examples").absolutePath)
+        every { mockConfig.getStubExampleDirs(userSpecFile) } returns listOf(File(rootDir, "user_stub_examples").absolutePath)
+        every { mockConfig.getTestExampleDirs(paymentSpecFile) } returns listOf(File(rootDir, "payment_test_examples").absolutePath)
+        every { mockConfig.getStubExampleDirs(paymentSpecFile) } returns listOf(File(rootDir, "payment_stub_examples").absolutePath)
+
+        val loader = RecursiveSpecificationAndExampleClassifier(specmaticConfig = mockConfig, strategy = strategy)
+        val results = loader.loadAll(rootDir)
+
+        assertThat(results).hasSize(2)
+        val userResult = results.first { it.specFile.name == "user.spec" }
+        val paymentResult = results.first { it.specFile.name == "payment.spec" }
+
+        assertThat(userResult.examples.specExamples.map { it.name }).containsExactlyInAnyOrder("user_test.example", "user_stub.example")
+        assertThat(paymentResult.examples.specExamples.map { it.name }).containsExactlyInAnyOrder("payment_test.example", "payment_stub.example")
     }
 
     @Test
