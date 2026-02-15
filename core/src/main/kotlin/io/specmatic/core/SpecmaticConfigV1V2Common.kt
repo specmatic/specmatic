@@ -48,7 +48,9 @@ import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.isSameBaseIgnoringHost
 import io.specmatic.test.TestResultRecord.Companion.CONTRACT_TEST_TEST_TYPE
 import java.io.File
+import java.net.MalformedURLException
 import java.net.URI
+import java.net.URL
 import java.nio.file.Path
 import kotlin.collections.filterIsInstance
 import kotlin.collections.orEmpty
@@ -1390,16 +1392,28 @@ data class SpecmaticConfigV1V2Common(
     }
 
     private fun Source.firstTestSpecMatching(specFile: File): String? {
-        val sourceBaseDir = getBaseDirectory()
         return test.orEmpty().asSequence().flatMap { it.specs().asSequence() }.firstOrNull { specPath ->
-            sourceBaseDir.resolve(specPath).sameAs(specFile)
+            resolveSpecFile(specPath).sameAs(specFile)
         }
     }
 
     private fun Source.firstStubSpecMatching(specFile: File): String? {
-        val sourceBaseDir = getBaseDirectory()
         return stub.orEmpty().asSequence().flatMap { it.specs().asSequence() }.firstOrNull { specPath ->
-            sourceBaseDir.resolve(specPath).sameAs(specFile)
+            resolveSpecFile(specPath).sameAs(specFile)
+        }
+    }
+
+    private fun Source.resolveSpecFile(specPath: String): File {
+        val sourceBaseDir = getBaseDirectory()
+        if (provider != web) {
+            return sourceBaseDir.resolve(specPath).canonicalFile
+        }
+
+        return try {
+            val url = URL(specPath)
+            sourceBaseDir.resolve("web").resolve(url.host).resolve(url.path.removePrefix("/")).canonicalFile
+        } catch (_: MalformedURLException) {
+            sourceBaseDir.resolve(specPath).canonicalFile
         }
     }
 }
