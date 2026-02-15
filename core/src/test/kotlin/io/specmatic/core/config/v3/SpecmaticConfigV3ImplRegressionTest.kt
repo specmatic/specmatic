@@ -14,6 +14,7 @@ import io.specmatic.core.config.v3.components.runOptions.MockRunOptions
 import io.specmatic.core.config.v3.components.runOptions.TestRunOptions
 import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.utilities.contractStubPaths
+import io.specmatic.test.TestResultRecord.Companion.CONTRACT_TEST_TEST_TYPE
 import io.specmatic.reporter.model.SpecType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -21,6 +22,47 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
 class SpecmaticConfigV3ImplRegressionTest {
+    @Test
+    fun `getCtrfSpecConfig should resolve test spec from system under test for file input`(@TempDir tempDir: File) {
+        val testFile = tempDir.resolve("test-contract.yaml").apply { writeText("openapi: 3.0.0") }
+        val source = SourceV3.create(filesystem = SourceV3.FileSystem(directory = tempDir.canonicalPath))
+
+        val sut = TestServiceConfig(
+            service = RefOrValue.Value(
+                CommonServiceConfig<TestRunOptions, TestSettings>(
+                    definitions = listOf(
+                        Definition(
+                            Definition.Value(
+                                source = RefOrValue.Value(source),
+                                specs = listOf(SpecificationDefinition.StringValue(testFile.name))
+                            )
+                        )
+                    )
+                )
+            )
+        )
+
+        val config = SpecmaticConfigV3Impl(
+            file = tempDir.resolve("specmatic.yaml"),
+            specmaticConfig = SpecmaticConfigV3(
+                version = SpecmaticConfigVersion.VERSION_3,
+                systemUnderTest = sut
+            )
+        )
+
+        val ctrfSpecConfig = config.getCtrfSpecConfig(
+            specFile = testFile,
+            testType = CONTRACT_TEST_TEST_TYPE,
+            protocol = "HTTP",
+            specType = SpecType.OPENAPI.value
+        )
+
+        assertThat(ctrfSpecConfig.specification).isEqualTo(testFile.name)
+        assertThat(ctrfSpecConfig.sourceProvider).isEqualTo("filesystem")
+        assertThat(ctrfSpecConfig.repository).isEmpty()
+        assertThat(ctrfSpecConfig.branch).isEqualTo("main")
+    }
+
     @Test
     fun `stubSpecPathFromConfigFor should resolve stub spec from dependencies`(@TempDir tempDir: File) {
         val stubFile = tempDir.resolve("stub-contract.yaml").apply { writeText("openapi: 3.0.0") }
@@ -54,7 +96,7 @@ class SpecmaticConfigV3ImplRegressionTest {
             )
         )
 
-        assertThat(config.stubSpecPathFromConfigFor(stubFile.canonicalPath)).isEqualTo(stubFile.name)
+        assertThat(config.stubSpecPathFromConfigFor(stubFile)).isEqualTo(stubFile.name)
     }
 
     @Test

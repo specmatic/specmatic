@@ -92,7 +92,7 @@ interface SpecmaticConfig {
 
     @JsonIgnore
     fun getCtrfSpecConfig(
-        absoluteSpecPath: String,
+        specFile: File,
         testType: String,
         protocol: String,
         specType: String
@@ -405,10 +405,10 @@ interface SpecmaticConfig {
     fun withMatchBranch(matchBranch: Boolean): SpecmaticConfig
 
     @JsonIgnore
-    fun testSpecPathFromConfigFor(absoluteSpecPath: String): String?
+    fun testSpecPathFromConfigFor(specFile: File): String?
 
     @JsonIgnore
-    fun stubSpecPathFromConfigFor(absoluteSpecPath: String): String?
+    fun stubSpecPathFromConfigFor(specFile: File): String?
 
     @JsonIgnore
     fun getLicensePath(): Path?

@@ -569,15 +569,15 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
-    override fun getCtrfSpecConfig(absoluteSpecPath: String, testType: String, protocol: String, specType: String): CtrfSpecConfig {
+    override fun getCtrfSpecConfig(specFile: File, testType: String, protocol: String, specType: String): CtrfSpecConfig {
         val source = when (testType) {
-            CONTRACT_TEST_TEST_TYPE -> testSourceFromConfig(absoluteSpecPath)
-            else -> stubSourceFromConfig(absoluteSpecPath)
+            CONTRACT_TEST_TEST_TYPE -> testSourceFromConfig(specFile)
+            else -> stubSourceFromConfig(specFile)
         } ?: Source()
 
         val specPathFromConfig = when(testType) {
-            CONTRACT_TEST_TEST_TYPE -> testSpecPathFromConfigFor(absoluteSpecPath)
-            else -> stubSpecPathFromConfigFor(absoluteSpecPath)
+            CONTRACT_TEST_TEST_TYPE -> testSpecPathFromConfigFor(specFile)
+            else -> stubSpecPathFromConfigFor(specFile)
         }
 
         return CtrfSpecConfig(
@@ -1330,32 +1330,28 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
-    override fun testSpecPathFromConfigFor(absoluteSpecPath: String): String? {
-        val source = testSourceFromConfig(absoluteSpecPath) ?: return null
-        return source.specsUsedAsTest().firstOrNull {
-            absoluteSpecPath.contains(it)
-        }
+    override fun testSpecPathFromConfigFor(specFile: File): String? {
+        val source = testSourceFromConfig(specFile) ?: return null
+        return source.firstTestSpecMatching(specFile)
     }
 
     @JsonIgnore
-    override fun stubSpecPathFromConfigFor(absoluteSpecPath: String): String? {
-        val source = stubSourceFromConfig(absoluteSpecPath) ?: return null
-        return source.specsUsedAsStub().firstOrNull {
-            absoluteSpecPath.contains(it)
-        }
+    override fun stubSpecPathFromConfigFor(specFile: File): String? {
+        val source = stubSourceFromConfig(specFile) ?: return null
+        return source.firstStubSpecMatching(specFile)
     }
 
     @JsonIgnore
-    private fun testSourceFromConfig(absoluteSpecPath: String): Source? {
+    private fun testSourceFromConfig(specFile: File): Source? {
         return sources.firstOrNull { source ->
-            source.test.orEmpty().any { test -> test.contains(absoluteSpecPath) }
+            source.firstTestSpecMatching(specFile) != null
         }
     }
 
     @JsonIgnore
-    private fun stubSourceFromConfig(absoluteSpecPath: String): Source? {
+    private fun stubSourceFromConfig(specFile: File): Source? {
         return sources.firstOrNull { source ->
-            source.stub.orEmpty().any { stub -> stub.contains(absoluteSpecPath) }
+            source.firstStubSpecMatching(specFile) != null
         }
     }
 
@@ -1390,6 +1386,20 @@ data class SpecmaticConfigV1V2Common(
             this.toPath().toRealPath() == other.toPath().toRealPath()
         } catch (_: Exception) {
             this.canonicalFile == other.canonicalFile
+        }
+    }
+
+    private fun Source.firstTestSpecMatching(specFile: File): String? {
+        val sourceBaseDir = getBaseDirectory()
+        return test.orEmpty().asSequence().flatMap { it.specs().asSequence() }.firstOrNull { specPath ->
+            sourceBaseDir.resolve(specPath).sameAs(specFile)
+        }
+    }
+
+    private fun Source.firstStubSpecMatching(specFile: File): String? {
+        val sourceBaseDir = getBaseDirectory()
+        return stub.orEmpty().asSequence().flatMap { it.specs().asSequence() }.firstOrNull { specPath ->
+            sourceBaseDir.resolve(specPath).sameAs(specFile)
         }
     }
 }
