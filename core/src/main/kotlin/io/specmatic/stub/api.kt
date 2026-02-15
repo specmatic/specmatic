@@ -301,7 +301,7 @@ fun loadContractStubsFromImplicitPathsAsResults(
                         )?.second ?: return emptyList()
 
                     try {
-                        val implicitDataDirs = implicitDirsForSpecifications(specFile, specmaticConfig, feature)
+                        val implicitDataDirs = implicitDirsForSpecifications(specFile, specmaticConfig)
                         val externalDataDirs = dataDirFiles(externalDataDirPaths)
 
                         val dataFiles = implicitDataDirs.flatMap { filesInDir(it).orEmpty() }
@@ -410,14 +410,12 @@ fun loadContractStubsFromImplicitPaths(
         processedInvalidSpecs,
     ).filterIsInstance<FeatureStubsResult.Success>().map { Pair(it.feature, it.scenarioStubs) }
 
-fun implicitDirsForSpecifications(contractPath: File, specmaticConfig: SpecmaticConfig, feature: Feature): List<File> {
-    val exampleDirPathsForAFeature = feature.exampleDirPaths.map { File(it) }
+fun implicitDirsForSpecifications(contractPath: File, specmaticConfig: SpecmaticConfig): List<File> {
     val customImplicitStubBase = customImplicitStubBase(specmaticConfig)
-
     return listOfNotNull(
         implicitContractDataDir(contractPath.path),
         customImplicitStubBase?.let { implicitContractDataDir(contractPath.path, it) }
-    ).plus(exampleDirPathsForAFeature).sorted()
+    ).sorted()
 }
 
 fun hasOpenApiFileExtension(contractPath: String): Boolean = OPENAPI_FILE_EXTENSIONS.any { contractPath.trim().endsWith(".$it") }
