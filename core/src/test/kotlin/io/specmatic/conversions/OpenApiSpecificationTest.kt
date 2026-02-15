@@ -12011,4 +12011,40 @@ paths:
 
         assertThat(anyPattern.pattern).doesNotHaveAnyElementsOfTypes(DeferredPattern::class.java)
     }
+
+    @Test
+    fun `contract test generation should drop combinations where accept and response content types do not match`() {
+        val spec = """
+            openapi: 3.1.0
+            info:
+              title: Sample API with Accept Header
+              version: 1.0.0
+            paths:
+              /products:
+                get:
+                  parameters:
+                    - name: Accept
+                      in: header
+                      required: true
+                      schema:
+                        type: string
+                        enum:
+                          - application/json
+                          - text/plain
+                  responses:
+                    '200':
+                      description: Successful response
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                        text/plain:
+                          schema:
+                            type: string
+        """.trimIndent()
+
+        val testCount = OpenApiSpecification.fromYAML(spec, "").toFeature().generateContractTests(emptyList()).toList().size
+
+        assertThat(testCount).isEqualTo(2)
+    }
 }

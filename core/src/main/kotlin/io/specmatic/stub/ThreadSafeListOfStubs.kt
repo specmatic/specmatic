@@ -1,10 +1,14 @@
 package io.specmatic.stub
 
 import io.specmatic.core.DefaultKeyCheckImpl
+import io.specmatic.core.FailureReason
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.KeyCheck
 import io.specmatic.core.Result
+import io.specmatic.core.ACCEPT
+import io.specmatic.core.acceptHeaderMismatchMessage
 import io.specmatic.core.invalidRequestStatuses
+import io.specmatic.core.isAcceptHeaderCompatibleWithResponse
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.IgnoreUnexpectedKeys
 import io.specmatic.mock.ScenarioStub
@@ -70,7 +74,7 @@ class ThreadSafeListOfStubs(
             }.map {
                 Pair(it.matches(httpRequest), it)
             }
-        }
+        }.map { applyAcceptHeaderFilter(httpRequest, it) }
 
         val (_, queueMock) = queueMatchResults.findLast { (result, _) ->
             result is Result.Success
@@ -98,7 +102,7 @@ class ThreadSafeListOfStubs(
         val mocks = listMatchResults.map { (result, stubData) ->
             if (result !is Result.Success) return@map Pair(result, stubData)
             substituteThenFillIn(httpRequest, stubData)
-        }
+        }.map { applyAcceptHeaderFilter(httpRequest, it) }
 
         val successfulMatches = mocks.filter { (result, _) -> result is Result.Success }
         val grouped = successfulMatches.groupBy { (_, stubData) ->
@@ -110,14 +114,14 @@ class ThreadSafeListOfStubs(
         }.find { (result, _) -> result is Result.Success }
 
         if(exactMatch != null)
-            return Pair(exactMatch.second, listMatchResults)
+            return Pair(exactMatch.second, mocks)
 
         val partialMatch = ThreadSafeListOfStubs.getPartialBySpecificityAndGenerality(grouped[StubType.Partial].orEmpty().map { it.second })
 
         if(partialMatch != null)
-            return Pair(partialMatch, listMatchResults)
+            return Pair(partialMatch, mocks)
 
-        return Pair(null, listMatchResults)
+        return Pair(null, mocks)
     }
 
     fun matchingDynamicStub(httpRequest: HttpRequest): Pair<HttpStubData?, List<Pair<Result, HttpStubData>>> {
@@ -134,11 +138,29 @@ class ThreadSafeListOfStubs(
         val mocks = listMatchResults.map { (result, stubData) ->
             if (result !is Result.Success) return@map Pair(result, stubData)
             substituteThenFillIn(httpRequest, stubData)
-        }
+        }.map { applyAcceptHeaderFilter(httpRequest, it) }
 
         val mock = mocks.find { (result, _) -> result is Result.Success }
 
-        return Pair(mock?.second, listMatchResults)
+        return Pair(mock?.second, mocks)
+    }
+
+    private fun applyAcceptHeaderFilter(httpRequest: HttpRequest, resultAndStubData: Pair<Result, HttpStubData>): Pair<Result, HttpStubData> {
+        val (result, stubData) = resultAndStubData
+        if (result !is Result.Success) return resultAndStubData
+
+        val responseContentType = stubData.response.contentType() ?: stubData.responsePattern.headersPattern.contentType
+        if (isAcceptHeaderCompatibleWithResponse(httpRequest.headers, responseContentType)) return resultAndStubData
+
+        val acceptHeader = httpRequest.headers.entries.find { it.key.equals(ACCEPT, ignoreCase = true) }?.value.orEmpty()
+        return Pair(
+            Result.Failure(
+                message = acceptHeaderMismatchMessage(acceptHeader, responseContentType.orEmpty()),
+                breadCrumb = ACCEPT,
+                failureReason = FailureReason.ContentTypeMismatch
+            ),
+            stubData
+        )
     }
 
     private fun baseUrlToListOfStubsMap(defaultBaseUrl: String): Map<String, ThreadSafeListOfStubs> {
@@ -225,8 +247,6 @@ class ThreadSafeListOfStubs(
         }
     }
 }
-
-
 
 
 

@@ -15,6 +15,7 @@ import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.DELAY_IN_SECONDS
+import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.osAgnosticPath
 import io.specmatic.shouldMatch
@@ -133,6 +134,58 @@ Scenario: Get a number
 
             val postResponse = RestTemplate().getForEntity<String>(fake.endPoint + "/number")
             assertThat(postResponse.body).isEqualTo("10")
+        }
+    }
+
+    @Test
+    fun `should reject dynamic expectation when accept header does not allow response content type`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.1.0
+            info:
+              title: Product API
+              version: 1.0.0
+            paths:
+              /products:
+                get:
+                  parameters:
+                    - name: Accept
+                      in: header
+                      required: true
+                      schema:
+                        type: string
+                        enum:
+                          - application/json
+                          - text/plain
+                  responses:
+                    '200':
+                      description: Successful response
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                        text/plain:
+                          schema:
+                            type: string
+            """.trimIndent(),
+            ""
+        ).toFeature()
+
+        HttpStub(features = listOf(feature)).use { stub ->
+            val ex = assertThrows<NoMatchingScenario> {
+                stub.setExpectation(
+                    ScenarioStub(
+                        request = HttpRequest("GET", "/products", headers = mapOf(ACCEPT to "text/plain")),
+                        response = HttpResponse(
+                            status = 200,
+                            headers = mapOf("Content-Type" to "application/json"),
+                            body = parsedJSONObject("""{}""")
+                        )
+                    )
+                )
+            }
+
+            assertThat(ex.message).contains("Accept header")
         }
     }
 
