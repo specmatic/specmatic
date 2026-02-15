@@ -740,6 +740,29 @@ Feature: Math API
         }
     }
 
+    @Test
+    fun `loadContractStubsFromFilesAsResults should not load feature exampleDirPaths again as implicit dirs`(@TempDir tempDir: File) {
+        val specFile = File("src/test/resources/wsdl/with_examples/order_api.wsdl")
+        val sourceExample = File("src/test/resources/wsdl/with_examples/order_api_examples/create_product.json")
+        val explicitNonImplicitDir = tempDir.resolve("custom-data").also { it.mkdirs() }.canonicalFile
+        sourceExample.copyTo(explicitNonImplicitDir.resolve("create_product.json"))
+
+        val contractPathData = listOf(ContractPathData("", specFile.path, exampleDirPaths = listOf(explicitNonImplicitDir.path)))
+        val results = loadContractStubsFromFilesAsResults(
+            contractPathDataList = contractPathData,
+            dataDirPaths = emptyList(),
+            specmaticConfig = SpecmaticConfig(),
+            withImplicitStubs = true
+        )
+
+        val loadedStubs = results.filterIsInstance<FeatureStubsResult.Success>().flatMap { it.scenarioStubs }
+        assertThat(loadedStubs).hasSize(2)
+        assertThat(loadedStubs.map { it.filePath }).containsExactlyInAnyOrder(
+            sourceExample.canonicalPath,
+            explicitNonImplicitDir.resolve("create_product.json").canonicalPath
+        )
+    }
+
     @ParameterizedTest
     @MethodSource("missingSpecConfigTemplates")
     fun `should warn when a config-driven stub specification path does not exist`(
@@ -792,6 +815,10 @@ Feature: Math API
                     """.trimIndent()
                 )
             )
+    }
+
+    private fun loadedScenarioStubNames(results: List<FeatureStubsResult>): List<String> {
+        return results.filterIsInstance<FeatureStubsResult.Success>().flatMap { it.scenarioStubs }.mapNotNull { it.name }
     }
 }
 
