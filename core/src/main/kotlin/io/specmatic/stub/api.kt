@@ -174,17 +174,14 @@ fun createStub(
             val contractStubPaths = contractStubPaths(configFileName, useCurrentBranchForCentralRepo)
 
             val stubs =
-                if (dataDirPaths.isEmpty()) {
-                    loadContractStubsFromImplicitPaths(contractStubPaths, specmaticConfig, dataDirPaths)
-                } else {
-                    loadContractStubsFromFiles(
-                        contractStubPaths,
-                        dataDirPaths,
-                        specmaticConfig,
-                        effectiveStrictMode,
-                        withImplicitStubs = true,
-                    )
-                }
+                loadContractStubsFromFiles(
+                    contractStubPaths,
+                    dataDirPaths,
+                    specmaticConfig,
+                    effectiveStrictMode,
+                    withImplicitStubs = true,
+                )
+
             val features = stubs.map { it.first }
             val expectations = contractInfoToHttpExpectations(stubs)
 
@@ -492,7 +489,37 @@ fun loadContractStubsFromFilesAsResults(
             processedInvalidSpecs = contractPathDataList.excludeUnsupportedSpecifications().map { it.path },
         )
 
-    return explicitStubs.plus(implicitStubs)
+    val explicitStubsWithImplicitOverrides =
+        explicitStubsWithOverriddenImplicitExamplesInFeatures(implicitStubs, explicitStubs)
+
+    return explicitStubsWithImplicitOverrides.plus(implicitStubs)
+}
+
+private fun explicitStubsWithOverriddenImplicitExamplesInFeatures(
+    implicitStubs: List<FeatureStubsResult>,
+    explicitStubs: List<FeatureStubsResult>
+): List<FeatureStubsResult> {
+    val implicitExternalExampleNames =
+        implicitStubs
+            .filterIsInstance<FeatureStubsResult.Success>()
+            .flatMap { it.scenarioStubs }
+            .mapNotNull { it.nameOrFileName }
+            .toSet()
+
+    val explicitStubsWithImplicitOverrides =
+        if (implicitExternalExampleNames.isEmpty()) {
+            explicitStubs
+        } else {
+            explicitStubs.map { stubResult ->
+                when (stubResult) {
+                    is FeatureStubsResult.Success ->
+                        stubResult.copy(feature = stubResult.feature.overrideInlineExamples(implicitExternalExampleNames))
+
+                    is FeatureStubsResult.Failure -> stubResult
+                }
+            }
+        }
+    return explicitStubsWithImplicitOverrides
 }
 
 // kept for b/w compatibility
