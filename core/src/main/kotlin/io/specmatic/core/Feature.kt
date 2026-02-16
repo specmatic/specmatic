@@ -471,25 +471,16 @@ data class Feature(
                 if (acceptMatchRank >= 0) {
                     Triple(acceptMatchRank, scenario, result)
                 } else {
-                    Triple(Int.MAX_VALUE, scenario, acceptFailureForScenario(scenario, acceptHeader))
+                    Triple(Int.MAX_VALUE, scenario, result)
                 }
             }
         }.toList()
 
-        val successes = ranked.filter { (_, _, result) -> result is Success }
+        val matchesAccept = ranked.filter { (index, _, _) -> index < Int.MAX_VALUE }
             .sortedWith(compareBy<Triple<Int, Scenario, Result>> { it.first }.thenBy { it.second.status })
-        val failures = ranked.filter { (_, _, result) -> result !is Success }
+        val rest = ranked.filter { (index, _, _) -> index == Int.MAX_VALUE }
 
-        return (successes + failures).asSequence().map { (_, scenario, result) -> Pair(scenario, result) }
-    }
-
-    private fun acceptFailureForScenario(scenario: Scenario, acceptHeader: String): Result {
-        return Result.Failure(
-            message = acceptHeaderCannotBeMatchedBySpecificationMessage(acceptHeader),
-            breadCrumb = ACCEPT,
-            failureReason = FailureReason.ContentTypeMismatch,
-            ruleViolation = StandardRuleViolation.VALUE_MISMATCH
-        ).updateScenario(scenario).updatePath(path)
+        return (matchesAccept + rest).asSequence().map { (_, scenario, result) -> Pair(scenario, result) }
     }
 
     fun compatibilityLookup(
