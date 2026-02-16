@@ -719,10 +719,11 @@ class OpenApiSpecification(
                             }
                         }
 
-                    }.filter { (requestPatternData, responsePatternData) ->
-                        isAcceptHeaderCompatibleWithResponsePattern(
-                            requestPatternData.requestPattern,
-                            responsePatternData.responsePattern
+                    }.onEach { (requestPatternData, responsePatternData) ->
+                        warnIfAcceptHeaderDoesNotAllowResponseContentType(
+                            requestPattern = requestPatternData.requestPattern,
+                            responsePattern = responsePatternData.responsePattern,
+                            collectorContext = methodContext
                         )
                     }
 
@@ -947,6 +948,24 @@ class OpenApiSpecification(
         return knownAcceptValues.any { acceptValue ->
             isResponseContentTypeAccepted(acceptValue, responseContentType)
         }
+    }
+
+    private fun warnIfAcceptHeaderDoesNotAllowResponseContentType(
+        requestPattern: HttpRequestPattern,
+        responsePattern: HttpResponsePattern,
+        collectorContext: CollectorContext
+    ) {
+        if (isAcceptHeaderCompatibleWithResponsePattern(requestPattern, responsePattern)) return
+
+        val acceptHeaderPattern = requestPattern.headersPattern.pattern.getCaseInsensitive(ACCEPT)?.value ?: return
+        val knownAcceptValues = knownAcceptValues(acceptHeaderPattern) ?: return
+        val responseContentType = responsePattern.headersPattern.contentType ?: return
+
+        collectorContext.record(
+            message = "Accept header values ${knownAcceptValues.joinToString(", ")} do not allow response Content-Type \"$responseContentType\". Keeping scenario.",
+            isWarning = true,
+            ruleViolation = OpenApiLintViolations.MEDIA_TYPE_OVERRIDDEN
+        )
     }
 
     private fun knownAcceptValues(acceptHeaderPattern: Pattern): Set<String>? {
