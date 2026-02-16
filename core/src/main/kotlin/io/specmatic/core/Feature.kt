@@ -805,9 +805,9 @@ data class Feature(
                     mismatchMessages,
                     keyCheck
                 )) {
-                    is Success -> scenario.resolverAndResponseForExpectation(response).let { (resolver, resolvedResponse) ->
-                        val newRequestType = scenario.httpRequestPattern.generate(request, resolver)
-                        Pair(
+                    is Success -> Pair(
+                        scenario.resolverAndResponseForExpectation(response).let { (resolver, resolvedResponse) ->
+                            val newRequestType = scenario.httpRequestPattern.generate(request, resolver)
                             HttpStubData(
                                 requestType = newRequestType,
                                 response = resolvedResponse.adjustPayloadForContentType()
@@ -818,10 +818,9 @@ data class Feature(
                                 feature = this,
                                 scenario = scenario,
                                 originalRequest = request
-                            ),
-                            Success()
-                        )
-                    }
+                            )
+                        }, Success()
+                    )
 
                     is Result.Failure -> {
                         Pair(null, matchResult.updateScenario(scenario).updatePath(path))
