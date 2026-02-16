@@ -806,35 +806,21 @@ data class Feature(
                     keyCheck
                 )) {
                     is Success -> scenario.resolverAndResponseForExpectation(response).let { (resolver, resolvedResponse) ->
-                        if (isAcceptHeaderCompatibleWithResponse(request.headers, resolvedResponse.contentType()).not()) {
-                            Pair(
-                                null,
-                                Result.Failure(
-                                    message = acceptHeaderMismatchMessage(
-                                        request.headers.getCaseInsensitive(ACCEPT)?.value.orEmpty(),
-                                        resolvedResponse.contentType().orEmpty()
-                                    ),
-                                    breadCrumb = ACCEPT,
-                                    failureReason = FailureReason.ContentTypeMismatch
-                                ).updateScenario(scenario).updatePath(path)
-                            )
-                        } else {
-                            val newRequestType = scenario.httpRequestPattern.generate(request, resolver)
-                            Pair(
-                                HttpStubData(
-                                    requestType = newRequestType,
-                                    response = resolvedResponse.adjustPayloadForContentType()
-                                        .copy(externalisedResponseCommand = response.externalisedResponseCommand),
-                                    resolver = resolver,
-                                    responsePattern = scenario.httpResponsePattern,
-                                    contractPath = this.path,
-                                    feature = this,
-                                    scenario = scenario,
-                                    originalRequest = request
-                                ),
-                                Success()
-                            )
-                        }
+                        val newRequestType = scenario.httpRequestPattern.generate(request, resolver)
+                        Pair(
+                            HttpStubData(
+                                requestType = newRequestType,
+                                response = resolvedResponse.adjustPayloadForContentType()
+                                    .copy(externalisedResponseCommand = response.externalisedResponseCommand),
+                                resolver = resolver,
+                                responsePattern = scenario.httpResponsePattern,
+                                contractPath = this.path,
+                                feature = this,
+                                scenario = scenario,
+                                originalRequest = request
+                            ),
+                            Success()
+                        )
                     }
 
                     is Result.Failure -> {
