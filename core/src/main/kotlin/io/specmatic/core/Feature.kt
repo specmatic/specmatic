@@ -363,7 +363,7 @@ data class Feature(
         resultList: Sequence<Pair<Scenario, Result>>
     ): Sequence<Pair<Scenario, Result>> {
         val byExpectedStatus = filterByExpectedResponseStatus(httpRequest.expectedResponseCode(), resultList)
-        return applyAcceptHeaderFilterForStubFallback(httpRequest, byExpectedStatus)
+        return applyAcceptHeaderSort(httpRequest, byExpectedStatus)
     }
 
     private fun filterByExpectedResponseStatus(
@@ -383,7 +383,7 @@ data class Feature(
         try {
             val resultList =
                 matchingScenarioToResultList(httpRequest, serverState, mismatchMessages, unexpectedKeyCheck).let {
-                    applyAcceptHeaderFilterForStubFallback(httpRequest, it)
+                    applyAcceptHeaderSort(httpRequest, it)
                 }
             val matchingScenarios = matchingScenarios(resultList)
 
@@ -436,7 +436,7 @@ data class Feature(
         return matchingScenarios
     }
 
-    private fun applyAcceptHeaderFilterForStubFallback(
+    private fun applyAcceptHeaderSort(
         httpRequest: HttpRequest,
         resultList: Sequence<Pair<Scenario, Result>>
     ): Sequence<Pair<Scenario, Result>> {
