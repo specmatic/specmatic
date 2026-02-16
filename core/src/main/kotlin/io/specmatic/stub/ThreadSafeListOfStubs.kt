@@ -1,9 +1,6 @@
 package io.specmatic.stub
 
-import io.specmatic.core.DefaultKeyCheckImpl
-import io.specmatic.core.FailureReason
 import io.specmatic.core.HttpRequest
-import io.specmatic.core.KeyCheck
 import io.specmatic.core.Result
 import io.specmatic.core.invalidRequestStatuses
 import io.specmatic.core.pattern.ContractException
@@ -111,14 +108,14 @@ class ThreadSafeListOfStubs(
         }.find { (result, _) -> result is Result.Success }
 
         if(exactMatch != null)
-            return Pair(exactMatch.second, mocks)
+            return Pair(exactMatch.second, listMatchResults)
 
         val partialMatch = ThreadSafeListOfStubs.getPartialBySpecificityAndGenerality(grouped[StubType.Partial].orEmpty().map { it.second })
 
         if(partialMatch != null)
-            return Pair(partialMatch, mocks)
+            return Pair(partialMatch, listMatchResults)
 
-        return Pair(null, mocks)
+        return Pair(null, listMatchResults)
     }
 
     fun matchingDynamicStub(httpRequest: HttpRequest): Pair<HttpStubData?, List<Pair<Result, HttpStubData>>> {
@@ -139,7 +136,7 @@ class ThreadSafeListOfStubs(
 
         val mock = mocks.find { (result, _) -> result is Result.Success }
 
-        return Pair(mock?.second, mocks)
+        return Pair(mock?.second, listMatchResults)
     }
 
     private fun baseUrlToListOfStubsMap(defaultBaseUrl: String): Map<String, ThreadSafeListOfStubs> {
