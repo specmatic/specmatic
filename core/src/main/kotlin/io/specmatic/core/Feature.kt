@@ -450,13 +450,7 @@ data class Feature(
 
         val acceptMediaTypes = acceptMediaTypesByPriority(acceptHeader)
         if (acceptMediaTypes.isEmpty()) {
-            return resultList.map { (scenario, result) ->
-                if (result is Success) {
-                    Pair(scenario, acceptFailureForScenario(scenario, acceptHeader))
-                } else {
-                    Pair(scenario, result)
-                }
-            }
+            return resultList
         }
 
         val ranked = resultList.map { (scenario, result) ->
