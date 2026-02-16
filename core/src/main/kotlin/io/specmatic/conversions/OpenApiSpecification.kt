@@ -962,7 +962,7 @@ class OpenApiSpecification(
         val responseContentType = responsePattern.headersPattern.contentType ?: return
 
         collectorContext.record(
-            message = "Accept header values ${knownAcceptValues.joinToString(", ")} do not allow response Content-Type \"$responseContentType\". Keeping scenario.",
+            message = "Accept header values ${knownAcceptValues.joinToString(", ")} do not allow response Content-Type \"$responseContentType\"",
             isWarning = true,
             ruleViolation = OpenApiLintViolations.MEDIA_TYPE_OVERRIDDEN
         )
