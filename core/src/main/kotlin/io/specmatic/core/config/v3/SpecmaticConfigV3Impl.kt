@@ -769,11 +769,11 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
     }
 
     override fun getLicensePath(): Path? {
-        return specmaticConfig.specmatic?.license?.path
+        return specmaticConfig.specmatic?.license?.path?.let(Path::of)
     }
 
     override fun getReportDirPath(suffix: String?): Path {
-        val reportDirPath = specmaticConfig.specmatic?.governance?.report?.outputDirectory ?: defaultReportDirPath
+        val reportDirPath = specmaticConfig.specmatic?.governance?.report?.outputDirectory?.let(Path::of) ?: defaultReportDirPath
         if (suffix == null) return reportDirPath
         return reportDirPath.resolve(suffix)
     }
