@@ -6,6 +6,7 @@ import io.specmatic.core.TestConfig
 import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.model.SpecType
+import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.HOST
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.PORT
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.PROTOCOL
@@ -511,6 +512,42 @@ paths:
                 specType = SpecType.OPENAPI
             )
         )
+    }
+
+    @Test
+    fun `should merge previous test runs into the generated coverage report`() {
+        val previousRecord = TestResultRecord(
+            path = "/previous",
+            method = "POST",
+            responseStatus = 201,
+            request = null,
+            response = null,
+            result = TestResult.Success,
+            specType = SpecType.OPENAPI
+        )
+
+        SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(previousTestRuns = listOf(previousRecord)))
+        try {
+            val support = SpecmaticJUnitSupport()
+            val currentRecord = TestResultRecord(
+                path = "/current",
+                method = "GET",
+                responseStatus = 200,
+                request = null,
+                response = null,
+                result = TestResult.Success,
+                specType = SpecType.OPENAPI
+            )
+
+            support.openApiCoverageReportInput.addTestReportRecords(currentRecord)
+            val report = support.openApiCoverageReportInput.generate()
+
+            assertThat(report.testResultRecords).contains(previousRecord, currentRecord)
+            assertThat(report.coverageRows).anyMatch { it.path == "/previous" }
+            assertThat(report.coverageRows).anyMatch { it.path == "/current" }
+        } finally {
+            SpecmaticJUnitSupport.settingsStaging.remove()
+        }
     }
 
     @ParameterizedTest

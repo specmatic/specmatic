@@ -2,6 +2,7 @@ package io.specmatic.test
 
 import io.specmatic.core.Configuration
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.config.nonNullElse
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.loadSpecmaticConfigOrDefault
 import io.specmatic.core.loadSpecmaticConfigOrNull
@@ -50,10 +51,17 @@ data class ContractTestSettings(
     val suggestionsPath: String? = otherArguments?.suggestionsPath
     val inlineSuggestions: String? = otherArguments?.inlineSuggestions
     val variablesFileName: String? = otherArguments?.variablesFileName
+    private val specmaticConfig = loadSpecmaticConfigOrNull(configFile, explicitlySpecifiedByUser = configFile != null).orDefault()
 
     fun getSpecmaticConfig(): SpecmaticConfig {
-        val specmaticConfig = loadSpecmaticConfigOrNull(configFile, explicitlySpecifiedByUser = configFile != null).orDefault()
         return adjust(specmaticConfig)
+    }
+
+    fun getReportFilter(): String? {
+        if (specmaticConfig.getTestFilter() == filter) return filter
+        return specmaticConfig.getTestFilter().nonNullElse(filter) { filter1, filter2 ->
+            listOf(filter1, filter2).filter(String::isNotBlank).joinToString(separator = " && ") { "( $it )" }
+        }
     }
 
     private fun adjust(specmaticConfig: SpecmaticConfig): SpecmaticConfig {
