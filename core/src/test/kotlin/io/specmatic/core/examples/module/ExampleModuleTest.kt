@@ -224,4 +224,104 @@ class ExampleModuleTest {
         assertThat(schemaExamples.map { it.file.name })
             .containsExactlyInAnyOrder("resource.order.example.json", "resource.customer.example.json")
     }
+
+    @Test
+    fun `getFirstExampleDir should return common dir when paths match via canonicalization relative vs absolute`(@TempDir tempDir: File) {
+        val contractFile = tempDir.resolve("contracts").apply { mkdirs() }.resolve("api.yaml")
+        val shared = tempDir.resolve("shared_examples").apply { mkdirs() }
+        val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true).apply {
+            every { getTestExampleDirs(contractFile) } returns listOf(shared.path)
+            every { getStubExampleDirs(contractFile) } returns listOf(shared.canonicalPath)
+        }
+
+        val module = ExampleModule(specmaticConfig)
+        val dir = module.getFirstExampleDir(contractFile)
+        assertThat(dir.canonicalFile).isEqualTo(shared.canonicalFile)
+    }
+
+    @Test
+    fun `getFirstExampleDir should treat dot-segment paths as common via canonicalization`(@TempDir tempDir: File) {
+        val contractFile = tempDir.resolve("contracts").apply { mkdirs() }.resolve("api.yaml")
+        val shared = tempDir.resolve("shared_examples").apply { mkdirs() }
+        val testPath = shared.path // .../shared_examples
+        val stubPath = shared.parentFile.resolve("./shared_examples").path // ..././shared_examples
+        val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true).apply {
+            every { getTestExampleDirs(contractFile) } returns listOf(testPath)
+            every { getStubExampleDirs(contractFile) } returns listOf(stubPath)
+        }
+
+        val module = ExampleModule(specmaticConfig)
+        val dir = module.getFirstExampleDir(contractFile)
+        assertThat(dir.canonicalFile).isEqualTo(shared.canonicalFile)
+    }
+
+    @Test
+    fun `getFirstExampleDir should pick earliest common by test order when multiple commons exist`(@TempDir tempDir: File) {
+        val contractFile = tempDir.resolve("contracts").apply { mkdirs() }.resolve("api.yaml")
+        val common1 = tempDir.resolve("common_1").apply { mkdirs() }
+        val common2 = tempDir.resolve("common_2").apply { mkdirs() }
+        val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true).apply {
+            every { getTestExampleDirs(contractFile) } returns listOf(tempDir.resolve("test_only").path, common2.path, common1.path)
+            every { getStubExampleDirs(contractFile) } returns listOf(common1.path, common2.path, tempDir.resolve("stub_only").path)
+        }
+
+        val module = ExampleModule(specmaticConfig)
+        val dir = module.getFirstExampleDir(contractFile)
+        assertThat(dir.canonicalFile).isEqualTo(common2.canonicalFile)
+    }
+
+    @Test
+    fun `getFirstExampleDir should return first test examples dir when present even if stub dirs exist`(@TempDir tempDir: File) {
+        val contractFile = tempDir.resolve("contracts").apply { mkdirs() }.resolve("api.yaml")
+        val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true).apply {
+            every { getTestExampleDirs(contractFile) } returns listOf("test_examples_1", "test_examples_2")
+            every { getStubExampleDirs(contractFile) } returns listOf("stub_examples_1")
+        }
+
+        val module = ExampleModule(specmaticConfig)
+        val dir = module.getFirstExampleDir(contractFile)
+        assertThat(dir).isEqualTo(File("test_examples_1"))
+    }
+
+    @Test
+    fun `getFirstExampleDir should return first stub examples dir when no test dirs exist`(@TempDir tempDir: File) {
+        val contractFile = tempDir.resolve("contracts").apply { mkdirs() }.resolve("api.yaml")
+        val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true).apply {
+            every { getTestExampleDirs(contractFile) } returns emptyList()
+            every { getStubExampleDirs(contractFile) } returns listOf("stub_examples_1", "stub_examples_2")
+        }
+
+        val module = ExampleModule(specmaticConfig)
+        val dir = module.getFirstExampleDir(contractFile)
+        assertThat(dir).isEqualTo(File("stub_examples_1"))
+    }
+
+    @Test
+    fun `getFirstExampleDir should return implicit examples dir when config has no dirs`(@TempDir tempDir: File) {
+        val contractFile = tempDir.resolve("contracts").apply { mkdirs() }.resolve("service.yaml")
+        val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true).apply {
+            every { getTestExampleDirs(contractFile) } returns emptyList()
+            every { getStubExampleDirs(contractFile) } returns emptyList()
+        }
+
+        val module = ExampleModule(specmaticConfig)
+        val dir = module.getFirstExampleDir(contractFile)
+        val expectedImplicit = contractFile.absoluteFile.parentFile.resolve("service_examples")
+        assertThat(dir.canonicalFile).isEqualTo(expectedImplicit.canonicalFile)
+    }
+
+    @Test
+    fun `getFirstExampleDir should not require configured dir to exist`(@TempDir tempDir: File) {
+        val contractFile = tempDir.resolve("api.yaml")
+        val missingDir = tempDir.resolve("does_not_exist").path
+        val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true).apply {
+            every { getTestExampleDirs(contractFile) } returns listOf(missingDir)
+            every { getStubExampleDirs(contractFile) } returns emptyList()
+        }
+
+        val module = ExampleModule(specmaticConfig)
+        val dir = module.getFirstExampleDir(contractFile)
+        assertThat(dir.path).isEqualTo(File(missingDir).path)
+        assertThat(dir.exists()).isFalse()
+    }
 }
