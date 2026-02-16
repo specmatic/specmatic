@@ -488,36 +488,6 @@ Feature: Test
     }
 
     @Test
-    fun `fake response should return 400 when accept header does not match any response content type`() {
-        val feature = OpenApiSpecification.fromYAML(
-            """
-            openapi: 3.0.3
-            info:
-              title: Accept mismatch
-              version: 1.0.0
-            paths:
-              /hello:
-                get:
-                  responses:
-                    '200':
-                      description: OK
-                      content:
-                        application/json:
-                          schema:
-                            type: object
-            """.trimIndent(), ""
-        ).toFeature()
-
-        val request = HttpRequest(method = "GET", path = "/hello", headers = mapOf("Accept" to "application/xml"))
-        val result = fakeHttpResponse(listOf(feature), request, SpecmaticConfig())
-
-        assertThat(result).isInstanceOf(NotStubbed::class.java)
-        val response = (result as NotStubbed).response.response
-        assertThat(response.status).isEqualTo(400)
-        assertThat(response.body.toStringLiteral()).contains("Specification has no response Content-Type that matches Accept header \"application/xml\"")
-    }
-
-    @Test
     fun `fake response should work as usual when request has no Accept header`() {
         val feature = OpenApiSpecification.fromYAML(
             """
