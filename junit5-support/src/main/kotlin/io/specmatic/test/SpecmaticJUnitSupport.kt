@@ -88,7 +88,7 @@ open class SpecmaticJUnitSupport {
     internal val openApiCoverageReportInput: OpenApiCoverageReportInput =
         OpenApiCoverageReportInput(
             configFilePath = getConfigFileWithAbsolutePath(),
-            filterExpression = specmaticConfig.getTestFilter().orEmpty(),
+            filterExpression = settings.getReportFilter().orEmpty(),
             coverageHooks = settings.coverageHooks,
             httpInteractionsLog = httpInteractionsLog,
             previousTestResultRecord = settings.previousTestRuns,
