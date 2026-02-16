@@ -4,11 +4,15 @@ import io.mockk.every
 import io.mockk.mockk
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
+import io.specmatic.core.HttpHeadersPattern
+import io.specmatic.core.HttpRequestPattern
 import io.specmatic.core.HttpResponsePattern
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.ACCEPT
+import io.specmatic.core.buildHttpPathPattern
 import io.specmatic.core.pattern.parsedJSONObject
+import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.mock.ScenarioStub
 import org.assertj.core.api.Assertions.assertThat
@@ -17,6 +21,100 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
 class ThreadSafeListOfStubsTest {
+    @Test
+    fun `matching transient stubs should honour setup order and ignore Accept q priority`() {
+        val requestPattern = HttpRequestPattern(
+            method = "GET",
+            httpPathPattern = buildHttpPathPattern("/products"),
+            headersPattern = HttpHeadersPattern(mapOf("$ACCEPT?" to StringPattern()))
+        )
+
+        val jsonStub = HttpStubData(
+            requestType = requestPattern,
+            response = HttpResponse(status = 200, headers = mapOf("Content-Type" to "application/json"), body = "{}"),
+            responsePattern = HttpResponsePattern(HttpResponse(status = 200, headers = mapOf("Content-Type" to "application/json"), body = "{}")),
+            resolver = Resolver(),
+            scenarioStub = ScenarioStub(request = HttpRequest("GET", "/products"), response = HttpResponse.OK)
+        )
+
+        val xmlStub = HttpStubData(
+            requestType = requestPattern,
+            response = HttpResponse(status = 200, headers = mapOf("Content-Type" to "application/xml"), body = "<type>xml</type>"),
+            responsePattern = HttpResponsePattern(HttpResponse(status = 200, headers = mapOf("Content-Type" to "application/xml"), body = "<type>xml</type>")),
+            resolver = Resolver(),
+            scenarioStub = ScenarioStub(request = HttpRequest("GET", "/products"), response = HttpResponse.OK)
+        )
+
+        val expectations = ThreadSafeListOfStubs(mutableListOf(jsonStub, xmlStub), emptyMap())
+        val result = expectations.matchingTransientStub(
+            HttpRequest("GET", "/products", headers = mapOf(ACCEPT to "application/json;q=1.0, application/xml;q=0.2"))
+        )
+
+        assertThat(result?.first).isEqualTo(xmlStub)
+    }
+
+    @Test
+    fun `matching static stubs should honour setup order and ignore Accept q priority`() {
+        val requestPattern = HttpRequestPattern(
+            method = "GET",
+            httpPathPattern = buildHttpPathPattern("/products"),
+            headersPattern = HttpHeadersPattern(mapOf("$ACCEPT?" to StringPattern()))
+        )
+
+        val jsonStub = HttpStubData(
+            requestType = requestPattern,
+            response = HttpResponse(status = 200, headers = mapOf("Content-Type" to "application/json"), body = "{}"),
+            responsePattern = HttpResponsePattern(HttpResponse(status = 200, headers = mapOf("Content-Type" to "application/json"), body = "{}")),
+            resolver = Resolver()
+        )
+
+        val xmlStub = HttpStubData(
+            requestType = requestPattern,
+            response = HttpResponse(status = 200, headers = mapOf("Content-Type" to "application/xml"), body = "<type>xml</type>"),
+            responsePattern = HttpResponsePattern(HttpResponse(status = 200, headers = mapOf("Content-Type" to "application/xml"), body = "<type>xml</type>")),
+            resolver = Resolver()
+        )
+
+        val expectations = ThreadSafeListOfStubs(mutableListOf(jsonStub, xmlStub), emptyMap())
+        val result = expectations.matchingStaticStub(
+            HttpRequest("GET", "/products", headers = mapOf(ACCEPT to "application/xml;q=1.0, application/json;q=0.2"))
+        )
+
+        assertThat(result.first).isEqualTo(jsonStub)
+    }
+
+    @Test
+    fun `matching dynamic stubs should honour setup order and ignore Accept q priority`() {
+        val requestPattern = HttpRequestPattern(
+            method = "GET",
+            httpPathPattern = buildHttpPathPattern("/products"),
+            headersPattern = HttpHeadersPattern(mapOf("$ACCEPT?" to StringPattern()))
+        )
+
+        val jsonStub = HttpStubData(
+            requestType = requestPattern,
+            response = HttpResponse(status = 200, headers = mapOf("Content-Type" to "application/json"), body = "{}"),
+            responsePattern = HttpResponsePattern(HttpResponse(status = 200, headers = mapOf("Content-Type" to "application/json"), body = "{}")),
+            resolver = Resolver(),
+            scenarioStub = ScenarioStub(request = HttpRequest("GET", "/products"), response = HttpResponse.OK)
+        )
+
+        val xmlStub = HttpStubData(
+            requestType = requestPattern,
+            response = HttpResponse(status = 200, headers = mapOf("Content-Type" to "application/xml"), body = "<type>xml</type>"),
+            responsePattern = HttpResponsePattern(HttpResponse(status = 200, headers = mapOf("Content-Type" to "application/xml"), body = "<type>xml</type>")),
+            resolver = Resolver(),
+            scenarioStub = ScenarioStub(request = HttpRequest("GET", "/products"), response = HttpResponse.OK)
+        )
+
+        val expectations = ThreadSafeListOfStubs(mutableListOf(jsonStub, xmlStub), emptyMap())
+        val result = expectations.matchingDynamicStub(
+            HttpRequest("GET", "/products", headers = mapOf(ACCEPT to "application/xml;q=1.0, application/json;q=0.2"))
+        )
+
+        assertThat(result.first).isEqualTo(jsonStub)
+    }
+
     @Test
     fun `matching static stubs should reject success when accept header does not allow response content type`() {
         val stubData = HttpStubData(

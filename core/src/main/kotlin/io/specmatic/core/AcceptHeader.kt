@@ -15,12 +15,7 @@ fun isAcceptHeaderCompatibleWithResponse(requestHeaders: Map<String, String>, re
 fun isResponseContentTypeAccepted(acceptHeader: String, responseContentType: String): Boolean {
     val parsedResponseType = parseMediaTypeToken(responseContentType.substringBefore(";")) ?: return true
 
-    val acceptedMediaTypes = acceptHeader.split(",")
-        .asSequence()
-        .map(String::trim)
-        .filter(String::isNotBlank)
-        .mapNotNull(::parseAcceptToken)
-        .filter { it.qValue > 0.0 }
+    val acceptedMediaTypes = acceptTokensByPriority(acceptHeader)
         .toList()
 
     if (acceptedMediaTypes.isEmpty()) return false
@@ -36,8 +31,39 @@ fun acceptHeaderMismatchMessage(acceptHeader: String, responseContentType: Strin
     return "Accept header \"$acceptHeader\" does not allow response Content-Type \"$responseContentType\""
 }
 
+fun acceptHeaderCannotBeMatchedBySpecificationMessage(acceptHeader: String): String {
+    return "Specification has no response Content-Type that matches Accept header \"$acceptHeader\""
+}
+
 private data class MediaTypeToken(val type: String, val subType: String)
 private data class ParsedAcceptToken(val mediaType: MediaTypeToken, val qValue: Double)
+private data class IndexedParsedAcceptToken(val token: ParsedAcceptToken, val index: Int)
+
+fun acceptMediaTypesByPriority(acceptHeader: String): List<String> {
+    return acceptTokensByPriority(acceptHeader).map { parsed ->
+        "${parsed.mediaType.type}/${parsed.mediaType.subType}"
+    }
+}
+
+fun isAcceptHeaderParseable(acceptHeader: String): Boolean {
+    val rawTokens = acceptHeader.split(",").map(String::trim).filter(String::isNotBlank)
+    if (rawTokens.isEmpty()) return true
+
+    return rawTokens.any { parseAcceptToken(it) != null }
+}
+
+private fun acceptTokensByPriority(acceptHeader: String): List<ParsedAcceptToken> {
+    return acceptHeader.split(",")
+        .asSequence()
+        .map(String::trim)
+        .filter(String::isNotBlank)
+        .mapIndexed { index, token -> parseAcceptToken(token)?.let { IndexedParsedAcceptToken(it, index) } }
+        .filterNotNull()
+        .filter { it.token.qValue > 0.0 }
+        .sortedWith(compareByDescending<IndexedParsedAcceptToken> { it.token.qValue }.thenBy { it.index })
+        .map { it.token }
+        .toList()
+}
 
 private fun parseAcceptToken(token: String): ParsedAcceptToken? {
     val parts = token.split(";").map { it.trim() }

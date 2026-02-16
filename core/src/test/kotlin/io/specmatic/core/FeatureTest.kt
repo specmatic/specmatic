@@ -1762,6 +1762,361 @@ components:
         assertThat(result).isInstanceOf(Result.Failure::class.java)
     }
 
+    @Test
+    fun `contract test should not send Accept header when it is not part of the specification`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+openapi: 3.0.0
+info:
+  title: Products API
+  version: 1.0.0
+paths:
+  /products:
+    get:
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val contractTest = feature.generateContractTests(emptyList()).single()
+
+        val result = contractTest.runTest(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                assertThat(request.headers.keys).noneMatch { it.equals(ACCEPT, ignoreCase = true) }
+                return HttpResponse(200, body = parsedJSONObject("{}"), headers = mapOf(CONTENT_TYPE to "application/json"))
+            }
+        })
+
+        assertThat(result.result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `contract test should set Accept header to expected response content type when Accept is string`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+openapi: 3.0.0
+info:
+  title: Products API
+  version: 1.0.0
+paths:
+  /products:
+    get:
+      parameters:
+        - in: header
+          name: Accept
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val contractTest = feature.generateContractTests(emptyList()).single()
+
+        val result = contractTest.runTest(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                assertThat(request.headers.getCaseInsensitive(ACCEPT)?.value).isEqualTo("application/json")
+                return HttpResponse(200, body = parsedJSONObject("{}"), headers = mapOf(CONTENT_TYPE to "application/json"))
+            }
+        })
+
+        assertThat(result.result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `contract test should drop enum Accept combinations incompatible with response content type`() {
+        val scenario = Scenario(
+            ScenarioInfo(
+                httpRequestPattern = HttpRequestPattern(
+                    method = "GET",
+                    httpPathPattern = buildHttpPathPattern("/products"),
+                    headersPattern = HttpHeadersPattern(
+                        mapOf(
+                            ACCEPT to EnumPattern(
+                                values = listOf(
+                                    StringValue("application/json"),
+                                    StringValue("application/xml")
+                                )
+                            )
+                        )
+                    )
+                ),
+                httpResponsePattern = HttpResponsePattern(
+                    status = 200,
+                    headersPattern = HttpHeadersPattern(contentType = "application/json"),
+                    body = JSONObjectPattern(mapOf())
+                ),
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI
+            )
+        )
+
+        val feature = Feature(
+            scenarios = listOf(scenario),
+            name = "",
+            protocol = SpecmaticProtocol.HTTP
+        )
+
+        val contractTests = feature.generateContractTests(emptyList()).toList()
+        assertThat(contractTests).hasSize(1)
+
+        val result = contractTests.single().runTest(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                assertThat(request.headers.getCaseInsensitive(ACCEPT)?.value).isEqualTo("application/json")
+                return HttpResponse(200, body = parsedJSONObject("{}"), headers = mapOf(CONTENT_TYPE to "application/json"))
+            }
+        })
+
+        assertThat(result.result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `contract test should not drop enum Accept combinations when response content type is unknown`() {
+        val scenario = Scenario(
+            ScenarioInfo(
+                httpRequestPattern = HttpRequestPattern(
+                    method = "GET",
+                    httpPathPattern = buildHttpPathPattern("/products"),
+                    headersPattern = HttpHeadersPattern(
+                        mapOf(
+                            ACCEPT to EnumPattern(
+                                values = listOf(
+                                    StringValue("application/json"),
+                                    StringValue("application/xml")
+                                )
+                            )
+                        )
+                    )
+                ),
+                httpResponsePattern = HttpResponsePattern(
+                    status = 200,
+                    headersPattern = HttpHeadersPattern(),
+                    body = EmptyStringPattern
+                ),
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI
+            )
+        )
+
+        val feature = Feature(
+            scenarios = listOf(scenario),
+            name = "",
+            protocol = SpecmaticProtocol.HTTP
+        )
+
+        val contractTests = feature.generateContractTests(emptyList()).toList()
+        assertThat(contractTests).hasSize(2)
+    }
+
+    @Test
+    fun `contract test should strip response content type parameters when normalizing string Accept`() {
+        val scenario = Scenario(
+            ScenarioInfo(
+                httpRequestPattern = HttpRequestPattern(
+                    method = "GET",
+                    httpPathPattern = buildHttpPathPattern("/products"),
+                    headersPattern = HttpHeadersPattern(mapOf(ACCEPT to StringPattern()))
+                ),
+                httpResponsePattern = HttpResponsePattern(
+                    status = 200,
+                    headersPattern = HttpHeadersPattern(contentType = "application/json; charset=utf-8"),
+                    body = JSONObjectPattern(mapOf())
+                ),
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI
+            )
+        )
+
+        val feature = Feature(
+            scenarios = listOf(scenario),
+            name = "",
+            protocol = SpecmaticProtocol.HTTP
+        )
+
+        val contractTest = feature.generateContractTests(emptyList()).single()
+        val result = contractTest.runTest(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                assertThat(request.headers.getCaseInsensitive(ACCEPT)?.value).isEqualTo("application/json")
+                return HttpResponse(200, body = parsedJSONObject("{}"), headers = mapOf(CONTENT_TYPE to "application/json"))
+            }
+        })
+
+        assertThat(result.result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `contract test should fail when runtime response content type does not match request Accept`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+openapi: 3.0.0
+info:
+  title: Products API
+  version: 1.0.0
+paths:
+  /products:
+    get:
+      parameters:
+        - in: header
+          name: Accept
+          required: true
+          schema:
+            enum:
+              - application/json
+      responses:
+        '200':
+          description: OK
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val contractTest = feature.generateContractTests(emptyList()).single()
+        val result = contractTest.runTest(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                return HttpResponse(200, headers = mapOf(CONTENT_TYPE to "application/xml"))
+            }
+        })
+
+        assertThat(result.result).isInstanceOf(Result.Failure::class.java)
+        assertThat((result.result as Result.Failure).reportString())
+            .contains("Accept header \"application/json\" does not allow response Content-Type \"application/xml\"")
+    }
+
+    @Test
+    fun `contract test should send wildcard Accept when Accept is optional string and response content type is unknown`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+openapi: 3.0.0
+info:
+  title: Products API
+  version: 1.0.0
+paths:
+  /products:
+    get:
+      parameters:
+        - in: header
+          name: Accept
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val contractTests = feature.generateContractTests(emptyList()).toList()
+        val sentAcceptValues = mutableListOf<String?>()
+
+        contractTests.forEach { contractTest ->
+            val result = contractTest.runTest(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    sentAcceptValues.add(request.headers.getCaseInsensitive(ACCEPT)?.value)
+                    return HttpResponse(200)
+                }
+            })
+
+            assertThat(result.result).isInstanceOf(Result.Success::class.java)
+        }
+
+        assertThat(sentAcceptValues).contains("*/*")
+        assertThat(sentAcceptValues.filterNotNull().distinct()).containsOnly("*/*")
+    }
+
+    @Test
+    fun `contract test should send wildcard Accept when Accept is mandatory string and response content type is unknown`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+openapi: 3.0.0
+info:
+  title: Products API
+  version: 1.0.0
+paths:
+  /products:
+    get:
+      parameters:
+        - in: header
+          name: Accept
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val contractTest = feature.generateContractTests(emptyList()).single()
+
+        val result = contractTest.runTest(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                assertThat(request.headers.getCaseInsensitive(ACCEPT)?.value).isEqualTo("*/*")
+                return HttpResponse(200)
+            }
+        })
+
+        assertThat(result.result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `invalid accept and response content type combinations should be filtered out and not executed`() {
+        val validScenario = Scenario(
+            ScenarioInfo(
+                httpRequestPattern = HttpRequestPattern(
+                    method = "GET",
+                    httpPathPattern = buildHttpPathPattern("/products"),
+                    headersPattern = HttpHeadersPattern(mapOf(ACCEPT to ExactValuePattern(StringValue("application/json"))))
+                ),
+                httpResponsePattern = HttpResponsePattern(
+                    status = 200,
+                    headersPattern = HttpHeadersPattern(contentType = "application/json"),
+                    body = StringPattern()
+                ),
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI
+            )
+        )
+
+        val invalidScenario = validScenario.copy(
+            httpResponsePattern = validScenario.httpResponsePattern.copy(
+                headersPattern = HttpHeadersPattern(contentType = "application/xml")
+            )
+        )
+
+        val feature = Feature(
+            scenarios = listOf(validScenario, invalidScenario),
+            name = "",
+            protocol = SpecmaticProtocol.HTTP
+        )
+
+        val contractTests = feature.generateContractTests(emptyList()).toList()
+        assertThat(contractTests).hasSize(1)
+
+        var executionCount = 0
+        contractTests.forEach { contractTest ->
+            val result = contractTest.runTest(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    executionCount += 1
+                    assertThat(request.headers.getCaseInsensitive(ACCEPT)?.value).isEqualTo("application/json")
+                    return HttpResponse(200, body = StringValue("ok"), headers = mapOf(CONTENT_TYPE to "application/json"))
+                }
+            })
+
+            assertThat(result.result).isInstanceOf(Result.Success::class.java)
+        }
+
+        assertThat(executionCount).isEqualTo(1)
+    }
+
 
     @Test
     fun `errors during test sequence generation should interrupt sequence generation and return a single error via results`() {

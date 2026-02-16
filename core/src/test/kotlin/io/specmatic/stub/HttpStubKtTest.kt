@@ -487,6 +487,141 @@ Feature: Test
         assertThat(messageValue.toStringLiteral()).isEqualToIgnoringWhitespace(expectedMessageValue)
     }
 
+    @Test
+    fun `fake response should return 400 when accept header does not match any response content type`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Accept mismatch
+              version: 1.0.0
+            paths:
+              /hello:
+                get:
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val request = HttpRequest(method = "GET", path = "/hello", headers = mapOf("Accept" to "application/xml"))
+        val result = fakeHttpResponse(listOf(feature), request, SpecmaticConfig())
+
+        assertThat(result).isInstanceOf(NotStubbed::class.java)
+        val response = (result as NotStubbed).response.response
+        assertThat(response.status).isEqualTo(400)
+        assertThat(response.body.toStringLiteral()).contains("Specification has no response Content-Type that matches Accept header \"application/xml\"")
+    }
+
+    @Test
+    fun `fake response should work as usual when request has no Accept header`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: No Accept header
+              version: 1.0.0
+            paths:
+              /hello:
+                get:
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val request = HttpRequest(method = "GET", path = "/hello")
+        val result = fakeHttpResponse(listOf(feature), request, SpecmaticConfig())
+
+        assertThat(result).isInstanceOf(FoundStubbedResponse::class.java)
+        val response = (result as FoundStubbedResponse).response.response
+        assertThat(response.status).isEqualTo(200)
+    }
+
+    @Test
+    fun `fake response should prefer lower status code among accept-compatible responses`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Accept and status preference
+              version: 1.0.0
+            paths:
+              /hello:
+                get:
+                  responses:
+                    '200':
+                      description: Plain text OK
+                      content:
+                        text/plain:
+                          schema:
+                            type: string
+                    '201':
+                      description: JSON Created
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                    '400':
+                      description: JSON Bad Request
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val request = HttpRequest(
+            method = "GET",
+            path = "/hello",
+            headers = mapOf("Accept" to "application/json, text/plain;q=0.5")
+        )
+        val result = fakeHttpResponse(listOf(feature), request, SpecmaticConfig())
+
+        assertThat(result).isInstanceOf(FoundStubbedResponse::class.java)
+        val response = (result as FoundStubbedResponse).response.response
+        assertThat(response.status).isEqualTo(201)
+        assertThat(response.contentType()).startsWith("application/json")
+    }
+
+    @Test
+    fun `fake response should honor wildcard accept semantics while selecting response content type`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Accept wildcard
+              version: 1.0.0
+            paths:
+              /hello:
+                get:
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val request = HttpRequest(method = "GET", path = "/hello", headers = mapOf("Accept" to "application/xml, */*;q=0.1"))
+        val result = fakeHttpResponse(listOf(feature), request, SpecmaticConfig())
+
+        assertThat(result).isInstanceOf(FoundStubbedResponse::class.java)
+        val response = (result as FoundStubbedResponse).response.response
+        assertThat(response.status).isEqualTo(200)
+        assertThat(response.contentType()).startsWith("application/json")
+    }
+
     private fun assertResponseFailure(stubResponse: HttpStubResponse, errorMessage: String) {
         assertThat(stubResponse.response.status).isEqualTo(400)
         assertThat(stubResponse.response.headers).containsEntry(SPECMATIC_RESULT_HEADER, "failure")
