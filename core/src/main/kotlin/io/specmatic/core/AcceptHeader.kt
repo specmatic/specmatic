@@ -31,10 +31,6 @@ fun acceptHeaderMismatchMessage(acceptHeader: String, responseContentType: Strin
     return "Accept header \"$acceptHeader\" does not allow response Content-Type \"$responseContentType\""
 }
 
-fun acceptHeaderCannotBeMatchedBySpecificationMessage(acceptHeader: String): String {
-    return "Specification has no response Content-Type that matches Accept header \"$acceptHeader\""
-}
-
 private data class MediaTypeToken(val type: String, val subType: String)
 private data class ParsedAcceptToken(val mediaType: MediaTypeToken, val qValue: Double)
 private data class IndexedParsedAcceptToken(val token: ParsedAcceptToken, val index: Int)
