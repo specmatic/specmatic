@@ -1956,7 +1956,7 @@ paths:
     }
 
     @Test
-    fun `contract test should fail when runtime response content type does not match request Accept`() {
+    fun `contract test should not fail when runtime response content type does not match request Accept`() {
         val feature = OpenApiSpecification.fromYAML(
             """
 openapi: 3.0.0
@@ -1986,9 +1986,7 @@ paths:
             }
         })
 
-        assertThat(result.result).isInstanceOf(Result.Failure::class.java)
-        assertThat((result.result as Result.Failure).reportString())
-            .contains("Accept header \"application/json\" does not allow response Content-Type \"application/xml\"")
+        assertThat(result.result).isInstanceOf(Result.Success::class.java)
     }
 
     @Test

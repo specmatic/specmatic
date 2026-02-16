@@ -8,14 +8,8 @@ import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
 import io.specmatic.core.Scenario
-import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.ValidateUnexpectedKeys
 import io.specmatic.core.Workflow
-import io.specmatic.core.ACCEPT
-import io.specmatic.core.FailureReason
-import io.specmatic.core.acceptHeaderMismatchMessage
-import io.specmatic.core.getCaseInsensitive
-import io.specmatic.core.isAcceptHeaderCompatibleWithResponse
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.logger
@@ -178,13 +172,12 @@ data class ScenarioAsTest(
             val postValidationResult = validators.asSequence().mapNotNull {
                 it.postValidate(testScenario, originalScenario, request, responseToCheckAndStore)
             }.firstOrNull() ?: Result.Success()
-            val acceptCompatibilityResult = validateAcceptHeaderAgainstResponseContentType(request, responseToCheckAndStore)
-            val result = listOfNotNull(acceptCompatibilityResult, postValidationResult).let { Result.fromResults(it) }
+            val result = postValidationResult
 
             testScenario.exampleRow?.let { ExampleProcessor.store(it, request, responseToCheckAndStore) }
 
             return ContractTestExecutionResult(
-                result = (acceptCompatibilityResult ?: result).withBindings(testScenario.bindings, response),
+                result = result.withBindings(testScenario.bindings, response),
                 request = request,
                 response = response
             )
@@ -221,23 +214,6 @@ data class ScenarioAsTest(
     private fun HttpResponse.getResponseHandlerIfExists(): ResponseHandler? {
         if (scenario.isNegative) return null
         return responseHandlerRegistry.getHandlerFor(this, scenario)
-    }
-
-    private fun validateAcceptHeaderAgainstResponseContentType(request: HttpRequest, response: HttpResponse): Result.Failure? {
-        val acceptHeader = request.headers.getCaseInsensitive(ACCEPT)?.value?.trim().orEmpty()
-        if (acceptHeader.isBlank()) return null
-
-        val responseContentType = response.contentType()?.trim().orEmpty()
-        if (responseContentType.isBlank()) return null
-
-        if (isAcceptHeaderCompatibleWithResponse(request.headers, responseContentType)) return null
-
-        return Result.Failure(
-            message = acceptHeaderMismatchMessage(acceptHeader, responseContentType),
-            breadCrumb = ACCEPT,
-            failureReason = FailureReason.ContentTypeMismatch,
-            ruleViolation = StandardRuleViolation.VALUE_MISMATCH
-        )
     }
 }
 
