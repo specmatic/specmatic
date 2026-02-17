@@ -4,8 +4,8 @@ import com.fasterxml.jackson.annotation.JsonAlias
 import io.specmatic.core.ResiliencyTestSuite
 
 data class TestSettings(
-    @field:JsonAlias("schemaResiliencyTests")
-    val resiliencyTests: ResiliencyTestSuite? = null,
+    @field:JsonAlias("resiliencyTests")
+    val schemaResiliencyTests: ResiliencyTestSuite? = null,
     val timeoutInMilliseconds: Long? = null,
     val strictMode: Boolean? = null,
     val lenientMode: Boolean? = null,
@@ -18,7 +18,7 @@ data class TestSettings(
     fun merge(fallback: TestSettings?): TestSettings {
         if (fallback == null) return this
         return TestSettings(
-            resiliencyTests = this.resiliencyTests ?: fallback.resiliencyTests,
+            schemaResiliencyTests = this.schemaResiliencyTests ?: fallback.schemaResiliencyTests,
             timeoutInMilliseconds = this.timeoutInMilliseconds ?: fallback.timeoutInMilliseconds,
             strictMode = this.strictMode ?: fallback.strictMode,
             lenientMode = this.lenientMode ?: fallback.lenientMode,

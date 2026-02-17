@@ -72,7 +72,7 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
         val service = service.resolveElseThrow(resolver)
         return service.definitions.map { it.definition }.flatMap { definition ->
             val examples = getExampleDirs(resolver)
-            val resilientSuite = testSettings?.resiliencyTests
+            val resilientSuite = testSettings?.schemaResiliencyTests
             val source = definition.source.resolveElseThrow(resolver)
             definition.specs.map {
                 it.toSpecificationSource(source, resilientSuite, examples) { specId, file ->
@@ -97,7 +97,7 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
     fun copyResiliencyTestsConfig(resolver: RefOrValueResolver, resiliencyTestSuite: ResiliencyTestSuite): TestServiceConfig {
         val service = this.service.resolveElseThrow(resolver)
         val settings = service.settings?.resolveElseThrow(resolver) ?: TestSettings()
-        val updatedSettings = settings.copy(resiliencyTests = resiliencyTestSuite)
+        val updatedSettings = settings.copy(schemaResiliencyTests = resiliencyTestSuite)
         return this.copy(service = RefOrValue.Value(service.copy(settings = RefOrValue.Value(updatedSettings))))
     }
 
