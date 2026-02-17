@@ -14,9 +14,9 @@ import io.specmatic.core.config.v3.components.runOptions.IRunOptions
 import io.specmatic.core.config.v3.components.runOptions.MockRunOptions
 import io.specmatic.core.config.v3.components.settings.MockSettings
 import io.specmatic.core.config.v3.components.sources.SourceV3
+import io.specmatic.core.config.v3.determineSpecTypeFor
 import io.specmatic.core.config.v3.resolveElseThrow
 import io.specmatic.reporter.model.SpecType
-import io.specmatic.stub.isOpenAPI
 import java.io.File
 import kotlin.collections.orEmpty
 import kotlin.collections.plus
@@ -113,14 +113,7 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
 
     @JsonIgnore
     private fun getFirstBaseUrlFromRunOpts(specId: String?, specFile: File, service: CommonServiceConfig<MockRunOptions, MockSettings>, resolver: RefOrValueResolver): String? {
-        val specTypesToCheck = when {
-            specFile.extension == "wsdl" -> listOf(SpecType.WSDL)
-            specFile.extension == "proto" -> listOf(SpecType.PROTOBUF)
-            specFile.extension in setOf("graphql", "graphqls") -> listOf(SpecType.GRAPHQL)
-            isOpenAPI(specFile.canonicalPath, logFailure = false) -> listOf(SpecType.OPENAPI)
-            else -> listOf(SpecType.OPENAPI, SpecType.ASYNCAPI)
-        }
-
+        val specTypesToCheck = determineSpecTypeFor(specFile)
         return specTypesToCheck.firstNotNullOfOrNull {
             val runOptions = getRunOptions(service, resolver, it) ?: return@firstNotNullOfOrNull null
             val runOptionSpecOverride = specId?.let(runOptions::getMatchingSpecification)
