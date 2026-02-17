@@ -4,6 +4,7 @@ import io.specmatic.core.*
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONComposite
 import io.specmatic.core.value.JSONObjectValue
+import io.specmatic.core.value.Value
 import io.specmatic.mock.ScenarioStub
 
 const val DEREFERENCE_PREFIX = "$"
@@ -28,6 +29,10 @@ data class Row(
     constructor(examples: Map<String, String>) :this(examples.keys.toList(), examples.values.toList())
 
     private val cells = columnNames.zip(values.map { it }).toMap().toMutableMap()
+
+    fun responseBody(): Value? {
+        return scenarioStub?.response?.body
+    }
 
     fun noteRequestBody(): Row {
         if(!this.containsField("(REQUEST-BODY)"))

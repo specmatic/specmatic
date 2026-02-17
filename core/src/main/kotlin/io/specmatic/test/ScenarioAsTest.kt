@@ -132,7 +132,7 @@ data class ScenarioAsTest(
             testExecutor.preExecuteScenario(testScenario, request)
             val response = testExecutor.execute(request)
 
-            val responseBodyFromExample = testScenario.exampleRow?.scenarioStub?.response?.body
+            val responseBodyFromExample = testScenario.responseBodyFromExample()
             val matcherExecutor = ServiceLoader.load(MatcherExecutor::class.java).firstOrNull()
             if(responseBodyFromExample != null && matcherExecutor != null) {
                 val matchesResult = matcherExecutor.matchesResult(
