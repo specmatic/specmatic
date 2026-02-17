@@ -33,7 +33,17 @@ interface Value {
     fun typeDeclarationWithKey(key: String, types: Map<String, Pattern>, exampleDeclarations: ExampleDeclarations): Pair<TypeDeclaration, ExampleDeclarations>
     fun listOf(valueList: List<Value>): Value
 
-    fun hasTemplate(): Boolean {
+    fun hasSupportedTemplate(): Boolean {
+        return hasPatternTemplate() || hasMatcherTemplate() || hasDataTemplate()
+    }
+
+    fun hasMatcherTemplate(): Boolean {
+        return this is StringValue
+                && this.string.startsWith("\$match(")
+                && this.string.endsWith(")")
+    }
+
+    fun hasPatternTemplate(): Boolean {
         return this is StringValue
                 && this.string.startsWith("$(")
                 && this.string.endsWith(")")
