@@ -4,6 +4,18 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.config.SpecmaticConfigVersion
+import io.specmatic.core.config.v3.Data
+import io.specmatic.core.config.v3.RefOrValue
+import io.specmatic.core.config.v3.SpecmaticConfigV3
+import io.specmatic.core.config.v3.SpecmaticConfigV3Impl
+import io.specmatic.core.config.v3.components.ExampleDirectories
+import io.specmatic.core.config.v3.components.services.CommonServiceConfig
+import io.specmatic.core.config.v3.components.services.Definition
+import io.specmatic.core.config.v3.components.services.MockServiceConfig
+import io.specmatic.core.config.v3.components.services.SpecificationDefinition
+import io.specmatic.core.config.v3.components.services.TestServiceConfig
+import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.value.JSONObjectValue
 import io.mockk.every
 import io.mockk.mockk
@@ -294,6 +306,68 @@ class ExampleModuleTest {
         val module = ExampleModule(specmaticConfig)
         val dir = module.getFirstExampleDir(contractFile)
         assertThat(dir).isEqualTo(File("stub_examples_1"))
+    }
+
+    @Test
+    fun `getFirstExampleDir should not pick test examples of another spec`(@TempDir tempDir: File) {
+        val sutSpec = tempDir.resolve("sut-only.yaml").apply { writeText("openapi: 3.0.0") }
+        val dependencySpec = tempDir.resolve("dependency-only.yaml").apply { writeText("openapi: 3.0.0") }
+        val sutTestExamplesDir = tempDir.resolve("sut_test_examples").apply { mkdirs() }
+        val dependencyStubExamplesDir = tempDir.resolve("dependency_stub_examples").apply { mkdirs() }
+        val source = SourceV3.create(filesystem = SourceV3.FileSystem(directory = tempDir.canonicalPath))
+
+        val sut = TestServiceConfig(
+            service = RefOrValue.Value(
+                CommonServiceConfig(
+                    definitions = listOf(
+                        Definition(
+                            Definition.Value(
+                                source = RefOrValue.Value(source),
+                                specs = listOf(SpecificationDefinition.StringValue(sutSpec.name))
+                            )
+                        )
+                    ),
+                    data = Data(
+                        examples = RefOrValue.Value(
+                            listOf(RefOrValue.Value(ExampleDirectories(directories = listOf(sutTestExamplesDir.canonicalPath))))
+                        )
+                    )
+                )
+            )
+        )
+
+        val dependencies = MockServiceConfig(
+            services = listOf(
+                MockServiceConfig.Value(
+                    service = RefOrValue.Value(
+                        CommonServiceConfig(
+                            definitions = listOf(
+                                Definition(
+                                    Definition.Value(
+                                        source = RefOrValue.Value(source),
+                                        specs = listOf(SpecificationDefinition.StringValue(dependencySpec.name))
+                                    )
+                                )
+                            ),
+                            data = Data(
+                                examples = RefOrValue.Value(
+                                    listOf(RefOrValue.Value(ExampleDirectories(directories = listOf(dependencyStubExamplesDir.canonicalPath))))
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+
+        val specmaticConfig = SpecmaticConfigV3Impl(
+            file = tempDir.resolve("specmatic.yaml"),
+            specmaticConfig = SpecmaticConfigV3(version = SpecmaticConfigVersion.VERSION_3, systemUnderTest = sut, dependencies = dependencies)
+        )
+
+        val module = ExampleModule(specmaticConfig)
+        val dir = module.getFirstExampleDir(dependencySpec)
+        assertThat(dir.canonicalFile).isEqualTo(dependencyStubExamplesDir.canonicalFile)
     }
 
     @Test

@@ -83,6 +83,18 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
     }
 
     @JsonIgnore
+    fun getExampleDirs(specFile: File, resolver: RefOrValueResolver): List<String>? {
+        val service = service.resolveElseThrow(resolver)
+        val containsDefinition = service.definitions.map { it.definition }.any { definition ->
+            val source = definition.source.resolveElseThrow(resolver)
+            definition.specs.any { it.matchesFile(source, specFile) }
+        }
+
+        if (!containsDefinition) return null
+        return service.data?.toExampleDirs(resolver)
+    }
+
+    @JsonIgnore
     fun getExampleDirs(resolver: RefOrValueResolver): List<String>? {
         val service = service.resolveElseThrow(resolver)
         return service.data?.toExampleDirs(resolver)

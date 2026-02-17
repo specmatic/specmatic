@@ -21,7 +21,7 @@ import java.io.File
 import kotlin.collections.orEmpty
 import kotlin.collections.plus
 
-data class MockServiceConfig(val services: List<Value>, val data: Data? = null, val settings: RefOrValue<MockSettings>?) {
+data class MockServiceConfig(val services: List<Value>, val data: Data? = null, val settings: RefOrValue<MockSettings>? = null) {
     data class Value(val service: RefOrValue<CommonServiceConfig<MockRunOptions, MockSettings>>)
 
     @JsonIgnore
