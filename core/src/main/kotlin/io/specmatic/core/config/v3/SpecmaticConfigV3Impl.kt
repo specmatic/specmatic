@@ -346,7 +346,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
 
     override fun getResiliencyTestsEnabled(): ResiliencyTestSuite {
         val resiliencyFromProperty = ResiliencyTestsConfig.fromSystemProperties()
-        val resiliencyTestSuite = (testSettings.resiliencyTests?.let(::ResiliencyTestsConfig) ?: resiliencyFromProperty)
+        val resiliencyTestSuite = (testSettings.schemaResiliencyTests?.let(::ResiliencyTestsConfig) ?: resiliencyFromProperty)
         return resiliencyTestSuite.enable ?: ResiliencyTestSuite.none
     }
 
