@@ -14,9 +14,9 @@ import io.specmatic.core.config.v3.components.runOptions.OpenApiTestConfig
 import io.specmatic.core.config.v3.components.runOptions.TestRunOptions
 import io.specmatic.core.config.v3.components.settings.TestSettings
 import io.specmatic.core.config.v3.components.sources.SourceV3
+import io.specmatic.core.config.v3.determineSpecTypeFor
 import io.specmatic.core.config.v3.resolveElseThrow
 import io.specmatic.reporter.model.SpecType
-import io.specmatic.stub.isOpenAPI
 import java.io.File
 
 data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRunOptions, TestSettings>>) {
@@ -148,14 +148,7 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
 
     @JsonIgnore
     private fun getFirstBaseUrlFromRunOpts(specId: String?, specFile: File, resolver: RefOrValueResolver): String? {
-        val specTypesToCheck = when {
-            specFile.extension == "wsdl" -> listOf(SpecType.WSDL)
-            specFile.extension == "proto" -> listOf(SpecType.PROTOBUF)
-            specFile.extension in setOf("graphql", "graphqls") -> listOf(SpecType.GRAPHQL)
-            isOpenAPI(specFile.canonicalPath, logFailure = false) -> listOf(SpecType.OPENAPI)
-            else -> listOf(SpecType.OPENAPI, SpecType.ASYNCAPI)
-        }
-
+        val specTypesToCheck = determineSpecTypeFor(specFile)
         return specTypesToCheck.firstNotNullOfOrNull {
             val runOptions = getRunOptions(resolver, it) ?: return@firstNotNullOfOrNull null
             val runOptionSpecOverride = specId?.let(runOptions::getMatchingSpecification)
