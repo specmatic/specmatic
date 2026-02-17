@@ -152,7 +152,8 @@ class ExampleValidationModule(private val lenientMode: Boolean = false) {
                 responseContentType.orEmpty()
             ),
             breadCrumb = ACCEPT,
-            failureReason = FailureReason.ContentTypeMismatch
+            failureReason = FailureReason.ContentTypeMismatch,
+            ruleViolation = StandardRuleViolation.VALUE_MISMATCH
         )
     }
 }
