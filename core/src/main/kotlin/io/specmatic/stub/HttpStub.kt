@@ -845,10 +845,10 @@ class HttpStub(
     }
 
     override fun close() {
-        logger.debug("Stopping the server with grace period of $timeoutMillis")
-        server.stop(gracePeriodMillis = timeoutMillis, timeoutMillis = timeoutMillis)
         val protocols = features.map { it.protocol }.distinct()
         if (SpecmaticProtocol.HTTP in protocols) generateReports()
+        logger.debug("Stopping the server with grace period of $timeoutMillis")
+        server.stop(gracePeriodMillis = timeoutMillis, timeoutMillis = timeoutMillis)
     }
 
     private fun generateReports() {
