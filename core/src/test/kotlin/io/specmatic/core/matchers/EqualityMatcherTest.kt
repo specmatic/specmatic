@@ -14,6 +14,8 @@ import io.specmatic.core.value.StringValue
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 
 class EqualityMatcherTest {
     private val mockResolver = mockk<Resolver>()
@@ -192,6 +194,30 @@ class EqualityMatcherTest {
             )
 
             assertThat(result).isInstanceOf(HasFailure::class.java)
+        }
+
+        @ParameterizedTest(name = "value=''{0}'' → shouldSkip={1}")
+        @CsvSource(
+            "1.23, false",
+            "0.5, false",
+            ".5, false",
+            "10., false",
+            "123.0001, false",
+            "123, false",
+            "abc, false",
+            "abc.def, true",
+            "v1.2.3, true",
+            "foo.bar.baz, true",
+            "version.1, true"
+        )
+        fun `should skip only dotted non-numeric strings`(raw: String, shouldSkip: Boolean) {
+            val value = StringValue(raw)
+            val result = EqualityMatcher.Companion.EqualityFactory.toPatternSimplified(value)
+            if (shouldSkip) {
+                assertThat(result).isNull()
+            } else {
+                assertThat(result).isNotNull()
+            }
         }
     }
 
