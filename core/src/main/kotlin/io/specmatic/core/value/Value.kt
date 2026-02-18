@@ -34,7 +34,7 @@ interface Value {
     fun listOf(valueList: List<Value>): Value
 
     fun hasSupportedTemplate(): Boolean {
-        return hasPatternTemplate() || hasMatcherTemplate() || hasDataTemplate()
+        return hasPatternTemplate() || hasMatcherTemplate()
     }
 
     fun hasMatcherTemplate(): Boolean {
@@ -44,13 +44,7 @@ interface Value {
     }
 
     fun hasPatternTemplate(): Boolean {
-        return this is StringValue
-                && this.string.startsWith("$(")
-                && this.string.endsWith(")")
-    }
-
-    fun hasDataTemplate(): Boolean {
-        return this is StringValue && this.string.hasDataTemplate()
+        return this is StringValue && string.hasDataTemplate()
     }
 
     fun generality(): Int {

@@ -211,7 +211,7 @@ data class ScenarioStub(
     ): Value {
         return when (value) {
             is StringValue -> {
-                if (value.hasDataTemplate()) {
+                if (value.hasPatternTemplate()) {
                     val substitutionSetName = value.string.removeSurrounding("{{", "}}")
                     val substitutionSet = substitutions[substitutionSetName]
                         ?: throw ContractException("$substitutionSetName does not exist in the data")
@@ -335,7 +335,7 @@ data class ScenarioStub(
     ): Value {
         return when (value) {
             is StringValue -> {
-                if (value.hasDataTemplate()) {
+                if (value.hasPatternTemplate()) {
                     val dataSetIdentifiers = DataSetIdentifiers(value.string, key)
 
                     val substitutionSet = substitutions[dataSetIdentifiers.name]
