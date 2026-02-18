@@ -860,12 +860,28 @@ data class Feature(
             }
         }.filter { generatedScenarioPair ->
             generatedScenarioPair.second.withDefault(true) { generatedScenario ->
-                runCatching {
+                val responseContentType =
+                    generatedScenario.responseContentType ?: generatedScenario.httpResponsePattern.headersPattern.contentType
+                val isCompatible = runCatching {
                     isAcceptHeaderCompatibleWithResponse(
                         requestHeaders = generatedScenario.generateHttpRequest().headers,
-                        responseContentType = generatedScenario.responseContentType ?: generatedScenario.httpResponsePattern.headersPattern.contentType
+                        responseContentType = responseContentType
                     )
                 }.getOrDefault(true)
+
+                if (!isCompatible && generatedScenario.exampleRow?.isEmpty() == false) {
+                    val exampleName = generatedScenario.exampleRow.name.takeUnless { it.isBlank() } ?: "(unnamed example)"
+                    val responseContentTypeClause = responseContentType?.let {
+                        ". Response Content-Type: $it"
+                    }.orEmpty()
+                    logger.debug(
+                        "Dropping generated contract test scenario due to Accept mismatch for example named " +
+                            "\"$exampleName\" for API \"${generatedScenario.method} ${generatedScenario.path}\"" +
+                            responseContentTypeClause
+                    )
+                }
+
+                isCompatible
             }
         }.map { generatedScenarioPair ->
             val (originalScenario, returnValue) = generatedScenarioPair
