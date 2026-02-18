@@ -13,6 +13,7 @@ import io.specmatic.core.SPECMATIC_RESULT_HEADER
 import io.specmatic.core.log.CompositePrinter
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.LogStrategy
+import io.specmatic.core.examples.module.ExampleValidationModule
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.exceptionCauseMessage
@@ -11760,6 +11761,144 @@ paths:
 
         assertThat(output)
             .contains(missingResponseExampleErrorMessageForTest("complete_onboarding"))
+    }
+
+    @Test
+    fun `should warn for unused request example per operation even when another operation reuses the same name`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Per operation unused warning
+              version: 1.0.0
+            paths:
+              /abc/{id}:
+                get:
+                  parameters:
+                    - in: path
+                      name: id
+                      required: true
+                      schema:
+                        type: integer
+                      examples:
+                        SUCCESS:
+                          value: 10
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            properties:
+                              id:
+                                type: integer
+              /def/{id}:
+                get:
+                  parameters:
+                    - in: path
+                      name: id
+                      required: true
+                      schema:
+                        type: integer
+                      examples:
+                        SUCCESS:
+                          value: 20
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 20
+        """.trimIndent()
+
+        val (output, _) = captureStandardOutput {
+            OpenApiSpecification.fromYAML(spec, "per-operation-warning.yaml").toFeature()
+        }
+
+        assertThat(output).contains(missingResponseExampleErrorMessageForTest("SUCCESS"))
+    }
+
+    @Test
+    fun `duplicate inline example names across operations should all be validated`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Duplicate Inline Example Names
+              version: 1.0.0
+            paths:
+              /products:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          ${"$"}ref: '#/components/schemas/Product'
+                        examples:
+                          SUCCESS:
+                            value:
+                              inventory: hundred
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            ${"$"}ref: '#/components/schemas/Product'
+                          examples:
+                            SUCCESS:
+                              value:
+                                inventory: 100
+              /orders:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          ${"$"}ref: '#/components/schemas/Product'
+                        examples:
+                          SUCCESS:
+                            value:
+                              inventory: 200
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            ${"$"}ref: '#/components/schemas/Product'
+                          examples:
+                            SUCCESS:
+                              value:
+                                inventory: 200
+            components:
+              schemas:
+                Product:
+                  type: object
+                  required:
+                    - inventory
+                  properties:
+                    inventory:
+                      type: integer
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(spec, "duplicate-inline-examples.yaml").toFeature()
+        assertThat(feature.inlineNamedStubs.count { it.name == "SUCCESS" }).isEqualTo(2)
+
+        val validationResults = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
+            .validateInlineExamples(feature = feature, examples = feature.inlineNamedStubs)
+
+        val successExampleResult = validationResults.getValue("SUCCESS")
+        assertThat(successExampleResult).isInstanceOf(Result.Failure::class.java)
     }
 
     @Test

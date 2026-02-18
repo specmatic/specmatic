@@ -9,7 +9,6 @@ import io.specmatic.core.log.configureLogging
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.license.core.cli.Category
-import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.isOpenAPI
 import picocli.CommandLine.*
 import java.io.File
@@ -264,11 +263,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         private fun validateInlineExamples(feature: Feature): Map<String, Result> {
             return exampleValidationModule.validateInlineExamples(
                 feature,
-                examples = feature.stubsFromExamples.mapValues { (_, stub) ->
-                    stub.map { (request, response) ->
-                        ScenarioStub(request, response)
-                    }
-                },
+                examples = feature.inlineNamedStubs,
                 scenarioFilter = ScenarioFilter(filterName, filterNotName, filter)
             )
         }
