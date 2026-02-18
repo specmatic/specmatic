@@ -60,7 +60,7 @@ data class EnumPattern(override val pattern: AnyPattern, val nullable: Boolean) 
     }
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
-        if(sampleData is StringValue && (sampleData.hasTemplate() || sampleData.hasDataTemplate())) {
+        if(sampleData is StringValue && (sampleData.hasSupportedTemplate())) {
             return Result.Success()
         }
 
