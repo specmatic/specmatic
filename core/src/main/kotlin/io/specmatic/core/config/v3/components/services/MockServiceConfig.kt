@@ -89,9 +89,9 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
 
     @JsonIgnore
     fun getExampleDirs(specFile: File, resolver: RefOrValueResolver): List<String> {
+        val service = getService(specFile, resolver) ?: return emptyList()
         val dependencyExamples = data?.toExampleDirs(resolver)
-        val service = getService(specFile, resolver)
-        val serviceExamples = service?.data?.toExampleDirs(resolver)
+        val serviceExamples = service.data?.toExampleDirs(resolver)
         return mergeExamples(dependencyExamples, serviceExamples).orEmpty()
     }
 
