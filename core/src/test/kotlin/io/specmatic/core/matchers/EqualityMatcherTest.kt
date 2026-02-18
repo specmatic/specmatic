@@ -196,28 +196,46 @@ class EqualityMatcherTest {
             assertThat(result).isInstanceOf(HasFailure::class.java)
         }
 
-        @ParameterizedTest(name = "value=''{0}'' → shouldSkip={1}")
+        @ParameterizedTest(name = "value=''{0}'' → pattern should be created")
         @CsvSource(
-            "1.23, false",
-            "0.5, false",
-            ".5, false",
-            "10., false",
-            "123.0001, false",
-            "123, false",
-            "abc, false",
-            "abc.def, true",
-            "v1.2.3, true",
-            "foo.bar.baz, true",
-            "version.1, true"
+            "1.23",
+            "0.5",
+            ".5",
+            "10.",
+            "123.0001",
+            "123",
+            "abc",
+            "abc.def",
+            "gmail.com",
+            "v1.2.3",
+            "foo.bar.baz",
+            "version.1",
+            "a.b"
         )
-        fun `should skip only dotted non-numeric strings`(raw: String, shouldSkip: Boolean) {
-            val value = StringValue(raw)
-            val result = EqualityMatcher.Companion.EqualityFactory.toPatternSimplified(value)
-            if (shouldSkip) {
-                assertThat(result).isNull()
-            } else {
-                assertThat(result).isNotNull()
-            }
+        fun `should create pattern for any string including dotted`(raw: String) {
+            val result = EqualityMatcher.Companion.EqualityFactory.toPatternSimplified(mapOf("exact" to StringValue(raw)))
+            assertThat(result).isNotNull()
+        }
+
+        @ParameterizedTest(name = "value=''{0}'' → pattern should be created")
+        @CsvSource(
+            "1.23",
+            "0.5",
+            ".5",
+            "10.",
+            "123.0001",
+            "123",
+            "abc",
+            "abc.def",
+            "gmail.com",
+            "v1.2.3",
+            "foo.bar.baz",
+            "version.1",
+            "a.b"
+        )
+        fun `should not create pattern for any string including dotted when called with $eq`(raw: String) {
+            val result = EqualityMatcher.Companion.EqualityFactory.toPatternSimplified(StringValue("\$eq($raw)"))
+            assertThat(result).isNull()
         }
     }
 
