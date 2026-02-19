@@ -8,6 +8,8 @@ import io.mockk.mockk
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.discriminator.DiscriminatorMetadata
+import io.specmatic.core.log.DebugLogger
+import io.specmatic.core.log.withLogger
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.exceptionCauseMessage
@@ -36,6 +38,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import java.io.File
+import java.net.ServerSocket
 import java.util.*
 import java.util.function.Consumer
 import java.util.stream.Stream
@@ -1835,6 +1838,220 @@ paths:
     }
 
     @Test
+    fun `no-example contract tests with Accept and multiple response media types should all pass`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+openapi: 3.0.0
+info:
+  title: Products API
+  version: 1.0.0
+paths:
+  /products:
+    get:
+      parameters:
+        - in: header
+          name: Accept
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+            text/xml:
+              schema:
+                type: string
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val contractTests = feature.generateContractTests(emptyList()).toList()
+        assertThat(contractTests).isNotEmpty
+
+        val results = contractTests.map { contractTest ->
+            contractTest.runTest(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    return when (request.headers.getCaseInsensitive(ACCEPT)?.value) {
+                        "application/json" -> HttpResponse(
+                            200,
+                            body = parsedJSONObject("{}"),
+                            headers = mapOf(CONTENT_TYPE to "application/json")
+                        )
+
+                        "text/xml" -> HttpResponse(
+                            200,
+                            body = StringValue("<product/>"),
+                            headers = mapOf(CONTENT_TYPE to "text/xml")
+                        )
+
+                        else -> fail("Unexpected Accept header: ${request.headers.getCaseInsensitive(ACCEPT)?.value}")
+                    }
+                }
+            }).result
+        }
+
+        assertThat(results).allSatisfy {
+            assertThat(it).isInstanceOf(Result.Success::class.java)
+        }
+    }
+
+    @Test
+    fun `no-example contract tests should pass against stub from same spec`(@TempDir tempDir: File) {
+        val spec = """
+openapi: 3.0.0
+info:
+  title: Products API
+  version: 1.0.0
+paths:
+  /products:
+    get:
+      parameters:
+        - in: header
+          name: Accept
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+            text/xml:
+              schema:
+                type: string
+        """.trimIndent()
+
+        val specFile = tempDir.resolve("products.yaml")
+        specFile.writeText(spec)
+
+        val feature = OpenApiSpecification.fromFile(specFile.absolutePath).toFeature()
+        val contractTests = feature.generateContractTests(emptyList()).toList()
+        assertThat(contractTests).isNotEmpty
+
+        val stubPort = ServerSocket(0).use { it.localPort }
+        createStubFromContracts(listOf(specFile.absolutePath), port = stubPort, timeoutMillis = 0).use { stub ->
+            val results = contractTests.map { contractTest ->
+                contractTest.runTest(stub.client.baseURL, 10_000).result
+            }
+
+            assertThat(results).allSatisfy {
+                assertThat(it).isInstanceOf(Result.Success::class.java)
+            }
+        }
+    }
+
+    @Test
+    fun `stub should honor Accept when selecting response media type for generated contract tests`(@TempDir tempDir: File) {
+        val spec = """
+openapi: 3.0.1
+info:
+  title: Order API
+  version: '2.0'
+servers:
+  - url: 'http://localhost:3000'
+paths:
+  /products:
+    get:
+      summary: GET Products based on type
+      parameters:
+        - name: type
+          in: query
+          schema:
+            ${"$"}ref: '#/components/schemas/ProductType'
+        - name: Accept
+          in: header
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of products in the response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  ${"$"}ref: '#/components/schemas/Product'
+            text/plain:
+              schema:
+                type: string
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                ${"$"}ref: '#/components/schemas/ErrorResponseBody'
+
+components:
+  schemas:
+    ProductType:
+      type: string
+      enum:
+        - book
+        - food
+        - gadget
+        - other
+    ProductId:
+      type: object
+      properties:
+        id:
+          type: integer
+      required:
+        - id
+    ProductDetails:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          ${"$"}ref: '#/components/schemas/ProductType'
+        inventory:
+          type: integer
+      required:
+        - name
+        - type
+        - inventory
+    Product:
+      allOf:
+        - ${"$"}ref: '#/components/schemas/ProductId'
+        - ${"$"}ref: '#/components/schemas/ProductDetails'
+    ErrorResponseBody:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: integer
+        error:
+          type: string
+        path:
+          type: string
+        """.trimIndent()
+
+        val specFile = tempDir.resolve("products_api.yaml")
+        specFile.writeText(spec)
+
+        val feature = OpenApiSpecification.fromFile(specFile.absolutePath).toFeature()
+        val contractTests = feature.generateContractTests(emptyList()).toList()
+        assertThat(contractTests).isNotEmpty
+
+        val stubPort = ServerSocket(0).use { it.localPort }
+        createStubFromContracts(listOf(specFile.absolutePath), port = stubPort, timeoutMillis = 0).use { stub ->
+            val results = contractTests.map { contractTest ->
+                contractTest.runTest(stub.client.baseURL, 10_000).result
+            }
+
+            assertThat(results).allSatisfy {
+                assertThat(it).isInstanceOf(Result.Success::class.java)
+            }
+        }
+    }
+
+    @Test
     fun `contract test should drop enum Accept combinations incompatible with response content type`() {
         val scenario = Scenario(
             ScenarioInfo(
@@ -2113,6 +2330,62 @@ paths:
         }
 
         assertThat(executionCount).isEqualTo(1)
+    }
+
+    @Test
+    fun `invalid accept combinations should be filtered even when scenario comes from non-empty example row`() {
+        val scenario = Scenario(
+            ScenarioInfo(
+                httpRequestPattern = HttpRequestPattern(
+                    method = "GET",
+                    httpPathPattern = buildHttpPathPattern("/products"),
+                    httpQueryParamPattern = HttpQueryParamPattern(
+                        queryPatterns = mapOf("id" to QueryParameterScalarPattern(StringPattern()))
+                    ),
+                    headersPattern = HttpHeadersPattern(
+                        mapOf(
+                            ACCEPT to EnumPattern(
+                                values = listOf(
+                                    StringValue("application/json"),
+                                    StringValue("application/xml")
+                                )
+                            )
+                        )
+                    )
+                ),
+                httpResponsePattern = HttpResponsePattern(
+                    status = 200,
+                    headersPattern = HttpHeadersPattern(contentType = "application/json"),
+                    body = JSONObjectPattern(mapOf())
+                ),
+                examples = listOf(
+                    Examples(
+                        listOf("id"),
+                        listOf(Row(columnNames = listOf("id"), values = listOf("10"), name = "EXAMPLE"))
+                    )
+                ),
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI
+            )
+        )
+
+        val feature = Feature(
+            scenarios = listOf(scenario),
+            name = "",
+            protocol = SpecmaticProtocol.HTTP
+        )
+
+        val contractTests = feature.generateContractTests(emptyList()).toList()
+        assertThat(contractTests).hasSize(1)
+
+        val result = contractTests.single().runTest(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                assertThat(request.headers.getCaseInsensitive(ACCEPT)?.value).isEqualTo("application/json")
+                return HttpResponse(200, body = parsedJSONObject("{}"), headers = mapOf(CONTENT_TYPE to "application/json"))
+            }
+        })
+
+        assertThat(result.result).isInstanceOf(Result.Success::class.java)
     }
 
 

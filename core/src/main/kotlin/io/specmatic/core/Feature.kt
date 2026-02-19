@@ -457,7 +457,7 @@ data class Feature(
             if (result !is Success) {
                 Triple(Int.MAX_VALUE, scenario, result)
             } else {
-                val responseContentType = scenario.responseContentType?.trim().orEmpty()
+                val responseContentType = resolveResponseContentTypeForAccept(scenario).orEmpty()
                 val acceptMatchRank = if (responseContentType.isBlank()) {
                     // Keep unknown response content-type scenarios as compatible, but rank them after
                     // explicit matches so specific content-types are preferred when available.
@@ -481,6 +481,31 @@ data class Feature(
         val rest = ranked.filter { (index, _, _) -> index == Int.MAX_VALUE }
 
         return (matchesAccept + rest).asSequence().map { (_, scenario, result) -> Pair(scenario, result) }
+    }
+
+    private fun resolveResponseContentTypeForAccept(scenario: Scenario): String? {
+        return sequenceOf(
+            scenario.responseContentType,
+            scenario.httpResponsePattern.headersPattern.contentType,
+            responseContentTypeFromResponseHeaderPattern(scenario),
+            runCatching { scenario.generateHttpResponse(emptyMap()).contentType() }.getOrNull()
+        ).mapNotNull { normaliseMediaType(it) }.firstOrNull()
+    }
+
+    private fun responseContentTypeFromResponseHeaderPattern(scenario: Scenario): String? {
+        val responseHeadersPattern = scenario.httpResponsePattern.headersPattern.pattern
+        val contentTypePattern = responseHeadersPattern.getCaseInsensitive(CONTENT_TYPE)?.value
+            ?: responseHeadersPattern.getCaseInsensitive(withOptionality(CONTENT_TYPE))?.value
+            ?: return null
+
+        return (contentTypePattern as? ExactValuePattern)?.pattern?.toStringLiteral()
+    }
+
+    private fun normaliseMediaType(mediaType: String?): String? {
+        return mediaType
+            ?.substringBefore(";")
+            ?.trim()
+            ?.takeUnless { it.isBlank() }
     }
 
     fun compatibilityLookup(
@@ -852,7 +877,10 @@ data class Feature(
 
             when (generatedScenarioReturnValue) {
                 is HasValue -> {
-                    val normalisedScenario = normaliseAcceptHeaderForContractTest(generatedScenarioReturnValue.value)
+                    val normalisedScenario = normaliseAcceptHeaderForContractTest(
+                        generatedScenario = generatedScenarioReturnValue.value,
+                        originalScenario = originalScenario
+                    )
                     Pair(originalScenario, HasValue(normalisedScenario, generatedScenarioReturnValue.valueDetails))
                 }
 
@@ -899,10 +927,14 @@ data class Feature(
         }
     }
 
-    private fun normaliseAcceptHeaderForContractTest(generatedScenario: Scenario): Scenario {
-        val acceptHeaderEntry = generatedScenario.httpRequestPattern.headersPattern.pattern.entries.firstOrNull {
+    private fun normaliseAcceptHeaderForContractTest(generatedScenario: Scenario, originalScenario: Scenario): Scenario {
+        val generatedAcceptHeaderEntry = generatedScenario.httpRequestPattern.headersPattern.pattern.entries.firstOrNull {
             withoutOptionality(it.key).equals(ACCEPT, ignoreCase = true)
-        } ?: return generatedScenario
+        }
+        val originalAcceptHeaderEntry = originalScenario.httpRequestPattern.headersPattern.pattern.entries.firstOrNull {
+            withoutOptionality(it.key).equals(ACCEPT, ignoreCase = true)
+        }
+        val acceptHeaderEntry = generatedAcceptHeaderEntry ?: originalAcceptHeaderEntry ?: return generatedScenario
 
         val acceptHeaderPattern = runCatching {
             resolvedHop(acceptHeaderEntry.value, generatedScenario.resolver)
@@ -912,14 +944,7 @@ data class Feature(
             return generatedScenario
         }
 
-        val responseContentType = generatedScenario.responseContentType
-            ?.takeUnless { it.isBlank() }
-            ?: generatedScenario.httpResponsePattern.headersPattern.contentType?.takeUnless { it.isBlank() }
-        val valueForAcceptHeader = responseContentType
-            ?.substringBefore(";")
-            ?.trim()
-            ?.takeUnless { it.isBlank() }
-            ?: "*/*"
+        val valueForAcceptHeader = resolveResponseContentTypeForAccept(generatedScenario) ?: "*/*"
         val updatedHeadersPattern = generatedScenario.httpRequestPattern.headersPattern.copy(
             pattern = generatedScenario.httpRequestPattern.headersPattern.pattern.plus(
                 acceptHeaderEntry.key to ExactValuePattern(StringValue(valueForAcceptHeader))
