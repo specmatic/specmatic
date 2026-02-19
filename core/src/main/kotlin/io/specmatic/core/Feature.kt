@@ -880,8 +880,7 @@ data class Feature(
             }
         }.filter { generatedScenarioPair ->
             generatedScenarioPair.second.withDefault(true) { generatedScenario ->
-                val responseContentType =
-                    generatedScenario.responseContentType ?: generatedScenario.httpResponsePattern.headersPattern.contentType
+                val responseContentType = generatedScenario.responseContentType
                 val isCompatible = runCatching {
                     isAcceptHeaderCompatibleWithResponse(
                         requestHeaders = generatedScenario.generateHttpRequest().headers,
