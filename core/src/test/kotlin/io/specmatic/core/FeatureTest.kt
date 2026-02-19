@@ -1966,6 +1966,7 @@ paths:
           in: header
           schema:
             type: string
+          required: true
       responses:
         "200":
           description: List of products in the response
