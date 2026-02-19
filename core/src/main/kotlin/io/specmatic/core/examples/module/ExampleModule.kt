@@ -102,7 +102,14 @@ class ExampleModule(private val specmaticConfig: SpecmaticConfig) {
         }.toList()
     }
 
-    fun defaultExternalExampleDirFrom(contractFile: File): File {
+    fun getFirstExampleDir(specFile: File): File {
+        val testDirs = specmaticConfig.getTestExampleDirs(specFile).map(::File)
+        val stubDirs = specmaticConfig.getStubExampleDirs(specFile).map(::File)
+        val commonDir = firstCommonByNormalizedPath(testDirs, stubDirs)
+        return commonDir ?: testDirs.firstOrNull() ?: stubDirs.firstOrNull() ?: defaultExternalExampleDirFrom(specFile)
+    }
+
+    private fun defaultExternalExampleDirFrom(contractFile: File): File {
         return contractFile.absoluteFile.parentFile.resolve(contractFile.nameWithoutExtension + "_examples")
     }
 
@@ -118,5 +125,10 @@ class ExampleModule(private val specmaticConfig: SpecmaticConfig) {
 
     private fun File.normalizedPath(): String {
         return runCatching { canonicalPath }.getOrElse { absolutePath }
+    }
+
+    private fun firstCommonByNormalizedPath(first: List<File>, second: List<File>): File? {
+        val secondPaths = second.mapTo(HashSet()) { it.normalizedPath() }
+        return first.firstOrNull { it.normalizedPath() in secondPaths }
     }
 }

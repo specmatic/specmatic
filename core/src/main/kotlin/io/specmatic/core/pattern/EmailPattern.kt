@@ -32,7 +32,7 @@ class EmailPattern (private val stringPatternDelegate: StringPattern, val exampl
     }
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
-        if (sampleData?.hasTemplate() == true)
+        if(sampleData?.hasSupportedTemplate() == true)
             return Result.Success()
 
         if (sampleData !is StringValue) return dataTypeMismatchResult(this, sampleData, resolver.mismatchMessages)
