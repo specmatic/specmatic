@@ -593,7 +593,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
 
     override fun getTestExampleDirs(specFile: File): List<String> {
         return buildList {
-            addAll(specmaticConfig.systemUnderTest?.getExampleDirs(resolver).orEmpty())
+            addAll(specmaticConfig.systemUnderTest?.getExampleDirs(specFile, resolver).orEmpty())
             addAll(exampleFromSysProp())
         }
     }

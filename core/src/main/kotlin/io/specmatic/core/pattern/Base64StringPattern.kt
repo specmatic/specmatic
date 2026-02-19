@@ -3,7 +3,6 @@ package io.specmatic.core.pattern
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.dataTypeMismatchResult
-import io.specmatic.core.valueMismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.StringValue
@@ -13,7 +12,7 @@ import java.util.*
 
 data class Base64StringPattern(override val typeAlias: String? = null) : Pattern, ScalarType {
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
-        if (sampleData?.hasTemplate() == true) return Result.Success()
+        if(sampleData?.hasSupportedTemplate() == true) return Result.Success()
         return when {
             sampleData is StringValue && Base64.isBase64(sampleData.string) -> Result.Success()
             else -> dataTypeMismatchResult(actualTypeName, sampleData, resolver.mismatchMessages)

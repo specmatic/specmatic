@@ -13,6 +13,7 @@ import io.specmatic.core.config.v3.components.settings.TestSettings
 import io.specmatic.core.config.v3.components.runOptions.MockRunOptions
 import io.specmatic.core.config.v3.components.runOptions.TestRunOptions
 import io.specmatic.core.config.v3.components.sources.SourceV3
+import io.specmatic.core.config.v3.components.ExampleDirectories
 import io.specmatic.core.utilities.contractStubPaths
 import io.specmatic.test.TestResultRecord.Companion.CONTRACT_TEST_TEST_TYPE
 import io.specmatic.reporter.model.SpecType
@@ -22,6 +23,79 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
 class SpecmaticConfigV3ImplRegressionTest {
+    @Test
+    fun `getTestExampleDirs should return test examples for spec specified under system under test`(@TempDir tempDir: File) {
+        val sutSpec = tempDir.resolve("sut-only.yaml").apply { writeText("openapi: 3.0.0") }
+        val testExamplesDir = tempDir.resolve("sut_test_examples").apply { mkdirs() }
+        val source = SourceV3.create(filesystem = SourceV3.FileSystem(directory = tempDir.canonicalPath))
+        val sut = TestServiceConfig(
+            service = RefOrValue.Value(
+                CommonServiceConfig(
+                    definitions = listOf(
+                        Definition(
+                            Definition.Value(
+                                source = RefOrValue.Value(source),
+                                specs = listOf(SpecificationDefinition.StringValue(sutSpec.name))
+                            )
+                        )
+                    ),
+                    data = Data(
+                        examples = RefOrValue.Value(
+                            listOf(RefOrValue.Value(ExampleDirectories(directories = listOf(testExamplesDir.canonicalPath))))
+                        )
+                    )
+                )
+            )
+        )
+
+        val config = SpecmaticConfigV3Impl(
+            file = tempDir.resolve("specmatic.yaml"),
+            specmaticConfig = SpecmaticConfigV3(
+                version = SpecmaticConfigVersion.VERSION_3,
+                systemUnderTest = sut
+            )
+        )
+
+        assertThat(config.getTestExampleDirs(sutSpec)).containsExactly(testExamplesDir.canonicalPath)
+    }
+
+    @Test
+    fun `getTestExampleDirs should not return test examples for spec not specified under system under test`(@TempDir tempDir: File) {
+        val sutSpec = tempDir.resolve("sut-only.yaml").apply { writeText("openapi: 3.0.0") }
+        val nonSutSpec = tempDir.resolve("dependency-only.yaml").apply { writeText("openapi: 3.0.0") }
+        val testExamplesDir = tempDir.resolve("sut_test_examples").apply { mkdirs() }
+        val source = SourceV3.create(filesystem = SourceV3.FileSystem(directory = tempDir.canonicalPath))
+        val sut = TestServiceConfig(
+            service = RefOrValue.Value(
+                CommonServiceConfig(
+                    definitions = listOf(
+                        Definition(
+                            Definition.Value(
+                                source = RefOrValue.Value(source),
+                                specs = listOf(SpecificationDefinition.StringValue(sutSpec.name))
+                            )
+                        )
+                    ),
+                    data = Data(
+                        examples = RefOrValue.Value(
+                            listOf(RefOrValue.Value(ExampleDirectories(directories = listOf(testExamplesDir.canonicalPath))))
+                        )
+                    )
+                )
+            )
+        )
+
+        val config = SpecmaticConfigV3Impl(
+            file = tempDir.resolve("specmatic.yaml"),
+            specmaticConfig = SpecmaticConfigV3(
+                version = SpecmaticConfigVersion.VERSION_3,
+                systemUnderTest = sut
+            )
+        )
+
+        assertThat(config.getTestExampleDirs(nonSutSpec)).isEmpty()
+    }
+
     @Test
     fun `getCtrfSpecConfig should resolve test spec from system under test for file input`(@TempDir tempDir: File) {
         val testFile = tempDir.resolve("test-contract.yaml").apply { writeText("openapi: 3.0.0") }
