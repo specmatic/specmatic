@@ -480,21 +480,7 @@ data class Feature(
     }
 
     private fun resolveResponseContentTypeForAccept(scenario: Scenario): String? {
-        return sequenceOf(
-            scenario.responseContentType,
-            scenario.httpResponsePattern.headersPattern.contentType,
-            responseContentTypeFromResponseHeaderPattern(scenario),
-            runCatching { scenario.generateHttpResponse(emptyMap()).contentType() }.getOrNull()
-        ).mapNotNull { normaliseMediaType(it) }.firstOrNull()
-    }
-
-    private fun responseContentTypeFromResponseHeaderPattern(scenario: Scenario): String? {
-        val responseHeadersPattern = scenario.httpResponsePattern.headersPattern.pattern
-        val contentTypePattern = responseHeadersPattern.getCaseInsensitive(CONTENT_TYPE)?.value
-            ?: responseHeadersPattern.getCaseInsensitive(withOptionality(CONTENT_TYPE))?.value
-            ?: return null
-
-        return (contentTypePattern as? ExactValuePattern)?.pattern?.toStringLiteral()
+        return normaliseMediaType(scenario.responseContentType)
     }
 
     private fun normaliseMediaType(mediaType: String?): String? {
@@ -502,6 +488,33 @@ data class Feature(
             ?.substringBefore(";")
             ?.trim()
             ?.takeUnless { it.isBlank() }
+    }
+
+    private fun generatedResponseContentTypeFromScenario(scenario: Scenario): String? {
+        return runCatching {
+            scenario.generateHttpResponse(emptyMap()).let { generated ->
+                generated.contentType()
+                    ?: if (scenario.httpResponsePattern.body is EmptyStringPattern || scenario.httpResponsePattern.body is NoBodyPattern) null
+                    else generated.body.httpContentType
+            }
+        }.getOrNull()
+    }
+
+    private fun inferredResponseContentTypeFromBodyPattern(scenario: Scenario): String? {
+        val responseBodyPattern = scenario.httpResponsePattern.body
+        if (responseBodyPattern is EmptyStringPattern || responseBodyPattern is NoBodyPattern) return null
+
+        return when {
+            isJSONPayload(responseBodyPattern) || (responseBodyPattern is DeferredPattern && isJSONPayload(
+                responseBodyPattern.resolvePattern(scenario.resolver)
+            )) -> "application/json"
+
+            responseBodyPattern is XMLPattern || (responseBodyPattern is DeferredPattern &&
+                responseBodyPattern.resolvePattern(scenario.resolver) is XMLPattern
+                ) -> "application/xml"
+
+            else -> "text/plain"
+        }
     }
 
     fun compatibilityLookup(
@@ -927,10 +940,7 @@ data class Feature(
         val generatedAcceptHeaderEntry = generatedScenario.httpRequestPattern.headersPattern.pattern.entries.firstOrNull {
             withoutOptionality(it.key).equals(ACCEPT, ignoreCase = true)
         }
-        val originalAcceptHeaderEntry = originalScenario.httpRequestPattern.headersPattern.pattern.entries.firstOrNull {
-            withoutOptionality(it.key).equals(ACCEPT, ignoreCase = true)
-        }
-        val acceptHeaderEntry = generatedAcceptHeaderEntry ?: originalAcceptHeaderEntry ?: return generatedScenario
+        val acceptHeaderEntry = generatedAcceptHeaderEntry ?: return generatedScenario
 
         val acceptHeaderPattern = runCatching {
             resolvedHop(acceptHeaderEntry.value, generatedScenario.resolver)
@@ -940,7 +950,10 @@ data class Feature(
             return generatedScenario
         }
 
-        val valueForAcceptHeader = resolveResponseContentTypeForAccept(generatedScenario) ?: "*/*"
+        val valueForAcceptHeader =
+            resolveResponseContentTypeForAccept(generatedScenario)
+                ?: resolveResponseContentTypeForAccept(originalScenario)
+                ?: "*/*"
         val updatedHeadersPattern = generatedScenario.httpRequestPattern.headersPattern.copy(
             pattern = generatedScenario.httpRequestPattern.headersPattern.pattern.plus(
                 acceptHeaderEntry.key to ExactValuePattern(StringValue(valueForAcceptHeader))

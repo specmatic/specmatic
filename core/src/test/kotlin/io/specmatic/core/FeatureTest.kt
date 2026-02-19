@@ -2283,6 +2283,100 @@ paths:
     }
 
     @Test
+    fun `contract test should send wildcard Accept and stub should honor it when response body is absent`(@TempDir tempDir: File) {
+        val spec = """
+openapi: 3.0.0
+info:
+  title: Products API
+  version: 1.0.0
+paths:
+  /products:
+    get:
+      parameters:
+        - in: header
+          name: Accept
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        """.trimIndent()
+
+        val specFile = tempDir.resolve("products.yaml")
+        specFile.writeText(spec)
+
+        val feature = OpenApiSpecification.fromFile(specFile.absolutePath).toFeature()
+        val contractTests = feature.generateContractTests(emptyList()).toList()
+        assertThat(contractTests).isNotEmpty
+
+        val observedAcceptHeaders = mutableListOf<String?>()
+        val stubPort = ServerSocket(0).use { it.localPort }
+        createStubFromContracts(listOf(specFile.absolutePath), port = stubPort, timeoutMillis = 0).use { stub ->
+            contractTests.forEach { contractTest ->
+                val result = contractTest.runTest(object : TestExecutor {
+                    override fun execute(request: HttpRequest): HttpResponse {
+                        observedAcceptHeaders.add(request.headers.getCaseInsensitive(ACCEPT)?.value)
+                        return stub.client.execute(request)
+                    }
+                })
+
+                assertThat(result.result).isInstanceOf(Result.Success::class.java)
+            }
+        }
+
+        assertThat(observedAcceptHeaders).contains("*/*")
+        assertThat(observedAcceptHeaders.filterNotNull().distinct()).containsOnly("*/*")
+    }
+
+    @Test
+    fun `contract test should never send wildcard Accept when response body exists`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+openapi: 3.0.0
+info:
+  title: Products API
+  version: 1.0.0
+paths:
+  /products:
+    get:
+      parameters:
+        - in: header
+          name: Accept
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val contractTests = feature.generateContractTests(emptyList()).toList()
+        assertThat(contractTests).isNotEmpty
+
+        val sentAcceptValues = mutableListOf<String?>()
+
+        contractTests.forEach { contractTest ->
+            val result = contractTest.runTest(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    sentAcceptValues.add(request.headers.getCaseInsensitive(ACCEPT)?.value)
+                    return HttpResponse(200, body = parsedJSONObject("{}"), headers = mapOf(CONTENT_TYPE to "application/json"))
+                }
+            })
+
+            assertThat(result.result).isInstanceOf(Result.Success::class.java)
+        }
+
+        assertThat(sentAcceptValues.filterNotNull()).isNotEmpty
+        assertThat(sentAcceptValues.filterNotNull()).doesNotContain("*/*")
+    }
+
+    @Test
     fun `invalid accept and response content type combinations should be filtered out and not executed`() {
         val validScenario = Scenario(
             ScenarioInfo(
