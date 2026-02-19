@@ -77,6 +77,46 @@ internal class HttpResponsePatternTest {
     }
 
     @Test
+    fun `response encompasses should resolve deferred headers using the passed resolvers`() {
+        val older = HttpResponsePattern(
+            status = 200,
+            headersPattern = HttpHeadersPattern(mapOf("X-Data" to DeferredPattern("(OlderHeaderType)"))),
+            body = StringPattern()
+        )
+        val newer = HttpResponsePattern(
+            status = 200,
+            headersPattern = HttpHeadersPattern(mapOf("X-Data" to DeferredPattern("(NewerHeaderType)"))),
+            body = StringPattern()
+        )
+
+        val olderResolver = Resolver(newPatterns = mapOf("(NewerHeaderType)" to StringPattern()))
+        val newerResolver = Resolver(newPatterns = mapOf("(OlderHeaderType)" to StringPattern()))
+        val result = newer.encompasses(older, olderResolver, newerResolver)
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `response encompasses should report header mismatch when deferred headers resolve to incompatible types`() {
+        val older = HttpResponsePattern(
+            status = 200,
+            headersPattern = HttpHeadersPattern(mapOf("X-Data" to DeferredPattern("(OlderHeaderType)"))),
+            body = StringPattern()
+        )
+        val newer = HttpResponsePattern(
+            status = 200,
+            headersPattern = HttpHeadersPattern(mapOf("X-Data" to DeferredPattern("(NewerHeaderType)"))),
+            body = StringPattern()
+        )
+
+        val olderResolver = Resolver(newPatterns = mapOf("(NewerHeaderType)" to NumberPattern()))
+        val newerResolver = Resolver(newPatterns = mapOf("(OlderHeaderType)" to StringPattern()))
+        val result = newer.encompasses(older, olderResolver, newerResolver)
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).contains("RESPONSE.HEADER.X-Data")
+    }
+
+    @Test
     fun `should generate no body response if the body pattern is NoBodyPattern`() {
         val httpResponsePattern = HttpResponsePattern(
             status = 203,

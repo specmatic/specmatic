@@ -4,7 +4,6 @@ import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.discriminator.DiscriminatorBasedValueGenerator
 import io.specmatic.core.discriminator.DiscriminatorMetadata
 import io.specmatic.core.pattern.*
-import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.specmatic.stub.softCastValueToXML
@@ -165,7 +164,7 @@ data class HttpResponsePattern(
         if(status != other.status)
             return Result.Failure("The status didn't match", breadCrumb = "RESPONSE.STATUS", failureReason = FailureReason.StatusMismatch)
 
-        val headerResult = headersPattern.encompasses(other.headersPattern, Resolver(), Resolver())
+        val headerResult = headersPattern.encompasses(other.headersPattern, olderResolver, newerResolver)
         val bodyResult = resolvedHop(body, olderResolver).encompasses(resolvedHop(other.body, newerResolver), olderResolver, newerResolver).breadCrumb("BODY")
 
         return Result.fromResults(listOf(headerResult, bodyResult)).breadCrumb("RESPONSE")
