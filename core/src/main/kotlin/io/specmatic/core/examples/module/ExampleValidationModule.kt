@@ -16,8 +16,7 @@ import io.specmatic.mock.PARTIAL
 import io.specmatic.mock.ScenarioStub
 import java.io.File
 
-class ExampleValidationModule(private val lenientMode: Boolean = false) {
-
+class ExampleValidationModule(private val lenientMode: Boolean = false, private val specmaticConfig: SpecmaticConfig) {
     fun validateInlineExamples(
         feature: Feature,
         examples: Map<String, List<ScenarioStub>> = emptyMap(),
@@ -46,19 +45,22 @@ class ExampleValidationModule(private val lenientMode: Boolean = false) {
     ): ValidationResults {
         val updatedFeature = scenarioFilter.filter(feature)
         return ValidationResults(
-            examples.associate { exampleFile ->
+            exampleValidationResults = examples.associate { exampleFile ->
                 logger.debug("Validating ${exampleFile.name}")
                 exampleFile.canonicalPath to validateExample(updatedFeature, exampleFile)
             },
-            callLifecycleHook(updatedFeature, ExampleModule().getExamplesFromFiles(examples))
+            hookValidationResult = callLifecycleHook(
+                feature = updatedFeature,
+                examples = ExampleModule(specmaticConfig).getExamplesFromFiles(examples)
+            )
         )
     }
 
     fun validateExample(contractFile: File, exampleFile: File): ValidationResult {
-        val feature = parseContractFileWithNoMissingConfigWarning(contractFile, lenientMode = lenientMode)
+        val feature = parseContractFileToFeature(contractFile, specmaticConfig = specmaticConfig, lenientMode = lenientMode)
         return ValidationResult(
             validateExample(feature, exampleFile),
-            callLifecycleHook(feature, ExampleModule().getExamplesFromFiles(listOf(exampleFile)))
+            callLifecycleHook(feature, ExampleModule(specmaticConfig).getExamplesFromFiles(listOf(exampleFile)))
         )
     }
 

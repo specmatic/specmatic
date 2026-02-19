@@ -2,7 +2,12 @@ package io.specmatic.core.config.v3
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.convertValue
+import com.fasterxml.jackson.module.kotlin.readValue
+import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.toSpecmaticConfig
+import io.specmatic.core.config.v3.specmatic.Governance
+import io.specmatic.core.config.v3.specmatic.License
+import io.specmatic.core.config.v3.specmatic.Report
 import io.specmatic.core.loadSpecmaticConfig
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.exceptionCauseMessage
@@ -383,6 +388,39 @@ class SpecmaticConfigV3Test {
                     delayInMilliseconds: 100
             """.trimIndent()
             assertDoesNotThrow { loadConfig(yaml)  }
+        }
+    }
+
+    @Nested
+    inner class SerializationTest {
+        @Test
+        fun `should dump license path information without any location prefixes`() {
+            val config = SpecmaticConfigV3(version = SpecmaticConfigVersion.VERSION_3, specmatic = Specmatic(license = License(path = "./specmatic/license.json")))
+            val yaml = yamlMapper.writeValueAsString(config)
+            val rawValue = yamlMapper.readValue<Map<String, Any>>(yaml)
+
+            val specmaticMap = rawValue["specmatic"] as Map<*, *>
+            val licenseMap = specmaticMap["license"] as Map<*, *>
+            val pathValue = licenseMap["path"] as String
+
+            assertThat(yaml).contains("path: ./specmatic/license.json").doesNotContain("file:///")
+            assertThat(pathValue).isEqualTo("./specmatic/license.json").doesNotStartWith("file:")
+        }
+
+        @Test
+        fun `should dump report outDir path information without any location prefixes`() {
+            val governance = Governance(report = Report(outputDirectory = "./services/myService/reports"))
+            val config = SpecmaticConfigV3(version = SpecmaticConfigVersion.VERSION_3, specmatic = Specmatic(governance = governance))
+            val yaml = yamlMapper.writeValueAsString(config)
+            val rawValue = yamlMapper.readValue<Map<String, Any>>(yaml)
+
+            val specmaticMap = rawValue["specmatic"] as Map<*, *>
+            val governanceMap = specmaticMap["governance"] as Map<*, *>
+            val reportMap = governanceMap["report"] as Map<*, *>
+            val outputDirValue = reportMap["outputDirectory"] as String
+
+            assertThat(outputDirValue).isEqualTo("./services/myService/reports").doesNotStartWith("file:")
+            assertThat(yaml).contains("outputDirectory: ./services/myService/reports").doesNotContain("file:///")
         }
     }
 }

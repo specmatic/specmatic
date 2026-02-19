@@ -13,7 +13,10 @@ sealed interface GraphQLSdlRunOptions : IRunOptions {
     val type: RunOptionType?
 
     @JsonIgnore
-    override fun getBaseUrlIfExists(): String? = extractBaseUrlFromMap(config)
+    override fun getBaseUrlIfExists(): String? {
+        val defaultHost = if (this is GraphQLSdlTestConfig) "localhost" else "0.0.0.0"
+        return extractBaseUrlFromMap(config, defaultHost)
+    }
 }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
@@ -31,7 +34,7 @@ data class GraphQLSdlTestConfig(override val specs: List<RunOptionsSpecification
     }
 
     @get:JsonAnyGetter
-    override val config: Map<String, Any> get() = _config
+    override val config: Map<String, Any> get() = _config.toMap()
 
     @JsonAnySetter
     fun put(key: String, value: Any) {
@@ -54,7 +57,7 @@ data class GraphQLSdlMockConfig(override val specs: List<RunOptionsSpecification
     }
 
     @get:JsonAnyGetter
-    override val config: Map<String, Any> get() = _config
+    override val config: Map<String, Any> get() = _config.toMap()
 
     @JsonAnySetter
     fun put(key: String, value: Any) {

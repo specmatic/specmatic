@@ -4,6 +4,8 @@ import io.specmatic.core.*
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONComposite
 import io.specmatic.core.value.JSONObjectValue
+import io.specmatic.core.value.Value
+import io.specmatic.mock.ScenarioStub
 
 const val DEREFERENCE_PREFIX = "$"
 const val FILENAME_PREFIX = "@"
@@ -21,11 +23,16 @@ data class Row(
     val exactResponseExample: ResponseExample? = null,
     val requestExample: HttpRequest? = null,
     val responseExample: HttpResponse? = null,
-    val isPartial: Boolean = false
+    val isPartial: Boolean = false,
+    val scenarioStub: ScenarioStub? = null
 ) {
     constructor(examples: Map<String, String>) :this(examples.keys.toList(), examples.values.toList())
 
     private val cells = columnNames.zip(values.map { it }).toMap().toMutableMap()
+
+    fun responseBody(): Value? {
+        return scenarioStub?.response?.body
+    }
 
     fun noteRequestBody(): Row {
         if(!this.containsField("(REQUEST-BODY)"))

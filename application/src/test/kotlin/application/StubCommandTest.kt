@@ -17,7 +17,6 @@ import io.specmatic.stub.HttpStub
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
@@ -195,6 +194,18 @@ internal class StubCommandTest {
         every { specmaticConfig.contractStubPaths() }.returns(arrayListOf("/config/path/to/contract.$CONTRACT_EXTENSION"))
 
         CommandLine(stubCommand).execute(specFilePath)
+    }
+
+    @Test
+    fun `when an explicit contract path does not exist command should return non-zero`(@TempDir tempDir: Path) {
+        val missingSpecPath = tempDir.resolve("missing.$CONTRACT_EXTENSION").toAbsolutePath().toString()
+
+        val (output, exitCode) = captureStandardOutput(redirectStdErrToStdout = true) {
+            CommandLine(stubCommand).execute(missingSpecPath)
+        }
+
+        assertThat(exitCode).isEqualTo(1)
+        assertThat(output).contains("The following specifications do not exist").contains(missingSpecPath)
     }
 
     @Test

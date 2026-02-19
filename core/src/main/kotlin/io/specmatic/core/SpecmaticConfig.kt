@@ -44,7 +44,7 @@ data class SpecificationSourceEntry(
     val exampleDirs: List<String>?,
 ) {
     fun toContractSourceEntry(): ContractSourceEntry {
-        return ContractSourceEntry(specFile.canonicalPath, baseUrl, resiliencyTestSuite, exampleDirs)
+        return ContractSourceEntry(specPathInConfig, baseUrl, resiliencyTestSuite, exampleDirs)
     }
 
     constructor(source: Source, specFile: File, specPathInConfig: String, baseUrl: String?, port: Int?, resiliencyTestSuite: ResiliencyTestSuite?) : this(
@@ -92,7 +92,7 @@ interface SpecmaticConfig {
 
     @JsonIgnore
     fun getCtrfSpecConfig(
-        absoluteSpecPath: String,
+        specFile: File,
         testType: String,
         protocol: String,
         specType: String
@@ -405,10 +405,10 @@ interface SpecmaticConfig {
     fun withMatchBranch(matchBranch: Boolean): SpecmaticConfig
 
     @JsonIgnore
-    fun testSpecPathFromConfigFor(absoluteSpecPath: String): String?
+    fun testSpecPathFromConfigFor(specFile: File): String?
 
     @JsonIgnore
-    fun stubSpecPathFromConfigFor(absoluteSpecPath: String): String?
+    fun stubSpecPathFromConfigFor(specFile: File): String?
 
     @JsonIgnore
     fun getLicensePath(): Path?

@@ -20,16 +20,16 @@ data class SpecmaticConfigV1 (
 	val repository: RepositoryInfo? = null,
 	val report: ReportConfigurationDetails? = null,
 	val security: SecurityConfiguration? = null,
-	val test: TestConfiguration? = TestConfiguration(),
-	val stub: StubConfiguration = StubConfiguration(),
+	val test: TestConfiguration? = null,
+	val stub: StubConfiguration? = null,
 	@field:JsonAlias("virtual_service")
-	val virtualService: VirtualServiceConfiguration = VirtualServiceConfiguration(),
+	val virtualService: VirtualServiceConfiguration? = null,
 	val examples: List<String> = getStringValue(EXAMPLE_DIRECTORIES)?.split(",") ?: emptyList(),
 	val workflow: WorkflowConfiguration? = null,
 	val ignoreInlineExamples: Boolean? = null,
 	val additionalExampleParamsFilePath: String? = getStringValue(Flags.ADDITIONAL_EXAMPLE_PARAMS_FILE),
 	@field:JsonAlias("attribute_selection_pattern")
-	val attributeSelectionPattern: AttributeSelectionPattern = AttributeSelectionPattern(),
+	val attributeSelectionPattern: AttributeSelectionPattern? = null,
 	@field:JsonAlias("all_patterns_mandatory")
 	val allPatternsMandatory: Boolean? = null,
 	@field:JsonAlias("default_pattern_values")

@@ -10,7 +10,13 @@ import org.junit.jupiter.api.Test
 
 internal class HttpLogMessageTest {
     private val dateTime: CurrentDate = CurrentDate()
-    private val httpLog = HttpLogMessage(dateTime, HttpRequest("GET", "/"), dateTime, HttpResponse.OK, "/path/to/file")
+    private val httpLog = HttpLogMessage(
+        requestTime =dateTime,
+        request = HttpRequest("GET", "/"),
+        responseTime = dateTime,
+        response = HttpResponse.OK,
+        contractPath = "/path/to/file"
+    )
 
     @Test
     fun `render an http log message as JSON`() {

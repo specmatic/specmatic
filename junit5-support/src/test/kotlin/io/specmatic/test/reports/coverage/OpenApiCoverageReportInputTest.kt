@@ -7,6 +7,8 @@ import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.API
 import io.specmatic.test.TestResultRecord
+import io.specmatic.test.reports.TestExecutionResult
+import io.specmatic.test.reports.TestReportListener
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -564,4 +566,59 @@ class OpenApiCoverageReportInputTest {
         assertThat(notCoveredRecord.requestContentType).isNull()
     }
 
+    @Test
+    fun shouldNotifyHooksWithIncludedAndExcludedActuatorApis() {
+        val listener = RecordingCoverageListener()
+        val input = OpenApiCoverageReportInput(configFilePath = "", coverageHooks = listOf(listener), filterExpression = "PATH = '/include'")
+        val includedApi = API("GET", "/include")
+        val excludedApi = API("POST", "/exclude")
+        input.addAPIs(listOf(includedApi, excludedApi))
+
+        assertThat(listener.actuatorApiCalls).hasSize(1)
+        val (notExcluded, excluded) = listener.actuatorApiCalls.single()
+        assertThat(notExcluded).containsExactly(includedApi)
+        assertThat(excluded).containsExactlyInAnyOrder(excludedApi)
+    }
+
+    @Test
+    fun shouldNotifyHooksWithIncludedAndExcludedEndpoints() {
+        val listener = RecordingCoverageListener()
+        val input = OpenApiCoverageReportInput(configFilePath = "", coverageHooks = listOf(listener))
+
+        val includedEndpoint = Endpoint(
+            path = "/include", method = "GET", responseStatus = 200,
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+        )
+
+        val excludedEndpoint = Endpoint(
+            path = "/exclude", method = "POST", responseStatus = 200,
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+        )
+
+        input.addEndpoints(listOf(includedEndpoint, excludedEndpoint), listOf(includedEndpoint))
+        assertThat(listener.endpointApiCalls).hasSize(1)
+        val (notExcludedEndpoints, excludedEndpoints) = listener.endpointApiCalls.single()
+        assertThat(notExcludedEndpoints).containsExactly(includedEndpoint)
+        assertThat(excludedEndpoints).containsExactlyInAnyOrder(excludedEndpoint)
+    }
+
+    private class RecordingCoverageListener : TestReportListener {
+        val actuatorApiCalls = mutableListOf<Pair<List<API>, List<API>>>()
+        val endpointApiCalls = mutableListOf<Pair<List<Endpoint>, List<Endpoint>>>()
+
+        override fun onActuatorApis(apisNotExcluded: List<API>, apisExcluded: List<API>) {
+            actuatorApiCalls.add(apisNotExcluded to apisExcluded)
+        }
+
+        override fun onEndpointApis(endpointsNotExcluded: List<Endpoint>, endpointsExcluded: List<Endpoint>) {
+            endpointApiCalls.add(endpointsNotExcluded to endpointsExcluded)
+        }
+
+        override fun onActuator(enabled: Boolean) = Unit
+        override fun onTestResult(result: TestExecutionResult) = Unit
+        override fun onTestsComplete() = Unit
+        override fun onEnd() = Unit
+        override fun onCoverageCalculated(coverage: Int) = Unit
+        override fun onPathCoverageCalculated(path: String, pathCoverage: Int) = Unit
+    }
 }

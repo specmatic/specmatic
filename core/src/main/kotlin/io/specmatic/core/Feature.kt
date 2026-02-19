@@ -74,10 +74,6 @@ fun checkExists(file: File) = file.also {
         throw ContractException("File ${file.path} does not exist (absolute path ${file.canonicalPath})")
 }
 
-fun parseContractFileWithNoMissingConfigWarning(contractFile: File, lenientMode: Boolean = false): Feature {
-    return parseContractFileToFeature(contractFile, specmaticConfig = SpecmaticConfig(), lenientMode = lenientMode)
-}
-
 fun parseContractFileToFeature(
     file: File,
     hook: Hook = PassThroughHook(),
@@ -112,12 +108,12 @@ fun parseContractFileToFeature(
             checkExists(file).readText(),
             file.canonicalPath,
             specmaticConfig
-        )
+        ).copy(exampleDirPaths = exampleDirPaths)
         in CONTRACT_EXTENSIONS -> parseGherkinStringToFeature(
             checkExists(file).readText().trim(),
             file.canonicalPath,
             specmaticConfig = specmaticConfig
-        )
+        ).copy(exampleDirPaths = exampleDirPaths)
         else -> throw unsupportedFileExtensionContractException(file.path, file.extension)
     }
 }

@@ -37,4 +37,25 @@ class SpecmaticApplicationTest {
         assertThat(exception.code).isEqualTo(0)
         assertThat(stdOut).containsPattern("v\\d+\\.\\d+\\.\\d+")
     }
+
+    @Test
+    fun `root version command should only print specmatic version`() {
+        val args = arrayOf("--version")
+        val (stdOut, exception) = captureStandardOutput {
+            assertThrows<SystemExitException> {
+                SystemExit.throwOnExit {
+                    SpecmaticApplication.main(args)
+                }
+            }
+        }
+
+        val nonBlankLines = stdOut.lineSequence()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .toList()
+
+        assertThat(exception.code).isEqualTo(0)
+        assertThat(nonBlankLines).hasSize(1)
+        assertThat(nonBlankLines.single()).containsPattern("^Specmatic Version: v\\d+\\.\\d+\\.\\d+.*$")
+    }
 }

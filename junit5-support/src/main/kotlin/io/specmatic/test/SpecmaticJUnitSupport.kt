@@ -64,7 +64,8 @@ data class API(
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 open class SpecmaticJUnitSupport {
     private var startTime: Instant? = null
-    private val settings = ContractTestSettings(settingsStaging)
+    private var settings = ContractTestSettings(settingsStaging)
+
     private val specmaticConfig: SpecmaticConfig = settings.getSpecmaticConfig()
     private val httpInteractionsLog: HttpInteractionsLog = HttpInteractionsLog()
     private val testFilter = ScenarioMetadataFilter.from(specmaticConfig.getTestFilter().orEmpty())
@@ -87,7 +88,7 @@ open class SpecmaticJUnitSupport {
     internal val openApiCoverageReportInput: OpenApiCoverageReportInput =
         OpenApiCoverageReportInput(
             configFilePath = getConfigFileWithAbsolutePath(),
-            filterExpression = specmaticConfig.getTestFilter().orEmpty(),
+            filterExpression = settings.getReportFilter().orEmpty(),
             coverageHooks = settings.coverageHooks,
             httpInteractionsLog = httpInteractionsLog,
             previousTestResultRecord = settings.previousTestRuns,
@@ -180,37 +181,24 @@ open class SpecmaticJUnitSupport {
 
     private fun getConfigFileWithAbsolutePath() = File(settings.configFile.orEmpty()).canonicalPath
 
-    @AfterAll
-    fun report() {
-        settings.coverageHooks.forEach { it.onTestsComplete() }
-        val reportProcessors =
-            listOf(OpenApiCoverageReportProcessor(openApiCoverageReportInput, settings.reportBaseDirectory ?: "."))
-        val reportConfiguration = getReportConfiguration()
-        val config = specmaticConfig.updateReportConfiguration(reportConfiguration)
-
-        reportProcessors.forEach { it.process(config) }
-
+    fun generateCtrfReport() {
         val report = openApiCoverageReportInput.generateCoverageReport(emptyList())
         val start = startTime?.toEpochMilli() ?: 0L
         val end = startTime?.let { Instant.now().toEpochMilli() } ?: 0L
-
-        val specConfigs = openApiCoverageReportInput.endpoints()
-            .groupBy {
-                it.specification.orEmpty()
-            }.flatMap { (_, groupedEndpoints) ->
-                groupedEndpoints.map {
-                    CtrfSpecConfig(
-                        protocol = it.protocol.key,
-                        specType = it.specType.value,
-                        specification = it.specification.orEmpty(),
-                        sourceProvider = it.sourceProvider,
-                        repository = it.sourceRepository,
-                        branch = it.sourceRepositoryBranch ?: "main"
-                    )
-                }
+        val specConfigs = openApiCoverageReportInput.endpoints().groupBy { it.specification.orEmpty() }.flatMap { (_, groupedEndpoints) ->
+            groupedEndpoints.map {
+                CtrfSpecConfig(
+                    protocol = it.protocol.key,
+                    specType = it.specType.value,
+                    specification = it.specification.orEmpty(),
+                    sourceProvider = it.sourceProvider,
+                    repository = it.sourceRepository,
+                    branch = it.sourceRepositoryBranch ?: "main"
+                )
             }
+        }
 
-        val reportDirPath = specmaticConfig?.getReportDirPath() ?: defaultReportDirPath
+        val reportDirPath = specmaticConfig.getReportDirPath()
         ReportGenerator.generateReport(
             testResultRecords = report.testResultRecords,
             startTime = start,
@@ -221,12 +209,25 @@ open class SpecmaticJUnitSupport {
         ) { ctrfTestResultRecords ->
             ctrfTestResultRecords.filterIsInstance<TestResultRecord>().getCoverageStatus()
         }
+    }
 
+    @AfterAll
+    fun report() {
+        settings.coverageHooks.forEach { it.onTestsComplete() }
+        val reportProcessors = listOf(OpenApiCoverageReportProcessor(openApiCoverageReportInput, settings.reportBaseDirectory ?: "."))
+        val reportConfiguration = getReportConfiguration()
+        val config = specmaticConfig.updateReportConfiguration(reportConfiguration)
 
-        threads.distinct().let {
-            if (it.size > 1) {
-                logger.newLine()
-                logger.log("Executed tests in ${it.size} threads")
+        try {
+            reportProcessors.forEach { it.process(config) }
+        } finally {
+            openApiCoverageReportInput.onProcessingComplete()
+            this.generateCtrfReport()
+            threads.distinct().let {
+                if (it.size > 1) {
+                    logger.newLine()
+                    logger.log("Executed tests in ${it.size} threads")
+                }
             }
         }
     }
@@ -245,13 +246,13 @@ open class SpecmaticJUnitSupport {
     }
 
     private fun loadExceptionAsTestError(e: Throwable): Stream<DynamicTest> {
-        return sequenceOf(DynamicTest.dynamicTest("Load Error") {
+        return sequenceOf(DynamicTest.dynamicTest("Specmatic Test Suite") {
             ResultAssert.assertThat(Result.Failure(exceptionCauseMessage(e))).isSuccess()
         }).asStream()
     }
 
     private fun noTestsFoundError(reason: String): Stream<DynamicTest> {
-        return sequenceOf(DynamicTest.dynamicTest("No Tests Found") {
+        return sequenceOf(DynamicTest.dynamicTest("Specmatic Test Suite") {
             ResultAssert.assertThat(Result.Failure("No tests found to run. $reason")).isSuccess()
         }).asStream()
     }
@@ -259,6 +260,8 @@ open class SpecmaticJUnitSupport {
     @TestFactory
     fun contractTest(): Stream<DynamicTest> {
         LicenseResolver.setCurrentExecutorIfNotSet(Executor.PROGRAMMATIC)
+
+        settings = ContractTestSettings(settings, specmaticConfig)
 
         LicenseConfig.instance.utilization.shipDisabled = specmaticConfig.isTelemetryDisabled()
         partialSuccesses.clear()
@@ -287,7 +290,7 @@ open class SpecmaticJUnitSupport {
                     // Default base URL is mandatory for this mode
                     val defaultBaseURL = constructTestBaseURL()
 
-                    val testScenariosAndEndpointsPairList = settings.contractPaths.split(",").filter {
+                    val testScenariosAndEndpointsPairList = settings.contractPaths.orEmpty().split(",").filter {
                         File(it).extension in CONTRACT_EXTENSIONS
                     }.map {
                         val overlayFilePath: String? = settings.overlayFilePath?.canonicalPath ?: specmaticConfig.getTestOverlayFilePath(File(it), SpecType.OPENAPI)
@@ -449,7 +452,8 @@ open class SpecmaticJUnitSupport {
         testScenarios: Sequence<Pair<ContractTest, String>>,
         actuatorBaseURL: String,
         timeoutInMilliseconds: Long,
-    ): Stream<DynamicTest> {
+    ): Stream<DynamicTest>
+    {
         try {
             if (queryActuator().failed && actuatorFromSwagger(actuatorBaseURL).failed) {
                 openApiCoverageReportInput.setEndpointsAPIFlag(false)
@@ -491,8 +495,8 @@ open class SpecmaticJUnitSupport {
                         )
 
                     testResult =
-                        httpClient.use { httpClient ->
-                            contractTest.runTest(httpClient)
+                        httpClient.use {
+                            contractTest.runTest(it)
                         }
                     val (result) = testResult
 
@@ -526,6 +530,8 @@ open class SpecmaticJUnitSupport {
     }
 
     fun constructTestBaseURL(): String {
+        val settings = settings
+
         if (settings.testBaseURL != null) {
             when (val validationResult = validateTestOrStubUri(settings.testBaseURL)) {
                 URIValidationResult.Success -> return settings.testBaseURL
@@ -619,6 +625,7 @@ open class SpecmaticJUnitSupport {
                 convertPathParameterStyle(scenario.path),
                 scenario.method,
                 scenario.httpResponsePattern.status,
+                scenario.soapActionUnescaped,
                 scenario.sourceProvider,
                 scenario.sourceRepository,
                 scenario.sourceRepositoryBranch,
@@ -648,6 +655,7 @@ open class SpecmaticJUnitSupport {
                 convertPathParameterStyle(scenario.path),
                 scenario.method,
                 scenario.httpResponsePattern.status,
+                scenario.soapActionUnescaped,
                 scenario.sourceProvider,
                 scenario.sourceRepository,
                 scenario.sourceRepositoryBranch,

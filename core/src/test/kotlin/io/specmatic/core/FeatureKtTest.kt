@@ -1180,15 +1180,6 @@ paths:
     }
 
     @Test
-    fun `should be able to parse a spec with no warning about missing config`() {
-        val (stdout, _) = captureStandardOutput {
-            parseContractFileWithNoMissingConfigWarning(File("src/test/resources/openapi/jsonAndYamlEquivalence/openapi.yaml"))
-        }
-
-        assertThat(stdout).doesNotContain("Could not find the Specmatic configuration at path")
-    }
-
-    @Test
     fun `should filter out scenario when 4xx definitions are missing from Feature but present in originalScenarios`() {
         val path = "/orders/(id:string)"
         val orderPostOk = Scenario(ScenarioInfo(

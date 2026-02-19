@@ -31,8 +31,8 @@ data class OpenApiTestConfig(
     @JsonIgnore
     override fun getBaseUrlIfExists(): String? {
         if (baseUrl != null) return baseUrl
-        if (host == null || port == null) return null
-        return "http://$host:$port"
+        if (port == null) return null
+        return "http://${host ?: "localhost"}:$port"
     }
 
     init {
@@ -59,9 +59,9 @@ data class OpenApiMockConfig(
     @JsonIgnore
     override fun getBaseUrlIfExists(): String? {
         if (baseUrl != null) return baseUrl
-        if (host == null || port == null) return null
+        if (port == null) return null
         val scheme = if (cert == null) "http" else "https"
-        return "$scheme://$host:$port"
+        return "$scheme://${host ?: "0.0.0.0"}:$port"
     }
 
     init {

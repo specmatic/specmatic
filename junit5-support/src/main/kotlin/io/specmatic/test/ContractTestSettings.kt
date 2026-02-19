@@ -2,6 +2,7 @@ package io.specmatic.test
 
 import io.specmatic.core.Configuration
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.config.nonNullElse
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.loadSpecmaticConfigOrDefault
 import io.specmatic.core.loadSpecmaticConfigOrNull
@@ -50,10 +51,17 @@ data class ContractTestSettings(
     val suggestionsPath: String? = otherArguments?.suggestionsPath
     val inlineSuggestions: String? = otherArguments?.inlineSuggestions
     val variablesFileName: String? = otherArguments?.variablesFileName
+    private val specmaticConfig = loadSpecmaticConfigOrNull(configFile, explicitlySpecifiedByUser = configFile != null).orDefault()
 
     fun getSpecmaticConfig(): SpecmaticConfig {
-        val specmaticConfig = loadSpecmaticConfigOrNull(configFile, explicitlySpecifiedByUser = configFile != null).orDefault()
         return adjust(specmaticConfig)
+    }
+
+    fun getReportFilter(): String? {
+        if (specmaticConfig.getTestFilter() == filter) return filter
+        return specmaticConfig.getTestFilter().nonNullElse(filter) { filter1, filter2 ->
+            listOf(filter1, filter2).filter(String::isNotBlank).joinToString(separator = " && ") { "( $it )" }
+        }
     }
 
     private fun adjust(specmaticConfig: SpecmaticConfig): SpecmaticConfig {
@@ -106,30 +114,34 @@ data class ContractTestSettings(
     )
 
     constructor(contractTestSettings: ThreadLocal<ContractTestSettings?>, specmaticConfig: SpecmaticConfig) : this(
-        generative = contractTestSettings.get()?.generative,
-        reportBaseDirectory = contractTestSettings.get()?.reportBaseDirectory,
-        coverageHooks = contractTestSettings.get()?.coverageHooks ?: emptyList(),
-        previousTestRuns = contractTestSettings.get()?.previousTestRuns.orEmpty(),
-        configFile = contractTestSettings.get()?.configFile ?: getConfigFilePath(),
-        strictMode = contractTestSettings.get()?.strictMode ?: SpecmaticConfig().getTestStrictMode(),
-        lenientMode = contractTestSettings.get()?.lenientMode ?: SpecmaticConfig().getTestLenientMode() ?: false,
-        testBaseURL = contractTestSettings.get()?.testBaseURL ?: specmaticConfig.getTestBaseUrl(SpecType.OPENAPI),
-        contractPaths = contractTestSettings.get()?.contractPaths,
-        timeoutInMilliSeconds = contractTestSettings.get()?.timeoutInMilliSeconds,
-        filter = contractTestSettings.get()?.filter ?: specmaticConfig.getTestFilter(),
+        contractTestSettings.get(), specmaticConfig
+    )
+
+    constructor(contractTestSettings: ContractTestSettings?, specmaticConfig: SpecmaticConfig) : this(
+        generative = contractTestSettings?.generative,
+        reportBaseDirectory = contractTestSettings?.reportBaseDirectory,
+        coverageHooks = contractTestSettings?.coverageHooks ?: emptyList(),
+        previousTestRuns = contractTestSettings?.previousTestRuns.orEmpty(),
+        configFile = contractTestSettings?.configFile ?: getConfigFilePath(),
+        strictMode = contractTestSettings?.strictMode ?: SpecmaticConfig().getTestStrictMode(),
+        lenientMode = contractTestSettings?.lenientMode ?: SpecmaticConfig().getTestLenientMode() ?: false,
+        testBaseURL = contractTestSettings?.testBaseURL ?: specmaticConfig.getTestBaseUrl(SpecType.OPENAPI),
+        contractPaths = contractTestSettings?.contractPaths,
+        timeoutInMilliSeconds = contractTestSettings?.timeoutInMilliSeconds,
+        filter = contractTestSettings?.filter ?: specmaticConfig.getTestFilter(),
         otherArguments = DeprecatedArguments(
-            host = contractTestSettings.get()?.otherArguments?.host,
-            port = contractTestSettings.get()?.otherArguments?.port,
-            envName = contractTestSettings.get()?.otherArguments?.envName,
-            protocol = contractTestSettings.get()?.otherArguments?.protocol,
-            useCurrentBranchForCentralRepo = contractTestSettings.get()?.otherArguments?.useCurrentBranchForCentralRepo,
-            suggestionsPath = contractTestSettings.get()?.otherArguments?.suggestionsPath,
-            inlineSuggestions = contractTestSettings.get()?.otherArguments?.inlineSuggestions,
-            variablesFileName = contractTestSettings.get()?.otherArguments?.variablesFileName,
-            exampleDirectories = contractTestSettings.get()?.otherArguments?.exampleDirectories ?: specmaticConfig.getExamples(),
-            filterName = contractTestSettings.get()?.otherArguments?.filterName ?: specmaticConfig.getTestFilterName(),
-            filterNotName = contractTestSettings.get()?.otherArguments?.filterNotName ?: specmaticConfig.getTestFilterNotName(),
-            overlayFilePath = contractTestSettings.get()?.otherArguments?.overlayFilePath,
+            host = contractTestSettings?.otherArguments?.host,
+            port = contractTestSettings?.otherArguments?.port,
+            envName = contractTestSettings?.otherArguments?.envName,
+            protocol = contractTestSettings?.otherArguments?.protocol,
+            useCurrentBranchForCentralRepo = contractTestSettings?.otherArguments?.useCurrentBranchForCentralRepo,
+            suggestionsPath = contractTestSettings?.otherArguments?.suggestionsPath,
+            inlineSuggestions = contractTestSettings?.otherArguments?.inlineSuggestions,
+            variablesFileName = contractTestSettings?.otherArguments?.variablesFileName,
+            exampleDirectories = contractTestSettings?.otherArguments?.exampleDirectories ?: specmaticConfig.getExamples(),
+            filterName = contractTestSettings?.otherArguments?.filterName ?: specmaticConfig.getTestFilterName(),
+            filterNotName = contractTestSettings?.otherArguments?.filterNotName ?: specmaticConfig.getTestFilterNotName(),
+            overlayFilePath = contractTestSettings?.otherArguments?.overlayFilePath,
         ),
     )
 }

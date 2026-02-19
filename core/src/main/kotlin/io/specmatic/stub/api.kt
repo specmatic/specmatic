@@ -174,17 +174,14 @@ fun createStub(
             val contractStubPaths = contractStubPaths(configFileName, useCurrentBranchForCentralRepo)
 
             val stubs =
-                if (dataDirPaths.isEmpty()) {
-                    loadContractStubsFromImplicitPaths(contractStubPaths, specmaticConfig, dataDirPaths)
-                } else {
-                    loadContractStubsFromFiles(
-                        contractStubPaths,
-                        dataDirPaths,
-                        specmaticConfig,
-                        effectiveStrictMode,
-                        withImplicitStubs = true,
-                    )
-                }
+                loadContractStubsFromFiles(
+                    contractStubPaths,
+                    dataDirPaths,
+                    specmaticConfig,
+                    effectiveStrictMode,
+                    withImplicitStubs = true,
+                )
+
             val features = stubs.map { it.first }
             val expectations = contractInfoToHttpExpectations(stubs)
 
@@ -301,7 +298,7 @@ fun loadContractStubsFromImplicitPathsAsResults(
                         )?.second ?: return emptyList()
 
                     try {
-                        val implicitDataDirs = implicitDirsForSpecifications(specFile, specmaticConfig, feature)
+                        val implicitDataDirs = implicitDirsForSpecifications(specFile, specmaticConfig)
                         val externalDataDirs = dataDirFiles(externalDataDirPaths)
 
                         val dataFiles = implicitDataDirs.flatMap { filesInDir(it).orEmpty() }
@@ -410,14 +407,12 @@ fun loadContractStubsFromImplicitPaths(
         processedInvalidSpecs,
     ).filterIsInstance<FeatureStubsResult.Success>().map { Pair(it.feature, it.scenarioStubs) }
 
-fun implicitDirsForSpecifications(contractPath: File, specmaticConfig: SpecmaticConfig, feature: Feature): List<File> {
-    val exampleDirPathsForAFeature = feature.exampleDirPaths.map { File(it) }
+fun implicitDirsForSpecifications(contractPath: File, specmaticConfig: SpecmaticConfig): List<File> {
     val customImplicitStubBase = customImplicitStubBase(specmaticConfig)
-
     return listOfNotNull(
         implicitContractDataDir(contractPath.path),
         customImplicitStubBase?.let { implicitContractDataDir(contractPath.path, it) }
-    ).plus(exampleDirPathsForAFeature).sorted()
+    ).sorted()
 }
 
 fun hasOpenApiFileExtension(contractPath: String): Boolean = OPENAPI_FILE_EXTENSIONS.any { contractPath.trim().endsWith(".$it") }
@@ -494,7 +489,37 @@ fun loadContractStubsFromFilesAsResults(
             processedInvalidSpecs = contractPathDataList.excludeUnsupportedSpecifications().map { it.path },
         )
 
-    return explicitStubs.plus(implicitStubs)
+    val explicitStubsWithImplicitOverrides =
+        explicitStubsWithOverriddenImplicitExamplesInFeatures(implicitStubs, explicitStubs)
+
+    return explicitStubsWithImplicitOverrides.plus(implicitStubs)
+}
+
+private fun explicitStubsWithOverriddenImplicitExamplesInFeatures(
+    implicitStubs: List<FeatureStubsResult>,
+    explicitStubs: List<FeatureStubsResult>
+): List<FeatureStubsResult> {
+    val implicitExternalExampleNames =
+        implicitStubs
+            .filterIsInstance<FeatureStubsResult.Success>()
+            .flatMap { it.scenarioStubs }
+            .mapNotNull { it.nameOrFileName }
+            .toSet()
+
+    val explicitStubsWithImplicitOverrides =
+        if (implicitExternalExampleNames.isEmpty()) {
+            explicitStubs
+        } else {
+            explicitStubs.map { stubResult ->
+                when (stubResult) {
+                    is FeatureStubsResult.Success ->
+                        stubResult.copy(feature = stubResult.feature.overrideInlineExamples(implicitExternalExampleNames))
+
+                    is FeatureStubsResult.Failure -> stubResult
+                }
+            }
+        }
+    return explicitStubsWithImplicitOverrides
 }
 
 // kept for b/w compatibility
@@ -694,16 +719,19 @@ private fun specPathToImplicitDataDirPaths(
             }
 
             val implicitExamplesPath = stubContractPath.substringBeforeLast(".").plus("_examples")
+            val stubContractFile = when {
+                File(stubContractPath).isAbsolute -> File(stubContractPath)
+                stubDirectory.isNotBlank() -> File(stubDirectory, stubContractPath)
+                else -> File(stubContractPath)
+            }
 
-            val stubContractPathWithDirectory =
-                if (stubDirectory.isNotBlank()) "$stubDirectory${File.separator}$stubContractPath" else stubContractPath
-            stubContractPathWithDirectory to
-                dataDirPaths.map { dataDirPath ->
-                    ImplicitOriginalDataDirPair(
-                        implicitDataDir = "$dataDirPath${File.separator}$implicitExamplesPath",
-                        dataDir = dataDirPath,
-                    )
+            stubContractFile.path to dataDirPaths.map { dataDirPath ->
+                val implicitDirFile = when {
+                    File(implicitExamplesPath).isAbsolute -> File(implicitExamplesPath)
+                    else -> File(dataDirPath, implicitExamplesPath)
                 }
+                ImplicitOriginalDataDirPair(implicitDataDir = implicitDirFile.path, dataDir = dataDirPath)
+            }
         }
 }
 

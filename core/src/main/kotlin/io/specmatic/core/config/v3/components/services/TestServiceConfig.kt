@@ -14,9 +14,9 @@ import io.specmatic.core.config.v3.components.runOptions.OpenApiTestConfig
 import io.specmatic.core.config.v3.components.runOptions.TestRunOptions
 import io.specmatic.core.config.v3.components.settings.TestSettings
 import io.specmatic.core.config.v3.components.sources.SourceV3
+import io.specmatic.core.config.v3.determineSpecTypeFor
 import io.specmatic.core.config.v3.resolveElseThrow
 import io.specmatic.reporter.model.SpecType
-import io.specmatic.stub.isOpenAPI
 import java.io.File
 
 data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRunOptions, TestSettings>>) {
@@ -72,7 +72,7 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
         val service = service.resolveElseThrow(resolver)
         return service.definitions.map { it.definition }.flatMap { definition ->
             val examples = getExampleDirs(resolver)
-            val resilientSuite = testSettings?.resiliencyTests
+            val resilientSuite = testSettings?.schemaResiliencyTests
             val source = definition.source.resolveElseThrow(resolver)
             definition.specs.map {
                 it.toSpecificationSource(source, resilientSuite, examples) { specId, file ->
@@ -80,6 +80,18 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
                 }
             }.map { spec -> source to spec }
         }.groupBy(keySelector = { it.first }, valueTransform = { it.second })
+    }
+
+    @JsonIgnore
+    fun getExampleDirs(specFile: File, resolver: RefOrValueResolver): List<String>? {
+        val service = service.resolveElseThrow(resolver)
+        val containsDefinition = service.definitions.map { it.definition }.any { definition ->
+            val source = definition.source.resolveElseThrow(resolver)
+            definition.specs.any { it.matchesFile(source, specFile) }
+        }
+
+        if (!containsDefinition) return null
+        return service.data?.toExampleDirs(resolver)
     }
 
     @JsonIgnore
@@ -97,7 +109,7 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
     fun copyResiliencyTestsConfig(resolver: RefOrValueResolver, resiliencyTestSuite: ResiliencyTestSuite): TestServiceConfig {
         val service = this.service.resolveElseThrow(resolver)
         val settings = service.settings?.resolveElseThrow(resolver) ?: TestSettings()
-        val updatedSettings = settings.copy(resiliencyTests = resiliencyTestSuite)
+        val updatedSettings = settings.copy(schemaResiliencyTests = resiliencyTestSuite)
         return this.copy(service = RefOrValue.Value(service.copy(settings = RefOrValue.Value(updatedSettings))))
     }
 
@@ -148,18 +160,11 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
 
     @JsonIgnore
     private fun getFirstBaseUrlFromRunOpts(specId: String?, specFile: File, resolver: RefOrValueResolver): String? {
-        val specTypesToCheck = when {
-            specFile.extension == "wsdl" -> listOf(SpecType.WSDL)
-            specFile.extension == "proto" -> listOf(SpecType.PROTOBUF)
-            specFile.extension in setOf("graphql", "graphqls") -> listOf(SpecType.GRAPHQL)
-            isOpenAPI(specFile.canonicalPath, logFailure = false) -> listOf(SpecType.OPENAPI)
-            else -> listOf(SpecType.OPENAPI, SpecType.ASYNCAPI)
-        }
-
+        val specTypesToCheck = determineSpecTypeFor(specFile)
         return specTypesToCheck.firstNotNullOfOrNull {
             val runOptions = getRunOptions(resolver, it) ?: return@firstNotNullOfOrNull null
             val runOptionSpecOverride = specId?.let(runOptions::getMatchingSpecification)
-            runOptionSpecOverride?.getBaseUrl() ?: runOptions.getBaseUrlIfExists()
+            runOptionSpecOverride?.getBaseUrl("localhost") ?: runOptions.getBaseUrlIfExists()
         }
     }
 }

@@ -13,6 +13,9 @@ import io.specmatic.core.config.v3.components.settings.TestSettings
 import io.specmatic.core.config.v3.components.runOptions.MockRunOptions
 import io.specmatic.core.config.v3.components.runOptions.TestRunOptions
 import io.specmatic.core.config.v3.components.sources.SourceV3
+import io.specmatic.core.config.v3.components.ExampleDirectories
+import io.specmatic.core.utilities.contractStubPaths
+import io.specmatic.test.TestResultRecord.Companion.CONTRACT_TEST_TEST_TYPE
 import io.specmatic.reporter.model.SpecType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -20,6 +23,120 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
 class SpecmaticConfigV3ImplRegressionTest {
+    @Test
+    fun `getTestExampleDirs should return test examples for spec specified under system under test`(@TempDir tempDir: File) {
+        val sutSpec = tempDir.resolve("sut-only.yaml").apply { writeText("openapi: 3.0.0") }
+        val testExamplesDir = tempDir.resolve("sut_test_examples").apply { mkdirs() }
+        val source = SourceV3.create(filesystem = SourceV3.FileSystem(directory = tempDir.canonicalPath))
+        val sut = TestServiceConfig(
+            service = RefOrValue.Value(
+                CommonServiceConfig(
+                    definitions = listOf(
+                        Definition(
+                            Definition.Value(
+                                source = RefOrValue.Value(source),
+                                specs = listOf(SpecificationDefinition.StringValue(sutSpec.name))
+                            )
+                        )
+                    ),
+                    data = Data(
+                        examples = RefOrValue.Value(
+                            listOf(RefOrValue.Value(ExampleDirectories(directories = listOf(testExamplesDir.canonicalPath))))
+                        )
+                    )
+                )
+            )
+        )
+
+        val config = SpecmaticConfigV3Impl(
+            file = tempDir.resolve("specmatic.yaml"),
+            specmaticConfig = SpecmaticConfigV3(
+                version = SpecmaticConfigVersion.VERSION_3,
+                systemUnderTest = sut
+            )
+        )
+
+        assertThat(config.getTestExampleDirs(sutSpec)).containsExactly(testExamplesDir.canonicalPath)
+    }
+
+    @Test
+    fun `getTestExampleDirs should not return test examples for spec not specified under system under test`(@TempDir tempDir: File) {
+        val sutSpec = tempDir.resolve("sut-only.yaml").apply { writeText("openapi: 3.0.0") }
+        val nonSutSpec = tempDir.resolve("dependency-only.yaml").apply { writeText("openapi: 3.0.0") }
+        val testExamplesDir = tempDir.resolve("sut_test_examples").apply { mkdirs() }
+        val source = SourceV3.create(filesystem = SourceV3.FileSystem(directory = tempDir.canonicalPath))
+        val sut = TestServiceConfig(
+            service = RefOrValue.Value(
+                CommonServiceConfig(
+                    definitions = listOf(
+                        Definition(
+                            Definition.Value(
+                                source = RefOrValue.Value(source),
+                                specs = listOf(SpecificationDefinition.StringValue(sutSpec.name))
+                            )
+                        )
+                    ),
+                    data = Data(
+                        examples = RefOrValue.Value(
+                            listOf(RefOrValue.Value(ExampleDirectories(directories = listOf(testExamplesDir.canonicalPath))))
+                        )
+                    )
+                )
+            )
+        )
+
+        val config = SpecmaticConfigV3Impl(
+            file = tempDir.resolve("specmatic.yaml"),
+            specmaticConfig = SpecmaticConfigV3(
+                version = SpecmaticConfigVersion.VERSION_3,
+                systemUnderTest = sut
+            )
+        )
+
+        assertThat(config.getTestExampleDirs(nonSutSpec)).isEmpty()
+    }
+
+    @Test
+    fun `getCtrfSpecConfig should resolve test spec from system under test for file input`(@TempDir tempDir: File) {
+        val testFile = tempDir.resolve("test-contract.yaml").apply { writeText("openapi: 3.0.0") }
+        val source = SourceV3.create(filesystem = SourceV3.FileSystem(directory = tempDir.canonicalPath))
+
+        val sut = TestServiceConfig(
+            service = RefOrValue.Value(
+                CommonServiceConfig<TestRunOptions, TestSettings>(
+                    definitions = listOf(
+                        Definition(
+                            Definition.Value(
+                                source = RefOrValue.Value(source),
+                                specs = listOf(SpecificationDefinition.StringValue(testFile.name))
+                            )
+                        )
+                    )
+                )
+            )
+        )
+
+        val config = SpecmaticConfigV3Impl(
+            file = tempDir.resolve("specmatic.yaml"),
+            specmaticConfig = SpecmaticConfigV3(
+                version = SpecmaticConfigVersion.VERSION_3,
+                systemUnderTest = sut
+            )
+        )
+
+        val ctrfSpecConfig = config.getCtrfSpecConfig(
+            specFile = testFile,
+            testType = CONTRACT_TEST_TEST_TYPE,
+            protocol = "HTTP",
+            specType = SpecType.OPENAPI.value
+        )
+
+        assertThat(ctrfSpecConfig.specification).isEqualTo(testFile.name)
+        assertThat(ctrfSpecConfig.sourceProvider).isEqualTo("filesystem")
+        assertThat(ctrfSpecConfig.repository).isEmpty()
+        assertThat(ctrfSpecConfig.branch).isEqualTo("main")
+    }
+
     @Test
     fun `stubSpecPathFromConfigFor should resolve stub spec from dependencies`(@TempDir tempDir: File) {
         val stubFile = tempDir.resolve("stub-contract.yaml").apply { writeText("openapi: 3.0.0") }
@@ -53,7 +170,7 @@ class SpecmaticConfigV3ImplRegressionTest {
             )
         )
 
-        assertThat(config.stubSpecPathFromConfigFor(stubFile.canonicalPath)).isEqualTo(stubFile.name)
+        assertThat(config.stubSpecPathFromConfigFor(stubFile)).isEqualTo(stubFile.name)
     }
 
     @Test
@@ -149,5 +266,36 @@ class SpecmaticConfigV3ImplRegressionTest {
         } finally {
             if (original == null) System.clearProperty(TEST_OVERLAY_FILE_PATH_PROPERTY) else System.setProperty(TEST_OVERLAY_FILE_PATH_PROPERTY, original)
         }
+    }
+
+    @Test
+    fun `contract stub paths should include service example directories from v3 config`(@TempDir tempDir: File) {
+        tempDir.resolve("order_api.wsdl").writeText("<definitions/>")
+        val configFile = tempDir.resolve("specmatic.yaml")
+        configFile.writeText(
+            """
+            version: 3
+            dependencies:
+              services:
+                - service:
+                    definitions:
+                      - definition:
+                          source:
+                            filesystem:
+                              directory: ${tempDir.canonicalPath}
+                          specs:
+                            - order_api.wsdl
+                    data:
+                      examples:
+                        - directories:
+                            - custom-examples-dir
+            """.trimIndent()
+        )
+
+        val stubPaths = contractStubPaths(configFile.canonicalPath)
+        val stubPath = stubPaths.single()
+
+        assertThat(stubPath.specificationPath).endsWith("order_api.wsdl")
+        assertThat(stubPath.exampleDirPaths).containsExactly("custom-examples-dir")
     }
 }

@@ -667,6 +667,22 @@ paths:
     }
 
     @Test
+    fun `should return up status header when root HEAD endpoint is hit`() {
+        val specification =
+            OpenApiSpecification.fromFile("src/test/resources/openapi/spec_with_space_in_path.yaml").toFeature()
+
+        HttpStub(specification).use { stub ->
+            val request = HttpRequest("HEAD", "/")
+
+            val response = stub.client.execute(request)
+
+            assertThat(response.status).isEqualTo(200)
+            assertThat(response.headers["X-Specmatic-Status"]).isEqualTo("up")
+            assertThat(response.headers[SPECMATIC_RESULT_HEADER]).isNotEqualTo("failure")
+        }
+    }
+
+    @Test
     fun `should be able to set expectations for an API with a security scheme`() {
         val feature = OpenApiSpecification.fromYAML(
             """
@@ -828,6 +844,9 @@ components:
         ).use { stub ->
 
             stub.registerRequestInterceptor(object: RequestInterceptor {
+                override val name: String
+                    get() = "requestInterceptor"
+
                 override fun interceptRequest(httpRequest: HttpRequest): HttpRequest {
                     val id = httpRequest.path?.split("/")?.last()?.toInt() ?: 0
                     val updatedPath = httpRequest.path?.split("/")?.map {
@@ -839,6 +858,9 @@ components:
             })
 
             stub.registerResponseInterceptor(object: ResponseInterceptor {
+                override val name: String
+                    get() = "responseInterceptor"
+
                 override fun interceptResponse(
                     httpRequest: HttpRequest,
                     httpResponse: HttpResponse

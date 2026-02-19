@@ -59,7 +59,8 @@ class ExampleFromFile(private val scenarioStub: ScenarioStub, val file: File) {
             responseExampleForAssertion = response,
             requestExample = scenarioStub.getRequestWithAdditionalParamsIfAny(specmaticConfig.getAdditionalExampleParamsFilePath()),
             responseExample = response,
-            isPartial = scenarioStub.partial != null
+            isPartial = scenarioStub.partial != null,
+            scenarioStub = scenarioStub
         ).let { ExampleProcessor.resolve(it, ExampleProcessor::ifNotExitsToLookupPattern) }
     }
 
