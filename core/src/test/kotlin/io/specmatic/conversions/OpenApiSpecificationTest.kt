@@ -11963,6 +11963,31 @@ paths:
     }
 
     @Test
+    fun `duplicate inline example names across request media types should all be used`() {
+        val feature = OpenApiSpecification.fromYAML(
+            duplicateExampleNameAcrossRequestMediaTypesSpec(),
+            "duplicate-inline-examples-request-media-types.yaml"
+        ).toFeature()
+
+        assertThat(feature.inlineNamedStubs.count { it.name == "SUCCESS" }).isEqualTo(3)
+
+        val seenInventories = mutableListOf<Int>()
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                val body = request.body as JSONObjectValue
+                seenInventories.add(body.getInt("inventory"))
+                return HttpResponse(200, parsedJSONObject("""{"result":"ok"}"""))
+            }
+
+            override fun setServerState(serverState: Map<String, Value>) {
+            }
+        })
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(seenInventories).containsExactlyInAnyOrder(100, 200, 300)
+    }
+
+    @Test
     fun `should throw exception when a request example has no matching response example during conversion in strict mode`() {
         val specPath = "src/test/resources/openapi/inline_response_example_without_request.yaml"
         val error = assertThrows<ContractException> {
@@ -12265,6 +12290,67 @@ paths:
                             SUCCESS:
                               value:
                                 inventory: 200
+            components:
+              schemas:
+                Product:
+                  type: object
+                  required:
+                    - inventory
+                  properties:
+                    inventory:
+                      type: integer
+        """.trimIndent()
+    }
+
+    private fun duplicateExampleNameAcrossRequestMediaTypesSpec(): String {
+        return """
+            openapi: 3.0.0
+            info:
+              title: Duplicate Example Names Across Request Media Types
+              version: 1.0.0
+            paths:
+              /products:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          ${"$"}ref: '#/components/schemas/Product'
+                        examples:
+                          SUCCESS:
+                            value:
+                              inventory: 100
+                      application/problem+json:
+                        schema:
+                          ${"$"}ref: '#/components/schemas/Product'
+                        examples:
+                          SUCCESS:
+                            value:
+                              inventory: 200
+                      application/merge-patch+json:
+                        schema:
+                          ${"$"}ref: '#/components/schemas/Product'
+                        examples:
+                          SUCCESS:
+                            value:
+                              inventory: 300
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - result
+                            properties:
+                              result:
+                                type: string
+                          examples:
+                            SUCCESS:
+                              value:
+                                result: ok
             components:
               schemas:
                 Product:
