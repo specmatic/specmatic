@@ -864,7 +864,7 @@ data class Feature(
             suggestions,
             fn,
             originalScenarios
-        ).mapNotNull { generatedScenarioPair ->
+        ).map { generatedScenarioPair ->
             val (originalScenario, generatedScenarioReturnValue) = generatedScenarioPair
 
             when (generatedScenarioReturnValue) {

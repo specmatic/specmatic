@@ -15,8 +15,7 @@ fun isAcceptHeaderCompatibleWithResponse(requestHeaders: Map<String, String>, re
 fun isResponseContentTypeAccepted(acceptHeader: String, responseContentType: String): Boolean {
     val parsedResponseType = parseMediaTypeToken(responseContentType.substringBefore(";")) ?: return true
 
-    val acceptedMediaTypes = acceptTokensByPriority(acceptHeader)
-        .toList()
+    val acceptedMediaTypes = acceptTokensByPriority(acceptHeader).toList()
 
     if (acceptedMediaTypes.isEmpty()) return false
 
