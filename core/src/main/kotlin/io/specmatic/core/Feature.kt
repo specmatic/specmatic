@@ -500,33 +500,6 @@ data class Feature(
             ?.takeUnless { it.isBlank() }
     }
 
-    private fun generatedResponseContentTypeFromScenario(scenario: Scenario): String? {
-        return runCatching {
-            scenario.generateHttpResponse(emptyMap()).let { generated ->
-                generated.contentType()
-                    ?: if (scenario.httpResponsePattern.body is EmptyStringPattern || scenario.httpResponsePattern.body is NoBodyPattern) null
-                    else generated.body.httpContentType
-            }
-        }.getOrNull()
-    }
-
-    private fun inferredResponseContentTypeFromBodyPattern(scenario: Scenario): String? {
-        val responseBodyPattern = scenario.httpResponsePattern.body
-        if (responseBodyPattern is EmptyStringPattern || responseBodyPattern is NoBodyPattern) return null
-
-        return when {
-            isJSONPayload(responseBodyPattern) || (responseBodyPattern is DeferredPattern && isJSONPayload(
-                responseBodyPattern.resolvePattern(scenario.resolver)
-            )) -> "application/json"
-
-            responseBodyPattern is XMLPattern || (responseBodyPattern is DeferredPattern &&
-                responseBodyPattern.resolvePattern(scenario.resolver) is XMLPattern
-                ) -> "application/xml"
-
-            else -> "text/plain"
-        }
-    }
-
     fun compatibilityLookup(
         httpRequest: HttpRequest,
         mismatchMessages: MismatchMessages = NewAndOldSpecificationRequestMismatches
