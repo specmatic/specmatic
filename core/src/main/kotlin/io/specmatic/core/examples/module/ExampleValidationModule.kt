@@ -19,8 +19,34 @@ import java.io.File
 class ExampleValidationModule(private val lenientMode: Boolean = false, private val specmaticConfig: SpecmaticConfig) {
     fun validateInlineExamples(
         feature: Feature,
+        examples: List<NamedStub>,
+        scenarioFilter: ScenarioFilter = ScenarioFilter()
+    ): Map<String, Result> {
+        val groupedExamples = examples.groupBy(
+            keySelector = { it.name },
+            valueTransform = { it.stub }
+        )
+        return validateInlineExamplesInternal(feature, groupedExamples, scenarioFilter)
+    }
+
+    @Deprecated(
+        message = "Use list-based inline examples API",
+        replaceWith = ReplaceWith(
+            "validateInlineExamples(feature, examples.flatMap { (name, stubs) -> stubs.map { NamedStub(name, it) } }, scenarioFilter)"
+        )
+    )
+    fun validateInlineExamples(
+        feature: Feature,
         examples: Map<String, List<ScenarioStub>> = emptyMap(),
         scenarioFilter: ScenarioFilter = ScenarioFilter()
+    ): Map<String, Result> {
+        return validateInlineExamplesInternal(feature, examples, scenarioFilter)
+    }
+
+    private fun validateInlineExamplesInternal(
+        feature: Feature,
+        examples: Map<String, List<ScenarioStub>>,
+        scenarioFilter: ScenarioFilter
     ): Map<String, Result> {
         val updatedFeature = scenarioFilter.filter(feature)
 

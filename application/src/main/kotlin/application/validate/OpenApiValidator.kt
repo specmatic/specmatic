@@ -9,7 +9,6 @@ import io.specmatic.core.Result
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.examples.module.ExampleValidationModule
 import io.specmatic.core.parseContractFileToFeature
-import io.specmatic.mock.ScenarioStub
 import io.specmatic.test.asserts.toFailure
 import java.io.File
 
@@ -30,9 +29,7 @@ class OpenApiValidator: Validator<Feature> {
     override fun validateInlineExamples(specification: File, feature: Feature, specmaticConfig: SpecmaticConfig): Map<String, ExampleValidationResult> {
         return ExampleValidationModule(specmaticConfig = specmaticConfig).validateInlineExamples(
             feature = feature,
-            examples = feature.stubsFromExamples.mapValues { (_, stub) ->
-                stub.map { (request, response) -> ScenarioStub(request, response) }
-            },
+            examples = feature.inlineNamedStubs,
         ).mapValues { (_, result) ->
             ExampleValidationResult.ValidationResult(specification, result)
         }

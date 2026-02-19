@@ -15,6 +15,25 @@ data class ExampleData(
 
 data class ExampleStore(val examples: List<ExampleData>, val size: Int = examples.size) {
     companion object {
+        fun from(examples: List<NamedStub>, type: ExampleType): ExampleStore {
+            return ExampleStore(
+                examples.map { namedStub ->
+                    ExampleData(
+                        name = namedStub.name,
+                        example = namedStub.stub,
+                        type = type,
+                        tags = namedStub.stub.getTags()
+                    )
+                }
+            )
+        }
+
+        @Deprecated(
+            message = "Use list-based API",
+            replaceWith = ReplaceWith(
+                "from(examples.flatMap { (name, pairs) -> pairs.map { (request, response) -> NamedStub(name, ScenarioStub(request = request, response = response)) } }, type)"
+            )
+        )
         fun from(examples: Map<String, List<Pair<HttpRequest, HttpResponse>>>, type: ExampleType): ExampleStore {
             return ExampleStore(
                 examples.flatMap { (name, pairs) ->

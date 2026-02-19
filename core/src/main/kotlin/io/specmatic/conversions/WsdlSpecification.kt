@@ -101,13 +101,13 @@ class WsdlSpecification(
         }
     }
 
-    override fun toScenarioInfos(): Pair<List<ScenarioInfo>, Map<String, List<Pair<HttpRequest, HttpResponse>>>> {
+    override fun toScenarioInfos(): Pair<List<ScenarioInfo>, List<NamedStub>> {
         return scenarioInfos(
             wsdlToFeatureChildren(wsdlFile),
             "",
             true,
             specmaticConfig = specmaticConfig,
-        ) to emptyMap()
+        ) to emptyList()
     }
 
     private fun wsdlToFeatureChildren(wsdlFile: WSDLContent): List<FeatureChild> {

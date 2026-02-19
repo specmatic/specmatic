@@ -13,6 +13,7 @@ import io.specmatic.core.SPECMATIC_RESULT_HEADER
 import io.specmatic.core.log.CompositePrinter
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.LogStrategy
+import io.specmatic.core.examples.module.ExampleValidationModule
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.exceptionCauseMessage
@@ -61,7 +62,6 @@ fun openAPIToString(openAPI: OpenAPI): String {
 }
 
 internal class OpenApiSpecificationTest {
-    private val smallInc = BigDecimal("1")
 
     companion object {
         const val OPENAPI_FILE_WITH_YAML_EXTENSION = "openApiTest.yaml"
@@ -11763,6 +11763,230 @@ paths:
     }
 
     @Test
+    fun `should warn for unused request example per operation even when another operation reuses the same name`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Per operation unused warning
+              version: 1.0.0
+            paths:
+              /abc/{id}:
+                get:
+                  parameters:
+                    - in: path
+                      name: id
+                      required: true
+                      schema:
+                        type: integer
+                      examples:
+                        SUCCESS:
+                          value: 10
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            properties:
+                              id:
+                                type: integer
+              /def/{id}:
+                get:
+                  parameters:
+                    - in: path
+                      name: id
+                      required: true
+                      schema:
+                        type: integer
+                      examples:
+                        SUCCESS:
+                          value: 20
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 20
+        """.trimIndent()
+
+        val (output, _) = captureStandardOutput {
+            OpenApiSpecification.fromYAML(spec, "per-operation-warning.yaml").toFeature()
+        }
+
+        assertThat(output).contains(missingResponseExampleErrorMessageForTest("SUCCESS"))
+    }
+
+    @Test
+    fun `duplicate inline example names across operations should all be validated`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Duplicate Inline Example Names
+              version: 1.0.0
+            paths:
+              /products:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          ${"$"}ref: '#/components/schemas/Product'
+                        examples:
+                          SUCCESS:
+                            value:
+                              inventory: hundred
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            ${"$"}ref: '#/components/schemas/Product'
+                          examples:
+                            SUCCESS:
+                              value:
+                                inventory: 100
+              /orders:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          ${"$"}ref: '#/components/schemas/Product'
+                        examples:
+                          SUCCESS:
+                            value:
+                              inventory: 200
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            ${"$"}ref: '#/components/schemas/Product'
+                          examples:
+                            SUCCESS:
+                              value:
+                                inventory: 200
+            components:
+              schemas:
+                Product:
+                  type: object
+                  required:
+                    - inventory
+                  properties:
+                    inventory:
+                      type: integer
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(spec, "duplicate-inline-examples.yaml").toFeature()
+        assertThat(feature.inlineNamedStubs.count { it.name == "SUCCESS" }).isEqualTo(2)
+
+        val validationResults = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
+            .validateInlineExamples(feature = feature, examples = feature.inlineNamedStubs)
+
+        val successExampleResult = validationResults.getValue("SUCCESS")
+        assertThat(successExampleResult).isInstanceOf(Result.Failure::class.java)
+    }
+
+    @Test
+    fun `contract tests should pick up both inline examples when names are duplicated across operations`() {
+        val feature = OpenApiSpecification.fromYAML(
+            duplicateExampleNameAcrossOperationsSpec(),
+            "duplicate-inline-examples-contract-tests.yaml"
+        ).toFeature()
+
+        val seenPaths = mutableListOf<String>()
+        val seenInventories = mutableListOf<Int>()
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                seenPaths.add(request.path.orEmpty())
+                val body = request.body as JSONObjectValue
+                seenInventories.add(body.getInt("inventory"))
+                return when (request.path) {
+                    "/products" -> HttpResponse(200, parsedJSONObject("""{"inventory":100}"""))
+                    "/orders" -> HttpResponse(200, parsedJSONObject("""{"inventory":200}"""))
+                    else -> HttpResponse(500)
+                }
+            }
+
+            override fun setServerState(serverState: Map<String, Value>) {
+            }
+        })
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(seenPaths).containsExactlyInAnyOrder("/products", "/orders")
+        assertThat(seenInventories).containsExactlyInAnyOrder(100, 200)
+    }
+
+    @Test
+    fun `stub should pick up both inline examples when names are duplicated across operations`() {
+        val feature = OpenApiSpecification.fromYAML(
+            duplicateExampleNameAcrossOperationsSpec(),
+            "duplicate-inline-examples-stub.yaml"
+        ).toFeature()
+
+        HttpStub(feature).use { stub ->
+            val productResponse = stub.client.execute(
+                HttpRequest(
+                    method = "POST",
+                    path = "/products",
+                    body = parsedJSONObject("""{"inventory":100}""")
+                )
+            )
+
+            val orderResponse = stub.client.execute(
+                HttpRequest(
+                    method = "POST",
+                    path = "/orders",
+                    body = parsedJSONObject("""{"inventory":200}""")
+                )
+            )
+
+            assertThat(productResponse.status).isEqualTo(200)
+            assertThat(productResponse.body).isEqualTo(parsedJSONObject("""{"inventory":100}"""))
+            assertThat(orderResponse.status).isEqualTo(200)
+            assertThat(orderResponse.body).isEqualTo(parsedJSONObject("""{"inventory":200}"""))
+        }
+    }
+
+    @Test
+    fun `duplicate inline example names across request media types should all be used`() {
+        val feature = OpenApiSpecification.fromYAML(
+            duplicateExampleNameAcrossRequestMediaTypesSpec(),
+            "duplicate-inline-examples-request-media-types.yaml"
+        ).toFeature()
+
+        assertThat(feature.inlineNamedStubs.count { it.name == "SUCCESS" }).isEqualTo(3)
+
+        val seenInventories = mutableListOf<Int>()
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                val body = request.body as JSONObjectValue
+                seenInventories.add(body.getInt("inventory"))
+                return HttpResponse(200, parsedJSONObject("""{"result":"ok"}"""))
+            }
+
+            override fun setServerState(serverState: Map<String, Value>) {
+            }
+        })
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(seenInventories).containsExactlyInAnyOrder(100, 200, 300)
+    }
+
+    @Test
     fun `should throw exception when a request example has no matching response example during conversion in strict mode`() {
         val specPath = "src/test/resources/openapi/inline_response_example_without_request.yaml"
         val error = assertThrows<ContractException> {
@@ -12046,5 +12270,131 @@ paths:
         val testCount = OpenApiSpecification.fromYAML(spec, "").toFeature().generateContractTests(emptyList()).toList().size
 
         assertThat(testCount).isEqualTo(2)
+    }
+
+    private fun duplicateExampleNameAcrossOperationsSpec(): String {
+        return """
+            openapi: 3.0.0
+            info:
+              title: Duplicate Inline Example Names
+              version: 1.0.0
+            paths:
+              /products:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          ${"$"}ref: '#/components/schemas/Product'
+                        examples:
+                          SUCCESS:
+                            value:
+                              inventory: 100
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            ${"$"}ref: '#/components/schemas/Product'
+                          examples:
+                            SUCCESS:
+                              value:
+                                inventory: 100
+              /orders:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          ${"$"}ref: '#/components/schemas/Product'
+                        examples:
+                          SUCCESS:
+                            value:
+                              inventory: 200
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            ${"$"}ref: '#/components/schemas/Product'
+                          examples:
+                            SUCCESS:
+                              value:
+                                inventory: 200
+            components:
+              schemas:
+                Product:
+                  type: object
+                  required:
+                    - inventory
+                  properties:
+                    inventory:
+                      type: integer
+        """.trimIndent()
+    }
+
+    private fun duplicateExampleNameAcrossRequestMediaTypesSpec(): String {
+        return """
+            openapi: 3.0.0
+            info:
+              title: Duplicate Example Names Across Request Media Types
+              version: 1.0.0
+            paths:
+              /products:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          ${"$"}ref: '#/components/schemas/Product'
+                        examples:
+                          SUCCESS:
+                            value:
+                              inventory: 100
+                      application/problem+json:
+                        schema:
+                          ${"$"}ref: '#/components/schemas/Product'
+                        examples:
+                          SUCCESS:
+                            value:
+                              inventory: 200
+                      application/merge-patch+json:
+                        schema:
+                          ${"$"}ref: '#/components/schemas/Product'
+                        examples:
+                          SUCCESS:
+                            value:
+                              inventory: 300
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - result
+                            properties:
+                              result:
+                                type: string
+                          examples:
+                            SUCCESS:
+                              value:
+                                result: ok
+            components:
+              schemas:
+                Product:
+                  type: object
+                  required:
+                    - inventory
+                  properties:
+                    inventory:
+                      type: integer
+        """.trimIndent()
     }
 }

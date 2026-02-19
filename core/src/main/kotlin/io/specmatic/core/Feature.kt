@@ -183,12 +183,22 @@ data class Feature(
     val protocol: SpecmaticProtocol,
     val exampleDirPaths: List<String> = emptyList()
 ): IFeature {
+    val inlineNamedStubs: List<NamedStub>
+        get() = exampleStore.examples
+            .asSequence()
+            .filter { it.type == ExampleType.INLINE }
+            .map { NamedStub(name = it.name, stub = it.example) }
+            .toList()
 
+    @Deprecated(
+        message = "Use inlineNamedStubs for collision-safe inline example access",
+        replaceWith = ReplaceWith("inlineNamedStubs.groupBy({ it.name }, { it.stub.request to it.stub.response })")
+    )
     val stubsFromExamples: Map<String, List<Pair<HttpRequest, HttpResponse>>>
         get() {
-            return exampleStore.examples.groupBy(
+            return inlineNamedStubs.groupBy(
                 keySelector = { it.name },
-                valueTransform = { it.example.request to it.example.response }
+                valueTransform = { it.stub.request to it.stub.response }
             )
         }
 
@@ -233,37 +243,37 @@ data class Feature(
     }
 
     fun loadInlineExamplesAsStub(): List<ReturnValue<HttpStubData>> {
-        return this.stubsFromExamples.entries.flatMap { (exampleName, examples) ->
-            examples.mapNotNull { (request, response) ->
-                try {
-                    val stubData: HttpStubData =
-                        this.matchingStub(request, response, NamedExampleMismatchMessages(exampleName))
+        return this.inlineNamedStubs.mapNotNull { namedStub ->
+            val exampleName = namedStub.name
+            val stub = namedStub.stub
+            try {
+                val stubData: HttpStubData =
+                    this.matchingStub(stub.request, stub.response, NamedExampleMismatchMessages(exampleName))
 
-                    if (stubData.matchFailure) {
-                        logger.newLine()
-                        logger.log(stubData.response.body.toStringLiteral())
-                        null
-                    } else {
-                        HasValue(stubData)
-                    }
-                } catch (e: Throwable) {
+                if (stubData.matchFailure) {
                     logger.newLine()
+                    logger.log(stubData.response.body.toStringLiteral())
+                    null
+                } else {
+                    HasValue(stubData)
+                }
+            } catch (e: Throwable) {
+                logger.newLine()
 
-                    when (e) {
-                        is ContractException -> {
-                            logger.log(e)
-                            null
-                        }
+                when (e) {
+                    is ContractException -> {
+                        logger.log(e)
+                        null
+                    }
 
-                        is NoMatchingScenario -> {
-                            logger.log(e, "[Example $exampleName]")
-                            HasFailure("[Example $exampleName] ${e.message}")
-                        }
+                    is NoMatchingScenario -> {
+                        logger.log(e, "[Example $exampleName]")
+                        HasFailure("[Example $exampleName] ${e.message}")
+                    }
 
-                        else -> {
-                            logger.log(e, "[Example $exampleName]")
-                            throw e
-                        }
+                    else -> {
+                        logger.log(e, "[Example $exampleName]")
+                        throw e
                     }
                 }
             }
@@ -2468,6 +2478,12 @@ data class Feature(
             return examplesDirFor(openApiFilePath, TEST_DIR_SUFFIX)
         }
 
+        @Deprecated(
+            message = "Use list-based inlineExamples overload",
+            replaceWith = ReplaceWith(
+                "from(scenarios, serverState, name, testVariables, testBaseURLs, path, sourceProvider, sourceRepository, sourceRepositoryBranch, specification, stubsFromExamples.flatMap { (exampleName, stubs) -> stubs.map { (request, response) -> NamedStub(exampleName, ScenarioStub(request = request, response = response)) } }, specmaticConfig, flagsBased, strictMode, protocol, exampleDirPaths)"
+            )
+        )
         fun from(
             scenarios: List<Scenario> = emptyList(),
             serverState: Map<String, Value> = emptyMap(),
@@ -2480,6 +2496,49 @@ data class Feature(
             sourceRepositoryBranch: String? = null,
             specification: String? = null,
             stubsFromExamples: Map<String, List<Pair<HttpRequest, HttpResponse>>> = emptyMap(),
+            specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
+            flagsBased: FlagsBased = strategiesFromFlags(specmaticConfig),
+            strictMode: Boolean = false,
+            protocol: SpecmaticProtocol,
+            exampleDirPaths: List<String> = emptyList()
+        ): Feature {
+            val inlineExamples = stubsFromExamples.flatMap { (exampleName, stubs) ->
+                stubs.map { (request, response) ->
+                    NamedStub(exampleName, ScenarioStub(request = request, response = response))
+                }
+            }
+            return from(
+                scenarios = scenarios,
+                serverState = serverState,
+                name = name,
+                testVariables = testVariables,
+                testBaseURLs = testBaseURLs,
+                path = path,
+                sourceProvider = sourceProvider,
+                sourceRepository = sourceRepository,
+                sourceRepositoryBranch = sourceRepositoryBranch,
+                specification = specification,
+                inlineExamples = inlineExamples,
+                specmaticConfig = specmaticConfig,
+                flagsBased = flagsBased,
+                strictMode = strictMode,
+                protocol = protocol,
+                exampleDirPaths = exampleDirPaths
+            )
+        }
+
+        fun from(
+            scenarios: List<Scenario> = emptyList(),
+            serverState: Map<String, Value> = emptyMap(),
+            name: String,
+            testVariables: Map<String, String> = emptyMap(),
+            testBaseURLs: Map<String, String> = emptyMap(),
+            path: String = "",
+            sourceProvider: String? = null,
+            sourceRepository: String? = null,
+            sourceRepositoryBranch: String? = null,
+            specification: String? = null,
+            inlineExamples: List<NamedStub> = emptyList(),
             specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
             flagsBased: FlagsBased = strategiesFromFlags(specmaticConfig),
             strictMode: Boolean = false,
@@ -2500,7 +2559,7 @@ data class Feature(
                 specmaticConfig = specmaticConfig,
                 flagsBased = flagsBased,
                 strictMode = strictMode,
-                exampleStore = ExampleStore.from(stubsFromExamples, type = ExampleType.INLINE),
+                exampleStore = ExampleStore.from(inlineExamples, type = ExampleType.INLINE),
                 protocol = protocol,
                 exampleDirPaths = exampleDirPaths
             )
