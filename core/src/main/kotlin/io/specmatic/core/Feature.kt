@@ -448,45 +448,34 @@ data class Feature(
     ): Sequence<Pair<Scenario, Result>> {
         val acceptHeader = httpRequest.headers.getCaseInsensitive(ACCEPT)?.value?.trim().orEmpty()
         if (acceptHeader.isBlank()) return resultList
-
         if (!isAcceptHeaderParseable(acceptHeader)) {
             logger.debug("Could not parse Accept header \"$acceptHeader\" while filtering stub fallback responses; skipping Accept filtering.")
             return resultList
         }
-
-        val acceptMediaTypes = acceptMediaTypesByPriority(acceptHeader)
-        if (acceptMediaTypes.isEmpty()) {
-            return resultList
-        }
+        val acceptMediaTypes = acceptMediaTypesFor(acceptHeader) ?: return resultList
 
         val ranked = resultList.map { (scenario, result) ->
             if (result !is Success) {
-                Triple(Int.MAX_VALUE, scenario, result)
+                RankedScenarioResult(scenario = scenario, result = result, acceptMatchRank = null)
             } else {
-                val responseContentType = resolveResponseContentTypeForAccept(scenario).orEmpty()
-                val acceptMatchRank = if (responseContentType.isBlank()) {
-                    // Keep unknown response content-type scenarios as compatible, but rank them after
-                    // explicit matches so specific content-types are preferred when available.
-                    acceptMediaTypes.size
-                } else {
-                    acceptMediaTypes.indexOfFirst { acceptMediaType ->
-                        isResponseContentTypeAccepted(acceptMediaType, responseContentType)
-                    }
-                }
-
-                if (acceptMatchRank >= 0) {
-                    Triple(acceptMatchRank, scenario, result)
-                } else {
-                    Triple(Int.MAX_VALUE, scenario, result)
-                }
+                RankedScenarioResult(
+                    scenario = scenario,
+                    result = result,
+                    acceptMatchRank = acceptMatchRank(
+                        acceptMediaTypes = acceptMediaTypes,
+                        responseContentType = resolveResponseContentTypeForAccept(scenario),
+                        unknownContentTypeRank = acceptMediaTypes.size
+                    )
+                )
             }
         }.toList()
 
-        val matchesAccept = ranked.filter { (index, _, _) -> index < Int.MAX_VALUE }
-            .sortedWith(compareBy<Triple<Int, Scenario, Result>> { it.first }.thenBy { it.second.status })
-        val rest = ranked.filter { (index, _, _) -> index == Int.MAX_VALUE }
+        val matchesAccept = ranked
+            .filter { it.acceptMatchRank != null }
+            .sortedWith(compareBy<RankedScenarioResult> { it.acceptMatchRank }.thenBy { it.scenario.status })
+        val rest = ranked.filter { it.acceptMatchRank == null }
 
-        return (matchesAccept + rest).asSequence().map { (_, scenario, result) -> Pair(scenario, result) }
+        return (matchesAccept + rest).asSequence().map { rankedResult -> Pair(rankedResult.scenario, rankedResult.result) }
     }
 
     private fun resolveResponseContentTypeForAccept(scenario: Scenario): String? {
@@ -783,18 +772,52 @@ data class Feature(
         val acceptHeader = request.headers.getCaseInsensitive(ACCEPT)?.value?.trim().orEmpty()
         if (acceptHeader.isBlank()) return successfulStubsInOrder.firstOrNull()
         if (!isAcceptHeaderParseable(acceptHeader)) return successfulStubsInOrder.firstOrNull()
+        val acceptMediaTypes = acceptMediaTypesFor(acceptHeader) ?: return successfulStubsInOrder.firstOrNull()
 
-        val acceptMediaTypes = acceptMediaTypesByPriority(acceptHeader)
-        if (acceptMediaTypes.isEmpty()) return successfulStubsInOrder.firstOrNull()
+        val rankedStubs = successfulStubsInOrder.map { stubData ->
+            RankedStub(
+                stubData = stubData,
+                acceptMatchRank = acceptMatchRank(
+                    acceptMediaTypes = acceptMediaTypes,
+                    responseContentType = stubData.response.contentType(),
+                    unknownContentTypeRank = 0
+                )
+            )
+        }
+        val bestRank = rankedStubs.mapNotNull { it.acceptMatchRank }.minOrNull()
+            ?: return successfulStubsInOrder.firstOrNull()
 
-        acceptMediaTypes.forEach { acceptMediaType ->
-            successfulStubsInOrder.firstOrNull { stubData ->
-                val responseContentType = stubData.response.contentType().orEmpty()
-                responseContentType.isBlank() || isResponseContentTypeAccepted(acceptMediaType, responseContentType)
-            }?.let { return it }
+        return rankedStubs.firstOrNull { it.acceptMatchRank == bestRank }?.stubData ?: successfulStubsInOrder.firstOrNull()
+    }
+
+    private data class RankedScenarioResult(
+        val scenario: Scenario,
+        val result: Result,
+        val acceptMatchRank: Int?
+    )
+
+    private data class RankedStub(
+        val stubData: HttpStubData,
+        val acceptMatchRank: Int?
+    )
+
+    private fun acceptMediaTypesFor(acceptHeader: String): List<String>? {
+        return acceptMediaTypesByPriority(acceptHeader).takeIf { it.isNotEmpty() }
+    }
+
+    private fun acceptMatchRank(
+        acceptMediaTypes: List<String>,
+        responseContentType: String?,
+        unknownContentTypeRank: Int
+    ): Int? {
+        val normalisedContentType = normaliseMediaType(responseContentType)
+        if (normalisedContentType.isNullOrBlank()) return unknownContentTypeRank
+
+        val rank = acceptMediaTypes.indexOfFirst { acceptMediaType ->
+            isResponseContentTypeAccepted(acceptMediaType, normalisedContentType)
         }
 
-        return successfulStubsInOrder.firstOrNull()
+        return rank.takeIf { it >= 0 }
     }
 
     fun matchingHttpPathPatternFor(path: String): HttpPathPattern? {
