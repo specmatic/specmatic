@@ -702,7 +702,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
     override fun updateReportConfiguration(reportConfiguration: ReportConfiguration): SpecmaticConfig {
         val specmaticSettings = specmaticConfig.specmatic ?: Specmatic()
         val existingGovernance = specmaticSettings.governance ?: Governance()
-        val updatedGovernance = existingGovernance.copy(successCriteria = SuccessCriterion.from(reportConfiguration.getSuccessCriteria()), report = existingGovernance.report)
+        val updatedGovernance = existingGovernance.copy(successCriterion = SuccessCriterion.from(reportConfiguration.getSuccessCriteria()), report = existingGovernance.report)
         return this.copy(specmaticConfig = specmaticConfig.copy(specmatic = specmaticSettings.copy(governance = updatedGovernance)))
     }
 
