@@ -1,7 +1,6 @@
 package io.specmatic.core.config.v3
 
 import com.fasterxml.jackson.core.type.TypeReference
-import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.zenwave360.jsonrefparser.resolver.FileResolver
 import io.zenwave360.jsonrefparser.resolver.RefFormat
@@ -12,8 +11,6 @@ import io.zenwave360.jsonrefparser.`$Ref` as Ref
 import io.zenwave360.jsonrefparser.`$RefParser` as RefParser
 
 class SpecmaticConfigV3Resolver(private val componentsAsMap: Map<*, *>, private val originFile: Path): RefOrValueResolver {
-    @Suppress("unused")
-    constructor(components: ObjectNode, originFile: Path) : this(mapper.convertValue(components, object : TypeReference<Map<*, *>>() {}), originFile)
     constructor(components: Components, originFile: Path) : this(mapper.convertValue(components, object : TypeReference<Map<*, *>>() {}), originFile)
 
     private val internalResolver = InternalComponentsResolver(componentsAsMap)

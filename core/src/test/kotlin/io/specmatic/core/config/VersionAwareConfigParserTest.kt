@@ -1,6 +1,5 @@
 package io.specmatic.core.config
 
-import com.fasterxml.jackson.databind.node.TextNode
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.SpecmaticConfigV1V2Common
 import org.assertj.core.api.Assertions.assertThat
@@ -215,14 +214,13 @@ class VersionAwareConfigParserTest {
     @ParameterizedTest(name = "isConfigTemplate({0}) -> {1}")
     @MethodSource("isConfigTemplateCases")
     fun `isConfigTemplate identifies template expressions`(value: String, expected: Boolean) {
-        assertThat(isConfigTemplate(value)).isEqualTo(expected)
+        assertThat(ConfigTemplateUtils.isConfigTemplate(value)).isEqualTo(expected)
     }
 
     @ParameterizedTest(name = "resolveConfigTemplateValue({0}) -> {1}")
     @MethodSource("resolveConfigTemplateValueCases")
     fun `resolveConfigTemplateValue resolves templates and leaves plain values unchanged`(value: String, expected: String) {
-        assertThat(resolveConfig(TextNode(value))).isEqualTo(TextNode(expected))
-        assertThat(resolveConfigTemplateValue(value)).isEqualTo(expected)
+        assertThat(ConfigTemplateUtils.resolveTemplateValue(value)).isEqualTo(expected)
     }
 
     private fun restoreProperty(

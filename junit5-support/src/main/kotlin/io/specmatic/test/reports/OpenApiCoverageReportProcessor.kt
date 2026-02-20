@@ -53,7 +53,7 @@ class OpenApiCoverageReportProcessor(private val openApiCoverageReportInput: Ope
         reportConfiguration: ReportConfiguration,
         report: OpenAPICoverageConsoleReport
     ) {
-        val successCriteria = reportConfiguration.successCriteria()
+        val successCriteria = reportConfiguration.getSuccessCriteria()
         if (successCriteria.getEnforceOrDefault()) {
             val coverageThresholdNotMetMessage =
                 "Total API coverage: ${report.totalCoveragePercentage}% is less than the specified minimum threshold of ${successCriteria.getMinThresholdPercentageOrDefault()}%. "

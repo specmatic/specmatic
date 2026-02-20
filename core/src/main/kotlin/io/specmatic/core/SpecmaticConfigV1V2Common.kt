@@ -1634,7 +1634,7 @@ data class RepositoryInfo(
 }
 
 interface ReportConfiguration {
-    fun successCriteria(): SuccessCriteria
+    fun getSuccessCriteria(): SuccessCriteria
     fun excludedOpenAPIEndpoints(): List<String>
 
     companion object {
@@ -1672,7 +1672,7 @@ data class ReportConfigurationDetails(
     }
 
     @JsonIgnore
-    override fun successCriteria(): SuccessCriteria {
+    override fun getSuccessCriteria(): SuccessCriteria {
         return types?.apiCoverage?.openAPI?.successCriteria ?: SuccessCriteria.default
     }
 
