@@ -19,7 +19,6 @@ import java.io.File
 import java.util.stream.Stream
 
 class ExamplesCommandTest {
-
     @Test
     fun `examples validate command should not print an empty error when it sees an inline example for a filtered-out scenario`(@TempDir tempDir: File) {
         val specFile = tempDir.resolve("spec.yaml")

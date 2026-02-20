@@ -62,7 +62,6 @@ fun openAPIToString(openAPI: OpenAPI): String {
 }
 
 internal class OpenApiSpecificationTest {
-    private val smallInc = BigDecimal("1")
 
     companion object {
         const val OPENAPI_FILE_WITH_YAML_EXTENSION = "openApiTest.yaml"
@@ -12235,6 +12234,42 @@ paths:
         val anyPattern = feature.scenarios.first().resolver.getPattern("(Details)") as? AnyPattern ?: fail("Expected AnyPattern")
 
         assertThat(anyPattern.pattern).doesNotHaveAnyElementsOfTypes(DeferredPattern::class.java)
+    }
+
+    @Test
+    fun `contract test generation should drop combinations where accept and response content types do not match`() {
+        val spec = """
+            openapi: 3.1.0
+            info:
+              title: Sample API with Accept Header
+              version: 1.0.0
+            paths:
+              /products:
+                get:
+                  parameters:
+                    - name: Accept
+                      in: header
+                      required: true
+                      schema:
+                        type: string
+                        enum:
+                          - application/json
+                          - text/plain
+                  responses:
+                    '200':
+                      description: Successful response
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                        text/plain:
+                          schema:
+                            type: string
+        """.trimIndent()
+
+        val testCount = OpenApiSpecification.fromYAML(spec, "").toFeature().generateContractTests(emptyList()).toList().size
+
+        assertThat(testCount).isEqualTo(2)
     }
 
     private fun duplicateExampleNameAcrossOperationsSpec(): String {

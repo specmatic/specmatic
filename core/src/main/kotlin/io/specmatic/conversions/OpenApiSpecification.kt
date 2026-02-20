@@ -731,6 +731,12 @@ class OpenApiSpecification(
                             }
                         }
 
+                    }.onEach { (requestPatternData, responsePatternData) ->
+                        warnIfAcceptHeaderDoesNotAllowResponseContentType(
+                            requestPattern = requestPatternData.requestPattern,
+                            responsePattern = responsePatternData.responsePattern,
+                            collectorContext = methodContext
+                        )
                     }
 
                     val scenarioInfos = requestResponsePairs.map { (requestPatternData, responsePatternData) ->
@@ -940,6 +946,68 @@ class OpenApiSpecification(
     ): String = operation.summary?.let {
         """${operation.summary}. Response: ${response.description}"""
     } ?: "${httpRequestPattern.testDescription()}. Response: ${response.description}"
+
+    private fun isAcceptHeaderCompatibleWithResponsePattern(
+        requestPattern: HttpRequestPattern,
+        responsePattern: HttpResponsePattern
+    ): Boolean {
+        val responseContentType = responsePattern.headersPattern.contentType ?: return true
+        val acceptHeaderPattern = requestPattern.headersPattern.pattern.getCaseInsensitive(ACCEPT)?.value ?: return true
+
+        val knownAcceptValues = knownAcceptValues(acceptHeaderPattern) ?: return true
+        if (knownAcceptValues.isEmpty()) return true
+
+        return knownAcceptValues.any { acceptValue ->
+            isResponseContentTypeAccepted(acceptValue, responseContentType)
+        }
+    }
+
+    private fun warnIfAcceptHeaderDoesNotAllowResponseContentType(
+        requestPattern: HttpRequestPattern,
+        responsePattern: HttpResponsePattern,
+        collectorContext: CollectorContext
+    ) {
+        if (isAcceptHeaderCompatibleWithResponsePattern(requestPattern, responsePattern)) return
+
+        val acceptHeaderPattern = requestPattern.headersPattern.pattern.getCaseInsensitive(ACCEPT)?.value ?: return
+        val knownAcceptValues = knownAcceptValues(acceptHeaderPattern) ?: return
+        val responseContentType = responsePattern.headersPattern.contentType ?: return
+
+        collectorContext.record(
+            message = "Accept header values ${knownAcceptValues.joinToString(", ")} do not allow response Content-Type \"$responseContentType\"",
+            isWarning = true,
+            ruleViolation = OpenApiLintViolations.MEDIA_TYPE_OVERRIDDEN
+        )
+    }
+
+    private fun knownAcceptValues(acceptHeaderPattern: Pattern): Set<String>? {
+        val resolvedPattern = resolvedHop(acceptHeaderPattern, Resolver(newPatterns = patterns))
+
+        return when (resolvedPattern) {
+            is ExactValuePattern -> {
+                val value = (resolvedPattern.pattern as? StringValue)?.toStringLiteral() ?: return null
+                setOf(value)
+            }
+
+            is EnumPattern -> {
+                val values = resolvedPattern.pattern.pattern.mapNotNull {
+                    (it as? ExactValuePattern)?.pattern as? StringValue
+                }.map { it.toStringLiteral() }
+
+                if (values.size == resolvedPattern.pattern.pattern.size) values.toSet() else null
+            }
+
+            is AnyPattern -> {
+                val values = resolvedPattern.pattern.mapNotNull {
+                    (it as? ExactValuePattern)?.pattern as? StringValue
+                }.map { it.toStringLiteral() }
+
+                if (values.size == resolvedPattern.pattern.size) values.toSet() else null
+            }
+
+            else -> null
+        }
+    }
 
     private fun rowsToExamples(specmaticExampleRows: List<Row>): List<Examples> =
         when (specmaticExampleRows) {

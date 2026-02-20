@@ -346,7 +346,7 @@ data class Feature(
                 mismatchMessages = mismatchMessages,
                 unexpectedKeyCheck = flagsBased.unexpectedKeyCheck ?: ValidateUnexpectedKeys
             ).let { resultList ->
-                filterByExpectedResponseStatus(httpRequest.expectedResponseCode(), resultList)
+                applyStubFallbackRequestFilters(httpRequest, resultList)
             }
 
             return matchingScenario(resultList)?.let {
@@ -362,6 +362,14 @@ data class Feature(
         } finally {
             serverState = emptyMap()
         }
+    }
+
+    private fun applyStubFallbackRequestFilters(
+        httpRequest: HttpRequest,
+        resultList: Sequence<Pair<Scenario, Result>>
+    ): Sequence<Pair<Scenario, Result>> {
+        val byExpectedStatus = filterByExpectedResponseStatus(httpRequest.expectedResponseCode(), resultList)
+        return applyAcceptHeaderSort(httpRequest, byExpectedStatus)
     }
 
     private fun filterByExpectedResponseStatus(
@@ -380,7 +388,9 @@ data class Feature(
     ): Map<Int, Pair<ResponseBuilder?, Results>> {
         try {
             val resultList =
-                matchingScenarioToResultList(httpRequest, serverState, mismatchMessages, unexpectedKeyCheck)
+                matchingScenarioToResultList(httpRequest, serverState, mismatchMessages, unexpectedKeyCheck).let {
+                    applyAcceptHeaderSort(httpRequest, it)
+                }
             val matchingScenarios = matchingScenarios(resultList)
 
             if (matchingScenarios.toList().isEmpty()) {
@@ -430,6 +440,53 @@ data class Feature(
         })
 
         return matchingScenarios
+    }
+
+    private fun applyAcceptHeaderSort(
+        httpRequest: HttpRequest,
+        resultList: Sequence<Pair<Scenario, Result>>
+    ): Sequence<Pair<Scenario, Result>> {
+        val acceptHeader = httpRequest.headers.getCaseInsensitive(ACCEPT)?.value?.trim().orEmpty()
+        if (acceptHeader.isBlank()) return resultList
+        if (!isAcceptHeaderParseable(acceptHeader)) {
+            logger.debug("Could not parse Accept header \"$acceptHeader\" while filtering stub fallback responses; skipping Accept filtering.")
+            return resultList
+        }
+        val acceptMediaTypes = acceptMediaTypesFor(acceptHeader) ?: return resultList
+
+        val ranked = resultList.map { (scenario, result) ->
+            if (result !is Success) {
+                RankedScenarioResult(scenario = scenario, result = result, acceptMatchRank = null)
+            } else {
+                RankedScenarioResult(
+                    scenario = scenario,
+                    result = result,
+                    acceptMatchRank = acceptMatchRank(
+                        acceptMediaTypes = acceptMediaTypes,
+                        responseContentType = resolveResponseContentTypeForAccept(scenario),
+                        unknownContentTypeRank = acceptMediaTypes.size
+                    )
+                )
+            }
+        }.toList()
+
+        val matchesAccept = ranked
+            .filter { it.acceptMatchRank != null }
+            .sortedWith(compareBy<RankedScenarioResult> { it.acceptMatchRank }.thenBy { it.scenario.status })
+        val rest = ranked.filter { it.acceptMatchRank == null }
+
+        return (matchesAccept + rest).asSequence().map { rankedResult -> Pair(rankedResult.scenario, rankedResult.result) }
+    }
+
+    private fun resolveResponseContentTypeForAccept(scenario: Scenario): String? {
+        return normaliseMediaType(scenario.responseContentType)
+    }
+
+    private fun normaliseMediaType(mediaType: String?): String? {
+        return mediaType
+            ?.substringBefore(";")
+            ?.trim()
+            ?.takeUnless { it.isBlank() }
     }
 
     fun compatibilityLookup(
@@ -694,9 +751,7 @@ data class Feature(
         try {
             val results = stubMatchResult(request, response, mismatchMessages)
 
-            return results.find {
-                it.first != null
-            }?.let { it.first as HttpStubData }
+            return selectMatchingStubBasedOnAcceptPriority(request, results)
                 ?: throw NoMatchingScenario(
                     failureResults(results).withoutFluff(),
                     msg = null,
@@ -705,6 +760,64 @@ data class Feature(
         } finally {
             serverState = emptyMap()
         }
+    }
+
+    private fun selectMatchingStubBasedOnAcceptPriority(
+        request: HttpRequest,
+        results: List<Pair<HttpStubData?, Result>>
+    ): HttpStubData? {
+        val successfulStubsInOrder = results.mapNotNull { it.first }
+        if (successfulStubsInOrder.isEmpty()) return null
+
+        val acceptHeader = request.headers.getCaseInsensitive(ACCEPT)?.value?.trim().orEmpty()
+        if (acceptHeader.isBlank()) return successfulStubsInOrder.firstOrNull()
+        if (!isAcceptHeaderParseable(acceptHeader)) return successfulStubsInOrder.firstOrNull()
+        val acceptMediaTypes = acceptMediaTypesFor(acceptHeader) ?: return successfulStubsInOrder.firstOrNull()
+
+        val rankedStubs = successfulStubsInOrder.map { stubData ->
+            RankedStub(
+                stubData = stubData,
+                acceptMatchRank = acceptMatchRank(
+                    acceptMediaTypes = acceptMediaTypes,
+                    responseContentType = stubData.response.contentType(),
+                    unknownContentTypeRank = 0
+                )
+            )
+        }
+        val bestRank = rankedStubs.mapNotNull { it.acceptMatchRank }.minOrNull()
+            ?: return successfulStubsInOrder.firstOrNull()
+
+        return rankedStubs.firstOrNull { it.acceptMatchRank == bestRank }?.stubData ?: successfulStubsInOrder.firstOrNull()
+    }
+
+    private data class RankedScenarioResult(
+        val scenario: Scenario,
+        val result: Result,
+        val acceptMatchRank: Int?
+    )
+
+    private data class RankedStub(
+        val stubData: HttpStubData,
+        val acceptMatchRank: Int?
+    )
+
+    private fun acceptMediaTypesFor(acceptHeader: String): List<String>? {
+        return acceptMediaTypesByPriority(acceptHeader).takeIf { it.isNotEmpty() }
+    }
+
+    private fun acceptMatchRank(
+        acceptMediaTypes: List<String>,
+        responseContentType: String?,
+        unknownContentTypeRank: Int
+    ): Int? {
+        val normalisedContentType = normaliseMediaType(responseContentType)
+        if (normalisedContentType.isNullOrBlank()) return unknownContentTypeRank
+
+        val rank = acceptMediaTypes.indexOfFirst { acceptMediaType ->
+            isResponseContentTypeAccepted(acceptMediaType, normalisedContentType)
+        }
+
+        return rank.takeIf { it >= 0 }
     }
 
     fun matchingHttpPathPatternFor(path: String): HttpPathPattern? {
@@ -774,7 +887,46 @@ data class Feature(
             suggestions,
             fn,
             originalScenarios
-        ).map { (originalScenario, returnValue) ->
+        ).map { generatedScenarioPair ->
+            val (originalScenario, generatedScenarioReturnValue) = generatedScenarioPair
+
+            when (generatedScenarioReturnValue) {
+                is HasValue -> {
+                    val normalisedScenario = normaliseAcceptHeaderForContractTest(
+                        generatedScenario = generatedScenarioReturnValue.value,
+                        originalScenario = originalScenario
+                    )
+                    Pair(originalScenario, HasValue(normalisedScenario, generatedScenarioReturnValue.valueDetails))
+                }
+
+                else -> generatedScenarioPair
+            }
+        }.filter { generatedScenarioPair ->
+            generatedScenarioPair.second.withDefault(true) { generatedScenario ->
+                val responseContentType = generatedScenario.responseContentType
+                val isCompatible = runCatching {
+                    isAcceptHeaderCompatibleWithResponse(
+                        requestHeaders = generatedScenario.generateHttpRequest().headers,
+                        responseContentType = responseContentType
+                    )
+                }.getOrDefault(true)
+
+                if (!isCompatible && generatedScenario.exampleRow?.isEmpty() == false) {
+                    val exampleName = generatedScenario.exampleRow.name.takeUnless { it.isBlank() } ?: "(unnamed example)"
+                    val responseContentTypeClause = responseContentType?.let {
+                        ". Response Content-Type: $it"
+                    }.orEmpty()
+                    logger.debug(
+                        "Dropping generated contract test scenario due to Accept mismatch for example named " +
+                            "\"$exampleName\" for API \"${generatedScenario.method} ${generatedScenario.path}\"" +
+                            responseContentTypeClause
+                    )
+                }
+
+                isCompatible
+            }
+        }.map { generatedScenarioPair ->
+            val (originalScenario, returnValue) = generatedScenarioPair
             returnValue.realise(
                 hasValue = { concreteTestScenario, comment ->
                     scenarioAsTest(concreteTestScenario, comment, workflow, originalScenario, originalScenarios)
@@ -787,6 +939,35 @@ data class Feature(
                 }
             )
         }
+    }
+
+    private fun normaliseAcceptHeaderForContractTest(generatedScenario: Scenario, originalScenario: Scenario): Scenario {
+        val generatedAcceptHeaderEntry = generatedScenario.httpRequestPattern.headersPattern.pattern.entries.firstOrNull {
+            withoutOptionality(it.key).equals(ACCEPT, ignoreCase = true)
+        }
+        val acceptHeaderEntry = generatedAcceptHeaderEntry ?: return generatedScenario
+
+        val acceptHeaderPattern = runCatching {
+            resolvedHop(acceptHeaderEntry.value, generatedScenario.resolver)
+        }.getOrElse { acceptHeaderEntry.value }
+
+        if (acceptHeaderPattern !is StringPattern) {
+            return generatedScenario
+        }
+
+        val valueForAcceptHeader =
+            resolveResponseContentTypeForAccept(generatedScenario)
+                ?: resolveResponseContentTypeForAccept(originalScenario)
+                ?: "*/*"
+        val updatedHeadersPattern = generatedScenario.httpRequestPattern.headersPattern.copy(
+            pattern = generatedScenario.httpRequestPattern.headersPattern.pattern.plus(
+                acceptHeaderEntry.key to ExactValuePattern(StringValue(valueForAcceptHeader))
+            )
+        )
+
+        return generatedScenario.copy(
+            httpRequestPattern = generatedScenario.httpRequestPattern.copy(headersPattern = updatedHeadersPattern)
+        )
     }
 
     fun createContractTestFromExampleFile(filePath: String): ReturnValue<ContractTest> {
