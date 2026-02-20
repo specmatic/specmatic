@@ -15,7 +15,6 @@ import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.DELAY_IN_SECONDS
-import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.osAgnosticPath
 import io.specmatic.shouldMatch
@@ -652,7 +651,7 @@ paths:
             OpenApiSpecification.fromFile("src/test/resources/openapi/spec_with_space_in_path.yaml").toFeature()
 
         HttpStub(specification).use { stub ->
-            val request = HttpRequest("GET", "/actuator/health")
+            val request = HttpRequest("GET", "/_specmatic/health")
 
             val response = stub.client.execute(request)
 
@@ -664,6 +663,21 @@ paths:
                 assertThat(it.jsonObject["status"]?.toStringLiteral()).isEqualTo("UP")
             }
         }
+
+        HttpStub(specification).use { stub ->
+            val legacyHealthCheckRequest = HttpRequest("GET", "/actuator/health")
+
+            val legacyHealthCheckResponse = stub.client.execute(legacyHealthCheckRequest)
+
+            assertThat(legacyHealthCheckResponse.status).isEqualTo(200)
+            legacyHealthCheckResponse.body.let {
+                assertThat(it).isInstanceOf(JSONObjectValue::class.java)
+                it as JSONObjectValue
+
+                assertThat(it.jsonObject["status"]?.toStringLiteral()).isEqualTo("UP")
+            }
+        }
+
     }
 
     @Test
