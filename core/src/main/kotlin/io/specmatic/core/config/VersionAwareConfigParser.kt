@@ -48,6 +48,10 @@ fun File.toSpecmaticConfig(): SpecmaticConfig {
     }
 }
 
+fun resolveConfig(node: JsonNode): JsonNode = resolveTemplates(node)
+fun isConfigTemplate(value: String): Boolean = resolveTemplateValue(value) != null
+fun resolveConfigTemplateValue(value: String): String = resolveTemplateValue(value)?.asText() ?: value
+
 private fun JsonNode.getVersion(): SpecmaticConfigVersion? {
     val versionNode = this[SPECMATIC_CONFIG_VERSION]
     val version = when {

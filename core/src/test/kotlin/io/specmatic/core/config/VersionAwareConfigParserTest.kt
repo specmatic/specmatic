@@ -1,12 +1,17 @@
 package io.specmatic.core.config
 
+import com.fasterxml.jackson.databind.node.TextNode
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.SpecmaticConfigV1V2Common
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import kotlin.io.path.Path
+import java.util.stream.Stream
 
 class VersionAwareConfigParserTest {
     @TempDir
@@ -207,6 +212,19 @@ class VersionAwareConfigParserTest {
         }
     }
 
+    @ParameterizedTest(name = "isConfigTemplate({0}) -> {1}")
+    @MethodSource("isConfigTemplateCases")
+    fun `isConfigTemplate identifies template expressions`(value: String, expected: Boolean) {
+        assertThat(isConfigTemplate(value)).isEqualTo(expected)
+    }
+
+    @ParameterizedTest(name = "resolveConfigTemplateValue({0}) -> {1}")
+    @MethodSource("resolveConfigTemplateValueCases")
+    fun `resolveConfigTemplateValue resolves templates and leaves plain values unchanged`(value: String, expected: String) {
+        assertThat(resolveConfig(TextNode(value))).isEqualTo(TextNode(expected))
+        assertThat(resolveConfigTemplateValue(value)).isEqualTo(expected)
+    }
+
     private fun restoreProperty(
         name: String,
         originalValue: String?,
@@ -216,5 +234,34 @@ class VersionAwareConfigParserTest {
         } else {
             System.setProperty(name, originalValue)
         }
+    }
+
+    companion object {
+        @JvmStatic
+        fun isConfigTemplateCases(): Stream<Arguments> = Stream.of(
+            Arguments.of("{SYSTEM_PROP:default-value}", true),
+            Arguments.of("\${SYSTEM_PROP:default-value}", true),
+            Arguments.of("{VAR1|VAR2:default-value}", true),
+            Arguments.of("prefix-{SYSTEM_PROP:default}-suffix", true),
+            Arguments.of("prefix-{VAR1|VAR2:default}-suffix", true),
+            Arguments.of("{SYSTEM_PROP}", false),
+            Arguments.of("\${SYSTEM_PROP}", false),
+            Arguments.of("{:default}", false),
+            Arguments.of("plain-value", false),
+        )
+
+        @JvmStatic
+        fun resolveConfigTemplateValueCases(): Stream<Arguments> = Stream.of(
+            Arguments.of("{SYSTEM_PROP:default-value}", "default-value"),
+            Arguments.of("\${SYSTEM_PROP:default-value}", "default-value"),
+            Arguments.of("{VAR1|VAR2:default-value}", "default-value"),
+            Arguments.of("prefix-{SYSTEM_PROP:default}-suffix", "prefix-default-suffix"),
+            Arguments.of("prefix-{VAR1|VAR2:default}-suffix", "prefix-default-suffix"),
+            Arguments.of("prefix-{A:1}-{B:2}-suffix", "prefix-1-2-suffix"),
+            Arguments.of("{SYSTEM_PROP}", "{SYSTEM_PROP}"),
+            Arguments.of("\${SYSTEM_PROP}", "\${SYSTEM_PROP}"),
+            Arguments.of("{:default}", "{:default}"),
+            Arguments.of("plain-value", "plain-value"),
+        )
     }
 }

@@ -20,7 +20,7 @@ class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApi
     override fun render(report: OpenAPICoverageConsoleReport, specmaticConfig: SpecmaticConfig): String {
         logger.log("Generating HTML report...")
         val reportConfiguration = specmaticConfig.getReport()!!
-        val openApiSuccessCriteria = reportConfiguration.getSuccessCriteria()
+        val openApiSuccessCriteria = reportConfiguration.successCriteria()
 
         val reportData = HtmlReportData(
             totalCoveragePercentage = report.totalCoveragePercentage, actuatorEnabled = actuatorEnabled,
