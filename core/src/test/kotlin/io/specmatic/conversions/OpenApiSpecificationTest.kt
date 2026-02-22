@@ -79,13 +79,21 @@ internal class OpenApiSpecificationTest {
         }
 
     @JvmStatic
-    fun nonObjectAdditionalPropertiesVariants(): Stream<Arguments> {
+        fun nonObjectAdditionalPropertiesVariants(): Stream<Arguments> {
       return Stream.of(
         Arguments.of("{}"),
         Arguments.of("true"),
         Arguments.of("false")
       )
     }
+
+        @JvmStatic
+        fun componentsPathItemsOpenApiVersions(): Stream<Arguments> {
+            return Stream.of(
+                Arguments.of("3.0.1"),
+                Arguments.of("3.1.0"),
+            )
+        }
     }
 
     private fun portableComparisonAcrossBuildEnvironments(actual: String, expected: String) {
@@ -11279,6 +11287,62 @@ paths:
         } finally {
             invalidOpenApiFile.delete()
         }
+    }
+
+    @ParameterizedTest(name = "OpenAPI version {0}")
+    @MethodSource("componentsPathItemsOpenApiVersions")
+    fun `checkSpecValidity should accept components pathItems references`(openApiVersion: String, @TempDir tempDir: File) {
+        val openApiContent = """
+            openapi: $openApiVersion
+            info:
+              title: User API
+              version: "1.0.0"
+            paths:
+              /api/users/{id}:
+                ${"$"}ref: "#/components/pathItems/GetUserById"
+            components:
+              pathItems:
+                GetUserById:
+                  get:
+                    summary: Get user by id
+                    parameters:
+                      - name: id
+                        in: path
+                        required: true
+                        schema:
+                          type: integer
+                    responses:
+                      "200":
+                        description: User found
+                        content:
+                          application/json:
+                            schema:
+                              ${"$"}ref: "#/components/schemas/User"
+              schemas:
+                User:
+                  type: object
+                  required: [id, name]
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+        """.trimIndent()
+
+        val openApiFile = tempDir.resolve("components-path-items-${openApiVersion.replace(".", "_")}.yaml")
+        openApiFile.writeText(openApiContent)
+
+        assertThatCode {
+            OpenApiSpecification.checkSpecValidity(openApiFile.canonicalPath)
+        }.doesNotThrowAnyException()
+
+        val (output, feature) = captureStandardOutput {
+            OpenApiSpecification.fromYAML(openApiContent, openApiFile.canonicalPath).toFeature()
+        }
+
+        assertThat(output).contains("API Paths: 1, API Operations: 1")
+        assertThat(output).doesNotContain("attribute components.pathItems is unexpected")
+        assertThat(feature.scenarios).hasSize(1)
     }
 
     @Test
