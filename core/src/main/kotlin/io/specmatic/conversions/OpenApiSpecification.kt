@@ -386,6 +386,11 @@ class OpenApiSpecification(
             }
         }
 
+        @Suppress("unused")
+        private fun preprocessYamlForAdditionalProperties(yaml: String, collectorContext: CollectorContext): String {
+            return preprocessYamlForParser(yaml, collectorContext)
+        }
+
         private fun inlinePathItemReferences(root: JsonNode) {
             val openApiVersion = root.get("openapi")?.asText()?.trim().orEmpty()
             val componentsNode = root.get("components") as? ObjectNode ?: return
