@@ -17,17 +17,17 @@ dependencies {
 
     implementation("com.fasterxml.jackson.core:jackson-databind:2.21.0")
 
-    implementation("org.junit.jupiter:junit-jupiter-engine:5.14.2")
-    implementation("org.junit.jupiter:junit-jupiter-api:5.14.2")
-    testImplementation("org.junit.jupiter:junit-jupiter-params:5.14.2")
+    implementation("org.junit.jupiter:junit-jupiter-engine:5.14.3")
+    implementation("org.junit.jupiter:junit-jupiter-api:5.14.3")
+    testImplementation("org.junit.jupiter:junit-jupiter-params:5.14.3")
 
     implementation("org.thymeleaf:thymeleaf:3.1.3.RELEASE")
 
     implementation("io.ktor:ktor-client-core-jvm:2.3.13")
     implementation("io.ktor:ktor-client-cio-jvm:2.3.13")
 
-    implementation("org.junit.platform:junit-platform-launcher:1.14.2")
-    implementation("org.junit.platform:junit-platform-reporting:1.14.2")
+    implementation("org.junit.platform:junit-platform-launcher:1.14.3")
+    implementation("org.junit.platform:junit-platform-reporting:1.14.3")
 
     implementation("org.fusesource.jansi:jansi:2.4.2")
 }
