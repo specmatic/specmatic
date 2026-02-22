@@ -247,9 +247,13 @@ class OpenApiSpecification(
         }
 
         fun checkSpecValidity(openApiFilePath: String, lenientMode: Boolean = false) {
+            val preprocessedYaml = preprocessYamlForParser(
+                yaml = checkExists(File(openApiFilePath)).readText(),
+                collectorContext = CollectorContext()
+            )
             val parseResult: SwaggerParseResult =
                 OpenAPIV3Parser().readContents(
-                    checkExists(File(openApiFilePath)).readText(),
+                    preprocessedYaml,
                     null,
                     resolveExternalReferences(),
                     openApiFilePath,
@@ -286,7 +290,7 @@ class OpenApiSpecification(
             val collectorContext = CollectorContext()
             val implicitOverlayFile = getImplicitOverlayContent(openApiFilePath)
             val mergedYaml = yamlContent.applyOverlay(overlayContent).applyOverlay(implicitOverlayFile)
-            val preprocessedYaml = preprocessYamlForAdditionalProperties(mergedYaml, collectorContext)
+            val preprocessedYaml = preprocessYamlForParser(mergedYaml, collectorContext)
 
             val parseResult: SwaggerParseResult =
                 OpenAPIV3Parser().readContents(
@@ -368,16 +372,59 @@ class OpenApiSpecification(
             ).registerKotlinModule()
         }
 
-        private fun preprocessYamlForAdditionalProperties(yaml: String, collectorContext: CollectorContext): String {
+        private fun preprocessYamlForParser(yaml: String, collectorContext: CollectorContext): String {
             if (yaml.isBlank()) return yaml
 
             return try {
                 val root = yamlPreprocessorMapper.readTree(yaml) ?: return yaml
+                inlinePathItemReferences(root)
                 removeInvalidAdditionalProperties(root, collectorContext = collectorContext)
                 yamlPreprocessorMapper.writeValueAsString(root)
             } catch (exception: Exception) {
-                logger.debug("Skipping additionalProperties preprocessing due to error: ${exception.message}")
+                logger.debug("Skipping OpenAPI preprocessing due to error: ${exception.message}")
                 yaml
+            }
+        }
+
+        @Suppress("unused")
+        private fun preprocessYamlForAdditionalProperties(yaml: String, collectorContext: CollectorContext): String {
+            return preprocessYamlForParser(yaml, collectorContext)
+        }
+
+        private fun inlinePathItemReferences(root: JsonNode) {
+            val openApiVersion = root.get("openapi")?.asText()?.trim().orEmpty()
+            val componentsNode = root.get("components") as? ObjectNode ?: return
+            if (componentsNode.get("pathItems") !is ObjectNode) return
+            val pathsNode = root.get("paths") as? ObjectNode ?: return
+
+            val pathNames = pathsNode.fieldNames().asSequence().toList()
+            pathNames.forEach { pathName ->
+                val pathNode = pathsNode.get(pathName) as? ObjectNode ?: return@forEach
+                val ref = pathNode.get("\$ref")?.asText() ?: return@forEach
+                if (!ref.startsWith("#/components/pathItems/")) return@forEach
+
+                val referencedPathItem = root.at(ref.removePrefix("#"))
+                if (referencedPathItem !is ObjectNode || referencedPathItem.isMissingNode) return@forEach
+
+                val resolvedPathItem = referencedPathItem.deepCopy<ObjectNode>()
+                val inlineFieldNames = pathNode.fieldNames().asSequence().toList()
+                inlineFieldNames.forEach { fieldName ->
+                    if (fieldName != "\$ref") {
+                        val fieldValue = pathNode.get(fieldName)
+                        if (fieldValue != null) {
+                            resolvedPathItem.set<JsonNode>(fieldName, fieldValue.deepCopy())
+                        }
+                    }
+                }
+
+                pathsNode.set<ObjectNode>(pathName, resolvedPathItem)
+            }
+
+            if (openApiVersion.startsWith("3.0")) {
+                componentsNode.remove("pathItems")
+                if (componentsNode.size() == 0) {
+                    (root as? ObjectNode)?.remove("components")
+                }
             }
         }
 
