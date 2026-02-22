@@ -111,14 +111,16 @@ data class AnyOfPattern(
         otherResolver: Resolver,
         typeStack: TypeStack,
     ): Result {
-        if (otherPattern !is AnyOfPattern) {
-            return patternMismatchResult(this, otherPattern, thisResolver.mismatchMessages)
+        val otherPatterns = when (otherPattern) {
+            is AnyOfPattern -> otherPattern.pattern
+            is AnyPattern -> otherPattern.pattern
+            else -> return patternMismatchResult(this, otherPattern, thisResolver.mismatchMessages)
         }
 
-        val myPatterns = patternSet(thisResolver)
+        val myPatterns = delegate.getUpdatedPattern(thisResolver)
 
         val encompassResults =
-            otherPattern.pattern.map { legacyPattern ->
+            otherPatterns.map { legacyPattern ->
                 val results =
                     myPatterns.asSequence().map { candidate ->
                         biggerEncompassesSmaller(candidate, legacyPattern, thisResolver, otherResolver, typeStack)

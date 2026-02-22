@@ -6,9 +6,9 @@ import io.specmatic.core.log.logger
 import io.specmatic.stub.captureStandardOutput
 import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.Test
 
 internal class TestBackwardCompatibilityKtTest {
     @Test
@@ -674,7 +674,8 @@ And response-body (Number)
 
     @Test
     fun `contract with a required key should not match a contract with the same key made optional`() {
-        val olderBehaviour = parseGherkinStringToFeature("""
+        val olderBehaviour = parseGherkinStringToFeature(
+            """
 Feature: Contract API
 
 Scenario: api call
@@ -684,9 +685,11 @@ Then status 200
 And response-body
 | number      | (number) |
 | description | (string) |
-""".trim())
+""".trim()
+        )
 
-        val newerBehaviour = parseGherkinStringToFeature("""
+        val newerBehaviour = parseGherkinStringToFeature(
+            """
 Feature: Contract API
 
 Scenario: api call
@@ -696,7 +699,8 @@ Then status 200
 And response-body
 | number       | (number) |
 | description? | (string) |
-""".trim())
+""".trim()
+        )
 
         val results: Results = testBackwardCompatibility(olderBehaviour, newerBehaviour)
 
@@ -708,7 +712,8 @@ And response-body
 
     @Test
     fun `contract with an optional key in the response should pass against itself`() {
-        val behaviour = parseGherkinStringToFeature("""
+        val behaviour = parseGherkinStringToFeature(
+            """
 Feature: Contract API
 
 Scenario: api call
@@ -718,7 +723,8 @@ Then status 200
 And response-body
 | number       | (number) |
 | description? | (string) |
-""".trim())
+""".trim()
+        )
 
         val results: Results = testBackwardCompatibility(behaviour, behaviour)
 
@@ -729,7 +735,8 @@ And response-body
 
     @Test
     fun `should work with multipart content part`() {
-        val behaviour = parseGherkinStringToFeature("""
+        val behaviour = parseGherkinStringToFeature(
+            """
 Feature: Contract API
 
 Scenario: api call
@@ -739,7 +746,8 @@ Then status 200
 And response-body
 | number       | (number) |
 | description? | (string) |
-""".trim())
+""".trim()
+        )
 
         val results: Results = testBackwardCompatibility(behaviour, behaviour)
 
@@ -750,7 +758,8 @@ And response-body
 
     @Test
     fun `should work with multipart file part`() {
-        val behaviour = parseGherkinStringToFeature("""
+        val behaviour = parseGherkinStringToFeature(
+            """
 Feature: Contract API
 
 Scenario: api call
@@ -760,7 +769,8 @@ Then status 200
 And response-body
 | number       | (number) |
 | description? | (string) |
-""".trim())
+""".trim()
+        )
 
         val results: Results = testBackwardCompatibility(behaviour, behaviour)
 
@@ -771,7 +781,8 @@ And response-body
 
     @Test
     fun `should fail given a file part in one and a content part in the other`() {
-        val older = parseGherkinStringToFeature("""
+        val older = parseGherkinStringToFeature(
+            """
 Feature: Contract API
 
 Scenario: api call
@@ -781,9 +792,11 @@ Then status 200
 And response-body
 | number       | (number) |
 | description? | (string) |
-""".trim())
+""".trim()
+        )
 
-        val newer = parseGherkinStringToFeature("""
+        val newer = parseGherkinStringToFeature(
+            """
 Feature: Contract API
 
 Scenario: api call
@@ -793,7 +806,8 @@ Then status 200
 And response-body
 | number       | (number) |
 | description? | (string) |
-""".trim())
+""".trim()
+        )
 
         val results: Results = testBackwardCompatibility(older, newer)
 
@@ -874,7 +888,8 @@ Then status 200
 And response-body (number)
     """.trim()
 
-        val results: Results = testBackwardCompatibility(parseGherkinStringToFeature(gherkin1), parseGherkinStringToFeature(gherkin2))
+        val results: Results =
+            testBackwardCompatibility(parseGherkinStringToFeature(gherkin1), parseGherkinStringToFeature(gherkin2))
 
         if (results.failureCount > 0)
             println(results.report())
@@ -905,7 +920,8 @@ When POST /data
 Then status 200
     """.trim()
 
-        val results: Results = testBackwardCompatibility(parseGherkinStringToFeature(gherkin1), parseGherkinStringToFeature(gherkin2))
+        val results: Results =
+            testBackwardCompatibility(parseGherkinStringToFeature(gherkin1), parseGherkinStringToFeature(gherkin2))
 
         if (results.failureCount > 0)
             println(results.report())
@@ -935,7 +951,8 @@ When POST /data
 Then status 200
     """.trim()
 
-        val results: Results = testBackwardCompatibility(parseGherkinStringToFeature(gherkin1), parseGherkinStringToFeature(gherkin2))
+        val results: Results =
+            testBackwardCompatibility(parseGherkinStringToFeature(gherkin1), parseGherkinStringToFeature(gherkin2))
 
         if (results.failureCount > 0)
             println(results.report())
@@ -965,7 +982,8 @@ When POST /data
 Then status 200
     """.trim()
 
-        val results: Results = testBackwardCompatibility(parseGherkinStringToFeature(gherkin1), parseGherkinStringToFeature(gherkin2))
+        val results: Results =
+            testBackwardCompatibility(parseGherkinStringToFeature(gherkin1), parseGherkinStringToFeature(gherkin2))
 
         if (results.failureCount > 0)
             println(results.report())
@@ -997,7 +1015,8 @@ Then status 200
   And response-body <ns1:customer xmlns:ns1="http://example.com/customer"><name specmatic_occurs="optional">(string)</name></ns1:customer>
     """.trim()
 
-        val results: Results = testBackwardCompatibility(parseGherkinStringToFeature(gherkin1), parseGherkinStringToFeature(gherkin2))
+        val results: Results =
+            testBackwardCompatibility(parseGherkinStringToFeature(gherkin1), parseGherkinStringToFeature(gherkin2))
 
         if (results.failureCount > 0)
             println(results.report())
@@ -1253,18 +1272,20 @@ paths:
 
         val result: Results = testBackwardCompatibility(oldContract, newContract)
 
-        assertThat(result.report()).isEqualToNormalizingWhitespace("""
+        assertThat(result.report()).isEqualToNormalizingWhitespace(
+            """
         In scenario "hello world. Response: Says hello"
         API: POST /data -> 200
         
         ${
-            toViolationReportString(
-                breadCrumb = "REQUEST.BODY.data",
-                details = "This is type string in the new specification, but type number in the old specification",
-                StandardRuleViolation.TYPE_MISMATCH
-            )
-        }
-        """.trimIndent())
+                toViolationReportString(
+                    breadCrumb = "REQUEST.BODY.data",
+                    details = "This is type string in the new specification, but type number in the old specification",
+                    StandardRuleViolation.TYPE_MISMATCH
+                )
+            }
+        """.trimIndent()
+        )
     }
 
     @Test
@@ -1420,7 +1441,8 @@ paths:
         val report: String = result.report()
         println(report)
 
-        assertThat(report.indexOf("REQUEST.BODY.data2")).`as`("There should only be one instance of any error report that occurs in multiple contract-vs-contract requests").isEqualTo(report.lastIndexOf("REQUEST.BODY.data2"))
+        assertThat(report.indexOf("REQUEST.BODY.data2")).`as`("There should only be one instance of any error report that occurs in multiple contract-vs-contract requests")
+            .isEqualTo(report.lastIndexOf("REQUEST.BODY.data2"))
     }
 
     @Test
@@ -2150,7 +2172,8 @@ paths:
 
     @Test
     fun `removing a key in the request should be backward compatible`() {
-        val older = parseGherkinStringToFeature("""
+        val older = parseGherkinStringToFeature(
+            """
             Feature: test
               Scenario: test
                 When POST /data
@@ -2158,16 +2181,19 @@ paths:
                 | id | (number) |
                 | name | (string) |
                 Then status 200
-        """.trimIndent())
+        """.trimIndent()
+        )
 
-        val newer = parseGherkinStringToFeature("""
+        val newer = parseGherkinStringToFeature(
+            """
             Feature: test
               Scenario: test
                 When POST /data
                 And request-body
                 | id | (number) |
                 Then status 200
-        """.trimIndent())
+        """.trimIndent()
+        )
 
         val result = testBackwardCompatibility(older, newer)
         assertThat(result.success()).withFailMessage(result.report()).isTrue
@@ -2804,8 +2830,8 @@ paths:
         val oldLogger = logger
         try {
 
-        val feature: Feature =
-            """
+            val feature: Feature =
+                """
                 openapi: 3.0.0
                 info:
                   title: Sample API
@@ -2821,11 +2847,11 @@ paths:
         """.trimIndent().openAPIToContract()
 
             logger = Verbose()
-        val (stdout, _) = captureStandardOutput {
-            testBackwardCompatibility(feature, feature)
-        }
+            val (stdout, _) = captureStandardOutput {
+                testBackwardCompatibility(feature, feature)
+            }
 
-        assertThat(stdout).contains("[Compatibility Check] Scenario: POST /products -> 201")
+            assertThat(stdout).contains("[Compatibility Check] Scenario: POST /products -> 201")
         } finally {
             logger = oldLogger
         }
@@ -2885,6 +2911,72 @@ paths:
         println(results.report())
         assertThat(results.success()).isFalse()
         assertThat(results.report()).contains("an empty string or no body value")
+    }
+
+    @Test
+    fun `example-only changes do not break backward compatibility for anyOf nullable response schema`() {
+        val oldSpec = """
+openapi: 3.1.0
+info:
+  title: Repro API
+  version: '1.0'
+paths:
+  /products/validate:
+    post:
+      responses:
+        "200":
+          description: Validation successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    anyOf:
+                      - type: array
+                        items:
+                          type: string
+                      - type: "null"
+              examples:
+                EXAMPLE_1:
+                  value:
+                    data: ["item1", "item2"]
+""".trimIndent()
+
+        val newSpec = """
+openapi: 3.1.0
+info:
+  title: Repro API
+  version: '1.0'
+paths:
+  /products/validate:
+    post:
+      responses:
+        "200":
+          description: Validation successful - updated example text
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    anyOf:
+                      - type: array
+                        items:
+                          type: string
+                      - type: "null"
+              examples:
+                EXAMPLE_1:
+                  value:
+                    data: ["item1", "item2", "item3"]
+""".trimIndent()
+
+        val olderContract = OpenApiSpecification.fromYAML(oldSpec, "").toFeature()
+        val newerContract = OpenApiSpecification.fromYAML(newSpec, "").toFeature()
+
+        val result: Results = testBackwardCompatibility(olderContract, newerContract)
+
+        assertEquals(0, result.failureCount)
     }
 }
 

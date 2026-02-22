@@ -62,6 +62,30 @@ internal class AnyOfPatternTest {
     }
 
     @Test
+    fun `encompasses succeeds when other pattern is anyPattern with same options`() {
+        val newPattern =
+            AnyOfPattern(
+                listOf(
+                    ListPattern(StringPattern()),
+                    NullPattern
+                )
+            )
+        val oldPattern =
+            AnyPattern(
+                pattern = listOf(
+                    ListPattern(StringPattern()),
+                    NullPattern
+                ),
+                discriminator = null,
+                extensions = emptyMap()
+            )
+
+        val result = newPattern.encompasses(oldPattern, resolver, resolver, emptySet())
+
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
     fun `matches fails when object contains keys missing from all schemas`() {
         val pattern =
             AnyOfPattern(
