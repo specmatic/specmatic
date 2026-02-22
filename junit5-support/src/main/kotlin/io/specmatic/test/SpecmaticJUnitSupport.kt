@@ -322,8 +322,6 @@ open class SpecmaticJUnitSupport {
                 else -> {
                     if (File(settings.configFile.orEmpty()).exists().not()) exitWithMessage(MISSING_CONFIG_FILE_MESSAGE)
 
-                    createIfDoesNotExist(workingDirectory.path)
-
                     val contractFilePaths = contractTestPathsFrom(
                         settings.configFile.orEmpty(),
                         workingDirectory.path,
