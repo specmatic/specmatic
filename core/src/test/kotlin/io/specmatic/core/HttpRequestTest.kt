@@ -227,13 +227,13 @@ internal class HttpRequestTest {
     }
 
     @Test
-    fun `override the host header to exclude the port suffix when the default port is used`() {
+    fun `should not inject Host header from request URL`() {
         val builderWithPort80 = HttpRequestBuilder().apply {
             this.url.host = "test.com"
             this.url.port = 80
         }
         HttpRequest("GET", "/").buildKTORRequest(builderWithPort80)
-        assertThat(builderWithPort80.headers["Host"]).isEqualTo("test.com")
+        assertThat(builderWithPort80.headers["Host"]).isNull()
 
         val httpRequestBuilderWithHTTPS = HttpRequestBuilder().apply {
             this.url.protocol = URLProtocol.HTTPS
@@ -241,18 +241,18 @@ internal class HttpRequestTest {
             this.url.port = 443
         }
         HttpRequest("GET", "/").buildKTORRequest(httpRequestBuilderWithHTTPS)
-        assertThat(httpRequestBuilderWithHTTPS.headers["Host"]).isEqualTo("test.com")
+        assertThat(httpRequestBuilderWithHTTPS.headers["Host"]).isNull()
     }
 
     @Test
-    fun `should remove lowercase host header to avoid duplicates`() {
+    fun `should not forward incoming host header`() {
         val httpRequestBuilder = HttpRequestBuilder().apply {
             this.url.host = "target.com"
             this.url.port = 80
         }
         HttpRequest("GET", "/", headers = mapOf("host" to "original.com"))
             .buildKTORRequest(httpRequestBuilder)
-        assertThat(httpRequestBuilder.headers["Host"]).isEqualTo("target.com")
+        assertThat(httpRequestBuilder.headers["Host"]).isNull()
     }
 
     @Test
