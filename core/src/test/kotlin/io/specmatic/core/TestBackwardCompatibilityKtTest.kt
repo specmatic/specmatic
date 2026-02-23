@@ -2978,6 +2978,196 @@ paths:
 
         assertEquals(0, result.failureCount)
     }
+
+    @Test
+    fun `example-only changes do not break backward compatibility for oneOf array item schema`() {
+        val oldSpec = """
+openapi: 3.1.0
+info:
+  title: Repro API
+  version: '1.0'
+paths:
+  /products/validate:
+    post:
+      responses:
+        "200":
+          description: Validation successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      oneOf:
+                        - type: string
+                        - type: boolean
+              examples:
+                EXAMPLE_1:
+                  value:
+                    data: ["item1", "item2"]
+""".trimIndent()
+
+        val newSpec = """
+openapi: 3.1.0
+info:
+  title: Repro API
+  version: '1.0'
+paths:
+  /products/validate:
+    post:
+      responses:
+        "200":
+          description: Validation successful - updated example
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      oneOf:
+                        - type: string
+                        - type: boolean
+              examples:
+                EXAMPLE_1:
+                  value:
+                    data: ["item1", true]
+""".trimIndent()
+
+        val olderContract = OpenApiSpecification.fromYAML(oldSpec, "").toFeature()
+        val newerContract = OpenApiSpecification.fromYAML(newSpec, "").toFeature()
+
+        val result: Results = testBackwardCompatibility(olderContract, newerContract)
+
+        assertEquals(0, result.failureCount)
+    }
+
+    @Test
+    fun `request body array string remains backward compatible when unchanged and examples are absent`() {
+        val oldSpec = """
+openapi: 3.1.0
+info:
+  title: Repro API
+  version: '1.0'
+paths:
+  /products/validate:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - data
+              properties:
+                data:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: Validation successful
+""".trimIndent()
+
+        val newSpec = """
+openapi: 3.1.0
+info:
+  title: Repro API
+  version: '1.0'
+paths:
+  /products/validate:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - data
+              properties:
+                data:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: Validation successful
+""".trimIndent()
+
+        val olderContract = OpenApiSpecification.fromYAML(oldSpec, "").toFeature()
+        val newerContract = OpenApiSpecification.fromYAML(newSpec, "").toFeature()
+
+        val result: Results = testBackwardCompatibility(olderContract, newerContract)
+
+        assertThat(result.success()).withFailMessage(result.report()).isTrue
+    }
+
+    @Test
+    fun `request body array string to boolean is backward incompatible when examples are absent`() {
+        val oldSpec = """
+openapi: 3.1.0
+info:
+  title: Repro API
+  version: '1.0'
+paths:
+  /products/validate:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - data
+              properties:
+                data:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: Validation successful
+""".trimIndent()
+
+        val newSpec = """
+openapi: 3.1.0
+info:
+  title: Repro API
+  version: '1.0'
+paths:
+  /products/validate:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - data
+              properties:
+                data:
+                  type: array
+                  items:
+                    type: boolean
+      responses:
+        "200":
+          description: Validation successful
+""".trimIndent()
+
+        val olderContract = OpenApiSpecification.fromYAML(oldSpec, "").toFeature()
+        val newerContract = OpenApiSpecification.fromYAML(newSpec, "").toFeature()
+
+        val result: Results = testBackwardCompatibility(olderContract, newerContract)
+
+        assertThat(result.success()).withFailMessage(result.report()).isFalse
+    }
 }
 
 private fun String.openAPIToContract(): Feature {
