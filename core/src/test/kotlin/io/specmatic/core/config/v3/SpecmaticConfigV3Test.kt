@@ -8,6 +8,7 @@ import io.specmatic.core.config.toSpecmaticConfig
 import io.specmatic.core.config.v3.specmatic.Governance
 import io.specmatic.core.config.v3.specmatic.License
 import io.specmatic.core.config.v3.specmatic.Report
+import io.specmatic.core.config.v3.specmatic.SuccessCriterion
 import io.specmatic.core.loadSpecmaticConfig
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.exceptionCauseMessage
@@ -421,6 +422,25 @@ class SpecmaticConfigV3Test {
 
             assertThat(outputDirValue).isEqualTo("./services/myService/reports").doesNotStartWith("file:")
             assertThat(yaml).contains("outputDirectory: ./services/myService/reports").doesNotContain("file:///")
+        }
+
+        @Test
+        fun `should dump governance success criteria when populated`() {
+            val governance = Governance(successCriterion = SuccessCriterion(minCoveragePercentage = 70, maxMissedOperationsInSpec = 3, enforce = true))
+            val config = SpecmaticConfigV3(version = SpecmaticConfigVersion.VERSION_3, specmatic = Specmatic(governance = governance))
+            val yaml = yamlMapper.writeValueAsString(config)
+            val rawValue = yamlMapper.readValue<Map<String, Any>>(yaml)
+
+            val specmaticMap = rawValue["specmatic"] as Map<*, *>
+            val governanceMap = specmaticMap["governance"] as Map<*, *>
+            val successCriteriaMap = governanceMap["successCriteria"] as Map<*, *>
+
+            assertThat(successCriteriaMap["minCoveragePercentage"]).isEqualTo(70)
+            assertThat(successCriteriaMap["maxMissedOperationsInSpec"]).isEqualTo(3)
+            assertThat(successCriteriaMap["enforce"]).isEqualTo(true)
+            assertThat(yaml).contains("minCoveragePercentage: 70")
+            assertThat(yaml).contains("maxMissedOperationsInSpec: 3")
+            assertThat(yaml).contains("enforce: true")
         }
     }
 }
