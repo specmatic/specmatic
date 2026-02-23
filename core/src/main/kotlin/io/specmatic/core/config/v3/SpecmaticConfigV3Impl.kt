@@ -75,7 +75,6 @@ import io.specmatic.core.utilities.ContractSource
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_QUERY_PARAMS
-import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_SCHEMA
 import io.specmatic.core.utilities.Flags.Companion.MAX_TEST_COUNT
 import io.specmatic.core.utilities.Flags.Companion.MAX_TEST_REQUEST_COMBINATIONS
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_BASE_URL
@@ -467,9 +466,10 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
     }
 
     override fun getStubDictionary(specFile: File?): String? {
-        val mockData = if (specFile == null) { specmaticConfig.dependencies?.data } else { getMockService(specFile)?.data }
+        val serviceData = specFile?.let { getMockService(it)?.data }
+        val dependencyData = specmaticConfig.dependencies?.data
         val fromSysProp = getStringValue(SPECMATIC_STUB_DICTIONARY)
-        val fromConfig = mockData?.dictionary?.resolveElseThrow(resolver)?.path
+        val fromConfig = serviceData?.dictionary?.resolveElseThrow(resolver)?.path ?: dependencyData?.dictionary?.resolveElseThrow(resolver)?.path
         return fromConfig ?: fromSysProp
     }
 

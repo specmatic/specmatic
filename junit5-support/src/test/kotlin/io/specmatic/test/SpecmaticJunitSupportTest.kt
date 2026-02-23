@@ -2,8 +2,24 @@ package io.specmatic.test
 
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
+import io.specmatic.core.SPECMATIC_STUB_DICTIONARY
 import io.specmatic.core.TestConfig
+import io.specmatic.core.config.SpecmaticConfigVersion
+import io.specmatic.core.config.v2.ContractConfig
+import io.specmatic.core.config.v2.SpecExecutionConfig
+import io.specmatic.core.config.v2.SpecmaticConfigV2
+import io.specmatic.core.config.v3.Data
+import io.specmatic.core.config.v3.RefOrValue
+import io.specmatic.core.config.v3.SpecmaticConfigV3
+import io.specmatic.core.config.v3.components.Dictionary
+import io.specmatic.core.config.v3.components.services.CommonServiceConfig
+import io.specmatic.core.config.v3.components.services.Definition
+import io.specmatic.core.config.v3.components.services.SpecificationDefinition
+import io.specmatic.core.config.v3.components.services.TestServiceConfig
+import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.filters.ScenarioMetadataFilter
+import io.specmatic.core.utilities.yamlMapper
+import io.specmatic.core.utilities.Flags
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
@@ -650,6 +666,97 @@ paths:
         }
     }
 
+    @Test
+    fun `should complain when dictionary file provided in config does not exist for V2`(@TempDir tempDir: File) {
+        val specFile = tempDir.resolve("api.yaml")
+        val dictionaryFile = tempDir.resolve("dictionary.yaml")
+        val configFile = tempDir.resolve("specmatic.yaml")
+
+        specFile.writeText(
+        """
+        openapi: 3.0.0
+        info:
+          title: Sample
+          version: 1.0.0
+        paths:
+          /health:
+            get:
+              responses:
+                '200':
+                  description: OK
+        """.trimIndent())
+
+        configFile.writeText(
+            yamlMapper.writeValueAsString(
+                SpecmaticConfigV2(
+                    version = SpecmaticConfigVersion.VERSION_2,
+                    contracts = listOf(
+                        ContractConfig(
+                            filesystem = ContractConfig.FileSystemContractSource(tempDir.canonicalPath),
+                            provides = listOf(SpecExecutionConfig.StringValue(specFile.name))
+                        )
+                    )
+                )
+            )
+        )
+
+        Flags.using(SPECMATIC_STUB_DICTIONARY to dictionaryFile.canonicalPath) {
+            assertThatCode { loadTestScenariosWithConfig(configFile.canonicalPath, specFile.canonicalPath) }
+                .hasMessageContaining("Expected dictionary file at")
+                .hasMessageContaining(dictionaryFile.canonicalPath)
+                .hasMessageContaining("but it does not exist")
+        }
+    }
+
+    @Test
+    fun `should complain when dictionary file provided in config does not exist for V3`(@TempDir tempDir: File) {
+        val specFile = tempDir.resolve("api.yaml")
+        val dictionaryFile = tempDir.resolve("dictionary.yaml")
+        val configFile = tempDir.resolve("specmatic-v3.yaml")
+
+        specFile.writeText(
+        """
+        openapi: 3.0.0
+        info:
+          title: Sample
+          version: 1.0.0
+        paths:
+          /health:
+            get:
+              responses:
+                '200':
+                  description: OK
+        """.trimIndent())
+
+        configFile.writeText(
+            yamlMapper.writeValueAsString(
+                SpecmaticConfigV3(
+                    version = SpecmaticConfigVersion.VERSION_3,
+                    systemUnderTest = TestServiceConfig(
+                        service = RefOrValue.Value(
+                            CommonServiceConfig(
+                                data = Data(dictionary = RefOrValue.Value(Dictionary(path = dictionaryFile.canonicalPath))),
+                                definitions = listOf(
+                                    Definition(
+                                        Definition.Value(
+                                            source = RefOrValue.Value(SourceV3.create(filesystem = SourceV3.FileSystem(tempDir.canonicalPath))),
+                                            specs = listOf(SpecificationDefinition.StringValue(specFile.name))
+                                        )
+                                    )
+                                ),
+                            )
+                        )
+                    )
+                )
+            )
+        )
+
+        assertThatCode { loadTestScenariosWithConfig(configFile.canonicalPath, specFile.canonicalPath) }
+            .hasMessageContaining("Expected dictionary file at")
+            .hasMessageContaining(dictionaryFile.canonicalPath)
+            .hasMessageContaining("but it does not exist")
+    }
+
     private fun runContractTestWithConfig(configFilePath: String): String {
         SpecmaticJUnitSupport.settingsStaging.set(
             ContractTestSettings(
@@ -667,6 +774,23 @@ paths:
                 System.setOut(originalOut)
             }
             outputStream.toString()
+        } finally {
+            SpecmaticJUnitSupport.settingsStaging.remove()
+        }
+    }
+
+    private fun loadTestScenariosWithConfig(configFilePath: String, specFilePath: String) {
+        SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(configFile = configFilePath))
+        try {
+            SpecmaticJUnitSupport().loadTestScenarios(
+                path = specFilePath,
+                suggestionsPath = "",
+                suggestionsData = "",
+                config = TestConfig(emptyMap(), emptyMap()),
+                filterName = null,
+                filterNotName = null,
+                filter = ScenarioMetadataFilter.from("")
+            )
         } finally {
             SpecmaticJUnitSupport.settingsStaging.remove()
         }

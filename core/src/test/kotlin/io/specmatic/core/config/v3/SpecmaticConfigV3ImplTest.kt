@@ -4,6 +4,7 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.config.toSpecmaticConfig
 import io.specmatic.reporter.model.SpecType
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
@@ -40,6 +41,31 @@ class SpecmaticConfigV3ImplTest {
     @ParameterizedTest
     @MethodSource("testData")
     fun `should return similar values between v2 and v3 test data`(testCase: TestCase) = testCase.run(tempDir)
+
+    @Test
+    fun `getStubDictionary should fallback to dependency level dictionary when service dictionary is absent for matched spec`() {
+        val config = tempDir.resolve("specmatic.yaml").apply {
+            writeText("""
+            version: 3
+            dependencies:
+              services:
+              - service:
+                  definitions:
+                  - definition:
+                      source:
+                        filesystem: {}
+                      specs:
+                        - simple.yaml
+              data:
+                dictionary:
+                  path: ./dictionary_global.yaml
+            """.trimIndent())
+        }.toSpecmaticConfig()
+
+        val specificationSourceEntry = config.getFirstMockSourceMatching { it.specPathInConfig == "simple.yaml" }
+        assertThat(specificationSourceEntry).isNotNull
+        assertThat(config.getStubDictionary(specificationSourceEntry!!.specFile)).isEqualTo("./dictionary_global.yaml")
+    }
 
     companion object {
         data class TestCase(val v2: String, val v3: String, val extract: (SpecmaticConfig) -> Any?) {

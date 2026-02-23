@@ -177,7 +177,7 @@ data class StubConfiguration(
         return filter
     }
 
-    fun getHttpsConfiguration(): HttpsConfiguration? {
+    fun getHttps(): HttpsConfiguration? {
         return https
     }
 
@@ -960,7 +960,7 @@ data class SpecmaticConfigV1V2Common(
     @JsonIgnore
     override fun getStubHttpsConfiguration(): CertRegistry {
         val registry = CertRegistry.empty()
-        val httpsConfiguration = getStubConfiguration(this).getHttpsConfiguration() ?: return registry
+        val httpsConfiguration = getStubConfiguration(this).getHttps() ?: return registry
         return registry.plusWildCard(httpsConfiguration)
     }
 
