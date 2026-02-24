@@ -386,12 +386,11 @@ class HttpStub(
                         isSwaggerSpecRequest(httpRequest) -> {
                             shouldRedactSwaggerSpecResponseInLogs = true
                             handleFetchSwaggerSpecRequest(httpRequest).also {
-                                swaggerSpecSummary = if (it.response.status == 429) {
+                                swaggerSpecSummary = if (it.response.status == HttpStatusCode.Conflict.value) {
                                     SWAGGER_SPEC_NOT_AVAILABLE_MESSAGE
                                 } else {
-                                    val specId = it.contractPath.takeIf(String::isNotBlank)?.let { path -> File(path).name }
-                                        ?: "unknown-openapi-spec"
-                                    "returned spec for $specId"
+                                    val specPath = it.contractPath.takeIf(String::isNotBlank) ?: "unknown-openapi-spec"
+                                    "(specification in $specPath was returned)"
                                 }
                             }.copy(isInternalStubPath = true)
                         }
@@ -760,7 +759,7 @@ class HttpStub(
 
     private fun handleFetchSwaggerSpecRequest(httpRequest: HttpRequest): HttpStubResponse {
         val openApiSpec = firstMockedOpenApiSpec ?: return HttpStubResponse(
-            HttpResponse(status = 429, body = SWAGGER_SPEC_NOT_AVAILABLE_MESSAGE)
+            HttpResponse(status = HttpStatusCode.Conflict.value, body = SWAGGER_SPEC_NOT_AVAILABLE_MESSAGE)
         )
         val resolvedSpec = File(openApiSpec.resolvedSpecPath)
         if (!resolvedSpec.exists()) {
