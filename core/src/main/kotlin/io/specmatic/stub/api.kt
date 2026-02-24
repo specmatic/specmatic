@@ -452,11 +452,12 @@ fun loadContractStubsFromFilesAsResults(
                 loadIfSupportedAPISpecification(contractPathData, specmaticConfig)
             }.overrideInlineExamplesWithSameNameFrom(dataDirFiles(dataDirPaths))
 
-    dataDirPaths.forEach { dataDirPath ->
+    val exampleDirPathsFromFeatures = features.flatMap { it.second.exampleDirPaths }
+    dataDirPaths.plus(exampleDirPathsFromFeatures).distinct().forEach { dataDirPath ->
         val dataFiles = dataDirFiles(listOf(dataDirPath))
         logger.boundary()
         if (dataFiles.isEmpty()) {
-            debugLogNonExistentDataFiles(dataDirPaths)
+            debugLogNonExistentDataFiles(listOf(dataDirPath))
         } else {
             consoleLog(dataFilesLogForStubScan(dataFiles, listOf(dataDirPath).relativePaths(), logger is Verbose))
             logger.boundary()
@@ -562,8 +563,8 @@ fun loadExpectationsForFeaturesAsResults(
     dirsToBeSkipped: Set<String> = emptySet(),
 ): List<FeatureStubsResult> {
     val exampleDirPathsFromFeatures = features.flatMap { it.second.exampleDirPaths }
-    val dataFiles = dataDirFiles(dataDirPaths + exampleDirPathsFromFeatures, dirsToBeSkipped)
-    logStubScanForDebugging(features, dataFiles, dataDirPaths)
+    val combinedDataDirs = dataDirPaths.plus(exampleDirPathsFromFeatures)
+    val dataFiles = dataDirFiles(combinedDataDirs, dirsToBeSkipped)
 
     val mockData =
         dataFiles.mapNotNull {
@@ -579,6 +580,7 @@ fun loadExpectationsForFeaturesAsResults(
             }
         }
 
+    logStubScanForDebugging(features, mockData.map { File(it.first) }, combinedDataDirs.relativePaths())
     return loadContractStubsAsResults(features, mockData, strictMode)
 }
 
