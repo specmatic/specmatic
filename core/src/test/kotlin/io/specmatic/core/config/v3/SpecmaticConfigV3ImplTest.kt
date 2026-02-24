@@ -1,9 +1,12 @@
 package io.specmatic.core.config.v3
 
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.config.toSpecmaticConfig
 import io.specmatic.reporter.model.SpecType
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
@@ -41,6 +44,242 @@ class SpecmaticConfigV3ImplTest {
     @ParameterizedTest
     @MethodSource("testData")
     fun `should return similar values between v2 and v3 test data`(testCase: TestCase) = testCase.run(tempDir)
+
+    @Nested
+    inner class ModificationMethods {
+        @Test
+        fun `copyResiliencyTestsConfig should create test config when missing`() {
+            val updated = v3Config("version: 3").copyResiliencyTestsConfig(onlyPositive = false)
+            assertThat(updated.getResiliencyTestsEnabled()).isEqualTo(ResiliencyTestSuite.all)
+        }
+
+        @Test
+        fun `enableResiliencyTests should set all resiliency tests`() {
+            val updated = v3Config("version: 3").enableResiliencyTests()
+            assertThat(updated.getResiliencyTestsEnabled()).isEqualTo(ResiliencyTestSuite.all)
+        }
+
+        @Test
+        fun `withTestBaseURL should create test config when missing`() {
+            val updated = v3Config("version: 3").withTestBaseURL("http://localhost:9090")
+            assertThat(updated.getTestBaseUrl(SpecType.OPENAPI)).isEqualTo("http://localhost:9090")
+        }
+
+        @Test
+        fun `withTestModes should create test settings when missing`() {
+            val updated = v3Config("version: 3").withTestModes(strictMode = true, lenientMode = false)
+            assertThat(updated.getTestStrictMode()).isTrue()
+            assertThat(updated.getTestLenientMode()).isFalse()
+        }
+
+        @Test
+        fun `withTestModes should preserve existing values when null is passed`() {
+            val updated = v3Config("""
+            version: 3
+            systemUnderTest:
+              service:
+                definitions: []
+                settings:
+                  strictMode: true
+                  lenientMode: false
+            """.trimIndent()).withTestModes(strictMode = null, lenientMode = true)
+            assertThat(updated.getTestStrictMode()).isTrue()
+            assertThat(updated.getTestLenientMode()).isTrue()
+        }
+
+        @Test
+        fun `withTestFilter should update existing openapi test run options`() {
+            val updated = v3Config("""
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ./specs
+                      specs:
+                        - test.yaml
+                runOptions:
+                  openapi:
+                    baseUrl: http://localhost:9000
+                    filter: original
+            """.trimIndent()).withTestFilter("updated")
+            assertThat(updated.getTestFilter()).isEqualTo("updated")
+        }
+
+        @Test
+        fun `withTestFilter should create and return config when test section is missing`() {
+            val original = v3Config("version: 3")
+            val updated = original.withTestFilter("updated")
+            assertThat(updated.getTestFilter()).isEqualTo("updated")
+        }
+
+        @Test
+        fun `withTestTimeout should create test settings when missing`() {
+            val updated = v3Config("version: 3").withTestTimeout(1234)
+            assertThat(updated.getTestTimeoutInMilliseconds()).isEqualTo(1234)
+        }
+
+        @Test
+        fun `withStubModes should create mock settings when missing`() {
+            val updated = v3Config("version: 3").withStubModes(true)
+            assertThat(updated.getStubStrictMode(null)).isTrue()
+        }
+
+        @Test
+        fun `withStubFilter should update existing openapi mock run options`() {
+            val updated = v3Config("""
+            version: 3
+            dependencies:
+              services:
+                - service:
+                    definitions:
+                      - definition:
+                          source:
+                            filesystem:
+                              directory: ./specs
+                          specs:
+                            - spec:
+                                path: stub.yaml
+                    runOptions:
+                      openapi:
+                        baseUrl: http://0.0.0.0:9000
+                        filter: original
+            """.trimIndent()).withStubFilter("updated")
+            assertThat(updated.getStubFilter(File("stub.yaml"))).isEqualTo("updated")
+        }
+
+        @Test
+        fun `withStubFilter should preserve existing filter when null is passed`() {
+            val updated = v3Config("""
+            version: 3
+            dependencies:
+              services:
+                - service:
+                    definitions:
+                      - definition:
+                          source:
+                            filesystem:
+                              directory: ./specs
+                          specs:
+                            - spec:
+                                path: stub.yaml
+                    runOptions:
+                      openapi:
+                        baseUrl: http://0.0.0.0:9000
+                        filter: original
+            """.trimIndent()).withStubFilter(null)
+            assertThat(updated.getStubFilter(File("stub.yaml"))).isEqualTo("original")
+        }
+
+        @Test
+        fun `withGlobalMockDelay should create mock settings when missing`() {
+            val updated = v3Config("version: 3").withGlobalMockDelay(250)
+            assertThat(updated.getStubDelayInMilliseconds(null)).isEqualTo(250)
+        }
+
+        @Test
+        fun `withMatchBranch should update test and mock sources`() {
+            writeSpec("specs/test.yaml")
+            writeSpec("specs/stub.yaml")
+            val updated = v3Config("""
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        git:
+                          url: https://github.com/org/repo
+                          branch: main
+                          matchBranch: false
+                      specs:
+                        - test.yaml
+            dependencies:
+              services:
+                - service:
+                    definitions:
+                      - definition:
+                          source:
+                            git:
+                              url: https://github.com/org/repo
+                              branch: main
+                              matchBranch: false
+                          specs:
+                            - spec:
+                                path: stub.yaml
+            """.trimIndent()).withMatchBranch(true)
+
+            val entries = updated.getSpecificationSources().flatMap { it.test + it.mock }
+            assertThat(entries).isNotEmpty()
+            assertThat(entries.map { it.matchBranch }).containsOnly(true)
+        }
+
+        @Test
+        fun `plusExamples should append examples to test and mock sources`() {
+            writeSpec("specs/test.yaml")
+            writeSpec("specs/stub.yaml")
+            val updated = v3Config("""
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        git:
+                          url: https://github.com/org/repo
+                          branch: main
+                          matchBranch: false
+                      specs:
+                        - test.yaml
+            dependencies:
+              services:
+                - service:
+                    definitions:
+                      - definition:
+                          source:
+                            git:
+                              url: https://github.com/org/repo
+                              branch: main
+                              matchBranch: false
+                          specs:
+                            - spec:
+                                path: stub.yaml
+            """.trimIndent()).plusExamples(listOf("examples"))
+
+            val entries = updated.getSpecificationSources().flatMap { it.test + it.mock }
+            assertThat(entries).isNotEmpty()
+            assertThat(entries.map { it.exampleDirs }).allSatisfy {
+                assertThat(it).containsExactly("examples")
+            }
+        }
+
+        @Test
+        fun `should fail to load v3 config when service definitions are missing`() {
+            assertThatThrownBy {
+                v3Config("""
+                version: 3
+                systemUnderTest:
+                  service:
+                    runOptions:
+                      openapi:
+                        baseUrl: http://localhost:9000
+                """.trimIndent())
+            }.hasMessageContaining("definitions")
+        }
+
+        private fun v3Config(yaml: String): SpecmaticConfig {
+            return tempDir.resolve("config-${System.nanoTime()}.yaml").apply { writeText(yaml) }.toSpecmaticConfig()
+        }
+
+        private fun writeSpec(path: String): File {
+            return tempDir.resolve(path).apply {
+                parentFile.mkdirs()
+                writeText("openapi: 3.0.0\ninfo: { title: test, version: '1.0.0' }\npaths: {}\n")
+            }
+        }
+    }
 
     @Test
     fun `getStubDictionary should fallback to dependency level dictionary when service dictionary is absent for matched spec`() {

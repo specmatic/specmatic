@@ -1287,14 +1287,19 @@ data class SpecmaticConfigV1V2Common(
         )
     }
 
-    override fun withTestModes(strictMode: Boolean?, lenientMode: Boolean): SpecmaticConfigV1V2Common {
+    override fun withTestModes(strictMode: Boolean?, lenientMode: Boolean?): SpecmaticConfigV1V2Common {
         val testConfig = test ?: TestConfiguration()
         return this.copy(
             test = testConfig.copy(
                 strictMode = strictMode ?: testConfig.strictMode,
-                lenientMode = lenientMode,
+                lenientMode = lenientMode ?: testConfig.lenientMode,
             ),
         )
+    }
+
+    override fun withTestBaseURL(testBaseURL: String): SpecmaticConfig {
+        val testConfig = test ?: TestConfiguration()
+        return this.copy(test = testConfig.copy(baseUrl = testBaseURL))
     }
 
     override fun withTestFilter(filter: String?): SpecmaticConfigV1V2Common {

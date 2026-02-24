@@ -113,24 +113,32 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
         return this.copy(service = RefOrValue.Value(service.copy(settings = RefOrValue.Value(updatedSettings))))
     }
 
-    fun withTestMode(resolver: RefOrValueResolver, strictMode: Boolean?, lenientMode: Boolean): TestServiceConfig {
+    fun withTestMode(resolver: RefOrValueResolver, strictMode: Boolean?, lenientMode: Boolean?): TestServiceConfig {
         val service = this.service.resolveElseThrow(resolver)
         val settings = service.settings?.resolveElseThrow(resolver) ?: TestSettings()
         val updatedSettings = TestSettings(strictMode = strictMode, lenientMode = lenientMode).merge(settings)
         return this.copy(service = RefOrValue.Value(service.copy(settings = RefOrValue.Value(updatedSettings))))
     }
 
-    fun withTestTimeout(resolver: RefOrValueResolver, timeout: Long?): TestServiceConfig {
+    fun withTestTimeout(resolver: RefOrValueResolver, timeout: Long): TestServiceConfig {
         val service = this.service.resolveElseThrow(resolver)
         val settings = service.settings?.resolveElseThrow(resolver) ?: TestSettings()
         val updatedSettings = TestSettings(timeoutInMilliseconds = timeout).merge(settings)
         return this.copy(service = RefOrValue.Value(service.copy(settings = RefOrValue.Value(updatedSettings))))
     }
 
+    fun withBaseUrl(resolver: SpecmaticConfigV3Resolver, testBaseURL: String): TestServiceConfig {
+        val service = this.service.resolveElseThrow(resolver)
+        val runOpts = service.runOptions?.resolveElseThrow(resolver) ?: TestRunOptions()
+        val openApiRunOpts = runOpts.openapi?.copy(baseUrl = testBaseURL) ?: OpenApiTestConfig(baseUrl = testBaseURL)
+        val updatedRunOpts = runOpts.copy(openapi = openApiRunOpts)
+        return copy(service = RefOrValue.Value(service.copy(runOptions = RefOrValue.Value(updatedRunOpts))))
+    }
+
     fun withTestFilter(resolver: RefOrValueResolver, filter: String): TestServiceConfig {
         val service = this.service.resolveElseThrow(resolver)
         val runOpts = service.runOptions?.resolveElseThrow(resolver) ?: TestRunOptions()
-        val openApiRunOpts = runOpts.openapi ?: return this
+        val openApiRunOpts = runOpts.openapi ?: OpenApiTestConfig()
         val updatedOpenApiRunOpts = openApiRunOpts.copy(filter = filter)
         val updatedRunOpts = runOpts.copy(openapi = updatedOpenApiRunOpts)
         return copy(service = RefOrValue.Value(service.copy(runOptions = RefOrValue.Value(updatedRunOpts))))

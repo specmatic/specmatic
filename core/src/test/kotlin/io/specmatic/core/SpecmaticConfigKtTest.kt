@@ -409,6 +409,20 @@ internal class SpecmaticConfigKtTest {
     }
 
     @Test
+    fun `withTestBaseURL should create v2 test config when missing`() {
+        val config = SpecmaticConfigV1V2Common(version = SpecmaticConfigVersion.VERSION_2, test = null)
+        val updated = config.withTestBaseURL("http://localhost:9090")
+        assertThat(updated.getTestBaseUrl(SpecType.OPENAPI)).isEqualTo("http://localhost:9090")
+    }
+
+    @Test
+    fun `withTestBaseURL should override existing v2 test base url`() {
+        val config = SpecmaticConfigV1V2Common(version = SpecmaticConfigVersion.VERSION_2, test = TestConfiguration(baseUrl = "http://localhost:8080"))
+        val updated = config.withTestBaseURL("http://localhost:9090")
+        assertThat(updated.getTestBaseUrl(SpecType.OPENAPI)).isEqualTo("http://localhost:9090")
+    }
+
+    @Test
     fun `should prefer v2 swagger UI base url from config over system properties`() {
         val config = SpecmaticConfigV1V2Common(
             version = SpecmaticConfigVersion.VERSION_2,

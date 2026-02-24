@@ -64,6 +64,8 @@ import io.specmatic.core.config.v3.components.runOptions.OpenApiMockConfig
 import io.specmatic.core.config.v3.components.runOptions.OpenApiRunOptionsSpecifications
 import io.specmatic.core.config.v3.components.runOptions.OpenApiTestConfig
 import io.specmatic.core.config.v3.components.runOptions.ProtobufRunOptions
+import io.specmatic.core.config.v3.components.services.MockServiceConfig
+import io.specmatic.core.config.v3.components.services.TestServiceConfig
 import io.specmatic.core.config.v3.components.settings.MockSettings
 import io.specmatic.core.config.v3.components.settings.TestSettings
 import io.specmatic.core.config.v3.components.sources.GitAuthentication
@@ -106,6 +108,8 @@ import kotlin.collections.orEmpty
 data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticConfig: SpecmaticConfigV3) : SpecmaticConfig {
     private val effectiveWorkingFile: File = file?.canonicalFile ?: File(".").canonicalFile
     private val resolver = SpecmaticConfigV3Resolver(specmaticConfig.components ?: Components(), effectiveWorkingFile.toPath())
+    private fun emptyTestServiceConfig() = TestServiceConfig(service = RefOrValue.Value(CommonServiceConfig(definitions = emptyList())))
+    private fun emptyMockServiceConfig() = MockServiceConfig(services = emptyList())
 
     private val specmaticSettings: ConcreteSettings by lazy(LazyThreadSafetyMode.NONE) {
         val settingsOrRef = specmaticConfig.specmatic?.settings ?: return@lazy ConcreteSettings()
@@ -445,7 +449,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
     }
 
     override fun copyResiliencyTestsConfig(onlyPositive: Boolean): SpecmaticConfig {
-        val systemUnderTest = specmaticConfig.systemUnderTest ?: return this
+        val systemUnderTest = specmaticConfig.systemUnderTest ?: emptyTestServiceConfig()
         val resiliencyTestSuite = if (onlyPositive) ResiliencyTestSuite.positiveOnly else ResiliencyTestSuite.all
         val updatedSut = systemUnderTest.copyResiliencyTestsConfig(resolver, resiliencyTestSuite)
         return this.copy(specmaticConfig = specmaticConfig.copy(systemUnderTest = updatedSut))
@@ -714,45 +718,60 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
         return copyResiliencyTestsConfig(onlyPositive = false)
     }
 
-    override fun withTestModes(strictMode: Boolean?, lenientMode: Boolean): SpecmaticConfig {
-        val systemUnderTest = specmaticConfig.systemUnderTest ?: return this
+    override fun withTestBaseURL(testBaseURL: String): SpecmaticConfig {
+        val systemUnderTest = specmaticConfig.systemUnderTest ?: emptyTestServiceConfig()
+        val updatedSut = systemUnderTest.withBaseUrl(resolver, testBaseURL)
+        return this.copy(specmaticConfig = specmaticConfig.copy(systemUnderTest = updatedSut))
+    }
+
+    override fun withTestModes(strictMode: Boolean?, lenientMode: Boolean?): SpecmaticConfig {
+        if (strictMode == null && lenientMode == null) return this
+        val systemUnderTest = specmaticConfig.systemUnderTest ?: emptyTestServiceConfig()
         val updatedSut = systemUnderTest.withTestMode(resolver, strictMode, lenientMode)
         return this.copy(specmaticConfig = specmaticConfig.copy(systemUnderTest = updatedSut))
     }
 
     override fun withTestFilter(filter: String?): SpecmaticConfig {
         if (filter == null) return this
-        val systemUnderTest = specmaticConfig.systemUnderTest ?: return this
+        val systemUnderTest = specmaticConfig.systemUnderTest ?: emptyTestServiceConfig()
         val updatedSut = systemUnderTest.withTestFilter(resolver, filter)
         return this.copy(specmaticConfig = specmaticConfig.copy(systemUnderTest = updatedSut))
     }
 
     override fun withTestTimeout(timeoutInMilliseconds: Long?): SpecmaticConfig {
-        val systemUnderTest = specmaticConfig.systemUnderTest ?: return this
+        if (timeoutInMilliseconds == null) return this
+        val systemUnderTest = specmaticConfig.systemUnderTest ?: emptyTestServiceConfig()
         val updatedSut = systemUnderTest.withTestTimeout(resolver, timeoutInMilliseconds)
         return this.copy(specmaticConfig = specmaticConfig.copy(systemUnderTest = updatedSut))
     }
 
     override fun withStubModes(strictMode: Boolean?): SpecmaticConfig {
         if (strictMode == null) return this
-        val updatedDependencies = specmaticConfig.dependencies?.withStubMode(resolver, strictMode) ?: return this
+        val dependencies = specmaticConfig.dependencies ?: emptyMockServiceConfig()
+        val updatedDependencies = dependencies.withStubMode(resolver, strictMode)
         return this.copy(specmaticConfig = specmaticConfig.copy(dependencies = updatedDependencies))
     }
 
     override fun withStubFilter(filter: String?): SpecmaticConfig {
         if (filter == null) return this
-        val updatedDependencies = specmaticConfig.dependencies?.withStubFilter(resolver, filter) ?: return this
+        val dependencies = specmaticConfig.dependencies ?: emptyMockServiceConfig()
+        val updatedDependencies = dependencies.withStubFilter(resolver, filter)
         return this.copy(specmaticConfig = specmaticConfig.copy(dependencies = updatedDependencies))
     }
 
     override fun withGlobalMockDelay(delayInMilliseconds: Long): SpecmaticConfig {
-        val updatedDependencies = specmaticConfig.dependencies?.withGlobalDelay(resolver, delayInMilliseconds) ?: return this
+        val dependencies = specmaticConfig.dependencies ?: emptyMockServiceConfig()
+        val updatedDependencies = dependencies.withGlobalDelay(resolver, delayInMilliseconds)
         return this.copy(specmaticConfig = specmaticConfig.copy(dependencies = updatedDependencies))
     }
 
     override fun withMatchBranch(matchBranch: Boolean): SpecmaticConfig {
-        val updatedSut = specmaticConfig.systemUnderTest?.withMatchBranch(resolver, matchBranch)
-        val updatedDependencies = specmaticConfig.dependencies?.withMatchBranch(resolver, matchBranch)
+        val systemUnderTest = specmaticConfig.systemUnderTest ?: emptyTestServiceConfig()
+        val updatedSut = systemUnderTest.withMatchBranch(resolver, matchBranch)
+
+        val dependencies = specmaticConfig.dependencies ?: emptyMockServiceConfig()
+        val updatedDependencies = dependencies.withMatchBranch(resolver, matchBranch)
+
         val updatedConfig = specmaticConfig.copy(systemUnderTest = updatedSut, dependencies = updatedDependencies)
         return this.copy(specmaticConfig = updatedConfig)
     }
@@ -779,8 +798,12 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
     }
 
     override fun plusExamples(exampleDirectories: List<String>): SpecmaticConfig {
-        val updatedSut = specmaticConfig.systemUnderTest?.withExamples(resolver, exampleDirectories)
-        val updatedDependencies = specmaticConfig.dependencies?.withExamples(resolver, exampleDirectories)
+        val systemUnderTest = specmaticConfig.systemUnderTest ?: emptyTestServiceConfig()
+        val updatedSut = systemUnderTest.withExamples(resolver, exampleDirectories)
+
+        val dependencies = specmaticConfig.dependencies ?: emptyMockServiceConfig()
+        val updatedDependencies = dependencies.withExamples(resolver, exampleDirectories)
+
         val updatedConfig = specmaticConfig.copy(systemUnderTest = updatedSut, dependencies = updatedDependencies)
         return this.copy(specmaticConfig = updatedConfig)
     }
