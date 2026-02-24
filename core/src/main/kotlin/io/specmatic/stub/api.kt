@@ -608,14 +608,15 @@ private fun List<String>.withAbsolutePaths(): String =
 private fun List<String>.relativePaths(): List<String> {
     val currentWorkingDirectory = File(".").canonicalFile
     return this.map(::File).map {
-        runCatching {
+        val resolved = runCatching {
             it.canonicalFile.relativeTo(currentWorkingDirectory)
         }.getOrElse { e ->
             logger.debug(e, "Failed to relativize ${it.canonicalPath} against ${currentWorkingDirectory.canonicalPath}")
             it
         }
-    }.map {
-        ".${File.separator}${it.path}"
+
+        if (resolved.isAbsolute) return@map resolved.path
+        File(".", resolved.path).path
     }
 }
 
