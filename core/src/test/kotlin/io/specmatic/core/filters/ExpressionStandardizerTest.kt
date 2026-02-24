@@ -29,6 +29,43 @@ class ExpressionStandardizerTest {
         assertThatCode { ExpressionStandardizer().tokenizeExpression(expression) }.isInstanceOf(IllegalArgumentException::class.java)
     }
 
+    @Test
+    fun `unsupported keys should be dropped when projecting filter for a limited context`() {
+        val expression = ExpressionStandardizer.filterToEvalExForSupportedKeys(
+            "EXAMPLE-NAME!='SUCCESS'",
+            TestRecordFilter::supportsFilterKey
+        )
+
+        assertThat(expression.evaluate().booleanValue).isTrue
+    }
+
+    @ParameterizedTest
+    @MethodSource("projectionCasesProvider")
+    fun `projection should keep supported-key behavior`(
+        filterExpression: String,
+        matchingValuesByKey: Map<String, Set<String>>
+    ) {
+        val expression = ExpressionStandardizer.filterToEvalExForSupportedKeys(
+            filterExpression,
+            TestRecordFilter::supportsFilterKey
+        )
+
+        val contextWithSupportedKeyMatch = object : FilterContext {
+            override fun includes(key: String, values: List<String>): Boolean =
+                matchingValuesByKey[key]?.intersect(values.toSet())?.isNotEmpty() == true
+
+            override fun compare(filterKey: String, operator: String, filterValue: String): Boolean = true
+        }
+
+        val contextWithNoSupportedKeyMatches = object : FilterContext {
+            override fun includes(key: String, values: List<String>): Boolean = false
+            override fun compare(filterKey: String, operator: String, filterValue: String): Boolean = true
+        }
+
+        assertThat(expression.with("context", contextWithSupportedKeyMatch).evaluate().booleanValue).isTrue
+        assertThat(expression.with("context", contextWithNoSupportedKeyMatches).evaluate().booleanValue).isFalse
+    }
+
     companion object {
         @JvmStatic
         private fun validExpressionsProvider(): List<Arguments> {
@@ -67,6 +104,28 @@ class ExpressionStandardizerTest {
                         <
                     '1,2'
                 """.trimIndent(),
+            )
+        }
+
+        @JvmStatic
+        private fun projectionCasesProvider(): List<Arguments> {
+            return listOf(
+                Arguments.of(
+                    "PATH='/orders' && EXAMPLE-NAME!='SUCCESS'",
+                    mapOf("PATH" to setOf("/orders"))
+                ),
+                Arguments.of(
+                    "METHOD='POST' || EXAMPLE-NAME='SUCCESS'",
+                    mapOf("METHOD" to setOf("POST"))
+                ),
+                Arguments.of(
+                    "!(EXAMPLE-NAME='SUCCESS') && METHOD='POST'",
+                    mapOf("METHOD" to setOf("POST"))
+                ),
+                Arguments.of(
+                    "(METHOD='POST' || PATH='/orders') && EXAMPLE-NAME!='SUCCESS'",
+                    mapOf("METHOD" to setOf("POST"), "PATH" to setOf("/orders"))
+                )
             )
         }
     }
