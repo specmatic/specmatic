@@ -103,6 +103,7 @@ class MockEventListenerTest {
             stub.client.execute(HttpRequest("POST", "/_specmatic/expectations"))
             stub.client.execute(HttpRequest("DELETE", "/_specmatic/http-stub/123"))
             stub.client.execute(HttpRequest("POST", "/_specmatic/verify", queryParametersMap = mapOf("exampleId" to "abc123")))
+            stub.client.execute(HttpRequest("GET", "/swagger/v1/swagger.yaml"))
             stub.client.execute(HttpRequest("HEAD", "/"))
             stub.client.execute(HttpRequest("GET", "/actuator/health"))
         }

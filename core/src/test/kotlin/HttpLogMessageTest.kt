@@ -57,6 +57,7 @@ internal class HttpLogMessageTest {
         value = [
             "method,path,expected",
             "GET,/_specmatic/log,true",
+            "GET,/swagger/v1/swagger.yaml,true",
             "HEAD,/,true",
             "GET,/actuator/health,true",
             "GET,/orders,false",
