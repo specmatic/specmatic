@@ -498,7 +498,9 @@ class HttpStub(
                     )
                 }
 
-                MockEvent(httpLogMessage).let { event -> listeners.forEach { it.onRespond(event) } }
+                if (!httpLogMessage.isInternalControlRequestForMockEvent()) {
+                    MockEvent(httpLogMessage).let { event -> listeners.forEach { it.onRespond(event) } }
+                }
             }
 
             configureHealthCheckModule()

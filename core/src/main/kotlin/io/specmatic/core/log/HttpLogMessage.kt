@@ -136,6 +136,16 @@ data class HttpLogMessage(
         scenario = stubResponse.scenario
     }
 
+    fun isInternalControlRequestForMockEvent(): Boolean {
+        val path = request.path ?: return false
+        val method = request.method
+
+        return path.startsWith("/_$APPLICATION_NAME_LOWER_CASE/") ||
+            path == "/swagger/v1/swagger.yaml" ||
+            (method.equals("HEAD", ignoreCase = true) && path == "/") ||
+            (method.equals("GET", ignoreCase = true) && path == "/actuator/health")
+    }
+
     fun logStartRequestTime() {
         this.requestTime = CurrentDate()
     }
