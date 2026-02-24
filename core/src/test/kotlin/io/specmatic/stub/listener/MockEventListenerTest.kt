@@ -1,6 +1,7 @@
 package io.specmatic.stub.listener
 
 import io.specmatic.core.HttpRequest
+import io.specmatic.core.Result
 import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.value.NullValue
 import io.specmatic.mock.ScenarioStub
@@ -11,10 +12,11 @@ import org.junit.jupiter.api.Test
 import java.io.File
 
 class MockEventListenerTest {
-
     companion object {
         private val openApiFile = File("src/test/resources/openapi/partial_example_tests/simple.yaml")
+        private val inlineExamplesOpenApiFile = File("src/test/resources/openapi/has_multiple_inline_examples.yaml")
         val feature = parseContractFileToFeature(openApiFile)
+        val featureWithInlineExamples = parseContractFileToFeature(inlineExamplesOpenApiFile)
     }
 
     @Test
@@ -26,7 +28,7 @@ class MockEventListenerTest {
                 assertThat(data.scenario).isEqualTo(feature.scenarios.first())
                 assertThat(data.response).isNotNull
                 assertThat(data.responseTime).isNotNull()
-                assertThat(data.result).isEqualTo(TestResult.Success)
+                assertThat(data.stubResult).isEqualTo(TestResult.Success)
             }
         }
 
@@ -42,7 +44,7 @@ class MockEventListenerTest {
             override fun onRespond(data: MockEvent) {
                 assertThat(data.name).contains("EX:example.json")
                 assertThat(data.details).contains("Request Matched Example: examples/example.json")
-                assertThat(data.result).isEqualTo(TestResult.Success)
+                assertThat(data.stubResult).isEqualTo(TestResult.Success)
             }
         }
 
@@ -56,13 +58,68 @@ class MockEventListenerTest {
     }
 
     @Test
+    fun `should include inline example name in mock event when request matches inline example`() {
+        val events = mutableListOf<MockEvent>()
+        val listener = object : MockEventListener {
+            override fun onRespond(data: MockEvent) {
+                events.add(data)
+            }
+        }
+
+        HttpStub(featureWithInlineExamples, listeners = listOf(listener)).use { stub ->
+            stub.client.execute(
+                HttpRequest(
+                    method = "GET",
+                    path = "/findAvailableProducts",
+                    headers = mapOf("pageSize" to "20"),
+                    queryParametersMap = mapOf("type" to "other")
+                )
+            )
+        }
+
+        assertThat(events).hasSize(1)
+        assertThat(events.single().details).isEqualTo("Request Matched Example: FIND_TIMEOUT")
+        assertThat(events.single().name).contains("FIND_TIMEOUT")
+        assertThat(events.single().stubResult).isEqualTo(TestResult.Success)
+        assertThat(events.single().result).isEqualTo(Result.Success())
+        assertThat(events.single().response?.status).isEqualTo(503)
+    }
+
+    @Test
+    fun `should choose the correct inline example name when multiple inline examples exist`() {
+        val events = mutableListOf<MockEvent>()
+        val listener = object : MockEventListener {
+            override fun onRespond(data: MockEvent) {
+                events.add(data)
+            }
+        }
+
+        HttpStub(featureWithInlineExamples, listeners = listOf(listener)).use { stub ->
+            stub.client.execute(
+                HttpRequest(
+                    method = "GET",
+                    path = "/findAvailableProducts",
+                    headers = mapOf("pageSize" to "10"),
+                    queryParametersMap = mapOf("type" to "gadget")
+                )
+            )
+        }
+
+        assertThat(events).hasSize(1)
+        assertThat(events.single().details).isEqualTo("Request Matched Example: FIND_SUCCESS")
+        assertThat(events.single().name).contains("FIND_SUCCESS")
+        assertThat(events.single().name).doesNotContain("FIND_TIMEOUT")
+        assertThat(events.single().response?.status).isEqualTo(200)
+    }
+
+    @Test
     fun `should provide nearest matching scenario details for bad request with no examples`() {
         val listener = object : MockEventListener {
             override fun onRespond(data: MockEvent) {
                 assertThat(data.name).isEqualToIgnoringWhitespace("Scenario: PATCH /creators/(creatorId:number)/pets/(petId:number) -> 201")
                 assertThat(data.details).contains("Contract expected json object but request contained an empty string or no body value")
                 assertThat(data.scenario).isEqualTo(feature.scenarios.first())
-                assertThat(data.result).isEqualTo(TestResult.Failed)
+                assertThat(data.stubResult).isEqualTo(TestResult.Failed)
             }
         }
 
@@ -79,7 +136,7 @@ class MockEventListenerTest {
                 assertThat(data.name).isEqualTo("Unknown Request")
                 assertThat(data.details).isEqualTo("No matching REST stub or contract found for method PATCH and path /test")
                 assertThat(data.scenario).isNull()
-                assertThat(data.result).isEqualTo(TestResult.MissingInSpec)
+                assertThat(data.stubResult).isEqualTo(TestResult.MissingInSpec)
             }
         }
 

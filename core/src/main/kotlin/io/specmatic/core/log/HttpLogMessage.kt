@@ -20,6 +20,7 @@ data class HttpLogMessage(
     var postHookResponseTime: CurrentDate? = null,
     var postHookResponse: InterceptorResult<HttpResponse>? = null,
     var contractPath: String = "",
+    var exampleName: String? = null,
     var examplePath: String? = null,
     val targetServer: String = "",
     val comment: String? = null,
@@ -94,7 +95,11 @@ data class HttpLogMessage(
         }
 
         val contractPathLines = if(contractPath.isNotBlank()) {
-            val exampleLine = examplePath?.let { "${linePrefix}Example matched: $examplePath" }
+            val exampleLine = if (exampleName != null || examplePath != null) {
+                "${linePrefix}Example matched: ${exampleName ?: examplePath}"
+            } else {
+                null
+            }
 
             listOfNotNull(
                 "${linePrefix}Contract matched: $contractPath",
@@ -132,6 +137,7 @@ data class HttpLogMessage(
     fun addResponse(stubResponse: HttpStubResponse) {
         addResponseWithCurrentTime(stubResponse.response)
         contractPath = stubResponse.contractPath
+        exampleName = stubResponse.exampleName
         examplePath = stubResponse.examplePath
         scenario = stubResponse.scenario
     }
@@ -156,7 +162,7 @@ data class HttpLogMessage(
 
     fun toResult(): TestResult {
         return when {
-            this.examplePath != null -> TestResult.Success
+            this.exampleName != null || this.examplePath != null -> TestResult.Success
             this.scenario != null && response?.status !in invalidRequestStatuses -> TestResult.Success
             scenario == null -> TestResult.MissingInSpec
             else -> TestResult.Failed
@@ -165,7 +171,7 @@ data class HttpLogMessage(
 
     fun toDetails(): String {
         return when {
-            this.examplePath != null -> "Request Matched Example: ${this.examplePath}"
+            this.exampleName != null || this.examplePath != null -> "Request Matched Example: ${this.exampleName ?: this.examplePath}"
             this.scenario != null && response?.status !in invalidRequestStatuses -> "Request Matched Contract ${scenario?.defaultAPIDescription}"
             this.exception != null -> "Invalid Request\n${exception?.let(::exceptionCauseMessage)}"
             else -> response?.body?.toStringLiteral() ?: "Request Didn't Match Contract"
@@ -174,6 +180,10 @@ data class HttpLogMessage(
 
     fun toName(): String {
         val scenario = this.scenario ?: return "Unknown Request"
-        return scenario.copy(exampleName = this.examplePath?.let(::File)?.name).testDescription()
+        return when {
+            this.exampleName != null -> scenario.copy(exampleName = this.exampleName).testDescription()
+            this.examplePath != null -> scenario.copy(exampleName = this.examplePath?.let(::File)?.name).testDescription()
+            else -> scenario.testDescription()
+        }
     }
 }
