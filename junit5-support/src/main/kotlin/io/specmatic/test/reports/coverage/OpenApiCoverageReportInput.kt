@@ -291,11 +291,15 @@ class OpenApiCoverageReportInput(
         }
 
 
-        val filterExpression = ExpressionStandardizer.filterToEvalEx(filterExpression)
-
-        return (testResults + testResultsForMissingAPIs).filter { eachTestResult ->
-            filterExpression.with("context", TestRecordFilter(eachTestResult)).evaluate().booleanValue
+        val projectedFilterExpression = ExpressionStandardizer.filterToEvalExForSupportedKeys(filterExpression) {
+            TestRecordFilter.supportsFilterKey(it)
         }
+
+        val filteredMissingApiResults = testResultsForMissingAPIs.filter { missingTestResult ->
+            projectedFilterExpression.with("context", TestRecordFilter(missingTestResult)).evaluate().booleanValue
+        }
+
+        return testResults + filteredMissingApiResults
     }
 
     private fun calculateTotalCoveragePercentage(methodMap: Map<String, Map<String?, Map<String, List<TestResultRecord>>>>): Int {
