@@ -428,7 +428,11 @@ open class SpecmaticJUnitSupport {
             return noTestsFoundError(reason)
         }
 
-        val actuatorBaseURL = settings.testBaseURL ?: testBuildResult.baseUrls.firstOrNull() ?: constructTestBaseURL()
+        val actuatorBaseURL = settings.baseUrlFromArgOrSysProp()
+            ?: settings.baseUrlFromConfig()
+            ?: testBuildResult.baseUrls.firstOrNull()
+            ?: constructTestBaseURL()
+
         return try {
             dynamicTestStream(
                 firstNScenarios(testScenariosWithUrls),
@@ -530,9 +534,10 @@ open class SpecmaticJUnitSupport {
     fun constructTestBaseURL(): String {
         val settings = settings
 
-        if (settings.testBaseURL != null) {
-            when (val validationResult = validateTestOrStubUri(settings.testBaseURL)) {
-                URIValidationResult.Success -> return settings.testBaseURL
+        val baseUrlFromArgOrSysProp = settings.baseUrlFromArgOrSysProp()
+        if (baseUrlFromArgOrSysProp != null) {
+            when (val validationResult = validateTestOrStubUri(baseUrlFromArgOrSysProp)) {
+                URIValidationResult.Success -> return baseUrlFromArgOrSysProp
                 else -> throw TestAbortedException("${validationResult.message} in $TEST_BASE_URL environment variable")
             }
         }
@@ -554,6 +559,14 @@ open class SpecmaticJUnitSupport {
             return when (validateTestOrStubUri(urlConstructedFromProtocolHostAndPort)) {
                 URIValidationResult.Success -> urlConstructedFromProtocolHostAndPort
                 else -> throw TestAbortedException("Please specify a valid $PROTOCOL, $HOST and $PORT environment variables")
+            }
+        }
+
+        val baseUrlFromConfig = settings.baseUrlFromConfig()
+        if (baseUrlFromConfig != null) {
+            when (val validationResult = validateTestOrStubUri(baseUrlFromConfig)) {
+                URIValidationResult.Success -> return baseUrlFromConfig
+                else -> throw TestAbortedException("${validationResult.message} in config file")
             }
         }
 

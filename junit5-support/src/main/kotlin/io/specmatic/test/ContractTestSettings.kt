@@ -7,8 +7,10 @@ import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.loadSpecmaticConfigOrDefault
 import io.specmatic.core.loadSpecmaticConfigOrNull
 import io.specmatic.core.orDefault
+import io.specmatic.core.utilities.Flags
 
 import io.specmatic.reporter.model.SpecType
+import io.specmatic.test.SpecmaticJUnitSupport.Companion.TEST_BASE_URL
 import io.specmatic.test.reports.TestReportListener
 import java.io.File
 
@@ -36,7 +38,7 @@ data class ContractTestSettings(
     val reportBaseDirectory: String? = null,
     val coverageHooks: List<TestReportListener> = emptyList(),
     val strictMode: Boolean? = null,
-    val lenientMode: Boolean = false,
+    val lenientMode: Boolean? = null,
     val previousTestRuns: List<TestResultRecord> = emptyList(),
     val timeoutInMilliSeconds: Long? = null,
     val otherArguments: DeprecatedArguments? = null,
@@ -57,6 +59,10 @@ data class ContractTestSettings(
         return adjust(specmaticConfig)
     }
 
+    fun baseUrlFromConfig(): String? = specmaticConfig.getTestBaseUrl(SpecType.OPENAPI)
+
+    fun baseUrlFromArgOrSysProp(): String? = testBaseURL ?: Flags.getStringValue(TEST_BASE_URL)
+
     fun getReportFilter(): String? {
         if (specmaticConfig.getTestFilter() == filter) return filter
         return specmaticConfig.getTestFilter().nonNullElse(filter) { filter1, filter2 ->
@@ -66,6 +72,7 @@ data class ContractTestSettings(
 
     private fun adjust(specmaticConfig: SpecmaticConfig): SpecmaticConfig {
         return specmaticConfig
+            .let(::adjustTestBaseURL)
             .let(::adjustFilter)
             .let(::adjustExamples)
             .let(::adjustTestModes)
@@ -74,20 +81,23 @@ data class ContractTestSettings(
             .let(::adjustUseCurrentBranch)
     }
 
+    private fun adjustTestBaseURL(specmaticConfig: SpecmaticConfig): SpecmaticConfig {
+        if (testBaseURL == null) return specmaticConfig
+        return specmaticConfig.withTestBaseURL(testBaseURL)
+    }
+
     private fun adjustFilter(specmaticConfig: SpecmaticConfig): SpecmaticConfig {
         if (filter == null) return specmaticConfig
         return specmaticConfig.withTestFilter(filter)
     }
 
     private fun adjustResilience(specmaticConfig: SpecmaticConfig): SpecmaticConfig {
-        return if (generative == true) {
-            specmaticConfig.enableResiliencyTests()
-        } else {
-            specmaticConfig
-        }
+        if (generative == null) return specmaticConfig
+        return specmaticConfig.copyResiliencyTestsConfig(onlyPositive = !generative)
     }
 
     private fun adjustTestModes(specmaticConfig: SpecmaticConfig): SpecmaticConfig {
+        if (strictMode == null && lenientMode == null) return specmaticConfig
         return specmaticConfig.withTestModes(strictMode, lenientMode)
     }
 
@@ -120,15 +130,15 @@ data class ContractTestSettings(
     constructor(contractTestSettings: ContractTestSettings?, specmaticConfig: SpecmaticConfig) : this(
         generative = contractTestSettings?.generative,
         reportBaseDirectory = contractTestSettings?.reportBaseDirectory,
-        coverageHooks = contractTestSettings?.coverageHooks ?: emptyList(),
+        coverageHooks = contractTestSettings?.coverageHooks.orEmpty(),
         previousTestRuns = contractTestSettings?.previousTestRuns.orEmpty(),
         configFile = contractTestSettings?.configFile ?: getConfigFilePath(),
-        strictMode = contractTestSettings?.strictMode ?: SpecmaticConfig().getTestStrictMode(),
-        lenientMode = contractTestSettings?.lenientMode ?: SpecmaticConfig().getTestLenientMode() ?: false,
-        testBaseURL = contractTestSettings?.testBaseURL ?: specmaticConfig.getTestBaseUrl(SpecType.OPENAPI),
+        strictMode = contractTestSettings?.strictMode,
+        lenientMode = contractTestSettings?.lenientMode,
+        testBaseURL = contractTestSettings?.testBaseURL,
         contractPaths = contractTestSettings?.contractPaths,
         timeoutInMilliSeconds = contractTestSettings?.timeoutInMilliSeconds,
-        filter = contractTestSettings?.filter ?: specmaticConfig.getTestFilter(),
+        filter = contractTestSettings?.filter,
         otherArguments = DeprecatedArguments(
             host = contractTestSettings?.otherArguments?.host,
             port = contractTestSettings?.otherArguments?.port,
@@ -138,7 +148,7 @@ data class ContractTestSettings(
             suggestionsPath = contractTestSettings?.otherArguments?.suggestionsPath,
             inlineSuggestions = contractTestSettings?.otherArguments?.inlineSuggestions,
             variablesFileName = contractTestSettings?.otherArguments?.variablesFileName,
-            exampleDirectories = contractTestSettings?.otherArguments?.exampleDirectories ?: specmaticConfig.getExamples(),
+            exampleDirectories = contractTestSettings?.otherArguments?.exampleDirectories,
             filterName = contractTestSettings?.otherArguments?.filterName ?: specmaticConfig.getTestFilterName(),
             filterNotName = contractTestSettings?.otherArguments?.filterNotName ?: specmaticConfig.getTestFilterNotName(),
             overlayFilePath = contractTestSettings?.otherArguments?.overlayFilePath,

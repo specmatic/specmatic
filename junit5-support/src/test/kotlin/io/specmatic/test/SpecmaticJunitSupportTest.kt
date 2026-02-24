@@ -7,21 +7,24 @@ import io.specmatic.core.SPECMATIC_STUB_DICTIONARY
 import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.TestConfig
 import io.specmatic.core.config.SpecmaticConfigVersion
+import io.specmatic.core.config.v3.RefOrValue
+import io.specmatic.core.config.v3.SpecmaticConfigV3
+import io.specmatic.core.config.v3.components.runOptions.OpenApiTestConfig
+import io.specmatic.core.config.v3.components.runOptions.TestRunOptions
+import io.specmatic.core.config.v3.components.services.CommonServiceConfig
+import io.specmatic.core.config.v3.components.services.TestServiceConfig
+import io.specmatic.core.config.v3.components.settings.TestSettings
 import io.specmatic.core.config.v2.ContractConfig
 import io.specmatic.core.config.v2.SpecExecutionConfig
 import io.specmatic.core.config.v2.SpecmaticConfigV2
 import io.specmatic.core.config.v3.Data
-import io.specmatic.core.config.v3.RefOrValue
-import io.specmatic.core.config.v3.SpecmaticConfigV3
 import io.specmatic.core.config.v3.components.Dictionary
-import io.specmatic.core.config.v3.components.services.CommonServiceConfig
 import io.specmatic.core.config.v3.components.services.Definition
 import io.specmatic.core.config.v3.components.services.SpecificationDefinition
-import io.specmatic.core.config.v3.components.services.TestServiceConfig
 import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.filters.ScenarioMetadataFilter
-import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.yamlMapper
+import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.Flags
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.model.SpecType
@@ -156,13 +159,61 @@ class SpecmaticJunitSupportTest {
         assertThat(url).isEqualTo("$protocol://$domain:$port")
     }
 
+    @Test
+    fun `should prefer explicit staged testBaseURL over config base url`(@TempDir tempDir: File) {
+        val configFile = writeSpecmaticConfig(tempDir, baseUrl = "http://config.example:9000")
+        SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(configFile = configFile.absolutePath, testBaseURL = "http://override.example:8080"))
+        try {
+            val url = SpecmaticJUnitSupport().constructTestBaseURL()
+            assertThat(url).isEqualTo("http://override.example:8080")
+        } finally {
+            SpecmaticJUnitSupport.settingsStaging.remove()
+        }
+    }
+
+    @Test
+    fun `should prefer staged host and port over config base url`(@TempDir tempDir: File) {
+        val configFile = writeSpecmaticConfig(tempDir, baseUrl = "http://config.example:9000")
+        SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(configFile = configFile.absolutePath, otherArguments = DeprecatedArguments(host = "override.example", port = "8081")))
+        try {
+            val url = SpecmaticJUnitSupport().constructTestBaseURL()
+            assertThat(url).isEqualTo("http://override.example:8081")
+        } finally {
+            SpecmaticJUnitSupport.settingsStaging.remove()
+        }
+    }
+
+    @Test
+    fun `should use config base url when no staged base url or host port are provided`(@TempDir tempDir: File) {
+        val configFile = writeSpecmaticConfig(tempDir, baseUrl = "http://config.example:9000")
+        SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(configFile = configFile.absolutePath))
+        try {
+            val url = SpecmaticJUnitSupport().constructTestBaseURL()
+            assertThat(url).isEqualTo("http://config.example:9000")
+        } finally {
+            SpecmaticJUnitSupport.settingsStaging.remove()
+        }
+    }
+
+    @Test
+    fun `should validate config base url when used as fallback`(@TempDir tempDir: File) {
+        val configFile = writeSpecmaticConfig(tempDir, baseUrl = "http://invalid url.com")
+        SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(configFile = configFile.absolutePath))
+        try {
+            val ex = assertThrows<TestAbortedException> { SpecmaticJUnitSupport().constructTestBaseURL() }
+            assertThat(ex.message).isEqualTo("Please specify a valid URL in 'scheme://host[:port][path]' format in config file")
+        } finally {
+            SpecmaticJUnitSupport.settingsStaging.remove()
+        }
+    }
+
     @ParameterizedTest
     @ValueSource(strings = ["http://invalid url.com", "http://localhost:abcd/", "http://localhost:80 80/", "http://localhost:a123/test"])
     fun `testBaseURL system property should be valid URI`(invalidURL: String) {
         System.setProperty(TEST_BASE_URL, invalidURL)
         val ex = assertThrows<TestAbortedException> {
-            SpecmaticJUnitSupport().constructTestBaseURL()
-        }
+                SpecmaticJUnitSupport().constructTestBaseURL()
+            }
         assertThat(ex.message).isEqualTo("Please specify a valid URL in 'scheme://host[:port][path]' format in testBaseURL environment variable")
     }
 
@@ -886,6 +937,24 @@ paths:
             .isEqualTo(0)
     }
 
+    private fun writeSpecmaticConfig(tempDir: File, baseUrl: String? = null): File {
+        val configFile = tempDir.resolve("specmatic.yaml")
+        val config = SpecmaticConfigV3(
+            version = SpecmaticConfigVersion.VERSION_3,
+            systemUnderTest = TestServiceConfig(
+                service = RefOrValue.Value(
+                    CommonServiceConfig(
+                        definitions = emptyList(),
+                        runOptions = RefOrValue.Value(TestRunOptions(openapi = OpenApiTestConfig(baseUrl = baseUrl))),
+                        settings = RefOrValue.Value(TestSettings())
+                    )
+                )
+            )
+        )
+        configFile.writeText(yamlMapper.writeValueAsString(config))
+        return configFile
+    }
+
     private class RecordingExampleErrorsListener : TestReportListener {
         val exampleErrorsCalls = mutableListOf<Map<String, Result>>()
         override fun onExampleErrors(resultsBySpecFile: Map<String, Result>) {
@@ -904,6 +973,7 @@ paths:
 
     @AfterEach
     fun tearDown() {
+        SpecmaticJUnitSupport.settingsStaging.remove()
         System.getProperties().keys.minus(initialPropertyKeys).forEach { println("Clearing $it"); System.clearProperty(it.toString()) }
     }
 }
