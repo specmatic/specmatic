@@ -100,7 +100,7 @@ internal class HttpStubTest {
             HttpStub(features = listOf(feature)).use { stub ->
                 val response = RestTemplate().getForEntity<String>(stub.endPoint + "/swagger/v1/swagger.yaml")
 
-                assertThat(response.statusCodeValue).isEqualTo(200)
+                assertThat(response.statusCode.value()).isEqualTo(200)
                 assertThat(response.headers.contentType?.toString()).contains("application/yaml")
                 assertThat(response.body).contains("openapi: 3.0.0")
                 assertThat(response.body).contains("title: Title from overlay")
@@ -120,7 +120,7 @@ internal class HttpStubTest {
             HttpStub(features = listOf(feature)).use { stub ->
                 val response = RestTemplate().getForEntity<String>(stub.endPoint + "/swagger/v1/swagger.json")
 
-                assertThat(response.statusCodeValue).isEqualTo(200)
+                assertThat(response.statusCode.value()).isEqualTo(200)
                 assertThat(response.headers.contentType?.toString()).contains("application/json")
                 assertThat(response.body).contains("\"openapi\"")
                 assertThat(response.body).contains("\"title\": \"Title from overlay\"")
@@ -226,7 +226,7 @@ Scenario: Get a number
             headers.contentType = MediaType.APPLICATION_JSON
             val stubRequest = RequestEntity(mockData, headers, HttpMethod.POST, URI.create(stubSetupURL))
             val stubResponse = RestTemplate().postForEntity<String>(stubSetupURL, stubRequest)
-            assertThat(stubResponse.statusCodeValue).isEqualTo(200)
+            assertThat(stubResponse.statusCode.value()).isEqualTo(200)
 
             val postResponse = RestTemplate().getForEntity<String>(fake.endPoint + "/number")
             assertThat(postResponse.body).isEqualTo("10")
@@ -255,7 +255,7 @@ Scenario: Multiply a number by 3
             headers.contentType = MediaType.APPLICATION_JSON
             val stubRequest = RequestEntity(mockData, headers, HttpMethod.POST, URI.create(stubSetupURL))
             val stubResponse = RestTemplate().postForEntity<String>(stubSetupURL, stubRequest)
-            assertThat(stubResponse.statusCodeValue).isEqualTo(200)
+            assertThat(stubResponse.statusCode.value()).isEqualTo(200)
 
             val postResponse = RestTemplate().getForEntity<String>(fake.endPoint + "/multiply/5")
             assertThat(postResponse.body).isEqualTo("15")
@@ -294,7 +294,7 @@ Scenario: Get a number
 
         val stubRequest = RequestEntity(mockData, headers, HttpMethod.POST, URI.create(stubSetupURL))
         val stubResponse = RestTemplate().postForEntity<String>(stubSetupURL, stubRequest)
-        assertThat(stubResponse.statusCodeValue).isEqualTo(200)
+        assertThat(stubResponse.statusCode.value()).isEqualTo(200)
 
         val postResponse = RestTemplate().getForEntity<String>(fake.endPoint + "/number")
         assertThat(postResponse.body).isEqualTo(output)
