@@ -4,15 +4,15 @@ import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.zenwave360.jsonrefparser.resolver.FileResolver
 import io.zenwave360.jsonrefparser.resolver.RefFormat
-import io.zenwave360.jsonrefparser.`$Ref` as Ref
-import io.zenwave360.jsonrefparser.`$RefParser` as RefParser
 import io.zenwave360.jsonrefparser.resolver.Resolver
 import java.net.URI
 import java.nio.file.Path
+import io.zenwave360.jsonrefparser.`$Ref` as Ref
+import io.zenwave360.jsonrefparser.`$RefParser` as RefParser
 
-class SpecmaticConfigV3Resolver(components: Components, private val originFile: Path): RefOrValueResolver {
-    private val mapper = jacksonObjectMapper()
-    private val componentsAsMap: Map<*, *> = mapper.convertValue(components, object : TypeReference<Map<*, *>>() {})
+class SpecmaticConfigV3Resolver(private val componentsAsMap: Map<*, *>, private val originFile: Path): RefOrValueResolver {
+    constructor(components: Components, originFile: Path) : this(mapper.convertValue(components, object : TypeReference<Map<*, *>>() {}), originFile)
+
     private val internalResolver = InternalComponentsResolver(componentsAsMap)
 
     override fun resolveRef(reference: String): Any {
@@ -32,6 +32,10 @@ class SpecmaticConfigV3Resolver(components: Components, private val originFile: 
         val virtual = mapOf("components" to componentsAsMap, "__target__" to mapOf("\$ref" to reference))
         val text = mapper.writeValueAsString(virtual)
         return rootUri to text
+    }
+
+    companion object {
+        private val mapper = jacksonObjectMapper()
     }
 }
 

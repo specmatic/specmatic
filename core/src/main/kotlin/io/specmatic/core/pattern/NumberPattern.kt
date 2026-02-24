@@ -55,7 +55,7 @@ data class NumberPattern(
     }
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
-        if (sampleData?.hasTemplate() == true)
+        if(sampleData?.hasSupportedTemplate() == true)
             return Result.Success()
 
         if (sampleData !is NumberValue)

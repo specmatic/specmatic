@@ -91,18 +91,11 @@ data class EqualityMatcher(val path: BreadCrumb, val value: Value, val strategy:
             }
 
             override fun toPatternSimplified(value: Value): Pattern? {
-                val properties = extractPropertiesIfExist(value)
-                return if (properties.isNullOrEmpty() || !canParseFrom(BreadCrumb.from(), properties)) {
-                    if (value is StringValue && value.nativeValue.contains(".")) return null
-                    if (defaultStrategy == EqualityStrategy.EQUALS) createPattern(value) else null
-                } else {
-                    toPatternSimplified(properties)
-                }
+                return null
             }
 
             override fun toPatternSimplified(properties: Map<String, Value>): Pattern? {
                 val value = properties[VALUE_KEY] ?: return null
-                if (value is StringValue && value.nativeValue.contains(".")) return null
                 val strategyKey = properties.getOrDefault(EQUALITY_KEY, StringValue("eq"))
                 val equalityStrategy = EqualityStrategy.from(strategyKey.toStringLiteral())
                 if (equalityStrategy.withDefault(EqualityStrategy.EQUALS) { it } != defaultStrategy) return null

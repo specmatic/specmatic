@@ -11,7 +11,7 @@ import java.util.*
 
 data class BooleanPattern(override val example: String? = null) : Pattern, ScalarType, HasDefaultExample {
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
-        if (sampleData?.hasTemplate() == true)
+        if(sampleData?.hasSupportedTemplate() == true)
             return Result.Success()
 
         return when (sampleData) {

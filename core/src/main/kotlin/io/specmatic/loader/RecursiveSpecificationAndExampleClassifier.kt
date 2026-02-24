@@ -63,8 +63,12 @@ class RecursiveSpecificationAndExampleClassifier(private val specmaticConfig: Sp
 
         val currentLevelExamples = findExamplesInCurrentLevel(specFile, specDirectory)
         val parentLevelExamples = findExamplesInParentLevels(specFile, specDirectory, entryDirectory)
-        val combinedExamples = currentLevelExamples.plus(parentLevelExamples)
+        val examplesFromConfig = specmaticConfig.getStubExampleDirs(specFile).plus(specmaticConfig.getTestExampleDirs(specFile)).let {
+            val examples = it.map(::File).distinctBy { dir -> dir.normalizedPath() }.flatMap { dir -> loadExamplesFromDirectory(dir) }
+            ExampleDiscoveryResult(specExamples = examples)
+        }
 
+        val combinedExamples = currentLevelExamples.plus(parentLevelExamples).plus(examplesFromConfig)
         logger.log("Found ${combinedExamples.specExamples.size} spec examples and ${combinedExamples.sharedExamples.size} shared example")
         return combinedExamples
     }
@@ -145,6 +149,10 @@ class RecursiveSpecificationAndExampleClassifier(private val specmaticConfig: Sp
         return template
             .replace("<SPEC_FILE_NAME>", specFile.nameWithoutExtension)
             .replace("<SPEC_EACH_PARENT>", parentContext.name)
+    }
+
+    private fun File.normalizedPath(): String {
+        return runCatching { canonicalPath }.getOrElse { absolutePath }
     }
 
     private enum class DirectoryMatchType { SPEC_EXAMPLE, SHARED_EXAMPLE, NONE }

@@ -15,7 +15,7 @@ data class BinaryPattern(
 ) : Pattern, ScalarType {
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
-        if (sampleData?.hasTemplate() == true)
+        if (sampleData?.hasSupportedTemplate() == true)
             return Result.Success()
 
         return when (sampleData) {

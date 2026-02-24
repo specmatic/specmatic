@@ -20,9 +20,11 @@ import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_STUB_DELAY
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_TIMEOUT
 import io.specmatic.core.utilities.Flags.Companion.VALIDATE_RESPONSE_VALUE
 import io.specmatic.reporter.model.SpecType
+import io.specmatic.test.TestResultRecord.Companion.CONTRACT_TEST_TEST_TYPE
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
@@ -33,6 +35,33 @@ import java.io.File
 import java.util.stream.Stream
 
 internal class SpecmaticConfigKtTest {
+
+    @Test
+    fun `toContractSourceEntry should preserve the path from config`() {
+        val specFile = File("./contracts/../contracts/petstore.yaml")
+        val sourceEntry = SpecificationSourceEntry(
+            specFile = specFile,
+            specPathInConfig = "contracts/petstore.yaml",
+            port = null,
+            baseUrl = "http://localhost:9000",
+            resiliencyTestSuite = ResiliencyTestSuite.positiveOnly,
+            type = SourceProvider.filesystem,
+            repository = null,
+            directory = "./contracts",
+            branch = null,
+            matchBranch = null,
+            exampleDirs = listOf("examples")
+        )
+
+        assertThat(sourceEntry.toContractSourceEntry()).isEqualTo(
+            ContractSourceEntry(
+                path = "contracts/petstore.yaml",
+                baseUrl = "http://localhost:9000",
+                generative = ResiliencyTestSuite.positiveOnly,
+                exampleDirPaths = listOf("examples")
+            )
+        )
+    }
 
     @CsvSource(
         "./src/test/resources/specmaticConfigFiles/specmatic.yaml",
@@ -1666,6 +1695,46 @@ internal class SpecmaticConfigKtTest {
             val advanced = result["advanced"] as Map<String, Any>
             assertThat(advanced["compression"]).isEqualTo(true)
             assertThat(advanced["maxMessageSize"]).isEqualTo(2048)
+        }
+    }
+
+    @Nested
+    inner class CtrfSpecConfigForTests {
+        @Test
+        fun `getCtrfSpecConfig should resolve spec path from config for file input in v1 config`(@TempDir tempDir: File) {
+            val specFile = tempDir.resolve("contracts").resolve("order.yaml").apply {
+                parentFile.mkdirs()
+                writeText("openapi: 3.0.0")
+            }
+            val configFile = tempDir.resolve("specmatic.yaml").apply { writeText("version: 2") }
+            val originalConfigPath = Configuration.configFilePath
+
+            try {
+                Configuration.configFilePath = configFile.canonicalPath
+                val config = SpecmaticConfigV1V2Common(
+                    sources = listOf(
+                        Source(
+                            provider = SourceProvider.filesystem,
+                            directory = "contracts",
+                            test = listOf(SpecExecutionConfig.StringValue("order.yaml"))
+                        )
+                    )
+                )
+
+                val ctrfConfig = config.getCtrfSpecConfig(
+                    specFile = specFile,
+                    testType = CONTRACT_TEST_TEST_TYPE,
+                    protocol = "HTTP",
+                    specType = "OPENAPI"
+                )
+
+                assertThat(ctrfConfig.specification).isEqualTo("order.yaml")
+                assertThat(ctrfConfig.sourceProvider).isEqualTo(SourceProvider.filesystem.name)
+                assertThat(ctrfConfig.repository).isEmpty()
+                assertThat(ctrfConfig.branch).isEqualTo("main")
+            } finally {
+                Configuration.configFilePath = originalConfigPath
+            }
         }
     }
 

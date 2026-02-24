@@ -41,7 +41,7 @@ data class StringPattern (
     }
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
-        if (sampleData?.hasTemplate() == true)
+        if(sampleData?.hasSupportedTemplate() == true)
             return Result.Success()
 
         val sampleData =

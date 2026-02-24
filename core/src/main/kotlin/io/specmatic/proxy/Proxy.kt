@@ -172,7 +172,7 @@ class Proxy(
                                         httpRequest to emptyList<InterceptorError>()
                                     ) { (request, errors), requestInterceptor ->
                                         val result = requestInterceptor.interceptRequestAndReturnErrors(request)
-                                        (result.value ?: request) to (errors + result.errors)
+                                        (result.processedValue ?: request) to (errors + result.errors)
                                     }
 
                                     // Log the transformed request if it was changed by hooks
@@ -238,7 +238,7 @@ class Proxy(
                                         httpResponse to emptyList<InterceptorError>()
                                     ) { (response, errors), responseInterceptor ->
                                         val result = responseInterceptor.interceptResponseAndReturnErrors(recordedRequest, response)
-                                        (result.value ?: response) to (errors + result.errors)
+                                        (result.processedValue ?: response) to (errors + result.errors)
                                     }
 
                                     // Log the transformed response if it was changed by hooks

@@ -780,7 +780,7 @@ paths:
             OpenApiSpecification.fromFile("src/test/resources/openapi/spec_with_space_in_path.yaml").toFeature()
 
         HttpStub(specification).use { stub ->
-            val request = HttpRequest("GET", "/actuator/health")
+            val request = HttpRequest("GET", "/_specmatic/health")
 
             val response = stub.client.execute(request)
 
@@ -791,6 +791,37 @@ paths:
 
                 assertThat(it.jsonObject["status"]?.toStringLiteral()).isEqualTo("UP")
             }
+        }
+
+        HttpStub(specification).use { stub ->
+            val legacyHealthCheckRequest = HttpRequest("GET", "/actuator/health")
+
+            val legacyHealthCheckResponse = stub.client.execute(legacyHealthCheckRequest)
+
+            assertThat(legacyHealthCheckResponse.status).isEqualTo(200)
+            legacyHealthCheckResponse.body.let {
+                assertThat(it).isInstanceOf(JSONObjectValue::class.java)
+                it as JSONObjectValue
+
+                assertThat(it.jsonObject["status"]?.toStringLiteral()).isEqualTo("UP")
+            }
+        }
+
+    }
+
+    @Test
+    fun `should return up status header when root HEAD endpoint is hit`() {
+        val specification =
+            OpenApiSpecification.fromFile("src/test/resources/openapi/spec_with_space_in_path.yaml").toFeature()
+
+        HttpStub(specification).use { stub ->
+            val request = HttpRequest("HEAD", "/")
+
+            val response = stub.client.execute(request)
+
+            assertThat(response.status).isEqualTo(200)
+            assertThat(response.headers["X-Specmatic-Status"]).isEqualTo("up")
+            assertThat(response.headers[SPECMATIC_RESULT_HEADER]).isNotEqualTo("failure")
         }
     }
 
@@ -956,6 +987,9 @@ components:
         ).use { stub ->
 
             stub.registerRequestInterceptor(object: RequestInterceptor {
+                override val name: String
+                    get() = "requestInterceptor"
+
                 override fun interceptRequest(httpRequest: HttpRequest): HttpRequest {
                     val id = httpRequest.path?.split("/")?.last()?.toInt() ?: 0
                     val updatedPath = httpRequest.path?.split("/")?.map {
@@ -967,6 +1001,9 @@ components:
             })
 
             stub.registerResponseInterceptor(object: ResponseInterceptor {
+                override val name: String
+                    get() = "responseInterceptor"
+
                 override fun interceptResponse(
                     httpRequest: HttpRequest,
                     httpResponse: HttpResponse

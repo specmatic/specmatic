@@ -3,6 +3,7 @@ package io.specmatic.core.report
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.ctrf.model.CtrfTestResultRecord
+import java.io.File
 
 fun ctrfSpecConfigsFrom(
     specmaticConfig: SpecmaticConfig,
@@ -14,7 +15,12 @@ fun ctrfSpecConfigsFrom(
             val absoluteSpecPath = it.specification
             when {
                 absoluteSpecPath.isNullOrBlank() -> null
-                else -> specmaticConfig.getCtrfSpecConfig(absoluteSpecPath, it.testType, protocol.key, it.specType.value)
+                else -> specmaticConfig.getCtrfSpecConfig(
+                    File(absoluteSpecPath),
+                    it.testType,
+                    protocol.key,
+                    it.specType.value
+                )
             }
         }
     }

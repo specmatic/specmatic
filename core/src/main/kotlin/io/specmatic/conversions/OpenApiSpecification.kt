@@ -30,6 +30,7 @@ import io.specmatic.core.wsdl.parser.message.MULTIPLE_ATTRIBUTE_VALUE
 import io.specmatic.core.wsdl.parser.message.OCCURS_ATTRIBUTE_NAME
 import io.specmatic.core.wsdl.parser.message.OPTIONAL_ATTRIBUTE_VALUE
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.mock.ScenarioStub
 import io.specmatic.reporter.model.SpecType
 import io.swagger.v3.oas.models.Components
 import io.swagger.v3.oas.models.OpenAPI
@@ -246,9 +247,13 @@ class OpenApiSpecification(
         }
 
         fun checkSpecValidity(openApiFilePath: String, lenientMode: Boolean = false) {
+            val preprocessedYaml = preprocessYamlForParser(
+                yaml = checkExists(File(openApiFilePath)).readText(),
+                collectorContext = CollectorContext()
+            )
             val parseResult: SwaggerParseResult =
                 OpenAPIV3Parser().readContents(
-                    checkExists(File(openApiFilePath)).readText(),
+                    preprocessedYaml,
                     null,
                     resolveExternalReferences(),
                     openApiFilePath,
@@ -285,7 +290,7 @@ class OpenApiSpecification(
             val collectorContext = CollectorContext()
             val implicitOverlayFile = getImplicitOverlayContent(openApiFilePath)
             val mergedYaml = yamlContent.applyOverlay(overlayContent).applyOverlay(implicitOverlayFile)
-            val preprocessedYaml = preprocessYamlForAdditionalProperties(mergedYaml, collectorContext)
+            val preprocessedYaml = preprocessYamlForParser(mergedYaml, collectorContext)
 
             val parseResult: SwaggerParseResult =
                 OpenAPIV3Parser().readContents(
@@ -367,16 +372,59 @@ class OpenApiSpecification(
             ).registerKotlinModule()
         }
 
-        private fun preprocessYamlForAdditionalProperties(yaml: String, collectorContext: CollectorContext): String {
+        private fun preprocessYamlForParser(yaml: String, collectorContext: CollectorContext): String {
             if (yaml.isBlank()) return yaml
 
             return try {
                 val root = yamlPreprocessorMapper.readTree(yaml) ?: return yaml
+                inlinePathItemReferences(root)
                 removeInvalidAdditionalProperties(root, collectorContext = collectorContext)
                 yamlPreprocessorMapper.writeValueAsString(root)
             } catch (exception: Exception) {
-                logger.debug("Skipping additionalProperties preprocessing due to error: ${exception.message}")
+                logger.debug("Skipping OpenAPI preprocessing due to error: ${exception.message}")
                 yaml
+            }
+        }
+
+        @Suppress("unused")
+        private fun preprocessYamlForAdditionalProperties(yaml: String, collectorContext: CollectorContext): String {
+            return preprocessYamlForParser(yaml, collectorContext)
+        }
+
+        private fun inlinePathItemReferences(root: JsonNode) {
+            val openApiVersion = root.get("openapi")?.asText()?.trim().orEmpty()
+            val componentsNode = root.get("components") as? ObjectNode ?: return
+            if (componentsNode.get("pathItems") !is ObjectNode) return
+            val pathsNode = root.get("paths") as? ObjectNode ?: return
+
+            val pathNames = pathsNode.fieldNames().asSequence().toList()
+            pathNames.forEach { pathName ->
+                val pathNode = pathsNode.get(pathName) as? ObjectNode ?: return@forEach
+                val ref = pathNode.get("\$ref")?.asText() ?: return@forEach
+                if (!ref.startsWith("#/components/pathItems/")) return@forEach
+
+                val referencedPathItem = root.at(ref.removePrefix("#"))
+                if (referencedPathItem !is ObjectNode || referencedPathItem.isMissingNode) return@forEach
+
+                val resolvedPathItem = referencedPathItem.deepCopy<ObjectNode>()
+                val inlineFieldNames = pathNode.fieldNames().asSequence().toList()
+                inlineFieldNames.forEach { fieldName ->
+                    if (fieldName != "\$ref") {
+                        val fieldValue = pathNode.get(fieldName)
+                        if (fieldValue != null) {
+                            resolvedPathItem.set<JsonNode>(fieldName, fieldValue.deepCopy())
+                        }
+                    }
+                }
+
+                pathsNode.set<ObjectNode>(pathName, resolvedPathItem)
+            }
+
+            if (openApiVersion.startsWith("3.0")) {
+                componentsNode.remove("pathItems")
+                if (componentsNode.size() == 0) {
+                    (root as? ObjectNode)?.remove("components")
+                }
             }
         }
 
@@ -454,7 +502,7 @@ class OpenApiSpecification(
         val rootContext = CollectorContext().combineImmutable(parseCollectorContext)
         val name = File(openApiFilePath).name
 
-        val (scenarioInfos, stubsFromExamples) = toScenarioInfos(rootContext)
+        val (scenarioInfos, inlineExamples) = toScenarioInfos(rootContext)
         val unreferencedSchemaPatterns = parseUnreferencedSchemas(rootContext)
         val updatedScenarios = scenarioInfos.map {
             Scenario(it).copy(
@@ -469,7 +517,7 @@ class OpenApiSpecification(
             sourceRepository = sourceRepository,
             sourceRepositoryBranch = sourceRepositoryBranch,
             specification = specificationPath,
-            stubsFromExamples = stubsFromExamples,
+            inlineExamples = inlineExamples,
             specmaticConfig = specmaticConfig,
             strictMode = strictMode,
             protocol = protocol,
@@ -503,16 +551,16 @@ class OpenApiSpecification(
         return parsedOpenApi.servers.orEmpty()
     }
 
-    override fun toScenarioInfos(): Pair<List<ScenarioInfo>, Map<String, List<Pair<HttpRequest, HttpResponse>>>> {
+    override fun toScenarioInfos(): Pair<List<ScenarioInfo>, List<NamedStub>> {
         val rootContext = CollectorContext()
         val scenarioInfos = toScenarioInfos(rootContext)
         return rootContext.toCollector().toResult().returnLenientlyElseFail(lenientMode, scenarioInfos)
     }
 
-    fun toScenarioInfos(rootContext: CollectorContext): Pair<List<ScenarioInfo>, Map<String, List<Pair<HttpRequest, HttpResponse>>>> {
+    fun toScenarioInfos(rootContext: CollectorContext): Pair<List<ScenarioInfo>, List<NamedStub>> {
         val (
             scenarioInfos: List<ScenarioInfo>,
-            examplesAsExpectations: Map<String, List<Pair<HttpRequest, HttpResponse>>>
+            examplesAsExpectations: List<NamedStub>
         ) = openApiToScenarioInfos(rootContext)
 
         return scenarioInfos.filter { it.httpResponsePattern.status > 0 } to examplesAsExpectations
@@ -648,13 +696,24 @@ class OpenApiSpecification(
 
     data class RequestPatternsData(val requestPattern: HttpRequestPattern, val examples: Map<String, List<HttpRequest>>, val original: Pair<String, MediaType>? = null)
 
-    private fun openApiToScenarioInfos(rootContext: CollectorContext): Pair<List<ScenarioInfo>, Map<String, List<Pair<HttpRequest, HttpResponse>>>> {
+    private data class ParsedOperation(
+        val scenarioInfos: List<ScenarioInfo>,
+        val inlineExamples: List<NamedStub>,
+        val unusedRequestExampleNames: Set<String>
+    )
+
+    private data class NoBodyExampleUpdate(
+        val additionalInlineExamples: List<NamedStub>,
+        val updatedScenarioInfos: List<ScenarioInfo>
+    )
+
+    private fun openApiToScenarioInfos(rootContext: CollectorContext): Pair<List<ScenarioInfo>, List<NamedStub>> {
         val pathsContext = rootContext.at("paths")
         val allPathPatternsGroupedByMethod = allPathPatternsGroupedByMethod(pathsContext)
 
-        val data: List<Pair<List<ScenarioInfo>, Map<String, List<Pair<HttpRequest, HttpResponse>>>>> =
-            openApiPaths().map { (openApiPath, pathItem) ->
-                val scenariosAndExamples = openApiOperations(pathItem).map { (httpMethod, openApiOperation) ->
+        val data: List<ParsedOperation> =
+            openApiPaths().flatMap { (openApiPath, pathItem) ->
+                openApiOperations(pathItem).map { (httpMethod, openApiOperation) ->
                     logger.debug("${System.lineSeparator()}Processing $httpMethod $openApiPath")
 
                     val methodContext = pathsContext.at(openApiPath).at(httpMethod.lowercase())
@@ -719,6 +778,12 @@ class OpenApiSpecification(
                             }
                         }
 
+                    }.onEach { (requestPatternData, responsePatternData) ->
+                        warnIfAcceptHeaderDoesNotAllowResponseContentType(
+                            requestPattern = requestPatternData.requestPattern,
+                            responsePattern = responsePatternData.responsePattern,
+                            collectorContext = methodContext
+                        )
                     }
 
                     val scenarioInfos = requestResponsePairs.map { (requestPatternData, responsePatternData) ->
@@ -759,17 +824,13 @@ class OpenApiSpecification(
 
                     val responseExamplesList = httpResponsePatterns.map { it.examples }
 
-                    val requestExamples = httpRequestPatterns.map {
-                        it.examples
-                    }.foldRight(emptyMap<String, List<HttpRequest>>()) { acc, map ->
-                        acc.plus(map)
-                    }
+                    val requestExamples = mergeRequestExamples(httpRequestPatterns.map { it.examples })
 
                     val examples = collateExamplesForExpectations(requestExamples, responseExamplesList)
 
-                    val requestExampleNames = requestExamples.keys
+                    val requestExampleNames = requestExamples.keys.toSet()
 
-                    val usedExamples = examples.keys
+                    val usedExamples = examples.map { it.name }.toSet()
 
                     val unusedRequestExampleNames = requestExampleNames - usedExamples
 
@@ -778,49 +839,38 @@ class OpenApiSpecification(
                                 && responsePatternData.responsePattern.status == firstNoBodyResponseStatus
                     }
 
-                    val (additionalExamples, updatedScenarios)
-                            = when {
-                                responseThatReturnsNoValues != null && unusedRequestExampleNames.isNotEmpty() -> {
-                                    getUpdatedScenarioInfosWithNoBodyResponseExamples(
-                                        responseThatReturnsNoValues,
-                                        requestExamples,
-                                        unusedRequestExampleNames,
-                                        scenarioInfos,
-                                        openApiOperation,
-                                        firstNoBodyResponseStatus
-                                    )
-                                }
+                    val noBodyResponseUpdate = when {
+                        responseThatReturnsNoValues != null && unusedRequestExampleNames.isNotEmpty() ->
+                            getUpdatedScenarioInfosWithNoBodyResponseExamples(
+                                responseThatReturnsNoValues,
+                                requestExamples,
+                                unusedRequestExampleNames,
+                                scenarioInfos,
+                                openApiOperation,
+                                firstNoBodyResponseStatus
+                            )
 
-                                else -> emptyMap<String, List<Pair<HttpRequest, HttpResponse>>>() to scenarioInfos
-                            }
-
-                    Triple(updatedScenarios, examples + additionalExamples, requestExampleNames)
-                }
-
-                val requestExampleNames = scenariosAndExamples.flatMap { it.third }.toSet()
-
-                val usedExamples = scenariosAndExamples.flatMap { it.second.keys }.toSet()
-
-                val unusedRequestExampleNames = requestExampleNames - usedExamples
-
-                if (specmaticConfig.getIgnoreInlineExampleWarnings().not()) {
-                    unusedRequestExampleNames.forEach { unusedRequestExampleName ->
-                        // TODO: Collect as warning
-                        logger.log(missingResponseExampleErrorMessageForTest(unusedRequestExampleName))
+                        else -> NoBodyExampleUpdate(additionalInlineExamples = emptyList(), updatedScenarioInfos = scenarioInfos)
                     }
+
+                    ParsedOperation(
+                        scenarioInfos = noBodyResponseUpdate.updatedScenarioInfos,
+                        inlineExamples = examples + noBodyResponseUpdate.additionalInlineExamples,
+                        unusedRequestExampleNames = requestExampleNames - (examples + noBodyResponseUpdate.additionalInlineExamples).map { it.name }.toSet()
+                    )
                 }
-
-                scenariosAndExamples.map {
-                    it.first to it.second
-                }
-            }.flatten()
-
-
-        val scenarioInfos = data.map { it.first }.flatten()
-        val examples: Map<String, List<Pair<HttpRequest, HttpResponse>>> =
-            data.map { it.second }.foldRight(emptyMap()) { acc, map ->
-                acc.plus(map)
             }
+
+        if (specmaticConfig.getIgnoreInlineExampleWarnings().not()) {
+            data.flatMap { it.unusedRequestExampleNames }.forEach { unusedRequestExampleName ->
+                // TODO: Collect as warning
+                logger.log(missingResponseExampleErrorMessageForTest(unusedRequestExampleName))
+            }
+        }
+
+
+        val scenarioInfos = data.flatMap { it.scenarioInfos }
+        val examples = data.flatMap { it.inlineExamples }
 
         logger.boundary()
         return scenarioInfos to examples
@@ -843,16 +893,19 @@ class OpenApiSpecification(
         scenarioInfos: List<ScenarioInfo>,
         operation: Operation,
         firstNoBodyResponseStatus: Int?,
-    ): Pair<Map<String, List<Pair<HttpRequest, HttpResponse>>>, List<ScenarioInfo>> {
+    ): NoBodyExampleUpdate {
         val emptyResponse = HttpResponse(
             status = responseThatReturnsNoValues.responsePattern.status,
             headers = emptyMap(),
             body = NoBodyValue
         )
-        val examplesOfResponseThatReturnsNoValues: Map<String, List<Pair<HttpRequest, HttpResponse>>> =
-            requestExamples.filterKeys { it in unusedRequestExampleNames }
-                .mapValues { (_, examples) ->
-                    examples.map { it to emptyResponse }
+        val examplesOfResponseThatReturnsNoValues: List<NamedStub> =
+            requestExamples
+                .filterKeys { it in unusedRequestExampleNames }
+                .flatMap { (exampleName, examples) ->
+                    examples.map { request ->
+                        NamedStub(exampleName, ScenarioStub(request = request, response = emptyResponse))
+                    }
                 }
 
         val updatedScenarioInfos = scenarioInfos.map { scenarioInfo ->
@@ -877,7 +930,10 @@ class OpenApiSpecification(
                 scenarioInfo
         }
 
-        return examplesOfResponseThatReturnsNoValues to updatedScenarioInfos
+        return NoBodyExampleUpdate(
+            additionalInlineExamples = examplesOfResponseThatReturnsNoValues,
+            updatedScenarioInfos = updatedScenarioInfos
+        )
     }
 
     private fun getRowsFromRequestExample(
@@ -911,14 +967,23 @@ class OpenApiSpecification(
     private fun collateExamplesForExpectations(
         requestExamples: Map<String, List<HttpRequest>>,
         responseExamplesList: List<Map<String, HttpResponse>>
-    ): Map<String, List<Pair<HttpRequest, HttpResponse>>> {
+    ): List<NamedStub> {
         return responseExamplesList.flatMap { responseExamples ->
             responseExamples.filter { (key, _) ->
                 key in requestExamples
             }.map { (key, responseExample) ->
-                key to requestExamples.getValue(key).map { it to responseExample }
+                requestExamples.getValue(key).map { request ->
+                    NamedStub(key, ScenarioStub(request = request, response = responseExample))
+                }
             }
-        }.toMap()
+        }.flatten()
+    }
+
+    private fun mergeRequestExamples(examplesList: List<Map<String, List<HttpRequest>>>): Map<String, List<HttpRequest>> {
+        return examplesList
+            .flatMap { it.entries }
+            .groupBy(keySelector = { it.key }, valueTransform = { it.value })
+            .mapValues { (_, groupedRequests) -> groupedRequests.flatten() }
     }
 
     private fun scenarioName(
@@ -928,6 +993,68 @@ class OpenApiSpecification(
     ): String = operation.summary?.let {
         """${operation.summary}. Response: ${response.description}"""
     } ?: "${httpRequestPattern.testDescription()}. Response: ${response.description}"
+
+    private fun isAcceptHeaderCompatibleWithResponsePattern(
+        requestPattern: HttpRequestPattern,
+        responsePattern: HttpResponsePattern
+    ): Boolean {
+        val responseContentType = responsePattern.headersPattern.contentType ?: return true
+        val acceptHeaderPattern = requestPattern.headersPattern.pattern.getCaseInsensitive(ACCEPT)?.value ?: return true
+
+        val knownAcceptValues = knownAcceptValues(acceptHeaderPattern) ?: return true
+        if (knownAcceptValues.isEmpty()) return true
+
+        return knownAcceptValues.any { acceptValue ->
+            isResponseContentTypeAccepted(acceptValue, responseContentType)
+        }
+    }
+
+    private fun warnIfAcceptHeaderDoesNotAllowResponseContentType(
+        requestPattern: HttpRequestPattern,
+        responsePattern: HttpResponsePattern,
+        collectorContext: CollectorContext
+    ) {
+        if (isAcceptHeaderCompatibleWithResponsePattern(requestPattern, responsePattern)) return
+
+        val acceptHeaderPattern = requestPattern.headersPattern.pattern.getCaseInsensitive(ACCEPT)?.value ?: return
+        val knownAcceptValues = knownAcceptValues(acceptHeaderPattern) ?: return
+        val responseContentType = responsePattern.headersPattern.contentType ?: return
+
+        collectorContext.record(
+            message = "Accept header values ${knownAcceptValues.joinToString(", ")} do not allow response Content-Type \"$responseContentType\"",
+            isWarning = true,
+            ruleViolation = OpenApiLintViolations.MEDIA_TYPE_OVERRIDDEN
+        )
+    }
+
+    private fun knownAcceptValues(acceptHeaderPattern: Pattern): Set<String>? {
+        val resolvedPattern = resolvedHop(acceptHeaderPattern, Resolver(newPatterns = patterns))
+
+        return when (resolvedPattern) {
+            is ExactValuePattern -> {
+                val value = (resolvedPattern.pattern as? StringValue)?.toStringLiteral() ?: return null
+                setOf(value)
+            }
+
+            is EnumPattern -> {
+                val values = resolvedPattern.pattern.pattern.mapNotNull {
+                    (it as? ExactValuePattern)?.pattern as? StringValue
+                }.map { it.toStringLiteral() }
+
+                if (values.size == resolvedPattern.pattern.pattern.size) values.toSet() else null
+            }
+
+            is AnyPattern -> {
+                val values = resolvedPattern.pattern.mapNotNull {
+                    (it as? ExactValuePattern)?.pattern as? StringValue
+                }.map { it.toStringLiteral() }
+
+                if (values.size == resolvedPattern.pattern.size) values.toSet() else null
+            }
+
+            else -> null
+        }
+    }
 
     private fun rowsToExamples(specmaticExampleRows: List<Row>): List<Examples> =
         when (specmaticExampleRows) {

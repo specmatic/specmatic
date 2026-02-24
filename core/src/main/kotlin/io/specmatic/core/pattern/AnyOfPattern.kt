@@ -115,7 +115,7 @@ data class AnyOfPattern(
             return patternMismatchResult(this, otherPattern, thisResolver.mismatchMessages)
         }
 
-        val myPatterns = patternSet(thisResolver)
+        val myPatterns = delegate.getUpdatedPattern(thisResolver)
 
         val encompassResults =
             otherPattern.pattern.map { legacyPattern ->

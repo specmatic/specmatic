@@ -28,6 +28,11 @@ class ValidationResults(val exampleValidationResults: Map<String, Result>, priva
     fun plus(exampleValidationResults: Map<String, Result>) =
         ValidationResults(this.exampleValidationResults + exampleValidationResults, hookValidationResult)
 
+    fun merge(other: ValidationResults): ValidationResults = ValidationResults(
+        exampleValidationResults = this.exampleValidationResults + other.exampleValidationResults,                 // maps: later wins if same key
+        hookValidationResult = Result.fromResults(listOf(this.hookValidationResult, other.hookValidationResult))
+    )
+
     companion object {
         fun forNoExamples(): ValidationResults {
             return ValidationResults(emptyMap(), Result.Success())

@@ -429,6 +429,21 @@ class BackwardCompatibilityCheckCommandV2Test {
             )
         }
 
+        @Test
+        fun `should fail when externalised example changes but corresponding spec file is missing`() {
+            val exampleDir = tempDir.resolve("orders_examples").apply { mkdirs() }
+            val exampleFile = exampleDir.resolve("example.json").apply { writeText("""{"id":1}""") }
+            commitAndPush(tempDir, "Initial commit")
+            exampleFile.writeText("""{"id":2}""")
+
+            val (stdOut, exitCode) = captureStandardOutput(redirectStdErrToStdout = true) {
+                BackwardCompatibilityCheckCommandV2().apply { repoDir = tempDir.canonicalPath }.call()
+            }
+
+            assertThat(exitCode).isEqualTo(1)
+            assertThat(stdOut).contains("orders.yaml")
+        }
+
         @ParameterizedTest
         @CsvSource(
             "/api/api_examples/example.json, /api/api_examples",

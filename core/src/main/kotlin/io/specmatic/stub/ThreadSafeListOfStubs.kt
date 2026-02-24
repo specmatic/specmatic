@@ -1,8 +1,6 @@
 package io.specmatic.stub
 
-import io.specmatic.core.DefaultKeyCheckImpl
 import io.specmatic.core.HttpRequest
-import io.specmatic.core.KeyCheck
 import io.specmatic.core.Result
 import io.specmatic.core.invalidRequestStatuses
 import io.specmatic.core.pattern.ContractException
@@ -225,9 +223,6 @@ class ThreadSafeListOfStubs(
         }
     }
 }
-
-
-
 
 
 

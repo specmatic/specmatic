@@ -147,6 +147,8 @@ data class Scenario(
             return pattern.generate(resolver).toStringLiteral().removeSurrounding("\"").removePrefix("/")
         }
 
+    fun responseBodyFromExample() = exampleRow?.responseBody()
+
     private fun serverStateMatches(actualState: Map<String, Value>, resolver: Resolver) =
         expectedFacts.keys == actualState.keys &&
                 mapZip(expectedFacts, actualState).all { (key, expectedStateValue, actualStateValue) ->

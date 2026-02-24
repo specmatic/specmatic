@@ -138,7 +138,7 @@ class HttpStub(
     private val listeners: List<MockEventListener> = emptyList(),
     private val reportBaseDirectoryPath: String = ".",
     private val startTime: Instant = Instant.now(),
-    private val requestHandlers: MutableList<RequestHandler> = mutableListOf()
+    var requestHandlers: MutableList<RequestHandler> = mutableListOf()
 ) : ContractStub {
     private enum class SwaggerSpecResponseFormat {
         YAML,
@@ -327,21 +327,22 @@ class HttpStub(
                     prettyPrint = prettyPrint,
                 )
                 var transformedResponse: HttpResponse? = null
-                var responseErrors: List<InterceptorError> = emptyList()
                 var swaggerSpecSummary: String? = null
                 var shouldRedactSwaggerSpecResponseInLogs = false
+                var responseInterceptorResults: List<InterceptorResult<HttpResponse>> = emptyList()
 
                 try {
                     val rawHttpRequest = ktorHttpRequestToHttpRequest(call).also {
                         if (it.isHealthCheckRequest()) return@intercept
                     }
 
-                    val (httpRequest, requestInterceptorErrors) = requestInterceptors.fold(
-                        rawHttpRequest to emptyList<InterceptorError>()
-                    ) { (request, errors), requestInterceptor ->
-                        val result = requestInterceptor.interceptRequestAndReturnErrors(request)
-                        (result.value ?: request) to (errors + result.errors)
+                    val (httpRequest, requestInterceptorResults) = requestInterceptors.fold(
+                        rawHttpRequest to emptyList<InterceptorResult<HttpRequest>>()
+                    ) { (request, results), interceptor ->
+                        val result = interceptor.interceptRequestAndReturnErrors(request)
+                        (result.processedValue ?: request) to results + result
                     }
+                    val requestInterceptorErrors = requestInterceptorResults.flatMap { it.errors }
 
                     LicenseResolver.utilize(
                         product = LicensedProduct.OPEN_SOURCE,
@@ -360,12 +361,20 @@ class HttpStub(
                         logger.log(rawHttpRequest.toLogString(prettyPrint = prettyPrint).prependIndent("  "))
                     }
 
-                    // Log request hook responseInterceeptorErrors if any occurred
+                    // Log request hook responseInterceptorErrors if any occurred
                     if (requestInterceptorErrors.isNotEmpty()) {
                         logger.boundary()
                         logger.log("--------------------")
-                        logger.log("Request hook responseInterceeptorErrors:")
+                        logger.log("Request adapter errors:")
                         logger.log(InterceptorErrors(requestInterceptorErrors).toString().prependIndent("  "))
+                    }
+
+                    if(requestInterceptorResults.isNotEmpty()) {
+                        httpLogMessage.addPreHookRequestWithCurrentTime(
+                            requestInterceptorResults.first().copy(
+                                errors = requestInterceptorErrors
+                            )
+                        )
                     }
 
                     val responseFromRequestHandler =
@@ -403,13 +412,15 @@ class HttpStub(
                         }
                     }
 
-                    val (httpResponse, responseInterceptorErrors) = responseInterceptors.fold(
-                        httpStubResponse.response to emptyList<InterceptorError>()
-                    ) { (response, errors), responseInterceptor ->
-                        val result = responseInterceptor.interceptResponseAndReturnErrors(httpRequest, response)
-                        (result.value ?: response) to (errors + result.errors)
+
+                    val (httpResponse, responseInterceptorResultsList) = responseInterceptors.fold(
+                        httpStubResponse.response to emptyList<InterceptorResult<HttpResponse>>()
+                    ) { (response, results), interceptor ->
+                        val result = interceptor.interceptResponseAndReturnErrors(httpRequest, response)
+                        (result.processedValue ?: response) to results + result
                     }
-                    responseErrors = responseInterceptorErrors
+
+                    responseInterceptorResults = responseInterceptorResultsList
 
                     // Store encoded response for later logging if different
                     transformedResponse =
@@ -461,11 +472,13 @@ class HttpStub(
                 swaggerSpecSummary?.let { log(StringLog(it)) }
                 log(httpLogMessage)
 
+                val responseErrors = responseInterceptorResults.flatMap { it.errors }
+
                 // Log the response after hook processing if it was transformed
                 if (!shouldRedactSwaggerSpecResponseInLogs) transformedResponse?.let {
                     logger.log("")
                     logger.log("--------------------")
-                    logger.log("Response after hook processing:")
+                    logger.log("Response after adapter processing:")
                     logger.log(it.toLogString(prettyPrint = prettyPrint).prependIndent("  "))
                 }
 
@@ -473,8 +486,17 @@ class HttpStub(
                 if (responseErrors.isNotEmpty()) {
                     logger.boundary()
                     logger.log("--------------------")
-                    logger.log("Response hook errors:")
+                    logger.log("Response adapter errors:")
                     logger.log(InterceptorErrors(responseErrors).toString().prependIndent("  "))
+                }
+
+                if (responseInterceptorResults.isNotEmpty()) {
+                    httpLogMessage.addPostHookResponseWithCurrentTime(
+                        responseInterceptorResults.last().copy(
+                            processedValue = transformedResponse,
+                            errors = responseErrors
+                        )
+                    )
                 }
 
                 MockEvent(httpLogMessage).let { event -> listeners.forEach { it.onRespond(event) } }
@@ -933,10 +955,10 @@ class HttpStub(
     }
 
     override fun close() {
-        logger.debug("Stopping the server with grace period of $timeoutMillis")
-        server.stop(gracePeriodMillis = timeoutMillis, timeoutMillis = timeoutMillis)
         val protocols = features.map { it.protocol }.distinct()
         if (SpecmaticProtocol.HTTP in protocols) generateReports()
+        logger.debug("Stopping the server with grace period of $timeoutMillis")
+        server.stop(gracePeriodMillis = timeoutMillis, timeoutMillis = timeoutMillis)
     }
 
     private fun generateReports() {

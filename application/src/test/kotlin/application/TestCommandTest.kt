@@ -64,6 +64,18 @@ internal class TestCommandTest {
     }
 
     @Test
+    fun `when an explicit contract path does not exist test command should return non-zero`(@TempDir tempDir: File) {
+        val missingSpecPath = tempDir.resolve("missing.$CONTRACT_EXTENSION").absolutePath
+
+        val (output, exitCode) = captureStandardOutput(redirectStdErrToStdout = true) {
+            CommandLine(TestCommand()).execute(missingSpecPath)
+        }
+
+        assertThat(exitCode).isEqualTo(1)
+        assertThat(output).contains("does not exist").contains("missing.$CONTRACT_EXTENSION")
+    }
+
+    @Test
     fun `ContractExecutionListener should be registered`() {
         val registeredListeners = ServiceLoader.load(TestExecutionListener::class.java)
             .map { it.javaClass.name }

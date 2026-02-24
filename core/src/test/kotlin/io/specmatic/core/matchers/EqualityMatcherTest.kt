@@ -14,6 +14,8 @@ import io.specmatic.core.value.StringValue
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 
 class EqualityMatcherTest {
     private val mockResolver = mockk<Resolver>()
@@ -192,6 +194,48 @@ class EqualityMatcherTest {
             )
 
             assertThat(result).isInstanceOf(HasFailure::class.java)
+        }
+
+        @ParameterizedTest(name = "value=''{0}'' → pattern should be created")
+        @CsvSource(
+            "1.23",
+            "0.5",
+            ".5",
+            "10.",
+            "123.0001",
+            "123",
+            "abc",
+            "abc.def",
+            "gmail.com",
+            "v1.2.3",
+            "foo.bar.baz",
+            "version.1",
+            "a.b"
+        )
+        fun `should create pattern for any string including dotted`(raw: String) {
+            val result = EqualityMatcher.Companion.EqualityFactory.toPatternSimplified(mapOf("exact" to StringValue(raw)))
+            assertThat(result).isNotNull()
+        }
+
+        @ParameterizedTest(name = "value=''{0}'' → pattern should be created")
+        @CsvSource(
+            "1.23",
+            "0.5",
+            ".5",
+            "10.",
+            "123.0001",
+            "123",
+            "abc",
+            "abc.def",
+            "gmail.com",
+            "v1.2.3",
+            "foo.bar.baz",
+            "version.1",
+            "a.b"
+        )
+        fun `should not create pattern for any string including dotted when called with $eq`(raw: String) {
+            val result = EqualityMatcher.Companion.EqualityFactory.toPatternSimplified(StringValue("\$eq($raw)"))
+            assertThat(result).isNull()
         }
     }
 

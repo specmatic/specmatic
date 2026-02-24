@@ -383,6 +383,13 @@ fun contractFilePathsFrom(
             it.loadContracts(selector, workingDirectory, configFilePath)
         }
 
+    contractPathData
+        .filter { File(it.path).exists().not() }
+        .forEach { missingContract ->
+            val configuredPath = missingContract.specificationPath ?: missingContract.path
+            logger.log("WARNING: Specification '$configuredPath' from config '$configFilePath' could not be found at '${missingContract.path}'. It will be ignored.")
+        }
+
     logger.debug("Spec file paths in $configFilePath:")
     logger.debug(contractPathData.joinToString(System.lineSeparator()) { "- ${it.path}" })
 

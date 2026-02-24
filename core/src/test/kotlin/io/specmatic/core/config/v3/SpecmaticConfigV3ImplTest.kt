@@ -49,11 +49,10 @@ class SpecmaticConfigV3ImplTest {
                 val v2Value = extract(v2Config)
                 val v3Value = extract(v3Config)
 
-                // TODO: Investigate the Contract sources returning .path instead of .canonicalPath on loadSources
                 // ALl except GitMonoRepo returns .path instead of .canonicalPath
                 assertThat(v2Value)
                     .usingRecursiveComparison()
-                    .ignoringFieldsMatchingRegexes(".*specmaticConfig", ".*path")
+                    .ignoringFieldsMatchingRegexes(".*specmaticConfig")
                     .isEqualTo(v3Value)
             }
 

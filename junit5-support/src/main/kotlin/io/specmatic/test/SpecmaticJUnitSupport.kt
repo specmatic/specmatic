@@ -88,7 +88,7 @@ open class SpecmaticJUnitSupport {
     internal val openApiCoverageReportInput: OpenApiCoverageReportInput =
         OpenApiCoverageReportInput(
             configFilePath = getConfigFileWithAbsolutePath(),
-            filterExpression = specmaticConfig.getTestFilter().orEmpty(),
+            filterExpression = settings.getReportFilter().orEmpty(),
             coverageHooks = settings.coverageHooks,
             httpInteractionsLog = httpInteractionsLog,
             previousTestResultRecord = settings.previousTestRuns,
@@ -198,7 +198,7 @@ open class SpecmaticJUnitSupport {
             }
         }
 
-        val reportDirPath = specmaticConfig?.getReportDirPath() ?: defaultReportDirPath
+        val reportDirPath = specmaticConfig.getReportDirPath()
         ReportGenerator.generateReport(
             testResultRecords = report.testResultRecords,
             startTime = start,
@@ -246,13 +246,13 @@ open class SpecmaticJUnitSupport {
     }
 
     private fun loadExceptionAsTestError(e: Throwable): Stream<DynamicTest> {
-        return sequenceOf(DynamicTest.dynamicTest("Load Error") {
+        return sequenceOf(DynamicTest.dynamicTest("Specmatic Test Suite") {
             ResultAssert.assertThat(Result.Failure(exceptionCauseMessage(e))).isSuccess()
         }).asStream()
     }
 
     private fun noTestsFoundError(reason: String): Stream<DynamicTest> {
-        return sequenceOf(DynamicTest.dynamicTest("No Tests Found") {
+        return sequenceOf(DynamicTest.dynamicTest("Specmatic Test Suite") {
             ResultAssert.assertThat(Result.Failure("No tests found to run. $reason")).isSuccess()
         }).asStream()
     }
@@ -321,8 +321,6 @@ open class SpecmaticJUnitSupport {
 
                 else -> {
                     if (File(settings.configFile.orEmpty()).exists().not()) exitWithMessage(MISSING_CONFIG_FILE_MESSAGE)
-
-                    createIfDoesNotExist(workingDirectory.path)
 
                     val contractFilePaths = contractTestPathsFrom(
                         settings.configFile.orEmpty(),
@@ -454,8 +452,6 @@ open class SpecmaticJUnitSupport {
         timeoutInMilliseconds: Long,
     ): Stream<DynamicTest>
     {
-        val settings = settings
-
         try {
             if (queryActuator().failed && actuatorFromSwagger(actuatorBaseURL).failed) {
                 openApiCoverageReportInput.setEndpointsAPIFlag(false)
@@ -497,8 +493,8 @@ open class SpecmaticJUnitSupport {
                         )
 
                     testResult =
-                        httpClient.use { httpClient ->
-                            contractTest.runTest(httpClient)
+                        httpClient.use {
+                            contractTest.runTest(it)
                         }
                     val (result) = testResult
 

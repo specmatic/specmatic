@@ -74,10 +74,6 @@ fun checkExists(file: File) = file.also {
         throw ContractException("File ${file.path} does not exist (absolute path ${file.canonicalPath})")
 }
 
-fun parseContractFileWithNoMissingConfigWarning(contractFile: File, lenientMode: Boolean = false): Feature {
-    return parseContractFileToFeature(contractFile, specmaticConfig = SpecmaticConfig(), lenientMode = lenientMode)
-}
-
 fun parseContractFileToFeature(
     file: File,
     hook: Hook = PassThroughHook(),
@@ -187,12 +183,22 @@ data class Feature(
     val protocol: SpecmaticProtocol,
     val exampleDirPaths: List<String> = emptyList()
 ): IFeature {
+    val inlineNamedStubs: List<NamedStub>
+        get() = exampleStore.examples
+            .asSequence()
+            .filter { it.type == ExampleType.INLINE }
+            .map { NamedStub(name = it.name, stub = it.example) }
+            .toList()
 
+    @Deprecated(
+        message = "Use inlineNamedStubs for collision-safe inline example access",
+        replaceWith = ReplaceWith("inlineNamedStubs.groupBy({ it.name }, { it.stub.request to it.stub.response })")
+    )
     val stubsFromExamples: Map<String, List<Pair<HttpRequest, HttpResponse>>>
         get() {
-            return exampleStore.examples.groupBy(
+            return inlineNamedStubs.groupBy(
                 keySelector = { it.name },
-                valueTransform = { it.example.request to it.example.response }
+                valueTransform = { it.stub.request to it.stub.response }
             )
         }
 
@@ -237,37 +243,37 @@ data class Feature(
     }
 
     fun loadInlineExamplesAsStub(): List<ReturnValue<HttpStubData>> {
-        return this.stubsFromExamples.entries.flatMap { (exampleName, examples) ->
-            examples.mapNotNull { (request, response) ->
-                try {
-                    val stubData: HttpStubData =
-                        this.matchingStub(request, response, NamedExampleMismatchMessages(exampleName))
+        return this.inlineNamedStubs.mapNotNull { namedStub ->
+            val exampleName = namedStub.name
+            val stub = namedStub.stub
+            try {
+                val stubData: HttpStubData =
+                    this.matchingStub(stub.request, stub.response, NamedExampleMismatchMessages(exampleName))
 
-                    if (stubData.matchFailure) {
-                        logger.newLine()
-                        logger.log(stubData.response.body.toStringLiteral())
-                        null
-                    } else {
-                        HasValue(stubData)
-                    }
-                } catch (e: Throwable) {
+                if (stubData.matchFailure) {
                     logger.newLine()
+                    logger.log(stubData.response.body.toStringLiteral())
+                    null
+                } else {
+                    HasValue(stubData)
+                }
+            } catch (e: Throwable) {
+                logger.newLine()
 
-                    when (e) {
-                        is ContractException -> {
-                            logger.log(e)
-                            null
-                        }
+                when (e) {
+                    is ContractException -> {
+                        logger.log(e)
+                        null
+                    }
 
-                        is NoMatchingScenario -> {
-                            logger.log(e, "[Example $exampleName]")
-                            HasFailure("[Example $exampleName] ${e.message}")
-                        }
+                    is NoMatchingScenario -> {
+                        logger.log(e, "[Example $exampleName]")
+                        HasFailure("[Example $exampleName] ${e.message}")
+                    }
 
-                        else -> {
-                            logger.log(e, "[Example $exampleName]")
-                            throw e
-                        }
+                    else -> {
+                        logger.log(e, "[Example $exampleName]")
+                        throw e
                     }
                 }
             }
@@ -340,7 +346,7 @@ data class Feature(
                 mismatchMessages = mismatchMessages,
                 unexpectedKeyCheck = flagsBased.unexpectedKeyCheck ?: ValidateUnexpectedKeys
             ).let { resultList ->
-                filterByExpectedResponseStatus(httpRequest.expectedResponseCode(), resultList)
+                applyStubFallbackRequestFilters(httpRequest, resultList)
             }
 
             return matchingScenario(resultList)?.let {
@@ -356,6 +362,14 @@ data class Feature(
         } finally {
             serverState = emptyMap()
         }
+    }
+
+    private fun applyStubFallbackRequestFilters(
+        httpRequest: HttpRequest,
+        resultList: Sequence<Pair<Scenario, Result>>
+    ): Sequence<Pair<Scenario, Result>> {
+        val byExpectedStatus = filterByExpectedResponseStatus(httpRequest.expectedResponseCode(), resultList)
+        return applyAcceptHeaderSort(httpRequest, byExpectedStatus)
     }
 
     private fun filterByExpectedResponseStatus(
@@ -374,7 +388,9 @@ data class Feature(
     ): Map<Int, Pair<ResponseBuilder?, Results>> {
         try {
             val resultList =
-                matchingScenarioToResultList(httpRequest, serverState, mismatchMessages, unexpectedKeyCheck)
+                matchingScenarioToResultList(httpRequest, serverState, mismatchMessages, unexpectedKeyCheck).let {
+                    applyAcceptHeaderSort(httpRequest, it)
+                }
             val matchingScenarios = matchingScenarios(resultList)
 
             if (matchingScenarios.toList().isEmpty()) {
@@ -424,6 +440,53 @@ data class Feature(
         })
 
         return matchingScenarios
+    }
+
+    private fun applyAcceptHeaderSort(
+        httpRequest: HttpRequest,
+        resultList: Sequence<Pair<Scenario, Result>>
+    ): Sequence<Pair<Scenario, Result>> {
+        val acceptHeader = httpRequest.headers.getCaseInsensitive(ACCEPT)?.value?.trim().orEmpty()
+        if (acceptHeader.isBlank()) return resultList
+        if (!isAcceptHeaderParseable(acceptHeader)) {
+            logger.debug("Could not parse Accept header \"$acceptHeader\" while filtering stub fallback responses; skipping Accept filtering.")
+            return resultList
+        }
+        val acceptMediaTypes = acceptMediaTypesFor(acceptHeader) ?: return resultList
+
+        val ranked = resultList.map { (scenario, result) ->
+            if (result !is Success) {
+                RankedScenarioResult(scenario = scenario, result = result, acceptMatchRank = null)
+            } else {
+                RankedScenarioResult(
+                    scenario = scenario,
+                    result = result,
+                    acceptMatchRank = acceptMatchRank(
+                        acceptMediaTypes = acceptMediaTypes,
+                        responseContentType = resolveResponseContentTypeForAccept(scenario),
+                        unknownContentTypeRank = acceptMediaTypes.size
+                    )
+                )
+            }
+        }.toList()
+
+        val matchesAccept = ranked
+            .filter { it.acceptMatchRank != null }
+            .sortedWith(compareBy<RankedScenarioResult> { it.acceptMatchRank }.thenBy { it.scenario.status })
+        val rest = ranked.filter { it.acceptMatchRank == null }
+
+        return (matchesAccept + rest).asSequence().map { rankedResult -> Pair(rankedResult.scenario, rankedResult.result) }
+    }
+
+    private fun resolveResponseContentTypeForAccept(scenario: Scenario): String? {
+        return normaliseMediaType(scenario.responseContentType)
+    }
+
+    private fun normaliseMediaType(mediaType: String?): String? {
+        return mediaType
+            ?.substringBefore(";")
+            ?.trim()
+            ?.takeUnless { it.isBlank() }
     }
 
     fun compatibilityLookup(
@@ -688,9 +751,7 @@ data class Feature(
         try {
             val results = stubMatchResult(request, response, mismatchMessages)
 
-            return results.find {
-                it.first != null
-            }?.let { it.first as HttpStubData }
+            return selectMatchingStubBasedOnAcceptPriority(request, results)
                 ?: throw NoMatchingScenario(
                     failureResults(results).withoutFluff(),
                     msg = null,
@@ -699,6 +760,64 @@ data class Feature(
         } finally {
             serverState = emptyMap()
         }
+    }
+
+    private fun selectMatchingStubBasedOnAcceptPriority(
+        request: HttpRequest,
+        results: List<Pair<HttpStubData?, Result>>
+    ): HttpStubData? {
+        val successfulStubsInOrder = results.mapNotNull { it.first }
+        if (successfulStubsInOrder.isEmpty()) return null
+
+        val acceptHeader = request.headers.getCaseInsensitive(ACCEPT)?.value?.trim().orEmpty()
+        if (acceptHeader.isBlank()) return successfulStubsInOrder.firstOrNull()
+        if (!isAcceptHeaderParseable(acceptHeader)) return successfulStubsInOrder.firstOrNull()
+        val acceptMediaTypes = acceptMediaTypesFor(acceptHeader) ?: return successfulStubsInOrder.firstOrNull()
+
+        val rankedStubs = successfulStubsInOrder.map { stubData ->
+            RankedStub(
+                stubData = stubData,
+                acceptMatchRank = acceptMatchRank(
+                    acceptMediaTypes = acceptMediaTypes,
+                    responseContentType = stubData.response.contentType(),
+                    unknownContentTypeRank = 0
+                )
+            )
+        }
+        val bestRank = rankedStubs.mapNotNull { it.acceptMatchRank }.minOrNull()
+            ?: return successfulStubsInOrder.firstOrNull()
+
+        return rankedStubs.firstOrNull { it.acceptMatchRank == bestRank }?.stubData ?: successfulStubsInOrder.firstOrNull()
+    }
+
+    private data class RankedScenarioResult(
+        val scenario: Scenario,
+        val result: Result,
+        val acceptMatchRank: Int?
+    )
+
+    private data class RankedStub(
+        val stubData: HttpStubData,
+        val acceptMatchRank: Int?
+    )
+
+    private fun acceptMediaTypesFor(acceptHeader: String): List<String>? {
+        return acceptMediaTypesByPriority(acceptHeader).takeIf { it.isNotEmpty() }
+    }
+
+    private fun acceptMatchRank(
+        acceptMediaTypes: List<String>,
+        responseContentType: String?,
+        unknownContentTypeRank: Int
+    ): Int? {
+        val normalisedContentType = normaliseMediaType(responseContentType)
+        if (normalisedContentType.isNullOrBlank()) return unknownContentTypeRank
+
+        val rank = acceptMediaTypes.indexOfFirst { acceptMediaType ->
+            isResponseContentTypeAccepted(acceptMediaType, normalisedContentType)
+        }
+
+        return rank.takeIf { it >= 0 }
     }
 
     fun matchingHttpPathPatternFor(path: String): HttpPathPattern? {
@@ -768,7 +887,46 @@ data class Feature(
             suggestions,
             fn,
             originalScenarios
-        ).map { (originalScenario, returnValue) ->
+        ).map { generatedScenarioPair ->
+            val (originalScenario, generatedScenarioReturnValue) = generatedScenarioPair
+
+            when (generatedScenarioReturnValue) {
+                is HasValue -> {
+                    val normalisedScenario = normaliseAcceptHeaderForContractTest(
+                        generatedScenario = generatedScenarioReturnValue.value,
+                        originalScenario = originalScenario
+                    )
+                    Pair(originalScenario, HasValue(normalisedScenario, generatedScenarioReturnValue.valueDetails))
+                }
+
+                else -> generatedScenarioPair
+            }
+        }.filter { generatedScenarioPair ->
+            generatedScenarioPair.second.withDefault(true) { generatedScenario ->
+                val responseContentType = generatedScenario.responseContentType
+                val isCompatible = runCatching {
+                    isAcceptHeaderCompatibleWithResponse(
+                        requestHeaders = generatedScenario.generateHttpRequest().headers,
+                        responseContentType = responseContentType
+                    )
+                }.getOrDefault(true)
+
+                if (!isCompatible && generatedScenario.exampleRow?.isEmpty() == false) {
+                    val exampleName = generatedScenario.exampleRow.name.takeUnless { it.isBlank() } ?: "(unnamed example)"
+                    val responseContentTypeClause = responseContentType?.let {
+                        ". Response Content-Type: $it"
+                    }.orEmpty()
+                    logger.debug(
+                        "Dropping generated contract test scenario due to Accept mismatch for example named " +
+                            "\"$exampleName\" for API \"${generatedScenario.method} ${generatedScenario.path}\"" +
+                            responseContentTypeClause
+                    )
+                }
+
+                isCompatible
+            }
+        }.map { generatedScenarioPair ->
+            val (originalScenario, returnValue) = generatedScenarioPair
             returnValue.realise(
                 hasValue = { concreteTestScenario, comment ->
                     scenarioAsTest(concreteTestScenario, comment, workflow, originalScenario, originalScenarios)
@@ -781,6 +939,35 @@ data class Feature(
                 }
             )
         }
+    }
+
+    private fun normaliseAcceptHeaderForContractTest(generatedScenario: Scenario, originalScenario: Scenario): Scenario {
+        val generatedAcceptHeaderEntry = generatedScenario.httpRequestPattern.headersPattern.pattern.entries.firstOrNull {
+            withoutOptionality(it.key).equals(ACCEPT, ignoreCase = true)
+        }
+        val acceptHeaderEntry = generatedAcceptHeaderEntry ?: return generatedScenario
+
+        val acceptHeaderPattern = runCatching {
+            resolvedHop(acceptHeaderEntry.value, generatedScenario.resolver)
+        }.getOrElse { acceptHeaderEntry.value }
+
+        if (acceptHeaderPattern !is StringPattern) {
+            return generatedScenario
+        }
+
+        val valueForAcceptHeader =
+            resolveResponseContentTypeForAccept(generatedScenario)
+                ?: resolveResponseContentTypeForAccept(originalScenario)
+                ?: "*/*"
+        val updatedHeadersPattern = generatedScenario.httpRequestPattern.headersPattern.copy(
+            pattern = generatedScenario.httpRequestPattern.headersPattern.pattern.plus(
+                acceptHeaderEntry.key to ExactValuePattern(StringValue(valueForAcceptHeader))
+            )
+        )
+
+        return generatedScenario.copy(
+            httpRequestPattern = generatedScenario.httpRequestPattern.copy(headersPattern = updatedHeadersPattern)
+        )
     }
 
     fun createContractTestFromExampleFile(filePath: String): ReturnValue<ContractTest> {
@@ -2286,6 +2473,12 @@ data class Feature(
             return examplesDirFor(openApiFilePath, TEST_DIR_SUFFIX)
         }
 
+        @Deprecated(
+            message = "Use list-based inlineExamples overload",
+            replaceWith = ReplaceWith(
+                "from(scenarios, serverState, name, testVariables, testBaseURLs, path, sourceProvider, sourceRepository, sourceRepositoryBranch, specification, stubsFromExamples.flatMap { (exampleName, stubs) -> stubs.map { (request, response) -> NamedStub(exampleName, ScenarioStub(request = request, response = response)) } }, specmaticConfig, flagsBased, strictMode, protocol, exampleDirPaths)"
+            )
+        )
         fun from(
             scenarios: List<Scenario> = emptyList(),
             serverState: Map<String, Value> = emptyMap(),
@@ -2298,6 +2491,49 @@ data class Feature(
             sourceRepositoryBranch: String? = null,
             specification: String? = null,
             stubsFromExamples: Map<String, List<Pair<HttpRequest, HttpResponse>>> = emptyMap(),
+            specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
+            flagsBased: FlagsBased = strategiesFromFlags(specmaticConfig),
+            strictMode: Boolean = false,
+            protocol: SpecmaticProtocol,
+            exampleDirPaths: List<String> = emptyList()
+        ): Feature {
+            val inlineExamples = stubsFromExamples.flatMap { (exampleName, stubs) ->
+                stubs.map { (request, response) ->
+                    NamedStub(exampleName, ScenarioStub(request = request, response = response))
+                }
+            }
+            return from(
+                scenarios = scenarios,
+                serverState = serverState,
+                name = name,
+                testVariables = testVariables,
+                testBaseURLs = testBaseURLs,
+                path = path,
+                sourceProvider = sourceProvider,
+                sourceRepository = sourceRepository,
+                sourceRepositoryBranch = sourceRepositoryBranch,
+                specification = specification,
+                inlineExamples = inlineExamples,
+                specmaticConfig = specmaticConfig,
+                flagsBased = flagsBased,
+                strictMode = strictMode,
+                protocol = protocol,
+                exampleDirPaths = exampleDirPaths
+            )
+        }
+
+        fun from(
+            scenarios: List<Scenario> = emptyList(),
+            serverState: Map<String, Value> = emptyMap(),
+            name: String,
+            testVariables: Map<String, String> = emptyMap(),
+            testBaseURLs: Map<String, String> = emptyMap(),
+            path: String = "",
+            sourceProvider: String? = null,
+            sourceRepository: String? = null,
+            sourceRepositoryBranch: String? = null,
+            specification: String? = null,
+            inlineExamples: List<NamedStub> = emptyList(),
             specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
             flagsBased: FlagsBased = strategiesFromFlags(specmaticConfig),
             strictMode: Boolean = false,
@@ -2318,7 +2554,7 @@ data class Feature(
                 specmaticConfig = specmaticConfig,
                 flagsBased = flagsBased,
                 strictMode = strictMode,
-                exampleStore = ExampleStore.from(stubsFromExamples, type = ExampleType.INLINE),
+                exampleStore = ExampleStore.from(inlineExamples, type = ExampleType.INLINE),
                 protocol = protocol,
                 exampleDirPaths = exampleDirPaths
             )

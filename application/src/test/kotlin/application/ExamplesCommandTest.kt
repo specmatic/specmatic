@@ -19,7 +19,6 @@ import java.io.File
 import java.util.stream.Stream
 
 class ExamplesCommandTest {
-
     @Test
     fun `examples validate command should not print an empty error when it sees an inline example for a filtered-out scenario`(@TempDir tempDir: File) {
         val specFile = tempDir.resolve("spec.yaml")
@@ -293,6 +292,90 @@ paths:
             =============== Example File Validation Summary ===============
             No examples found
             ===============================================================
+            """.trimIndent())
+        }
+
+        @Test
+        fun `should fail inline validation when duplicate inline example name has at least one invalid entry`(@TempDir tempDir: File) {
+            val contractFile = tempDir.resolve("duplicate-inline-example-name.yaml")
+            contractFile.writeText(
+                """
+                openapi: 3.0.0
+                info:
+                  title: Duplicate inline example name
+                  version: 1.0.0
+                paths:
+                  /products:
+                    post:
+                      requestBody:
+                        required: true
+                        content:
+                          application/json:
+                            schema:
+                              ${"$"}ref: '#/components/schemas/Product'
+                            examples:
+                              SUCCESS:
+                                value:
+                                  inventory: invalid
+                      responses:
+                        '200':
+                          description: OK
+                          content:
+                            application/json:
+                              schema:
+                                ${"$"}ref: '#/components/schemas/Product'
+                              examples:
+                                SUCCESS:
+                                  value:
+                                    inventory: 100
+                  /orders:
+                    post:
+                      requestBody:
+                        required: true
+                        content:
+                          application/json:
+                            schema:
+                              ${"$"}ref: '#/components/schemas/Product'
+                            examples:
+                              SUCCESS:
+                                value:
+                                  inventory: 200
+                      responses:
+                        '200':
+                          description: OK
+                          content:
+                            application/json:
+                              schema:
+                                ${"$"}ref: '#/components/schemas/Product'
+                              examples:
+                                SUCCESS:
+                                  value:
+                                    inventory: 200
+                components:
+                  schemas:
+                    Product:
+                      type: object
+                      required:
+                        - inventory
+                      properties:
+                        inventory:
+                          type: integer
+                """.trimIndent()
+            )
+
+            val command = ExamplesCommand.Validate().also {
+                it.contractFile = contractFile
+                it.examplesToValidate = ExamplesCommand.Validate.ExamplesToValidate.INLINE
+            }
+
+            val (stdOut, exitCode) = captureStandardOutput { command.call() }
+
+            assertThat(exitCode).isEqualTo(1)
+            assertThat(stdOut).containsIgnoringWhitespaces("Error(s) found in the Inline example - 'SUCCESS'")
+            assertThat(stdOut).containsIgnoringWhitespaces("""
+            =============== Inline Example Validation Summary ===============
+            All 1 example(s) are invalid.
+            =================================================================
             """.trimIndent())
         }
 

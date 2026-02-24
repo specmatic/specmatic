@@ -378,10 +378,15 @@ internal class ProxyTest {
         HttpStub(simpleFeature).use {
             Proxy(host = "localhost", port = 9001, "http://localhost:9001", fakeFileWriter).use {
                 val client = RestTemplate()
-                val response = client.getForEntity("http://localhost:9001/actuator/health", Map::class.java)
+                val legacyHealthCheckResponse = client.getForEntity("http://localhost:9001/actuator/health", Map::class.java)
 
-                assertThat(response.statusCode.value()).isEqualTo(200)
-                assertThat(response.body).isEqualTo(mapOf("status" to "UP"))
+                assertThat(legacyHealthCheckResponse.statusCode.value()).isEqualTo(200)
+                assertThat(legacyHealthCheckResponse.body).isEqualTo(mapOf("status" to "UP"))
+
+                val healthCheckResponse = client.getForEntity("http://localhost:9001/_specmatic/health", Map::class.java)
+
+                assertThat(healthCheckResponse.statusCode.value()).isEqualTo(200)
+                assertThat(healthCheckResponse.body).isEqualTo(mapOf("status" to "UP"))
             }
         }
     }
