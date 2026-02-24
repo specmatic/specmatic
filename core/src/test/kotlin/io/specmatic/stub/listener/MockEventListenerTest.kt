@@ -1,5 +1,6 @@
 package io.specmatic.stub.listener
 
+import io.specmatic.core.HttpRequest
 import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.value.NullValue
 import io.specmatic.mock.ScenarioStub
@@ -86,5 +87,44 @@ class MockEventListenerTest {
             val request = feature.scenarios.first().generateHttpRequest()
             stub.client.execute(request.updatePath("/test"))
         }
+    }
+
+    @Test
+    fun `should not emit mock events for internal control endpoints`() {
+        val events = mutableListOf<MockEvent>()
+        val listener = object : MockEventListener {
+            override fun onRespond(data: MockEvent) {
+                events.add(data)
+            }
+        }
+
+        HttpStub(feature, listeners = listOf(listener)).use { stub ->
+            stub.client.execute(HttpRequest("GET", "/_specmatic/log"))
+            stub.client.execute(HttpRequest("POST", "/_specmatic/expectations"))
+            stub.client.execute(HttpRequest("DELETE", "/_specmatic/http-stub/123"))
+            stub.client.execute(HttpRequest("POST", "/_specmatic/verify", queryParametersMap = mapOf("exampleId" to "abc123")))
+            stub.client.execute(HttpRequest("HEAD", "/"))
+            stub.client.execute(HttpRequest("GET", "/actuator/health"))
+        }
+
+        assertThat(events).isEmpty()
+    }
+
+    @Test
+    fun `should continue emitting mock events for non-internal endpoints`() {
+        val events = mutableListOf<MockEvent>()
+        val listener = object : MockEventListener {
+            override fun onRespond(data: MockEvent) {
+                events.add(data)
+            }
+        }
+
+        HttpStub(feature, listeners = listOf(listener)).use { stub ->
+            val validRequest = feature.scenarios.first().generateHttpRequest()
+            stub.client.execute(validRequest)
+        }
+
+        assertThat(events).hasSize(1)
+        assertThat(events.single().scenario).isEqualTo(feature.scenarios.first())
     }
 }

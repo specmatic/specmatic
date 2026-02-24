@@ -6,6 +6,8 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.api.Test
 
 internal class HttpLogMessageTest {
@@ -47,5 +49,25 @@ internal class HttpLogMessageTest {
         assertThat(text).contains("$dateTime")
 
         assertThat(text).contains("/path/to/file")
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        useHeadersInDisplayName = true,
+        value = [
+            "method,path,expected",
+            "GET,/_specmatic/log,true",
+            "HEAD,/,true",
+            "GET,/actuator/health,true",
+            "GET,/orders,false",
+        ]
+    )
+    fun `should identify whether request is an internal control request`(
+        method: String,
+        path: String,
+        expected: Boolean
+    ) {
+        val message = HttpLogMessage(request = HttpRequest(method, path))
+        assertThat(message.isInternalControlRequestForMockEvent()).isEqualTo(expected)
     }
 }
