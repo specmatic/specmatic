@@ -29,6 +29,7 @@ interface TestReportListener {
     fun onActuatorApis(apisNotExcluded: List<API>, apisExcluded: List<API>)
     fun onEndpointApis(endpointsNotExcluded: List<Endpoint>, endpointsExcluded: List<Endpoint>)
     fun onTestResult(result: TestExecutionResult)
+    fun onExampleErrors(resultsBySpecFile: Map<String, Result>)
     fun onTestsComplete()
     fun onEnd()
     fun onCoverageCalculated(coverage: Int)

@@ -2,7 +2,9 @@ package io.specmatic.test
 
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
+import io.specmatic.core.Result
 import io.specmatic.core.SPECMATIC_STUB_DICTIONARY
+import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.TestConfig
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.v2.ContractConfig
@@ -18,6 +20,7 @@ import io.specmatic.core.config.v3.components.services.SpecificationDefinition
 import io.specmatic.core.config.v3.components.services.TestServiceConfig
 import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.filters.ScenarioMetadataFilter
+import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.yamlMapper
 import io.specmatic.core.utilities.Flags
 import io.specmatic.license.core.SpecmaticProtocol
@@ -28,6 +31,7 @@ import io.specmatic.test.SpecmaticJUnitSupport.Companion.PORT
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.PROTOCOL
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.TEST_BASE_URL
 import io.specmatic.test.listeners.ContractExecutionListener
+import io.specmatic.test.reports.TestReportListener
 import io.specmatic.test.reports.coverage.Endpoint
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatCode
@@ -498,6 +502,80 @@ paths:
     }
 
     @Test
+    fun `loadTestScenarios should filter invalid examples in lenient mode and return validation result`() {
+        val specFile = File("src/test/resources/invalid_example/openapi.yaml")
+        val specmaticConfig = SpecmaticConfigV1V2Common().withTestModes(strictMode = null, lenientMode = true)
+        val loaded = SpecmaticJUnitSupport().loadTestScenarios(
+            path = specFile.canonicalPath,
+            suggestionsPath = "",
+            suggestionsData = "",
+            config = TestConfig(emptyMap(), emptyMap()),
+            filterName = null,
+            filterNotName = null,
+            specmaticConfig = specmaticConfig,
+            filter = ScenarioMetadataFilter.from("")
+        )
+
+        val testDescriptions = loaded.scenarios.map { it.testDescription() }.toList()
+        assertThat(loaded.exampleValidationResult).isInstanceOf(Result.Failure::class.java)
+        assertThat(loaded.exampleValidationResult.reportString()).contains("invalid_test_GET_200.json").contains("Error loading example")
+        assertThat(testDescriptions).anyMatch { it.contains("POST /test -> 201") }
+        assertThat(testDescriptions).noneMatch { it.contains("invalid_test_GET_200") }
+        assertThat(testDescriptions).anyMatch { it.contains("GET /test -> 200") }
+    }
+
+    @Test
+    fun `loadTestScenarios should throw when invalid examples exist in non lenient mode`() {
+        val specFile = File("src/test/resources/invalid_example/openapi.yaml")
+        val specmaticConfig = SpecmaticConfigV1V2Common().withTestModes(strictMode = null, lenientMode = false)
+        val exception = assertThrows<ContractException> {
+            SpecmaticJUnitSupport().loadTestScenarios(
+                path = specFile.canonicalPath,
+                suggestionsPath = "",
+                suggestionsData = "",
+                config = TestConfig(emptyMap(), emptyMap()),
+                filterName = null,
+                filterNotName = null,
+                specmaticConfig = specmaticConfig,
+                filter = ScenarioMetadataFilter.from("")
+            )
+        }
+
+        assertThat(exception.report()).contains("invalid_test_GET_200.json")
+    }
+
+    @Test
+    fun `contractTest should send example validation errors to coverage hooks`() {
+        val specFile = File("src/test/resources/invalid_example/openapi.yaml")
+        val listener = RecordingExampleErrorsListener()
+        SpecmaticJUnitSupport.settingsStaging.set(
+            ContractTestSettings(
+                testBaseURL = "http://localhost:1",
+                contractPaths = specFile.canonicalPath,
+                filter = "",
+                configFile = "",
+                generative = false,
+                reportBaseDirectory = null,
+                coverageHooks = listOf<TestReportListener>(listener),
+                strictMode = false,
+                lenientMode = true
+            )
+        )
+
+        try {
+            SpecmaticJUnitSupport().contractTest().toList()
+            assertThat(listener.exampleErrorsCalls).hasSize(1)
+            val resultsBySpec = listener.exampleErrorsCalls.single()
+            assertThat(resultsBySpec).containsKey(specFile.canonicalPath)
+            val result = resultsBySpec.getValue(specFile.canonicalPath)
+            assertThat(result).isInstanceOf(Result.Failure::class.java)
+            assertThat(result.reportString()).contains("invalid_test_GET_200.json").contains("Error loading example")
+        } finally {
+            SpecmaticJUnitSupport.settingsStaging.remove()
+        }
+    }
+
+    @Test
     fun `should load soapAction from scenarios into Endpoints if specification is WSDL`() {
         val specFile = File("src/test/resources/simple.wsdl")
         val specmaticJUnitSupport = SpecmaticJUnitSupport()
@@ -806,6 +884,22 @@ paths:
         assertThat(exitCode)
             .withFailMessage("Command failed: ${command.joinToString(" ")}\n$output")
             .isEqualTo(0)
+    }
+
+    private class RecordingExampleErrorsListener : TestReportListener {
+        val exampleErrorsCalls = mutableListOf<Map<String, Result>>()
+        override fun onExampleErrors(resultsBySpecFile: Map<String, Result>) {
+            exampleErrorsCalls.add(resultsBySpecFile)
+        }
+
+        override fun onActuator(enabled: Boolean) = Unit
+        override fun onActuatorApis(apisNotExcluded: List<API>, apisExcluded: List<API>) = Unit
+        override fun onEndpointApis(endpointsNotExcluded: List<Endpoint>, endpointsExcluded: List<Endpoint>) = Unit
+        override fun onTestResult(result: io.specmatic.test.reports.TestExecutionResult) = Unit
+        override fun onTestsComplete() = Unit
+        override fun onEnd() = Unit
+        override fun onCoverageCalculated(coverage: Int) = Unit
+        override fun onPathCoverageCalculated(path: String, pathCoverage: Int) = Unit
     }
 
     @AfterEach

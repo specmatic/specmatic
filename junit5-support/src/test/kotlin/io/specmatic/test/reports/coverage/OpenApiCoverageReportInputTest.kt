@@ -617,6 +617,7 @@ class OpenApiCoverageReportInputTest {
         override fun onActuator(enabled: Boolean) = Unit
         override fun onTestResult(result: TestExecutionResult) = Unit
         override fun onTestsComplete() = Unit
+        override fun onExampleErrors(resultsBySpecFile: Map<String, io.specmatic.core.Result>) = Unit
         override fun onEnd() = Unit
         override fun onCoverageCalculated(coverage: Int) = Unit
         override fun onPathCoverageCalculated(path: String, pathCoverage: Int) = Unit

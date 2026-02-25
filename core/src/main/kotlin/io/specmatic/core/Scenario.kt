@@ -509,6 +509,31 @@ data class Scenario(
         }
     }
 
+    fun validateAndFilterExamples(flagsBased: FlagsBased): Pair<Scenario, Result> {
+        val apiDesc = defaultAPIDescription.trim()
+        val invalidResults = mutableListOf<Result>()
+        val newExamples = examples.mapNotNull { example ->
+            val validRows = example.rows.filter { row ->
+                val resolverForExample = flagsBased.update(resolver = resolverForValidation(resolver, row))
+                val requestResult = validateRequestExample(row, resolverForExample)
+                val responseResult = validateResponseExample(row, resolverForExample)
+                val exampleResult = Result.fromResults(listOf(requestResult, responseResult))
+
+                if (exampleResult !is Result.Failure || exampleResult.isPartial) return@filter true
+                invalidResults += exampleResult.breadCrumb(
+                    if (row.fileSource != null) "Error loading example for $apiDesc from ${row.fileSource}"
+                    else "Error loading example named ${row.name} for $apiDesc"
+                )
+                false
+            }
+
+            if (validRows.isEmpty()) return@mapNotNull null
+            example.copy(rows = validRows)
+        }
+
+        return copy(examples = newExamples) to Result.fromResults(invalidResults)
+    }
+
     fun validExamplesOrException(flagsBased: FlagsBased, disallowExtraHeaders: Boolean = true) {
         val rowsToValidate = examples.flatMap { it.rows }
 

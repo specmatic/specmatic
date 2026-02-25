@@ -289,34 +289,32 @@ open class SpecmaticJUnitSupport {
                 settings.contractPaths != null -> {
                     // Default base URL is mandatory for this mode
                     val defaultBaseURL = constructTestBaseURL()
-
-                    val testScenariosAndEndpointsPairList = settings.contractPaths.orEmpty().split(",").filter {
-                        File(it).extension in CONTRACT_EXTENSIONS
-                    }.map {
-                        val overlayFilePath: String? = settings.overlayFilePath?.canonicalPath ?: specmaticConfig.getTestOverlayFilePath(File(it), SpecType.OPENAPI)
+                    val contractPaths = settings.contractPaths.orEmpty().split(",").filter { File(it).extension in CONTRACT_EXTENSIONS }
+                    val loadedScenariosByContractPath = contractPaths.map { contractPath ->
+                        val overlayFilePath: String? = settings.overlayFilePath?.canonicalPath ?: specmaticConfig.getTestOverlayFilePath(File(contractPath), SpecType.OPENAPI)
                         val overlayContent = if (overlayFilePath.isNullOrBlank()) "" else readFrom(overlayFilePath, "overlay")
-                        val (tests, endpoints, filteredEndpoints) = loadTestScenarios(
-                            it,
+                        contractPath to loadTestScenarios(
+                            contractPath,
                             suggestionsPath,
                             suggestionsData,
                             testConfig,
-                            specificationPath = it,
+                            specificationPath = contractPath,
                             filterName = filterName,
                             filterNotName = filterNotName,
                             specmaticConfig = specmaticConfig,
                             overlayContent = overlayContent,
                             filter = testFilter
                         )
-
-                        Triple(tests.map { test -> Pair(test, defaultBaseURL) }, endpoints, filteredEndpoints)
                     }
 
-                    val testsWithUrls: Sequence<Pair<ContractTest, String>> =
-                        testScenariosAndEndpointsPairList.asSequence().flatMap { it.first }
-                    val endpoints: List<Endpoint> = testScenariosAndEndpointsPairList.flatMap { it.second }
-                    val filteredEndpoints: List<Endpoint> = testScenariosAndEndpointsPairList.flatMap { it.third }
+                    val endpoints: List<Endpoint> = loadedScenariosByContractPath.flatMap { (_, loaded) -> loaded.allEndpoints }
+                    val filteredEndpoints: List<Endpoint> = loadedScenariosByContractPath.flatMap { (_, loaded) -> loaded.filteredEndpoints }
+                    val exampleValidationResults = loadedScenariosByContractPath.associate { (contractPath, loaded) -> contractPath to loaded.exampleValidationResult }
+                    val testsWithUrls: Sequence<Pair<ContractTest, String>> = loadedScenariosByContractPath.asSequence().flatMap { (_, loaded) ->
+                        loaded.scenarios.map { test -> Pair(test, defaultBaseURL) }
+                    }
 
-                    TestData(testsWithUrls, endpoints, filteredEndpoints, setOf(defaultBaseURL))
+                    TestData(testsWithUrls, endpoints, filteredEndpoints, setOf(defaultBaseURL), exampleValidationResults)
                 }
 
                 else -> {
@@ -336,13 +334,12 @@ open class SpecmaticJUnitSupport {
                     val needsDefaultBase = contractFilePaths.any { it.baseUrl.isNullOrBlank() }
                     val defaultBaseURL = if (needsDefaultBase) constructTestBaseURL() else ""
 
-                    val baseUrls = mutableSetOf<String>()
-                    val testScenariosAndEndpointsPairList = contractFilePaths.filter {
+                    val loadedScenariosWithBaseUrlsByContractPath = contractFilePaths.filter {
                         File(it.path).extension in CONTRACT_EXTENSIONS
                     }.map { contractPathData ->
                         val overlayFilePath: String? = settings.overlayFilePath?.canonicalPath ?: specmaticConfig.getTestOverlayFilePath(File(contractPathData.path), SpecType.OPENAPI)
                         val overlayContent = if (overlayFilePath.isNullOrBlank()) "" else readFrom(overlayFilePath, "overlay")
-                        val (tests, endpoints, filteredEndpoints) = loadTestScenarios(
+                        val loadedTestScenarios = loadTestScenarios(
                             contractPathData.path,
                             "",
                             "",
@@ -362,16 +359,18 @@ open class SpecmaticJUnitSupport {
                         )
 
                         val resolvedBaseURL = contractPathData.baseUrl ?: defaultBaseURL
-                        baseUrls.add(resolvedBaseURL)
-                        Triple(tests.map { test -> Pair(test, resolvedBaseURL) }, endpoints, filteredEndpoints)
+                        Triple(contractPathData.path, loadedTestScenarios, resolvedBaseURL)
                     }
 
-                    val testsWithUrls: Sequence<Pair<ContractTest, String>> =
-                        testScenariosAndEndpointsPairList.asSequence().flatMap { it.first }
-                    val endpoints: List<Endpoint> = testScenariosAndEndpointsPairList.flatMap { it.second }
-                    val filteredEndpoints: List<Endpoint> = testScenariosAndEndpointsPairList.flatMap { it.third }
+                    val baseUrls = loadedScenariosWithBaseUrlsByContractPath.map { (_, _, resolvedBaseURL) -> resolvedBaseURL }.toSet()
+                    val endpoints: List<Endpoint> = loadedScenariosWithBaseUrlsByContractPath.flatMap { (_, loaded, _) -> loaded.allEndpoints }
+                    val filteredEndpoints: List<Endpoint> = loadedScenariosWithBaseUrlsByContractPath.flatMap { (_, loaded, _) -> loaded.filteredEndpoints }
+                    val exampleValidationResults = loadedScenariosWithBaseUrlsByContractPath.associate { (contractPath, loaded, _) -> contractPath to loaded.exampleValidationResult }
+                    val testsWithUrls: Sequence<Pair<ContractTest, String>> = loadedScenariosWithBaseUrlsByContractPath.asSequence().flatMap { (_, loaded, resolvedBaseURL) ->
+                        loaded.scenarios.map { test -> Pair(test, resolvedBaseURL) }
+                    }
 
-                    TestData(testsWithUrls, endpoints, filteredEndpoints, baseUrls.toSet())
+                    TestData(testsWithUrls, endpoints, filteredEndpoints, baseUrls, exampleValidationResults)
                 }
             }
         } catch (e: ContractException) {
@@ -380,6 +379,7 @@ open class SpecmaticJUnitSupport {
             return loadExceptionAsTestError(e)
         }
 
+        settings.coverageHooks.forEach { it.onExampleErrors(testBuildResult.exampleValidationResults) }
         testBuildResult.baseUrls.forEach { baseUrl ->
             if (isBaseURLReachable(baseUrl)) return@forEach
             return loadExceptionAsTestError(e = ContractException("""
@@ -665,12 +665,12 @@ open class SpecmaticJUnitSupport {
             )
         }.toList()
 
-        val filteredFeature = feature
-            .copy(scenarios = filteredScenarios.toList())
-            .loadExternalisedExamples()
-            .also { it.validateExamplesOrException() }
+        val filteredFeature = feature.copy(scenarios = filteredScenarios.toList()).loadExternalisedExamples()
+        val (validExampleFeature, result) = filteredFeature.validateAndFilterExamples()
+        if (specmaticConfig.getTestLenientMode() == false) result.throwOnFailure()
 
-        val tests: Sequence<ContractTest> = filteredFeature.also {
+        validExampleFeature.validateExamplesOrException()
+        val tests: Sequence<ContractTest> = validExampleFeature.also {
             if (it.scenarios.isEmpty()) {
                 logger.log("All scenarios were filtered out.")
             } else if (it.scenarios.size < feature.scenarios.size) {
@@ -679,7 +679,7 @@ open class SpecmaticJUnitSupport {
             }
         }.generateContractTests(suggestions, originalScenarios = feature.scenarios)
 
-        return LoadedTestScenarios(tests, allEndpoints, filteredEndpoints)
+        return LoadedTestScenarios(tests, allEndpoints, filteredEndpoints, result)
     }
 
     private fun suggestionsFromFile(suggestionsPath: String): List<Scenario> {
@@ -736,7 +736,8 @@ open class SpecmaticJUnitSupport {
 data class LoadedTestScenarios(
     val scenarios: Sequence<ContractTest>,
     val allEndpoints: List<Endpoint>,
-    val filteredEndpoints: List<Endpoint>
+    val filteredEndpoints: List<Endpoint>,
+    val exampleValidationResult: Result = Result.Success()
 )
 
 private data class TestData(
@@ -744,6 +745,7 @@ private data class TestData(
     val allEndpoints: List<Endpoint>,
     val filteredEndpoints: List<Endpoint>,
     val baseUrls: Set<String>,
+    val exampleValidationResults: Map<String, Result>,
 )
 
 private fun columnsFromExamples(exampleData: JSONArrayValue): List<String> {

@@ -4041,6 +4041,61 @@ paths:
     @DisplayName("Strict Mode Tests")
     inner class StrictModeTests {
         @Test
+        fun `validateAndFilterExamples should filter scenario rows and aggregate errors across scenarios`() {
+            val scenarioWithMixedRows = Scenario(
+                name = "Mixed rows",
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
+                httpRequestPattern = HttpRequestPattern(method = "POST", httpPathPattern = buildHttpPathPattern("/orders"), body = JSONObjectPattern(mapOf("id" to NumberPattern()))),
+                httpResponsePattern = HttpResponsePattern(status = 200, body = JSONObjectPattern(mapOf("id" to NumberPattern()))),
+                examples = listOf(
+                    Examples(
+                        rows = listOf(
+                            Row(
+                                name = "valid-row",
+                                requestExample = HttpRequest(path = "/orders", method = "POST", body = JSONObjectValue(mapOf("id" to NumberValue(1)))),
+                                responseExample = HttpResponse(status = 200, body = JSONObjectValue(mapOf("id" to NumberValue(2))))
+                            ),
+                            Row(
+                                name = "invalid-row",
+                                requestExample = HttpRequest(path = "/orders", method = "POST", body = JSONObjectValue(mapOf("id" to StringValue("oops")))),
+                                responseExample = HttpResponse(status = 200, body = JSONObjectValue(mapOf("id" to NumberValue(2))))
+                            )
+                        )
+                    )
+                )
+            )
+
+            val scenarioAllValid = Scenario(
+                name = "All valid",
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
+                httpRequestPattern = HttpRequestPattern(method = "GET", httpPathPattern = buildHttpPathPattern("/orders")),
+                httpResponsePattern = HttpResponsePattern(status = 200),
+                examples = listOf(
+                    Examples(
+                        rows = listOf(
+                            Row(
+                                name = "valid-get",
+                                requestExample = HttpRequest(path = "/orders", method = "GET"),
+                                responseExample = HttpResponse(status = 200)
+                            )
+                        )
+                    )
+                )
+            )
+
+            val feature = Feature(scenarios = listOf(scenarioWithMixedRows, scenarioAllValid), name = "Example validation filter", protocol = SpecmaticProtocol.HTTP)
+            val (filteredFeature, result) = feature.validateAndFilterExamples()
+
+            assertThat(filteredFeature.scenarios).hasSize(2)
+            assertThat(filteredFeature.scenarios[0].examples.single().rows).hasSize(1)
+            assertThat(filteredFeature.scenarios[0].examples.single().rows.single().name).isEqualTo("valid-row")
+            assertThat(filteredFeature.scenarios[1].examples.single().rows).hasSize(1)
+            assertThat(filteredFeature.scenarios[1].examples.single().rows.single().name).isEqualTo("valid-get")
+            assertThat(result).isInstanceOf(Result.Failure::class.java)
+            assertThat(result.reportString()).contains("Error loading example named invalid-row for POST /orders -> 200")
+        }
+
+        @Test
         fun `strict mode filters out positive scenarios without example rows`() {
             val scenarioWithRows = Scenario(
                 name = "Scenario with rows",

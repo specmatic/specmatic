@@ -315,6 +315,95 @@ class ScenarioTest {
     }
 
     @Test
+    fun `validateAndFilterExamples should retain valid rows and remove invalid rows`() {
+        val scenario = Scenario(
+            name = "SIMPLE POST",
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
+            httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/"), method = "POST", body = JSONObjectPattern(mapOf("id" to NumberPattern()))),
+            httpResponsePattern = HttpResponsePattern(status = 200, body = JSONObjectPattern(mapOf("id" to NumberPattern()))),
+            examples = listOf(
+                Examples(
+                    rows = listOf(
+                        Row(
+                            name = "valid-example",
+                            requestExample = HttpRequest(path = "/", method = "POST", body = JSONObjectValue(mapOf("id" to NumberValue(10)))),
+                            responseExample = HttpResponse(status = 200, body = JSONObjectValue(mapOf("id" to NumberValue(20))))
+                        ),
+                        Row(
+                            name = "invalid-example",
+                            requestExample = HttpRequest(path = "/", method = "POST", body = JSONObjectValue(mapOf("id" to StringValue("not-a-number")))),
+                            responseExample = HttpResponse(status = 200, body = JSONObjectValue(mapOf("id" to NumberValue(20))))
+                        )
+                    )
+                )
+            )
+        )
+
+        val (filteredScenario, result) = scenario.validateAndFilterExamples(DefaultStrategies)
+        assertThat(filteredScenario.examples).hasSize(1)
+        assertThat(filteredScenario.examples.single().rows).hasSize(1)
+        assertThat(filteredScenario.examples.single().rows.single().name).isEqualTo("valid-example")
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString())
+            .contains("Error loading example named invalid-example for POST / -> 200")
+            .contains("REQUEST.BODY")
+    }
+
+    @Test
+    fun `validateAndFilterExamples should drop example groups with no valid rows`() {
+        val scenario = Scenario(
+            name = "SIMPLE POST",
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
+            httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/"), method = "POST", body = JSONObjectPattern(mapOf("id" to NumberPattern()))),
+            httpResponsePattern = HttpResponsePattern(status = 200, body = JSONObjectPattern(mapOf("id" to NumberPattern()))),
+            examples = listOf(
+                Examples(
+                    rows = listOf(
+                        Row(
+                            name = "invalid-example",
+                            requestExample = HttpRequest(path = "/", method = "POST", body = JSONObjectValue(mapOf("id" to StringValue("not-a-number")))),
+                            responseExample = HttpResponse(status = 200, body = JSONObjectValue(mapOf("id" to NumberValue(20))))
+                        )
+                    )
+                )
+            )
+        )
+
+        val (filteredScenario, result) = scenario.validateAndFilterExamples(DefaultStrategies)
+        assertThat(filteredScenario.examples).isEmpty()
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).contains("Error loading example named invalid-example for POST / -> 200")
+    }
+
+    @Test
+    fun `validateAndFilterExamples should retain partial example rows without failing`() {
+        val scenario = Scenario(
+            name = "SIMPLE POST",
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
+            httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/"), method = "POST", headersPattern = HttpHeadersPattern(mapOf("USER-ID" to UUIDPattern))),
+            httpResponsePattern = HttpResponsePattern(status = 200, headersPattern = HttpHeadersPattern(mapOf("TICKET-ID" to UUIDPattern))),
+            examples = listOf(
+                Examples(
+                    rows = listOf(
+                        Row(
+                            name = "partial-example",
+                            isPartial = true,
+                            requestExample = HttpRequest(path = "/", method = "POST", headers = mapOf("USER-ID" to "123e4567-e89b-12d3-a456-426655440000", "X-EXTRA-HEADERS" to "ExtraValue")),
+                            responseExample = HttpResponse(status = 200, headers = mapOf("TICKET-ID" to "123e4567-e89b-12d3-a456-426655440000", "X-EXTRA-HEADERS" to "ExtraValue"))
+                        )
+                    )
+                )
+            )
+        )
+
+        val (filteredScenario, result) = scenario.validateAndFilterExamples(DefaultStrategies)
+        assertThat(filteredScenario.examples).hasSize(1)
+        assertThat(filteredScenario.examples.single().rows).hasSize(1)
+        assertThat(filteredScenario.examples.single().rows.single().name).isEqualTo("partial-example")
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
     fun `should return scenarioMetadata from scenario`() {
         val httpRequestPattern = mockk<HttpRequestPattern> {
             every {
