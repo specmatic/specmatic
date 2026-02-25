@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.node.TextNode
 
 data class ConfigTemplateVariable(val startIndex: Int, val endIndex: Int, val names: Set<String>, val default: String, val fullText: String)
 object ConfigTemplateUtils {
-    private val VARIABLE_TOKEN_REGEX = Regex("""\$?\{([^}:]+):([^}]*)}""")
+    internal val VARIABLE_TOKEN_REGEX = Regex("""\$?\{([^}:]+):([^}]*)}""")
     private const val MULTI_VARIABLE_SEPARATOR = "|"
 
     fun findVariableTokens(templateText: String): List<ConfigTemplateVariable> {

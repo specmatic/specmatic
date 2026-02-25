@@ -108,15 +108,13 @@ private fun parseTemplate(value: String): TemplateDefinition? {
 
 private fun resolveTemplateValueFromEnvOrDefault(template: TemplateDefinition): String {
     return template.keys.asSequence()
-        .mapNotNull { key -> System.getenv(key) ?: System.getProperty(key) ?: template.defaultValue }
+        .map { key -> System.getenv(key) ?: System.getProperty(key) ?: template.defaultValue }
         .firstOrNull()
         ?: template.defaultValue
 }
 
-private val TEMPLATE_REGEX = Regex("\\{([^:{}]+):([^}]*)}")
-
 private fun interpolateTemplates(original: String): String? {
-    val matches = TEMPLATE_REGEX.findAll(original).toList()
+    val matches = ConfigTemplateUtils.VARIABLE_TOKEN_REGEX.findAll(original).toList()
     if (matches.isEmpty()) return null
 
     var result = original
@@ -124,13 +122,8 @@ private fun interpolateTemplates(original: String): String? {
     for (match in matches.asReversed()) {
         val keyExpression = match.groupValues[1]
         val defaultValue = match.groupValues[2]
-
         val keys = keyExpression.split('|').map { it.trim() }.filter { it.isNotEmpty() }
-        val resolved = keys.asSequence()
-            .mapNotNull { key -> System.getenv(key) ?: System.getProperty(key) }
-            .firstOrNull()
-            ?: defaultValue
-
+        val resolved = keys.firstNotNullOfOrNull { key -> System.getenv(key) ?: System.getProperty(key) } ?: defaultValue
         result = result.replaceRange(match.range, resolved)
     }
 
