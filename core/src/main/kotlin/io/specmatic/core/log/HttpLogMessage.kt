@@ -32,8 +32,11 @@ data class HttpLogMessage(
     private val isInlineExample: Boolean
         get() = exampleName != null && examplePath == null
 
-    private val exampleNameOrPath: String?
-        get() = exampleName ?: examplePath
+    private val isExternalExample: Boolean
+        get() = examplePath != null
+
+    private val matchedAnExample: Boolean
+        get() = (exampleName ?: examplePath) != null
 
     fun combineLog(): String {
         val request = this.request.toLogString(prettyPrint = prettyPrint).trim('\n')
@@ -103,7 +106,7 @@ data class HttpLogMessage(
         val contractPathLines = if(contractPath.isNotBlank()) {
             val exampleLine = when {
                 isInlineExample -> "${linePrefix}Inline Example matched: $exampleName"
-                exampleNameOrPath != null -> "${linePrefix}External Example matched: $exampleNameOrPath"
+                isExternalExample -> "${linePrefix}External Example matched: $examplePath"
                 else -> null
             }
 
@@ -168,7 +171,7 @@ data class HttpLogMessage(
 
     fun toResult(): TestResult {
         return when {
-            this.exampleNameOrPath != null -> TestResult.Success
+            this.matchedAnExample -> TestResult.Success
             this.scenario != null && response?.status !in invalidRequestStatuses -> TestResult.Success
             scenario == null -> TestResult.MissingInSpec
             else -> TestResult.Failed
@@ -177,8 +180,8 @@ data class HttpLogMessage(
 
     fun toDetails(): String {
         return when {
-            this.isInlineExample -> "Request Matched Inline Example: ${this.exampleNameOrPath}"
-            this.exampleNameOrPath != null -> "Request Matched External Example: ${this.exampleNameOrPath}"
+            this.isInlineExample -> "Request Matched Inline Example: ${this.exampleName}"
+            this.isExternalExample -> "Request Matched External Example: ${this.examplePath}"
             this.scenario != null && response?.status !in invalidRequestStatuses -> "Request Matched Contract ${scenario?.defaultAPIDescription}"
             this.exception != null -> "Invalid Request\n${exception?.let(::exceptionCauseMessage)}"
             else -> response?.body?.toStringLiteral() ?: "Request Didn't Match Contract"
