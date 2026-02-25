@@ -8,7 +8,10 @@ import org.junit.platform.engine.TestExecutionResult.Status
 import org.junit.platform.launcher.TestExecutionListener
 import org.junit.platform.launcher.TestIdentifier
 import org.junit.platform.launcher.TestPlan
-import kotlin.system.exitProcess
+import java.util.Collections
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 
 fun getContractExecutionPrinter(): ContractExecutionPrinter {
     return if(stdOutIsRedirected())
@@ -23,30 +26,38 @@ private fun colorIsRequested() = System.getenv("SPECMATIC_COLOR") == "1"
 private fun stdOutIsRedirected() = System.console() == null
 
 class ContractExecutionListener : TestExecutionListener {
+    private val success = AtomicInteger(0)
+    private val failure = AtomicInteger(0)
+    private val aborted = AtomicInteger(0)
+    private val couldNotStart = AtomicBoolean(false)
+    private val testSuiteFailed = AtomicBoolean(false)
+    private val printer: ContractExecutionPrinter = getContractExecutionPrinter()
+    private val failedLog: MutableList<String> = Collections.synchronizedList(mutableListOf())
+    private val exceptionsThrown: MutableList<Throwable> = Collections.synchronizedList(mutableListOf())
+
+    init {
+        latestListener.set(this)
+    }
+
     companion object {
-        private var success: Int = 0
-        private var failure: Int = 0
-        private var aborted: Int = 0
+        private val latestListener = AtomicReference<ContractExecutionListener?>(null)
+        internal fun reset() { latestListener.get()?.reset() }
+        fun exitCode(): Int = latestListener.get()?.exitCode() ?: 1
+    }
 
-        private val failedLog: MutableList<String> = mutableListOf()
-        private var couldNotStart = false
-        private var testSuiteFailed = false
-        private val exceptionsThrown = mutableListOf<Throwable>()
-        private val printer: ContractExecutionPrinter = getContractExecutionPrinter()
+    internal fun exitCode(): Int = if (testSuiteFailed.get() || couldNotStart.get() || failure.get() > 0) 1 else 0
+    internal fun reset() {
+        success.set(0)
+        failure.set(0)
+        aborted.set(0)
+        couldNotStart.set(false)
+        testSuiteFailed.set(false)
+        failedLog.clear()
+        exceptionsThrown.clear()
+    }
 
-        fun exitCode(): Int = exitStatus()
-
-        internal fun exitStatus(): Int = if (testSuiteFailed || couldNotStart || failure > 0) 1 else 0
-
-        internal fun reset() {
-            success = 0
-            failure = 0
-            aborted = 0
-            couldNotStart = false
-            testSuiteFailed = false
-            failedLog.clear()
-            exceptionsThrown.clear()
-        }
+    override fun testPlanExecutionStarted(testPlan: TestPlan?) {
+        reset()
     }
 
     override fun executionFinished(testIdentifier: TestIdentifier?, testExecutionResult: TestExecutionResult?) {
@@ -56,8 +67,10 @@ class ContractExecutionListener : TestExecutionListener {
             testExecutionResult?.let {
                 it.throwable?.ifPresent { throwable -> exceptionsThrown.add(throwable) }
                 if (it.status != Status.SUCCESSFUL) {
-                    testSuiteFailed = true
-                    couldNotStart = couldNotStart || (success + failure + aborted == 0)
+                    testSuiteFailed.set(true)
+                    if (success.get() + failure.get() + aborted.get() == 0) {
+                        couldNotStart.set(true)
+                    }
                 }
             }
 
@@ -68,15 +81,15 @@ class ContractExecutionListener : TestExecutionListener {
 
         when (testExecutionResult?.status) {
             Status.SUCCESSFUL -> {
-                success++
+                success.incrementAndGet()
                 println()
             }
             Status.ABORTED -> {
-                aborted++
+                aborted.incrementAndGet()
                 printAndLogFailure(testExecutionResult, testIdentifier)
             }
             Status.FAILED -> {
-                failure++
+                failure.incrementAndGet()
                 printAndLogFailure(testExecutionResult, testIdentifier)
             }
             else -> {
@@ -101,7 +114,8 @@ class ContractExecutionListener : TestExecutionListener {
 
         println()
 
-        exceptionsThrown.map { exceptionThrown ->
+        val exceptionSnapshot = synchronized(exceptionsThrown) { exceptionsThrown.toList() }
+        exceptionSnapshot.forEach { exceptionThrown ->
             logger.log(exceptionThrown)
         }
 
@@ -121,13 +135,21 @@ class ContractExecutionListener : TestExecutionListener {
             println()
         }
 
-        if (failedLog.isNotEmpty()) {
+        val failedLogSnapshot = synchronized(failedLog) { failedLog.toList() }
+        if (failedLogSnapshot.isNotEmpty()) {
             println()
             printer.printFailureTitle("Unsuccessful Scenarios:")
-            println(failedLog.joinToString(System.lineSeparator() + System.lineSeparator()) { it.prependIndent("  ") })
+            println(failedLogSnapshot.joinToString(System.lineSeparator() + System.lineSeparator()) { it.prependIndent("  ") })
             println()
         }
 
-        printer.printFinalSummary(TestSummary(success, SpecmaticJUnitSupport.partialSuccesses.size, aborted, failure))
+        printer.printFinalSummary(
+            TestSummary(
+                success = success.get(),
+                partialSuccesses = SpecmaticJUnitSupport.partialSuccesses.size,
+                aborted = aborted.get(),
+                failure = failure.get()
+            )
+        )
     }
 }
