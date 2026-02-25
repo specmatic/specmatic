@@ -38,6 +38,9 @@ data class HttpLogMessage(
     private val matchedAnExample: Boolean
         get() = (exampleName ?: examplePath) != null
 
+    private val resolvedExampleName: String?
+        get() = exampleName ?: examplePath
+
     fun combineLog(): String {
         val request = this.request.toLogString(prettyPrint = prettyPrint).trim('\n')
         val response = this.response?.toLogString(prettyPrint = prettyPrint)?.trim('\n') ?: "No response"
@@ -105,8 +108,8 @@ data class HttpLogMessage(
 
         val contractPathLines = if(contractPath.isNotBlank()) {
             val exampleLine = when {
-                isInlineExample -> "${linePrefix}Inline Example matched: $exampleName"
-                isExternalExample -> "${linePrefix}External Example matched: $examplePath"
+                isInlineExample -> "${linePrefix}Inline Example matched: $resolvedExampleName"
+                isExternalExample -> "${linePrefix}External Example matched: $resolvedExampleName"
                 else -> null
             }
 
@@ -180,8 +183,8 @@ data class HttpLogMessage(
 
     fun toDetails(): String {
         return when {
-            this.isInlineExample -> "Request Matched Inline Example: ${this.exampleName}"
-            this.isExternalExample -> "Request Matched External Example: ${this.examplePath}"
+            this.isInlineExample -> "Request Matched Inline Example: ${this.resolvedExampleName}"
+            this.isExternalExample -> "Request Matched External Example: ${this.resolvedExampleName}"
             this.scenario != null && response?.status !in invalidRequestStatuses -> "Request Matched Contract ${scenario?.defaultAPIDescription}"
             this.exception != null -> "Invalid Request\n${exception?.let(::exceptionCauseMessage)}"
             else -> response?.body?.toStringLiteral() ?: "Request Didn't Match Contract"
