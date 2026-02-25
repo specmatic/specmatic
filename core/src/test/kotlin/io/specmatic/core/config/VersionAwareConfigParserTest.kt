@@ -2,6 +2,7 @@ package io.specmatic.core.config
 
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.SpecmaticConfigV1V2Common
+import io.specmatic.core.utilities.Flags
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
@@ -211,6 +212,40 @@ class VersionAwareConfigParserTest {
         }
     }
 
+    @ParameterizedTest(name = "embedded interpolation default preserves value for {0}")
+    @MethodSource("embeddedInterpolationDefaultCases")
+    fun `embedded interpolation resolves generic defaults including primitive values and arrays`(templateExpression: String, expectedResolvedValue: String) {
+        val configFile = tempDir.resolve("specmatic.yaml").apply {
+            writeText("""
+            version: 2
+            contracts: []
+            hooks:
+              after: 'prefix-$templateExpression-suffix'
+            """.trimIndent())
+        }
+
+        val config: SpecmaticConfig = configFile.toSpecmaticConfig()
+        assertThat(SpecmaticConfigV1V2Common.getHooks(config as SpecmaticConfigV1V2Common)["after"])
+            .isEqualTo("prefix-$expectedResolvedValue-suffix")
+    }
+
+    @ParameterizedTest(name = "embedded interpolation uses TEST_PROP property for {0}")
+    @MethodSource("embeddedInterpolationTestPropertyCases")
+    fun `embedded interpolation uses system property instead of default for specmatic base url`(templateExpression: String, propertyValue: String) {
+        val configFile = tempDir.resolve("specmatic.yaml").apply {
+            writeText("""
+            version: 2
+            contracts: []
+            hooks:
+              after: 'prefix-$templateExpression-suffix'
+            """.trimIndent())
+        }
+
+        val config = Flags.using("TEST_PROP" to propertyValue) { configFile.toSpecmaticConfig() }
+        assertThat(SpecmaticConfigV1V2Common.getHooks(config as SpecmaticConfigV1V2Common)["after"])
+            .isEqualTo("prefix-$propertyValue-suffix")
+    }
+
     @ParameterizedTest(name = "isConfigTemplate({0}) -> {1}")
     @MethodSource("isConfigTemplateCases")
     fun `isConfigTemplate identifies template expressions`(value: String, expected: Boolean) {
@@ -253,13 +288,37 @@ class VersionAwareConfigParserTest {
             Arguments.of("{SYSTEM_PROP:default-value}", "default-value"),
             Arguments.of("\${SYSTEM_PROP:default-value}", "default-value"),
             Arguments.of("{VAR1|VAR2:default-value}", "default-value"),
+            Arguments.of("\${VAR1|VAR2:default-value}", "default-value"),
             Arguments.of("prefix-{SYSTEM_PROP:default}-suffix", "prefix-default-suffix"),
+            Arguments.of("prefix-\${SYSTEM_PROP:default}-suffix", "prefix-default-suffix"),
             Arguments.of("prefix-{VAR1|VAR2:default}-suffix", "prefix-default-suffix"),
+            Arguments.of("prefix-\${VAR1|VAR2:default}-suffix", "prefix-default-suffix"),
             Arguments.of("prefix-{A:1}-{B:2}-suffix", "prefix-1-2-suffix"),
+            Arguments.of("prefix-\${A:1}-\${B:2}-suffix", "prefix-1-2-suffix"),
             Arguments.of("{SYSTEM_PROP}", "{SYSTEM_PROP}"),
             Arguments.of("\${SYSTEM_PROP}", "\${SYSTEM_PROP}"),
             Arguments.of("{:default}", "{:default}"),
             Arguments.of("plain-value", "plain-value"),
+        )
+
+        @JvmStatic
+        fun embeddedInterpolationDefaultCases(): Stream<Arguments> = Stream.of(
+            Arguments.of("{HOOK_VALUE:plain-text}", "plain-text"),
+            Arguments.of("\${HOOK_VALUE:plain-text}", "plain-text"),
+            Arguments.of("{HOOK_VALUE:true}", "true"),
+            Arguments.of("\${HOOK_VALUE:true}", "true"),
+            Arguments.of("{HOOK_VALUE:123}", "123"),
+            Arguments.of("\${HOOK_VALUE:123}", "123"),
+            Arguments.of("{HOOK_ARRAY:[1,true,\"x\"]}", """[1,true,"x"]"""),
+            Arguments.of("\${HOOK_ARRAY:[1,true,\"x\"]}", """[1,true,"x"]"""),
+        )
+
+        @JvmStatic
+        fun embeddedInterpolationTestPropertyCases(): Stream<Arguments> = Stream.of(
+            Arguments.of("{TEST_PROP:default-base}", "https://example.test"),
+            Arguments.of("\${TEST_PROP:default-base}", "https://example.test"),
+            Arguments.of("{TEST_PROP:[0]}", """[1,true,"x"]"""),
+            Arguments.of("\${TEST_PROP:[0]}", """[1,true,"x"]"""),
         )
     }
 }

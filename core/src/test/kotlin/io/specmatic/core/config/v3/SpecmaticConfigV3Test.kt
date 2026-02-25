@@ -84,6 +84,34 @@ class SpecmaticConfigV3Test {
         assertThat(config.getTestTimeoutInMilliseconds()).isEqualTo(30000)
     }
 
+    @Test
+    fun `should resolve interpolated env var syntax with default when no property set`(@TempDir tempDir: File) {
+        val yaml = """
+        version: 3
+        specmatic:
+          settings:
+            test:
+              junitReportDir: "reports/${'$'}{REPORT_DIR:junit}/results"
+        """.trimIndent()
+        val file = tempDir.resolve("specmatic.yaml").apply { writeText(yaml) }
+        val config = file.toSpecmaticConfig()
+        assertThat(config.getTestJunitReportDir()).isEqualTo("reports/junit/results")
+    }
+
+    @Test
+    fun `should resolve interpolated env var syntax with default when property is set`(@TempDir tempDir: File) {
+        val yaml = """
+        version: 3
+        specmatic:
+          settings:
+            test:
+              junitReportDir: "reports/${'$'}{REPORT_DIR:junit}/results"
+        """.trimIndent()
+        val file = tempDir.resolve("specmatic.yaml").apply { writeText(yaml) }
+        val config = Flags.using("REPORT_DIR" to "custom-reports") { file.toSpecmaticConfig() }
+        assertThat(config.getTestJunitReportDir()).isEqualTo("reports/custom-reports/results")
+    }
+
     @Nested
     inner class Components {
         @Test
