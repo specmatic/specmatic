@@ -2414,6 +2414,11 @@ data class Feature(
         return loadExternalisedExamplesAndListUnloadableExamples().first
     }
 
+    fun validateAndFilterExamples(): Pair<Feature, Result> {
+        val result = scenarios.map { scenario -> scenario.validateAndFilterExamples(flagsBased) }
+        return Pair(this.copy(scenarios = result.map { it.first }), Result.fromResults(result.map { it.second }))
+    }
+
     fun validateExamplesOrException(disallowExtraHeaders: Boolean = true) {
         val errors = scenarios.mapNotNull { scenario ->
             try {

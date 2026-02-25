@@ -509,6 +509,42 @@ data class Scenario(
         }
     }
 
+    fun validateAndFilterExamples(flagsBased: FlagsBased): Pair<Scenario, Result> {
+        val apiDesc = defaultAPIDescription.trim()
+
+        val examplesAndMatchFailures = examples.map { example ->
+            val validRowsAndMatchFailures = example.rows.map { row ->
+                val resolverForExample = flagsBased.update(resolver = resolverForValidation(resolver, row))
+                val requestResult = validateRequestExample(row, resolverForExample)
+                val responseResult = validateResponseExample(row, resolverForExample)
+                val exampleResult = Result.fromResults(listOf(requestResult, responseResult))
+
+                if (exampleResult !is Result.Failure || exampleResult.isPartial) {
+                    row to null
+                } else {
+                    null to exampleResult.breadCrumb(
+                        if (row.fileSource != null) "Error loading example for $apiDesc from ${row.fileSource}"
+                        else "Error loading example named ${row.name} for $apiDesc"
+                    )
+                }
+            }
+
+            val validRows = validRowsAndMatchFailures.mapNotNull { it.first }
+            val matchFailures = validRowsAndMatchFailures.mapNotNull { it.second }
+
+            if (validRows.isEmpty()) {
+                null to Result.fromResults(matchFailures)
+            } else {
+                example.copy(rows = validRows) to Result.fromResults(matchFailures)
+            }
+        }
+
+        val newExamples = examplesAndMatchFailures.mapNotNull { it.first }
+        val invalidResults = Result.fromResults(examplesAndMatchFailures.map { it.second })
+
+        return copy(examples = newExamples) to invalidResults
+    }
+
     fun validExamplesOrException(flagsBased: FlagsBased, disallowExtraHeaders: Boolean = true) {
         val rowsToValidate = examples.flatMap { it.rows }
 
