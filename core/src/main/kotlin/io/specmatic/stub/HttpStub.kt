@@ -1381,9 +1381,10 @@ private fun stubbedResponse(
     val stubResponse = stubData?.let {
         val softCastResponse = it.softCastResponseToXML(httpRequest).response
         HttpStubResponse(
-            softCastResponse,
-            it.delayInMilliseconds,
-            it.contractPath,
+            response = softCastResponse,
+            delayInMilliSeconds = it.delayInMilliseconds,
+            contractPath = it.contractPath,
+            exampleName = it.name,
             examplePath = it.examplePath,
             feature = stubData.feature,
             scenario = stubData.scenario,
@@ -1850,3 +1851,4 @@ fun writeEvent(event: SseEvent, writer: Writer) {
     writer.write("\n")
     writer.flush()
 }
+

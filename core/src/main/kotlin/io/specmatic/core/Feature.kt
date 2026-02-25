@@ -255,7 +255,7 @@ data class Feature(
                     logger.log(stubData.response.body.toStringLiteral())
                     null
                 } else {
-                    HasValue(stubData)
+                    HasValue(stubData.copy(scenarioStub = namedStub.stub.withName(exampleName)))
                 }
             } catch (e: Throwable) {
                 logger.newLine()

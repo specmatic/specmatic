@@ -65,6 +65,10 @@ data class ScenarioStub(
 
     val nameOrFileName: String? = runCatching { name ?: filePath?.let(::File)?.nameWithoutExtension }.getOrNull()
 
+    fun withName(name: String): ScenarioStub {
+        return copy(data = data.copy(jsonObject = data.jsonObject + mapOf("name" to StringValue(name))))
+    }
+
     fun toJSON(): JSONObjectValue {
         val requestResponse: Map<String, Value> =
             if (partial != null) {

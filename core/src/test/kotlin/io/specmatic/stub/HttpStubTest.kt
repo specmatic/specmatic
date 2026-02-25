@@ -156,6 +156,52 @@ internal class HttpStubTest {
     }
 
     @Test
+    fun `should include matched inline example name in console logs for non 2xx inline example`() {
+        val specFile = File("src/test/resources/openapi/has_multiple_inline_examples.yaml").canonicalFile
+        val feature = parseContractFileToFeature(specFile)
+
+        val (consoleOutput, _) = captureStandardOutput(trim = false) {
+            HttpStub(features = listOf(feature), log = ::consoleLog).use { stub ->
+                stub.client.execute(
+                    HttpRequest(
+                        method = "GET",
+                        path = "/findAvailableProducts",
+                        headers = mapOf("pageSize" to "20"),
+                        queryParametersMap = mapOf("type" to "other")
+                    )
+                )
+            }
+        }
+
+        assertThat(consoleOutput).contains("Contract matched: ${specFile.path}")
+        assertThat(consoleOutput).contains("Example matched: FIND_TIMEOUT")
+        assertThat(consoleOutput).contains("503 Service Unavailable")
+    }
+
+    @Test
+    fun `should include matched inline example name in console logs for 2xx inline example`() {
+        val specFile = File("src/test/resources/openapi/has_multiple_inline_examples.yaml").canonicalFile
+        val feature = parseContractFileToFeature(specFile)
+
+        val (consoleOutput, _) = captureStandardOutput(trim = false) {
+            HttpStub(features = listOf(feature), log = ::consoleLog).use { stub ->
+                stub.client.execute(
+                    HttpRequest(
+                        method = "GET",
+                        path = "/findAvailableProducts",
+                        headers = mapOf("pageSize" to "10"),
+                        queryParametersMap = mapOf("type" to "gadget")
+                    )
+                )
+            }
+        }
+
+        assertThat(consoleOutput).contains("Contract matched: ${specFile.path}")
+        assertThat(consoleOutput).contains("Example matched: FIND_SUCCESS")
+        assertThat(consoleOutput).contains("200 OK")
+    }
+
+    @Test
     fun `should return plain text 409 from swagger endpoints when only wsdl is mocked`() {
         LogTail.clear()
         val wsdlFeature = parseContractFileToFeature("src/test/resources/wsdl/hello.wsdl")

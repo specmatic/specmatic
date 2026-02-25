@@ -20,6 +20,7 @@ data class HttpLogMessage(
     var postHookResponseTime: CurrentDate? = null,
     var postHookResponse: InterceptorResult<HttpResponse>? = null,
     var contractPath: String = "",
+    var exampleName: String? = null,
     var examplePath: String? = null,
     val targetServer: String = "",
     val comment: String? = null,
@@ -28,6 +29,15 @@ data class HttpLogMessage(
     var result: Result? = null,
     val prettyPrint: Boolean = true,
 ) : LogMessage {
+    private val isInlineExample: Boolean
+        get() = exampleName != null && examplePath == null
+
+    private val isExternalExample: Boolean
+        get() = examplePath != null
+
+    private val matchedAnExample: Boolean
+        get() = (exampleName ?: examplePath) != null
+
     fun combineLog(): String {
         val request = this.request.toLogString(prettyPrint = prettyPrint).trim('\n')
         val response = this.response?.toLogString(prettyPrint = prettyPrint)?.trim('\n') ?: "No response"
@@ -94,7 +104,11 @@ data class HttpLogMessage(
         }
 
         val contractPathLines = if(contractPath.isNotBlank()) {
-            val exampleLine = examplePath?.let { "${linePrefix}Example matched: $examplePath" }
+            val exampleLine = when {
+                isInlineExample -> "${linePrefix}Inline Example matched: $exampleName"
+                isExternalExample -> "${linePrefix}External Example matched: $examplePath"
+                else -> null
+            }
 
             listOfNotNull(
                 "${linePrefix}Contract matched: $contractPath",
@@ -132,6 +146,7 @@ data class HttpLogMessage(
     fun addResponse(stubResponse: HttpStubResponse) {
         addResponseWithCurrentTime(stubResponse.response)
         contractPath = stubResponse.contractPath
+        exampleName = stubResponse.exampleName
         examplePath = stubResponse.examplePath
         scenario = stubResponse.scenario
     }
@@ -156,7 +171,7 @@ data class HttpLogMessage(
 
     fun toResult(): TestResult {
         return when {
-            this.examplePath != null -> TestResult.Success
+            this.matchedAnExample -> TestResult.Success
             this.scenario != null && response?.status !in invalidRequestStatuses -> TestResult.Success
             scenario == null -> TestResult.MissingInSpec
             else -> TestResult.Failed
@@ -165,7 +180,8 @@ data class HttpLogMessage(
 
     fun toDetails(): String {
         return when {
-            this.examplePath != null -> "Request Matched Example: ${this.examplePath}"
+            this.isInlineExample -> "Request Matched Inline Example: ${this.exampleName}"
+            this.isExternalExample -> "Request Matched External Example: ${this.examplePath}"
             this.scenario != null && response?.status !in invalidRequestStatuses -> "Request Matched Contract ${scenario?.defaultAPIDescription}"
             this.exception != null -> "Invalid Request\n${exception?.let(::exceptionCauseMessage)}"
             else -> response?.body?.toStringLiteral() ?: "Request Didn't Match Contract"
@@ -174,6 +190,17 @@ data class HttpLogMessage(
 
     fun toName(): String {
         val scenario = this.scenario ?: return "Unknown Request"
-        return scenario.copy(exampleName = this.examplePath?.let(::File)?.name).testDescription()
+        val apiDescription = scenario.customAPIDescription ?: scenario.defaultAPIDescription
+        return testDescription(
+            generativePrefix = "",
+            requestChangeSummary = null,
+            apiDescription = apiDescription,
+            exampleLabel = if (this.isInlineExample) "inline example" else "external example",
+            exampleName = when {
+                this.exampleName != null -> this.exampleName
+                examplePath != null -> examplePath?.let(::File)?.name
+                else -> null
+            },
+        )
     }
 }

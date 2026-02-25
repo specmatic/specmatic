@@ -927,17 +927,18 @@ fun testDescription(
     generativePrefix: String,
     apiDescription: String,
     exampleName: String?,
-    requestChangeSummary: String?
+    requestChangeSummary: String?,
+    exampleLabel: String = "example"
 ): String {
     val hasExample = exampleName.isNullOrBlank().not()
     val hasRequestChangeSummary = requestChangeSummary.isNullOrBlank().not()
 
     return when {
         hasExample && hasRequestChangeSummary ->
-            "$generativePrefix Scenario: $apiDescription with the request from the example '${exampleName?.trim()}' where $requestChangeSummary"
+            "$generativePrefix Scenario: $apiDescription with the request from the $exampleLabel '${exampleName?.trim()}' where $requestChangeSummary"
 
         hasExample ->
-            "$generativePrefix Scenario: $apiDescription with the request from the example '${exampleName?.trim()}'"
+            "$generativePrefix Scenario: $apiDescription with the request from the $exampleLabel '${exampleName?.trim()}'"
 
         hasRequestChangeSummary ->
             "$generativePrefix Scenario: $apiDescription with a request where $requestChangeSummary"

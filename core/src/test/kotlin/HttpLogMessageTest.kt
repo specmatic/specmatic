@@ -1,5 +1,6 @@
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
+import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.log.CurrentDate
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.value.JSONObjectValue
@@ -9,8 +10,11 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.api.Test
+import java.io.File
 
 internal class HttpLogMessageTest {
+    private val feature = parseContractFileToFeature(File("src/test/resources/openapi/partial_example_tests/simple.yaml"))
+    private val scenario = feature.scenarios.first()
     private val dateTime: CurrentDate = CurrentDate()
     private val httpLog = HttpLogMessage(
         requestTime =dateTime,
@@ -70,5 +74,29 @@ internal class HttpLogMessageTest {
     ) {
         val message = HttpLogMessage(request = HttpRequest(method, path))
         assertThat(message.isInternalControlRequestForMockEvent()).isEqualTo(expected)
+    }
+
+    @Test
+    fun `toName should mention inline example for internal example matches`() {
+        val message = HttpLogMessage(
+            request = scenario.generateHttpRequest(),
+            response = scenario.generateHttpResponse(emptyMap()),
+            contractPath = "/path/to/file",
+            scenario = scenario,
+            exampleName = "FIND_SUCCESS"
+        )
+        assertThat(message.toName()).contains("inline example 'FIND_SUCCESS'")
+    }
+
+    @Test
+    fun `toName should mention external example for external examples matches`() {
+        val message = HttpLogMessage(
+            request = scenario.generateHttpRequest(),
+            response = scenario.generateHttpResponse(emptyMap()),
+            contractPath = "/path/to/file",
+            scenario = scenario,
+            examplePath = "examples/example.json"
+        )
+        assertThat(message.toName()).contains("external example 'example.json'")
     }
 }
