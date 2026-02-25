@@ -8,6 +8,8 @@ import io.specmatic.core.utilities.ContractPathData
 import io.specmatic.core.utilities.contractStubPaths
 import io.specmatic.core.value.*
 import io.specmatic.core.examples.server.ExampleMismatchMessages
+import io.specmatic.core.log.DebugLogger
+import io.specmatic.core.log.withLogger
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.trimmedLinesList
@@ -679,6 +681,53 @@ Feature: Math API
             assertThat(it.scenarioStubs).hasSize(1)
             assertThat(it.scenarioStubs.single().name).isEqualTo("createProduct")
         }
+    }
+
+    @Test
+    fun `loadContractStubsFromFilesAsResults should log example details for feature example directories in debug mode`() {
+        val specFile = File("src/test/resources/wsdl/with_examples/order_api.wsdl")
+        val externalExamplesDir = "src/test/resources/wsdl/with_examples/order_api_examples"
+        val contractPathData = listOf(ContractPathData("", specFile.path, exampleDirPaths = listOf(externalExamplesDir)))
+        val (output, _) = captureStandardOutput(trim = false) {
+            withLogger(DebugLogger) {
+                loadContractStubsFromFilesAsResults(contractPathData, emptyList(), SpecmaticConfig(), withImplicitStubs = false)
+            }
+        }
+
+        val normalizedOutput = output.replace('\\', '/')
+        assertThat(normalizedOutput)
+            .contains("1 examples(s) found in ./src/test/resources/wsdl/with_examples/order_api_examples")
+            .contains("Scanning example files from './src/test/resources/wsdl/with_examples/order_api_examples'")
+            .contains("src/test/resources/wsdl/with_examples/order_api_examples/create_product.json")
+    }
+
+    @Test
+    fun `loadContractStubsFromFilesAsResults should log example count for feature example directories`() {
+        val specFile = File("src/test/resources/wsdl/with_examples/order_api.wsdl")
+        val externalExamplesDir = "src/test/resources/wsdl/with_examples/order_api_examples"
+        val contractPathData = listOf(ContractPathData("", specFile.path, exampleDirPaths = listOf(externalExamplesDir)))
+        val (output, _) = captureStandardOutput(trim = false) {
+            loadContractStubsFromFilesAsResults(contractPathData, emptyList(), SpecmaticConfig(), withImplicitStubs = false)
+        }
+
+        val normalizedOutput = output.replace('\\', '/')
+        assertThat(normalizedOutput)
+            .contains("1 examples(s) found in ./src/test/resources/wsdl/with_examples/order_api_examples")
+            .doesNotContain("Scanning example files from './src/test/resources/wsdl/with_examples/order_api_examples'")
+            .doesNotContain("src/test/resources/wsdl/with_examples/order_api_examples/create_product.json")
+    }
+
+    @Test
+    fun `loadContractStubsFromFilesAsResults should not log explicit example count twice`() {
+        val specFile = File("src/test/resources/wsdl/with_examples/order_api.wsdl")
+        val externalExamplesDir = "src/test/resources/wsdl/with_examples/order_api_examples"
+        val contractPathData = listOf(ContractPathData("", specFile.path))
+        val (output, _) = captureStandardOutput(trim = false) {
+            loadContractStubsFromFilesAsResults(contractPathData, listOf(externalExamplesDir), SpecmaticConfig(), withImplicitStubs = false)
+        }
+
+        val normalizedOutput = output.replace('\\', '/')
+        assertThat(normalizedOutput).containsOnlyOnce("1 examples(s) found in ./src/test/resources/wsdl/with_examples/order_api_examples")
     }
 
     @Test
