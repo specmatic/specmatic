@@ -398,16 +398,246 @@ Feature: Test
         val stubData = feature.matchingStub(scenarioStub)
 
         val request = HttpRequest(method = "POST", path = "/", body = parsedJSON("""{"number": "Hello"}"""))
-        val response = stubResponse(request, listOf(feature), listOf(stubData), true)
+        val result = getHttpResponse(
+            httpRequest = request,
+            features = listOf(feature),
+            httpExpectations = HttpExpectations(mutableListOf(stubData)),
+            strictMode = true,
+            specmaticConfig = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = true))
+        )
 
         val strictModeReport = Results(listOf(stubData.matches(request)))
             .withoutFluff()
             .withoutViolationReport()
             .strictModeReport(request)
 
+        assertThat(result).isInstanceOf(NotStubbed::class.java)
+        val response = (result as NotStubbed).response
         assertThat(response.response.status).isEqualTo(400)
         val responseBody = response.response.body as JSONObjectValue
         assertThat(responseBody.jsonObject.getValue("message").toStringLiteral()).isEqualTo(strictModeReport)
+    }
+
+    @Test
+    fun `in strict mode without generative mode the stub replies with strict mode fallback even if 400 response exists`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Strict mode error payload
+              version: 1.0.0
+            paths:
+              /:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          required:
+                            - number
+                          properties:
+                            number:
+                              type: number
+                  responses:
+                    '200':
+                      description: OK
+                    '400':
+                      description: Bad request
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - message
+                            properties:
+                              message:
+                                type: string
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val stubRequest = HttpRequest(method = "POST", path = "/", body = parsedJSON("""{"number": 10}"""))
+        val scenarioStub = ScenarioStub(stubRequest, HttpResponse.OK, null)
+        val stubData = feature.matchingStub(scenarioStub)
+
+        val request = HttpRequest(method = "POST", path = "/", body = parsedJSON("""{"number": "Hello"}"""))
+        val result = getHttpResponse(
+            httpRequest = request,
+            features = listOf(feature),
+            httpExpectations = HttpExpectations(mutableListOf(stubData)),
+            strictMode = true,
+            specmaticConfig = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = false))
+        )
+
+        val strictModeReport = Results(listOf(stubData.matches(request)))
+            .withoutFluff()
+            .withoutViolationReport()
+            .strictModeReport(request)
+
+        assertThat(result).isInstanceOf(NotStubbed::class.java)
+        assertResponseFailure((result as NotStubbed).response, """
+        STRICT MODE ON
+
+        $strictModeReport
+        """.trimIndent())
+    }
+
+    @Test
+    fun `in generative strict mode without stubs it should still use matching 400 response payload`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Strict mode error payload without stubs
+              version: 1.0.0
+            paths:
+              /:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          required:
+                            - number
+                          properties:
+                            number:
+                              type: number
+                  responses:
+                    '200':
+                      description: OK
+                    '400':
+                      description: Bad request
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - message
+                            properties:
+                              message:
+                                type: string
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val request = HttpRequest(method = "POST", path = "/", body = parsedJSON("""{"number": "Hello"}"""))
+        val result = getHttpResponse(
+            httpRequest = request,
+            features = listOf(feature),
+            httpExpectations = HttpExpectations(mutableListOf()),
+            strictMode = true,
+            specmaticConfig = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = true))
+        )
+
+        assertThat(result).isInstanceOf(NotStubbed::class.java)
+        val response = (result as NotStubbed).response.response
+        assertThat(response.status).isEqualTo(400)
+        assertThat(response.body).isInstanceOf(JSONObjectValue::class.java)
+        val responseBody = response.body as JSONObjectValue
+        assertThat(responseBody.jsonObject.getValue("message")).isInstanceOf(StringValue::class.java)
+        assertThat((responseBody.jsonObject.getValue("message") as StringValue).string).doesNotContain("STRICT MODE ON")
+    }
+
+    @Test
+    fun `in generative strict mode without stubs it should use matching 422 response payload`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Strict mode error payload without stubs
+              version: 1.0.0
+            paths:
+              /:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          required:
+                            - number
+                          properties:
+                            number:
+                              type: number
+                  responses:
+                    '200':
+                      description: OK
+                    '422':
+                      description: Validation error
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - message
+                            properties:
+                              message:
+                                type: string
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val request = HttpRequest(method = "POST", path = "/", body = parsedJSON("""{"number": "Hello"}"""))
+        val result = getHttpResponse(
+            httpRequest = request,
+            features = listOf(feature),
+            httpExpectations = HttpExpectations(mutableListOf()),
+            strictMode = true,
+            specmaticConfig = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = true))
+        )
+
+        assertThat(result).isInstanceOf(NotStubbed::class.java)
+        val response = (result as NotStubbed).response.response
+        assertThat(response.status).isEqualTo(422)
+        assertThat(response.body).isInstanceOf(JSONObjectValue::class.java)
+    }
+
+    @Test
+    fun `in generative strict mode without invalid request responses it should fall back to strict mode text response`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Strict mode fallback when no invalid response exists
+              version: 1.0.0
+            paths:
+              /:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          required:
+                            - number
+                          properties:
+                            number:
+                              type: number
+                  responses:
+                    '200':
+                      description: OK
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val request = HttpRequest(method = "POST", path = "/", body = parsedJSON("""{"number": "Hello"}"""))
+        val result = getHttpResponse(
+            httpRequest = request,
+            features = listOf(feature),
+            httpExpectations = HttpExpectations(mutableListOf()),
+            strictMode = true,
+            specmaticConfig = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = true))
+        )
+
+        assertThat(result).isInstanceOf(NotStubbed::class.java)
+        val response = (result as NotStubbed).response.response
+        assertThat(response.status).isEqualTo(400)
+        assertThat(response.headers).containsEntry(SPECMATIC_RESULT_HEADER, "failure")
+        assertThat(response.body).isInstanceOf(StringValue::class.java)
+        assertThat(response.body.toStringLiteral()).contains("STRICT MODE ON")
+        assertThat(response.body.toStringLiteral()).contains("No matching REST stub")
     }
 
     @Test

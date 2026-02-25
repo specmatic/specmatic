@@ -40,6 +40,7 @@ import io.specmatic.core.Scenario
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.WorkingDirectory
 import io.specmatic.core.examples.server.ExampleMismatchMessages
+import io.specmatic.core.invalidRequestStatuses
 import io.specmatic.core.listOfExcludedHeaders
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.log.LogMessage
@@ -1568,51 +1569,35 @@ private fun strictModeHttp400Response(
     matchResults: List<Pair<Result, HttpStubData>>,
     generative: Boolean
 ): NotStubbed {
-    val failureResults = matchResults.map { it.first }
-    val results = Results(failureResults).withoutFluff().withoutViolationReport()
+    val results = Results(matchResults.map { it.first }).withoutFluff().withoutViolationReport()
     val strictModeReport = results.strictModeReport(httpRequest)
-
-    val nonFluffyMismatches = matchResults.filter { !it.first.isFluffy() }
-    val failedFeatures = nonFluffyMismatches.map { it.second }.distinct()
-
-    val requestDetailsInExampleScenario = nonFluffyMismatches.firstNotNullOfOrNull { (_, stub) -> stub.scenario?.let { it.getRequestDetails() } }
-
-    val errorStatuses = listOf(400, 422)
-
-    val firstScenarioWith400Response = features.firstNotNullOfOrNull {
-        it.scenarios.find {
-            it.getRequestDetails() == requestDetailsInExampleScenario && it.status in errorStatuses
-        }
+    val scenario = features.firstNotNullOfOrNull { it.identifierMatchingScenario(httpRequest) }
+    val response = if (generative) {
+        generativeStrictModeResponse(httpRequest, features, strictModeReport) ?: strictModeFallbackResponse(strictModeReport)
+    } else {
+        strictModeFallbackResponse(strictModeReport)
     }
-
-    if (firstScenarioWith400Response == null) {
-        val defaultHeaders = mapOf("Content-Type" to "text/plain", SPECMATIC_RESULT_HEADER to "failure")
-        val headers = when {
-            strictModeReport.isEmpty() -> defaultHeaders.plus(SPECMATIC_EMPTY_HEADER to "true")
-            else -> defaultHeaders
-        }
-
-        return NotStubbed(
-            stubResult = results.toResultIfAnyWithCauses(),
-            response = HttpStubResponse(
-                scenario = features.firstNotNullOfOrNull { it.identifierMatchingScenario(httpRequest) },
-                response = HttpResponse(
-                    status = 400, headers = headers,
-                    body = StringValue("STRICT MODE ON${System.lineSeparator()}${System.lineSeparator()}$strictModeReport")
-                ),
-            ),
-        )
-    }
-
-    val httpResponse = firstScenarioWith400Response.responseWithStubError(strictModeReport)
 
     return NotStubbed(
         stubResult = results.toResultIfAnyWithCauses(),
-        response = HttpStubResponse(
-            scenario = features.firstNotNullOfOrNull { it.identifierMatchingScenario(httpRequest) },
-            response = httpResponse
-            ),
-        )
+        response = HttpStubResponse(scenario = scenario, response = response),
+    )
+}
+
+private fun generativeStrictModeResponse(httpRequest: HttpRequest, features: List<Feature>, strictModeReport: String): HttpResponse? {
+    return features.firstNotNullOfOrNull { feature ->
+        feature.identifierMatchingScenario(httpRequest) { it.status in invalidRequestStatuses }
+    }?.responseWithStubError(strictModeReport)
+}
+
+private fun strictModeFallbackResponse(strictModeReport: String): HttpResponse {
+    val defaultHeaders = mapOf("Content-Type" to "text/plain", SPECMATIC_RESULT_HEADER to "failure")
+    val headers = if (strictModeReport.isEmpty()) defaultHeaders + (SPECMATIC_EMPTY_HEADER to "true") else defaultHeaders
+    return HttpResponse(
+        status = 400,
+        headers = headers,
+        body = StringValue("STRICT MODE ON${System.lineSeparator()}${System.lineSeparator()}$strictModeReport")
+    )
 }
 
 fun stubResponse(
