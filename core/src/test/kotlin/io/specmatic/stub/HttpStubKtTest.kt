@@ -680,7 +680,7 @@ Feature: Test
                             properties:
                               message:
                                 type: string
-            """.trimIndent(), ""
+            """.trimIndent(), "contracts/generative-error-payload.yaml"
         ).toFeature()
 
         val request = HttpRequest(method = "POST", path = "/hello", body = parsedJSONObject("""{"data": 10}"""))
@@ -691,8 +691,13 @@ Feature: Test
         )
 
         assertThat(result).isInstanceOf(FoundStubbedResponse::class.java)
-        val response = (result as FoundStubbedResponse).response.response
+        val stubbedResponse = (result as FoundStubbedResponse).response
+        val response = stubbedResponse.response
         assertThat(response.status).isEqualTo(400)
+        assertThat(stubbedResponse.contractPath).isEqualTo(feature.path)
+        assertThat(stubbedResponse.feature).isEqualTo(feature)
+        assertThat(stubbedResponse.scenario).isNotNull
+        assertThat(stubbedResponse.scenario?.status).isEqualTo(400)
 
         val responseBody = response.body as JSONObjectValue
         val messageValue = responseBody.jsonObject.getValue("message")

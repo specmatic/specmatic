@@ -1436,17 +1436,10 @@ fun fakeHttpResponse(
             }.firstOrNull()
 
             if (firstScenarioWith400Response != null && specmaticConfig.getStubGenerative(File(firstScenarioWith400Response.first.path))) {
+                val feature = firstScenarioWith400Response.first
                 val scenario = firstScenarioWith400Response.second as Scenario
                 val errorResponse = scenario.responseWithStubError(combinedFailureResult.report())
-
-                FoundStubbedResponse(
-                    HttpStubResponse(
-                        errorResponse,
-                        contractPath = "",
-                        feature = fakeResponse?.feature,
-                        scenario = fakeResponse?.successResponse?.scenario
-                    )
-                )
+                FoundStubbedResponse(HttpStubResponse(errorResponse, contractPath = feature.path, scenario = scenario, feature = feature))
             } else {
                 val httpFailureResponse = combinedFailureResult.generateErrorHttpResponse(httpRequest)
                 val nearestScenario = features.firstNotNullOfOrNull { it.identifierMatchingScenario(httpRequest) }
