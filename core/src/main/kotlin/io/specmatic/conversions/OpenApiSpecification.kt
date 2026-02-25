@@ -717,15 +717,16 @@ class OpenApiSpecification(
                     logger.debug("${System.lineSeparator()}Processing $httpMethod $openApiPath")
 
                     val methodContext = pathsContext.at(openApiPath).at(httpMethod.lowercase())
+                    val parameters = (pathItem.parameters.orEmpty() + openApiOperation.parameters.orEmpty()).distinctByNameAndLocation()
                     val specmaticPathParam = toSpecmaticPathParam(
                         openApiPath = openApiPath,
-                        operation = openApiOperation,
+                        parameters = parameters,
                         otherPathPatterns = allPathPatternsGroupedByMethod[httpMethod].orEmpty(),
                         collectorContext = methodContext
                     )
 
                     val specmaticQueryParam = toSpecmaticQueryParam(
-                        operation = openApiOperation,
+                        parameters = parameters,
                         collectorContext = methodContext,
                         extensibleQueryParams = extensibleQueryParams
                     )
@@ -748,6 +749,7 @@ class OpenApiSpecification(
                             toHttpRequestPatterns(
                                 httpPathPattern = specmaticPathParam,
                                 httpQueryParamPattern = specmaticQueryParam,
+                                parameters = parameters,
                                 httpMethod = httpMethod,
                                 operation = openApiOperation,
                                 collectorContext = methodContext
@@ -791,7 +793,7 @@ class OpenApiSpecification(
                         val (response, _: MediaType, httpResponsePattern, responseExamples: Map<String, HttpResponse>) = responsePatternData
 
                         val specmaticExampleRows: List<Row> =
-                            testRowsFromExamples(responseExamples, requestExamples, openApiOperation, openApiRequest, first2xxResponseStatus)
+                            testRowsFromExamples(responseExamples, requestExamples, openApiOperation, parameters, openApiRequest, first2xxResponseStatus)
                         val scenarioName = scenarioName(openApiOperation, response, httpRequestPattern)
 
                         val ignoreFailure = openApiOperation.tags.orEmpty().map { it.trim() }.contains("WIP")
@@ -846,7 +848,7 @@ class OpenApiSpecification(
                                 requestExamples,
                                 unusedRequestExampleNames,
                                 scenarioInfos,
-                                openApiOperation,
+                                parameters,
                                 firstNoBodyResponseStatus
                             )
 
@@ -881,9 +883,14 @@ class OpenApiSpecification(
             val pathContext = collectorContext.at(openApiPath)
             openApiOperations(pathItem).map { (httpMethod, openApiOperation) ->
                 val methodContext = pathContext.at(httpMethod.lowercase())
-                httpMethod to toSpecmaticPathParam(openApiPath = openApiPath, operation = openApiOperation, collectorContext = methodContext)
+                val parameters = (pathItem.parameters.orEmpty() + openApiOperation.parameters.orEmpty()).distinctByNameAndLocation()
+                httpMethod to toSpecmaticPathParam(openApiPath = openApiPath, parameters = parameters, collectorContext = methodContext)
             }
         }.groupBy({ it.first }, { it.second })
+    }
+
+    private fun List<Parameter>.distinctByNameAndLocation(): List<Parameter> {
+        return associateBy { it.name to it.`in` }.values.toList()
     }
 
     private fun getUpdatedScenarioInfosWithNoBodyResponseExamples(
@@ -891,7 +898,7 @@ class OpenApiSpecification(
         requestExamples: Map<String, List<HttpRequest>>,
         unusedRequestExampleNames: Set<String>,
         scenarioInfos: List<ScenarioInfo>,
-        operation: Operation,
+        parameters: List<Parameter>,
         firstNoBodyResponseStatus: Int?,
     ): NoBodyExampleUpdate {
         val emptyResponse = HttpResponse(
@@ -915,7 +922,7 @@ class OpenApiSpecification(
                 val unusedRequestExample =
                     requestExamples.filter { it.key in unusedRequestExampleNames }
 
-                val rows = getRowsFromRequestExample(unusedRequestExample, operation, scenarioInfo)
+                val rows = getRowsFromRequestExample(unusedRequestExample, parameters, scenarioInfo)
 
                 val updatedExamples: List<Examples> = listOf(
                     Examples(
@@ -938,14 +945,14 @@ class OpenApiSpecification(
 
     private fun getRowsFromRequestExample(
         requestExample: Map<String, List<HttpRequest>>,
-        operation: Operation,
+        parameters: List<Parameter>,
         scenarioInfo: ScenarioInfo
     ): List<Row> {
         return requestExample.flatMap { (key, requests) ->
             requests.map { request ->
                 val paramExamples = (request.headers + request.queryParams.asMap()).toList()
                 val pathParameterExamples = try {
-                    parameterExamples(operation, key).mapValues { (it.value as? String) ?: jsonMapper.writeValueAsString(it.value) }
+                    parameterExamples(parameters, key).mapValues { (it.value as? String) ?: jsonMapper.writeValueAsString(it.value) }
                 } catch (_: Exception) {
                     emptyMap()
                 }.entries.map { it.key to it.value }
@@ -1073,12 +1080,13 @@ class OpenApiSpecification(
         responseExamples: Map<String, HttpResponse>,
         requestExampleAsHttpRequests: Map<String, List<HttpRequest>>,
         operation: Operation,
+        parameters: List<Parameter>,
         openApiRequest: Pair<String, MediaType>?,
         first2xxResponseStatus: Int?
     ): List<Row> {
 
         return responseExamples.mapNotNull { (exampleName, responseExample) ->
-            val parameterExamples: Map<String, Any> = parameterExamples(operation, exampleName)
+            val parameterExamples: Map<String, Any> = parameterExamples(parameters, exampleName)
 
             val requestBodyExample: Map<String, Any> =
                 requestBodyExample(openApiRequest, exampleName, operation.summary)
@@ -1168,8 +1176,8 @@ class OpenApiSpecification(
         } ?: example
     }
 
-    private fun parameterExamples(operation: Operation, exampleName: String): Map<String, Any> {
-        return operation.parameters.orEmpty().safeFilter<Parameter>(CollectorContext()).filter { (_, parameter) ->
+    private fun parameterExamples(parameters: List<Parameter>, exampleName: String): Map<String, Any> {
+        return parameters.safeFilter<Parameter>(CollectorContext()).filter { (_, parameter) ->
             parameter.examples.orEmpty().any { it.key == exampleName }
         }.associate { (_, parameter) ->
             // TODO: Collect as error
@@ -1391,6 +1399,7 @@ class OpenApiSpecification(
         httpQueryParamPattern: HttpQueryParamPattern,
         httpMethod: String,
         operation: Operation,
+        parameters: List<Parameter>,
         collectorContext: CollectorContext
     ): List<RequestPatternsData> {
         logger.debug("Processing requests for $httpMethod")
@@ -1401,7 +1410,6 @@ class OpenApiSpecification(
         }.toMap()
 
         val securitySchemesForRequestPattern = parseOperationSecuritySchemas(operation, securitySchemeComponents, collectorContext)
-        val parameters = operation.parameters.orEmpty()
         validateSecuritySchemeParameterDuplication(
             securitySchemes = securitySchemesForRequestPattern,
             parameters = parameters.safeFilter<Parameter>(collectorContext),
@@ -1430,9 +1438,9 @@ class OpenApiSpecification(
             securitySchemes = securitySchemesForRequestPattern
         )
 
-        val exampleQueryParams = namedExampleParams<QueryParameter>(operation)
-        val examplePathParams = namedExampleParams<PathParameter>(operation)
-        val exampleHeaderParams = namedExampleParams<HeaderParameter>(operation)
+        val exampleQueryParams = namedExampleParams<QueryParameter>(parameters)
+        val examplePathParams = namedExampleParams<PathParameter>(parameters)
+        val exampleHeaderParams = namedExampleParams<HeaderParameter>(parameters)
 
         val exampleRequestBuilder = ExampleRequestBuilder(
             examplePathParams,
@@ -1574,11 +1582,9 @@ class OpenApiSpecification(
         contentType = contentType
     )
 
-    private inline fun <reified T : Parameter> namedExampleParams(operation: Operation): Map<String, Map<String, String>> {
-        if (specmaticConfig.getIgnoreInlineExamples())
-            return emptyMap()
-
-        return operation.parameters.orEmpty().safeFilter<T>(CollectorContext()).map { it.value }.fold(emptyMap()) { acc, parameter ->
+    private inline fun <reified T : Parameter> namedExampleParams(parameters: List<Parameter>): Map<String, Map<String, String>> {
+        if (specmaticConfig.getIgnoreInlineExamples()) return emptyMap()
+        return parameters.safeFilter<T>(CollectorContext()).map { it.value }.fold(emptyMap()) { acc, parameter ->
             extractParameterExamples(parameter.examples, parameter.name, acc)
         }
     }
@@ -2492,17 +2498,8 @@ class OpenApiSpecification(
 
     private fun componentNameFromReference(component: String) = component.substringAfterLast("/")
 
-    private fun toSpecmaticQueryParam(
-        operation: Operation,
-        collectorContext: CollectorContext,
-        extensibleQueryParams: Boolean
-    ): HttpQueryParamPattern {
-        val parameters = operation.parameters ?: return HttpQueryParamPattern(
-            emptyMap(),
-            extensibleQueryParams = extensibleQueryParams
-        )
+    private fun toSpecmaticQueryParam(parameters: List<Parameter>, collectorContext: CollectorContext, extensibleQueryParams: Boolean): HttpQueryParamPattern {
         val queryParameters = parameters.safeFilter<QueryParameter>(collectorContext)
-
         val parametersContext = collectorContext.at("parameters")
         val queryPattern: Map<String, Pattern> = queryParameters.associate { (index, it) ->
             logger.debug("Processing query parameter ${it.name}")
@@ -2550,8 +2547,7 @@ class OpenApiSpecification(
         }
     }
 
-    private fun toSpecmaticPathParam(openApiPath: String, operation: Operation, otherPathPatterns: Collection<HttpPathPattern> = emptyList(), collectorContext: CollectorContext): HttpPathPattern {
-        val parameters = operation.parameters ?: emptyList()
+    private fun toSpecmaticPathParam(openApiPath: String, parameters: List<Parameter>, otherPathPatterns: Collection<HttpPathPattern> = emptyList(), collectorContext: CollectorContext): HttpPathPattern {
         val pathSegments: List<String> = openApiPath.removePrefix("/").removeSuffix("/").let {
             if (it.isBlank()) emptyList()
             else it.split("/")
