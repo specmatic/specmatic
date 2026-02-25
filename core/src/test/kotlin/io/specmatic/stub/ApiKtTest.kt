@@ -1,11 +1,25 @@
 package io.specmatic.stub
 
+import io.specmatic.core.config.SpecmaticConfigVersion
+import io.specmatic.core.config.v2.ContractConfig
+import io.specmatic.core.config.v2.SpecExecutionConfig
+import io.specmatic.core.config.v2.SpecmaticConfigV2
+import io.specmatic.core.config.v3.Data
+import io.specmatic.core.config.v3.RefOrValue
+import io.specmatic.core.config.v3.SpecmaticConfigV3
+import io.specmatic.core.config.v3.components.Dictionary
+import io.specmatic.core.config.v3.components.services.CommonServiceConfig
+import io.specmatic.core.config.v3.components.services.Definition
+import io.specmatic.core.config.v3.components.services.MockServiceConfig
+import io.specmatic.core.config.v3.components.services.SpecificationDefinition
+import io.specmatic.core.config.v3.components.sources.SourceV3
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import io.specmatic.core.*
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.utilities.ContractPathData
 import io.specmatic.core.utilities.contractStubPaths
+import io.specmatic.core.utilities.yamlMapper
 import io.specmatic.core.value.*
 import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.core.log.DebugLogger
@@ -834,6 +848,147 @@ Feature: Math API
         assertThat(output).contains("WARNING").contains("missing.yaml")
     }
 
+    @Test
+    fun `should complain when dictionary file provided in config does not exist for V2 stub`(@TempDir tempDir: File) {
+        val specFile = tempDir.resolve("api.yaml")
+        val dictionaryFile = tempDir.resolve("dictionary.yaml")
+        val configFile = tempDir.resolve("specmatic-v2.yaml")
+
+        specFile.writeText(minimalOpenApiSpec())
+        configFile.writeText(
+            yamlMapper.writeValueAsString(
+                SpecmaticConfigV2(
+                    version = SpecmaticConfigVersion.VERSION_2,
+                    stub = StubConfiguration(dictionary = dictionaryFile.canonicalPath),
+                    contracts = listOf(
+                        ContractConfig(
+                            filesystem = ContractConfig.FileSystemContractSource(tempDir.canonicalPath),
+                            consumes = listOf(SpecExecutionConfig.StringValue(specFile.name))
+                        )
+                    )
+                )
+            )
+        )
+
+        val (output, stubResults) = captureStandardOutput {
+            val paths = contractStubPaths(configFile.canonicalPath)
+            val specmaticConfig = loadSpecmaticConfig(configFile.canonicalPath)
+            loadContractStubsFromImplicitPathsAsResults(
+                contractPathDataList = paths,
+                specmaticConfig = specmaticConfig,
+                externalDataDirPaths = emptyList()
+            )
+        }
+
+        assertThat(stubResults).isEmpty()
+        assertThat(output)
+            .contains("Expected dictionary file at")
+            .contains(dictionaryFile.canonicalPath)
+            .contains("does not exist")
+    }
+
+    @Test
+    fun `should complain when dictionary file provided in config does not exist for V3 stub`(@TempDir tempDir: File) {
+        val specFile = tempDir.resolve("api.yaml")
+        val dictionaryFile = tempDir.resolve("dictionary.yaml")
+        val configFile = tempDir.resolve("specmatic-v3.yaml")
+
+        specFile.writeText(minimalOpenApiSpec())
+        configFile.writeText(
+            yamlMapper.writeValueAsString(
+                SpecmaticConfigV3(
+                    version = SpecmaticConfigVersion.VERSION_3,
+                    dependencies = MockServiceConfig(
+                        services = listOf(
+                            MockServiceConfig.Value(
+                                service = RefOrValue.Value(
+                                    CommonServiceConfig(
+                                        data = Data(dictionary = RefOrValue.Value(Dictionary(path = dictionaryFile.canonicalPath))),
+                                        definitions = listOf(
+                                            Definition(
+                                                Definition.Value(
+                                                    source = RefOrValue.Value(SourceV3.create(filesystem = SourceV3.FileSystem(tempDir.canonicalPath))),
+                                                    specs = listOf(SpecificationDefinition.StringValue(specFile.name))
+                                                )
+                                            )
+                                        ),
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+
+        val (output, stubResults) = captureStandardOutput {
+            val paths = contractStubPaths(configFile.canonicalPath)
+            val specmaticConfig = loadSpecmaticConfig(configFile.canonicalPath)
+            loadContractStubsFromImplicitPathsAsResults(
+                contractPathDataList = paths,
+                specmaticConfig = specmaticConfig,
+                externalDataDirPaths = emptyList()
+            )
+        }
+
+        assertThat(stubResults).isEmpty()
+        assertThat(output)
+            .contains("Expected dictionary file at")
+            .contains(dictionaryFile.canonicalPath)
+            .contains("does not exist")
+    }
+
+    @Test
+    fun `should complain when dictionary file provided in dependency level config does not exist for V3 stub`(@TempDir tempDir: File) {
+        val specFile = tempDir.resolve("api.yaml")
+        val dictionaryFile = tempDir.resolve("dictionary.yaml")
+        val configFile = tempDir.resolve("specmatic-v3-dependency-level.yaml")
+
+        specFile.writeText(minimalOpenApiSpec())
+        configFile.writeText(
+            yamlMapper.writeValueAsString(
+                SpecmaticConfigV3(
+                    version = SpecmaticConfigVersion.VERSION_3,
+                    dependencies = MockServiceConfig(
+                        data = Data(dictionary = RefOrValue.Value(Dictionary(path = dictionaryFile.canonicalPath))),
+                        services = listOf(
+                            MockServiceConfig.Value(
+                                service = RefOrValue.Value(
+                                    CommonServiceConfig(
+                                        definitions = listOf(
+                                            Definition(
+                                                Definition.Value(
+                                                    source = RefOrValue.Value(SourceV3.create(filesystem = SourceV3.FileSystem(tempDir.canonicalPath))),
+                                                    specs = listOf(SpecificationDefinition.StringValue(specFile.name))
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+
+        val (output, stubResults) = captureStandardOutput {
+            val paths = contractStubPaths(configFile.canonicalPath)
+            val specmaticConfig = loadSpecmaticConfig(configFile.canonicalPath)
+            loadContractStubsFromImplicitPathsAsResults(
+                contractPathDataList = paths,
+                specmaticConfig = specmaticConfig,
+                externalDataDirPaths = emptyList()
+            )
+        }
+
+        assertThat(stubResults).isEmpty()
+        assertThat(output)
+            .contains("Expected dictionary file at")
+            .contains(dictionaryFile.canonicalPath)
+            .contains("does not exist")
+    }
+
     companion object {
         @JvmStatic
         fun missingSpecConfigTemplates(): List<Arguments> =
@@ -869,6 +1024,20 @@ Feature: Math API
     private fun loadedScenarioStubNames(results: List<FeatureStubsResult>): List<String> {
         return results.filterIsInstance<FeatureStubsResult.Success>().flatMap { it.scenarioStubs }.mapNotNull { it.name }
     }
+
+    private fun minimalOpenApiSpec(): String =
+        """
+        openapi: 3.0.0
+        info:
+          title: Sample
+          version: 1.0.0
+        paths:
+          /health:
+            get:
+              responses:
+                '200':
+                  description: OK
+        """.trimIndent()
 }
 
 fun <ReturnType> captureStandardOutput(trim: Boolean = true, fn: () -> ReturnType): Pair<String, ReturnType> {
