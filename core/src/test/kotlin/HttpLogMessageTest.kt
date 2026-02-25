@@ -99,4 +99,30 @@ internal class HttpLogMessageTest {
         )
         assertThat(message.toName()).contains("external example 'example.json'")
     }
+
+    @Test
+    fun `toDetails should mention inline example name for inline example matches`() {
+        val message = HttpLogMessage(
+            request = scenario.generateHttpRequest(),
+            response = scenario.generateHttpResponse(emptyMap()),
+            contractPath = "/path/to/file",
+            scenario = scenario,
+            exampleName = "FIND_SUCCESS"
+        )
+
+        assertThat(message.toDetails()).isEqualTo("Request Matched Inline Example: FIND_SUCCESS")
+    }
+
+    @Test
+    fun `toDetails should mention external example path for external example matches`() {
+        val message = HttpLogMessage(
+            request = scenario.generateHttpRequest(),
+            response = scenario.generateHttpResponse(emptyMap()),
+            contractPath = "/path/to/file",
+            scenario = scenario,
+            examplePath = "examples/example.json"
+        )
+
+        assertThat(message.toDetails()).isEqualTo("Request Matched External Example: examples/example.json")
+    }
 }
