@@ -533,13 +533,14 @@ open class SpecmaticJUnitSupport {
 
     fun constructTestBaseURL(): String {
         val settings = settings
-
         val baseUrlFromArgOrSysProp = settings.baseUrlFromArgOrSysProp()
         if (baseUrlFromArgOrSysProp != null) {
-            when (val validationResult = validateTestOrStubUri(baseUrlFromArgOrSysProp)) {
-                URIValidationResult.Success -> return baseUrlFromArgOrSysProp
-                else -> throw TestAbortedException("${validationResult.message} in $TEST_BASE_URL environment variable")
-            }
+            return validateBaseUrlOrAbort(baseUrlFromArgOrSysProp, "$TEST_BASE_URL environment variable")
+        }
+
+        val baseUrlFromConfig = settings.baseUrlFromConfig()
+        if (!settings.isHostOrPortExplicitlySpecified && baseUrlFromConfig != null) {
+            return validateBaseUrlOrAbort(baseUrlFromConfig, "config file")
         }
 
         // If testBaseURL is not provided, assume http://localhost:9000 by default.
@@ -562,15 +563,15 @@ open class SpecmaticJUnitSupport {
             }
         }
 
-        val baseUrlFromConfig = settings.baseUrlFromConfig()
-        if (baseUrlFromConfig != null) {
-            when (val validationResult = validateTestOrStubUri(baseUrlFromConfig)) {
-                URIValidationResult.Success -> return baseUrlFromConfig
-                else -> throw TestAbortedException("${validationResult.message} in config file")
-            }
-        }
+        return if (baseUrlFromConfig != null) validateBaseUrlOrAbort(baseUrlFromConfig, "config file")
+        else "http://localhost:9000"
+    }
 
-        return "http://localhost:9000"
+    private fun validateBaseUrlOrAbort(baseUrl: String, source: String): String {
+        return when (val validationResult = validateTestOrStubUri(baseUrl)) {
+            URIValidationResult.Success -> baseUrl
+            else -> throw TestAbortedException("${validationResult.message} in $source")
+        }
     }
 
     private fun isNumeric(port: String?): Boolean {

@@ -174,10 +174,34 @@ class SpecmaticJunitSupportTest {
     @Test
     fun `should prefer staged host and port over config base url`(@TempDir tempDir: File) {
         val configFile = writeSpecmaticConfig(tempDir, baseUrl = "http://config.example:9000")
-        SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(configFile = configFile.absolutePath, otherArguments = DeprecatedArguments(host = "override.example", port = "8081")))
+        SpecmaticJUnitSupport.settingsStaging.set(
+            ContractTestSettings(
+                configFile = configFile.absolutePath,
+                otherArguments = DeprecatedArguments(host = "override.example", port = "8081", isHostOrPortExplicitlySpecified = true)
+            )
+        )
+
         try {
             val url = SpecmaticJUnitSupport().constructTestBaseURL()
             assertThat(url).isEqualTo("http://override.example:8081")
+        } finally {
+            SpecmaticJUnitSupport.settingsStaging.remove()
+        }
+    }
+
+    @Test
+    fun `should prefer config base url when staged host and port are not explicitly specified`(@TempDir tempDir: File) {
+        val configFile = writeSpecmaticConfig(tempDir, baseUrl = "http://config.example:9000")
+        SpecmaticJUnitSupport.settingsStaging.set(
+            ContractTestSettings(
+                configFile = configFile.absolutePath,
+                otherArguments = DeprecatedArguments(host = "localhost", port = "9000", isHostOrPortExplicitlySpecified = false)
+            )
+        )
+
+        try {
+            val url = SpecmaticJUnitSupport().constructTestBaseURL()
+            assertThat(url).isEqualTo("http://config.example:9000")
         } finally {
             SpecmaticJUnitSupport.settingsStaging.remove()
         }

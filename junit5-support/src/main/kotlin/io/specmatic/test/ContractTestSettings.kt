@@ -26,7 +26,8 @@ data class DeprecatedArguments(
     val inlineSuggestions: String? = null,
     val variablesFileName: String? = null,
     val exampleDirectories: List<String>? = null,
-    val useCurrentBranchForCentralRepo: Boolean? = null
+    val useCurrentBranchForCentralRepo: Boolean? = null,
+    val isHostOrPortExplicitlySpecified: Boolean? = null,
 )
 
 data class ContractTestSettings(
@@ -53,6 +54,7 @@ data class ContractTestSettings(
     val suggestionsPath: String? = otherArguments?.suggestionsPath
     val inlineSuggestions: String? = otherArguments?.inlineSuggestions
     val variablesFileName: String? = otherArguments?.variablesFileName
+    val isHostOrPortExplicitlySpecified: Boolean = otherArguments?.isHostOrPortExplicitlySpecified == true
     private val specmaticConfig = loadSpecmaticConfigOrNull(configFile, explicitlySpecifiedByUser = configFile != null).orDefault()
 
     fun getSpecmaticConfig(): SpecmaticConfig {
@@ -144,6 +146,7 @@ data class ContractTestSettings(
             port = contractTestSettings?.otherArguments?.port,
             envName = contractTestSettings?.otherArguments?.envName,
             protocol = contractTestSettings?.otherArguments?.protocol,
+            isHostOrPortExplicitlySpecified = contractTestSettings?.otherArguments?.isHostOrPortExplicitlySpecified,
             useCurrentBranchForCentralRepo = contractTestSettings?.otherArguments?.useCurrentBranchForCentralRepo,
             suggestionsPath = contractTestSettings?.otherArguments?.suggestionsPath,
             inlineSuggestions = contractTestSettings?.otherArguments?.inlineSuggestions,
