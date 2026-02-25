@@ -2,6 +2,7 @@ package io.specmatic.conversions
 
 import integration_tests.OpenApiVersion
 import io.specmatic.core.pattern.AnythingPattern
+import io.specmatic.core.pattern.BooleanPattern
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.DeferredPattern
 import io.specmatic.core.pattern.NumberPattern
@@ -16,11 +17,131 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import org.junit.jupiter.params.provider.ValueSource
 import java.io.File
 import java.math.BigDecimal
 import java.util.stream.Stream
 
 class OpenApiSpecificationParseTest {
+    @ParameterizedTest
+    @ValueSource(strings = ["3.0.0", "3.1.0"])
+    fun `should parse path item and operation parameters together for path query and header`(openApiVersion: String) {
+        val spec = """
+            openapi: $openApiVersion
+            info:
+              title: Parse merged params
+              version: 1.0.0
+            paths:
+              /orders/{orderId}:
+                parameters:
+                  - in: query
+                    name: includeDetails
+                    required: true
+                    schema:
+                      type: boolean
+                  - in: header
+                    name: X-Tenant-Id
+                    required: true
+                    schema:
+                      type: string
+                get:
+                  parameters:
+                    - in: path
+                      name: orderId
+                      required: true
+                      schema:
+                        type: string
+                    - in: query
+                      name: page
+                      required: true
+                      schema:
+                        type: integer
+                    - in: header
+                      name: X-Request-Id
+                      required: true
+                      schema:
+                        type: string
+                  responses:
+                    '200':
+                      description: OK
+        """.trimIndent()
+
+        val requestPattern = OpenApiSpecification.fromYAML(spec, "").toFeature().scenarios.single().httpRequestPattern
+        assertThat(requestPattern.httpPathPattern?.toRawPath()).isEqualTo("/orders/{orderId}")
+        assertThat(requestPattern.httpPathPattern?.path).contains("(orderId:string)")
+
+        val queryPatterns = requestPattern.httpQueryParamPattern.queryPatterns
+        assertThat(queryPatterns.keys).contains("includeDetails", "page")
+        assertThat(queryPatterns["includeDetails"]).isInstanceOf(QueryParameterScalarPattern::class.java)
+        assertThat((queryPatterns["includeDetails"] as QueryParameterScalarPattern).pattern).isInstanceOf(BooleanPattern::class.java)
+        assertThat(queryPatterns["page"]).isInstanceOf(QueryParameterScalarPattern::class.java)
+        assertThat((queryPatterns["page"] as QueryParameterScalarPattern).pattern).isInstanceOf(NumberPattern::class.java)
+
+        val headerPatterns = requestPattern.headersPattern.pattern
+        assertThat(headerPatterns.keys).contains("X-Tenant-Id", "X-Request-Id")
+        assertThat(headerPatterns["X-Tenant-Id"]).isInstanceOf(StringPattern::class.java)
+        assertThat(headerPatterns["X-Request-Id"]).isInstanceOf(StringPattern::class.java)
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["3.0.0", "3.1.0"])
+    fun `operation level parameters should override path item parameters with same name and location`(openApiVersion: String) {
+        val spec = """
+            openapi: $openApiVersion
+            info:
+              title: Parse override precedence
+              version: 1.0.0
+            paths:
+              /orders/{orderId}:
+                parameters:
+                  - in: path
+                    name: orderId
+                    required: true
+                    schema:
+                      type: string
+                  - in: query
+                    name: page
+                    required: true
+                    schema:
+                      type: string
+                  - in: header
+                    name: X-Request-Id
+                    required: true
+                    schema:
+                      type: string
+                get:
+                  parameters:
+                    - in: path
+                      name: orderId
+                      required: true
+                      schema:
+                        type: integer
+                    - in: query
+                      name: page
+                      required: true
+                      schema:
+                        type: integer
+                    - in: header
+                      name: X-Request-Id
+                      required: true
+                      schema:
+                        type: integer
+                  responses:
+                    '200':
+                      description: OK
+        """.trimIndent()
+
+        val requestPattern = OpenApiSpecification.fromYAML(spec, "").toFeature().scenarios.single().httpRequestPattern
+        assertThat(requestPattern.httpPathPattern?.path).contains("(orderId:number)")
+
+        val queryPattern = requestPattern.httpQueryParamPattern.queryPatterns["page"]
+        assertThat(queryPattern).isInstanceOf(QueryParameterScalarPattern::class.java)
+        assertThat((queryPattern as QueryParameterScalarPattern).pattern).isInstanceOf(NumberPattern::class.java)
+
+        val headerPattern = requestPattern.headersPattern.pattern["X-Request-Id"]
+        assertThat(headerPattern).isInstanceOf(NumberPattern::class.java)
+    }
+
     @Test
     fun `should be able to parse primitives inside XML pattern schemas with their constraints intact`() {
         val specFile = File("src/test/resources/openapi/has_xml_payloads/api.yaml")

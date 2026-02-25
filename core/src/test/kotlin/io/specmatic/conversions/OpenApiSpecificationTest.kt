@@ -12336,6 +12336,137 @@ paths:
         assertThat(testCount).isEqualTo(2)
     }
 
+    @Test
+    fun `should use path item parameter examples for path query and header when generating example driven tests`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Path Item Parameter Examples
+              version: 1.0.0
+            paths:
+              /orders/{orderId}:
+                parameters:
+                  - in: path
+                    name: orderId
+                    required: true
+                    schema:
+                      type: integer
+                    examples:
+                      SUCCESS:
+                        value: 42
+                  - in: query
+                    name: includeDetails
+                    required: true
+                    schema:
+                      type: boolean
+                    examples:
+                      SUCCESS:
+                        value: true
+                  - in: header
+                    name: X-Tenant-Id
+                    required: true
+                    schema:
+                      type: string
+                    examples:
+                      SUCCESS:
+                        value: tenant-123
+                get:
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - status
+                            properties:
+                              status:
+                                type: string
+                          examples:
+                            SUCCESS:
+                              value:
+                                status: ok
+        """.trimIndent()
+
+        var seenRequestPath: String? = null
+        var seenQueryValue: String? = null
+        var seenHeaderValue: String? = null
+
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                if (request.path == "/orders/42") {
+                    seenRequestPath = request.path
+                    seenQueryValue = request.queryParams.asMap()["includeDetails"]
+                    seenHeaderValue = request.headers["X-Tenant-Id"]
+                }
+
+                return HttpResponse(200, parsedJSONObject("""{"status":"ok"}"""))
+            }
+        })
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(seenRequestPath).isEqualTo("/orders/42")
+        assertThat(seenQueryValue).isEqualTo("true")
+        assertThat(seenHeaderValue).isEqualTo("tenant-123")
+    }
+
+    @Test
+    fun `should use path item parameter examples when request example exists but response has no body`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Path Item Parameters With No Body Response
+              version: 1.0.0
+            paths:
+              /tasks/{taskId}:
+                parameters:
+                  - in: path
+                    name: taskId
+                    required: true
+                    schema:
+                      type: string
+                    examples:
+                      COMPLETE:
+                        value: task-10
+                  - in: query
+                    name: dryRun
+                    required: true
+                    schema:
+                      type: boolean
+                    examples:
+                      COMPLETE:
+                        value: false
+                  - in: header
+                    name: X-Mode
+                    required: true
+                    schema:
+                      type: string
+                    examples:
+                      COMPLETE:
+                        value: batch
+                delete:
+                  responses:
+                    '204':
+                      description: Deleted
+        """.trimIndent()
+
+        var matchedExampleRequest = false
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                if (request.method == "DELETE" && request.path == "/tasks/task-10" && request.queryParams.asMap()["dryRun"] == "false" && request.headers["X-Mode"] == "batch") {
+                    matchedExampleRequest = true
+                }
+                return HttpResponse(204)
+            }
+        })
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(matchedExampleRequest).isTrue()
+    }
+
     private fun duplicateExampleNameAcrossOperationsSpec(): String {
         return """
             openapi: 3.0.0
