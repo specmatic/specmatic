@@ -880,11 +880,53 @@ Feature: Math API
             )
         }
 
-        assertThat(stubResults).isEmpty()
+        assertThat(stubResults).hasSize(1)
+        assertThat(stubResults.single()).isInstanceOf(FeatureStubsResult.Failure::class.java)
         assertThat(output)
             .contains("Expected dictionary file at")
             .contains(dictionaryFile.canonicalPath)
             .contains("does not exist")
+    }
+
+    @Test
+    fun `loadContractStubsFromFilesAsResults should return failure when spec loading fails due to invalid dictionary path in config`(@TempDir tempDir: File) {
+        val specFile = tempDir.resolve("api.yaml")
+        val dictionaryFile = tempDir.resolve("dictionary.yaml")
+        val configFile = tempDir.resolve("specmatic-v2.yaml")
+
+        specFile.writeText(minimalOpenApiSpec())
+        configFile.writeText(
+            yamlMapper.writeValueAsString(
+                SpecmaticConfigV2(
+                    version = SpecmaticConfigVersion.VERSION_2,
+                    stub = StubConfiguration(dictionary = dictionaryFile.canonicalPath),
+                    contracts = listOf(
+                        ContractConfig(
+                            filesystem = ContractConfig.FileSystemContractSource(tempDir.canonicalPath),
+                            consumes = listOf(SpecExecutionConfig.StringValue(specFile.name))
+                        )
+                    )
+                )
+            )
+        )
+
+        val (output, stubResults) = captureStandardOutput {
+            val paths = contractStubPaths(configFile.canonicalPath)
+            val specmaticConfig = loadSpecmaticConfig(configFile.canonicalPath)
+            loadContractStubsFromFilesAsResults(
+                contractPathDataList = paths,
+                dataDirPaths = emptyList(),
+                specmaticConfig = specmaticConfig,
+                withImplicitStubs = false
+            )
+        }
+
+        assertThat(stubResults).hasSize(1)
+        val failure = stubResults.single()
+        assertThat(failure).isInstanceOf(FeatureStubsResult.Failure::class.java); failure as FeatureStubsResult.Failure
+        assertThat(File(failure.stubFile).canonicalPath).isEqualTo(specFile.canonicalPath)
+        assertThat(failure.errorMessage).contains("Expected dictionary file at").contains(dictionaryFile.canonicalPath).contains("does not exist")
+        assertThat(output).contains("Expected dictionary file at").contains(dictionaryFile.canonicalPath)
     }
 
     @Test
@@ -931,7 +973,8 @@ Feature: Math API
             )
         }
 
-        assertThat(stubResults).isEmpty()
+        assertThat(stubResults).hasSize(1)
+        assertThat(stubResults.single()).isInstanceOf(FeatureStubsResult.Failure::class.java)
         assertThat(output)
             .contains("Expected dictionary file at")
             .contains(dictionaryFile.canonicalPath)
@@ -982,7 +1025,8 @@ Feature: Math API
             )
         }
 
-        assertThat(stubResults).isEmpty()
+        assertThat(stubResults).hasSize(1)
+        assertThat(stubResults.single()).isInstanceOf(FeatureStubsResult.Failure::class.java)
         assertThat(output)
             .contains("Expected dictionary file at")
             .contains(dictionaryFile.canonicalPath)

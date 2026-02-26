@@ -291,11 +291,14 @@ fun loadContractStubsFromImplicitPathsAsResults(
                         logger.newLine()
                         consoleLog(StringLog("Loading the spec file: $specFile${System.lineSeparator()}"))
                     }
-                    val feature =
-                        cachedFeature ?: loadIfSupportedAPISpecification(
-                            contractSource,
-                            specmaticConfig,
-                        )?.second ?: return emptyList()
+
+                    val feature = try {
+                        cachedFeature ?: loadIfSupportedAPISpecification(contractSource, specmaticConfig)?.second ?: return@flatMap emptyList()
+                    } catch (e: Throwable) {
+                        logger.log("Could not load ${specFile.canonicalPath}")
+                        logger.log(e)
+                        return@flatMap listOf(FeatureStubsResult.Failure(stubFile = specFile.path, errorMessage = exceptionCauseMessage(e)))
+                    }
 
                     try {
                         val implicitDataDirs = implicitDirsForSpecifications(specFile, specmaticConfig)
@@ -432,6 +435,7 @@ private fun logIgnoredFiles(implicitDataDir: File) {
     }
 }
 
+private data class SpecLoadResult(val feature: Pair<String, Feature>?, val failure: FeatureStubsResult.Failure? = null)
 fun loadContractStubsFromFilesAsResults(
     contractPathDataList: List<ContractPathData>,
     dataDirPaths: List<String>,
@@ -445,14 +449,21 @@ fun loadContractStubsFromFilesAsResults(
     consoleLog(StringLog("Loading the following spec files:${System.lineSeparator()}$contactPathsString${System.lineSeparator()}"))
 
     throwExceptionIfInvalidContractPathWhileInStrictMode(contractPathDataList, strictMode)
+    val specLoadResults = contractPathDataList.map { contractPathData ->
+        try {
+            SpecLoadResult(feature = loadIfSupportedAPISpecification(contractPathData, specmaticConfig))
+        } catch (e: Throwable) {
+            logger.log("Could not load ${contractPathData.path}")
+            logger.log(e)
+            SpecLoadResult(feature = null, failure = FeatureStubsResult.Failure(stubFile = contractPathData.path, errorMessage = exceptionCauseMessage(e)))
+        }
+    }
 
-    val features =
-        contractPathDataList
-            .mapNotNull { contractPathData ->
-                loadIfSupportedAPISpecification(contractPathData, specmaticConfig)
-            }.overrideInlineExamplesWithSameNameFrom(dataDirFiles(dataDirPaths))
-
+    val specLoadFailures = specLoadResults.mapNotNull { it.failure }
+    val failedSpecPaths = specLoadFailures.map { it.stubFile }.toSet()
+    val features = specLoadResults.mapNotNull { it.feature }.overrideInlineExamplesWithSameNameFrom(dataDirFiles(dataDirPaths))
     val exampleDirPathsFromFeatures = features.flatMap { it.second.exampleDirPaths }
+
     dataDirPaths.plus(exampleDirPathsFromFeatures).distinct().forEach { dataDirPath ->
         val dataFiles = dataDirFiles(listOf(dataDirPath))
         logger.boundary()
@@ -479,7 +490,7 @@ fun loadContractStubsFromFilesAsResults(
                 strictMode,
             )
         }
-    if (withImplicitStubs.not()) return explicitStubs
+    if (withImplicitStubs.not()) return specLoadFailures.plus(explicitStubs)
 
     val implicitStubs =
         loadContractStubsFromImplicitPathsAsResults(
@@ -487,13 +498,13 @@ fun loadContractStubsFromFilesAsResults(
             specmaticConfig = specmaticConfig,
             externalDataDirPaths = dataDirPaths,
             cachedFeatures = features.map { it.second },
-            processedInvalidSpecs = contractPathDataList.excludeUnsupportedSpecifications().map { it.path },
+            processedInvalidSpecs = contractPathDataList.excludeUnsupportedSpecifications().map { it.path } + failedSpecPaths,
         )
 
     val explicitStubsWithImplicitOverrides =
         explicitStubsWithOverriddenImplicitExamplesInFeatures(implicitStubs, explicitStubs)
 
-    return explicitStubsWithImplicitOverrides.plus(implicitStubs)
+    return specLoadFailures.plus(explicitStubsWithImplicitOverrides).plus(implicitStubs)
 }
 
 private fun explicitStubsWithOverriddenImplicitExamplesInFeatures(
@@ -1107,27 +1118,22 @@ fun loadIfSupportedAPISpecification(
 
     val specFile = File(contractPathData.path)
     val stubDictionary = specmaticConfig.getStubDictionary(specFile = specFile)
-    return try {
-        Pair(
+    return Pair(
+        contractPathData.path,
+        parseContractFileToFeature(
             contractPathData.path,
-            parseContractFileToFeature(
-                contractPathData.path,
-                CommandHook(HookName.stub_load_contract, specFile),
-                contractPathData.provider,
-                contractPathData.repository,
-                contractPathData.branch,
-                contractPathData.specificationPath,
-                overlayContent = overlayContent,
-                specmaticConfig = specmaticConfig,
-                strictMode = specmaticConfig.getStubStrictMode(null) ?: false,
-                lenientMode = contractPathData.lenientMode ?: specmaticConfig.getStubLenientMode(specFile) ?: false,
-                exampleDirPaths = contractPathData.exampleDirPaths.orEmpty()
-            ).copy(specmaticConfig = specmaticConfig).useDictionary(stubDictionary),
-        )
-    } catch (e: Throwable) {
-        logger.log(exceptionCauseMessage(e))
-        null
-    }
+            CommandHook(HookName.stub_load_contract, specFile),
+            contractPathData.provider,
+            contractPathData.repository,
+            contractPathData.branch,
+            contractPathData.specificationPath,
+            overlayContent = overlayContent,
+            specmaticConfig = specmaticConfig,
+            strictMode = specmaticConfig.getStubStrictMode(null) ?: false,
+            lenientMode = contractPathData.lenientMode ?: specmaticConfig.getStubLenientMode(specFile) ?: false,
+            exampleDirPaths = contractPathData.exampleDirPaths.orEmpty()
+        ).copy(specmaticConfig = specmaticConfig).useDictionary(stubDictionary),
+    )
 }
 
 private fun List<ContractPathData>.excludeUnsupportedSpecifications(): List<ContractPathData> {
