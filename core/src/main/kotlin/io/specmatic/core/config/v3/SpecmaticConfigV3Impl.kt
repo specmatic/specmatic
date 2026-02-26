@@ -455,6 +455,12 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
         return this.copy(specmaticConfig = specmaticConfig.copy(systemUnderTest = updatedSut))
     }
 
+    override fun disableResiliencyTests(): SpecmaticConfig {
+        val systemUnderTest = specmaticConfig.systemUnderTest ?: emptyTestServiceConfig()
+        val updatedSut = systemUnderTest.copyResiliencyTestsConfig(resolver, ResiliencyTestSuite.none)
+        return this.copy(specmaticConfig = specmaticConfig.copy(systemUnderTest = updatedSut))
+    }
+
     override fun getStubIncludeMandatoryAndRequestedKeysInResponse(): Boolean {
         return false
     }

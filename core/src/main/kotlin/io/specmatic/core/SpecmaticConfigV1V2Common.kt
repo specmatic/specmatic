@@ -918,6 +918,12 @@ data class SpecmaticConfigV1V2Common(
         )
     }
 
+    override fun disableResiliencyTests(): SpecmaticConfig {
+        val testConfig = test ?: TestConfiguration()
+        val resiliencyTestsConfig = ResiliencyTestsConfig(enable = ResiliencyTestSuite.none)
+        return this.copy(test = testConfig.copy(resiliencyTests = resiliencyTestsConfig))
+    }
+
     @JsonIgnore
     override fun getStubIncludeMandatoryAndRequestedKeysInResponse(): Boolean {
         return getStubConfiguration(this).getIncludeMandatoryAndRequestedKeysInResponse() ?: true

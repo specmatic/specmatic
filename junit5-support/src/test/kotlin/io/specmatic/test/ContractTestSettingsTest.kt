@@ -1,7 +1,6 @@
 package io.specmatic.test
 
 import io.specmatic.core.ResiliencyTestSuite
-import io.specmatic.core.ResiliencyTestsConfig
 import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.TestConfiguration
 import io.specmatic.core.config.SpecmaticConfigVersion
@@ -86,10 +85,10 @@ class ContractTestSettingsTest {
     }
 
     @Test
-    fun `getSpecmaticConfig should override resiliency config to positiveOnly when generative is false`(@TempDir tempDir: File) {
+    fun `getSpecmaticConfig should override resiliency config to none when generative is false`(@TempDir tempDir: File) {
         val configFile = writeSpecmaticConfig(tempDir, resiliency = ResiliencyTestSuite.all)
         val settings = ContractTestSettings(configFile = configFile.absolutePath, generative = false)
-        assertThat(settings.getSpecmaticConfig().getResiliencyTestsEnabled()).isEqualTo(ResiliencyTestSuite.positiveOnly)
+        assertThat(settings.getSpecmaticConfig().getResiliencyTestsEnabled()).isEqualTo(ResiliencyTestSuite.none)
     }
 
     @Test

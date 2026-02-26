@@ -228,6 +228,8 @@ interface SpecmaticConfig {
     @JsonIgnore
     fun enableResiliencyTests(onlyPositive: Boolean): SpecmaticConfig
 
+    fun disableResiliencyTests(): SpecmaticConfig
+
     @JsonIgnore
     fun getStubIncludeMandatoryAndRequestedKeysInResponse(): Boolean
 
