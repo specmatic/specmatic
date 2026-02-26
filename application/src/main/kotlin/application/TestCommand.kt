@@ -27,7 +27,9 @@ import org.w3c.dom.NodeList
 import org.xml.sax.InputSource
 import picocli.CommandLine
 import picocli.CommandLine.Command
+import picocli.CommandLine.Model.CommandSpec
 import picocli.CommandLine.Option
+import picocli.CommandLine.Spec
 import java.io.File
 import java.io.PrintWriter
 import java.io.StringReader
@@ -129,6 +131,9 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     @Option(names = ["--lenient"], description = ["Parse the OpenAPI Specification with leniency"], required = false, hidden = true)
     var lenientMode: Boolean = false
 
+    @Spec
+    lateinit var commandSpec: CommandSpec
+
     private val specmaticConfig: SpecmaticConfig by lazy(LazyThreadSafetyMode.NONE) {
         configFileName?.let { Configuration.configFilePath = it }
         val resolvedConfigPath = configFileName ?: Configuration.configFilePath
@@ -225,6 +230,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             inlineSuggestions = suggestions.takeIf(::isNotNullOrBlank),
             suggestionsPath = suggestionsPath.takeIf(::isNotNullOrBlank),
             variablesFileName = variablesFileName.takeIf(::isNotNullOrBlank),
+            isHostOrPortExplicitlySpecified = commandSpecHasParsedOption("--host") || commandSpecHasParsedOption("--port"),
         )
 
         val settings = ContractTestSettings(
@@ -240,6 +246,10 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         )
 
         SpecmaticJUnitSupport.settingsStaging.set(settings)
+    }
+
+    private fun commandSpecHasParsedOption(option: String): Boolean {
+        return commandSpec.commandLine().parseResult?.hasMatchedOption(option) == true
     }
 
     private fun resolvedJunitReportDir(): String? {

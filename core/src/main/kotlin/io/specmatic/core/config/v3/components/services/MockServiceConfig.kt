@@ -12,6 +12,7 @@ import io.specmatic.core.config.v3.components.ExampleDirectories
 import io.specmatic.core.config.v3.components.runOptions.ConfigWithCert
 import io.specmatic.core.config.v3.components.runOptions.IRunOptions
 import io.specmatic.core.config.v3.components.runOptions.MockRunOptions
+import io.specmatic.core.config.v3.components.runOptions.OpenApiMockConfig
 import io.specmatic.core.config.v3.components.settings.MockSettings
 import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.config.v3.determineSpecTypeFor
@@ -154,7 +155,7 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
             services = services.map { value ->
                 val service = value.service.resolveElseThrow(resolver)
                 val runOpts = service.runOptions?.resolveElseThrow(resolver) ?: MockRunOptions()
-                val openApiRunOpts = runOpts.openapi ?: return@map value
+                val openApiRunOpts = runOpts.openapi ?: OpenApiMockConfig()
                 val updatedOpenApiRunOpts = openApiRunOpts.copy(filter = filter)
                 val updatedRunOpts = runOpts.copy(openapi = updatedOpenApiRunOpts)
                 value.copy(service = RefOrValue.Value(service.copy(runOptions = RefOrValue.Value(updatedRunOpts))))

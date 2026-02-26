@@ -167,8 +167,17 @@ internal class TestCommandTest {
         assertThat(testCaseNode.attributes.getNamedItem("name").nodeValue).isEqualTo("Scenario: GET /pets/(petid:number) -> 200 — EX:200_OKAY")
     }
 
+    @ParameterizedTest
+    @MethodSource("hostPortExplicitnessCases")
+    fun `sets host or port explicitness flag based on parsed options`(testCase: HostPortExplicitnessCase) {
+        CommandLine(testCommand, factory).execute(*testCase.arguments.toTypedArray())
+        val settings = SpecmaticJUnitSupport.settingsStaging.get() ?: fail("Expected staged settings to be set")
+        assertThat(settings.isHostOrPortExplicitlySpecified).isEqualTo(testCase.expected)
+    }
+
     companion object {
         data class TestCommandCase(val argument: String?, val value: Any?, val extract: (ContractTestSettings) -> Any?, val expected: Any)
+        data class HostPortExplicitnessCase(val arguments: List<String>, val expected: Boolean)
         @JvmStatic
         fun commandLineArguments(): Stream<TestCommandCase> = listOf(
             // -------- positional arguments --------
@@ -213,6 +222,14 @@ internal class TestCommandTest {
             // -------- https / protocol mutations --------
             TestCommandCase(null, null, { it.protocol }, "http"),
             TestCommandCase("--https", true, { it.protocol }, "https"),
+        ).stream()
+
+        @JvmStatic
+        fun hostPortExplicitnessCases(): Stream<HostPortExplicitnessCase> = listOf(
+            HostPortExplicitnessCase(emptyList(), false),
+            HostPortExplicitnessCase(listOf("--host", "127.0.0.1"), true),
+            HostPortExplicitnessCase(listOf("--port", "8080"), true),
+            HostPortExplicitnessCase(listOf("--host", "127.0.0.1", "--port", "8080"), true),
         ).stream()
     }
 

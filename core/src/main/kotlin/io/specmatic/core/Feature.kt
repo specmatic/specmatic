@@ -215,7 +215,7 @@ data class Feature(
                 positivePrefix = POSITIVE_TEST_DESCRIPTION_PREFIX,
                 negativePrefix = NEGATIVE_TEST_DESCRIPTION_PREFIX
             ),
-            specmaticConfig = specmaticConfig.copyResiliencyTestsConfig(onlyPositive)
+            specmaticConfig = specmaticConfig.enableResiliencyTests(onlyPositive)
         )
     }
 

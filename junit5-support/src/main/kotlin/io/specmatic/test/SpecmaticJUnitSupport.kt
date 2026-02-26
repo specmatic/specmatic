@@ -331,9 +331,7 @@ open class SpecmaticJUnitSupport {
                     exitIfAnyDoNotExist("The following specifications do not exist", contractFilePaths.map { it.path })
 
                     // Compute default base URL only if any spec lacks a provides baseUrl
-                    val needsDefaultBase = contractFilePaths.any { it.baseUrl.isNullOrBlank() }
-                    val defaultBaseURL = if (needsDefaultBase) constructTestBaseURL() else ""
-
+                    val defaultBaseURL = constructTestBaseURL()
                     val loadedScenariosWithBaseUrlsByContractPath = contractFilePaths.filter {
                         File(it.path).extension in CONTRACT_EXTENSIONS
                     }.map { contractPathData ->
@@ -428,7 +426,11 @@ open class SpecmaticJUnitSupport {
             return noTestsFoundError(reason)
         }
 
-        val actuatorBaseURL = settings.testBaseURL ?: testBuildResult.baseUrls.firstOrNull() ?: constructTestBaseURL()
+        val actuatorBaseURL = settings.baseUrlFromArgOrSysProp()
+            ?: settings.baseUrlFromConfig()
+            ?: testBuildResult.baseUrls.firstOrNull()
+            ?: constructTestBaseURL()
+
         return try {
             dynamicTestStream(
                 firstNScenarios(testScenariosWithUrls),
@@ -528,36 +530,52 @@ open class SpecmaticJUnitSupport {
     }
 
     fun constructTestBaseURL(): String {
-        val settings = settings
+        return testBaseUrlFromSettings()
+            ?: hostAndPortFromSettings()
+            ?: testBaseUrlFromConfig()
+            ?: "http://localhost:9000"
+    }
 
-        if (settings.testBaseURL != null) {
-            when (val validationResult = validateTestOrStubUri(settings.testBaseURL)) {
-                URIValidationResult.Success -> return settings.testBaseURL
-                else -> throw TestAbortedException("${validationResult.message} in $TEST_BASE_URL environment variable")
-            }
+    private fun testBaseUrlFromSettings(): String? {
+        val baseUrlFromArgOrSysProp = settings.baseUrlFromArgOrSysProp() ?: return null
+        return validateBaseUrlOrAbort(baseUrlFromArgOrSysProp, "$TEST_BASE_URL environment variable")
+    }
+
+    private fun hostAndPortFromSettings(): String? {
+        if (!settings.isHostOrPortExplicitlySpecified) return null
+
+        val hostFromSettings = settings.host
+        val portFromSettings = settings.port
+        if (hostFromSettings.isNullOrBlank() || portFromSettings.isNullOrBlank()) return null
+
+        val host = if (hostFromSettings.startsWith("http")) {
+            URI(hostFromSettings).host
+        } else {
+            hostFromSettings
         }
 
-        // If testBaseURL is not provided, assume http://localhost:9000 by default.
-        if (!settings.host.isNullOrBlank() && !settings.port.isNullOrBlank()) {
-            val host = if (settings.host.startsWith("http")) {
-                URI(settings.host).host
-            } else {
-                settings.host
-            }
-
-            if (!isNumeric(settings.port)) {
-                throw TestAbortedException("Please specify a number value for $PORT environment variable")
-            }
-
-            val protocol = settings.protocol ?: "http"
-            val urlConstructedFromProtocolHostAndPort = "$protocol://$host:${settings.port}"
-            return when (validateTestOrStubUri(urlConstructedFromProtocolHostAndPort)) {
-                URIValidationResult.Success -> urlConstructedFromProtocolHostAndPort
-                else -> throw TestAbortedException("Please specify a valid $PROTOCOL, $HOST and $PORT environment variables")
-            }
+        if (!isNumeric(portFromSettings)) {
+            throw TestAbortedException("Please specify a number value for $PORT environment variable")
         }
 
-        return "http://localhost:9000"
+        val protocol = settings.protocol ?: "http"
+        val urlConstructedFromProtocolHostAndPort = "$protocol://$host:$portFromSettings"
+        return when (validateTestOrStubUri(urlConstructedFromProtocolHostAndPort)) {
+            URIValidationResult.Success -> urlConstructedFromProtocolHostAndPort
+            else -> throw TestAbortedException("Please specify a valid $PROTOCOL, $HOST and $PORT environment variables")
+        }
+    }
+
+    private fun testBaseUrlFromConfig(): String? {
+        val baseUrl = settings.baseUrlFromConfig() ?: return null
+        return validateBaseUrlOrAbort(baseUrl, "config file")
+    }
+
+    private fun validateBaseUrlOrAbort(baseUrl: String, source: String): String {
+        return when (val validationResult = validateTestOrStubUri(baseUrl)) {
+            URIValidationResult.Success -> baseUrl
+            else -> throw TestAbortedException("${validationResult.message} in $source")
+        }
     }
 
     private fun isNumeric(port: String?): Boolean {
@@ -590,8 +608,8 @@ open class SpecmaticJUnitSupport {
         val strictMode = specmaticConfig.getTestStrictMode() ?: false
         val effectiveSpecmaticConfig =
             when (generative) {
-                ResiliencyTestSuite.positiveOnly -> specmaticConfig.copyResiliencyTestsConfig(onlyPositive = true)
-                ResiliencyTestSuite.all -> specmaticConfig.copyResiliencyTestsConfig(onlyPositive = false)
+                ResiliencyTestSuite.positiveOnly -> specmaticConfig.enableResiliencyTests(onlyPositive = true)
+                ResiliencyTestSuite.all -> specmaticConfig.enableResiliencyTests(onlyPositive = false)
                 ResiliencyTestSuite.none, null -> specmaticConfig
             }
 

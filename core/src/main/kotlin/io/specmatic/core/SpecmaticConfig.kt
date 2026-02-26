@@ -226,7 +226,10 @@ interface SpecmaticConfig {
     fun getActuatorUrl(): String?
 
     @JsonIgnore
-    fun copyResiliencyTestsConfig(onlyPositive: Boolean): SpecmaticConfig
+    fun enableResiliencyTests(onlyPositive: Boolean): SpecmaticConfig
+
+    @JsonIgnore
+    fun disableResiliencyTests(): SpecmaticConfig
 
     @JsonIgnore
     fun getStubIncludeMandatoryAndRequestedKeysInResponse(): Boolean
@@ -396,7 +399,8 @@ interface SpecmaticConfig {
     fun updateReportConfiguration(reportConfiguration: ReportConfiguration): SpecmaticConfig
     fun getEnvironment(envName: String): JSONObjectValue
     fun enableResiliencyTests(): SpecmaticConfig
-    fun withTestModes(strictMode: Boolean?, lenientMode: Boolean): SpecmaticConfig
+    fun withTestBaseURL(testBaseURL: String): SpecmaticConfig
+    fun withTestModes(strictMode: Boolean?, lenientMode: Boolean?): SpecmaticConfig
     fun withTestFilter(filter: String? = null): SpecmaticConfig
     fun withTestTimeout(timeoutInMilliseconds: Long? = null): SpecmaticConfig
     fun withStubModes(strictMode: Boolean? = null): SpecmaticConfig
