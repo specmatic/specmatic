@@ -226,7 +226,7 @@ interface SpecmaticConfig {
     fun getActuatorUrl(): String?
 
     @JsonIgnore
-    fun copyResiliencyTestsConfig(onlyPositive: Boolean): SpecmaticConfig
+    fun enableResiliencyTests(onlyPositive: Boolean): SpecmaticConfig
 
     @JsonIgnore
     fun getStubIncludeMandatoryAndRequestedKeysInResponse(): Boolean

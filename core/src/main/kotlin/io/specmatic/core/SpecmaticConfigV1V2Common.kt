@@ -907,7 +907,7 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
-    override fun copyResiliencyTestsConfig(onlyPositive: Boolean): SpecmaticConfigV1V2Common {
+    override fun enableResiliencyTests(onlyPositive: Boolean): SpecmaticConfigV1V2Common {
         val testConfig = test ?: TestConfiguration()
         return this.copy(
             test = testConfig.copy(

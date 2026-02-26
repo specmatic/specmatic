@@ -95,7 +95,7 @@ data class ContractTestSettings(
 
     private fun adjustResilience(specmaticConfig: SpecmaticConfig): SpecmaticConfig {
         if (generative == null) return specmaticConfig
-        return specmaticConfig.copyResiliencyTestsConfig(onlyPositive = !generative)
+        return specmaticConfig.enableResiliencyTests(onlyPositive = !generative)
     }
 
     private fun adjustTestModes(specmaticConfig: SpecmaticConfig): SpecmaticConfig {

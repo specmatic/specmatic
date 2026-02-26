@@ -49,7 +49,7 @@ class SpecmaticConfigV3ImplTest {
     inner class ModificationMethods {
         @Test
         fun `copyResiliencyTestsConfig should create test config when missing`() {
-            val updated = v3Config("version: 3").copyResiliencyTestsConfig(onlyPositive = false)
+            val updated = v3Config("version: 3").enableResiliencyTests(onlyPositive = false)
             assertThat(updated.getResiliencyTestsEnabled()).isEqualTo(ResiliencyTestSuite.all)
         }
 

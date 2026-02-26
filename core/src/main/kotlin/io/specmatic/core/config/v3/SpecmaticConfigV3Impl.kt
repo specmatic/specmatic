@@ -448,7 +448,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
         return specmaticConfig.systemUnderTest?.getOpenApiTestConfig(resolver)?.actuatorUrl ?: getStringValue(TEST_ENDPOINTS_API)
     }
 
-    override fun copyResiliencyTestsConfig(onlyPositive: Boolean): SpecmaticConfig {
+    override fun enableResiliencyTests(onlyPositive: Boolean): SpecmaticConfig {
         val systemUnderTest = specmaticConfig.systemUnderTest ?: emptyTestServiceConfig()
         val resiliencyTestSuite = if (onlyPositive) ResiliencyTestSuite.positiveOnly else ResiliencyTestSuite.all
         val updatedSut = systemUnderTest.copyResiliencyTestsConfig(resolver, resiliencyTestSuite)
@@ -715,7 +715,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
     }
 
     override fun enableResiliencyTests(): SpecmaticConfig {
-        return copyResiliencyTestsConfig(onlyPositive = false)
+        return enableResiliencyTests(onlyPositive = false)
     }
 
     override fun withTestBaseURL(testBaseURL: String): SpecmaticConfig {

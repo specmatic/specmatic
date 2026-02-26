@@ -604,8 +604,8 @@ open class SpecmaticJUnitSupport {
         val strictMode = specmaticConfig.getTestStrictMode() ?: false
         val effectiveSpecmaticConfig =
             when (generative) {
-                ResiliencyTestSuite.positiveOnly -> specmaticConfig.copyResiliencyTestsConfig(onlyPositive = true)
-                ResiliencyTestSuite.all -> specmaticConfig.copyResiliencyTestsConfig(onlyPositive = false)
+                ResiliencyTestSuite.positiveOnly -> specmaticConfig.enableResiliencyTests(onlyPositive = true)
+                ResiliencyTestSuite.all -> specmaticConfig.enableResiliencyTests(onlyPositive = false)
                 ResiliencyTestSuite.none, null -> specmaticConfig
             }
 
