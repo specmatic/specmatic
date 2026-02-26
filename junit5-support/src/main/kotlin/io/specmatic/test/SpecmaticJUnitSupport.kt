@@ -331,9 +331,7 @@ open class SpecmaticJUnitSupport {
                     exitIfAnyDoNotExist("The following specifications do not exist", contractFilePaths.map { it.path })
 
                     // Compute default base URL only if any spec lacks a provides baseUrl
-                    val needsDefaultBase = contractFilePaths.any { it.baseUrl.isNullOrBlank() }
-                    val defaultBaseURL = if (needsDefaultBase) constructTestBaseURL() else ""
-
+                    val defaultBaseURL = constructTestBaseURL()
                     val loadedScenariosWithBaseUrlsByContractPath = contractFilePaths.filter {
                         File(it.path).extension in CONTRACT_EXTENSIONS
                     }.map { contractPathData ->
@@ -532,39 +530,45 @@ open class SpecmaticJUnitSupport {
     }
 
     fun constructTestBaseURL(): String {
-        val settings = settings
-        val baseUrlFromArgOrSysProp = settings.baseUrlFromArgOrSysProp()
-        if (baseUrlFromArgOrSysProp != null) {
-            return validateBaseUrlOrAbort(baseUrlFromArgOrSysProp, "$TEST_BASE_URL environment variable")
+        return testBaseUrlFromSettings()
+            ?: hostAndPortFromSettings()
+            ?: testBaseUrlFromConfig()
+            ?: "http://localhost:9000"
+    }
+
+    private fun testBaseUrlFromSettings(): String? {
+        val baseUrlFromArgOrSysProp = settings.baseUrlFromArgOrSysProp() ?: return null
+        return validateBaseUrlOrAbort(baseUrlFromArgOrSysProp, "$TEST_BASE_URL environment variable")
+    }
+
+    private fun hostAndPortFromSettings(): String? {
+        if (!settings.isHostOrPortExplicitlySpecified) return null
+
+        val hostFromSettings = settings.host
+        val portFromSettings = settings.port
+        if (hostFromSettings.isNullOrBlank() || portFromSettings.isNullOrBlank()) return null
+
+        val host = if (hostFromSettings.startsWith("http")) {
+            URI(hostFromSettings).host
+        } else {
+            hostFromSettings
         }
 
-        val baseUrlFromConfig = settings.baseUrlFromConfig()
-        if (!settings.isHostOrPortExplicitlySpecified && baseUrlFromConfig != null) {
-            return validateBaseUrlOrAbort(baseUrlFromConfig, "config file")
+        if (!isNumeric(portFromSettings)) {
+            throw TestAbortedException("Please specify a number value for $PORT environment variable")
         }
 
-        // If testBaseURL is not provided, assume http://localhost:9000 by default.
-        if (!settings.host.isNullOrBlank() && !settings.port.isNullOrBlank()) {
-            val host = if (settings.host.startsWith("http")) {
-                URI(settings.host).host
-            } else {
-                settings.host
-            }
-
-            if (!isNumeric(settings.port)) {
-                throw TestAbortedException("Please specify a number value for $PORT environment variable")
-            }
-
-            val protocol = settings.protocol ?: "http"
-            val urlConstructedFromProtocolHostAndPort = "$protocol://$host:${settings.port}"
-            return when (validateTestOrStubUri(urlConstructedFromProtocolHostAndPort)) {
-                URIValidationResult.Success -> urlConstructedFromProtocolHostAndPort
-                else -> throw TestAbortedException("Please specify a valid $PROTOCOL, $HOST and $PORT environment variables")
-            }
+        val protocol = settings.protocol ?: "http"
+        val urlConstructedFromProtocolHostAndPort = "$protocol://$host:$portFromSettings"
+        return when (validateTestOrStubUri(urlConstructedFromProtocolHostAndPort)) {
+            URIValidationResult.Success -> urlConstructedFromProtocolHostAndPort
+            else -> throw TestAbortedException("Please specify a valid $PROTOCOL, $HOST and $PORT environment variables")
         }
+    }
 
-        return if (baseUrlFromConfig != null) validateBaseUrlOrAbort(baseUrlFromConfig, "config file")
-        else "http://localhost:9000"
+    private fun testBaseUrlFromConfig(): String? {
+        val baseUrl = settings.baseUrlFromConfig() ?: return null
+        return validateBaseUrlOrAbort(baseUrl, "config file")
     }
 
     private fun validateBaseUrlOrAbort(baseUrl: String, source: String): String {

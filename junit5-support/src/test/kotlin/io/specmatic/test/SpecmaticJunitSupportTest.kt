@@ -248,7 +248,8 @@ class SpecmaticJunitSupportTest {
                 otherArguments = DeprecatedArguments(
                     host = "invalid domain",
                     port = "8080",
-                    protocol = "https"
+                    protocol = "https",
+                    isHostOrPortExplicitlySpecified = true
                 )
             )
         )
@@ -265,7 +266,8 @@ class SpecmaticJunitSupportTest {
                 otherArguments = DeprecatedArguments(
                     host = "test.com",
                     port = "8080",
-                    protocol = "invalid"
+                    protocol = "invalid",
+                    isHostOrPortExplicitlySpecified = true
                 )
             )
         )
@@ -282,7 +284,8 @@ class SpecmaticJunitSupportTest {
                 otherArguments = DeprecatedArguments(
                     host = "test.com",
                     port = "invalid_port",
-                    protocol = "https"
+                    protocol = "https",
+                    isHostOrPortExplicitlySpecified = true
                 )
             )
         )
