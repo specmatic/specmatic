@@ -1220,10 +1220,10 @@ data class Feature(
         }
     }
 
-    fun identifierMatchingScenario(httpRequest: HttpRequest): Scenario? {
-        return scenarios.asSequence().filter {
-            it.httpRequestPattern.matchesPathStructureMethodAndContentType(httpRequest, it.resolver).isSuccess()
-        }.firstOrNull()
+    fun identifierMatchingScenario(httpRequest: HttpRequest, furtherPredicate: (Scenario) -> Boolean = { true }): Scenario? {
+        return scenarios.firstOrNull { scenario ->
+            scenario.httpRequestPattern.matchesPathStructureMethodAndContentType(httpRequest, scenario.resolver).isSuccess() && furtherPredicate(scenario)
+        }
     }
 
     private fun getScenarioWithDescription(scenarioResult: ReturnValue<Scenario>): ReturnValue<Scenario> {

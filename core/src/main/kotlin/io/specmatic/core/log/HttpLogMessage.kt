@@ -173,19 +173,23 @@ data class HttpLogMessage(
     }
 
     fun toResult(): TestResult {
+        val scenario = this.scenario ?: return TestResult.MissingInSpec
+        val result = this.result
         return when {
+            result != null -> result.testResult()
             this.matchedAnExample -> TestResult.Success
-            this.scenario != null && response?.status !in invalidRequestStatuses -> TestResult.Success
-            scenario == null -> TestResult.MissingInSpec
+            response?.status == scenario.status -> TestResult.Success
             else -> TestResult.Failed
         }
     }
 
     fun toDetails(): String {
+        val scenario = this.scenario
+
         return when {
             this.isInlineExample -> "Request Matched Inline Example: ${this.resolvedExampleName}"
             this.isExternalExample -> "Request Matched External Example: ${this.resolvedExampleName}"
-            this.scenario != null && response?.status !in invalidRequestStatuses -> "Request Matched Contract ${scenario?.defaultAPIDescription}"
+            scenario != null && response?.status == scenario.status -> "Request Matched Contract ${scenario.defaultAPIDescription}"
             this.exception != null -> "Invalid Request\n${exception?.let(::exceptionCauseMessage)}"
             else -> response?.body?.toStringLiteral() ?: "Request Didn't Match Contract"
         }

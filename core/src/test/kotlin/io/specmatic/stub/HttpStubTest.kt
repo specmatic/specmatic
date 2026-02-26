@@ -2071,9 +2071,11 @@ paths:
 
             val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
 
+            val config = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = true))
             HttpStub(
                 listOf(feature),
                 strictMode = true,
+                specmaticConfigSource = SpecmaticConfigSource.fromConfig(config)
             ).use { stub ->
                 val request =
                     HttpRequest(
