@@ -184,10 +184,12 @@ data class HttpLogMessage(
     }
 
     fun toDetails(): String {
+        val scenario = this.scenario
+
         return when {
             this.isInlineExample -> "Request Matched Inline Example: ${this.resolvedExampleName}"
             this.isExternalExample -> "Request Matched External Example: ${this.resolvedExampleName}"
-            this.scenario != null && response?.status == this.scenario!!.status -> "Request Matched Contract ${scenario?.defaultAPIDescription}"
+            scenario != null && response?.status == scenario.status -> "Request Matched Contract ${scenario.defaultAPIDescription}"
             this.exception != null -> "Invalid Request\n${exception?.let(::exceptionCauseMessage)}"
             else -> response?.body?.toStringLiteral() ?: "Request Didn't Match Contract"
         }
