@@ -641,7 +641,7 @@ Feature: Test
     }
 
     @Test
-    fun `fake response should honor response schema constraints when error report does not match`() {
+    fun `generative error response should honor response schema constraints when error report does not match`() {
         val feature = OpenApiSpecification.fromYAML(
             """
             openapi: 3.0.3
@@ -690,8 +690,8 @@ Feature: Test
             SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = true))
         )
 
-        assertThat(result).isInstanceOf(FoundStubbedResponse::class.java)
-        val stubbedResponse = (result as FoundStubbedResponse).response
+        assertThat(result).isInstanceOf(NotStubbed::class.java)
+        val stubbedResponse = (result as NotStubbed).response
         val response = stubbedResponse.response
         assertThat(response.status).isEqualTo(400)
         assertThat(stubbedResponse.contractPath).isEqualTo(feature.path)

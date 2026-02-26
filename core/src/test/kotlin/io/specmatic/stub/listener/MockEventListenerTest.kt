@@ -157,12 +157,12 @@ class MockEventListenerTest {
         val event = events.single()
         assertThat(event.response?.status).isEqualTo(400)
         assertThat(event.scenario?.status).isEqualTo(400)
-        assertThat(event.stubResult).isEqualTo(TestResult.Success)
-        assertThat(event.result).isEqualTo(Result.Success())
+        assertThat(event.stubResult).isEqualTo(TestResult.Failed)
+        assertThat(event.result).isInstanceOf(Result.Failure::class.java)
     }
 
     @Test
-    fun `should report failure to listener for same invalid request when generative stub is disabled`() {
+    fun `should report failure to listener for invalid request when generative stub is disabled`() {
         val feature = featureWithGenerative4xxResponse
         val config = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = false))
         val events = captureMockEvents { listener ->

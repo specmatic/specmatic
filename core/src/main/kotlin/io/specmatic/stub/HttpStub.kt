@@ -1439,11 +1439,29 @@ fun fakeHttpResponse(
                 val feature = firstScenarioWith400Response.first
                 val scenario = firstScenarioWith400Response.second as Scenario
                 val errorResponse = scenario.responseWithStubError(combinedFailureResult.report())
-                FoundStubbedResponse(HttpStubResponse(errorResponse, contractPath = feature.path, scenario = scenario, feature = feature))
+                NotStubbed(
+                    HttpStubResponse(errorResponse, contractPath = feature.path, scenario = scenario, feature = feature),
+                    combinedFailureResult.toResultIfAnyWithCauses(),
+                )
             } else {
                 val httpFailureResponse = combinedFailureResult.generateErrorHttpResponse(httpRequest)
-                val nearestScenario = features.firstNotNullOfOrNull { it.identifierMatchingScenario(httpRequest) }
-                NotStubbed(HttpStubResponse(httpFailureResponse, scenario = nearestScenario), stubResult = combinedFailureResult.toResultIfAnyWithCauses())
+
+                val (nearestMatchingFeature, nearestMatchingScenario) =
+                    features.firstNotNullOfOrNull { feature ->
+                        feature.identifierMatchingScenario(httpRequest)?.let { scenario ->
+                            feature to scenario
+                        }
+                    } ?: Pair (null, null)
+
+                NotStubbed(
+                    response = HttpStubResponse(
+                        response = httpFailureResponse,
+                        scenario = nearestMatchingScenario,
+                        contractPath = nearestMatchingFeature?.path.orEmpty(),
+                        feature = nearestMatchingFeature
+                    ),
+                    stubResult = combinedFailureResult.toResultIfAnyWithCauses(),
+                )
             }
         }
 
