@@ -1,11 +1,19 @@
-import io.specmatic.core.filters.HTTPFilterKeys
-import io.specmatic.core.filters.caseInsensitiveContains
-import io.specmatic.core.filters.caseSensitiveContains
+package io.specmatic.core.filters
+
+import io.specmatic.core.HttpPathPattern
+import io.specmatic.core.HttpRequestPattern
+import io.specmatic.core.HttpResponsePattern
+import io.specmatic.core.Scenario
+import io.specmatic.core.ScenarioInfo
+import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.SpecType
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.MethodSource
 
 class HTTPFilterKeysTest {
 
@@ -66,6 +74,12 @@ class HTTPFilterKeysTest {
         assertThatThrownBy { HTTPFilterKeys.fromKey("INVALID_KEY") }
             .isInstanceOf(IllegalArgumentException::class.java)
             .hasMessage("Invalid filter key: INVALID_KEY")
+    }
+
+    @ParameterizedTest(name = "scenario path \"{0}\" with filter \"{1}\" should be {2}")
+    @MethodSource("pathFilterCases")
+    fun `PATH includes handles trailing slash and path parameter edge cases`(scenario: Scenario, filterValue: String, expected: Boolean) {
+        assertThat(HTTPFilterKeys.PATH.includes(scenario, "PATH", filterValue)).isEqualTo(expected)
     }
 
     @Test
@@ -255,4 +269,31 @@ class HTTPFilterKeysTest {
         assertThat(items.caseSensitiveContains("")).isTrue()
     }
 
+    companion object {
+        @JvmStatic
+        fun pathFilterCases() = listOf(
+            Arguments.of(scenarioForPath("/order/(id:string)/"), "/order/{id}/", true),
+            Arguments.of(scenarioForPath("/order/(id:string)"), "/order/{id}", true),
+            Arguments.of(scenarioForPath("/order/(id:string)/"), "/order/*/", true),
+            Arguments.of(scenarioForPath("/order/(id:string)/"), "/order/*", true),
+            Arguments.of(scenarioForPath("/order/(id:string)/events"), "/order/*", true),
+            Arguments.of(scenarioForPath("/order/(id:string)/"), "/order/{id}", false),
+            Arguments.of(scenarioForPath("/order/(id:string)"), "/order/{id}/", false),
+            Arguments.of(scenarioForPath("/order/(id:string)/"), "/ORDER/{id}/", false),
+            Arguments.of(scenarioForPath("/order/(id:string)/"), "/order/{orderId}/", false),
+            Arguments.of(scenarioForPath("/order/(id:string)/events"), "/order/{id}", false),
+        )
+
+        private fun scenarioForPath(path: String): Scenario {
+            return Scenario(
+                ScenarioInfo(
+                    scenarioName = "GET $path",
+                    httpRequestPattern = HttpRequestPattern(method = "GET", httpPathPattern = HttpPathPattern.from(path)),
+                    httpResponsePattern = HttpResponsePattern(status = 200),
+                    protocol = SpecmaticProtocol.HTTP,
+                    specType = SpecType.OPENAPI
+                )
+            )
+        }
+    }
 }

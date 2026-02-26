@@ -15,12 +15,6 @@ data class HttpPathPattern(
     val path: String,
     val otherPathPatterns: Collection<HttpPathPattern> = emptyList(),
 ) {
-    fun toRawPath(): String {
-        return pathSegmentPatterns.joinToString("/", prefix = "/") { segment ->
-            segment.key?.let { "{$it}" } ?: segment.pattern.toString()
-        }
-    }
-
     private fun calculateSpecificity(): Int = pathSegmentPatterns.count { it.pattern is ExactValuePattern }
 
     fun encompasses(otherHttpPathPattern: HttpPathPattern, thisResolver: Resolver, otherResolver: Resolver): Result {

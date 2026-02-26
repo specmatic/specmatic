@@ -1,5 +1,6 @@
 package io.specmatic.core.filters
 
+import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.Scenario
 import io.specmatic.mock.ScenarioStub
 import java.util.regex.Pattern
@@ -8,7 +9,8 @@ import javax.activation.MimeType
 enum class HTTPFilterKeys(val key: String, val isPrefix: Boolean) {
     PATH("PATH", false) {
         override fun includes(scenario: Scenario, key: String, value: String): Boolean {
-            return value == scenario.rawPath || matchesPath(scenario.rawPath, value)
+            val scenarioPath = convertPathParameterStyle(scenario.path)
+            return value == scenarioPath || matchesPath(scenarioPath, value)
         }
         override fun includes(stub: ScenarioStub, key: String, value: String): Boolean {
             return value == stub.request.path || matchesPath(stub.request.path ?: "", value)
