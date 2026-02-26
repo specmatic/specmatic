@@ -67,8 +67,7 @@ class OpenApiSpecificationParseTest {
         """.trimIndent()
 
         val requestPattern = OpenApiSpecification.fromYAML(spec, "").toFeature().scenarios.single().httpRequestPattern
-        assertThat(requestPattern.httpPathPattern?.toRawPath()).isEqualTo("/orders/{orderId}")
-        assertThat(requestPattern.httpPathPattern?.path).contains("(orderId:string)")
+        assertThat(requestPattern.httpPathPattern?.path).isEqualTo("/orders/(orderId:string)")
 
         val queryPatterns = requestPattern.httpQueryParamPattern.queryPatterns
         assertThat(queryPatterns.keys).contains("includeDetails", "page")

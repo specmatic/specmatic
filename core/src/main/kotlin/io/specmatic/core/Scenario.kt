@@ -121,11 +121,6 @@ data class Scenario(
             return httpRequestPattern.httpPathPattern?.path ?: ""
         }
 
-    val rawPath: String
-        get() {
-            return httpRequestPattern.httpPathPattern?.toRawPath() ?: ""
-        }
-
     override val status: Int
         get() {
             return if(isNegative) 400 else httpResponsePattern.status
