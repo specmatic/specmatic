@@ -228,6 +228,7 @@ interface SpecmaticConfig {
     @JsonIgnore
     fun enableResiliencyTests(onlyPositive: Boolean): SpecmaticConfig
 
+    @JsonIgnore
     fun disableResiliencyTests(): SpecmaticConfig
 
     @JsonIgnore
