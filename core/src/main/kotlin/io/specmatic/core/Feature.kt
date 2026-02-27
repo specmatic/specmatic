@@ -339,46 +339,36 @@ data class Feature(
         httpRequest: HttpRequest,
         mismatchMessages: MismatchMessages = DefaultMismatchMessages
     ): Pair<ResponseBuilder?, Results> {
+        val failures = mutableListOf<Result>()
         try {
-            val resultList = matchingScenarioToResultList(
-                httpRequest = httpRequest,
-                serverState = serverState,
-                mismatchMessages = mismatchMessages,
-                unexpectedKeyCheck = flagsBased.unexpectedKeyCheck ?: ValidateUnexpectedKeys
-            ).let { resultList ->
-                applyStubFallbackRequestFilters(httpRequest, resultList)
+            val filteredAndSortedScenarios = getMatchingAndSortedScenarios(httpRequest)
+            for (scenario in filteredAndSortedScenarios) {
+                val result = scenario.matchesStub(
+                    httpRequest = httpRequest,
+                    serverState = serverState,
+                    mismatchMessages = mismatchMessages,
+                    unexpectedKeyCheck = flagsBased.unexpectedKeyCheck ?: ValidateUnexpectedKeys
+                )
+
+                if (result.isSuccess()) return Pair(ResponseBuilder(scenario, serverState), Results())
+                failures.add(result)
             }
 
-            return matchingScenario(resultList)?.let {
-                Pair(ResponseBuilder(it, serverState), Results())
-            }
-                ?: Pair(
-                    null,
-                    Results(resultList.map {
-                        it.second
-                    }.toList())
-                        .withoutFluff()
-                )
+            return Pair(null, Results(failures).withoutFluff())
         } finally {
             serverState = emptyMap()
         }
     }
 
-    private fun applyStubFallbackRequestFilters(
-        httpRequest: HttpRequest,
-        resultList: Sequence<Pair<Scenario, Result>>
-    ): Sequence<Pair<Scenario, Result>> {
-        val byExpectedStatus = filterByExpectedResponseStatus(httpRequest.expectedResponseCode(), resultList)
-        return applyAcceptHeaderSort(httpRequest, byExpectedStatus)
+    private fun getMatchingAndSortedScenarios(httpRequest: HttpRequest): List<Scenario> {
+        val statusFilteredScenarios = filterByExpectedResponseStatus(httpRequest.expectedResponseCode(), scenarios)
+        val pathAndMethodMatchedScenarios = statusFilteredScenarios.filter { scenario -> scenario.matchesPathStructureAndMethod(httpRequest) }
+        return applyAcceptHeaderSort(httpRequest, pathAndMethodMatchedScenarios)
     }
 
-    private fun filterByExpectedResponseStatus(
-        expectedResponseCode: Int?,
-        resultList: Sequence<Pair<Scenario, Result>>
-    ): Sequence<Pair<Scenario, Result>> {
-        return expectedResponseCode?.let {
-            resultList.filter { result -> result.first.status == it }
-        } ?: resultList
+    private fun filterByExpectedResponseStatus(expectedResponseCode: Int?, scenarios: List<Scenario>): List<Scenario> {
+        if (expectedResponseCode == null) return scenarios
+        return scenarios.filter { it.status == expectedResponseCode }
     }
 
     fun stubResponseMap(
@@ -387,10 +377,8 @@ data class Feature(
         unexpectedKeyCheck: UnexpectedKeyCheck
     ): Map<Int, Pair<ResponseBuilder?, Results>> {
         try {
-            val resultList =
-                matchingScenarioToResultList(httpRequest, serverState, mismatchMessages, unexpectedKeyCheck).let {
-                    applyAcceptHeaderSort(httpRequest, it)
-                }
+            val acceptHeaderSortedScenarios = applyAcceptHeaderSort(httpRequest, scenarios)
+            val resultList = matchingScenarioToResultList(httpRequest, serverState, mismatchMessages, unexpectedKeyCheck, acceptHeaderSortedScenarios)
             val matchingScenarios = matchingScenarios(resultList)
 
             if (matchingScenarios.toList().isEmpty()) {
@@ -405,10 +393,9 @@ data class Feature(
                 )
             }
 
-            return matchingScenarios.map { (status, scenario) ->
+            return matchingScenarios.associate { (status, scenario) ->
                 status to Pair(ResponseBuilder(scenario, serverState), Results())
-            }.toMap()
-
+            }
         } finally {
             serverState = emptyMap()
         }
@@ -431,51 +418,36 @@ data class Feature(
         httpRequest: HttpRequest,
         serverState: Map<String, Value>,
         mismatchMessages: MismatchMessages,
-        unexpectedKeyCheck: UnexpectedKeyCheck = ValidateUnexpectedKeys
+        unexpectedKeyCheck: UnexpectedKeyCheck = ValidateUnexpectedKeys,
+        scenarios: List<Scenario>,
     ): Sequence<Pair<Scenario, Result>> {
         val scenarioSequence = scenarios.asSequence()
-
-        val matchingScenarios = scenarioSequence.zip(scenarioSequence.map {
+        return scenarioSequence.zip(scenarioSequence.map {
             it.matchesStub(httpRequest, serverState, mismatchMessages, unexpectedKeyCheck)
         })
-
-        return matchingScenarios
     }
 
-    private fun applyAcceptHeaderSort(
-        httpRequest: HttpRequest,
-        resultList: Sequence<Pair<Scenario, Result>>
-    ): Sequence<Pair<Scenario, Result>> {
+    private fun applyAcceptHeaderSort(httpRequest: HttpRequest, scenarios: List<Scenario>): List<Scenario> {
         val acceptHeader = httpRequest.headers.getCaseInsensitive(ACCEPT)?.value?.trim().orEmpty()
-        if (acceptHeader.isBlank()) return resultList
+        if (acceptHeader.isBlank()) return scenarios
         if (!isAcceptHeaderParseable(acceptHeader)) {
             logger.debug("Could not parse Accept header \"$acceptHeader\" while filtering stub fallback responses; skipping Accept filtering.")
-            return resultList
+            return scenarios
         }
-        val acceptMediaTypes = acceptMediaTypesFor(acceptHeader) ?: return resultList
 
-        val ranked = resultList.map { (scenario, result) ->
-            if (result !is Success) {
-                RankedScenarioResult(scenario = scenario, result = result, acceptMatchRank = null)
-            } else {
-                RankedScenarioResult(
-                    scenario = scenario,
-                    result = result,
-                    acceptMatchRank = acceptMatchRank(
-                        acceptMediaTypes = acceptMediaTypes,
-                        responseContentType = resolveResponseContentTypeForAccept(scenario),
-                        unknownContentTypeRank = acceptMediaTypes.size
-                    )
+        val acceptMediaTypes = acceptMediaTypesFor(acceptHeader) ?: return scenarios
+        val ranked = scenarios.map { scenario ->
+            RankedScenarioResult(
+                scenario = scenario,
+                acceptMatchRank = acceptMatchRank(
+                    acceptMediaTypes = acceptMediaTypes,
+                    responseContentType = resolveResponseContentTypeForAccept(scenario),
+                    unknownContentTypeRank = acceptMediaTypes.size
                 )
-            }
-        }.toList()
+            )
+        }
 
-        val matchesAccept = ranked
-            .filter { it.acceptMatchRank != null }
-            .sortedWith(compareBy<RankedScenarioResult> { it.acceptMatchRank }.thenBy { it.scenario.status })
-        val rest = ranked.filter { it.acceptMatchRank == null }
-
-        return (matchesAccept + rest).asSequence().map { rankedResult -> Pair(rankedResult.scenario, rankedResult.result) }
+        return ranked.sortedWith(compareBy { it.acceptMatchRank }).map { it.scenario }
     }
 
     private fun resolveResponseContentTypeForAccept(scenario: Scenario): String? {
@@ -780,44 +752,37 @@ data class Feature(
                 acceptMatchRank = acceptMatchRank(
                     acceptMediaTypes = acceptMediaTypes,
                     responseContentType = stubData.response.contentType(),
-                    unknownContentTypeRank = 0
+                    unknownContentTypeRank = acceptMediaTypes.size
                 )
             )
         }
-        val bestRank = rankedStubs.mapNotNull { it.acceptMatchRank }.minOrNull()
-            ?: return successfulStubsInOrder.firstOrNull()
 
+        val bestRank = rankedStubs.minOfOrNull { it.acceptMatchRank } ?: return successfulStubsInOrder.firstOrNull()
         return rankedStubs.firstOrNull { it.acceptMatchRank == bestRank }?.stubData ?: successfulStubsInOrder.firstOrNull()
     }
 
     private data class RankedScenarioResult(
         val scenario: Scenario,
-        val result: Result,
-        val acceptMatchRank: Int?
+        val acceptMatchRank: Int
     )
 
     private data class RankedStub(
         val stubData: HttpStubData,
-        val acceptMatchRank: Int?
+        val acceptMatchRank: Int
     )
 
     private fun acceptMediaTypesFor(acceptHeader: String): List<String>? {
         return acceptMediaTypesByPriority(acceptHeader).takeIf { it.isNotEmpty() }
     }
 
-    private fun acceptMatchRank(
-        acceptMediaTypes: List<String>,
-        responseContentType: String?,
-        unknownContentTypeRank: Int
-    ): Int? {
+    private fun acceptMatchRank(acceptMediaTypes: List<String>, responseContentType: String?, unknownContentTypeRank: Int): Int {
         val normalisedContentType = normaliseMediaType(responseContentType)
         if (normalisedContentType.isNullOrBlank()) return unknownContentTypeRank
-
         val rank = acceptMediaTypes.indexOfFirst { acceptMediaType ->
             isResponseContentTypeAccepted(acceptMediaType, normalisedContentType)
         }
 
-        return rank.takeIf { it >= 0 }
+        return rank.takeIf { it >= 0 } ?: unknownContentTypeRank
     }
 
     fun matchingHttpPathPatternFor(path: String): HttpPathPattern? {

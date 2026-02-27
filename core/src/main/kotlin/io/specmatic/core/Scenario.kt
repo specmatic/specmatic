@@ -165,6 +165,11 @@ data class Scenario(
                     }
                 }
 
+    fun matchesPathStructureAndMethod(httpRequest: HttpRequest): Boolean {
+        val result = this.httpRequestPattern.matchesPathStructureAndMethod(httpRequest, resolver)
+        return result.isSuccess()
+    }
+
     fun matches(
         httpRequest: HttpRequest,
         serverState: Map<String, Value>,

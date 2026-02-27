@@ -125,8 +125,12 @@ data class HttpRequestPattern(
             return contentTypeMatches.error.breadCrumb(BreadCrumb.REQUEST.plus(BreadCrumb.PARAM_HEADER).value)
         }
 
-        val pathAndMethodMatch = matchesPathAndMethod(incomingHttpRequest, resolver)
-        return pathAndMethodMatch.takeUnless {
+        return matchesPathStructureAndMethod(incomingHttpRequest, resolver)
+    }
+
+    fun matchesPathStructureAndMethod(incomingHttpRequest: HttpRequest, resolver: Resolver): Result {
+        val result = matchesPathAndMethod(incomingHttpRequest, resolver)
+        return result.takeUnless {
             it is Failure && it.hasReason(FailureReason.URLPathParamMismatchButSameStructure)
         } ?: Success()
     }

@@ -685,7 +685,7 @@ class HttpStub(
             isSameBaseIgnoringHost(parsedBaseUrl, stubBaseUrl)
         }
 
-        return features.filter { feature -> feature.path in specsForGivenBaseUrl }
+        return features.filter { feature -> feature.path in specsForGivenBaseUrl }.distinctBy { feature -> feature.path }
     }
 
     private fun handleFlushTransientStubsRequest(httpRequest: HttpRequest): HttpStubResponse {
@@ -1424,11 +1424,10 @@ fun fakeHttpResponse(
         return NotStubbed(HttpStubResponse(HttpResponse(400, "No valid API specifications loaded")), Result.Failure("No valid API specifications loaded"))
 
     val responses: List<ResponseDetails> = responseDetailsFrom(features, httpRequest)
-
     return when (val fakeResponse = responses.successResponse()) {
         null -> {
             val failureResponses = responses.filter { it.successResponse == null }
-            val combinedFailureResult = Results(failureResponses.flatMap { it.results.results }).withoutFluff()
+            val combinedFailureResult = Results(failureResponses.flatMap { it.results.results })
             val firstScenarioWith400Response = failureResponses.asSequence().flatMap { response ->
                 response.results.results.asSequence().filterIsInstance<Result.Failure>().filter {
                     it.failureReason == null && it.scenario?.let { scenario -> scenario.status == 400 || scenario.status == 422 } == true
@@ -1477,11 +1476,11 @@ fun fakeHttpResponse(
 }
 
 fun responseDetailsFrom(features: List<Feature>, httpRequest: HttpRequest): List<ResponseDetails> {
-    return features.asSequence().map { feature ->
+    return features.map { feature ->
         feature.stubResponse(httpRequest, SpecificationAndRequestMismatchMessages).let {
             ResponseDetails(feature, it.first, it.second)
         }
-    }.toList()
+    }
 }
 
 fun List<ResponseDetails>.successResponse(): ResponseDetails? {
