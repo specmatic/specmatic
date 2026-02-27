@@ -162,10 +162,6 @@ data class ScenarioStub(
         return wholeDataTemplateName.split(".").first()
     }
 
-    fun resolveDataSubstitutions(): List<ScenarioStub> {
-        return listOf(this)
-    }
-
     private fun replaceInRequestBody(
         value: JSONObjectValue,
         substitutions: Map<String, Map<String, Map<String, Value>>>,

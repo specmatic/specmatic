@@ -194,25 +194,10 @@ class HttpStub(
             mismatchMessages: MismatchMessages = ExampleMismatchMessages
         ): Pair<Pair<Result.Success, List<HttpStubData>>?, NoMatchingScenario?> {
             try {
-                val tier1Match = feature.matchingStub(
-                    stub,
-                    mismatchMessages
-                )
-
-                val matchedScenario = tier1Match.scenario
-                    ?: throw ContractException("Expected scenario after stub matched for:${System.lineSeparator()}${stub.toJSON()}")
-
-                val stubWithSubstitutionsResolved = stub.resolveDataSubstitutions().map { scenarioStub ->
-                    feature.matchingStub(scenarioStub, ExampleMismatchMessages)
-                }
-
-                val stubData: List<HttpStubData> = stubWithSubstitutionsResolved.map {
-                    softCastResponseToXML(
-                        it
-                    )
-                }
-
-                return Pair(Pair(Result.Success(), stubData), null)
+                val tier1Match = feature.matchingStub(stub, mismatchMessages)
+                tier1Match.scenario ?: throw ContractException("Expected scenario after stub matched for:${System.lineSeparator()}${stub.toJSON()}")
+                val stubData = softCastResponseToXML(tier1Match)
+                return Pair(Pair(Result.Success(), listOf(stubData)), null)
             } catch (e: NoMatchingScenario) {
                 return Pair(null, e)
             }
@@ -1643,20 +1628,7 @@ fun stubResponse(
 fun contractInfoToHttpExpectations(contractInfo: List<Pair<Feature, List<ScenarioStub>>>): List<HttpStubData> {
     return contractInfo.flatMap { (feature, examples) ->
         examples.map { example ->
-            feature.matchingStub(example, ExampleMismatchMessages) to example
-        }.flatMap { (stubData, example) ->
-            val examplesWithDataSubstitutionsResolved = try {
-                example.resolveDataSubstitutions()
-            } catch (e: Throwable) {
-                println()
-                logger.log("    Error resolving template data for example ${example.filePath}")
-                logger.log("    " + exceptionCauseMessage(e))
-                throw e
-            }
-
-            examplesWithDataSubstitutionsResolved.map {
-                feature.matchingStub(it, ExampleMismatchMessages)
-            }
+            feature.matchingStub(example, ExampleMismatchMessages)
         }
     }
 }
