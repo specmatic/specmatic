@@ -339,22 +339,23 @@ data class Feature(
         httpRequest: HttpRequest,
         mismatchMessages: MismatchMessages = DefaultMismatchMessages
     ): Pair<ResponseBuilder?, Results> {
-        val failures = mutableListOf<Result>()
         try {
-            val filteredAndSortedScenarios = getMatchingAndSortedScenarios(httpRequest)
-            for (scenario in filteredAndSortedScenarios) {
-                val result = scenario.matchesStub(
-                    httpRequest = httpRequest,
-                    serverState = serverState,
-                    mismatchMessages = mismatchMessages,
-                    unexpectedKeyCheck = flagsBased.unexpectedKeyCheck ?: ValidateUnexpectedKeys
-                )
+            val results = matchRequestScenariosWithEarlySuccess(
+                request = httpRequest,
+                onSuccess = { scenario -> ResponseBuilder(scenario, serverState) },
+                match = { scenario ->
+                    scenario.matchesStub(
+                        httpRequest = httpRequest,
+                        serverState = serverState,
+                        mismatchMessages = mismatchMessages,
+                        unexpectedKeyCheck = flagsBased.unexpectedKeyCheck ?: ValidateUnexpectedKeys
+                    )
+                },
+            )
 
-                if (result.isSuccess()) return Pair(ResponseBuilder(scenario, serverState), Results())
-                failures.add(result)
-            }
-
-            return Pair(null, Results(failures).withoutFluff())
+            val success = results.find { it.first != null && it.second.isSuccess() }
+            if (success != null) return Pair(success.first, Results())
+            return Pair(null, Results(results.map { it.second }))
         } finally {
             serverState = emptyMap()
         }
