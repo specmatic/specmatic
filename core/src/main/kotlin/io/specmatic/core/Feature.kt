@@ -340,7 +340,7 @@ data class Feature(
         mismatchMessages: MismatchMessages = DefaultMismatchMessages
     ): Pair<ResponseBuilder?, Results> {
         try {
-            val results = matchRequestScenariosWithEarlySuccess(
+            val result = matchRequestScenariosWithEarlySuccess(
                 request = httpRequest,
                 onSuccess = { scenario -> ResponseBuilder(scenario, serverState) },
                 match = { scenario ->
@@ -353,9 +353,10 @@ data class Feature(
                 },
             )
 
-            val success = results.find { it.first != null && it.second.isSuccess() }
-            if (success != null) return Pair(success.first, Results())
-            return Pair(null, Results(results.map { it.second }))
+            return when (result) {
+                is EarlyResult.FirstSuccess<ResponseBuilder> -> Pair(result.value, Results())
+                is EarlyResult.Failures<ResponseBuilder> -> Pair(null, Results(result.failures))
+            }
         } finally {
             serverState = emptyMap()
         }
@@ -721,53 +722,21 @@ data class Feature(
         response: HttpResponse,
         mismatchMessages: MismatchMessages = DefaultMismatchMessages
     ): HttpStubData {
-        try {
-            val results = stubMatchResultWithEarlySuccess(request, response, mismatchMessages)
-            return selectMatchingStubBasedOnAcceptPriority(request, results)
-                ?: throw NoMatchingScenario(
-                    failureResults(results).withoutFluff(),
-                    msg = null,
-                    cachedMessage = failureResults(results).withoutFluff().report(request)
-                )
+        return try {
+            when (val result = stubMatchResultWithEarlySuccess(request, response, mismatchMessages)) {
+                is EarlyResult.FirstSuccess<HttpStubData> -> result.value
+                is EarlyResult.Failures<HttpStubData> -> {
+                    val results = Results(result.failures).withoutFluff()
+                    throw NoMatchingScenario(msg = null, results = results, cachedMessage = results.report(request))
+                }
+            }
         } finally {
             serverState = emptyMap()
         }
     }
 
-    private fun selectMatchingStubBasedOnAcceptPriority(
-        request: HttpRequest,
-        results: List<Pair<HttpStubData?, Result>>
-    ): HttpStubData? {
-        val successfulStubsInOrder = results.mapNotNull { it.first }
-        if (successfulStubsInOrder.isEmpty()) return null
-
-        val acceptHeader = request.headers.getCaseInsensitive(ACCEPT)?.value?.trim().orEmpty()
-        if (acceptHeader.isBlank()) return successfulStubsInOrder.firstOrNull()
-        if (!isAcceptHeaderParseable(acceptHeader)) return successfulStubsInOrder.firstOrNull()
-        val acceptMediaTypes = acceptMediaTypesFor(acceptHeader) ?: return successfulStubsInOrder.firstOrNull()
-
-        val rankedStubs = successfulStubsInOrder.map { stubData ->
-            RankedStub(
-                stubData = stubData,
-                acceptMatchRank = acceptMatchRank(
-                    acceptMediaTypes = acceptMediaTypes,
-                    responseContentType = stubData.response.contentType(),
-                    unknownContentTypeRank = acceptMediaTypes.size
-                )
-            )
-        }
-
-        val bestRank = rankedStubs.minOfOrNull { it.acceptMatchRank } ?: return successfulStubsInOrder.firstOrNull()
-        return rankedStubs.firstOrNull { it.acceptMatchRank == bestRank }?.stubData ?: successfulStubsInOrder.firstOrNull()
-    }
-
     private data class RankedScenarioResult(
         val scenario: Scenario,
-        val acceptMatchRank: Int
-    )
-
-    private data class RankedStub(
-        val stubData: HttpStubData,
         val acceptMatchRank: Int
     )
 
@@ -792,7 +761,7 @@ data class Feature(
         }?.httpRequestPattern?.httpPathPattern
     }
 
-    private fun stubMatchResultWithEarlySuccess(request: HttpRequest, response: HttpResponse, mismatchMessages: MismatchMessages): List<Pair<HttpStubData?, Result>> {
+    private fun stubMatchResultWithEarlySuccess(request: HttpRequest, response: HttpResponse, mismatchMessages: MismatchMessages): EarlyResult<HttpStubData> {
         val keyCheck = if (flagsBased.unexpectedKeyCheck != null) {
             DefaultKeyCheck.copy(unexpectedKeyCheck = flagsBased.unexpectedKeyCheck)
         } else {
@@ -824,23 +793,23 @@ data class Feature(
         }
     }
 
-    private fun <T> matchRequestScenariosWithEarlySuccess(request: HttpRequest, match: (Scenario) -> Result, onSuccess: (Scenario) -> T): List<Pair<T?, Result>> {
+    private fun <T> matchRequestScenariosWithEarlySuccess(request: HttpRequest, match: (Scenario) -> Result, onSuccess: (Scenario) -> T): EarlyResult<T> {
+        val failures = mutableListOf<Result>()
         val filteredScenarios = getMatchingAndSortedScenarios(request)
         val adjustedScenarios = filteredScenarios.map { scenario -> scenario.newBasedOnAttributeSelectionFields(request.queryParams) }
 
-        val results = mutableListOf<Pair<T?, Result>>()
         for (scenario in adjustedScenarios) {
             try {
                 when (val matchResult = match(scenario)) {
-                    is Success -> return listOf(onSuccess(scenario) to Success())
-                    is Result.Failure -> results.add(null to matchResult.updateScenario(scenario).updatePath(path))
+                    is Success -> return EarlyResult.FirstSuccess(onSuccess(scenario))
+                    is Result.Failure -> failures.add(matchResult.updateScenario(scenario).updatePath(path))
                 }
             } catch (contractException: ContractException) {
-                results.add(null to contractException.failure().updatePath(path))
+                failures.add(contractException.failure().updatePath(path))
             }
         }
 
-        return results
+        return EarlyResult.Failures(failures.filterIsInstance<Result.Failure>())
     }
 
     private fun failureResults(results: List<Pair<HttpStubData?, Result>>): Results =
@@ -1130,7 +1099,7 @@ data class Feature(
         }
 
         val request = scenarioStub.requestElsePartialRequest()
-        val results = matchRequestScenariosWithEarlySuccess(
+        val result = matchRequestScenariosWithEarlySuccess(
             request = request,
             match = { scenario -> scenario.matchesPartial(scenarioStub.partial, mismatchMessages) },
             onSuccess = { scenario ->
@@ -1148,11 +1117,17 @@ data class Feature(
             }
         )
 
-        return selectMatchingStubBasedOnAcceptPriority(request, results) ?: throw NoMatchingScenario(
-            msg = "Could not load partial example ${scenarioStub.filePath}",
-            results = failureResults(results).withoutFluff(),
-            cachedMessage = failureResults(results).withoutFluff().report(request)
-        )
+        return when (result) {
+            is EarlyResult.FirstSuccess<HttpStubData> -> result.value
+            is EarlyResult.Failures<HttpStubData> -> {
+                val results = Results(result.failures).withoutFluff()
+                throw NoMatchingScenario(
+                    msg = "Could not load partial example ${scenarioStub.filePath}",
+                    cachedMessage = results.report(request),
+                    results = results,
+                )
+            }
+        }
     }
 
     fun clearServerState() {
