@@ -706,6 +706,7 @@ Scenario: JSON API to get account details with fact check
 
             assertThat(secureResponse.status).isEqualTo(400)
             assertThat(secureResponse.body.toStringLiteral()).isEqualToNormalizingWhitespace("""
+            Error from contract ${feature.path}
             In scenario "Secure endpoint requiring Bearer token and query API key. Response: Success"
             API: POST /secure -> 200
             ${
@@ -722,6 +723,7 @@ Scenario: JSON API to get account details with fact check
 
             assertThat(partialResponse.status).isEqualTo(400)
             assertThat(partialResponse.body.toStringLiteral()).isEqualToNormalizingWhitespace("""
+            Error from contract ${feature.path}
             In scenario "Partially secure endpoint requiring either Bearer token or query API key. Response: Success"
             API: POST /partial -> 200
             ${
@@ -745,6 +747,7 @@ Scenario: JSON API to get account details with fact check
 
             assertThat(overlapResponse.status).isEqualTo(400)
             assertThat(overlapResponse.body.toStringLiteral()).isEqualToNormalizingWhitespace("""
+            Error from contract ${feature.path}
             In scenario "overlap endpoint requiring either Bearer token and query API key or Bearer token only. Response: Success"
             API: POST /overlap -> 200
             ${

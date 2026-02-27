@@ -704,6 +704,7 @@ Feature: Test
         assertThat(messageValue).isInstanceOf(StringValue::class.java)
         val expectedMessageValue =
             """
+            Error from contract ${feature.path}
             In scenario "POST /hello. Response: OK"
             API: POST /hello -> 200
             >> REQUEST.BODY.data
@@ -711,6 +712,8 @@ Feature: Test
             Documentation: https://docs.specmatic.io/rules#r1001
             Summary: The value type does not match the expected type defined in the specification
             Specification expected type string but request contained value 10 of type number
+            
+            Error from contract ${feature.path}
             In scenario "POST /hello. Response: Bad request"
             API: POST /hello -> 400
             >> REQUEST.BODY.data
