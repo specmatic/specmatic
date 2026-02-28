@@ -900,9 +900,13 @@ class HttpStub(
 
         when (firstResult) {
             null -> {
-                val failures = results.map {
-                    it.second?.results?.withoutFluff()?.results ?: emptyList()
-                }.flatten().toList()
+                val failures = results
+                    .flatMap {
+                        it.second?.results?.withoutFluff()?.results ?: emptyList()
+                    }
+                    .filterIsInstance<Result.Failure>()
+                    .distinctBy { failure -> failure.toReport().toText() }
+                    .toList()
 
                 val failureResults = Results(failures).withoutFluff()
                 throw NoMatchingScenario(
@@ -1818,4 +1822,3 @@ fun writeEvent(event: SseEvent, writer: Writer) {
     writer.write("\n")
     writer.flush()
 }
-

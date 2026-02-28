@@ -34,6 +34,7 @@ import io.specmatic.core.value.toXMLNode
 import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.toViolationReportString
+import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stubResponse
 import io.specmatic.test.LegacyHttpClient
@@ -47,6 +48,7 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.condition.DisabledOnOs
 import org.junit.jupiter.api.condition.OS
 import org.junit.jupiter.api.fail
@@ -352,6 +354,134 @@ Feature: Test
             """.trimIndent()
         )}
         """.trimIndent())
+    }
+
+    @Test
+    fun `matchingStub should continue to next scenario when first candidate fails response match`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Match by response after request path-method filter
+              version: 1.0.0
+            paths:
+              /orders:
+                get:
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required: [message]
+                            properties:
+                              message:
+                                type: string
+                    '201':
+                      description: Created
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required: [id]
+                            properties:
+                              id:
+                                type: number
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val request = HttpRequest(method = "GET", path = "/orders")
+        val response = HttpResponse(status = 201, body = parsedJSON("""{"id": 10}"""))
+
+        val matched = feature.matchingStub(request, response)
+
+        assertThat(matched.scenario?.status).isEqualTo(201)
+    }
+
+    @Test
+    fun `matchingStub should load partial invalid-request example when path param type mismatches but structure is same`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Partial example path structure match
+              version: 1.0.0
+            paths:
+              /pets/{id}:
+                get:
+                  parameters:
+                    - in: path
+                      name: id
+                      required: true
+                      schema:
+                        type: integer
+                  responses:
+                    '400':
+                      description: Bad request
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val partial = ScenarioStub(
+            request = HttpRequest(method = "GET", path = "/pets/abc"),
+            response = HttpResponse(status = 400)
+        )
+        val scenarioStub = ScenarioStub(partial = partial)
+
+        val stubData = feature.matchingStub(scenarioStub)
+
+        assertThat(stubData.scenario?.status).isEqualTo(400)
+    }
+
+    @Test
+    fun `setExpectation should not duplicate identical failure messages for partial expectations`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Partial expectation duplicate error guard
+              version: 1.0.0
+            paths:
+              /pets/{id}:
+                get:
+                  parameters:
+                    - in: path
+                      name: id
+                      required: true
+                      schema:
+                        type: integer
+                  responses:
+                    '400':
+                      description: invalid id
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required: [message]
+                            properties:
+                              message:
+                                type: string
+            """.trimIndent(), ""
+        ).toFeature()
+
+        HttpStub(feature).use { stub ->
+            val partialExpectation = ScenarioStub(
+                partial = ScenarioStub(
+                    request = HttpRequest(method = "GET", path = "/pets/abc"),
+                    response = HttpResponse(status = 400)
+                )
+            )
+
+            val exception = assertThrows<NoMatchingScenario> {
+                stub.setExpectation(partialExpectation)
+            }
+
+            val report = exception.report(partialExpectation.requestElsePartialRequest())
+            val duplicateSignaturePrefix =
+                "Specification expected type json object but example contained value"
+            assertThat(report).contains(duplicateSignaturePrefix)
+            assertThat(Regex(Regex.escape(duplicateSignaturePrefix)).findAll(report).count()).isEqualTo(1)
+        }
     }
 
     @Test
@@ -869,6 +999,46 @@ Feature: Test
         val response = (result as FoundStubbedResponse).response.response
         assertThat(response.status).isEqualTo(400)
         assertThat(response.contentType()).startsWith("application/json")
+    }
+
+    @Test
+    fun `fake response should keep original scenario order when Accept header is malformed`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Malformed Accept should skip sorting
+              version: 1.0.0
+            paths:
+              /hello:
+                get:
+                  responses:
+                    '400':
+                      description: Plain text first
+                      content:
+                        text/plain:
+                          schema:
+                            type: string
+                    '201':
+                      description: JSON second
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val request = HttpRequest(
+            method = "GET",
+            path = "/hello",
+            headers = mapOf("Accept" to "not-a-media-type")
+        )
+        val result = fakeHttpResponse(listOf(feature), request, SpecmaticConfig())
+
+        assertThat(result).isInstanceOf(FoundStubbedResponse::class.java)
+        val response = (result as FoundStubbedResponse).response.response
+        assertThat(response.status).isEqualTo(400)
+        assertThat(response.contentType()).startsWith("text/plain")
     }
 
     private fun assertResponseFailure(stubResponse: HttpStubResponse, errorMessage: String) {
