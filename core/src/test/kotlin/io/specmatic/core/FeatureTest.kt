@@ -17,6 +17,7 @@ import io.specmatic.core.value.*
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.FuzzyExampleMisMatchMessages
 import io.specmatic.reporter.model.SpecType
+import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
 import io.specmatic.toViolationReportString
 import io.specmatic.stub.captureStandardOutput
 import io.specmatic.stub.createStubFromContracts
@@ -4034,6 +4035,105 @@ paths:
             val paths = feature.calculatePath(httpRequest, 200)
 
             assertThat(paths).isEmpty()
+        }
+    }
+
+    @Nested
+    inner class StubResponseMapTests {
+        @Test
+        fun `stubResponseMap should return response builders for all matching status codes`() {
+            val feature = OpenApiSpecification.fromYAML(
+                """
+                openapi: 3.0.3
+                info:
+                  title: Stub response map
+                  version: 1.0.0
+                paths:
+                  /orders:
+                    get:
+                      responses:
+                        '200':
+                          description: OK
+                        '400':
+                          description: Bad request
+                """.trimIndent(),
+                ""
+            ).toFeature()
+
+            val responseMap = feature.stubResponseMap(
+                httpRequest = HttpRequest(method = "GET", path = "/orders"),
+                unexpectedKeyCheck = ValidateUnexpectedKeys
+            )
+
+            assertThat(responseMap.keys).containsExactlyInAnyOrder(200, 400)
+            assertThat(responseMap[200]?.first?.scenario?.status).isEqualTo(200)
+            assertThat(responseMap[400]?.first?.scenario?.status).isEqualTo(400)
+            assertThat(responseMap[200]?.second?.results).isEmpty()
+            assertThat(responseMap[400]?.second?.results).isEmpty()
+        }
+
+        @Test
+        fun `stubResponseMap should return fallback 400 entry when no scenario matches`() {
+            val feature = OpenApiSpecification.fromYAML(
+                """
+                openapi: 3.0.3
+                info:
+                  title: Stub response map fallback
+                  version: 1.0.0
+                paths:
+                  /orders:
+                    get:
+                      responses:
+                        '200':
+                          description: OK
+                """.trimIndent(),
+                ""
+            ).toFeature()
+
+            val responseMap = feature.stubResponseMap(
+                httpRequest = HttpRequest(method = "GET", path = "/unknown"),
+                unexpectedKeyCheck = ValidateUnexpectedKeys
+            )
+
+            assertThat(responseMap.keys).containsExactly(400)
+            assertThat(responseMap[400]?.first?.scenario).isNull()
+            assertThat(responseMap[400]?.second?.hasFailures()).isFalse()
+        }
+
+        @Test
+        fun `stubResponseMap should not filter matches by Specmatic response code header`() {
+            val feature = OpenApiSpecification.fromYAML(
+                """
+                openapi: 3.0.3
+                info:
+                  title: Stub response map status hint
+                  version: 1.0.0
+                paths:
+                  /orders:
+                    get:
+                      responses:
+                        '200':
+                          description: OK
+                        '400':
+                          description: Bad request
+                """.trimIndent(),
+                ""
+            ).toFeature()
+
+            val hintedRequest = HttpRequest(
+                method = "GET",
+                path = "/orders",
+                headers = mapOf(SPECMATIC_RESPONSE_CODE_HEADER to "400")
+            )
+
+            val responseMap = feature.stubResponseMap(
+                httpRequest = hintedRequest,
+                unexpectedKeyCheck = ValidateUnexpectedKeys
+            )
+
+            assertThat(responseMap.keys).containsExactlyInAnyOrder(200, 400)
+            assertThat(responseMap[200]?.first?.scenario?.status).isEqualTo(200)
+            assertThat(responseMap[400]?.first?.scenario?.status).isEqualTo(400)
         }
     }
 
