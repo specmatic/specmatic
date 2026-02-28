@@ -3518,6 +3518,37 @@ Then status 200
                     assertThat(result).isEqualTo(listOf(feature1, feature2))
                 }
             }
+
+            @Test
+            fun `should de-duplicate features with same path for a given baseUrl`() {
+                val specToStubBaseUrlMap = mapOf("spec1.yaml" to 8080).toBaseUrlMap()
+                val feature1 = mockk<Feature> {
+                    every { path } returns "spec1.yaml"
+                    every { specification } returns "spec1.yaml"
+                    every { loadInlineExamplesAsStub() } returns emptyList()
+                    every { scenarios } returns emptyList()
+                    every { protocol } returns SpecmaticProtocol.HTTP
+                }
+                val duplicatePathFeature = mockk<Feature> {
+                    every { path } returns "spec1.yaml"
+                    every { specification } returns "spec1.yaml"
+                    every { loadInlineExamplesAsStub() } returns emptyList()
+                    every { scenarios } returns emptyList()
+                    every { protocol } returns SpecmaticProtocol.HTTP
+                }
+                val features = listOf(feature1, duplicatePathFeature)
+
+                HttpStub(features = features).use { stub ->
+                    val result = stub.featuresAssociatedTo(
+                        "http://localhost:${8080}",
+                        features,
+                        specToStubBaseUrlMap,
+                        urlPath = ""
+                    )
+
+                    assertThat(result).isEqualTo(listOf(feature1))
+                }
+            }
         }
 
         @Test

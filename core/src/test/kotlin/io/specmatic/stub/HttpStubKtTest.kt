@@ -830,6 +830,47 @@ Feature: Test
         assertThat(response.contentType()).startsWith("application/json")
     }
 
+    @Test
+    fun `fake response should preserve scenario order among equal accept-rank responses`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Accept tie-break by status
+              version: 1.0.0
+            paths:
+              /hello:
+                get:
+                  responses:
+                    '400':
+                      description: JSON Bad Request
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                    '201':
+                      description: JSON Created
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val request = HttpRequest(
+            method = "GET",
+            path = "/hello",
+            headers = mapOf("Accept" to "application/json")
+        )
+
+        val result = fakeHttpResponse(listOf(feature), request, SpecmaticConfig())
+        assertThat(result).isInstanceOf(FoundStubbedResponse::class.java)
+
+        val response = (result as FoundStubbedResponse).response.response
+        assertThat(response.status).isEqualTo(400)
+        assertThat(response.contentType()).startsWith("application/json")
+    }
+
     private fun assertResponseFailure(stubResponse: HttpStubResponse, errorMessage: String) {
         assertThat(stubResponse.response.status).isEqualTo(400)
         assertThat(stubResponse.response.headers).containsEntry(SPECMATIC_RESULT_HEADER, "failure")
