@@ -47,6 +47,34 @@ internal class HttpRequestPatternTest {
     }
 
     @Test
+    fun `matchesPathStructureAndMethod should succeed when path structure matches but path param does not`() {
+        val pattern = HttpRequestPattern(
+            httpPathPattern = buildHttpPathPattern("/pets/(id:number)"),
+            method = "GET"
+        )
+
+        val request = HttpRequest(method = "GET", path = "/pets/abc")
+
+        assertThat(pattern.matchesPathAndMethod(request, Resolver()))
+            .isInstanceOf(Failure::class.java)
+        assertThat(pattern.matchesPathStructureAndMethod(request, Resolver()))
+            .isInstanceOf(Success::class.java)
+    }
+
+    @Test
+    fun `matchesPathStructureAndMethod should fail when method does not match`() {
+        val pattern = HttpRequestPattern(
+            httpPathPattern = buildHttpPathPattern("/pets/(id:number)"),
+            method = "GET"
+        )
+
+        val request = HttpRequest(method = "POST", path = "/pets/123")
+
+        assertThat(pattern.matchesPathStructureAndMethod(request, Resolver()))
+            .isInstanceOf(Failure::class.java)
+    }
+
+    @Test
     fun `should not match when body does not match`() {
         val httpRequestPattern =
                 HttpRequestPattern(
