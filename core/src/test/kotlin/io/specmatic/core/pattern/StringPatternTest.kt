@@ -661,4 +661,17 @@ internal class StringPatternTest {
         val result = RegExSpec("$character").generateRandomString(1, 1) as StringValue
         assertThat(result.string).isEqualTo("$character")
     }
+
+    @Test
+    fun `should reuse regex spec within same StringPattern instance`() {
+        val pattern = StringPattern(regex = "^[a-z]{3}$", minLength = 3, maxLength = 3)
+        assertThat(pattern.regExSpec).isSameAs(pattern.regExSpec)
+    }
+
+    @Test
+    fun `should create an independent regex spec for new StringPattern`() {
+        val numericPattern = StringPattern(regex = "^[0-9]{3}$")
+        val alphabeticPattern = numericPattern.copy(regex = "^[a-z]{3}$")
+        assertThat(alphabeticPattern.regExSpec).isNotSameAs(numericPattern.regExSpec)
+    }
 }

@@ -24,8 +24,8 @@ data class StringPattern (
     private val downsampledMin: Boolean = false,
     private val downsampledMax: Boolean = false,
 ) : Pattern, ScalarType, HasDefaultExample {
-    private val regExSpec get() = RegExSpec(regex)
-    private val effectiveMinLength get() = minLength ?: 0
+    internal val regExSpec = RegExSpec(regex)
+    private val effectiveMinLength = minLength ?: 0
 
     init {
         if (effectiveMinLength < 0) {
