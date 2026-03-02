@@ -5,6 +5,11 @@ import io.specmatic.core.HttpRequestPattern
 import io.specmatic.core.HttpResponsePattern
 import io.specmatic.core.Scenario
 import io.specmatic.core.ScenarioInfo
+import io.specmatic.core.HttpRequest
+import io.specmatic.core.HttpResponse
+import io.specmatic.core.HttpHeadersPattern
+import io.specmatic.core.value.JSONObjectValue
+import io.specmatic.mock.ScenarioStub
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.model.SpecType
 import org.assertj.core.api.Assertions.assertThat
@@ -269,6 +274,112 @@ class HTTPFilterKeysTest {
         assertThat(items.caseSensitiveContains("")).isTrue()
     }
 
+    @ParameterizedTest(name = "request content type in scenario \"{0}\" should match filter value \"{1}\" as {2}")
+    @CsvSource(
+        "application/json,application/json,true",
+        "application/json,application/*,true",
+        "application/json,text/*,false",
+        "text/plain,text/plain,true",
+        "text/plain,application/*,false",
+        "invalid-content-type,application/*,false",
+        "application/json,not a content type,false"
+    )
+    fun `REQUEST_BODY_CONTENT_TYPE includes should safely match scenario request content types`(requestContentType: String, filterValue: String, expected: Boolean) {
+        val scenario = scenarioWithContentTypes(requestContentType, "application/json")
+        assertThat(HTTPFilterKeys.REQUEST_BODY_CONTENT_TYPE.includes(scenario, "REQUEST-BODY.CONTENT-TYPE", filterValue)).isEqualTo(expected)
+    }
+
+    @Test
+    fun `REQUEST_BODY_CONTENT_TYPE includes should return false when scenario request content type is absent`() {
+        val scenario = scenarioWithContentTypes(null, "application/json")
+        assertThat(HTTPFilterKeys.REQUEST_BODY_CONTENT_TYPE.includes(scenario, "REQUEST-BODY.CONTENT-TYPE", "application/json")).isFalse()
+    }
+
+    @ParameterizedTest(name = "blank request filter value should not match scenario request content type: \"{0}\"")
+    @CsvSource(
+        "'',false",
+        "'   ',false"
+    )
+    fun `REQUEST_BODY_CONTENT_TYPE includes should return false when request filter value is blank for scenario`(filterValue: String, expected: Boolean) {
+        val scenario = scenarioWithContentTypes("application/json", "application/json")
+        assertThat(HTTPFilterKeys.REQUEST_BODY_CONTENT_TYPE.includes(scenario, "REQUEST-BODY.CONTENT-TYPE", filterValue)).isEqualTo(expected)
+    }
+
+    @ParameterizedTest(name = "response content type in scenario \"{0}\" should match filter value \"{1}\" as {2}")
+    @CsvSource(
+        "application/json,application/json,true",
+        "application/json,application/*,true",
+        "application/json,text/*,false",
+        "application/xml,application/*,true",
+        "application/xml,text/*,false",
+        "invalid-content-type,application/*,false",
+        "application/json,not a content type,false"
+    )
+    fun `RESPONSE_CONTENT_TYPE includes should safely match scenario response content types`(responseContentType: String, filterValue: String, expected: Boolean) {
+        val scenario = scenarioWithContentTypes("application/json", responseContentType)
+        assertThat(HTTPFilterKeys.RESPONSE_CONTENT_TYPE.includes(scenario, "RESPONSE.CONTENT-TYPE", filterValue)).isEqualTo(expected)
+    }
+
+    @Test
+    fun `RESPONSE_CONTENT_TYPE includes should return false when scenario response content type is absent`() {
+        val scenario = scenarioWithContentTypes("application/json", null)
+        assertThat(HTTPFilterKeys.RESPONSE_CONTENT_TYPE.includes(scenario, "RESPONSE.CONTENT-TYPE", "application/json")).isFalse()
+    }
+
+    @ParameterizedTest(name = "blank response filter value should not match scenario response content type: \"{0}\"")
+    @CsvSource(
+        "'',false",
+        "'   ',false"
+    )
+    fun `RESPONSE_CONTENT_TYPE includes should return false when response filter value is blank for scenario`(filterValue: String, expected: Boolean) {
+        val scenario = scenarioWithContentTypes("application/json", "application/json")
+        assertThat(HTTPFilterKeys.RESPONSE_CONTENT_TYPE.includes(scenario, "RESPONSE.CONTENT-TYPE", filterValue)).isEqualTo(expected)
+    }
+
+    @ParameterizedTest(name = "stub request body should match request filter value \"{0}\" as {1}")
+    @CsvSource(
+        "application/json,true",
+        "application/*,true",
+        "text/*,false",
+        "not a content type,false"
+    )
+    fun `REQUEST_BODY_CONTENT_TYPE includes should safely match stub request body content types`(filterValue: String, expected: Boolean) {
+        val stub = ScenarioStub(request = HttpRequest(body = JSONObjectValue()))
+        assertThat(HTTPFilterKeys.REQUEST_BODY_CONTENT_TYPE.includes(stub, "REQUEST-BODY.CONTENT-TYPE", filterValue)).isEqualTo(expected)
+    }
+
+    @ParameterizedTest(name = "blank request filter value should not match stub request content type: \"{0}\"")
+    @CsvSource(
+        "'',false",
+        "'   ',false"
+    )
+    fun `REQUEST_BODY_CONTENT_TYPE includes should return false when request filter value is blank for stub`(filterValue: String, expected: Boolean) {
+        val stub = ScenarioStub(request = HttpRequest(body = JSONObjectValue()))
+        assertThat(HTTPFilterKeys.REQUEST_BODY_CONTENT_TYPE.includes(stub, "REQUEST-BODY.CONTENT-TYPE", filterValue)).isEqualTo(expected)
+    }
+
+    @ParameterizedTest(name = "stub response body should match response filter value \"{0}\" as {1}")
+    @CsvSource(
+        "application/json,true",
+        "application/*,true",
+        "text/*,false",
+        "not a content type,false"
+    )
+    fun `RESPONSE_CONTENT_TYPE includes should safely match stub response body content types`(filterValue: String, expected: Boolean) {
+        val stub = ScenarioStub(response = HttpResponse(200, body = JSONObjectValue()))
+        assertThat(HTTPFilterKeys.RESPONSE_CONTENT_TYPE.includes(stub, "RESPONSE.CONTENT-TYPE", filterValue)).isEqualTo(expected)
+    }
+
+    @ParameterizedTest(name = "blank response filter value should not match stub response content type: \"{0}\"")
+    @CsvSource(
+        "'',false",
+        "'   ',false"
+    )
+    fun `RESPONSE_CONTENT_TYPE includes should return false when response filter value is blank for stub`(filterValue: String, expected: Boolean) {
+        val stub = ScenarioStub(response = HttpResponse(200, body = JSONObjectValue()))
+        assertThat(HTTPFilterKeys.RESPONSE_CONTENT_TYPE.includes(stub, "RESPONSE.CONTENT-TYPE", filterValue)).isEqualTo(expected)
+    }
+
     companion object {
         @JvmStatic
         fun pathFilterCases() = listOf(
@@ -292,6 +403,18 @@ class HTTPFilterKeysTest {
                     httpResponsePattern = HttpResponsePattern(status = 200),
                     protocol = SpecmaticProtocol.HTTP,
                     specType = SpecType.OPENAPI
+                )
+            )
+        }
+
+        private fun scenarioWithContentTypes(requestContentType: String?, responseContentType: String?): Scenario {
+            return Scenario(
+                ScenarioInfo(
+                    specType = SpecType.OPENAPI,
+                    scenarioName = "POST /orders",
+                    protocol = SpecmaticProtocol.HTTP,
+                    httpRequestPattern = HttpRequestPattern(method = "POST", httpPathPattern = HttpPathPattern.from("/orders"), headersPattern = HttpHeadersPattern(contentType = requestContentType)),
+                    httpResponsePattern = HttpResponsePattern(status = 200, headersPattern = HttpHeadersPattern(contentType = responseContentType)),
                 )
             )
         }

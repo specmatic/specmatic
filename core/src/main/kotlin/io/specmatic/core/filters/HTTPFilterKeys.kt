@@ -1,10 +1,10 @@
 package io.specmatic.core.filters
 
+import io.ktor.http.ContentType
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.Scenario
 import io.specmatic.mock.ScenarioStub
 import java.util.regex.Pattern
-import javax.activation.MimeType
 
 enum class HTTPFilterKeys(val key: String, val isPrefix: Boolean) {
     PATH("PATH", false) {
@@ -116,15 +116,18 @@ enum class HTTPFilterKeys(val key: String, val isPrefix: Boolean) {
     },
     REQUEST_BODY_CONTENT_TYPE("REQUEST-BODY.CONTENT-TYPE", false) {
         override fun includes(scenario: Scenario, key: String, value: String): Boolean {
+            if (value.isBlank()) return false
+            val contentType = scenario.httpRequestPattern.headersPattern.contentType ?: return false
             return try {
-                MimeType(scenario.httpRequestPattern.headersPattern.contentType).match(MimeType(value))
+                ContentType.parse(contentType).match(value)
             } catch (_: Exception) {
                 false
             }
         }
         override fun includes(stub: ScenarioStub, key: String, value: String): Boolean {
+            if (value.isBlank()) return false
             return try {
-                MimeType(stub.request.body.httpContentType).match(MimeType(value))
+                ContentType.parse(stub.request.body.httpContentType).match(value)
             } catch (_: Exception) {
                 false
             }
@@ -132,15 +135,18 @@ enum class HTTPFilterKeys(val key: String, val isPrefix: Boolean) {
     },
     RESPONSE_CONTENT_TYPE("RESPONSE.CONTENT-TYPE", false) {
         override fun includes(scenario: Scenario, key: String, value: String): Boolean {
+            if (value.isBlank()) return false
+            val contentType = scenario.httpResponsePattern.headersPattern.contentType ?: return false
             return try {
-                MimeType(scenario.httpResponsePattern.headersPattern.contentType).match(MimeType(value))
+                ContentType.parse(contentType).match(value)
             } catch (_: Exception) {
                 false
             }
         }
         override fun includes(stub: ScenarioStub, key: String, value: String): Boolean {
+            if (value.isBlank()) return false
             return try {
-                MimeType(stub.response.body.httpContentType).match(MimeType(value))
+                ContentType.parse(stub.response.body.httpContentType).match(value)
             } catch (_: Exception) {
                 false
             }
