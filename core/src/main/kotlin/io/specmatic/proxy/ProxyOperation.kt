@@ -1,10 +1,10 @@
 package io.specmatic.proxy
 
+import io.ktor.http.ContentType
 import io.specmatic.core.CONTENT_TYPE
 import io.specmatic.core.HttpPathPattern
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.Resolver
-import javax.activation.MimeType
 
 sealed interface ContentTypeExpectation {
     data object Unspecified : ContentTypeExpectation
@@ -32,7 +32,7 @@ data class ProxyOperation(val pathPattern: HttpPathPattern, val method: String, 
             ContentTypeExpectation.Unspecified -> true
             ContentTypeExpectation.MustBeAbsent -> actualContentType == null
             is ContentTypeExpectation.MustMatch -> {
-                actualContentType != null && MimeType(expected.value).match(MimeType(actualContentType))
+                actualContentType != null && ContentType.parse(actualContentType).match(expected.value)
             }
         }
     }
