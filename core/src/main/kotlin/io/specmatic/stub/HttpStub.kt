@@ -194,25 +194,10 @@ class HttpStub(
             mismatchMessages: MismatchMessages = ExampleMismatchMessages
         ): Pair<Pair<Result.Success, List<HttpStubData>>?, NoMatchingScenario?> {
             try {
-                val tier1Match = feature.matchingStub(
-                    stub,
-                    mismatchMessages
-                )
-
-                val matchedScenario = tier1Match.scenario
-                    ?: throw ContractException("Expected scenario after stub matched for:${System.lineSeparator()}${stub.toJSON()}")
-
-                val stubWithSubstitutionsResolved = stub.resolveDataSubstitutions().map { scenarioStub ->
-                    feature.matchingStub(scenarioStub, ExampleMismatchMessages)
-                }
-
-                val stubData: List<HttpStubData> = stubWithSubstitutionsResolved.map {
-                    softCastResponseToXML(
-                        it
-                    )
-                }
-
-                return Pair(Pair(Result.Success(), stubData), null)
+                val tier1Match = feature.matchingStub(stub, mismatchMessages)
+                tier1Match.scenario ?: throw ContractException("Expected scenario after stub matched for:${System.lineSeparator()}${stub.toJSON()}")
+                val stubData = softCastResponseToXML(tier1Match)
+                return Pair(Pair(Result.Success(), listOf(stubData)), null)
             } catch (e: NoMatchingScenario) {
                 return Pair(null, e)
             }
@@ -685,7 +670,7 @@ class HttpStub(
             isSameBaseIgnoringHost(parsedBaseUrl, stubBaseUrl)
         }
 
-        return features.filter { feature -> feature.path in specsForGivenBaseUrl }
+        return features.filter { feature -> feature.path in specsForGivenBaseUrl }.distinctBy { feature -> feature.path }
     }
 
     private fun handleFlushTransientStubsRequest(httpRequest: HttpRequest): HttpStubResponse {
@@ -915,9 +900,13 @@ class HttpStub(
 
         when (firstResult) {
             null -> {
-                val failures = results.map {
-                    it.second?.results?.withoutFluff()?.results ?: emptyList()
-                }.flatten().toList()
+                val failures = results
+                    .flatMap {
+                        it.second?.results?.withoutFluff()?.results ?: emptyList()
+                    }
+                    .filterIsInstance<Result.Failure>()
+                    .distinctBy { failure -> failure.toReport().toText() }
+                    .toList()
 
                 val failureResults = Results(failures).withoutFluff()
                 throw NoMatchingScenario(
@@ -1424,11 +1413,10 @@ fun fakeHttpResponse(
         return NotStubbed(HttpStubResponse(HttpResponse(400, "No valid API specifications loaded")), Result.Failure("No valid API specifications loaded"))
 
     val responses: List<ResponseDetails> = responseDetailsFrom(features, httpRequest)
-
     return when (val fakeResponse = responses.successResponse()) {
         null -> {
             val failureResponses = responses.filter { it.successResponse == null }
-            val combinedFailureResult = Results(failureResponses.flatMap { it.results.results }).withoutFluff()
+            val combinedFailureResult = Results(failureResponses.flatMap { it.results.results })
             val firstScenarioWith400Response = failureResponses.asSequence().flatMap { response ->
                 response.results.results.asSequence().filterIsInstance<Result.Failure>().filter {
                     it.failureReason == null && it.scenario?.let { scenario -> scenario.status == 400 || scenario.status == 422 } == true
@@ -1477,11 +1465,11 @@ fun fakeHttpResponse(
 }
 
 fun responseDetailsFrom(features: List<Feature>, httpRequest: HttpRequest): List<ResponseDetails> {
-    return features.asSequence().map { feature ->
+    return features.map { feature ->
         feature.stubResponse(httpRequest, SpecificationAndRequestMismatchMessages).let {
             ResponseDetails(feature, it.first, it.second)
         }
-    }.toList()
+    }
 }
 
 fun List<ResponseDetails>.successResponse(): ResponseDetails? {
@@ -1644,20 +1632,7 @@ fun stubResponse(
 fun contractInfoToHttpExpectations(contractInfo: List<Pair<Feature, List<ScenarioStub>>>): List<HttpStubData> {
     return contractInfo.flatMap { (feature, examples) ->
         examples.map { example ->
-            feature.matchingStub(example, ExampleMismatchMessages) to example
-        }.flatMap { (stubData, example) ->
-            val examplesWithDataSubstitutionsResolved = try {
-                example.resolveDataSubstitutions()
-            } catch (e: Throwable) {
-                println()
-                logger.log("    Error resolving template data for example ${example.filePath}")
-                logger.log("    " + exceptionCauseMessage(e))
-                throw e
-            }
-
-            examplesWithDataSubstitutionsResolved.map {
-                feature.matchingStub(it, ExampleMismatchMessages)
-            }
+            feature.matchingStub(example, ExampleMismatchMessages)
         }
     }
 }
@@ -1847,4 +1822,3 @@ fun writeEvent(event: SseEvent, writer: Writer) {
     writer.write("\n")
     writer.flush()
 }
-

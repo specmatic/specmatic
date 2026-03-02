@@ -287,6 +287,7 @@ class HttpStubWithArrayQueryParameterTest {
             val response = stub.client.execute(HttpRequest("GET", "/products", queryParams = queryParameters))
             assertThat(response.status).isEqualTo(400)
             assertThat(response.body.toStringLiteral()).isEqualToIgnoringWhitespace("""
+            Error from contract ${contract.path}
             In scenario "get products. Response: OK"
             API: GET /products -> 200
             ${

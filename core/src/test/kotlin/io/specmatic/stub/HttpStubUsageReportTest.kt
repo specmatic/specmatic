@@ -111,7 +111,7 @@ paths:
     fun `should generate stub usage report when stub is stopped`() {
         val stubContract1 = OpenApiSpecification.fromYAML(
             helloAndDataSpec,
-            "",
+            "helloAndData.yaml",
             sourceProvider = "git",
             sourceRepository = "https://github.com/specmatic/specmatic-order-contracts.git",
             sourceRepositoryBranch = "main",
@@ -119,7 +119,7 @@ paths:
         ).toFeature()
         val stubContract2 = OpenApiSpecification.fromYAML(
             hello2AndData2Spec,
-            "",
+            "hello2AndData2Spec.yaml",
             sourceProvider = "git",
             sourceRepository = "https://github.com/specmatic/specmatic-order-contracts.git",
             sourceRepositoryBranch = "main",

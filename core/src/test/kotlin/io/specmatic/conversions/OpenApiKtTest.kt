@@ -2395,7 +2395,9 @@ components:
         }
 
         assertThat(exception.message).isEqualToIgnoringWhitespace("""
-        400 Bad Request on POST request for "http://localhost:9000/users": "In scenario "POST /users. Response: Details of the new user to register"
+        400 Bad Request on POST request for "http://localhost:9000/users": "Error from contract ${feature.path}
+        
+        In scenario "POST /users. Response: Details of the new user to register"
         API: POST /users -> 201
 
         ${toViolationReportString(

@@ -165,6 +165,11 @@ data class Scenario(
                     }
                 }
 
+    fun matchesPathStructureAndMethod(httpRequest: HttpRequest): Boolean {
+        val result = this.httpRequestPattern.matchesPathStructureAndMethod(httpRequest, resolver)
+        return result.isSuccess()
+    }
+
     fun matches(
         httpRequest: HttpRequest,
         serverState: Map<String, Value>,
@@ -753,15 +758,16 @@ data class Scenario(
         this.newBasedOn(suggestions.find { it.name == this.name } ?: this)
 
     fun newBasedOnAttributeSelectionFields(queryParams: QueryParameters?): Scenario {
-        val fieldsToBeMadeMandatory =
-            fieldsToBeMadeMandatoryBasedOnAttributeSelection(queryParams)
-        val responseBodyPattern = this.httpResponsePattern.body
+        val fieldsToBeMadeMandatory = fieldsToBeMadeMandatoryBasedOnAttributeSelection(queryParams)
+        if (fieldsToBeMadeMandatory.isEmpty()) return this
 
+        val responseBodyPattern = this.httpResponsePattern.body
         val updatedResponseBodyPattern = if(responseBodyPattern is PossibleJsonObjectPatternContainer) {
             responseBodyPattern.removeKeysNotPresentIn(fieldsToBeMadeMandatory, resolver)
         } else {
             responseBodyPattern
         }
+
         return this.copy(
             httpResponsePattern = httpResponsePattern.copy(
                 body = updatedResponseBodyPattern
