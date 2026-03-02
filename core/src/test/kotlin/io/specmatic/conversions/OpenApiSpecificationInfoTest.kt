@@ -266,7 +266,7 @@ class OpenApiSpecificationInfoTest {
                   scheme: bearer
         """.trimIndent()
 
-        val (output, feature) = captureStandardOutput { OpenApiSpecification.fromYAML(spec, "").toFeature() }
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
         val scenario = feature.scenarios.first()
         val generatedRequest = scenario.httpRequestPattern.generate(Resolver())
 
@@ -274,7 +274,6 @@ class OpenApiSpecificationInfoTest {
         assertThat(scenario.httpRequestPattern.headersPattern.pattern.keys.map(::withoutOptionality))
             .doesNotContain("Authorization")
         assertThat(generatedRequest.getHeader("Authorization")).startsWith("Bearer")
-        assertThat(output).contains("The header parameter's datatype is an unconstrained string")
     }
 
     @Test
@@ -306,7 +305,7 @@ class OpenApiSpecificationInfoTest {
                   scheme: bearer
         """.trimIndent()
 
-        val (output, feature) = captureStandardOutput { OpenApiSpecification.fromYAML(spec, "").toFeature() }
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
         val scenario = feature.scenarios.first()
         val generatedRequest = scenario.httpRequestPattern.generate(Resolver())
 
@@ -314,6 +313,5 @@ class OpenApiSpecificationInfoTest {
         assertThat(scenario.httpRequestPattern.headersPattern.pattern.keys.map(::withoutOptionality))
             .contains("Authorization")
         assertThat(generatedRequest.getHeader("Authorization")).doesNotStartWith("Bearer")
-        assertThat(output).contains("Specmatic will ignore the security scheme")
     }
 }

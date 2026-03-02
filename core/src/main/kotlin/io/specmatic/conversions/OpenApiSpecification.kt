@@ -1594,22 +1594,12 @@ class OpenApiSpecification(
                 return@forEach
             }
 
-            val (headerPattern, headerContext) = headerValueWithContext
+            val (headerPattern, _) = headerValueWithContext
             when {
                 headerPattern.isUnconstrainedStringPattern() -> {
-                    headerContext.record(
-                        message = "Found header parameter with same name as security scheme \"$headerName\". The header parameter's datatype is an unconstrained string. Given that a security scheme requiring the same header has been declared, the parameter conveys no additional information and can be dropped.",
-                        isWarning = true,
-                        ruleViolation = OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
-                    )
                     effectiveHeaders = effectiveHeaders.minus(headerKey)
                 }
                 headerPattern.isConstrainedStringOrEnumPattern() -> {
-                    headerContext.record(
-                        message = "Found constrained header parameter with same name as security scheme \"$headerName\". Specmatic will ignore the security scheme. But this can have unintended consequences, such as improper validation of a security scheme in an example or invalid value generation. To fix this issue, drop the header, as a security scheme has already been declared.",
-                        isWarning = true,
-                        ruleViolation = OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
-                    )
                     effectiveSecuritySchemes = dropSecuritySchemeForHeader(effectiveSecuritySchemes, headerName)
                 }
             }
