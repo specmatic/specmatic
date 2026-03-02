@@ -4,6 +4,8 @@ import io.specmatic.core.CONTENT_TYPE
 import io.specmatic.core.HttpPathPattern
 import io.specmatic.core.HttpRequest
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
@@ -32,6 +34,24 @@ class ProxyOperationTest {
         )
 
         assertThat(operation.matches(request)).isEqualTo(expectedMatchResult)
+    }
+
+    @Test
+    fun `should throw when actual request content type is malformed and expectation requires match`() {
+        val operation = ProxyOperation(
+            pathPattern = HttpPathPattern.from("/orders"),
+            method = "POST",
+            requestContentType = ContentTypeExpectation.MustMatch("application/json")
+        )
+
+        val request = HttpRequest(
+            method = "POST",
+            path = "/orders",
+            headers = mapOf(CONTENT_TYPE to "not a content type")
+        )
+
+        assertThatThrownBy { operation.matches(request) }
+            .isInstanceOf(Exception::class.java)
     }
 
     companion object {
