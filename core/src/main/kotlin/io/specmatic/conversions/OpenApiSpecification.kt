@@ -53,6 +53,7 @@ import io.swagger.v3.parser.OpenAPIV3Parser
 import io.swagger.v3.parser.core.models.ParseOptions
 import io.swagger.v3.parser.core.models.SwaggerParseResult
 import io.swagger.v3.parser.util.ClasspathHelper
+import org.apache.http.HttpHeaders.AUTHORIZATION
 import java.io.File
 import kotlin.collections.orEmpty
 
@@ -1425,9 +1426,14 @@ class OpenApiSpecification(
             )
         }
 
-        val contentTypeHeader = headersMap.entries.find { it.key.lowercase() in listOf("content-type", "content-type?") }?.value
+        val (effectiveHeadersMap, effectiveSecuritySchemes) = resolveSecurityHeaderOverrides(
+            headersMap = headersMap,
+            securitySchemes = securitySchemesForRequestPattern
+        )
+
+        val contentTypeHeader = effectiveHeadersMap.entries.find { it.key.lowercase() in listOf("content-type", "content-type?") }?.value
         val headersPattern = HttpHeadersPattern(
-            headersMap.mapValues { it.value.first },
+            effectiveHeadersMap.mapValues { it.value.first },
             preferEscapedSoapAction = preferEscapedSoapAction
         )
         val requestPattern = HttpRequestPattern(
@@ -1435,7 +1441,7 @@ class OpenApiSpecification(
             httpQueryParamPattern = httpQueryParamPattern,
             method = httpMethod,
             headersPattern = headersPattern,
-            securitySchemes = securitySchemesForRequestPattern
+            securitySchemes = effectiveSecuritySchemes
         )
 
         val exampleQueryParams = namedExampleParams<QueryParameter>(parameters)
@@ -1448,7 +1454,7 @@ class OpenApiSpecification(
             exampleQueryParams,
             httpPathPattern,
             httpMethod,
-            securitySchemesForRequestPattern
+            effectiveSecuritySchemes
         )
 
         val (requestBody, requestBodyContext) = resolveRequestBody(operation, collectorContext) ?: return listOf(
@@ -1573,6 +1579,73 @@ class OpenApiSpecification(
         }
 
         return contentType
+    }
+
+    private fun resolveSecurityHeaderOverrides(
+        headersMap: Map<String, Pair<Pattern, CollectorContext>>,
+        securitySchemes: List<OpenAPISecurityScheme>
+    ): Pair<Map<String, Pair<Pattern, CollectorContext>>, List<OpenAPISecurityScheme>> {
+        var effectiveHeaders = headersMap
+        var effectiveSecuritySchemes = securitySchemes
+
+        headersMap.forEach { (headerKey, headerValueWithContext) ->
+            val headerName = withoutOptionality(headerKey)
+            if (securityHeaderNames(effectiveSecuritySchemes).none { it.equals(headerName, ignoreCase = true) }) {
+                return@forEach
+            }
+
+            val (headerPattern, _) = headerValueWithContext
+            when {
+                headerPattern.isUnconstrainedStringPattern() -> {
+                    effectiveHeaders = effectiveHeaders.minus(headerKey)
+                }
+                headerPattern.isConstrainedStringOrEnumPattern() -> {
+                    effectiveSecuritySchemes = dropSecuritySchemeForHeader(effectiveSecuritySchemes, headerName)
+                }
+            }
+        }
+
+        if (effectiveSecuritySchemes.isEmpty()) {
+            effectiveSecuritySchemes = listOf(NoSecurityScheme())
+        }
+
+        return Pair(effectiveHeaders, effectiveSecuritySchemes)
+    }
+
+    private fun securityHeaderNames(securitySchemes: List<OpenAPISecurityScheme>): List<String> {
+        return securitySchemes.flatMap { securityHeaderNames(it) }
+    }
+
+    private fun securityHeaderNames(securityScheme: OpenAPISecurityScheme): List<String> {
+        return when (securityScheme) {
+            is CompositeSecurityScheme -> securityScheme.schemes.flatMap { securityHeaderNames(it) }
+            is BearerSecurityScheme, is BasicAuthSecurityScheme -> listOf(AUTHORIZATION)
+            is APIKeyInHeaderSecurityScheme -> listOf(securityScheme.name)
+            else -> emptyList()
+        }
+    }
+
+    private fun dropSecuritySchemeForHeader(
+        securitySchemes: List<OpenAPISecurityScheme>,
+        headerName: String
+    ): List<OpenAPISecurityScheme> {
+        return securitySchemes.mapNotNull { scheme ->
+            when (scheme) {
+                is CompositeSecurityScheme -> {
+                    val updatedSchemes = dropSecuritySchemeForHeader(scheme.schemes, headerName)
+                    when (updatedSchemes.size) {
+                        0 -> null
+                        1 -> updatedSchemes.single()
+                        else -> CompositeSecurityScheme(updatedSchemes)
+                    }
+                }
+                is BearerSecurityScheme, is BasicAuthSecurityScheme ->
+                    if (headerName.equals(AUTHORIZATION, ignoreCase = true)) null else scheme
+                is APIKeyInHeaderSecurityScheme ->
+                    if (scheme.name.equals(headerName, ignoreCase = true)) null else scheme
+                else -> scheme
+            }
+        }
     }
 
     private fun headersPatternWithContentType(
@@ -2797,6 +2870,19 @@ private fun <T> Result.returnLenientlyElseFail(lenient: Boolean = false, value: 
 
     this.throwOnFailure()
     return value
+}
+
+private fun Pattern.isUnconstrainedStringPattern(): Boolean {
+    return this is StringPattern && this.minLength == null && this.maxLength == null && this.regex == null
+}
+
+private fun Pattern.isConstrainedStringOrEnumPattern(): Boolean {
+    return when (this) {
+        is EnumPattern -> true
+        is StringPattern -> this.minLength != null || this.maxLength != null || this.regex != null
+        is ExactValuePattern -> this.pattern is StringValue
+        else -> false
+    }
 }
 
 internal fun validateSecuritySchemeParameterDuplication(securitySchemes: List<OpenAPISecurityScheme>, parameters: List<IndexedValue<Parameter>>?, collectorContext: CollectorContext) {

@@ -1,6 +1,8 @@
 package io.specmatic.conversions
 
 import io.specmatic.core.pattern.parsedJSONObject
+import io.specmatic.core.pattern.withoutOptionality
+import io.specmatic.core.Resolver
 import io.swagger.v3.oas.models.*
 import io.swagger.v3.oas.models.info.Info
 import io.swagger.v3.oas.models.media.Schema
@@ -234,5 +236,82 @@ class OpenApiSpecificationInfoTest {
                 OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
             )
         )
+    }
+
+    @Test
+    fun `should ignore unconstrained auth header override and retain security scheme`() {
+        val spec = """
+            openapi: 3.0.3
+            info:
+              title: Greeting API with Authentication
+              version: 1.0.0
+            paths:
+              /greet:
+                get:
+                  security:
+                    - bearerAuth: []
+                  parameters:
+                    - name: Authorization
+                      in: header
+                      required: true
+                      schema:
+                        type: string
+                  responses:
+                    200:
+                      description: ok
+            components:
+              securitySchemes:
+                bearerAuth:
+                  type: http
+                  scheme: bearer
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+        val scenario = feature.scenarios.first()
+        val generatedRequest = scenario.httpRequestPattern.generate(Resolver())
+
+        assertThat(scenario.httpRequestPattern.securitySchemes).hasOnlyElementsOfType(BearerSecurityScheme::class.java)
+        assertThat(scenario.httpRequestPattern.headersPattern.pattern.keys.map(::withoutOptionality))
+            .doesNotContain("Authorization")
+        assertThat(generatedRequest.getHeader("Authorization")).startsWith("Bearer")
+    }
+
+    @Test
+    fun `should drop auth security scheme for constrained auth header override`() {
+        val spec = """
+            openapi: 3.0.3
+            info:
+              title: Greeting API with Authentication
+              version: 1.0.0
+            paths:
+              /greet:
+                get:
+                  security:
+                    - bearerAuth: []
+                  parameters:
+                    - name: Authorization
+                      in: header
+                      required: true
+                      schema:
+                        type: string
+                        minLength: 10
+                  responses:
+                    200:
+                      description: ok
+            components:
+              securitySchemes:
+                bearerAuth:
+                  type: http
+                  scheme: bearer
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+        val scenario = feature.scenarios.first()
+        val generatedRequest = scenario.httpRequestPattern.generate(Resolver())
+
+        assertThat(scenario.httpRequestPattern.securitySchemes).isEqualTo(listOf(NoSecurityScheme()))
+        assertThat(scenario.httpRequestPattern.headersPattern.pattern.keys.map(::withoutOptionality))
+            .contains("Authorization")
+        assertThat(generatedRequest.getHeader("Authorization")).doesNotStartWith("Bearer")
     }
 }
