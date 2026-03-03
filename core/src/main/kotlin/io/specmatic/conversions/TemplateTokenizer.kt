@@ -14,6 +14,19 @@ class TemplateTokenizer(private val regex: Regex) {
         return tokenization.tokens + trailingLiteral(input, tokenization.cursor)
     }
 
+    fun extract(input: String): List<String> {
+        val match = regex.matchEntire(input) ?: return emptyList()
+        val ranges = match.groups.drop(1).mapNotNull { it?.range }
+        val extraction = ranges.fold(Tokenization()) { state, range ->
+            val literalSegments = literalBetween(input, state.cursor, range.first)
+            val captured = TemplateSegment(startIndex = range.first, endIndex = range.last, type = SegmentType.PLACEHOLDER, token = input.substring(range))
+            state.append(literalSegments.plus(captured), range.last + 1)
+        }
+
+        val segments = extraction.tokens.plus(trailingLiteral(input, extraction.cursor))
+        return segments.map { it.token }
+    }
+
     private fun literalBetween(input: String, startIndex: Int, endExclusive: Int): List<TemplateSegment> {
         if (startIndex >= endExclusive) return emptyList()
         return listOf(literalToken(input, startIndex, endExclusive))

@@ -23,6 +23,31 @@ class TemplateTokenizerTest {
         assertTokenCoverage(input, tokens)
     }
 
+    @Test
+    fun `extract returns empty list when regex does not match entire input`() {
+        val tokenizer = TemplateTokenizer(Regex("^/product/(.+)/latest$"))
+        val parts = tokenizer.extract("/products/12/orders/abc/latest")
+        assertThat(parts).isEmpty()
+    }
+
+    @Test
+    fun `extract returns list of segments based on the regex provided`() {
+        val tokenizer = TemplateTokenizer(Regex("^/users/([A-Za-z0-9_-]+)/orders/([A-Za-z0-9_-]+)$"))
+        val input = "/users/u-1/orders/o_2"
+        val parts = tokenizer.extract(input)
+        assertThat(parts).containsExactly("/users/", "u-1", "/orders/", "o_2")
+        assertThat(parts.joinToString("")).isEqualTo(input)
+    }
+
+    @Test
+    fun `extract does not produce empty literals between adjacent captures`() {
+        val tokenizer = TemplateTokenizer(Regex("^/(.+)(.+)/pets$"))
+        val input = "/ab/pets"
+        val parts = tokenizer.extract(input)
+        assertThat(parts).doesNotContain("")
+        assertThat(parts.joinToString("")).isEqualTo(input)
+    }
+
     @Nested
     inner class OpenApiTokenizer {
         private val tokenizer = TemplateTokenizer(TemplateTokenizer.openApiPathRegex)
@@ -59,6 +84,42 @@ class TemplateTokenizerTest {
             assertThat(tokens.map { it.type }).containsExactly(SegmentType.TEXT, SegmentType.PLACEHOLDER, SegmentType.PLACEHOLDER, SegmentType.TEXT)
             assertThat(tokens.filter { it.type == SegmentType.TEXT }.map { it.token }).doesNotContain("")
             assertTokenCoverage(input, tokens)
+        }
+
+        @Test
+        fun `extract splits standard openapi style path`() {
+            val extractTokenizer = TemplateTokenizer(Regex("^/product/(?<id>.+)/order/(?<id2>.+)/latest$"))
+            val input = "/product/12/order/abc/latest"
+            val parts = extractTokenizer.extract(input)
+            assertThat(parts).containsExactly("/product/", "12", "/order/", "abc", "/latest")
+            assertThat(parts.joinToString("")).isEqualTo(input)
+        }
+
+        @Test
+        fun `extract splits interpolated path correctly`() {
+            val interpolatedTokenizer = TemplateTokenizer(Regex("^/product/product-(?<id>.+)/order/order-(?<id2>.+)/latest$"))
+            val input = "/product/product-12/order/order-abc/latest"
+            val parts = interpolatedTokenizer.extract(input)
+            assertThat(parts).containsExactly("/product/product-", "12", "/order/order-", "abc", "/latest")
+            assertThat(parts.joinToString("")).isEqualTo(input)
+        }
+
+        @Test
+        fun `extract handles capture at start`() {
+            val startTokenizer = TemplateTokenizer(Regex("^(?<id>.+)/latest$"))
+            val input = "xyz/latest"
+            val parts = startTokenizer.extract(input)
+            assertThat(parts).containsExactly("xyz", "/latest")
+            assertThat(parts.joinToString("")).isEqualTo(input)
+        }
+
+        @Test
+        fun `extract handles capture at end`() {
+            val endTokenizer = TemplateTokenizer(Regex("^/orders/(?<orderId>.+)$"))
+            val input = "/orders/999"
+            val parts = endTokenizer.extract(input)
+            assertThat(parts).containsExactly("/orders/", "999")
+            assertThat(parts.joinToString("")).isEqualTo(input)
         }
     }
 
