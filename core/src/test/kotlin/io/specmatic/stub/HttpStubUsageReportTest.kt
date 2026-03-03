@@ -128,7 +128,7 @@ paths:
 
         HttpStub(
             listOf(stubContract1, stubContract2),
-            specmaticConfigSource = SpecmaticConfigSource.fromPath("./specmatic.json")
+            specmaticConfigSource = SpecmaticConfigSource.fromConfigFile("./specmatic.json")
         ).use { stub ->
             stub.client.execute(HttpRequest("GET", "/data"))
             stub.client.execute(HttpRequest("GET", "/unknown"))

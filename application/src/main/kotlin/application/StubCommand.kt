@@ -152,13 +152,27 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     @Suppress("unused")
     fun ctrfTestResultRecords() = (httpStub as? HttpStub)?.ctrfTestResultRecords().orEmpty()
 
-    private val specmaticConfiguration: io.specmatic.core.SpecmaticConfig by lazy(LazyThreadSafetyMode.NONE) {
+    private val specmaticConfigurationSource: SpecmaticConfigSource by lazy(LazyThreadSafetyMode.NONE) {
         if (configFileName != null) Configuration.configFilePath = configFileName as String
         val specmaticConfigPath = File(Configuration.configFilePath).canonicalPath
-        val config = loadSpecmaticConfigOrNull(specmaticConfigPath, explicitlySpecifiedByUser = configFileName != null).orDefault()
+        val configFromFile = loadSpecmaticConfigOrNull(specmaticConfigPath, explicitlySpecifiedByUser = configFileName != null)
+        val config = configFromFile.orDefault()
+
+        val pathFromWhichConfigWasLoaded = if (configFromFile != null) {
+            specmaticConfigPath
+        } else {
+            null
+        }
+
         val sourcesUpdated = config.applyIf(useCurrentBranchForCentralRepo) { withMatchBranch(it) }
         val stubConfigUpdated = sourcesUpdated.withStubModes(strictMode = strictMode).withStubFilter(filter = filter)
         delayInMilliseconds?.let(stubConfigUpdated::withGlobalMockDelay) ?: stubConfigUpdated
+
+        SpecmaticConfigSource.fromConfigObject(config, pathFromWhichConfigWasLoaded)
+    }
+
+    private val specmaticConfiguration: io.specmatic.core.SpecmaticConfig by lazy(LazyThreadSafetyMode.NONE) {
+        specmaticConfigurationSource.load().config
     }
 
     private val keyDataRegistry: KeyDataRegistry by lazy(LazyThreadSafetyMode.NONE) {
@@ -304,7 +318,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             keyDataRegistry = keyDataRegistry,
             strictMode = resolvedStrictMode,
             passThroughTargetBase = passThroughTargetBase,
-            specmaticConfigSource = SpecmaticConfigSource.from(configFileName ?: getConfigFilePath(), specmaticConfiguration),
+            specmaticConfigSource = specmaticConfigurationSource,
             httpClientFactory = httpClientFactory,
             workingDirectory = workingDirectory,
             gracefulRestartTimeoutInMs = configuredGracefulTimeout(),

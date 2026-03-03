@@ -148,7 +148,7 @@ class MockEventListenerTest {
         val feature = featureWithGenerative4xxResponse
         val config = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = true))
         val events = captureMockEvents { listener ->
-            HttpStub(features = listOf(feature), listeners = listOf(listener), specmaticConfigSource = SpecmaticConfigSource.fromConfig(config)).use { stub ->
+            HttpStub(features = listOf(feature), listeners = listOf(listener), specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(config)).use { stub ->
                 stub.client.execute(HttpRequest(method = "POST", path = "/hello", body = parsedJSONObject("""{"data": 10}""")))
             }
         }
@@ -166,7 +166,7 @@ class MockEventListenerTest {
         val feature = featureWithGenerative4xxResponse
         val config = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = false))
         val events = captureMockEvents { listener ->
-            HttpStub(features = listOf(feature), listeners = listOf(listener), specmaticConfigSource = SpecmaticConfigSource.fromConfig(config)).use { stub ->
+            HttpStub(features = listOf(feature), listeners = listOf(listener), specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(config)).use { stub ->
                 stub.client.execute(HttpRequest(method = "POST", path = "/hello", body = parsedJSONObject("""{"data": 10}""")))
             }
         }

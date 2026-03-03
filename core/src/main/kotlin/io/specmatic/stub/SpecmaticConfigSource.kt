@@ -14,17 +14,12 @@ interface SpecmaticConfigSource {
             override fun load(): LoadedSpecmaticConfig = LoadedSpecmaticConfig(SpecmaticConfig(), null)
         }
 
-        fun fromPath(path: String?): SpecmaticConfigSource = when (path) {
+        fun fromConfigFile(path: String?): SpecmaticConfigSource = when (path) {
             null -> None
             else -> SpecmaticConfigFromPath(path)
         }
 
-        fun fromConfig(config: SpecmaticConfig): SpecmaticConfigSource = SpecmaticConfigFromObject(config)
-
-        fun from(path: String?, config: SpecmaticConfig?): SpecmaticConfigSource = when {
-            config != null -> fromConfig(config)
-            else -> fromPath(path)
-        }
+        fun fromConfigObject(config: SpecmaticConfig, path: String? = null): SpecmaticConfigSource = SpecmaticConfigFromObject(config, path)
     }
 }
 
@@ -39,7 +34,7 @@ private class SpecmaticConfigFromPath(private val path: String) : SpecmaticConfi
     }
 }
 
-private class SpecmaticConfigFromObject(private val config: SpecmaticConfig) : SpecmaticConfigSource {
+private class SpecmaticConfigFromObject(private val config: SpecmaticConfig, private val path: String?) : SpecmaticConfigSource {
     override fun load(): SpecmaticConfigSource.LoadedSpecmaticConfig =
-        SpecmaticConfigSource.LoadedSpecmaticConfig(config, null)
+        SpecmaticConfigSource.LoadedSpecmaticConfig(config, path)
 }
