@@ -32,86 +32,44 @@ internal class HttpPathPatternTest {
         "1/2/3"
     )
     fun `should match path when structure matches and not all segments conflict`(path: String) {
-        val pattern = HttpPathPattern(listOf(
-            URLPathSegmentPattern(StringPattern(), "first"),
-            URLPathSegmentPattern(StringPattern(), "second"),
-            URLPathSegmentPattern(StringPattern(), "third")
-        ), path = "/(first:String)/(second:String)/(third:String)")
+        val pattern = HttpPathPattern.from("/(first:string)/(second:string)/(third:string)")
         val result = pattern.matches(path, Resolver())
-
         assertThat(result).isInstanceOf(Result.Success::class.java)
     }
 
     @Test
     fun `should match not path when structure does matches and there are some segment conflicts`() {
-        val pattern = HttpPathPattern(listOf(
-            URLPathSegmentPattern(NumberPattern(), "first"),
-            URLPathSegmentPattern(StringPattern(), "second"),
-            URLPathSegmentPattern(StringPattern(), "third")
-        ), path = "/(first:number)/(second:String)/(third:String)")
+        val pattern = HttpPathPattern.from("/(first:number)/(second:string)/(third:string)")
         val result = pattern.matches("/a/b/1", Resolver())
-
         assertThat(result).isInstanceOf(Result.Failure::class.java)
     }
 
     @Test
     fun `should return success when path matches and no other patterns conflict based on specificity`() {
         // Create a pattern with other less specific patterns that should not conflict
-        val lessSpecificPattern1 = HttpPathPattern(listOf(
-            URLPathSegmentPattern(StringPattern(), "first"),
-            URLPathSegmentPattern(StringPattern(), "second"),
-            URLPathSegmentPattern(StringPattern(), "third")
-        ), path = "/(first:String)/(second:String)/(third:String)")
-        
-        val lessSpecificPattern2 = HttpPathPattern(listOf(
-            URLPathSegmentPattern(StringPattern(), "param"),
-            URLPathSegmentPattern(StringPattern(), "second")
-        ), path = "/(param:String)/(second:String)")
-
-        val pattern = HttpPathPattern(listOf(
-            URLPathSegmentPattern(ExactValuePattern(StringValue("a"))),
-            URLPathSegmentPattern(ExactValuePattern(StringValue("b"))),
-            URLPathSegmentPattern(ExactValuePattern(StringValue("c")))
-        ), path = "/a/b/c", otherPathPatterns = listOf(lessSpecificPattern1, lessSpecificPattern2))
-        
+        val lessSpecificPattern1 = HttpPathPattern.from("/(first:string)/(second:string)/(third:string)")
+        val lessSpecificPattern2 = HttpPathPattern.from("/(param:string)/(second:string)")
+        val pattern = HttpPathPattern.from("/a/b/c").copy(otherPathPatterns = listOf(lessSpecificPattern1, lessSpecificPattern2))
         val result = pattern.matches("a/b/c", Resolver())
-
         assertThat(result).isInstanceOf(Result.Success::class.java)
     }
 
     @Test
     fun `should return failure when path matches a more specific pattern based on specificity`() {
         // Create a more specific pattern (with more ExactValuePattern segments)
-        val moreSpecificPattern = HttpPathPattern(listOf(
-            URLPathSegmentPattern(ExactValuePattern(StringValue("api"))),
-            URLPathSegmentPattern(ExactValuePattern(StringValue("v1"))),
-            URLPathSegmentPattern(ExactValuePattern(StringValue("users")))
-        ), path = "/api/v1/users")
-
+        val moreSpecificPattern = HttpPathPattern.from("/api/v1/users")
         // Create a less specific pattern (with fewer ExactValuePattern segments)
-        val lessSpecificPattern = HttpPathPattern(listOf(
-            URLPathSegmentPattern(StringPattern(), "section"),
-            URLPathSegmentPattern(StringPattern(), "version"),
-            URLPathSegmentPattern(ExactValuePattern(StringValue("users")))
-        ), path = "/(section:String)/(version:String)/users", otherPathPatterns = listOf(moreSpecificPattern))
-        
+        val lessSpecificPattern = HttpPathPattern.from("/(section:string)/(version:string)/users").copy(otherPathPatterns = listOf(moreSpecificPattern))
         val result = lessSpecificPattern.matches("api/v1/users", Resolver())
-
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat((result as Result.Failure).reportString()).contains("matches a more specific pattern")
     }
 
     @Test
     fun `should not conflict when otherPathPatterns is empty representing different HTTP methods`() {
-        val postPattern = HttpPathPattern(listOf(
-            URLPathSegmentPattern(StringPattern(), "section"),
-            URLPathSegmentPattern(StringPattern(), "version"),
-            URLPathSegmentPattern(ExactValuePattern(StringValue("users")))
-        ), path = "/(section:String)/(version:String)/users", otherPathPatterns = emptyList())
-        
+        val postPattern = HttpPathPattern.from("/(section:string)/(version:string)/users")
         // This should succeed because there are no conflicting patterns in the same HTTP method
-        val result = postPattern.matches("api/v1/users", Resolver())
-
+        val result = postPattern.matches("/api/v1/users", Resolver())
         assertThat(result).isInstanceOf(Result.Success::class.java)
     }
 
@@ -181,7 +139,7 @@ internal class HttpPathPatternTest {
             assertThat((it as Result.Failure).toMatchFailureDetails()).isEqualTo(
                 MatchFailureDetails(
                     listOf("PARAMETERS.PATH (/owners/123123)"),
-                    listOf("""Expected "pets", actual was "owners"""")
+                    listOf("""Expected "/pets/", actual was "/owners/"""")
                 )
             )
         }
@@ -207,19 +165,19 @@ internal class HttpPathPatternTest {
             } returns it
             every {
                 it.withCyclePrevention<StringValue>(
-                    ExactValuePattern(StringValue("pets")),
+                    ExactValuePattern(StringValue("/pets/")),
                     any()
                 )
-            } returns StringValue("pets")
+            } returns StringValue("/pets/")
             every {
                 it.withCyclePrevention<NumberValue>(NumberPattern(), any())
             } returns NumberValue(123)
             every {
                 it.withCyclePrevention<StringValue>(
-                    ExactValuePattern(StringValue("owner")),
+                    ExactValuePattern(StringValue("/owner/")),
                     any()
                 )
-            } returns StringValue("owner")
+            } returns StringValue("/owner/")
             every {
                 it.withCyclePrevention<StringValue>(StringPattern(), any())
             } returns StringValue("hari")
@@ -238,8 +196,8 @@ internal class HttpPathPatternTest {
         val newURLPatterns = urlPattern.newBasedOn(Row(), resolver)
         val urlPathSegmentPatterns = newURLPatterns.first()
         assertEquals(2, urlPathSegmentPatterns.size)
-        val path = urlPathSegmentPatterns.joinToString("/") { it.generate(resolver).toStringLiteral() }
-        assertEquals("pets/10", path)
+        val path = urlPathSegmentPatterns.joinToString("") { it.generate(resolver).toStringLiteral() }
+        assertEquals("/pets/10", path)
     }
 
     @Test
@@ -301,16 +259,16 @@ internal class HttpPathPatternTest {
         assertThat(negativePatterns).hasSize(2)
         assertThat(negativePatterns[0].value).containsExactlyElementsOf(
             listOf(
-                URLPathSegmentPattern(ExactValuePattern(StringValue("products"))),
+                URLPathSegmentPattern(ExactValuePattern(StringValue("/products/"))),
                 URLPathSegmentPattern(BooleanPattern(), "id"),
-                URLPathSegmentPattern(ExactValuePattern(StringValue("image"))),
+                URLPathSegmentPattern(ExactValuePattern(StringValue("/image"))),
             )
         )
         assertThat(negativePatterns[1].value).containsExactlyElementsOf(
             listOf(
-                URLPathSegmentPattern(ExactValuePattern(StringValue("products"))),
+                URLPathSegmentPattern(ExactValuePattern(StringValue("/products/"))),
                 URLPathSegmentPattern(StringPattern(), "id"),
-                URLPathSegmentPattern(ExactValuePattern(StringValue("image"))),
+                URLPathSegmentPattern(ExactValuePattern(StringValue("/image"))),
             )
         )
     }
@@ -323,33 +281,33 @@ internal class HttpPathPatternTest {
         assertThat(negativePatterns).hasSize(4)
         assertThat(negativePatterns[0].value).containsExactlyElementsOf(
             listOf(
-                URLPathSegmentPattern(ExactValuePattern(StringValue("organizations"))),
+                URLPathSegmentPattern(ExactValuePattern(StringValue("/organizations/"))),
                 URLPathSegmentPattern(BooleanPattern(), "orgId"),
-                URLPathSegmentPattern(ExactValuePattern(StringValue("employees"))),
+                URLPathSegmentPattern(ExactValuePattern(StringValue("/employees/"))),
                 URLPathSegmentPattern(NumberPattern(), "empId"),
             )
         )
         assertThat(negativePatterns[1].value).containsExactlyElementsOf(
             listOf(
-                URLPathSegmentPattern(ExactValuePattern(StringValue("organizations"))),
+                URLPathSegmentPattern(ExactValuePattern(StringValue("/organizations/"))),
                 URLPathSegmentPattern(StringPattern(), "orgId"),
-                URLPathSegmentPattern(ExactValuePattern(StringValue("employees"))),
+                URLPathSegmentPattern(ExactValuePattern(StringValue("/employees/"))),
                 URLPathSegmentPattern(NumberPattern(), "empId"),
             )
         )
         assertThat(negativePatterns[2].value).containsExactlyElementsOf(
             listOf(
-                URLPathSegmentPattern(ExactValuePattern(StringValue("organizations"))),
+                URLPathSegmentPattern(ExactValuePattern(StringValue("/organizations/"))),
                 URLPathSegmentPattern(NumberPattern(), "orgId"),
-                URLPathSegmentPattern(ExactValuePattern(StringValue("employees"))),
+                URLPathSegmentPattern(ExactValuePattern(StringValue("/employees/"))),
                 URLPathSegmentPattern(BooleanPattern(), "empId"),
             )
         )
         assertThat(negativePatterns[3].value).containsExactlyElementsOf(
             listOf(
-                URLPathSegmentPattern(ExactValuePattern(StringValue("organizations"))),
+                URLPathSegmentPattern(ExactValuePattern(StringValue("/organizations/"))),
                 URLPathSegmentPattern(NumberPattern(), "orgId"),
-                URLPathSegmentPattern(ExactValuePattern(StringValue("employees"))),
+                URLPathSegmentPattern(ExactValuePattern(StringValue("/employees/"))),
                 URLPathSegmentPattern(StringPattern(), "empId"),
             )
         )
@@ -367,6 +325,20 @@ internal class HttpPathPatternTest {
     }
 
     @Test
+    fun `should match and extract interpolated path parameters`() {
+        val pattern = buildHttpPathPattern("/product/product-(id:string)/order/order-(orderId:string)/latest")
+        assertThat(pattern.matches(URI("/product/product-12/order/order-abc/latest"), Resolver())).isInstanceOf(Result.Success::class.java)
+        assertThat(pattern.extractPathParams("/product/product-12/order/order-abc/latest", Resolver())).isEqualTo(mapOf("id" to "12", "orderId" to "abc"))
+    }
+
+    @Test
+    fun `should fail interpolated path match when literal prefixes inside segment do not match`() {
+        val pattern = buildHttpPathPattern("/product/product-(id:string)/order/order-(orderId:string)/latest")
+        val mismatchResult = pattern.matches(URI("/product/12/order/abc/latest"), Resolver()) as Result.Failure
+        assertThat(mismatchResult.failureReason).isEqualTo(FailureReason.URLPathMisMatch)
+    }
+
+    @Test
     fun `should return failure reason as url mismatch if there is even one literal path segment mismatch`() {
         val pattern = buildHttpPathPattern("/pets/(id:number)/data")
         val mismatchResult = pattern.matches(URI("/pets/abc/info")) as Result.Failure
@@ -381,7 +353,7 @@ internal class HttpPathPatternTest {
         assertThat(matchers).hasSize(1)
         assertThat(matchers.single()).isEqualTo(
             listOf(
-                URLPathSegmentPattern(ExactValuePattern(StringValue("pets"))),
+                URLPathSegmentPattern(ExactValuePattern(StringValue("/pets/"))),
                 URLPathSegmentPattern(BooleanPattern(), "status")
             )
         )
@@ -501,7 +473,7 @@ internal class HttpPathPatternTest {
             val unPrefixedPath = "pets/abc"
             val unPrefixedFixedPath = urlPattern.fixValue(unPrefixedPath, resolver)
             println(unPrefixedFixedPath)
-            assertThat(unPrefixedFixedPath).isEqualTo("pets/999")
+            assertThat(unPrefixedFixedPath).isEqualTo("/pets/999")
         }
 
         @Test
@@ -561,6 +533,15 @@ internal class HttpPathPatternTest {
             println(fixedPath)
             assertThat(fixedPath).isEqualTo("/pets/999")
         }
+
+        @Test
+        fun `should fix interpolated path parameter while preserving literal prefix`() {
+            val urlPattern = buildHttpPathPattern("/product/product-(id:number)/latest")
+            val dictionary = "PARAMETERS: { PATH: { id: 999 } }".let(Dictionary::fromYaml)
+            val resolver = Resolver(dictionary = dictionary)
+            val fixedPath = urlPattern.fixValue("/product/product-abc/latest", resolver)
+            assertThat(fixedPath).isEqualTo("/product/product-999/latest")
+        }
     }
 
     @Nested
@@ -611,6 +592,15 @@ internal class HttpPathPatternTest {
             val filledPath = pathPattern.fillInTheBlanks(path, Resolver(dictionary = dictionary)).value
 
             assertThat(filledPath).isEqualTo("/pets/999/owners/true")
+        }
+
+        @Test
+        fun `should fill interpolated path parameters and preserve literal prefixes`() {
+            val pathPattern = buildHttpPathPattern("/product/product-(id:number)/order/order-(orderId:number)/latest")
+            val path = "/product/product-(id:number)/order/order-(orderId:number)/latest"
+            val dictionary = "PARAMETERS: { PATH: { id: 101, orderId: 202 } }".let(Dictionary::fromYaml)
+            val filledPath = pathPattern.fillInTheBlanks(path, Resolver(dictionary = dictionary)).value
+            assertThat(filledPath).isEqualTo("/product/product-101/order/order-202/latest")
         }
     }
 }

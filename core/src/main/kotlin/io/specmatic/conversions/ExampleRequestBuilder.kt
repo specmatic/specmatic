@@ -25,7 +25,7 @@ class ExampleRequestBuilder(
             } else {
                 val httpRequest = HttpRequest(
                     method = httpMethod,
-                    path = httpPathPattern.path,
+                    path = httpPathPattern.toInternalPath(),
                     headers = mapOf("Content-Type" to contentType),
                     body = parsedValue(bodyValue)
                 )

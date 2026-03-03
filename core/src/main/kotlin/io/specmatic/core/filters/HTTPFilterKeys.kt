@@ -84,7 +84,7 @@ enum class HTTPFilterKeys(val key: String, val isPrefix: Boolean) {
     },
     PARAMETERS_PATH("PARAMETERS.PATH", false) {
         override fun includes(scenario: Scenario, key: String, value: String): Boolean {
-            return scenario.httpRequestPattern.httpPathPattern?.pathSegmentPatterns?.map { it.key }?.contains(value) ?: false
+            return scenario.httpRequestPattern.httpPathPattern?.containsParameter(value) ?: false
         }
 
         override fun includes(

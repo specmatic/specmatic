@@ -59,9 +59,6 @@ data class HttpRequestPattern(
     val multiPartFormDataPattern: List<MultiPartFormDataPattern> = emptyList(),
     val securitySchemes: List<OpenAPISecurityScheme> = listOf(NoSecurityScheme())
 ) {
-
-    fun getPathSegmentPatterns() = httpPathPattern?.pathSegmentPatterns
-
     fun getHeaderKeys() = headersPattern.headerNames
 
     fun getQueryParamKeys() = httpQueryParamPattern.queryKeyNames
@@ -174,7 +171,7 @@ data class HttpRequestPattern(
     }
 
     fun matchesSignature(other: HttpRequestPattern): Boolean =
-        httpPathPattern!!.path == other.httpPathPattern!!.path && method.equals(method)
+        httpPathPattern!!.toInternalPath() == other.httpPathPattern!!.toInternalPath() && method.equals(method)
 
     private fun matchMultiPartFormData(parameters: Triple<HttpRequest, Resolver, List<Failure>>): MatchingResult<Triple<HttpRequest, Resolver, List<Failure>>> {
         val (httpRequest, resolver, failures) = parameters
@@ -659,7 +656,7 @@ data class HttpRequestPattern(
                     val newURLPathSegmentPatternsList = if (status.toString().startsWith("2")) {
                         httpPathPattern.newBasedOn(row, resolver)
                     } else httpPathPattern.readFrom(row, resolver)
-                    newURLPathSegmentPatternsList.map { HttpPathPattern(it, httpPathPattern.path) }.map { HasValue(it) }
+                    newURLPathSegmentPatternsList.map { HttpPathPattern(it, httpPathPattern.toInternalPath()) }.map { HasValue(it) }
                 } ?: sequenceOf(HasValue(null))
             }
 
@@ -801,7 +798,7 @@ data class HttpRequestPattern(
         return attempt(breadCrumb = "REQUEST") {
             val newHttpPathPatterns = httpPathPattern?.let { httpPathPattern ->
                 val newURLPathSegmentPatternsList = httpPathPattern.newBasedOn(resolver)
-                newURLPathSegmentPatternsList.map { HttpPathPattern(it, httpPathPattern.path) }
+                newURLPathSegmentPatternsList.map { HttpPathPattern(it, httpPathPattern.toInternalPath()) }
             } ?: sequenceOf<HttpPathPattern?>(null)
 
             val newQueryParamsPatterns = httpQueryParamPattern.newBasedOn(resolver)
@@ -852,7 +849,7 @@ data class HttpRequestPattern(
             val newHttpPathPatterns: Sequence<ReturnValue<HttpPathPattern>?> =
                 httpPathPattern?.let { httpPathPattern ->
                     httpPathPattern.negativeBasedOn(row, resolver)
-                        .map { it.ifValue { HttpPathPattern(it, httpPathPattern.path) } }
+                        .map { it.ifValue { HttpPathPattern(it, httpPathPattern.toInternalPath()) } }
                 } ?: sequenceOf(null)
 
             val newQueryParamsPatterns = httpQueryParamPattern.negativeBasedOn(row, resolver)

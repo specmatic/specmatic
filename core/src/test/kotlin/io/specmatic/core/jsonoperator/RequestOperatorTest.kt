@@ -42,11 +42,12 @@ class RequestOperatorTest {
 
     @Test
     fun `should extract path parameters when pattern is provided`() {
-        val mockPathPattern = mockk<HttpPathPattern>()
         val mockSegmentPattern = mockk<URLPathSegmentPattern>()
+        val mockPathPattern = mockk<HttpPathPattern> {
+            every { toMapIndexed(any(), any()) } returns mapOf("0" to "/api/user", "userId" to "123").mapValues { StringValue(it.value) }
+        }
 
         every { mockRequestPattern.httpPathPattern } returns mockPathPattern
-        every { mockPathPattern.pathSegmentPatterns } returns listOf(mockSegmentPattern)
         every { mockSegmentPattern.pattern } returns mockk<StringPattern>()
         every { mockSegmentPattern.key } returns "userId"
         every { mockSegmentPattern.parse(any(), any()) } returns StringValue("123")

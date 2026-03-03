@@ -587,8 +587,8 @@ class OpenApiSpecification(
         // pattern + exact -> pattern should match exact
         // pattern + pattern -> both generated concrete values should be of same type
 
-        val matchingScenarioInfos = specmaticScenarioInfo.matchesGherkinWrapperPath(openApiScenarioInfos, this)
-
+        val resolver = Resolver(newPatterns = patterns)
+        val matchingScenarioInfos = specmaticScenarioInfo.matchesGherkinWrapperPath(openApiScenarioInfos, this, resolver)
         return when {
             matchingScenarioInfos.isEmpty() -> MatchFailure(
                 Failure(
@@ -668,12 +668,12 @@ class OpenApiSpecification(
 
         return MatchSuccess(specmaticScenarioInfo to openApiScenarioInfos.map { openApiScenario ->
             val queryPattern = openApiScenario.httpRequestPattern.httpQueryParamPattern.queryPatterns
-            val zippedPathPatterns =
-                (specmaticScenarioInfo.httpRequestPattern.httpPathPattern?.pathSegmentPatterns ?: emptyList()).zip(
-                    openApiScenario.httpRequestPattern.httpPathPattern?.pathSegmentPatterns ?: emptyList()
-                )
+            val resolver = Resolver(newPatterns = openApiScenario.patterns)
+            val zippedPathPatterns = openApiScenario.httpRequestPattern.httpPathPattern
+                ?.zipWithExpandedPathSegments(specmaticScenarioInfo.httpRequestPattern.httpPathPattern ?: return@map openApiScenario, resolver)
+                ?: emptyList()
 
-            val pathPatterns = zippedPathPatterns.map { (fromWrapper, fromOpenApi) ->
+            val pathPatterns = zippedPathPatterns.map { (fromOpenApi, fromWrapper) ->
                 if (fromWrapper.pattern is ExactValuePattern)
                     fromWrapper
                 else
@@ -681,7 +681,7 @@ class OpenApiSpecification(
             }
 
             val httpPathPattern =
-                HttpPathPattern(pathPatterns, openApiScenario.httpRequestPattern.httpPathPattern?.path ?: "")
+                HttpPathPattern(pathPatterns, openApiScenario.httpRequestPattern.httpPathPattern?.toInternalPath() ?: "")
             val existingQueryParamPattern = openApiScenario.httpRequestPattern.httpQueryParamPattern
             val httpQueryParamPattern = HttpQueryParamPattern(
                 queryPattern,

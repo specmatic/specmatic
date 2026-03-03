@@ -7,7 +7,6 @@ import io.specmatic.core.QueryParameters
 import io.specmatic.core.Resolver
 import io.specmatic.core.jsonoperator.value.ObjectValueOperator
 import io.specmatic.core.jsonoperator.value.ValueOperator
-import io.specmatic.core.pattern.ExactValuePattern
 import io.specmatic.core.pattern.HasFailure
 import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.ReturnValue
@@ -53,7 +52,7 @@ data class RequestOperator(
 
         return HasValue(
             originalHttpRequest.copy(
-                path = finalizedPathValues.jsonObject.values.joinToString(prefix = "/", separator = "/"),
+                path = finalizedPathValues.jsonObject.values.joinToString(separator = ""),
                 queryParams = QueryParameters(finalizedQuery.jsonObject.mapValues { it.value.toStringLiteral() }),
                 headers = finalizedHeaders.jsonObject.mapValues { it.value.toStringLiteral() },
                 body = finalizedBody,
@@ -89,12 +88,7 @@ data class RequestOperator(
         }
 
         private fun pathParametersFrom(request: HttpRequest, pathPattern: HttpPathPattern, resolver: Resolver): ObjectValueOperator {
-            val pathSegments = request.path?.trim('/')?.split("/")?.filter(String::isNotEmpty).orEmpty()
-            val map = pathPattern.pathSegmentPatterns.withIndex().zip(pathSegments) { (idx, pattern), segment ->
-                if (pattern.pattern is ExactValuePattern || pattern.key == null) return@zip idx.toString() to StringValue(segment)
-                pattern.key to runCatching { pattern.parse(segment, resolver) }.getOrElse { StringValue(segment) }
-            }.toMap()
-            return ObjectValueOperator(map)
+            return ObjectValueOperator(pathPattern.toMapIndexed(request.path.orEmpty(), resolver))
         }
     }
 }

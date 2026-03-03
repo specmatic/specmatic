@@ -7,6 +7,8 @@ import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.DeferredPattern
 import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.pattern.QueryParameterScalarPattern
+import io.specmatic.core.Result
+import io.specmatic.core.Resolver
 import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.pattern.XMLTypeData
@@ -25,7 +27,7 @@ import java.util.stream.Stream
 class OpenApiSpecificationParseTest {
     @ParameterizedTest
     @ValueSource(strings = ["3.0.0", "3.1.0"])
-    fun `should parse openapi paths with multi parameters per segment`(openApiVersion: String) {
+    fun `should parse openapi paths with multi parameters per segment using a separator`(openApiVersion: String) {
         val spec = """
             openapi: $openApiVersion
             info:
@@ -52,8 +54,45 @@ class OpenApiSpecificationParseTest {
 
         val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
         val pathPattern = feature.scenarios.single().httpRequestPattern.httpPathPattern
-        assertThat(pathPattern?.path).isEqualTo("/orders/(param1:number),(param2:string)/data")
-        assertThat(pathPattern?.pathSegmentPatterns).hasSize(5)
+        assertThat(pathPattern?.toInternalPath()).isEqualTo("/orders/(param1:number),(param2:string)/data")
+
+        assertThat(pathPattern?.matches("/orders/123,abc/data", Resolver())).isInstanceOf(Result.Success::class.java)
+        assertThat(pathPattern?.matches("/orders/abc,123/data", Resolver())).isInstanceOf(Result.Failure::class.java)
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["3.0.0", "3.1.0"])
+    fun `should parse and match interpolated openapi path parameters`(openApiVersion: String) {
+        val spec = """
+            openapi: $openApiVersion
+            info:
+              title: Interpolated Path Segment
+              version: 1.0.0
+            paths:
+              /product/product-{id}/order/order-{orderId}/latest:
+                get:
+                  parameters:
+                    - in: path
+                      name: id
+                      required: true
+                      schema:
+                        type: integer
+                    - in: path
+                      name: orderId
+                      required: true
+                      schema:
+                        type: string
+                  responses:
+                    '200':
+                      description: OK
+        """.trimIndent()
+
+        val requestPattern = OpenApiSpecification.fromYAML(spec, "").toFeature().scenarios.single().httpRequestPattern
+        val pathPattern = requestPattern.httpPathPattern!!
+
+        assertThat(pathPattern.toInternalPath()).isEqualTo("/product/product-(id:number)/order/order-(orderId:string)/latest")
+        assertThat(pathPattern.matches("/product/product-12/order/order-abc/latest", Resolver())).isInstanceOf(Result.Success::class.java)
+        assertThat(pathPattern.matches("/product/product-abc/order/abc/latest", Resolver())).isInstanceOf(Result.Failure::class.java)
     }
 
     @ParameterizedTest
@@ -100,7 +139,7 @@ class OpenApiSpecificationParseTest {
         """.trimIndent()
 
         val requestPattern = OpenApiSpecification.fromYAML(spec, "").toFeature().scenarios.single().httpRequestPattern
-        assertThat(requestPattern.httpPathPattern?.path).isEqualTo("/orders/(orderId:string)")
+        assertThat(requestPattern.httpPathPattern?.toInternalPath()).isEqualTo("/orders/(orderId:string)")
 
         val queryPatterns = requestPattern.httpQueryParamPattern.queryPatterns
         assertThat(queryPatterns.keys).contains("includeDetails", "page")
@@ -164,7 +203,7 @@ class OpenApiSpecificationParseTest {
         """.trimIndent()
 
         val requestPattern = OpenApiSpecification.fromYAML(spec, "").toFeature().scenarios.single().httpRequestPattern
-        assertThat(requestPattern.httpPathPattern?.path).contains("(orderId:number)")
+        assertThat(requestPattern.httpPathPattern?.toInternalPath()).contains("(orderId:number)")
 
         val queryPattern = requestPattern.httpQueryParamPattern.queryPatterns["page"]
         assertThat(queryPattern).isInstanceOf(QueryParameterScalarPattern::class.java)
