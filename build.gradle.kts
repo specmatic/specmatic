@@ -164,9 +164,12 @@ specmatic {
     }
 }
 
-
 subprojects {
     tasks.withType<Test> {
         systemProperty("specmatic.license.utilization.shipDisabled", "true")
+        // Regex-based generators can be memory-intensive in tests.
+        maxHeapSize = "1g"
+        jvmArgs("-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=/tmp/heap-dump-${project.name}.hprof")
+        forkEvery = 100
     }
 }
