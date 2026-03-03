@@ -598,6 +598,7 @@ class HttpStub(
             val keyData = keyDataRegistry.get(host, port) ?: return@map EngineConnectorBuilder().also { it.host = host; it.port = port }
             if (incomingMtlsEnabled) {
                 incomingMtlsSslContextsByPort[port] = incomingMtlsServerContext(keyData)
+                return@map EngineConnectorBuilder().also { it.host = host; it.port = port }
             }
             EngineSSLConnectorBuilder(
                 keyStore = keyData.keyStore,
@@ -816,9 +817,11 @@ class HttpStub(
                 val mtlsSslContext = incomingMtlsSslContextsByPort[localAddress.port]
                 if (mtlsSslContext != null) {
                     val sslHandler = get("ssl") as? SslHandler
+                    val newSslHandler = mtlsSslContext.newHandler(channel().alloc())
                     if (sslHandler != null) {
-                        val newSslHandler = mtlsSslContext.newHandler(channel().alloc())
                         replace(sslHandler, "ssl", newSslHandler)
+                    } else {
+                        addFirst("ssl", newSslHandler)
                     }
                 }
             }
