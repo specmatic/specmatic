@@ -668,8 +668,8 @@ class OpenApiSpecification(
         return MatchSuccess(specmaticScenarioInfo to openApiScenarioInfos.map { openApiScenario ->
             val queryPattern = openApiScenario.httpRequestPattern.httpQueryParamPattern.queryPatterns
             val zippedPathPatterns =
-                (specmaticScenarioInfo.httpRequestPattern.httpPathPattern?.pathSegmentPatterns ?: emptyList()).zip(
-                    openApiScenario.httpRequestPattern.httpPathPattern?.pathSegmentPatterns ?: emptyList()
+                (specmaticScenarioInfo.httpRequestPattern.httpPathPattern?.getPathSegmentPatterns() ?: emptyList()).zip(
+                    openApiScenario.httpRequestPattern.httpPathPattern?.getPathSegmentPatterns() ?: emptyList()
                 )
 
             val pathPatterns = zippedPathPatterns.map { (fromWrapper, fromOpenApi) ->
@@ -680,7 +680,7 @@ class OpenApiSpecification(
             }
 
             val httpPathPattern =
-                HttpPathPattern(pathPatterns, openApiScenario.httpRequestPattern.httpPathPattern?.path ?: "")
+                HttpPathPattern(pathPatterns, openApiScenario.httpRequestPattern.httpPathPattern?.originalPath() ?: "")
             val existingQueryParamPattern = openApiScenario.httpRequestPattern.httpQueryParamPattern
             val httpQueryParamPattern = HttpQueryParamPattern(
                 queryPattern,
@@ -2621,23 +2621,12 @@ class OpenApiSpecification(
     }
 
     private fun toSpecmaticPathParam(openApiPath: String, parameters: List<Parameter>, otherPathPatterns: Collection<HttpPathPattern> = emptyList(), collectorContext: CollectorContext): HttpPathPattern {
-        val pathSegments: List<String> = openApiPath.removePrefix("/").removeSuffix("/").let {
-            if (it.isBlank()) emptyList()
-            else it.split("/")
-        }
-
         val pathParamMap = parameters
             .safeFilter<PathParameter>(collectorContext)
             .associateBy { indexedParam -> indexedParam.value.name }
 
         val parameterContext = collectorContext.at("parameters")
-        val pathPattern = pathSegments.mapIndexed { _, pathSegment ->
-            logger.debug("Processing path segment $pathSegment")
-            if (!isParameter(pathSegment)) {
-                return@mapIndexed URLPathSegmentPattern(ExactValuePattern(StringValue(pathSegment)))
-            }
-
-            val paramName = pathSegment.removeSurrounding("{", "}")
+        val parameterPatterns = pathParameterNames(openApiPath).associateWith { paramName ->
             val pathParamContext = if (pathParamMap.containsKey(paramName)) {
                 parameterContext.at(pathParamMap.getValue(paramName).index)
             } else {
@@ -2658,25 +2647,24 @@ class OpenApiSpecification(
                 }
             )
 
-            URLPathSegmentPattern(
-                key = paramName,
-                pattern = toSpecmaticPattern(parameter.schema, typeStack = emptyList(), collectorContext = pathParamContext.at("schema")),
-            )
+            if (parameter.schema.enum != null) {
+                StringPattern("")
+            } else {
+                toSpecmaticPattern(parameter.schema, typeStack = emptyList(), collectorContext = pathParamContext.at("schema"))
+            }
         }
 
-        val specmaticPath = toSpecmaticFormattedPathString(parameters, openApiPath)
-        return HttpPathPattern(pathPattern, specmaticPath, otherPathPatterns)
+        val specmaticPath = toSpecmaticFormattedPathString(openApiPath, parameterPatterns)
+        return HttpPathPattern(pathToPattern(specmaticPath), specmaticPath, otherPathPatterns)
     }
 
-    private fun isParameter(pathSegment: String) = pathSegment.startsWith("{") && pathSegment.endsWith("}")
+    private fun pathParameterNames(openApiPath: String): List<String> =
+        Regex("""\{([^{}]+)}""").findAll(openApiPath).map { it.groupValues[1] }.distinct().toList()
 
-    private fun toSpecmaticFormattedPathString(parameters: List<Parameter>, openApiPath: String): String {
-        val throwAwayCollectorContext = CollectorContext()
-        return parameters.safeFilter<PathParameter>(throwAwayCollectorContext).map { it.value }.foldRight(openApiPath) { it, specmaticPath ->
-            val pattern = if (it.schema.enum != null) StringPattern("") else toSpecmaticPattern(it.schema, emptyList(), collectorContext = throwAwayCollectorContext)
-            specmaticPath.replace("{${it.name}}", "(${it.name}:${pattern.typeName})")
+    private fun toSpecmaticFormattedPathString(openApiPath: String, parameterPatterns: Map<String, Pattern>): String =
+        parameterPatterns.entries.fold(openApiPath) { specmaticPath, (paramName, pattern) ->
+            specmaticPath.replace("{${paramName}}", "(${paramName}:${pattern.typeName})")
         }
-    }
 
     private fun openApiOperations(pathItem: PathItem): Map<String, Operation> {
         return linkedMapOf<String, Operation?>(

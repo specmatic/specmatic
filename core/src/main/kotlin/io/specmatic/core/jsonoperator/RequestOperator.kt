@@ -90,10 +90,16 @@ data class RequestOperator(
 
         private fun pathParametersFrom(request: HttpRequest, pathPattern: HttpPathPattern, resolver: Resolver): ObjectValueOperator {
             val pathSegments = request.path?.trim('/')?.split("/")?.filter(String::isNotEmpty).orEmpty()
-            val map = pathPattern.pathSegmentPatterns.withIndex().zip(pathSegments) { (idx, pattern), segment ->
-                if (pattern.pattern is ExactValuePattern || pattern.key == null) return@zip idx.toString() to StringValue(segment)
-                pattern.key to runCatching { pattern.parse(segment, resolver) }.getOrElse { StringValue(segment) }
+            val indexedSegments = pathSegments.withIndex().associate { it.index.toString() to StringValue(it.value) as Value }
+            val pathPatternByName = pathPattern.pathParameters().mapNotNull { pattern ->
+                pattern.key?.let { it to pattern }
             }.toMap()
+            val extractedPathParams = pathPattern.extractPathParamValues(request.path.orEmpty(), resolver)
+                .mapValues { (key, value) ->
+                    val pattern = pathPatternByName[key]
+                    pattern?.let { runCatching { it.parse(value, resolver) }.getOrElse { StringValue(value) } } ?: StringValue(value)
+                }
+            val map = indexedSegments + extractedPathParams
             return ObjectValueOperator(map)
         }
     }

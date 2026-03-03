@@ -30,8 +30,8 @@ data class ScenarioInfo(
 
     fun matchesGherkinWrapperPath(scenarioInfos: List<ScenarioInfo>, apiSpecification: ApiSpecification): List<ScenarioInfo> =
         scenarioInfos.filter { openApiScenarioInfo ->
-            val pathPatternFromOpenApi = openApiScenarioInfo.httpRequestPattern.httpPathPattern!!.pathSegmentPatterns
-            val pathPatternFromWrapper = this.httpRequestPattern.httpPathPattern!!.pathSegmentPatterns
+            val pathPatternFromOpenApi = openApiScenarioInfo.httpRequestPattern.httpPathPattern!!.getPathSegmentPatterns()
+            val pathPatternFromWrapper = this.httpRequestPattern.httpPathPattern!!.getPathSegmentPatterns()
 
             if(pathPatternFromOpenApi.size != pathPatternFromWrapper.size)
                 return@filter false

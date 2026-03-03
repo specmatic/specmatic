@@ -88,6 +88,26 @@ class HTTPFilterKeysTest {
     }
 
     @Test
+    fun `PARAMETERS_PATH includes should detect path parameter names inside composite segment`() {
+        val scenario = Scenario(
+            ScenarioInfo(
+                scenarioName = "GET /orders/(id:number),(type:string)",
+                httpRequestPattern = HttpRequestPattern(
+                    method = "GET",
+                    httpPathPattern = HttpPathPattern.from("/orders/(id:number),(type:string)"),
+                    headersPattern = HttpHeadersPattern()
+                ),
+                httpResponsePattern = HttpResponsePattern(status = 200),
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI
+            )
+        )
+
+        assertThat(HTTPFilterKeys.PARAMETERS_PATH.includes(scenario, "PARAMETERS.PATH", "id")).isTrue()
+        assertThat(HTTPFilterKeys.PARAMETERS_PATH.includes(scenario, "PARAMETERS.PATH", "type")).isTrue()
+    }
+
+    @Test
     fun `caseInsensitiveContains returns true when exact string is present`() {
         val items = listOf("apple", "banana", "cherry")
         assertThat(items.caseInsensitiveContains("banana")).isTrue()

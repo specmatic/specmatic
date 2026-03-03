@@ -62,25 +62,19 @@ class Workflow(
 
                 val pathParamName = path[0]
 
-                val pathParamIndex = originalScenario.httpRequestPattern.httpPathPattern?.pathSegmentPatterns?.indexOfFirst { it.key == pathParamName } ?: -1
-
-                if(pathParamIndex < 0) {
+                val httpPathPattern = originalScenario.httpRequestPattern.httpPathPattern
+                if(httpPathPattern == null || !httpPathPattern.hasPathParameter(pathParamName)) {
                     request
                 }
                 else {
-                    val updatedPath = request.path!!.split("/").toMutableList()
-
-                    val indexToUpdate = if(updatedPath.getOrNull(0) == "") pathParamIndex + 1 else pathParamIndex
-
-                    id?.let {
-                        updatedPath.set(indexToUpdate, it.toStringLiteral())
-                    }
-
-                    val result = originalScenario.httpRequestPattern.httpPathPattern?.matches(updatedPath.joinToString("/"), originalScenario.resolver)
+                    val replacement = id?.toStringLiteral() ?: return request
+                    val updatedPath = httpPathPattern.applyPathParamValue(request.path.orEmpty(), pathParamName, replacement)
+                        ?: return request
+                    val result = httpPathPattern.matches(updatedPath, originalScenario.resolver)
 
                     result?.throwOnFailure()
 
-                    request.copy(path = updatedPath.joinToString("/"))
+                    request.copy(path = updatedPath)
                 }
             }
             else -> {

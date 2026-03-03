@@ -613,4 +613,42 @@ internal class HttpPathPatternTest {
             assertThat(filledPath).isEqualTo("/pets/999/owners/true")
         }
     }
+
+    @Test
+    fun `should match path when multiple path params are present in same segment`() {
+        val pattern = HttpPathPattern.from("/orders/(param1:number),(param2:string)/data")
+
+        val result = pattern.matches("/orders/123,abc/data", Resolver())
+
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `should fail match when delimiter between same-segment path params is invalid`() {
+        val pattern = HttpPathPattern.from("/orders/(param1:number),(param2:string)/data")
+
+        val result = pattern.matches("/orders/123/abc/data", Resolver())
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat((result as Result.Failure).failureReason).isEqualTo(FailureReason.URLPathMisMatch)
+    }
+
+    @Test
+    fun `should extract all path params when multiple params are present in same segment`() {
+        val pattern = HttpPathPattern.from("/orders/(param1:number),(param2:string)/data")
+
+        val extracted = pattern.extractPathParams("/orders/123,abc/data", Resolver())
+
+        assertThat(extracted).containsEntry("param1", "123")
+        assertThat(extracted).containsEntry("param2", "abc")
+    }
+
+    @Test
+    fun `fillInTheBlanks should preserve delimiters for same-segment path params`() {
+        val pathPattern = HttpPathPattern.from("/orders/(param1:number),(param2:string)/data")
+        val result = pathPattern.fillInTheBlanks("/orders/(param1:number),(param2:string)/data", Resolver())
+
+        assertThat(result).isInstanceOf(HasValue::class.java)
+        assertThat(result.value).matches("/orders/\\d+,[A-Za-z]+/data")
+    }
 }

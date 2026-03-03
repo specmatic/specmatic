@@ -74,6 +74,28 @@ class WorkflowTest {
         protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
     )
 
+    private val getScenarioAcceptingNumberInCompositePath = Scenario(
+        "Get data using composite path segment",
+        HttpRequestPattern(
+            method = "GET",
+            httpPathPattern = buildHttpPathPattern("/data/(id:number),(type:string)"),
+            body = StringPattern()
+        ),
+        HttpResponsePattern(
+            status = 200,
+            body = JSONObjectPattern(
+                mapOf(
+                    "id" to NumberPattern()
+                )
+            )
+        ),
+        emptyMap(),
+        emptyList(),
+        emptyMap(),
+        emptyMap(),
+        protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
+    )
+
     @Test
     fun `should fetch the specified id out a response and add it to a request`() {
         val request = HttpRequest("POST", "/data/1", body = StringValue("data"))
@@ -137,5 +159,25 @@ class WorkflowTest {
         }.hasMessageContaining(
             DefaultMismatchMessages.typeMismatch("number", "\"abc\"", "string")
         )
+    }
+
+    @Test
+    fun `should update the correct parameter in a composite path segment`() {
+        val request = HttpRequest("GET", "/data/1,alpha", body = StringValue("data"))
+        val response = HttpResponse(201, body = parsedJSONObject("""{"id": "1000"}"""))
+
+        val workflow = Workflow(
+            workflow = WorkflowConfiguration(
+                ids = mapOf(
+                    "*" to WorkflowIDOperation(use = "PATH.id"),
+                    "POST /data -> 201" to WorkflowIDOperation(extract = "BODY.id")
+                )
+            )
+        )
+
+        workflow.extractDataFrom(response, postScenarioReturningNumber)
+        val updatedRequest = workflow.updateRequest(request, getScenarioAcceptingNumberInCompositePath)
+
+        assertThat(updatedRequest.path).isEqualTo("/data/1000,alpha")
     }
 }

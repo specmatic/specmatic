@@ -1,6 +1,8 @@
 package io.specmatic.conversions
 
 import integration_tests.OpenApiVersion
+import io.specmatic.core.Result
+import io.specmatic.core.Resolver
 import io.specmatic.core.pattern.AnythingPattern
 import io.specmatic.core.pattern.BooleanPattern
 import io.specmatic.core.pattern.ContractException
@@ -23,6 +25,44 @@ import java.math.BigDecimal
 import java.util.stream.Stream
 
 class OpenApiSpecificationParseTest {
+    @ParameterizedTest
+    @ValueSource(strings = ["3.0.0", "3.1.0"])
+    fun `should parse and match multiple path params in one segment`(openApiVersion: String) {
+        val spec = """
+            openapi: $openApiVersion
+            info:
+              title: Composite Path Segment
+              version: 1.0.0
+            paths:
+              /orders/{param1},{param2}/data:
+                get:
+                  parameters:
+                    - in: path
+                      name: param1
+                      required: true
+                      schema:
+                        type: integer
+                    - in: path
+                      name: param2
+                      required: true
+                      schema:
+                        type: string
+                  responses:
+                    '200':
+                      description: OK
+        """.trimIndent()
+
+        val pathPattern = OpenApiSpecification.fromYAML(spec, "").toFeature().scenarios.single().httpRequestPattern.httpPathPattern!!
+        assertThat(pathPattern.originalPath()).isEqualTo("/orders/(param1:number),(param2:string)/data")
+        assertThat(pathPattern.allPathParameterNames()).containsExactly("param1", "param2")
+
+        val resolver = Resolver()
+        assertThat(pathPattern.matches("/orders/123,abc/data", resolver)).isInstanceOf(Result.Success::class.java)
+        assertThat(pathPattern.extractPathParamValues("/orders/123,abc/data", resolver))
+            .containsEntry("param1", "123")
+            .containsEntry("param2", "abc")
+    }
+
     @ParameterizedTest
     @ValueSource(strings = ["3.0.0", "3.1.0"])
     fun `should parse path item and operation parameters together for path query and header`(openApiVersion: String) {
@@ -67,7 +107,7 @@ class OpenApiSpecificationParseTest {
         """.trimIndent()
 
         val requestPattern = OpenApiSpecification.fromYAML(spec, "").toFeature().scenarios.single().httpRequestPattern
-        assertThat(requestPattern.httpPathPattern?.path).isEqualTo("/orders/(orderId:string)")
+        assertThat(requestPattern.httpPathPattern?.originalPath()).isEqualTo("/orders/(orderId:string)")
 
         val queryPatterns = requestPattern.httpQueryParamPattern.queryPatterns
         assertThat(queryPatterns.keys).contains("includeDetails", "page")
@@ -131,7 +171,7 @@ class OpenApiSpecificationParseTest {
         """.trimIndent()
 
         val requestPattern = OpenApiSpecification.fromYAML(spec, "").toFeature().scenarios.single().httpRequestPattern
-        assertThat(requestPattern.httpPathPattern?.path).contains("(orderId:number)")
+        assertThat(requestPattern.httpPathPattern?.originalPath()).contains("(orderId:number)")
 
         val queryPattern = requestPattern.httpQueryParamPattern.queryPatterns["page"]
         assertThat(queryPattern).isInstanceOf(QueryParameterScalarPattern::class.java)

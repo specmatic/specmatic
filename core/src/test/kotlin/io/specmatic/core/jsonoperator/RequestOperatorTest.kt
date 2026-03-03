@@ -42,20 +42,27 @@ class RequestOperatorTest {
 
     @Test
     fun `should extract path parameters when pattern is provided`() {
-        val mockPathPattern = mockk<HttpPathPattern>()
-        val mockSegmentPattern = mockk<URLPathSegmentPattern>()
-
-        every { mockRequestPattern.httpPathPattern } returns mockPathPattern
-        every { mockPathPattern.pathSegmentPatterns } returns listOf(mockSegmentPattern)
-        every { mockSegmentPattern.pattern } returns mockk<StringPattern>()
-        every { mockSegmentPattern.key } returns "userId"
-        every { mockSegmentPattern.parse(any(), any()) } returns StringValue("123")
+        every { mockRequestPattern.httpPathPattern } returns HttpPathPattern.from("/api/users/(userId:string)")
 
         val request = HttpRequest(method = "GET", path = "/api/users/123")
         val operator = RequestOperator.from(request, mockRequestPattern, mockResolver)
 
         val result = operator.get("/path/userId").finalizeValue()
         assertThat(result.value.getOrNull()).isEqualTo(StringValue("123"))
+    }
+
+    @Test
+    fun `should extract all path parameters from a composite segment`() {
+        every { mockRequestPattern.httpPathPattern } returns HttpPathPattern.from("/orders/(id:number),(type:string)")
+
+        val request = HttpRequest(method = "GET", path = "/orders/42,bulk")
+        val operator = RequestOperator.from(request, mockRequestPattern, mockResolver)
+
+        val idResult = operator.get("/path/id").finalizeValue()
+        val typeResult = operator.get("/path/type").finalizeValue()
+
+        assertThat(idResult.value.getOrNull()).isEqualTo(StringValue("42"))
+        assertThat(typeResult.value.getOrNull()).isEqualTo(StringValue("bulk"))
     }
 
     @Test
