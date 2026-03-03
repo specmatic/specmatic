@@ -3,6 +3,9 @@ import io.specmatic.gradle.extensions.RepoType
 plugins {
     id("io.specmatic.gradle")
     id("base")
+    if (System.getenv("CI") == "true") {
+        id("com.asarkar.gradle.build-time-tracker") version "5.0.1"
+    }
 }
 
 allprojects {
