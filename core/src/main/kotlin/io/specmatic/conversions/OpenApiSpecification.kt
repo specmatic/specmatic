@@ -102,6 +102,7 @@ class OpenApiSpecification(
 ) : IncludedSpecification, ApiSpecification {
     private val extensibleQueryParams: Boolean = specmaticConfig.getExtensibleQueryParams()
     private val preferEscapedSoapAction: Boolean = specmaticConfig.getEscapeSoapAction()
+    private val openApiPathTokenizer: TemplateTokenizer = TemplateTokenizer(TemplateTokenizer.openApiPathRegex)
 
     init {
         StringProviders // Trigger early initialization of StringProviders to ensure all providers are loaded at startup
@@ -2621,23 +2622,18 @@ class OpenApiSpecification(
     }
 
     private fun toSpecmaticPathParam(openApiPath: String, parameters: List<Parameter>, otherPathPatterns: Collection<HttpPathPattern> = emptyList(), collectorContext: CollectorContext): HttpPathPattern {
-        val pathSegments: List<String> = openApiPath.removePrefix("/").removeSuffix("/").let {
-            if (it.isBlank()) emptyList()
-            else it.split("/")
-        }
-
         val pathParamMap = parameters
             .safeFilter<PathParameter>(collectorContext)
             .associateBy { indexedParam -> indexedParam.value.name }
 
         val parameterContext = collectorContext.at("parameters")
-        val pathPattern = pathSegments.mapIndexed { _, pathSegment ->
+        val pathPattern = openApiPathTokenizer.tokenize(openApiPath).map { pathSegment ->
             logger.debug("Processing path segment $pathSegment")
-            if (!isParameter(pathSegment)) {
-                return@mapIndexed URLPathSegmentPattern(ExactValuePattern(StringValue(pathSegment)))
+            if (pathSegment.type == SegmentType.TEXT) {
+                return@map URLPathSegmentPattern(ExactValuePattern(StringValue(pathSegment.token)))
             }
 
-            val paramName = pathSegment.removeSurrounding("{", "}")
+            val paramName = pathSegment.token
             val pathParamContext = if (pathParamMap.containsKey(paramName)) {
                 parameterContext.at(pathParamMap.getValue(paramName).index)
             } else {
@@ -2667,8 +2663,6 @@ class OpenApiSpecification(
         val specmaticPath = toSpecmaticFormattedPathString(parameters, openApiPath)
         return HttpPathPattern(pathPattern, specmaticPath, otherPathPatterns)
     }
-
-    private fun isParameter(pathSegment: String) = pathSegment.startsWith("{") && pathSegment.endsWith("}")
 
     private fun toSpecmaticFormattedPathString(parameters: List<Parameter>, openApiPath: String): String {
         val throwAwayCollectorContext = CollectorContext()

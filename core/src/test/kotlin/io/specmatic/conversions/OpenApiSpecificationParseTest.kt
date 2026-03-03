@@ -25,6 +25,39 @@ import java.util.stream.Stream
 class OpenApiSpecificationParseTest {
     @ParameterizedTest
     @ValueSource(strings = ["3.0.0", "3.1.0"])
+    fun `should parse openapi paths with multi parameters per segment`(openApiVersion: String) {
+        val spec = """
+            openapi: $openApiVersion
+            info:
+              title: Composite Path Segment
+              version: 1.0.0
+            paths:
+              /orders/{param1},{param2}/data:
+                get:
+                  parameters:
+                    - in: path
+                      name: param1
+                      required: true
+                      schema:
+                        type: integer
+                    - in: path
+                      name: param2
+                      required: true
+                      schema:
+                        type: string
+                  responses:
+                    '200':
+                      description: OK
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+        val pathPattern = feature.scenarios.single().httpRequestPattern.httpPathPattern
+        assertThat(pathPattern?.path).isEqualTo("/orders/(param1:number),(param2:string)/data")
+        assertThat(pathPattern?.pathSegmentPatterns).hasSize(5)
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["3.0.0", "3.1.0"])
     fun `should parse path item and operation parameters together for path query and header`(openApiVersion: String) {
         val spec = """
             openapi: $openApiVersion
