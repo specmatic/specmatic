@@ -21,6 +21,7 @@ import io.specmatic.core.APPLICATION_NAME_LOWER_CASE
 import io.specmatic.core.Feature
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
+import io.specmatic.core.IncomingMtlsRegistry
 import io.specmatic.core.KeyData
 import io.specmatic.core.KeyDataRegistry
 import io.specmatic.core.MismatchMessages
@@ -94,6 +95,16 @@ import io.specmatic.test.TestResultRecord
 import io.specmatic.test.TestResultRecord.Companion.STUB_TEST_TYPE
 import io.specmatic.test.TestResultRecord.Companion.getCoverageStatus
 import io.specmatic.test.internalHeadersToKtorHeaders
+import io.netty.handler.ssl.ClientAuth
+import io.netty.handler.ssl.ApplicationProtocolConfig
+import io.netty.handler.ssl.ApplicationProtocolNames
+import io.netty.handler.ssl.SslContext
+import io.netty.handler.ssl.SslContextBuilder
+import io.netty.handler.ssl.SslHandler
+import io.netty.handler.ssl.SslProvider
+import io.netty.handler.ssl.SupportedCipherSuiteFilter
+import io.netty.handler.ssl.util.InsecureTrustManagerFactory
+import io.netty.handler.codec.http2.Http2SecurityUtil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BroadcastChannel
 import kotlinx.coroutines.channels.BufferOverflow
@@ -107,10 +118,13 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.Writer
 import java.net.InetAddress
+import java.net.InetSocketAddress
 import java.net.URI
 import java.nio.charset.Charset
 import java.time.Instant
 import java.util.*
+import java.security.PrivateKey
+import java.security.cert.X509Certificate
 import kotlin.text.toCharArray
 
 const val SPECMATIC_RESPONSE_CODE_HEADER = "Specmatic-Response-Code"
@@ -128,6 +142,7 @@ class HttpStub(
     private val log: (event: LogMessage) -> Unit = dontPrintToConsole,
     private val strictMode: Boolean = false,
     val keyDataRegistry: KeyDataRegistry = KeyDataRegistry.empty(),
+    val incomingMtlsRegistry: IncomingMtlsRegistry = IncomingMtlsRegistry.empty(),
     val passThroughTargetBase: String = "",
     val httpClientFactory: HttpClientFactory = HttpClientFactory(),
     val workingDirectory: WorkingDirectory? = null,
@@ -141,6 +156,7 @@ class HttpStub(
     private val startTime: Instant = Instant.now(),
     var requestHandlers: MutableList<RequestHandler> = mutableListOf()
 ) : ContractStub {
+    private val incomingMtlsSslContextsByPort: MutableMap<Int, SslContext> = mutableMapOf()
     private enum class SwaggerSpecResponseFormat {
         YAML,
         JSON
@@ -566,15 +582,72 @@ class HttpStub(
 
     private fun ApplicationEngineEnvironmentBuilder.configureHostPorts() {
         val hostPortList = getHostAndPortList()
+        val mtlsByPort = hostPortList.groupBy(
+            keySelector = { (_, port) -> port },
+            valueTransform = { (host, port) -> incomingMtlsRegistry.get(host, port) }
+        )
+        val portsWithMixedMtlsMode = mtlsByPort.filterValues { it.distinct().size > 1 }.keys
+        if (portsWithMixedMtlsMode.isNotEmpty()) {
+            throw ContractException(
+                "Incoming mTLS configuration is ambiguous for ports: ${portsWithMixedMtlsMode.joinToString(", ")}. Please ensure all host mappings for a shared port use the same incoming mTLS setting."
+            )
+        }
+
         connectors.addAll(hostPortList.map { (host, port) ->
+            val incomingMtlsEnabled = incomingMtlsRegistry.get(host, port)
             val keyData = keyDataRegistry.get(host, port) ?: return@map EngineConnectorBuilder().also { it.host = host; it.port = port }
+            if (incomingMtlsEnabled) {
+                incomingMtlsSslContextsByPort[port] = incomingMtlsServerContext(keyData)
+            }
             EngineSSLConnectorBuilder(
                 keyStore = keyData.keyStore,
                 keyAlias = keyData.keyAlias,
                 privateKeyPassword = { keyData.keyPassword.toCharArray() },
-                keyStorePassword = { keyData.keyPassword.toCharArray() }
+                keyStorePassword = { keyData.keyStorePassword.toCharArray() }
             ).also { it.host = host; it.port = port }
         })
+
+        val portsWithIncomingMtlsButNoHttps = hostPortList.filter { (host, port) ->
+            incomingMtlsRegistry.get(host, port) && keyDataRegistry.get(host, port) == null
+        }.map { (_, port) -> port }
+        if (portsWithIncomingMtlsButNoHttps.isNotEmpty()) {
+            throw ContractException(
+                "Incoming mTLS is enabled, but no HTTPS key material is configured for ports: ${portsWithIncomingMtlsButNoHttps.joinToString(", ")}"
+            )
+        }
+    }
+
+    private fun incomingMtlsServerContext(keyData: KeyData): SslContext {
+        @Suppress("UNCHECKED_CAST")
+        val certificateChain = keyData.keyStore.getCertificateChain(keyData.keyAlias).toList() as List<X509Certificate>
+        val privateKey = keyData.keyStore.getKey(keyData.keyAlias, keyData.keyPassword.toCharArray()) as PrivateKey
+        val sslContextBuilder = SslContextBuilder.forServer(privateKey, *certificateChain.toTypedArray())
+            .trustManager(InsecureTrustManagerFactory.INSTANCE)
+            .clientAuth(ClientAuth.REQUIRE)
+
+        findAlpnProvider()?.let { alpnProvider ->
+            sslContextBuilder.sslProvider(alpnProvider)
+            sslContextBuilder.ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
+            sslContextBuilder.applicationProtocolConfig(
+                ApplicationProtocolConfig(
+                    ApplicationProtocolConfig.Protocol.ALPN,
+                    ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
+                    ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
+                    ApplicationProtocolNames.HTTP_2,
+                    ApplicationProtocolNames.HTTP_1_1
+                )
+            )
+        }
+
+        return sslContextBuilder.build()
+    }
+
+    private fun findAlpnProvider(): SslProvider? {
+        return when {
+            SslProvider.isAlpnSupported(SslProvider.OPENSSL) -> SslProvider.OPENSSL
+            SslProvider.isAlpnSupported(SslProvider.JDK) -> SslProvider.JDK
+            else -> null
+        }
     }
 
     private fun Application.configure(CORS: ApplicationPlugin<CORSConfig>) {
@@ -737,6 +810,19 @@ class HttpStub(
 
     private val server: ApplicationEngine = embeddedServer(Netty, environment, configure = {
         this.callGroupSize = 20
+        this.channelPipelineConfig = {
+            val localAddress = channel().localAddress() as? InetSocketAddress
+            if (localAddress != null) {
+                val mtlsSslContext = incomingMtlsSslContextsByPort[localAddress.port]
+                if (mtlsSslContext != null) {
+                    val sslHandler = get("ssl") as? SslHandler
+                    if (sslHandler != null) {
+                        val newSslHandler = mtlsSslContext.newHandler(channel().alloc())
+                        replace(sslHandler, "ssl", newSslHandler)
+                    }
+                }
+            }
+        }
     })
 
     private fun handleFetchLoadLogRequest(): HttpStubResponse =

@@ -1,5 +1,7 @@
 package io.specmatic.core.config.v3.components.services
 
+import io.specmatic.core.config.HttpsConfiguration
+import io.specmatic.core.config.KeyStoreConfiguration
 import io.specmatic.core.config.v3.Data
 import io.specmatic.core.config.v3.RefOrValue
 import io.specmatic.core.config.v3.RefOrValueResolver
@@ -444,5 +446,97 @@ class MockServiceConfigTest {
 
         assertThat(entriesByPath[openApiSpecFile.name]?.baseUrl).isEqualTo("http://openapi-host:9401")
         assertThat(entriesByPath[asyncApiSpecFile.name]?.baseUrl).isEqualTo("async-host:9400")
+    }
+
+    @Test
+    fun `getCerts should apply openapi incoming mTLS override from spec`() {
+        val serviceConfig = CommonServiceConfig<MockRunOptions, MockSettings>(
+            definitions = listOf(
+                Definition(
+                    Definition.Value(
+                        source = RefOrValue.Value(SourceV3.create(filesystem = SourceV3.FileSystem(directory = "."))),
+                        specs = listOf(
+                            SpecificationDefinition.ObjectValue(
+                                SpecificationDefinition.Specification(id = "orders-spec", path = "orders.yaml")
+                            )
+                        )
+                    )
+                )
+            ),
+            runOptions = RefOrValue.Value(
+                MockRunOptions(
+                    openapi = OpenApiMockConfig(
+                        baseUrl = "https://localhost:9443",
+                        cert = RefOrValue.Value(
+                            HttpsConfiguration(
+                                keyStore = KeyStoreConfiguration.FileBasedConfig(file = "./server.jks"),
+                                keyStorePassword = "password",
+                                incomingMtlsEnabled = false
+                            )
+                        ),
+                        specs = listOf(
+                            OpenApiRunOptionsSpecifications(
+                                spec = OpenApiRunOptionsSpecifications.Value(id = "orders-spec", incomingMtlsEnabled = true)
+                            )
+                        )
+                    )
+                )
+            )
+        )
+
+        val certs = MockServiceConfig(
+            services = listOf(MockServiceConfig.Value(service = RefOrValue.Value(serviceConfig))),
+            settings = null
+        ).getCerts(resolver)
+
+        assertThat(certs).hasSize(1)
+        assertThat(certs.single().first).isEqualTo("https://localhost:9443")
+        assertThat(certs.single().second.isIncomingMtlsEnabled()).isTrue()
+    }
+
+    @Test
+    fun `getCerts should apply wsdl incoming mTLS override from spec`() {
+        val serviceConfig = CommonServiceConfig<MockRunOptions, MockSettings>(
+            definitions = listOf(
+                Definition(
+                    Definition.Value(
+                        source = RefOrValue.Value(SourceV3.create(filesystem = SourceV3.FileSystem(directory = "."))),
+                        specs = listOf(
+                            SpecificationDefinition.ObjectValue(
+                                SpecificationDefinition.Specification(id = "wsdl-spec", path = "service.wsdl")
+                            )
+                        )
+                    )
+                )
+            ),
+            runOptions = RefOrValue.Value(
+                MockRunOptions(
+                    wsdl = WsdlMockConfig(
+                        baseUrl = "https://localhost:9443",
+                        cert = RefOrValue.Value(
+                            HttpsConfiguration(
+                                keyStore = KeyStoreConfiguration.FileBasedConfig(file = "./server.jks"),
+                                keyStorePassword = "password",
+                                incomingMtlsEnabled = false
+                            )
+                        ),
+                        specs = listOf(
+                            WsdlRunOptionsSpecifications(
+                                spec = WsdlRunOptionsSpecifications.Value(id = "wsdl-spec", incomingMtlsEnabled = true)
+                            )
+                        )
+                    )
+                )
+            )
+        )
+
+        val certs = MockServiceConfig(
+            services = listOf(MockServiceConfig.Value(service = RefOrValue.Value(serviceConfig))),
+            settings = null
+        ).getCerts(resolver)
+
+        assertThat(certs).hasSize(1)
+        assertThat(certs.single().first).isEqualTo("https://localhost:9443")
+        assertThat(certs.single().second.isIncomingMtlsEnabled()).isTrue()
     }
 }

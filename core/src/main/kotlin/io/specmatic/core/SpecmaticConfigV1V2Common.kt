@@ -971,6 +971,13 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
+    override fun getTestHttpsConfiguration(): CertRegistry {
+        val registry = CertRegistry.empty()
+        val httpsConfiguration = test?.https ?: return registry
+        return registry.plusWildCard(httpsConfiguration)
+    }
+
+    @JsonIgnore
     override fun getStubGracefulRestartTimeoutInMilliseconds(): Long? {
         return getStubConfiguration(this).getGracefulRestartTimeoutInMilliseconds()
     }
@@ -1449,6 +1456,7 @@ data class TestConfiguration(
     val filterNotName: String? = null,
     val overlayFilePath: String? = null,
     val junitReportDir: String? = null,
+    val https: HttpsConfiguration? = null,
 )
 
 enum class ResiliencyTestSuite {

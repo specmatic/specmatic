@@ -13,6 +13,7 @@ import io.specmatic.core.log.*
 import io.specmatic.core.utilities.*
 import io.specmatic.core.utilities.ContractPathData.Companion.specToBaseUrlMap
 import io.specmatic.core.loadSpecmaticConfigOrNull
+import io.specmatic.core.toIncomingMtlsRegistryForStub
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_BASE_URL
 import io.specmatic.license.core.cli.Category
 import io.specmatic.mock.ScenarioStub
@@ -185,6 +186,10 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         }
     }
 
+    private val incomingMtlsRegistry: IncomingMtlsRegistry by lazy(LazyThreadSafetyMode.NONE) {
+        specmaticConfiguration.getStubHttpsConfiguration().toIncomingMtlsRegistryForStub()
+    }
+
     override fun call(): Int {
         configureLogging(
             LoggingFromOpts(
@@ -316,6 +321,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             host = host,
             port = port,
             keyDataRegistry = keyDataRegistry,
+            incomingMtlsRegistry = incomingMtlsRegistry,
             strictMode = resolvedStrictMode,
             passThroughTargetBase = passThroughTargetBase,
             specmaticConfigSource = specmaticConfigurationSource,

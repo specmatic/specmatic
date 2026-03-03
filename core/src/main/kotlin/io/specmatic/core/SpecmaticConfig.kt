@@ -259,6 +259,9 @@ interface SpecmaticConfig {
     fun getStubHttpsConfiguration(): CertRegistry
 
     @JsonIgnore
+    fun getTestHttpsConfiguration(): CertRegistry
+
+    @JsonIgnore
     fun getStubGracefulRestartTimeoutInMilliseconds(): Long?
 
     @JsonIgnore

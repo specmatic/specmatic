@@ -13,6 +13,8 @@ import io.specmatic.core.config.v3.components.runOptions.ConfigWithCert
 import io.specmatic.core.config.v3.components.runOptions.IRunOptions
 import io.specmatic.core.config.v3.components.runOptions.MockRunOptions
 import io.specmatic.core.config.v3.components.runOptions.OpenApiMockConfig
+import io.specmatic.core.config.v3.components.runOptions.OpenApiRunOptionsSpecifications
+import io.specmatic.core.config.v3.components.runOptions.WsdlRunOptionsSpecifications
 import io.specmatic.core.config.v3.components.settings.MockSettings
 import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.config.v3.determineSpecTypeFor
@@ -136,11 +138,24 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
 
     @JsonIgnore
     fun getCerts(resolver: RefOrValueResolver): List<Pair<String, HttpsConfiguration>> {
-        return services.map { it.service.resolveElseThrow(resolver) }.mapNotNull { service ->
-            val runOpts = getRunOptions(service, resolver, SpecType.OPENAPI) ?: return@mapNotNull null
-            val baseUrl = runOpts.getBaseUrlIfExists() ?: return@mapNotNull null
-            val cert = (runOpts as? ConfigWithCert)?.cert?.resolveElseThrow(resolver) ?: return@mapNotNull null
-            Pair(baseUrl, cert)
+        return services.map { it.service.resolveElseThrow(resolver) }.flatMap { service ->
+            service.definitions.map { it.definition }.flatMap { definition ->
+                definition.specs.mapNotNull { specDefinition ->
+                    val specPath = specDefinition.getSpecificationPath().lowercase()
+                    val specType = if (specPath.endsWith(".wsdl")) SpecType.WSDL else SpecType.OPENAPI
+                    val runOptions = getRunOptions(service, resolver, specType) ?: return@mapNotNull null
+                    val cert = (runOptions as? ConfigWithCert)?.cert?.resolveElseThrow(resolver) ?: return@mapNotNull null
+                    val specId = specDefinition.getSpecificationId()
+                    val runOptionSpecOverride = specId?.let(runOptions::getMatchingSpecification)
+                    val baseUrl = runOptionSpecOverride?.getBaseUrl("0.0.0.0") ?: runOptions.getBaseUrlIfExists() ?: return@mapNotNull null
+                    val incomingMtlsOverride = when (runOptionSpecOverride) {
+                        is OpenApiRunOptionsSpecifications -> runOptionSpecOverride.spec.incomingMtlsEnabled
+                        is WsdlRunOptionsSpecifications -> runOptionSpecOverride.spec.incomingMtlsEnabled
+                        else -> null
+                    }
+                    Pair(baseUrl, cert.copy(incomingMtlsEnabled = incomingMtlsOverride ?: cert.incomingMtlsEnabled))
+                }
+            }
         }
     }
 

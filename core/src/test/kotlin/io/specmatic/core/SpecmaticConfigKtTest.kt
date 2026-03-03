@@ -4,8 +4,10 @@ import com.fasterxml.jackson.databind.JsonMappingException
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.kotlin.readValue
-import io.specmatic.core.config.v2.SpecExecutionConfig
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import io.specmatic.core.config.HttpsConfiguration
+import io.specmatic.core.config.KeyStoreConfiguration
+import io.specmatic.core.config.v2.SpecExecutionConfig
 import io.specmatic.core.config.v2.ContractConfig
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.utilities.ContractSourceEntry
@@ -32,9 +34,62 @@ import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.MethodSource
 import java.io.File
+import java.security.KeyStore
 import java.util.stream.Stream
 
 internal class SpecmaticConfigKtTest {
+    @Test
+    fun `should return test https configuration from v2 test config`() {
+        val config = SpecmaticConfigV1V2Common(
+            version = SpecmaticConfigVersion.VERSION_2,
+            test = TestConfiguration(
+                https = HttpsConfiguration(
+                    keyStore = KeyStoreConfiguration.FileBasedConfig(file = "client-cert.jks"),
+                    keyStorePassword = "password"
+                )
+            )
+        )
+
+        val keyDataRegistry = config.getTestHttpsConfiguration().toKeyDataRegistry {
+            KeyData(emptyKeyStore(), "password")
+        }
+
+        assertThat(keyDataRegistry.hasAny()).isTrue()
+        assertThat(keyDataRegistry.get("any-host.example", 443)).isNotNull()
+    }
+
+    @Test
+    fun `should return empty test https configuration when not configured`() {
+        val config = SpecmaticConfigV1V2Common(version = SpecmaticConfigVersion.VERSION_2, test = TestConfiguration())
+
+        val keyDataRegistry = config.getTestHttpsConfiguration().toKeyDataRegistry {
+            KeyData(emptyKeyStore(), "password")
+        }
+
+        assertThat(keyDataRegistry.hasAny()).isFalse()
+    }
+
+    @Test
+    fun `should return incoming mTLS setting from v2 stub https configuration`() {
+        val config = SpecmaticConfigV1V2Common(
+            version = SpecmaticConfigVersion.VERSION_2,
+            stub = StubConfiguration(
+                https = HttpsConfiguration(
+                    keyStore = KeyStoreConfiguration.FileBasedConfig(file = "server-cert.jks"),
+                    keyStorePassword = "password",
+                    incomingMtlsEnabled = true
+                )
+            )
+        )
+
+        val incomingMtlsRegistry = config.getStubHttpsConfiguration().toIncomingMtlsRegistry()
+
+        assertThat(incomingMtlsRegistry.get("any-host.example", 443)).isTrue()
+    }
+
+    private fun emptyKeyStore(): KeyStore {
+        return KeyStore.getInstance("JKS").apply { load(null, null) }
+    }
 
     @Test
     fun `toContractSourceEntry should preserve the path from config`() {

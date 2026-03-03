@@ -3,6 +3,7 @@ package application
 import io.mockk.every
 import io.mockk.mockk
 import io.specmatic.core.Feature
+import io.specmatic.core.IncomingMtlsRegistry
 import io.specmatic.core.KeyDataRegistry
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.WorkingDirectory
@@ -20,6 +21,7 @@ class HTTPStubEngineTest {
                 host = "0.0.0.0",
                 port = 9000,
                 keyDataRegistry = KeyDataRegistry.empty(),
+                incomingMtlsRegistry = IncomingMtlsRegistry.empty(),
                 strictMode = false,
                 httpClientFactory = HttpClientFactory(),
                 workingDirectory = WorkingDirectory(),
