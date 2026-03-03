@@ -4,12 +4,10 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.ResiliencyTestsConfig
 import io.specmatic.core.Result
-import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.StubConfiguration
 import io.specmatic.core.TestConfiguration
 import io.specmatic.core.examples.server.ScenarioFilter
-import io.specmatic.core.pattern.AnyNonNullJSONValue
 import io.specmatic.core.pattern.AnyOfPattern
 import io.specmatic.core.pattern.AnyPattern
 import io.specmatic.core.pattern.AnythingPattern
@@ -207,7 +205,7 @@ class OpenApi31Test {
 
         val results = HttpStub(
             features = listOf(feature),
-            specmaticConfigSource = SpecmaticConfigSource.fromConfig(specmaticConfig)
+            specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(specmaticConfig)
         ).use { stub ->
             feature.executeTests(stub.client)
         }.results
@@ -225,7 +223,7 @@ class OpenApi31Test {
 
         val results = HttpStub(
             features = listOf(openApi31Specification.toFeature()),
-            specmaticConfigSource = SpecmaticConfigSource.fromConfig(specmaticConfig)
+            specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(specmaticConfig)
         ).use { stub ->
             openApi30Specification.toFeature().copy(specmaticConfig = specmaticConfig).executeTests(stub.client)
         }.results
@@ -243,7 +241,7 @@ class OpenApi31Test {
 
         val results = HttpStub(
             features = listOf(openApi30Specification.toFeature()),
-            specmaticConfigSource = SpecmaticConfigSource.fromConfig(specmaticConfig)
+            specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(specmaticConfig)
         ).use { stub ->
             openApi31Specification.toFeature().copy(specmaticConfig = specmaticConfig).executeTests(stub.client)
         }.results

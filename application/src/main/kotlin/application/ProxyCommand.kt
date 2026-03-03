@@ -88,7 +88,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 
     private fun specmaticConfigSource() = if (File(configFilePath).exists()) {
         logger.log("Loading configuration from $configFilePath")
-        SpecmaticConfigSource.fromPath(configFilePath)
+        SpecmaticConfigSource.fromConfigFile(configFilePath)
     } else {
         logger.log("No specmatic.yaml found in current directory")
         SpecmaticConfigSource.None

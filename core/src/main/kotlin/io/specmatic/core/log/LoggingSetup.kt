@@ -15,7 +15,7 @@ fun configureLogging(opts: LoggingFromOpts = LoggingFromOpts(), source: LoggingC
     val baseConfig = when (source) {
         is LoggingConfigSource.FromConfig -> source.config
         is LoggingConfigSource.None -> loadSpecmaticConfigIfAvailableElseDefault().getLogConfigurationOrDefault()
-        is LoggingConfigSource.FromConfigFile -> SpecmaticConfigSource.fromPath(source.path).load().config.getLogConfigurationOrDefault()
+        is LoggingConfigSource.FromConfigFile -> SpecmaticConfigSource.fromConfigFile(source.path).load().config.getLogConfigurationOrDefault()
     }
     val effectiveConfig = baseConfig.overrideMergeWith(LoggingConfiguration.from(opts))
     setLoggerUsing(effectiveConfig)
