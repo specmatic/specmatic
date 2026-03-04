@@ -10,6 +10,7 @@ import io.specmatic.core.pattern.HasFailure
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.mock.ScenarioStub
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -82,5 +83,19 @@ class RequestResponseOperatorTest {
 
         val jsonObject = (result as JSONObjectValue).jsonObject
         assertThat(jsonObject).containsKeys("request", "response")
+    }
+
+    @Test
+    fun `should be able to finalize to scenario stub`() {
+        val request = HttpRequest(method = "POST", path = "/api/users", body = StringValue("request body"))
+        val response = HttpResponse(status = 201, body = StringValue("response body"))
+        val operator = RequestResponseOperator.from(request, response, mockScenario)
+
+        val result = operator.finalizeToScenarioStub().value
+        assertThat(result).isInstanceOf(ScenarioStub::class.java)
+        assertThat(result.request.method).isEqualTo("POST")
+        assertThat(result.request.path).isEqualTo("/")
+        assertThat(result.response.status).isEqualTo(201)
+        assertThat(result.response.body).isEqualTo(StringValue("response body"))
     }
 }

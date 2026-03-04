@@ -514,6 +514,7 @@ class HttpStub(
             request = httpRequest,
             response = httpResponse,
             result = httpLogMessage.toResult(),
+            scenarioResult = (httpLogMessage.result ?: Result.Success()).updateScenario(httpLogMessage.scenario ?: httpLogMessage.result?.scenario),
             specType = httpLogMessage.scenario?.specType ?: SpecType.OPENAPI,
             requestContentType = requestContentType,
             specification = httpStubResponse.scenario?.specification,
