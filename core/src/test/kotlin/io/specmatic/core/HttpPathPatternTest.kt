@@ -8,6 +8,7 @@ import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import io.specmatic.core.pattern.*
+import io.specmatic.core.utilities.toStringMap
 import io.specmatic.toViolationReportString
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Nested
@@ -346,21 +347,38 @@ internal class HttpPathPatternTest {
     fun `should match and extract interpolated path parameters`() {
         val pattern = buildHttpPathPattern("/product/product-(id:string)/order/order-(orderId:string)/latest")
         assertThat(pattern.matches(URI("/product/product-12/order/order-abc/latest"), Resolver())).isInstanceOf(Result.Success::class.java)
-        assertThat(pattern.extractPathParams("/product/product-12/order/order-abc/latest", Resolver())).isEqualTo(mapOf("id" to "12", "orderId" to "abc"))
+        assertThat(pattern.extractPathParams("/product/product-12/order/order-abc/latest", Resolver()).toStringMap()).isEqualTo(mapOf("id" to "12", "orderId" to "abc"))
     }
 
     @Test
     fun `should match interpolated path when literal contains plus`() {
         val pattern = buildHttpPathPattern("/v1+beta/item-(id:string)")
         assertThat(pattern.matches(URI("/v1+beta/item-abc"), Resolver())).isInstanceOf(Result.Success::class.java)
-        assertThat(pattern.extractPathParams("/v1+beta/item-abc", Resolver())).isEqualTo(mapOf("id" to "abc"))
+        assertThat(pattern.extractPathParams("/v1+beta/item-abc", Resolver()).toStringMap()).isEqualTo(mapOf("id" to "abc"))
     }
 
     @Test
     fun `should match interpolated path when literal contains dot`() {
         val pattern = buildHttpPathPattern("/v1.2/item-(id:string)")
         assertThat(pattern.matches(URI("/v1.2/item-xyz"), Resolver())).isInstanceOf(Result.Success::class.java)
-        assertThat(pattern.extractPathParams("/v1.2/item-xyz", Resolver())).isEqualTo(mapOf("id" to "xyz"))
+        assertThat(pattern.extractPathParams("/v1.2/item-xyz", Resolver()).toStringMap()).isEqualTo(mapOf("id" to "xyz"))
+    }
+
+    @Test
+    fun `extractPatternToMap should include only parameter patterns and parsed values`() {
+        val pattern = buildHttpPathPattern("/product/product-(id:string)/order/order-(orderId:number)/latest")
+        val extracted = pattern.extractPatternToMap("/product/product-abc/order/order-10/latest", Resolver())
+        assertThat(extracted).hasSize(2)
+        assertThat(extracted.keys.mapNotNull { it.key }).containsExactlyInAnyOrder("id", "orderId")
+        assertThat(extracted.values.map { it.toStringLiteral() }).containsExactlyInAnyOrder("abc", "10")
+    }
+
+    @Test
+    fun `onPatterns should pass all path segment patterns to block`() {
+        val pattern = buildHttpPathPattern("/pets/(id:number)/owners/(flag:boolean)")
+        val result = pattern.onPatterns { patterns -> patterns.size to patterns.mapNotNull { it.key } }
+        assertThat(result.first).isEqualTo(4)
+        assertThat(result.second).containsExactly("id", "flag")
     }
 
     @Test

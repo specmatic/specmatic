@@ -1,5 +1,6 @@
 package io.specmatic.core
 
+import io.specmatic.core.utilities.toStringMap
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -111,7 +112,7 @@ class PathSegmentExtractorTest {
             val segments = extractor.extract(rawPath)
             assertThat(segments).containsExactly("/product/product-", "12", "/order/order-", "abc", "/latest")
             assertThat(pathPattern.matches(URI(rawPath), Resolver())).isInstanceOf(Result.Success::class.java)
-            assertThat(pathPattern.extractPathParams(rawPath, Resolver())).isEqualTo(mapOf("id" to "12", "orderId" to "abc"))
+            assertThat(pathPattern.extractPathParams(rawPath, Resolver()).toStringMap()).isEqualTo(mapOf("id" to "12", "orderId" to "abc"))
         }
 
         @Test
@@ -123,7 +124,7 @@ class PathSegmentExtractorTest {
             val segments = extractor.extract(rawPath)
             assertThat(segments.joinToString("")).isEqualTo(extractor.ensurePrefixAndSuffix(rawPath))
             assertThat(pathPattern.matches(URI(rawPath), Resolver())).isInstanceOf(Result.Success::class.java)
-            assertThat(pathPattern.extractPathParams(rawPath, Resolver())).isEqualTo(mapOf("id1" to "first", "id2" to "second"))
+            assertThat(pathPattern.extractPathParams(rawPath, Resolver()).toStringMap()).isEqualTo(mapOf("id1" to "first", "id2" to "second"))
         }
 
         @Test
@@ -135,7 +136,7 @@ class PathSegmentExtractorTest {
             val segments = extractor.extract(rawPath)
             assertThat(segments.joinToString("")).isEqualTo(extractor.ensurePrefixAndSuffix(rawPath))
             assertThat(pathPattern.matches(URI(rawPath), Resolver())).isInstanceOf(Result.Success::class.java)
-            assertThat(pathPattern.extractPathParams(rawPath, Resolver())).isEqualTo(mapOf("id1" to "first", "id2" to "second"))
+            assertThat(pathPattern.extractPathParams(rawPath, Resolver()).toStringMap()).isEqualTo(mapOf("id1" to "first", "id2" to "second"))
         }
 
         @Test

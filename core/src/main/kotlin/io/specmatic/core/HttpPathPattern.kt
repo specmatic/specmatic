@@ -272,7 +272,7 @@ data class HttpPathPattern(
     }
 
     fun pathParameters(): List<URLPathSegmentPattern> {
-        return pathSegmentPatterns.filter { !it.pattern.instanceOf(ExactValuePattern::class) }
+        return pathSegmentPatterns.filter { !it.pattern.instanceOf(ExactValuePattern::class) && !it.key.isNullOrBlank() }
     }
 
     fun containsParameter(name: String): Boolean {
@@ -345,12 +345,12 @@ data class HttpPathPattern(
         }
     }
 
-    fun extractPathParams(requestPath: String, resolver: Resolver): Map<String, String> {
+    fun extractPathParams(requestPath: String, resolver: Resolver): Map<String, Value> {
         val pathSegments = extractPathSegments(requestPath)
         return pathSegmentPatterns.zip(pathSegments).mapNotNull { (pattern, value) ->
             when {
                 pattern.pattern is ExactValuePattern -> null
-                else -> pattern.key!! to value
+                else -> pattern.key!! to pattern.tryParse(value, resolver)
             }
         }.toMap()
     }
@@ -363,6 +363,20 @@ data class HttpPathPattern(
                 else -> pattern.key!! to pattern.tryParse(value, resolver)
             }
         }.toMap()
+    }
+
+    fun extractPatternToMap(path: String, resolver: Resolver): Map<URLPathSegmentPattern, Value> {
+        val pathSegments = extractPathSegments(path)
+        return pathSegmentPatterns.zip(pathSegments).mapNotNull { (pattern, value) ->
+            when {
+                pattern.pattern is ExactValuePattern -> null
+                else -> Pair(pattern, pattern.tryParse(value, resolver))
+            }
+        }.toMap()
+    }
+
+    fun <T> onPatterns(block: (List<URLPathSegmentPattern>) -> T): T {
+        return block(pathSegmentPatterns)
     }
 
     fun updatePathParameter(path: String, parameterName: String, newValue: Value): String? {

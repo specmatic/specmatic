@@ -1,6 +1,7 @@
 package io.specmatic.core.pattern
 
 import io.specmatic.core.*
+import io.specmatic.core.utilities.toStringMap
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONComposite
 import io.specmatic.core.value.JSONObjectValue
@@ -169,7 +170,7 @@ data class Row(
     }
 
     fun updateRequest(request: HttpRequest, requestPattern: HttpRequestPattern, resolver: Resolver): Row {
-        val path = requestPattern.httpPathPattern?.extractPathParams(request.path.orEmpty(), resolver).orEmpty()
+        val path = requestPattern.httpPathPattern?.extractPathParams(request.path.orEmpty(), resolver).orEmpty().toStringMap()
         val headers = request.headers
         val queryParams = request.queryParams.asValueMap().mapValues { it.value.toStringLiteral() }
         val bodyEntry = if (request.body !is NoBodyValue) {

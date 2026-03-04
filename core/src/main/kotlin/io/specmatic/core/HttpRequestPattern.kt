@@ -34,6 +34,7 @@ import io.specmatic.core.pattern.returnValue
 import io.specmatic.core.pattern.singleLineDescription
 import io.specmatic.core.pattern.withOptionality
 import io.specmatic.core.pattern.withoutOptionality
+import io.specmatic.core.utilities.toStringMap
 import io.specmatic.core.value.EmptyString
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
@@ -921,7 +922,7 @@ data class HttpRequestPattern(
 
     fun addPathParamsToRows(requestPath: String, row: Row, resolver: Resolver): Row {
         return httpPathPattern?.let { httpPathPattern ->
-            val pathParams = httpPathPattern.extractPathParams(requestPath, resolver)
+            val pathParams = httpPathPattern.extractPathParams(requestPath, resolver).toStringMap()
             return row.addFields(pathParams)
         } ?: row
     }

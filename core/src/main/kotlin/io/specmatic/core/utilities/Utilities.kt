@@ -587,3 +587,5 @@ fun <T, U> T.applyIf(original: U?, block: T.(U) -> T): T {
     val value: U = original ?: return this
     return block(value)
 }
+
+fun Map<String, Value>.toStringMap(): Map<String, String> = mapValues { it.value.toStringLiteral() }
