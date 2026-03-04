@@ -16,6 +16,11 @@ import io.specmatic.core.pattern.StringPattern
 import io.specmatic.mock.DELAY_IN_MILLISECONDS
 import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
 import io.specmatic.test.HttpClient
+import okhttp3.Protocol
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import okhttp3.tls.HandshakeCertificates
+import okhttp3.tls.HeldCertificate
 import org.assertj.core.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -184,6 +189,35 @@ internal class ProxyTest {
         }.doesNotThrowAnyException()
         assertThatCode { parsedJSON(fakeFileWriter.receivedStub ?: "") }.doesNotThrowAnyException()
         assertThat(fakeFileWriter.receivedPaths).containsExactlyInAnyOrder("proxy_generated.yaml", "POST_200_1.json")
+    }
+
+    @Test
+    fun `reverse proxy should forward to an HTTP2-capable upstream seamlessly`() {
+        val localhostCertificate = HeldCertificate.Builder()
+            .addSubjectAlternativeName("localhost")
+            .build()
+        val serverCertificates = HandshakeCertificates.Builder()
+            .heldCertificate(localhostCertificate)
+            .build()
+
+        MockWebServer().use { upstream ->
+            upstream.protocols = listOf(Protocol.HTTP_2, Protocol.HTTP_1_1)
+            upstream.useHttps(serverCertificates.sslSocketFactory(), false)
+            upstream.enqueue(MockResponse().setResponseCode(200).setBody("upstream-ok"))
+            upstream.start()
+
+            val upstreamBaseURL = upstream.url("/").toString().removeSuffix("/")
+
+            Proxy(host = "localhost", port = 9001, upstreamBaseURL, fakeFileWriter).use {
+                val response = RestTemplate().getForEntity("http://localhost:9001/", String::class.java)
+
+                assertThat(response.statusCode.value()).isEqualTo(200)
+                assertThat(response.body).isEqualTo("upstream-ok")
+            }
+
+            val recordedRequest = upstream.takeRequest()
+            assertThat(recordedRequest.path).isEqualTo("/")
+        }
     }
 
     @Test

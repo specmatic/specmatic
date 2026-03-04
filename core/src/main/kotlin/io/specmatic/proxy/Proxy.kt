@@ -31,7 +31,6 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.Closeable
 import java.io.File
-import java.net.URI
 import java.net.URL
 import java.util.*
 
@@ -122,14 +121,6 @@ class Proxy(
         )
     )
 
-    private val targetHost =
-        baseURL.let {
-            when {
-                it.isBlank() -> null
-                else -> URI(baseURL).host
-            }
-        }
-
     private val environment =
         applicationEngineEnvironment {
             module {
@@ -202,14 +193,7 @@ class Proxy(
                                     }
 
                                     // Send the ORIGINAL request to the target (not the tracked one)
-                                    val requestToSend =
-                                        targetHost?.let {
-                                            if (httpRequest.hasHeader("host")) {
-                                                httpRequest.withHost(targetHost)
-                                            } else {
-                                                httpRequest
-                                            }
-                                        } ?: httpRequest
+                                    val requestToSend = httpRequest
 
                                     // continue as before, if not matching filter
                                     val httpResponse =

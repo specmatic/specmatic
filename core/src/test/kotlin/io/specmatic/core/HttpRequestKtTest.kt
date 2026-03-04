@@ -254,9 +254,9 @@ internal class HttpRequestKtTest {
         assertThat(filePart.filename).isEqualTo("test.csv")
     }
 
-    @ParameterizedTest(name = "existing host header ''{0}'' should be replaced from builder url")
+    @ParameterizedTest(name = "existing host header ''{0}'' should not be forwarded")
     @ValueSource(strings = ["Host", "host", "HOST"])
-    fun `host header should be replaced regardless of casing`(existingHeaderName: String) {
+    fun `host header should not be forwarded regardless of casing`(existingHeaderName: String) {
         val builder = HttpRequestBuilder().apply {
             url("https://old.example.com")
             headers.append(existingHeaderName, "some.other.host")
@@ -264,24 +264,42 @@ internal class HttpRequestKtTest {
 
         val httpRequest = HttpRequest(path = "/test", method = "GET")
         httpRequest.buildKTORRequest(builder)
-        assertThat(builder.headers.getAll("Host")).hasSize(1).containsExactly("old.example.com")
+        assertThat(builder.headers.getAll("Host")).isNull()
+        assertThat(builder.url.host).isEqualTo("old.example.com")
+    }
+
+    @ParameterizedTest(name = "hop-by-hop header ''{0}'' should not be forwarded")
+    @ValueSource(strings = ["Connection", "Keep-Alive", "Proxy-Authenticate", "Proxy-Authorization", "TE", "Trailer", "Transfer-Encoding", "Upgrade"])
+    fun `hop by hop headers should not be forwarded`(excludedHeaderName: String) {
+        val builder = HttpRequestBuilder().apply {
+            url("https://old.example.com")
+        }
+
+        val httpRequest = HttpRequest(
+            path = "/test",
+            method = "GET",
+            headers = mapOf(excludedHeaderName to "value")
+        )
+        httpRequest.buildKTORRequest(builder)
+
+        assertThat(builder.headers.getAll(excludedHeaderName)).isNull()
         assertThat(builder.url.host).isEqualTo("old.example.com")
     }
 
     @Test
-    fun `host header should be set from builder url when no host header exists`() {
+    fun `host header should not be set from builder url when no host header exists`() {
         val builder = HttpRequestBuilder().apply {
             url("https://old.example.com")
         }
 
         val httpRequest = HttpRequest(path = "/test", method = "GET")
         httpRequest.buildKTORRequest(builder)
-        assertThat(builder.headers.getAll("Host")).hasSize(1).containsExactly("old.example.com")
+        assertThat(builder.headers.getAll("Host")).isNull()
         assertThat(builder.url.host).isEqualTo("old.example.com")
     }
 
     @Test
-    fun `multiple host headers should collapse into single value from builder url`() {
+    fun `multiple host headers should be removed before forwarding`() {
         val builder = HttpRequestBuilder().apply {
             url("https://old.example.com")
             headers.append("host", "a.example.com")
@@ -291,13 +309,13 @@ internal class HttpRequestKtTest {
 
         val httpRequest = HttpRequest(path = "/test", method = "GET")
         httpRequest.buildKTORRequest(builder)
-        assertThat(builder.headers.getAll("Host")).hasSize(1).containsExactly("old.example.com")
+        assertThat(builder.headers.getAll("Host")).isNull()
         assertThat(builder.url.host).isEqualTo("old.example.com")
     }
 
-    @ParameterizedTest(name = "builder url {0} should produce Host ''{1}''")
+    @ParameterizedTest(name = "builder url {0} should not force Host header ''{1}''")
     @MethodSource("builderHostCases")
-    fun `host header should match builder url host including port and ip`(builderUrl: String, expectedHost: String) {
+    fun `host header should not be synthesized from builder url host including port and ip`(builderUrl: String, @Suppress("UNUSED_PARAMETER") expectedHost: String) {
         val builder = HttpRequestBuilder().apply {
             url(builderUrl)
             headers.append("Host", "wrong.host")
@@ -305,7 +323,7 @@ internal class HttpRequestKtTest {
 
         val httpRequest = HttpRequest(path = "/test", method = "GET")
         httpRequest.buildKTORRequest(builder)
-        assertThat(builder.headers.getAll("Host")).hasSize(1).containsExactly(expectedHost)
+        assertThat(builder.headers.getAll("Host")).isNull()
     }
 
     companion object {
