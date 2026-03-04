@@ -19,7 +19,16 @@ data class HttpPathPattern(
 ) {
     private val pathSegmentExtractor: PathSegmentExtractor = PathSegmentExtractor(path, pathSegmentPatterns)
     private fun calculateSpecificity(): Int {
-        return this.path.removePrefix("/").removeSuffix("/").split("/").count { segment -> internalPathRegex.matchEntire(segment) == null }
+        val segments = this.path.removePrefix("/").removeSuffix("/").split("/")
+        return segments.sumOf(::segmentSpecificity)
+    }
+
+    private fun segmentSpecificity(segment: String): Int {
+        return when {
+            internalPathRegex.matchEntire(segment) != null -> 0
+            internalPathRegex.containsMatchIn(segment) -> 1
+            else -> 2
+        }
     }
 
     fun encompasses(otherHttpPathPattern: HttpPathPattern, thisResolver: Resolver, otherResolver: Resolver): Result {
@@ -461,9 +470,9 @@ data class HttpPathPattern(
     }
 
     companion object {
-        private val internalPathRegex: Regex = Regex("\\((.*?):.*?\\)")
+        internal val internalPathRegex: Regex = Regex("\\([^():]+:[^()]+\\)")
 
-        internal fun extractFromInternalPath(path: String): TemplateTokenizer {
+        internal fun extractUsingInternalPathRegex(path: String): TemplateTokenizer {
             val parts = internalPathRegex.split(path)
             val pattern = parts.joinToString(separator = "([^/]+)") { Regex.escape(it) }
             return TemplateTokenizer(Regex(pattern))
@@ -489,7 +498,7 @@ internal fun buildHttpPathPattern(
 }
 
 internal fun pathToPattern(rawPath: String): List<URLPathSegmentPattern> {
-    val segments = HttpPathPattern.extractFromInternalPath(rawPath).extract(rawPath)
+    val segments = HttpPathPattern.extractUsingInternalPathRegex(rawPath).extract(rawPath)
     return segments.map { part ->
         when {
             isPatternToken(part) -> {

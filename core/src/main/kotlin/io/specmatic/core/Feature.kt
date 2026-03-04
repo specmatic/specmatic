@@ -1726,7 +1726,7 @@ data class Feature(
 
     private fun toPathPatternWithParameters(httpPathPattern: HttpPathPattern): HttpPathPattern {
         if (httpPathPattern.pathParameters().isNotEmpty()) return httpPathPattern
-        return OpenApiPath.from(httpPathPattern.toOpenApiPath()).normalize().toHttpPathPattern()
+        return OpenApiPath.from(httpPathPattern.toInternalPath()).normalize().toHttpPathPattern()
     }
 
     private fun requestBodySchema(requestBodyType: Pattern, scenario: Scenario): Pair<String, MediaType>? = when {

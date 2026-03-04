@@ -66,6 +66,24 @@ internal class HttpPathPatternTest {
     }
 
     @Test
+    fun `should treat fully literal path as more specific than interpolated path`() {
+        val moreSpecificPattern = HttpPathPattern.from("/items/item-123")
+        val lessSpecificPattern = HttpPathPattern.from("/items/item-(id:string)").copy(otherPathPatterns = listOf(moreSpecificPattern))
+        val result = lessSpecificPattern.matches("/items/item-123", Resolver())
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat((result as Result.Failure).failureReason).isEqualTo(FailureReason.URLPathParamMatchButConflict)
+    }
+
+    @Test
+    fun `should treat interpolated path as more specific than pure parameter path`() {
+        val moreSpecificPattern = HttpPathPattern.from("/items/item-(id:string)")
+        val lessSpecificPattern = HttpPathPattern.from("/items/(id:string)").copy(otherPathPatterns = listOf(moreSpecificPattern))
+        val result = lessSpecificPattern.matches("/items/item-abc", Resolver())
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat((result as Result.Failure).failureReason).isEqualTo(FailureReason.URLPathParamMatchButConflict)
+    }
+
+    @Test
     fun `should not conflict when otherPathPatterns is empty representing different HTTP methods`() {
         val postPattern = HttpPathPattern.from("/(section:string)/(version:string)/users")
         // This should succeed because there are no conflicting patterns in the same HTTP method
