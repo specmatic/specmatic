@@ -332,6 +332,20 @@ internal class HttpPathPatternTest {
     }
 
     @Test
+    fun `should match interpolated path when literal contains plus`() {
+        val pattern = buildHttpPathPattern("/v1+beta/item-(id:string)")
+        assertThat(pattern.matches(URI("/v1+beta/item-abc"), Resolver())).isInstanceOf(Result.Success::class.java)
+        assertThat(pattern.extractPathParams("/v1+beta/item-abc", Resolver())).isEqualTo(mapOf("id" to "abc"))
+    }
+
+    @Test
+    fun `should match interpolated path when literal contains dot`() {
+        val pattern = buildHttpPathPattern("/v1.2/item-(id:string)")
+        assertThat(pattern.matches(URI("/v1.2/item-xyz"), Resolver())).isInstanceOf(Result.Success::class.java)
+        assertThat(pattern.extractPathParams("/v1.2/item-xyz", Resolver())).isEqualTo(mapOf("id" to "xyz"))
+    }
+
+    @Test
     fun `should fail interpolated path match when literal prefixes inside segment do not match`() {
         val pattern = buildHttpPathPattern("/product/product-(id:string)/order/order-(orderId:string)/latest")
         val mismatchResult = pattern.matches(URI("/product/12/order/abc/latest"), Resolver()) as Result.Failure

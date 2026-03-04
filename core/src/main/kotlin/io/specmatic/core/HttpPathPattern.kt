@@ -464,7 +464,9 @@ data class HttpPathPattern(
         private val internalPathRegex: Regex = Regex("\\((.*?):.*?\\)")
 
         internal fun extractFromInternalPath(path: String): TemplateTokenizer {
-            return TemplateTokenizer(Regex(path.replace(internalPathRegex, "([^/]+)")))
+            val parts = internalPathRegex.split(path)
+            val pattern = parts.joinToString(separator = "([^/]+)") { Regex.escape(it) }
+            return TemplateTokenizer(Regex(pattern))
         }
 
         fun from(path: String): HttpPathPattern {
