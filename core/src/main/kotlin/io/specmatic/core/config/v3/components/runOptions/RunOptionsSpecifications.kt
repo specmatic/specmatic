@@ -94,7 +94,6 @@ data class WsdlRunOptionsSpecifications(val spec: Value) : IRunOptionSpecificati
         val baseUrl: String? = null,
         val host: String? = null,
         val port: Int? = null,
-        val incomingMtlsEnabled: Boolean? = null,
     )
 }
 
@@ -133,6 +132,5 @@ data class OpenApiRunOptionsSpecifications(val spec: Value) : IRunOptionSpecific
         val port: Int? = null,
         val overlayFilePath: String? = null,
         val securitySchemes: Map<String, SecuritySchemeConfigurationV3>? = null,
-        val incomingMtlsEnabled: Boolean? = null,
     )
 }

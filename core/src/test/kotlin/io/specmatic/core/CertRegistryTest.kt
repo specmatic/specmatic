@@ -51,8 +51,8 @@ class CertRegistryTest {
     @Test
     fun `incoming mTLS registry should prefer exact host port over wildcard`() {
         val registry = CertRegistry.empty()
-            .plusWildCard(httpsConfig("wildcard.jks", incomingMtlsEnabled = false))
-            .plus("https://api.example.com:9443", httpsConfig("exact.jks", incomingMtlsEnabled = true))
+            .plusWildCard(httpsConfig("wildcard.jks", mtlsEnabled = false))
+            .plus("https://api.example.com:9443", httpsConfig("exact.jks", mtlsEnabled = true))
 
         val incomingMtlsRegistry = registry.toIncomingMtlsRegistry()
 
@@ -61,18 +61,18 @@ class CertRegistryTest {
 
     @Test
     fun `incoming mTLS registry should fallback to wildcard when exact host port is unavailable`() {
-        val registry = CertRegistry.empty().plusWildCard(httpsConfig("wildcard.jks", incomingMtlsEnabled = true))
+        val registry = CertRegistry.empty().plusWildCard(httpsConfig("wildcard.jks", mtlsEnabled = true))
 
         val incomingMtlsRegistry = registry.toIncomingMtlsRegistry()
 
         assertThat(incomingMtlsRegistry.get("unmapped-host.example", 443)).isTrue()
     }
 
-    private fun httpsConfig(file: String, incomingMtlsEnabled: Boolean? = null): HttpsConfiguration {
+    private fun httpsConfig(file: String, mtlsEnabled: Boolean? = null): HttpsConfiguration {
         return HttpsConfiguration(
             keyStore = KeyStoreConfiguration.FileBasedConfig(file = file),
             keyStorePassword = "password",
-            incomingMtlsEnabled = incomingMtlsEnabled
+            mtlsEnabled = mtlsEnabled
         )
     }
 

@@ -110,10 +110,19 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
 
     @JsonIgnore
     fun getCerts(resolver: RefOrValueResolver): List<Pair<String, HttpsConfiguration>> {
-        val runOptions = getRunOptions(resolver, SpecType.OPENAPI) ?: return emptyList()
-        val baseUrl = runOptions.getBaseUrlIfExists() ?: return emptyList()
-        val cert = (runOptions as? ConfigWithCert)?.cert?.resolveElseThrow(resolver) ?: return emptyList()
-        return listOf(baseUrl to cert)
+        val serviceConfig = service.resolveElseThrow(resolver)
+        return serviceConfig.definitions.map { it.definition }.flatMap { definition ->
+            definition.specs.mapNotNull { specDefinition ->
+                val specPath = specDefinition.getSpecificationPath().lowercase()
+                val specType = if (specPath.endsWith(".wsdl")) SpecType.WSDL else SpecType.OPENAPI
+                val runOptions = getRunOptions(resolver, specType) ?: return@mapNotNull null
+                val runCert = (runOptions as? ConfigWithCert)?.cert?.resolveElseThrow(resolver) ?: return@mapNotNull null
+                val specId = specDefinition.getSpecificationId()
+                val runOptionSpecOverride = specId?.let(runOptions::getMatchingSpecification)
+                val baseUrl = runOptionSpecOverride?.getBaseUrl("localhost") ?: runOptions.getBaseUrlIfExists() ?: return@mapNotNull null
+                Pair(baseUrl, runCert)
+            }
+        }
     }
 
     fun copyResiliencyTestsConfig(resolver: RefOrValueResolver, resiliencyTestSuite: ResiliencyTestSuite): TestServiceConfig {

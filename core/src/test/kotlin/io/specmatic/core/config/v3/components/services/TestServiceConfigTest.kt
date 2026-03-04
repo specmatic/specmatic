@@ -428,4 +428,5 @@ class TestServiceConfigTest {
         assertThat(entriesByPath[openApiSpecFile.name]?.baseUrl).isEqualTo("http://openapi-host:9401")
         assertThat(entriesByPath[asyncApiSpecFile.name]?.baseUrl).isEqualTo("async-host:9400")
     }
+
 }

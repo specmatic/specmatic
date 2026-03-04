@@ -594,9 +594,9 @@ class HttpStub(
         }
 
         connectors.addAll(hostPortList.map { (host, port) ->
-            val incomingMtlsEnabled = incomingMtlsRegistry.get(host, port)
+            val mtlsEnabled = incomingMtlsRegistry.get(host, port)
             val keyData = keyDataRegistry.get(host, port) ?: return@map EngineConnectorBuilder().also { it.host = host; it.port = port }
-            if (incomingMtlsEnabled) {
+            if (mtlsEnabled) {
                 incomingMtlsSslContextsByPort[port] = incomingMtlsServerContext(keyData)
                 return@map EngineConnectorBuilder().also { it.host = host; it.port = port }
             }

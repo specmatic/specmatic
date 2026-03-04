@@ -13,8 +13,6 @@ import io.specmatic.core.config.v3.components.runOptions.ConfigWithCert
 import io.specmatic.core.config.v3.components.runOptions.IRunOptions
 import io.specmatic.core.config.v3.components.runOptions.MockRunOptions
 import io.specmatic.core.config.v3.components.runOptions.OpenApiMockConfig
-import io.specmatic.core.config.v3.components.runOptions.OpenApiRunOptionsSpecifications
-import io.specmatic.core.config.v3.components.runOptions.WsdlRunOptionsSpecifications
 import io.specmatic.core.config.v3.components.settings.MockSettings
 import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.config.v3.determineSpecTypeFor
@@ -144,16 +142,11 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
                     val specPath = specDefinition.getSpecificationPath().lowercase()
                     val specType = if (specPath.endsWith(".wsdl")) SpecType.WSDL else SpecType.OPENAPI
                     val runOptions = getRunOptions(service, resolver, specType) ?: return@mapNotNull null
-                    val cert = (runOptions as? ConfigWithCert)?.cert?.resolveElseThrow(resolver) ?: return@mapNotNull null
+                    val runCert = (runOptions as? ConfigWithCert)?.cert?.resolveElseThrow(resolver) ?: return@mapNotNull null
                     val specId = specDefinition.getSpecificationId()
                     val runOptionSpecOverride = specId?.let(runOptions::getMatchingSpecification)
                     val baseUrl = runOptionSpecOverride?.getBaseUrl("0.0.0.0") ?: runOptions.getBaseUrlIfExists() ?: return@mapNotNull null
-                    val incomingMtlsOverride = when (runOptionSpecOverride) {
-                        is OpenApiRunOptionsSpecifications -> runOptionSpecOverride.spec.incomingMtlsEnabled
-                        is WsdlRunOptionsSpecifications -> runOptionSpecOverride.spec.incomingMtlsEnabled
-                        else -> null
-                    }
-                    Pair(baseUrl, cert.copy(incomingMtlsEnabled = incomingMtlsOverride ?: cert.incomingMtlsEnabled))
+                    Pair(baseUrl, runCert)
                 }
             }
         }

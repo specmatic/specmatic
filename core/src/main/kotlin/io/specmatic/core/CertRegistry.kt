@@ -39,8 +39,8 @@ class CertRegistry private constructor(private val certificates: List<Pair<HostP
     fun toIncomingMtlsRegistry(): IncomingMtlsRegistry {
         return groupedCertificatesOrException().entries.fold(IncomingMtlsRegistry.empty()) { acc, (identifier, cert) ->
             when (identifier) {
-                is HostPortIdentifier.Matching -> acc.plus(identifier.host, identifier.port, cert.isIncomingMtlsEnabled())
-                else -> acc.plusWildCard(cert.isIncomingMtlsEnabled())
+                is HostPortIdentifier.Matching -> acc.plus(identifier.host, identifier.port, cert.isMtlsEnabled())
+                else -> acc.plusWildCard(cert.isMtlsEnabled())
             }
         }
     }

@@ -649,7 +649,7 @@ internal class StubCommandTest {
         version: 2
         stub:
           https:
-            incomingMtlsEnabled: true
+            mtlsEnabled: true
             keyStorePassword: pass
             keyStore:
               file: ${keystoreFile.canonicalPath}

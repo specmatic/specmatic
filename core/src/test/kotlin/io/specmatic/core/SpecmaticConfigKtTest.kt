@@ -24,6 +24,7 @@ import io.specmatic.core.utilities.Flags.Companion.VALIDATE_RESPONSE_VALUE
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.test.TestResultRecord.Companion.CONTRACT_TEST_TEST_TYPE
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -77,7 +78,7 @@ internal class SpecmaticConfigKtTest {
                 https = HttpsConfiguration(
                     keyStore = KeyStoreConfiguration.FileBasedConfig(file = "server-cert.jks"),
                     keyStorePassword = "password",
-                    incomingMtlsEnabled = true
+                    mtlsEnabled = true
                 )
             )
         )
@@ -85,6 +86,42 @@ internal class SpecmaticConfigKtTest {
         val incomingMtlsRegistry = config.getStubHttpsConfiguration().toIncomingMtlsRegistry()
 
         assertThat(incomingMtlsRegistry.get("any-host.example", 443)).isTrue()
+    }
+
+    @Test
+    fun `should parse mtlsEnabled from v2 yaml configuration`() {
+        val config = ObjectMapper(YAMLFactory()).registerKotlinModule().readValue(
+            """
+            version: 2
+            stub:
+              https:
+                mtlsEnabled: true
+                keyStore:
+                  file: server-cert.jks
+                keyStorePassword: password
+            """.trimIndent(), SpecmaticConfigV1V2Common::class.java
+        )
+
+        val incomingMtlsRegistry = config.getStubHttpsConfiguration().toIncomingMtlsRegistry()
+
+        assertThat(incomingMtlsRegistry.get("any-host.example", 443)).isTrue()
+    }
+
+    @Test
+    fun `should reject incomingMtlsEnabled from v2 yaml configuration`() {
+        assertThatThrownBy {
+            ObjectMapper(YAMLFactory()).registerKotlinModule().readValue(
+                """
+                version: 2
+                stub:
+                  https:
+                    incomingMtlsEnabled: true
+                    keyStore:
+                      file: server-cert.jks
+                    keyStorePassword: password
+                """.trimIndent(), SpecmaticConfigV1V2Common::class.java
+            )
+        }.hasMessageContaining("incomingMtlsEnabled")
     }
 
     private fun emptyKeyStore(): KeyStore {

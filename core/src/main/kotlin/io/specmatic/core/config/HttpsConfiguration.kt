@@ -96,7 +96,7 @@ sealed interface KeyStoreConfiguration {
 data class HttpsConfiguration(
     val keyStore: KeyStoreConfiguration? = null,
     val keyStorePassword: String? = null,
-    val incomingMtlsEnabled: Boolean? = null
+    val mtlsEnabled: Boolean? = null
 ) {
     fun keyStoreFile(): String? = keyStore?.getFilePath()
 
@@ -108,13 +108,13 @@ data class HttpsConfiguration(
 
     fun keyPasswordOrDefault(): String = keyStore?.password ?: "forgotten"
 
-    fun isIncomingMtlsEnabled(): Boolean = incomingMtlsEnabled == true
+    fun isMtlsEnabled(): Boolean = mtlsEnabled == true
 
     fun overrideWith(other: HttpsConfiguration?): HttpsConfiguration {
         if (other == null) return this
         return this.copy(
             keyStorePassword = this.keyStorePassword ?: other.keyStorePassword,
-            incomingMtlsEnabled = this.incomingMtlsEnabled ?: other.incomingMtlsEnabled,
+            mtlsEnabled = this.mtlsEnabled ?: other.mtlsEnabled,
             keyStore = this.keyStore.nonNullElse(other.keyStore, KeyStoreConfiguration::overrideWith),
         )
     }
