@@ -1,0 +1,13 @@
+{
+  "http-request": {
+    "method": "GET",
+    "path": "/example/external-A,external-B/status"
+  },
+  "http-response": {
+    "status": 202,
+    "body": {
+      "message": "external-ok",
+      "source": "external"
+    }
+  }
+}

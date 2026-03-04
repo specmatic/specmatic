@@ -60,6 +60,41 @@ class RequestOperatorTest {
     }
 
     @Test
+    fun `should extract interpolated path parameters from comma separated segment`() {
+        val request = HttpRequest(method = "GET", path = "/test/first,second/status")
+        val pathPattern = HttpPathPattern.from("/test/(id1:string),(id2:string)/status")
+        val operator = RequestOperator.from(request, pathPattern, Resolver())
+        val id1 = operator.get("/path/id1").finalizeValue()
+        val id2 = operator.get("/path/id2").finalizeValue()
+        assertThat(id1.value.getOrNull()).isEqualTo(StringValue("first"))
+        assertThat(id2.value.getOrNull()).isEqualTo(StringValue("second"))
+    }
+
+    @Test
+    fun `should extract interpolated path parameters from slash separated segments`() {
+        val request = HttpRequest(method = "GET", path = "/test/first/second/status")
+        val pathPattern = HttpPathPattern.from("/test/(id1:string)/(id2:string)/status")
+        val operator = RequestOperator.from(request, pathPattern, Resolver())
+        val id1 = operator.get("/path/id1").finalizeValue()
+        val id2 = operator.get("/path/id2").finalizeValue()
+        assertThat(id1.value.getOrNull()).isEqualTo(StringValue("first"))
+        assertThat(id2.value.getOrNull()).isEqualTo(StringValue("second"))
+    }
+
+    @Test
+    fun `should update and finalize interpolated comma separated path parameters`() {
+        val request = HttpRequest(method = "GET", path = "/test/first,second/status")
+        val pathPattern = HttpPathPattern.from("/test/(id1:string),(id2:string)/status")
+        val operator = RequestOperator.from(request, pathPattern, Resolver())
+        val finalizedRequest = operator
+            .update("/path/id1", StringValue("newFirst")).value
+            .update("/path/id2", StringValue("newSecond")).value
+            .finalize().value
+
+        assertThat(finalizedRequest.path).isEqualTo("/test/newFirst,newSecond/status")
+    }
+
+    @Test
     fun `should be able to retrieve query parameters using pointer`() {
         val request = HttpRequest(method = "GET", path = "/api/users", queryParams = QueryParameters(mapOf("name" to "John", "age" to "30")))
         val operator = RequestOperator.from(request, mockRequestPattern, mockResolver)

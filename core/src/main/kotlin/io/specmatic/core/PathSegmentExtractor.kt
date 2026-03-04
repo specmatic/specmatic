@@ -63,6 +63,7 @@ class PathSegmentExtractor(private val contractPath: String, private val pathSeg
     }
 
     private fun String.normalizeSuffix(contractPath: String): String {
+        if (contractPath === "/") return this
         return if (contractPath.endsWith('/')) ensureSuffix("/") else removeSuffix("/")
     }
 
