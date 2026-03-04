@@ -55,6 +55,12 @@ class Proxy(
     specmaticConfigSource: SpecmaticConfigSource = SpecmaticConfigSource.None,
     private val specificationFileName: String = "proxy_generated",
 ) : Closeable {
+    private val defaultExamplesBaseDir = runCatching {
+        File(outputDirectory.fileName("${specificationFileName.dropExtension()}$EXAMPLES_DIR_SUFFIX"))
+    }.getOrElse {
+        File(".")
+    }
+
     constructor(
         host: String,
         port: Int,
@@ -264,7 +270,7 @@ class Proxy(
                                     if (isRecordingEnabled) stubs.add(
                                         NamedStub(
                                             name,
-                                            uniqueNameForApiOperation(recordedRequest, baseURL, recordedResponse.status),
+                                            uniqueNameForApiOperation(recordedRequest, baseURL, recordedResponse.status, defaultExamplesBaseDir),
                                             exampleTransformer.applyTo(
                                                 scenarioStub = ScenarioStub(
                                                 recordedRequest.dropIrrelevantHeaders(),

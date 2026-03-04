@@ -42,6 +42,10 @@ import javax.xml.transform.dom.DOMSource
 import javax.xml.transform.stream.StreamResult
 import kotlin.system.exitProcess
 
+private const val WINDOWS_MAX_PATH = 260
+private const val POSIX_MAX_FILENAME = 255
+private const val WINDOWS_MAX_FILENAME = 255
+
 class SystemExitException(
     val code: Int,
     message: String?,
@@ -482,24 +486,51 @@ fun nullOrExceptionString(fn: () -> Result): String? {
 
 private fun sanitizeFilename(input: String): String = input.replace(Regex("""[\\/:*?"'<>| ]"""), "_")
 
-fun uniqueNameForApiOperation(
-    httpRequest: HttpRequest,
-    baseURL: String,
-    responseStatus: Int,
-): String {
+fun uniqueNameForApiOperation(httpRequest: HttpRequest, scenario: Scenario, baseDir: File, prefix: String = ""): String {
+    val operationId = scenario.operationMetadata?.operationId?.takeUnless { it.isNullOrBlank() }
+    if (operationId != null) {
+        val fileName = "$prefix${operationId}_${scenario.status}"
+        return sanitizeAndFitOsPathBudget(baseDir, fileName)
+    }
+
+    return uniqueNameForApiOperation(httpRequest, "", scenario.status, baseDir, prefix)
+}
+
+fun uniqueNameForApiOperation(httpRequest: HttpRequest, baseURL: String, responseStatus: Int, baseDir: File, prefix: String = ""): String {
     val (method, path, headers) = httpRequest
-    val contentType =
-        if (method == "PATCH") {
-            "_" + headers[CONTENT_TYPE].orEmpty().replace("/", "_")
-        } else {
-            ""
-        }
+    val contentType = headers[CONTENT_TYPE]?.let { "_$it" }.orEmpty()
 
-    val formattedPath = path?.replace(baseURL, "")?.drop(1).orEmpty()
-    if (formattedPath.isEmpty()) return "${method}_$responseStatus"
+    val formattedPath = path?.removePrefix(baseURL)?.removePrefix("/").orEmpty()
+    val fileName = if (formattedPath.isEmpty()) {
+        "$prefix${method}_$responseStatus$contentType"
+    } else {
+        "$prefix${formattedPath}_${method}_${responseStatus}$contentType"
+    }
 
-    val rawName = "${formattedPath}_${method}_${responseStatus}$contentType"
-    return sanitizeFilename(rawName)
+    return sanitizeAndFitOsPathBudget(baseDir, fileName)
+}
+
+private fun isWindows(): Boolean = File.separatorChar == '\\'
+internal fun sanitizeAndFitOsPathBudget(baseDir: File, fileName: String, windows: Boolean = isWindows()): String {
+    val sanitizedFileName = sanitizeFilename(fileName)
+    val budget = if (windows) {
+        minOf(WINDOWS_MAX_FILENAME, WINDOWS_MAX_PATH - baseDir.absoluteFile.path.length - 1).coerceAtLeast(0)
+    } else {
+        POSIX_MAX_FILENAME
+    }
+
+    if (sanitizedFileName.length <= budget) return sanitizedFileName
+    val hash = stableHexHash(fileName)
+    val minWithUnderscore = hash.length + 1
+    if (budget < minWithUnderscore) return hash.take(maxOf(1, budget))
+
+    val prefixLen = budget - minWithUnderscore
+    return sanitizedFileName.take(prefixLen) + "_" + hash
+}
+
+private fun stableHexHash(input: String): String {
+    val bytes = java.security.MessageDigest.getInstance("SHA-256").digest(input.toByteArray(Charsets.UTF_8))
+    return bytes.take(6).joinToString("") { "%02x".format(it) }
 }
 
 fun consolePrintableURL(
