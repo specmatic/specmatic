@@ -157,13 +157,7 @@ class HttpStub(
     var requestHandlers: MutableList<RequestHandler> = mutableListOf()
 ) : ContractStub {
     private val incomingMtlsSslContextsByPort: MutableMap<Int, SslContext> = mutableMapOf()
-    private val transportModeByPort: MutableMap<Int, TransportMode> = mutableMapOf()
-
-    private enum class TransportMode {
-        HTTP,
-        TLS,
-        MTLS
-    }
+    private val mtlsEnabledByPort: MutableMap<Int, Boolean> = mutableMapOf()
 
     private enum class SwaggerSpecResponseFormat {
         YAML,
@@ -590,20 +584,11 @@ class HttpStub(
 
     private fun ApplicationEngineEnvironmentBuilder.configureHostPorts() {
         val hostPortList = getHostAndPortList()
-        transportModeByPort.clear()
+        mtlsEnabledByPort.clear()
+        validateTlsConfigurationByPort(hostPortList)
+        validateIncomingMtlsConfigurationByPort(hostPortList)
         hostPortList.forEach { (host, port) ->
-            recordTransportMode(port, transportMode(host, port))
-        }
-
-        val mtlsByPort = hostPortList.groupBy(
-            keySelector = { (_, port) -> port },
-            valueTransform = { (host, port) -> incomingMtlsRegistry.get(host, port) }
-        )
-        val portsWithMixedMtlsMode = mtlsByPort.filterValues { it.distinct().size > 1 }.keys
-        if (portsWithMixedMtlsMode.isNotEmpty()) {
-            throw ContractException(
-                "Incoming mTLS configuration is ambiguous for ports: ${portsWithMixedMtlsMode.joinToString(", ")}. Please ensure all host mappings for a shared port use the same incoming mTLS setting."
-            )
+            recordIncomingMtlsByPort(port, incomingMtlsRegistry.get(host, port))
         }
 
         connectors.addAll(hostPortList.map { (host, port) ->
@@ -632,28 +617,46 @@ class HttpStub(
     }
 
     private fun targetServerForPort(port: Int): String {
-        val transportSuffix = when (transportModeByPort[port]) {
-            TransportMode.MTLS -> " (mTLS)"
-            else -> ""
-        }
+        val transportSuffix = if (mtlsEnabledByPort[port] == true) " (mTLS)" else ""
 
         return "port '$port'$transportSuffix"
     }
 
-    private fun transportMode(host: String, port: Int): TransportMode {
-        if (keyDataRegistry.get(host, port) == null) return TransportMode.HTTP
-        return if (incomingMtlsRegistry.get(host, port)) TransportMode.MTLS else TransportMode.TLS
+    private fun validateTlsConfigurationByPort(hostPortList: List<Pair<String, Int>>) {
+        val tlsByPort = hostPortList.groupBy(
+            keySelector = { (_, port) -> port },
+            valueTransform = { (host, port) -> keyDataRegistry.get(host, port) != null }
+        )
+        val portsWithMixedTlsMode = tlsByPort.filterValues { it.distinct().size > 1 }.keys
+        if (portsWithMixedTlsMode.isNotEmpty()) {
+            throw ContractException(
+                "Transport mode configuration is ambiguous for ports: ${portsWithMixedTlsMode.joinToString(", ")}. Please ensure all host mappings for a shared port use the same transport mode."
+            )
+        }
     }
 
-    private fun recordTransportMode(port: Int, mode: TransportMode) {
-        val existingMode = transportModeByPort[port]
-        if (existingMode == null || existingMode == mode) {
-            transportModeByPort[port] = mode
+    private fun validateIncomingMtlsConfigurationByPort(hostPortList: List<Pair<String, Int>>) {
+        val mtlsByPort = hostPortList.groupBy(
+            keySelector = { (_, port) -> port },
+            valueTransform = { (host, port) -> incomingMtlsRegistry.get(host, port) }
+        )
+        val portsWithMixedMtlsMode = mtlsByPort.filterValues { it.distinct().size > 1 }.keys
+        if (portsWithMixedMtlsMode.isNotEmpty()) {
+            throw ContractException(
+                "Incoming mTLS configuration is ambiguous for ports: ${portsWithMixedMtlsMode.joinToString(", ")}. Please ensure all host mappings for a shared port use the same incoming mTLS setting."
+            )
+        }
+    }
+
+    private fun recordIncomingMtlsByPort(port: Int, mtlsEnabled: Boolean) {
+        val existingMode = mtlsEnabledByPort[port]
+        if (existingMode == null || existingMode == mtlsEnabled) {
+            mtlsEnabledByPort[port] = mtlsEnabled
             return
         }
 
         throw ContractException(
-            "Transport mode configuration is ambiguous for port $port. Please ensure all host mappings for a shared port use the same transport mode."
+            "Incoming mTLS configuration is ambiguous for port $port. Please ensure all host mappings for a shared port use the same incoming mTLS setting."
         )
     }
 

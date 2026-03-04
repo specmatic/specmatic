@@ -3,6 +3,7 @@ package io.specmatic.test
 import io.ktor.network.tls.certificates.generateCertificate
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.KeyData
+import io.specmatic.core.log.LogMessage
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -42,11 +43,39 @@ class SpecmaticContractMtlsTest {
 
             assertThat(isBaseURLReachable(baseUrl, keyData = keyData)).isTrue()
 
-            val response = HttpClient(baseUrl, keyData = keyData).use { client ->
+            val logs = mutableListOf<String>()
+            val response = HttpClient(baseUrl, keyData = keyData, log = captureLogs(logs)).use { client ->
                 client.execute(HttpRequest(path = "/", method = "GET"))
             }
 
             assertThat(response.status).isEqualTo(200)
+            assertThat(logs.joinToString(System.lineSeparator())).contains("Request to $baseUrl (mTLS)")
+        }
+    }
+
+    @Test
+    fun `should not mark request as mTLS when server is HTTPS without client auth`(@TempDir tempDir: Path) {
+        httpsServerWithoutClientAuth(tempDir.toFile()).use { server ->
+            val baseUrl = "https://localhost:${server.port}"
+            val keyData = KeyData(
+                keyStore = loadJks(server.clientKeyStoreFile, CLIENT_KEYSTORE_PASSWORD),
+                keyStorePassword = CLIENT_KEYSTORE_PASSWORD,
+                keyAlias = CLIENT_ALIAS,
+                keyPassword = CLIENT_KEY_PASSWORD
+            )
+
+            assertThat(isBaseURLReachable(baseUrl, keyData = keyData)).isTrue()
+
+            val logs = mutableListOf<String>()
+            val response = HttpClient(baseUrl, keyData = keyData, log = captureLogs(logs)).use { client ->
+                client.execute(HttpRequest(path = "/", method = "GET"))
+            }
+
+            val renderedLog = logs.joinToString(System.lineSeparator())
+
+            assertThat(response.status).isEqualTo(200)
+            assertThat(renderedLog).contains("Request to $baseUrl at")
+            assertThat(renderedLog).doesNotContain("(mTLS)")
         }
     }
 
@@ -106,6 +135,58 @@ class SpecmaticContractMtlsTest {
         server.start()
 
         return MtlsTestServer(server, executor, clientKeyStoreFile)
+    }
+
+    private fun httpsServerWithoutClientAuth(tempDir: File): MtlsTestServer {
+        val serverKeyStoreFile = tempDir.resolve("server-https.jks")
+        val clientKeyStoreFile = tempDir.resolve("client-https.jks")
+
+        val serverKeyStore = generateCertificate(
+            file = serverKeyStoreFile,
+            jksPassword = SERVER_KEYSTORE_PASSWORD,
+            keyAlias = SERVER_ALIAS,
+            keyPassword = SERVER_KEY_PASSWORD
+        )
+        generateCertificate(
+            file = clientKeyStoreFile,
+            jksPassword = CLIENT_KEYSTORE_PASSWORD,
+            keyAlias = CLIENT_ALIAS,
+            keyPassword = CLIENT_KEY_PASSWORD
+        )
+
+        val keyManagers = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm()).apply {
+            init(serverKeyStore, SERVER_KEY_PASSWORD.toCharArray())
+        }.keyManagers
+
+        val sslContext = SSLContext.getInstance("TLS").apply {
+            init(keyManagers, null, null)
+        }
+
+        val server = HttpsServer.create(InetSocketAddress("localhost", 0), 0)
+        server.httpsConfigurator = object : HttpsConfigurator(sslContext) {
+            override fun configure(parameters: HttpsParameters) {
+                val sslParameters = sslContext.defaultSSLParameters
+                sslParameters.needClientAuth = false
+                parameters.setSSLParameters(sslParameters)
+                parameters.needClientAuth = false
+            }
+        }
+        server.createContext("/") { exchange ->
+            val response = "ok".toByteArray()
+            exchange.sendResponseHeaders(200, response.size.toLong())
+            exchange.responseBody.use { outputStream -> outputStream.write(response) }
+            exchange.close()
+        }
+
+        val executor = Executors.newSingleThreadExecutor()
+        server.executor = executor
+        server.start()
+
+        return MtlsTestServer(server, executor, clientKeyStoreFile)
+    }
+
+    private fun captureLogs(buffer: MutableList<String>): (LogMessage) -> Unit {
+        return { message -> buffer.add(message.toLogString()) }
     }
 
     private fun loadJks(file: File, password: String): KeyStore {

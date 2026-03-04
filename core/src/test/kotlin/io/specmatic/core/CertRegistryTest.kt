@@ -68,6 +68,41 @@ class CertRegistryTest {
         assertThat(incomingMtlsRegistry.get("unmapped-host.example", 443)).isTrue()
     }
 
+    @Test
+    fun `incoming mTLS registry should fail when multiple configs map to same host and port with different values`() {
+        val registry = CertRegistry.empty()
+            .plus("https://api.example.com:9443", httpsConfig("a.jks", mtlsEnabled = true))
+            .plus("https://api.example.com:9443", httpsConfig("b.jks", mtlsEnabled = false))
+
+        assertThatThrownBy { registry.toIncomingMtlsRegistry() }
+            .isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessageContaining("Multiple certificates found for the same host/port")
+    }
+
+    @Test
+    fun `keyDataRegistry should resolve deterministic certs in a multi target suite`() {
+        val wildcardConfig = httpsConfig("wildcard.jks")
+        val paymentsConfig = httpsConfig("payments.jks")
+        val ordersConfig = httpsConfig("orders.jks")
+        val registry = CertRegistry.empty()
+            .plusWildCard(wildcardConfig)
+            .plus("https://payments.example.com:9443", paymentsConfig)
+            .plus("https://orders.example.com:9443", ordersConfig)
+
+        val keyDataRegistry = registry.toKeyDataRegistry { config ->
+            when (config) {
+                wildcardConfig -> KeyData(emptyKeyStore(), "password", keyAlias = "wildcard")
+                paymentsConfig -> KeyData(emptyKeyStore(), "password", keyAlias = "payments")
+                ordersConfig -> KeyData(emptyKeyStore(), "password", keyAlias = "orders")
+                else -> null
+            }
+        }
+
+        assertThat(keyDataRegistry.get("payments.example.com", 9443)?.keyAlias).isEqualTo("payments")
+        assertThat(keyDataRegistry.get("orders.example.com", 9443)?.keyAlias).isEqualTo("orders")
+        assertThat(keyDataRegistry.get("inventory.example.com", 9443)?.keyAlias).isEqualTo("wildcard")
+    }
+
     private fun httpsConfig(file: String, mtlsEnabled: Boolean? = null): HttpsConfiguration {
         return HttpsConfiguration(
             keyStore = KeyStoreConfiguration.FileBasedConfig(file = file),
