@@ -157,6 +157,14 @@ class HttpStub(
     var requestHandlers: MutableList<RequestHandler> = mutableListOf()
 ) : ContractStub {
     private val incomingMtlsSslContextsByPort: MutableMap<Int, SslContext> = mutableMapOf()
+    private val transportModeByPort: MutableMap<Int, TransportMode> = mutableMapOf()
+
+    private enum class TransportMode {
+        HTTP,
+        TLS,
+        MTLS
+    }
+
     private enum class SwaggerSpecResponseFormat {
         YAML,
         JSON
@@ -325,7 +333,7 @@ class HttpStub(
 
             intercept(ApplicationCallPipeline.Call) {
                 val httpLogMessage = HttpLogMessage(
-                    targetServer = "port '${call.request.local.localPort}'",
+                    targetServer = targetServerForPort(call.request.local.localPort),
                     prettyPrint = prettyPrint,
                 )
                 var transformedResponse: HttpResponse? = null
@@ -582,6 +590,11 @@ class HttpStub(
 
     private fun ApplicationEngineEnvironmentBuilder.configureHostPorts() {
         val hostPortList = getHostAndPortList()
+        transportModeByPort.clear()
+        hostPortList.forEach { (host, port) ->
+            recordTransportMode(port, transportMode(host, port))
+        }
+
         val mtlsByPort = hostPortList.groupBy(
             keySelector = { (_, port) -> port },
             valueTransform = { (host, port) -> incomingMtlsRegistry.get(host, port) }
@@ -616,6 +629,33 @@ class HttpStub(
                 "Incoming mTLS is enabled, but no HTTPS key material is configured for ports: ${portsWithIncomingMtlsButNoHttps.joinToString(", ")}"
             )
         }
+    }
+
+    private fun targetServerForPort(port: Int): String {
+        val transportSuffix = when (transportModeByPort[port]) {
+            TransportMode.MTLS -> " (mTLS)"
+            TransportMode.TLS -> " (TLS)"
+            else -> ""
+        }
+
+        return "port '$port'$transportSuffix"
+    }
+
+    private fun transportMode(host: String, port: Int): TransportMode {
+        if (keyDataRegistry.get(host, port) == null) return TransportMode.HTTP
+        return if (incomingMtlsRegistry.get(host, port)) TransportMode.MTLS else TransportMode.TLS
+    }
+
+    private fun recordTransportMode(port: Int, mode: TransportMode) {
+        val existingMode = transportModeByPort[port]
+        if (existingMode == null || existingMode == mode) {
+            transportModeByPort[port] = mode
+            return
+        }
+
+        throw ContractException(
+            "Transport mode configuration is ambiguous for port $port. Please ensure all host mappings for a shared port use the same transport mode."
+        )
     }
 
     private fun incomingMtlsServerContext(keyData: KeyData): SslContext {

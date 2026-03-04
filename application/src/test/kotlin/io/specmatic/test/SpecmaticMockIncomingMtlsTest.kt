@@ -5,6 +5,7 @@ import io.ktor.network.tls.certificates.generateCertificate
 import io.specmatic.core.IncomingMtlsRegistry
 import io.specmatic.core.KeyData
 import io.specmatic.core.KeyDataRegistry
+import io.specmatic.core.log.LogTail
 import io.specmatic.core.parseGherkinStringToFeature
 import io.specmatic.stub.HttpStub
 import org.assertj.core.api.Assertions.assertThat
@@ -12,6 +13,7 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
+import java.net.HttpURLConnection
 import java.nio.file.Path
 import java.security.KeyStore
 import javax.net.ssl.HttpsURLConnection
@@ -22,6 +24,55 @@ import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 
 class SpecmaticMockIncomingMtlsTest {
+    @Test
+    fun `mock should log plain HTTP request without transport marker`() {
+        val port = findRandomFreePort()
+        val stub = createStub(
+            port = port,
+            keyDataRegistry = KeyDataRegistry.empty(),
+            incomingMtlsRegistry = IncomingMtlsRegistry.empty()
+        )
+
+        try {
+            assertThat(executeGet("http://localhost:$port/hello")).isEqualTo(200)
+            val log = fetchLog("http://localhost:$port/_specmatic/log")
+
+            assertThat(log).contains("Request to port '$port' at")
+            assertThat(log).doesNotContain("Request to port '$port' (TLS) at")
+            assertThat(log).doesNotContain("Request to port '$port' (mTLS) at")
+        } finally {
+            stub.close()
+            LogTail.clear()
+        }
+    }
+
+    @Test
+    fun `mock should log TLS request when HTTPS is enabled without incoming mTLS`(@TempDir tempDir: Path) {
+        val port = findRandomFreePort()
+        val serverKeyData = createKeyData(
+            file = tempDir.resolve("server.jks").toFile(),
+            keyStorePassword = "server-store-pass",
+            keyAlias = "specmatic-mock-server",
+            keyPassword = "server-key-pass"
+        )
+
+        val stub = createStub(
+            port = port,
+            keyDataRegistry = KeyDataRegistry.empty().plus("localhost", port, serverKeyData),
+            incomingMtlsRegistry = IncomingMtlsRegistry.empty().plus("localhost", port, false)
+        )
+
+        try {
+            assertThat(executeGet("https://localhost:$port/hello")).isEqualTo(200)
+            val log = fetchLog("https://localhost:$port/_specmatic/log")
+
+            assertThat(log).contains("Request to port '$port' (TLS) at")
+        } finally {
+            stub.close()
+            LogTail.clear()
+        }
+    }
+
     @Test
     fun `mock should reject request without client certificate when incoming mTLS is enabled`(@TempDir tempDir: Path) {
         val port = findRandomFreePort()
@@ -44,6 +95,7 @@ class SpecmaticMockIncomingMtlsTest {
             }.isInstanceOf(Exception::class.java)
         } finally {
             stub.close()
+            LogTail.clear()
         }
     }
 
@@ -71,8 +123,11 @@ class SpecmaticMockIncomingMtlsTest {
 
         try {
             assertThat(executeGet("https://localhost:$port/hello", clientKeyData)).isEqualTo(200)
+            val log = fetchLog("https://localhost:$port/_specmatic/log", clientKeyData)
+            assertThat(log).contains("Request to port '$port' (mTLS) at")
         } finally {
             stub.close()
+            LogTail.clear()
         }
     }
 
@@ -111,6 +166,26 @@ class SpecmaticMockIncomingMtlsTest {
     }
 
     private fun executeGet(url: String, keyData: KeyData? = null): Int {
+        return (openConnection(url, keyData) as HttpURLConnection).run {
+            requestMethod = "GET"
+            connect()
+            responseCode
+        }
+    }
+
+    private fun fetchLog(url: String, keyData: KeyData? = null): String {
+        return (openConnection(url, keyData) as HttpURLConnection).run {
+            requestMethod = "GET"
+            connect()
+            inputStream.bufferedReader().use { it.readText() }
+        }
+    }
+
+    private fun openConnection(url: String, keyData: KeyData?): java.net.URLConnection {
+        if (!url.startsWith("https://")) {
+            return java.net.URL(url).openConnection()
+        }
+
         val keyManagers: Array<KeyManager>? = keyData?.let {
             KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm()).apply {
                 init(it.keyStore, it.keyPassword.toCharArray())
@@ -127,12 +202,9 @@ class SpecmaticMockIncomingMtlsTest {
             init(keyManagers, trustManagers, null)
         }
 
-        return (java.net.URL(url).openConnection() as HttpsURLConnection).run {
+        return (java.net.URL(url).openConnection() as HttpsURLConnection).apply {
             sslSocketFactory = sslContext.socketFactory
             hostnameVerifier = javax.net.ssl.HostnameVerifier { _, _ -> true }
-            requestMethod = "GET"
-            connect()
-            responseCode
         }
     }
 }
