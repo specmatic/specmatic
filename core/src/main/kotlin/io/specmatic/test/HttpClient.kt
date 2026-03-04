@@ -26,6 +26,7 @@ import io.specmatic.stub.toParams
 import kotlinx.coroutines.runBlocking
 import java.net.URL
 import java.util.*
+import java.util.concurrent.atomic.AtomicReference
 import java.util.zip.GZIPInputStream
 
 // API for non-Kotlin invokers
@@ -40,8 +41,16 @@ data class HttpClient(
     private val log: (event: LogMessage) -> Unit = ::consoleLog,
     private val prettyPrint: Boolean = true,
     private val keyData: KeyData? = null,
-    private var httpLogMessage: HttpLogMessage = HttpLogMessage(targetServer = baseURL, prettyPrint = prettyPrint),
-    private val httpClientFactory: Lazy<ApacheHttpClientFactory> = lazy { ApacheHttpClientFactory(timeoutInMilliseconds, keyData) },
+    private var httpLogMessage: HttpLogMessage = HttpLogMessage(
+        targetServer = targetServer(baseURL, mtlsNegotiated = false),
+        prettyPrint = prettyPrint
+    ),
+    private val requestTransportInfo: AtomicReference<TransportInfo> = AtomicReference(TransportInfo()),
+    private val httpClientFactory: Lazy<ApacheHttpClientFactory> = lazy {
+        ApacheHttpClientFactory(timeoutInMilliseconds, keyData) { transportInfo ->
+            requestTransportInfo.set(transportInfo)
+        }
+    },
     private val httpClient: Lazy<io.ktor.client.HttpClient> = lazy { httpClientFactory.value.create() },
     private val httpInteractionsLog: HttpInteractionsLog = HttpInteractionsLog()
 ) : TestExecutor, AutoCloseable {
@@ -55,6 +64,7 @@ data class HttpClient(
         logger.debug("Starting request ${request.method} ${request.path}")
 
         return try {
+            requestTransportInfo.set(TransportInfo())
             runBlocking {
                 val ktorResponse: io.ktor.client.statement.HttpResponse = httpClient.value.request(url) {
                     requestWithFileContent.buildKTORRequest(this)
@@ -65,9 +75,14 @@ data class HttpClient(
 
                 ktorResponseToHttpResponse(ktorResponse)
                     .adjustPayloadForContentType()
-                    .also {
+                    .let {
+                        val mtlsNegotiated = requestTransportInfo.get().mtlsNegotiated
+                        httpLogMessage = httpLogMessage.copy(
+                            targetServer = targetServer(baseURL, mtlsNegotiated)
+                        )
                         httpLogMessage.addResponseWithCurrentTime(it)
                         log(httpLogMessage)
+                        it
                     }
             }
         } catch (e: Exception) {
@@ -143,6 +158,11 @@ data class HttpClient(
     fun withLogger(log: (LogMessage) -> Unit): TestExecutor {
         return this.copy(log = log)
     }
+}
+
+internal fun targetServer(baseURL: String, mtlsNegotiated: Boolean): String {
+    val mtlsInvolved = mtlsNegotiated && baseURL.startsWith("https://", ignoreCase = true)
+    return if (mtlsInvolved) "$baseURL (mTLS)" else baseURL
 }
 
 
