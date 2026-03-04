@@ -634,7 +634,6 @@ class HttpStub(
     private fun targetServerForPort(port: Int): String {
         val transportSuffix = when (transportModeByPort[port]) {
             TransportMode.MTLS -> " (mTLS)"
-            TransportMode.TLS -> " (TLS)"
             else -> ""
         }
 

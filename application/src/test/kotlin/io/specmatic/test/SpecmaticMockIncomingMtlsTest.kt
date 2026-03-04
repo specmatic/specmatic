@@ -47,7 +47,7 @@ class SpecmaticMockIncomingMtlsTest {
     }
 
     @Test
-    fun `mock should log TLS request when HTTPS is enabled without incoming mTLS`(@TempDir tempDir: Path) {
+    fun `mock should log HTTPS request without transport marker when incoming mTLS is disabled`(@TempDir tempDir: Path) {
         val port = findRandomFreePort()
         val serverKeyData = createKeyData(
             file = tempDir.resolve("server.jks").toFile(),
@@ -66,7 +66,8 @@ class SpecmaticMockIncomingMtlsTest {
             assertThat(executeGet("https://localhost:$port/hello")).isEqualTo(200)
             val log = fetchLog("https://localhost:$port/_specmatic/log")
 
-            assertThat(log).contains("Request to port '$port' (TLS) at")
+            assertThat(log).contains("Request to port '$port' at")
+            assertThat(log).doesNotContain("Request to port '$port' (TLS) at")
         } finally {
             stub.close()
             LogTail.clear()
