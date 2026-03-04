@@ -6,6 +6,7 @@ import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
 import io.specmatic.core.Scenario
+import io.specmatic.osAgnosticPath
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.testBackwardCompatibility
 import io.specmatic.core.value.JSONObjectValue
@@ -178,10 +179,10 @@ class InterpolatedPathsE2ETest {
         assertThat(inlineEvent.details).isEqualToIgnoringWhitespace("Request Matched Inline Example: INLINE_OK")
         assertThat(inlineEvent.stubResult).isEqualTo(TestResult.Success)
 
-        assertThat(externalEvent.details).isEqualToIgnoringWhitespace("Request Matched External Example: src/test/resources/openapi/interpolated_paths_e2e_examples/external_success_202.json")
+        assertThat(externalEvent.details).isEqualToIgnoringWhitespace("Request Matched External Example: ${osAgnosticPath("src/test/resources/openapi/interpolated_paths_e2e_examples/external_success_202.json")}")
         assertThat(externalEvent.stubResult).isEqualTo(TestResult.Success)
 
-        assertThat(externalTokenEvent.details).isEqualToIgnoringWhitespace("Request Matched External Example: src/test/resources/openapi/interpolated_paths_e2e_examples/external_partial_tokens_202.json")
+        assertThat(externalTokenEvent.details).isEqualToIgnoringWhitespace("Request Matched External Example: ${osAgnosticPath("src/test/resources/openapi/interpolated_paths_e2e_examples/external_partial_tokens_202.json")}")
         assertThat(externalTokenEvent.stubResult).isEqualTo(TestResult.Success)
 
         assertThat(generatedEvent.details).isEqualToIgnoringWhitespace("Request Matched Contract POST /generate/(orderId:string)-(itemId:string)/status -> 200")
