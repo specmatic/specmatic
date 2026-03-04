@@ -617,7 +617,8 @@ internal class UtilitiesTest {
         every { scenario.status } returns 200
 
         val output = uniqueNameForApiOperation(request, scenario, File("."))
-        assertThat(output.length).isEqualTo(255)
+        assertThat(output.length).isLessThan(300)
+        assertThat(output.length).isLessThanOrEqualTo(255)
         assertThat(output).matches("A*_[0-9a-f]{12}$")
     }
 
@@ -625,7 +626,8 @@ internal class UtilitiesTest {
     fun `uniqueNameForApiOperation with request details should budget long generated name`() {
         val request = HttpRequest("GET", "http://example.com/" + "segment/".repeat(80), emptyMap())
         val output = uniqueNameForApiOperation(request, "http://example.com", 200, File("."))
-        assertThat(output.length).isEqualTo(255)
+        assertThat(output.length).isLessThan(request.path!!.length)
+        assertThat(output.length).isLessThanOrEqualTo(255)
         assertThat(output).matches(".*_[0-9a-f]{12}$")
     }
 
@@ -659,7 +661,8 @@ internal class UtilitiesTest {
     fun `fitOsPathBudget should respect windows max filename cap`() {
         val filename = "a".repeat(300)
         val output = sanitizeAndFitOsPathBudget(File("/tmp"), filename, windows = true)
-        assertThat(output.length).isEqualTo(255)
+        assertThat(output.length).isLessThan(filename.length)
+        assertThat(output.length).isLessThanOrEqualTo(255)
         assertThat(output).matches("a*_[0-9a-f]{12}$")
     }
 

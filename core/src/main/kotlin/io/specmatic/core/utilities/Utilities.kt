@@ -498,7 +498,7 @@ fun uniqueNameForApiOperation(httpRequest: HttpRequest, scenario: Scenario, base
 
 fun uniqueNameForApiOperation(httpRequest: HttpRequest, baseURL: String, responseStatus: Int, baseDir: File, prefix: String = ""): String {
     val (method, path, headers) = httpRequest
-    val contentType = headers[CONTENT_TYPE]?.let { "_$it" }.orEmpty()
+    val contentType = headers[CONTENT_TYPE]?.substringBefore(";")?.takeUnless { it.isBlank() }?.let { "_$it" }.orEmpty()
 
     val formattedPath = path?.removePrefix(baseURL)?.removePrefix("/").orEmpty()
     val fileName = if (formattedPath.isEmpty()) {
