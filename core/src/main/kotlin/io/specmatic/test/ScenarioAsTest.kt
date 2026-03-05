@@ -213,8 +213,7 @@ data class ScenarioAsTest(
             )
         } catch (exception: Throwable) {
             return ContractTestExecutionResult(
-                result = Result.Failure(exceptionCauseMessage(exception))
-                    .also { failure -> failure.updateScenario(testScenario) }
+                result = Result.Failure(exceptionCauseMessage(exception)).updateScenario(testScenario)
             )
         }
     }

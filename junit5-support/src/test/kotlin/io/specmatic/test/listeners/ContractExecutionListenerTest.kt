@@ -47,8 +47,7 @@ class ContractExecutionListenerTest {
     fun `test plan reports partial successes`() {
         val listener = ContractExecutionListener()
 
-        val partialSuccess = Result.Success(partialSuccessMessage = "partial coverage")
-        partialSuccess.scenario = FakeScenario()
+        val partialSuccess = Result.Success(partialSuccessMessage = "partial coverage").updateScenario(FakeScenario())
         SpecmaticJUnitSupport.partialSuccesses.add(partialSuccess)
 
         listener.testPlanExecutionFinished(null)
