@@ -27,6 +27,7 @@ data class RequestOperator(
         put("path", pathOperator)
         put("query", queryOperator)
         put("header", headerOperator)
+        put("method", ValueOperator(StringValue(originalHttpRequest.method.orEmpty())))
         put("url", ValueOperator(StringValue(originalHttpRequest.path.orEmpty())))
     }
 

@@ -3799,6 +3799,58 @@ Then status 200
         }
     }
 
+    @Test
+    fun `should capture scenario result from failure even when request does not match any scenario identifier`() {
+        val tempDir = Files.createTempDirectory("specmatic-openapi-scenario-result").toFile()
+        val openApiSpec = tempDir.resolve("api.yaml")
+        openApiSpec.writeText("""
+        openapi: 3.0.0
+        info:
+          title: Scenario Result API
+          version: 1.0.0
+        paths:
+          /hello:
+            post:
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      required:
+                        - name
+                      properties:
+                        name:
+                          type: string
+              responses:
+                "200":
+                  description: OK
+        """.trimIndent())
+
+        try {
+            val feature = parseContractFileToFeature(openApiSpec)
+            HttpStub(feature).use { stub ->
+                val response = stub.client.execute(
+                    HttpRequest(
+                        method = "POST",
+                        path = "/hello",
+                        headers = mapOf("Content-Type" to "application/json"),
+                        body = StringValue("hello")
+                    )
+                )
+
+                assertThat(response.status).isEqualTo(400)
+                val testResultRecord = stub.ctrfTestResultRecords().single()
+                assertThat(testResultRecord.scenarioResult).isNotNull
+                assertThat(testResultRecord.scenarioResult?.scenario).isNotNull
+                assertThat(testResultRecord.scenarioResult?.scenario?.method).isEqualTo("POST")
+                assertThat(testResultRecord.scenarioResult?.scenario?.path).isEqualTo("/hello")
+            }
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
+
     private fun String.replaceFileSeparator(): String {
         return this.replace("/", File.separator)
     }
