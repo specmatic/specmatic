@@ -7,8 +7,8 @@ import io.specmatic.core.value.Value
 import io.specmatic.reporter.model.TestResult
 
 sealed class Result {
-    var scenario: ScenarioDetailsForResult? = null
-    var contractPath: String? = null
+    abstract val scenario: ScenarioDetailsForResult?
+    abstract val contractPath: String?
 
     companion object {
         fun fromFailures(failures: List<Failure>): Result {
@@ -41,11 +41,8 @@ sealed class Result {
     }
 
     abstract fun isAnyFluffy(acceptableFluffLevel: Int): Boolean
-
-    fun updateScenario(scenario: ScenarioDetailsForResult?): Result {
-        this.scenario = scenario
-        return this
-    }
+    abstract fun updateScenario(scenario: ScenarioDetailsForResult?): Result
+    abstract fun updatePath(path: String?): Result
 
     abstract fun isSuccess(): Boolean
 
@@ -57,11 +54,6 @@ sealed class Result {
     open fun withRuleViolation(ruleViolation: RuleViolation): Result = this
 
     abstract fun shouldBeIgnored(): Boolean
-
-    fun updatePath(path: String): Result {
-        this.contractPath = path
-        return this
-    }
 
     fun toReport(scenarioMessage: String? = null): Report {
         return when (this) {
@@ -121,20 +113,32 @@ sealed class Result {
         }
     }
 
-    data class Failure(val causes: List<FailureCause> = emptyList(), val breadCrumb: String = "", val failureReason: FailureReason? = null, val isPartial: Boolean = false, val ruleViolationReport: RuleViolationReport? = null) : Result() {
+    data class Failure(
+        val causes: List<FailureCause> = emptyList(),
+        val breadCrumb: String = "",
+        val failureReason: FailureReason? = null,
+        val isPartial: Boolean = false,
+        val ruleViolationReport: RuleViolationReport? = null,
+        override val scenario: ScenarioDetailsForResult? = null,
+        override val contractPath: String? = null
+    ) : Result() {
         constructor(
             message: String = "",
             cause: Failure? = null,
             breadCrumb: String = "",
             failureReason: FailureReason? = null,
             isPartial: Boolean? = false,
-            ruleViolation: RuleViolation? = null
+            ruleViolation: RuleViolation? = null,
+            scenario: ScenarioDetailsForResult? = null,
+            contractPath: String? = null
         ) : this (
             causes = listOf(element = FailureCause(message, cause)),
             breadCrumb = breadCrumb,
             failureReason = failureReason,
             isPartial = isPartial ?: false,
-            ruleViolationReport = ruleViolation?.let(RuleViolationReport::from)
+            ruleViolationReport = ruleViolation?.let(RuleViolationReport::from),
+            scenario = scenario,
+            contractPath = contractPath
         )
 
         companion object {
@@ -179,6 +183,14 @@ sealed class Result {
             return this.scenario?.ignoreFailure == true
         }
 
+        override fun updatePath(path: String?): Failure {
+            return this.copy(contractPath = path)
+        }
+
+        override fun updateScenario(scenario: ScenarioDetailsForResult?): Failure {
+            return this.copy(scenario = scenario)
+        }
+
         override fun partialSuccess(message: String): Result {
             return this
         }
@@ -208,8 +220,8 @@ sealed class Result {
             return null
         }
 
-        fun reason(errorMessage: String) = Failure(errorMessage, this)
-        override fun breadCrumb(breadCrumb: String) = Failure(cause = this, breadCrumb = breadCrumb, isPartial = isPartial)
+        fun reason(errorMessage: String) = Failure(errorMessage, this, scenario = scenario, contractPath = contractPath)
+        override fun breadCrumb(breadCrumb: String) = Failure(cause = this, breadCrumb = breadCrumb, isPartial = isPartial, scenario = scenario, contractPath = contractPath)
         override fun failureReason(failureReason: FailureReason?): Result {
             return this.copy(failureReason = failureReason)
         }
@@ -323,13 +335,27 @@ sealed class Result {
         }
     }
 
-    data class Success(val variables: Map<String, String> = emptyMap(), val partialSuccessMessage: String? = null) : Result() {
+    data class Success(
+        val variables: Map<String, String> = emptyMap(),
+        val partialSuccessMessage: String? = null,
+        override val scenario: ScenarioDetailsForResult? = null,
+        override val contractPath: String? = null
+    ) : Result() {
         override fun isAnyFluffy(acceptableFluffLevel: Int): Boolean {
             return false
         }
 
         override fun isSuccess() = true
         override fun ifSuccess(function: () -> Result) = function()
+
+        override fun updatePath(path: String?): Success {
+            return this.copy(contractPath = path)
+        }
+
+        override fun updateScenario(scenario: ScenarioDetailsForResult?): Success {
+            return this.copy(scenario = scenario)
+        }
+
         override fun withBindings(bindings: Map<String, String>, response: HttpResponse): Result {
             return this.copy(variables = response.export(bindings))
         }

@@ -46,14 +46,12 @@ fun testBackwardCompatibility(
                     newerResponsePattern,
                     oldScenario.resolver.copy(mismatchMessages = NewAndOldSpecificationResponseMismatches),
                     newerScenario.resolver.copy(mismatchMessages = NewAndOldSpecificationResponseMismatches),
-                ).also {
-                    it.scenario = newerScenario
-                }
+                )
 
                 if (responseResult.isFluffy())
                     null
                 else
-                    Pair(requestResult, responseResult)
+                    Pair(requestResult, responseResult.updateScenario(newerScenario))
             }
 
         if(wholeMatchResults.isEmpty())
