@@ -16,6 +16,7 @@ import io.specmatic.test.LegacyHttpClient
 import io.specmatic.test.SET_COOKIE_SEPARATOR
 import io.specmatic.test.internalHeadersToKtorHeaders
 import io.specmatic.test.ktorHeadersToInternalHeaders
+import io.specmatic.test.targetServer
 import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
 import org.json.JSONObject
@@ -23,6 +24,27 @@ import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 
 class HttpClientTest {
+    @Test
+    fun `should append mTLS marker to target server when mtls was negotiated`() {
+        val target = targetServer("https://localhost:9443", mtlsNegotiated = true)
+
+        assertThat(target).isEqualTo("https://localhost:9443 (mTLS)")
+    }
+
+    @Test
+    fun `should not append mTLS marker to target server when mtls was not negotiated`() {
+        val target = targetServer("https://localhost:9443", mtlsNegotiated = false)
+
+        assertThat(target).isEqualTo("https://localhost:9443")
+    }
+
+    @Test
+    fun `should not append mTLS marker to target server when base URL is HTTP`() {
+        val target = targetServer("http://localhost:9000", mtlsNegotiated = true)
+
+        assertThat(target).isEqualTo("http://localhost:9000")
+    }
+
 
     @Test
     fun clientShouldNotRedirect() {

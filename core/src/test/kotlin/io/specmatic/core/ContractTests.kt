@@ -15,7 +15,7 @@ import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.value.*
 import io.specmatic.osAgnosticPath
-import io.specmatic.test.LegacyHttpClient
+import io.specmatic.test.HttpClient
 import io.specmatic.test.TestExecutor
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.*
@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.fail
 import java.io.File
+import java.net.ServerSocket
 
 class ContractTests {
     @Test
@@ -786,7 +787,7 @@ Examples:
         try {
             server.start(wait = false)
 
-            val results = spec.executeTests(LegacyHttpClient("http://localhost:8080"))
+            val results = spec.executeTests(HttpClient("http://localhost:8080"))
             assertThat(results.success()).withFailMessage(results.report()).isTrue()
             assertThat(results.successCount).isPositive()
         } finally {
@@ -827,7 +828,7 @@ Examples:
         try {
             server.start(wait = false)
 
-            val results = spec.executeTests(LegacyHttpClient("http://localhost:8080"))
+            val results = spec.executeTests(HttpClient("http://localhost:8080"))
             assertThat(results.success()).withFailMessage(results.report()).isTrue()
             assertThat(results.successCount).isPositive()
         } finally {
@@ -868,7 +869,8 @@ Examples:
 
         val pathsSeen = mutableListOf<String>()
 
-        val server = embeddedServer(Netty, port = 9001) {
+        val port = ServerSocket(0).use { it.localPort }
+        val server = embeddedServer(Netty, port = port) {
             routing {
                 route("/{...}") {
                     handle {
@@ -881,7 +883,7 @@ Examples:
 
         val results = try {
             server.start(wait = false)
-            specification.executeTests(LegacyHttpClient("http://localhost:9001"))
+            specification.executeTests(HttpClient("http://localhost:$port"))
         } finally {
             server.stop()
         }
@@ -929,7 +931,8 @@ Examples:
 
         val pathsSeen = mutableListOf<String>()
 
-        val server = embeddedServer(Netty, port = 9001) {
+        val port = ServerSocket(0).use { it.localPort }
+        val server = embeddedServer(Netty, port = port) {
             routing {
                 route("/{...}") {
                     handle {
@@ -942,7 +945,7 @@ Examples:
 
         val results = try {
             server.start(wait = false)
-            specification.executeTests(LegacyHttpClient("http://localhost:9001"))
+            specification.executeTests(HttpClient("http://localhost:$port"))
         } finally {
             server.stop()
         }
@@ -1000,7 +1003,8 @@ Examples:
 
         val queryParamsSeen = mutableListOf<Map<String, List<String>>>()
 
-        val server = embeddedServer(Netty, port = 9001) {
+        val port = ServerSocket(0).use { it.localPort }
+        val server = embeddedServer(Netty, port = port) {
             routing {
                 route("/{...}") {
                     handle {
@@ -1013,7 +1017,7 @@ Examples:
 
         val results = try {
             server.start(wait = false)
-            specification.executeTests(LegacyHttpClient("http://localhost:9001"))
+            specification.executeTests(io.specmatic.test.HttpClient("http://localhost:$port"))
         } finally {
             server.stop()
         }
@@ -1073,7 +1077,8 @@ Examples:
                             type: string
         """.trimIndent(), "").toFeature()
 
-        val server = embeddedServer(Netty, port = 9001) {
+        val port = ServerSocket(0).use { it.localPort }
+        val server = embeddedServer(Netty, port = port) {
             routing {
                 route("/{...}") {
                     handle {
@@ -1092,7 +1097,7 @@ Examples:
 
         val results = try {
             server.start(wait = false)
-            specification.enableGenerativeTesting().executeTests(LegacyHttpClient("http://localhost:9001"))
+            specification.enableGenerativeTesting().executeTests(io.specmatic.test.HttpClient("http://localhost:$port"))
         } finally {
             server.stop()
         }

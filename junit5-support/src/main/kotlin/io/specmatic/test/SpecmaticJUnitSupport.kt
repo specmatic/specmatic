@@ -50,6 +50,7 @@ import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import javax.net.ssl.HostnameVerifier
 import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.KeyManagerFactory
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
@@ -67,6 +68,7 @@ open class SpecmaticJUnitSupport {
     private var settings = ContractTestSettings(settingsStaging)
 
     private val specmaticConfig: SpecmaticConfig = settings.getSpecmaticConfig()
+    private val keyDataRegistry: KeyDataRegistry = specmaticConfig.getTestHttpsConfiguration().toTestKeyDataRegistry()
     private val httpInteractionsLog: HttpInteractionsLog = HttpInteractionsLog()
     private val testFilter = ScenarioMetadataFilter.from(specmaticConfig.getTestFilter().orEmpty())
     private val prettyPrint = specmaticConfig.getPrettyPrint()
@@ -118,9 +120,19 @@ open class SpecmaticJUnitSupport {
             else -> "$defaultBaseURL/swagger/v1/swagger.yaml"
         }
 
-        val httpClient = client ?: LegacyHttpClient(swaggerDocUrl, log = ignoreLog, prettyPrint = prettyPrint)
         val request = HttpRequest(path = "/", method = "GET")
-        val response = httpClient.execute(request)
+        val response = if (client != null) {
+            client.execute(request)
+        } else {
+            HttpClient(
+                swaggerDocUrl,
+                log = ignoreLog,
+                prettyPrint = prettyPrint,
+                keyData = keyDataFor(swaggerDocUrl)
+            ).use { httpClient ->
+                httpClient.execute(request)
+            }
+        }
 
         if (response.status != 200) {
             logger.debug("Failed to query swaggerUI, status code: ${response.status}")
@@ -141,7 +153,14 @@ open class SpecmaticJUnitSupport {
     fun queryActuator(): ActuatorSetupResult {
         val endpointsAPI = specmaticConfig.getActuatorUrl() ?: return ActuatorSetupResult.Failure
         val request = HttpRequest("GET")
-        val response = LegacyHttpClient(endpointsAPI, log = ignoreLog, prettyPrint = prettyPrint).execute(request)
+        val response = HttpClient(
+            endpointsAPI,
+            log = ignoreLog,
+            prettyPrint = prettyPrint,
+            keyData = keyDataFor(endpointsAPI)
+        ).use { httpClient ->
+            httpClient.execute(request)
+        }
 
         if (response.status != 200) {
             logger.debug("Failed to query actuator, status code: ${response.status}")
@@ -379,7 +398,7 @@ open class SpecmaticJUnitSupport {
 
         settings.coverageHooks.forEach { it.onExampleErrors(testBuildResult.exampleValidationResults) }
         testBuildResult.baseUrls.forEach { baseUrl ->
-            if (isBaseURLReachable(baseUrl)) return@forEach
+            if (isBaseURLReachable(baseUrl, keyData = keyDataFor(baseUrl))) return@forEach
             return loadExceptionAsTestError(e = ContractException("""
             Cannot connect to server at: $baseUrl
             Please check:
@@ -491,6 +510,7 @@ open class SpecmaticJUnitSupport {
                             log = log,
                             timeoutInMilliseconds = timeoutInMilliseconds,
                             prettyPrint = prettyPrint,
+                            keyData = keyDataFor(baseURL),
                             httpInteractionsLog = httpInteractionsLog,
                         )
 
@@ -749,6 +769,18 @@ open class SpecmaticJUnitSupport {
         }
         return File(path).readText()
     }
+
+    private fun keyDataFor(url: String): KeyData? {
+        val uri = URI(url)
+        val host = uri.host ?: return null
+        val port = if (uri.port != -1) uri.port else when (uri.scheme?.lowercase()) {
+            "https" -> 443
+            "http" -> 80
+            else -> return null
+        }
+
+        return keyDataRegistry.get(host, port)
+    }
 }
 
 data class LoadedTestScenarios(
@@ -811,7 +843,7 @@ fun <T> selectTestsToRun(
 }
 
 
-fun isBaseURLReachable(baseUrl: String, timeOutMs: Int = 3000): Boolean {
+fun isBaseURLReachable(baseUrl: String, timeOutMs: Int = 3000, keyData: KeyData? = null): Boolean {
     return try {
         val url = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
         val connection = URL(url).openConnection() as HttpURLConnection
@@ -824,8 +856,15 @@ fun isBaseURLReachable(baseUrl: String, timeOutMs: Int = 3000): Boolean {
                     override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) = Unit
                 }
             )
+
+            val keyManagers = keyData?.let {
+                KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm()).apply {
+                    init(it.keyStore, it.keyPassword.toCharArray())
+                }.keyManagers
+            }
+
             val sslContext = SSLContext.getInstance("TLS").apply {
-                init(null, trustAllCerts, SecureRandom())
+                init(keyManagers, trustAllCerts, SecureRandom())
             }
             connection.sslSocketFactory = sslContext.socketFactory
             connection.hostnameVerifier = HostnameVerifier { _, _ -> true }

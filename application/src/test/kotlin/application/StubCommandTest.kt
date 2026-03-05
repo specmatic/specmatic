@@ -5,7 +5,7 @@ import io.mockk.*
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.specmatic.core.CONTRACT_EXTENSION
-import io.specmatic.core.KeyData
+import io.specmatic.core.IncomingMtlsRegistry
 import io.specmatic.core.KeyDataRegistry
 import io.specmatic.core.parseGherkinStringToFeature
 import io.specmatic.core.utilities.ContractPathData
@@ -118,6 +118,7 @@ internal class StubCommandTest {
                     host,
                     port,
                     any(),
+                    any(),
                     strictMode,
                     any(),
                     httpClientFactory = any(),
@@ -139,6 +140,7 @@ internal class StubCommandTest {
 
             verify(exactly = 1) {
                 httpStubEngine.runHTTPStub(
+                    any(),
                     any(),
                     any(),
                     any(),
@@ -171,7 +173,7 @@ internal class StubCommandTest {
         every { specmaticConfig.contractStubPaths() }.returns(arrayListOf("/config/path/to/contract.$extension"))
         every { specmaticConfig.contractStubPathData() } returns emptyList()
         every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
-        every { httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } answers {
+        every { httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } answers {
             mockk<HttpStub> { every { close() } returns Unit }
         }
 
@@ -246,6 +248,7 @@ internal class StubCommandTest {
                     host,
                     port,
                     any(),
+                    any(),
                     strictMode,
                     passThroughTargetBase,
                     httpClientFactory = any(),
@@ -274,6 +277,7 @@ internal class StubCommandTest {
                     host,
                     any(),
                     any(),
+                    any(),
                     strictMode,
                     any(),
                     httpClientFactory = any(),
@@ -295,7 +299,7 @@ internal class StubCommandTest {
         every { specmaticConfig.contractStubPaths() } returns emptyList()
         every { specmaticConfig.contractStubPathData() } returns emptyList()
         every {
-            httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+            httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
         } returns mockk { every { close() } returns Unit }
 
         try {
@@ -345,6 +349,7 @@ internal class StubCommandTest {
                 capture(hostSlot),
                 capture(portSlot),
                 capture(keyDataSlot),
+                any(),
                 capture(strictModeSlot),
                 any(),
                 any(),
@@ -405,6 +410,7 @@ internal class StubCommandTest {
                 capture(hostSlot),
                 capture(portSlot),
                 capture(keyDataSlot),
+                any(),
                 capture(strictModeSlot),
                 capture(passThroughSlot),
                 any(),
@@ -441,7 +447,7 @@ internal class StubCommandTest {
         val portSlot = slot<Int>()
         val strictModeSlot = slot<Boolean>()
         val timeoutSlot = slot<Long>()
-        var capturedKeyData: KeyData? = null
+        var capturedKeyDataRegistry: KeyDataRegistry? = null
 
         every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
         every { watchMaker.make(any()) } returns watcher
@@ -454,6 +460,7 @@ internal class StubCommandTest {
                 capture(hostSlot),
                 capture(portSlot),
                 any(),
+                any(),
                 capture(strictModeSlot),
                 any(),
                 any(),
@@ -464,13 +471,13 @@ internal class StubCommandTest {
                 any()
             )
         } answers {
-            capturedKeyData = arg(3) as KeyData?
+            capturedKeyDataRegistry = arg(3)
             mockk<HttpStub> { every { close() } returns Unit }
         }
 
         CommandLine(stubCommand).execute()
 
-        assertThat(capturedKeyData).isNull()
+        assertThat(capturedKeyDataRegistry?.hasAny()).isFalse()
         assertThat(hostSlot.captured).isEqualTo("0.0.0.0")
         assertThat(portSlot.captured).isEqualTo(9000)
         assertThat(strictModeSlot.captured).isFalse()
@@ -498,6 +505,7 @@ internal class StubCommandTest {
                 any(),
                 capture(hostSlot),
                 capture(portSlot),
+                any(),
                 any(),
                 any(),
                 any(),
@@ -547,6 +555,7 @@ internal class StubCommandTest {
                 any(),
                 any(),
                 any(),
+                any(),
                 any()
             )
         } returns mockk { every { close() } returns Unit }
@@ -575,6 +584,7 @@ internal class StubCommandTest {
                 any(),
                 any(),
                 capture(keyDataSlot),
+                any(),
                 any(),
                 any(),
                 any(),
@@ -621,12 +631,55 @@ internal class StubCommandTest {
                 any(),
                 any(),
                 any(),
+                any(),
                 any()
             )
         } returns mockk { every { close() } returns Unit }
 
         Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) { CommandLine(stubCommand).execute() }
         assertThat(keyDataSlot.captured).isNotNull
+    }
+
+    @Test
+    fun `uses incoming mTLS from config when provided`(@TempDir tempDir: File) {
+        val incomingMtlsSlot = slot<IncomingMtlsRegistry>()
+        val keystoreFile = tempDir.resolve("config.jks")
+        createEmptyKeyStore(keystoreFile, "pass")
+        val configFile = writeSpecmaticYaml(tempDir, """
+        version: 2
+        stub:
+          https:
+            mtlsEnabled: true
+            keyStorePassword: pass
+            keyStore:
+              file: ${keystoreFile.canonicalPath}
+        """.trimIndent())
+
+        every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
+        every { watchMaker.make(any()) } returns watcher
+        every { specmaticConfig.contractStubPaths() } returns emptyList()
+        every { specmaticConfig.contractStubPathData() } returns emptyList()
+        every {
+            httpStubEngine.runHTTPStub(
+                any(),
+                any(),
+                any(),
+                any(),
+                capture(incomingMtlsSlot),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+            )
+        } returns mockk { every { close() } returns Unit }
+
+        Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) { CommandLine(stubCommand).execute() }
+
+        assertThat(incomingMtlsSlot.captured.get("localhost", 443)).isTrue()
     }
 
     @Test
@@ -659,6 +712,7 @@ internal class StubCommandTest {
                 capture(hostSlot),
                 any(),
                 capture(keyDataSlot),
+                any(),
                 capture(strictModeSlot),
                 any(),
                 any(),

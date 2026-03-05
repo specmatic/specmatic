@@ -499,6 +499,12 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
         return certificates.fold(registry) { acc, (baseUrl, cert) -> acc.plus(baseUrl, cert) }
     }
 
+    override fun getTestHttpsConfiguration(): CertRegistry {
+        val registry = CertRegistry.empty()
+        val certificates: List<Pair<String, HttpsConfiguration>> = specmaticConfig.systemUnderTest?.getCerts(resolver).orEmpty()
+        return certificates.fold(registry) { acc, (baseUrl, cert) -> acc.plus(baseUrl, cert) }
+    }
+
     override fun getStubGracefulRestartTimeoutInMilliseconds(): Long? {
         val mockSettings = getMockSettings()
         return mockSettings.gracefulRestartTimeoutInMilliseconds

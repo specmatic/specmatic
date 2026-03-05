@@ -1,6 +1,7 @@
 package application
 
 import io.specmatic.core.Feature
+import io.specmatic.core.IncomingMtlsRegistry
 import io.specmatic.core.KeyDataRegistry
 import io.specmatic.core.WorkingDirectory
 import io.specmatic.core.log.consoleLog
@@ -18,6 +19,7 @@ class HTTPStubEngine {
         host: String,
         port: Int,
         keyDataRegistry: KeyDataRegistry,
+        incomingMtlsRegistry: IncomingMtlsRegistry,
         strictMode: Boolean,
         passThroughTargetBase: String = "",
         specmaticConfigSource: SpecmaticConfigSource,
@@ -36,6 +38,7 @@ class HTTPStubEngine {
             log = ::consoleLog,
             strictMode = strictMode,
             keyDataRegistry = keyDataRegistry,
+            incomingMtlsRegistry = incomingMtlsRegistry,
             passThroughTargetBase = passThroughTargetBase,
             httpClientFactory = httpClientFactory,
             workingDirectory = workingDirectory,

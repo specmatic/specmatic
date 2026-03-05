@@ -26,6 +26,7 @@ import io.specmatic.stub.toParams
 import kotlinx.coroutines.runBlocking
 import java.net.URL
 import java.util.*
+import java.util.concurrent.atomic.AtomicReference
 import java.util.zip.GZIPInputStream
 
 // API for non-Kotlin invokers
@@ -39,8 +40,17 @@ data class HttpClient(
     val timeoutInMilliseconds: Long = 6000,
     private val log: (event: LogMessage) -> Unit = ::consoleLog,
     private val prettyPrint: Boolean = true,
-    private var httpLogMessage: HttpLogMessage = HttpLogMessage(targetServer = baseURL, prettyPrint = prettyPrint),
-    private val httpClientFactory: Lazy<ApacheHttpClientFactory> = lazy { ApacheHttpClientFactory(timeoutInMilliseconds) },
+    private val keyData: KeyData? = null,
+    private var httpLogMessage: HttpLogMessage = HttpLogMessage(
+        targetServer = targetServer(baseURL, mtlsNegotiated = false),
+        prettyPrint = prettyPrint
+    ),
+    private val requestTransportInfo: AtomicReference<TransportInfo> = AtomicReference(TransportInfo()),
+    private val httpClientFactory: Lazy<ApacheHttpClientFactory> = lazy {
+        ApacheHttpClientFactory(timeoutInMilliseconds, keyData) { transportInfo ->
+            requestTransportInfo.set(transportInfo)
+        }
+    },
     private val httpClient: Lazy<io.ktor.client.HttpClient> = lazy { httpClientFactory.value.create() },
     private val httpInteractionsLog: HttpInteractionsLog = HttpInteractionsLog()
 ) : TestExecutor, AutoCloseable {
@@ -54,6 +64,7 @@ data class HttpClient(
         logger.debug("Starting request ${request.method} ${request.path}")
 
         return try {
+            requestTransportInfo.set(TransportInfo())
             runBlocking {
                 val ktorResponse: io.ktor.client.statement.HttpResponse = httpClient.value.request(url) {
                     requestWithFileContent.buildKTORRequest(this)
@@ -64,9 +75,14 @@ data class HttpClient(
 
                 ktorResponseToHttpResponse(ktorResponse)
                     .adjustPayloadForContentType()
-                    .also {
+                    .let {
+                        val mtlsNegotiated = requestTransportInfo.get().mtlsNegotiated
+                        httpLogMessage = httpLogMessage.copy(
+                            targetServer = targetServer(baseURL, mtlsNegotiated)
+                        )
                         httpLogMessage.addResponseWithCurrentTime(it)
                         log(httpLogMessage)
+                        it
                     }
             }
         } catch (e: Exception) {
@@ -144,6 +160,11 @@ data class HttpClient(
     }
 }
 
+internal fun targetServer(baseURL: String, mtlsNegotiated: Boolean): String {
+    val mtlsInvolved = mtlsNegotiated && baseURL.startsWith("https://", ignoreCase = true)
+    return if (mtlsInvolved) "$baseURL (mTLS)" else baseURL
+}
+
 
 @Deprecated("Use GoodHttpClient instead")
 data class LegacyHttpClient(
@@ -151,18 +172,19 @@ data class LegacyHttpClient(
     val timeoutInMilliseconds: Long = 6000,
     val log: (event: LogMessage) -> Unit = ::consoleLog,
     val prettyPrint: Boolean = true,
+    val keyData: KeyData? = null,
 ) : TestExecutor {
 
     override fun execute(request: HttpRequest): HttpResponse {
-        return HttpClient(baseURL, timeoutInMilliseconds, log, prettyPrint).use { it.execute(request) }
+        return HttpClient(baseURL, timeoutInMilliseconds, log, prettyPrint, keyData = keyData).use { it.execute(request) }
     }
 
     override fun setServerState(serverState: Map<String, Value>) {
-        HttpClient(baseURL, timeoutInMilliseconds, log, prettyPrint).use { it.setServerState(serverState) }
+        HttpClient(baseURL, timeoutInMilliseconds, log, prettyPrint, keyData = keyData).use { it.setServerState(serverState) }
     }
 
     override fun preExecuteScenario(scenario: Scenario, request: HttpRequest) {
-        HttpClient(baseURL, timeoutInMilliseconds, log, prettyPrint).preExecuteScenario(scenario, request)
+        HttpClient(baseURL, timeoutInMilliseconds, log, prettyPrint, keyData = keyData).preExecuteScenario(scenario, request)
     }
 }
 

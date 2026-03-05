@@ -10,7 +10,7 @@ private sealed interface HostPortIdentifier {
 }
 
 class CertRegistry private constructor(private val certificates: List<Pair<HostPortIdentifier, HttpsConfiguration>>) {
-    fun toKeyDataRegistry(transform: (HttpsConfiguration) -> KeyData?): KeyDataRegistry {
+    private fun groupedCertificatesOrException(): Map<HostPortIdentifier, HttpsConfiguration> {
         val groupedCerts = certificates.groupBy({ it.first }, { it.second })
         val conflicts = groupedCerts.filterValues { it.distinct().size > 1 }.map { (identifier, certs) -> "$identifier -> ${certs.size} certificates" }
         if (conflicts.isNotEmpty()) {
@@ -22,12 +22,25 @@ class CertRegistry private constructor(private val certificates: List<Pair<HostP
             )
         }
 
-        val keyData = groupedCerts.mapValues { (_, certs) -> transform(certs.single()) }
+        return groupedCerts.mapValues { (_, certs) -> certs.single() }
+    }
+
+    fun toKeyDataRegistry(transform: (HttpsConfiguration) -> KeyData?): KeyDataRegistry {
+        val keyData = groupedCertificatesOrException().mapValues { (_, cert) -> transform(cert) }
         return keyData.entries.fold(KeyDataRegistry.empty()) { acc, (identifier, keyData) ->
             if (keyData == null) return@fold acc
             when (identifier) {
                 is HostPortIdentifier.Matching -> acc.plus(identifier.host, identifier.port, keyData)
                 else -> acc.plusWildCard(keyData)
+            }
+        }
+    }
+
+    fun toIncomingMtlsRegistry(): IncomingMtlsRegistry {
+        return groupedCertificatesOrException().entries.fold(IncomingMtlsRegistry.empty()) { acc, (identifier, cert) ->
+            when (identifier) {
+                is HostPortIdentifier.Matching -> acc.plus(identifier.host, identifier.port, cert.isMtlsEnabled())
+                else -> acc.plusWildCard(cert.isMtlsEnabled())
             }
         }
     }
@@ -77,4 +90,22 @@ class KeyDataRegistry private constructor(private val keyData: Map<HostPortIdent
     }
 
     companion object { fun empty(): KeyDataRegistry = KeyDataRegistry(emptyMap()) }
+}
+
+class IncomingMtlsRegistry private constructor(private val mtlsLookup: Map<HostPortIdentifier, Boolean>) {
+    fun plus(host: String, port: Int, enabled: Boolean): IncomingMtlsRegistry {
+        val identifier = HostPortIdentifier.Matching(normalizeHost(host), port)
+        return IncomingMtlsRegistry(mtlsLookup + (identifier to enabled))
+    }
+
+    fun plusWildCard(enabled: Boolean): IncomingMtlsRegistry {
+        return IncomingMtlsRegistry(mtlsLookup + (HostPortIdentifier.WildCard to enabled))
+    }
+
+    fun get(host: String, port: Int): Boolean {
+        val identifier = HostPortIdentifier.Matching(normalizeHost(host), port)
+        return mtlsLookup[identifier] ?: mtlsLookup[HostPortIdentifier.WildCard] ?: false
+    }
+
+    companion object { fun empty(): IncomingMtlsRegistry = IncomingMtlsRegistry(emptyMap()) }
 }
