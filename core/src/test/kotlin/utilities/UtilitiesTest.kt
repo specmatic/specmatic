@@ -1,8 +1,10 @@
 package utilities
 
+import io.specmatic.conversions.OperationMetadata
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.CONTRACT_EXTENSION
 import io.specmatic.core.HttpRequest
+import io.specmatic.core.Scenario
 import io.specmatic.core.SourceProvider
 import io.specmatic.core.git.GitCommand
 import io.specmatic.core.git.SystemGit
@@ -568,10 +570,110 @@ internal class UtilitiesTest {
     )
     fun `unique names from operation information names should be path valid`(path: String?, baseURL: String, method: String, status: Int, expected: String) {
         val request = HttpRequest(method, path, emptyMap())
-        val actual = uniqueNameForApiOperation(request, baseURL, status)
+        val actual = uniqueNameForApiOperation(request, baseURL, status, File("."))
 
         assertThat(actual).isEqualTo(expected)
         assertDoesNotThrow { File(actual).canonicalPath }
+    }
+
+    @Test
+    fun `uniqueNameForApiOperation should include the prefix if provided`() {
+        val request = HttpRequest("GET", "/path/that/should/not/be/used", emptyMap())
+        val scenario = mockk<Scenario>()
+        every { scenario.operationMetadata } returns OperationMetadata(operationId = "create-order")
+        every { scenario.status } returns 201
+
+        val output = uniqueNameForApiOperation(request, scenario, File("."), "prefix_")
+        assertThat(output).isEqualTo("prefix_create-order_201")
+    }
+
+    @Test
+    fun `uniqueNameForApiOperation should not use operationId if it is blank`() {
+        val request = HttpRequest("GET", "/path/that/should/be/used", emptyMap())
+        val scenario = mockk<Scenario>()
+        every { scenario.operationMetadata } returns OperationMetadata(operationId = "")
+        every { scenario.status } returns 201
+
+        val output = uniqueNameForApiOperation(request, scenario, File("."), "prefix_")
+        assertThat(output).isEqualTo("prefix_path_that_should_be_used_GET_201")
+    }
+
+    @Test
+    fun `uniqueNameForApiOperation with scenario should prefer operationId over request path`() {
+        val request = HttpRequest("GET", "/path/that/should/not/be/used", emptyMap())
+        val scenario = mockk<Scenario>()
+        every { scenario.operationMetadata } returns OperationMetadata(operationId = "create-order")
+        every { scenario.status } returns 201
+
+        val output = uniqueNameForApiOperation(request, scenario, File("."))
+        assertThat(output).isEqualTo("create-order_201")
+    }
+
+    @Test
+    fun `uniqueNameForApiOperation with scenario should budget long operationId`() {
+        val request = HttpRequest("GET", "/anything", emptyMap())
+        val scenario = mockk<Scenario>()
+        every { scenario.operationMetadata } returns OperationMetadata(operationId = "A".repeat(300))
+        every { scenario.status } returns 200
+
+        val output = uniqueNameForApiOperation(request, scenario, File("."))
+        assertThat(output.length).isLessThan(300)
+        assertThat(output.length).isLessThanOrEqualTo(255)
+        assertThat(output).matches("A*_[0-9a-f]{12}$")
+    }
+
+    @Test
+    fun `uniqueNameForApiOperation with request details should budget long generated name`() {
+        val request = HttpRequest("GET", "http://example.com/" + "segment/".repeat(80), emptyMap())
+        val output = uniqueNameForApiOperation(request, "http://example.com", 200, File("."))
+        assertThat(output.length).isLessThan(request.path!!.length)
+        assertThat(output.length).isLessThanOrEqualTo(255)
+        assertThat(output).matches(".*_[0-9a-f]{12}$")
+    }
+
+    @Test
+    fun `fitOsPathBudget should leave filename unchanged when it is within budget`() {
+        val filename = "users_GET_200"
+        val output = sanitizeAndFitOsPathBudget(File("."), filename, windows = false)
+        assertThat(output).isEqualTo(filename)
+    }
+
+    @Test
+    fun `fitOsPathBudget should cap posix filename length and append hash`() {
+        val longName = "a".repeat(300)
+        val output = sanitizeAndFitOsPathBudget(File("."), longName, windows = false)
+        assertThat(output.length).isEqualTo(255)
+        assertThat(output).matches("a*_[0-9a-f]{12}$")
+    }
+
+    @Test
+    fun `fitOsPathBudget should respect windows max path budget and keep hash suffix`() {
+        val baseDir = File("/" + "x".repeat(240))
+        val filename = "y".repeat(50)
+        val output = sanitizeAndFitOsPathBudget(baseDir, filename, windows = true)
+        val budget = (260 - baseDir.absoluteFile.path.length - 1).coerceAtLeast(0)
+
+        assertThat(output.length).isEqualTo(budget)
+        assertThat(output).matches("y*_[0-9a-f]{12}$")
+    }
+
+    @Test
+    fun `fitOsPathBudget should respect windows max filename cap`() {
+        val filename = "a".repeat(300)
+        val output = sanitizeAndFitOsPathBudget(File("/tmp"), filename, windows = true)
+        assertThat(output.length).isLessThan(filename.length)
+        assertThat(output.length).isLessThanOrEqualTo(255)
+        assertThat(output).matches("a*_[0-9a-f]{12}$")
+    }
+
+    @Test
+    fun `fitOsPathBudget should return at least one character when windows path budget is zero`() {
+        val baseDir = File("/" + "x".repeat(300))
+        val output = sanitizeAndFitOsPathBudget(baseDir, "abc", windows = true)
+        val budget = (260 - baseDir.absoluteFile.path.length - 1).coerceAtLeast(0)
+        assertThat(budget).isEqualTo(0)
+        assertThat(output).hasSize(1)
+        assertThat(output).matches("[0-9a-f]")
     }
 
     private fun deleteGitIgnoreFile(){
