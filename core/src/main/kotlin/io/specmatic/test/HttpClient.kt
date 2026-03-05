@@ -77,9 +77,7 @@ data class HttpClient(
                     .adjustPayloadForContentType()
                     .let {
                         val mtlsNegotiated = requestTransportInfo.get().mtlsNegotiated
-                        httpLogMessage = httpLogMessage.copy(
-                            targetServer = targetServer(baseURL, mtlsNegotiated)
-                        )
+                        httpLogMessage.targetServer = targetServer(baseURL, mtlsNegotiated)
                         httpLogMessage.addResponseWithCurrentTime(it)
                         log(httpLogMessage)
                         it

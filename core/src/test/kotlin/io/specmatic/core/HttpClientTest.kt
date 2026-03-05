@@ -7,11 +7,15 @@ import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.value.StringValue
+import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.HttpStub
 import io.specmatic.stub.ktorHttpRequestToHttpRequest
 import io.specmatic.stub.respondToKtorHttpResponse
 import io.specmatic.test.HttpClient
+import io.specmatic.test.HttpInteractionsLog
 import io.specmatic.test.LegacyHttpClient
 import io.specmatic.test.SET_COOKIE_SEPARATOR
 import io.specmatic.test.internalHeadersToKtorHeaders
@@ -22,6 +26,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.json.JSONObject
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
+import java.net.ServerSocket
 
 class HttpClientTest {
     @Test
@@ -169,6 +174,78 @@ class HttpClientTest {
             server.start(wait = false)
             val rawResponse = runBlocking { io.ktor.client.HttpClient().use { client -> client.get("http://localhost:8080/cookies") } }
             assertThat(rawResponse.headers.getAll(HttpHeaders.SetCookie)).containsExactly("a=1; Path=/", "b=2; HttpOnly")
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `ensure that httpLogMessage is not overwritten when executing a request`() {
+        val port = ServerSocket(0).use { it.localPort }
+
+        val server = embeddedServer(Netty, port = port) {
+            routing {
+                get("/data") {
+                    val internalResponse = HttpResponse(status = 200)
+                    respondToKtorHttpResponse(call, internalResponse)
+                }
+            }
+        }
+
+        try {
+            server.start(wait = false)
+
+            val httpLogMessage = HttpLogMessage()
+            val httpInteractionsLog = HttpInteractionsLog()
+
+            val client = HttpClient(
+                "http://localhost:$port",
+                httpLogMessage = httpLogMessage,
+                httpInteractionsLog = httpInteractionsLog
+            )
+
+            val request = HttpRequest().updateMethod("GET").updatePath("/data")
+
+            client.execute(request)
+
+            assertThat(httpLogMessage.response).isNotNull
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `ensure that httpLogMessage is not overwritten when preExecuteScenario is called`() {
+        val port = ServerSocket(0).use { it.localPort }
+
+        val server = embeddedServer(Netty, port = port) {
+            routing {
+                get("/data") {
+                    val internalResponse = HttpResponse(status = 200)
+                    respondToKtorHttpResponse(call, internalResponse)
+                }
+            }
+        }
+
+        try {
+            server.start(wait = false)
+
+            val httpLogMessage = HttpLogMessage()
+            val httpInteractionsLog = HttpInteractionsLog()
+
+            val client = HttpClient(
+                "http://localhost:$port",
+                httpLogMessage = httpLogMessage,
+                httpInteractionsLog = httpInteractionsLog
+            )
+
+            val request = HttpRequest().updateMethod("GET").updatePath("/data")
+            val dummyScenario = Scenario(ScenarioInfo(protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI))
+            client.preExecuteScenario(dummyScenario, request)
+
+            client.execute(request)
+
+            assertThat(httpInteractionsLog.testHttpLogMessages.first().response).isNotNull
         } finally {
             server.stop()
         }
