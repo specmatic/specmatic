@@ -39,8 +39,9 @@ data class CompositeMatcher(
         }
     }
 
-    @MatcherKey("match")
     companion object : MatcherFactory {
+        override val matcherKey: String = "match"
+
         override fun parse(path: BreadCrumb, value: Value, context: MatcherContext): ReturnValue<CompositeMatcher> {
             val properties = extractPropertiesIfExist(value)
                 ?: return HasFailure("Cannot create CompositeMatcher from value '${value.displayableValue()}", path.value)

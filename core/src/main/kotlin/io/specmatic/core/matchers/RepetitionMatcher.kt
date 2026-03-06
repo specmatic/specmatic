@@ -92,10 +92,10 @@ data class RepetitionMatcher(
         return MatcherResult.from(strategyUpdatedContext, updatedContext, isExhausted = isExhausted)
     }
 
-    @MatcherKey("repeat")
     companion object : MatcherFactory {
         private const val TIMES_KEY = "times"
         private const val STRATEGY_KEY = "value"
+        override val matcherKey: String = "repeat"
 
         override fun parse(path: BreadCrumb, value: Value, context: MatcherContext): ReturnValue<out Matcher> {
             val properties = extractPropertiesIfExist(value)
