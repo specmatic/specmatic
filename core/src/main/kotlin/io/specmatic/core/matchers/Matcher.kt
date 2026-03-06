@@ -8,10 +8,6 @@ import io.specmatic.core.pattern.listFold
 import io.specmatic.core.value.Value
 import io.specmatic.test.traverse
 
-@Target(AnnotationTarget.CLASS)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class MatcherKey(val key: String)
-
 interface Matcher {
     val canBeExhausted: Boolean
 
