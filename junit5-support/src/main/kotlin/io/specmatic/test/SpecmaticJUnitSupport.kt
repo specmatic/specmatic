@@ -703,7 +703,7 @@ open class SpecmaticJUnitSupport {
             )
         }.toList()
 
-        val filteredFeature = feature.copy(scenarios = filteredScenarios.toList()).loadExternalisedExamples()
+        val filteredFeature = feature.copy(scenarios = filteredScenarios.toList()).loadExternalisedExamples(filter.expression)
         val (validExampleFeature, result) = filteredFeature.validateAndFilterExamples()
         if (specmaticConfig.getTestLenientMode() == false) result.throwOnFailure()
 

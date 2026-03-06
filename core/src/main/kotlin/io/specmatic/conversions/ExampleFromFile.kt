@@ -16,7 +16,7 @@ import io.specmatic.test.ExampleProcessor
 import java.io.File
 import java.net.URI
 
-class ExampleFromFile(private val scenarioStub: ScenarioStub, val file: File) {
+class ExampleFromFile(val scenarioStub: ScenarioStub, val file: File) {
     companion object {
         fun fromFile(file: File, strictMode: Boolean = true): ReturnValue<ExampleFromFile> {
             if (SchemaExample.matchesFilePattern(file)) {

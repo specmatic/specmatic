@@ -8,8 +8,7 @@ import io.mockk.mockk
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.discriminator.DiscriminatorMetadata
-import io.specmatic.core.log.DebugLogger
-import io.specmatic.core.log.withLogger
+import io.specmatic.core.filters.ExpressionStandardizer
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.exceptionCauseMessage
@@ -3240,6 +3239,27 @@ paths:
 
         assertThat(error.message)
             .contains("POST /order_partial -> 200 does not match any operation in the specification")
+    }
+
+    @Test
+    fun `should not load external examples that do not match filter`() {
+        val feature = OpenApiSpecification.fromFile("src/test/resources/openapi/simple_partial_non_partial_examples_with_dictionary/simple_pets.yaml",).toFeature()
+        val filteredFeature = feature.loadExternalisedExamples(ExpressionStandardizer.filterToEvalEx("METHOD='PATCH'"))
+        val loadedExamplePaths = filteredFeature.scenarios.flatMap { it.examples }.flatMap { it.rows }.mapNotNull { it.fileSource }
+
+        assertThat(loadedExamplePaths).hasSize(1)
+        assertThat(loadedExamplePaths.single()).endsWith("pets_patch.json")
+        assertThat(loadedExamplePaths).noneMatch {
+            it.endsWith("pets_get.json") || it.endsWith("pets_post.json")
+        }
+    }
+
+    @Test
+    fun `should not throw unused external example exception in strict mode when filter excludes them`() {
+        val feature = OpenApiSpecification.fromFile("src/test/resources/openapi/has_irrelevant_externalized_test.yaml",).toFeature().copy(strictMode = true)
+        assertDoesNotThrow {
+            feature.loadExternalisedExamples(ExpressionStandardizer.filterToEvalEx("METHOD='GET'"))
+        }
     }
 
     @Test
