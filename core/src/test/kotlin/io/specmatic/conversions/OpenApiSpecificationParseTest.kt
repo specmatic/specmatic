@@ -171,6 +171,90 @@ class OpenApiSpecificationParseTest {
         assertThat(requestPattern.httpPathPattern?.path).isEqualTo("/orders/(orderId:string)")
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = ["3.0.0", "3.1.0"])
+    fun `should not collapse ref-only parameter lists while deduplicating`(openApiVersion: String) {
+        val spec = $$"""
+            openapi: $$openApiVersion
+            info:
+              title: Parse ref-only dedup params
+              version: 1.0.0
+            paths:
+              /orders/{orderId}:
+                parameters:
+                  - $ref: '#/components/parameters/OrderIdPathParam'
+                get:
+                  parameters:
+                    - $ref: '#/components/parameters/IncludeDetailsQueryParam'
+                    - $ref: '#/components/parameters/TenantHeaderParam'
+                  responses:
+                    '200':
+                      description: OK
+            components:
+              parameters:
+                OrderIdPathParam:
+                  name: orderId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                IncludeDetailsQueryParam:
+                  name: includeDetails
+                  in: query
+                  required: true
+                  schema:
+                    type: boolean
+                TenantHeaderParam:
+                  name: X-Tenant-Id
+                  in: header
+                  required: true
+                  schema:
+                    type: string
+        """.trimIndent()
+
+        val requestPattern = OpenApiSpecification.fromYAML(spec, "").toFeature().scenarios.single().httpRequestPattern
+
+        assertThat(requestPattern.httpPathPattern?.path).isEqualTo("/orders/(orderId:string)")
+        assertThat(requestPattern.httpQueryParamPattern.queryPatterns).containsKey("includeDetails")
+        assertThat(requestPattern.headersPattern.pattern).containsKey("X-Tenant-Id")
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["3.0.0", "3.1.0"])
+    fun `operation level ref parameter should override path item inline parameter with same name and location`(openApiVersion: String) {
+        val spec = $$"""
+            openapi: $$openApiVersion
+            info:
+              title: Parse mixed override precedence
+              version: 1.0.0
+            paths:
+              /orders/{orderId}:
+                parameters:
+                  - in: path
+                    name: orderId
+                    required: true
+                    schema:
+                      type: string
+                get:
+                  parameters:
+                    - $ref: '#/components/parameters/OrderIdPathParam'
+                  responses:
+                    '200':
+                      description: OK
+            components:
+              parameters:
+                OrderIdPathParam:
+                  name: orderId
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+        """.trimIndent()
+
+        val requestPattern = OpenApiSpecification.fromYAML(spec, "").toFeature().scenarios.single().httpRequestPattern
+        assertThat(requestPattern.httpPathPattern?.path).contains("(orderId:number)")
+    }
+
     @Test
     fun `should be able to parse primitives inside XML pattern schemas with their constraints intact`() {
         val specFile = File("src/test/resources/openapi/has_xml_payloads/api.yaml")

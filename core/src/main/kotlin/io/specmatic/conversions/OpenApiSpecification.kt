@@ -719,7 +719,7 @@ class OpenApiSpecification(
                     logger.debug("${System.lineSeparator()}Processing $httpMethod $openApiPath")
 
                     val methodContext = pathsContext.at(openApiPath).at(httpMethod.lowercase())
-                    val parameters = (pathItem.parameters.orEmpty() + openApiOperation.parameters.orEmpty()).distinctByNameAndLocation()
+                    val parameters = (pathItem.parameters.orEmpty() + openApiOperation.parameters.orEmpty()).distinctByNameAndLocation(methodContext)
                     val specmaticPathParam = toSpecmaticPathParam(
                         openApiPath = openApiPath,
                         parameters = parameters,
@@ -885,14 +885,29 @@ class OpenApiSpecification(
             val pathContext = collectorContext.at(openApiPath)
             openApiOperations(pathItem).map { (httpMethod, openApiOperation) ->
                 val methodContext = pathContext.at(httpMethod.lowercase())
-                val parameters = (pathItem.parameters.orEmpty() + openApiOperation.parameters.orEmpty()).distinctByNameAndLocation()
+                val parameters = (pathItem.parameters.orEmpty() + openApiOperation.parameters.orEmpty()).distinctByNameAndLocation(methodContext)
                 httpMethod to toSpecmaticPathParam(openApiPath = openApiPath, parameters = parameters, collectorContext = methodContext)
             }
         }.groupBy({ it.first }, { it.second })
     }
 
-    private fun List<Parameter>.distinctByNameAndLocation(): List<Parameter> {
-        return associateBy { it.name to it.`in` }.values.toList()
+    private fun List<Parameter>.distinctByNameAndLocation(collectorContext: CollectorContext): List<Parameter> {
+        val parameterContext = collectorContext.at("parameters")
+        return mapIndexed { index, parameter ->
+            keyForParameter(parameter, index, parameterContext) to parameter
+        }.foldRight(emptySet<String>() to emptyList<Parameter>()) { (key, parameter), (seen, kept) ->
+            if (key in seen) return@foldRight seen to kept
+            seen.plus(key) to listOf(parameter).plus(kept)
+        }.second
+    }
+
+    private fun keyForParameter(parameter: Parameter, index: Int, parameterContext: CollectorContext): String {
+        val (resolved, _) = resolveParameter(parameter, parameterContext.at(index))
+        return when {
+            resolved.name != null && resolved.`in` != null -> "name:${resolved.name}|in:${resolved.`in`}"
+            parameter.`$ref` != null -> "ref:${parameter.`$ref`}"
+            else -> "index:$index"
+        }
     }
 
     private fun getUpdatedScenarioInfosWithNoBodyResponseExamples(
