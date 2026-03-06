@@ -77,6 +77,7 @@ internal fun missingResponseExampleErrorMessageForTest(exampleName: String): Str
 
 private const val SPECMATIC_TEST_WITH_NO_REQ_EX = "SPECMATIC-TEST-WITH-NO-REQ-EX"
 
+data class ParameterWithContext<T: Parameter>(val parameter: T, val collectorContext: CollectorContext)
 data class OperationMetadata(
     val tags: List<String> = emptyList(),
     val summary: String = "",
@@ -1178,9 +1179,11 @@ class OpenApiSpecification(
     }
 
     private fun parameterExamples(parameters: List<Parameter>, exampleName: String): Map<String, Any> {
-        return parameters.safeFilter<Parameter>(CollectorContext()).filter { (_, parameter) ->
+        return parameters.safeFilter<Parameter>(CollectorContext()).filter { parameterWithContext ->
+            val parameter = parameterWithContext.parameter
             parameter.examples.orEmpty().any { it.key == exampleName }
-        }.associate { (_, parameter) ->
+        }.associate { parameterWithContext ->
+            val parameter = parameterWithContext.parameter
             // TODO: Collect as error
             val exampleValue: Example = parameter.examples[exampleName] ?: throw ContractException("The value of ${parameter.name} in example $exampleName was unexpectedly found to be null.")
             parameter.name to (resolveExample(exampleValue)?.value ?: "")
@@ -1413,13 +1416,13 @@ class OpenApiSpecification(
         val securitySchemesForRequestPattern = parseOperationSecuritySchemas(operation, securitySchemeComponents, collectorContext)
         validateSecuritySchemeParameterDuplication(
             securitySchemes = securitySchemesForRequestPattern,
-            parameters = parameters.safeFilter<Parameter>(collectorContext),
-            collectorContext = collectorContext
+            parameters = parameters.safeFilter<Parameter>(collectorContext)
         )
 
-        val headersMap = parameters.safeFilter<HeaderParameter>(collectorContext).associate { (index, parameter) ->
+        val headersMap = parameters.safeFilter<HeaderParameter>(collectorContext).associate { parameterWithContext ->
+            val parameter = parameterWithContext.parameter
             logger.debug("Processing request header ${parameter.name}")
-            val headerParamScope = collectorContext.at("parameters").at(index)
+            val headerParamScope = parameterWithContext.collectorContext
             toSpecmaticParamName(parameter.required != true, parameter.name) to Pair(
                 first = toSpecmaticPattern(schema = parameter.schema, typeStack = emptyList(), collectorContext = headerParamScope.at("schema")),
                 second = headerParamScope
@@ -1657,7 +1660,7 @@ class OpenApiSpecification(
 
     private inline fun <reified T : Parameter> namedExampleParams(parameters: List<Parameter>): Map<String, Map<String, String>> {
         if (specmaticConfig.getIgnoreInlineExamples()) return emptyMap()
-        return parameters.safeFilter<T>(CollectorContext()).map { it.value }.fold(emptyMap()) { acc, parameter ->
+        return parameters.safeFilter<T>(CollectorContext()).map { it.parameter }.fold(emptyMap()) { acc, parameter ->
             extractParameterExamples(parameter.examples, parameter.name, acc)
         }
     }
@@ -2573,30 +2576,30 @@ class OpenApiSpecification(
 
     private fun toSpecmaticQueryParam(parameters: List<Parameter>, collectorContext: CollectorContext, extensibleQueryParams: Boolean): HttpQueryParamPattern {
         val queryParameters = parameters.safeFilter<QueryParameter>(collectorContext)
-        val parametersContext = collectorContext.at("parameters")
-        val queryPattern: Map<String, Pattern> = queryParameters.associate { (index, it) ->
-            logger.debug("Processing query parameter ${it.name}")
-            val queryParamContext = parametersContext.at(index)
-            val (resolvedSchema, paramContext) = resolveSchemaIfRefElseAtSchema(it.schema, collectorContext = queryParamContext)
+        val queryPattern: Map<String, Pattern> = queryParameters.associate { queryParamWithContext ->
+            val parameter = queryParamWithContext.parameter
+            logger.debug("Processing query parameter ${parameter.name}")
+            val queryParamContext = queryParamWithContext.collectorContext
+            val (resolvedSchema, paramContext) = resolveSchemaIfRefElseAtSchema(parameter.schema, collectorContext = queryParamContext)
             val specmaticPattern: Pattern? = if (resolvedSchema.isSchema(ARRAY_TYPE)) {
                 val itemsSchema = paramContext.requirePojo(extract = { resolvedSchema.items }, createDefault = { Schema<Any>() }, message = { "No items schema defined for array schema defaulting to empty schema" })
-                QueryParameterArrayPattern(listOf(toSpecmaticPattern(schema = itemsSchema, typeStack = emptyList(), collectorContext = paramContext.at("items"))), it.name)
+                QueryParameterArrayPattern(listOf(toSpecmaticPattern(schema = itemsSchema, typeStack = emptyList(), collectorContext = paramContext.at("items"))), parameter.name)
             } else if (!resolvedSchema.isSchema(OBJECT_TYPE)) {
-                QueryParameterScalarPattern(toSpecmaticPattern(schema = it.schema, typeStack = emptyList(), collectorContext = queryParamContext.at("schema")))
+                QueryParameterScalarPattern(toSpecmaticPattern(schema = parameter.schema, typeStack = emptyList(), collectorContext = queryParamContext.at("schema")))
             } else {
                 queryParamContext.at("schema").record(
-                    message = "Query parameter ${it.name} is an object, and not yet supported",
+                    message = "Query parameter ${parameter.name} is an object, and not yet supported",
                     ruleViolation = OpenApiLintViolations.UNSUPPORTED_FEATURE,
                     isWarning = true
                 )
                 null
             }
 
-            val queryParamKey = if (it.required == true) it.name else "${it.name}?"
+            val queryParamKey = if (parameter.required == true) parameter.name else "${parameter.name}?"
             queryParamKey to specmaticPattern
         }.filterValues { it != null }.mapValues { it.value!! }
 
-        val additionalProperties = additionalPropertiesInQueryParam(queryParameters, collectorContext)
+        val additionalProperties = additionalPropertiesInQueryParam(queryParameters)
         return HttpQueryParamPattern(
             queryPattern,
             additionalProperties,
@@ -2604,15 +2607,13 @@ class OpenApiSpecification(
         )
     }
 
-    private fun additionalPropertiesInQueryParam(queryParameters: List<IndexedValue<QueryParameter>>, collectorContext: CollectorContext): Pattern? {
-        val (index, additionalProperties) = queryParameters.firstOrNull { indexedParam ->
-            val (_, parameter) = indexedParam
-            parameter.schema.isSchema(OBJECT_TYPE, multi = false) && parameter.schema.extractAdditionalProperties() != null
-        }?.let {
-            it.index to it.value.schema.extractAdditionalProperties()
+    private fun additionalPropertiesInQueryParam(queryParameters: List<ParameterWithContext<QueryParameter>>): Pattern? {
+        val queryParamWithContext = queryParameters.firstOrNull {
+            it.parameter.schema.isSchema(OBJECT_TYPE, multi = false) && it.parameter.schema.extractAdditionalProperties() != null
         } ?: return null
+        val additionalProperties = queryParamWithContext.parameter.schema.extractAdditionalProperties() ?: return null
 
-        val additionalPropContext = collectorContext.at(index).at("additionalProperties")
+        val additionalPropContext = queryParamWithContext.collectorContext.at("additionalProperties")
         return when (additionalProperties) {
             true -> AnythingPattern
             is Schema<*> -> toSpecmaticPattern(additionalProperties, emptyList(), collectorContext = additionalPropContext)
@@ -2628,7 +2629,7 @@ class OpenApiSpecification(
 
         val pathParamMap = parameters
             .safeFilter<PathParameter>(collectorContext)
-            .associateBy { indexedParam -> indexedParam.value.name }
+            .associateBy { parameterWithContext -> parameterWithContext.parameter.name }
 
         val parameterContext = collectorContext.at("parameters")
         val pathPattern = pathSegments.mapIndexed { _, pathSegment ->
@@ -2638,15 +2639,12 @@ class OpenApiSpecification(
             }
 
             val paramName = pathSegment.removeSurrounding("{", "}")
-            val pathParamContext = if (pathParamMap.containsKey(paramName)) {
-                parameterContext.at(pathParamMap.getValue(paramName).index)
-            } else {
-                parameterContext
-            }
+            val resolvedPathParameter = pathParamMap[paramName]
+            val pathParamContext = resolvedPathParameter?.collectorContext ?: parameterContext
 
             val parameter = pathParamContext.requirePojo(
                 message = { "Expected path parameter with name $paramName is missing, defaulting to empty schema" },
-                extract = { pathParamMap[paramName]?.value },
+                extract = { resolvedPathParameter?.parameter },
                 ruleViolation = { OpenApiLintViolations.PATH_PARAMETER_MISSING },
                 createDefault = {
                     PathParameter().apply {
@@ -2672,7 +2670,7 @@ class OpenApiSpecification(
 
     private fun toSpecmaticFormattedPathString(parameters: List<Parameter>, openApiPath: String): String {
         val throwAwayCollectorContext = CollectorContext()
-        return parameters.safeFilter<PathParameter>(throwAwayCollectorContext).map { it.value }.foldRight(openApiPath) { it, specmaticPath ->
+        return parameters.safeFilter<PathParameter>(throwAwayCollectorContext).map { it.parameter }.foldRight(openApiPath) { it, specmaticPath ->
             val pattern = if (it.schema.enum != null) StringPattern("") else toSpecmaticPattern(it.schema, emptyList(), collectorContext = throwAwayCollectorContext)
             specmaticPath.replace("{${it.name}}", "(${it.name}:${pattern.typeName})")
         }
@@ -2817,30 +2815,53 @@ class OpenApiSpecification(
         return SchemaMeta(isNullable, isMulti, effectiveTypes)
     }
 
-    private inline fun <reified T: Parameter> List<Parameter>.safeFilter(collectorContext: CollectorContext): List<IndexedValue<T>> {
+    private fun resolveParameter(parameter: Parameter, collectorContext: CollectorContext): Pair<Parameter, CollectorContext> {
+        if (parameter.`$ref` == null) return Pair(parameter, collectorContext)
+        val parameterComponentName = extractComponentName(parameter.`$ref`, collectorContext)
+        val hasReusableParameter = parsedOpenApi.components?.parameters?.contains(parameterComponentName) == true
+
+        val resolvedParameter = collectorContext.at("\$ref").requirePojo(
+            message = { "Parameter reference '${parameter.`$ref`}' could not be resolved, keeping unresolved parameter definition" },
+            extract = { parsedOpenApi.components?.parameters?.get(parameterComponentName) },
+            ruleViolation = { OpenApiLintViolations.UNRESOLVED_REFERENCE },
+            createDefault = { parameter }
+        )
+
+        val parameterContext = if (hasReusableParameter) {
+            collectorContext.withPath("components").at("parameters").at(parameterComponentName)
+        } else {
+            collectorContext
+        }
+
+        return Pair(resolvedParameter, parameterContext)
+    }
+
+    private inline fun <reified T: Parameter> List<Parameter>.safeFilter(collectorContext: CollectorContext): List<ParameterWithContext<T>> {
         val parameterContext = collectorContext.at("parameters")
         return this.mapIndexedNotNull { index, parameter ->
-            if (parameter !is T) return@mapIndexedNotNull null
             val itemContext = parameterContext.at(index)
-            val validNameParam = itemContext.check<T?>(parameter) { it?.name != null }
+            val (resolvedParameter, resolvedParameterContext) = resolveParameter(parameter, itemContext)
+            if (resolvedParameter !is T) return@mapIndexedNotNull null
+
+            val validNameParam = resolvedParameterContext.check<T?>(resolvedParameter) { it?.name != null }
                 .violation { OpenApiLintViolations.INVALID_PARAMETER_DEFINITION }
                 .message { "Parameter has no name defined, ignoring this parameter" }
                 .orUse { null }
                 .build() ?: return@mapIndexedNotNull null
 
-            val schemaEnsuredParameter = itemContext.check(value = validNameParam) { it.schema != null }
+            val schemaEnsuredParameter = resolvedParameterContext.check(value = validNameParam) { it.schema != null }
                 .violation { OpenApiLintViolations.INVALID_PARAMETER_DEFINITION }
                 .message { "Parameter has no schema defined, defaulting to empty schema" }
                 .orUse { validNameParam.apply { schema = Schema<Any>() } }
                 .build()
 
-            val itemsSchemaEnsuredParameter = itemContext.at("schema").check(value = schemaEnsuredParameter) { !it.schema.isSchema("array") || it.schema.items != null }
+            val itemsSchemaEnsuredParameter = resolvedParameterContext.at("schema").check(value = schemaEnsuredParameter) { !it.schema.isSchema("array") || it.schema.items != null }
                 .violation { OpenApiLintViolations.INVALID_PARAMETER_DEFINITION }
                 .message { "Array Parameter has no items schema defined, defaulting to empty schema" }
                 .orUse { schemaEnsuredParameter.apply { schema.apply { items = Schema<Any>() } } }
                 .build()
 
-            IndexedValue(index, itemsSchemaEnsuredParameter)
+            ParameterWithContext(itemsSchemaEnsuredParameter, resolvedParameterContext)
         }
     }
 
@@ -2885,8 +2906,8 @@ private fun Pattern.isConstrainedStringOrEnumPattern(): Boolean {
     }
 }
 
-internal fun validateSecuritySchemeParameterDuplication(securitySchemes: List<OpenAPISecurityScheme>, parameters: List<IndexedValue<Parameter>>?, collectorContext: CollectorContext) {
+internal fun validateSecuritySchemeParameterDuplication(securitySchemes: List<OpenAPISecurityScheme>, parameters: List<ParameterWithContext<Parameter>>?) {
     securitySchemes.forEach { securityScheme ->
-        securityScheme.collectErrorIfExistsInParameters(parameters.orEmpty(), collectorContext)
+        securityScheme.collectErrorIfExistsInParameters(parameters.orEmpty())
     }
 }

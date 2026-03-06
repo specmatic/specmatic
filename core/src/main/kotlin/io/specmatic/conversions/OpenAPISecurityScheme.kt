@@ -1,6 +1,5 @@
 package io.specmatic.conversions
 
-import io.specmatic.conversions.lenient.CollectorContext
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpRequestPattern
 import io.specmatic.core.Resolver
@@ -18,7 +17,7 @@ interface OpenAPISecurityScheme {
     fun isInRow(row: Row): Boolean
     fun isInRequest(request: HttpRequest, complete: Boolean): Boolean
     fun getHeaderKey(): String? = null
-    fun collectErrorIfExistsInParameters(parameter: List<IndexedValue<Parameter>>, collectorContext: CollectorContext)
+    fun collectErrorIfExistsInParameters(parameter: List<ParameterWithContext<Parameter>>)
 }
 
 fun addToHeaderType(

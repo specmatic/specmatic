@@ -141,6 +141,36 @@ class OpenApiSpecificationParseTest {
         assertThat(headerPattern).isInstanceOf(NumberPattern::class.java)
     }
 
+    @ParameterizedTest(name = "openapi {0}")
+    @ValueSource(strings = ["3.0.3", "3.1.0"])
+    fun `should resolve path item parameter referenced from components`(openApiVersion: String) {
+        val spec = $$"""
+            openapi: $$openApiVersion
+            info:
+              title: Parse refed path param in components
+              version: 1.0.0
+            paths:
+              /orders/{orderId}:
+                parameters:
+                  - $ref: '#/components/parameters/OrderIdPathParam'
+                get:
+                  responses:
+                    '200':
+                      description: OK
+            components:
+              parameters:
+                OrderIdPathParam:
+                  name: orderId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+        """.trimIndent()
+
+        val requestPattern = OpenApiSpecification.fromYAML(spec, "").toFeature().scenarios.single().httpRequestPattern
+        assertThat(requestPattern.httpPathPattern?.path).isEqualTo("/orders/(orderId:string)")
+    }
+
     @Test
     fun `should be able to parse primitives inside XML pattern schemas with their constraints intact`() {
         val specFile = File("src/test/resources/openapi/has_xml_payloads/api.yaml")
