@@ -8,7 +8,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 
-class HttpStubFilterContextTest {
+class ExampleFilterContextTest {
     @ParameterizedTest
     @MethodSource("provideTestParameters")
     fun `test includes method with various parameters`(
@@ -17,7 +17,7 @@ class HttpStubFilterContextTest {
         expected: Boolean,
         scenario: ScenarioStub
     ) {
-        val httpFilterContext = HttpStubFilterContext(scenario)
+        val httpFilterContext = ExampleFilterContext(scenario)
         assertThat(httpFilterContext.includes(key, listOf(value))).isEqualTo(expected)
     }
 
@@ -30,7 +30,7 @@ class HttpStubFilterContextTest {
         expected: Boolean,
         scenario: ScenarioStub
     ) {
-        val httpFilterContext = HttpStubFilterContext(scenario)
+        val httpFilterContext = ExampleFilterContext(scenario)
         assertThat(httpFilterContext.compare(key, operator, value)).isEqualTo(expected)
     }
 

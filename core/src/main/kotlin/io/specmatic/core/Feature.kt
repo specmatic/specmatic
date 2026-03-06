@@ -22,7 +22,6 @@ import io.specmatic.core.pattern.Examples.Companion.examplesFrom
 import io.specmatic.core.utilities.*
 import io.specmatic.core.value.*
 import io.specmatic.core.Result.Success
-import io.specmatic.core.filters.HttpStubFilterContext
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
@@ -2264,7 +2263,7 @@ data class Feature(
                 }
             }.filter { example ->
                 if (filter == null) return@filter true
-                filter.with("context", HttpStubFilterContext(example.scenarioStub)).evaluate().booleanValue
+                filter.with("context", example.toFilterContext()).evaluate().booleanValue
             }.map { example ->
                 OpenApiSpecification.OperationIdentifier(
                     requestMethod = example.requestMethod.orEmpty(),

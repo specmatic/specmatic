@@ -6,6 +6,7 @@ import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.examples.server.SchemaExample
+import io.specmatic.core.filters.ExampleFilterContext
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.EmptyString
@@ -16,7 +17,7 @@ import io.specmatic.test.ExampleProcessor
 import java.io.File
 import java.net.URI
 
-class ExampleFromFile(val scenarioStub: ScenarioStub, val file: File) {
+class ExampleFromFile(private val scenarioStub: ScenarioStub, val file: File) {
     companion object {
         fun fromFile(file: File, strictMode: Boolean = true): ReturnValue<ExampleFromFile> {
             if (SchemaExample.matchesFilePattern(file)) {
@@ -31,6 +32,10 @@ class ExampleFromFile(val scenarioStub: ScenarioStub, val file: File) {
 
     constructor(file: File, strictMode: Boolean = true): this(scenarioStub = ScenarioStub.readFromFile(file, strictMode), file = file)
     constructor(json: JSONObjectValue, file: File, strictMode: Boolean = true): this(scenarioStub = ScenarioStub.parse(json, strictMode), file = file)
+
+    fun toFilterContext(): ExampleFilterContext {
+        return ExampleFilterContext(scenarioStub)
+    }
 
     fun toRow(specmaticConfig: SpecmaticConfig = SpecmaticConfig()): Row {
         logger.log("Loading test file ${this.expectationFilePath}")

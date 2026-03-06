@@ -7,7 +7,7 @@ import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.LoggingConfiguration.Companion.LoggingFromOpts
 import io.specmatic.core.config.Switch
 import io.specmatic.core.filters.ExpressionStandardizer
-import io.specmatic.core.filters.HttpStubFilterContext
+import io.specmatic.core.filters.ExampleFilterContext
 import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.log.*
 import io.specmatic.core.utilities.*
@@ -295,7 +295,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             ).toList()
             val stubFilterExpression = ExpressionStandardizer.filterToEvalEx(stubFilter)
             val filteredStubScenario = scenarioStubs.filter { it ->
-                stubFilterExpression.with("context", HttpStubFilterContext(it)).evaluate().booleanValue
+                stubFilterExpression.with("context", ExampleFilterContext(it)).evaluate().booleanValue
             }
             if (filteredScenarios.isNotEmpty()) {
                 val updatedFeature = feature.copy(scenarios = filteredScenarios)

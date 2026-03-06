@@ -3,7 +3,7 @@ package io.specmatic.core.filters
 import io.specmatic.core.filters.HTTPFilterKeys.*
 import io.specmatic.mock.ScenarioStub
 
-class HttpStubFilterContext(private val scenario: ScenarioStub) : FilterContext {
+class ExampleFilterContext(private val scenario: ScenarioStub) : FilterContext {
     override fun includes(key: String, values: List<String>): Boolean {
         val filterKey = HTTPFilterKeys.fromKey(key)
         return values.any { eachValue ->
