@@ -1,5 +1,6 @@
 package io.specmatic.core
 
+import com.ezylang.evalex.Expression
 import io.cucumber.gherkin.GherkinParser
 import io.cucumber.messages.types.*
 import io.cucumber.messages.types.Examples
@@ -2227,7 +2228,7 @@ data class Feature(
         return this.copy(scenarios = scenariosWithExamples)
     }
 
-    private fun loadExternalisedJSONExamples(testsDirectory: File?): Map<OpenApiSpecification.OperationIdentifier, List<Row>> {
+    private fun loadExternalisedJSONExamples(testsDirectory: File?, filter: Expression? = null): Map<OpenApiSpecification.OperationIdentifier, List<Row>> {
         if (testsDirectory == null)
             return emptyMap()
 
@@ -2244,44 +2245,44 @@ data class Feature(
             files.filter {
                 it.isDirectory
             }.fold(emptyMap()) { acc, item ->
-                acc + loadExternalisedJSONExamples(item)
+                acc + loadExternalisedJSONExamples(item, filter)
             }
 
         logger.log("Loading externalised examples in ${testsDirectory.path}: ")
         logger.boundary()
 
-        return examplesInSubdirectories + files.asSequence().filterNot {
-            it.isDirectory
-        }.mapNotNull { example ->
-            runCatching { ExampleFromFile(example) }.mapCatching { exampleFromFile ->
-                with(exampleFromFile) {
-                    OpenApiSpecification.OperationIdentifier(
-                        requestMethod = requestMethod.orEmpty(),
-                        requestPath = requestPath.orEmpty(),
-                        responseStatus = responseStatus ?: 0,
-                        requestContentType = requestContentType,
-                        responseContentType = responseContentType
-                    ) to toRow(specmaticConfig)
+        return examplesInSubdirectories + files.asSequence()
+            .filterNot { it.isDirectory }
+            .mapNotNull { exampleFile ->
+                runCatching { ExampleFromFile(exampleFile) }.getOrElse { e ->
+                    logger.log("Could not load test file ${exampleFile.canonicalPath}")
+                    logger.log(e)
+                    logger.boundary()
+                    if (strictMode) throw ContractException(exceptionCauseMessage(e))
+                    null
                 }
-            }.getOrElse { e ->
-                logger.log("Could not load test file ${example.canonicalPath}")
-                logger.log(e)
-                logger.boundary()
-                if (strictMode) throw ContractException(exceptionCauseMessage(e))
-                null
-            }
-        }
-        .groupBy { (operationIdentifier, _) -> operationIdentifier }
-        .mapValues { (_, value) -> value.map { it.second } }
+            }.filter { example ->
+                if (filter == null) return@filter true
+                filter.with("context", example.toFilterContext()).evaluate().booleanValue
+            }.map { example ->
+                OpenApiSpecification.OperationIdentifier(
+                    requestMethod = example.requestMethod.orEmpty(),
+                    requestPath = example.requestPath.orEmpty(),
+                    responseStatus = example.responseStatus ?: 0,
+                    requestContentType = example.requestContentType,
+                    responseContentType = example.responseContentType
+                ) to example.toRow(specmaticConfig)
+            }.groupBy { (operationIdentifier, _) -> operationIdentifier }
+            .mapValues { (_, value) -> value.map { it.second } }
     }
 
-    fun loadExternalisedExamplesAndListUnloadableExamples(): Pair<Feature, Set<String>> {
+    fun loadExternalisedExamplesAndListUnloadableExamples(filter: Expression? = null): Pair<Feature, Set<String>> {
         val testsDirectory = getTestsDirectory(File(this.path), specmaticConfig)
-        val externalisedExamplesFromDefaultDirectory = loadExternalisedJSONExamples(testsDirectory)
+        val externalisedExamplesFromDefaultDirectory = loadExternalisedJSONExamples(testsDirectory, filter)
         val externalisedExampleDirsFromConfig = specmaticConfig.getTestExampleDirs(File(path)) + exampleDirPaths
 
         val externalisedExamplesFromExampleDirs = externalisedExampleDirsFromConfig.flatMap { directory ->
-            loadExternalisedJSONExamples(File(directory)).entries
+            loadExternalisedJSONExamples(File(directory), filter).entries
         }.associate { it.toPair() }
 
         val allExternalisedJSONExamples = externalisedExamplesFromDefaultDirectory + externalisedExamplesFromExampleDirs
@@ -2341,8 +2342,8 @@ data class Feature(
         return featureWithExternalisedExamples to unusedExternalizedExamples
     }
 
-    fun loadExternalisedExamples(): Feature {
-        return loadExternalisedExamplesAndListUnloadableExamples().first
+    fun loadExternalisedExamples(filter: Expression? = null): Feature {
+        return loadExternalisedExamplesAndListUnloadableExamples(filter).first
     }
 
     fun validateAndFilterExamples(): Pair<Feature, Result> {
