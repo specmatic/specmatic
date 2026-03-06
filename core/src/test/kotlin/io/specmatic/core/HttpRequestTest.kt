@@ -402,6 +402,16 @@ internal class HttpRequestTest {
         assertThat(request.pathSpecificity()).isEqualTo(expectedSpecificity)
     }
 
+    @Test
+    fun `should rank literal path over interpolated over pure parameter path in specificity`() {
+        val literal = HttpRequest(path = "/items/item-123")
+        val interpolated = HttpRequest(path = "/items/item-(id:string)")
+        val pureParameter = HttpRequest(path = "/items/(id:string)")
+
+        assertThat(literal.pathSpecificity()).isGreaterThan(interpolated.pathSpecificity())
+        assertThat(interpolated.pathSpecificity()).isGreaterThan(pureParameter.pathSpecificity())
+    }
+
     @ParameterizedTest
     @MethodSource("queryParamsToExpectedSpecificity")
     fun `should calculate specificity based on query params`(queryParams: Map<String, String>, expectedSpecificity: Int) {
@@ -468,18 +478,21 @@ internal class HttpRequestTest {
         @JvmStatic
         fun urlPathToExpectedPathSpecificity(): Stream<Arguments> = Stream.of(
             Arguments.of(null, 0),
-            Arguments.of("", 1),
-            Arguments.of("/", 1),
-            Arguments.of("/persons", 2),
-            Arguments.of("/(string)", 1),
-            Arguments.of("/\$eq(A.B.C)", 1),
-            Arguments.of("/persons/1", 3),
-            Arguments.of("/persons/(string)", 2),
-            Arguments.of("/persons/group/1", 4),
-            Arguments.of("/persons/(string)/1", 3),
-            Arguments.of("/persons/(string)/1/(string)", 3),
-            Arguments.of("/persons/group/(string)/1/(string)", 4),
-            Arguments.of("/persons/group/\$eq(A.B.C)/1/\$eq(A.B.C)", 4),
+            Arguments.of("", 2),
+            Arguments.of("/", 2),
+            Arguments.of("/persons", 4),
+            Arguments.of("/(string)", 2),
+            Arguments.of("/\$eq(A.B.C)", 2),
+            Arguments.of("/persons/1", 6),
+            Arguments.of("/persons/(string)", 4),
+            Arguments.of("/persons/group/1", 8),
+            Arguments.of("/persons/(string)/1", 6),
+            Arguments.of("/persons/(string)/1/(string)", 6),
+            Arguments.of("/persons/group/(string)/1/(string)", 8),
+            Arguments.of("/persons/group/\$eq(A.B.C)/1/\$eq(A.B.C)", 8),
+            Arguments.of("/items/item-(id:string)", 5),
+            Arguments.of("/test/(id1:string),(id2:string)/status", 7),
+            Arguments.of("/test/first,second/status", 8),
         )
 
         @JvmStatic
@@ -542,7 +555,7 @@ internal class HttpRequestTest {
                 mapOf("Content-Type" to "application/json"), 
                 mapOf("param1" to "value1"), 
                 StringValue("test"), 
-                6
+                9
             ),
 
             Arguments.of(
@@ -550,7 +563,7 @@ internal class HttpRequestTest {
                 mapOf("Content-Type" to "(string)"), 
                 mapOf("param1" to "(string)"), 
                 StringValue("(string)"), 
-                1
+                2
             ),
 
             Arguments.of(
@@ -558,7 +571,7 @@ internal class HttpRequestTest {
                 mapOf("Content-Type" to "application/json", "Accept" to "(string)"), 
                 mapOf("param1" to "value1", "param2" to "(string)"), 
                 parsedJSONObject("""{"id": "10", "count": "(string)"}"""), 
-                5
+                7
             ),
 
             Arguments.of(
@@ -566,7 +579,7 @@ internal class HttpRequestTest {
                 mapOf("Content-Type" to "application/json", "Accept" to "\$eq(A.B.C)"),
                 mapOf("param1" to "value1", "param2" to "\$eq(A.B.C)"),
                 parsedJSONObject("""{"id": "10", "count": "${"$"}eq(A.B.C)"}"""),
-                5
+                7
             ),
 
             Arguments.of(
@@ -582,7 +595,7 @@ internal class HttpRequestTest {
                 mapOf("Content-Type" to "application/json"), 
                 emptyMap<String, String>(), 
                 parsedJSONObject("""{"data": {"id": "10", "count": "10"}}"""), 
-                4
+                5
             )
         )
 

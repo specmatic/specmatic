@@ -51,7 +51,7 @@ data class OpenApiPath(private val parts: List<String>) {
 
         fun from(path: String, escape: Boolean = true): OpenApiPath {
             val escaped = if (escape) path.replace('{', '_').replace('}', '_') else path
-            return OpenApiPath(escaped.split(PATH_SEPARATOR).filter(String::isNotBlank))
+            return OpenApiPath(escaped.removePrefix(PATH_SEPARATOR).split(PATH_SEPARATOR).filter(String::isNotBlank))
         }
     }
 }

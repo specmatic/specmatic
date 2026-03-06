@@ -1,21 +1,35 @@
 package io.specmatic.core
 
 import io.ktor.util.reflect.*
+import io.specmatic.conversions.TemplateTokenizer
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.value.Value
 import java.net.URI
 
 val OMIT = listOf("(OMIT)", "(omit)")
 
 data class HttpPathPattern(
-    val pathSegmentPatterns: List<URLPathSegmentPattern>,
-    val path: String,
-    val otherPathPatterns: Collection<HttpPathPattern> = emptyList(),
+    private val pathSegmentPatterns: List<URLPathSegmentPattern>,
+    private val path: String,
+    private val otherPathPatterns: Collection<HttpPathPattern> = emptyList(),
 ) {
-    private fun calculateSpecificity(): Int = pathSegmentPatterns.count { it.pattern is ExactValuePattern }
+    private val pathSegmentExtractor: PathSegmentExtractor = PathSegmentExtractor(path, pathSegmentPatterns)
+    private fun calculateSpecificity(): Int {
+        val segments = this.path.removePrefix("/").removeSuffix("/").split("/")
+        return segments.sumOf(::segmentSpecificity)
+    }
+
+    private fun segmentSpecificity(segment: String): Int {
+        return when {
+            internalPathRegex.matchEntire(segment) != null -> 0
+            internalPathRegex.containsMatchIn(segment) -> 1
+            else -> 2
+        }
+    }
 
     fun encompasses(otherHttpPathPattern: HttpPathPattern, thisResolver: Resolver, otherResolver: Resolver): Result {
         if (this.matches(URI.create(otherHttpPathPattern.path), resolver = thisResolver) is Success)
@@ -54,14 +68,20 @@ data class HttpPathPattern(
 
     fun matches(httpRequest: HttpRequest, resolver: Resolver): Result {
         val path = httpRequest.path!!
-        val pathSegments = path.split("/".toRegex()).filter { it.isNotEmpty() }.toTypedArray()
 
-        if (pathSegmentPatterns.size != pathSegments.size) {
+        val slashBasedRawPathSegments = splitPathBySlash(path)
+        val slashBasedPathSegments = splitPathBySlash(this.path)
+        if (slashBasedPathSegments.size != slashBasedRawPathSegments.size) {
             return Failure(
-                "Expected $path (having ${pathSegments.size} path segments) to match ${this.path} (which has ${pathSegmentPatterns.size} path segments).",
+                "Expected $path (having ${slashBasedRawPathSegments.size} path segments) to match ${this.path} (which has ${slashBasedPathSegments.size} path segments).",
                 breadCrumb = BreadCrumb.PATH.value,
-                failureReason = FailureReason.URLPathMisMatch,
+                failureReason = FailureReason.URLPathMisMatch
             )
+        }
+
+        val pathSegments = extractPathSegments(path)
+        if (pathSegmentPatterns.size != pathSegments.size) {
+            return Failure("Expected $path to match ${this.path}.", breadCrumb = BreadCrumb.PATH.value, failureReason = FailureReason.URLPathMisMatch)
         }
 
         val results = checkIfPathSegmentsMatch(pathSegments, resolver, path)
@@ -105,7 +125,7 @@ data class HttpPathPattern(
     }
 
     private fun checkIfPathSegmentsMatch(
-        pathSegments: Array<String>,
+        pathSegments: List<String>,
         resolver: Resolver,
         path: String
     ) = pathSegmentPatterns.zip(pathSegments).map { (urlPathPattern, token) ->
@@ -136,7 +156,7 @@ data class HttpPathPattern(
     fun generate(resolver: Resolver): String {
         val updatedResolver = resolver.updateLookupPath(BreadCrumb.PARAMETERS.value).updateLookupForParam(BreadCrumb.PATH.value)
         return attempt(breadCrumb = BreadCrumb.PARAM_PATH.value) {
-            ("/" + pathSegmentPatterns.mapIndexed { index, urlPathPattern ->
+            pathSegmentPatterns.mapIndexed { index, urlPathPattern ->
                 attempt(breadCrumb = "[$index]") {
                     val key = urlPathPattern.key
                     updatedResolver.withCyclePrevention(urlPathPattern.pattern) { cyclePreventedResolver ->
@@ -144,11 +164,7 @@ data class HttpPathPattern(
                         else urlPathPattern.pattern.generate(cyclePreventedResolver)
                     }
                 }
-            }.joinToString("/")).let {
-                if (path.endsWith("/") && !it.endsWith("/")) "$it/" else it
-            }.let {
-                if (path.startsWith("/") && !it.startsWith("/")) "$/it" else it
-            }
+            }.map(Value::toStringLiteral).joinToPath()
         }
     }
 
@@ -251,8 +267,16 @@ data class HttpPathPattern(
         return convertPathParameterStyle(this.path)
     }
 
+    fun toInternalPath(): String {
+        return path
+    }
+
     fun pathParameters(): List<URLPathSegmentPattern> {
-        return pathSegmentPatterns.filter { !it.pattern.instanceOf(ExactValuePattern::class) }
+        return pathSegmentPatterns.filter { !it.pattern.instanceOf(ExactValuePattern::class) && !it.key.isNullOrBlank() }
+    }
+
+    fun containsParameter(name: String): Boolean {
+        return this.pathSegmentPatterns.any { it.key == name }
     }
 
     private fun negatively(
@@ -321,26 +345,67 @@ data class HttpPathPattern(
         }
     }
 
-    fun extractPathParams(requestPath: String, resolver: Resolver): Map<String, String> {
-        val pathSegments = requestPath.split("/").filter { it.isNotEmpty() }
-
+    fun extractPathParams(requestPath: String, resolver: Resolver): Map<String, Value> {
+        val pathSegments = extractPathSegments(requestPath)
         return pathSegmentPatterns.zip(pathSegments).mapNotNull { (pattern, value) ->
             when {
                 pattern.pattern is ExactValuePattern -> null
-                else -> pattern.key!! to value
+                else -> pattern.key!! to pattern.tryParse(value, resolver)
             }
         }.toMap()
     }
 
+    fun toMapIndexed(path: String, resolver: Resolver): Map<String, Value> {
+        val pathSegments = extractPathSegments(path)
+        return pathSegmentPatterns.zip(pathSegments).mapIndexed { index, (pattern, value) ->
+            when {
+                pattern.pattern is ExactValuePattern -> index.toString() to pattern.pattern.pattern
+                else -> pattern.key!! to pattern.tryParse(value, resolver)
+            }
+        }.toMap()
+    }
+
+    fun extractPatternToMap(path: String, resolver: Resolver): Map<URLPathSegmentPattern, Value> {
+        val pathSegments = extractPathSegments(path)
+        return pathSegmentPatterns.zip(pathSegments).mapNotNull { (pattern, value) ->
+            when {
+                pattern.pattern is ExactValuePattern -> null
+                else -> Pair(pattern, pattern.tryParse(value, resolver))
+            }
+        }.toMap()
+    }
+
+    fun <T> onPatterns(block: (List<URLPathSegmentPattern>) -> T): T {
+        return block(pathSegmentPatterns)
+    }
+
+    fun updatePathParameter(path: String, parameterName: String, newValue: Value): String? {
+        val pathSegments = extractPathSegments(path)
+        if (pathSegments.size != pathSegmentPatterns.size) return null
+        val updatedSegments = pathSegmentPatterns.zip(pathSegments).map { (pattern, segmentValue)  ->
+            when {
+                pattern.pattern is ExactValuePattern -> segmentValue
+                pattern.key == parameterName -> newValue.toStringLiteral()
+                else -> segmentValue
+            }
+        }
+
+        if (pathSegmentPatterns.none { it.key == parameterName }) return null
+        return updatedSegments.joinToString("")
+    }
+
+    fun zipWithExpandedPathSegments(other: HttpPathPattern, resolver: Resolver): List<Pair<URLPathSegmentPattern, URLPathSegmentPattern>>? {
+        val expanded = expandPath(other, resolver)
+        if (pathSegmentPatterns.size != expanded.pathSegmentPatterns.size) return null
+        return pathSegmentPatterns.zip(expanded.pathSegmentPatterns)
+    }
+
     fun fixValue(path: String?, resolver: Resolver): String {
         if (path == null) return this.generate(resolver)
-
-        val pathSegments = path.split("/".toRegex()).filter { it.isNotEmpty() }
+        val pathSegments = extractPathSegments(path)
         if (pathSegmentPatterns.size != pathSegments.size) return this.generate(resolver)
 
         val updatedResolver = resolver.updateLookupPath(BreadCrumb.PARAMETERS.value).updateLookupForParam(BreadCrumb.PATH.value)
-        val pathHadPrefix = path.startsWith("/")
-
         return pathSegmentPatterns.zip(pathSegments).map { (urlPathPattern, token) ->
             val tokenWithoutParameter = removeKeyFromParameterToken(token)
             val (key, keyPattern) = urlPathPattern.let { it.key.orEmpty() to it.pattern }
@@ -348,34 +413,39 @@ data class HttpPathPattern(
                 value = urlPathPattern.tryParse(token, updatedResolver),
                 resolver = updatedResolver.updateLookupPath(null, KeyWithPattern(key, keyPattern))
             )
-            token.takeIf { isPatternToken(tokenWithoutParameter) && isPatternToken(result) } ?: result
-        }.joinToString("/", prefix = "/".takeIf { pathHadPrefix }.orEmpty())
+            if (isPatternToken(tokenWithoutParameter) && isPatternToken(result)) StringValue(token) else result
+        }.map(Value::toStringLiteral).joinToPath()
     }
 
     fun fillInTheBlanks(path: String?, resolver: Resolver): ReturnValue<String> {
         if (path == null) return HasFailure("Path cannot be null")
-
-        val pathSegments = path.split("/").filter { it.isNotEmpty() }.map(::removeKeyFromParameterToken)
+        val pathSegments = extractPathSegments(path)
         if (pathSegmentPatterns.size != pathSegments.size) {
             return HasFailure("Expected ${pathSegmentPatterns.size} path segments but got ${pathSegments.size}")
         }
 
         val updatedResolver = resolver.updateLookupPath(BreadCrumb.PARAMETERS.value).updateLookupForParam(BreadCrumb.PATH.value)
-        val pathHadPrefix = path.startsWith("/")
-
         val generatedSegments = pathSegmentPatterns.zip(pathSegments).map { (urlPathPattern, token) ->
             val (key, keyPattern) = urlPathPattern.let { it.key.orEmpty() to it.pattern }
             urlPathPattern.fillInTheBlanks(
-                value = urlPathPattern.tryParse(token, updatedResolver),
+                value = urlPathPattern.tryParse(removeKeyFromParameterToken(token), updatedResolver),
                 resolver = updatedResolver.updateLookupPath(null, KeyWithPattern(key, keyPattern))
             ).breadCrumb(urlPathPattern.key)
         }.listFold()
 
         return generatedSegments.ifValue { value ->
-            value.joinToString(separator = "/", prefix = "/".takeIf { pathHadPrefix }.orEmpty()) {
-                it.toStringLiteral()
-            }
+            value.map { it.toStringLiteral() }.joinToPath()
         }
+    }
+
+    private fun expandPath(other: HttpPathPattern, resolver: Resolver): HttpPathPattern {
+        if (this.pathSegmentPatterns.size == other.pathSegmentPatterns.size) return other
+        val segments = pathSegmentExtractor.extract(other.path)
+        if (segments.size != this.pathSegmentPatterns.size) return other
+        return other.copy(pathSegmentPatterns = pathSegmentPatterns.zip(segments).map { (pattern, segment) ->
+            if (pattern.pattern is ExactValuePattern) return@map URLPathSegmentPattern(ExactValuePattern(StringValue(segment)))
+            URLPathSegmentPattern(ExactValuePattern(pattern.tryParse(segment, resolver)))
+        })
     }
 
     private fun removeKeyFromParameterToken(token: String): String {
@@ -385,7 +455,7 @@ data class HttpPathPattern(
     }
 
     private fun structureMatches(path: String, resolver: Resolver): Boolean {
-        val pathSegments = path.split("/").filter(String::isNotEmpty)
+        val pathSegments = extractPathSegments(path)
         if (pathSegments.size != pathSegmentPatterns.size) return false
 
         pathSegmentPatterns.zip(pathSegments).forEach { (pattern, segment) ->
@@ -398,7 +468,30 @@ data class HttpPathPattern(
         return true
     }
 
+    private fun extractPathSegments(rawPath: String): List<String> {
+        return pathSegmentExtractor.extract(rawPath)
+    }
+
+    private fun splitPathBySlash(path: String): List<String> {
+        val trimmed = path.trim('/')
+        if (trimmed.isEmpty()) return emptyList()
+        return trimmed.split("/").filter(String::isNotBlank)
+    }
+
+    private fun List<String>.joinToPath(): String {
+        val combined = joinToString(separator = "")
+        return pathSegmentExtractor.ensurePrefixAndSuffix(combined)
+    }
+
     companion object {
+        internal val internalPathRegex: Regex = Regex("\\([^():]+:[^()]+\\)")
+
+        internal fun extractUsingInternalPathRegex(path: String): TemplateTokenizer {
+            val parts = internalPathRegex.split(path)
+            val pattern = parts.joinToString(separator = "([^/]+)") { Regex.escape(it) }
+            return TemplateTokenizer(Regex(pattern))
+        }
+
         fun from(path: String): HttpPathPattern {
             return buildHttpPathPattern(path)
         }
@@ -418,8 +511,9 @@ internal fun buildHttpPathPattern(
     return HttpPathPattern(path = path, pathSegmentPatterns = pathPattern)
 }
 
-internal fun pathToPattern(rawPath: String): List<URLPathSegmentPattern> =
-    rawPath.trim('/').split("/").filter { it.isNotEmpty() }.map { part ->
+internal fun pathToPattern(rawPath: String): List<URLPathSegmentPattern> {
+    val segments = HttpPathPattern.extractUsingInternalPathRegex(rawPath).extract(rawPath)
+    return segments.map { part ->
         when {
             isPatternToken(part) -> {
                 val pieces = withoutPatternDelimiters(part).split(":").map { it.trim() }
@@ -437,3 +531,4 @@ internal fun pathToPattern(rawPath: String): List<URLPathSegmentPattern> =
             else -> URLPathSegmentPattern(ExactValuePattern(StringValue(part)))
         }
     }
+}

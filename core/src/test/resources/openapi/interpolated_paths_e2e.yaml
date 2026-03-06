@@ -1,0 +1,132 @@
+openapi: 3.0.3
+info:
+  title: Interpolated Paths E2E API
+  version: "1.0.0"
+paths:
+  /generate/{orderId}-{itemId}/status:
+    post:
+      summary: Generate-only interpolated endpoint
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateRequest'
+      responses:
+        '200':
+          description: Generated OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateResponse'
+        '400':
+          description: Generated validation failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /example/{id1},{id2}/status:
+    get:
+      summary: Inline and external examples endpoint
+      parameters:
+        - name: id1
+          in: path
+          required: true
+          schema:
+            type: string
+          examples:
+            INLINE_OK:
+              value: inline-A
+            INLINE_NOT_FOUND:
+              value: missing-A
+        - name: id2
+          in: path
+          required: true
+          schema:
+            type: string
+          examples:
+            INLINE_OK:
+              value: inline-B
+            INLINE_NOT_FOUND:
+              value: missing-B
+      responses:
+        '200':
+          description: Inline success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExampleResponse'
+              examples:
+                INLINE_OK:
+                  value:
+                    message: inline-ok
+                    source: inline
+        '202':
+          description: External success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExampleResponse'
+        '404':
+          description: Inline not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                INLINE_NOT_FOUND:
+                  value:
+                    error: inline-not-found
+
+components:
+  schemas:
+    GenerateRequest:
+      type: object
+      required:
+        - state
+        - quantity
+      properties:
+        state:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+    GenerateResponse:
+      type: object
+      required:
+        - message
+        - source
+      properties:
+        message:
+          type: string
+        source:
+          type: string
+    ExampleResponse:
+      type: object
+      required:
+        - message
+        - source
+      properties:
+        message:
+          type: string
+        source:
+          type: string
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string

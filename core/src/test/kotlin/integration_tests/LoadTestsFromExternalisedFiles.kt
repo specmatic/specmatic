@@ -24,6 +24,7 @@ import io.specmatic.test.ExampleProcessor
 import io.specmatic.test.TestExecutor
 import org.assertj.core.api.Assertions.*
 import org.junit.jupiter.api.*
+import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.math.BigDecimal
 
@@ -448,6 +449,81 @@ class LoadTestsFromExternalisedFiles {
 
         assertThat(results.successCount).isEqualTo(2)
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
+    }
+
+    @Test
+    fun `should complain when interpolated path params in externalized example are invalid`(@TempDir tempDir: File) {
+        val spec = """
+        openapi: 3.0.3
+        info:
+          title: Interpolated Invalid Example API
+          version: 1.0.0
+        paths:
+          /example/{id1},{id2}/status:
+            get:
+              parameters:
+                - name: id1
+                  in: path
+                  required: true
+                  schema:
+                    type: number
+                - name: id2
+                  in: path
+                  required: true
+                  schema:
+                    type: number
+              responses:
+                '200':
+                  description: ok
+                  content:
+                    application/json:
+                      schema:
+                        type: object
+                        required: [message]
+                        properties:
+                          message:
+                            type: string
+        """.trimIndent()
+        val exampleFile = tempDir.resolve("invalid_interpolated_comma_path.json").apply {
+            writeText("""
+            {
+              "http-request": {
+                "method": "GET",
+                "path": "/example/alpha,beta/status"
+              },
+              "http-response": {
+                "status": 200,
+                "body": {
+                  "message": "ok"
+                }
+              }
+            }""".trimIndent())
+        }
+
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+        val exception = assertThrows<ContractException> {
+            Flags.using(EXAMPLE_DIRECTORIES to tempDir.canonicalPath) {
+                feature.loadExternalisedExamples().validateExamplesOrException()
+            }
+        }
+
+        assertThat(exception.report()).isEqualToNormalizingWhitespace("""
+        Error loading example for GET /example/(id1:number),(id2:number)/status -> 200 from ${exampleFile.canonicalPath}
+        ${
+            toViolationReportString(
+                breadCrumb = "REQUEST.PARAMETERS.PATH.id1",
+                details = NamedExampleMismatchMessages("invalid_interpolated_comma_path").typeMismatch("number", "\"alpha\"", "string"),
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        ${
+            toViolationReportString(
+                breadCrumb = "REQUEST.PARAMETERS.PATH.id2",
+                details = NamedExampleMismatchMessages("invalid_interpolated_comma_path").typeMismatch("number", "\"beta\"", "string"),
+                StandardRuleViolation.TYPE_MISMATCH
+            )
+        }
+        """.trimIndent())
     }
 
     @Test

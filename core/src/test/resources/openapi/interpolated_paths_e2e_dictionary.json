@@ -1,0 +1,25 @@
+{
+  "PARAMETERS": {
+    "PATH": {
+      "orderId": "DICT-ORDER",
+      "itemId": "DICT-ITEM",
+      "id1": "DICT-ID1",
+      "id2": "DICT-ID2"
+    }
+  },
+  "GenerateRequest": {
+    "state": "DICT_STATE",
+    "quantity": 5
+  },
+  "GenerateResponse": {
+    "message": "DICT_RESPONSE",
+    "source": "dictionary"
+  },
+  "ExampleResponse": {
+    "message": "DICT_EXAMPLE",
+    "source": "dictionary"
+  },
+  "ErrorResponse": {
+    "error": "DICT_ERROR"
+  }
+}

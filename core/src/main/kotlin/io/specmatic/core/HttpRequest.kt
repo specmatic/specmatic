@@ -446,7 +446,21 @@ data class HttpRequest(
     internal fun headerSpecificity(): Int = headers.values.count { !isPatternOrMatcherToken(it)}
 
     internal fun pathSpecificity(): Int = (if (path == "/") "" else path)
-        ?.split(URL_PATH_DELIMITER)?.count { !StringValue(it).isPatternOrMatcherToken() } ?: 0
+        ?.split(URL_PATH_DELIMITER)?.sumOf(::segmentSpecificity) ?: 0
+
+    private fun segmentSpecificity(segment: String): Int {
+        return when {
+            isMatcherToken(segment) || isSinglePatternToken(segment) -> 0
+            HttpPathPattern.internalPathRegex.containsMatchIn(segment) -> 1
+            else -> 2
+        }
+    }
+
+    private fun isSinglePatternToken(segment: String): Boolean {
+        if (!isPatternToken(segment)) return false
+        if (segment.count { it == '(' } != 1 || segment.count { it == ')' } != 1) return false
+        return true
+    }
 
     fun adjustPayloadForContentType(): HttpRequest {
         val adjustedHeader = this.addHeaderIfMissing(CONTENT_TYPE, body.httpContentType).headers
