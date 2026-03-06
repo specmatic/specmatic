@@ -206,6 +206,120 @@ class LenientParserTest {
                         toContainText("We will use a more reasonable minLength of 4MB")
                     }
                 },
+                singleVersionLenientCase(name = "refed out parameter has no schema", version = OpenApiVersion.OAS30) {
+                    openApi {
+                        paths {
+                            path("/test/{id}") {
+                                operation("get") {
+                                    parameter {
+                                        put($$"$ref", "#/components/parameters/IdPathParam")
+                                    }
+                                }
+                            }
+                        }
+                        components {
+                            parameters {
+                                parameter("IdPathParam") {
+                                    put("name", "id")
+                                    put("in", "path")
+                                    put("required", true)
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test/{id}.get.parameters[0]") {
+                        toHaveSeverity(IssueSeverity.ERROR)
+                        toContainViolation(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION)
+                        toMatchText("Parameter has no schema defined, defaulting to empty schema")
+                    }
+                },
+                singleVersionLenientCase(name = "refed out parameter schema has issue", version = OpenApiVersion.OAS30) {
+                    openApi {
+                        paths {
+                            path("/test/{id}") {
+                                operation("get") {
+                                    parameter {
+                                        put($$"$ref", "#/components/parameters/IdPathParam")
+                                    }
+                                }
+                            }
+                        }
+                        components {
+                            parameters {
+                                parameter("IdPathParam") {
+                                    put("name", "id")
+                                    put("in", "path")
+                                    put("required", true)
+                                    put("schema", mapOf("type" to "string", "minLength" to REASONABLE_STRING_LENGTH.plus(10)))
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("paths./test/{id}.get.parameters[0].schema.minLength") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
+                        toContainText("We will use a more reasonable minLength of 4MB")
+                    }
+                },
+                singleVersionLenientCase(name = "refed out parameter has no schema", version = OpenApiVersion.OAS31) {
+                    openApi {
+                        paths {
+                            path("/test/{id}") {
+                                operation("get") {
+                                    parameter {
+                                        put($$"$ref", "#/components/parameters/IdPathParam")
+                                    }
+                                }
+                            }
+                        }
+                        components {
+                            parameters {
+                                parameter("IdPathParam") {
+                                    put("name", "id")
+                                    put("in", "path")
+                                    put("required", true)
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.parameters.IdPathParam") {
+                        toHaveSeverity(IssueSeverity.ERROR)
+                        toContainViolation(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION)
+                        toMatchText("Parameter has no schema defined, defaulting to empty schema")
+                    }
+                },
+                singleVersionLenientCase(name = "refed out parameter schema has issue", version = OpenApiVersion.OAS31) {
+                    openApi {
+                        paths {
+                            path("/test/{id}") {
+                                operation("get") {
+                                    parameter {
+                                        put($$"$ref", "#/components/parameters/IdPathParam")
+                                    }
+                                }
+                            }
+                        }
+                        components {
+                            parameters {
+                                parameter("IdPathParam") {
+                                    put("name", "id")
+                                    put("in", "path")
+                                    put("required", true)
+                                    put("schema", mapOf("type" to "string", "minLength" to REASONABLE_STRING_LENGTH.plus(10)))
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
+                    assert("components.parameters.IdPathParam.schema.minLength") {
+                        toHaveSeverity(IssueSeverity.WARNING)
+                        toContainViolation(OpenApiLintViolations.LENGTH_EXCEEDS_LIMIT)
+                        toContainText("We will use a more reasonable minLength of 4MB")
+                    }
+                },
             ).flatten().stream()
         }
 
@@ -3492,6 +3606,11 @@ data class LenientParseTestCase(val openApi: Map<String, Any?>, val checks: List
                 block(SchemasDsl(schemas))
             }
 
+            fun parameters(block: ParametersDsl.() -> Unit) {
+                val parameters = components.map("parameters") { }
+                block(ParametersDsl(parameters))
+            }
+
             fun securitySchemes(block: SecuritySchemeDsl.() -> Unit) {
                 val schemas = components.map("securitySchemes") { }
                 block(SecuritySchemeDsl(schemas))
@@ -3516,6 +3635,12 @@ data class LenientParseTestCase(val openApi: Map<String, Any?>, val checks: List
         class SchemasDsl(private val schemas: AnyValueMap) {
             fun schema(name: String, block: AnyValueMap.() -> Unit) {
                 schemas[name] = mutableMapOf<String, Any?>().apply(block)
+            }
+        }
+
+        class ParametersDsl(private val parameters: AnyValueMap) {
+            fun parameter(name: String, block: AnyValueMap.() -> Unit) {
+                parameters[name] = mutableMapOf<String, Any?>().apply(block)
             }
         }
 
