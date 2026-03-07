@@ -10,3 +10,5 @@ The following is a list of directories and the gradle modules that they contain:
 - directory: 'core', module: 'specmatic-core'
 - directory: 'application', module: 'specmatic-executable'
 - directory: 'junit5-support', module: 'junit5-support'
+
+Create temp files locally in the "temp" directory as it is ignored by git.
