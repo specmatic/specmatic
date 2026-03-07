@@ -1,18 +1,18 @@
 package io.specmatic.core.log
 
-class UsesIndentationImpl(private var indentation: Int = 0) : UsesIndentationWithHelpers {
-    @Synchronized
+class UsesIndentationImpl(initialIndentation: Int = 0) : UsesIndentationWithHelpers {
+    private val indentation = ThreadLocal.withInitial { initialIndentation }
+
     override fun <T> withIndentation(count: Int, block: () -> T): T {
-        indentation += count
+        indentation.set(indentation.get() + count)
         return try {
             block()
         } finally {
-            indentation -= count
+            indentation.set(indentation.get() - count)
         }
     }
 
-    @Synchronized
     override fun currentIndentation(): String {
-        return " ".repeat(indentation)
+        return " ".repeat(indentation.get())
     }
 }
