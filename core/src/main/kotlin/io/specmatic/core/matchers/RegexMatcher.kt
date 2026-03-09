@@ -2,10 +2,10 @@ package io.specmatic.core.matchers
 
 import io.specmatic.core.BreadCrumb
 import io.specmatic.core.Resolver
-import io.specmatic.core.pattern.ExactValuePattern
 import io.specmatic.core.pattern.HasFailure
 import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.Pattern
+import io.specmatic.core.pattern.RegexConstrainedPattern
 import io.specmatic.core.pattern.ReturnValue
 import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.pattern.parsedScalarValue
@@ -84,12 +84,11 @@ data class RegexMatcher(val path: BreadCrumb, val regex: String) : Matcher {
             if (!canParseFrom(BreadCrumb.from(), properties)) return null
             val regex = properties.getValue(PATTERN_KEY) as? StringValue ?: return null
 
-            val pattern = StringPattern(regex = regex.nativeValue)
-            val value = parsedScalarValue(
-                pattern.generate(Resolver()).toStringLiteral()
+            val stringPattern = StringPattern(regex = regex.nativeValue)
+            val generatedValue = parsedScalarValue(
+                stringPattern.generate(Resolver()).toStringLiteral()
             )
-            return ExactValuePattern(pattern = value)
+            return RegexConstrainedPattern(generatedValue.type(), regex.nativeValue)
         }
     }
 }
-
