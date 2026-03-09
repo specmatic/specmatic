@@ -2,9 +2,14 @@ package io.specmatic.core.matchers
 
 import io.specmatic.core.BreadCrumb
 import io.specmatic.core.Resolver
+import io.specmatic.core.pattern.HasFailure
 import io.specmatic.core.pattern.HasValue
+import io.specmatic.core.pattern.Pattern
+import io.specmatic.core.pattern.ReturnValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.value.Value
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
 class MatcherRegistryTest {
@@ -58,5 +63,12 @@ class MatcherRegistryTest {
         val result = Matcher.parse(BreadCrumb("request.body.user.match"), StringValue($$"$match(dataType: string)"), context)
         assertThat(result).isInstanceOf(HasValue::class.java)
         assertThat((result as HasValue).value).isInstanceOf(CompositeMatcher::class.java)
+    }
+
+    @Test
+    fun `build should throw when defaults contain duplicate matcher keys`() {
+        assertThatThrownBy { MatcherRegistry.build(defaults = listOf(PatternMatcher.Companion, PatternMatcher.Companion)) }
+            .isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessage("Duplicate matcher key: pattern")
     }
 }

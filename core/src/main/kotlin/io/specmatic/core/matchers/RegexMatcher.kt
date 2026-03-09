@@ -49,7 +49,7 @@ data class RegexMatcher(val path: BreadCrumb, val regex: String) : Matcher {
 
     companion object : MatcherFactory {
         private const val PATTERN_KEY = "pattern"
-        override val matcherKey: String = PATTERN_KEY
+        override val matcherKey: String = "regex"
 
         override fun parse(path: BreadCrumb, value: Value, context: MatcherContext): ReturnValue<RegexMatcher> {
             val properties = extractPropertiesIfExist(value)

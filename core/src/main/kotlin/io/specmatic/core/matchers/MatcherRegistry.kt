@@ -74,6 +74,7 @@ data class MatcherRegistry(
             ServiceLoader.load(MatcherFactory::class.java).plus(defaults).forEach { factory ->
                 val matcherKey = factory.matcherKey
                 if (matcherKey != null) {
+                    if (keyToFactory.containsKey(matcherKey)) throw IllegalArgumentException("Duplicate matcher key: $matcherKey")
                     keyToFactory[matcherKey] = factory
                 } else {
                     fallbackFactories.add(factory)
