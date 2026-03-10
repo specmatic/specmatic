@@ -673,8 +673,10 @@ open class SpecmaticJUnitSupport {
             )
         }
 
+        val featureWithExternalizedExamples = feature.loadExternalisedExamples()
+
         val filteredScenariosBasedOnName = selectTestsToRun(
-            feature.scenarios.asSequence(),
+            featureWithExternalizedExamples.scenarios.asSequence(),
             filterName,
             filterNotName
         ) {
@@ -703,7 +705,7 @@ open class SpecmaticJUnitSupport {
             )
         }.toList()
 
-        val filteredFeature = feature.copy(scenarios = filteredScenarios.toList()).loadExternalisedExamples(filter.expression)
+        val filteredFeature = featureWithExternalizedExamples.copy(scenarios = filteredScenarios.toList())
         val (validExampleFeature, result) = filteredFeature.validateAndFilterExamples()
         if (specmaticConfig.getTestLenientMode() == false) result.throwOnFailure()
 
