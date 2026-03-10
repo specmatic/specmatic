@@ -4,6 +4,7 @@ import com.ginsberg.junit.exit.ExpectSystemExitWithStatus
 import io.mockk.*
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
+import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.CONTRACT_EXTENSION
 import io.specmatic.core.IncomingMtlsRegistry
 import io.specmatic.core.KeyDataRegistry
@@ -290,6 +291,129 @@ internal class StubCommandTest {
         } finally {
             file.delete()
         }
+    }
+
+    @Test
+    fun `should exclude preloaded stub examples that do not match any filtered scenario`(@TempDir tempDir: File) {
+        val specFile = tempDir.resolve("products.yaml").also {
+            it.writeText(
+                """
+                openapi: 3.0.1
+                info:
+                  title: Products API
+                  version: 1.0.0
+                paths:
+                  /products:
+                    get:
+                      responses:
+                        '200':
+                          description: List products
+                          content:
+                            application/json:
+                              schema:
+                                type: array
+                                items:
+                                  type: object
+                                  required:
+                                    - id
+                                  properties:
+                                    id:
+                                      type: integer
+                """.trimIndent()
+            )
+        }
+        val configFile = writeSpecmaticYaml(
+            tempDir,
+            """
+            version: 2
+            stub:
+              filter: "METHOD='GET'"
+            """.trimIndent()
+        )
+        val validExampleFile = tempDir.resolve("products_get.json").also {
+            it.writeText(
+                """
+                {
+                  "http-request": {
+                    "path": "/products",
+                    "method": "GET"
+                  },
+                  "http-response": {
+                    "status": 200,
+                    "body": [
+                      {
+                        "id": 10
+                      }
+                    ],
+                    "headers": {
+                      "Content-Type": "application/json"
+                    }
+                  }
+                }
+                """.trimIndent()
+            )
+        }
+        val unmatchedExampleFile = tempDir.resolve("orders_get.json").also {
+            it.writeText(
+                """
+                {
+                  "http-request": {
+                    "path": "/orders",
+                    "method": "GET"
+                  },
+                  "http-response": {
+                    "status": 200,
+                    "body": {
+                      "id": 20
+                    },
+                    "headers": {
+                      "Content-Type": "application/json"
+                    }
+                  }
+                }
+                """.trimIndent()
+            )
+        }
+
+        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature()
+        val loadedStubs = listOf(
+            ScenarioStub.readFromFile(validExampleFile),
+            ScenarioStub.readFromFile(unmatchedExampleFile)
+        )
+        val stubsSlot = slot<List<Pair<io.specmatic.core.Feature, List<ScenarioStub>>>>()
+
+        every { watchMaker.make(listOf(specFile.canonicalPath)) } returns watcher
+        every { stubLoaderEngine.loadStubs(any(), emptyList(), any(), false) } returns listOf(feature to loadedStubs)
+        every {
+            httpStubEngine.runHTTPStub(
+                capture(stubsSlot),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+            )
+        } returns mockk { every { close() } returns Unit }
+
+        val exitStatus = Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            CommandLine(stubCommand).execute(specFile.canonicalPath)
+        }
+
+        assertThat(exitStatus).isZero()
+        assertThat(stubsSlot.captured).hasSize(1)
+
+        val (filteredFeature, filteredExamples) = stubsSlot.captured.single()
+        assertThat(filteredFeature.scenarios).hasSize(1)
+        assertThat(filteredExamples).hasSize(1)
+        assertThat(filteredExamples.single().request.path).isEqualTo("/products")
     }
 
     @Test
