@@ -4,6 +4,7 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.KeyData
 import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.config.toSpecmaticConfig
+import io.specmatic.core.utilities.FileAssociation
 import io.specmatic.reporter.model.SpecType
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -299,6 +300,37 @@ class SpecmaticConfigV3ImplTest {
                 """.trimIndent()
             )
         }.hasMessageContaining("incomingMtlsEnabled")
+    }
+
+    @Test
+    fun `getStubHooks should return global and file scoped hook associations`() {
+        val config = v3Config("""
+        version: 3
+        dependencies:
+          data:
+            adapters:
+              preSpecmaticRequestProcessor: ./hooks/global_decode.sh
+          services:
+            - service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem: {}
+                      specs:
+                        - one.yaml
+                        - two.yaml
+                data:
+                  adapters:
+                    postSpecmaticResponseProcessor: ./hooks/service_encode.sh
+        """.trimIndent())
+
+        val oneSpecFile = config.getFirstMockSourceMatching { it.specPathInConfig == "one.yaml" }!!.specFile
+        val twoSpecFile = config.getFirstMockSourceMatching { it.specPathInConfig == "two.yaml" }!!.specFile
+        assertThat(config.getStubHooks()).containsExactlyInAnyOrder(
+            FileAssociation.Global(mapOf("preSpecmaticRequestProcessor" to "./hooks/global_decode.sh")),
+            FileAssociation.FileScoped(oneSpecFile, mapOf("postSpecmaticResponseProcessor" to "./hooks/service_encode.sh")),
+            FileAssociation.FileScoped(twoSpecFile, mapOf("postSpecmaticResponseProcessor" to "./hooks/service_encode.sh")),
+        )
     }
 
     @Nested
