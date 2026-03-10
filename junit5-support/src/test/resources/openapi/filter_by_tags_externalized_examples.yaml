@@ -1,0 +1,51 @@
+openapi: 3.0.0
+info:
+  title: Filter By Tags Externalized Examples
+  version: 1.0.0
+paths:
+  /orders:
+    get:
+      tags:
+        - WIP
+      parameters:
+        - in: query
+          name: orderId
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer
+  /products:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer
