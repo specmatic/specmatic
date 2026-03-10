@@ -104,6 +104,15 @@ data class Scenario(
         operationMetadata = scenarioInfo.operationMetadata
     )
 
+    val scenarioStubs: List<ScenarioStub>
+        get() {
+            return examples.flatMap { examples ->
+                examples.rows.mapNotNull { row ->
+                    row.scenarioStub
+                }
+            }
+        }
+
     val apiIdentifier: String
         get() = "$method $path $status"
 

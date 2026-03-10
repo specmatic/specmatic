@@ -1,35 +1,31 @@
 package io.specmatic.core
 
-import com.ezylang.evalex.Expression
 import io.cucumber.gherkin.GherkinParser
 import io.cucumber.messages.types.*
 import io.cucumber.messages.types.Examples
 import io.cucumber.messages.types.Source
 import io.ktor.http.*
-import io.specmatic.conversions.ExampleFromFile
-import io.specmatic.conversions.IncludedSpecification
-import io.specmatic.conversions.OpenApiSpecification
-import io.specmatic.conversions.WSDLFile
-import io.specmatic.conversions.WsdlSpecification
-import io.specmatic.conversions.unwrapBackground
-import io.specmatic.conversions.unwrapFeature
-import io.specmatic.conversions.wsdlContentToFeature
+import io.specmatic.conversions.*
+import io.specmatic.core.Result.Success
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.discriminator.DiscriminatorMetadata
+import io.specmatic.core.examples.source.ExampleSource
+import io.specmatic.core.examples.source.FeatureAndUnusedExamples
+import io.specmatic.core.examples.source.NoExampleSource
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.*
 import io.specmatic.core.pattern.Examples.Companion.examplesFrom
 import io.specmatic.core.utilities.*
 import io.specmatic.core.value.*
-import io.specmatic.core.Result.Success
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.reporter.model.SpecType
-import io.specmatic.stub.NamedExampleMismatchMessages
 import io.specmatic.stub.HttpStubData
+import io.specmatic.stub.NamedExampleMismatchMessages
 import io.specmatic.test.*
 import io.swagger.v3.oas.models.*
+import io.swagger.v3.oas.models.Operation
 import io.swagger.v3.oas.models.headers.Header
 import io.swagger.v3.oas.models.info.Info
 import io.swagger.v3.oas.models.media.*
@@ -41,6 +37,7 @@ import java.net.URI
 import kotlin.jvm.optionals.getOrNull
 
 private typealias ScenarioMatchResult<T> = EarlyResult<T, Result.Failure>
+
 fun parseContractFileToFeature(
     contractPath: String,
     hook: Hook = PassThroughHook(),
@@ -106,7 +103,7 @@ fun parseContractFileToFeature(
             lenientMode = lenientMode,
             exampleDirPaths = exampleDirPaths
         ).toFeature()
-        io.specmatic.core.WSDL -> wsdlContentToFeature(
+        WSDL -> wsdlContentToFeature(
             checkExists(file).readText(),
             file.canonicalPath,
             specmaticConfig
@@ -2228,7 +2225,11 @@ data class Feature(
         return this.copy(scenarios = scenariosWithExamples)
     }
 
-    private fun loadExternalisedJSONExamples(testsDirectory: File?, filter: Expression? = null): Map<OpenApiSpecification.OperationIdentifier, List<Row>> {
+    fun loadExternalExamples(exampleSource: ExampleSource): FeatureAndUnusedExamples {
+        return FeatureAndUnusedExamples(loadExternalisedExamplesAndListUnloadableExamples(exampleSource, false))
+    }
+
+    private fun loadExternalisedJSONExamples(testsDirectory: File?): Map<OpenApiSpecification.OperationIdentifier, List<Row>> {
         if (testsDirectory == null)
             return emptyMap()
 
@@ -2245,7 +2246,7 @@ data class Feature(
             files.filter {
                 it.isDirectory
             }.fold(emptyMap()) { acc, item ->
-                acc + loadExternalisedJSONExamples(item, filter)
+                acc + loadExternalisedJSONExamples(item)
             }
 
         logger.log("Loading externalised examples in ${testsDirectory.path}: ")
@@ -2261,9 +2262,6 @@ data class Feature(
                     if (strictMode) throw ContractException(exceptionCauseMessage(e))
                     null
                 }
-            }.filter { example ->
-                if (filter == null) return@filter true
-                filter.with("context", example.toFilterContext()).evaluate().booleanValue
             }.map { example ->
                 OpenApiSpecification.OperationIdentifier(
                     requestMethod = example.requestMethod.orEmpty(),
@@ -2276,16 +2274,33 @@ data class Feature(
             .mapValues { (_, value) -> value.map { it.second } }
     }
 
-    fun loadExternalisedExamplesAndListUnloadableExamples(filter: Expression? = null): Pair<Feature, Set<String>> {
+    fun loadExternalisedExamplesAndListUnloadableExamples(exampleSource: ExampleSource = NoExampleSource(), useTestsDirectory: Boolean = true): Pair<Feature, Set<String>> {
         val testsDirectory = getTestsDirectory(File(this.path), specmaticConfig)
-        val externalisedExamplesFromDefaultDirectory = loadExternalisedJSONExamples(testsDirectory, filter)
+        val externalisedExamplesFromDefaultDirectory: Map<OpenApiSpecification.OperationIdentifier, List<Row>> =
+            if (useTestsDirectory)
+                loadExternalisedJSONExamples(testsDirectory)
+            else
+                emptyMap()
+
         val externalisedExampleDirsFromConfig = specmaticConfig.getTestExampleDirs(File(path)) + exampleDirPaths
 
-        val externalisedExamplesFromExampleDirs = externalisedExampleDirsFromConfig.flatMap { directory ->
-            loadExternalisedJSONExamples(File(directory), filter).entries
-        }.associate { it.toPair() }
+        val externalisedExamplesFromExampleDirs: Map<OpenApiSpecification.OperationIdentifier, List<Row>> =
+            externalisedExampleDirsFromConfig.flatMap { directory ->
+                loadExternalisedJSONExamples(File(directory)).entries
+            }.associate { it.toPair() }
 
-        val allExternalisedJSONExamples = externalisedExamplesFromDefaultDirectory + externalisedExamplesFromExampleDirs
+        val examplesFromSource: Map<OpenApiSpecification.OperationIdentifier, List<Row>> =
+            exampleSource.examples.map {
+                val exampleFromFile = ExampleFromFile(it)
+                    OpenApiSpecification.OperationIdentifier(exampleFromFile) to exampleFromFile.toRow(specmaticConfig)
+                }.groupBy { (operationIdentifier, _) -> operationIdentifier }.mapValues { (_, value) ->
+                    value.map { it.second }
+                }
+
+        val allExternalisedJSONExamples =
+            externalisedExamplesFromDefaultDirectory +
+                    externalisedExamplesFromExampleDirs +
+                    examplesFromSource
 
         if(allExternalisedJSONExamples.isEmpty())
             return this to emptySet()
@@ -2342,8 +2357,8 @@ data class Feature(
         return featureWithExternalisedExamples to unusedExternalizedExamples
     }
 
-    fun loadExternalisedExamples(filter: Expression? = null): Feature {
-        return loadExternalisedExamplesAndListUnloadableExamples(filter).first
+    fun loadExternalisedExamples(): Feature {
+        return loadExternalisedExamplesAndListUnloadableExamples().first
     }
 
     fun validateAndFilterExamples(): Pair<Feature, Result> {
@@ -2376,7 +2391,6 @@ data class Feature(
     ): DiscriminatorBasedItem<T> {
         return this.first { it.discriminatorValue == discriminatorValue }
     }
-
 
     companion object {
         private const val OBJECT_TYPE = "object"

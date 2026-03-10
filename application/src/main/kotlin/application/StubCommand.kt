@@ -6,8 +6,7 @@ import io.specmatic.core.Configuration.Companion.DEFAULT_HTTP_STUB_PORT
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.LoggingConfiguration.Companion.LoggingFromOpts
 import io.specmatic.core.config.Switch
-import io.specmatic.core.filters.ExpressionStandardizer
-import io.specmatic.core.filters.ExampleFilterContext
+import io.specmatic.core.examples.source.PreLoadedExampleObjects
 import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.log.*
 import io.specmatic.core.utilities.*
@@ -286,20 +285,22 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         logStubLoadingSummary(stubData)
         val filterAccumulator = mutableListOf<String>()
         val filteredStubData = stubData.mapNotNull { (feature, scenarioStubs) ->
+             val featureWithAllExamples: Feature = feature.loadExternalExamples(PreLoadedExampleObjects(scenarioStubs)).feature
+
             val stubFilter = specmaticConfiguration.getStubFilter(File(feature.path)) ?: return@mapNotNull feature to scenarioStubs
             if (stubFilter.isNotBlank()) filterAccumulator.add(stubFilter)
             val metadataFilter = ScenarioMetadataFilter.from(stubFilter)
             val filteredScenarios = ScenarioMetadataFilter.filterUsing(
-                feature.scenarios.asSequence(),
+                featureWithAllExamples.scenarios.asSequence(),
                 metadataFilter,
             ).toList()
-            val stubFilterExpression = ExpressionStandardizer.filterToEvalEx(stubFilter)
-            val filteredStubScenario = scenarioStubs.filter { it ->
-                stubFilterExpression.with("context", ExampleFilterContext(it)).evaluate().booleanValue
-            }
+
+            val filteredExamples: List<ScenarioStub> =
+                filteredScenarios.flatMap { scenario -> scenario.scenarioStubs }
+
             if (filteredScenarios.isNotEmpty()) {
                 val updatedFeature = feature.copy(scenarios = filteredScenarios)
-                updatedFeature to filteredStubScenario
+                updatedFeature to filteredExamples
             } else null
         }
 

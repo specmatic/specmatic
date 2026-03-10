@@ -32,6 +32,7 @@ class ExampleFromFile(private val scenarioStub: ScenarioStub, val file: File) {
 
     constructor(file: File, strictMode: Boolean = true): this(scenarioStub = ScenarioStub.readFromFile(file, strictMode), file = file)
     constructor(json: JSONObjectValue, file: File, strictMode: Boolean = true): this(scenarioStub = ScenarioStub.parse(json, strictMode), file = file)
+    constructor(scenarioStub: ScenarioStub) : this(scenarioStub, File(scenarioStub.filePath.orEmpty()))
 
     fun toFilterContext(): ExampleFilterContext {
         return ExampleFilterContext(scenarioStub)

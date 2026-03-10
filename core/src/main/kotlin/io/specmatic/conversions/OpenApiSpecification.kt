@@ -56,6 +56,7 @@ import io.swagger.v3.parser.util.ClasspathHelper
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import java.io.File
 import kotlin.collections.orEmpty
+import kotlin.text.orEmpty
 
 private const val BEARER_SECURITY_SCHEME = "bearer"
 
@@ -1150,7 +1151,22 @@ class OpenApiSpecification(
         }
     }
 
-    data class OperationIdentifier(val requestMethod: String, val requestPath: String, val responseStatus: Int, val requestContentType: String?, val responseContentType: String?)
+    data class OperationIdentifier(val requestMethod: String, val requestPath: String, val responseStatus: Int, val requestContentType: String?, val responseContentType: String?) {
+        constructor(example: ExampleFromFile) : this (
+            requestMethod = example.requestMethod.orEmpty(),
+            requestPath = example.requestPath.orEmpty(),
+            responseStatus = example.responseStatus ?: 0,
+            requestContentType = example.requestContentType,
+            responseContentType = example.responseContentType
+        )
+        constructor(scenarioStub: ScenarioStub) : this (
+            requestMethod = scenarioStub.request.method ?: "",
+            requestPath = scenarioStub.request.path ?: "",
+            responseStatus = scenarioStub.response.status,
+            requestContentType = scenarioStub.request.headers[ACCEPT],
+            responseContentType = scenarioStub.response.headers[CONTENT_TYPE]
+        )
+    }
 
     private fun requestBodyExample(
         openApiRequest: Pair<String, MediaType>?,
