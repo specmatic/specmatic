@@ -1,0 +1,16 @@
+{
+  "http-request": {
+    "method": "POST",
+    "path": "/products",
+    "body": {
+      "name": "Phone"
+    }
+  },
+  "http-response": {
+    "status": 201,
+    "body": {
+      "id": 1
+    }
+  },
+  "name": "Create Product"
+}
