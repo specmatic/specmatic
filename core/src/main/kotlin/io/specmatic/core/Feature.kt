@@ -9,6 +9,7 @@ import io.specmatic.conversions.*
 import io.specmatic.core.Result.Success
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.discriminator.DiscriminatorMetadata
+import io.specmatic.core.examples.source.DirectoryExampleSource
 import io.specmatic.core.examples.source.ExampleSource
 import io.specmatic.core.examples.source.FeatureAndUnusedExamples
 import io.specmatic.core.log.logger
@@ -2273,67 +2274,11 @@ data class Feature(
             .mapValues { (_, value) -> value.map { it.second } }
     }
 
-    class DirectoryExampleSource(val exampleDirs: List<String>, val strictMode: Boolean, val specmaticConfig: SpecmaticConfig) : ExampleSource {
-        override val examples: Map<OpenApiSpecification.OperationIdentifier, List<Row>>
-            get() {
-                return exampleDirs.flatMap { directory ->
-                    loadExternalisedJSONExamples(File(directory)).entries
-                }.associate { it.toPair() }
-            }
-
-        private fun loadExternalisedJSONExamples(testsDirectory: File?): Map<OpenApiSpecification.OperationIdentifier, List<Row>> {
-            if (testsDirectory == null)
-                return emptyMap()
-
-            if (!testsDirectory.exists())
-                return emptyMap()
-
-            val files = testsDirectory.walk().filterNot { it.isDirectory }.filter {
-                it.extension == "json"
-            }.toList().sortedBy { it.name }
-
-            if (files.isEmpty()) return emptyMap()
-
-            val examplesInSubdirectories: Map<OpenApiSpecification.OperationIdentifier, List<Row>> =
-                files.filter {
-                    it.isDirectory
-                }.fold(emptyMap()) { acc, item ->
-                    acc + loadExternalisedJSONExamples(item)
-                }
-
-            logger.log("Loading externalised examples in ${testsDirectory.path}: ")
-            logger.boundary()
-
-            return examplesInSubdirectories + files.asSequence()
-                .filterNot { it.isDirectory }
-                .mapNotNull { exampleFile ->
-                    runCatching { ExampleFromFile(exampleFile) }.getOrElse { e ->
-                        logger.log("Could not load test file ${exampleFile.canonicalPath}")
-                        logger.log(e)
-                        logger.boundary()
-                        if (strictMode) throw ContractException(exceptionCauseMessage(e))
-                        null
-                    }
-                }.map { example ->
-                    OpenApiSpecification.OperationIdentifier(
-                        requestMethod = example.requestMethod.orEmpty(),
-                        requestPath = example.requestPath.orEmpty(),
-                        responseStatus = example.responseStatus ?: 0,
-                        requestContentType = example.requestContentType,
-                        responseContentType = example.responseContentType
-                    ) to example.toRow(specmaticConfig)
-                }.groupBy { (operationIdentifier, _) -> operationIdentifier }
-                .mapValues { (_, value) -> value.map { it.second } }
-        }    }
-
     fun loadExternalisedExamplesAndListUnloadableExamples(): Pair<Feature, Set<String>> {
         val testsDirectory = getTestsDirectory(File(this.path), specmaticConfig)?.canonicalPath
         val configTestDirectories = specmaticConfig.getTestExampleDirs(File(path)) + exampleDirPaths
-
-        val testExampleDirectories = listOfNotNull(testsDirectory + configTestDirectories)
-
+        val testExampleDirectories = listOfNotNull(testsDirectory).plus(configTestDirectories)
         val testExampleSource = DirectoryExampleSource(testExampleDirectories, strictMode, specmaticConfig)
-
         return loadExternalisedExamplesAndListUnloadableExamples(testExampleSource)
     }
 

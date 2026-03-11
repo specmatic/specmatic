@@ -1159,13 +1159,6 @@ class OpenApiSpecification(
             requestContentType = example.requestContentType,
             responseContentType = example.responseContentType
         )
-        constructor(scenarioStub: ScenarioStub) : this (
-            requestMethod = scenarioStub.request.method ?: "",
-            requestPath = scenarioStub.request.path ?: "",
-            responseStatus = scenarioStub.response.status,
-            requestContentType = scenarioStub.request.headers[ACCEPT],
-            responseContentType = scenarioStub.response.headers[CONTENT_TYPE]
-        )
     }
 
     private fun requestBodyExample(
