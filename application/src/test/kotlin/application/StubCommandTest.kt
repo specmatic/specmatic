@@ -8,13 +8,16 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.CONTRACT_EXTENSION
 import io.specmatic.core.IncomingMtlsRegistry
 import io.specmatic.core.KeyDataRegistry
+import io.specmatic.core.config.v3.SpecmaticConfigV3Impl
 import io.specmatic.core.parseGherkinStringToFeature
 import io.specmatic.core.utilities.ContractPathData
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.core.utilities.StubServerWatcher
+import io.specmatic.core.utilities.yamlMapper
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpStub
+import io.specmatic.stub.SpecmaticConfigSource
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -563,6 +566,49 @@ internal class StubCommandTest {
         assertThat(keyDataSlot.captured).isNotNull
         assertThat(timeoutSlot.captured).isEqualTo(1500L)
         assertThat(passThroughSlot.captured).isEqualTo("http://passthrough")
+    }
+
+    @Test
+    fun `uses final config when creating specmatic config source`(@TempDir tempDir: File) {
+        val specmaticConfigSourceSlot = slot<SpecmaticConfigSource>()
+        val configFile = writeSpecmaticYaml(tempDir, """
+        version: 3
+        specmatic:
+          settings:
+            mock:
+              delayInMilliseconds: 10
+        """.trimIndent())
+
+        every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
+        every { watchMaker.make(any()) } returns watcher
+        every { specmaticConfig.contractStubPaths() } returns emptyList()
+        every { specmaticConfig.contractStubPathData(any()) } returns emptyList()
+        every {
+            httpStubEngine.runHTTPStub(
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                capture(specmaticConfigSourceSlot),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+            )
+        } returns mockk<HttpStub> { every { close() } returns Unit }
+
+        Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            CommandLine(stubCommand).execute("--delay-in-ms=250")
+        }
+
+        val loadedConfig = specmaticConfigSourceSlot.captured.load()
+        assertThat(loadedConfig.config.getStubDelayInMilliseconds(null)).isEqualTo(250L)
+        assertThat(loadedConfig.path).isEqualTo(configFile.canonicalPath)
     }
 
     @Test

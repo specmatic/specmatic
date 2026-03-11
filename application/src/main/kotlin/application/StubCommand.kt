@@ -157,7 +157,6 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         val specmaticConfigPath = File(Configuration.configFilePath).canonicalPath
         val configFromFile = loadSpecmaticConfigOrNull(specmaticConfigPath, explicitlySpecifiedByUser = configFileName != null)
         val config = configFromFile.orDefault()
-
         val pathFromWhichConfigWasLoaded = if (configFromFile != null) {
             specmaticConfigPath
         } else {
@@ -166,9 +165,8 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 
         val sourcesUpdated = config.applyIf(useCurrentBranchForCentralRepo) { withMatchBranch(it) }
         val stubConfigUpdated = sourcesUpdated.withStubModes(strictMode = strictMode).withStubFilter(filter = filter)
-        delayInMilliseconds?.let(stubConfigUpdated::withGlobalMockDelay) ?: stubConfigUpdated
-
-        SpecmaticConfigSource.fromConfigObject(config, pathFromWhichConfigWasLoaded)
+        val finalConfig = delayInMilliseconds?.let(stubConfigUpdated::withGlobalMockDelay) ?: stubConfigUpdated
+        SpecmaticConfigSource.fromConfigObject(finalConfig, pathFromWhichConfigWasLoaded)
     }
 
     private val specmaticConfiguration: io.specmatic.core.SpecmaticConfig by lazy(LazyThreadSafetyMode.NONE) {
