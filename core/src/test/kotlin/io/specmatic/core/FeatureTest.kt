@@ -8,6 +8,7 @@ import io.mockk.mockk
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.discriminator.DiscriminatorMetadata
+import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.exceptionCauseMessage
@@ -41,6 +42,7 @@ import java.net.ServerSocket
 import java.util.*
 import java.util.function.Consumer
 import java.util.stream.Stream
+import kotlin.to
 
 class FeatureTest {
     @Test
@@ -3808,6 +3810,33 @@ paths:
             .fieldNames().asSequence().toList()
         assertThat(responseHeaderNames.map { it.lowercase(Locale.US) }.distinct()).containsExactly("x-response-id")
         assertThat(responseHeaderNames).hasSize(1)
+    }
+
+    @Test
+    fun `should be able to filter in scenario and examples using path parameter concrete values`() {
+        val feature = OpenApiSpecification.fromFile("src/test/resources/openapi/simple_partial_non_partial_examples_with_dictionary/simple_pets.yaml").toFeature()
+        val examplesFolder = File("src/test/resources/openapi/simple_partial_non_partial_examples_with_dictionary/concrete_examples")
+        val loadedFeature = Flags.using(Flags.EXAMPLE_DIRECTORIES to examplesFolder.canonicalPath) { feature.loadExternalisedExamples() }
+
+        val filter = ScenarioMetadataFilter.from("PARAMETERS.PATH.id='123'")
+        val filteredScenarios = ScenarioMetadataFilter.filterUsing(loadedFeature.scenarios.asSequence(), filter).toList()
+
+        assertThat(filteredScenarios).hasSize(1)
+        assertThat(filteredScenarios.single().path).isEqualTo("/pets/(id:number)")
+        assertThat(filteredScenarios.single().method).isEqualTo("PATCH")
+    }
+
+    @Test
+    fun `should be able to filter out scenario and examples using path parameter concrete values`() {
+        val feature = OpenApiSpecification.fromFile("src/test/resources/openapi/simple_partial_non_partial_examples_with_dictionary/simple_pets.yaml").toFeature()
+        val examplesFolder = File("src/test/resources/openapi/simple_partial_non_partial_examples_with_dictionary/concrete_examples")
+        val loadedFeature = Flags.using(Flags.EXAMPLE_DIRECTORIES to examplesFolder.canonicalPath) { feature.loadExternalisedExamples() }
+
+        val filter = ScenarioMetadataFilter.from("PARAMETERS.PATH.id!='123'")
+        val filteredScenarios = ScenarioMetadataFilter.filterUsing(loadedFeature.scenarios.asSequence(), filter).toList()
+
+        assertThat(filteredScenarios).hasSize(2)
+        assertThat(filteredScenarios).noneMatch { it.path == "/pets/(id:number)" && it.method == "PATCH" }
     }
 
     companion object {
