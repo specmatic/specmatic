@@ -56,6 +56,7 @@ import io.swagger.v3.parser.util.ClasspathHelper
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import java.io.File
 import kotlin.collections.orEmpty
+import kotlin.text.orEmpty
 
 private const val BEARER_SECURITY_SCHEME = "bearer"
 private const val BASIC_SECURITY_SCHEME = "basic"
@@ -926,7 +927,7 @@ class OpenApiSpecification(
                 .filterKeys { it in unusedRequestExampleNames }
                 .flatMap { (exampleName, examples) ->
                     examples.map { request ->
-                        NamedStub(exampleName, ScenarioStub(request = request, response = emptyResponse))
+                        NamedStub(exampleName, ScenarioStub(request = request, response = emptyResponse, exampleType = ExampleType.INLINE))
                     }
                 }
 
@@ -995,7 +996,7 @@ class OpenApiSpecification(
                 key in requestExamples
             }.map { (key, responseExample) ->
                 requestExamples.getValue(key).map { request ->
-                    NamedStub(key, ScenarioStub(request = request, response = responseExample))
+                    NamedStub(key, ScenarioStub(request = request, response = responseExample, exampleType = ExampleType.INLINE))
                 }
             }
         }.flatten()
@@ -1148,7 +1149,15 @@ class OpenApiSpecification(
         }
     }
 
-    data class OperationIdentifier(val requestMethod: String, val requestPath: String, val responseStatus: Int, val requestContentType: String?, val responseContentType: String?)
+    data class OperationIdentifier(val requestMethod: String, val requestPath: String, val responseStatus: Int, val requestContentType: String?, val responseContentType: String?) {
+        constructor(example: ExampleFromFile) : this (
+            requestMethod = example.requestMethod.orEmpty(),
+            requestPath = example.requestPath.orEmpty(),
+            responseStatus = example.responseStatus ?: 0,
+            requestContentType = example.requestContentType,
+            responseContentType = example.responseContentType
+        )
+    }
 
     private fun requestBodyExample(
         openApiRequest: Pair<String, MediaType>?,

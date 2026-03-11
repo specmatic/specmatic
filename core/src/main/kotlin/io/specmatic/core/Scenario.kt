@@ -142,6 +142,16 @@ data class Scenario(
             return pattern.generate(resolver).toStringLiteral().removeSurrounding("\"").removePrefix("/")
         }
 
+    fun getExamplesMatching(exampleType: ExampleType): List<NamedStub> {
+        return examples.flatMap { example ->
+            example.rows
+                .asSequence()
+                .filter { it.exampleType == exampleType }
+                .mapNotNull { row -> row.scenarioStub?.let { NamedStub(row.name, it) } }
+                .toList()
+        }
+    }
+
     fun responseBodyFromExample() = exampleRow?.responseBody()
 
     private fun serverStateMatches(actualState: Map<String, Value>, resolver: Resolver) =
