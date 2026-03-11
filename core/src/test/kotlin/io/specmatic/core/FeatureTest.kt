@@ -3869,8 +3869,8 @@ paths:
         val preloadedExternalExamples = loadScenarioStubs("src/test/resources/openapi/filter_examples_multi_scenarios_examples")
         val filtered = feature.filterExamples(preloadedExternalExamples, "PATH='/users/{id}'")
 
-        assertThat(filtered.feature.scenarios).hasSize(1)
-        assertThat(filtered.feature.scenarios.single().path).startsWith("/users/(")
+        assertThat(filtered.feature.scenarios).hasSize(2)
+        assertThat(filtered.feature.scenarios).allMatch { it.path.startsWith("/users/(") }
         assertThat(filtered.feature.inlineNamedStubs.map { it.name }).containsExactlyInAnyOrder("user_inline", "shared_name")
         assertThat(filtered.externalExamples.mapNotNull { it.request.path }).containsExactly("/users/10")
     }
