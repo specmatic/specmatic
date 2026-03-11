@@ -7,9 +7,11 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.jsonoperator.Optional
 import io.specmatic.core.jsonoperator.RequestResponseOperator
 import io.specmatic.core.jsonoperator.value.ValueOperator
-import io.specmatic.core.pattern.ExactValuePattern
 import io.specmatic.core.pattern.HasFailure
 import io.specmatic.core.pattern.HasValue
+import io.specmatic.core.pattern.NumberPattern
+import io.specmatic.core.pattern.RegexConstrainedPattern
+import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import org.assertj.core.api.Assertions.*
@@ -88,10 +90,12 @@ class RegexMatcherTest {
                 StringValue("pattern: ^J.*")
             )
 
-            assertThat(pattern).isInstanceOf(ExactValuePattern::class.java)
-            val value = (pattern as ExactValuePattern).pattern
-            assertThat(value).isInstanceOf(StringValue::class.java)
-            assertThat(value.toStringLiteral()).startsWith("J")
+            assertThat(pattern).isInstanceOf(RegexConstrainedPattern::class.java)
+            val constrainedPattern = pattern as RegexConstrainedPattern
+            assertThat(constrainedPattern.basePattern).isInstanceOf(StringPattern::class.java)
+            val generated = constrainedPattern.generate(Resolver())
+            assertThat(generated).isInstanceOf(StringValue::class.java)
+            assertThat(generated.toStringLiteral()).startsWith("J")
         }
 
         @Test
@@ -100,10 +104,12 @@ class RegexMatcherTest {
                 StringValue("pattern: ^2\\d*$")
             )
 
-            assertThat(pattern).isInstanceOf(ExactValuePattern::class.java)
-            val value = (pattern as ExactValuePattern).pattern
-            assertThat(value).isInstanceOf(NumberValue::class.java)
-            assertThat(value.toStringLiteral()).startsWith("2")
+            assertThat(pattern).isInstanceOf(RegexConstrainedPattern::class.java)
+            val constrainedPattern = pattern as RegexConstrainedPattern
+            assertThat(constrainedPattern.basePattern).isInstanceOf(NumberPattern::class.java)
+            val generated = constrainedPattern.generate(Resolver())
+            assertThat(generated).isInstanceOf(NumberValue::class.java)
+            assertThat(generated.toStringLiteral()).startsWith("2")
         }
     }
 
