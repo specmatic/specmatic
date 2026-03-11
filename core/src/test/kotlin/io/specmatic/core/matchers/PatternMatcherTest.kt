@@ -20,6 +20,15 @@ class PatternMatcherTest {
     private val mockResolver = mockk<Resolver>()
 
     @Test
+    fun `patternFrom should return its pattern`() {
+        val matcher = PatternMatcher(BreadCrumb.from(), NumberPattern())
+
+        val result = matcher.patternFrom(StringPattern())
+
+        assertThat(result).isEqualTo(NumberPattern())
+    }
+
+    @Test
     fun `should match when value satisfies pattern with FULL strategy`() {
         val matcher = PatternMatcher(
             path = BreadCrumb.from("/email"),

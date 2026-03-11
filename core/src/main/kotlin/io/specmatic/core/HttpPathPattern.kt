@@ -378,6 +378,17 @@ data class HttpPathPattern(
         }
     }
 
+    fun patternFrom(path: String, resolver: Resolver): HttpPathPattern {
+        val pathSegments = path.split("/".toRegex()).filter { it.isNotEmpty() }
+        val pathSegmentPatternsFromPathTokens = pathSegmentPatterns.zip(pathSegments).map { (urlPathPattern, token) ->
+            urlPathPattern.patternFrom(
+                StringValue(removeKeyFromParameterToken(token)),
+                resolver
+            )
+        }
+        return this.copy(pathSegmentPatterns = pathSegmentPatternsFromPathTokens)
+    }
+
     private fun removeKeyFromParameterToken(token: String): String {
         if (!isPatternToken(token) || !token.contains(":")) return token
         val patternType = withoutPatternDelimiters(token).split(":").last()

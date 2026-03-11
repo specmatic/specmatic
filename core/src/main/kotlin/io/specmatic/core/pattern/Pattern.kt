@@ -97,6 +97,8 @@ interface Pattern {
         return fixValue(value, this, resolver)
     }
 
+    fun patternFrom(value: Value, resolver: Resolver): Pattern = value.exactMatchElseType()
+
     val typeAlias: String?
     val typeName: String
     val pattern: Any

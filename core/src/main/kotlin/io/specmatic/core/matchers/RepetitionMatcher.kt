@@ -3,6 +3,7 @@ package io.specmatic.core.matchers
 import io.specmatic.core.BreadCrumb
 import io.specmatic.core.pattern.HasFailure
 import io.specmatic.core.pattern.HasValue
+import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.ReturnValue
 import io.specmatic.core.pattern.unwrapOrReturn
 import io.specmatic.core.value.JSONArrayValue
@@ -90,6 +91,10 @@ data class RepetitionMatcher(
 
         val strategyUpdatedContext = strategy.tickAgainst(path, valueToMatch, updatedContext)
         return MatcherResult.from(strategyUpdatedContext, updatedContext, isExhausted = isExhausted)
+    }
+
+    override fun patternFrom(originalPattern: Pattern): Pattern {
+        return originalPattern
     }
 
     companion object : MatcherFactory {

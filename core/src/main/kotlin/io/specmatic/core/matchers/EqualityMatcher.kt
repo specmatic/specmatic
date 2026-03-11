@@ -7,6 +7,7 @@ import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.ReturnValue
 import io.specmatic.core.pattern.unwrapOrReturn
+import io.specmatic.core.value.ScalarValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
@@ -57,6 +58,14 @@ data class EqualityMatcher(val path: BreadCrumb, val value: Value, val strategy:
         )
     }
 
+    override fun patternFrom(originalPattern: Pattern): Pattern {
+        if(this.value !is ScalarValue) return originalPattern
+        return when(strategy) {
+            EqualityStrategy.EQUALS -> ExactValuePattern(this.value)
+            EqualityStrategy.NOT_EQUALS -> ExactValuePattern(this.value.alterValue())
+        }
+    }
+
     companion object {
         private const val VALUE_KEY = "exact"
         private const val EQUALITY_KEY = "matchType"
@@ -88,18 +97,6 @@ data class EqualityMatcher(val path: BreadCrumb, val value: Value, val strategy:
 
                 val strategy = EqualityStrategy.from(strategyKey.nativeValue).unwrapOrReturn { return it.cast() }
                 return HasValue(EqualityMatcher(path, value, strategy))
-            }
-
-            override fun toPatternSimplified(value: Value): Pattern? {
-                return null
-            }
-
-            override fun toPatternSimplified(properties: Map<String, Value>): Pattern? {
-                val value = properties[VALUE_KEY] ?: return null
-                val strategyKey = properties.getOrDefault(EQUALITY_KEY, StringValue("eq"))
-                val equalityStrategy = EqualityStrategy.from(strategyKey.toStringLiteral())
-                if (equalityStrategy.withDefault(EqualityStrategy.EQUALS) { it } != defaultStrategy) return null
-                return createPattern(value)
             }
         }
 
