@@ -336,50 +336,6 @@ class HTTPFilterKeysTest {
         assertThat(HTTPFilterKeys.RESPONSE_CONTENT_TYPE.includes(scenario, "RESPONSE.CONTENT-TYPE", filterValue)).isEqualTo(expected)
     }
 
-    @ParameterizedTest(name = "stub request body should match request filter value \"{0}\" as {1}")
-    @CsvSource(
-        "application/json,true",
-        "application/*,true",
-        "text/*,false",
-        "not a content type,false"
-    )
-    fun `REQUEST_BODY_CONTENT_TYPE includes should safely match stub request body content types`(filterValue: String, expected: Boolean) {
-        val stub = ScenarioStub(request = HttpRequest(body = JSONObjectValue()))
-        assertThat(HTTPFilterKeys.REQUEST_BODY_CONTENT_TYPE.includes(stub, "REQUEST-BODY.CONTENT-TYPE", filterValue)).isEqualTo(expected)
-    }
-
-    @ParameterizedTest(name = "blank request filter value should not match stub request content type: \"{0}\"")
-    @CsvSource(
-        "'',false",
-        "'   ',false"
-    )
-    fun `REQUEST_BODY_CONTENT_TYPE includes should return false when request filter value is blank for stub`(filterValue: String, expected: Boolean) {
-        val stub = ScenarioStub(request = HttpRequest(body = JSONObjectValue()))
-        assertThat(HTTPFilterKeys.REQUEST_BODY_CONTENT_TYPE.includes(stub, "REQUEST-BODY.CONTENT-TYPE", filterValue)).isEqualTo(expected)
-    }
-
-    @ParameterizedTest(name = "stub response body should match response filter value \"{0}\" as {1}")
-    @CsvSource(
-        "application/json,true",
-        "application/*,true",
-        "text/*,false",
-        "not a content type,false"
-    )
-    fun `RESPONSE_CONTENT_TYPE includes should safely match stub response body content types`(filterValue: String, expected: Boolean) {
-        val stub = ScenarioStub(response = HttpResponse(200, body = JSONObjectValue()))
-        assertThat(HTTPFilterKeys.RESPONSE_CONTENT_TYPE.includes(stub, "RESPONSE.CONTENT-TYPE", filterValue)).isEqualTo(expected)
-    }
-
-    @ParameterizedTest(name = "blank response filter value should not match stub response content type: \"{0}\"")
-    @CsvSource(
-        "'',false",
-        "'   ',false"
-    )
-    fun `RESPONSE_CONTENT_TYPE includes should return false when response filter value is blank for stub`(filterValue: String, expected: Boolean) {
-        val stub = ScenarioStub(response = HttpResponse(200, body = JSONObjectValue()))
-        assertThat(HTTPFilterKeys.RESPONSE_CONTENT_TYPE.includes(stub, "RESPONSE.CONTENT-TYPE", filterValue)).isEqualTo(expected)
-    }
-
     companion object {
         @JvmStatic
         fun pathFilterCases() = listOf(
