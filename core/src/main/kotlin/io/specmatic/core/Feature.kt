@@ -11,7 +11,6 @@ import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.discriminator.DiscriminatorMetadata
 import io.specmatic.core.examples.source.ExampleSource
 import io.specmatic.core.examples.source.FeatureAndUnusedExamples
-import io.specmatic.core.examples.source.NoExampleSource
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.*
 import io.specmatic.core.pattern.Examples.Companion.examplesFrom
@@ -2226,7 +2225,7 @@ data class Feature(
     }
 
     fun loadExternalExamples(exampleSource: ExampleSource): FeatureAndUnusedExamples {
-        return FeatureAndUnusedExamples(loadExternalisedExamplesAndListUnloadableExamples(exampleSource, false))
+        return FeatureAndUnusedExamples(loadExternalisedExamplesAndListUnloadableExamples(exampleSource))
     }
 
     private fun loadExternalisedJSONExamples(testsDirectory: File?): Map<OpenApiSpecification.OperationIdentifier, List<Row>> {
@@ -2274,33 +2273,72 @@ data class Feature(
             .mapValues { (_, value) -> value.map { it.second } }
     }
 
-    fun loadExternalisedExamplesAndListUnloadableExamples(exampleSource: ExampleSource = NoExampleSource(), useTestsDirectory: Boolean = true): Pair<Feature, Set<String>> {
-        val testsDirectory = getTestsDirectory(File(this.path), specmaticConfig)
-        val externalisedExamplesFromDefaultDirectory: Map<OpenApiSpecification.OperationIdentifier, List<Row>> =
-            if (useTestsDirectory)
-                loadExternalisedJSONExamples(testsDirectory)
-            else
-                emptyMap()
+    class DirectoryExampleSource(val exampleDirs: List<String>, val strictMode: Boolean, val specmaticConfig: SpecmaticConfig) : ExampleSource {
+        override val examples: Map<OpenApiSpecification.OperationIdentifier, List<Row>>
+            get() {
+                return exampleDirs.flatMap { directory ->
+                    loadExternalisedJSONExamples(File(directory)).entries
+                }.associate { it.toPair() }
+            }
 
-        val externalisedExampleDirsFromConfig = specmaticConfig.getTestExampleDirs(File(path)) + exampleDirPaths
+        private fun loadExternalisedJSONExamples(testsDirectory: File?): Map<OpenApiSpecification.OperationIdentifier, List<Row>> {
+            if (testsDirectory == null)
+                return emptyMap()
 
-        val externalisedExamplesFromExampleDirs: Map<OpenApiSpecification.OperationIdentifier, List<Row>> =
-            externalisedExampleDirsFromConfig.flatMap { directory ->
-                loadExternalisedJSONExamples(File(directory)).entries
-            }.associate { it.toPair() }
+            if (!testsDirectory.exists())
+                return emptyMap()
 
-        val examplesFromSource: Map<OpenApiSpecification.OperationIdentifier, List<Row>> =
-            exampleSource.examples.map {
-                val exampleFromFile = ExampleFromFile(it)
-                    OpenApiSpecification.OperationIdentifier(exampleFromFile) to exampleFromFile.toRow(specmaticConfig)
-                }.groupBy { (operationIdentifier, _) -> operationIdentifier }.mapValues { (_, value) ->
-                    value.map { it.second }
+            val files = testsDirectory.walk().filterNot { it.isDirectory }.filter {
+                it.extension == "json"
+            }.toList().sortedBy { it.name }
+
+            if (files.isEmpty()) return emptyMap()
+
+            val examplesInSubdirectories: Map<OpenApiSpecification.OperationIdentifier, List<Row>> =
+                files.filter {
+                    it.isDirectory
+                }.fold(emptyMap()) { acc, item ->
+                    acc + loadExternalisedJSONExamples(item)
                 }
 
-        val allExternalisedJSONExamples =
-            externalisedExamplesFromDefaultDirectory +
-                    externalisedExamplesFromExampleDirs +
-                    examplesFromSource
+            logger.log("Loading externalised examples in ${testsDirectory.path}: ")
+            logger.boundary()
+
+            return examplesInSubdirectories + files.asSequence()
+                .filterNot { it.isDirectory }
+                .mapNotNull { exampleFile ->
+                    runCatching { ExampleFromFile(exampleFile) }.getOrElse { e ->
+                        logger.log("Could not load test file ${exampleFile.canonicalPath}")
+                        logger.log(e)
+                        logger.boundary()
+                        if (strictMode) throw ContractException(exceptionCauseMessage(e))
+                        null
+                    }
+                }.map { example ->
+                    OpenApiSpecification.OperationIdentifier(
+                        requestMethod = example.requestMethod.orEmpty(),
+                        requestPath = example.requestPath.orEmpty(),
+                        responseStatus = example.responseStatus ?: 0,
+                        requestContentType = example.requestContentType,
+                        responseContentType = example.responseContentType
+                    ) to example.toRow(specmaticConfig)
+                }.groupBy { (operationIdentifier, _) -> operationIdentifier }
+                .mapValues { (_, value) -> value.map { it.second } }
+        }    }
+
+    fun loadExternalisedExamplesAndListUnloadableExamples(): Pair<Feature, Set<String>> {
+        val testsDirectory = getTestsDirectory(File(this.path), specmaticConfig)?.canonicalPath
+        val configTestDirectories = specmaticConfig.getTestExampleDirs(File(path)) + exampleDirPaths
+
+        val testExampleDirectories = listOfNotNull(testsDirectory + configTestDirectories)
+
+        val testExampleSource = DirectoryExampleSource(testExampleDirectories, strictMode, specmaticConfig)
+
+        return loadExternalisedExamplesAndListUnloadableExamples(testExampleSource)
+    }
+
+    fun loadExternalisedExamplesAndListUnloadableExamples(exampleSource: ExampleSource): Pair<Feature, Set<String>> {
+        val allExternalisedJSONExamples = exampleSource.examples
 
         if(allExternalisedJSONExamples.isEmpty())
             return this to emptySet()
