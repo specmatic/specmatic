@@ -781,6 +781,47 @@ Background:
         }
 
         @Test
+        fun `should match http request when basic auth security scheme in spec uses uppercase scheme value`() {
+            val feature = OpenApiSpecification.fromYAML(
+                """
+                openapi: 3.0.0
+                info:
+                  title: Hello world
+                  version: "1.0"
+                paths:
+                  /hello/{id}:
+                    get:
+                      parameters:
+                        - in: path
+                          name: id
+                          required: true
+                          schema:
+                            type: integer
+                      security:
+                        - basicAuth: []
+                      responses:
+                        '200':
+                          description: OK
+                components:
+                  securitySchemes:
+                    basicAuth:
+                      type: http
+                      scheme: Basic
+                """.trimIndent(), ""
+            ).toFeature()
+
+            val httpRequest = HttpRequest(
+                "GET",
+                "/hello/1",
+                mapOf("Authorization" to "Basic $base64EncodedCredentials")
+            )
+
+            val result = feature.scenarios.first().httpRequestPattern.matches(httpRequest, Resolver())
+
+            assertThat(result).isInstanceOf(Result.Success::class.java)
+        }
+
+        @Test
         fun `can set expectations with basic auth header`() {
             val feature = feature()
 
