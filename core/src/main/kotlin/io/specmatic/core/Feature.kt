@@ -9,9 +9,12 @@ import io.specmatic.conversions.*
 import io.specmatic.core.Result.Success
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.discriminator.DiscriminatorMetadata
+import io.specmatic.core.examples.source.CombinedSource
 import io.specmatic.core.examples.source.DirectoryExampleSource
 import io.specmatic.core.examples.source.ExampleSource
-import io.specmatic.core.examples.source.FeatureAndUnusedExamples
+import io.specmatic.core.examples.source.FeatureAndExamples
+import io.specmatic.core.examples.source.PreLoadedExampleObjects
+import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.*
 import io.specmatic.core.pattern.Examples.Companion.examplesFrom
@@ -2225,8 +2228,33 @@ data class Feature(
         return this.copy(scenarios = scenariosWithExamples)
     }
 
-    fun loadExternalExamples(exampleSource: ExampleSource): FeatureAndUnusedExamples {
-        return FeatureAndUnusedExamples(loadExternalisedExamplesAndListUnloadableExamples(exampleSource))
+    fun filterExamples(examples: List<ScenarioStub>, filter: String): FeatureAndExamples {
+        if (filter.isBlank()) return FeatureAndExamples(this, externalExamples = examples)
+        val metadataFilter = ScenarioMetadataFilter.from(filter)
+
+        val inlineExamples = this.inlineNamedStubs.map { it.stub.withName(it.name).withType(ExampleType.INLINE) }
+        val inlineSource = PreLoadedExampleObjects(inlineExamples, specmaticConfig)
+
+        val externalExamples = examples.map { it.withType(ExampleType.EXTERNAL) }
+        val externalSource = PreLoadedExampleObjects(externalExamples, specmaticConfig)
+
+        val combinedSources = CombinedSource(listOf(externalSource, inlineSource))
+        val (feature, unusedExamples) = loadExternalisedExamplesAndListUnloadableExamples(combinedSources)
+        val filteredScenarios = ScenarioMetadataFilter.filterUsing(
+            feature.scenarios.asSequence(),
+            metadataFilter,
+        ).toList()
+
+        val foldInitial = emptyList<NamedStub>() to emptyList<ScenarioStub>()
+        val (finalInlineExamples, finalExternalExamples) = filteredScenarios.fold(foldInitial) { acc, scenario ->
+            val (inline, external) = acc
+            val inlineNew = scenario.getExamplesMatching(ExampleType.INLINE)
+            val externalNew = scenario.getExamplesMatching(ExampleType.EXTERNAL).map { it.stub }
+            (inline + inlineNew) to (external + externalNew)
+        }
+
+        val newExampleStore = ExampleStore.from(finalInlineExamples, ExampleType.INLINE)
+        return FeatureAndExamples(feature.copy(scenarios = filteredScenarios, exampleStore = newExampleStore), unusedExamples, finalExternalExamples)
     }
 
     private fun loadExternalisedJSONExamples(testsDirectory: File?): Map<OpenApiSpecification.OperationIdentifier, List<Row>> {

@@ -104,15 +104,6 @@ data class Scenario(
         operationMetadata = scenarioInfo.operationMetadata
     )
 
-    val scenarioStubs: List<ScenarioStub>
-        get() {
-            return examples.flatMap { examples ->
-                examples.rows.mapNotNull { row ->
-                    row.scenarioStub
-                }
-            }
-        }
-
     val apiIdentifier: String
         get() = "$method $path $status"
 
@@ -150,6 +141,16 @@ data class Scenario(
             val pattern = httpRequestPattern.headersPattern.getSOAPActionPattern() ?: return null
             return pattern.generate(resolver).toStringLiteral().removeSurrounding("\"").removePrefix("/")
         }
+
+    fun getExamplesMatching(exampleType: ExampleType): List<NamedStub> {
+        return examples.flatMap { example ->
+            example.rows
+                .asSequence()
+                .filter { it.exampleType == exampleType }
+                .mapNotNull { row -> row.scenarioStub?.let { NamedStub(row.name, it) } }
+                .toList()
+        }
+    }
 
     fun responseBodyFromExample() = exampleRow?.responseBody()
 

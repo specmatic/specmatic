@@ -284,23 +284,10 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         val filterAccumulator = mutableListOf<String>()
         val filteredStubData = stubData.mapNotNull { (feature, scenarioStubs) ->
             val stubFilter = specmaticConfiguration.getStubFilter(File(feature.path)) ?: return@mapNotNull feature to scenarioStubs
-
-            val featureWithAllExamples: Feature = feature.loadExternalExamples(PreLoadedExampleObjects(scenarioStubs, specmaticConfiguration)).feature
-
             if (stubFilter.isNotBlank()) filterAccumulator.add(stubFilter)
-            val metadataFilter = ScenarioMetadataFilter.from(stubFilter)
-            val filteredScenarios = ScenarioMetadataFilter.filterUsing(
-                featureWithAllExamples.scenarios.asSequence(),
-                metadataFilter,
-            ).toList()
-
-            val filteredExamples: List<ScenarioStub> =
-                filteredScenarios.flatMap { scenario -> scenario.scenarioStubs }
-
-            if (filteredScenarios.isNotEmpty()) {
-                val updatedFeature = feature.copy(scenarios = filteredScenarios)
-                updatedFeature to filteredExamples
-            } else null
+            val filteredData = feature.filterExamples(scenarioStubs, stubFilter)
+            if (filteredData.feature.scenarios.isEmpty()) return@mapNotNull null
+            Pair(filteredData.feature, filteredData.externalExamples)
         }
 
         if (filterAccumulator.isNotEmpty() && filteredStubData.isEmpty()) {

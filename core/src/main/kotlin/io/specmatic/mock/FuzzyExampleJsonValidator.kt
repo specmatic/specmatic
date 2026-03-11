@@ -16,7 +16,7 @@ import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 
-private class NoLogPrinter: CompositePrinter() {
+class NoLogPrinter: CompositePrinter() {
     override fun print(msg: LogMessage, indentation: String) {
         return
     }

@@ -420,6 +420,68 @@ internal class StubCommandTest {
     }
 
     @Test
+    fun `should not start stub server when filtered examples are empty`(@TempDir tempDir: File) {
+        val specFile = tempDir.resolve("products.yaml").also {
+            it.writeText(
+                """
+                openapi: 3.0.1
+                info:
+                  title: Products API
+                  version: 1.0.0
+                paths:
+                  /products:
+                    get:
+                      responses:
+                        '200':
+                          description: List products
+                """.trimIndent()
+            )
+        }
+        val configFile = writeSpecmaticYaml(
+            tempDir,
+            """
+            version: 2
+            stub:
+              filter: "METHOD='POST'"
+            """.trimIndent()
+        )
+        val onlyGetExample = tempDir.resolve("products_get.json").also {
+            it.writeText(
+                """
+                {
+                  "http-request": {
+                    "path": "/products",
+                    "method": "GET"
+                  },
+                  "http-response": {
+                    "status": 200
+                  }
+                }
+                """.trimIndent()
+            )
+        }
+
+        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature()
+        val loadedStubs = listOf(ScenarioStub.readFromFile(onlyGetExample))
+
+        every { watchMaker.make(listOf(specFile.canonicalPath)) } returns watcher
+        every { stubLoaderEngine.loadStubs(any(), emptyList(), any(), false) } returns listOf(feature to loadedStubs)
+
+        val (output, exitStatus) = Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            captureStandardOutput(redirectStdErrToStdout = true) {
+                CommandLine(stubCommand).execute(specFile.canonicalPath)
+            }
+        }
+
+        assertThat(exitStatus).isZero()
+        assertThat(output).contains("FATAL: No examples found for the given filters")
+        assertThat(output).contains("METHOD='POST'")
+        verify(exactly = 0) {
+            httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        }
+    }
+
+    @Test
     fun `should set specmatic_base_url property in accordance to passed host and port`() {
         every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
         every { watchMaker.make(any()) } returns watcher
