@@ -23,8 +23,8 @@ import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.ValueDetails
 import io.specmatic.core.pattern.attempt
 import io.specmatic.core.pattern.breadCrumb
+import io.specmatic.core.pattern.isMatcherToken
 import io.specmatic.core.pattern.isOptional
-import io.specmatic.core.pattern.isPatternOrMatcherToken
 import io.specmatic.core.pattern.isPatternToken
 import io.specmatic.core.pattern.newBasedOn
 import io.specmatic.core.pattern.newMapBasedOn
@@ -369,7 +369,7 @@ data class HttpRequestPattern(
 
             requestPattern = attempt(breadCrumb = "URL") {
                 val path = request.path ?: ""
-                val pathTypes = pathToPattern(path)
+                val pathTypes = this.httpPathPattern.patternFrom(path, resolver).pathSegmentPatterns
                 val queryParamTypes = toTypeMapForQueryParameters(request.queryParams, httpQueryParamPattern, resolver)
                 requestPattern.copy(
                     httpPathPattern = HttpPathPattern(pathTypes, path),
@@ -409,7 +409,7 @@ data class HttpRequestPattern(
                         EmptyString -> EmptyStringPattern
                         NoBodyValue -> NoBodyPattern
                         is StringValue -> encompassedType(request.bodyString, null, body, resolver)
-                        else -> request.body.exactMatchElseType()
+                        else -> this.body.patternFrom(request.body, resolver)
                     }
                 )
             }
@@ -531,7 +531,8 @@ data class HttpRequestPattern(
 
     private fun encompassedType(valueString: String, key: String?, type: Pattern, resolver: Resolver): Pattern {
         return when {
-            isPatternOrMatcherToken(valueString) -> resolvedHop(parsedPattern(valueString, key), resolver)
+            isPatternToken(valueString) -> resolvedHop(parsedPattern(valueString, key), resolver)
+            isMatcherToken(valueString) -> type.patternFrom(StringValue(valueString), resolver)
             else -> runCatching { type.parseToType(valueString, resolver) }.getOrElse { StringValue(valueString).exactMatchElseType() }
         }
     }

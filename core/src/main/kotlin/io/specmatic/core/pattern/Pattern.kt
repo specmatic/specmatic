@@ -3,6 +3,7 @@ package io.specmatic.core.pattern
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.Substitution
+import io.specmatic.core.matchers.Matcher
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.ScalarValue
@@ -95,6 +96,19 @@ interface Pattern {
 
     fun fixValue(value: Value, resolver: Resolver): Value {
         return fixValue(value, this, resolver)
+    }
+
+    fun patternFrom(value: Value, resolver: Resolver): Pattern {
+        if(value !is StringValue) return value.exactMatchElseType()
+        if(isPatternToken(value)) return DeferredPattern(value.string)
+        if(isMatcherToken(value)) {
+            return Matcher.patternFrom(
+                value = value,
+                originalPattern = this,
+                resolver = resolver,
+            )
+        }
+        return value.exactMatchElseType()
     }
 
     val typeAlias: String?

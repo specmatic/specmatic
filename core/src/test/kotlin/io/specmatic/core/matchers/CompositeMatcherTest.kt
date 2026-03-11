@@ -6,8 +6,12 @@ import io.specmatic.core.BreadCrumb
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.jsonoperator.RequestResponseOperator
+import io.specmatic.core.pattern.ExactValuePattern
 import io.specmatic.core.pattern.HasFailure
 import io.specmatic.core.pattern.HasValue
+import io.specmatic.core.pattern.NumberPattern
+import io.specmatic.core.pattern.RegexConstrainedPattern
+import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.value.StringValue
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
@@ -16,6 +20,55 @@ import org.junit.jupiter.api.Test
 class CompositeMatcherTest {
     private val mockResolver = mockk<Resolver>()
     private val mockOperator = mockk<RequestResponseOperator>()
+
+    @Test
+    fun `patternFrom should prefer equality matcher`() {
+        val matcher = CompositeMatcher(
+            matchers = listOf(
+                RegexMatcher(BreadCrumb.from(), "^Hello.*"),
+                EqualityMatcher(BreadCrumb.from(), StringValue("hello"), EqualityStrategy.EQUALS)
+            )
+        )
+        val original = StringPattern()
+
+        val result = matcher.patternFrom(original)
+
+        assertThat(result).isEqualTo(ExactValuePattern(StringValue("hello")))
+    }
+
+    @Test
+    fun `patternFrom should prefer regex matcher when no equality matcher is present`() {
+        val matcher = CompositeMatcher(
+            matchers = listOf(
+                PatternMatcher(BreadCrumb.from(), NumberPattern()),
+                RegexMatcher(BreadCrumb.from(), "^Hello.*")
+            )
+        )
+        val original = StringPattern()
+
+        val result = matcher.patternFrom(original)
+
+        assertThat(result).isEqualTo(RegexConstrainedPattern(original, "^Hello.*"))
+    }
+
+    @Test
+    fun `patternFrom should return pattern matcher when no equality or regex matcher is present`() {
+        val matcher = CompositeMatcher(matchers = listOf(PatternMatcher(BreadCrumb.from(), NumberPattern())))
+
+        val result = matcher.patternFrom(StringPattern())
+
+        assertThat(result).isEqualTo(NumberPattern())
+    }
+
+    @Test
+    fun `patternFrom should return original pattern when no matchers are present`() {
+        val matcher = CompositeMatcher(matchers = emptyList())
+        val original = StringPattern()
+
+        val result = matcher.patternFrom(original)
+
+        assertThat(result).isSameAs(original)
+    }
 
     @Test
     fun `should execute all non-exhaustive matchers first acting as a guard-clause`() {

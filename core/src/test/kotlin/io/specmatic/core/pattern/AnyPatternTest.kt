@@ -1324,6 +1324,241 @@ internal class AnyPatternTest {
         }
     }
 
+    @Nested
+    inner class PatternFromTest {
+        @Test
+        fun `patternFrom should resolve pattern tokens using the matching AnyPattern option`() {
+            val pattern = AnyPattern(listOf(StringPattern(), NumberPattern()), extensions = emptyMap())
+
+            val result = pattern.patternFrom(StringValue("(number)"), Resolver())
+
+            assertThat(result).isEqualTo(DeferredPattern("(number)"))
+        }
+
+        @Test
+        fun `patternFrom should return the discriminator based pattern`() {
+            val pattern = AnyPattern(
+                listOf(
+                    JSONObjectPattern(
+                        mapOf("type" to ExactValuePattern(StringValue("sub1")), "prop" to StringPattern()),
+                        typeAlias = "(Sub1)"
+                    ),
+                    JSONObjectPattern(mapOf("type" to ExactValuePattern(StringValue("sub2")), "prop" to NumberPattern()), typeAlias = "(Sub2)")
+                ), typeAlias = "(Base)",
+                discriminator = Discriminator(
+                    property = "type",
+                    values = setOf("sub1", "sub2"),
+                    mapping = mapOf("sub1" to "#/components/schemas/Sub1", "sub2" to "#/components/schemas/Sub2")
+                )
+            )
+
+            val result = pattern.patternFrom(
+                JSONObjectValue(
+                    mapOf(
+                        "type" to StringValue("sub1"),
+                        "prop" to StringValue("prop")
+                    )
+                ),
+                Resolver()
+            )
+
+            assertThat(result).isInstanceOf(JSONObjectPattern::class.java)
+
+            assertThat(result).isEqualTo(
+                JSONObjectPattern(
+                    mapOf(
+                        "type" to ExactValuePattern(StringValue("sub1")),
+                        "prop" to ExactValuePattern(StringValue("prop"))
+                    ), typeAlias = "(Sub1)"
+                )
+            )
+        }
+
+        @Test
+        fun `patternFrom should return the correct discriminator pattern on wrong or invalid discriminator value`() {
+            val pattern = AnyPattern(
+                listOf(
+                    JSONObjectPattern(mapOf("type" to ExactValuePattern(StringValue("sub1")), "prop" to StringPattern(), "extra" to StringPattern()), typeAlias = "(Sub1)"),
+                    JSONObjectPattern(mapOf("type" to ExactValuePattern(StringValue("sub2")), "prop" to NumberPattern()), typeAlias = "(Sub2)")
+                ), typeAlias = "(Base)",
+                discriminator = Discriminator(
+                    property = "type",
+                    values = setOf("sub1", "sub2"),
+                    mapping = mapOf("sub1" to "#/components/schemas/Sub1", "sub2" to "#/components/schemas/Sub2")
+                )
+            )
+
+            val invalidValue = JSONObjectValue(mapOf("type" to StringValue("notExists"), "prop" to NumberValue(999)))
+            val result = pattern.patternFrom(invalidValue, Resolver())
+
+            assertThat(result).isInstanceOf(JSONObjectPattern::class.java)
+
+            assertThat(result).isEqualTo(
+                JSONObjectPattern(
+                    mapOf(
+                        "type" to ExactValuePattern(StringValue("notExists")),
+                        "prop" to ExactValuePattern(NumberValue(999))
+                    ), typeAlias = "(Sub1)"
+                )
+            )
+        }
+
+        @Test
+        fun `patternFrom should return the pattern with least failures when discriminator key is missing from value`() {
+            val pattern = AnyPattern(
+                listOf(
+                    JSONObjectPattern(mapOf("type" to ExactValuePattern(StringValue("sub1")), "prop" to StringPattern(), "extra" to StringPattern()), typeAlias = "(Sub1)"),
+                    JSONObjectPattern(mapOf("type" to ExactValuePattern(StringValue("sub2")), "prop" to NumberPattern()), typeAlias = "(Sub2)")
+                ), typeAlias = "(Base)",
+                discriminator = Discriminator(
+                    property = "type",
+                    values = setOf("sub1", "sub2"),
+                    mapping = mapOf("sub1" to "#/components/schemas/Sub1", "sub2" to "#/components/schemas/Sub2")
+                )
+            )
+
+            val valueWithoutDiscriminator = JSONObjectValue(mapOf("prop" to NumberValue(999)))
+            val result = pattern.patternFrom(valueWithoutDiscriminator, Resolver())
+
+            assertThat(result).isInstanceOf(JSONObjectPattern::class.java)
+            assertThat(result).isEqualTo(
+                JSONObjectPattern(
+                    mapOf(
+                        "prop" to ExactValuePattern(NumberValue(999))
+                    )
+                )
+            )
+        }
+
+        @Test
+        fun `patternFrom should return the pattern with least failures when no discriminator is present in the pattern`() {
+            val pattern = AnyPattern(
+                listOf(
+                    JSONObjectPattern(mapOf("type" to ExactValuePattern(StringValue("sub1")), "prop" to StringPattern(), "extra" to StringPattern()), typeAlias = "(Sub1)"),
+                    JSONObjectPattern(mapOf("type" to ExactValuePattern(StringValue("sub2")), "prop" to NumberPattern()), typeAlias = "(Sub2)")
+                ), typeAlias = "(Base)",
+                discriminator = null
+            )
+
+            val value = JSONObjectValue(mapOf("prop" to NumberValue(999)))
+            val result = pattern.patternFrom(value, Resolver())
+
+            assertThat(result).isInstanceOf(JSONObjectPattern::class.java)
+            assertThat(result).isEqualTo(
+                JSONObjectPattern(
+                    mapOf(
+                        "prop" to ExactValuePattern(NumberValue(999))
+                    )
+                )
+            )
+        }
+
+        @Test
+        fun `patternFrom should retain pattern token if it matches when resolver is in mock mode`() {
+            val objectPattern = JSONObjectPattern(mapOf("type" to "object".toDiscriminator(), "number" to NumberPattern(), "string" to StringPattern()), typeAlias = "(Object)")
+            val pattern = AnyPattern(
+                pattern = listOf(objectPattern), typeAlias = "(AnyPattern)",
+                discriminatorValues = setOf("object"), discriminatorProperty = "type"
+            )
+            val resolver = Resolver(newPatterns = mapOf("(Object)" to objectPattern, "(AnyPattern)" to pattern), mockMode = true)
+            val validValues = listOf(StringValue("(Object)"), StringValue("(AnyPattern)"))
+
+            assertThat(validValues).allSatisfy {
+                val result = pattern.patternFrom(it, resolver)
+                assertThat(result).isEqualTo(DeferredPattern(it.string))
+            }
+        }
+
+        @Test
+        fun `patternFrom should generate pattern when pattern token does not match when resolver is in mock mode`() {
+            val objectPattern = JSONObjectPattern(mapOf("type" to "object".toDiscriminator(), "number" to NumberPattern(), "string" to StringPattern()), typeAlias = "(Object)")
+            val pattern = AnyPattern(
+                pattern = listOf(objectPattern), typeAlias = "(AnyPattern)",
+                discriminatorValues = setOf("object"), discriminatorProperty = "type"
+            )
+            val resolver = Resolver(newPatterns = mapOf("(Object)" to objectPattern, "(AnyPattern)" to pattern), mockMode = true)
+            val invalidValues = listOf(StringValue("(string)"), StringValue("(number)"))
+
+            assertThat(invalidValues).allSatisfy {
+                val result = pattern.patternFrom(it, resolver)
+                assertThat(result).isEqualTo(DeferredPattern(it.string))
+            }
+        }
+
+        @Test
+        fun `patternFrom should generate pattern even if pattern token matches but resolver is not in mock mode`() {
+            val objectPattern = JSONObjectPattern(mapOf("type" to "object".toDiscriminator(), "number" to NumberPattern(), "string" to StringPattern()), typeAlias = "(Object)")
+            val pattern = AnyPattern(
+                pattern = listOf(objectPattern), typeAlias = "(AnyPattern)",
+                discriminatorValues = setOf("object"), discriminatorProperty = "type"
+            )
+            val resolver = Resolver(newPatterns = mapOf("(Object)" to objectPattern, "(AnyPattern)" to pattern), mockMode = false)
+            val values = listOf(StringValue("(Object)"), StringValue("(AnyPattern)"))
+
+            assertThat(values).allSatisfy {
+                val result = pattern.patternFrom(it, resolver)
+                assertThat(result).isEqualTo(DeferredPattern(it.string))
+            }
+        }
+
+        @Test
+        fun `patternFrom should work when pattern is scalar based of nullable type`() {
+            val pattern = AnyPattern(listOf(NullPattern, NumberPattern()), extensions = emptyMap())
+            val resolver = Resolver()
+            val value = NumberValue(999)
+            val result = pattern.patternFrom(value, resolver)
+
+            assertThat(result).isEqualTo(ExactValuePattern(NumberValue(999)))
+        }
+
+        @Test
+        fun `patternFrom scalar pattern should be created when pattern has typeAlias`() {
+            val pattern = AnyPattern(listOf(NullPattern, NumberPattern()), typeAlias = "(NumberOrEmpty)", extensions = emptyMap())
+            val resolver = Resolver()
+            val value = NumberValue(999)
+            val result = pattern.patternFrom(value, resolver)
+
+            assertThat(result).isEqualTo(ExactValuePattern(NumberValue(999)))
+        }
+
+        @Test
+        fun `patternFrom should not throw an exception for a nullable pattern`() {
+            val pattern = AnyPattern(listOf(NullPattern, NumberPattern()), extensions = emptyMap())
+            val resolver = Resolver()
+
+            val value = NumberValue(999)
+            val result = assertDoesNotThrow { pattern.patternFrom(value, resolver) }
+
+            assertThat(result).isEqualTo(ExactValuePattern(NumberValue(999)))
+        }
+
+        @Test
+        fun `patternFrom should be able to create pattern from values with a partial resolver`() {
+            val pattern = AnyPattern(
+                listOf(
+                    JSONObjectPattern(mapOf("type" to "sub1".toDiscriminator(), "prop" to StringPattern(), "extra" to NumberPattern()), typeAlias = "(Sub1)"),
+                    JSONObjectPattern(mapOf("type" to "sub2".toDiscriminator(), "prop" to NumberPattern()), typeAlias = "(Sub2)")
+                ), typeAlias = "(Base)",
+                discriminator = Discriminator(
+                    property = "type",
+                    values = setOf("sub1", "sub2"),
+                    mapping = mapOf("sub1" to "#/components/schemas/Sub1", "sub2" to "#/components/schemas/Sub2")
+                )
+            )
+            val resolver = Resolver().partializeKeyCheck()
+            val partialValue = JSONObjectValue(mapOf("extra" to NumberValue(999)))
+            val result = pattern.patternFrom(partialValue, resolver)
+
+            assertThat(result).isEqualTo(
+                JSONObjectPattern(
+                    mapOf(
+                        "extra" to ExactValuePattern(NumberValue(999))
+                    )
+                )
+            )
+        }
+    }
+
     private fun String.toDiscriminator(): ExactValuePattern {
         return ExactValuePattern(StringValue(this))
     }

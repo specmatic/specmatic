@@ -1,0 +1,18 @@
+{
+  "http-request": {
+    "method": "POST",
+    "path": "/search",
+    "body": {
+      "code": "$match(pattern: ^[A-Z]{3}[0-9]{3}$)"
+    }
+  },
+  "http-response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "message": "matched"
+    }
+  }
+}

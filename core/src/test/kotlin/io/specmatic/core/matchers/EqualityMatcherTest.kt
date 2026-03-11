@@ -9,7 +9,10 @@ import io.specmatic.core.jsonoperator.RequestResponseOperator
 import io.specmatic.core.jsonoperator.value.ValueOperator
 import io.specmatic.core.pattern.HasFailure
 import io.specmatic.core.pattern.HasValue
+import io.specmatic.core.pattern.ExactValuePattern
+import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.value.NumberValue
+import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
@@ -20,6 +23,40 @@ import org.junit.jupiter.params.provider.CsvSource
 class EqualityMatcherTest {
     private val mockResolver = mockk<Resolver>()
     private val mockOperator = mockk<RequestResponseOperator>()
+
+    @Test
+    fun `patternFrom should return exact value pattern for scalar equals`() {
+        val matcher = EqualityMatcher(BreadCrumb.from(), NumberValue(10), EqualityStrategy.EQUALS)
+
+        val result = matcher.patternFrom(StringPattern())
+
+        assertThat(result).isEqualTo(ExactValuePattern(NumberValue(10)))
+    }
+
+    @Test
+    fun `patternFrom should return original pattern for non scalar value`() {
+        val matcher = EqualityMatcher(
+            BreadCrumb.from(),
+            JSONObjectValue(mapOf("key" to StringValue("value"))),
+            EqualityStrategy.EQUALS
+        )
+        val original = StringPattern()
+
+        val result = matcher.patternFrom(original)
+
+        assertThat(result).isSameAs(original)
+    }
+
+    @Test
+    fun `patternFrom should return original pattern for non equals strategy`() {
+        val value = StringValue("hello")
+        val matcher = EqualityMatcher(BreadCrumb.from(), value, EqualityStrategy.NOT_EQUALS)
+        val original = StringPattern()
+
+        val result = matcher.patternFrom(original)
+
+        assertThat(result).isEqualTo(original)
+    }
 
     @Test
     fun `should match when values are equal using EQUALS strategy`() {
@@ -194,48 +231,6 @@ class EqualityMatcherTest {
             )
 
             assertThat(result).isInstanceOf(HasFailure::class.java)
-        }
-
-        @ParameterizedTest(name = "value=''{0}'' → pattern should be created")
-        @CsvSource(
-            "1.23",
-            "0.5",
-            ".5",
-            "10.",
-            "123.0001",
-            "123",
-            "abc",
-            "abc.def",
-            "gmail.com",
-            "v1.2.3",
-            "foo.bar.baz",
-            "version.1",
-            "a.b"
-        )
-        fun `should create pattern for any string including dotted`(raw: String) {
-            val result = EqualityMatcher.Companion.EqualityFactory.toPatternSimplified(mapOf("exact" to StringValue(raw)))
-            assertThat(result).isNotNull()
-        }
-
-        @ParameterizedTest(name = "value=''{0}'' → pattern should be created")
-        @CsvSource(
-            "1.23",
-            "0.5",
-            ".5",
-            "10.",
-            "123.0001",
-            "123",
-            "abc",
-            "abc.def",
-            "gmail.com",
-            "v1.2.3",
-            "foo.bar.baz",
-            "version.1",
-            "a.b"
-        )
-        fun `should not create pattern for any string including dotted when called with $eq`(raw: String) {
-            val result = EqualityMatcher.Companion.EqualityFactory.toPatternSimplified(StringValue("\$eq($raw)"))
-            assertThat(result).isNull()
         }
     }
 

@@ -7,9 +7,10 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.jsonoperator.Optional
 import io.specmatic.core.jsonoperator.RequestResponseOperator
 import io.specmatic.core.jsonoperator.value.ValueOperator
-import io.specmatic.core.pattern.ExactValuePattern
 import io.specmatic.core.pattern.HasFailure
 import io.specmatic.core.pattern.HasValue
+import io.specmatic.core.pattern.RegexConstrainedPattern
+import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import org.assertj.core.api.Assertions.*
@@ -19,6 +20,16 @@ import org.junit.jupiter.api.Test
 class RegexMatcherTest {
     private val resolver = Resolver()
     private val mockOperator = mockk<RequestResponseOperator>()
+
+    @Test
+    fun `patternFrom should build regex constrained pattern`() {
+        val matcher = RegexMatcher(BreadCrumb.from(), "^Hello.*")
+        val original = StringPattern()
+
+        val result = matcher.patternFrom(original)
+
+        assertThat(result).isEqualTo(RegexConstrainedPattern(original, "^Hello.*"))
+    }
 
     @Nested
     inner class ExecuteTest {
@@ -76,34 +87,6 @@ class RegexMatcherTest {
 
             val result = matcher.execute(context)
             assertThat(result).isInstanceOf(MatcherResult.MisMatch::class.java)
-        }
-    }
-
-    @Nested
-    inner class ToPatternSimplifiedTest {
-
-        @Test
-        fun `should return the pattern for the given regex pattern that matches a string`() {
-            val pattern = RegexMatcher.toPatternSimplified(
-                StringValue("pattern: ^J.*")
-            )
-
-            assertThat(pattern).isInstanceOf(ExactValuePattern::class.java)
-            val value = (pattern as ExactValuePattern).pattern
-            assertThat(value).isInstanceOf(StringValue::class.java)
-            assertThat(value.toStringLiteral()).startsWith("J")
-        }
-
-        @Test
-        fun `should return the pattern for the given regex pattern that matches a number`() {
-            val pattern = RegexMatcher.toPatternSimplified(
-                StringValue("pattern: ^2\\d*$")
-            )
-
-            assertThat(pattern).isInstanceOf(ExactValuePattern::class.java)
-            val value = (pattern as ExactValuePattern).pattern
-            assertThat(value).isInstanceOf(NumberValue::class.java)
-            assertThat(value.toStringLiteral()).startsWith("2")
         }
     }
 

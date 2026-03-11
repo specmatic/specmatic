@@ -79,6 +79,21 @@ data class TabularPattern(
         })
     }
 
+    override fun patternFrom(value: Value, resolver: Resolver): Pattern {
+        if (value !is JSONObjectValue) return value.exactMatchElseType()
+
+        val updatedPattern = value.jsonObject.mapValues { (key, value) ->
+            val keyPattern = patternForKey(key) ?: value.exactMatchElseType()
+            keyPattern.patternFrom(value, resolver)
+        }
+
+        return this.copy(pattern = updatedPattern)
+    }
+
+    fun patternForKey(key: String): Pattern? {
+        return pattern[withoutOptionality(key)] ?: pattern[withOptionality(key)]
+    }
+
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> {
         val resolverWithNullType = withNullPattern(resolver)
         return allOrNothingCombinationIn(

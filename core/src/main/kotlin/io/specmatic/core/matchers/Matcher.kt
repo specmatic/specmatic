@@ -2,9 +2,11 @@ package io.specmatic.core.matchers
 
 import io.specmatic.core.BreadCrumb
 import io.specmatic.core.Resolver
+import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.ReturnValue
 import io.specmatic.core.pattern.listFold
+import io.specmatic.core.value.ScalarValue
 import io.specmatic.core.value.Value
 import io.specmatic.test.traverse
 
@@ -38,17 +40,21 @@ interface Matcher {
         }
     }
 
-    companion object {
-        private val defaultFactories: List<MatcherFactory> = buildList {
-            add(EqualityMatcher.Companion.EqualityFactory)
-            add(EqualityMatcher.Companion.NonEqualityFactory)
-            add(CompositeMatcher.Companion)
-            add(PatternMatcher.Companion)
-            add(RepetitionMatcher.Companion)
-            add(RegexMatcher.Companion)
-        }
+    fun patternFrom(originalPattern: Pattern): Pattern
 
-        private val registry: MatcherRegistry by lazy { MatcherRegistry.build(defaultFactories) }
+    companion object {
+
+        private val registry: MatcherRegistry by lazy {
+            val defaultFactories = buildList {
+                add(EqualityMatcher.Companion.EqualityFactory)
+                add(EqualityMatcher.Companion.NonEqualityFactory)
+                add(CompositeMatcher.Companion)
+                add(PatternMatcher.Companion)
+                add(RepetitionMatcher.Companion)
+                add(RegexMatcher.Companion)
+            }
+            MatcherRegistry.build(defaultFactories)
+        }
 
         fun parse(path: BreadCrumb, value: Value, context: MatcherContext): ReturnValue<out Matcher>? {
             return registry.parse(path, value, context)
@@ -57,10 +63,6 @@ interface Matcher {
         fun parse(path: BreadCrumb, properties: Map<String, Value>, context: MatcherContext): ReturnValue<List<Matcher>> {
             return registry.parse(path, properties, context)
         }
-
-        fun toPatternSimplified(value: Value): Pattern? = registry.toPatternSimplified(value)
-
-        fun toPatternSimplified(properties: Map<String, Value>): Pattern? = registry.toPatternSimplified(properties)
 
         fun from(value: Value, resolver: Resolver, prefix: String = ""): ReturnValue<List<Matcher>> {
             val context = MatcherContext(resolver = resolver)
@@ -74,6 +76,16 @@ interface Matcher {
                 onAssert = { _, _ -> emptyMap() },
             )
             return pathToMatchers.values.toList().listFold()
+        }
+
+        fun patternFrom(value: ScalarValue, originalPattern: Pattern, resolver: Resolver): Pattern {
+            val context = MatcherContext(resolver = resolver)
+            val matcher = parse(BreadCrumb.from(), value, context) ?: return originalPattern
+
+            if (matcher is HasValue<out Matcher>) {
+                return matcher.value.patternFrom(originalPattern)
+            }
+            return originalPattern
         }
     }
 }

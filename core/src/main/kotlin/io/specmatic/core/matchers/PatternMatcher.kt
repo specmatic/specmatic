@@ -61,6 +61,10 @@ class PatternMatcher(
         return MatcherResult.from(returnValue.breadCrumb(path.value), context)
     }
 
+    override fun patternFrom(originalPattern: Pattern): Pattern {
+        return this.pattern
+    }
+
     companion object : MatcherFactory {
         private const val DATA_TYPE_KEY = "dataType"
         private const val PARTIAL_KEY = "partial"
@@ -106,22 +110,6 @@ class PatternMatcher(
             return runCatching {
                 resolver.getPattern(withPatternDelimiters(value))
             }.map(::HasValue).getOrElse(::HasException)
-        }
-
-        override fun toPatternSimplified(value: Value): Pattern? {
-            if (value !is StringValue) return null
-            val properties = extractPropertiesIfExist(value)
-            return if (properties.isNullOrEmpty() || !canParseFrom(BreadCrumb.from(), properties)) {
-                DeferredPattern(withPatternDelimiters(value.nativeValue))
-            } else {
-                toPatternSimplified(properties)
-            }
-        }
-
-        override fun toPatternSimplified(properties: Map<String, Value>): Pattern? {
-            if (!canParseFrom(BreadCrumb.from(), properties)) return null
-            val dataType = properties.getValue(DATA_TYPE_KEY) as? StringValue ?: return null
-            return DeferredPattern(withPatternDelimiters(dataType.nativeValue))
         }
     }
 }
