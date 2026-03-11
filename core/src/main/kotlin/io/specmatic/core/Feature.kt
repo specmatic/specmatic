@@ -2303,11 +2303,16 @@ data class Feature(
     }
 
     fun loadExternalisedExamplesAndListUnloadableExamples(): Pair<Feature, Set<String>> {
+        return loadExternalisedExamplesAndListUnloadableExamples(getTestExampleSource())
+    }
+
+    private fun getTestExampleSource(): DirectoryExampleSource {
         val testsDirectory = getTestsDirectory(File(this.path), specmaticConfig)?.canonicalPath
         val configTestDirectories = specmaticConfig.getTestExampleDirs(File(path)) + exampleDirPaths
+
         val testExampleDirectories = listOfNotNull(testsDirectory).plus(configTestDirectories)
-        val testExampleSource = DirectoryExampleSource(testExampleDirectories, strictMode, specmaticConfig)
-        return loadExternalisedExamplesAndListUnloadableExamples(testExampleSource)
+
+        return DirectoryExampleSource(testExampleDirectories, strictMode, specmaticConfig)
     }
 
     fun loadExternalisedExamplesAndListUnloadableExamples(exampleSource: ExampleSource): Pair<Feature, Set<String>> {
@@ -2461,7 +2466,7 @@ data class Feature(
         ): Feature {
             val inlineExamples = stubsFromExamples.flatMap { (exampleName, stubs) ->
                 stubs.map { (request, response) ->
-                    NamedStub(exampleName, ScenarioStub(request = request, response = response))
+                    NamedStub(exampleName, ScenarioStub(request = request, response = response, exampleType = ExampleType.INLINE))
                 }
             }
             return from(

@@ -929,7 +929,7 @@ class OpenApiSpecification(
                 .filterKeys { it in unusedRequestExampleNames }
                 .flatMap { (exampleName, examples) ->
                     examples.map { request ->
-                        NamedStub(exampleName, ScenarioStub(request = request, response = emptyResponse))
+                        NamedStub(exampleName, ScenarioStub(request = request, response = emptyResponse, exampleType = ExampleType.INLINE))
                     }
                 }
 
@@ -998,7 +998,7 @@ class OpenApiSpecification(
                 key in requestExamples
             }.map { (key, responseExample) ->
                 requestExamples.getValue(key).map { request ->
-                    NamedStub(key, ScenarioStub(request = request, response = responseExample))
+                    NamedStub(key, ScenarioStub(request = request, response = responseExample, exampleType = ExampleType.INLINE))
                 }
             }
         }.flatten()
