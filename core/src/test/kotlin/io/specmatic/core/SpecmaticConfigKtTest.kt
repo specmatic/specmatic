@@ -10,6 +10,7 @@ import io.specmatic.core.config.KeyStoreConfiguration
 import io.specmatic.core.config.v2.SpecExecutionConfig
 import io.specmatic.core.config.v2.ContractConfig
 import io.specmatic.core.config.SpecmaticConfigVersion
+import io.specmatic.core.utilities.FileAssociation
 import io.specmatic.core.utilities.ContractSourceEntry
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.config.v2.SpecmaticConfigV2
@@ -39,6 +40,13 @@ import java.security.KeyStore
 import java.util.stream.Stream
 
 internal class SpecmaticConfigKtTest {
+    @Test
+    fun `getStubHooks should return global hook associations for v1 v2 config`() {
+        val hooks = mapOf("preSpecmaticRequestProcessor" to "./hooks/decode_request.sh")
+        val config = SpecmaticConfigV1V2Common(version = SpecmaticConfigVersion.VERSION_2, hooks = hooks)
+        assertThat(config.getStubHooks()).containsExactly(FileAssociation.Global(hooks))
+    }
+
     @Test
     fun `should return test https configuration from v2 test config`() {
         val config = SpecmaticConfigV1V2Common(

@@ -105,6 +105,7 @@ import io.netty.handler.ssl.SslProvider
 import io.netty.handler.ssl.SupportedCipherSuiteFilter
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory
 import io.netty.handler.codec.http2.Http2SecurityUtil
+import io.specmatic.core.utilities.FileAssociation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BroadcastChannel
 import kotlinx.coroutines.channels.BufferOverflow
@@ -304,17 +305,25 @@ class HttpStub(
 
     private val broadcastChannels: Vector<BroadcastChannel<SseEvent>> = Vector(50, 10)
 
-    private val requestInterceptors: MutableList<RequestInterceptor> = mutableListOf()
+    private val requestInterceptors: MutableList<FileAssociation<RequestInterceptor>> = mutableListOf()
 
-    private val responseInterceptors: MutableList<ResponseInterceptor> = mutableListOf()
+    private val responseInterceptors: MutableList<FileAssociation<ResponseInterceptor>> = mutableListOf()
 
     fun registerRequestInterceptor(requestInterceptor: RequestInterceptor) {
+        registerRequestInterceptor(FileAssociation.Global(requestInterceptor))
+    }
+
+    fun registerResponseInterceptor(responseInterceptor: ResponseInterceptor) {
+        registerResponseInterceptor(FileAssociation.Global(responseInterceptor))
+    }
+
+    fun registerRequestInterceptor(requestInterceptor: FileAssociation<RequestInterceptor>) {
         if (!requestInterceptors.contains(requestInterceptor)) {
             requestInterceptors.add(requestInterceptor)
         }
     }
 
-    fun registerResponseInterceptor(responseInterceptor: ResponseInterceptor) {
+    fun registerResponseInterceptor(responseInterceptor: FileAssociation<ResponseInterceptor>) {
         if (!responseInterceptors.contains(responseInterceptor)) {
             responseInterceptors.add(responseInterceptor)
         }
@@ -336,16 +345,19 @@ class HttpStub(
                 var responseInterceptorResults: List<InterceptorResult<HttpResponse>> = emptyList()
 
                 try {
+                    val requestBaseUrl = "${call.request.local.scheme}://${call.request.local.localHost}:${call.request.local.localPort}"
+                    val requestUrlPath = call.request.path()
+                    val defaultBaseUrl = endPointFromHostAndPort(host, port, keyDataRegistry.hasAny())
                     val rawHttpRequest = ktorHttpRequestToHttpRequest(call).also {
                         if (it.isHealthCheckRequest()) return@intercept
                     }
 
-                    val (httpRequest, requestInterceptorResults) = requestInterceptors.fold(
-                        rawHttpRequest to emptyList<InterceptorResult<HttpRequest>>()
-                    ) { (request, results), interceptor ->
-                        val result = interceptor.interceptRequestAndReturnErrors(request)
-                        (result.processedValue ?: request) to results + result
-                    }
+                    val (httpRequest, requestInterceptorResults) = applyRequestInterceptors(
+                        rawHttpRequest = rawHttpRequest,
+                        baseUrl = requestBaseUrl,
+                        defaultBaseUrl = defaultBaseUrl,
+                        urlPath = requestUrlPath
+                    )
                     val requestInterceptorErrors = requestInterceptorResults.flatMap { it.errors }
 
                     LicenseResolver.utilize(
@@ -404,25 +416,18 @@ class HttpStub(
                         isStateSetupRequest(httpRequest) -> handleStateSetupRequest(httpRequest).copy(isInternalStubPath = true)
                         isFlushTransientStubsRequest(httpRequest) -> handleFlushTransientStubsRequest(httpRequest).copy(isInternalStubPath = true)
                         else -> {
-                            val responseResult = serveStubResponse(
-                                httpRequest,
-                                baseUrl = "${call.request.local.scheme}://${call.request.local.localHost}:${call.request.local.localPort}",
-                                defaultBaseUrl = endPointFromHostAndPort(host, port, keyDataRegistry.hasAny()),
-                                urlPath = call.request.path()
-                            )
+                            val responseResult = serveStubResponse(httpRequest, baseUrl = requestBaseUrl, defaultBaseUrl = defaultBaseUrl, urlPath = requestUrlPath)
                             if (responseResult is NotStubbed) httpLogMessage.addResult(responseResult.stubResult)
                             responseResult.response
                         }
                     }
 
 
-                    val (httpResponse, responseInterceptorResultsList) = responseInterceptors.fold(
-                        httpStubResponse.response to emptyList<InterceptorResult<HttpResponse>>()
-                    ) { (response, results), interceptor ->
-                        val result = interceptor.interceptResponseAndReturnErrors(httpRequest, response)
-                        (result.processedValue ?: response) to results + result
-                    }
-
+                    val (httpResponse, responseInterceptorResultsList) = applyResponseInterceptors(
+                        httpRequest = httpRequest,
+                        httpResponse = httpStubResponse.response,
+                        specFile = httpStubResponse.contractPath.takeUnless(String::isBlank)?.let(::File)
+                    )
                     responseInterceptorResults = responseInterceptorResultsList
 
                     // Store encoded response for later logging if different
@@ -615,6 +620,62 @@ class HttpStub(
                 "Incoming mTLS is enabled, but no HTTPS key material is configured for ports: ${portsWithIncomingMtlsButNoHttps.joinToString(", ")}"
             )
         }
+    }
+
+    private fun applyRequestInterceptors(rawHttpRequest: HttpRequest, baseUrl: String, defaultBaseUrl: String, urlPath: String): Pair<HttpRequest, List<InterceptorResult<HttpRequest>>> {
+        val global = requestInterceptors.asSequence().filterIsInstance<FileAssociation.Global<RequestInterceptor>>().map { it.data }
+        val (updatedRequest, globalResults) = applyInterceptors(rawHttpRequest, global) { interceptor, req ->
+            interceptor.interceptRequestAndReturnErrors(req)
+        }
+
+        val specLevel = matchingInterceptors(
+            httpRequest = updatedRequest,
+            interceptors = requestInterceptors,
+            baseUrl = baseUrl,
+            defaultBaseUrl = defaultBaseUrl,
+            urlPath = urlPath
+        )
+
+        return applyInterceptors(updatedRequest, specLevel, globalResults) { interceptor, req ->
+            interceptor.interceptRequestAndReturnErrors(req)
+        }
+    }
+
+    private fun applyResponseInterceptors(httpRequest: HttpRequest, httpResponse: HttpResponse, specFile: File?): Pair<HttpResponse, List<InterceptorResult<HttpResponse>>> {
+        val global = responseInterceptors.asSequence().filterIsInstance<FileAssociation.Global<ResponseInterceptor>>().map { it.data }
+        val (updatedResponse, globalResult) = applyInterceptors(httpResponse, global) { interceptor, req ->
+            interceptor.interceptResponseAndReturnErrors(httpRequest, req)
+        }
+
+        if (specFile == null) return Pair(updatedResponse, globalResult)
+        val specLevel = responseInterceptors.filterMatching(specFile)
+        return applyInterceptors(updatedResponse, specLevel, globalResult) { interceptor, req ->
+            interceptor.interceptResponseAndReturnErrors(httpRequest, req)
+        }
+    }
+
+    private fun <T> matchingInterceptors(httpRequest: HttpRequest, interceptors: List<FileAssociation<T>>, baseUrl: String, defaultBaseUrl: String, urlPath: String): Sequence<T> {
+        val feature = matchingFeatureForInterceptors(httpRequest = httpRequest, baseUrl = baseUrl, defaultBaseUrl = defaultBaseUrl, urlPath = urlPath) ?: return emptySequence()
+        return interceptors.filterMatching(File(feature.path))
+    }
+
+    private fun matchingFeatureForInterceptors(httpRequest: HttpRequest, baseUrl: String, defaultBaseUrl: String, urlPath: String): Feature? {
+        val url = "$baseUrl$urlPath"
+        val stubBaseUrlPath = specmaticConfigInstance.stubBaseUrlPathAssociatedTo(url, defaultBaseUrl)
+        val trimmedRequest = httpRequest.trimBaseUrlPath(stubBaseUrlPath)
+        val candidateFeatures = featuresAssociatedTo(baseUrl, features, specToBaseUrlMap, urlPath)
+        return candidateFeatures.firstOrNull { it.identifierMatchingScenario(trimmedRequest) != null }
+    }
+
+    private fun <T, I> applyInterceptors(initial: T, interceptors: Sequence<I>, results: List<InterceptorResult<T>> = emptyList(), run: (I, T) -> InterceptorResult<T>): Pair<T, List<InterceptorResult<T>>> {
+        return interceptors.fold(initial to results) { (value, res), interceptor ->
+            val result = run(interceptor, value)
+            (result.processedValue ?: value) to res + result
+        }
+    }
+
+    private fun <T> List<FileAssociation<T>>.filterMatching(file: File): Sequence<T> {
+        return asSequence().filterIsInstance<FileAssociation.FileScoped<T>>().filter { it.matches(file) }.map { it.data }
     }
 
     private fun targetServerForPort(port: Int): String {

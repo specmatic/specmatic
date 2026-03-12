@@ -11,6 +11,7 @@ import io.specmatic.core.config.SpecmaticSpecConfig
 import io.specmatic.core.config.Switch
 import io.specmatic.core.utilities.ContractSource
 import io.specmatic.core.utilities.ContractSourceEntry
+import io.specmatic.core.utilities.FileAssociation
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
@@ -299,6 +300,9 @@ interface SpecmaticConfig {
 
     @JsonIgnore
     fun getHooks(): Map<String, String>
+
+    @JsonIgnore
+    fun getStubHooks(): List<FileAssociation<Map<String, String>>>
 
     @JsonIgnore
     fun getProxyConfig(): ProxyConfig?
