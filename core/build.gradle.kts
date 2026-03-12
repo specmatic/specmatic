@@ -43,7 +43,7 @@ dependencies {
     implementation("io.swagger.parser.v3:swagger-parser:2.1.37")
 
     implementation("dk.brics:automaton:1.12-4")
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:okhttp:5.3.2")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.14.2")
     testImplementation("org.assertj:assertj-core:3.27.7")
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.14.2")
