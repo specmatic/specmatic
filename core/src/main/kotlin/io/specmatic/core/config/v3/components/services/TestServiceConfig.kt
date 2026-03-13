@@ -1,6 +1,7 @@
 package io.specmatic.core.config.v3.components.services
 
 import com.fasterxml.jackson.annotation.JsonIgnore
+import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.SpecificationSourceEntry
 import io.specmatic.core.config.nonNullElse
@@ -12,6 +13,7 @@ import io.specmatic.core.config.v3.components.ExampleDirectories
 import io.specmatic.core.config.v3.components.runOptions.IRunOptions
 import io.specmatic.core.config.v3.components.runOptions.OpenApiTestConfig
 import io.specmatic.core.config.v3.components.runOptions.TestRunOptions
+import io.specmatic.core.config.v3.components.runOptions.ConfigWithCert
 import io.specmatic.core.config.v3.components.settings.TestSettings
 import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.config.v3.determineSpecTypeFor
@@ -104,6 +106,23 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
     fun getDictionaryPath(resolver: RefOrValueResolver): String? {
         val service = service.resolveElseThrow(resolver)
         return service.data?.dictionary?.resolveElseThrow(resolver)?.path
+    }
+
+    @JsonIgnore
+    fun getCerts(resolver: RefOrValueResolver): List<Pair<String, HttpsConfiguration>> {
+        val serviceConfig = service.resolveElseThrow(resolver)
+        return serviceConfig.definitions.map { it.definition }.flatMap { definition ->
+            definition.specs.mapNotNull { specDefinition ->
+                val specPath = specDefinition.getSpecificationPath().lowercase()
+                val specType = if (specPath.endsWith(".wsdl")) SpecType.WSDL else SpecType.OPENAPI
+                val runOptions = getRunOptions(resolver, specType) ?: return@mapNotNull null
+                val runCert = (runOptions as? ConfigWithCert)?.cert?.resolveElseThrow(resolver) ?: return@mapNotNull null
+                val specId = specDefinition.getSpecificationId()
+                val runOptionSpecOverride = specId?.let(runOptions::getMatchingSpecification)
+                val baseUrl = runOptionSpecOverride?.getBaseUrl("localhost") ?: runOptions.getBaseUrlIfExists() ?: return@mapNotNull null
+                Pair(baseUrl, runCert)
+            }
+        }
     }
 
     fun copyResiliencyTestsConfig(resolver: RefOrValueResolver, resiliencyTestSuite: ResiliencyTestSuite): TestServiceConfig {

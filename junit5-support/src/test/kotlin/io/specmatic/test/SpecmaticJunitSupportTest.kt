@@ -580,6 +580,48 @@ paths:
     }
 
     @Test
+    fun `loadTestScenarios should pass filter to external example loading`() {
+        val specFile = File("src/test/resources/openapi/has_irrelevant_externalized_test.yaml")
+        val strictModeConfig = SpecmaticConfigV1V2Common().withTestModes(strictMode = true, lenientMode = null)
+        val loaded = assertDoesNotThrow {
+            SpecmaticJUnitSupport().loadTestScenarios(
+                path = specFile.canonicalPath,
+                suggestionsPath = "",
+                suggestionsData = "",
+                config = TestConfig(emptyMap(), emptyMap()),
+                filterName = null,
+                filterNotName = null,
+                specmaticConfig = strictModeConfig,
+                filter = ScenarioMetadataFilter.from("METHOD='GET'")
+            )
+        }
+
+        assertThat(loaded.scenarios.map { it.testDescription() }.toList()).allMatch { it.contains("GET /order_action_figure") }
+    }
+
+    @Test
+    fun `loadTestScenarios should load externalized examples before filtering scenarios by tags`() {
+        val specFile = File("src/test/resources/openapi/filter_by_tags_externalized_examples.yaml")
+        val strictModeConfig = SpecmaticConfigV1V2Common().withTestModes(strictMode = true, lenientMode = null)
+        val loaded = assertDoesNotThrow {
+            SpecmaticJUnitSupport().loadTestScenarios(
+                path = specFile.canonicalPath,
+                suggestionsPath = "",
+                suggestionsData = "",
+                config = TestConfig(emptyMap(), emptyMap()),
+                filterName = null,
+                filterNotName = null,
+                specmaticConfig = strictModeConfig,
+                filter = ScenarioMetadataFilter.from("TAGS='WIP'")
+            )
+        }
+
+        assertThat(loaded.scenarios.map { it.testDescription() }.toList())
+            .hasSize(1)
+            .allMatch { it.contains("GET /orders -> 200") }
+    }
+
+    @Test
     fun `loadTestScenarios should filter invalid examples in lenient mode and return validation result`() {
         val specFile = File("src/test/resources/invalid_example/openapi.yaml")
         val specmaticConfig = SpecmaticConfigV1V2Common().withTestModes(strictMode = null, lenientMode = true)

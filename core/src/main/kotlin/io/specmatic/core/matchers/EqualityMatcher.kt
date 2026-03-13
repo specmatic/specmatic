@@ -103,16 +103,12 @@ data class EqualityMatcher(val path: BreadCrumb, val value: Value, val strategy:
             }
         }
 
-        @MatcherKey("eq")
-        object EqualityFactory : BaseEqualityFactory(
-            defaultStrategy = EqualityStrategy.EQUALS,
-            createPattern = { ExactValuePattern(it) },
-        )
+        object EqualityFactory: BaseEqualityFactory(defaultStrategy = EqualityStrategy.EQUALS, createPattern = { ExactValuePattern(it) }) {
+            override val matcherKey: String = "eq"
+        }
 
-        @MatcherKey("neq")
-        object NonEqualityFactory : BaseEqualityFactory(
-            defaultStrategy = EqualityStrategy.NOT_EQUALS,
-            createPattern = { it.deepPattern() },
-        )
+        object NonEqualityFactory : BaseEqualityFactory(defaultStrategy = EqualityStrategy.NOT_EQUALS, createPattern = { it.deepPattern() }) {
+            override val matcherKey: String = "neq"
+        }
     }
 }

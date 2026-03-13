@@ -2,6 +2,7 @@ package io.specmatic.core.jsonoperator
 
 import io.mockk.every
 import io.mockk.mockk
+import io.specmatic.core.HttpPathPattern
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Scenario
@@ -10,6 +11,7 @@ import io.specmatic.core.pattern.HasFailure
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.mock.ScenarioStub
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -82,5 +84,24 @@ class RequestResponseOperatorTest {
 
         val jsonObject = (result as JSONObjectValue).jsonObject
         assertThat(jsonObject).containsKeys("request", "response")
+    }
+
+    @Test
+    fun `should be able to finalize to scenario stub`() {
+        val request = HttpRequest(method = "POST", path = "/api/users", body = StringValue("request body"))
+        val response = HttpResponse(status = 201, body = StringValue("response body"))
+        val mockScenario = mockk<Scenario> {
+            every { httpRequestPattern } returns mockk { every { httpPathPattern } returns HttpPathPattern.from("/api/users") }
+            every { resolver } returns mockk()
+        }
+
+        val operator = RequestResponseOperator.from(request, response, mockScenario)
+        val result = operator.finalizeToScenarioStub().value
+
+        assertThat(result).isInstanceOf(ScenarioStub::class.java)
+        assertThat(result.request.method).isEqualTo("POST")
+        assertThat(result.request.path).isEqualTo("/api/users")
+        assertThat(result.response.status).isEqualTo(201)
+        assertThat(result.response.body).isEqualTo(StringValue("response body"))
     }
 }

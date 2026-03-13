@@ -516,6 +516,47 @@ Background:
         }
 
         @Test
+        fun `should match http request when bearer security scheme in spec uses uppercase scheme value`() {
+            val feature = OpenApiSpecification.fromYAML(
+                """
+                openapi: 3.0.0
+                info:
+                  title: Hello world
+                  version: "1.0"
+                paths:
+                  /hello/{id}:
+                    get:
+                      parameters:
+                        - in: path
+                          name: id
+                          required: true
+                          schema:
+                            type: integer
+                      security:
+                        - BearerAuth: []
+                      responses:
+                        '200':
+                          description: OK
+                components:
+                  securitySchemes:
+                    BearerAuth:
+                      type: http
+                      scheme: Bearer
+                """.trimIndent(), ""
+            ).toFeature()
+
+            val httpRequest = HttpRequest(
+                "GET",
+                "/hello/1",
+                mapOf(HttpHeaders.AUTHORIZATION to "Bearer foo")
+            )
+
+            val result = feature.scenarios.first().httpRequestPattern.matches(httpRequest, Resolver())
+
+            assertThat(result).isInstanceOf(Result.Success::class.java)
+        }
+
+        @Test
         fun `should match http request for spec with bearer security scheme with token defined in environment variable even if the token value in the request is different`() {
             val token = "ENV1234"
             val tokenMap = mapOf(
@@ -584,6 +625,49 @@ Background:
             val result = feature.scenarios.first().httpRequestPattern.matches(httpRequest, Resolver())
             assertThat(result).isInstanceOf(Result.Failure::class.java)
             assertThat(result.reportString()).contains("Authorization header must be prefixed with \"Bearer\"")
+        }
+
+        @Test
+        fun `should generate authorization header when bearer security scheme in spec uses uppercase scheme value`() {
+            val feature = OpenApiSpecification.fromYAML(
+                """
+                openapi: 3.0.0
+                info:
+                  title: Hello world
+                  version: "1.0"
+                paths:
+                  /hello/{id}:
+                    get:
+                      parameters:
+                        - in: path
+                          name: id
+                          required: true
+                          schema:
+                            type: integer
+                      security:
+                        - BearerAuth: []
+                      responses:
+                        '200':
+                          description: OK
+                components:
+                  securitySchemes:
+                    BearerAuth:
+                      type: http
+                      scheme: Bearer
+                """.trimIndent(), ""
+            ).toFeature()
+
+            val result = feature.generateContractTests(emptyList()).single().runTest(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    assertThat(request.headers[HttpHeaders.AUTHORIZATION]).matches("Bearer (\\S+)")
+                    return HttpResponse.OK
+                }
+
+                override fun setServerState(serverState: Map<String, Value>) {
+                }
+            }).result
+
+            assertThat(result).isInstanceOf(Result.Success::class.java)
         }
 
         private fun securityConfigurationForBearerScheme(token: String) = SecurityConfiguration(
@@ -694,6 +778,47 @@ Background:
                 val response = stub.client.execute(HttpRequest("GET", "/hello", headers = mapOf("Authorization" to "Basic $base64EncodedCredentials")))
                 assertThat(response.status).isEqualTo(200)
             }
+        }
+
+        @Test
+        fun `should match http request when basic auth security scheme in spec uses uppercase scheme value`() {
+            val feature = OpenApiSpecification.fromYAML(
+                """
+                openapi: 3.0.0
+                info:
+                  title: Hello world
+                  version: "1.0"
+                paths:
+                  /hello/{id}:
+                    get:
+                      parameters:
+                        - in: path
+                          name: id
+                          required: true
+                          schema:
+                            type: integer
+                      security:
+                        - basicAuth: []
+                      responses:
+                        '200':
+                          description: OK
+                components:
+                  securitySchemes:
+                    basicAuth:
+                      type: http
+                      scheme: Basic
+                """.trimIndent(), ""
+            ).toFeature()
+
+            val httpRequest = HttpRequest(
+                "GET",
+                "/hello/1",
+                mapOf("Authorization" to "Basic $base64EncodedCredentials")
+            )
+
+            val result = feature.scenarios.first().httpRequestPattern.matches(httpRequest, Resolver())
+
+            assertThat(result).isInstanceOf(Result.Success::class.java)
         }
 
         @Test

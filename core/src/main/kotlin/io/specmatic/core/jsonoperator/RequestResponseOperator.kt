@@ -9,6 +9,7 @@ import io.specmatic.core.pattern.ReturnValue
 import io.specmatic.core.pattern.unwrapOrReturn
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
+import io.specmatic.mock.ScenarioStub
 
 data class RequestResponseOperator(
     private val requestOperator: RequestOperator,
@@ -28,6 +29,12 @@ data class RequestResponseOperator(
         val request = requestOperator.finalize().unwrapOrReturn { return it.cast() }
         val response = responseOperator.finalize().unwrapOrReturn { return it.cast() }
         return HasValue(JSONObjectValue(mapOf("request" to request.toJSON(), "response" to response.toJSON())))
+    }
+
+    fun finalizeToScenarioStub(): ReturnValue<ScenarioStub> {
+        val request = requestOperator.finalize().unwrapOrReturn { return it.cast() }
+        val response = responseOperator.finalize().unwrapOrReturn { return it.cast() }
+        return HasValue(ScenarioStub(request = request, response = response))
     }
 
     companion object {

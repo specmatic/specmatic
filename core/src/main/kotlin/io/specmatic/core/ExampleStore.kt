@@ -20,7 +20,7 @@ data class ExampleStore(val examples: List<ExampleData>, val size: Int = example
                 examples.map { namedStub ->
                     ExampleData(
                         name = namedStub.name,
-                        example = namedStub.stub,
+                        example = namedStub.stub.withType(type),
                         type = type,
                         tags = namedStub.stub.getTags()
                     )

@@ -17,12 +17,6 @@ data class MatcherRegistry(
     private val fallbackFactories: CopyOnWriteArrayList<MatcherFactory> = CopyOnWriteArrayList<MatcherFactory>()
 ) {
     fun parse(path: BreadCrumb, value: Value, context: MatcherContext): ReturnValue<out Matcher>? {
-        val lastKey = path.last().value
-        if (keyedFactories.containsKey(lastKey)) {
-            val factory = keyedFactories.getValue(lastKey)
-            return factory.parse(path, value, context)
-        }
-
         val matcherValueDetails = extractMatcherFromValue(value)
         if (matcherValueDetails != null && keyedFactories.containsKey(matcherValueDetails.first)) {
             val factory = keyedFactories.getValue(matcherValueDetails.first)
@@ -78,9 +72,10 @@ data class MatcherRegistry(
             val fallbackFactories = CopyOnWriteArrayList<MatcherFactory>()
 
             ServiceLoader.load(MatcherFactory::class.java).plus(defaults).forEach { factory ->
-                val annotation = factory::class.java.getAnnotation(MatcherKey::class.java)
-                if (annotation != null) {
-                    keyToFactory[annotation.key] = factory
+                val matcherKey = factory.matcherKey
+                if (matcherKey != null) {
+                    if (keyToFactory.containsKey(matcherKey)) throw IllegalArgumentException("Duplicate matcher key: $matcherKey")
+                    keyToFactory[matcherKey] = factory
                 } else {
                     fallbackFactories.add(factory)
                 }

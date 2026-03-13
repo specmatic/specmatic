@@ -4,23 +4,26 @@ import io.specmatic.conversions.lenient.CollectorContext
 import io.specmatic.core.Result
 import io.specmatic.toViolationReportString
 import io.swagger.v3.oas.models.parameters.HeaderParameter
-import io.swagger.v3.oas.models.parameters.Parameter
 import io.swagger.v3.oas.models.parameters.QueryParameter
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 class SecuritySchemeWarnIfExistsInParametersTest {
+    private fun parameterWithContext(parameter: io.swagger.v3.oas.models.parameters.Parameter, collectorContext: CollectorContext): ParameterWithContext<io.swagger.v3.oas.models.parameters.Parameter> {
+        return ParameterWithContext(parameter, collectorContext)
+    }
+
     @Test
     fun `APIKeyInHeaderSecurityScheme should collect error if header param exists`() {
         val scheme = APIKeyInHeaderSecurityScheme("X-API-KEY", null)
         val context = CollectorContext()
         val parameters = listOf(
-            IndexedValue(index = 0, value = HeaderParameter().apply { name = "X-API-KEY" }),
-            IndexedValue(index = 1, value = QueryParameter().apply { name = "apiKey" })
+            parameterWithContext(parameter = HeaderParameter().apply { name = "X-API-KEY" }, collectorContext = context.at("parameters").at(0)),
+            parameterWithContext(parameter = QueryParameter().apply { name = "apiKey" }, collectorContext = context.at("parameters").at(1))
         )
 
-        scheme.collectErrorIfExistsInParameters(parameters, context)
+        scheme.collectErrorIfExistsInParameters(parameters)
         assertThat(context.toCollector().getEntries()).hasSize(1)
         assertThat(context.toCollector().toResult().reportString()).isEqualToIgnoringWhitespace(
             toViolationReportString(
@@ -36,11 +39,11 @@ class SecuritySchemeWarnIfExistsInParametersTest {
         val scheme = APIKeyInQueryParamSecurityScheme("apiKey", null)
         val context = CollectorContext()
         val parameters = listOf(
-            IndexedValue(index = 0, value = HeaderParameter().apply { name = "X-API-KEY" }),
-            IndexedValue(index = 1, value = QueryParameter().apply { name = "apiKey" })
+            parameterWithContext(parameter = HeaderParameter().apply { name = "X-API-KEY" }, collectorContext = context.at("parameters").at(0)),
+            parameterWithContext(parameter = QueryParameter().apply { name = "apiKey" }, collectorContext = context.at("parameters").at(1))
         )
 
-        scheme.collectErrorIfExistsInParameters(parameters, context)
+        scheme.collectErrorIfExistsInParameters(parameters)
         assertThat(context.toCollector().getEntries()).hasSize(1)
         assertThat(context.toCollector().toResult().reportString()).isEqualToIgnoringWhitespace(
             toViolationReportString(
@@ -56,12 +59,12 @@ class SecuritySchemeWarnIfExistsInParametersTest {
         val scheme = BasicAuthSecurityScheme()
         val context = CollectorContext()
         val parameters = listOf(
-            IndexedValue(index = 0, value = HeaderParameter().apply { name = AUTHORIZATION }),
-            IndexedValue(index = 1, value = HeaderParameter().apply { name = "X-API-KEY" }),
-            IndexedValue(index = 2, value = QueryParameter().apply { name = "apiKey" })
+            parameterWithContext(parameter = HeaderParameter().apply { name = AUTHORIZATION }, collectorContext = context.at("parameters").at(0)),
+            parameterWithContext(parameter = HeaderParameter().apply { name = "X-API-KEY" }, collectorContext = context.at("parameters").at(1)),
+            parameterWithContext(parameter = QueryParameter().apply { name = "apiKey" }, collectorContext = context.at("parameters").at(2))
         )
 
-        scheme.collectErrorIfExistsInParameters(parameters, context)
+        scheme.collectErrorIfExistsInParameters(parameters)
         assertThat(context.toCollector().getEntries()).hasSize(1)
         assertThat(context.toCollector().toResult().reportString()).isEqualToIgnoringWhitespace(
             toViolationReportString(
@@ -77,12 +80,12 @@ class SecuritySchemeWarnIfExistsInParametersTest {
         val scheme = BearerSecurityScheme()
         val context = CollectorContext()
         val parameters = listOf(
-            IndexedValue(index = 0, value = HeaderParameter().apply { name = AUTHORIZATION }),
-            IndexedValue(index = 1, value = HeaderParameter().apply { name = "X-API-KEY" }),
-            IndexedValue(index = 2, value = QueryParameter().apply { name = "apiKey" })
+            parameterWithContext(parameter = HeaderParameter().apply { name = AUTHORIZATION }, collectorContext = context.at("parameters").at(0)),
+            parameterWithContext(parameter = HeaderParameter().apply { name = "X-API-KEY" }, collectorContext = context.at("parameters").at(1)),
+            parameterWithContext(parameter = QueryParameter().apply { name = "apiKey" }, collectorContext = context.at("parameters").at(2))
         )
 
-        scheme.collectErrorIfExistsInParameters(parameters, context)
+        scheme.collectErrorIfExistsInParameters(parameters)
         assertThat(context.toCollector().getEntries()).hasSize(1)
         assertThat(context.toCollector().toResult().reportString()).isEqualToIgnoringWhitespace(
             toViolationReportString(
@@ -100,12 +103,12 @@ class SecuritySchemeWarnIfExistsInParametersTest {
         val composite = CompositeSecurityScheme(listOf(headerScheme, bearerScheme))
         val context = CollectorContext()
         val parameters = listOf(
-            IndexedValue(index = 0, value = HeaderParameter().apply { name = AUTHORIZATION }),
-            IndexedValue(index = 1, value = HeaderParameter().apply { name = "X-API-KEY" }),
-            IndexedValue(index = 2, value = QueryParameter().apply { name = "apiKey" })
+            parameterWithContext(parameter = HeaderParameter().apply { name = AUTHORIZATION }, collectorContext = context.at("parameters").at(0)),
+            parameterWithContext(parameter = HeaderParameter().apply { name = "X-API-KEY" }, collectorContext = context.at("parameters").at(1)),
+            parameterWithContext(parameter = QueryParameter().apply { name = "apiKey" }, collectorContext = context.at("parameters").at(2))
         )
 
-        composite.collectErrorIfExistsInParameters(parameters, context)
+        composite.collectErrorIfExistsInParameters(parameters)
         assertThat(context.toCollector().getEntries()).hasSize(2)
         assertThat(context.toCollector().toResult().reportString()).isEqualToIgnoringWhitespace("""
         ${
@@ -129,9 +132,9 @@ class SecuritySchemeWarnIfExistsInParametersTest {
     fun `no warning if header security scheme and query param have same name`() {
         val scheme = APIKeyInHeaderSecurityScheme("X-API-KEY", null)
         val context = CollectorContext()
-        val parameters = listOf(IndexedValue(index = 2, value = QueryParameter().apply { name = "X-API-KEY" }))
+        val parameters = listOf(parameterWithContext(parameter = QueryParameter().apply { name = "X-API-KEY" }, collectorContext = context.at("parameters").at(2)))
 
-        scheme.collectErrorIfExistsInParameters(parameters, context)
+        scheme.collectErrorIfExistsInParameters(parameters)
         assertThat(context.toCollector().getEntries()).isEmpty()
         assertThat(context.toCollector().toResult()).isInstanceOf(Result.Success::class.java)
     }
@@ -141,12 +144,12 @@ class SecuritySchemeWarnIfExistsInParametersTest {
         val scheme = NoSecurityScheme()
         val context = CollectorContext()
         val parameters = listOf(
-            IndexedValue(index = 0, value = HeaderParameter().apply { name = AUTHORIZATION }),
-            IndexedValue(index = 1, value = HeaderParameter().apply { name = "X-API-KEY" }),
-            IndexedValue(index = 2, value = QueryParameter().apply { name = "apiKey" })
+            parameterWithContext(parameter = HeaderParameter().apply { name = AUTHORIZATION }, collectorContext = context.at("parameters").at(0)),
+            parameterWithContext(parameter = HeaderParameter().apply { name = "X-API-KEY" }, collectorContext = context.at("parameters").at(1)),
+            parameterWithContext(parameter = QueryParameter().apply { name = "apiKey" }, collectorContext = context.at("parameters").at(2))
         )
 
-        scheme.collectErrorIfExistsInParameters(parameters, context)
+        scheme.collectErrorIfExistsInParameters(parameters)
         assertThat(context.toCollector().getEntries()).isEmpty()
         assertThat(context.toCollector().toResult()).isInstanceOf(Result.Success::class.java)
     }
@@ -154,7 +157,7 @@ class SecuritySchemeWarnIfExistsInParametersTest {
     @Test
     fun `no warning if there are security schemes and no parameters`() {
         val context = CollectorContext()
-        val parameters = emptyList<IndexedValue<Parameter>>()
+        val parameters = emptyList<ParameterWithContext<io.swagger.v3.oas.models.parameters.Parameter>>()
         val composite = CompositeSecurityScheme(listOf(
             APIKeyInHeaderSecurityScheme("X-API-KEY", null),
             APIKeyInQueryParamSecurityScheme("api_key", null),
@@ -162,7 +165,7 @@ class SecuritySchemeWarnIfExistsInParametersTest {
             BasicAuthSecurityScheme()
         ))
 
-        composite.collectErrorIfExistsInParameters(parameters, context)
+        composite.collectErrorIfExistsInParameters(parameters)
         assertThat(context.toCollector().getEntries()).isEmpty()
         assertThat(context.toCollector().toResult()).isInstanceOf(Result.Success::class.java)
     }
@@ -178,11 +181,11 @@ class SecuritySchemeWarnIfExistsInParametersTest {
 
         val context = CollectorContext()
         val parameters = listOf(
-            IndexedValue(index = 1, value = HeaderParameter().apply { name = "SOME-OTHER-HEADER" }),
-            IndexedValue(index = 2, value = QueryParameter().apply { name = "some_other_query" })
+            parameterWithContext(parameter = HeaderParameter().apply { name = "SOME-OTHER-HEADER" }, collectorContext = context.at("parameters").at(1)),
+            parameterWithContext(parameter = QueryParameter().apply { name = "some_other_query" }, collectorContext = context.at("parameters").at(2))
         )
 
-        composite.collectErrorIfExistsInParameters(parameters, context)
+        composite.collectErrorIfExistsInParameters(parameters)
         assertThat(context.toCollector().getEntries()).isEmpty()
         assertThat(context.toCollector().toResult()).isInstanceOf(Result.Success::class.java)
     }

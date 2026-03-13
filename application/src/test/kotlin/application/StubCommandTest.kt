@@ -4,16 +4,20 @@ import com.ginsberg.junit.exit.ExpectSystemExitWithStatus
 import io.mockk.*
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
+import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.CONTRACT_EXTENSION
-import io.specmatic.core.KeyData
+import io.specmatic.core.IncomingMtlsRegistry
 import io.specmatic.core.KeyDataRegistry
+import io.specmatic.core.config.v3.SpecmaticConfigV3Impl
 import io.specmatic.core.parseGherkinStringToFeature
 import io.specmatic.core.utilities.ContractPathData
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.core.utilities.StubServerWatcher
+import io.specmatic.core.utilities.yamlMapper
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpStub
+import io.specmatic.stub.SpecmaticConfigSource
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -118,6 +122,7 @@ internal class StubCommandTest {
                     host,
                     port,
                     any(),
+                    any(),
                     strictMode,
                     any(),
                     httpClientFactory = any(),
@@ -139,6 +144,7 @@ internal class StubCommandTest {
 
             verify(exactly = 1) {
                 httpStubEngine.runHTTPStub(
+                    any(),
                     any(),
                     any(),
                     any(),
@@ -171,7 +177,7 @@ internal class StubCommandTest {
         every { specmaticConfig.contractStubPaths() }.returns(arrayListOf("/config/path/to/contract.$extension"))
         every { specmaticConfig.contractStubPathData() } returns emptyList()
         every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
-        every { httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } answers {
+        every { httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } answers {
             mockk<HttpStub> { every { close() } returns Unit }
         }
 
@@ -246,6 +252,7 @@ internal class StubCommandTest {
                     host,
                     port,
                     any(),
+                    any(),
                     strictMode,
                     passThroughTargetBase,
                     httpClientFactory = any(),
@@ -274,6 +281,7 @@ internal class StubCommandTest {
                     host,
                     any(),
                     any(),
+                    any(),
                     strictMode,
                     any(),
                     httpClientFactory = any(),
@@ -289,13 +297,198 @@ internal class StubCommandTest {
     }
 
     @Test
+    fun `should exclude preloaded stub examples that do not match any filtered scenario`(@TempDir tempDir: File) {
+        val specFile = tempDir.resolve("products.yaml").also {
+            it.writeText(
+                """
+                openapi: 3.0.1
+                info:
+                  title: Products API
+                  version: 1.0.0
+                paths:
+                  /products:
+                    get:
+                      responses:
+                        '200':
+                          description: List products
+                          content:
+                            application/json:
+                              schema:
+                                type: array
+                                items:
+                                  type: object
+                                  required:
+                                    - id
+                                  properties:
+                                    id:
+                                      type: integer
+                """.trimIndent()
+            )
+        }
+        val configFile = writeSpecmaticYaml(
+            tempDir,
+            """
+            version: 2
+            stub:
+              filter: "METHOD='GET'"
+            """.trimIndent()
+        )
+        val validExampleFile = tempDir.resolve("products_get.json").also {
+            it.writeText(
+                """
+                {
+                  "http-request": {
+                    "path": "/products",
+                    "method": "GET"
+                  },
+                  "http-response": {
+                    "status": 200,
+                    "body": [
+                      {
+                        "id": 10
+                      }
+                    ],
+                    "headers": {
+                      "Content-Type": "application/json"
+                    }
+                  }
+                }
+                """.trimIndent()
+            )
+        }
+        val unmatchedExampleFile = tempDir.resolve("orders_get.json").also {
+            it.writeText(
+                """
+                {
+                  "http-request": {
+                    "path": "/orders",
+                    "method": "GET"
+                  },
+                  "http-response": {
+                    "status": 200,
+                    "body": {
+                      "id": 20
+                    },
+                    "headers": {
+                      "Content-Type": "application/json"
+                    }
+                  }
+                }
+                """.trimIndent()
+            )
+        }
+
+        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature()
+        val loadedStubs = listOf(
+            ScenarioStub.readFromFile(validExampleFile),
+            ScenarioStub.readFromFile(unmatchedExampleFile)
+        )
+        val stubsSlot = slot<List<Pair<io.specmatic.core.Feature, List<ScenarioStub>>>>()
+
+        every { watchMaker.make(listOf(specFile.canonicalPath)) } returns watcher
+        every { stubLoaderEngine.loadStubs(any(), emptyList(), any(), false) } returns listOf(feature to loadedStubs)
+        every {
+            httpStubEngine.runHTTPStub(
+                capture(stubsSlot),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+            )
+        } returns mockk { every { close() } returns Unit }
+
+        val exitStatus = Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            CommandLine(stubCommand).execute(specFile.canonicalPath)
+        }
+
+        assertThat(exitStatus).isZero()
+        assertThat(stubsSlot.captured).hasSize(1)
+
+        val (filteredFeature, filteredExamples) = stubsSlot.captured.single()
+        assertThat(filteredFeature.scenarios).hasSize(1)
+        assertThat(filteredExamples).hasSize(1)
+        assertThat(filteredExamples.single().request.path).isEqualTo("/products")
+    }
+
+    @Test
+    fun `should not start stub server when filtered examples are empty`(@TempDir tempDir: File) {
+        val specFile = tempDir.resolve("products.yaml").also {
+            it.writeText(
+                """
+                openapi: 3.0.1
+                info:
+                  title: Products API
+                  version: 1.0.0
+                paths:
+                  /products:
+                    get:
+                      responses:
+                        '200':
+                          description: List products
+                """.trimIndent()
+            )
+        }
+        val configFile = writeSpecmaticYaml(
+            tempDir,
+            """
+            version: 2
+            stub:
+              filter: "METHOD='POST'"
+            """.trimIndent()
+        )
+        val onlyGetExample = tempDir.resolve("products_get.json").also {
+            it.writeText(
+                """
+                {
+                  "http-request": {
+                    "path": "/products",
+                    "method": "GET"
+                  },
+                  "http-response": {
+                    "status": 200
+                  }
+                }
+                """.trimIndent()
+            )
+        }
+
+        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature()
+        val loadedStubs = listOf(ScenarioStub.readFromFile(onlyGetExample))
+
+        every { watchMaker.make(listOf(specFile.canonicalPath)) } returns watcher
+        every { stubLoaderEngine.loadStubs(any(), emptyList(), any(), false) } returns listOf(feature to loadedStubs)
+
+        val (output, exitStatus) = Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            captureStandardOutput(redirectStdErrToStdout = true) {
+                CommandLine(stubCommand).execute(specFile.canonicalPath)
+            }
+        }
+
+        assertThat(exitStatus).isZero()
+        assertThat(output).contains("FATAL: No examples found for the given filters")
+        assertThat(output).contains("METHOD='POST'")
+        verify(exactly = 0) {
+            httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        }
+    }
+
+    @Test
     fun `should set specmatic_base_url property in accordance to passed host and port`() {
         every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
         every { watchMaker.make(any()) } returns watcher
         every { specmaticConfig.contractStubPaths() } returns emptyList()
         every { specmaticConfig.contractStubPathData() } returns emptyList()
         every {
-            httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+            httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
         } returns mockk { every { close() } returns Unit }
 
         try {
@@ -345,6 +538,7 @@ internal class StubCommandTest {
                 capture(hostSlot),
                 capture(portSlot),
                 capture(keyDataSlot),
+                any(),
                 capture(strictModeSlot),
                 any(),
                 any(),
@@ -405,6 +599,7 @@ internal class StubCommandTest {
                 capture(hostSlot),
                 capture(portSlot),
                 capture(keyDataSlot),
+                any(),
                 capture(strictModeSlot),
                 capture(passThroughSlot),
                 any(),
@@ -436,12 +631,55 @@ internal class StubCommandTest {
     }
 
     @Test
+    fun `uses final config when creating specmatic config source`(@TempDir tempDir: File) {
+        val specmaticConfigSourceSlot = slot<SpecmaticConfigSource>()
+        val configFile = writeSpecmaticYaml(tempDir, """
+        version: 3
+        specmatic:
+          settings:
+            mock:
+              delayInMilliseconds: 10
+        """.trimIndent())
+
+        every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
+        every { watchMaker.make(any()) } returns watcher
+        every { specmaticConfig.contractStubPaths() } returns emptyList()
+        every { specmaticConfig.contractStubPathData(any()) } returns emptyList()
+        every {
+            httpStubEngine.runHTTPStub(
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                capture(specmaticConfigSourceSlot),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+            )
+        } returns mockk<HttpStub> { every { close() } returns Unit }
+
+        Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            CommandLine(stubCommand).execute("--delay-in-ms=250")
+        }
+
+        val loadedConfig = specmaticConfigSourceSlot.captured.load()
+        assertThat(loadedConfig.config.getStubDelayInMilliseconds(null)).isEqualTo(250L)
+        assertThat(loadedConfig.path).isEqualTo(configFile.canonicalPath)
+    }
+
+    @Test
     fun `falls back to defaults when neither CLI nor config is present`() {
         val hostSlot = slot<String>()
         val portSlot = slot<Int>()
         val strictModeSlot = slot<Boolean>()
         val timeoutSlot = slot<Long>()
-        var capturedKeyData: KeyData? = null
+        var capturedKeyDataRegistry: KeyDataRegistry? = null
 
         every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
         every { watchMaker.make(any()) } returns watcher
@@ -454,6 +692,7 @@ internal class StubCommandTest {
                 capture(hostSlot),
                 capture(portSlot),
                 any(),
+                any(),
                 capture(strictModeSlot),
                 any(),
                 any(),
@@ -464,13 +703,13 @@ internal class StubCommandTest {
                 any()
             )
         } answers {
-            capturedKeyData = arg(3) as KeyData?
+            capturedKeyDataRegistry = arg(3)
             mockk<HttpStub> { every { close() } returns Unit }
         }
 
         CommandLine(stubCommand).execute()
 
-        assertThat(capturedKeyData).isNull()
+        assertThat(capturedKeyDataRegistry?.hasAny()).isFalse()
         assertThat(hostSlot.captured).isEqualTo("0.0.0.0")
         assertThat(portSlot.captured).isEqualTo(9000)
         assertThat(strictModeSlot.captured).isFalse()
@@ -498,6 +737,7 @@ internal class StubCommandTest {
                 any(),
                 capture(hostSlot),
                 capture(portSlot),
+                any(),
                 any(),
                 any(),
                 any(),
@@ -547,6 +787,7 @@ internal class StubCommandTest {
                 any(),
                 any(),
                 any(),
+                any(),
                 any()
             )
         } returns mockk { every { close() } returns Unit }
@@ -575,6 +816,7 @@ internal class StubCommandTest {
                 any(),
                 any(),
                 capture(keyDataSlot),
+                any(),
                 any(),
                 any(),
                 any(),
@@ -621,12 +863,55 @@ internal class StubCommandTest {
                 any(),
                 any(),
                 any(),
+                any(),
                 any()
             )
         } returns mockk { every { close() } returns Unit }
 
         Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) { CommandLine(stubCommand).execute() }
         assertThat(keyDataSlot.captured).isNotNull
+    }
+
+    @Test
+    fun `uses incoming mTLS from config when provided`(@TempDir tempDir: File) {
+        val incomingMtlsSlot = slot<IncomingMtlsRegistry>()
+        val keystoreFile = tempDir.resolve("config.jks")
+        createEmptyKeyStore(keystoreFile, "pass")
+        val configFile = writeSpecmaticYaml(tempDir, """
+        version: 2
+        stub:
+          https:
+            mtlsEnabled: true
+            keyStorePassword: pass
+            keyStore:
+              file: ${keystoreFile.canonicalPath}
+        """.trimIndent())
+
+        every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
+        every { watchMaker.make(any()) } returns watcher
+        every { specmaticConfig.contractStubPaths() } returns emptyList()
+        every { specmaticConfig.contractStubPathData() } returns emptyList()
+        every {
+            httpStubEngine.runHTTPStub(
+                any(),
+                any(),
+                any(),
+                any(),
+                capture(incomingMtlsSlot),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+            )
+        } returns mockk { every { close() } returns Unit }
+
+        Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) { CommandLine(stubCommand).execute() }
+
+        assertThat(incomingMtlsSlot.captured.get("localhost", 443)).isTrue()
     }
 
     @Test
@@ -659,6 +944,7 @@ internal class StubCommandTest {
                 capture(hostSlot),
                 any(),
                 capture(keyDataSlot),
+                any(),
                 capture(strictModeSlot),
                 any(),
                 any(),

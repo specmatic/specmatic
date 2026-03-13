@@ -22,7 +22,7 @@ data class HttpLogMessage(
     var contractPath: String = "",
     var exampleName: String? = null,
     var examplePath: String? = null,
-    val targetServer: String = "",
+    var targetServer: String = "",
     val comment: String? = null,
     var scenario: Scenario? = null,
     var exception: Exception? = null,

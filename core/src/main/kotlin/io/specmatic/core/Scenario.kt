@@ -142,6 +142,16 @@ data class Scenario(
             return pattern.generate(resolver).toStringLiteral().removeSurrounding("\"").removePrefix("/")
         }
 
+    fun getExamplesMatching(exampleType: ExampleType): List<NamedStub> {
+        return examples.flatMap { example ->
+            example.rows
+                .asSequence()
+                .filter { it.exampleType == exampleType }
+                .mapNotNull { row -> row.scenarioStub?.let { NamedStub(row.name, it) } }
+                .toList()
+        }
+    }
+
     fun responseBodyFromExample() = exampleRow?.responseBody()
 
     private fun serverStateMatches(actualState: Map<String, Value>, resolver: Resolver) =
@@ -211,11 +221,10 @@ data class Scenario(
         headersResolver: Resolver
     ): Result {
         if (!serverStateMatches(serverState, resolver)) {
-            return Result.Failure("Facts mismatch", breadCrumb = "FACTS").also { it.updateScenario(this) }
+            return Result.Failure("Facts mismatch", breadCrumb = "FACTS").updateScenario(this)
         }
-        return httpRequestPattern.matches(httpRequest, resolver, headersResolver).also {
-            it.updateScenario(this)
-        }
+
+        return httpRequestPattern.matches(httpRequest, resolver, headersResolver).updateScenario(this)
     }
 
     fun generateHttpResponse(actualFacts: Map<String, Value>, requestContext: Context = NoContext): HttpResponse =

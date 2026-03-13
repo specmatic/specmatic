@@ -1,6 +1,7 @@
 package io.specmatic.core.config.v3
 
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.KeyData
 import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.config.toSpecmaticConfig
 import io.specmatic.reporter.model.SpecType
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import java.io.File
+import java.security.KeyStore
 
 class SpecmaticConfigV3ImplTest {
     @TempDir
@@ -44,6 +46,260 @@ class SpecmaticConfigV3ImplTest {
     @ParameterizedTest
     @MethodSource("testData")
     fun `should return similar values between v2 and v3 test data`(testCase: TestCase) = testCase.run(tempDir)
+
+    @Test
+    fun `should resolve test certificate from v3 run options`() {
+        val config = v3Config(
+            """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ./specs
+                      specs:
+                        - simple.yaml
+                runOptions:
+                  openapi:
+                    baseUrl: https://api.example.com:9443
+                    cert:
+                      keyStore:
+                        file: ./client-cert.jks
+                      keyStorePassword: password
+            """.trimIndent()
+        )
+
+        val keyDataRegistry = config.getTestHttpsConfiguration().toKeyDataRegistry {
+            KeyData(emptyKeyStore(), "password")
+        }
+
+        assertThat(keyDataRegistry.get("api.example.com", 9443)).isNotNull()
+    }
+
+    @Test
+    fun `should resolve mTLS setting from v3 mock run options cert`() {
+        val config = v3Config(
+            """
+            version: 3
+            dependencies:
+              services:
+                - service:
+                    definitions:
+                      - definition:
+                          source:
+                            filesystem:
+                              directory: ./specs
+                          specs:
+                            - spec:
+                                id: order-api
+                                path: order.yaml
+                    runOptions:
+                      openapi:
+                        host: localhost
+                        port: 9443
+                        cert:
+                          mtlsEnabled: true
+                          keyStore:
+                            file: ./server-cert.jks
+                          keyStorePassword: password
+            """.trimIndent()
+        )
+
+        val incomingMtlsRegistry = config.getStubHttpsConfiguration().toIncomingMtlsRegistry()
+
+        assertThat(incomingMtlsRegistry.get("localhost", 9443)).isTrue()
+    }
+
+    @Test
+    fun `should resolve mTLS setting from v3 wsdl mock run options cert`() {
+        val config = v3Config(
+            """
+            version: 3
+            dependencies:
+              services:
+                - service:
+                    definitions:
+                      - definition:
+                          source:
+                            filesystem:
+                              directory: ./specs
+                          specs:
+                            - spec:
+                                id: payment-wsdl
+                                path: payment.wsdl
+                    runOptions:
+                      wsdl:
+                        host: localhost
+                        port: 9450
+                        cert:
+                          mtlsEnabled: true
+                          keyStore:
+                            file: ./server-cert.jks
+                          keyStorePassword: password
+            """.trimIndent()
+        )
+
+        val incomingMtlsRegistry = config.getStubHttpsConfiguration().toIncomingMtlsRegistry()
+
+        assertThat(incomingMtlsRegistry.get("localhost", 9450)).isTrue()
+    }
+
+    @Test
+    fun `should reject spec cert override in openapi run options spec`() {
+        assertThatThrownBy {
+            v3Config(
+                """
+                version: 3
+                systemUnderTest:
+                  service:
+                    definitions:
+                      - definition:
+                          source:
+                            filesystem:
+                              directory: ./specs
+                          specs:
+                            - spec:
+                                id: api-spec
+                                path: api.yaml
+                    runOptions:
+                      openapi:
+                        specs:
+                          - spec:
+                              id: api-spec
+                              baseUrl: https://localhost:9443
+                              cert:
+                                keyStore:
+                                  file: ./client-cert.jks
+                                keyStorePassword: password
+                """.trimIndent()
+            )
+        }.hasMessageContaining("cert")
+    }
+
+    @Test
+    fun `should reject spec mtlsEnabled override in openapi run options spec`() {
+        assertThatThrownBy {
+            v3Config(
+                """
+                version: 3
+                dependencies:
+                  services:
+                    - service:
+                        definitions:
+                          - definition:
+                              source:
+                                filesystem:
+                                  directory: ./specs
+                              specs:
+                                - spec:
+                                    id: order-api
+                                    path: order.yaml
+                        runOptions:
+                          openapi:
+                            specs:
+                              - spec:
+                                  id: order-api
+                                  mtlsEnabled: true
+                """.trimIndent()
+            )
+        }.hasMessageContaining("mtlsEnabled")
+    }
+
+    @Test
+    fun `should reject spec cert override in wsdl run options spec`() {
+        assertThatThrownBy {
+            v3Config(
+                """
+                version: 3
+                dependencies:
+                  services:
+                    - service:
+                        definitions:
+                          - definition:
+                              source:
+                                filesystem:
+                                  directory: ./specs
+                              specs:
+                                - spec:
+                                    id: wsdl-spec
+                                    path: service.wsdl
+                        runOptions:
+                          wsdl:
+                            specs:
+                              - spec:
+                                  id: wsdl-spec
+                                  baseUrl: https://localhost:9443
+                                  cert:
+                                    keyStore:
+                                      file: ./server-cert.jks
+                                    keyStorePassword: password
+                """.trimIndent()
+            )
+        }.hasMessageContaining("cert")
+    }
+
+    @Test
+    fun `should reject spec mtlsEnabled override in wsdl run options spec`() {
+        assertThatThrownBy {
+            v3Config(
+                """
+                version: 3
+                dependencies:
+                  services:
+                    - service:
+                        definitions:
+                          - definition:
+                              source:
+                                filesystem:
+                                  directory: ./specs
+                              specs:
+                                - spec:
+                                    id: wsdl-spec
+                                    path: service.wsdl
+                        runOptions:
+                          wsdl:
+                            specs:
+                              - spec:
+                                  id: wsdl-spec
+                                  mtlsEnabled: true
+                """.trimIndent()
+            )
+        }.hasMessageContaining("mtlsEnabled")
+    }
+
+    @Test
+    fun `should reject incomingMtlsEnabled in v3 config`() {
+        assertThatThrownBy {
+            v3Config(
+                """
+                version: 3
+                dependencies:
+                  services:
+                    - service:
+                        definitions:
+                          - definition:
+                              source:
+                                filesystem:
+                                  directory: ./specs
+                              specs:
+                                - spec:
+                                    id: order-api
+                                    path: order.yaml
+                        runOptions:
+                          openapi:
+                            host: localhost
+                            port: 9443
+                            cert:
+                              incomingMtlsEnabled: true
+                              keyStore:
+                                file: ./server-cert.jks
+                              keyStorePassword: password
+                """.trimIndent()
+            )
+        }.hasMessageContaining("incomingMtlsEnabled")
+    }
 
     @Nested
     inner class ModificationMethods {
@@ -919,5 +1175,13 @@ class SpecmaticConfigV3ImplTest {
                 ),
             )
         }
+    }
+
+    private fun v3Config(yaml: String): SpecmaticConfig {
+        return tempDir.resolve("config-${System.nanoTime()}.yaml").apply { writeText(yaml) }.toSpecmaticConfig()
+    }
+
+    private fun emptyKeyStore(): KeyStore {
+        return KeyStore.getInstance("JKS").apply { load(null, null) }
     }
 }

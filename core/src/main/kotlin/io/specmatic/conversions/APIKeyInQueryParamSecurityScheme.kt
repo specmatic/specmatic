@@ -1,6 +1,5 @@
 package io.specmatic.conversions
 
-import io.specmatic.conversions.lenient.CollectorContext
 import io.specmatic.core.*
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.StringValue
@@ -60,13 +59,12 @@ data class APIKeyInQueryParamSecurityScheme(val name: String, private val apiKey
         return apiKeyParamName
     }
 
-    override fun collectErrorIfExistsInParameters(parameter: List<IndexedValue<Parameter>>, collectorContext: CollectorContext) {
-        parameter.filter { indexedValue -> indexedValue.value is QueryParameter }.forEach { (index, value) ->
-            val paramContext = collectorContext.at("parameters").at(index)
-            paramContext.check(name = "name", value = value, isValid = { !it.name.equals(name, ignoreCase = true) })
+    override fun collectErrorIfExistsInParameters(parameter: List<ParameterWithContext<Parameter>>) {
+        parameter.filter { parameterWithContext -> parameterWithContext.parameter is QueryParameter }.forEach { parameterWithContext ->
+            parameterWithContext.collectorContext.check(name = "name", value = parameterWithContext.parameter, isValid = { !it.name.equals(name, ignoreCase = true) })
                 .violation { OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED }
                 .message { "Found query parameter with same name as query api-key security scheme \"$name\"" }
-                .orUse { value }
+                .orUse { parameterWithContext.parameter }
                 .build(isWarning = true)
         }
     }

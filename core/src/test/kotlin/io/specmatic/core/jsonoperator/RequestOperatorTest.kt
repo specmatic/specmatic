@@ -41,6 +41,14 @@ class RequestOperatorTest {
     }
 
     @Test
+    fun `should be able to retrieve method using pointer`() {
+        val request = HttpRequest(method = "PATCH", path = "/api/users/123")
+        val operator = RequestOperator.from(request, mockRequestPattern, mockResolver)
+        val result = operator.get("/method").finalizeValue()
+        assertThat(result.value.getOrNull()).isEqualTo(StringValue("PATCH"))
+    }
+
+    @Test
     fun `should extract path parameters when pattern is provided`() {
         val mockSegmentPattern = mockk<URLPathSegmentPattern>()
         val mockPathPattern = mockk<HttpPathPattern> {
@@ -199,7 +207,7 @@ class RequestOperatorTest {
 
         assertThat(result).isInstanceOf(HasFailure::class.java)
         assertThat((result as HasFailure).failure.reportString())
-            .contains("Invalid key invalid, must be oneof body, path, query, header, url")
+            .contains("Invalid key invalid, must be oneof body, path, query, header, method, url")
     }
 
     @Test
@@ -279,7 +287,7 @@ class RequestOperatorTest {
     fun `should have routes map with all expected keys`() {
         val request = HttpRequest(method = "GET", path = "/api/users")
         val operator = RequestOperator.from(request, mockRequestPattern, mockResolver)
-        assertThat(operator.routes.keys).containsExactlyInAnyOrder("body", "path", "query", "header", "url")
+        assertThat(operator.routes.keys).containsExactlyInAnyOrder("body", "path", "query", "header", "method", "url")
     }
 
     @Test

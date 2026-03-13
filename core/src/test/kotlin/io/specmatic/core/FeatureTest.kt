@@ -8,14 +8,14 @@ import io.mockk.mockk
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.discriminator.DiscriminatorMetadata
-import io.specmatic.core.log.DebugLogger
-import io.specmatic.core.log.withLogger
+import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.*
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.FuzzyExampleMisMatchMessages
+import io.specmatic.mock.ScenarioStub
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
 import io.specmatic.toViolationReportString
@@ -43,6 +43,7 @@ import java.net.ServerSocket
 import java.util.*
 import java.util.function.Consumer
 import java.util.stream.Stream
+import kotlin.to
 
 class FeatureTest {
     @Test
@@ -3812,6 +3813,92 @@ paths:
         assertThat(responseHeaderNames).hasSize(1)
     }
 
+    @Test
+    fun `should be able to filter in scenario and examples using path parameter concrete values`() {
+        val feature = OpenApiSpecification.fromFile("src/test/resources/openapi/simple_partial_non_partial_examples_with_dictionary/simple_pets.yaml").toFeature()
+        val examplesFolder = File("src/test/resources/openapi/simple_partial_non_partial_examples_with_dictionary/concrete_examples")
+        val loadedFeature = Flags.using(Flags.EXAMPLE_DIRECTORIES to examplesFolder.canonicalPath) { feature.loadExternalisedExamples() }
+
+        val filter = ScenarioMetadataFilter.from("PARAMETERS.PATH.id='123'")
+        val filteredScenarios = ScenarioMetadataFilter.filterUsing(loadedFeature.scenarios.asSequence(), filter).toList()
+
+        assertThat(filteredScenarios).hasSize(1)
+        assertThat(filteredScenarios.single().path).isEqualTo("/pets/(id:number)")
+        assertThat(filteredScenarios.single().method).isEqualTo("PATCH")
+    }
+
+    @Test
+    fun `should be able to filter out scenario and examples using path parameter concrete values`() {
+        val feature = OpenApiSpecification.fromFile("src/test/resources/openapi/simple_partial_non_partial_examples_with_dictionary/simple_pets.yaml").toFeature()
+        val examplesFolder = File("src/test/resources/openapi/simple_partial_non_partial_examples_with_dictionary/concrete_examples")
+        val loadedFeature = Flags.using(Flags.EXAMPLE_DIRECTORIES to examplesFolder.canonicalPath) { feature.loadExternalisedExamples() }
+
+        val filter = ScenarioMetadataFilter.from("PARAMETERS.PATH.id!='123'")
+        val filteredScenarios = ScenarioMetadataFilter.filterUsing(loadedFeature.scenarios.asSequence(), filter).toList()
+
+        assertThat(filteredScenarios).hasSize(2)
+        assertThat(filteredScenarios).noneMatch { it.path == "/pets/(id:number)" && it.method == "PATCH" }
+    }
+
+    @Test
+    fun `filterExamples should return original feature and external examples when filter is blank`() {
+        val feature = OpenApiSpecification.fromFile("src/test/resources/openapi/filter_examples_multi_scenarios/spec.yaml").toFeature()
+        val preloadedExternalExamples = loadScenarioStubs("src/test/resources/openapi/filter_examples_multi_scenarios_examples")
+        val filtered = feature.filterExamples(preloadedExternalExamples, " ")
+
+        assertThat(filtered.feature).isSameAs(feature)
+        assertThat(filtered.externalExamples).containsExactlyElementsOf(preloadedExternalExamples)
+        assertThat(filtered.unusedExamples).isEmpty()
+    }
+
+    @Test
+    fun `filterExamples should retain all examples of scenarios where at least one example matches filter`() {
+        val feature = OpenApiSpecification.fromFile("src/test/resources/openapi/filter_examples_multi_scenarios/spec.yaml").toFeature()
+        val preloadedExternalExamples = loadScenarioStubs("src/test/resources/openapi/filter_examples_multi_scenarios_examples")
+        val filtered = feature.filterExamples(preloadedExternalExamples, "PARAMETERS.PATH.id='1001'")
+
+        assertThat(filtered.feature.scenarios).hasSize(1)
+        assertThat(filtered.feature.scenarios.single().path).startsWith("/users/(")
+        assertThat(filtered.feature.inlineNamedStubs.map { it.name }).containsExactlyInAnyOrder("user_inline", "shared_name")
+        assertThat(filtered.externalExamples.mapNotNull { it.request.path }).containsExactly("/users/10")
+    }
+
+    @Test
+    fun `filterExamples should filter scenarios and examples using filter`() {
+        val feature = OpenApiSpecification.fromFile("src/test/resources/openapi/filter_examples_multi_scenarios/spec.yaml").toFeature()
+        val preloadedExternalExamples = loadScenarioStubs("src/test/resources/openapi/filter_examples_multi_scenarios_examples")
+        val filtered = feature.filterExamples(preloadedExternalExamples, "PATH='/users/{id}'")
+
+        assertThat(filtered.feature.scenarios).hasSize(2)
+        assertThat(filtered.feature.scenarios).allMatch { it.path.startsWith("/users/(") }
+        assertThat(filtered.feature.inlineNamedStubs.map { it.name }).containsExactlyInAnyOrder("user_inline", "shared_name")
+        assertThat(filtered.externalExamples.mapNotNull { it.request.path }).containsExactly("/users/10")
+    }
+
+    @Test
+    fun `filterExamples should keep inline and external examples where name matches one of the rows`() {
+        val feature = OpenApiSpecification.fromFile("src/test/resources/openapi/filter_examples_multi_scenarios/spec.yaml").toFeature()
+        val preloadedExternalExamples = loadScenarioStubs("src/test/resources/openapi/filter_examples_multi_scenarios_examples")
+        val filtered = feature.filterExamples(preloadedExternalExamples, "EXAMPLE-NAME='shared_name'")
+
+        assertThat(filtered.feature.scenarios).hasSize(1)
+        assertThat(filtered.feature.scenarios.single().path).startsWith("/users/(")
+        assertThat(filtered.feature.inlineNamedStubs.map { it.name }).containsExactlyInAnyOrder("user_inline", "shared_name")
+        assertThat(filtered.feature.inlineNamedStubs.mapNotNull { it.stub.request.path }).containsExactlyInAnyOrder("/users/1001", "/users/1002")
+        assertThat(filtered.externalExamples.mapNotNull { it.request.path }).containsExactly("/users/10")
+    }
+
+    @Test
+    fun `filterExamples should return empty scenario and example lists when no scenario matches`() {
+        val feature = OpenApiSpecification.fromFile("src/test/resources/openapi/filter_examples_multi_scenarios/spec.yaml").toFeature()
+        val preloadedExternalExamples = loadScenarioStubs("src/test/resources/openapi/filter_examples_multi_scenarios_examples")
+        val filtered = feature.filterExamples(preloadedExternalExamples, "PATH='/invoices/{id}'")
+
+        assertThat(filtered.feature.scenarios).isEmpty()
+        assertThat(filtered.feature.inlineNamedStubs).isEmpty()
+        assertThat(filtered.externalExamples).isEmpty()
+    }
+
     companion object {
         @JvmStatic
         fun singleFeatureContractSource(): Stream<Arguments> {
@@ -3840,6 +3927,14 @@ paths:
                     unexpectedKey
                 )
             }. Did you mean \"$candidate\"?"
+        }
+
+        private fun loadScenarioStubs(directoryPath: String): List<ScenarioStub> {
+            return File(directoryPath).listFiles()
+                .orEmpty()
+                .filter { it.isFile && it.extension == "json" }
+                .sortedBy { it.name }
+                .map { ScenarioStub.readFromFile(it) }
         }
     }
 
