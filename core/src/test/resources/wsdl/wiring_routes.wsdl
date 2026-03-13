@@ -10,6 +10,7 @@
             </xsd:simpleType>
 
             <xsd:element name="Code" type="tns:CodeType"/>
+            <xsd:element name="SessionToken" type="xsd:token"/>
 
             <xsd:complexType name="AddressType">
                 <xsd:sequence>

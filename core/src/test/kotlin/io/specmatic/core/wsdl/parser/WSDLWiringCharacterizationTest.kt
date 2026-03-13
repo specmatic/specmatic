@@ -69,6 +69,23 @@ class WSDLWiringCharacterizationTest {
     }
 
     @Test
+    fun `token types in wsdl still generate simple string payloads`() {
+        val wsdl = loadWsdl("src/test/resources/wsdl/wiring_routes.wsdl")
+
+        val soapElement = wsdl.getSOAPElement(
+            FullyQualifiedName("tns", "http://example.com/wiring", "SessionToken")
+        )
+
+        val typeInfo = soapElement.deriveSpecmaticTypes("SessionTokenType", emptyMap(), emptySet())
+        val requestBody = soapBody(soapElement, wsdl, "SessionToken", "SessionTokenType", typeInfo)
+
+        assertThat(typeInfo.nodes).containsExactly(toXMLNode("<Wiring:SessionToken>(string)</Wiring:SessionToken>"))
+        assertThat(requestBody)
+            .contains("SessionToken")
+            .contains("(string)")
+    }
+
+    @Test
     fun `ref child wiring still resolves the referenced node with qualification and optionality`() {
         val wsdl = loadWsdl("src/test/resources/wsdl/wiring_routes.wsdl")
         val schema = wsdl.schemas.getValue("http://example.com/wiring")
