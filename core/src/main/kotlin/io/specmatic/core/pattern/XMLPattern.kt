@@ -120,28 +120,7 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
                 return Success()
         }
 
-        val matchingType = if (this.pattern.attributes.containsKey(TYPE_ATTRIBUTE_NAME)) {
-            val typeName = this.pattern.getAttributeValue(TYPE_ATTRIBUTE_NAME)
-            val referredType = resolvedHop(resolver.getPattern("($typeName)"), resolver)
-
-            if(referredType is XMLPattern) {
-                val attributesFromReferring = this.pattern.attributes.filterKeys { it != TYPE_ATTRIBUTE_NAME }
-                val attributesFromReferred = referredType.pattern.attributes.filterKeys { it != TYPE_ATTRIBUTE_NAME }
-                val attributes = attributesFromReferred + attributesFromReferring
-                referredType.copy(
-                    pattern =
-                        referredType.pattern.copy(
-                            name = this.pattern.name,
-                            realName = this.pattern.realName,
-                            attributes = attributes,
-                        ),
-                )
-            } else {
-                referredType
-            }
-        } else {
-            this
-        }
+        val matchingType = dereferenceType(resolver)
 
         val sampleDataWithoutEmptyHeader = dropEmptySOAPHeader(sampleData)
 
@@ -155,6 +134,7 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
                     matchingType.matchNodes(sampleDataWithoutEmptyHeader, resolver)
                 }
             }
+            is AnyPattern -> matchingType.matches(sampleDataWithoutEmptyHeader, resolver)
             else -> {
                 if (sampleDataWithoutEmptyHeader.childNodes.size != 1) {
                     return valueMismatchResult("single node", sampleDataWithoutEmptyHeader, resolver.mismatchMessages)
@@ -355,9 +335,16 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
     }
 
     override fun generate(resolver: Resolver): XMLNode {
+        if (!pattern.isConcrete()) {
+            val dereferenced = dereferenceType(resolver)
+            if (dereferenced !is XMLPattern) {
+                return dereferenced.generate(resolver) as XMLNode
+            }
+        }
+
         val name = pattern.name
 
-        val resolvedPattern = dereferenceType(resolver)
+        val resolvedPattern = dereferenceType(resolver) as XMLPattern
 
         val nonSpecmaticAttributes =
             resolvedPattern.pattern.attributes.filterNot {
@@ -402,6 +389,15 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
     }
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> {
+        if (!pattern.isConcrete()) {
+            val dereferenced = dereferenceType(resolver)
+            if (dereferenced !is XMLPattern) {
+                return resolver.withCyclePrevention(dereferenced) { cyclePreventedResolver ->
+                    dereferenced.newBasedOn(row, cyclePreventedResolver)
+                }
+            }
+        }
+
         return forEachKeyCombinationIn(
             pattern.attributes,
             row, returnValues { attributePattern: Map<String, Pattern> ->
@@ -415,12 +411,20 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
                 row.containsField(pattern.name) -> {
                     attempt(breadCrumb = pattern.name) {
                         val dereferenced = dereferenceType(resolver)
-                        if (dereferenced.pattern.nodes.isEmpty())
-                            throw ContractException("Node ${pattern.name} is empty but an example with this name exists")
+                        val parsedData = when (dereferenced) {
+                            is XMLPattern -> {
+                                if (dereferenced.pattern.nodes.isEmpty())
+                                    throw ContractException("Node ${pattern.name} is empty but an example with this name exists")
 
-                        val parsedData =
-                            dereferenced.pattern.nodes[0].parse(row.getField(dereferenced.pattern.name), resolver)
-                        val matchResult = dereferenced.pattern.nodes[0].matches(parsedData, resolver)
+                                dereferenced.pattern.nodes[0].parse(row.getField(dereferenced.pattern.name), resolver)
+                            }
+
+                            else -> dereferenced.parse(row.getField(pattern.name), resolver)
+                        }
+                        val matchResult = when (dereferenced) {
+                            is XMLPattern -> dereferenced.pattern.nodes[0].matches(parsedData, resolver)
+                            else -> dereferenced.matches(parsedData, resolver)
+                        }
 
                         if (matchResult is Failure)
                             throw ContractException(matchResult.toFailureReport())
@@ -434,22 +438,26 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
                                         attempt(breadCrumb = pattern.name) {
                                             when (childPattern) {
                                                 is XMLPattern -> {
-                                                    val dereferenced: XMLPattern = childPattern.dereferenceType(resolver)
+                                                    val dereferenced = childPattern.dereferenceType(resolver)
 
                                                     resolver.withCyclePrevention(dereferenced) { cyclePreventedResolver ->
-                                                        when {
-                                                            dereferenced.occurMultipleTimes() -> {
-                                                                dereferenced.newBasedOn(row, cyclePreventedResolver)
+                                                        when (dereferenced) {
+                                                            is XMLPattern -> when {
+                                                                dereferenced.occurMultipleTimes() -> {
+                                                                    dereferenced.newBasedOn(row, cyclePreventedResolver)
+                                                                        .map { it.value as XMLPattern }
+                                                                }
+
+                                                                dereferenced.isOptional() -> {
+                                                                    dereferenced.newBasedOn(row, cyclePreventedResolver)
+                                                                        .map { it.value as XMLPattern }.plus(null)
+                                                                }
+
+                                                                else -> dereferenced.newBasedOn(row, cyclePreventedResolver)
                                                                     .map { it.value as XMLPattern }
                                                             }
 
-                                                            dereferenced.isOptional() -> {
-                                                                dereferenced.newBasedOn(row, cyclePreventedResolver)
-                                                                    .map { it.value as XMLPattern }.plus(null)
-                                                            }
-
-                                                            else -> dereferenced.newBasedOn(row, cyclePreventedResolver)
-                                                                .map { it.value as XMLPattern }
+                                                            else -> dereferenced.newBasedOn(row, cyclePreventedResolver).map { it.value }
                                                         }
                                                     }
                                                 }
@@ -485,16 +493,20 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
                 attempt(breadCrumb = this.pattern.name) {
                     when (childPattern) {
                         is XMLPattern -> {
-                            val dereferenced: XMLPattern = childPattern.dereferenceType(resolver)
+                            val dereferenced = childPattern.dereferenceType(resolver)
 
                             resolver.withCyclePrevention(dereferenced) { cyclePreventedResolver ->
-                                when {
-                                    dereferenced.occurMultipleTimes() -> {
-                                        dereferenced.newBasedOn(cyclePreventedResolver)
-                                    }
+                                when (dereferenced) {
+                                    is XMLPattern -> when {
+                                        dereferenced.occurMultipleTimes() -> {
+                                            dereferenced.newBasedOn(cyclePreventedResolver)
+                                        }
 
-                                    dereferenced.isOptional() -> {
-                                        dereferenced.newBasedOn(cyclePreventedResolver).plus(null)
+                                        dereferenced.isOptional() -> {
+                                            dereferenced.newBasedOn(cyclePreventedResolver).plus(null)
+                                        }
+
+                                        else -> dereferenced.newBasedOn(cyclePreventedResolver)
                                     }
 
                                     else -> dereferenced.newBasedOn(cyclePreventedResolver)
@@ -516,23 +528,37 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
     }
 
     override fun negativeBasedOn(row: Row, resolver: Resolver, config: NegativePatternConfiguration): Sequence<ReturnValue<Pattern>> {
-        return newBasedOn(row, resolver).map { it.value as XMLPattern }.map { HasValue(it) }
+        return newBasedOn(row, resolver).map { HasValue(it.value) }
     }
 
-    private fun dereferenceType(resolver: Resolver): XMLPattern {
+    private fun dereferenceType(resolver: Resolver): Pattern {
         if (pattern.isConcrete()) {
             return this
         }
 
         val specmaticType = pattern.attributes[TYPE_ATTRIBUTE_NAME]
-        val resolved = resolver.getPattern("($specmaticType)") as XMLPattern
-        return resolved.copy(
-                pattern = resolved.pattern.copy(
+        val resolved = resolver.getPattern("($specmaticType)")
+        return mergeReferredPattern(resolved)
+    }
+
+    private fun mergeReferredPattern(referred: Pattern): Pattern {
+        return when (referred) {
+            is XMLPattern -> {
+                val attributesFromReferring = this.pattern.attributes.filterKeys { it != TYPE_ATTRIBUTE_NAME }
+                val attributesFromReferred = referred.pattern.attributes.filterKeys { it != TYPE_ATTRIBUTE_NAME }
+                val attributes = attributesFromReferred + attributesFromReferring
+                referred.copy(
+                    pattern = referred.pattern.copy(
                         name = this.pattern.name,
                         realName = this.pattern.realName,
-                        attributes = resolved.pattern.attributes.plus(this.pattern.attributes),
+                        attributes = attributes,
+                    ),
                 )
-        )
+            }
+
+            is AnyPattern -> referred.copy(pattern = referred.pattern.map(::mergeReferredPattern))
+            else -> referred
+        }
     }
 
     fun occurMultipleTimes(): Boolean = pattern.getNodeOccurrence() == NodeOccurrence.Multiple

@@ -38,13 +38,15 @@ internal class ElementInComplexTypeTest {
         val data1Type = mapOf("Data1" to XMLPattern(toXMLNode("<dataA/>")))
         val initial =
             WSDLTypeInfo(listOf(toXMLNode("<node1/>")), data1Type, setOf("ns0"))
-        val wsdlTypeInfo = elementInType.process(initial, emptyMap(), emptySet())
+        val wsdlTypeInfo = elementInType.process(listOf(initial), emptyMap(), emptySet())
 
-        println(wsdlTypeInfo)
+        val expected = WSDLTypeInfo(
+            listOf(toXMLNode("<node1/>"), toXMLNode("<node2/>")),
+            data1Type.plus(data2Type),
+            setOf("ns0", "ns1")
+        )
 
-        val expected = WSDLTypeInfo(listOf(toXMLNode("<node1/>"), toXMLNode("<node2/>")), data1Type.plus(data2Type), setOf("ns1"))
-
-        assertThat(wsdlTypeInfo).isEqualTo(expected)
+        assertThat(wsdlTypeInfo).containsExactly(expected)
     }
 
 }

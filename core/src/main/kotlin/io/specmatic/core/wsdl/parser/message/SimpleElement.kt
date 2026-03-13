@@ -1,7 +1,7 @@
 package io.specmatic.core.wsdl.parser.message
 
 import io.specmatic.core.pattern.ContractException
-import io.specmatic.core.pattern.XMLPattern
+import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.XMLValue
@@ -18,7 +18,7 @@ data class SimpleElement(
     val wsdl: WSDL,
     val simpleTypeNode: XMLNode? = null
 ) : WSDLElement {
-    override fun deriveSpecmaticTypes(specmaticTypeName: String, existingTypes: Map<String, XMLPattern>, typeStack: Set<String>): WSDLTypeInfo {
+    override fun deriveSpecmaticTypes(specmaticTypeName: String, existingTypes: Map<String, Pattern>, typeStack: Set<String>): WSDLTypeInfo {
         return createSimpleTypeInfo(
             typeSourceNode = simpleTypeNode ?: element,
             wsdl = wsdl,
@@ -51,7 +51,7 @@ internal data class StringRestrictions(
 fun createSimpleTypeInfo(
     typeSourceNode: XMLNode,
     wsdl: WSDL,
-    existingTypes: Map<String, XMLPattern> = emptyMap(),
+    existingTypes: Map<String, Pattern> = emptyMap(),
     actualElement: XMLNode? = null
 ): WSDLTypeInfo {
     val resolvedElement = actualElement ?: typeSourceNode
@@ -75,7 +75,7 @@ private fun createConstrainedStringTypeInfo(
     resolvedElement: XMLNode,
     wsdl: WSDL,
     stringRestrictions: StringRestrictions,
-    existingTypes: Map<String, XMLPattern>
+    existingTypes: Map<String, Pattern>
 ): WSDLTypeInfo {
     val specmaticAttributes = deriveSpecmaticAttributes(resolvedElement)
     val fqname = resolvedElement.fullyQualifiedName(wsdl)
@@ -100,7 +100,7 @@ fun createSimpleType(element: XMLNode, wsdl: WSDL, actualElement: XMLNode? = nul
     return Pair(listOf(XMLNode(fqname.qName, specmaticAttributes, listOf(value))), prefix)
 }
 
-private fun toTypeInfo(nodes: List<XMLValue>, existingTypes: Map<String, XMLPattern>, prefix: String?): WSDLTypeInfo {
+private fun toTypeInfo(nodes: List<XMLValue>, existingTypes: Map<String, Pattern>, prefix: String?): WSDLTypeInfo {
     return if (prefix != null) {
         WSDLTypeInfo(nodes = nodes, types = existingTypes, namespacePrefixes = setOf(prefix))
     } else {

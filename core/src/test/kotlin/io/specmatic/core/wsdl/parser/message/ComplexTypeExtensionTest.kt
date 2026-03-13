@@ -39,31 +39,25 @@ internal class ComplexTypeExtensionTest {
             wsdl.getWSDLElementType("ParentType", simpleElement2)
         }.returns(typeReference2)
 
-        val wsdlTypeInfo = ComplexTypeExtension(child, wsdl, "ParentType").process(WSDLTypeInfo(), emptyMap(), emptySet())
+        val wsdlTypeInfo = ComplexTypeExtension(child, wsdl, "ParentType").process(listOf(WSDLTypeInfo()), emptyMap(), emptySet())
 
         val expected = WSDLTypeInfo(listOf(toXMLNode("<data1>(string)</data1>"), toXMLNode("<data2>(number)</data2>")))
-        assertThat(wsdlTypeInfo).isEqualTo(expected)
+        assertThat(wsdlTypeInfo).containsExactly(expected)
     }
 
     @Test
     fun `complex type which extends but actually does not actually specify any extensions`() {
         val child = toXMLNode("<xsd:complexContent><xsd:extension base=\"otherComplexType\"/></xsd:complexContent>")
 
-        val parent: ComplexElement = mockk()
         val parentComplexType = toXMLNode("<complexType/>").withPrimitiveNamespace()
-
-        val parentTypes = mapOf("Name" to XMLPattern("<name>(string)</name>"))
-        every {
-            parent.generateChildren(any(), parentComplexType, any(), any())
-        }.returns(WSDLTypeInfo(listOf(toXMLNode("<node1/>")), parentTypes))
 
         val wsdl = mockk<WSDL>()
         every {
             wsdl.findTypeFromAttribute(any(), "base")
         }.returns(parentComplexType)
 
-        val wsdlTypeInfo = ComplexTypeExtension(child, wsdl, "ParentType").process(WSDLTypeInfo(), emptyMap(), emptySet())
+        val wsdlTypeInfo = ComplexTypeExtension(child, wsdl, "ParentType").process(listOf(WSDLTypeInfo()), emptyMap(), emptySet())
 
-        assertThat(wsdlTypeInfo).isEqualTo(WSDLTypeInfo())
+        assertThat(wsdlTypeInfo).containsExactly(WSDLTypeInfo())
     }
 }

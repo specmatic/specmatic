@@ -28,7 +28,7 @@ internal class TypeReferenceTest {
         val typeInfo = wsdlElement.deriveSpecmaticTypes(typeName, emptyMap(), emptySet())
 
         assertThat(typeName).isEqualTo("tns_AddressType")
-        assertThat(typeInfo.types.getValue("tns_AddressType").toPrettyString())
+        assertThat((typeInfo.types.getValue("tns_AddressType") as io.specmatic.core.pattern.XMLPattern).toPrettyString())
             .contains("name")
             .contains("(string)")
             .contains("Code")
