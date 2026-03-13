@@ -85,13 +85,22 @@ fun isDictionaryPattern(pattern: String): Boolean {
 
 fun isStringPatternWithRestrictions(patternValue: String): Boolean {
     val tokens = patternValue.split(" ")
-    return tokens[0] == "(string)" && listOf("minLength", "maxLength").any { it in tokens }
+    return tokens[0] == "(string)" && listOf("minLength", "maxLength", "regex").any { it in tokens }
 }
 
 fun isNumberPatternWithRestrictions(patternValue: String): Boolean {
     val tokens = patternValue.split(" ")
     return tokens[0] == "(number)" && listOf("minLength", "maxLength").any { it in tokens }
 }
+
+private fun restrictionValues(tokens: List<String>): Map<String, String> =
+    tokens.drop(1)
+        .chunked(2)
+        .associate { restriction ->
+            val name = restriction[0]
+            val value = restriction[1].removeSuffix(")")
+            name to value
+        }
 
 fun isPatternOrMatcherToken(patternValue: Any?): Boolean = isPatternToken(patternValue) || isMatcherToken(patternValue)
 
@@ -205,14 +214,13 @@ fun parsedPattern(rawContent: String, key: String? = null, typeAlias: String? = 
             it.startsWith("<") -> XMLPattern(it, typeAlias = typeAlias, isSOAP = isWSDL)
             isStringPatternWithRestrictions(it) -> {
                 val tokens = it.split(" ")
-
-                val restrictions =
-                    tokens.drop(1).chunked(2).associate { restriction -> restriction[0] to restriction[1] }
+                val restrictions = restrictionValues(tokens)
                 try {
                     StringPattern(
                         typeAlias = typeAlias,
                         minLength = restrictions["minLength"]?.toIntOrNull(),
-                        maxLength = restrictions["maxLength"]?.toIntOrNull()
+                        maxLength = restrictions["maxLength"]?.toIntOrNull(),
+                        regex = restrictions["regex"]
                     )
                 } catch (e: IllegalArgumentException) {
                     throw ContractException(e.message ?: "", exceptionCause = e)
@@ -221,9 +229,7 @@ fun parsedPattern(rawContent: String, key: String? = null, typeAlias: String? = 
 
             isNumberPatternWithRestrictions(it) -> {
                 val tokens = it.split(" ")
-
-                val restrictions =
-                    tokens.drop(1).chunked(2).associate { restriction -> restriction[0] to restriction[1] }
+                val restrictions = restrictionValues(tokens)
                 try {
                     NumberPattern(
                         typeAlias = typeAlias,
