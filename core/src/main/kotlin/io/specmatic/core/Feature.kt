@@ -979,12 +979,12 @@ data class Feature(
         scenariosToLookInto: List<Scenario> = scenarios
     ): BadRequestOrDefault? {
         val badRequestResponses = scenariosToLookInto.filter {
-            it.httpRequestPattern.httpPathPattern!!.path == scenario.httpRequestPattern.httpPathPattern!!.path
+            it.httpRequestPattern.httpPathPattern!!.toInternalPath() == scenario.httpRequestPattern.httpPathPattern!!.toInternalPath()
                     && it.httpResponsePattern.status.toString().startsWith("4")
         }.associate { it.httpResponsePattern.status to it.httpResponsePattern }
 
         val defaultResponse: HttpResponsePattern? = scenariosToLookInto.find {
-            it.httpRequestPattern.httpPathPattern!!.path == scenario.httpRequestPattern.httpPathPattern!!.path
+            it.httpRequestPattern.httpPathPattern!!.toInternalPath() == scenario.httpRequestPattern.httpPathPattern!!.toInternalPath()
                     && it.httpResponsePattern.status == DEFAULT_RESPONSE_CODE
         }?.httpResponsePattern
 
@@ -1195,7 +1195,7 @@ data class Feature(
 
         return if (baseScenario.httpRequestPattern.formFieldsPattern.size == 1) {
             if (newScenario.httpRequestPattern.formFieldsPattern.size != 1)
-                throw ContractException("${baseScenario.httpRequestPattern.method} ${baseScenario.httpRequestPattern.httpPathPattern?.path} exists with different form fields")
+                throw ContractException("${baseScenario.httpRequestPattern.method} ${baseScenario.httpRequestPattern.httpPathPattern?.toInternalPath()} exists with different form fields")
 
             val baseRawPattern = baseScenario.httpRequestPattern.formFieldsPattern.values.first()
             val resolvedBasePattern = resolvedHop(baseRawPattern, baseScenario.resolver)
@@ -1204,12 +1204,12 @@ data class Feature(
             val resolvedNewPattern = resolvedHop(newRawPattern, newScenario.resolver)
 
             if (isObjectType(resolvedBasePattern) && !isObjectType(resolvedNewPattern))
-                throw ContractException("${baseScenario.httpRequestPattern.method} ${baseScenario.httpRequestPattern.httpPathPattern?.path} exists with multiple payload types")
+                throw ContractException("${baseScenario.httpRequestPattern.method} ${baseScenario.httpRequestPattern.httpPathPattern?.toInternalPath()} exists with multiple payload types")
 
             val converged: Pattern = when {
                 resolvedBasePattern.pattern is String && builtInPatterns.contains(resolvedBasePattern.pattern) -> {
                     if (resolvedBasePattern.pattern != resolvedNewPattern.pattern)
-                        throw ContractException("Cannot converge ${baseScenario.httpRequestPattern.method} ${baseScenario.httpRequestPattern.httpPathPattern?.path} because there are multiple types of request payloads")
+                        throw ContractException("Cannot converge ${baseScenario.httpRequestPattern.method} ${baseScenario.httpRequestPattern.httpPathPattern?.toInternalPath()} because there are multiple types of request payloads")
 
                     resolvedBasePattern
                 }
@@ -1218,11 +1218,11 @@ data class Feature(
                     if (baseRawPattern.pattern == newRawPattern.pattern && isObjectType(resolvedBasePattern))
                         baseRawPattern
                     else
-                        throw ContractException("Cannot converge different types ${baseRawPattern.pattern} and ${newRawPattern.pattern} found in ${baseScenario.httpRequestPattern.method} ${baseScenario.httpRequestPattern.httpPathPattern?.path}")
+                        throw ContractException("Cannot converge different types ${baseRawPattern.pattern} and ${newRawPattern.pattern} found in ${baseScenario.httpRequestPattern.method} ${baseScenario.httpRequestPattern.httpPathPattern?.toInternalPath()}")
                 }
 
                 else ->
-                    TODO("Converging of type ${resolvedBasePattern.pattern} and ${resolvedNewPattern.pattern} in ${baseScenario.httpRequestPattern.method} ${baseScenario.httpRequestPattern.httpPathPattern?.path}")
+                    TODO("Converging of type ${resolvedBasePattern.pattern} and ${resolvedNewPattern.pattern} in ${baseScenario.httpRequestPattern.method} ${baseScenario.httpRequestPattern.httpPathPattern?.toInternalPath()}")
             }
 
             baseScenario.copy(
@@ -1395,13 +1395,13 @@ data class Feature(
         }
 
         val urlPrefixMap = toOpenAPIURLPrefixMap(scenarios.mapNotNull {
-            it.httpRequestPattern.httpPathPattern?.path
+            it.httpRequestPattern.httpPathPattern?.toInternalPath()
         }.map {
             OpenApiPath.from(it).normalize().toPath()
         })
 
         val payloadAdjustedScenarios: List<Scenario> = scenarios.map { rawScenario ->
-            val prefix = urlPrefixMap.getValue(OpenApiPath.from(rawScenario.httpRequestPattern.httpPathPattern?.path!!).normalize().toPath())
+            val prefix = urlPrefixMap.getValue(OpenApiPath.from(rawScenario.httpRequestPattern.httpPathPattern?.toInternalPath()!!).normalize().toPath())
             var scenario = updateScenarioContentTypeFromPattern(rawScenario)
 
             if (hasBodyJsonPattern(scenario.httpRequestPattern.body, scenario.resolver)) {
@@ -1726,8 +1726,8 @@ data class Feature(
     }
 
     private fun toPathPatternWithParameters(httpPathPattern: HttpPathPattern): HttpPathPattern {
-        if (httpPathPattern.pathSegmentPatterns.any { it.pattern !is ExactValuePattern }) return httpPathPattern
-        return OpenApiPath.from(httpPathPattern.path).normalize().toHttpPathPattern()
+        if (httpPathPattern.pathParameters().isNotEmpty()) return httpPathPattern
+        return OpenApiPath.from(httpPathPattern.toInternalPath()).normalize().toHttpPathPattern()
     }
 
     private fun requestBodySchema(requestBodyType: Pattern, scenario: Scenario): Pair<String, MediaType>? = when {

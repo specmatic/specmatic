@@ -3,6 +3,7 @@ package io.specmatic.test
 import io.specmatic.core.*
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.Row
+import io.specmatic.core.utilities.toStringMap
 import io.specmatic.core.value.*
 import io.specmatic.test.asserts.Assert
 import io.specmatic.test.asserts.parsedAssert
@@ -40,7 +41,7 @@ object ExamplePostValidator: ResponseValidator {
         val pathParams = if (scenario.httpRequestPattern.httpPathPattern != null && this.path != null) {
             val paramsMap = scenario.httpRequestPattern.httpPathPattern.extractPathParams(this.path, scenario.resolver)
             val patternMap = scenario.httpRequestPattern.httpPathPattern.pathParameters().associate { it.key.orEmpty() to it.pattern }
-            paramsMap.toFactStore(
+            paramsMap.toStringMap().toFactStore(
                 prefix = BreadCrumb.REQUEST.plus(BreadCrumb.PARAM_PATH).value,
                 patternMap = patternMap,
                 resolver = scenario.resolver,

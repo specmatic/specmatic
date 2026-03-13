@@ -67,10 +67,20 @@ class WorkflowTest {
                 )
             )
         ),
-        emptyMap(),
-        emptyList(),
-        emptyMap(),
-        emptyMap(),
+        protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
+    )
+
+    private val getScenarioAcceptingStringInCommaInterpolatedPath = Scenario(
+        "Get data by comma separated ids",
+        HttpRequestPattern(method = "GET", httpPathPattern = buildHttpPathPattern("/test/(id1:string),(id2:string)/status"), body = StringPattern()),
+        HttpResponsePattern(status = 200, body = JSONObjectPattern(mapOf("id" to StringPattern()))),
+        protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
+    )
+
+    private val getScenarioAcceptingStringInSlashInterpolatedPath = Scenario(
+        "Get data by slash separated ids",
+        HttpRequestPattern(method = "GET", httpPathPattern = buildHttpPathPattern("/test/(id1:string)/(id2:string)/status"), body = StringPattern()),
+        HttpResponsePattern(status = 200, body = JSONObjectPattern(mapOf("id" to StringPattern()))),
         protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
     )
 
@@ -137,5 +147,41 @@ class WorkflowTest {
         }.hasMessageContaining(
             DefaultMismatchMessages.typeMismatch("number", "\"abc\"", "string")
         )
+    }
+
+    @Test
+    fun `should update comma separated interpolated path parameter from workflow id`() {
+        val request = HttpRequest("GET", "/test/first,second/status", body = StringValue("data"))
+        val response = HttpResponse(201, body = parsedJSONObject("""{"id": "new-id"}"""))
+        val workflow = Workflow(
+            workflow = WorkflowConfiguration(
+                ids = mapOf(
+                    "GET /test/(id1:string),(id2:string)/status -> 200" to WorkflowIDOperation(use = "PATH.id2"),
+                    "POST /data -> 201" to WorkflowIDOperation(extract = "BODY.id")
+                )
+            )
+        )
+
+        workflow.extractDataFrom(response, postScenarioReturningString)
+        val updatedRequest = workflow.updateRequest(request, getScenarioAcceptingStringInCommaInterpolatedPath)
+        assertThat(updatedRequest.path).isEqualTo("/test/first,new-id/status")
+    }
+
+    @Test
+    fun `should update slash separated interpolated path parameter from workflow id`() {
+        val request = HttpRequest("GET", "/test/first/second/status", body = StringValue("data"))
+        val response = HttpResponse(201, body = parsedJSONObject("""{"id": "new-id"}"""))
+        val workflow = Workflow(
+            workflow = WorkflowConfiguration(
+                ids = mapOf(
+                    "GET /test/(id1:string)/(id2:string)/status -> 200" to WorkflowIDOperation(use = "PATH.id1"),
+                    "POST /data -> 201" to WorkflowIDOperation(extract = "BODY.id")
+                )
+            )
+        )
+
+        workflow.extractDataFrom(response, postScenarioReturningString)
+        val updatedRequest = workflow.updateRequest(request, getScenarioAcceptingStringInSlashInterpolatedPath)
+        assertThat(updatedRequest.path).isEqualTo("/test/new-id/second/status")
     }
 }

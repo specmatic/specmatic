@@ -11506,7 +11506,7 @@ paths:
         
         // Verify the HEAD scenario details
         val headScenario = headScenarios.first()
-        assertThat(headScenario.httpRequestPattern.httpPathPattern?.path).isEqualTo("/status")
+        assertThat(headScenario.httpRequestPattern.httpPathPattern?.toInternalPath()).isEqualTo("/status")
         assertThat(headScenario.httpResponsePattern.status).isIn(200, 404)
     }
 

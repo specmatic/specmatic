@@ -1,0 +1,12 @@
+{
+  "http-request": {
+    "method": "GET",
+    "path": "/example/external-missing-A,external-missing-B/status"
+  },
+  "http-response": {
+    "status": 404,
+    "body": {
+      "error": "external-not-found"
+    }
+  }
+}

@@ -401,6 +401,45 @@ class ThreadSafeListOfStubsTest {
             assertNotNull(result)
             assertEquals(lowGeneralityStub, result)
         }
+
+        @Test
+        fun `getPartialBySpecificityAndGenerality should prioritize literal path over interpolated path`() {
+            val interpolatedPathRequest = HttpRequest("GET", "/items/item-(id:string)")
+            val literalPathRequest = HttpRequest("GET", "/items/item-123")
+
+            val interpolatedPathStub = HttpStubData(
+                requestType = interpolatedPathRequest.toPattern(),
+                response = HttpResponse.ok(""),
+                responsePattern = HttpResponsePattern(HttpResponse.OK),
+                resolver = Resolver(),
+                scenarioStub = ScenarioStub(
+                    partial = ScenarioStub(
+                        request = interpolatedPathRequest,
+                        response = HttpResponse.ok(parsedJSONObject("{\"id\": 1}"))
+                    )
+                )
+            )
+
+            val literalPathStub = HttpStubData(
+                requestType = literalPathRequest.toPattern(),
+                response = HttpResponse.ok(""),
+                responsePattern = HttpResponsePattern(HttpResponse.OK),
+                resolver = Resolver(),
+                scenarioStub = ScenarioStub(
+                    partial = ScenarioStub(
+                        request = literalPathRequest,
+                        response = HttpResponse.ok(parsedJSONObject("{\"id\": 2}"))
+                    )
+                )
+            )
+
+            val result = ThreadSafeListOfStubs.getPartialBySpecificityAndGenerality(
+                listOf(interpolatedPathStub, literalPathStub)
+            )
+
+            assertNotNull(result)
+            assertEquals(literalPathStub, result)
+        }
     }
 
 }

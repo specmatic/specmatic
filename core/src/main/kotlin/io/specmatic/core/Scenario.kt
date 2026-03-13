@@ -118,7 +118,7 @@ data class Scenario(
 
     override val path: String
         get() {
-            return httpRequestPattern.httpPathPattern?.path ?: ""
+            return httpRequestPattern.httpPathPattern?.toInternalPath() ?: ""
         }
 
     override val status: Int
