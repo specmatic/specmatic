@@ -21,13 +21,13 @@ import java.util.stream.Stream
 internal class HttpRequestPatternTest {
     @Test
     fun `should not match when url does not match`() {
-        val httpRequestPattern = HttpRequestPattern(
-                httpPathPattern = buildHttpPathPattern(URI("/matching_path")))
+        val httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern(URI("/matching_path")))
         val httpRequest = HttpRequest().updateWith(URI("/unmatched_path"))
         httpRequestPattern.matches(httpRequest, Resolver()).let {
             assertThat(it).isInstanceOf(Failure::class.java)
             assertThat((it as Failure).toMatchFailureDetails()).isEqualTo(MatchFailureDetails(
-                listOf("REQUEST", "PARAMETERS.PATH (/unmatched_path)"), listOf(DefaultMismatchMessages.mismatchMessage("\"/matching_path\"", "\"/unmatched_path\""))
+                listOf("REQUEST", "PATH"),
+                listOf("Failed to extract segments for /matching_path from /unmatched_path")
             ))
         }
     }

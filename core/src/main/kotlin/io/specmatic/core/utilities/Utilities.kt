@@ -589,3 +589,19 @@ fun <T, U> T.applyIf(original: U?, block: T.(U) -> T): T {
 }
 
 fun Map<String, Value>.toStringMap(): Map<String, String> = mapValues { it.value.toStringLiteral() }
+
+fun String.ensurePrefix(prefix: String): String {
+    return if (startsWith(prefix)) {
+        this
+    } else {
+        prefix + this
+    }
+}
+
+fun String.ensureSuffix(suffix: String): String {
+    return if (endsWith(suffix)) {
+        this
+    } else {
+        this + suffix
+    }
+}
