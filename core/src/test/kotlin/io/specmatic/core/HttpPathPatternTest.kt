@@ -77,11 +77,12 @@ internal class HttpPathPatternTest {
         assertThat((result as Result.Failure).failureReason).isEqualTo(FailureReason.URLPathParamMatchButConflict)
     }
 
-    @Test
-    fun `should treat interpolated path as more specific than pure parameter path`() {
-        val moreSpecificPattern = HttpPathPattern.from("/items/item-(id:string)")
-        val lessSpecificPattern = HttpPathPattern.from("/items/(id:string)").copy(otherPathPatterns = listOf(moreSpecificPattern))
-        val result = lessSpecificPattern.matches("/items/item-abc", Resolver())
+    @ParameterizedTest
+    @MethodSource("specificityConflictCases")
+    fun `should treat more specific patterns as higher priority`(moreSpecific: String, lessSpecific: String, path: String) {
+        val moreSpecificPattern = HttpPathPattern.from(moreSpecific)
+        val lessSpecificPattern = HttpPathPattern.from(lessSpecific).copy(otherPathPatterns = listOf(moreSpecificPattern))
+        val result = lessSpecificPattern.matches(path, Resolver())
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat((result as Result.Failure).failureReason).isEqualTo(FailureReason.URLPathParamMatchButConflict)
     }
@@ -1053,6 +1054,18 @@ internal class HttpPathPatternTest {
             Arguments.of("/pets/list/", "pets///list", "/pets/list/"),
             Arguments.of("/", "", "/"),
             Arguments.of("/", "orders", "/orders")
+        )
+
+        @JvmStatic
+        fun specificityConflictCases(): List<Arguments> = listOf(
+            Arguments.of("/items/item-abc", "/items/(id:string)", "/items/item-abc"),
+            Arguments.of("/items/item-(id:string)", "/items/(id:string)", "/items/item-abc"),
+            Arguments.of("/items/(id:string)-abc", "/items/(id:string)", "/items/foo-abc"),
+            Arguments.of("/items/item-(id:string)-detail", "/items/item-(id:string)", "/items/item-abc-detail"),
+            Arguments.of("/items/(a:string)-(b:string)", "/items/(id:string)", "/items/foo-bar"),
+            Arguments.of("/items/item-(id:string)", "/items/(prefix:string)-(suffix:string)", "/items/item-abc"),
+            Arguments.of("/items/item/details", "/items/(id:string)/details", "/items/item/details"),
+            Arguments.of("/items/group/item-(id:string)", "/items/group/(id:string)", "/items/group/item-abc"),
         )
     }
 }

@@ -6,6 +6,7 @@ import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
 import io.specmatic.core.pattern.*
+import io.specmatic.core.utilities.SegmentCounts
 import io.specmatic.core.utilities.ensurePrefix
 import io.specmatic.core.utilities.ensureSuffix
 import io.specmatic.core.value.StringValue
@@ -20,18 +21,10 @@ data class HttpPathPattern(
     private val otherPathPatterns: Collection<HttpPathPattern> = emptyList(),
 ) {
     private val pathSegmentExtractor: TemplateTokenizer = createTokenizerFromPathSegments()
-    private fun calculateSpecificity(): Int {
-        val segments = this.path.removePrefix("/").removeSuffix("/").split("/")
-        return segments.sumOf(::segmentSpecificity)
-    }
-
-    private fun segmentSpecificity(segment: String): Int {
-        return when {
-            internalPathRegex.matchEntire(segment) != null -> 0
-            internalPathRegex.containsMatchIn(segment) -> 1
-            else -> 2
-        }
-    }
+    private fun calculateSpecificity(): Int = path.split('/').asSequence().filter(String::isNotBlank)
+        .map { SegmentCounts.segmentCounts(it, internalPathRegex) }
+        .fold(SegmentCounts()) { acc, counts -> acc + counts }
+        .specificityScore()
 
     fun encompasses(otherHttpPathPattern: HttpPathPattern, thisResolver: Resolver, otherResolver: Resolver): Result {
         if (this.matches(URI.create(otherHttpPathPattern.path), resolver = thisResolver) is Success)
