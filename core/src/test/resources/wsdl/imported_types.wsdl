@@ -1,0 +1,13 @@
+<definitions name="ImportedTypes"
+             targetNamespace="http://example.com/imported-wsdl"
+             xmlns:tns="http://example.com/imported-wsdl"
+             xmlns:imp="http://example.com/imported-types"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             xmlns="http://schemas.xmlsoap.org/wsdl/">
+    <types>
+        <xsd:schema targetNamespace="http://example.com/imported-wsdl">
+            <xsd:import schemaLocation="imported_types.xsd" namespace="http://example.com/imported-types"/>
+            <xsd:element name="ImportedPerson" type="imp:ImportedPersonType"/>
+        </xsd:schema>
+    </types>
+</definitions>

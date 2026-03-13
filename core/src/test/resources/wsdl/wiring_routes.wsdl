@@ -1,0 +1,71 @@
+<definitions name="WiringRoutes"
+             targetNamespace="http://example.com/wiring"
+             xmlns:tns="http://example.com/wiring"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             xmlns="http://schemas.xmlsoap.org/wsdl/">
+    <types>
+        <xsd:schema targetNamespace="http://example.com/wiring" elementFormDefault="qualified">
+            <xsd:simpleType name="CodeType">
+                <xsd:restriction base="xsd:string"/>
+            </xsd:simpleType>
+
+            <xsd:element name="Code" type="tns:CodeType"/>
+
+            <xsd:complexType name="AddressType">
+                <xsd:sequence>
+                    <xsd:element name="name" type="xsd:string"/>
+                    <xsd:element ref="tns:Code" minOccurs="0"/>
+                    <xsd:element name="inlineStatus">
+                        <xsd:complexType>
+                            <xsd:sequence>
+                                <xsd:element name="level" type="xsd:int"/>
+                            </xsd:sequence>
+                        </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element name="tag" type="xsd:string" maxOccurs="unbounded"/>
+                    <xsd:element name="score" type="xsd:int" nillable="true"/>
+                </xsd:sequence>
+            </xsd:complexType>
+
+            <xsd:element name="QualifiedAddress" type="tns:AddressType"/>
+
+            <xsd:element name="InlineCustomer">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element name="id" type="xsd:int"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+
+            <xsd:complexType name="BaseType">
+                <xsd:sequence>
+                    <xsd:element name="baseField" type="xsd:string"/>
+                </xsd:sequence>
+            </xsd:complexType>
+
+            <xsd:complexType name="ExtendedType">
+                <xsd:complexContent>
+                    <xsd:extension base="tns:BaseType">
+                        <xsd:sequence>
+                            <xsd:element name="extraField" type="xsd:int"/>
+                        </xsd:sequence>
+                    </xsd:extension>
+                </xsd:complexContent>
+            </xsd:complexType>
+
+            <xsd:element name="ExtendedElement" type="tns:ExtendedType"/>
+
+            <xsd:simpleType name="IdentifierType">
+                <xsd:restriction base="xsd:string"/>
+            </xsd:simpleType>
+
+            <xsd:complexType name="SimpleExtensionType">
+                <xsd:simpleContent>
+                    <xsd:extension base="tns:IdentifierType"/>
+                </xsd:simpleContent>
+            </xsd:complexType>
+
+            <xsd:element name="SimpleExtensionElement" type="tns:SimpleExtensionType"/>
+        </xsd:schema>
+    </types>
+</definitions>

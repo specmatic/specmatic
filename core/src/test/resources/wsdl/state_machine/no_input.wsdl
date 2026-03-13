@@ -1,0 +1,39 @@
+<definitions name="NoInputAPI"
+             targetNamespace="http://noinput"
+             xmlns:Noinput="http://noinput"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns="http://schemas.xmlsoap.org/wsdl/">
+
+    <types>
+        <xsd:schema targetNamespace="http://noinput">
+            <xsd:element name="PingResponse" type="xsd:string"/>
+        </xsd:schema>
+    </types>
+
+    <message name="PingResponseMessage">
+        <part name="parameters" element="Noinput:PingResponse"/>
+    </message>
+
+    <portType name="NoInputPortType">
+        <operation name="ping">
+            <output message="Noinput:PingResponseMessage"/>
+        </operation>
+    </portType>
+
+    <binding name="NoInputBinding" type="Noinput:NoInputPortType">
+        <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+        <operation name="ping">
+            <soap:operation soapAction="/no-input/ping"/>
+            <output>
+                <soap:body use="literal"/>
+            </output>
+        </operation>
+    </binding>
+
+    <service name="NoInputService">
+        <port name="NoInputPort" binding="Noinput:NoInputBinding">
+            <soap:address location="http://localhost:8090/no-input"/>
+        </port>
+    </service>
+</definitions>
