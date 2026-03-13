@@ -1,6 +1,10 @@
 package io.specmatic.core.wsdl.parser
 
+import io.specmatic.core.Resolver
+import io.specmatic.core.Result
 import io.specmatic.core.pattern.TYPE_ATTRIBUTE_NAME
+import io.specmatic.core.pattern.XMLPattern
+import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.FullyQualifiedName
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.localName
@@ -83,6 +87,31 @@ class WSDLWiringCharacterizationTest {
         assertThat(requestBody)
             .contains("SessionToken")
             .contains("(string)")
+    }
+
+    @Test
+    fun `restricted token simple types still generate constrained string payloads`() {
+        val wsdl = loadWsdl("src/test/resources/wsdl/wiring_routes.wsdl")
+
+        val soapElement = wsdl.getSOAPElement(
+            FullyQualifiedName("tns", "http://example.com/wiring", "ConstrainedTimestamp")
+        )
+
+        val typeInfo = soapElement.deriveSpecmaticTypes("ConstrainedTimestampType", emptyMap(), emptySet())
+        val node = typeInfo.nodes.single() as XMLNode
+        val xmlPattern = XMLPattern(node)
+        val requestBody = soapBody(soapElement, wsdl, "ConstrainedTimestamp", "ConstrainedTimestampType", typeInfo)
+
+        assertThat(node.toStringLiteral())
+            .contains("maxLength 19")
+            .contains("regex [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}")
+        assertThat(requestBody)
+            .contains("ConstrainedTimestamp")
+            .contains("maxLength 19")
+        assertThat(xmlPattern.matches(node.copy(childNodes = listOf(StringValue("2026-03-13T10:11:12"))), Resolver()))
+            .isInstanceOf(Result.Success::class.java)
+        assertThat(xmlPattern.matches(node.copy(childNodes = listOf(StringValue("2026-03-13"))), Resolver()))
+            .isInstanceOf(Result.Failure::class.java)
     }
 
     @Test
