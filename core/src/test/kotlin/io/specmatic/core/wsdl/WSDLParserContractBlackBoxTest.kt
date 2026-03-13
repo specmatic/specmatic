@@ -12,6 +12,39 @@ import java.io.File
 
 class WSDLParserContractBlackBoxTest {
     @Test
+    fun `contract test for choice wsdl sends both example soap payload variants`() {
+        val fixture = loadWsdlExampleFixture(
+            "src/test/resources/wsdl/state_machine/choice_ref.wsdl",
+            "src/test/resources/wsdl/state_machine/choice_ref_examples",
+        )
+
+        val seenRequestBodies = mutableListOf<String>()
+
+        val result = HttpStub(fixture.feature, fixture.scenarioStubs).use { stub ->
+            fixture.feature.executeTests(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    assertThat(request.path).isEqualTo("/choice-ref")
+                    assertThat(request.headers["SOAPAction"]).isIn("\"/choice-ref/signonCustId\"", "/choice-ref/signonCustId")
+                    seenRequestBodies += request.body.toStringLiteral()
+                    return stub.client.execute(request)
+                }
+            })
+        }
+
+        assertThat(result.success()).withFailMessage(result.report()).isTrue()
+        assertThat(result.successCount).isEqualTo(2)
+        assertThat(seenRequestBodies).hasSize(2)
+        assertThat(seenRequestBodies).anySatisfy {
+            assertThat(it).contains("SignonCustId").contains("PrimaryName").contains("CustId").contains("CP-123")
+            assertThat(it).doesNotContain("CustLoginId>login-123<")
+        }
+        assertThat(seenRequestBodies).anySatisfy {
+            assertThat(it).contains("SignonCustId").contains("PrimaryName").contains("CustLoginId>login-123<")
+            assertThat(it).doesNotContain("CustPermId")
+        }
+    }
+
+    @Test
     fun `contract test for no input wsdl sends no request body`() {
         val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/no_input.wsdl"))
 

@@ -33,7 +33,7 @@ internal class ComplexElementTest {
         val complexType2 = mockk<ComplexType>()
         every {
             complexType2.generateChildren(any(), any(), any())
-        } returns WSDLTypeInfo(listOf(toXMLNode("<data>(string)</data>")))
+        } returns listOf(WSDLTypeInfo(listOf(toXMLNode("<data>(string)</data>"))))
         every {
             wsdl.getComplexTypeNode(element)
         } returns complexType2
@@ -56,7 +56,7 @@ internal class ComplexElementTest {
     @Test
     fun `complex node with no children returns no children`() {
         val typeInfo = ComplexElement("", mockk(), mockk()).generateChildren("", toXMLNode("<complexType/>"), emptyMap(), emptySet())
-        assertThat(typeInfo.nodes).isEmpty()
+        assertThat(typeInfo).containsExactly(WSDLTypeInfo())
     }
 
     @Test
@@ -68,7 +68,7 @@ internal class ComplexElementTest {
         val complexType2 = mockk<ComplexType>()
         every {
             complexType2.generateChildren(any(), any(), any())
-        } returns WSDLTypeInfo(listOf(toXMLNode("<data>(string)</data>")))
+        } returns listOf(WSDLTypeInfo(listOf(toXMLNode("<data>(string)</data>"))))
         every {
             wsdl.getComplexTypeNode(element)
         } returns complexType2

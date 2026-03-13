@@ -2,7 +2,7 @@ package io.specmatic.core.wsdl.parser
 
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.NodeOccurrence
-import io.specmatic.core.pattern.XMLPattern
+import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.value.FullyQualifiedName
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.xmlNode
@@ -35,7 +35,9 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
         val featureHeading = "Feature: $featureName"
 
         val indent = "    "
-        val gherkinScenarios = operationsTypeInfo.map { it.toGherkinScenario(indent, indent) }
+        val gherkinScenarios = operationsTypeInfo.flatMap { operationTypeInfo ->
+            operationTypeInfo.expandedVariants().map { it.toGherkinScenario(indent, indent) }
+        }
 
         return listOf(featureHeading).plus(gherkinScenarios).joinToString("\n\n")
     }
@@ -133,7 +135,7 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
         operationName: String,
         soapMessageType: SOAPMessageType,
         wsdl: WSDL,
-        existingTypes: Map<String, XMLPattern>
+        existingTypes: Map<String, Pattern>
     ): SoapPayloadType {
         val messageTypeNode = portOperationNode.findFirstChildByName(soapMessageType.messageTypeName)
             ?: return SoapPayloadType(existingTypes, EmptyHTTPBodyPayload())
@@ -174,7 +176,7 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
     private fun parseElementReferencedPayload(
         fullyQualifiedName: FullyQualifiedName,
         soapMessageType: SOAPMessageType,
-        existingTypes: Map<String, XMLPattern>,
+        existingTypes: Map<String, Pattern>,
         operationName: String,
     ): SoapPayloadType {
         val topLevelElement = wsdl.getSOAPElement(fullyQualifiedName)
@@ -192,7 +194,7 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
         partName: String,
         fullyQualifiedTypeName: FullyQualifiedName,
         soapMessageType: SOAPMessageType,
-        existingTypes: Map<String, XMLPattern>,
+        existingTypes: Map<String, Pattern>,
         operationName: String,
     ): SoapPayloadType {
         val qualifiedMessageName = qualifyMessageName(fullyQualifiedMessageName)

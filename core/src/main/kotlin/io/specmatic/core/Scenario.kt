@@ -854,7 +854,11 @@ data class Scenario(
                     && matchesResponseContentType(operationId)
         }
 
-        return examplesWithMatchingIdentifiers.mapValues { (_, rows) -> rows.filter(this::matchesOperationIfWsdl) }
+        return examplesWithMatchingIdentifiers.mapValues { (_, rows) ->
+            rows.filter { row ->
+                matchesOperationIfWsdl(row) && matchesRequestExampleIfPresent(row, patternMatchingResolver)
+            }
+        }
     }
 
     private fun matchesOperationIfWsdl(row: Row): Boolean {
@@ -869,6 +873,11 @@ data class Scenario(
             val soapAction = soapActionPattern.parse(row.getField(BreadCrumb.SOAP_ACTION.value), resolver)
             soapActionPattern.matches(soapAction, resolver).isSuccess()
         }.getOrDefault(false)
+    }
+
+    private fun matchesRequestExampleIfPresent(row: Row, resolver: Resolver): Boolean {
+        val requestExample = row.requestExample ?: return true
+        return matches(requestExample, resolver).isSuccess()
     }
 
 

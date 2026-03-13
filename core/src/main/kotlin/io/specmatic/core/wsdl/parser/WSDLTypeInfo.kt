@@ -1,11 +1,11 @@
 package io.specmatic.core.wsdl.parser
 
 import io.specmatic.core.log.logger
-import io.specmatic.core.pattern.XMLPattern
+import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.XMLValue
 
-data class WSDLTypeInfo(val nodes: List<XMLValue> = emptyList(), val types: Map<String, XMLPattern> = emptyMap(), val namespacePrefixes: Set<String> = emptySet()) {
+data class WSDLTypeInfo(val nodes: List<XMLValue> = emptyList(), val types: Map<String, Pattern> = emptyMap(), val namespacePrefixes: Set<String> = emptySet()) {
     fun getNamespaces(wsdlNamespaces: Map<String, String>): Map<String, String> {
         logger.debug(wsdlNamespaces.toString())
         logger.debug(namespacePrefixes.toString())

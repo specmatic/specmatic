@@ -1,5 +1,5 @@
 package io.specmatic.core.wsdl.payload
 
-import io.specmatic.core.pattern.XMLPattern
+import io.specmatic.core.pattern.Pattern
 
-data class SoapPayloadType(val types: Map<String, XMLPattern>, val soapPayload: SOAPPayload)
+data class SoapPayloadType(val types: Map<String, Pattern>, val soapPayload: SOAPPayload)
