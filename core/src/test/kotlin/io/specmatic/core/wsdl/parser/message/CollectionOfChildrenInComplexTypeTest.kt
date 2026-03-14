@@ -27,8 +27,8 @@ internal class CollectionOfChildrenInComplexTypeTest {
         } returns typeReference
 
         val collection = CollectionOfChildrenInComplexType(sequence, wsdl, parentTypeName)
-        val wsdlTypeInfo = collection.process(mockk(), emptyMap(), emptySet())
+        val wsdlTypeInfo = collection.process(listOf(WSDLTypeInfo()), emptyMap(), emptySet())
         val expected = WSDLTypeInfo(listOf(toXMLNode("<data>(string)</data>")))
-        assertThat(wsdlTypeInfo).isEqualTo(expected)
+        assertThat(wsdlTypeInfo).containsExactly(expected)
     }
 }

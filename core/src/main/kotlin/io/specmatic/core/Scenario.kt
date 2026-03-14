@@ -855,9 +855,8 @@ data class Scenario(
         }
 
         return examplesWithMatchingIdentifiers.mapValues { (_, rows) ->
-            rows.filter { row ->
-                matchesOperationIfWsdl(row) && matchesRequestExampleIfPresent(row, patternMatchingResolver)
-            }
+            val wsdlRows = rows.filter(this::matchesOperationIfWsdl)
+            disambiguateWsdlRowsIfNeeded(wsdlRows, patternMatchingResolver)
         }
     }
 
@@ -875,9 +874,17 @@ data class Scenario(
         }.getOrDefault(false)
     }
 
-    private fun matchesRequestExampleIfPresent(row: Row, resolver: Resolver): Boolean {
-        val requestExample = row.requestExample ?: return true
-        return matches(requestExample, resolver).isSuccess()
+    private fun disambiguateWsdlRowsIfNeeded(rows: List<Row>, resolver: Resolver): List<Row> {
+        if (!isGherkinScenario) return rows
+        if (rows.size <= 1 || rows.any { it.requestExample == null }) return rows
+
+        val matchingRows = rows.filter { row ->
+            row.requestExample?.let { requestExample ->
+                matches(requestExample, resolver).isSuccess()
+            } ?: false
+        }
+
+        return matchingRows.ifEmpty { rows }
     }
 
 
