@@ -4,6 +4,7 @@ import io.specmatic.core.BreadCrumb
 import io.specmatic.core.pattern.ExactValuePattern
 import io.specmatic.core.pattern.HasFailure
 import io.specmatic.core.pattern.HasValue
+import io.specmatic.core.pattern.NotEqualsPattern
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.ReturnValue
 import io.specmatic.core.pattern.unwrapOrReturn
@@ -62,7 +63,7 @@ data class EqualityMatcher(val path: BreadCrumb, val value: Value, val strategy:
         if(this.value !is ScalarValue) return originalPattern
         return when(strategy) {
             EqualityStrategy.EQUALS -> ExactValuePattern(this.value)
-            EqualityStrategy.NOT_EQUALS -> ExactValuePattern(this.value.alterValue())
+            EqualityStrategy.NOT_EQUALS -> NotEqualsPattern(originalPattern, this.value)
         }
     }
 

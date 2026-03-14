@@ -15,6 +15,7 @@ import io.specmatic.core.DefaultMismatchMessages
 import io.specmatic.shouldNotMatch
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
@@ -76,6 +77,24 @@ internal class ExactValuePatternTest {
             )
         }
         """.trimIndent())
+    }
+
+    @Test
+    fun `generateNotEqualTo should return value when excluded is different`() {
+        val pattern = ExactValuePattern(StringValue("a"))
+
+        val generatedValue = pattern.generateNotEqualTo(StringValue("b"), Resolver())
+
+        assertThat(generatedValue).isEqualTo(StringValue("a"))
+    }
+
+    @Test
+    fun `generateNotEqualTo should throw when excluded equals exact value`() {
+        val pattern = ExactValuePattern(StringValue("a"))
+
+        assertThrows<ContractException> {
+            pattern.generateNotEqualTo(StringValue("a"), Resolver())
+        }
     }
 
     companion object {

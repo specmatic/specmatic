@@ -8,6 +8,7 @@ import io.specmatic.core.value.StringValue
 import io.specmatic.shouldMatch
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.assertThrows
 
 internal class NullPatternTest {
     @Test
@@ -34,6 +35,13 @@ internal class NullPatternTest {
     @Test
     fun `should create a new array of patterns containing itself`() {
         assertEquals(listOf(NullPattern), newBasedOn(Row(), Resolver()).map { it.value }.toList())
+    }
+
+    @Test
+    fun `generateNotEqualTo should throw when excluded is null`() {
+        assertThrows<ContractException> {
+            NullPattern.generateNotEqualTo(NullValue, Resolver())
+        }
     }
 
     @Test

@@ -63,6 +63,33 @@ class EnumPatternTest {
         }
 
         @Test
+        fun `generateNotEqualTo should return a different enum value`() {
+            val enum = EnumPattern(listOf(StringValue("a"), StringValue("b")))
+
+            val generatedValue = enum.generateNotEqualTo(StringValue("b"), Resolver())
+
+            assertThat(generatedValue).isEqualTo(StringValue("a"))
+        }
+
+        @Test
+        fun `generateNotEqualTo should return generate when excluded does not match enum type`() {
+            val enum = EnumPattern(listOf(StringValue("a"), StringValue("b")))
+
+            val generatedValue = enum.generateNotEqualTo(NumberValue(10), Resolver())
+
+            assertThat(generatedValue).isIn(listOf(StringValue("a"), StringValue("b")))
+        }
+
+        @Test
+        fun `generateNotEqualTo should throw when no other enum value exists`() {
+            val enum = EnumPattern(listOf(StringValue("b")))
+
+            assertThrows<ContractException> {
+                enum.generateNotEqualTo(StringValue("b"), Resolver())
+            }
+        }
+
+        @Test
         fun `it should parse a new value to the enum type`() {
             val enum = toMultiValueEnum("01", 10, true)
             assertThat(listOf("Three" to "Three", "03" to 3, "false" to false)).allSatisfy { (string, expectation) ->

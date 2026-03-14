@@ -58,6 +58,24 @@ internal class StringPatternTest {
     }
 
     @Test
+    fun `generateNotEqualTo should return altered value when excluded matches pattern`() {
+        val pattern = StringPattern()
+
+        val generatedValue = pattern.generateNotEqualTo(StringValue("hello"), Resolver())
+
+        assertThat(generatedValue).isEqualTo(StringValue("hello_"))
+    }
+
+    @Test
+    fun `generateNotEqualTo should throw when altered value does not match regex`() {
+        val pattern = StringPattern(regex = "[0-9]+")
+
+        assertThrows<ContractException> {
+            pattern.generateNotEqualTo(StringValue("1"), Resolver())
+        }
+    }
+
+    @Test
     fun `newBasedOn should generate random string based on the regex and then it should match the regex`() {
         val maxLength = 32
         val regex = "[0-9a-f]{$maxLength}"

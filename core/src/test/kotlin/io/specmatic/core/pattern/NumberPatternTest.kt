@@ -7,6 +7,7 @@ import io.specmatic.core.UseDefaultExample
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.NumberValue
+import io.specmatic.core.value.StringValue
 import io.specmatic.shouldNotMatch
 import io.specmatic.core.StandardRuleViolation
 import io.specmatic.toViolationReportString
@@ -628,5 +629,14 @@ internal class NumberPatternTest {
         assertThat(largerResult.isSuccess())
             .withFailMessage("Expected value larger than Int.MAX_VALUE to match, but it failed with: ${largerResult.reportString()}")
             .isTrue()
+    }
+
+    @Test
+    fun `generateNotEqualTo should fall back to generate when excluded does not match pattern`() {
+        val pattern = NumberPattern()
+
+        val generatedValue = pattern.generateNotEqualTo(StringValue("not-a-number"), Resolver())
+
+        assertThat(generatedValue).isInstanceOf(NumberValue::class.java)
     }
 }
