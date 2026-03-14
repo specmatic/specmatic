@@ -112,7 +112,7 @@ private fun stringRestrictions(element: XMLNode): StringRestrictions? {
     val restrictionNode = restrictionNode(element) ?: return null
     val baseType = restrictionNode.getAttributeValue("base").localName()
 
-    if (baseType !in primitiveStringTypes) {
+    if (baseType != "token") {
         return null
     }
 

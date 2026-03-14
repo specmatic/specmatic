@@ -445,16 +445,16 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
                                                             is XMLPattern -> when {
                                                                 dereferenced.occurMultipleTimes() -> {
                                                                     dereferenced.newBasedOn(row, cyclePreventedResolver)
-                                                                        .map { it.value as XMLPattern }
+                                                                        .map { (it.value as XMLPattern).withTypeReferenceFrom(childPattern) }
                                                                 }
 
                                                                 dereferenced.isOptional() -> {
                                                                     dereferenced.newBasedOn(row, cyclePreventedResolver)
-                                                                        .map { it.value as XMLPattern }.plus(null)
+                                                                        .map { (it.value as XMLPattern).withTypeReferenceFrom(childPattern) }.plus(null)
                                                                 }
 
                                                                 else -> dereferenced.newBasedOn(row, cyclePreventedResolver)
-                                                                    .map { it.value as XMLPattern }
+                                                                    .map { (it.value as XMLPattern).withTypeReferenceFrom(childPattern) }
                                                             }
 
                                                             else -> dereferenced.newBasedOn(row, cyclePreventedResolver).map { it.value }
@@ -500,13 +500,17 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
                                     is XMLPattern -> when {
                                         dereferenced.occurMultipleTimes() -> {
                                             dereferenced.newBasedOn(cyclePreventedResolver)
+                                                .map { it.withTypeReferenceFrom(childPattern) }
                                         }
 
                                         dereferenced.isOptional() -> {
-                                            dereferenced.newBasedOn(cyclePreventedResolver).plus(null)
+                                            dereferenced.newBasedOn(cyclePreventedResolver)
+                                                .map { it.withTypeReferenceFrom(childPattern) }
+                                                .plus(null)
                                         }
 
                                         else -> dereferenced.newBasedOn(cyclePreventedResolver)
+                                            .map { it.withTypeReferenceFrom(childPattern) }
                                     }
 
                                     else -> dereferenced.newBasedOn(cyclePreventedResolver)
@@ -559,6 +563,11 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
             is AnyPattern -> referred.copy(pattern = referred.pattern.map(::mergeReferredPattern))
             else -> referred
         }
+    }
+
+    private fun withTypeReferenceFrom(original: XMLPattern): XMLPattern {
+        val referencedType = original.pattern.attributes[TYPE_ATTRIBUTE_NAME] ?: return this
+        return copy(pattern = pattern.copy(attributes = pattern.attributes + mapOf(TYPE_ATTRIBUTE_NAME to referencedType)))
     }
 
     fun occurMultipleTimes(): Boolean = pattern.getNodeOccurrence() == NodeOccurrence.Multiple
