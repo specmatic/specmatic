@@ -15,6 +15,47 @@ import org.junit.jupiter.api.assertThrows
 
 internal class AnyPatternTest {
     @Test
+    fun `generateNotEqualTo should return a different value for enum-like any pattern`() {
+        val pattern = AnyPattern(
+            pattern = listOf(
+                ExactValuePattern(StringValue("a")),
+                ExactValuePattern(StringValue("b"))
+            ),
+            extensions = emptyMap()
+        )
+
+        val generatedValue = pattern.generateNotEqualTo(StringValue("b"), Resolver())
+
+        assertThat(generatedValue).isEqualTo(StringValue("a"))
+    }
+
+    @Test
+    fun `generateNotEqualTo should throw when enum-like any pattern has no other values`() {
+        val pattern = AnyPattern(
+            pattern = listOf(
+                ExactValuePattern(StringValue("b"))
+            ),
+            extensions = emptyMap()
+        )
+
+        assertThrows<ContractException> {
+            pattern.generateNotEqualTo(StringValue("b"), Resolver())
+        }
+    }
+
+    @Test
+    fun `generateNotEqualTo should use alterValue when excluded matches pattern`() {
+        val pattern = AnyPattern(
+            pattern = listOf(StringPattern(), NumberPattern()),
+            extensions = emptyMap()
+        )
+
+        val generated = pattern.generateNotEqualTo(StringValue("hello"), Resolver())
+
+        assertThat(generated).isEqualTo(StringValue("hello_"))
+    }
+
+    @Test
     fun `should be able to generate for a discriminator value when it's nested inside another AnyPattern`() {
         val discriminator = Discriminator(
             property = "type",

@@ -10,6 +10,7 @@ import io.specmatic.core.jsonoperator.value.ValueOperator
 import io.specmatic.core.pattern.HasFailure
 import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.ExactValuePattern
+import io.specmatic.core.pattern.NotEqualsPattern
 import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.JSONObjectValue
@@ -48,14 +49,14 @@ class EqualityMatcherTest {
     }
 
     @Test
-    fun `patternFrom should return exact value pattern with alter value for non equals strategy`() {
+    fun `patternFrom should return not equals pattern for non equals strategy`() {
         val value = StringValue("hello")
         val matcher = EqualityMatcher(BreadCrumb.from(), value, EqualityStrategy.NOT_EQUALS)
         val original = StringPattern()
 
         val result = matcher.patternFrom(original)
 
-        assertThat(result).isEqualTo(ExactValuePattern(value.alterValue()))
+        assertThat(result).isEqualTo(NotEqualsPattern(original, value))
     }
 
     @Test

@@ -6,6 +6,7 @@ import io.specmatic.core.Result
 import io.specmatic.core.Substitution
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.NullValue
+import io.specmatic.core.value.ScalarValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
@@ -120,6 +121,10 @@ data class EnumPattern(override val pattern: AnyPattern, val nullable: Boolean) 
 
     override fun fixValue(value: Value, resolver: Resolver): Value {
         return fixValue(value, this, resolver)
+    }
+
+    override fun generateNotEqualTo(excluded: ScalarValue, resolver: Resolver): Value {
+        return pattern.generateNotEqualTo(excluded, resolver)
     }
 
     override fun equals(other: Any?): Boolean = other is EnumPattern && other.pattern == this.pattern

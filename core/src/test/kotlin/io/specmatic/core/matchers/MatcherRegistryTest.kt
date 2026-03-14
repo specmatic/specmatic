@@ -5,6 +5,7 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.pattern.AnyPattern
 import io.specmatic.core.pattern.ExactValuePattern
 import io.specmatic.core.pattern.HasValue
+import io.specmatic.core.pattern.NotEqualsPattern
 import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.pattern.RegexConstrainedPattern
 import io.specmatic.core.pattern.StringPattern
@@ -127,7 +128,7 @@ class MatcherRegistryTest {
     }
 
     @Test
-    fun `patternFrom should return an exact value pattern with alter value when equality matcher is not equals`() {
+    fun `patternFrom should return a not equals pattern when equality matcher is not equals`() {
         val originalPattern = StringPattern()
         val value = StringValue("hello")
         val result = Matcher.patternFrom(
@@ -136,7 +137,7 @@ class MatcherRegistryTest {
             Resolver()
         )
 
-        assertThat(result).isEqualTo(ExactValuePattern(value.alterValue()))
+        assertThat(result).isEqualTo(NotEqualsPattern(basePattern = originalPattern, excluded = value))
     }
 
     @Test

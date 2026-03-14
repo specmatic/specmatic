@@ -21,6 +21,20 @@ interface Pattern {
 
     fun generate(resolver: Resolver): Value
     fun generateWithAll(resolver: Resolver) = resolver.withCyclePrevention(this, this::generate)
+    fun generateNotEqualTo(excluded: ScalarValue, resolver: Resolver): Value {
+        val excludedResult = matches(excluded, resolver)
+        if (excludedResult is Result.Failure) return generate(resolver)
+
+        val candidate = excluded.alterValue()
+        if (candidate == excluded) {
+            throw ContractException("No value for $typeName can satisfy not-equals ${excluded.displayableValue()}")
+        }
+        val candidateResult = matches(candidate, resolver)
+        if (candidateResult is Result.Failure) {
+            throw ContractException("No value for $typeName can satisfy not-equals ${excluded.displayableValue()}")
+        }
+        return candidate
+    }
     fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>>
     fun negativeBasedOn(
         row: Row,

@@ -38,6 +38,12 @@ data class ExactValuePattern(override val pattern: Value, override val typeAlias
     }
 
     override fun generate(resolver: Resolver) = pattern
+    override fun generateNotEqualTo(excluded: ScalarValue, resolver: Resolver): Value {
+        if (pattern is ScalarValue && pattern == excluded) {
+            throw ContractException("No value for $typeName can satisfy not-equals ${excluded.displayableValue()}")
+        }
+        return pattern
+    }
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> {
         return sequenceOf(HasValue(this, "is set to exact value of ${pattern.displayableValue()}"))
     }

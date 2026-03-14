@@ -258,6 +258,16 @@ data class AnyPattern(
             ?: generateValue(resolver)
     }
 
+    override fun generateNotEqualTo(excluded: ScalarValue, resolver: Resolver): Value {
+        val enumValues = pattern.mapNotNull { (it as? ExactValuePattern)?.pattern as? ScalarValue }
+        if (enumValues.size == pattern.size) {
+            return enumValues.firstOrNull { it != excluded }
+                ?: throw ContractException("No value for $typeName can satisfy not-equals ${excluded.displayableValue()}")
+        }
+
+        return super.generateNotEqualTo(excluded, resolver)
+    }
+
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> {
         val updatedPatterns = discriminator?.let {
             it.updatePatternsWithDiscriminator(pattern, resolver).let { updatedPatterns ->
