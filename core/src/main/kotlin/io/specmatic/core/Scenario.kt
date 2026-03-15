@@ -855,14 +855,11 @@ data class Scenario(
         }
 
         return examplesWithMatchingIdentifiers.mapValues { (_, rows) ->
-            val wsdlRows = rows.filter(this::matchesOperationIfWsdl)
-            disambiguateWsdlRowsIfNeeded(wsdlRows, patternMatchingResolver)
+            rows.filter(this::matchesOperationIfWsdl)
         }
     }
 
     private fun matchesOperationIfWsdl(row: Row): Boolean {
-        if (!this.isGherkinScenario) return true
-
         val soapActionPattern = this.httpRequestPattern.headersPattern.getSOAPActionPattern()
         val hasSoapActionField = row.containsField(BreadCrumb.SOAP_ACTION.value)
         if (soapActionPattern == null) return !hasSoapActionField
@@ -872,19 +869,6 @@ data class Scenario(
             val soapAction = soapActionPattern.parse(row.getField(BreadCrumb.SOAP_ACTION.value), resolver)
             soapActionPattern.matches(soapAction, resolver).isSuccess()
         }.getOrDefault(false)
-    }
-
-    private fun disambiguateWsdlRowsIfNeeded(rows: List<Row>, resolver: Resolver): List<Row> {
-        if (!isGherkinScenario) return rows
-        if (rows.size <= 1 || rows.any { it.requestExample == null }) return rows
-
-        val matchingRows = rows.filter { row ->
-            row.requestExample?.let { requestExample ->
-                matches(requestExample, resolver).isSuccess()
-            } ?: false
-        }
-
-        return matchingRows.ifEmpty { rows }
     }
 
 

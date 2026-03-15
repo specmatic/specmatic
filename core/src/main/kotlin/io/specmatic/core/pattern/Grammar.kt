@@ -8,6 +8,7 @@ import io.specmatic.core.utilities.*
 import io.specmatic.core.value.*
 import io.specmatic.test.ExampleProcessor
 import java.io.File
+import java.math.BigDecimal
 
 const val XML_ATTR_OPTIONAL_SUFFIX = ".opt"
 const val DEFAULT_OPTIONAL_SUFFIX = "?"
@@ -88,7 +89,7 @@ fun isStringPatternWithRestrictions(patternValue: String): Boolean {
 
 fun isNumberPatternWithRestrictions(patternValue: String): Boolean {
     val tokens = patternValue.split(" ")
-    return tokens[0] == "(number)" && listOf("minLength", "maxLength").any { it in tokens }
+    return tokens[0] == "(number)" && listOf("minLength", "maxLength", "minimum", "maximum").any { it in tokens }
 }
 
 private fun restrictionValues(tokens: List<String>): Map<String, String> =
@@ -235,7 +236,9 @@ fun parsedPattern(rawContent: String, key: String? = null, typeAlias: String? = 
                     NumberPattern(
                         typeAlias = typeAlias,
                         minLength = restrictions["minLength"]?.toInt() ?: 1,
-                        maxLength = restrictions["maxLength"]?.toInt() ?: Int.MAX_VALUE
+                        maxLength = restrictions["maxLength"]?.toInt() ?: Int.MAX_VALUE,
+                        minimum = restrictions["minimum"]?.let(::BigDecimal),
+                        maximum = restrictions["maximum"]?.let(::BigDecimal),
                     )
                 } catch (e: IllegalArgumentException) {
                     throw ContractException(e.message ?: "", exceptionCause = e)

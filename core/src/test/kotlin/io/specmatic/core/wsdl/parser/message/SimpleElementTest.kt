@@ -10,8 +10,46 @@ import io.specmatic.core.value.toXMLNode
 import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 
 internal class SimpleElementTest {
+    @Test
+    fun `restricted unsignedLong is treated as a numeric primitive`() {
+        val simpleTypeNode = toXMLNode(
+            """
+            <xsd:simpleType xmlns:xsd="http://www.w3.org/2001/XMLSchema" name="CustomerId">
+                <xsd:restriction base="xsd:unsignedLong"/>
+            </xsd:simpleType>
+            """.trimIndent()
+        )
+        val element = toXMLNode("<xsd:element name=\"CustomerId\" />")
+        val simpleElement = SimpleElement("tns:CustomerId", element, mockk(), simpleTypeNode = simpleTypeNode)
+
+        val typeInfo = simpleElement.deriveSpecmaticTypes("CustomerIdType", emptyMap(), emptySet())
+        val node = typeInfo.nodes.single()
+
+        assertThat(node).isEqualTo(toXMLNode("<CustomerId>(number)</CustomerId>"))
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "positiveInteger,minimum 1",
+        "negativeInteger,maximum -1",
+        "nonPositiveInteger,maximum 0",
+        "nonNegativeInteger,minimum 0",
+    )
+    fun `signed integer variants preserve numeric bounds`(typeName: String, expectedClause: String) {
+        val element = toXMLNode("""<xsd:element name="NumericValue" type="xsd:$typeName" />""")
+            .copy(namespaces = mapOf("xsd" to primitiveNamespace))
+
+        val typeValue = elementTypeValue(element)
+
+        assertThat(typeValue.toStringLiteral())
+            .startsWith("(number)")
+            .contains(expectedClause)
+    }
+
     @Test
     fun `xsd token is treated as a string primitive`() {
         val element = toXMLNode("<xsd:element name=\"SessionToken\" type=\"xsd:token\" />")

@@ -1,5 +1,7 @@
 package io.specmatic.core.wsdl.parser
 
+import io.specmatic.core.ScenarioInfo
+import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.NodeOccurrence
 import io.specmatic.core.pattern.Pattern
@@ -24,11 +26,7 @@ private data class QualifiedMessageName(
 
 class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
     override fun convertToGherkin(url: String): String {
-        val portType = wsdl.getPortType()
-
-        val operationsTypeInfo = wsdl.operations.map {
-            parseOperation(it, url, wsdl, portType)
-        }
+        val operationsTypeInfo = operationsTypeInfo(url)
 
         val featureName = wsdl.getServiceName()
 
@@ -40,6 +38,20 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
         }
 
         return listOf(featureHeading).plus(gherkinScenarios).joinToString("\n\n")
+    }
+
+    override fun toScenarioInfos(url: String, specmaticConfig: SpecmaticConfig): List<ScenarioInfo> {
+        return operationsTypeInfo(url).map {
+            it.toScenarioInfo(preferEscapedSoapAction = specmaticConfig.getEscapeSoapAction())
+        }
+    }
+
+    private fun operationsTypeInfo(url: String): List<SOAPOperationTypeInfo> {
+        val portType = wsdl.getPortType()
+
+        return wsdl.operations.map {
+            parseOperation(it, url, wsdl, portType)
+        }
     }
 
     private fun headerRequired(portType: XMLNode, operationName: String, bindingPartName: String): NodeOccurrence? {
@@ -89,7 +101,8 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
                     try {
                         val bindingMessageRef = soapHeader.attributes["message"]?.toStringLiteral() ?: return@mapNotNull null
                         val bindingPartName = soapHeader.attributes["part"]?.toStringLiteral() ?: return@mapNotNull null
-                        val bindingNamespace = soapHeader.attributes["namespace"]?.toStringLiteral() ?: return@mapNotNull null
+                        val bindingNamespace = soapHeader.attributes["namespace"]?.toStringLiteral()
+                            ?: soapHeader.resolveNamespace(bindingMessageRef)
                         val bindingOccurrence = soapHeader.attributes["minOccurs"]?.toStringLiteral().let {
                             when (it) {
                                 "0" -> NodeOccurrence.Optional

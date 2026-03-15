@@ -1,5 +1,7 @@
 package io.specmatic.core.wsdl.payload
 
+import io.specmatic.core.pattern.Pattern
+import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.toXMLNode
 import io.specmatic.core.wsdl.parser.SOAPMessageType
@@ -9,6 +11,10 @@ data class EmptySOAPPayload(private val soapMessageType: SOAPMessageType): SOAPP
         val body = emptySoapMessage()
         return listOf("And ${soapMessageType.specmaticBodyType}-body\n\"\"\"\n$body\n\"\"\"")
     }
+
+    override fun toPattern(requestHeaders: RequestHeaders): Pattern {
+        return XMLPattern(emptySoapMessage(), isSOAP = true)
+    }
 }
 
 internal fun emptySoapMessage(): XMLNode {
@@ -16,4 +22,3 @@ internal fun emptySoapMessage(): XMLNode {
     val bodyNode = toXMLNode("<soapenv:Body/>")
     return payload.copy(childNodes = payload.childNodes.plus(bodyNode))
 }
-
