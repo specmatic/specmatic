@@ -39,7 +39,7 @@ class ImportCommand : Callable<Int> {
     var verbose: Boolean? = null
 
     override fun call(): Int {
-        configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = verbose))
+        configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = verbose, commandName = "import", component = "application"))
         return logException {
             when {
                 path.endsWith(".postman_collection.json") ->

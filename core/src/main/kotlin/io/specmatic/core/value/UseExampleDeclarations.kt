@@ -1,13 +1,13 @@
 package io.specmatic.core.value
 
 import io.specmatic.core.ExampleDeclarations
+import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.isPatternToken
 
 data class UseExampleDeclarations(override val examples: Map<String, String> = emptyMap(), override val messages: List<String> = emptyList(), override val comment: String? = null) : ExampleDeclarations {
     override fun plus(more: ExampleDeclarations): ExampleDeclarations {
         val duplicateMessage = messageWhenDuplicateKeysExist(more, examples)
-        for(message in duplicateMessage)
-            println(duplicateMessage)
+        duplicateMessage.forEach { logger.log(it) }
 
         return this.copy(examples = examples.plus(more.examples.filterNot { isPatternToken(it.value) }), messages = messages.plus(more.messages).plus(duplicateMessage))
     }

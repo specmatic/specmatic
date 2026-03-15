@@ -22,6 +22,8 @@ internal class NonVerboseExceptionLogTest {
             assertThat(this.getString("className")).isEqualTo("io.specmatic.core.pattern.ContractException")
             assertThat(this.getString("cause")).isEqualTo("test")
             assertThat(this.getString("message")).isEqualTo("msg")
+            assertThat(this.getString("errorCode")).isEqualTo("ContractException")
+            assertThat(this.getString("errorCategory")).isEqualTo("CONTRACT")
         }
     }
 }

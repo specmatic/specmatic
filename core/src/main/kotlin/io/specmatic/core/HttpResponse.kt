@@ -3,6 +3,7 @@ package io.specmatic.core
 import io.ktor.http.*
 import io.specmatic.conversions.guessType
 import io.specmatic.core.GherkinSection.Then
+import io.specmatic.core.log.LogRedactor
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Pattern
@@ -82,13 +83,21 @@ data class HttpResponse(
             if (headers.isNotEmpty()) json["headers"] = JSONObjectValue(headers.mapValues { StringValue(it.value) })
         })
 
+    fun toLogJSON(): JSONObjectValue =
+        JSONObjectValue(mutableMapOf<String, Value>().also { json ->
+            json["status"] = NumberValue(status)
+            json["body"] = LogRedactor.value(body)
+            if (statusText.isNotEmpty()) json["status-text"] = StringValue(statusText)
+            if (headers.isNotEmpty()) json["headers"] = JSONObjectValue(LogRedactor.headers(headers).mapValues { StringValue(it.value) })
+        })
+
     fun toLogString(prefix: String = "", prettyPrint: Boolean = true): String {
         val statusLine = "$status $statusText"
-        val headerString = headers.map { "${it.key}: ${it.value}" }.joinToString("\n")
+        val headerString = LogRedactor.headers(headers).map { "${it.key}: ${it.value}" }.joinToString("\n")
 
         val firstPart = listOf(statusLine, headerString).joinToString("\n").trim()
 
-        val formattedBody = formatJson(body.toStringLiteral(), prettyPrint)
+        val formattedBody = formatJson(LogRedactor.value(body).toStringLiteral(), prettyPrint)
 
         val responseString = listOf(firstPart, "", formattedBody).joinToString("\n")
         return startLinesWith(responseString, prefix)

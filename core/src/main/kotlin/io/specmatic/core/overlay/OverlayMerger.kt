@@ -68,7 +68,7 @@ class OverlayMerger {
                 ObjectMapper().readTree(documentContext.jsonString()) as ObjectNode
             ) ?: baseContent
         } catch(e: Exception) {
-            println("Failed while applying overlay over the specification content with error: ${e.message}")
+            logger.log("Failed while applying overlay over the specification content with error: ${e.message}")
             return baseContent
         }
     }

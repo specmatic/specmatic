@@ -38,7 +38,7 @@ private const val SPECMATIC_CONFIGURATION = "Specmatic Configuration"
 @Category("Specmatic core")
 class ConfigCommand : Callable<Int> {
     override fun call(): Int {
-        println("Use a subcommand. Use --help for more details.")
+        logger.log("Use a subcommand. Use --help for more details.")
         return SUCCESS_EXIT_CODE
     }
 

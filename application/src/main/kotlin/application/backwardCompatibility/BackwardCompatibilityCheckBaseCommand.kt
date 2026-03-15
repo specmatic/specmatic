@@ -87,7 +87,7 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Int> {
     open fun getUnusedExamples(feature: IFeature): Set<String> = emptySet()
 
     final override fun call(): Int {
-        configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = debugLog))
+        configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = debugLog, commandName = "backward-compatibility-check", component = "application"))
         addShutdownHook()
 
         val filteredSpecs = getChangedSpecs()

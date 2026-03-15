@@ -1,6 +1,7 @@
 package io.specmatic.core.utilities
 
 import io.specmatic.core.NoBodyValue
+import io.specmatic.core.log.logger
 import kotlinx.serialization.*
 import kotlinx.serialization.json.*
 
@@ -39,8 +40,8 @@ fun stringToPatternMap(stringContent: String): Map<String, Pattern>  {
         return convertToMapPattern(data)
     }
     catch (e: Throwable) {
-        println(e.message)
-        println(e.toString())
+        logger.debug(e.message ?: e.toString())
+        logger.debug(e)
         throw e
     }
 }

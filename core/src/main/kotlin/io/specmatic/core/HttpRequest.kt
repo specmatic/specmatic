@@ -9,6 +9,7 @@ import io.ktor.client.request.*
 import io.ktor.client.request.forms.*
 import io.ktor.http.*
 import io.ktor.http.content.*
+import io.specmatic.core.log.LogRedactor
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.URIUtils
 import io.specmatic.license.core.SpecmaticProtocol
@@ -183,6 +184,29 @@ data class HttpRequest(
         return JSONObjectValue(requestMap)
     }
 
+    fun toLogJSON(): JSONObjectValue {
+        val requestMap = mutableMapOf<String, Value>()
+
+        requestMap["path"] = path?.encodeURLPath()?.let { StringValue(it) } ?: StringValue("/")
+        method?.let { requestMap["method"] = StringValue(it) }
+            ?: throw ContractException("Can't serialise the request without a method.")
+
+        setIfNotEmpty(requestMap, "query", queryParams.asJsonMap())
+        setIfNotEmpty(requestMap, "headers", redactedHeaders())
+
+        when {
+            formFields.isNotEmpty() -> requestMap[FORM_FIELDS_JSON_KEY] =
+                JSONObjectValue(LogRedactor.flatMapByKey(formFields).mapValues { StringValue(it.value) })
+
+            multiPartFormData.isNotEmpty() -> requestMap[MULTIPART_FORMDATA_JSON_KEY] =
+                JSONArrayValue(multiPartFormData.map { it.toJSONObject() })
+
+            else -> requestMap["body"] = LogRedactor.value(body)
+        }
+
+        return JSONObjectValue(requestMap)
+    }
+
     fun setHeaders(addedHeaders: Map<String, String>): HttpRequest = copy(headers = headers.plus(addedHeaders))
 
     fun toLogString(prefix: String = "", prettyPrint: Boolean = true): String {
@@ -194,20 +218,22 @@ data class HttpRequest(
         val urlString = "$pathString$queryParamString"
 
         val firstLine = "$methodString $urlString"
-        val headerString = headers.map { "${it.key}: ${it.value}" }.joinToString("\n")
+        val headerString = redactedHeaders().map { "${it.key}: ${it.value}" }.joinToString("\n")
         val bodyString = when {
-            formFields.isNotEmpty() -> formFields.map { "${it.key}=${it.value}" }.joinToString("&")
+            formFields.isNotEmpty() -> LogRedactor.flatMapByKey(formFields).map { "${it.key}=${it.value}" }.joinToString("&")
             multiPartFormData.isNotEmpty() -> {
                 multiPartFormData.joinToString("\n") { part -> part.toDisplayableValue() }
             }
 
-            else -> body.toString()
+            else -> LogRedactor.value(body).toString()
         }.let { formatJson(it, prettyPrint) }
 
         val firstPart = listOf(firstLine, headerString).joinToString("\n").trim()
         val requestString = listOf(firstPart, "", bodyString).joinToString("\n")
         return startLinesWith(requestString, prefix)
     }
+
+    private fun redactedHeaders(): Map<String, String> = LogRedactor.headers(headers, metadata.securityHeaderNames)
 
     fun toPattern(): HttpRequestPattern {
         val pathForPattern = path ?: "/"

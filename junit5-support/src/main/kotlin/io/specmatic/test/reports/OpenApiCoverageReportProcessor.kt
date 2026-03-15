@@ -41,7 +41,7 @@ class OpenApiCoverageReportProcessor(private val openApiCoverageReportInput: Ope
     } ?: emptyList()
 
     private fun saveAsJson(openApiCoverageJsonReport: SpecmaticCoverageReport) {
-        println("Saving Coverage Report json to $JSON_REPORT_PATH ...")
+        logger.log("Saving Coverage Report json to $JSON_REPORT_PATH ...")
         val reportJson = ObjectMapper().writeValueAsString(openApiCoverageJsonReport)
         val directory = File(reportBaseDirectory).resolve(JSON_REPORT_PATH)
         directory.mkdirs()

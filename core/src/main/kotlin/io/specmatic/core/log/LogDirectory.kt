@@ -35,7 +35,7 @@ class LogDirectory(
         file = directory.resolve(name)
         if (!file.exists()) {
             file.createNewFile()
-            println("Logging to file ${file.canonicalFile}")
+            logger.log("Logging to file ${file.canonicalFile}")
         }
     }
 

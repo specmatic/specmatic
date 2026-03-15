@@ -1,6 +1,7 @@
 package io.specmatic.core.value
 
 import io.specmatic.core.ExampleDeclarations
+import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.*
 
 data class TypeDeclaration(val typeValue: String, val types: Map<String, Pattern> = emptyMap())
@@ -43,7 +44,7 @@ fun converge(accumulator: TabularPattern, newPattern: TabularPattern): TabularPa
                 val2.pattern
             )
             else -> {
-                println("Found two different types (${val1.pattern} and ${val2.pattern}) in one of the lists, can't converge on a common type for it. Choosing ${val1.pattern} for now.")
+                logger.debug("Found two different types (${val1.pattern} and ${val2.pattern}) in one of the lists, can't converge on a common type for it. Choosing ${val1.pattern} for now.")
                 val1
             }
         }
@@ -56,7 +57,7 @@ fun converge(accumulator: TabularPattern, newPattern: TabularPattern): TabularPa
             it.key
     }
     if (converged.any { it.key.contains("??") }) {
-        println(converged.keys)
+        logger.debug(converged.keys.toString())
     }
     return toTabularPattern(converged)
 }

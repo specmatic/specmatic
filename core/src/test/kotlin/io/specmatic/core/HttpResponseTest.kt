@@ -1,7 +1,10 @@
 package io.specmatic.core
 
 import io.specmatic.core.GherkinSection.Then
+import io.specmatic.core.config.LogRedactionConfig
+import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.jsonoperator.value.ObjectValueOperator
+import io.specmatic.core.log.LogRedactionContext
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.pattern.parsedJSONObject
@@ -215,6 +218,54 @@ internal class HttpResponseTest {
         val request = HttpResponse(200, body = parsedJSONObject("""{"id": 10}"""))
         assertThat(request.toLogString(prettyPrint = false))
             .contains("""{"id":10}""")
+    }
+
+    @Test
+    fun `to log string should redact default response sensitive headers and json keys`() {
+        LogRedactionContext.start(LoggingConfiguration.default())
+        try {
+            val response =
+                HttpResponse(
+                    status = 200,
+                    headers = mapOf("Set-Cookie" to "session=abc", "X-Trace-Id" to "trace-1"),
+                    body = parsedValue("""{"access_token":"abc","ok":true}"""),
+                )
+
+            val logString = response.toLogString(prettyPrint = false)
+            assertThat(logString).contains("Set-Cookie: ***REDACTED***")
+            assertThat(logString).contains("X-Trace-Id: trace-1")
+            assertThat(logString).contains(""""access_token":"***REDACTED***"""")
+            assertThat(logString).contains(""""ok":true""")
+        } finally {
+            LogRedactionContext.start(LoggingConfiguration.default())
+        }
+    }
+
+    @Test
+    fun `to log json should redact while to json should remain unchanged`() {
+        LogRedactionContext.start(
+            LoggingConfiguration(
+                redaction = LogRedactionConfig(headers = setOf("X-Secret"), jsonKeys = setOf("otp"), mask = "<hidden>"),
+            ),
+        )
+        try {
+            val response =
+                HttpResponse(
+                    status = 200,
+                    headers = mapOf("X-Secret" to "secret"),
+                    body = parsedValue("""{"otp":"123456"}"""),
+                )
+
+            val logJson = response.toLogJSON()
+            assertThat(logJson.findFirstChildByPath("headers.X-Secret")).isEqualTo(StringValue("<hidden>"))
+            assertThat(logJson.findFirstChildByPath("body.otp")).isEqualTo(StringValue("<hidden>"))
+
+            val regularJson = response.toJSON()
+            assertThat(regularJson.findFirstChildByPath("headers.X-Secret")).isEqualTo(StringValue("secret"))
+            assertThat(regularJson.findFirstChildByPath("body.otp")).isEqualTo(StringValue("123456"))
+        } finally {
+            LogRedactionContext.start(LoggingConfiguration.default())
+        }
     }
 
     @Test

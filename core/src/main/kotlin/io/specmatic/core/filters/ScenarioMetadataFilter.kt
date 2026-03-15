@@ -1,6 +1,7 @@
 package io.specmatic.core.filters
 
 import com.ezylang.evalex.Expression
+import io.specmatic.core.log.logger
 
 data class ScenarioMetadataFilter(
     val expression: Expression? = null
@@ -13,8 +14,8 @@ data class ScenarioMetadataFilter(
         return try {
             expressionWithVariables.evaluate().booleanValue ?: false
         } catch (e: Exception) {
-            val errorMsg = "Error in filter expression: ${e.message?.replace("brace", "bracket")}\n"
-            print(errorMsg)
+            val errorMsg = "Error in filter expression: ${e.message?.replace("brace", "bracket")}"
+            logger.log(errorMsg)
             throw IllegalArgumentException(errorMsg)
         }
     }

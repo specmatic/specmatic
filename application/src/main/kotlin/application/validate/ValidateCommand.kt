@@ -3,6 +3,7 @@ package application.validate
 import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.loadSpecmaticConfigIfAvailableElseDefault
 import io.specmatic.core.log.configureLogging
+import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.loader.OpenApiSpecCompatibilityChecker
 import io.specmatic.loader.RecursiveSpecificationAndExampleClassifier
@@ -31,10 +32,10 @@ class ValidateCommand(
     private val recursiveSpecificationAndExampleClassifier = RecursiveSpecificationAndExampleClassifier(specmaticConfig, specCompatibilityChecker)
 
     override fun call(): Int {
-        configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = debug))
+        configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = debug, commandName = "validate", component = "application"))
         val data = loadSpecificationData()
         if (data.isEmpty()) {
-            println("No specifications found to validate.")
+            logger.log("No specifications found to validate.")
             return 0
         }
 

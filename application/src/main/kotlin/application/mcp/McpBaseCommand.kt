@@ -19,7 +19,7 @@ class McpBaseCommand : Callable<Int> {
 
     companion object {
         fun configureLogger(verbose: Boolean?) {
-            configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = verbose))
+            configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = verbose, commandName = "mcp", component = "application"))
         }
     }
 }

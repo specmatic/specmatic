@@ -2,6 +2,7 @@ package io.specmatic.core
 
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
+import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.StringValue
 import java.io.File
@@ -140,7 +141,7 @@ data class MultiPartFilePattern(override val name: String, val filename: Pattern
                 val patternFilePath = filename.pattern.toStringLiteral()
                 val bytes = File(patternFilePath).canonicalFile.also {
                     if(!it.exists()) {
-                        println(it.canonicalFile.path + " does not exist")
+                        logger.log("${it.canonicalFile.path} does not exist")
                         throw Exception(it.canonicalFile.path + " does not exist")
                     }
                 }.readBytes()

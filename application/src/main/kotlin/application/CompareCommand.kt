@@ -48,7 +48,7 @@ class CompareCommand : Callable<Unit> {
             if(mirror)
                 logger.log("Comparing older with newer...")
             val report = backwardCompatible(olderContract, newerContract)
-            println(report.message())
+            logger.log(report.message())
 
             if(!mirror)
                 exitProcess(report.exitCode)
@@ -56,7 +56,7 @@ class CompareCommand : Callable<Unit> {
             logger.newLine()
             logger.log("Comparing newer with older...")
             val mirrorReport = backwardCompatible(newerContract, olderContract)
-            println(mirrorReport.message())
+            logger.log(mirrorReport.message())
         }
 
         exitProcess(exitCode)

@@ -320,5 +320,5 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 }
 
 private fun configureLogger(verbose: Boolean) {
-    configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = verbose))
+    configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = verbose, commandName = "examples", component = "application"))
 }

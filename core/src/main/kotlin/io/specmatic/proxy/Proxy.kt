@@ -149,7 +149,7 @@ class Proxy(
                         when (httpRequest.method?.uppercase()) {
                             "CONNECT" -> {
                                 val errorResponse = HttpResponse(400, "CONNECT is not supported")
-                                println(
+                                logger.log(
                                     listOf(
                                         httpRequestLog(httpRequest, prettyPrint),
                                         httpResponseLog(errorResponse, prettyPrint),
@@ -466,11 +466,11 @@ class Proxy(
 
             val openApiYaml = openApiYamlFromExampleDir(examplesDir, File(basePath).name, operationDetails)
             if (openApiYaml == null) {
-                println("No stubs were recorded. No contract will be written.")
+                logger.log("No stubs were recorded. No contract will be written.")
                 return false
             }
 
-            println("Writing specification to $specName")
+            logger.log("Writing specification to $specName")
             outputDirectory.writeText(specName, openApiYaml)
             return true
         }
@@ -482,7 +482,7 @@ class Proxy(
         val existingFiles = examplesDir.listFiles().orEmpty().filter { it.isFile && it.extension == "json" }.map(File::getName).toMutableSet()
         matchingStubs.forEach { namedStub ->
             val fileName = generateSequence(1) { it + 1 }.map { "${namedStub.shortName}_$it.json" }.first { it !in existingFiles }
-            println("Writing stub data to $fileName")
+            logger.log("Writing stub data to $fileName")
             stubDataDirectory.writeText(fileName, namedStub.stub.toJSON().toStringLiteral())
             existingFiles.add(fileName)
         }

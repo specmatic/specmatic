@@ -2342,7 +2342,7 @@ data class Feature(
 
         val unusedExternalizedExamples = (externalizedExampleFilePaths - utilizedFileSources)
         if (unusedExternalizedExamples.isNotEmpty()) {
-            println()
+            logger.newLine()
             logger.log("The following externalized examples were not used:")
 
             val errorMessages = unusedExternalizedExamples.sorted().map { externalizedExamplePath: String ->

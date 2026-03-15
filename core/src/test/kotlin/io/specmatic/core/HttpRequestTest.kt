@@ -17,6 +17,9 @@ import io.mockk.every
 import io.mockk.spyk
 import io.mockk.verify
 import io.specmatic.core.jsonoperator.value.ObjectValueOperator
+import io.specmatic.core.log.LogRedactionContext
+import io.specmatic.core.config.LogRedactionConfig
+import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.value.*
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.MOCK_HTTP_REQUEST
@@ -68,6 +71,56 @@ internal class HttpRequestTest {
         val logString = HttpRequest("POST", "/").copy(formFields = mapOf("Data" to "10")).toLogString()
 
         assertThat(logString).contains("Data=10")
+    }
+
+    @Test
+    fun `to log string should redact default sensitive headers and json keys`() {
+        LogRedactionContext.start(LoggingConfiguration.default())
+        try {
+            val request =
+                HttpRequest(
+                    method = "POST",
+                    path = "/orders",
+                    headers = mapOf("Authorization" to "Bearer 123", "X-Trace-Id" to "abc"),
+                    body = parsedValue("""{"password":"p@ss","orderId":"10"}"""),
+                )
+
+            val logString = request.toLogString(prettyPrint = false)
+            assertThat(logString).contains("Authorization: ***REDACTED***")
+            assertThat(logString).contains("X-Trace-Id: abc")
+            assertThat(logString).contains(""""password":"***REDACTED***"""")
+            assertThat(logString).contains(""""orderId":"10"""")
+        } finally {
+            LogRedactionContext.start(LoggingConfiguration.default())
+        }
+    }
+
+    @Test
+    fun `to log json should redact while to json should remain unchanged`() {
+        LogRedactionContext.start(
+            LoggingConfiguration(
+                redaction = LogRedactionConfig(headers = setOf("X-Secret"), jsonKeys = setOf("pin"), mask = "<hidden>"),
+            ),
+        )
+        try {
+            val request =
+                HttpRequest(
+                    method = "POST",
+                    path = "/payments",
+                    headers = mapOf("X-Secret" to "s3cr3t"),
+                    body = parsedValue("""{"pin":"1234"}"""),
+                )
+
+            val logJson = request.toLogJSON()
+            assertThat(logJson.findFirstChildByPath("headers.X-Secret")).isEqualTo(StringValue("<hidden>"))
+            assertThat(logJson.findFirstChildByPath("body.pin")).isEqualTo(StringValue("<hidden>"))
+
+            val regularJson = request.toJSON()
+            assertThat(regularJson.findFirstChildByPath("headers.X-Secret")).isEqualTo(StringValue("s3cr3t"))
+            assertThat(regularJson.findFirstChildByPath("body.pin")).isEqualTo(StringValue("1234"))
+        } finally {
+            LogRedactionContext.start(LoggingConfiguration.default())
+        }
     }
 
     @Test

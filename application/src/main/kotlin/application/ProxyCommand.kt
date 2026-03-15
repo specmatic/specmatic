@@ -7,7 +7,6 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.LoggingConfiguration.Companion.LoggingFromOpts
 import io.specmatic.core.getConfigFilePath
-import io.specmatic.core.log.StringLog
 import io.specmatic.core.log.configureLogging
 import io.specmatic.core.log.consoleLog
 import io.specmatic.core.log.logger
@@ -95,7 +94,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     }
 
     override fun call() {
-        configureLogging(LoggingFromOpts(debug = debugLog))
+        configureLogging(LoggingFromOpts(debug = debugLog, commandName = "proxy", component = "application"))
         val configSource = specmaticConfigSource()
         val specmaticConfigLoaded = configSource.load().config
         val fromCli = HttpsConfiguration.Companion.HttpsFromOpts(keyStoreFile, keyStoreDir, keyStorePassword, keyStoreAlias, keyPassword)
@@ -142,7 +141,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             timeoutInMilliseconds = timeout,
             specmaticConfigSource = specmaticConfigSource,
             proxySpecmaticDataDir = outDir.canonicalPath,
-        ).also { consoleLog(StringLog(startupLogs)) }
+        ).also { consoleLog(startupLogs) }
     }
 
     private fun validatedProxySettings(unknownProxyTarget: String?, proxySpecmaticDataDir: String?) {
@@ -168,7 +167,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         Runtime.getRuntime().addShutdownHook(object : Thread() {
             override fun run() {
                 try {
-                    println("Shutting down proxy server")
+                    logger.log("Shutting down proxy server")
                     proxy?.close()
                 } catch (e: InterruptedException) {
                     currentThread().interrupt()

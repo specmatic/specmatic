@@ -141,7 +141,7 @@ class BackwardCompatibilityCheckCommandV2 : BackwardCompatibilityCheckBaseComman
             true
         } catch (t: Throwable) {
             logger.log(exceptionCauseMessage(t))
-            println()
+            logger.newLine()
             false
         }
     }

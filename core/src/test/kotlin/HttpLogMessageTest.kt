@@ -1,5 +1,8 @@
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
+import io.specmatic.core.config.LogRedactionConfig
+import io.specmatic.core.config.LoggingConfiguration
+import io.specmatic.core.log.LogRedactionContext
 import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.log.CurrentDate
 import io.specmatic.core.log.HttpLogMessage
@@ -38,6 +41,44 @@ internal class HttpLogMessageTest {
         assertThat(json.findFirstChildByPath("http-response.status")).isEqualTo(NumberValue(200))
         assertThat(json.findFirstChildByPath("http-response.status-text")).isEqualTo(StringValue("OK"))
         assertThat(json.findFirstChildByPath("http-response.body")).isEqualTo(StringValue(""))
+        assertThat(json.findFirstChildByPath("requestId")).isNotNull()
+    }
+
+    @Test
+    fun `rendered http log json should apply redaction policy`() {
+        LogRedactionContext.start(
+            LoggingConfiguration(
+                redaction = LogRedactionConfig(headers = setOf("X-Private"), jsonKeys = setOf("token"), mask = "<hidden>"),
+            ),
+        )
+        try {
+            val message =
+                HttpLogMessage(
+                    requestTime = dateTime,
+                    request =
+                        HttpRequest(
+                            "POST",
+                            "/",
+                            headers = mapOf("X-Private" to "secret"),
+                            body = io.specmatic.core.pattern.parsedValue("""{"token":"abc"}"""),
+                        ),
+                    responseTime = dateTime,
+                    response =
+                        HttpResponse(
+                            200,
+                            headers = mapOf("Set-Cookie" to "session=123"),
+                            body = io.specmatic.core.pattern.parsedValue("""{"token":"xyz"}"""),
+                        ),
+                )
+
+            val json = message.toJSONObject()
+            assertThat(json.findFirstChildByPath("http-request.headers.X-Private")).isEqualTo(StringValue("<hidden>"))
+            assertThat(json.findFirstChildByPath("http-request.body.token")).isEqualTo(StringValue("<hidden>"))
+            assertThat(json.findFirstChildByPath("http-response.headers.Set-Cookie")).isEqualTo(StringValue("<hidden>"))
+            assertThat(json.findFirstChildByPath("http-response.body.token")).isEqualTo(StringValue("<hidden>"))
+        } finally {
+            LogRedactionContext.start(LoggingConfiguration.default())
+        }
     }
 
     @Test
@@ -48,11 +89,25 @@ internal class HttpLogMessageTest {
 
         assertThat(text).contains("$dateTime")
         assertThat(text).contains("GET /")
+        assertThat(text).contains("correlationId=")
+        assertThat(text).contains("requestId=")
 
         assertThat(text).contains("200 OK")
         assertThat(text).contains("$dateTime")
 
         assertThat(text).contains("/path/to/file")
+    }
+
+    @Test
+    fun `http log message includes structured error details when exception is present`() {
+        val message = HttpLogMessage(request = HttpRequest("GET", "/")).apply {
+            addException(IllegalArgumentException("bad input"))
+        }
+
+        val json = message.toJSONObject()
+        assertThat(json.findFirstChildByPath("error.errorCode")).isEqualTo(StringValue("IllegalArgumentException"))
+        assertThat(json.findFirstChildByPath("error.errorCategory")).isEqualTo(StringValue("VALIDATION"))
+        assertThat(json.findFirstChildByPath("error.message")).isEqualTo(StringValue("bad input"))
     }
 
     @ParameterizedTest

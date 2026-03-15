@@ -1174,7 +1174,7 @@ class HttpStub(
     private fun generateStubUsageReport() {
         specmaticConfigPath?.let {
             val stubUsageReport = StubUsageReport(specmaticConfigPath, _allEndpoints, _logs)
-            println("Saving Stub Usage Report json to $JSON_REPORT_PATH ...")
+            logger.log("Saving Stub Usage Report json to $JSON_REPORT_PATH ...")
             val json = Json {
                 encodeDefaults = false
             }
@@ -1208,12 +1208,8 @@ class HttpStub(
 
     fun printStartupMessage() {
         consoleLog(NewLineLogMessage)
-        consoleLog(
-            StringLog(
-                serverStartupMessage(specToBaseUrlMap)
-            )
-        )
-        consoleLog(StringLog("Press Ctrl + C to stop."))
+        consoleLog(serverStartupMessage(specToBaseUrlMap))
+        consoleLog("Press Ctrl + C to stop.")
     }
 
     private fun serverStartupMessage(specToStubBaseUrlMap: Map<String, String>): String {

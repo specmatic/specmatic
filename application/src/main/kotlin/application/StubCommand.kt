@@ -196,6 +196,8 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
                 jsonConsoleLog = jsonConsoleLog,
                 jsonLogDirectory = jsonLogDir,
                 logPrefix = logPrefix,
+                commandName = "mock",
+                component = "application",
             ),
             LoggingConfigSource.FromConfig(specmaticConfiguration.getLogConfigurationOrDefault()))
 
@@ -291,7 +293,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         }
 
         if (filterAccumulator.isNotEmpty() && filteredStubData.isEmpty()) {
-            consoleLog(StringLog("FATAL: No examples found for the given filters $filterAccumulator"))
+            consoleLog("FATAL: No examples found for the given filters $filterAccumulator")
             return
         }
 
@@ -339,10 +341,10 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     }
 
     private fun restartServer() {
-        consoleLog(StringLog("Stopping servers..."))
+        consoleLog("Stopping servers...")
         try {
             stopServer()
-            consoleLog(StringLog("Stopped."))
+            consoleLog("Stopped.")
         } catch (e: Throwable) {
             consoleLog(e,"Error stopping server")
         }
@@ -361,7 +363,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         Runtime.getRuntime().addShutdownHook(object : Thread() {
             override fun run() {
                 try {
-                    consoleLog(StringLog("Shutting down mock servers"))
+                    consoleLog("Shutting down mock servers")
                     httpStub?.close()
                 } catch (e: InterruptedException) {
                     currentThread().interrupt()
@@ -375,15 +377,15 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 
         if (verbose == true) {
             logger.boundary()
-            consoleLog(StringLog("Loaded examples:"))
+            consoleLog("Loaded examples:")
             stubData.forEach { (feature, stubs) ->
                 val featureName = feature.specification ?: feature.path
                 stubs.forEach { stub ->
                     val stubDescription = buildStubDescription(stub)
-                    consoleLog(StringLog("  - $featureName: $stubDescription"))
+                    consoleLog("  - $featureName: $stubDescription")
                 }
             }
-            consoleLog(StringLog("Total: $totalStubs example(s) loaded"))
+            consoleLog("Total: $totalStubs example(s) loaded")
         }
 
         logger.boundary()

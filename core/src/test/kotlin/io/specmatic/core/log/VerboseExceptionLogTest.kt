@@ -24,6 +24,8 @@ internal class VerboseExceptionLogTest {
             assertThat(this.getString("cause")).isEqualTo("test")
             assertThat(this.getString("message")).isEqualTo("msg")
             assertThat(this.getString("stackTrace")).contains("ContractException")
+            assertThat(this.getString("errorCode")).isEqualTo("ContractException")
+            assertThat(this.getString("errorCategory")).isEqualTo("CONTRACT")
         }
     }
 }

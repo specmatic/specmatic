@@ -9,6 +9,7 @@ import io.specmatic.reporter.model.TestResult
 import io.specmatic.stub.HttpStubResponse
 import io.specmatic.stub.InterceptorResult
 import java.io.File
+import java.util.UUID
 
 data class HttpLogMessage(
     var preHookRequestTime: CurrentDate? = null,
@@ -28,7 +29,13 @@ data class HttpLogMessage(
     var exception: Exception? = null,
     var result: Result? = null,
     val prettyPrint: Boolean = true,
+    private var correlation: String = UUID.randomUUID().toString(),
+    private var requestId: String = UUID.randomUUID().toString(),
 ) : LogMessage {
+    override fun eventType(): String {
+        return "http_interaction"
+    }
+
     private val isInlineExample: Boolean
         get() = exampleName != null && examplePath == null
 
@@ -53,6 +60,8 @@ data class HttpLogMessage(
     fun displayName() = scenario?.testDescription()
 
     fun addRequestWithCurrentTime(httpRequest: HttpRequest) {
+        correlation = UUID.randomUUID().toString()
+        requestId = UUID.randomUUID().toString()
         requestTime = CurrentDate()
         this.request = httpRequest
     }
@@ -123,7 +132,7 @@ data class HttpLogMessage(
         }
 
         val mainMessage = listOf(
-            "${linePrefix}Request ${target()}at $requestTime",
+            "${linePrefix}Request ${target()}at $requestTime (correlationId=$correlation, requestId=$requestId)",
             request.toLogString("$linePrefix$linePrefix", prettyPrint),
             "",
             "${linePrefix}Response at $responseTime",
@@ -137,14 +146,20 @@ data class HttpLogMessage(
     override fun toJSONObject(): JSONObjectValue {
         val log = mutableMapOf<String, Value>()
 
+        log["requestId"] = StringValue(requestId)
         log["requestTime"] = StringValue(requestTime.toLogString())
-        log["http-request"] = request.toJSON()
-        log["http-response"] = response?.toJSON() ?: JSONObjectValue()
+        log["http-request"] = request.toLogJSON()
+        log["http-response"] = response?.toLogJSON() ?: JSONObjectValue()
         log["responseTime"] = StringValue(responseTime?.toLogString() ?: "")
         log["contractMatched"] = StringValue(contractPath)
+        exception?.let {
+            log["error"] = LogErrorDetails.from(it, includeStackTrace = true).toValue()
+        }
 
         return JSONObjectValue(log.toMap())
     }
+
+    override fun correlationId(): String = correlation
 
     fun addResponse(stubResponse: HttpStubResponse) {
         addResponseWithCurrentTime(stubResponse.response)

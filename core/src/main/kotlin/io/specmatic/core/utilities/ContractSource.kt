@@ -4,6 +4,7 @@ import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.git.NonZeroExitError
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.git.exitErrorMessageContains
+import io.specmatic.core.log.logger
 import java.io.File
 
 data class ContractSourceEntry(
@@ -39,9 +40,9 @@ fun commitAndPush(sourceGit: SystemGit) {
 
     when {
         pushRequired -> {
-            println("Pushing changes")
+            logger.log("Pushing changes")
             sourceGit.push()
         }
-        else -> println("No changes were made to the repo, so nothing was pushed.")
+        else -> logger.log("No changes were made to the repo, so nothing was pushed.")
     }
 }

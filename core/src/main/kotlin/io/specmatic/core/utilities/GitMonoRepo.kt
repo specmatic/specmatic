@@ -1,13 +1,14 @@
 package io.specmatic.core.utilities
 
 import io.specmatic.core.git.SystemGit
+import io.specmatic.core.log.logger
 import java.io.File
 
 data class GitMonoRepo(override val testContracts: List<ContractSourceEntry>, override val stubContracts: List<ContractSourceEntry>,
                        override val type: String?) : ContractSource, GitSource {
     override fun pathDescriptor(path: String): String = path
     override fun install(workingDirectory: File) {
-        println("Checking list of mono repo paths...")
+        logger.log("Checking list of mono repo paths...")
 
         val contracts = testContracts + stubContracts
 
@@ -17,7 +18,7 @@ data class GitMonoRepo(override val testContracts: List<ContractSourceEntry>, ov
                 else -> "${contract.path} NOT FOUND!"
             }
 
-            println(existenceMessage)
+            logger.log(existenceMessage)
         }
     }
 

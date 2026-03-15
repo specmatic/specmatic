@@ -34,6 +34,7 @@ object SpecmaticCoreSubcommands : CliConfigurer {
         StubCommand(),
         TestCommand(),
         ConfigCommand(),
+        LogsCommand(),
         McpBaseCommand(),
         ValidateCommand(),
         *ReporterSubcommands.subcommands(),

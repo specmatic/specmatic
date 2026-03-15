@@ -18,5 +18,8 @@ fun configureLogging(opts: LoggingFromOpts = LoggingFromOpts(), source: LoggingC
         is LoggingConfigSource.FromConfigFile -> SpecmaticConfigSource.fromConfigFile(source.path).load().config.getLogConfigurationOrDefault()
     }
     val effectiveConfig = baseConfig.overrideMergeWith(LoggingConfiguration.from(opts))
+    LogContext.startRun(command = opts.commandName, component = opts.component)
+    LogRedactionContext.start(effectiveConfig)
     setLoggerUsing(effectiveConfig)
+    logger.log(RunDiagnosticsLog(effectiveConfig))
 }

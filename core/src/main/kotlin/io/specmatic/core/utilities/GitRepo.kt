@@ -158,21 +158,21 @@ data class GitRepo(
         val sourceGit = SystemGit(sourceDir.path)
 
         try {
-            println("Checking ${sourceDir.path}")
+            logger.log("Checking ${sourceDir.path}")
             if (!sourceDir.exists())
                 sourceDir.mkdirs()
 
             if (!sourceGit.workingDirectoryIsGitRepo() || isEmptyNestedGitDirectory(sourceGit, sourceDir)) {
-                println("Found it, not a git dir, recreating...")
+                logger.log("Found it, not a git dir, recreating...")
                 sourceDir.deleteRecursively()
                 sourceDir.mkdirs()
-                println("Cloning ${this.gitRepositoryURL} into ${sourceDir.canonicalPath}")
+                logger.log("Cloning ${this.gitRepositoryURL} into ${sourceDir.canonicalPath}")
                 this.cloneRepoAndCheckoutBranch(sourceDir.canonicalFile.parentFile, this)
             } else {
-                println("Git repo already exists at ${sourceDir.path}, so ignoring it and moving on")
+                logger.log("Git repo already exists at ${sourceDir.path}, so ignoring it and moving on")
             }
         } catch (e: Throwable) {
-            println("Could not clone ${this.gitRepositoryURL}\n${e.javaClass.name}: ${exceptionCauseMessage(e)}")
+            logger.log("Could not clone ${this.gitRepositoryURL}\n${e.javaClass.name}: ${exceptionCauseMessage(e)}")
         }
     }
 

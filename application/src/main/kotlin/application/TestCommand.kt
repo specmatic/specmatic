@@ -142,7 +142,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 
     override fun call(): Int = try {
         configureLogging(
-            LoggingFromOpts(debug = verboseMode),
+            LoggingFromOpts(debug = verboseMode, commandName = "test", component = "application"),
             LoggingConfigSource.FromConfig(specmaticConfig.getLogConfigurationOrDefault()))
         setParallelism(specmaticConfig)
         setTestThreadLocalSettings()
