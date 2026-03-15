@@ -130,6 +130,10 @@ data class DeferredPattern(
 
     override fun patternSet(resolver: Resolver): List<Pattern> = resolvePattern(resolver).patternSet(resolver)
 
+    override fun patternFrom(value: Value, resolver: Resolver): Pattern {
+        return resolvePattern(resolver).patternFrom(value, resolver)
+    }
+
     override fun toString() = pattern
 }
 

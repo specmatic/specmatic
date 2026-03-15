@@ -1,15 +1,7 @@
 package io.specmatic.core.matchers
 
 import io.specmatic.core.BreadCrumb
-import io.specmatic.core.Resolver
-import io.specmatic.core.pattern.ExactValuePattern
-import io.specmatic.core.pattern.HasFailure
-import io.specmatic.core.pattern.HasValue
-import io.specmatic.core.pattern.Pattern
-import io.specmatic.core.pattern.ReturnValue
-import io.specmatic.core.pattern.StringPattern
-import io.specmatic.core.pattern.parsedScalarValue
-import io.specmatic.core.pattern.unwrapOrReturn
+import io.specmatic.core.pattern.*
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
@@ -47,6 +39,13 @@ data class RegexMatcher(val path: BreadCrumb, val regex: String) : Matcher {
         }
     }
 
+    override fun patternFrom(originalPattern: Pattern): Pattern {
+        return RegexConstrainedPattern(
+            basePattern = originalPattern,
+            regex = regex,
+        )
+    }
+
     companion object : MatcherFactory {
         private const val PATTERN_KEY = "pattern"
         override val matcherKey: String = "regex"
@@ -73,23 +72,5 @@ data class RegexMatcher(val path: BreadCrumb, val regex: String) : Matcher {
 
             return HasValue(RegexMatcher(path, patternValue.nativeValue))
         }
-
-        override fun toPatternSimplified(value: Value): Pattern? {
-            if (value !is StringValue) return null
-            val properties = extractPropertiesIfExist(value) ?: return null
-            return toPatternSimplified(properties)
-        }
-
-        override fun toPatternSimplified(properties: Map<String, Value>): Pattern? {
-            if (!canParseFrom(BreadCrumb.from(), properties)) return null
-            val regex = properties.getValue(PATTERN_KEY) as? StringValue ?: return null
-
-            val pattern = StringPattern(regex = regex.nativeValue)
-            val value = parsedScalarValue(
-                pattern.generate(Resolver()).toStringLiteral()
-            )
-            return ExactValuePattern(pattern = value)
-        }
     }
 }
-

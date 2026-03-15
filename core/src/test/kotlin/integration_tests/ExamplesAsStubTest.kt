@@ -641,6 +641,100 @@ paths:
     }
 
     @Test
+    fun `should match request using match pattern in external example and respond with example response`() {
+        val specFile = File("src/test/resources/openapi/request_matchers_in_external_examples.yaml")
+        val contract = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature()
+        val exampleFile = File("src/test/resources/openapi/request_matchers_in_external_examples_examples/search_post.json")
+        val exampleStub = ScenarioStub.readFromFile(exampleFile)
+
+        HttpStub(contract, listOf(exampleStub)).use { stub ->
+            val response = stub.client.execute(
+                HttpRequest(
+                    "POST",
+                    "/search",
+                    emptyMap(),
+                    parsedJSONObject("""{"code":"ABC123"}""")
+                )
+            )
+            assertThat(response.status).isEqualTo(200)
+            assertThat(response.body).isEqualTo(parsedJSONObject("""{"message":"matched"}"""))
+        }
+    }
+
+    @Test
+    fun `should match only negative numbers using regex matcher in external example`() {
+        val specFile = File("src/test/resources/openapi/request_matchers_in_external_examples.yaml")
+        val contract = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature()
+        val exampleFile = File("src/test/resources/openapi/request_matchers_in_external_examples_examples/adjust_post.json")
+        val exampleStub = ScenarioStub.readFromFile(exampleFile)
+
+        HttpStub(contract, listOf(exampleStub)).use { stub ->
+            val negativeResponse = stub.client.execute(
+                HttpRequest(
+                    "POST",
+                    "/adjust",
+                    emptyMap(),
+                    parsedJSONObject("""{"amount":-12}""")
+                )
+            )
+            assertThat(negativeResponse.status).isEqualTo(200)
+            assertThat(negativeResponse.body).isEqualTo(parsedJSONObject("""{"message":"negative matched"}"""))
+
+            val positiveResponse = stub.client.execute(
+                HttpRequest(
+                    "POST",
+                    "/adjust",
+                    emptyMap(),
+                    parsedJSONObject("""{"amount":12}""")
+                )
+            )
+            assertThat(positiveResponse.body).isNotEqualTo(parsedJSONObject("""{"message":"negative matched"}"""))
+        }
+    }
+
+    @Test
+    fun `should match regex matcher for integer`() {
+        val specFile = File("src/test/resources/openapi/request_matchers_in_external_examples.yaml")
+        val contract = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature()
+        val exampleFile = File("src/test/resources/openapi/request_matchers_in_external_examples_examples/count_post.json")
+        val exampleStub = ScenarioStub.readFromFile(exampleFile)
+
+        HttpStub(contract, listOf(exampleStub)).use { stub ->
+            val response = stub.client.execute(
+                HttpRequest(
+                    "POST",
+                    "/count",
+                    emptyMap(),
+                    parsedJSONObject("""{"count":42}""")
+                )
+            )
+            assertThat(response.status).isEqualTo(200)
+            assertThat(response.body).isEqualTo(parsedJSONObject("""{"message":"count matched"}"""))
+        }
+    }
+
+    @Test
+    fun `should match regex matcher for boolean`() {
+        val specFile = File("src/test/resources/openapi/request_matchers_in_external_examples.yaml")
+        val contract = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature()
+        val exampleFile = File("src/test/resources/openapi/request_matchers_in_external_examples_examples/flag_post.json")
+        val exampleStub = ScenarioStub.readFromFile(exampleFile)
+
+        HttpStub(contract, listOf(exampleStub)).use { stub ->
+            val response = stub.client.execute(
+                HttpRequest(
+                    "POST",
+                    "/flag",
+                    emptyMap(),
+                    parsedJSONObject("""{"active":true}""")
+                )
+            )
+            assertThat(response.status).isEqualTo(200)
+            assertThat(response.body).isEqualTo(parsedJSONObject("""{"message":"flag matched"}"""))
+        }
+    }
+
+    @Test
     fun `errors when loading examples with invalid values as expectations should mention the example name`() {
         val nameOfExample = "EXAMPLE_OF_SUCCESS"
         val spec = """
