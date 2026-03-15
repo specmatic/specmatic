@@ -162,14 +162,30 @@ private fun constrainedStringValue(restrictions: StringRestrictions): StringValu
     return StringValue(token)
 }
 
-fun elementTypeValue(element: XMLNode): StringValue = when (val typeName = simpleTypeName(element)) {
+fun elementTypeValue(element: XMLNode): StringValue =
+    primitiveTypeValue(simpleTypeName(element))
+
+private fun primitiveTypeValue(typeName: String): StringValue = when (typeName) {
     in primitiveStringTypes -> StringValue("(string)")
+    in constrainedPrimitiveNumberTypes -> constrainedNumberValue(constrainedPrimitiveNumberTypes.getValue(typeName))
     in primitiveNumberTypes -> StringValue("(number)")
     in primitiveDateTypes -> StringValue("(datetime)")
     in primitiveBooleanType -> StringValue("(boolean)")
     "anyType" -> StringValue("(anything)")
-
     else -> throw ContractException("""Primitive type "$typeName" not recognized""")
+}
+
+private fun constrainedNumberValue(restriction: PrimitiveNumberRestriction): StringValue {
+    val clauses = listOfNotNull(
+        restriction.minimum?.let { "minimum $it" },
+        restriction.maximum?.let { "maximum $it" },
+    )
+
+    return if (clauses.isEmpty()) {
+        StringValue("(number)")
+    } else {
+        StringValue("(number) ${clauses.joinToString(" ")})")
+    }
 }
 
 fun simpleTypeName(element: XMLNode): String {

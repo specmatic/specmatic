@@ -4,9 +4,9 @@ import io.specmatic.core.*
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.value.toXMLNode
 import io.specmatic.core.wsdl.parser.WSDL
+import io.cucumber.messages.types.Background
 import io.cucumber.messages.types.FeatureChild
 import io.cucumber.messages.types.GherkinDocument
-import io.cucumber.messages.types.Background
 import io.cucumber.messages.types.Step
 import io.swagger.v3.parser.util.ClasspathHelper
 import java.net.URI
@@ -102,20 +102,9 @@ class WsdlSpecification(
     }
 
     override fun toScenarioInfos(): Pair<List<ScenarioInfo>, List<NamedStub>> {
-        return scenarioInfos(
-            wsdlToFeatureChildren(wsdlFile),
-            "",
-            true,
-            specmaticConfig = specmaticConfig,
-        ) to emptyList()
-    }
-
-    private fun wsdlToFeatureChildren(wsdlFile: WSDLContent): List<FeatureChild> {
         val wsdlContent = wsdlFile.read() ?: throw ContractException("Could not read WSDL file $wsdlFile")
         val wsdl = WSDL(toXMLNode(wsdlContent), wsdlFile.path)
-        val gherkin = wsdl.convertToGherkin().trim()
-        val gherkinDocument = parseGherkinString(gherkin, wsdlFile.path)
-        return gherkinDocument.unwrapFeature().children
+        return wsdl.toScenarioInfos(specmaticConfig).map { it.copy(specification = wsdlFile.path) } to emptyList()
     }
 }
 
@@ -137,6 +126,5 @@ fun wsdlContentToFeature(
     specmaticConfig: SpecmaticConfig = SpecmaticConfig()
 ): Feature {
     val wsdl = WSDL(toXMLNode(wsdlContent), path)
-    val gherkin = wsdl.convertToGherkin().trim()
-    return parseGherkinStringToFeature(gherkin, path, true, specmaticConfig)
+    return wsdl.toFeature(path, specmaticConfig)
 }

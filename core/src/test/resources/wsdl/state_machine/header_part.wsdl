@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wsdl:definitions
+    xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+    xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:tns="http://specmatic.io/header-part"
+    targetNamespace="http://specmatic.io/header-part">
+    <wsdl:types>
+        <xsd:schema targetNamespace="http://specmatic.io/header-part" elementFormDefault="qualified">
+            <xsd:element name="HeaderPartRequest" type="xsd:string"/>
+            <xsd:element name="HeaderPartResponse" type="xsd:string"/>
+        </xsd:schema>
+    </wsdl:types>
+
+    <wsdl:message name="HeaderPartRequestMessage">
+        <wsdl:part name="payload" element="tns:HeaderPartRequest"/>
+    </wsdl:message>
+
+    <wsdl:message name="HeaderPartResponseMessage">
+        <wsdl:part name="payload" element="tns:HeaderPartResponse"/>
+    </wsdl:message>
+
+    <wsdl:message name="ClientHeaderMessage">
+        <wsdl:part name="ClientHeader" type="xsd:string"/>
+    </wsdl:message>
+
+    <wsdl:portType name="HeaderPartPortType">
+        <wsdl:operation name="HeaderPartOperation">
+            <wsdl:input message="tns:HeaderPartRequestMessage"/>
+            <wsdl:output message="tns:HeaderPartResponseMessage"/>
+        </wsdl:operation>
+    </wsdl:portType>
+
+    <wsdl:binding name="HeaderPartBinding" type="tns:HeaderPartPortType">
+        <soap:binding transport="http://schemas.xmlsoap.org/soap/http"/>
+        <wsdl:operation name="HeaderPartOperation">
+            <soap:operation soapAction="/header-part/operation"/>
+            <wsdl:input>
+                <soap:body use="literal"/>
+                <soap:header message="tns:ClientHeaderMessage" part="ClientHeader" use="literal"/>
+            </wsdl:input>
+            <wsdl:output>
+                <soap:body use="literal"/>
+            </wsdl:output>
+        </wsdl:operation>
+    </wsdl:binding>
+
+    <wsdl:service name="HeaderPartService">
+        <wsdl:port name="HeaderPartPort" binding="tns:HeaderPartBinding">
+            <soap:address location="http://specmatic.io/header-part"/>
+        </wsdl:port>
+    </wsdl:service>
+</wsdl:definitions>

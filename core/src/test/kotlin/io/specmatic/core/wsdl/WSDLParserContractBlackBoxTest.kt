@@ -18,6 +18,9 @@ class WSDLParserContractBlackBoxTest {
             "src/test/resources/wsdl/state_machine/choice_ref_examples",
         )
 
+        assertThat(fixture.feature.scenarios).hasSize(1)
+        assertThat(fixture.feature.scenarios.single().examples.flatMap { it.rows }).hasSize(2)
+
         val seenRequestBodies = mutableListOf<String>()
 
         val result = HttpStub(fixture.feature, fixture.scenarioStubs).use { stub ->
@@ -115,6 +118,29 @@ class WSDLParserContractBlackBoxTest {
                 override fun execute(request: HttpRequest): HttpResponse {
                     assertHttpRequestMatches(request, fixture.scenarioStub.request)
                     assertThat(request.headers["Content-Type"]).isNull()
+                    return stub.client.execute(request)
+                }
+            })
+        }
+
+        assertThat(result.success()).withFailMessage(result.report()).isTrue()
+        assertThat(result.successCount).isEqualTo(1)
+    }
+
+    @Test
+    fun `contract test for wsdl header part sends the header xml element inside the soap envelope`() {
+        val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/header_part.wsdl"))
+
+        val result = HttpStub(feature).use { stub ->
+            feature.executeTests(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    assertThat(request.path).isEqualTo("/header-part")
+                    assertThat(request.body.toStringLiteral())
+                        .contains("soapenv:Header")
+                        .contains("<ClientHeader>")
+                        .contains("</ClientHeader>")
+                        .contains("soapenv:Body")
+                        .contains("HeaderPartRequest")
                     return stub.client.execute(request)
                 }
             })

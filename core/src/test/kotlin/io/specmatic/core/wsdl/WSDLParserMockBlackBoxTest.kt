@@ -17,6 +17,8 @@ class WSDLParserMockBlackBoxTest {
             "src/test/resources/wsdl/state_machine/choice_ref_examples",
         )
 
+        assertThat(fixture.feature.scenarios).hasSize(1)
+
         HttpStub(fixture.feature, fixture.scenarioStubs).use { stub ->
             fixture.scenarioStubs.forEach { scenarioStub ->
                 val response = stub.client.execute(scenarioStub.request)
