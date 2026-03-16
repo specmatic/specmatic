@@ -394,7 +394,7 @@ Feature: Recursive test
     fun `patternFrom should apply optional key patterns and matcher tokens`() {
         val pattern = toTabularPattern(mapOf(
             "name?" to StringPattern(),
-            "age" to NumberPattern()
+            "age" to StringPattern()
         ))
         val value = JSONObjectValue(mapOf(
             "name" to StringValue("(string)"),
@@ -405,7 +405,7 @@ Feature: Recursive test
 
         assertThat(result.pattern.getValue("name")).isEqualTo(DeferredPattern("(string)"))
         assertThat(result.pattern.getValue("age"))
-            .isEqualTo(RegexConstrainedPattern(NumberPattern(), "POSITIVE_REGEX"))
+            .isEqualTo(RegexConstrainedPattern(StringPattern(), "POSITIVE_REGEX", Resolver()))
     }
 
     @Test

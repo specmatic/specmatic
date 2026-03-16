@@ -751,7 +751,7 @@ internal class HttpRequestPatternTest {
     fun `generating a request pattern from an http request should retain matcher tokens in the body`() {
         val originalRequestPattern = HttpRequestPattern(
             httpPathPattern = buildHttpPathPattern("/"), method = "POST",
-            body = JSONObjectPattern(mapOf("id" to NumberPattern(), "name" to StringPattern()))
+            body = JSONObjectPattern(mapOf("id" to StringPattern(), "name" to StringPattern()))
         )
         val httpRequest = HttpRequest(
             body = JSONObjectValue(mapOf(
@@ -764,7 +764,7 @@ internal class HttpRequestPatternTest {
         val requestBodyPattern = newRequestPattern.body as JSONObjectPattern
 
         assertThat(requestBodyPattern.pattern.getValue("id"))
-            .isEqualTo(RegexConstrainedPattern(NumberPattern(), "POSITIVE_REGEX"))
+            .isEqualTo(RegexConstrainedPattern(StringPattern(), "POSITIVE_REGEX", Resolver()))
         assertThat(requestBodyPattern.pattern.getValue("name")).isEqualTo(DeferredPattern("(string)"))
     }
 

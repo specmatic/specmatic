@@ -1,6 +1,7 @@
 package io.specmatic.core.matchers
 
 import io.specmatic.core.BreadCrumb
+import io.specmatic.core.Resolver
 import io.specmatic.core.pattern.HasFailure
 import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.Pattern
@@ -93,7 +94,7 @@ data class RepetitionMatcher(
         return MatcherResult.from(strategyUpdatedContext, updatedContext, isExhausted = isExhausted)
     }
 
-    override fun patternFrom(originalPattern: Pattern): Pattern {
+    override fun patternFrom(originalPattern: Pattern, resolver: Resolver): Pattern {
         return originalPattern
     }
 

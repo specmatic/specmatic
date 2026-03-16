@@ -61,7 +61,7 @@ class PatternMatcher(
         return MatcherResult.from(returnValue.breadCrumb(path.value), context)
     }
 
-    override fun patternFrom(originalPattern: Pattern): Pattern {
+    override fun patternFrom(originalPattern: Pattern, resolver: Resolver): Pattern {
         return this.pattern
     }
 

@@ -25,7 +25,7 @@ class RepetitionMatcherTest {
         val matcher = RepetitionMatcher(BreadCrumb.from(), times = 2, strategy = RepetitionStrategy.ANY)
         val original = StringPattern()
 
-        val result = matcher.patternFrom(original)
+        val result = matcher.patternFrom(original, Resolver())
 
         assertThat(result).isSameAs(original)
     }

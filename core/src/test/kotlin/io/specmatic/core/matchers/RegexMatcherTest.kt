@@ -26,9 +26,9 @@ class RegexMatcherTest {
         val matcher = RegexMatcher(BreadCrumb.from(), "^Hello.*")
         val original = StringPattern()
 
-        val result = matcher.patternFrom(original)
+        val result = matcher.patternFrom(original, Resolver())
 
-        assertThat(result).isEqualTo(RegexConstrainedPattern(original, "^Hello.*"))
+        assertThat(result).isEqualTo(RegexConstrainedPattern(original, "^Hello.*", Resolver()))
     }
 
     @Nested

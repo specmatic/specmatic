@@ -40,7 +40,7 @@ interface Matcher {
         }
     }
 
-    fun patternFrom(originalPattern: Pattern): Pattern
+    fun patternFrom(originalPattern: Pattern, resolver: Resolver): Pattern
 
     companion object {
 
@@ -83,7 +83,7 @@ interface Matcher {
             val matcher = parse(BreadCrumb.from(), value, context) ?: return originalPattern
 
             if (matcher is HasValue<out Matcher>) {
-                return matcher.value.patternFrom(originalPattern)
+                return matcher.value.patternFrom(originalPattern, resolver)
             }
             return originalPattern
         }

@@ -31,7 +31,7 @@ class CompositeMatcherTest {
         )
         val original = StringPattern()
 
-        val result = matcher.patternFrom(original)
+        val result = matcher.patternFrom(original, Resolver())
 
         assertThat(result).isEqualTo(ExactValuePattern(StringValue("hello")))
     }
@@ -46,16 +46,16 @@ class CompositeMatcherTest {
         )
         val original = StringPattern()
 
-        val result = matcher.patternFrom(original)
+        val result = matcher.patternFrom(original, Resolver())
 
-        assertThat(result).isEqualTo(RegexConstrainedPattern(original, "^Hello.*"))
+        assertThat(result).isEqualTo(RegexConstrainedPattern(original, "^Hello.*", Resolver()))
     }
 
     @Test
     fun `patternFrom should return pattern matcher when no equality or regex matcher is present`() {
         val matcher = CompositeMatcher(matchers = listOf(PatternMatcher(BreadCrumb.from(), NumberPattern())))
 
-        val result = matcher.patternFrom(StringPattern())
+        val result = matcher.patternFrom(StringPattern(), Resolver())
 
         assertThat(result).isEqualTo(NumberPattern())
     }
@@ -65,7 +65,7 @@ class CompositeMatcherTest {
         val matcher = CompositeMatcher(matchers = emptyList())
         val original = StringPattern()
 
-        val result = matcher.patternFrom(original)
+        val result = matcher.patternFrom(original, Resolver())
 
         assertThat(result).isSameAs(original)
     }

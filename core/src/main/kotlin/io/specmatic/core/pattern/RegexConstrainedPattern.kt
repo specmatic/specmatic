@@ -6,8 +6,17 @@ import io.specmatic.core.patternMismatchResult
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
-data class RegexConstrainedPattern(val basePattern: Pattern, val regex: String) : Pattern by basePattern, ScalarType {
+data class RegexConstrainedPattern(
+    val basePattern: Pattern,
+    val regex: String,
+    private val resolver: Resolver,
+    private val eagerRegexValidation: Boolean = true,
+) : Pattern by basePattern, ScalarType {
     private val regexPattern = StringPattern(regex = regex)
+
+    init {
+        if (eagerRegexValidation) this.validateRegexAgainstBasePattern()
+    }
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if (sampleData?.hasSupportedTemplate() == true) return Result.Success()
@@ -19,13 +28,12 @@ data class RegexConstrainedPattern(val basePattern: Pattern, val regex: String) 
 
     override fun generate(resolver: Resolver): Value {
         val candidate = regexPattern.generate(resolver)
-
-        return runCatching {
+        return try {
             basePattern.parse(candidate.toStringLiteral(), resolver)
-        }.getOrElse { candidate }
+        } catch(_: Throwable) {
+            throw ContractException("The provided regex '$regex' could not generate a value of type '${basePattern.typeName}'")
+        }
     }
-
-    override fun patternSet(resolver: Resolver): List<Pattern> = listOf(this)
 
     override fun encompasses(
         otherPattern: Pattern,
@@ -33,9 +41,7 @@ data class RegexConstrainedPattern(val basePattern: Pattern, val regex: String) 
         otherResolver: Resolver,
         typeStack: TypeStack
     ): Result {
-        val resolvedOther = resolvedHop(otherPattern, otherResolver)
-        return when (resolvedOther) {
-            is ExactValuePattern -> resolvedOther.fitsWithin(patternSet(thisResolver), otherResolver, thisResolver, typeStack)
+        return when (val resolvedOther = resolvedHop(otherPattern, otherResolver)) {
             is RegexConstrainedPattern -> {
                 val otherFitsThis = matches(resolvedOther.generate(otherResolver), thisResolver)
                 if (otherFitsThis is Result.Success) Result.Success()
@@ -50,6 +56,10 @@ data class RegexConstrainedPattern(val basePattern: Pattern, val regex: String) 
     }
 
     override fun patternFrom(value: Value, resolver: Resolver): Pattern {
-        return RegexConstrainedPattern(basePattern.patternFrom(value, resolver), this.regex)
+        return RegexConstrainedPattern(basePattern.patternFrom(value, resolver), this.regex, resolver)
+    }
+
+    private fun validateRegexAgainstBasePattern() {
+        this.generate(resolver)
     }
 }

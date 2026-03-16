@@ -28,7 +28,7 @@ class EqualityMatcherTest {
     fun `patternFrom should return exact value pattern for scalar equals`() {
         val matcher = EqualityMatcher(BreadCrumb.from(), NumberValue(10), EqualityStrategy.EQUALS)
 
-        val result = matcher.patternFrom(StringPattern())
+        val result = matcher.patternFrom(StringPattern(), Resolver())
 
         assertThat(result).isEqualTo(ExactValuePattern(NumberValue(10)))
     }
@@ -42,7 +42,7 @@ class EqualityMatcherTest {
         )
         val original = StringPattern()
 
-        val result = matcher.patternFrom(original)
+        val result = matcher.patternFrom(original, Resolver())
 
         assertThat(result).isSameAs(original)
     }
@@ -53,7 +53,7 @@ class EqualityMatcherTest {
         val matcher = EqualityMatcher(BreadCrumb.from(), value, EqualityStrategy.NOT_EQUALS)
         val original = StringPattern()
 
-        val result = matcher.patternFrom(original)
+        val result = matcher.patternFrom(original, Resolver())
 
         assertThat(result).isEqualTo(original)
     }

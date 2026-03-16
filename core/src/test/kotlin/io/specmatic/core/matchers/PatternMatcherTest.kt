@@ -23,7 +23,7 @@ class PatternMatcherTest {
     fun `patternFrom should return its pattern`() {
         val matcher = PatternMatcher(BreadCrumb.from(), NumberPattern())
 
-        val result = matcher.patternFrom(StringPattern())
+        val result = matcher.patternFrom(StringPattern(), Resolver())
 
         assertThat(result).isEqualTo(NumberPattern())
     }

@@ -1,6 +1,7 @@
 package io.specmatic.core.matchers
 
 import io.specmatic.core.BreadCrumb
+import io.specmatic.core.Resolver
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
@@ -39,10 +40,11 @@ data class RegexMatcher(val path: BreadCrumb, val regex: String) : Matcher {
         }
     }
 
-    override fun patternFrom(originalPattern: Pattern): Pattern {
+    override fun patternFrom(originalPattern: Pattern, resolver: Resolver): Pattern {
         return RegexConstrainedPattern(
             basePattern = originalPattern,
             regex = regex,
+            resolver = resolver
         )
     }
 

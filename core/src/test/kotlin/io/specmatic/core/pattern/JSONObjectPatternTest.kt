@@ -176,7 +176,7 @@ internal class JSONObjectPatternTest {
     fun `patternFrom should retain explicit patterns for pattern and matcher tokens`() {
         val pattern = JSONObjectPattern(
             mapOf(
-                "id" to NumberPattern(),
+                "id" to StringPattern(),
                 "count" to NumberPattern(),
                 "active" to BooleanPattern(),
                 "name" to StringPattern()
@@ -195,7 +195,7 @@ internal class JSONObjectPatternTest {
         val result = pattern.patternFrom(value, Resolver()) as JSONObjectPattern
 
         assertThat(result.pattern.getValue("id"))
-            .isEqualTo(RegexConstrainedPattern(NumberPattern(), "POSITIVE_REGEX"))
+            .isEqualTo(RegexConstrainedPattern(StringPattern(), "POSITIVE_REGEX", Resolver()))
         assertThat(result.pattern.getValue("count")).isEqualTo(DeferredPattern("(number)"))
         assertThat(result.pattern.getValue("active")).isEqualTo(DeferredPattern("(boolean)"))
         assertThat(result.pattern.getValue("name")).isEqualTo(DeferredPattern("(string)"))
@@ -208,7 +208,7 @@ internal class JSONObjectPatternTest {
                 "outerId" to NumberPattern(),
                 "meta" to JSONObjectPattern(
                     mapOf(
-                        "id" to NumberPattern(),
+                        "id" to StringPattern(),
                         "active" to BooleanPattern(),
                         "name" to StringPattern()
                     )
@@ -234,7 +234,7 @@ internal class JSONObjectPatternTest {
 
         assertThat(result.pattern.getValue("outerId")).isEqualTo(DeferredPattern("(number)"))
         assertThat(meta.pattern.getValue("id"))
-            .isEqualTo(RegexConstrainedPattern(NumberPattern(), "POSITIVE_REGEX"))
+            .isEqualTo(RegexConstrainedPattern(StringPattern(), "POSITIVE_REGEX", Resolver()))
         assertThat(meta.pattern.getValue("active")).isEqualTo(DeferredPattern("(boolean)"))
         assertThat(meta.pattern.getValue("name")).isEqualTo(DeferredPattern("(string)"))
     }

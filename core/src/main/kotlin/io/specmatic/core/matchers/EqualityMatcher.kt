@@ -1,6 +1,7 @@
 package io.specmatic.core.matchers
 
 import io.specmatic.core.BreadCrumb
+import io.specmatic.core.Resolver
 import io.specmatic.core.pattern.ExactValuePattern
 import io.specmatic.core.pattern.HasFailure
 import io.specmatic.core.pattern.HasValue
@@ -58,7 +59,7 @@ data class EqualityMatcher(val path: BreadCrumb, val value: Value, val strategy:
         )
     }
 
-    override fun patternFrom(originalPattern: Pattern): Pattern {
+    override fun patternFrom(originalPattern: Pattern, resolver: Resolver): Pattern {
         if(this.value !is ScalarValue) return originalPattern
         return when(strategy) {
             EqualityStrategy.EQUALS -> ExactValuePattern(this.value)

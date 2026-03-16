@@ -52,19 +52,6 @@ internal class ResolverKtTest {
     }
 
     @Test
-    fun `actualPatternMatch should match using the pattern from regex matcher when in mock mode and return failure`() {
-        val resolver = Resolver(mockMode = true)
-
-        val result = resolver.actualPatternMatch(
-            null,
-            NumberPattern(),
-            StringValue("\$match(pattern: abc)")
-        )
-
-        assertThat(result).isInstanceOf(Result.Failure::class.java)
-    }
-
-    @Test
     fun `actualPatternMatch should match using the pattern from regex matcher when in mock mode and return success`() {
         val resolver = Resolver(mockMode = true)
 

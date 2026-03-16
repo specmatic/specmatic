@@ -1,7 +1,7 @@
 package io.specmatic.core.matchers
 
 import io.specmatic.core.BreadCrumb
-import io.specmatic.core.pattern.AnyPattern
+import io.specmatic.core.Resolver
 import io.specmatic.core.pattern.HasFailure
 import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.Pattern
@@ -40,13 +40,13 @@ data class CompositeMatcher(
         }
     }
 
-    override fun patternFrom(originalPattern: Pattern): Pattern {
+    override fun patternFrom(originalPattern: Pattern, resolver: Resolver): Pattern {
         val matcher = matchers.find { it is EqualityMatcher }
             ?: matchers.find { it is RegexMatcher }
             ?: matchers.find { it is PatternMatcher }
             ?: matchers.firstOrNull()
 
-        return matcher?.patternFrom(originalPattern) ?: originalPattern
+        return matcher?.patternFrom(originalPattern, resolver) ?: originalPattern
     }
 
     companion object : MatcherFactory {
