@@ -98,22 +98,25 @@ interface Pattern {
         return fixValue(value, this, resolver)
     }
 
-    fun patternFrom(value: Value, resolver: Resolver): Pattern {
-        if(value !is StringValue) return value.exactMatchElseType()
-        if(isPatternToken(value)) return DeferredPattern(value.string)
-        if(isMatcherToken(value)) {
-            return Matcher.patternFrom(
-                value = value,
-                originalPattern = this,
-                resolver = resolver,
-            )
-        }
-        return value.exactMatchElseType()
-    }
+    fun patternFrom(value: Value, resolver: Resolver): Pattern =
+        patternFromValueUsing(this, value, resolver)
 
     val typeAlias: String?
     val typeName: String
     val pattern: Any
+}
+
+fun patternFromValueUsing(originalPattern: Pattern, value: Value, resolver: Resolver): Pattern {
+    if(value !is StringValue) return value.exactMatchElseType()
+    if(isPatternToken(value)) return DeferredPattern(value.string)
+    if(isMatcherToken(value)) {
+        return Matcher.patternFrom(
+            value = value,
+            originalPattern = originalPattern,
+            resolver = resolver,
+        )
+    }
+    return value.exactMatchElseType()
 }
 
 fun fillInTheBlanksWithPattern(value: Value, resolver: Resolver, self: Pattern): ReturnValue<Value> {
