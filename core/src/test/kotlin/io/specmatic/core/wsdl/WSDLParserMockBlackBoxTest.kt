@@ -11,6 +11,108 @@ import java.io.File
 
 class WSDLParserMockBlackBoxTest {
     @Test
+    fun `mock for scalar choice wsdl without examples returns generated response values`() {
+        val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/scalar_choice.wsdl"))
+
+        val response = HttpStub(feature).use { stub ->
+            stub.client.execute(
+                HttpRequest(
+                    method = "POST",
+                    path = "/choice-scalar",
+                    headers = mapOf("SOAPAction" to "\"/choice-scalar/scalarChoice\""),
+                    body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicescalar=\"http://choice-scalar\"><soapenv:Body><Choicescalar:ScalarChoiceRequest><PrimaryName>PrimaryName</PrimaryName><CustomerNumber>C-123</CustomerNumber></Choicescalar:ScalarChoiceRequest></soapenv:Body></soapenv:Envelope>")
+                )
+            )
+        }
+
+        assertThat(response.status).isEqualTo(200)
+        assertThat(response.body.toStringLiteral())
+            .contains("ScalarChoiceResponse")
+            .doesNotContain("(string)")
+        assertThat(response.body.toStringLiteral())
+            .matches { it.contains("StatusCode") || it.contains("StatusMessage") }
+    }
+
+    @Test
+    fun `mock for scalar choice wsdl accepts each valid request branch`() {
+        val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/scalar_choice.wsdl"))
+
+        HttpStub(feature).use { stub ->
+            val customerNumberResponse = stub.client.execute(
+                HttpRequest(
+                    method = "POST",
+                    path = "/choice-scalar",
+                    headers = mapOf("SOAPAction" to "\"/choice-scalar/scalarChoice\""),
+                    body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicescalar=\"http://choice-scalar\"><soapenv:Body><Choicescalar:ScalarChoiceRequest><PrimaryName>PrimaryName</PrimaryName><CustomerNumber>C-123</CustomerNumber></Choicescalar:ScalarChoiceRequest></soapenv:Body></soapenv:Envelope>")
+                )
+            )
+
+            val loginIdResponse = stub.client.execute(
+                HttpRequest(
+                    method = "POST",
+                    path = "/choice-scalar",
+                    headers = mapOf("SOAPAction" to "\"/choice-scalar/scalarChoice\""),
+                    body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicescalar=\"http://choice-scalar\"><soapenv:Body><Choicescalar:ScalarChoiceRequest><PrimaryName>PrimaryName</PrimaryName><LoginId>login-123</LoginId></Choicescalar:ScalarChoiceRequest></soapenv:Body></soapenv:Envelope>")
+                )
+            )
+
+            assertThat(customerNumberResponse.status).isEqualTo(200)
+            assertThat(loginIdResponse.status).isEqualTo(200)
+        }
+    }
+
+    @Test
+    fun `mock for complex choice wsdl without examples returns generated response values`() {
+        val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/complex_choice.wsdl"))
+
+        val response = HttpStub(feature).use { stub ->
+            stub.client.execute(
+                HttpRequest(
+                    method = "POST",
+                    path = "/choice-complex",
+                    headers = mapOf("SOAPAction" to "\"/choice-complex/complexChoice\""),
+                    body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicecomplex=\"http://choice-complex\"><soapenv:Body><Choicecomplex:ComplexChoiceRequest><PrimaryName>PrimaryName</PrimaryName><Choicecomplex:CustomerByPermId><PermId>CP-123</PermId></Choicecomplex:CustomerByPermId></Choicecomplex:ComplexChoiceRequest></soapenv:Body></soapenv:Envelope>")
+                )
+            )
+        }
+
+        assertThat(response.status).isEqualTo(200)
+        assertThat(response.body.toStringLiteral())
+            .contains("ComplexChoiceResponse")
+            .doesNotContain("(string)")
+        assertThat(response.body.toStringLiteral())
+            .matches { it.contains("CustomerFound") || it.contains("CustomerPending") }
+    }
+
+    @Test
+    fun `mock for complex choice wsdl accepts each valid request branch`() {
+        val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/complex_choice.wsdl"))
+
+        HttpStub(feature).use { stub ->
+            val customerByPermIdResponse = stub.client.execute(
+                HttpRequest(
+                    method = "POST",
+                    path = "/choice-complex",
+                    headers = mapOf("SOAPAction" to "\"/choice-complex/complexChoice\""),
+                    body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicecomplex=\"http://choice-complex\"><soapenv:Body><Choicecomplex:ComplexChoiceRequest><PrimaryName>PrimaryName</PrimaryName><Choicecomplex:CustomerByPermId><PermId>CP-123</PermId></Choicecomplex:CustomerByPermId></Choicecomplex:ComplexChoiceRequest></soapenv:Body></soapenv:Envelope>")
+                )
+            )
+
+            val customerByLoginResponse = stub.client.execute(
+                HttpRequest(
+                    method = "POST",
+                    path = "/choice-complex",
+                    headers = mapOf("SOAPAction" to "\"/choice-complex/complexChoice\""),
+                    body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicecomplex=\"http://choice-complex\"><soapenv:Body><Choicecomplex:ComplexChoiceRequest><PrimaryName>PrimaryName</PrimaryName><Choicecomplex:CustomerByLogin><Domain>Retail</Domain><LoginId>login-123</LoginId></Choicecomplex:CustomerByLogin></Choicecomplex:ComplexChoiceRequest></soapenv:Body></soapenv:Envelope>")
+                )
+            )
+
+            assertThat(customerByPermIdResponse.status).isEqualTo(200)
+            assertThat(customerByLoginResponse.status).isEqualTo(200)
+        }
+    }
+
+    @Test
     fun `mock for choice wsdl returns the example soap response for both variants`() {
         val fixture = loadWsdlExampleFixture(
             "src/test/resources/wsdl/state_machine/choice_ref.wsdl",
@@ -99,4 +201,5 @@ class WSDLParserMockBlackBoxTest {
         assertThat(response.status).isEqualTo(200)
         assertThat(response.body.toStringLiteral()).isEqualTo(emptySoapMessage().toStringLiteral())
     }
+
 }

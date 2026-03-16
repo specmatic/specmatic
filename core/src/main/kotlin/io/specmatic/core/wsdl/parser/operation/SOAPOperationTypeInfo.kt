@@ -67,7 +67,7 @@ data class SOAPOperationTypeInfo(val operationName: String, val request: SOAPReq
                 body = response.responsePayload.toPattern(RequestHeaders()),
             ),
             patterns = types.types.mapKeys { (typeName, _) -> withPatternDelimiters(typeName) },
-            isGherkinScenario = true,
+            isGherkinScenario = false,
             protocol = protocol,
             specType = specType,
         )

@@ -12,6 +12,50 @@ import java.io.File
 
 class WSDLParserContractBlackBoxTest {
     @Test
+    fun `contract test without examples exercises all scalar choice branches`() {
+        val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/scalar_choice.wsdl"))
+
+        assertThat(feature.scenarios).hasSize(1)
+
+        val seenRequestBodies = mutableListOf<String>()
+
+        val result = HttpStub(feature).use { stub ->
+            feature.executeTests(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    seenRequestBodies += request.body.toStringLiteral()
+                    return stub.client.execute(request)
+                }
+            })
+        }
+
+        assertThat(result.success()).withFailMessage(result.report()).isTrue()
+        assertThat(result.successCount).isEqualTo(2)
+        assertThat(seenRequestBodies.map(::scalarRequestBranch)).containsExactlyInAnyOrder("customerNumber", "loginId")
+    }
+
+    @Test
+    fun `contract test without examples exercises all complex choice branches`() {
+        val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/complex_choice.wsdl"))
+
+        assertThat(feature.scenarios).hasSize(1)
+
+        val seenRequestBodies = mutableListOf<String>()
+
+        val result = HttpStub(feature).use { stub ->
+            feature.executeTests(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    seenRequestBodies += request.body.toStringLiteral()
+                    return stub.client.execute(request)
+                }
+            })
+        }
+
+        assertThat(result.success()).withFailMessage(result.report()).isTrue()
+        assertThat(result.successCount).isEqualTo(2)
+        assertThat(seenRequestBodies.map(::complexRequestBranch)).containsExactlyInAnyOrder("customerByPermId", "customerByLogin")
+    }
+
+    @Test
     fun `contract test for choice wsdl sends both example soap payload variants`() {
         val fixture = loadWsdlExampleFixture(
             "src/test/resources/wsdl/state_machine/choice_ref.wsdl",
@@ -45,6 +89,60 @@ class WSDLParserContractBlackBoxTest {
             assertThat(it).contains("SignonCustId").contains("PrimaryName").contains("CustLoginId>login-123<")
             assertThat(it).doesNotContain("CustPermId")
         }
+    }
+
+    @Test
+    fun `contract test with scalar choice example and resiliency off sends only the example selected branch`() {
+        val fixture = loadWsdlExampleFixture(
+            "src/test/resources/wsdl/state_machine/scalar_choice.wsdl",
+            "src/test/resources/wsdl/state_machine/scalar_choice_examples",
+        )
+
+        assertThat(fixture.feature.scenarios).hasSize(1)
+        assertThat(fixture.feature.scenarios.single().examples.flatMap { it.rows }).hasSize(1)
+
+        val seenRequestBodies = mutableListOf<String>()
+
+        val result = HttpStub(fixture.feature).use { stub ->
+            fixture.feature.executeTests(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    seenRequestBodies += request.body.toStringLiteral()
+                    return stub.client.execute(request)
+                }
+            })
+        }
+
+        assertThat(result.success()).withFailMessage(result.report()).isTrue()
+        assertThat(result.successCount).isEqualTo(1)
+        assertThat(seenRequestBodies.single()).contains("LoginId>login-123<")
+        assertThat(seenRequestBodies.single()).doesNotContain("CustomerNumber")
+    }
+
+    @Test
+    fun `contract test with complex choice example and resiliency off sends only the example selected branch`() {
+        val fixture = loadWsdlExampleFixture(
+            "src/test/resources/wsdl/state_machine/complex_choice.wsdl",
+            "src/test/resources/wsdl/state_machine/complex_choice_examples",
+        )
+
+        assertThat(fixture.feature.scenarios).hasSize(1)
+        assertThat(fixture.feature.scenarios.single().examples.flatMap { it.rows }).hasSize(1)
+
+        val seenRequestBodies = mutableListOf<String>()
+
+        val result = HttpStub(fixture.feature).use { stub ->
+            fixture.feature.executeTests(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    seenRequestBodies += request.body.toStringLiteral()
+                    return stub.client.execute(request)
+                }
+            })
+        }
+
+        assertThat(result.success()).withFailMessage(result.report()).isTrue()
+        assertThat(result.successCount).isEqualTo(1)
+        assertThat(seenRequestBodies.single()).contains("CustomerByPermId").contains("PermId>CP-123<")
+        assertThat(seenRequestBodies.single()).doesNotContain("CustomerByLogin")
     }
 
     @Test
@@ -148,5 +246,21 @@ class WSDLParserContractBlackBoxTest {
 
         assertThat(result.success()).withFailMessage(result.report()).isTrue()
         assertThat(result.successCount).isEqualTo(1)
+    }
+
+    private fun scalarRequestBranch(body: String): String {
+        return when {
+            "CustomerNumber" in body -> "customerNumber"
+            "LoginId" in body -> "loginId"
+            else -> error("No scalar choice branch found in request body: $body")
+        }
+    }
+
+    private fun complexRequestBranch(body: String): String {
+        return when {
+            "CustomerByPermId" in body -> "customerByPermId"
+            "CustomerByLogin" in body -> "customerByLogin"
+            else -> error("No complex choice branch found in request body: $body")
+        }
     }
 }
