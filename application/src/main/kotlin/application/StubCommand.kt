@@ -6,8 +6,7 @@ import io.specmatic.core.Configuration.Companion.DEFAULT_HTTP_STUB_PORT
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.LoggingConfiguration.Companion.LoggingFromOpts
 import io.specmatic.core.config.Switch
-import io.specmatic.core.filters.ExpressionStandardizer
-import io.specmatic.core.filters.ExampleFilterContext
+import io.specmatic.core.examples.source.PreLoadedExampleObjects
 import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.log.*
 import io.specmatic.core.utilities.*
@@ -158,7 +157,6 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         val specmaticConfigPath = File(Configuration.configFilePath).canonicalPath
         val configFromFile = loadSpecmaticConfigOrNull(specmaticConfigPath, explicitlySpecifiedByUser = configFileName != null)
         val config = configFromFile.orDefault()
-
         val pathFromWhichConfigWasLoaded = if (configFromFile != null) {
             specmaticConfigPath
         } else {
@@ -167,9 +165,8 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 
         val sourcesUpdated = config.applyIf(useCurrentBranchForCentralRepo) { withMatchBranch(it) }
         val stubConfigUpdated = sourcesUpdated.withStubModes(strictMode = strictMode).withStubFilter(filter = filter)
-        delayInMilliseconds?.let(stubConfigUpdated::withGlobalMockDelay) ?: stubConfigUpdated
-
-        SpecmaticConfigSource.fromConfigObject(config, pathFromWhichConfigWasLoaded)
+        val finalConfig = delayInMilliseconds?.let(stubConfigUpdated::withGlobalMockDelay) ?: stubConfigUpdated
+        SpecmaticConfigSource.fromConfigObject(finalConfig, pathFromWhichConfigWasLoaded)
     }
 
     private val specmaticConfiguration: io.specmatic.core.SpecmaticConfig by lazy(LazyThreadSafetyMode.NONE) {
@@ -288,19 +285,9 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         val filteredStubData = stubData.mapNotNull { (feature, scenarioStubs) ->
             val stubFilter = specmaticConfiguration.getStubFilter(File(feature.path)) ?: return@mapNotNull feature to scenarioStubs
             if (stubFilter.isNotBlank()) filterAccumulator.add(stubFilter)
-            val metadataFilter = ScenarioMetadataFilter.from(stubFilter)
-            val filteredScenarios = ScenarioMetadataFilter.filterUsing(
-                feature.scenarios.asSequence(),
-                metadataFilter,
-            ).toList()
-            val stubFilterExpression = ExpressionStandardizer.filterToEvalEx(stubFilter)
-            val filteredStubScenario = scenarioStubs.filter { it ->
-                stubFilterExpression.with("context", ExampleFilterContext(it)).evaluate().booleanValue
-            }
-            if (filteredScenarios.isNotEmpty()) {
-                val updatedFeature = feature.copy(scenarios = filteredScenarios)
-                updatedFeature to filteredStubScenario
-            } else null
+            val filteredData = feature.filterExamples(scenarioStubs, stubFilter)
+            if (filteredData.feature.scenarios.isEmpty()) return@mapNotNull null
+            Pair(filteredData.feature, filteredData.externalExamples)
         }
 
         if (filterAccumulator.isNotEmpty() && filteredStubData.isEmpty()) {

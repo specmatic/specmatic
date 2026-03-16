@@ -37,7 +37,8 @@ data class ScenarioStub(
     val strictMode: Boolean = true,
     val id: String? = null,
     val beforeFixtures: List<Value> = emptyList(),
-    val afterFixtures: List<Value> = emptyList()
+    val afterFixtures: List<Value> = emptyList(),
+    val exampleType: ExampleType = ExampleType.EXTERNAL
 ) {
     init {
         if (strictMode && !validationErrors.isSuccess()) validationErrors.throwOnFailure()
@@ -67,6 +68,10 @@ data class ScenarioStub(
 
     fun withName(name: String): ScenarioStub {
         return copy(data = data.copy(jsonObject = data.jsonObject + mapOf("name" to StringValue(name))))
+    }
+
+    fun withType(type: ExampleType): ScenarioStub {
+        return copy(exampleType = type)
     }
 
     fun toJSON(): JSONObjectValue {

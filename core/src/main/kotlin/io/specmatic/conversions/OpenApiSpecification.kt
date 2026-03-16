@@ -56,15 +56,14 @@ import io.swagger.v3.parser.util.ClasspathHelper
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import java.io.File
 import kotlin.collections.orEmpty
+import kotlin.text.orEmpty
 
 private const val BEARER_SECURITY_SCHEME = "bearer"
+private const val BASIC_SECURITY_SCHEME = "basic"
 
 private const val X_SPECMATIC_HINT = "x-specmatic-hint"
 private const val HINT_BOUNDARY_TESTING_ENABLED = "boundary_testing_enabled"
 private val HINT_VALUE_DELIMITERS = charArrayOf(',')
-
-const val testDirectoryEnvironmentVariable = "SPECMATIC_TESTS_DIRECTORY"
-const val testDirectoryProperty = "specmaticTestsDirectory"
 
 var missingRequestExampleErrorMessageForTest: String = "WARNING: Ignoring response example named %s for test or stub data, because no associated request example named %s was found."
 var missingResponseExampleErrorMessageForTest: String = "WARNING: Ignoring request example named %s for test or stub data, because no associated response example named %s was found."
@@ -928,7 +927,7 @@ class OpenApiSpecification(
                 .filterKeys { it in unusedRequestExampleNames }
                 .flatMap { (exampleName, examples) ->
                     examples.map { request ->
-                        NamedStub(exampleName, ScenarioStub(request = request, response = emptyResponse))
+                        NamedStub(exampleName, ScenarioStub(request = request, response = emptyResponse, exampleType = ExampleType.INLINE))
                     }
                 }
 
@@ -997,7 +996,7 @@ class OpenApiSpecification(
                 key in requestExamples
             }.map { (key, responseExample) ->
                 requestExamples.getValue(key).map { request ->
-                    NamedStub(key, ScenarioStub(request = request, response = responseExample))
+                    NamedStub(key, ScenarioStub(request = request, response = responseExample, exampleType = ExampleType.INLINE))
                 }
             }
         }.flatten()
@@ -1150,7 +1149,15 @@ class OpenApiSpecification(
         }
     }
 
-    data class OperationIdentifier(val requestMethod: String, val requestPath: String, val responseStatus: Int, val requestContentType: String?, val responseContentType: String?)
+    data class OperationIdentifier(val requestMethod: String, val requestPath: String, val responseStatus: Int, val requestContentType: String?, val responseContentType: String?) {
+        constructor(example: ExampleFromFile) : this (
+            requestMethod = example.requestMethod.orEmpty(),
+            requestPath = example.requestPath.orEmpty(),
+            responseStatus = example.responseStatus ?: 0,
+            requestContentType = example.requestContentType,
+            responseContentType = example.responseContentType
+        )
+    }
 
     private fun requestBodyExample(
         openApiRequest: Pair<String, MediaType>?,
@@ -1704,7 +1711,9 @@ class OpenApiSpecification(
 
     private fun toSecurityScheme(schemeName: String, securityScheme: SecurityScheme, collectorContext: CollectorContext): OpenAPISecurityScheme? {
         val securitySchemeConfiguration = securityConfiguration?.getOpenAPISecurityScheme(schemeName)
-        if (securityScheme.scheme == BEARER_SECURITY_SCHEME) {
+        val normalizedScheme = securityScheme.scheme?.lowercase()
+
+        if (normalizedScheme == BEARER_SECURITY_SCHEME) {
             return toBearerSecurityScheme(securitySchemeConfiguration, schemeName)
         }
 
@@ -1718,7 +1727,7 @@ class OpenApiSpecification(
             if (securityScheme.`in` == SecurityScheme.In.QUERY) return APIKeyInQueryParamSecurityScheme(securityScheme.name, apiKey)
         }
 
-        if (securityScheme.type == SecurityScheme.Type.HTTP && securityScheme.scheme == "basic") {
+        if (securityScheme.type == SecurityScheme.Type.HTTP && normalizedScheme == BASIC_SECURITY_SCHEME) {
             return toBasicAuthSecurityScheme(securitySchemeConfiguration, schemeName)
         }
 

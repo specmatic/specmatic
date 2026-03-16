@@ -26,6 +26,7 @@ data class Row(
     val isPartial: Boolean = false,
     val scenarioStub: ScenarioStub? = null
 ) {
+    val exampleType: ExampleType = scenarioStub?.exampleType ?: ExampleType.INLINE
     constructor(examples: Map<String, String>) :this(examples.keys.toList(), examples.values.toList())
 
     private val cells = columnNames.zip(values.map { it }).toMap().toMutableMap()

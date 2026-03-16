@@ -6,8 +6,7 @@ import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.examples.server.SchemaExample
-import io.specmatic.core.filters.ExampleFilterContext
-import io.specmatic.core.log.logger
+import io.specmatic.core.log.LogStrategy
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.EmptyString
 import io.specmatic.core.value.JSONObjectValue
@@ -32,12 +31,9 @@ class ExampleFromFile(private val scenarioStub: ScenarioStub, val file: File) {
 
     constructor(file: File, strictMode: Boolean = true): this(scenarioStub = ScenarioStub.readFromFile(file, strictMode), file = file)
     constructor(json: JSONObjectValue, file: File, strictMode: Boolean = true): this(scenarioStub = ScenarioStub.parse(json, strictMode), file = file)
+    constructor(scenarioStub: ScenarioStub) : this(scenarioStub, File(scenarioStub.filePath.orEmpty()))
 
-    fun toFilterContext(): ExampleFilterContext {
-        return ExampleFilterContext(scenarioStub)
-    }
-
-    fun toRow(specmaticConfig: SpecmaticConfig = SpecmaticConfig()): Row {
+    fun toRow(specmaticConfig: SpecmaticConfig = SpecmaticConfig(), logger: LogStrategy = io.specmatic.core.log.logger): Row {
         logger.log("Loading test file ${this.expectationFilePath}")
 
         val examples: Map<String, String> = request.headers

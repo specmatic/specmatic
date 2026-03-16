@@ -1,0 +1,68 @@
+openapi: 3.0.3
+info:
+  title: Filter Examples Multi Scenario API
+  version: 1.0.0
+paths:
+  /users/{id}:
+    get:
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          examples:
+            user_inline:
+              value: 1001
+            shared_name:
+              value: 1002
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer
+              examples:
+                user_inline:
+                  value:
+                    id: 1001
+                shared_name:
+                  value:
+                    id: 1002
+        '400':
+          description: badRequest
+  /orders/{id}:
+    get:
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          examples:
+            order_inline:
+              value: 2001
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer
+              examples:
+                order_inline:
+                  value:
+                    id: 2001
+        '400':
+          description: badRequest

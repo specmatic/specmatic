@@ -1,0 +1,16 @@
+{
+  "name": "shared_name",
+  "http-request": {
+    "method": "GET",
+    "path": "/users/10"
+  },
+  "http-response": {
+    "status": 200,
+    "body": {
+      "id": 10
+    },
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

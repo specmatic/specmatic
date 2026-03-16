@@ -1,0 +1,16 @@
+{
+  "name": "order_external",
+  "http-request": {
+    "method": "GET",
+    "path": "/orders/20"
+  },
+  "http-response": {
+    "status": 200,
+    "body": {
+      "id": 20
+    },
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}
