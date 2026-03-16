@@ -124,6 +124,16 @@ data class JSONArrayPattern(override val pattern: List<Pattern> = emptyList(), o
         }
     }
 
+    override fun patternFrom(value: Value, resolver: Resolver): Pattern {
+        if(value !is JSONArrayValue) return value.exactMatchElseType()
+        return JSONArrayPattern(
+            value.list.mapIndexed { index, indexedValue ->
+                val patternAtIndex = pattern.getOrElse(index) { indexedValue.exactMatchElseType() }
+                patternAtIndex.patternFrom(indexedValue, resolver)
+            }
+        )
+    }
+
     private fun validateInfiniteLength(otherMembers: MemberList, theseMembers: MemberList): Result = when {
         otherMembers.isEndless() && !theseMembers.isEndless() -> Result.Failure("Finite list is not a superset of an infinite list.")
         else -> Result.Success()

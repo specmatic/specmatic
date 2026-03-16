@@ -1,5 +1,11 @@
 package io.specmatic.core.pattern
 
+import io.specmatic.core.Resolver
+import io.specmatic.core.matchers.Matcher
+import io.specmatic.core.value.ScalarValue
+import io.specmatic.core.value.StringValue
+import io.specmatic.core.value.Value
+
 interface ScalarType: Pattern
 
 fun scalarAnnotation(pattern: Pattern, negativePatterns: Sequence<Pattern>): Sequence<ReturnValue<Pattern>> {

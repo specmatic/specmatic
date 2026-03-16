@@ -1,6 +1,7 @@
 package io.specmatic.core.matchers
 
 import io.specmatic.core.BreadCrumb
+import io.specmatic.core.Resolver
 import io.specmatic.core.pattern.HasFailure
 import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.Pattern
@@ -39,6 +40,15 @@ data class CompositeMatcher(
         }
     }
 
+    override fun patternFrom(originalPattern: Pattern, resolver: Resolver): Pattern {
+        val matcher = matchers.find { it is EqualityMatcher }
+            ?: matchers.find { it is RegexMatcher }
+            ?: matchers.find { it is PatternMatcher }
+            ?: matchers.firstOrNull()
+
+        return matcher?.patternFrom(originalPattern, resolver) ?: originalPattern
+    }
+
     companion object : MatcherFactory {
         override val matcherKey: String = "match"
 
@@ -56,11 +66,6 @@ data class CompositeMatcher(
 
         override fun parseFrom(path: BreadCrumb, properties: Map<String, Value>, context: MatcherContext): ReturnValue<CompositeMatcher> {
             return HasFailure("CompositeMatcher cannot be parsed from properties", path.value)
-        }
-
-        override fun toPatternSimplified(value: Value): Pattern? {
-            val properties = extractPropertiesIfExist(value) ?: return null
-            return Matcher.toPatternSimplified(properties)
         }
     }
 }

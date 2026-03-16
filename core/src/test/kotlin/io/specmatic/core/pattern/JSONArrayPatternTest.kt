@@ -104,6 +104,20 @@ internal class JSONArrayPatternTest {
     }
 
     @Test
+    fun `patternFrom should use existing patterns and fallback to value types for extra elements`() {
+        val pattern = JSONArrayPattern(listOf(NumberPattern()))
+        val value = JSONArrayValue(listOf(
+            StringValue("(number)"),
+            StringValue("alpha")
+        ))
+
+        val result = pattern.patternFrom(value, Resolver()) as JSONArrayPattern
+
+        assertThat(result.pattern[0]).isEqualTo(DeferredPattern("(number)"))
+        assertThat(result.pattern[1]).isEqualTo(ExactValuePattern(StringValue("alpha")))
+    }
+
+    @Test
     fun `should encompass itself`() {
         val type = parsedPattern("""["(number)", "(number)"]""")
         assertThat(type.encompasses(type, Resolver(), Resolver())).isInstanceOf(Result.Success::class.java)

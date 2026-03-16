@@ -9,6 +9,7 @@ import io.specmatic.core.jsonoperator.Optional
 import io.specmatic.core.jsonoperator.RequestResponseOperator
 import io.specmatic.core.pattern.HasFailure
 import io.specmatic.core.pattern.HasValue
+import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.StringValue
 import org.assertj.core.api.Assertions.assertThat
@@ -18,6 +19,16 @@ import org.junit.jupiter.api.Test
 class RepetitionMatcherTest {
     private val mockResolver = mockk<Resolver>()
     private val mockOperator = mockk<RequestResponseOperator>()
+
+    @Test
+    fun `patternFrom should return original pattern`() {
+        val matcher = RepetitionMatcher(BreadCrumb.from(), times = 2, strategy = RepetitionStrategy.ANY)
+        val original = StringPattern()
+
+        val result = matcher.patternFrom(original, Resolver())
+
+        assertThat(result).isSameAs(original)
+    }
 
     @Test
     fun `should succeed when times is -1 without checking exhaustion`() {

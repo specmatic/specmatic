@@ -1,0 +1,18 @@
+{
+  "http-request": {
+    "method": "POST",
+    "path": "/flag",
+    "body": {
+      "active": "$match(pattern: ^(true|false)$)"
+    }
+  },
+  "http-response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "message": "flag matched"
+    }
+  }
+}

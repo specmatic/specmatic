@@ -16,10 +16,6 @@ interface MatcherFactory {
 
     fun parseFrom(path: BreadCrumb, properties: Map<String, Value>, context: MatcherContext): ReturnValue<out Matcher>
 
-    fun toPatternSimplified(value: Value): Pattern? = null
-
-    fun toPatternSimplified(properties: Map<String, Value>): Pattern? = null
-
     fun extractPropertiesIfExist(value: Value): Map<String, Value>? {
         if (value !is StringValue) return null
         val hasColonPattern = value.nativeValue.contains(COLON_SEPARATED_PROPERTIES)

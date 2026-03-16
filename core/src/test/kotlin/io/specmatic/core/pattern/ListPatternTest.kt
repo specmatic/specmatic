@@ -73,6 +73,20 @@ internal class ListPatternTest {
     }
 
     @Test
+    fun `patternFrom should retain matcher tokens in list elements`() {
+        val pattern = ListPattern(StringPattern())
+        val value = JSONArrayValue(listOf(
+            StringValue("${'$'}match(pattern: POSITIVE_REGEX)"),
+            NumberValue(10)
+        ))
+
+        val result = pattern.patternFrom(value, Resolver()) as JSONArrayPattern
+
+        assertThat(result.pattern[0]).isEqualTo(RegexConstrainedPattern(StringPattern(), "POSITIVE_REGEX", Resolver()))
+        assertThat(result.pattern[1]).isEqualTo(ExactValuePattern(NumberValue(10)))
+    }
+
+    @Test
     fun `should encompass itself`() {
         val type = ListPattern(NumberPattern())
         assertThat(type.encompasses(type, Resolver(), Resolver())).isInstanceOf(Result.Success::class.java)

@@ -66,6 +66,20 @@ class EmailPatternTest {
     }
 
     @Test
+    fun `patternFrom should preserve email pattern as original pattern for matcher token`() {
+        val pattern = EmailPattern()
+
+        val result = pattern.patternFrom(
+            StringValue("${'$'}match(pattern: ^[^@\\s]+@example\\.com$)"),
+            Resolver()
+        )
+
+        assertThat(result).isInstanceOf(RegexConstrainedPattern::class.java)
+        val regexConstrainedPattern = result as RegexConstrainedPattern
+        assertThat(regexConstrainedPattern.basePattern).isSameAs(pattern)
+    }
+
+    @Test
     fun `fillInTheBlanks should handle any-value pattern token correctly`() {
         val pattern = EmailPattern()
         val resolver = Resolver()

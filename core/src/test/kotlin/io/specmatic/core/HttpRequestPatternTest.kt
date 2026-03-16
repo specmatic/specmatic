@@ -747,6 +747,27 @@ internal class HttpRequestPatternTest {
         assertThat(requestBodyPattern.patternForKey("key")).isEqualTo(ExactValuePattern(StringValue("value")))
     }
 
+    @Test
+    fun `generating a request pattern from an http request should retain matcher tokens in the body`() {
+        val originalRequestPattern = HttpRequestPattern(
+            httpPathPattern = buildHttpPathPattern("/"), method = "POST",
+            body = JSONObjectPattern(mapOf("id" to StringPattern(), "name" to StringPattern()))
+        )
+        val httpRequest = HttpRequest(
+            body = JSONObjectValue(mapOf(
+                "id" to StringValue("\$match(pattern: POSITIVE_REGEX)"),
+                "name" to StringValue("(string)")
+            ))
+        )
+
+        val newRequestPattern = originalRequestPattern.generate(httpRequest, Resolver())
+        val requestBodyPattern = newRequestPattern.body as JSONObjectPattern
+
+        assertThat(requestBodyPattern.pattern.getValue("id"))
+            .isEqualTo(RegexConstrainedPattern(StringPattern(), "POSITIVE_REGEX", Resolver()))
+        assertThat(requestBodyPattern.pattern.getValue("name")).isEqualTo(DeferredPattern("(string)"))
+    }
+
     @ParameterizedTest
     @MethodSource("headersBasedSecuritySchemesProvider")
     fun `security schema headers should be ignored when converting headers from http request to pattern`(securityScheme: OpenAPISecurityScheme) {
@@ -893,7 +914,14 @@ internal class HttpRequestPatternTest {
         )
         val newRequestPattern = httpRequestPattern.generate(httpRequest, Resolver())
 
-        assertThat(newRequestPattern.httpPathPattern).isEqualTo(buildHttpPathPattern("/invalidUUID"))
+        assertThat(newRequestPattern.httpPathPattern).isEqualTo(
+            HttpPathPattern(
+                pathSegmentPatterns = listOf(
+                    URLPathSegmentPattern(ExactValuePattern(StringValue("invalidUUID")), "id")
+                ),
+                "/invalidUUID"
+            )
+        )
         assertThat(newRequestPattern.method).isEqualTo("GET")
         assertThat(newRequestPattern.headersPattern.pattern).isEqualTo(mapOf("key" to "invalidDate".toExactValuePattern()))
         assertThat(newRequestPattern.body).isEqualTo(JSONObjectPattern(mapOf("key" to "invalidEmail".toExactValuePattern())))
