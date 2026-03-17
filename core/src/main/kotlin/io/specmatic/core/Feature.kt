@@ -1152,9 +1152,9 @@ data class Feature(
         }
     }
 
-    fun identifierMatchingScenario(httpRequest: HttpRequest, furtherPredicate: (Scenario) -> Boolean = { true }): Scenario? {
+    fun identifierMatchingScenario(httpRequest: HttpRequest, furtherPredicate: (Scenario) -> Boolean = { true }, updateResolver: (Resolver) -> Resolver = { it }): Scenario? {
         return scenarios.firstOrNull { scenario ->
-            scenario.httpRequestPattern.matchesPathStructureMethodAndContentType(httpRequest, scenario.resolver).isSuccess() && furtherPredicate(scenario)
+            scenario.httpRequestPattern.matchesPathStructureMethodAndContentType(httpRequest, updateResolver(scenario.resolver)).isSuccess() && furtherPredicate(scenario)
         }
     }
 
