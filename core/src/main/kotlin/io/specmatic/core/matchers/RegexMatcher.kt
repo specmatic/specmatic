@@ -49,7 +49,7 @@ data class RegexMatcher(val path: BreadCrumb, val regex: String) : Matcher {
     }
 
     companion object : MatcherFactory {
-        private const val PATTERN_KEY = "pattern"
+        const val PATTERN_PROPERTY_KEY = "pattern"
         override val matcherKey: String = "regex"
 
         override fun parse(path: BreadCrumb, value: Value, context: MatcherContext): ReturnValue<RegexMatcher> {
@@ -62,13 +62,14 @@ data class RegexMatcher(val path: BreadCrumb, val regex: String) : Matcher {
         }
 
         override fun canParseFrom(path: BreadCrumb, properties: Map<String, Value>): Boolean {
-            return PATTERN_KEY in properties
+            return PATTERN_PROPERTY_KEY in properties
         }
 
         override fun parseFrom(path: BreadCrumb, properties: Map<String, Value>, context: MatcherContext): ReturnValue<RegexMatcher> {
-            val patternValue = properties[PATTERN_KEY] ?: return HasFailure("Expected key '$PATTERN_KEY' to be present", path.value)
+            val patternValue = properties[PATTERN_PROPERTY_KEY]
+                ?: return HasFailure("Expected key '$PATTERN_PROPERTY_KEY' to be present", path.value)
             if (patternValue !is StringValue) return HasFailure(
-                "Expected key '$PATTERN_KEY' to be a string",
+                "Expected key '$PATTERN_PROPERTY_KEY' to be a string",
                 path.value,
             )
 

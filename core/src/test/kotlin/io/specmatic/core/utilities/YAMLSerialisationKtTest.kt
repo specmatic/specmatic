@@ -1,6 +1,5 @@
 package io.specmatic.core.utilities
 
-import io.specmatic.core.pattern.*
 import io.specmatic.core.value.*
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.assertDoesNotThrow
