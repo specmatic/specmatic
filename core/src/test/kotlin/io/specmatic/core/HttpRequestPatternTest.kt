@@ -916,10 +916,11 @@ internal class HttpRequestPatternTest {
 
         assertThat(newRequestPattern.httpPathPattern).isEqualTo(
             HttpPathPattern(
+                path = "/invalidUUID",
                 pathSegmentPatterns = listOf(
-                    URLPathSegmentPattern(ExactValuePattern(StringValue("invalidUUID")), "id")
+                    URLPathSegmentPattern(ExactValuePattern(StringValue("/"))),
+                    URLPathSegmentPattern(ExactValuePattern(StringValue("invalidUUID")), "id"),
                 ),
-                "/invalidUUID"
             )
         )
         assertThat(newRequestPattern.method).isEqualTo("GET")

@@ -510,9 +510,9 @@ data class HttpPathPattern(
     private fun String.normalizeSlash(): String = replace(Regex("/{2,}"), "/")
 
     private fun createTokenizerFromPathSegments(): TemplateTokenizer {
-        val regexSource = pathSegmentPatterns.joinToString(prefix = "^", separator = "", postfix = "$") { pattern ->
-            when (val p = pattern.pattern) {
-                is ExactValuePattern -> Regex.escape(p.pattern.toUnformattedString())
+        val regexSource = pathSegmentPatterns.joinToString(prefix = "^", separator = "", postfix = "$") { (pattern) ->
+            when (pattern) {
+                is ExactValuePattern -> "(${Regex.escape(pattern.pattern.toUnformattedString())})"
                 else -> NON_SLASH_REGEX
             }
         }
