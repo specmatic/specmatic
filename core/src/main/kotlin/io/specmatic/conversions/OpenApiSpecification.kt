@@ -2734,6 +2734,7 @@ class OpenApiSpecification(
             "string" -> when (this.format) {
                 "email" -> EmailPattern(example = example)
                 "password" -> StringPattern(example = example)
+                "uri" -> URLPattern(URLScheme.EITHER)
                 "uuid" -> UUIDPattern
                 "date" -> DatePattern
                 "date-time" -> DateTimePattern

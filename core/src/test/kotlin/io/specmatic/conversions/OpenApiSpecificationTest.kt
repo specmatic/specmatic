@@ -53,6 +53,7 @@ import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import java.io.File
 import java.math.BigDecimal
+import java.net.URI
 import java.util.*
 import java.util.function.Consumer
 import java.util.stream.Stream
@@ -9906,6 +9907,44 @@ paths:
         assertThat(petTypePattern.pattern.pattern.map { it.pattern }).containsExactlyInAnyOrder(
             StringValue("dog"), StringValue("cat")
         )
+    }
+
+    @Test
+    fun `format uri should map to URLPattern and generate URL values`() {
+        val specContent = """
+        openapi: '3.0.3'
+        info:
+          title: URI Format API
+          version: '1.0'
+        paths:
+          /links:
+            get:
+              responses:
+                '200':
+                  description: OK
+                  content:
+                    application/json:
+                      schema:
+                        type: object
+                        required:
+                          - href
+                        properties:
+                          href:
+                            type: string
+                            format: uri
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(specContent, "").toFeature()
+        val scenario = feature.scenarios.first()
+        val responseBodyPattern = resolvedHop(scenario.httpResponsePattern.body, scenario.resolver) as JSONObjectPattern
+        val hrefPattern = resolvedHop(responseBodyPattern.pattern.getValue("href"), scenario.resolver)
+
+        assertThat(hrefPattern).isEqualTo(URLPattern(URLScheme.EITHER))
+
+        val generatedHref = (hrefPattern as URLPattern).generate(Resolver()).string
+        val generatedUri = URI.create(generatedHref)
+
+        assertThat(generatedUri.scheme).isIn("http", "https")
     }
 
     @Test
