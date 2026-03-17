@@ -9910,7 +9910,7 @@ paths:
     }
 
     @Test
-    fun `format uri should map to URLPattern and generate URL values`() {
+    fun `format uri should map to URIPattern and generate URI values`() {
         val specContent = """
         openapi: '3.0.3'
         info:
@@ -9939,12 +9939,112 @@ paths:
         val responseBodyPattern = resolvedHop(scenario.httpResponsePattern.body, scenario.resolver) as JSONObjectPattern
         val hrefPattern = resolvedHop(responseBodyPattern.pattern.getValue("href"), scenario.resolver)
 
-        assertThat(hrefPattern).isEqualTo(URLPattern(URLScheme.EITHER))
+        assertThat(hrefPattern).isEqualTo(URIPattern())
 
-        val generatedHref = (hrefPattern as URLPattern).generate(Resolver()).string
+        val generatedHref = (hrefPattern as URIPattern).generate(Resolver()).string
         val generatedUri = URI.create(generatedHref)
 
-        assertThat(generatedUri.scheme).isIn("http", "https")
+        assertThat(generatedUri.isAbsolute).isTrue()
+    }
+
+    @Test
+    fun `format uri should support regex pattern constraints`() {
+        val specContent = """
+        openapi: '3.0.3'
+        info:
+          title: URI Format API
+          version: '1.0'
+        paths:
+          /links:
+            get:
+              responses:
+                '200':
+                  description: OK
+                  content:
+                    application/json:
+                      schema:
+                        type: object
+                        required:
+                          - href
+                        properties:
+                          href:
+                            type: string
+                            format: uri
+                            pattern: "^mqtt://.*"
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(specContent, "").toFeature()
+        val scenario = feature.scenarios.first()
+        val responseBodyPattern = resolvedHop(scenario.httpResponsePattern.body, scenario.resolver) as JSONObjectPattern
+        val hrefPattern = resolvedHop(responseBodyPattern.pattern.getValue("href"), scenario.resolver)
+
+        assertThat(hrefPattern).isInstanceOf(RegexConstrainedPattern::class.java)
+        hrefPattern as RegexConstrainedPattern
+        assertThat(hrefPattern.basePattern).isEqualTo(URIPattern())
+
+        assertThat(hrefPattern.matches(StringValue("mqtt://example.com"), Resolver()).isSuccess()).isTrue()
+        assertThat(hrefPattern.matches(StringValue("http://example.com"), Resolver()).isSuccess()).isFalse()
+    }
+
+    @Test
+    fun `format uri should support complex mqtt URI regex constraints`() {
+        val hrefPattern = hrefPatternForUriRegex("^mqtt://[a-zA-Z0-9.-]+(:[0-9]{2,5})?/devices/[a-z0-9_-]+/events\\?qos=[0-2]$")
+
+        assertThat(hrefPattern.matches(StringValue("mqtt://broker-1.example.com:1883/devices/device_01/events?qos=1"), Resolver()).isSuccess()).isTrue()
+        assertThat(hrefPattern.matches(StringValue("mqtt://broker-1.example.com/devices/device_01/events?quality=1"), Resolver()).isSuccess()).isFalse()
+        assertThat(hrefPattern.matches(StringValue("http://broker-1.example.com/devices/device_01/events?qos=1"), Resolver()).isSuccess()).isFalse()
+    }
+
+    @Test
+    fun `format uri should support complex URN regex constraints`() {
+        val hrefPattern = hrefPatternForUriRegex("^urn:[a-z0-9][a-z0-9-]{1,31}:[A-Za-z0-9()+,\\-.:=@;${'$'}_!*%/?#]+$")
+
+        assertThat(hrefPattern.matches(StringValue("urn:example:animal:ferret:nose"), Resolver()).isSuccess()).isTrue()
+        assertThat(hrefPattern.matches(StringValue("urn::example:animal"), Resolver()).isSuccess()).isFalse()
+        assertThat(hrefPattern.matches(StringValue("https://example.com/animal/ferret/nose"), Resolver()).isSuccess()).isFalse()
+    }
+
+    @Test
+    fun `format uri should support complex websocket URI regex constraints`() {
+        val hrefPattern = hrefPatternForUriRegex("^wss://[a-z0-9.-]+(:[0-9]{2,5})?/stream/[A-Za-z0-9_-]+\\?token=[A-Za-z0-9._-]+$")
+
+        assertThat(hrefPattern.matches(StringValue("wss://realtime.example.com:443/stream/abc_123?token=t.kn-1"), Resolver()).isSuccess()).isTrue()
+        assertThat(hrefPattern.matches(StringValue("ws://realtime.example.com/stream/abc_123?token=t.kn-1"), Resolver()).isSuccess()).isFalse()
+        assertThat(hrefPattern.matches(StringValue("wss://realtime.example.com/stream/abc_123"), Resolver()).isSuccess()).isFalse()
+    }
+
+    private fun hrefPatternForUriRegex(regex: String): RegexConstrainedPattern {
+        val specContent = """
+        openapi: '3.0.3'
+        info:
+          title: URI Format API
+          version: '1.0'
+        paths:
+          /links:
+            get:
+              responses:
+                '200':
+                  description: OK
+                  content:
+                    application/json:
+                      schema:
+                        type: object
+                        required:
+                          - href
+                        properties:
+                          href:
+                            type: string
+                            format: uri
+                            pattern: '$regex'
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(specContent, "").toFeature()
+        val scenario = feature.scenarios.first()
+        val responseBodyPattern = resolvedHop(scenario.httpResponsePattern.body, scenario.resolver) as JSONObjectPattern
+        val hrefPattern = resolvedHop(responseBodyPattern.pattern.getValue("href"), scenario.resolver)
+
+        assertThat(hrefPattern).isInstanceOf(RegexConstrainedPattern::class.java)
+        return hrefPattern as RegexConstrainedPattern
     }
 
     @Test

@@ -2200,6 +2200,23 @@ class OpenApiSpecification(
         return StringPattern.from(stringConstraints, schema.pattern, example, collectorContext)
     }
 
+    private fun uriPattern(schema: Schema<*>, patternName: String, collectorContext: CollectorContext, example: String? = null): Pattern {
+        val baseUriPattern = URIPattern()
+        val regex = stringPattern(schema, patternName, collectorContext, example).regex ?: return baseUriPattern
+
+        return collectorContext.at("pattern").safely(
+            fallback = { baseUriPattern },
+            message = "URI regex constraint could not be applied, defaulting to uri"
+        ) {
+            RegexConstrainedPattern(
+                basePattern = baseUriPattern,
+                regex = regex,
+                resolver = Resolver(),
+                eagerRegexValidation = false
+            )
+        }
+    }
+
     private fun numberPattern(schema: Schema<*>, collectorContext: CollectorContext, isDoubleFormat: Boolean, example: String?) : NumberPattern {
         val minSource = if (schema.exclusiveMinimumValue != null) NumericBoundSource.EXCLUSIVE_MINIMUM else if (schema.minimum != null) NumericBoundSource.MINIMUM else null
         val maxSource = if (schema.exclusiveMaximumValue != null) NumericBoundSource.EXCLUSIVE_MAXIMUM else if (schema.maximum != null) NumericBoundSource.MAXIMUM else null
@@ -2734,7 +2751,7 @@ class OpenApiSpecification(
             "string" -> when (this.format) {
                 "email" -> EmailPattern(example = example)
                 "password" -> StringPattern(example = example)
-                "uri" -> URLPattern(URLScheme.EITHER)
+                "uri" -> uriPattern(this, patternName = patternName, collectorContext = collectorContext, example = example)
                 "uuid" -> UUIDPattern
                 "date" -> DatePattern
                 "date-time" -> DateTimePattern
