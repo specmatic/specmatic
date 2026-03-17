@@ -68,7 +68,7 @@ class PatternMatcher(
     companion object : MatcherFactory {
         private const val DATA_TYPE_KEY = "dataType"
         private const val PARTIAL_KEY = "partial"
-        override val matcherKey: String = "pattern"
+        override val matcherKey: String = RegexMatcher.PATTERN_PROPERTY_KEY
 
         override fun parse(path: BreadCrumb, value: Value, context: MatcherContext): ReturnValue<PatternMatcher> {
             if (value !is StringValue) return HasFailure("Invalid '$DATA_TYPE_KEY', expected String got ${value.displayableValue()}", path.value)

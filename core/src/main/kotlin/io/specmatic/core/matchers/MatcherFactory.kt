@@ -3,7 +3,6 @@ package io.specmatic.core.matchers
 import io.specmatic.core.BreadCrumb
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.ReturnValue
-import io.specmatic.core.utilities.fromYamlProperties
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
@@ -22,7 +21,7 @@ interface MatcherFactory {
         val hasMultiplePairs = value.nativeValue.count { it == ',' } > 0 || value.nativeValue.count { it == ':' } > 0
         if (!hasColonPattern || !hasMultiplePairs) return null
         return runCatching {
-            fromYamlProperties(value.nativeValue).takeUnless(Map<String, Value>::isEmpty)
+            parseMatcherTokenProperties(value.nativeValue).takeUnless(Map<String, Value>::isEmpty)
         }.getOrNull()
     }
 
