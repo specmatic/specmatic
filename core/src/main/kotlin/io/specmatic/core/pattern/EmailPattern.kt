@@ -64,8 +64,8 @@ class EmailPattern (private val stringPatternDelegate: StringPattern, val exampl
         return resolver.provideString(this) ?: StringValue("$localPart@$domain.com")
     }
 
-    override fun patternFrom(value: Value, resolver: Resolver): Pattern {
-        return patternFromValueUsing(this, value, resolver)
+    override fun patternFrom(value: Value, resolver: Resolver, parseValueToType: (Value) -> Pattern): Pattern {
+        return patternFromValueUsing(this, value, resolver, parseValueToType)
     }
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> {

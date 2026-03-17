@@ -104,17 +104,28 @@ internal class JSONArrayPatternTest {
     }
 
     @Test
-    fun `patternFrom should use existing patterns and fallback to value types for extra elements`() {
+    fun `patternFrom should use existing patterns and fallback to exactMatchElseType for extra elements when parser is overridden`() {
         val pattern = JSONArrayPattern(listOf(NumberPattern()))
         val value = JSONArrayValue(listOf(
             StringValue("(number)"),
             StringValue("alpha")
         ))
 
-        val result = pattern.patternFrom(value, Resolver()) as JSONArrayPattern
+        val result = pattern.patternFrom(value, Resolver()) { it.exactMatchElseType() } as JSONArrayPattern
 
         assertThat(result.pattern[0]).isEqualTo(DeferredPattern("(number)"))
         assertThat(result.pattern[1]).isEqualTo(ExactValuePattern(StringValue("alpha")))
+    }
+
+    @Test
+    fun `patternFrom should fallback to deepPattern for extra elements by default`() {
+        val pattern = JSONArrayPattern(listOf(NumberPattern()))
+        val value = JSONArrayValue(listOf(StringValue("(number)"), StringValue("alpha")))
+
+        val result = pattern.patternFrom(value, Resolver()) as JSONArrayPattern
+
+        assertThat(result.pattern[0]).isEqualTo(DeferredPattern("(number)"))
+        assertThat(result.pattern[1]).isEqualTo(StringPattern())
     }
 
     @Test

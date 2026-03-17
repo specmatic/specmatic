@@ -124,12 +124,12 @@ data class JSONArrayPattern(override val pattern: List<Pattern> = emptyList(), o
         }
     }
 
-    override fun patternFrom(value: Value, resolver: Resolver): Pattern {
-        if(value !is JSONArrayValue) return value.exactMatchElseType()
+    override fun patternFrom(value: Value, resolver: Resolver, parseValueToType: (Value) -> Pattern): Pattern {
+        if(value !is JSONArrayValue) return parseValueToType(value)
         return JSONArrayPattern(
             value.list.mapIndexed { index, indexedValue ->
-                val patternAtIndex = pattern.getOrElse(index) { indexedValue.exactMatchElseType() }
-                patternAtIndex.patternFrom(indexedValue, resolver)
+                val patternAtIndex = pattern.getOrElse(index) { parseValueToType(indexedValue) }
+                patternAtIndex.patternFrom(indexedValue, resolver, parseValueToType)
             }
         )
     }

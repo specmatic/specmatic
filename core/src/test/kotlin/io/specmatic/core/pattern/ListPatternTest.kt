@@ -73,17 +73,28 @@ internal class ListPatternTest {
     }
 
     @Test
-    fun `patternFrom should retain matcher tokens in list elements`() {
+    fun `patternFrom should retain matcher tokens and use exactMatchElseType in list elements when parser is overridden`() {
         val pattern = ListPattern(StringPattern())
         val value = JSONArrayValue(listOf(
             StringValue("${'$'}match(pattern: POSITIVE_REGEX)"),
             NumberValue(10)
         ))
 
-        val result = pattern.patternFrom(value, Resolver()) as JSONArrayPattern
+        val result = pattern.patternFrom(value, Resolver()) { it.exactMatchElseType() } as JSONArrayPattern
 
         assertThat(result.pattern[0]).isEqualTo(RegexConstrainedPattern(StringPattern(), "POSITIVE_REGEX", Resolver()))
         assertThat(result.pattern[1]).isEqualTo(ExactValuePattern(NumberValue(10)))
+    }
+
+    @Test
+    fun `patternFrom should fallback to deepPattern in list elements by default`() {
+        val pattern = ListPattern(StringPattern())
+        val value = JSONArrayValue(listOf(StringValue("${'$'}match(pattern: POSITIVE_REGEX)"), NumberValue(10)))
+
+        val result = pattern.patternFrom(value, Resolver()) as JSONArrayPattern
+
+        assertThat(result.pattern[0]).isEqualTo(RegexConstrainedPattern(StringPattern(), "POSITIVE_REGEX", Resolver()))
+        assertThat(result.pattern[1]).isEqualTo(NumberPattern())
     }
 
     @Test

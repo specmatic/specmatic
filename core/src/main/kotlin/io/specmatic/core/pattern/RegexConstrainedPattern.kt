@@ -55,8 +55,8 @@ data class RegexConstrainedPattern(
         }
     }
 
-    override fun patternFrom(value: Value, resolver: Resolver): Pattern {
-        return RegexConstrainedPattern(basePattern.patternFrom(value, resolver), this.regex, resolver)
+    override fun patternFrom(value: Value, resolver: Resolver, parseValueToType: (Value) -> Pattern): Pattern {
+        return RegexConstrainedPattern(basePattern.patternFrom(value, resolver, parseValueToType), this.regex, resolver)
     }
 
     private fun validateRegexAgainstBasePattern() {

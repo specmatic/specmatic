@@ -599,9 +599,9 @@ data class AnyPattern(
         return setOf("{[$matchingPatternIndex]}")
     }
 
-    override fun patternFrom(value: Value, resolver: Resolver): Pattern {
+    override fun patternFrom(value: Value, resolver: Resolver, parseValueToType: (Value) -> Pattern): Pattern {
         val selectedPattern = selectPattern(value, resolver)
-        return selectedPattern.patternFrom(value, resolver)
+        return selectedPattern.patternFrom(value, resolver, parseValueToType)
     }
 
     private fun allValuesAreScalar() = pattern.all { it is ExactValuePattern && it.pattern is ScalarValue }

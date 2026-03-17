@@ -250,10 +250,10 @@ data class ListPattern(
         return this.copy(pattern = pattern.ensureAdditionalProperties(resolver))
     }
 
-    override fun patternFrom(value: Value, resolver: Resolver): Pattern {
-        if (value !is JSONArrayValue) return value.exactMatchElseType()
+    override fun patternFrom(value: Value, resolver: Resolver, parseValueToType: (Value) -> Pattern): Pattern {
+        if (value !is JSONArrayValue) return parseValueToType(value)
         return JSONArrayPattern(
-            value.list.map { this.pattern.patternFrom(it, resolver) }
+            value.list.map { this.pattern.patternFrom(it, resolver, parseValueToType) }
         )
     }
 
