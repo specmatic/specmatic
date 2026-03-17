@@ -79,12 +79,12 @@ data class TabularPattern(
         })
     }
 
-    override fun patternFrom(value: Value, resolver: Resolver): Pattern {
-        if (value !is JSONObjectValue) return value.exactMatchElseType()
+    override fun patternFrom(value: Value, resolver: Resolver, parseValueToType: (Value) -> Pattern): Pattern {
+        if (value !is JSONObjectValue) return parseValueToType(value)
 
         val updatedPattern = value.jsonObject.mapValues { (key, value) ->
-            val keyPattern = patternForKey(key) ?: value.exactMatchElseType()
-            keyPattern.patternFrom(value, resolver)
+            val keyPattern = patternForKey(key) ?: parseValueToType(value)
+            keyPattern.patternFrom(value, resolver, parseValueToType)
         }
 
         return this.copy(pattern = updatedPattern)

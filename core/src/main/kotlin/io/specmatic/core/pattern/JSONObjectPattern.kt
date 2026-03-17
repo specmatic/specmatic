@@ -512,12 +512,12 @@ data class JSONObjectPattern(
 
     override val typeName: String = "json object"
 
-    override fun patternFrom(value: Value, resolver: Resolver): Pattern {
-        if (value !is JSONObjectValue) return value.exactMatchElseType()
+    override fun patternFrom(value: Value, resolver: Resolver, parseValueToType: (Value) -> Pattern): Pattern {
+        if (value !is JSONObjectValue) return parseValueToType(value)
         return toJSONObjectPattern(
             value.jsonObject.mapValues {
-                val keyPattern = this.patternForKey(it.key) ?: it.value.exactMatchElseType()
-                keyPattern.patternFrom(it.value, resolver)
+                val keyPattern = this.patternForKey(it.key) ?: parseValueToType(it.value)
+                keyPattern.patternFrom(it.value, resolver, parseValueToType)
             },
             typeAlias
         )

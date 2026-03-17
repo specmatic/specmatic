@@ -183,7 +183,7 @@ class ThreadSafeListOfStubs(
             }.map { (stubData, partial) ->
                 val (requestPattern, _, resolver) = stubData
                 val partialResolver = resolver.withUnexpectedKeyCheck(IgnoreUnexpectedKeys)
-                val partialResult = requestPattern.generate(partial.request, resolver)
+                val partialResult = requestPattern.generateExactHttpRequestPatternFrom(partial.request, resolver)
                     .matches(httpRequest, partialResolver, partialResolver)
 
                 if (!partialResult.isSuccess()) return@map partialResult to stubData

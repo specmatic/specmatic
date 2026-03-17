@@ -65,8 +65,8 @@ data class URLPathSegmentPattern(override val pattern: Pattern, override val key
         return JSONArrayValue(valueList)
     }
 
-    override fun patternFrom(value: Value, resolver: Resolver): URLPathSegmentPattern {
-        return this.copy(pattern = pattern.patternFrom(value, resolver))
+    override fun patternFrom(value: Value, resolver: Resolver, parseValueToType: (Value) -> Pattern): URLPathSegmentPattern {
+        return this.copy(pattern = pattern.patternFrom(value, resolver, parseValueToType))
     }
 
     fun tryParse(token: String, resolver: Resolver): Value {

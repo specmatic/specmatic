@@ -6,6 +6,7 @@ import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.value.Value
 import java.net.URI
 
 val OMIT = listOf("(OMIT)", "(omit)")
@@ -378,12 +379,13 @@ data class HttpPathPattern(
         }
     }
 
-    fun patternFrom(path: String, resolver: Resolver): HttpPathPattern {
+    fun patternFrom(path: String, resolver: Resolver, parseValueToType: (Value) -> Pattern): HttpPathPattern {
         val pathSegments = path.split("/".toRegex()).filter { it.isNotEmpty() }
         val pathSegmentPatternsFromPathTokens = pathSegmentPatterns.zip(pathSegments).map { (urlPathPattern, token) ->
             urlPathPattern.patternFrom(
                 StringValue(removeKeyFromParameterToken(token)),
-                resolver
+                resolver,
+                parseValueToType
             )
         }
         return this.copy(pathSegmentPatterns = pathSegmentPatternsFromPathTokens)
