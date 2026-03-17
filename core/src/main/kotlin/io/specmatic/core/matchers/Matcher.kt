@@ -12,6 +12,7 @@ import io.specmatic.test.traverse
 
 interface Matcher {
     val canBeExhausted: Boolean
+    val priority: Int
 
     fun match(context: MatcherContext): MatcherResult {
         val dynamicMatchers = this.createDynamicMatchers(context)
@@ -45,15 +46,7 @@ interface Matcher {
     companion object {
 
         private val registry: MatcherRegistry by lazy {
-            val defaultFactories = buildList {
-                add(EqualityMatcher.Companion.EqualityFactory)
-                add(EqualityMatcher.Companion.NonEqualityFactory)
-                add(CompositeMatcher.Companion)
-                add(PatternMatcher.Companion)
-                add(RepetitionMatcher.Companion)
-                add(RegexMatcher.Companion)
-            }
-            MatcherRegistry.build(defaultFactories)
+            MatcherRegistry.build(listOf())
         }
 
         fun parse(path: BreadCrumb, value: Value, context: MatcherContext): ReturnValue<out Matcher>? {

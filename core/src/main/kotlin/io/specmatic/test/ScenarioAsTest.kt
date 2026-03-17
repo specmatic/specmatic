@@ -14,7 +14,7 @@ import io.specmatic.test.fixtures.OpenAPIFixtureExecutor
 import io.specmatic.test.handlers.ResponseHandler
 import io.specmatic.test.handlers.ResponseHandlerRegistry
 import io.specmatic.test.handlers.ResponseHandlingResult
-import io.specmatic.test.matchers.MatcherExecutor
+import io.specmatic.core.matchers.MatcherExecutor
 import java.time.Instant
 import java.util.ServiceLoader
 import kotlin.jvm.java

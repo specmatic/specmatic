@@ -1,4 +1,4 @@
-package io.specmatic.test.matchers
+package io.specmatic.core.matchers
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.value.Value
