@@ -173,6 +173,73 @@ internal class JSONObjectPatternTest {
     }
 
     @Test
+    fun `patternFrom should retain explicit patterns for pattern and matcher tokens`() {
+        val pattern = JSONObjectPattern(
+            mapOf(
+                "id" to StringPattern(),
+                "count" to NumberPattern(),
+                "active" to BooleanPattern(),
+                "name" to StringPattern()
+            )
+        )
+
+        val value = JSONObjectValue(
+            mapOf(
+                "id" to StringValue("${'$'}match(pattern: POSITIVE_REGEX)"),
+                "count" to StringValue("(number)"),
+                "active" to StringValue("(boolean)"),
+                "name" to StringValue("(string)")
+            )
+        )
+
+        val result = pattern.patternFrom(value, Resolver()) as JSONObjectPattern
+
+        assertThat(result.pattern.getValue("id"))
+            .isEqualTo(RegexConstrainedPattern(StringPattern(), "POSITIVE_REGEX", Resolver()))
+        assertThat(result.pattern.getValue("count")).isEqualTo(DeferredPattern("(number)"))
+        assertThat(result.pattern.getValue("active")).isEqualTo(DeferredPattern("(boolean)"))
+        assertThat(result.pattern.getValue("name")).isEqualTo(DeferredPattern("(string)"))
+    }
+
+    @Test
+    fun `patternFrom should retain nested patterns for pattern and matcher tokens`() {
+        val pattern = JSONObjectPattern(
+            mapOf(
+                "outerId" to NumberPattern(),
+                "meta" to JSONObjectPattern(
+                    mapOf(
+                        "id" to StringPattern(),
+                        "active" to BooleanPattern(),
+                        "name" to StringPattern()
+                    )
+                )
+            )
+        )
+
+        val value = JSONObjectValue(
+            mapOf(
+                "outerId" to StringValue("(number)"),
+                "meta" to JSONObjectValue(
+                    mapOf(
+                        "id" to StringValue("${'$'}match(pattern: POSITIVE_REGEX)"),
+                        "active" to StringValue("(boolean)"),
+                        "name" to StringValue("(string)")
+                    )
+                )
+            )
+        )
+
+        val result = pattern.patternFrom(value, Resolver()) as JSONObjectPattern
+        val meta = result.pattern.getValue("meta") as JSONObjectPattern
+
+        assertThat(result.pattern.getValue("outerId")).isEqualTo(DeferredPattern("(number)"))
+        assertThat(meta.pattern.getValue("id"))
+            .isEqualTo(RegexConstrainedPattern(StringPattern(), "POSITIVE_REGEX", Resolver()))
+        assertThat(meta.pattern.getValue("active")).isEqualTo(DeferredPattern("(boolean)"))
+        assertThat(meta.pattern.getValue("name")).isEqualTo(DeferredPattern("(string)"))
+    }
+
+    @Test
     fun `it should encompass itself`() {
         val type = parsedPattern("""{"name": "(string)"}""")
         assertThat(type.encompasses(type, Resolver(), Resolver())).isInstanceOf(Result.Success::class.java)

@@ -1,8 +1,10 @@
 package io.specmatic.core
 
-import io.specmatic.core.matchers.Matcher
 import io.specmatic.core.pattern.*
-import io.specmatic.core.value.*
+import io.specmatic.core.value.JSONArrayValue
+import io.specmatic.core.value.StringValue
+import io.specmatic.core.value.True
+import io.specmatic.core.value.Value
 import io.specmatic.test.ExampleProcessor
 import io.specmatic.test.asserts.WILDCARD_INDEX
 
@@ -100,7 +102,12 @@ data class Resolver(
 
     private fun patternTokenMatch(pattern: Pattern, sampleData: Value): Result? {
         if (!mockMode) return null
-        val patternFromValue = patternFromTokenBased(sampleData)
+
+        val patternFromValue = when {
+            isPatternToken(sampleData) -> patternFromTokenBased(sampleData)
+            sampleData.hasMatcherTemplate() -> pattern.patternFrom(sampleData, this)
+            else -> null
+        }
         if (patternFromValue == null || (patternFromValue as? ExactValuePattern)?.pattern == sampleData) {
             return Result.Success().takeIf { ExampleProcessor.isSubstitutionToken(sampleData) }
         }
@@ -125,7 +132,7 @@ data class Resolver(
     }
 
     fun patternFromTokenBased(sampleValue: Value): Pattern? {
-        if (sampleValue !is StringValue || !isPatternOrMatcherToken(sampleValue.string)) return null
+        if (sampleValue !is StringValue || !isPatternToken(sampleValue.string)) return null
         return getPattern(sampleValue.string).let {
             if (it is LookupRowPattern) resolvedHop(
                 it.pattern,
@@ -138,7 +145,7 @@ data class Resolver(
 
     fun getPattern(patternValue: String): Pattern =
         when {
-            isPatternOrMatcherToken(patternValue) -> {
+            isPatternToken(patternValue) -> {
                 val resolvedPattern = patterns[patternValue] ?: parsedPattern(patternValue, null).let {
                     if (it is DeferredPattern && it.pattern in patterns) patterns.getValue(it.pattern) else it
                 }

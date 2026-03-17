@@ -23,8 +23,8 @@ import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.ValueDetails
 import io.specmatic.core.pattern.attempt
 import io.specmatic.core.pattern.breadCrumb
+import io.specmatic.core.pattern.isMatcherToken
 import io.specmatic.core.pattern.isOptional
-import io.specmatic.core.pattern.isPatternOrMatcherToken
 import io.specmatic.core.pattern.isPatternToken
 import io.specmatic.core.pattern.newBasedOn
 import io.specmatic.core.pattern.newMapBasedOn
@@ -39,6 +39,7 @@ import io.specmatic.core.value.EmptyString
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.value.Value
 import io.specmatic.core.value.XMLNode
 
 private const val MULTIPART_FORMDATA_BREADCRUMB = "MULTIPART-FORMDATA"
@@ -352,8 +353,9 @@ data class HttpRequestPattern(
             MatchSuccess(parameters)
     }
 
-    fun generate(request: HttpRequest, resolver: Resolver): HttpRequestPattern {
+    fun generateExactHttpRequestPatternFrom(request: HttpRequest, resolver: Resolver): HttpRequestPattern {
         var requestPattern = HttpRequestPattern()
+        val parseValueToType: (Value) -> Pattern = { it.exactMatchElseType() }
 
         return attempt(breadCrumb = "REQUEST") {
             if (method == null) {
@@ -367,8 +369,8 @@ data class HttpRequestPattern(
 
             requestPattern = attempt(breadCrumb = "URL") {
                 val path = request.path ?: ""
-                val pathTypes = pathToPattern(path)
-                val queryParamTypes = toTypeMapForQueryParameters(request.queryParams, httpQueryParamPattern, resolver)
+                val pathTypes = this.httpPathPattern.patternFrom(path, resolver, parseValueToType).allParameters()
+                val queryParamTypes = toExactTypeMapForQueryParameters(request.queryParams, httpQueryParamPattern, resolver)
                 requestPattern.copy(
                     httpPathPattern = HttpPathPattern(pathTypes, path),
                     httpQueryParamPattern = HttpQueryParamPattern(
@@ -386,7 +388,7 @@ data class HttpRequestPattern(
                         headersPattern.removeContentType(it)
                     }
 
-                val headersFromRequest = toTypeMap(
+                val headersFromRequest = toExactTypeMap(
                     toLowerCaseKeys(headersWithRelevantFields),
                     toLowerCaseKeys(headersPattern.pattern),
                     resolver,
@@ -406,14 +408,14 @@ data class HttpRequestPattern(
                     body = when (request.body) {
                         EmptyString -> EmptyStringPattern
                         NoBodyValue -> NoBodyPattern
-                        is StringValue -> encompassedType(request.bodyString, null, body, resolver)
-                        else -> request.body.exactMatchElseType()
+                        is StringValue -> exactEncompassedType(request.bodyString, null, body, resolver)
+                        else -> this.body.patternFrom(request.body, resolver, parseValueToType)
                     }
                 )
             }
 
             requestPattern = attempt(breadCrumb = "FORM FIELDS") {
-                requestPattern.copy(formFieldsPattern = toTypeMap(request.formFields, formFieldsPattern, resolver))
+                requestPattern.copy(formFieldsPattern = toExactTypeMap(request.formFields, formFieldsPattern, resolver))
             }
 
             val multiPartFormDataRequestMap =
@@ -435,7 +437,7 @@ data class HttpRequestPattern(
     private fun <ValueType> toLowerCaseKeys(map: Map<String, ValueType>) =
         map.map { (key, value) -> key.toLowerCasePreservingASCIIRules() to value }.toMap()
 
-    private fun toTypeMap(
+    private fun toExactTypeMap(
         values: Map<String, String>,
         types: Map<String, Pattern>,
         resolver: Resolver
@@ -443,12 +445,12 @@ data class HttpRequestPattern(
         val withoutOptionality = types.mapKeys { withoutOptionality(it.key) }
         return values.mapValues { (key, value) ->
             withoutOptionality[key]?.let { type ->
-                attempt(breadCrumb = key) { encompassedType(value, key, type, resolver) }
+                attempt(breadCrumb = key) { exactEncompassedType(value, key, type, resolver) }
             } ?: parsedPattern(value)
         }
     }
 
-    private fun toTypeMapForQueryParameters(
+    private fun toExactTypeMapForQueryParameters(
         queryParams: QueryParameters,
         httpQueryParamPattern: HttpQueryParamPattern,
         resolver: Resolver
@@ -464,14 +466,14 @@ data class HttpRequestPattern(
                 when (pattern) {
                     is QueryParameterArrayPattern -> {
                         val queryParameterValuePatterns = values.map { value ->
-                            encompassedType(value, key, pattern.pattern.first(), resolver)
+                            exactEncompassedType(value, key, pattern.pattern.first(), resolver)
                         }
                         key to QueryParameterArrayPattern(queryParameterValuePatterns, key)
                     }
 
                     is QueryParameterScalarPattern -> {
                         key to QueryParameterScalarPattern(
-                            encompassedType(
+                            exactEncompassedType(
                                 values.single(),
                                 key,
                                 pattern.pattern,
@@ -527,9 +529,10 @@ data class HttpRequestPattern(
             name to pattern
         }.toMap()
 
-    private fun encompassedType(valueString: String, key: String?, type: Pattern, resolver: Resolver): Pattern {
+    private fun exactEncompassedType(valueString: String, key: String?, type: Pattern, resolver: Resolver): Pattern {
         return when {
-            isPatternOrMatcherToken(valueString) -> resolvedHop(parsedPattern(valueString, key), resolver)
+            isPatternToken(valueString) -> resolvedHop(parsedPattern(valueString, key), resolver)
+            isMatcherToken(valueString) -> type.patternFrom(StringValue(valueString), resolver) { it.exactMatchElseType() }
             else -> runCatching { type.parseToType(valueString, resolver) }.getOrElse { StringValue(valueString).exactMatchElseType() }
         }
     }

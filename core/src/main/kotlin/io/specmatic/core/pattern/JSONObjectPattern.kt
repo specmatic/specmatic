@@ -512,6 +512,17 @@ data class JSONObjectPattern(
 
     override val typeName: String = "json object"
 
+    override fun patternFrom(value: Value, resolver: Resolver, parseValueToType: (Value) -> Pattern): Pattern {
+        if (value !is JSONObjectValue) return parseValueToType(value)
+        return toJSONObjectPattern(
+            value.jsonObject.mapValues {
+                val keyPattern = this.patternForKey(it.key) ?: parseValueToType(it.value)
+                keyPattern.patternFrom(it.value, resolver, parseValueToType)
+            },
+            typeAlias
+        )
+    }
+
     fun keysInNonOptionalFormat(): Set<String> {
         return this.pattern.map { withoutOptionality(it.key) }.toSet()
     }

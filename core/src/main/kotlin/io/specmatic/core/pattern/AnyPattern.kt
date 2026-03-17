@@ -42,6 +42,28 @@ data class AnyPattern(
 
     data class AnyPatternMatch(val pattern: Pattern, val result: Result)
 
+    private fun extractDiscriminatorValue(value: Value): String? {
+        return if (discriminator != null && value is JSONObjectValue && discriminator.property in value.jsonObject) {
+            value.jsonObject.getValue(discriminator.property).toStringLiteral()
+        } else null
+    }
+
+    private fun selectPattern(value: Value, resolver: Resolver): Pattern {
+        val discriminatorValue = extractDiscriminatorValue(value)
+        if (discriminatorValue != null) {
+            val discriminatorBasedPattern = getDiscriminatorPattern(discriminatorValue, resolver)
+            if (discriminatorBasedPattern is HasValue) {
+                return discriminatorBasedPattern.value
+            }
+        }
+
+        val patternMatches = getUpdatedPattern(resolver).sortedBy(::isEmpty).map { pattern ->
+            AnyPatternMatch(pattern, pattern.matches(value, resolver))
+        }
+        val bestMatch = patternMatches.minBy { (it.result as? Failure)?.failureCount() ?: 0 }
+        return bestMatch.pattern
+    }
+
     override fun fixValue(
         value: Value, resolver: Resolver, discriminatorValue: String,
         onValidDiscValue: () -> Value?, onInvalidDiscValue: (Failure) -> Value?
@@ -59,25 +81,23 @@ data class AnyPattern(
 
     override fun fixValue(value: Value, resolver: Resolver): Value {
         if (resolver.matchesPattern(null, this, value).isSuccess()) return value
+
         val updatedResolver = resolver.updateLookupPath(this.typeAlias)
-        val discBasedFixedValue = if (discriminator != null && value is JSONObjectValue && discriminator.property in value.jsonObject) {
-            val discriminatorValue = value.jsonObject.getValue(discriminator.property).toStringLiteral()
-            fixValue(
-                value = value, resolver = resolver, discriminatorValue = discriminatorValue,
+
+        val discriminatorValue = extractDiscriminatorValue(value)
+        if (discriminatorValue != null) {
+            val discBasedFixedValue = fixValue(
+                value = value,
+                resolver = resolver,
+                discriminatorValue = discriminatorValue,
                 onValidDiscValue = { generateValue(updatedResolver, discriminatorValue) },
                 onInvalidDiscValue = { null }
             )
-        } else null
-
-        if (discBasedFixedValue != null) return discBasedFixedValue
-
-        val updatedPatterns = getUpdatedPattern(resolver).sortedBy(::isEmpty)
-        val patternMatches = updatedPatterns.map { pattern ->
-            AnyPatternMatch(pattern, pattern.matches(value, resolver))
+            if (discBasedFixedValue != null) return discBasedFixedValue
         }
 
-        val matchingPatternNew = patternMatches.minBy { (it.result as? Failure)?.failureCount() ?: 0 }
-        return matchingPatternNew.pattern.fixValue(value, updatedResolver)
+        val selectedPattern = selectPattern(value, resolver)
+        return selectedPattern.fixValue(value, updatedResolver)
     }
 
     override fun removeKeysNotPresentIn(keys: Set<String>, resolver: Resolver): Pattern {
@@ -579,6 +599,11 @@ data class AnyPattern(
         return setOf("{[$matchingPatternIndex]}")
     }
 
+    override fun patternFrom(value: Value, resolver: Resolver, parseValueToType: (Value) -> Pattern): Pattern {
+        val selectedPattern = selectPattern(value, resolver)
+        return selectedPattern.patternFrom(value, resolver, parseValueToType)
+    }
+
     private fun allValuesAreScalar() = pattern.all { it is ExactValuePattern && it.pattern is ScalarValue }
 
     private fun hasNoAmbiguousPatterns(): Boolean {
@@ -617,6 +642,7 @@ data class AnyPattern(
 
     private fun isEmpty(it: Pattern) = it.typeAlias == "(empty)" || it is NullPattern || (it is ExactValuePattern && it.pattern is NullValue)
 }
+
 
 private interface FailedToFindAny {
     fun failedToFindAny(expected: String, results: List<Failure>, mismatchMessages: MismatchMessages): Failure

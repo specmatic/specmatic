@@ -775,7 +775,7 @@ data class Feature(
                 match = { scenario -> scenario.matchesMock(request = request, response = response, mismatchMessages = mismatchMessages, keyCheck = keyCheck) },
                 onSuccess = { scenario ->
                     scenario.resolverAndResponseForExpectation(response).let { (resolver, resolvedResponse) ->
-                        val newRequestType = scenario.httpRequestPattern.generate(request, resolver)
+                        val newRequestType = scenario.httpRequestPattern.generateExactHttpRequestPatternFrom(request, resolver)
                         HttpStubData(
                             requestType = newRequestType,
                             response = resolvedResponse.adjustPayloadForContentType().copy(externalisedResponseCommand = response.externalisedResponseCommand),

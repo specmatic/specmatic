@@ -3,7 +3,6 @@ package io.specmatic.core.matchers
 import io.specmatic.core.BreadCrumb
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.ReturnValue
-import io.specmatic.core.utilities.fromYamlProperties
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
@@ -16,17 +15,13 @@ interface MatcherFactory {
 
     fun parseFrom(path: BreadCrumb, properties: Map<String, Value>, context: MatcherContext): ReturnValue<out Matcher>
 
-    fun toPatternSimplified(value: Value): Pattern? = null
-
-    fun toPatternSimplified(properties: Map<String, Value>): Pattern? = null
-
     fun extractPropertiesIfExist(value: Value): Map<String, Value>? {
         if (value !is StringValue) return null
         val hasColonPattern = value.nativeValue.contains(COLON_SEPARATED_PROPERTIES)
         val hasMultiplePairs = value.nativeValue.count { it == ',' } > 0 || value.nativeValue.count { it == ':' } > 0
         if (!hasColonPattern || !hasMultiplePairs) return null
         return runCatching {
-            fromYamlProperties(value.nativeValue).takeUnless(Map<String, Value>::isEmpty)
+            parseMatcherTokenProperties(value.nativeValue).takeUnless(Map<String, Value>::isEmpty)
         }.getOrNull()
     }
 

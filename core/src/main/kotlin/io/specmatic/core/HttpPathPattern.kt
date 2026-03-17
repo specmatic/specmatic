@@ -268,6 +268,8 @@ data class HttpPathPattern(
         return pathSegmentPatterns.filter { !it.pattern.instanceOf(ExactValuePattern::class) && !it.key.isNullOrBlank() }
     }
 
+    fun allParameters(): List<URLPathSegmentPattern> = this.pathSegmentPatterns
+
     fun containsParameter(name: String): Boolean {
         return this.pathSegmentPatterns.any { it.key == name }
     }
@@ -451,6 +453,23 @@ data class HttpPathPattern(
             if (pattern.pattern is ExactValuePattern) return@map URLPathSegmentPattern(ExactValuePattern(StringValue(segment)))
             URLPathSegmentPattern(ExactValuePattern(pattern.tryParse(segment, resolver)))
         })
+    }
+
+    fun patternFrom(path: String, resolver: Resolver, parseValueToType: (Value) -> Pattern): HttpPathPattern {
+        val pathSegments = extractPathSegments(path)
+        if (pathSegmentPatterns.size != pathSegments.size) {
+            throw ContractException("Failed to create pattern from $path, expected ${pathSegmentPatterns.size} segments but got ${pathSegments.size}")
+        }
+
+        val pathSegmentPatternsFromPathTokens = pathSegmentPatterns.zip(pathSegments).map { (urlPathPattern, token) ->
+            urlPathPattern.patternFrom(
+                StringValue(removeKeyFromParameterToken(token)),
+                resolver,
+                parseValueToType
+            )
+        }
+
+        return this.copy(pathSegmentPatterns = pathSegmentPatternsFromPathTokens)
     }
 
     private fun removeKeyFromParameterToken(token: String): String {

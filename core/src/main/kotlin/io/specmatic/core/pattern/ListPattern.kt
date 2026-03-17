@@ -250,6 +250,13 @@ data class ListPattern(
         return this.copy(pattern = pattern.ensureAdditionalProperties(resolver))
     }
 
+    override fun patternFrom(value: Value, resolver: Resolver, parseValueToType: (Value) -> Pattern): Pattern {
+        if (value !is JSONArrayValue) return parseValueToType(value)
+        return JSONArrayPattern(
+            value.list.map { this.pattern.patternFrom(it, resolver, parseValueToType) }
+        )
+    }
+
     fun calculatePath(value: Value, resolver: Resolver): Set<String> {
         if (value !is JSONArrayValue) return emptySet()
         

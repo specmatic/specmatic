@@ -2,14 +2,7 @@ package io.specmatic.core.matchers
 
 import io.specmatic.core.BreadCrumb
 import io.specmatic.core.Resolver
-import io.specmatic.core.pattern.ExactValuePattern
-import io.specmatic.core.pattern.HasFailure
-import io.specmatic.core.pattern.HasValue
-import io.specmatic.core.pattern.Pattern
-import io.specmatic.core.pattern.ReturnValue
-import io.specmatic.core.pattern.StringPattern
-import io.specmatic.core.pattern.parsedScalarValue
-import io.specmatic.core.pattern.unwrapOrReturn
+import io.specmatic.core.pattern.*
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
@@ -47,8 +40,16 @@ data class RegexMatcher(val path: BreadCrumb, val regex: String) : Matcher {
         }
     }
 
+    override fun patternFrom(originalPattern: Pattern, resolver: Resolver): Pattern {
+        return RegexConstrainedPattern(
+            basePattern = originalPattern,
+            regex = regex,
+            resolver = resolver
+        )
+    }
+
     companion object : MatcherFactory {
-        private const val PATTERN_KEY = "pattern"
+        const val PATTERN_PROPERTY_KEY = "pattern"
         override val matcherKey: String = "regex"
 
         override fun parse(path: BreadCrumb, value: Value, context: MatcherContext): ReturnValue<RegexMatcher> {
@@ -61,35 +62,18 @@ data class RegexMatcher(val path: BreadCrumb, val regex: String) : Matcher {
         }
 
         override fun canParseFrom(path: BreadCrumb, properties: Map<String, Value>): Boolean {
-            return PATTERN_KEY in properties
+            return PATTERN_PROPERTY_KEY in properties
         }
 
         override fun parseFrom(path: BreadCrumb, properties: Map<String, Value>, context: MatcherContext): ReturnValue<RegexMatcher> {
-            val patternValue = properties[PATTERN_KEY] ?: return HasFailure("Expected key '$PATTERN_KEY' to be present", path.value)
+            val patternValue = properties[PATTERN_PROPERTY_KEY]
+                ?: return HasFailure("Expected key '$PATTERN_PROPERTY_KEY' to be present", path.value)
             if (patternValue !is StringValue) return HasFailure(
-                "Expected key '$PATTERN_KEY' to be a string",
+                "Expected key '$PATTERN_PROPERTY_KEY' to be a string",
                 path.value,
             )
 
             return HasValue(RegexMatcher(path, patternValue.nativeValue))
         }
-
-        override fun toPatternSimplified(value: Value): Pattern? {
-            if (value !is StringValue) return null
-            val properties = extractPropertiesIfExist(value) ?: return null
-            return toPatternSimplified(properties)
-        }
-
-        override fun toPatternSimplified(properties: Map<String, Value>): Pattern? {
-            if (!canParseFrom(BreadCrumb.from(), properties)) return null
-            val regex = properties.getValue(PATTERN_KEY) as? StringValue ?: return null
-
-            val pattern = StringPattern(regex = regex.nativeValue)
-            val value = parsedScalarValue(
-                pattern.generate(Resolver()).toStringLiteral()
-            )
-            return ExactValuePattern(pattern = value)
-        }
     }
 }
-

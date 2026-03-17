@@ -188,9 +188,6 @@ fun stringToPattern(patternValue: String, key: String?): Pattern =
 fun parsedPattern(rawContent: String, key: String? = null, typeAlias: String? = null, isWSDL: Boolean = false): Pattern {
     return rawContent.trim().removePrefix(UTF_BYTE_ORDER_MARK).let {
         when {
-            isMatcherToken(it) && Matcher.toPatternSimplified(StringValue(it)) != null -> {
-                Matcher.toPatternSimplified(StringValue(it))!!
-            }
             isPatternToken(it) && it.contains("/") -> {
                 val (container, type) = withoutPatternDelimiters(it).split("/")
                 if (container != "csv")

@@ -447,7 +447,7 @@ internal class HttpRequestPatternTest {
     @Test
     fun `should generate a stub request pattern from an http request in which the query params are not optional`() {
         val requestType = HttpRequestPattern(method = "GET", httpPathPattern = HttpPathPattern(pathToPattern("/"), "/"), httpQueryParamPattern = HttpQueryParamPattern(mapOf("status" to QueryParameterScalarPattern(StringPattern()))))
-        val newRequestType = requestType.generate(HttpRequest("GET", "/", queryParametersMap = mapOf("status" to "available")), Resolver())
+        val newRequestType = requestType.generateExactHttpRequestPatternFrom(HttpRequest("GET", "/", queryParametersMap = mapOf("status" to "available")), Resolver())
 
         assertThat(newRequestType.httpQueryParamPattern.queryPatterns.keys.sorted()).isEqualTo(listOf("status"))
 
@@ -462,7 +462,7 @@ internal class HttpRequestPatternTest {
             method = "POST",
             httpPathPattern = HttpPathPattern(emptyList(), "/"),
             formFieldsPattern = mapOf("Customer" to PatternInStringPattern(customerType, "(customer)"))
-        ).generate(request, Resolver()).let { requestType ->
+        ).generateExactHttpRequestPatternFrom(request, Resolver()).let { requestType ->
             val customerFieldType = requestType.formFieldsPattern.getValue("Customer")
             assertThat(customerFieldType).isInstanceOf(PatternInStringPattern::class.java)
 
@@ -503,7 +503,7 @@ internal class HttpRequestPatternTest {
         val type = HttpRequestPattern(method = "POST", httpPathPattern = buildHttpPathPattern("http://helloworld.com/data"), headersPattern = HttpHeadersPattern(mapOf("x-data" to StringPattern())), body = JSONObjectPattern(mapOf("id" to NumberPattern())))
         val request = HttpRequest("POST", "/data", headers = mapOf("X-Data" to "abc123"), body = parsedJSON("""{"id": "abc123"}"""))
 
-        val httpRequestPattern = type.generate(request, Resolver())
+        val httpRequestPattern = type.generateExactHttpRequestPatternFrom(request, Resolver())
         assertThat(httpRequestPattern.headersPattern.pattern["x-data"].toString()).isEqualTo("abc123")
     }
 
@@ -737,7 +737,7 @@ internal class HttpRequestPatternTest {
             headers = mapOf("X-Test-Header" to "abc123", "X-Extra-Header" to "def456"),
             body = JSONObjectValue(mapOf("key" to StringValue("value")))
         )
-        val newRequestPattern = originalRequestPattern.generate(httpRequest, Resolver())
+        val newRequestPattern = originalRequestPattern.generateExactHttpRequestPatternFrom(httpRequest, Resolver())
         val requestBodyPattern = newRequestPattern.body as JSONObjectPattern
 
         assertThat(newRequestPattern.headersPattern.pattern).isEqualTo(mapOf(
@@ -745,6 +745,27 @@ internal class HttpRequestPatternTest {
             "x-extra-header" to ExactValuePattern(StringValue("def456"))
         ))
         assertThat(requestBodyPattern.patternForKey("key")).isEqualTo(ExactValuePattern(StringValue("value")))
+    }
+
+    @Test
+    fun `generating a request pattern from an http request should retain matcher tokens in the body`() {
+        val originalRequestPattern = HttpRequestPattern(
+            httpPathPattern = buildHttpPathPattern("/"), method = "POST",
+            body = JSONObjectPattern(mapOf("id" to StringPattern(), "name" to StringPattern()))
+        )
+        val httpRequest = HttpRequest(
+            body = JSONObjectValue(mapOf(
+                "id" to StringValue("\$match(pattern: POSITIVE_REGEX)"),
+                "name" to StringValue("(string)")
+            ))
+        )
+
+        val newRequestPattern = originalRequestPattern.generateExactHttpRequestPatternFrom(httpRequest, Resolver())
+        val requestBodyPattern = newRequestPattern.body as JSONObjectPattern
+
+        assertThat(requestBodyPattern.pattern.getValue("id"))
+            .isEqualTo(RegexConstrainedPattern(StringPattern(), "POSITIVE_REGEX", Resolver()))
+        assertThat(requestBodyPattern.pattern.getValue("name")).isEqualTo(DeferredPattern("(string)"))
     }
 
     @ParameterizedTest
@@ -758,7 +779,7 @@ internal class HttpRequestPatternTest {
         val httpRequest = HttpRequest(
             headers = mapOf("X-Test-Header" to "abc123", "X-Extra-Header" to "def456", AUTHORIZATION to "1234")
         )
-        val newRequestPattern = originalRequestPattern.generate(httpRequest, Resolver())
+        val newRequestPattern = originalRequestPattern.generateExactHttpRequestPatternFrom(httpRequest, Resolver())
 
         assertThat(newRequestPattern.headersPattern.pattern).isEqualTo(mapOf(
             "x-test-header" to ExactValuePattern(StringValue("abc123")),
@@ -773,7 +794,7 @@ internal class HttpRequestPatternTest {
             headersPattern = HttpHeadersPattern(contentType = "application/json"),
         )
         val httpRequest = HttpRequest(headers = mapOf("Content-Type" to "application/json", "X-Extra-Header" to "def456"))
-        val newRequestPattern = originalRequestPattern.generate(httpRequest, Resolver())
+        val newRequestPattern = originalRequestPattern.generateExactHttpRequestPatternFrom(httpRequest, Resolver())
 
         assertThat(newRequestPattern.headersPattern.pattern).isEqualTo(mapOf(
             "x-extra-header" to ExactValuePattern(StringValue("def456"))
@@ -891,9 +912,16 @@ internal class HttpRequestPatternTest {
             queryParams = QueryParameters(mapOf("key" to "invalidDateTime")),
             body = JSONObjectValue(mapOf("key" to StringValue("invalidEmail")))
         )
-        val newRequestPattern = httpRequestPattern.generate(httpRequest, Resolver())
+        val newRequestPattern = httpRequestPattern.generateExactHttpRequestPatternFrom(httpRequest, Resolver())
 
-        assertThat(newRequestPattern.httpPathPattern).isEqualTo(buildHttpPathPattern("/invalidUUID"))
+        assertThat(newRequestPattern.httpPathPattern).isEqualTo(
+            HttpPathPattern(
+                pathSegmentPatterns = listOf(
+                    URLPathSegmentPattern(ExactValuePattern(StringValue("invalidUUID")), "id")
+                ),
+                "/invalidUUID"
+            )
+        )
         assertThat(newRequestPattern.method).isEqualTo("GET")
         assertThat(newRequestPattern.headersPattern.pattern).isEqualTo(mapOf("key" to "invalidDate".toExactValuePattern()))
         assertThat(newRequestPattern.body).isEqualTo(JSONObjectPattern(mapOf("key" to "invalidEmail".toExactValuePattern())))
@@ -909,7 +937,7 @@ internal class HttpRequestPatternTest {
             body = JSONObjectPattern(mapOf("key" to EmailPattern()))
         )
         val httpRequest = HttpRequest(path = "/", method = "GET")
-        val newRequestPattern = httpRequestPattern.generate(httpRequest, Resolver())
+        val newRequestPattern = httpRequestPattern.generateExactHttpRequestPatternFrom(httpRequest, Resolver())
 
         assertThat(newRequestPattern.body).isEqualTo(EmptyStringPattern)
     }
