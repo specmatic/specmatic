@@ -5,6 +5,8 @@ import io.specmatic.core.value.StringValue
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 
 class MatcherTokenParserTest {
     @Test
@@ -22,11 +24,19 @@ class MatcherTokenParserTest {
         assertThat(properties).containsEntry("times", NumberValue(2))
     }
 
-    @Test
-    fun `should preserve regex pattern with commas and colons`() {
-        val properties = parseMatcherTokenProperties("pattern: ^https?://[A-Za-z0-9, :/.?-]+$, dataType: string")
+    @ParameterizedTest
+    @ValueSource(
+        strings = [
+            "^https?://[A-Za-z0-9, :/.?-]+$",
+            "^[A-Z][a-z0-9 ,]+$",
+            "^[A-Z],[a-z]+,[0-9]*$",
+            "[A-C],[D-F],[0-9]",
+        ]
+    )
+    fun `should preserve regex pattern with commas and colons`(regexMatcherValue: String) {
+        val properties = parseMatcherTokenProperties("pattern: $regexMatcherValue, dataType: string")
 
-        assertThat(properties).containsEntry(RegexMatcher.PATTERN_PROPERTY_KEY, StringValue("^https?://[A-Za-z0-9, :/.?-]+$"))
+        assertThat(properties).containsEntry(RegexMatcher.PATTERN_PROPERTY_KEY, StringValue(regexMatcherValue))
         assertThat(properties).containsEntry("dataType", StringValue("string"))
     }
 
