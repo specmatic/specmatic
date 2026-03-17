@@ -91,10 +91,39 @@ internal class ListPatternTest {
         val pattern = ListPattern(StringPattern())
         val value = JSONArrayValue(listOf(StringValue("${'$'}match(pattern: POSITIVE_REGEX)"), NumberValue(10)))
 
-        val result = pattern.patternFrom(value, Resolver()) as JSONArrayPattern
+        val result = pattern.patternFrom(value, Resolver()) as ListPattern
 
-        assertThat(result.pattern[0]).isEqualTo(RegexConstrainedPattern(StringPattern(), "POSITIVE_REGEX", Resolver()))
-        assertThat(result.pattern[1]).isEqualTo(NumberPattern())
+        assertThat(result.pattern).isEqualTo(RegexConstrainedPattern(StringPattern(), "POSITIVE_REGEX", Resolver()))
+    }
+
+    @Test
+    fun `patternFrom should fallback to parseValueToType when list is empty in deepPattern mode`() {
+        val pattern = ListPattern(StringPattern())
+
+        val result = pattern.patternFrom(JSONArrayValue(emptyList()), Resolver())
+
+        assertThat(result).isEqualTo(ListPattern(AnythingPattern))
+    }
+
+    @Test
+    fun `patternFrom should derive deepPattern from the first list value`() {
+        val pattern = ListPattern(StringPattern())
+        val value = JSONArrayValue(listOf(NumberValue(10), StringValue("second-value")))
+
+        val result = pattern.patternFrom(value, Resolver())
+
+        assertThat(result).isEqualTo(ListPattern(NumberPattern()))
+    }
+
+    @Test
+    fun `patternFrom should derive exact patterns for each list value when exact parser is used`() {
+        val pattern = ListPattern(StringPattern())
+        val value = JSONArrayValue(listOf(NumberValue(10), StringValue("second-value")))
+
+        val result = pattern.patternFrom(value, Resolver()) { it.exactMatchElseType() } as JSONArrayPattern
+
+        assertThat(result.pattern[0]).isEqualTo(ExactValuePattern(NumberValue(10)))
+        assertThat(result.pattern[1]).isEqualTo(ExactValuePattern(StringValue("second-value")))
     }
 
     @Test

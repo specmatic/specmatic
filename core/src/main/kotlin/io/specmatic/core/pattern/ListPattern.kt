@@ -252,9 +252,14 @@ data class ListPattern(
 
     override fun patternFrom(value: Value, resolver: Resolver, parseValueToType: (Value) -> Pattern): Pattern {
         if (value !is JSONArrayValue) return parseValueToType(value)
-        return JSONArrayPattern(
-            value.list.map { this.pattern.patternFrom(it, resolver, parseValueToType) }
-        )
+        if (usesExactMatchStrategy(parseValueToType)) {
+            return JSONArrayPattern(
+                value.list.map { this.pattern.patternFrom(it, resolver, parseValueToType) }
+            )
+        }
+
+        val firstValue = value.list.firstOrNull() ?: return parseValueToType(value)
+        return this.copy(pattern = this.pattern.patternFrom(firstValue, resolver, parseValueToType))
     }
 
     fun calculatePath(value: Value, resolver: Resolver): Set<String> {
@@ -289,6 +294,10 @@ data class ListPattern(
             }
         }.toSet()
     }
+}
+
+private fun usesExactMatchStrategy(parseValueToType: (Value) -> Pattern): Boolean {
+    return parseValueToType(NumberValue(0)) is ExactValuePattern
 }
 
 private fun withEmptyType(pattern: Pattern, resolver: Resolver): Resolver {
