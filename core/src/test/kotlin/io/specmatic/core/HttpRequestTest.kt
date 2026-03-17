@@ -385,8 +385,8 @@ internal class HttpRequestTest {
     @ParameterizedTest
     @MethodSource("pathSpecificityOrdering")
     fun `should rank paths by specificity`(moreSpecific: String, lessSpecific: String) {
-        val moreSpecificScore = HttpRequest(path = moreSpecific).pathSpecificity()
-        val lessSpecificScore = HttpRequest(path = lessSpecific).pathSpecificity()
+        val moreSpecificScore = HttpRequest(path = moreSpecific).specificity
+        val lessSpecificScore = HttpRequest(path = lessSpecific).specificity
         assertThat(moreSpecificScore).isGreaterThan(lessSpecificScore)
     }
 
@@ -396,8 +396,17 @@ internal class HttpRequestTest {
         val interpolated = HttpRequest(path = "/items/item-(id:string)")
         val pureParameter = HttpRequest(path = "/items/(id:string)")
 
-        assertThat(literal.pathSpecificity()).isGreaterThan(interpolated.pathSpecificity())
-        assertThat(interpolated.pathSpecificity()).isGreaterThan(pureParameter.pathSpecificity())
+        assertThat(literal.specificity).isGreaterThan(interpolated.specificity)
+        assertThat(interpolated.specificity).isGreaterThan(pureParameter.specificity)
+    }
+
+    @Test
+    fun `should not truncate long path static chars while ranking specificity`() {
+        val longerLiteralPath = "/items/${"a".repeat(400)}"
+        val shorterLiteralPath = "/items/${"a".repeat(300)}"
+        val longerLiteralRequest = HttpRequest(path = longerLiteralPath)
+        val shorterLiteralRequest = HttpRequest(path = shorterLiteralPath)
+        assertThat(longerLiteralRequest.specificity).isGreaterThan(shorterLiteralRequest.specificity)
     }
 
     @ParameterizedTest

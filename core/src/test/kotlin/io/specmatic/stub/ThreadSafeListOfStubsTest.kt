@@ -440,6 +440,16 @@ class ThreadSafeListOfStubsTest {
             assertNotNull(result)
             assertEquals(literalPathStub, result)
         }
-    }
 
+        @Test
+        fun `getPartialBySpecificityAndGenerality should retain first unresolved stub when requests are unresolved`() {
+            val unresolvedStub1 = mockk<HttpStubData> { every { resolveOriginalRequest() } returns null }
+            val unresolvedStub2 = mockk<HttpStubData> { every { resolveOriginalRequest() } returns null }
+            val result = ThreadSafeListOfStubs.getPartialBySpecificityAndGenerality(
+                listOf(unresolvedStub1, unresolvedStub2)
+            )
+
+            assertEquals(unresolvedStub1, result)
+        }
+    }
 }

@@ -1,5 +1,62 @@
 package io.specmatic.core.utilities
 
+import java.math.BigInteger
+
+sealed interface SegmentsCountComparator : Comparable<SegmentsCountComparator> {
+    val segmentCounts: SegmentCounts
+    val score: BigInteger
+
+    data class SpecificityComparator(override val segmentCounts: SegmentCounts): SegmentsCountComparator {
+        override val score: BigInteger get() {
+            return packToBigInteger(
+                first = segmentCounts.staticSegments.toUInt(),
+                second = segmentCounts.mixedSegments.toUInt(),
+                third = segmentCounts.staticChars.toUInt(),
+                fourth = inverse(segmentCounts.dynamicSegments)
+            )
+        }
+
+        override fun compareTo(other: SegmentsCountComparator): Int {
+            return compareByDescending<SegmentCounts> { it.staticSegments }
+                .thenByDescending { it.mixedSegments }
+                .thenByDescending { it.staticChars }
+                .thenBy { it.dynamicSegments }
+                .compare(other.segmentCounts, segmentCounts)
+        }
+
+        fun isMoreSpecificThan(other: SegmentsCountComparator): Boolean = compareTo(other) > 0
+    }
+
+    data class GeneralityComparator(override val segmentCounts: SegmentCounts): SegmentsCountComparator {
+        override val score: BigInteger get() {
+            return packToBigInteger(
+                first = segmentCounts.dynamicSegments.toUInt(),
+                second = inverse(segmentCounts.staticSegments),
+                third = inverse(segmentCounts.mixedSegments),
+                fourth = inverse(segmentCounts.staticChars)
+            )
+        }
+
+        override fun compareTo(other: SegmentsCountComparator): Int {
+            return compareByDescending<SegmentCounts> { it.dynamicSegments }
+                .thenBy { it.staticSegments }
+                .thenBy { it.mixedSegments }
+                .thenBy { it.staticChars }
+                .compare(other.segmentCounts, segmentCounts)
+        }
+    }
+
+    companion object {
+        private fun inverse(value: Int): UInt = UInt.MAX_VALUE - value.toUInt()
+
+        private fun packToBigInteger(first: UInt, second: UInt, third: UInt, fourth: UInt): BigInteger {
+            val high = (first.toULong() shl 32) or second.toULong()
+            val low = (third.toULong() shl 32) or fourth.toULong()
+            return BigInteger(high.toString()).shiftLeft(64).or(BigInteger(low.toString()))
+        }
+    }
+}
+
 data class SegmentCounts(val staticSegments: Int = 0, val staticChars: Int = 0, val mixedSegments: Int = 0, val dynamicSegments: Int = 0) {
     operator fun plus(other: SegmentCounts): SegmentCounts {
         return SegmentCounts(
@@ -10,19 +67,9 @@ data class SegmentCounts(val staticSegments: Int = 0, val staticChars: Int = 0, 
         )
     }
 
-    // Equivalent to compareByDescending { dynamicSegments }.thenByAscending { staticSegments }.thenByAscending { mixedSegments }.thenByAscending { staticChars }
-    fun generalityScore(): Int =
-        (dynamicSegments.coerceAtMost(255) shl 24) or
-        ((255 - staticSegments.coerceAtMost(255)) shl 16) or
-        ((255 - mixedSegments.coerceAtMost(255)) shl 8) or
-        (255 - staticChars.coerceAtMost(255))
+    fun toSpecificityComparator(): SegmentsCountComparator.SpecificityComparator = SegmentsCountComparator.SpecificityComparator(this)
 
-    // Equivalent to compareByDescending { staticSegments }.thenByDescending { mixedSegments }.thenByDescending { staticChars }.thenByAscending { dynamicSegments }
-    fun specificityScore(): Int =
-        (staticSegments.coerceAtMost(255) shl 24) or
-        (mixedSegments.coerceAtMost(255) shl 16) or
-        (staticChars.coerceAtMost(255) shl 8) or
-        (255 - dynamicSegments.coerceAtMost(255))
+    fun toGeneralityComparator(): SegmentsCountComparator.GeneralityComparator = SegmentsCountComparator.GeneralityComparator(this)
 
     companion object {
         fun segmentCounts(segment: String, regex: Regex): SegmentCounts {

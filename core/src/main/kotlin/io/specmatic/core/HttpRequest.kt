@@ -427,17 +427,20 @@ data class HttpRequest(
         return queryParams.containsKey(name)
     }
 
-    val generality: Int by lazy {
-        val pathScore: Int = pathGenerality()
-        val headerScore: Int = headers.values.sumOf { if(isPatternOrMatcherToken(it)) 1 as Int else 0 }
-        val queryScore: Int = queryParams.paramPairs.sumOf { if(isPatternOrMatcherToken(it.second)) 1 as Int else 0 }
-        val bodyScore: Int = body.generality()
-
-        pathScore + headerScore + queryScore + bodyScore
+    val generality: RequestScore by lazy {
+        val pathScore = pathSegmentCounts().toGeneralityComparator()
+        val headerScore = headers.values.sumOf { if (isPatternOrMatcherToken(it)) 1 else 0 }
+        val queryScore = queryParams.paramPairs.sumOf { if (isPatternOrMatcherToken(it.second)) 1 else 0 }
+        val bodyScore = body.generality()
+        RequestScore(pathScore, queryScore, headerScore, bodyScore)
     }
 
-    val specificity: Int by lazy {
-        pathSpecificity() + headerSpecificity() + queryParamsSpecificity() + bodySpecificity()
+    val specificity: RequestScore by lazy {
+        val pathScore = pathSegmentCounts().toSpecificityComparator()
+        val headerScore = headerSpecificity()
+        val queryScore = queryParamsSpecificity()
+        val bodyScore = bodySpecificity()
+        RequestScore(pathScore, queryScore, headerScore, bodyScore)
     }
 
     internal fun bodySpecificity(): Int = body.specificity()
@@ -446,8 +449,6 @@ data class HttpRequest(
 
     internal fun headerSpecificity(): Int = headers.values.count { !isPatternOrMatcherToken(it)}
 
-    internal fun pathGenerality() = pathSegmentCounts().generalityScore()
-    internal fun pathSpecificity() = pathSegmentCounts().specificityScore()
     private fun pathSegmentCounts(): SegmentCounts = path?.split('/')?.asSequence()?.filter(String::isNotBlank)
         ?.map { SegmentCounts.segmentCounts(it, TOKEN_REGEX) }
         ?.fold(SegmentCounts()) { acc, counts -> acc + counts }

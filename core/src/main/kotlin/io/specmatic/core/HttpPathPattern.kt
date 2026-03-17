@@ -21,10 +21,9 @@ data class HttpPathPattern(
     private val otherPathPatterns: Collection<HttpPathPattern> = emptyList(),
 ) {
     private val pathSegmentExtractor: TemplateTokenizer = createTokenizerFromPathSegments()
-    private fun calculateSpecificity(): Int = path.split('/').asSequence().filter(String::isNotBlank)
+    private fun calculateSegmentCounts(): SegmentCounts = path.split('/').asSequence().filter(String::isNotBlank)
         .map { SegmentCounts.segmentCounts(it, internalPathRegex) }
         .fold(SegmentCounts()) { acc, counts -> acc + counts }
-        .specificityScore()
 
     fun encompasses(otherHttpPathPattern: HttpPathPattern, thisResolver: Resolver, otherResolver: Resolver): Result {
         if (this.matches(URI.create(otherHttpPathPattern.path), resolver = thisResolver) is Success)
@@ -94,16 +93,15 @@ data class HttpPathPattern(
             }
 
         if (otherPathsInSpecThatMatch.isNotEmpty()) {
-            val specificityOfCurrentPattern = calculateSpecificity()
-
-            val conflictingPatterns =
-                otherPathsInSpecThatMatch.filter { otherPathPattern ->
-                    otherPathPattern.calculateSpecificity() > specificityOfCurrentPattern
+            val currentSegmentCounts = calculateSegmentCounts().toSpecificityComparator()
+            val conflictingPatterns = otherPathsInSpecThatMatch
+                .map { it to it.calculateSegmentCounts().toSpecificityComparator() }
+                .filter { (_, counts) ->
+                    counts.isMoreSpecificThan(currentSegmentCounts)
                 }
 
             if (conflictingPatterns.isNotEmpty()) {
-                val mostSpecificPathMatch = conflictingPatterns.maxBy { it.calculateSpecificity() }
-
+                val mostSpecificPathMatch = conflictingPatterns.maxBy { it.second }.first
                 return Failure(
                     breadCrumb = BreadCrumb.PATH.value,
                     message = "URL $path matches a more specific pattern: ${mostSpecificPathMatch.path}",
@@ -506,7 +504,7 @@ data class HttpPathPattern(
         private const val NON_SLASH_REGEX = "([^/]+)"
         internal val internalPathRegex: Regex = Regex("\\([^():]+:[^()]+\\)")
 
-        internal fun createTokenizerFromInternalPathRegex(path: String): TemplateTokenizer {
+        fun createTokenizerFromInternalPathRegex(path: String): TemplateTokenizer {
             val parts = internalPathRegex.split(path)
             val pattern = parts.joinToString(separator = NON_SLASH_REGEX) { Regex.escape(it) }
             return TemplateTokenizer(Regex(pattern))
