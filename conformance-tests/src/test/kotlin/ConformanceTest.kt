@@ -4,12 +4,14 @@ import org.junit.jupiter.api.DynamicContainer
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.TestFactory
 import java.io.File
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.stream.Stream
 
 class ConformanceTest {
 
     companion object {
-        private val runs = mutableListOf<SpecRun>()
+        private val runs = CopyOnWriteArrayList<SpecRun>()
 
         @JvmStatic
         @AfterAll
@@ -19,17 +21,22 @@ class ConformanceTest {
     }
 
     @TestFactory
-    fun conformanceTests(): Stream<DynamicContainer> =
-        File("build/resources/test/specs")
+    fun conformanceTests(): Stream<DynamicContainer> {
+        val specFiles = File("build/resources/test/specs")
             .listFiles { f -> f.isFile }.orEmpty()
             .map { it.name }.sorted()
-            .map { specFile ->
-                val run = SpecRun(specFile, File("build/resources/test"))
-                run.start()
-                runs.add(run)
-                buildContainer(specFile, run)
-            }
-            .stream()
+
+        val futures = specFiles.map { specFile ->
+            val run = SpecRun(specFile, File("build/resources/test"))
+            specFile to CompletableFuture.supplyAsync { run.start(); run }
+        }
+
+        return futures.map { (specFile, future) ->
+            val run = future.get()
+            runs.add(run)
+            buildContainer(specFile, run)
+        }.stream()
+    }
 
     private fun buildContainer(specFile: String, run: SpecRun): DynamicContainer {
         val routeMatcher = RouteMatcher(run.openApiSpec.rawModel())

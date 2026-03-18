@@ -14,10 +14,4 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
-    val parallelism = minOf(Runtime.getRuntime().availableProcessors(), 8)
-    systemProperty("junit.jupiter.execution.parallel.enabled", "true")
-    systemProperty("junit.jupiter.execution.parallel.mode.default", "concurrent")
-    systemProperty("junit.jupiter.execution.parallel.mode.classes.default", "concurrent")
-    systemProperty("junit.jupiter.execution.parallel.config.strategy", "fixed")
-    systemProperty("junit.jupiter.execution.parallel.config.fixed.parallelism", parallelism)
 }
