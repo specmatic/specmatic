@@ -1,0 +1,147 @@
+openapi: 3.0.3
+info:
+  title: Widget Factory
+  version: 1.0.0
+  description: Widgets!
+
+paths:
+  /widgets:
+    get:
+      summary: Get all widgets
+      operationId: listWidgets
+      responses:
+        '200':
+          description: List of all widgets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Widget'
+              example:
+                - id: 1
+                  name: Gear
+                  type: mechanical
+                - id: 2
+                  name: Pump
+                  type: hydraulic
+    post:
+      summary: Create a new widget
+      operationId: createWidget
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWidgetRequest'
+            example:
+              name: Gear
+              type: mechanical
+      responses:
+        '201':
+          description: Widget created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateWidgetResponse'
+              example:
+                id: 1
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Invalid widget type
+
+  /widgets/{id}:
+    get:
+      summary: Get a widget by ID
+      operationId: getWidget
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          description: Widget ID (must be a positive integer)
+      responses:
+        '200':
+          description: Widget found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Widget'
+              example:
+                id: 1
+                name: Gear
+                type: mechanical
+        '400':
+          description: Invalid ID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: ID must be a positive integer
+        '404':
+          description: Widget not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Widget not found
+
+components:
+  schemas:
+    WidgetType:
+      type: string
+      enum:
+        - mechanical
+        - hydraulic
+
+    CreateWidgetRequest:
+      type: object
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        type:
+          $ref: '#/components/schemas/WidgetType'
+
+    CreateWidgetResponse:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: integer
+
+    Widget:
+      type: object
+      required:
+        - id
+        - name
+        - type
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        type:
+          $ref: '#/components/schemas/WidgetType'
+
+    Error:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string

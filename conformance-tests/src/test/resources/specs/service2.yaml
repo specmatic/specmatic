@@ -1,0 +1,28 @@
+openapi: 3.0.3
+info:
+  title: Simple API
+  version: 1.0.0
+  description: A simple API with one endpoint
+
+paths:
+  /ping:
+    get:
+      summary: Health check
+      operationId: ping
+      responses:
+        '200':
+          description: Pong response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PingResponse'
+
+components:
+  schemas:
+    PingResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
