@@ -13,11 +13,4 @@ sealed interface FileAssociation<T> {
             }
         }
     }
-
-    fun <U> map(transform: (T) -> U): FileAssociation<U> {
-        return when (this) {
-            is Global -> Global(transform(this.data))
-            is FileScoped -> FileScoped(this.file, transform(this.data))
-        }
-    }
 }
