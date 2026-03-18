@@ -642,14 +642,13 @@ class HttpStub(
     }
 
     private fun applyResponseInterceptors(httpRequest: HttpRequest, httpResponse: HttpResponse, specFile: File?): Pair<HttpResponse, List<InterceptorResult<HttpResponse>>> {
-        val global = responseInterceptors.asSequence().filterIsInstance<FileAssociation.Global<ResponseInterceptor>>().map { it.data }
-        val (updatedResponse, globalResult) = applyInterceptors(httpResponse, global) { interceptor, req ->
+        val specLevel = if (specFile != null) responseInterceptors.filterMatching(specFile) else emptySequence()
+        val (specUpdatedResponse, specResult) = applyInterceptors(httpResponse, specLevel) { interceptor, req ->
             interceptor.interceptResponseAndReturnErrors(httpRequest, req)
         }
 
-        if (specFile == null) return Pair(updatedResponse, globalResult)
-        val specLevel = responseInterceptors.filterMatching(specFile)
-        return applyInterceptors(updatedResponse, specLevel, globalResult) { interceptor, req ->
+        val global = responseInterceptors.asSequence().filterIsInstance<FileAssociation.Global<ResponseInterceptor>>().map { it.data }
+        return applyInterceptors(specUpdatedResponse, global, specResult) { interceptor, req ->
             interceptor.interceptResponseAndReturnErrors(httpRequest, req)
         }
     }

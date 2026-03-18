@@ -1251,7 +1251,7 @@ components:
     }
 
     @Test
-    fun `should apply global response interceptors before spec scoped response interceptors`() {
+    fun `should apply spec scoped response interceptors before global scoped response interceptors`() {
         val contractPath = "src/test/resources/openapi/hello.yaml"
         createStubFromContracts(contractPaths = listOf(contractPath), dataDirPaths = emptyList(), timeoutMillis = 0).use { stub ->
             stub.registerResponseInterceptor(object : ResponseInterceptor {
@@ -1273,7 +1273,7 @@ components:
             ))
 
             val response = stub.client.execute(HttpRequest("GET", "/hello/10", headers = mapOf("Authorization" to "Bearer token")))
-            assertThat(response.body.toStringLiteral()).isEqualTo("spec-after-global")
+            assertThat(response.body.toStringLiteral()).isEqualTo("spec-before-global")
         }
     }
 
