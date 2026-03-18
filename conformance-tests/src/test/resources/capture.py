@@ -13,4 +13,4 @@ def response(flow: http.HTTPFlow) -> None:
         flow.response.get_text(strict=False),
     ]
 
-    print(json.dumps(entry, ensure_ascii=False))
+    print(json.dumps(entry, ensure_ascii=False), flush=True)

@@ -1,71 +1,80 @@
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.DynamicContainer
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.TestFactory
 import java.io.File
-import java.util.concurrent.CompletableFuture
-import java.util.concurrent.CopyOnWriteArrayList
-import java.util.stream.Stream
+import java.util.concurrent.Executors
+import java.util.concurrent.Future
 
 class ConformanceTest {
 
-    companion object {
-        private val runs = CopyOnWriteArrayList<SpecRun>()
-
-        @JvmStatic
-        @AfterAll
-        fun teardown() {
-            runs.forEach { it.stop() }
-        }
-    }
-
     @TestFactory
-    fun conformanceTests(): Stream<DynamicContainer> {
+    fun conformanceTests(): List<DynamicContainer> {
         val specsDir = File("build/resources/test/specs")
         val specFiles = specsDir.walkTopDown()
             .filter { it.isFile && it.extension in listOf("yaml", "yml") }
             .map { it.relativeTo(specsDir).path }
             .sorted().toList()
 
-        val futures = specFiles.map { specFile ->
-            val run = SpecRun(specFile, File("build/resources/test"))
-            specFile to CompletableFuture.supplyAsync { run.start(); run }
+        val maxCores = Runtime.getRuntime().availableProcessors()
+        val concurrency = (System.getProperty("conformance.concurrency")
+            ?: System.getenv("CONFORMANCE_CONCURRENCY")
+            ?: "$maxCores").toInt().coerceIn(1, maxCores)
+
+        val runs = specFiles.map { it to SpecRun(it, File("build/resources/test")) }
+
+        val executor = Executors.newFixedThreadPool(concurrency)
+        val futures: List<Pair<String, Future<*>>> = runs.map { (specFile, run) ->
+            specFile to executor.submit { run.start() }
+        }
+        executor.shutdown()
+
+        // Wait for all starts to complete, collecting any exceptions
+        val startErrors = mutableMapOf<String, Throwable>()
+        for ((specFile, future) in futures) {
+            try {
+                future.get()
+            } catch (e: Exception) {
+                startErrors[specFile] = e.cause ?: e
+            }
         }
 
-        return futures.map { (specFile, future) ->
-            val run = future.get()
-            runs.add(run)
-            buildContainer(specFile, run)
-        }.stream()
+        return runs.map { (specFile, run) ->
+            buildContainer(specFile, run, startErrors[specFile])
+        }
     }
 
-    private fun buildContainer(specFile: String, run: SpecRun): DynamicContainer {
-        val routeMatcher = RouteMatcher(run.openApiSpec.rawModel())
-        val validator = SchemaValidator()
-
+    private fun buildContainer(specFile: String, run: SpecRun, startError: Throwable? = null): DynamicContainer {
         return DynamicContainer.dynamicContainer(
             specFile, listOf(
-                exitCodeTest(run),
-                allRoutesExercisedTest(run, routeMatcher),
-                noUndocumentedRoutesTest(run, routeMatcher),
-                requestBodiesValidTest(run, routeMatcher, validator),
-                responseBodiesValidTest(run, routeMatcher, validator),
-                requestContentTypeTest(run, routeMatcher),
-                responseContentTypeTest(run, routeMatcher)
+                exitCodeTest(run, startError),
+                allRoutesExercisedTest(run),
+                noUndocumentedRoutesTest(run),
+                requestBodiesValidTest(run),
+                responseBodiesValidTest(run),
+                requestContentTypeTest(run),
+                responseContentTypeTest(run),
+                teardownTest(run)
             )
         )
     }
 
-    private fun exitCodeTest(run: SpecRun) =
+    private fun exitCodeTest(run: SpecRun, startError: Throwable? = null) =
         DynamicTest.dynamicTest("exits with code 0") {
+            if (startError != null) throw startError
             assertThat(run.dockerCompose.exitCode)
                 .withFailMessage("Docker Compose exited with code ${run.dockerCompose.exitCode}")
                 .isEqualTo(0)
         }
 
-    private fun allRoutesExercisedTest(run: SpecRun, routeMatcher: RouteMatcher) =
+    private fun teardownTest(run: SpecRun) =
+        DynamicTest.dynamicTest("teardown") {
+            run.stop()
+        }
+
+    private fun allRoutesExercisedTest(run: SpecRun) =
         DynamicTest.dynamicTest("all spec routes exercised") {
+            val routeMatcher = RouteMatcher(run.openApiSpec.rawModel())
             val allRoutes = routeMatcher.allRoutes()
             val exercised = routeMatcher.exercisedRoutes(run.captures)
             val unexercised = allRoutes - exercised
@@ -74,8 +83,9 @@ class ConformanceTest {
                 .isEmpty()
         }
 
-    private fun noUndocumentedRoutesTest(run: SpecRun, routeMatcher: RouteMatcher) =
+    private fun noUndocumentedRoutesTest(run: SpecRun) =
         DynamicTest.dynamicTest("no undocumented routes accessed") {
+            val routeMatcher = RouteMatcher(run.openApiSpec.rawModel())
             val undocumented = run.captures
                 .filter { !isInfrastructureRequest(it) }
                 .filter { !routeMatcher.matches(it.method, it.path) }
@@ -87,8 +97,10 @@ class ConformanceTest {
     private fun isInfrastructureRequest(capture: HttpCapture): Boolean =
         capture.path.startsWith("/swagger/") || (capture.method == "HEAD" && capture.path == "/")
 
-    private fun requestBodiesValidTest(run: SpecRun, routeMatcher: RouteMatcher, validator: SchemaValidator) =
+    private fun requestBodiesValidTest(run: SpecRun) =
         DynamicTest.dynamicTest("request bodies valid") {
+            val routeMatcher = RouteMatcher(run.openApiSpec.rawModel())
+            val validator = SchemaValidator()
             val errors = run.captures
                 .filter { it.requestBody.isNotBlank() }
                 .mapNotNull { capture ->
@@ -102,8 +114,10 @@ class ConformanceTest {
                 .isEmpty()
         }
 
-    private fun responseBodiesValidTest(run: SpecRun, routeMatcher: RouteMatcher, validator: SchemaValidator) =
+    private fun responseBodiesValidTest(run: SpecRun) =
         DynamicTest.dynamicTest("response bodies valid") {
+            val routeMatcher = RouteMatcher(run.openApiSpec.rawModel())
+            val validator = SchemaValidator()
             val errors = run.captures
                 .filter { it.responseBody.isNotBlank() }
                 .mapNotNull { capture ->
@@ -117,8 +131,9 @@ class ConformanceTest {
                 .isEmpty()
         }
 
-    private fun requestContentTypeTest(run: SpecRun, routeMatcher: RouteMatcher) =
+    private fun requestContentTypeTest(run: SpecRun) =
         DynamicTest.dynamicTest("request Content-Type headers correct") {
+            val routeMatcher = RouteMatcher(run.openApiSpec.rawModel())
             val errors = run.captures
                 .filter { it.requestBody.isNotBlank() }
                 .mapNotNull { capture ->
@@ -135,8 +150,9 @@ class ConformanceTest {
                 .isEmpty()
         }
 
-    private fun responseContentTypeTest(run: SpecRun, routeMatcher: RouteMatcher) =
+    private fun responseContentTypeTest(run: SpecRun) =
         DynamicTest.dynamicTest("response Content-Type headers correct") {
+            val routeMatcher = RouteMatcher(run.openApiSpec.rawModel())
             val errors = run.captures
                 .filter { it.responseBody.isNotBlank() }
                 .mapNotNull { capture ->
