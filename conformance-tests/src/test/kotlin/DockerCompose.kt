@@ -17,7 +17,7 @@ class DockerCompose(private val specFile: String, private val workDir: File = Fi
     }
 
     fun stop() {
-        val process = command("down", "--remove-orphans").start()
+        val process = command("down", "--volumes").start()
         process.waitFor()
     }
 

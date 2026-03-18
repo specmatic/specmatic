@@ -1,15 +1,17 @@
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DynamicContainer
+import org.junit.jupiter.api.DynamicNode
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.TestFactory
 import java.io.File
 import java.util.concurrent.Executors
-import java.util.concurrent.Future
+import java.util.stream.IntStream
+import java.util.stream.Stream
 
 class ConformanceTest {
 
     @TestFactory
-    fun conformanceTests(): List<DynamicContainer> {
+    fun conformanceTests(): Stream<DynamicNode> {
         val specsDir = File("build/resources/test/specs")
         val specFiles = specsDir.walkTopDown()
             .filter { it.isFile && it.extension in listOf("yaml", "yml") }
@@ -21,15 +23,24 @@ class ConformanceTest {
             ?: System.getenv("CONFORMANCE_CONCURRENCY")
             ?: "$maxCores").toInt().coerceIn(1, maxCores)
 
-        val runs = specFiles.map { it to SpecRun(it, File("build/resources/test")) }
+        val batches = specFiles.chunked(concurrency)
 
-        val executor = Executors.newFixedThreadPool(concurrency)
-        val futures: List<Pair<String, Future<*>>> = runs.map { (specFile, run) ->
+        return IntStream.range(0, batches.size).mapToObj { index ->
+            DynamicContainer.dynamicContainer(
+                "batch ${index + 1}",
+                startBatchAndBuildTests(batches[index])
+            ) as DynamicNode
+        }
+    }
+
+    private fun startBatchAndBuildTests(batch: List<String>): Stream<DynamicNode> {
+        val runs = batch.map { it to SpecRun(it, File("build/resources/test")) }
+        val executor = Executors.newFixedThreadPool(batch.size)
+        val futures = runs.map { (specFile, run) ->
             specFile to executor.submit { run.start() }
         }
         executor.shutdown()
 
-        // Wait for all starts to complete, collecting any exceptions
         val startErrors = mutableMapOf<String, Throwable>()
         for ((specFile, future) in futures) {
             try {
@@ -40,8 +51,8 @@ class ConformanceTest {
         }
 
         return runs.map { (specFile, run) ->
-            buildContainer(specFile, run, startErrors[specFile])
-        }
+            buildContainer(specFile, run, startErrors[specFile]) as DynamicNode
+        }.stream()
     }
 
     private fun buildContainer(specFile: String, run: SpecRun, startError: Throwable? = null): DynamicContainer {
