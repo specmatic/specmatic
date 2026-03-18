@@ -3,7 +3,7 @@ import io.specmatic.gradle.extensions.RepoType
 plugins {
     id("io.specmatic.gradle")
     id("base")
-    id("com.asarkar.gradle.build-time-tracker") version "5.0.1"
+    id("com.asarkar.gradle.build-time-tracker") version "5.0.2"
 }
 
 allprojects {
