@@ -38,6 +38,7 @@ import org.springframework.web.client.postForEntity
 import java.io.File
 import java.net.ConnectException
 import java.net.URI
+import java.net.ServerSocket
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.util.*
@@ -1068,6 +1069,261 @@ components:
             val response = stub.client.execute(request).body.toStringLiteral()
 
             assertThat(response).isEqualTo("This is a response for id : 100")
+        }
+    }
+
+    @Test
+    fun `should apply global request interceptors before spec scoped request interceptors`() {
+        val contractPath = "src/test/resources/openapi/hello.yaml"
+        createStubFromContracts(contractPaths = listOf(contractPath), dataDirPaths = emptyList(), timeoutMillis = 0).use { stub ->
+            stub.registerRequestInterceptor(object : RequestInterceptor {
+                override val name: String = "global-request-interceptor"
+                override fun interceptRequest(httpRequest: HttpRequest): HttpRequest {
+                    return httpRequest.copy(headers = httpRequest.headers + ("X-Global-Request-Interceptor" to "present"))
+                }
+            })
+
+            stub.registerRequestInterceptor(FileAssociation.FileScoped(
+                file = File(contractPath),
+                data = object : RequestInterceptor {
+                    override val name: String = "spec-request-interceptor"
+                    override fun interceptRequest(httpRequest: HttpRequest): HttpRequest {
+                        val selectedMarker = if (httpRequest.headers["X-Global-Request-Interceptor"] == "present") "spec-after-global" else "spec-before-global"
+                        return httpRequest.copy(headers = httpRequest.headers + ("X-Selected-Spec" to selectedMarker))
+                    }
+                }
+            ))
+
+            stub.registerResponseInterceptor(object : ResponseInterceptor {
+                override val name: String = "global-response-interceptor"
+                override fun interceptResponse(httpRequest: HttpRequest, httpResponse: HttpResponse): HttpResponse {
+                    return httpResponse.copy(body = StringValue(httpRequest.headers["X-Selected-Spec"] ?: "missing"))
+                }
+            })
+
+            val response = stub.client.execute(HttpRequest("GET", "/hello/10", headers = mapOf("Authorization" to "Bearer token")))
+            assertThat(response.body.toStringLiteral()).isEqualTo("spec-after-global")
+        }
+    }
+
+    @Test
+    fun `should use only global request interceptors when no spec scoped interceptor matches`() {
+        val contractPath = "src/test/resources/openapi/hello.yaml"
+        createStubFromContracts(contractPaths = listOf(contractPath), dataDirPaths = emptyList(), timeoutMillis = 0).use { stub ->
+            stub.registerRequestInterceptor(object : RequestInterceptor {
+                override val name: String = "global-request-interceptor"
+                override fun interceptRequest(httpRequest: HttpRequest): HttpRequest {
+                    return httpRequest.copy(headers = httpRequest.headers + ("X-Selected-Spec" to "global-only"))
+                }
+            })
+
+            stub.registerRequestInterceptor(FileAssociation.FileScoped(
+                file = File("src/test/resources/openapi/non_existent.yaml"),
+                data = object : RequestInterceptor {
+                    override val name: String = "non-matching-spec-request-interceptor"
+                    override fun interceptRequest(httpRequest: HttpRequest): HttpRequest {
+                        return httpRequest.copy(headers = httpRequest.headers + ("X-Selected-Spec" to "unexpected-spec"))
+                    }
+                }
+            ))
+
+            stub.registerResponseInterceptor(object : ResponseInterceptor {
+                override val name: String = "global-response-interceptor"
+                override fun interceptResponse(httpRequest: HttpRequest, httpResponse: HttpResponse): HttpResponse {
+                    return httpResponse.copy(body = StringValue(httpRequest.headers["X-Selected-Spec"] ?: "missing"))
+                }
+            })
+
+            val response = stub.client.execute(HttpRequest("GET", "/hello/10", headers = mapOf("Authorization" to "Bearer token")))
+            assertThat(response.body.toStringLiteral()).isEqualTo("global-only")
+        }
+    }
+
+    @Test
+    fun `should use first matching spec scoped request interceptor when multiple specs match`() {
+        val firstContractPath = "src/test/resources/multi_base_url_dynamic_stubs/specs/product.yaml"
+        val secondContractPath = "src/test/resources/multi_base_url_dynamic_stubs/specs/product-2.yaml"
+        createStubFromContracts(contractPaths = listOf(firstContractPath, secondContractPath), dataDirPaths = emptyList(), timeoutMillis = 0).use { stub ->
+            stub.registerRequestInterceptor(FileAssociation.FileScoped(
+                file = File(firstContractPath),
+                data = object : RequestInterceptor {
+                    override val name: String = "first-spec-request-interceptor"
+                    override fun interceptRequest(httpRequest: HttpRequest): HttpRequest {
+                        return httpRequest.copy(headers = httpRequest.headers + ("X-Selected-Spec" to "first"))
+                    }
+                }
+            ))
+
+            stub.registerRequestInterceptor(FileAssociation.FileScoped(
+                file = File(secondContractPath),
+                data = object : RequestInterceptor {
+                    override val name: String = "second-spec-request-interceptor"
+                    override fun interceptRequest(httpRequest: HttpRequest): HttpRequest {
+                        return httpRequest.copy(headers = httpRequest.headers + ("X-Selected-Spec" to "second"))
+                    }
+                }
+            ))
+
+            stub.registerResponseInterceptor(object : ResponseInterceptor {
+                override val name: String = "global-response-interceptor"
+                override fun interceptResponse(httpRequest: HttpRequest, httpResponse: HttpResponse): HttpResponse {
+                    return httpResponse.copy(body = StringValue(httpRequest.headers["X-Selected-Spec"] ?: "missing"))
+                }
+            })
+
+            val response = stub.client.execute(
+                HttpRequest(
+                    method = "POST",
+                    path = "/products",
+                    headers = mapOf("Content-Type" to "application/json"),
+                    body = parsedJSONObject("""{"name": "Widget", "price": 9.99, "category": "Books"}""")
+                )
+            )
+
+            assertThat(response.body.toStringLiteral()).isEqualTo("first")
+        }
+    }
+
+    @Test
+    fun `should pick spec scoped request interceptor based on baseUrl before matching`() {
+        val firstContractPath = "src/test/resources/multi_base_url_dynamic_stubs/specs/product.yaml"
+        val firstPort = ServerSocket(0).use { it.localPort }
+        val firstFeature = parseContractFileToFeature(firstContractPath)
+
+        val secondContractPath = "src/test/resources/multi_base_url_dynamic_stubs/specs/product-2.yaml"
+        val secondPort = ServerSocket(0).use { it.localPort }
+        val secondFeature = parseContractFileToFeature(secondContractPath)
+
+        HttpStub(
+            features = listOf(firstFeature, secondFeature),
+            port = firstPort,
+            timeoutMillis = 0,
+            specToStubBaseUrlMap = mapOf(firstFeature.path to "http://localhost:$firstPort", secondFeature.path to "http://localhost:$secondPort")
+        ).use { stub ->
+            stub.registerRequestInterceptor(FileAssociation.FileScoped(
+                file = File(firstFeature.path),
+                data = object : RequestInterceptor {
+                    override val name: String = "first-port-request-interceptor"
+                    override fun interceptRequest(httpRequest: HttpRequest): HttpRequest {
+                        return httpRequest.copy(headers = httpRequest.headers + ("X-Selected-Spec" to "first"))
+                    }
+                }
+            ))
+
+            stub.registerRequestInterceptor(FileAssociation.FileScoped(
+                file = File(secondFeature.path),
+                data = object : RequestInterceptor {
+                    override val name: String = "second-port-request-interceptor"
+                    override fun interceptRequest(httpRequest: HttpRequest): HttpRequest {
+                        return httpRequest.copy(headers = httpRequest.headers + ("X-Selected-Spec" to "second"))
+                    }
+                }
+            ))
+
+            stub.registerResponseInterceptor(object : ResponseInterceptor {
+                override val name: String = "global-response-interceptor"
+                override fun interceptResponse(httpRequest: HttpRequest, httpResponse: HttpResponse): HttpResponse {
+                    return httpResponse.copy(body = StringValue(httpRequest.headers["X-Selected-Spec"] ?: "missing"))
+                }
+            })
+
+            val firstPortResponse = LegacyHttpClient("http://localhost:$firstPort").execute(
+                HttpRequest(
+                    method = "POST",
+                    path = "/products",
+                    headers = mapOf("Content-Type" to "application/json"),
+                    body = parsedJSONObject("""{"name": "Widget", "price": 9.99, "category": "Books"}""")
+                )
+            )
+
+            val secondPortResponse = LegacyHttpClient("http://localhost:$secondPort").execute(
+                HttpRequest(
+                    method = "POST",
+                    path = "/products",
+                    headers = mapOf("Content-Type" to "application/json"),
+                    body = parsedJSONObject("""{"name": "Widget", "price": 9.99, "category": "Books"}""")
+                )
+            )
+
+            assertThat(firstPortResponse.body.toStringLiteral()).isEqualTo("first")
+            assertThat(secondPortResponse.body.toStringLiteral()).isEqualTo("second")
+        }
+    }
+
+    @Test
+    fun `should apply spec scoped response interceptors before global scoped response interceptors`() {
+        val contractPath = "src/test/resources/openapi/hello.yaml"
+        createStubFromContracts(contractPaths = listOf(contractPath), dataDirPaths = emptyList(), timeoutMillis = 0).use { stub ->
+            stub.registerResponseInterceptor(object : ResponseInterceptor {
+                override val name: String = "global-response-interceptor"
+                override fun interceptResponse(httpRequest: HttpRequest, httpResponse: HttpResponse): HttpResponse {
+                    return httpResponse.copy(headers = httpResponse.headers + ("X-Response-Interceptor-Order" to "global"))
+                }
+            })
+
+            stub.registerResponseInterceptor(FileAssociation.FileScoped(
+                file = File(contractPath),
+                data = object : ResponseInterceptor {
+                    override val name: String = "spec-response-interceptor"
+                    override fun interceptResponse(httpRequest: HttpRequest, httpResponse: HttpResponse): HttpResponse {
+                        val marker = if (httpResponse.headers["X-Response-Interceptor-Order"] == "global") "spec-after-global" else "spec-before-global"
+                        return httpResponse.copy(body = StringValue(marker))
+                    }
+                }
+            ))
+
+            val response = stub.client.execute(HttpRequest("GET", "/hello/10", headers = mapOf("Authorization" to "Bearer token")))
+            assertThat(response.body.toStringLiteral()).isEqualTo("spec-before-global")
+        }
+    }
+
+    @Test
+    fun `should choose spec scoped request interceptor based on globally rewritten request`() {
+        val helloContractPath = "src/test/resources/openapi/hello.yaml"
+        val productContractPath = "src/test/resources/multi_base_url_dynamic_stubs/specs/product.yaml"
+
+        createStubFromContracts(contractPaths = listOf(helloContractPath, productContractPath), dataDirPaths = emptyList(), timeoutMillis = 0).use { stub ->
+            stub.registerRequestInterceptor(object : RequestInterceptor {
+                override val name: String = "global-request-interceptor"
+                override fun interceptRequest(httpRequest: HttpRequest): HttpRequest {
+                    return httpRequest.copy(
+                        method = "POST",
+                        path = "/products",
+                        headers = httpRequest.headers + ("Content-Type" to "application/json"),
+                        body = parsedJSONObject("""{"name": "Widget", "price": 9.99, "category": "Books"}""")
+                    )
+                }
+            })
+
+            stub.registerRequestInterceptor(FileAssociation.FileScoped(
+                file = File(helloContractPath),
+                data = object : RequestInterceptor {
+                    override val name: String = "hello-spec-request-interceptor"
+                    override fun interceptRequest(httpRequest: HttpRequest): HttpRequest {
+                        return httpRequest.copy(headers = httpRequest.headers + ("X-Selected-Spec" to "hello"))
+                    }
+                }
+            ))
+
+            stub.registerRequestInterceptor(FileAssociation.FileScoped(
+                file = File(productContractPath),
+                data = object : RequestInterceptor {
+                    override val name: String = "product-spec-request-interceptor"
+                    override fun interceptRequest(httpRequest: HttpRequest): HttpRequest {
+                        return httpRequest.copy(headers = httpRequest.headers + ("X-Selected-Spec" to "product"))
+                    }
+                }
+            ))
+
+            stub.registerResponseInterceptor(object : ResponseInterceptor {
+                override val name: String = "global-response-interceptor"
+                override fun interceptResponse(httpRequest: HttpRequest, httpResponse: HttpResponse): HttpResponse {
+                    return httpResponse.copy(body = StringValue(httpRequest.headers["X-Selected-Spec"] ?: "missing"))
+                }
+            })
+
+            val response = stub.client.execute(HttpRequest("GET", "/hello/10", headers = mapOf("Authorization" to "Bearer token")))
+            assertThat(response.body.toStringLiteral()).isEqualTo("product")
         }
     }
 

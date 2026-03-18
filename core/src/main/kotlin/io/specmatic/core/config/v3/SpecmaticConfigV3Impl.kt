@@ -74,6 +74,7 @@ import io.specmatic.core.config.v3.specmatic.SuccessCriterion
 import io.specmatic.core.defaultReportDirPath
 import io.specmatic.core.readEnvVarOrProperty
 import io.specmatic.core.utilities.ContractSource
+import io.specmatic.core.utilities.FileAssociation
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_QUERY_PARAMS
@@ -557,6 +558,10 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
     override fun getHooks(): Map<String, String> {
         val fromDependencies = specmaticConfig.dependencies?.data?.adapters?.resolveElseThrow(resolver)?.hooks
         return fromDependencies.orEmpty()
+    }
+
+    override fun getStubHooks(): List<FileAssociation<Map<String, String>>> {
+        return specmaticConfig.dependencies?.getHooks(resolver).orEmpty()
     }
 
     override fun getProxyConfig(): ProxyConfig? {

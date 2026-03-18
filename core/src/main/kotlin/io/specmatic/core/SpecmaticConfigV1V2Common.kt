@@ -1050,6 +1050,10 @@ data class SpecmaticConfigV1V2Common(
         return hooks
     }
 
+    override fun getStubHooks(): List<FileAssociation<Map<String, String>>> {
+        return listOf(FileAssociation.Global(this.hooks))
+    }
+
     @JsonIgnore
     override fun getProxyConfig(): ProxyConfig? {
         return proxy

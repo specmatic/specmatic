@@ -17,6 +17,7 @@ import io.specmatic.core.config.v3.components.settings.MockSettings
 import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.config.v3.determineSpecTypeFor
 import io.specmatic.core.config.v3.resolveElseThrow
+import io.specmatic.core.utilities.FileAssociation
 import io.specmatic.reporter.model.SpecType
 import java.io.File
 import kotlin.collections.orEmpty
@@ -201,5 +202,21 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
                 value.copy(service = RefOrValue.Value(service.copy(data = existingData.copy(examples = RefOrValue.Value(updatedExamples)))))
             }
         )
+    }
+
+    @JsonIgnore
+    fun getHooks(resolver: SpecmaticConfigV3Resolver): List<FileAssociation<Map<String, String>>> {
+        val globalHooks = data?.adapters?.resolveElseThrow(resolver)?.hooks?.let { FileAssociation.Global(it) }
+        val serviceHooks = services.asSequence().map { it.service.resolveElseThrow(resolver) }.flatMap { service ->
+            val hooks = service.data?.adapters?.resolveElseThrow(resolver)?.hooks.orEmpty()
+            service.definitions.asSequence().map { it.definition }.flatMap { definition ->
+                val source = definition.source.resolveElseThrow(resolver)
+                definition.specs.asSequence().map { specDef ->
+                    val specFile = source.resolveSpecification(File(specDef.getSpecificationPath()))
+                    FileAssociation.FileScoped(specFile, hooks)
+                }
+            }
+        }
+        return listOfNotNull(globalHooks) + serviceHooks
     }
 }
