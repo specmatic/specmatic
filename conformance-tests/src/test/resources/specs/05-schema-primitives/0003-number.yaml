@@ -1,0 +1,20 @@
+openapi: 3.0.3
+info:
+  title: "Schema - number property"
+  version: "1.0"
+paths:
+  /temperature:
+    get:
+      operationId: getTemperature
+      responses:
+        '200':
+          description: Temperature
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - celsius
+                properties:
+                  celsius:
+                    type: number

@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: "Format - relative-json-pointer (JSON Schema)"
+  version: "1.0"
+paths:
+  /mappings:
+    get:
+      operationId: listMappings
+      responses:
+        '200':
+          description: Mapping list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - source
+                    - target
+                  properties:
+                    source:
+                      type: string
+                      format: relative-json-pointer
+                    target:
+                      type: string

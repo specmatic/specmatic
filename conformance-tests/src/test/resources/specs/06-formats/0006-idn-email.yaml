@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: "Format - idn-email (JSON Schema)"
+  version: "1.0"
+paths:
+  /subscribers:
+    get:
+      operationId: listSubscribers
+      responses:
+        '200':
+          description: Subscriber list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - email
+                  properties:
+                    name:
+                      type: string
+                    email:
+                      type: string
+                      format: idn-email

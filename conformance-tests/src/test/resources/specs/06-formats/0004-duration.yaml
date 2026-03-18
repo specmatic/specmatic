@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: "Format - duration (JSON Schema)"
+  version: "1.0"
+paths:
+  /tasks:
+    get:
+      operationId: listTasks
+      responses:
+        '200':
+          description: Task list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - elapsed
+                  properties:
+                    name:
+                      type: string
+                    elapsed:
+                      type: string
+                      format: duration

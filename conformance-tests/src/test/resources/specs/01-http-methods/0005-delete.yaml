@@ -1,0 +1,18 @@
+openapi: 3.0.3
+info:
+  title: "DELETE resource"
+  version: "1.0"
+paths:
+  /items/{id}:
+    delete:
+      operationId: deleteItem
+      summary: Delete an item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Item deleted

@@ -1,0 +1,39 @@
+openapi: 3.0.3
+info:
+  title: "Enum - integer values"
+  version: "1.0"
+paths:
+  /error-codes:
+    post:
+      operationId: reportError
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - errorCode
+                - message
+              properties:
+                errorCode:
+                  type: integer
+                  enum:
+                    - 1001
+                    - 1002
+                    - 1003
+                    - 2001
+                message:
+                  type: string
+      responses:
+        '201':
+          description: Error reported
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer

@@ -1,0 +1,32 @@
+openapi: 3.0.3
+info:
+  title: "Optional header parameter"
+  version: "1.0"
+paths:
+  /messages:
+    get:
+      operationId: listMessages
+      summary: List messages with optional correlation header
+      parameters:
+        - name: X-Correlation-Id
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Message list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - text
+                  properties:
+                    id:
+                      type: integer
+                    text:
+                      type: string

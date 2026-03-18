@@ -1,0 +1,35 @@
+openapi: 3.0.3
+info:
+  title: "Constraint - string maxLength"
+  version: "1.0"
+paths:
+  /comments:
+    post:
+      operationId: createComment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+                  maxLength: 500
+      responses:
+        '201':
+          description: Comment created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - text
+                properties:
+                  id:
+                    type: integer
+                  text:
+                    type: string

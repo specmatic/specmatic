@@ -1,0 +1,38 @@
+openapi: 3.0.3
+info:
+  title: "Multiple path parameters"
+  version: "1.0"
+paths:
+  /stores/{storeId}/products/{productId}:
+    get:
+      operationId: getStoreProduct
+      summary: Get a product within a store
+      parameters:
+        - name: storeId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Product found
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - storeId
+                  - productId
+                  - name
+                properties:
+                  storeId:
+                    type: integer
+                  productId:
+                    type: integer
+                  name:
+                    type: string

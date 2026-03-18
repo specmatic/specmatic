@@ -1,0 +1,25 @@
+openapi: 3.0.3
+info:
+  title: "Format - float (OpenAPI)"
+  version: "1.0"
+paths:
+  /sensor:
+    get:
+      operationId: getSensor
+      responses:
+        '200':
+          description: Sensor reading
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - humidity
+                  - pressure
+                properties:
+                  humidity:
+                    type: number
+                    format: float
+                  pressure:
+                    type: number
+                    format: float

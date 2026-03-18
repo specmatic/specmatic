@@ -1,0 +1,20 @@
+openapi: 3.0.3
+info:
+  title: "Schema - string property"
+  version: "1.0"
+paths:
+  /greeting:
+    get:
+      operationId: getGreeting
+      responses:
+        '200':
+          description: Greeting
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    type: string

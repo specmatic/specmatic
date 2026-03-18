@@ -1,0 +1,22 @@
+openapi: 3.0.3
+info:
+  title: "Schema - array of strings"
+  version: "1.0"
+paths:
+  /tags:
+    get:
+      operationId: listTags
+      responses:
+        '200':
+          description: Tag list
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - tags
+                properties:
+                  tags:
+                    type: array
+                    items:
+                      type: string

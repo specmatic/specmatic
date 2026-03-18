@@ -1,7 +1,7 @@
 import java.io.File
 
 class DockerCompose(private val specFile: String, private val workDir: File = File("build/resources/test")) {
-    private val projectName = specFile.replace(".", "-")
+    private val projectName = specFile.replace(Regex("[^a-zA-Z0-9]"), "-").lowercase()
     private val env = mapOf(
         "MITM_PROXY_VERSION" to "12.2.1",
         "SPECMATIC_VERSION" to "2.42.2",

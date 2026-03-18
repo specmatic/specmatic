@@ -1,0 +1,29 @@
+openapi: 3.0.3
+info:
+  title: "Schema - multiple scalar types"
+  version: "1.0"
+paths:
+  /profile:
+    get:
+      operationId: getProfile
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - name
+                  - age
+                  - score
+                  - verified
+                properties:
+                  name:
+                    type: string
+                  age:
+                    type: integer
+                  score:
+                    type: number
+                  verified:
+                    type: boolean

@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: "Format - time (JSON Schema)"
+  version: "1.0"
+paths:
+  /alarms:
+    get:
+      operationId: listAlarms
+      responses:
+        '200':
+          description: Alarm list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - label
+                    - time
+                  properties:
+                    label:
+                      type: string
+                    time:
+                      type: string
+                      format: time

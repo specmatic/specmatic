@@ -1,0 +1,30 @@
+openapi: 3.0.3
+info:
+  title: "Required header parameter"
+  version: "1.0"
+paths:
+  /data:
+    get:
+      operationId: getData
+      summary: Get data with required header
+      parameters:
+        - name: X-Tenant-Id
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Data response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - tenantId
+                  - data
+                properties:
+                  tenantId:
+                    type: string
+                  data:
+                    type: string

@@ -1,0 +1,25 @@
+openapi: 3.0.3
+info:
+  title: "Format - int32 (OpenAPI)"
+  version: "1.0"
+paths:
+  /metrics:
+    get:
+      operationId: getMetrics
+      responses:
+        '200':
+          description: Metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - requestCount
+                  - errorCount
+                properties:
+                  requestCount:
+                    type: integer
+                    format: int32
+                  errorCount:
+                    type: integer
+                    format: int32

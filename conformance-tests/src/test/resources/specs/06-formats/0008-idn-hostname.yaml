@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: "Format - idn-hostname (JSON Schema)"
+  version: "1.0"
+paths:
+  /domains:
+    get:
+      operationId: listDomains
+      responses:
+        '200':
+          description: Domain list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - label
+                    - domain
+                  properties:
+                    label:
+                      type: string
+                    domain:
+                      type: string
+                      format: idn-hostname

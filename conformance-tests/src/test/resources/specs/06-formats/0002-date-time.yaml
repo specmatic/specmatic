@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: "Format - date-time (JSON Schema)"
+  version: "1.0"
+paths:
+  /events:
+    get:
+      operationId: listEvents
+      responses:
+        '200':
+          description: Event list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - title
+                    - startedAt
+                  properties:
+                    title:
+                      type: string
+                    startedAt:
+                      type: string
+                      format: date-time

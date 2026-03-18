@@ -22,9 +22,11 @@ class ConformanceTest {
 
     @TestFactory
     fun conformanceTests(): Stream<DynamicContainer> {
-        val specFiles = File("build/resources/test/specs")
-            .listFiles { f -> f.isFile }.orEmpty()
-            .map { it.name }.sorted()
+        val specsDir = File("build/resources/test/specs")
+        val specFiles = specsDir.walkTopDown()
+            .filter { it.isFile && it.extension in listOf("yaml", "yml") }
+            .map { it.relativeTo(specsDir).path }
+            .sorted().toList()
 
         val futures = specFiles.map { specFile ->
             val run = SpecRun(specFile, File("build/resources/test"))

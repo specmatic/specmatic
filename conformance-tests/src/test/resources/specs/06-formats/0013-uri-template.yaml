@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: "Format - uri-template (JSON Schema)"
+  version: "1.0"
+paths:
+  /templates:
+    get:
+      operationId: listTemplates
+      responses:
+        '200':
+          description: URI templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - template
+                  properties:
+                    name:
+                      type: string
+                    template:
+                      type: string
+                      format: uri-template

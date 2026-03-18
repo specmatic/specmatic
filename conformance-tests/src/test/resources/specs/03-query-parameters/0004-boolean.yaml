@@ -1,0 +1,35 @@
+openapi: 3.0.3
+info:
+  title: "Boolean query parameter"
+  version: "1.0"
+paths:
+  /tasks:
+    get:
+      operationId: listTasks
+      summary: List tasks with boolean active filter
+      parameters:
+        - name: active
+          in: query
+          required: true
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Task list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - title
+                    - active
+                  properties:
+                    id:
+                      type: integer
+                    title:
+                      type: string
+                    active:
+                      type: boolean
