@@ -1,0 +1,32 @@
+openapi: 3.0.3
+info:
+  title: "Number query parameter"
+  version: "1.0"
+paths:
+  /products:
+    get:
+      operationId: filterByPrice
+      summary: Filter products by price
+      parameters:
+        - name: maxPrice
+          in: query
+          required: true
+          schema:
+            type: number
+      responses:
+        '200':
+          description: Filtered products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - price
+                  properties:
+                    id:
+                      type: integer
+                    price:
+                      type: number

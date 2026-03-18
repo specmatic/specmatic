@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: "Format - hostname (JSON Schema)"
+  version: "1.0"
+paths:
+  /servers:
+    get:
+      operationId: listServers
+      responses:
+        '200':
+          description: Server list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - host
+                  properties:
+                    name:
+                      type: string
+                    host:
+                      type: string
+                      format: hostname

@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: "Format - regex (JSON Schema)"
+  version: "1.0"
+paths:
+  /validation-rules:
+    get:
+      operationId: listRules
+      responses:
+        '200':
+          description: Rule list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - field
+                    - pattern
+                  properties:
+                    field:
+                      type: string
+                    pattern:
+                      type: string
+                      format: regex

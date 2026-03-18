@@ -1,0 +1,21 @@
+openapi: 3.0.3
+info:
+  title: "GET with JSON response"
+  version: "1.0"
+paths:
+  /items:
+    get:
+      operationId: listItems
+      summary: List items
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - name
+                properties:
+                  name:
+                    type: string

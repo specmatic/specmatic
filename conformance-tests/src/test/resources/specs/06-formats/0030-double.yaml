@@ -1,0 +1,25 @@
+openapi: 3.0.3
+info:
+  title: "Format - double (OpenAPI)"
+  version: "1.0"
+paths:
+  /coordinates:
+    get:
+      operationId: getCoordinates
+      responses:
+        '200':
+          description: Coordinates
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - latitude
+                  - longitude
+                properties:
+                  latitude:
+                    type: number
+                    format: double
+                  longitude:
+                    type: number
+                    format: double

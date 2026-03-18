@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: "Format - commonmark (OpenAPI)"
+  version: "1.0"
+paths:
+  /articles:
+    get:
+      operationId: listArticles
+      responses:
+        '200':
+          description: Article list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - title
+                    - body
+                  properties:
+                    title:
+                      type: string
+                    body:
+                      type: string
+                      format: commonmark

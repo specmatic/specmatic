@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: "Format - media-range (OpenAPI)"
+  version: "1.0"
+paths:
+  /content-types:
+    get:
+      operationId: listContentTypes
+      responses:
+        '200':
+          description: Supported content types
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - label
+                    - mediaType
+                  properties:
+                    label:
+                      type: string
+                    mediaType:
+                      type: string
+                      format: media-range

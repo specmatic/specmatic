@@ -1,0 +1,32 @@
+openapi: 3.0.3
+info:
+  title: "Optional string query parameter"
+  version: "1.0"
+paths:
+  /products:
+    get:
+      operationId: listProducts
+      summary: List products with optional filter
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Product list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - name
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string

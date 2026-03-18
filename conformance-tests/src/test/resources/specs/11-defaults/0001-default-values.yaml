@@ -1,0 +1,44 @@
+openapi: 3.0.3
+info:
+  title: "Default values on properties"
+  version: "1.0"
+paths:
+  /settings:
+    post:
+      operationId: updateSettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - theme
+              properties:
+                theme:
+                  type: string
+                  default: light
+                pageSize:
+                  type: integer
+                  default: 25
+                notifications:
+                  type: boolean
+                  default: true
+      responses:
+        '200':
+          description: Settings updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - theme
+                  - pageSize
+                  - notifications
+                properties:
+                  theme:
+                    type: string
+                  pageSize:
+                    type: integer
+                  notifications:
+                    type: boolean

@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: "Format - iri-reference (JSON Schema)"
+  version: "1.0"
+paths:
+  /references:
+    get:
+      operationId: listReferences
+      responses:
+        '200':
+          description: Reference list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - label
+                    - ref
+                  properties:
+                    label:
+                      type: string
+                    ref:
+                      type: string
+                      format: iri-reference

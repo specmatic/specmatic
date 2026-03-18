@@ -1,0 +1,25 @@
+openapi: 3.0.3
+info:
+  title: "Format - int64 (OpenAPI)"
+  version: "1.0"
+paths:
+  /statistics:
+    get:
+      operationId: getStatistics
+      responses:
+        '200':
+          description: Statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - totalBytes
+                  - totalRecords
+                properties:
+                  totalBytes:
+                    type: integer
+                    format: int64
+                  totalRecords:
+                    type: integer
+                    format: int64

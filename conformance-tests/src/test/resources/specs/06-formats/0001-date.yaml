@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: "Format - date (JSON Schema)"
+  version: "1.0"
+paths:
+  /holidays:
+    get:
+      operationId: listHolidays
+      responses:
+        '200':
+          description: Holiday list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - date
+                  properties:
+                    name:
+                      type: string
+                    date:
+                      type: string
+                      format: date

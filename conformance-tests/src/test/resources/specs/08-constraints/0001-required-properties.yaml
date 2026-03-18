@@ -1,0 +1,39 @@
+openapi: 3.0.3
+info:
+  title: "Constraint - required properties"
+  version: "1.0"
+paths:
+  /registration:
+    post:
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+                nickname:
+                  type: string
+      responses:
+        '201':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - email
+                properties:
+                  id:
+                    type: integer
+                  email:
+                    type: string

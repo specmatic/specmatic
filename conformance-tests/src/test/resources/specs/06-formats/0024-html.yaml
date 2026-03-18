@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: "Format - html (OpenAPI)"
+  version: "1.0"
+paths:
+  /pages:
+    get:
+      operationId: listPages
+      responses:
+        '200':
+          description: Page list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - title
+                    - content
+                  properties:
+                    title:
+                      type: string
+                    content:
+                      type: string
+                      format: html

@@ -1,0 +1,34 @@
+openapi: 3.0.3
+info:
+  title: "Schema - nested object (2 levels)"
+  version: "1.0"
+paths:
+  /company:
+    get:
+      operationId: getCompany
+      responses:
+        '200':
+          description: Company details
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - name
+                  - address
+                properties:
+                  name:
+                    type: string
+                  address:
+                    type: object
+                    required:
+                      - street
+                      - city
+                      - zip
+                    properties:
+                      street:
+                        type: string
+                      city:
+                        type: string
+                      zip:
+                        type: string

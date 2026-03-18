@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: "Format - binary (OpenAPI)"
+  version: "1.0"
+paths:
+  /blobs:
+    get:
+      operationId: listBlobs
+      responses:
+        '200':
+          description: Blob list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - content
+                  properties:
+                    id:
+                      type: string
+                    content:
+                      type: string
+                      format: binary
