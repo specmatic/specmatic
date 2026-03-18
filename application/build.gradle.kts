@@ -9,7 +9,7 @@ dependencies {
         exclude(group = "commons-logging", module = "commons-logging")
     }
 
-    implementation("joda-time:joda-time:2.14.0")
+    implementation("joda-time:joda-time:2.14.1")
     implementation("net.minidev:json-smart:2.6.0")
 
     implementation("com.ezylang:EvalEx:3.6.0")
