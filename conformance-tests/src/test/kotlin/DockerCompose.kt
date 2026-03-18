@@ -22,7 +22,7 @@ class DockerCompose(private val specFile: String, private val workDir: File = Fi
     }
 
     fun mitmLogs(): String {
-        val process = command("logs", "mitm", "--no-prefix").start()
+        val process = command("logs", "mitm", "--no-color", "--no-log-prefix").start()
         val output = process.inputStream.bufferedReader().readText()
         process.waitFor()
         return output
