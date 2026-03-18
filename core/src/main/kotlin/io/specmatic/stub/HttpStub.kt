@@ -1717,7 +1717,7 @@ private fun strictModeHttp400Response(
 
 private fun generativeStrictModeResponse(httpRequest: HttpRequest, features: List<Feature>, strictModeReport: String): HttpResponse? {
     return features.firstNotNullOfOrNull { feature ->
-        feature.identifierMatchingScenario(httpRequest) { it.status in invalidRequestStatuses }
+        feature.identifierMatchingScenario(httpRequest, furtherPredicate = { it.status in invalidRequestStatuses })
     }?.responseWithStubError(strictModeReport)
 }
 

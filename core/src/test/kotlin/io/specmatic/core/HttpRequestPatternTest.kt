@@ -21,13 +21,13 @@ import java.util.stream.Stream
 internal class HttpRequestPatternTest {
     @Test
     fun `should not match when url does not match`() {
-        val httpRequestPattern = HttpRequestPattern(
-                httpPathPattern = buildHttpPathPattern(URI("/matching_path")))
+        val httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern(URI("/matching_path")))
         val httpRequest = HttpRequest().updateWith(URI("/unmatched_path"))
         httpRequestPattern.matches(httpRequest, Resolver()).let {
             assertThat(it).isInstanceOf(Failure::class.java)
             assertThat((it as Failure).toMatchFailureDetails()).isEqualTo(MatchFailureDetails(
-                listOf("REQUEST", "PARAMETERS.PATH (/unmatched_path)"), listOf(DefaultMismatchMessages.mismatchMessage("\"matching_path\"", "\"unmatched_path\""))
+                listOf("REQUEST", "PATH"),
+                listOf("Failed to extract segments for /matching_path from /unmatched_path")
             ))
         }
     }
@@ -480,7 +480,7 @@ internal class HttpRequestPatternTest {
 
         val result = HttpRequestPattern(
             method = "POST",
-            httpPathPattern = HttpPathPattern(emptyList(), "/"),
+            httpPathPattern = HttpPathPattern.from("/"),
             formFieldsPattern = mapOf("hello" to NumberPattern(), "world?" to NumberPattern())
         ).matches(request, Resolver())
 
@@ -513,7 +513,7 @@ internal class HttpRequestPatternTest {
 
         val result = HttpRequestPattern(
             method = "POST",
-            httpPathPattern = HttpPathPattern(emptyList(), "/"),
+            httpPathPattern = HttpPathPattern.from("/"),
             formFieldsPattern = mapOf("hello" to NumberPattern(), "world" to NumberPattern())
         ).matches(request, Resolver())
 
@@ -916,10 +916,11 @@ internal class HttpRequestPatternTest {
 
         assertThat(newRequestPattern.httpPathPattern).isEqualTo(
             HttpPathPattern(
+                path = "/invalidUUID",
                 pathSegmentPatterns = listOf(
-                    URLPathSegmentPattern(ExactValuePattern(StringValue("invalidUUID")), "id")
+                    URLPathSegmentPattern(ExactValuePattern(StringValue("/"))),
+                    URLPathSegmentPattern(ExactValuePattern(StringValue("invalidUUID")), "id"),
                 ),
-                "/invalidUUID"
             )
         )
         assertThat(newRequestPattern.method).isEqualTo("GET")

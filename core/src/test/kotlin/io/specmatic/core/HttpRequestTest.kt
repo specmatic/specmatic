@@ -23,7 +23,6 @@ import io.specmatic.mock.MOCK_HTTP_REQUEST
 import java.util.stream.Stream
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Nested
-import org.junit.jupiter.params.provider.CsvSource
 import java.io.File
 
 internal class HttpRequestTest {
@@ -369,23 +368,11 @@ internal class HttpRequestTest {
     }
 
     @ParameterizedTest
-    @CsvSource(
-        "10, 10, 0",
-        "(string), 10, 1",
-        "10, (string), 1",
-        "(string), (string), 2",
-        ignoreLeadingAndTrailingWhitespace = true
-    )
-    fun `should calculate precision score based on the number of patterns seen`(id: String, count: String, generality: Int) {
-        val request = HttpRequest("POST", "/", body = parsedJSONObject("""{"id": "$id", "count": "$count"}"""))
-        assertThat(request.generality).isEqualTo(generality)
-    }
-
-    @ParameterizedTest
-    @MethodSource("urlPathToExpectedPathGenerality")
-    fun `should include path params to calculate generality`(path: String?, expectedGenerality: Int) {
-        val request = HttpRequest(path = path)
-        assertThat(request.generality).isEqualTo(expectedGenerality)
+    @MethodSource("pathSpecificityOrdering")
+    fun `should rank paths by generality`(moreSpecific: String?, lessSpecific: String?) {
+        val moreGeneral = HttpRequest(path = lessSpecific).generality
+        val lessGeneral = HttpRequest(path = moreSpecific).generality
+        assertThat(moreGeneral).isGreaterThan(lessGeneral)
     }
 
     @ParameterizedTest
@@ -396,10 +383,30 @@ internal class HttpRequestTest {
     }
 
     @ParameterizedTest
-    @MethodSource("urlPathToExpectedPathSpecificity")
-    fun `should include path params to calculate specificity`(path: String?, expectedSpecificity: Int) {
-        val request = HttpRequest(path = path)
-        assertThat(request.pathSpecificity()).isEqualTo(expectedSpecificity)
+    @MethodSource("pathSpecificityOrdering")
+    fun `should rank paths by specificity`(moreSpecific: String, lessSpecific: String) {
+        val moreSpecificScore = HttpRequest(path = moreSpecific).specificity
+        val lessSpecificScore = HttpRequest(path = lessSpecific).specificity
+        assertThat(moreSpecificScore).isGreaterThan(lessSpecificScore)
+    }
+
+    @Test
+    fun `should rank literal path over interpolated over pure parameter path in specificity`() {
+        val literal = HttpRequest(path = "/items/item-123")
+        val interpolated = HttpRequest(path = "/items/item-(id:string)")
+        val pureParameter = HttpRequest(path = "/items/(id:string)")
+
+        assertThat(literal.specificity).isGreaterThan(interpolated.specificity)
+        assertThat(interpolated.specificity).isGreaterThan(pureParameter.specificity)
+    }
+
+    @Test
+    fun `should not truncate long path static chars while ranking specificity`() {
+        val longerLiteralPath = "/items/${"a".repeat(400)}"
+        val shorterLiteralPath = "/items/${"a".repeat(300)}"
+        val longerLiteralRequest = HttpRequest(path = longerLiteralPath)
+        val shorterLiteralRequest = HttpRequest(path = shorterLiteralPath)
+        assertThat(longerLiteralRequest.specificity).isGreaterThan(shorterLiteralRequest.specificity)
     }
 
     @ParameterizedTest
@@ -417,21 +424,9 @@ internal class HttpRequestTest {
     }
 
     @ParameterizedTest
-    @MethodSource("httpRequestToExpectedCombinedSpecificity")
-    fun `should calculate combined specificity of HttpRequest`(
-        path: String?, 
-        headers: Map<String, String>, 
-        queryParams: Map<String, String>, 
-        body: Value, 
-        expectedSpecificity: Int
-    ) {
-        val request = HttpRequest(
-            path = path,
-            headers = headers,
-            queryParametersMap = queryParams,
-            body = body
-        )
-        assertThat(request.specificity).isEqualTo(expectedSpecificity)
+    @MethodSource("httpRequestSpecificityOrdering")
+    fun `should rank http requests by combined specificity`(moreSpecific: HttpRequest, lessSpecific: HttpRequest) {
+        assertThat(moreSpecific.specificity).isGreaterThan(lessSpecific.specificity)
     }
 
 
@@ -449,37 +444,72 @@ internal class HttpRequestTest {
             ).stream()
 
         @JvmStatic
-        fun urlPathToExpectedPathGenerality(): Stream<Arguments> = Stream.of(
-            Arguments.of(null, 0),
-            Arguments.of("", 0),
-            Arguments.of("/", 0),
-            Arguments.of("/persons", 0),
-            Arguments.of("/(string)", 1),
-            Arguments.of("/\$eq(A.B.C)", 1),
-            Arguments.of("/persons/1", 0),
-            Arguments.of("/persons/(string)", 1),
-            Arguments.of("/persons/group/1", 0),
-            Arguments.of("/persons/(string)/1", 1),
-            Arguments.of("/persons/(string)/1/(string)", 2),
-            Arguments.of("/persons/group/(string)/1/(string)", 2),
-            Arguments.of("/persons/group/\$eq(A.B.C)/1/\$eq(A.B.C)", 2),
-        )
+        fun pathSpecificityOrdering(): Stream<Arguments> = Stream.of(
+            // ----------------------------
+            // Static > Dynamic
+            // ----------------------------
+            Arguments.of("/users/list", "/users/(id)"),
+            Arguments.of("/persons/group/1", "/persons/(group)/(id)"),
+            Arguments.of("/users/list/all", "/users/(id)"),
 
-        @JvmStatic
-        fun urlPathToExpectedPathSpecificity(): Stream<Arguments> = Stream.of(
-            Arguments.of(null, 0),
-            Arguments.of("", 1),
-            Arguments.of("/", 1),
-            Arguments.of("/persons", 2),
-            Arguments.of("/(string)", 1),
-            Arguments.of("/\$eq(A.B.C)", 1),
-            Arguments.of("/persons/1", 3),
-            Arguments.of("/persons/(string)", 2),
-            Arguments.of("/persons/group/1", 4),
-            Arguments.of("/persons/(string)/1", 3),
-            Arguments.of("/persons/(string)/1/(string)", 3),
-            Arguments.of("/persons/group/(string)/1/(string)", 4),
-            Arguments.of("/persons/group/\$eq(A.B.C)/1/\$eq(A.B.C)", 4),
+            // ----------------------------
+            // Static > Mixed
+            // ----------------------------
+            Arguments.of("/items/item", "/items/item-(id)"),
+            Arguments.of("/users/foo", "/users/foo(id)"),
+
+            // ----------------------------
+            // Mixed > Dynamic
+            // ----------------------------
+            Arguments.of("/items/item-(id)", "/items/(id)"),
+            Arguments.of("/items/group/item-(id)", "/items/(id)"),
+
+            // ----------------------------
+            // Literal Density inside Mixed
+            // ----------------------------
+            Arguments.of("/items/item-(id)-detail", "/items/item-(id)"),
+            Arguments.of("/items/abc(string)xyz", "/items/a(string)b"),
+            Arguments.of("/items/a(string)bc", "/items/a(string)b"),
+
+            // ----------------------------
+            // Prefix / Suffix Literal Context
+            // ----------------------------
+            Arguments.of("/users/prefix(id)", "/users/(id)"),
+            Arguments.of("/users/(id)suffix", "/users/(id)"),
+            Arguments.of("/users/prefix(id)suffix", "/users/(id)"),
+
+            // ----------------------------
+            // Token Count
+            // ----------------------------
+            Arguments.of("/items/(id)", "/items/(a)/(b)"),
+            Arguments.of("/items/item-(id)", "/items/(a)-(b)"),
+
+            // ----------------------------
+            // Matcher / Substitution Tokens
+            // ----------------------------
+            Arguments.of("/users/list", $$"/users/$match()"),
+            Arguments.of($$"/users/foo$match()", $$"/users/$match()"),
+            Arguments.of("/users/list", "/users/$(a.b.c)"),
+            Arguments.of("/users/foo$(a.b.c)", "/users/$(a.b.c)"),
+
+            // ----------------------------
+            // Literal Context with Dynamic Tokens
+            // ----------------------------
+            Arguments.of("/users/(id)extra", "/users/(id)"),
+            Arguments.of($$"/users/$match()extra", $$"/users/$match()"),
+            Arguments.of("/users/$(a.b.c)extra", "/users/$(a.b.c)"),
+
+            // ----------------------------
+            // Static Literal vs Dynamic Tokens
+            // ----------------------------
+            Arguments.of("/orders/order-123", $$"/orders/$match()"),
+            Arguments.of("/orders/order-123", "/orders/$(a.b.c)"),
+
+            // ----------------------------
+            // Path Depth
+            // ----------------------------
+            Arguments.of("/a/b/c/d", "/a/b/c"),
+            Arguments.of("/users/list/all", "/users/list")
         )
 
         @JvmStatic
@@ -536,57 +566,6 @@ internal class HttpRequestTest {
         )
 
         @JvmStatic
-        fun httpRequestToExpectedCombinedSpecificity(): Stream<Arguments> = Stream.of(
-            Arguments.of(
-                "/persons/123", 
-                mapOf("Content-Type" to "application/json"), 
-                mapOf("param1" to "value1"), 
-                StringValue("test"), 
-                6
-            ),
-
-            Arguments.of(
-                "/(string)", 
-                mapOf("Content-Type" to "(string)"), 
-                mapOf("param1" to "(string)"), 
-                StringValue("(string)"), 
-                1
-            ),
-
-            Arguments.of(
-                "/persons/(string)", 
-                mapOf("Content-Type" to "application/json", "Accept" to "(string)"), 
-                mapOf("param1" to "value1", "param2" to "(string)"), 
-                parsedJSONObject("""{"id": "10", "count": "(string)"}"""), 
-                5
-            ),
-
-            Arguments.of(
-                "/persons/\$eq(A.B.C)",
-                mapOf("Content-Type" to "application/json", "Accept" to "\$eq(A.B.C)"),
-                mapOf("param1" to "value1", "param2" to "\$eq(A.B.C)"),
-                parsedJSONObject("""{"id": "10", "count": "${"$"}eq(A.B.C)"}"""),
-                5
-            ),
-
-            Arguments.of(
-                null, 
-                emptyMap<String, String>(), 
-                emptyMap<String, String>(), 
-                EmptyString, 
-                1
-            ),
-
-            Arguments.of(
-                "/", 
-                mapOf("Content-Type" to "application/json"), 
-                emptyMap<String, String>(), 
-                parsedJSONObject("""{"data": {"id": "10", "count": "10"}}"""), 
-                4
-            )
-        )
-
-        @JvmStatic
         fun xmlContentTypeHeaders(): Stream<Arguments> = Stream.of(
             Arguments.of(mapOf("Content-Type" to "application/xml")),
             Arguments.of(mapOf("Content-Type" to "text/xml")),
@@ -599,6 +578,45 @@ internal class HttpRequestTest {
         fun nonXmlContentTypeHeaders(): Stream<Arguments> = Stream.of(
             Arguments.of(mapOf("Content-Type" to "application/json")),
             Arguments.of(emptyMap<String, String>()),
+        )
+
+        @JvmStatic
+        fun httpRequestSpecificityOrdering(): Stream<Arguments> = Stream.of(
+            // ----------------------------
+            // Path specificity
+            // ----------------------------
+            Arguments.of(HttpRequest(path = "/persons/123"), HttpRequest(path = "/persons/(id)")),
+            Arguments.of(HttpRequest(path = "/users/list/all"), HttpRequest(path = "/users/(id)")),
+            Arguments.of(HttpRequest(path = "/items/item-(id)"), HttpRequest(path = "/items/(id)")),
+
+            // ----------------------------
+            // Header specificity
+            // ----------------------------
+            Arguments.of(HttpRequest(headers = mapOf("Content-Type" to "application/json")), HttpRequest(headers = mapOf("Content-Type" to "(string)"))),
+            Arguments.of(HttpRequest(headers = mapOf("Accept" to "application/json")), HttpRequest(headers = mapOf("Accept" to "\$match()"))),
+
+            // ----------------------------
+            // Query parameter specificity
+            // ----------------------------
+            Arguments.of(HttpRequest(queryParametersMap = mapOf("id" to "123")), HttpRequest(queryParametersMap = mapOf("id" to "(number)"))),
+            Arguments.of(HttpRequest(queryParametersMap = mapOf("status" to "active")), HttpRequest(queryParametersMap = mapOf("status" to "\$match()"))),
+
+            // ----------------------------
+            // Body specificity
+            // ----------------------------
+            Arguments.of(HttpRequest(body = parsedJSONObject("""{"id":"10"}""")), HttpRequest(body = parsedJSONObject("""{"id":"(string)"}"""))),
+            Arguments.of(HttpRequest(body = parsedJSONObject("""{"count":"10"}""")), HttpRequest(body = parsedJSONObject($$"""{"count":"$match()"}"""))),
+            // ----------------------------
+            // Path dominates other parts
+            // ----------------------------
+            Arguments.of(HttpRequest(path="/users/123"), HttpRequest(path="/users/(id)", headers=mapOf("X-Test" to "value"))),
+            Arguments.of(HttpRequest(path="/orders/list"), HttpRequest(path="/orders/(id)", queryParametersMap=mapOf("status" to "active"))),
+
+            // ----------------------------
+            // Literal context
+            // ----------------------------
+            Arguments.of(HttpRequest(path="/users/prefix(id)"), HttpRequest(path="/users/(id)")),
+            Arguments.of(HttpRequest(path="/items/item-(id)-detail"), HttpRequest(path="/items/item-(id)"))
         )
     }
 

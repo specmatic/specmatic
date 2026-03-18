@@ -10,6 +10,7 @@ import io.ktor.client.request.forms.*
 import io.ktor.http.*
 import io.ktor.http.content.*
 import io.specmatic.core.log.logger
+import io.specmatic.core.utilities.SegmentCounts
 import io.specmatic.core.utilities.URIUtils
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.FuzzyExampleJsonValidator
@@ -426,17 +427,20 @@ data class HttpRequest(
         return queryParams.containsKey(name)
     }
 
-    val generality: Int by lazy {
-        val pathScore: Int = path?.split(URL_PATH_DELIMITER)?.count { StringValue(it).isPatternOrMatcherToken() } ?: 0
-        val headerScore: Int = headers.values.sumOf { if(isPatternOrMatcherToken(it)) 1 as Int else 0 }
-        val queryScore: Int = queryParams.paramPairs.sumOf { if(isPatternOrMatcherToken(it.second)) 1 as Int else 0 }
-        val bodyScore: Int = body.generality()
-
-        pathScore + headerScore + queryScore + bodyScore
+    val generality: RequestScore by lazy {
+        val pathScore = pathSegmentCounts().toGeneralityComparator()
+        val headerScore = headers.values.sumOf { if (isPatternOrMatcherToken(it)) 1 else 0 }
+        val queryScore = queryParams.paramPairs.sumOf { if (isPatternOrMatcherToken(it.second)) 1 else 0 }
+        val bodyScore = body.generality()
+        RequestScore(pathScore, queryScore, headerScore, bodyScore)
     }
 
-    val specificity: Int by lazy {
-        pathSpecificity() + headerSpecificity() + queryParamsSpecificity() + bodySpecificity()
+    val specificity: RequestScore by lazy {
+        val pathScore = pathSegmentCounts().toSpecificityComparator()
+        val headerScore = headerSpecificity()
+        val queryScore = queryParamsSpecificity()
+        val bodyScore = bodySpecificity()
+        RequestScore(pathScore, queryScore, headerScore, bodyScore)
     }
 
     internal fun bodySpecificity(): Int = body.specificity()
@@ -445,8 +449,10 @@ data class HttpRequest(
 
     internal fun headerSpecificity(): Int = headers.values.count { !isPatternOrMatcherToken(it)}
 
-    internal fun pathSpecificity(): Int = (if (path == "/") "" else path)
-        ?.split(URL_PATH_DELIMITER)?.count { !StringValue(it).isPatternOrMatcherToken() } ?: 0
+    private fun pathSegmentCounts(): SegmentCounts = path?.split('/')?.asSequence()?.filter(String::isNotBlank)
+        ?.map { SegmentCounts.segmentCounts(it, TOKEN_REGEX) }
+        ?.fold(SegmentCounts()) { acc, counts -> acc + counts }
+        ?: SegmentCounts()
 
     fun adjustPayloadForContentType(): HttpRequest {
         val adjustedHeader = this.addHeaderIfMissing(CONTENT_TYPE, body.httpContentType).headers

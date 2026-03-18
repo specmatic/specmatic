@@ -1,0 +1,13 @@
+{
+  "http-request": {
+    "method": "GET",
+    "path": "/example/token-A,(id2:string)/status"
+  },
+  "http-response": {
+    "status": 202,
+    "body": {
+      "message": "(string)",
+      "source": "token-external"
+    }
+  }
+}

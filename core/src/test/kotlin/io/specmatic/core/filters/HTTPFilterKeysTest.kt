@@ -274,6 +274,12 @@ class HTTPFilterKeysTest {
         assertThat(items.caseSensitiveContains("")).isTrue()
     }
 
+    @ParameterizedTest(name = "scenario path \"{0}\" with parameter \"{1}\" should be {2}")
+    @MethodSource("parametersPathCases")
+    fun `PARAMETERS_PATH includes should handle templated and interpolated path parameter styles`(scenario: Scenario, filterValue: String, expected: Boolean) {
+        assertThat(HTTPFilterKeys.PARAMETERS_PATH.includes(scenario, "PARAMETERS.PATH", filterValue)).isEqualTo(expected)
+    }
+
     @ParameterizedTest(name = "request content type in scenario \"{0}\" should match filter value \"{1}\" as {2}")
     @CsvSource(
         "application/json,application/json,true",
@@ -339,6 +345,8 @@ class HTTPFilterKeysTest {
     companion object {
         @JvmStatic
         fun pathFilterCases() = listOf(
+            Arguments.of(scenarioForPath("/test/status"), "/test/status", true),
+            Arguments.of(scenarioForPath("/test/status"), "/test/{id}/status", false),
             Arguments.of(scenarioForPath("/order/(id:string)/"), "/order/{id}/", true),
             Arguments.of(scenarioForPath("/order/(id:string)"), "/order/{id}", true),
             Arguments.of(scenarioForPath("/order/(id:string)/"), "/order/*/", true),
@@ -349,6 +357,22 @@ class HTTPFilterKeysTest {
             Arguments.of(scenarioForPath("/order/(id:string)/"), "/ORDER/{id}/", false),
             Arguments.of(scenarioForPath("/order/(id:string)/"), "/order/{orderId}/", false),
             Arguments.of(scenarioForPath("/order/(id:string)/events"), "/order/{id}", false),
+            Arguments.of(scenarioForPath("/test/(id1:string),(id2:string)/status"), "/test/{id1},{id2}/status", true),
+            Arguments.of(scenarioForPath("/test/(id1:string),(id2:string)/status"), "/test/{id1}-{id2}/status", false),
+        )
+
+        @JvmStatic
+        fun parametersPathCases() = listOf(
+            Arguments.of(scenarioForPath("/catalog/item-(sku:string)/"), "sku", true),
+            Arguments.of(scenarioForPath("/catalog/item/(sku:string)"), "sku", true),
+            Arguments.of(scenarioForPath("/catalog/item-(sku:string)/"), "catalog", false),
+            Arguments.of(scenarioForPath("/catalog/item/(sku:string)"), "catalog", false),
+            Arguments.of(scenarioForPath("/test/(id1:string),(id2:string)/status"), "id1", true),
+            Arguments.of(scenarioForPath("/test/(id1:string),(id2:string)/status"), "id2", true),
+            Arguments.of(scenarioForPath("/test/(id1:string)/(id2:string)/status"), "id1", true),
+            Arguments.of(scenarioForPath("/test/(id1:string)/(id2:string)/status"), "id2", true),
+            Arguments.of(scenarioForPath("/test/(id1:string),(id2:string)/status"), "id3", false),
+            Arguments.of(scenarioForPath("/test/(id1:string)/(id2:string)/status"), "id3", false),
         )
 
         private fun scenarioForPath(path: String): Scenario {

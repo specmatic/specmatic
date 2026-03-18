@@ -1,10 +1,13 @@
 package io.specmatic.stub
 
 import io.specmatic.core.HttpRequest
+import io.specmatic.core.RequestScore
+import io.specmatic.core.RequestScore.Companion.orEmpty
 import io.specmatic.core.Result
 import io.specmatic.core.invalidRequestStatuses
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.IgnoreUnexpectedKeys
+import io.specmatic.core.utilities.SegmentCounts
 import io.specmatic.mock.ScenarioStub
 import java.net.URI
 
@@ -103,9 +106,10 @@ class ThreadSafeListOfStubs(
             stubData.stubType
         }
 
-        val exactMatch = grouped[StubType.Exact].orEmpty().sortedBy {
-            it.second.resolveOriginalRequest()?.generality ?: Int.MAX_VALUE
-        }.find { (result, _) -> result is Result.Success }
+        val exactMatch = grouped[StubType.Exact]
+            .orEmpty()
+            .sortedWith(comparator = compareBy(nullsLast()) { it.second.resolveOriginalRequest()?.generality })
+            .find { (result, _) -> result is Result.Success }
 
         if(exactMatch != null)
             return Pair(exactMatch.second, listMatchResults)
@@ -199,38 +203,10 @@ class ThreadSafeListOfStubs(
     companion object {
         internal fun getPartialBySpecificityAndGenerality(partials: List<HttpStubData>): HttpStubData? {
             if (partials.isEmpty()) return null
-            
-            // Group by specificity (highest first)
-            val groupedBySpecificity = partials.groupBy { stubData ->
-                stubData.resolveOriginalRequest()?.specificity ?: 0
-            }.toSortedMap(reverseOrder())
-            
-            // Get the group with highest specificity
-            val highestSpecificityGroup = groupedBySpecificity.entries.first().value
-            
-            // If only one partial in the highest specificity group, use it
-            if (highestSpecificityGroup.size == 1) {
-                return highestSpecificityGroup.single()
-            }
-            
-            // Multiple partials in highest specificity group - group by generality (lowest first)
-            val groupedByGenerality = highestSpecificityGroup.groupBy { stubData ->
-                stubData.resolveOriginalRequest()?.generality ?: 0
-            }.toSortedMap()
-            
-            // Get the group with lowest generality and pick the first one
-            return groupedByGenerality.entries.first().value.first()
+            val highestSpecificity = partials.maxOf { it.resolveOriginalRequest()?.specificity.orEmpty() }
+            return partials.asSequence()
+                .filter { (it.resolveOriginalRequest()?.specificity.orEmpty()) == highestSpecificity }
+                .minByOrNull { it.resolveOriginalRequest()?.generality.orEmpty() }
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-

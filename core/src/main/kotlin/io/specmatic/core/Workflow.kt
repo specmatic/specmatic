@@ -61,31 +61,20 @@ class Workflow(
                     throw ContractException("PATH.<name> must refer to the name of a path parameter")
 
                 val pathParamName = path[0]
-
-                val pathParamIndex = originalScenario.httpRequestPattern.httpPathPattern?.pathSegmentPatterns?.indexOfFirst { it.key == pathParamName } ?: -1
-
-                if(pathParamIndex < 0) {
-                    request
-                }
-                else {
-                    val updatedPath = request.path!!.split("/").toMutableList()
-
-                    val indexToUpdate = if(updatedPath.getOrNull(0) == "") pathParamIndex + 1 else pathParamIndex
-
-                    id?.let {
-                        updatedPath.set(indexToUpdate, it.toStringLiteral())
-                    }
-
-                    val result = originalScenario.httpRequestPattern.httpPathPattern?.matches(updatedPath.joinToString("/"), originalScenario.resolver)
-
-                    result?.throwOnFailure()
-
-                    request.copy(path = updatedPath.joinToString("/"))
-                }
+                val valueToInsert = id ?: return request
+                updateAndValidatePath(request, originalScenario, pathParamName, valueToInsert)
             }
             else -> {
                 throw ContractException("Cannot extract data from $area yet")
             }
         }
+    }
+
+    private fun updateAndValidatePath(request: HttpRequest, scenario: Scenario, parameterName: String, value: Value): HttpRequest {
+        val pathPattern = scenario.httpRequestPattern.httpPathPattern ?: return request
+        val originalPath = request.path.orEmpty()
+        val updatedPath = pathPattern.updatePathParameter(originalPath, parameterName, value) ?: return request
+        pathPattern.matches(updatedPath, scenario.resolver).throwOnFailure()
+        return request.copy(path = updatedPath)
     }
 }

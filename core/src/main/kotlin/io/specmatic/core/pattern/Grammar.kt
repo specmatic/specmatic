@@ -12,6 +12,7 @@ import java.io.File
 const val XML_ATTR_OPTIONAL_SUFFIX = ".opt"
 const val DEFAULT_OPTIONAL_SUFFIX = "?"
 const val UTF_BYTE_ORDER_MARK = "\uFEFF"
+val TOKEN_REGEX = Regex("""\([^)]+\)|\$(\w+)?\([^()]*\)""")
 
 fun withoutOptionality(key: String): String {
     return when {
