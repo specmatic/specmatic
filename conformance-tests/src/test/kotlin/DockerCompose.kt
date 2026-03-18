@@ -1,8 +1,7 @@
 import java.io.File
 
-class DockerCompose(private val specFile: String) {
+class DockerCompose(private val specFile: String, private val workDir: File = File("build/resources/test")) {
     private val projectName = specFile.replace(".", "-")
-    private val workDir = File("build/resources/test")
     private val env = mapOf(
         "MITM_PROXY_VERSION" to "12.2.1",
         "SPECMATIC_VERSION" to "2.42.2",
@@ -14,14 +13,19 @@ class DockerCompose(private val specFile: String) {
 
     fun start() {
         val process = command("up", "--exit-code-from", "test").start()
-        process.inputStream.bufferedReader().forEachLine(::println)
         exitCode = process.waitFor()
     }
 
     fun stop() {
         val process = command("down", "--remove-orphans").start()
-        process.inputStream.bufferedReader().forEachLine(::println)
         process.waitFor()
+    }
+
+    fun mitmLogs(): String {
+        val process = command("logs", "mitm").start()
+        val output = process.inputStream.bufferedReader().readText()
+        process.waitFor()
+        return output
     }
 
     private fun command(vararg args: String): ProcessBuilder =
