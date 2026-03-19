@@ -576,8 +576,8 @@ private fun parseOrString(pattern: Pattern, sampleValue: String, resolver: Resol
         StringValue(sampleValue)
     }
 
-fun Map<String, String>.withoutTransportHeaders(): Map<String, String> =
-    this.filterKeys { key -> key.lowercase() !in HTTP_TRANSPORT_HEADERS }
+fun Map<String, String>.withoutTransportHeaders(headersToExclude: Set<String> = HTTP_TRANSPORT_HEADERS): Map<String, String> =
+    this.filterKeys { key -> key.lowercase() !in headersToExclude }
 
 fun <T> Map<String, T>.getCaseInsensitive(key: String): Map.Entry<String, T>? = this.entries.find { it.key.equals(key, ignoreCase = true) }
 
@@ -596,7 +596,7 @@ fun Map<String, Pattern>.addIfNotExistCaseInsensitiveCheckOptional(key: String, 
     return this.plus(key to value)
 }
 
-val HTTP_TRANSPORT_HEADERS: Set<String> =
+val HTTP_REQUEST_TRANSPORT_HEADERS: Set<String> =
     listOf(
         HttpHeaders.Authorization,
         HttpHeaders.UserAgent,
@@ -606,9 +606,25 @@ val HTTP_TRANSPORT_HEADERS: Set<String> =
         HttpHeaders.IfModifiedSince,
         HttpHeaders.IfNoneMatch,
         HttpHeaders.CacheControl,
+        "DNT",
         HttpHeaders.ContentLength,
         HttpHeaders.Range,
+        HttpHeaders.Forwarded,
         HttpHeaders.XForwardedFor,
+        HttpHeaders.XForwardedHost,
+        HttpHeaders.XForwardedPort,
+        HttpHeaders.XForwardedProto,
+        "Sec-Fetch-Site",
+        "Sec-Fetch-Mode",
+        "Sec-Fetch-Dest",
+        "Sec-GPC",
+    ).map {
+        it.lowercase()
+    }.toSet()
+
+val HTTP_RESPONSE_TRANSPORT_HEADERS: Set<String> =
+    listOf(
+        HttpHeaders.ContentLength,
         HttpHeaders.Date,
         HttpHeaders.Server,
         HttpHeaders.Expires,
@@ -621,6 +637,11 @@ val HTTP_TRANSPORT_HEADERS: Set<String> =
         HttpHeaders.AccessControlRequestMethod,
     ).map {
         it.lowercase()
-    }.plus(listOfExcludedHeaders())
+    }.toSet()
+
+val HTTP_TRANSPORT_HEADERS: Set<String> =
+    HTTP_REQUEST_TRANSPORT_HEADERS
+        .plus(HTTP_RESPONSE_TRANSPORT_HEADERS)
+        .plus(listOfExcludedHeaders())
         .toSet()
         .minus(HttpHeaders.ContentType.lowercase())

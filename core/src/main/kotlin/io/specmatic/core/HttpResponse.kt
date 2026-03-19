@@ -203,7 +203,7 @@ data class HttpResponse(
 
     fun dropIrrelevantHeaders(): HttpResponse = withoutTransportHeaders().withoutConversionHeaders().withoutSpecmaticHeaders()
 
-    fun withoutTransportHeaders(): HttpResponse = copy(headers = headers.withoutTransportHeaders())
+    fun withoutTransportHeaders(): HttpResponse = copy(headers = headers.withoutTransportHeaders(HTTP_RESPONSE_TRANSPORT_HEADERS))
 
     fun withoutSpecmaticHeaders(): HttpResponse = copy(headers = dropSpecmaticHeaders(headers))
 
