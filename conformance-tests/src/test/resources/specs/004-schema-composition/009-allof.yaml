@@ -1,0 +1,64 @@
+openapi: 3.0.3
+info:
+  title: "Schema composition - allOf"
+  version: "1.0"
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      responses:
+        '200':
+          description: Pet list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  allOf:
+                    - type: object
+                      required:
+                        - id
+                        - name
+                      properties:
+                        id:
+                          type: integer
+                        name:
+                          type: string
+                    - type: object
+                      required:
+                        - species
+                        - age
+                      properties:
+                        species:
+                          type: string
+                        age:
+                          type: integer
+    post:
+      operationId: createPet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - type: object
+                  required:
+                    - id
+                    - name
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+                - type: object
+                  required:
+                    - species
+                    - age
+                  properties:
+                    species:
+                      type: string
+                    age:
+                      type: integer
+      responses:
+        '201':
+          description: Created

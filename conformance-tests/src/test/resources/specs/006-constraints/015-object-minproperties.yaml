@@ -1,0 +1,50 @@
+openapi: 3.0.3
+info:
+  title: "Constraint - object minProperties"
+  version: "1.0"
+paths:
+  /profiles:
+    get:
+      operationId: listProfiles
+      responses:
+        '200':
+          description: Profile list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - attributes
+                  properties:
+                    id:
+                      type: integer
+                    attributes:
+                      type: object
+                      minProperties: 1
+                      additionalProperties:
+                        type: string
+    post:
+      operationId: createProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - attributes
+              properties:
+                id:
+                  type: integer
+                attributes:
+                  type: object
+                  minProperties: 1
+                  additionalProperties:
+                    type: string
+      responses:
+        '201':
+          description: Created

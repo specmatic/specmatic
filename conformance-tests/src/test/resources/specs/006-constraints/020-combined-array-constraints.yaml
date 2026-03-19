@@ -1,0 +1,54 @@
+openapi: 3.0.3
+info:
+  title: "Constraint - combined array constraints (minItems + maxItems + uniqueItems)"
+  version: "1.0"
+paths:
+  /playlists:
+    get:
+      operationId: listPlaylists
+      responses:
+        '200':
+          description: Playlist list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - tracks
+                  properties:
+                    name:
+                      type: string
+                    tracks:
+                      type: array
+                      minItems: 1
+                      maxItems: 50
+                      uniqueItems: true
+                      items:
+                        type: string
+    post:
+      operationId: createPlaylist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - tracks
+              properties:
+                name:
+                  type: string
+                tracks:
+                  type: array
+                  minItems: 1
+                  maxItems: 50
+                  uniqueItems: true
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Created
