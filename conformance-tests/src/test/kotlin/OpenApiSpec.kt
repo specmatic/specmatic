@@ -37,7 +37,12 @@ class OpenApiSpec private constructor(private val openApi: OpenAPI) {
         return mapper.convertValue(schema, JsonNode::class.java)
     }
 
-    fun responseBodySchema(method: String, template: String, statusCode: Int, contentType: String = "application/json"): JsonNode? {
+    fun responseBodySchema(
+        method: String,
+        template: String,
+        statusCode: Int,
+        contentType: String = "application/json"
+    ): JsonNode? {
         val operation = openApi.paths?.get(template)?.readOperationsMap()
             ?.entries?.firstOrNull { it.key.name.equals(method, ignoreCase = true) }?.value
             ?: return null

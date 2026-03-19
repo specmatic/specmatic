@@ -1,36 +1,60 @@
 import java.io.File
 
-class DockerCompose(private val specFile: String, private val workDir: File = File("build/resources/test")) {
-    private val projectName = specFile.replace(Regex("[^a-zA-Z0-9]"), "-").lowercase()
-    private val env = mapOf(
-        "MITM_PROXY_VERSION" to "12.2.1",
-        "SPECMATIC_VERSION" to "2.42.2",
-        "PATH_TO_OPEN_API_SPEC_FILE" to "./specs/$specFile"
-    )
+class DockerCompose(
+    private val specFile: String,
+    private val workDir: File
+) {
 
-    var exitCode: Int = -1
-        private set
-
-    fun start() {
-        val process = command("up", "--exit-code-from", "test").start()
-        exitCode = process.waitFor()
+    data class CommandResult(
+        val exitCode: Int, val output: String
+    ) {
+        fun isSuccessful(): Boolean = exitCode == 0
     }
 
-    fun stop() {
-        val process = command("down", "--volumes").start()
-        process.waitFor()
+    fun startLoopTest(): CommandResult {
+        val command = buildCommand("up", "--exit-code-from", "test")
+        return run(command)
     }
 
-    fun mitmLogs(): String {
-        val process = command("logs", "mitm", "--no-color", "--no-log-prefix").start()
-        val output = process.inputStream.bufferedReader().readText()
-        process.waitFor()
-        return output
+    fun stop(): CommandResult {
+        val command = buildCommand("down", "--volumes")
+        return run(command)
     }
 
-    private fun command(vararg args: String): ProcessBuilder =
-        ProcessBuilder("docker", "compose", "-p", projectName, *args)
+    fun mitmLogs(): CommandResult {
+        val command = buildCommand("logs", "mitm", "--no-color", "--no-log-prefix")
+        return run(command)
+    }
+
+    fun mustGetAllLogsOutput(): String {
+        val command = buildCommand("logs", "--no-color")
+        val result = run(command)
+        return when (result.isSuccessful()) {
+            true -> result.output
+            else -> throw RuntimeException("failed to getAlllogs. exit code: ${result.exitCode}. output: ${result.output}")
+        }
+    }
+
+    private fun run(command: ProcessBuilder): CommandResult {
+        val process = command.start()
+        val output = process.inputReader().readText()
+        val exitCode = process.waitFor()
+        return CommandResult(exitCode, output)
+    }
+
+    private fun buildCommand(vararg args: String): ProcessBuilder {
+        val composeProjectName = specFile.replace(Regex("[^a-zA-Z0-9]"), "-").lowercase()
+
+        return ProcessBuilder("docker", "compose", "--project-name", composeProjectName, *args)
             .directory(workDir)
-            .redirectErrorStream(true)
-            .also { it.environment().putAll(env) }
+            .redirectErrorStream(true).also {
+                it.environment().putAll(
+                    mapOf(
+                        "MITM_PROXY_VERSION" to "12.2.1",
+                        "SPECMATIC_VERSION" to "2.42.2",
+                        "PATH_TO_OPEN_API_SPEC_FILE" to "./specs/${specFile}"
+                    )
+                )
+            }
+    }
 }
