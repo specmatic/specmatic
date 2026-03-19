@@ -1,0 +1,56 @@
+openapi: 3.0.3
+info:
+  title: "Request/Response body - mixed primitive types"
+  version: "1.0"
+paths:
+  /products:
+    get:
+      operationId: listProducts
+      responses:
+        '200':
+          description: Product list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - quantity
+                    - price
+                    - inStock
+                  properties:
+                    name:
+                      type: string
+                    quantity:
+                      type: integer
+                    price:
+                      type: number
+                    inStock:
+                      type: boolean
+    post:
+      operationId: createProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - quantity
+                - price
+                - inStock
+              properties:
+                name:
+                  type: string
+                quantity:
+                  type: integer
+                price:
+                  type: number
+                inStock:
+                  type: boolean
+      responses:
+        '201':
+          description: Created

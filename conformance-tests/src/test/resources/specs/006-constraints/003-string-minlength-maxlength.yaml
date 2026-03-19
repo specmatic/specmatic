@@ -1,0 +1,48 @@
+openapi: 3.0.3
+info:
+  title: "Constraint - string minLength and maxLength"
+  version: "1.0"
+paths:
+  /slugs:
+    get:
+      operationId: listSlugs
+      responses:
+        '200':
+          description: Slug list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - slug
+                  properties:
+                    id:
+                      type: integer
+                    slug:
+                      type: string
+                      minLength: 2
+                      maxLength: 30
+    post:
+      operationId: createSlug
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - slug
+              properties:
+                id:
+                  type: integer
+                slug:
+                  type: string
+                  minLength: 2
+                  maxLength: 30
+      responses:
+        '201':
+          description: Created

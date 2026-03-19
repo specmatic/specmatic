@@ -1,0 +1,48 @@
+openapi: 3.0.3
+info:
+  title: "Request/Response body - single object response"
+  version: "1.0"
+paths:
+  /settings:
+    get:
+      operationId: getSettings
+      responses:
+        '200':
+          description: Current settings
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - theme
+                  - language
+                  - notificationsEnabled
+                properties:
+                  theme:
+                    type: string
+                  language:
+                    type: string
+                  notificationsEnabled:
+                    type: boolean
+    post:
+      operationId: createSettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - theme
+                - language
+                - notificationsEnabled
+              properties:
+                theme:
+                  type: string
+                language:
+                  type: string
+                notificationsEnabled:
+                  type: boolean
+      responses:
+        '201':
+          description: Created

@@ -1,0 +1,48 @@
+openapi: 3.0.3
+info:
+  title: "Constraint - integer minimum and maximum"
+  version: "1.0"
+paths:
+  /percentages:
+    get:
+      operationId: listPercentages
+      responses:
+        '200':
+          description: Percentage list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - label
+                    - value
+                  properties:
+                    label:
+                      type: string
+                    value:
+                      type: integer
+                      minimum: 0
+                      maximum: 100
+    post:
+      operationId: createPercentage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - label
+                - value
+              properties:
+                label:
+                  type: string
+                value:
+                  type: integer
+                  minimum: 0
+                  maximum: 100
+      responses:
+        '201':
+          description: Created

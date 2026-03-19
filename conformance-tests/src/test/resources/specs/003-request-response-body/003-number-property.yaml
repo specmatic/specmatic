@@ -1,0 +1,44 @@
+openapi: 3.0.3
+info:
+  title: "Request/Response body - number property"
+  version: "1.0"
+paths:
+  /readings:
+    get:
+      operationId: listReadings
+      responses:
+        '200':
+          description: Reading list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - sensor
+                    - value
+                  properties:
+                    sensor:
+                      type: string
+                    value:
+                      type: number
+    post:
+      operationId: createReading
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - sensor
+                - value
+              properties:
+                sensor:
+                  type: string
+                value:
+                  type: number
+      responses:
+        '201':
+          description: Created

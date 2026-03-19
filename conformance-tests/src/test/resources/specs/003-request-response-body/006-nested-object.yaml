@@ -1,0 +1,66 @@
+openapi: 3.0.3
+info:
+  title: "Request/Response body - nested object"
+  version: "1.0"
+paths:
+  /contacts:
+    get:
+      operationId: listContacts
+      responses:
+        '200':
+          description: Contact list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - address
+                  properties:
+                    name:
+                      type: string
+                    address:
+                      type: object
+                      required:
+                        - street
+                        - city
+                        - zip
+                      properties:
+                        street:
+                          type: string
+                        city:
+                          type: string
+                        zip:
+                          type: string
+    post:
+      operationId: createContact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - address
+              properties:
+                name:
+                  type: string
+                address:
+                  type: object
+                  required:
+                    - street
+                    - city
+                    - zip
+                  properties:
+                    street:
+                      type: string
+                    city:
+                      type: string
+                    zip:
+                      type: string
+      responses:
+        '201':
+          description: Created

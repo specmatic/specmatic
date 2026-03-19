@@ -1,0 +1,84 @@
+openapi: 3.0.3
+info:
+  title: "Schema composition - oneOf"
+  version: "1.0"
+paths:
+  /notifications:
+    get:
+      operationId: listNotifications
+      responses:
+        '200':
+          description: Notification list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  oneOf:
+                    - type: object
+                      required:
+                        - type
+                        - email
+                        - subject
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - email
+                        email:
+                          type: string
+                        subject:
+                          type: string
+                    - type: object
+                      required:
+                        - type
+                        - phone
+                        - message
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - sms
+                        phone:
+                          type: string
+                        message:
+                          type: string
+    post:
+      operationId: createNotification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - type
+                    - email
+                    - subject
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - email
+                    email:
+                      type: string
+                    subject:
+                      type: string
+                - type: object
+                  required:
+                    - type
+                    - phone
+                    - message
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - sms
+                    phone:
+                      type: string
+                    message:
+                      type: string
+      responses:
+        '201':
+          description: Created
