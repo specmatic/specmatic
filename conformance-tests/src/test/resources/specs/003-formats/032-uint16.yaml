@@ -24,3 +24,23 @@ paths:
                     port:
                       type: integer
                       format: uint16
+    post:
+      operationId: createPorts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - service
+                - port
+              properties:
+                service:
+                  type: string
+                port:
+                  type: integer
+                  format: uint16
+      responses:
+        '201':
+          description: Created

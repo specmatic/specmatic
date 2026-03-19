@@ -24,3 +24,23 @@ paths:
                     email:
                       type: string
                       format: idn-email
+    post:
+      operationId: createSubscribers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: idn-email
+      responses:
+        '201':
+          description: Created

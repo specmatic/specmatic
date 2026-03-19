@@ -27,3 +27,28 @@ paths:
                   blue:
                     type: integer
                     format: uint8
+    post:
+      operationId: createPixel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - red
+                - green
+                - blue
+              properties:
+                red:
+                  type: integer
+                  format: uint8
+                green:
+                  type: integer
+                  format: uint8
+                blue:
+                  type: integer
+                  format: uint8
+      responses:
+        '201':
+          description: Created

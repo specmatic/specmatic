@@ -24,3 +24,23 @@ paths:
                     location:
                       type: string
                       format: iri
+    post:
+      operationId: createResources
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - location
+              properties:
+                name:
+                  type: string
+                location:
+                  type: string
+                  format: iri
+      responses:
+        '201':
+          description: Created

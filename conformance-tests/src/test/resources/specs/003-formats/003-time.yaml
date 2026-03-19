@@ -24,3 +24,23 @@ paths:
                     time:
                       type: string
                       format: time
+    post:
+      operationId: createAlarms
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - label
+                - time
+              properties:
+                label:
+                  type: string
+                time:
+                  type: string
+                  format: time
+      responses:
+        '201':
+          description: Created

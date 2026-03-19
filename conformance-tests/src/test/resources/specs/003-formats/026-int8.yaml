@@ -23,3 +23,24 @@ paths:
                   priority:
                     type: integer
                     format: int8
+    post:
+      operationId: createFlags
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - level
+                - priority
+              properties:
+                level:
+                  type: integer
+                  format: int8
+                priority:
+                  type: integer
+                  format: int8
+      responses:
+        '201':
+          description: Created

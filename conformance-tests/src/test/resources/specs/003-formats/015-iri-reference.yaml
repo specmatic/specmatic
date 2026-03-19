@@ -24,3 +24,23 @@ paths:
                     ref:
                       type: string
                       format: iri-reference
+    post:
+      operationId: createReferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - label
+                - ref
+              properties:
+                label:
+                  type: string
+                ref:
+                  type: string
+                  format: iri-reference
+      responses:
+        '201':
+          description: Created

@@ -23,3 +23,24 @@ paths:
                   totalRecords:
                     type: integer
                     format: int64
+    post:
+      operationId: createStatistics
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - totalBytes
+                - totalRecords
+              properties:
+                totalBytes:
+                  type: integer
+                  format: int64
+                totalRecords:
+                  type: integer
+                  format: int64
+      responses:
+        '201':
+          description: Created

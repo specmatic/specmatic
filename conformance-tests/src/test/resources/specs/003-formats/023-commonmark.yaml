@@ -24,3 +24,23 @@ paths:
                     body:
                       type: string
                       format: commonmark
+    post:
+      operationId: createArticles
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - body
+              properties:
+                title:
+                  type: string
+                body:
+                  type: string
+                  format: commonmark
+      responses:
+        '201':
+          description: Created

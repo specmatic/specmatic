@@ -24,3 +24,23 @@ paths:
                     address:
                       type: string
                       format: ipv6
+    post:
+      operationId: createInterfaces
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - address
+              properties:
+                name:
+                  type: string
+                address:
+                  type: string
+                  format: ipv6
+      responses:
+        '201':
+          description: Created

@@ -23,3 +23,24 @@ paths:
                   errorCount:
                     type: integer
                     format: int32
+    post:
+      operationId: createMetrics
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - requestCount
+                - errorCount
+              properties:
+                requestCount:
+                  type: integer
+                  format: int32
+                errorCount:
+                  type: integer
+                  format: int32
+      responses:
+        '201':
+          description: Created

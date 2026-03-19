@@ -24,3 +24,23 @@ paths:
                     data:
                       type: string
                       format: byte
+    post:
+      operationId: createThumbnails
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - data
+              properties:
+                name:
+                  type: string
+                data:
+                  type: string
+                  format: byte
+      responses:
+        '201':
+          description: Created

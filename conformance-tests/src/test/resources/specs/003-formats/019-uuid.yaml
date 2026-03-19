@@ -24,3 +24,23 @@ paths:
                       format: uuid
                     user:
                       type: string
+    post:
+      operationId: createSessions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - sessionId
+                - user
+              properties:
+                sessionId:
+                  type: string
+                  format: uuid
+                user:
+                  type: string
+      responses:
+        '201':
+          description: Created

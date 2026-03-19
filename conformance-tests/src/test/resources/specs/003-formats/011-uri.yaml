@@ -24,3 +24,23 @@ paths:
                     url:
                       type: string
                       format: uri
+    post:
+      operationId: createBookmarks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - url
+              properties:
+                title:
+                  type: string
+                url:
+                  type: string
+                  format: uri
+      responses:
+        '201':
+          description: Created

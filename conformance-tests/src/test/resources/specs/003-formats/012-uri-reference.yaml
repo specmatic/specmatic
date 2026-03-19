@@ -24,3 +24,23 @@ paths:
                     href:
                       type: string
                       format: uri-reference
+    post:
+      operationId: createLinks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - label
+                - href
+              properties:
+                label:
+                  type: string
+                href:
+                  type: string
+                  format: uri-reference
+      responses:
+        '201':
+          description: Created

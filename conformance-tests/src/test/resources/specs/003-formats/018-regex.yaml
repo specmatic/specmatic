@@ -24,3 +24,23 @@ paths:
                     pattern:
                       type: string
                       format: regex
+    post:
+      operationId: createRules
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - field
+                - pattern
+              properties:
+                field:
+                  type: string
+                pattern:
+                  type: string
+                  format: regex
+      responses:
+        '201':
+          description: Created
