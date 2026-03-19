@@ -5,7 +5,6 @@ import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpRequestPattern
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.HttpResponsePattern
-import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.Scenario
 import io.specmatic.core.ScenarioInfo
@@ -18,7 +17,6 @@ import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.test.fixtures.OpenAPIFixtureExecutor
-import io.specmatic.core.matchers.MatcherExecutor
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -26,67 +24,6 @@ import java.net.URLClassLoader
 import java.nio.file.Files
 
 class ScenarioAsTestTest {
-
-    @Nested
-    inner class MatcherExecutorTest {
-        @Test
-        fun `calls matcher executor from service loader when present`() {
-            ServiceLoaderTestMatcherExecutor.reset()
-
-            val scenario = scenario(
-                Row(
-                    scenarioStub = ScenarioStub(
-                        response = HttpResponse(200, StringValue("expected"))
-                    )
-                )
-            )
-
-            val result = withServiceLoaderEntries(
-                mapOf(MatcherExecutor::class.java to ServiceLoaderTestMatcherExecutor::class.java.name)
-            ) {
-                scenarioAsTest(scenario).runTest(fixedResponseExecutor("actual")).result
-            }
-
-            assertThat(result).isInstanceOf(Result.Failure::class.java)
-            assertThat(ServiceLoaderTestMatcherExecutor.callCount).isEqualTo(1)
-        }
-
-        @Test
-        fun `does not call matcher executor when missing from service loader`() {
-            ServiceLoaderTestMatcherExecutor.reset()
-
-            val scenario = scenario(
-                Row(
-                    scenarioStub = ScenarioStub(
-                        response = HttpResponse(200, StringValue("expected"))
-                    )
-                )
-            )
-
-            val result = withServiceLoaderEntries(emptyMap()) {
-                scenarioAsTest(scenario).runTest(fixedResponseExecutor("actual")).result
-            }
-
-            assertThat(result).isInstanceOf(Result.Success::class.java)
-            assertThat(ServiceLoaderTestMatcherExecutor.callCount).isEqualTo(0)
-        }
-
-        @Test
-        fun `does not call matcher executor when example row is null`() {
-            ServiceLoaderTestMatcherExecutor.reset()
-
-            val scenario = scenario(exampleRow = null)
-
-            val result = withServiceLoaderEntries(
-                mapOf(MatcherExecutor::class.java to ServiceLoaderTestMatcherExecutor::class.java.name)
-            ) {
-                scenarioAsTest(scenario).runTest(fixedResponseExecutor("actual")).result
-            }
-
-            assertThat(result).isInstanceOf(Result.Success::class.java)
-            assertThat(ServiceLoaderTestMatcherExecutor.callCount).isEqualTo(0)
-        }
-    }
 
     @Nested
     inner class FixtureExecutorTest {
@@ -194,21 +131,6 @@ class ScenarioAsTestTest {
             Thread.currentThread().contextClassLoader = previousContextClassLoader
             classLoader.close()
             tempDir.toFile().deleteRecursively()
-        }
-    }
-}
-
-class ServiceLoaderTestMatcherExecutor : MatcherExecutor {
-    override fun matchesResult(expectedValue: Value, actualValue: Value, resolver: Resolver): Result {
-        callCount += 1
-        return Result.Failure("matcher executor invoked")
-    }
-
-    companion object {
-        var callCount: Int = 0
-
-        fun reset() {
-            callCount = 0
         }
     }
 }

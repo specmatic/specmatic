@@ -5,6 +5,7 @@ import io.specmatic.core.*
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.logger
+import io.specmatic.core.matchers.MatcherEngine
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.Value
 import io.specmatic.license.core.SpecmaticProtocol
@@ -14,7 +15,6 @@ import io.specmatic.test.fixtures.OpenAPIFixtureExecutor
 import io.specmatic.test.handlers.ResponseHandler
 import io.specmatic.test.handlers.ResponseHandlerRegistry
 import io.specmatic.test.handlers.ResponseHandlingResult
-import io.specmatic.core.matchers.MatcherExecutor
 import java.time.Instant
 import java.util.ServiceLoader
 import kotlin.jvm.java
@@ -44,6 +44,7 @@ data class ScenarioAsTest(
 
     private var startTime: Instant? = null
     private var endTime: Instant? = null
+    private val matcherEngine: MatcherEngine? by lazy { MatcherEngine.load() }
 
     override fun toScenarioMetadata() = scenario.toScenarioMetadata()
 
@@ -133,19 +134,21 @@ data class ScenarioAsTest(
             val response = testExecutor.execute(request)
 
             val responseBodyFromExample = testScenario.responseBodyFromExample()
-            val matcherExecutor = ServiceLoader.load(MatcherExecutor::class.java).firstOrNull()
-            if(responseBodyFromExample != null && matcherExecutor != null) {
-                val matchesResult = matcherExecutor.matchesResult(
-                    responseBodyFromExample,
-                    response.body,
-                    testScenario.resolver
-                )
-                if(matchesResult is Result.Failure) {
-                    return ContractTestExecutionResult(
-                        result = matchesResult.withBindings(testScenario.bindings, response),
-                        request = request,
-                        response = response
+
+            if(responseBodyFromExample != null) {
+                matcherEngine?.let {
+                    val matchesResult = it.matchesResult(
+                        responseBodyFromExample,
+                        response.body,
+                        testScenario.resolver
                     )
+                    if(matchesResult is Result.Failure) {
+                        return ContractTestExecutionResult(
+                            result = matchesResult.withBindings(testScenario.bindings, response),
+                            request = request,
+                            response = response
+                        )
+                    }
                 }
             }
 

@@ -1,9 +1,9 @@
 package io.specmatic.core.pattern
 
+import io.specmatic.core.matchers.MatcherEngine
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.Substitution
-import io.specmatic.core.matchers.Matcher
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.ScalarValue
@@ -119,7 +119,8 @@ fun patternFromValueUsing(
     if(value !is StringValue) return parseValueToType(value)
     if(isPatternToken(value)) return DeferredPattern(value.string)
     if(isMatcherToken(value)) {
-        return Matcher.patternFrom(
+        val matcherEngine = MatcherEngine.loadOrThrow()
+        return matcherEngine.patternFrom(
             value = value,
             originalPattern = originalPattern,
             resolver = resolver,
