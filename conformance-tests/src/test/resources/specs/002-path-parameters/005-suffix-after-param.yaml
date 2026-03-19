@@ -1,37 +1,40 @@
 openapi: 3.0.3
 info:
-  title: "Path parameter - string type"
+  title: "Path parameter - suffix after parameter"
   version: "1.0"
 paths:
-  /users/{username}:
+  /images/{imageId}.png:
     get:
-      operationId: getUser
-      summary: Get user by username
+      operationId: getImage
+      summary: Get image by ID with .png extension
       parameters:
-        - name: username
+        - name: imageId
           in: path
           required: true
           schema:
             type: string
       responses:
         '200':
-          description: User found
+          description: Image metadata
           content:
             application/json:
               schema:
                 type: object
                 required:
-                  - username
-                  - email
+                  - imageId
+                  - width
+                  - height
                 properties:
-                  username:
+                  imageId:
                     type: string
-                  email:
-                    type: string
+                  width:
+                    type: integer
+                  height:
+                    type: integer
     post:
-      operationId: createUser
+      operationId: createImage
       parameters:
-        - name: username
+        - name: imageId
           in: path
           required: true
           schema:
@@ -43,13 +46,16 @@ paths:
             schema:
               type: object
               required:
-                - username
-                - email
+                - imageId
+                - width
+                - height
               properties:
-                username:
+                imageId:
                   type: string
-                email:
-                  type: string
+                width:
+                  type: integer
+                height:
+                  type: integer
       responses:
         '201':
           description: Created

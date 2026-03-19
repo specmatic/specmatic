@@ -1,0 +1,87 @@
+openapi: 3.0.3
+info:
+  title: "Path parameter - three interpolated parameters"
+  version: "1.0"
+paths:
+  /coordinates/{lat}:{lon}:{alt}:
+    get:
+      operationId: getLocation
+      summary: Get location by colon-separated coordinates
+      parameters:
+        - name: lat
+          in: path
+          required: true
+          schema:
+            type: number
+        - name: lon
+          in: path
+          required: true
+          schema:
+            type: number
+        - name: alt
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        '200':
+          description: Location info
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - lat
+                  - lon
+                  - alt
+                  - label
+                properties:
+                  lat:
+                    type: number
+                  lon:
+                    type: number
+                  alt:
+                    type: number
+                  label:
+                    type: string
+    post:
+      operationId: createLocation
+      parameters:
+        - name: lat
+          in: path
+          required: true
+          schema:
+            type: number
+        - name: lon
+          in: path
+          required: true
+          schema:
+            type: number
+        - name: alt
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - lat
+                - lon
+                - alt
+                - label
+              properties:
+                lat:
+                  type: number
+                lon:
+                  type: number
+                alt:
+                  type: number
+                label:
+                  type: string
+      responses:
+        '201':
+          description: Created
