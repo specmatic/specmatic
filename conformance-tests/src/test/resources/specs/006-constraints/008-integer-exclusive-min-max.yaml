@@ -23,10 +23,8 @@ paths:
                       type: string
                     celsius:
                       type: integer
-                      exclusiveMinimum: true
-                      minimum: -273
-                      exclusiveMaximum: true
-                      maximum: 1000
+                      exclusiveMinimum: -273
+                      exclusiveMaximum: 1000
     post:
       operationId: createTemperature
       requestBody:
@@ -43,10 +41,8 @@ paths:
                   type: string
                 celsius:
                   type: integer
-                  exclusiveMinimum: true
-                  minimum: -273
-                  exclusiveMaximum: true
-                  maximum: 1000
+                  exclusiveMinimum: -273
+                  exclusiveMaximum: 1000
       responses:
         '201':
           description: Created
