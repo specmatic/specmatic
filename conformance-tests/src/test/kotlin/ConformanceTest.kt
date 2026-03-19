@@ -5,6 +5,7 @@ import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.TestFactory
 import java.io.File
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.stream.IntStream
 import java.util.stream.Stream
 
@@ -34,48 +35,41 @@ class ConformanceTest {
     }
 
     private fun startBatchAndBuildTests(batch: List<String>): Stream<DynamicNode> {
-        val runs = batch.map { it to SpecRun(it, File("build/resources/test")) }
+        val runs = batch.map {
+            it to SpecRun(it, File("build/resources/test"))
+        }
         val executor = Executors.newFixedThreadPool(batch.size)
         val futures = runs.map { (specFile, run) ->
             specFile to executor.submit { run.start() }
         }
-//        executor.awaitTermination() instead of this...
         executor.shutdown()
 
-        val startErrors = mutableMapOf<String, Throwable>()
-        for ((specFile, future) in futures) {
-            try {
-                future.get()
-            } catch (e: Exception) {
-                startErrors[specFile] = e.cause ?: e
-            }
-        }
+        futures.forEach { it.second.get(60, TimeUnit.SECONDS) }
 
         return runs.map { (specFile, run) ->
-            buildContainer(specFile, run, startErrors[specFile]) as DynamicNode
+            buildContainer(specFile, run) as DynamicNode
         }.stream()
     }
 
-    private fun buildContainer(specFile: String, run: SpecRun, startError: Throwable? = null): DynamicContainer {
+    private fun buildContainer(specFile: String, run: SpecRun): DynamicContainer {
         return DynamicContainer.dynamicContainer(
             specFile, listOf(
-                exitCodeTest(run, startError),
+                loopTestExecutionResult(run),
                 allRoutesExercisedTest(run),
                 noUndocumentedRoutesTest(run),
                 requestBodiesValidTest(run),
                 responseBodiesValidTest(run),
-//                requestContentTypeTest(run),
-//                responseContentTypeTest(run),
                 teardownTest(run)
             )
         )
     }
 
-    private fun exitCodeTest(run: SpecRun, startError: Throwable? = null) =
-        DynamicTest.dynamicTest("exits with code 0") {
-            if (startError != null) throw startError
-            assertThat(run.dockerCompose.exitCode)
-                .withFailMessage("Docker Compose exited with code ${run.dockerCompose.exitCode}")
+    private fun loopTestExecutionResult(run: SpecRun) =
+        DynamicTest.dynamicTest("successfully completes a loop test") {
+            assertThat(run.loopTestResult.exitCode)
+                .withFailMessage(
+                    "loopTest failed with exit code: ${run.loopTestResult.exitCode}. Logs: ${run.dockerCompose.mustGetAllLogsOutput()}"
+                )
                 .isEqualTo(0)
         }
 
@@ -134,7 +128,8 @@ class ConformanceTest {
                 .filter { it.responseBody.isNotBlank() }
                 .mapNotNull { capture ->
                     val template = routeMatcher.matchingTemplate(capture.method, capture.path) ?: return@mapNotNull null
-                    val schema = run.openApiSpec.responseBodySchema(capture.method, template, capture.statusCode) ?: return@mapNotNull null
+                    val schema = run.openApiSpec.responseBodySchema(capture.method, template, capture.statusCode)
+                        ?: return@mapNotNull null
                     val result = validator.validate(capture.responseBody, schema)
                     if (!result.valid) "${capture.method} ${capture.path} ${capture.statusCode} ${capture.responseBody}: ${result.errors}" else null
                 }
@@ -142,42 +137,4 @@ class ConformanceTest {
                 .withFailMessage("Response body validation errors:\n${errors.joinToString("\n")}")
                 .isEmpty()
         }
-
-//    private fun requestContentTypeTest(run: SpecRun) =
-//        DynamicTest.dynamicTest("request Content-Type headers correct") {
-//            val routeMatcher = RouteMatcher(run.openApiSpec.rawModel())
-//            val errors = run.captures
-//                .filter { it.requestBody.isNotBlank() }
-//                .mapNotNull { capture ->
-//                    val template = routeMatcher.matchingTemplate(capture.method, capture.path) ?: return@mapNotNull null
-//                    val hasRequestBodySpec = run.openApiSpec.requestBodySchema(capture.method, template) != null
-//                    if (!hasRequestBodySpec) return@mapNotNull null
-//                    val contentType = capture.requestHeaders["content-type"] ?: ""
-//                    if (!contentType.contains("application/json"))
-//                        "${capture.method} ${capture.path}: content-type was '$contentType'"
-//                    else null
-//                }
-//            assertThat(errors)
-//                .withFailMessage("Request Content-Type errors:\n${errors.joinToString("\n")}")
-//                .isEmpty()
-//        }
-//
-//    private fun responseContentTypeTest(run: SpecRun) =
-//        DynamicTest.dynamicTest("response Content-Type headers correct") {
-//            val routeMatcher = RouteMatcher(run.openApiSpec.rawModel())
-//            val errors = run.captures
-//                .filter { it.responseBody.isNotBlank() }
-//                .mapNotNull { capture ->
-//                    val template = routeMatcher.matchingTemplate(capture.method, capture.path) ?: return@mapNotNull null
-//                    val hasResponseBodySpec = run.openApiSpec.responseBodySchema(capture.method, template, capture.statusCode) != null
-//                    if (!hasResponseBodySpec) return@mapNotNull null
-//                    val contentType = capture.responseHeaders["content-type"] ?: ""
-//                    if (!contentType.contains("application/json"))
-//                        "${capture.method} ${capture.path} ${capture.statusCode}: content-type was '$contentType'"
-//                    else null
-//                }
-//            assertThat(errors)
-//                .withFailMessage("Response Content-Type errors:\n${errors.joinToString("\n")}")
-//                .isEmpty()
-//        }
 }
