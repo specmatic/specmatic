@@ -24,3 +24,23 @@ paths:
                     content:
                       type: string
                       format: binary
+    post:
+      operationId: createBlobs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - content
+              properties:
+                id:
+                  type: string
+                content:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Created

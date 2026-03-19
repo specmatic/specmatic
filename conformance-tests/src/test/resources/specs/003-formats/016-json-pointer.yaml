@@ -24,3 +24,23 @@ paths:
                     path:
                       type: string
                       format: json-pointer
+    post:
+      operationId: createPatches
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - op
+                - path
+              properties:
+                op:
+                  type: string
+                path:
+                  type: string
+                  format: json-pointer
+      responses:
+        '201':
+          description: Created

@@ -23,3 +23,24 @@ paths:
                   pressure:
                     type: number
                     format: float
+    post:
+      operationId: createSensor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - humidity
+                - pressure
+              properties:
+                humidity:
+                  type: number
+                  format: float
+                pressure:
+                  type: number
+                  format: float
+      responses:
+        '201':
+          description: Created

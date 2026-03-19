@@ -24,3 +24,23 @@ paths:
                     ip:
                       type: string
                       format: ipv4
+    post:
+      operationId: createAllowlist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - label
+                - ip
+              properties:
+                label:
+                  type: string
+                ip:
+                  type: string
+                  format: ipv4
+      responses:
+        '201':
+          description: Created

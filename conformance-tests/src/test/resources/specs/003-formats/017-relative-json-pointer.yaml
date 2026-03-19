@@ -24,3 +24,23 @@ paths:
                       format: relative-json-pointer
                     target:
                       type: string
+    post:
+      operationId: createMappings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - source
+                - target
+              properties:
+                source:
+                  type: string
+                  format: relative-json-pointer
+                target:
+                  type: string
+      responses:
+        '201':
+          description: Created

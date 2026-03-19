@@ -24,3 +24,23 @@ paths:
                     content:
                       type: string
                       format: html
+    post:
+      operationId: createPages
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - content
+              properties:
+                title:
+                  type: string
+                content:
+                  type: string
+                  format: html
+      responses:
+        '201':
+          description: Created

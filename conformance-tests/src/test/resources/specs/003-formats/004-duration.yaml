@@ -24,3 +24,23 @@ paths:
                     elapsed:
                       type: string
                       format: duration
+    post:
+      operationId: createTasks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - elapsed
+              properties:
+                name:
+                  type: string
+                elapsed:
+                  type: string
+                  format: duration
+      responses:
+        '201':
+          description: Created

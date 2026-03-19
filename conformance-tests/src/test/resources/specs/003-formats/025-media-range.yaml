@@ -24,3 +24,23 @@ paths:
                     mediaType:
                       type: string
                       format: media-range
+    post:
+      operationId: createContentTypes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - label
+                - mediaType
+              properties:
+                label:
+                  type: string
+                mediaType:
+                  type: string
+                  format: media-range
+      responses:
+        '201':
+          description: Created

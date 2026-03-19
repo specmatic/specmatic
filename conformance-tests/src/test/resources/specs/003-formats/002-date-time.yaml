@@ -24,3 +24,23 @@ paths:
                     startedAt:
                       type: string
                       format: date-time
+    post:
+      operationId: createEvents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - startedAt
+              properties:
+                title:
+                  type: string
+                startedAt:
+                  type: string
+                  format: date-time
+      responses:
+        '201':
+          description: Created

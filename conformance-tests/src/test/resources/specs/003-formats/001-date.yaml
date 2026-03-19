@@ -24,3 +24,23 @@ paths:
                     date:
                       type: string
                       format: date
+    post:
+      operationId: createHolidays
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - date
+              properties:
+                name:
+                  type: string
+                date:
+                  type: string
+                  format: date
+      responses:
+        '201':
+          description: Created

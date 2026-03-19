@@ -24,3 +24,23 @@ paths:
                     template:
                       type: string
                       format: uri-template
+    post:
+      operationId: createTemplates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - template
+              properties:
+                name:
+                  type: string
+                template:
+                  type: string
+                  format: uri-template
+      responses:
+        '201':
+          description: Created
