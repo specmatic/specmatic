@@ -1,50 +1,50 @@
 openapi: 3.0.3
 info:
-  title: "Multiple path parameters"
+  title: "Path parameter - two parameters with dash separator"
   version: "1.0"
 paths:
-  /stores/{storeId}/products/{productId}:
+  /widgets/{id}-v{version}:
     get:
-      operationId: getStoreProduct
-      summary: Get a product within a store
+      operationId: getWidgetVersion
+      summary: Get a specific version of a widget
       parameters:
-        - name: storeId
+        - name: id
           in: path
           required: true
           schema:
             type: integer
-        - name: productId
+        - name: version
           in: path
           required: true
           schema:
             type: integer
       responses:
         '200':
-          description: Product found
+          description: Widget version found
           content:
             application/json:
               schema:
                 type: object
                 required:
-                  - storeId
-                  - productId
+                  - id
+                  - version
                   - name
                 properties:
-                  storeId:
+                  id:
                     type: integer
-                  productId:
+                  version:
                     type: integer
                   name:
                     type: string
     post:
-      operationId: createStoreProduct
+      operationId: createWidgetVersion
       parameters:
-        - name: storeId
+        - name: id
           in: path
           required: true
           schema:
             type: integer
-        - name: productId
+        - name: version
           in: path
           required: true
           schema:
@@ -56,13 +56,13 @@ paths:
             schema:
               type: object
               required:
-                - storeId
-                - productId
+                - id
+                - version
                 - name
               properties:
-                storeId:
+                id:
                   type: integer
-                productId:
+                version:
                   type: integer
                 name:
                   type: string

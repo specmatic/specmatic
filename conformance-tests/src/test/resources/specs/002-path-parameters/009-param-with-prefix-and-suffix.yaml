@@ -1,37 +1,40 @@
 openapi: 3.0.3
 info:
-  title: "Path parameter - integer type"
+  title: "Path parameter - prefix and suffix around parameter"
   version: "1.0"
 paths:
-  /orders/{orderId}:
+  /reports/report-{reportId}-summary:
     get:
-      operationId: getOrder
-      summary: Get order by integer ID
+      operationId: getReportSummary
+      summary: Get report summary with prefix and suffix in path
       parameters:
-        - name: orderId
+        - name: reportId
           in: path
           required: true
           schema:
             type: integer
       responses:
         '200':
-          description: Order found
+          description: Report summary
           content:
             application/json:
               schema:
                 type: object
                 required:
-                  - orderId
-                  - status
+                  - reportId
+                  - title
+                  - total
                 properties:
-                  orderId:
+                  reportId:
                     type: integer
-                  status:
+                  title:
                     type: string
+                  total:
+                    type: number
     post:
-      operationId: createOrder
+      operationId: createReportSummary
       parameters:
-        - name: orderId
+        - name: reportId
           in: path
           required: true
           schema:
@@ -43,13 +46,16 @@ paths:
             schema:
               type: object
               required:
-                - orderId
-                - status
+                - reportId
+                - title
+                - total
               properties:
-                orderId:
+                reportId:
                   type: integer
-                status:
+                title:
                   type: string
+                total:
+                  type: number
       responses:
         '201':
           description: Created
