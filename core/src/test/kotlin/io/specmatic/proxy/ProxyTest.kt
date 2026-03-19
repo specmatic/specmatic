@@ -4,11 +4,14 @@ import io.ktor.http.*
 import io.specmatic.Waiter
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.HttpResponse
+import io.specmatic.core.HttpRequest
+import io.specmatic.core.HTTP_REQUEST_TRANSPORT_HEADERS
 import io.specmatic.core.YAML
 import io.specmatic.core.parseGherkinStringToFeature
 import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.value.JSONObjectValue
+import io.specmatic.core.value.StringValue
 import io.specmatic.stub.HttpStub
 import io.ktor.util.*
 import io.specmatic.core.pattern.QueryParameterScalarPattern
@@ -29,21 +32,6 @@ import java.net.InetSocketAddress
 import java.nio.file.Files
 
 internal class ProxyTest {
-    private val dynamicHttpHeaders =
-        listOf(
-            HttpHeaders.Authorization,
-            HttpHeaders.UserAgent,
-            HttpHeaders.Referrer,
-            HttpHeaders.AcceptLanguage,
-            HttpHeaders.Host,
-            HttpHeaders.IfModifiedSince,
-            HttpHeaders.IfNoneMatch,
-            HttpHeaders.CacheControl,
-            HttpHeaders.ContentLength,
-            HttpHeaders.Range,
-            HttpHeaders.XForwardedFor,
-        )
-
     private val simpleFeature =
         parseGherkinStringToFeature(
             """
@@ -307,11 +295,57 @@ internal class ProxyTest {
 
         assertThat(fakeFileWriter.receivedContract?.trim()).startsWith("openapi:")
 
-        dynamicHttpHeaders.forEach {
+        HTTP_REQUEST_TRANSPORT_HEADERS.forEach {
             assertThat(fakeFileWriter.receivedContract)
                 .withFailMessage("Specification should not have contained $it")
                 .doesNotContainIgnoringCase("name: $it")
             assertThat(fakeFileWriter.receivedStub).withFailMessage("Stub should not have contained $it")
+        }
+    }
+
+    @Test
+    fun `should not include transport and browser metadata headers in recorded proxy artifacts`() {
+        HttpStub(simpleFeature).use {
+            Proxy(host = "localhost", port = 9001, "http://localhost:9000", fakeFileWriter).use {
+                HttpClient("http://localhost:9001").use { client ->
+                    val response = client.execute(
+                        HttpRequest(
+                            method = "POST",
+                            path = "/",
+                            headers = mapOf(
+                                "DNT" to "1",
+                                HttpHeaders.Forwarded to "for=192.0.2.60;proto=https;host=example.com",
+                                HttpHeaders.XForwardedHost to "example.com",
+                                HttpHeaders.XForwardedPort to "443",
+                                HttpHeaders.XForwardedProto to "https",
+                                "Sec-Fetch-Site" to "cross-site",
+                                "Sec-Fetch-Mode" to "cors",
+                                "Sec-Fetch-Dest" to "empty",
+                                "Sec-GPC" to "1",
+                                HttpHeaders.ContentType to "text/plain"
+                            ),
+                            body = StringValue("10")
+                        )
+                    )
+
+                    assertThat(response.status).isEqualTo(200)
+                }
+            }
+        }
+
+        listOf(
+            "DNT",
+            HttpHeaders.Forwarded,
+            HttpHeaders.XForwardedHost,
+            HttpHeaders.XForwardedPort,
+            HttpHeaders.XForwardedProto,
+            "Sec-Fetch-Site",
+            "Sec-Fetch-Mode",
+            "Sec-Fetch-Dest",
+            "Sec-GPC",
+        ).forEach { headerName ->
+            assertThat(fakeFileWriter.receivedContract).doesNotContainIgnoringCase("name: $headerName")
+            assertThat(fakeFileWriter.receivedStub).doesNotContainIgnoringCase("\"$headerName\"")
         }
     }
 
