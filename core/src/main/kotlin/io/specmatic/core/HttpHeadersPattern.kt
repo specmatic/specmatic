@@ -624,6 +624,7 @@ val HTTP_REQUEST_TRANSPORT_HEADERS: Set<String> =
 
 val HTTP_RESPONSE_TRANSPORT_HEADERS: Set<String> =
     listOf(
+        HttpHeaders.ContentLength,
         HttpHeaders.Date,
         HttpHeaders.Server,
         HttpHeaders.Expires,
