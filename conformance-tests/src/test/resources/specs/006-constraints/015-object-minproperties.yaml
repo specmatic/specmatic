@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Constraint - object minProperties"
-  version: "1.0"
+  title: Constraint - object minProperties
+  version: '1.0'
 paths:
   /profiles:
     get:
@@ -16,8 +16,8 @@ paths:
                 items:
                   type: object
                   required:
-                    - id
-                    - attributes
+                  - id
+                  - attributes
                   properties:
                     id:
                       type: integer
@@ -26,6 +26,17 @@ paths:
                       minProperties: 1
                       additionalProperties:
                         type: string
+              examples:
+                example1:
+                  value:
+                  - id: 0
+                    attributes:
+                      keya: value1
+                example2:
+                  value:
+                  - id: 50
+                    attributes:
+                      keyb: value2
     post:
       operationId: createProfile
       requestBody:
@@ -35,8 +46,8 @@ paths:
             schema:
               type: object
               required:
-                - id
-                - attributes
+              - id
+              - attributes
               properties:
                 id:
                   type: integer
@@ -45,6 +56,17 @@ paths:
                   minProperties: 1
                   additionalProperties:
                     type: string
+            examples:
+              example1:
+                value:
+                  id: 0
+                  attributes:
+                    keya: value1
+              example2:
+                value:
+                  id: 50
+                  attributes:
+                    keyb: value2
       responses:
         '201':
           description: Created

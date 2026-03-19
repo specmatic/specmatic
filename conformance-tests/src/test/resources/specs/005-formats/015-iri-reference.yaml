@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - iri-reference (JSON Schema)"
-  version: "1.0"
+  title: Format - iri-reference (JSON Schema)
+  version: '1.0'
 paths:
   /references:
     get:
@@ -16,14 +16,23 @@ paths:
                 items:
                   type: object
                   required:
-                    - label
-                    - ref
+                  - label
+                  - ref
                   properties:
                     label:
                       type: string
                     ref:
                       type: string
                       format: iri-reference
+              examples:
+                example1:
+                  value:
+                  - label: value1
+                    ref: /api/v1/items
+                example2:
+                  value:
+                  - label: value2
+                    ref: ../resources/doc
     post:
       operationId: createReferences
       requestBody:
@@ -33,14 +42,23 @@ paths:
             schema:
               type: object
               required:
-                - label
-                - ref
+              - label
+              - ref
               properties:
                 label:
                   type: string
                 ref:
                   type: string
                   format: iri-reference
+            examples:
+              example1:
+                value:
+                  label: value1
+                  ref: /api/v1/items
+              example2:
+                value:
+                  label: value2
+                  ref: ../resources/doc
       responses:
         '201':
           description: Created

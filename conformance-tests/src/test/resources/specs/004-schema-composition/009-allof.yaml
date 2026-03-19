@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Schema composition - allOf"
-  version: "1.0"
+  title: Schema composition - allOf
+  version: '1.0'
 paths:
   /pets:
     get:
@@ -15,24 +15,37 @@ paths:
                 type: array
                 items:
                   allOf:
-                    - type: object
-                      required:
-                        - id
-                        - name
-                      properties:
-                        id:
-                          type: integer
-                        name:
-                          type: string
-                    - type: object
-                      required:
-                        - species
-                        - age
-                      properties:
-                        species:
-                          type: string
-                        age:
-                          type: integer
+                  - type: object
+                    required:
+                    - id
+                    - name
+                    properties:
+                      id:
+                        type: integer
+                      name:
+                        type: string
+                  - type: object
+                    required:
+                    - species
+                    - age
+                    properties:
+                      species:
+                        type: string
+                      age:
+                        type: integer
+              examples:
+                example1:
+                  value:
+                  - id: 0
+                    name: value1
+                    species: value1
+                    age: 0
+                example2:
+                  value:
+                  - id: 50
+                    name: value2
+                    species: value2
+                    age: 50
     post:
       operationId: createPet
       requestBody:
@@ -41,24 +54,37 @@ paths:
           application/json:
             schema:
               allOf:
-                - type: object
-                  required:
-                    - id
-                    - name
-                  properties:
-                    id:
-                      type: integer
-                    name:
-                      type: string
-                - type: object
-                  required:
-                    - species
-                    - age
-                  properties:
-                    species:
-                      type: string
-                    age:
-                      type: integer
+              - type: object
+                required:
+                - id
+                - name
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+              - type: object
+                required:
+                - species
+                - age
+                properties:
+                  species:
+                    type: string
+                  age:
+                    type: integer
+            examples:
+              example1:
+                value:
+                  id: 0
+                  name: value1
+                  species: value1
+                  age: 0
+              example2:
+                value:
+                  id: 50
+                  name: value2
+                  species: value2
+                  age: 50
       responses:
         '201':
           description: Created

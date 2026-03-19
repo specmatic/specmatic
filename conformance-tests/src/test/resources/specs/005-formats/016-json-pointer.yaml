@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - json-pointer (JSON Schema)"
-  version: "1.0"
+  title: Format - json-pointer (JSON Schema)
+  version: '1.0'
 paths:
   /patches:
     get:
@@ -16,14 +16,23 @@ paths:
                 items:
                   type: object
                   required:
-                    - op
-                    - path
+                  - op
+                  - path
                   properties:
                     op:
                       type: string
                     path:
                       type: string
                       format: json-pointer
+              examples:
+                example1:
+                  value:
+                  - op: value1
+                    path: /data/name
+                example2:
+                  value:
+                  - op: value2
+                    path: /items/0/id
     post:
       operationId: createPatches
       requestBody:
@@ -33,14 +42,23 @@ paths:
             schema:
               type: object
               required:
-                - op
-                - path
+              - op
+              - path
               properties:
                 op:
                   type: string
                 path:
                   type: string
                   format: json-pointer
+            examples:
+              example1:
+                value:
+                  op: value1
+                  path: /data/name
+              example2:
+                value:
+                  op: value2
+                  path: /items/0/id
       responses:
         '201':
           description: Created

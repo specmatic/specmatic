@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - duration (JSON Schema)"
-  version: "1.0"
+  title: Format - duration (JSON Schema)
+  version: '1.0'
 paths:
   /tasks:
     get:
@@ -16,14 +16,23 @@ paths:
                 items:
                   type: object
                   required:
-                    - name
-                    - elapsed
+                  - name
+                  - elapsed
                   properties:
                     name:
                       type: string
                     elapsed:
                       type: string
                       format: duration
+              examples:
+                example1:
+                  value:
+                  - name: value1
+                    elapsed: P1DT2H
+                example2:
+                  value:
+                  - name: value2
+                    elapsed: P3M15D
     post:
       operationId: createTasks
       requestBody:
@@ -33,14 +42,23 @@ paths:
             schema:
               type: object
               required:
-                - name
-                - elapsed
+              - name
+              - elapsed
               properties:
                 name:
                   type: string
                 elapsed:
                   type: string
                   format: duration
+            examples:
+              example1:
+                value:
+                  name: value1
+                  elapsed: P1DT2H
+              example2:
+                value:
+                  name: value2
+                  elapsed: P3M15D
       responses:
         '201':
           description: Created

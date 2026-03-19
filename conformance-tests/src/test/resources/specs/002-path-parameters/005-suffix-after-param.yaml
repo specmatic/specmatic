@@ -1,18 +1,18 @@
 openapi: 3.0.3
 info:
-  title: "Path parameter - suffix after parameter"
-  version: "1.0"
+  title: Path parameter - suffix after parameter
+  version: '1.0'
 paths:
   /images/{imageId}.png:
     get:
       operationId: getImage
       summary: Get image by ID with .png extension
       parameters:
-        - name: imageId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: imageId
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: Image metadata
@@ -21,9 +21,9 @@ paths:
               schema:
                 type: object
                 required:
-                  - imageId
-                  - width
-                  - height
+                - imageId
+                - width
+                - height
                 properties:
                   imageId:
                     type: string
@@ -31,14 +31,25 @@ paths:
                     type: integer
                   height:
                     type: integer
+              examples:
+                example1:
+                  value:
+                    imageId: value1
+                    width: 0
+                    height: 0
+                example2:
+                  value:
+                    imageId: value2
+                    width: 50
+                    height: 50
     post:
       operationId: createImage
       parameters:
-        - name: imageId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: imageId
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -46,9 +57,9 @@ paths:
             schema:
               type: object
               required:
-                - imageId
-                - width
-                - height
+              - imageId
+              - width
+              - height
               properties:
                 imageId:
                   type: string
@@ -56,6 +67,17 @@ paths:
                   type: integer
                 height:
                   type: integer
+            examples:
+              example1:
+                value:
+                  imageId: value1
+                  width: 0
+                  height: 0
+              example2:
+                value:
+                  imageId: value2
+                  width: 50
+                  height: 50
       responses:
         '201':
           description: Created

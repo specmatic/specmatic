@@ -1,18 +1,18 @@
 openapi: 3.0.3
 info:
-  title: "Path parameter - integer type"
-  version: "1.0"
+  title: Path parameter - integer type
+  version: '1.0'
 paths:
   /orders/{orderId}:
     get:
       operationId: getOrder
       summary: Get order by integer ID
       parameters:
-        - name: orderId
-          in: path
-          required: true
-          schema:
-            type: integer
+      - name: orderId
+        in: path
+        required: true
+        schema:
+          type: integer
       responses:
         '200':
           description: Order found
@@ -21,21 +21,30 @@ paths:
               schema:
                 type: object
                 required:
-                  - orderId
-                  - status
+                - orderId
+                - status
                 properties:
                   orderId:
                     type: integer
                   status:
                     type: string
+              examples:
+                example1:
+                  value:
+                    orderId: 0
+                    status: value1
+                example2:
+                  value:
+                    orderId: 50
+                    status: value2
     post:
       operationId: createOrder
       parameters:
-        - name: orderId
-          in: path
-          required: true
-          schema:
-            type: integer
+      - name: orderId
+        in: path
+        required: true
+        schema:
+          type: integer
       requestBody:
         required: true
         content:
@@ -43,13 +52,22 @@ paths:
             schema:
               type: object
               required:
-                - orderId
-                - status
+              - orderId
+              - status
               properties:
                 orderId:
                   type: integer
                 status:
                   type: string
+            examples:
+              example1:
+                value:
+                  orderId: 0
+                  status: value1
+              example2:
+                value:
+                  orderId: 50
+                  status: value2
       responses:
         '201':
           description: Created

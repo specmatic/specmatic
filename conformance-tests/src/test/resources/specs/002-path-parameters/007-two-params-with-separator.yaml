@@ -1,23 +1,23 @@
 openapi: 3.0.3
 info:
-  title: "Path parameter - two parameters with dash separator"
-  version: "1.0"
+  title: Path parameter - two parameters with dash separator
+  version: '1.0'
 paths:
   /widgets/{id}-v{version}:
     get:
       operationId: getWidgetVersion
       summary: Get a specific version of a widget
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-        - name: version
-          in: path
-          required: true
-          schema:
-            type: integer
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: integer
       responses:
         '200':
           description: Widget version found
@@ -26,9 +26,9 @@ paths:
               schema:
                 type: object
                 required:
-                  - id
-                  - version
-                  - name
+                - id
+                - version
+                - name
                 properties:
                   id:
                     type: integer
@@ -36,19 +36,30 @@ paths:
                     type: integer
                   name:
                     type: string
+              examples:
+                example1:
+                  value:
+                    id: 0
+                    version: 0
+                    name: value1
+                example2:
+                  value:
+                    id: 50
+                    version: 50
+                    name: value2
     post:
       operationId: createWidgetVersion
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-        - name: version
-          in: path
-          required: true
-          schema:
-            type: integer
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: integer
       requestBody:
         required: true
         content:
@@ -56,9 +67,9 @@ paths:
             schema:
               type: object
               required:
-                - id
-                - version
-                - name
+              - id
+              - version
+              - name
               properties:
                 id:
                   type: integer
@@ -66,6 +77,17 @@ paths:
                   type: integer
                 name:
                   type: string
+            examples:
+              example1:
+                value:
+                  id: 0
+                  version: 0
+                  name: value1
+              example2:
+                value:
+                  id: 50
+                  version: 50
+                  name: value2
       responses:
         '201':
           description: Created

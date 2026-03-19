@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - uri-reference (JSON Schema)"
-  version: "1.0"
+  title: Format - uri-reference (JSON Schema)
+  version: '1.0'
 paths:
   /links:
     get:
@@ -16,14 +16,23 @@ paths:
                 items:
                   type: object
                   required:
-                    - label
-                    - href
+                  - label
+                  - href
                   properties:
                     label:
                       type: string
                     href:
                       type: string
                       format: uri-reference
+              examples:
+                example1:
+                  value:
+                  - label: value1
+                    href: /api/v1/items
+                example2:
+                  value:
+                  - label: value2
+                    href: ../resources/doc
     post:
       operationId: createLinks
       requestBody:
@@ -33,14 +42,23 @@ paths:
             schema:
               type: object
               required:
-                - label
-                - href
+              - label
+              - href
               properties:
                 label:
                   type: string
                 href:
                   type: string
                   format: uri-reference
+            examples:
+              example1:
+                value:
+                  label: value1
+                  href: /api/v1/items
+              example2:
+                value:
+                  label: value2
+                  href: ../resources/doc
       responses:
         '201':
           description: Created

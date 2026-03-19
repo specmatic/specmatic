@@ -1,18 +1,18 @@
 openapi: 3.0.3
 info:
-  title: "Path parameter - prefix and suffix around parameter"
-  version: "1.0"
+  title: Path parameter - prefix and suffix around parameter
+  version: '1.0'
 paths:
   /reports/report-{reportId}-summary:
     get:
       operationId: getReportSummary
       summary: Get report summary with prefix and suffix in path
       parameters:
-        - name: reportId
-          in: path
-          required: true
-          schema:
-            type: integer
+      - name: reportId
+        in: path
+        required: true
+        schema:
+          type: integer
       responses:
         '200':
           description: Report summary
@@ -21,9 +21,9 @@ paths:
               schema:
                 type: object
                 required:
-                  - reportId
-                  - title
-                  - total
+                - reportId
+                - title
+                - total
                 properties:
                   reportId:
                     type: integer
@@ -31,14 +31,25 @@ paths:
                     type: string
                   total:
                     type: number
+              examples:
+                example1:
+                  value:
+                    reportId: 0
+                    title: value1
+                    total: 0
+                example2:
+                  value:
+                    reportId: 50
+                    title: value2
+                    total: 50
     post:
       operationId: createReportSummary
       parameters:
-        - name: reportId
-          in: path
-          required: true
-          schema:
-            type: integer
+      - name: reportId
+        in: path
+        required: true
+        schema:
+          type: integer
       requestBody:
         required: true
         content:
@@ -46,9 +57,9 @@ paths:
             schema:
               type: object
               required:
-                - reportId
-                - title
-                - total
+              - reportId
+              - title
+              - total
               properties:
                 reportId:
                   type: integer
@@ -56,6 +67,17 @@ paths:
                   type: string
                 total:
                   type: number
+            examples:
+              example1:
+                value:
+                  reportId: 0
+                  title: value1
+                  total: 0
+              example2:
+                value:
+                  reportId: 50
+                  title: value2
+                  total: 50
       responses:
         '201':
           description: Created

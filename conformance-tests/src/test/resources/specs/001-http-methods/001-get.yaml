@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "GET with JSON response"
-  version: "1.0"
+  title: GET with JSON response
+  version: '1.0'
 paths:
   /items:
     get:
@@ -15,7 +15,14 @@ paths:
               schema:
                 type: object
                 required:
-                  - name
+                - name
                 properties:
                   name:
                     type: string
+              examples:
+                example1:
+                  value:
+                    name: value1
+                example2:
+                  value:
+                    name: value2

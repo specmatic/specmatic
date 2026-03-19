@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Schema composition - additionalProperties"
-  version: "1.0"
+  title: Schema composition - additionalProperties
+  version: '1.0'
 paths:
   /metadata:
     get:
@@ -16,8 +16,8 @@ paths:
                 items:
                   type: object
                   required:
-                    - id
-                    - labels
+                  - id
+                  - labels
                   properties:
                     id:
                       type: integer
@@ -25,6 +25,17 @@ paths:
                       type: object
                       additionalProperties:
                         type: string
+              examples:
+                example1:
+                  value:
+                  - id: 0
+                    labels:
+                      keya: value1
+                example2:
+                  value:
+                  - id: 50
+                    labels:
+                      keyb: value2
     post:
       operationId: createMetadata
       requestBody:
@@ -34,8 +45,8 @@ paths:
             schema:
               type: object
               required:
-                - id
-                - labels
+              - id
+              - labels
               properties:
                 id:
                   type: integer
@@ -43,6 +54,17 @@ paths:
                   type: object
                   additionalProperties:
                     type: string
+            examples:
+              example1:
+                value:
+                  id: 0
+                  labels:
+                    keya: value1
+              example2:
+                value:
+                  id: 50
+                  labels:
+                    keyb: value2
       responses:
         '201':
           description: Created

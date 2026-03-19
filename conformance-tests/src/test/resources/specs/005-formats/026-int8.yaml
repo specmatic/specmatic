@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - int8 (OpenAPI)"
-  version: "1.0"
+  title: Format - int8 (OpenAPI)
+  version: '1.0'
 paths:
   /flags:
     get:
@@ -14,8 +14,8 @@ paths:
               schema:
                 type: object
                 required:
-                  - level
-                  - priority
+                - level
+                - priority
                 properties:
                   level:
                     type: integer
@@ -23,6 +23,15 @@ paths:
                   priority:
                     type: integer
                     format: int8
+              examples:
+                example1:
+                  value:
+                    level: -128
+                    priority: -128
+                example2:
+                  value:
+                    level: -1
+                    priority: -1
     post:
       operationId: createFlags
       requestBody:
@@ -32,8 +41,8 @@ paths:
             schema:
               type: object
               required:
-                - level
-                - priority
+              - level
+              - priority
               properties:
                 level:
                   type: integer
@@ -41,6 +50,15 @@ paths:
                 priority:
                   type: integer
                   format: int8
+            examples:
+              example1:
+                value:
+                  level: -128
+                  priority: -128
+              example2:
+                value:
+                  level: -1
+                  priority: -1
       responses:
         '201':
           description: Created

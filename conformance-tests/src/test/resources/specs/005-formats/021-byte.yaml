@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - byte (OpenAPI, base64-encoded)"
-  version: "1.0"
+  title: Format - byte (OpenAPI, base64-encoded)
+  version: '1.0'
 paths:
   /thumbnails:
     get:
@@ -16,14 +16,23 @@ paths:
                 items:
                   type: object
                   required:
-                    - name
-                    - data
+                  - name
+                  - data
                   properties:
                     name:
                       type: string
                     data:
                       type: string
                       format: byte
+              examples:
+                example1:
+                  value:
+                  - name: value1
+                    data: aGVsbG8=
+                example2:
+                  value:
+                  - name: value2
+                    data: d29ybGQ=
     post:
       operationId: createThumbnails
       requestBody:
@@ -33,14 +42,23 @@ paths:
             schema:
               type: object
               required:
-                - name
-                - data
+              - name
+              - data
               properties:
                 name:
                   type: string
                 data:
                   type: string
                   format: byte
+            examples:
+              example1:
+                value:
+                  name: value1
+                  data: aGVsbG8=
+              example2:
+                value:
+                  name: value2
+                  data: d29ybGQ=
       responses:
         '201':
           description: Created

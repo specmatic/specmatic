@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Constraint - integer multipleOf"
-  version: "1.0"
+  title: Constraint - integer multipleOf
+  version: '1.0'
 paths:
   /quantities:
     get:
@@ -16,14 +16,23 @@ paths:
                 items:
                   type: object
                   required:
-                    - product
-                    - quantity
+                  - product
+                  - quantity
                   properties:
                     product:
                       type: string
                     quantity:
                       type: integer
                       multipleOf: 6
+              examples:
+                example1:
+                  value:
+                  - product: value1
+                    quantity: 0
+                example2:
+                  value:
+                  - product: value2
+                    quantity: 6
     post:
       operationId: createQuantity
       requestBody:
@@ -33,14 +42,23 @@ paths:
             schema:
               type: object
               required:
-                - product
-                - quantity
+              - product
+              - quantity
               properties:
                 product:
                   type: string
                 quantity:
                   type: integer
                   multipleOf: 6
+            examples:
+              example1:
+                value:
+                  product: value1
+                  quantity: 0
+              example2:
+                value:
+                  product: value2
+                  quantity: 6
       responses:
         '201':
           description: Created

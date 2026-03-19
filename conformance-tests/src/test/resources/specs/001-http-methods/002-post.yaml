@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "POST with request body"
-  version: "1.0"
+  title: POST with request body
+  version: '1.0'
 paths:
   /items:
     post:
@@ -14,10 +14,17 @@ paths:
             schema:
               type: object
               required:
-                - name
+              - name
               properties:
                 name:
                   type: string
+            examples:
+              example1:
+                value:
+                  name: value1
+              example2:
+                value:
+                  name: value2
       responses:
         '201':
           description: Item created
@@ -26,7 +33,14 @@ paths:
               schema:
                 type: object
                 required:
-                  - id
+                - id
                 properties:
                   id:
                     type: integer
+              examples:
+                example1:
+                  value:
+                    id: 0
+                example2:
+                  value:
+                    id: 50

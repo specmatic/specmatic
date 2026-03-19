@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - float (OpenAPI)"
-  version: "1.0"
+  title: Format - float (OpenAPI)
+  version: '1.0'
 paths:
   /sensor:
     get:
@@ -14,8 +14,8 @@ paths:
               schema:
                 type: object
                 required:
-                  - humidity
-                  - pressure
+                - humidity
+                - pressure
                 properties:
                   humidity:
                     type: number
@@ -23,6 +23,15 @@ paths:
                   pressure:
                     type: number
                     format: float
+              examples:
+                example1:
+                  value:
+                    humidity: 0
+                    pressure: 0
+                example2:
+                  value:
+                    humidity: 50
+                    pressure: 50
     post:
       operationId: createSensor
       requestBody:
@@ -32,8 +41,8 @@ paths:
             schema:
               type: object
               required:
-                - humidity
-                - pressure
+              - humidity
+              - pressure
               properties:
                 humidity:
                   type: number
@@ -41,6 +50,15 @@ paths:
                 pressure:
                   type: number
                   format: float
+            examples:
+              example1:
+                value:
+                  humidity: 0
+                  pressure: 0
+              example2:
+                value:
+                  humidity: 50
+                  pressure: 50
       responses:
         '201':
           description: Created

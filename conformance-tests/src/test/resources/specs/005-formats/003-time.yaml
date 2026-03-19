@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - time (JSON Schema)"
-  version: "1.0"
+  title: Format - time (JSON Schema)
+  version: '1.0'
 paths:
   /alarms:
     get:
@@ -16,14 +16,23 @@ paths:
                 items:
                   type: object
                   required:
-                    - label
-                    - time
+                  - label
+                  - time
                   properties:
                     label:
                       type: string
                     time:
                       type: string
                       format: time
+              examples:
+                example1:
+                  value:
+                  - label: value1
+                    time: 10:30:00Z
+                example2:
+                  value:
+                  - label: value2
+                    time: 18:45:00Z
     post:
       operationId: createAlarms
       requestBody:
@@ -33,14 +42,23 @@ paths:
             schema:
               type: object
               required:
-                - label
-                - time
+              - label
+              - time
               properties:
                 label:
                   type: string
                 time:
                   type: string
                   format: time
+            examples:
+              example1:
+                value:
+                  label: value1
+                  time: 10:30:00Z
+              example2:
+                value:
+                  label: value2
+                  time: 18:45:00Z
       responses:
         '201':
           description: Created

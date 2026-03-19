@@ -1,28 +1,28 @@
 openapi: 3.0.3
 info:
-  title: "Path parameter - three interpolated parameters"
-  version: "1.0"
+  title: Path parameter - three interpolated parameters
+  version: '1.0'
 paths:
   /coordinates/{lat}:{lon}:{alt}:
     get:
       operationId: getLocation
       summary: Get location by colon-separated coordinates
       parameters:
-        - name: lat
-          in: path
-          required: true
-          schema:
-            type: number
-        - name: lon
-          in: path
-          required: true
-          schema:
-            type: number
-        - name: alt
-          in: path
-          required: true
-          schema:
-            type: number
+      - name: lat
+        in: path
+        required: true
+        schema:
+          type: number
+      - name: lon
+        in: path
+        required: true
+        schema:
+          type: number
+      - name: alt
+        in: path
+        required: true
+        schema:
+          type: number
       responses:
         '200':
           description: Location info
@@ -31,10 +31,10 @@ paths:
               schema:
                 type: object
                 required:
-                  - lat
-                  - lon
-                  - alt
-                  - label
+                - lat
+                - lon
+                - alt
+                - label
                 properties:
                   lat:
                     type: number
@@ -44,24 +44,37 @@ paths:
                     type: number
                   label:
                     type: string
+              examples:
+                example1:
+                  value:
+                    lat: 0
+                    lon: 0
+                    alt: 0
+                    label: value1
+                example2:
+                  value:
+                    lat: 50
+                    lon: 50
+                    alt: 50
+                    label: value2
     post:
       operationId: createLocation
       parameters:
-        - name: lat
-          in: path
-          required: true
-          schema:
-            type: number
-        - name: lon
-          in: path
-          required: true
-          schema:
-            type: number
-        - name: alt
-          in: path
-          required: true
-          schema:
-            type: number
+      - name: lat
+        in: path
+        required: true
+        schema:
+          type: number
+      - name: lon
+        in: path
+        required: true
+        schema:
+          type: number
+      - name: alt
+        in: path
+        required: true
+        schema:
+          type: number
       requestBody:
         required: true
         content:
@@ -69,10 +82,10 @@ paths:
             schema:
               type: object
               required:
-                - lat
-                - lon
-                - alt
-                - label
+              - lat
+              - lon
+              - alt
+              - label
               properties:
                 lat:
                   type: number
@@ -82,6 +95,19 @@ paths:
                   type: number
                 label:
                   type: string
+            examples:
+              example1:
+                value:
+                  lat: 0
+                  lon: 0
+                  alt: 0
+                  label: value1
+              example2:
+                value:
+                  lat: 50
+                  lon: 50
+                  alt: 50
+                  label: value2
       responses:
         '201':
           description: Created

@@ -1,23 +1,23 @@
 openapi: 3.0.3
 info:
-  title: "Multiple path parameters"
-  version: "1.0"
+  title: Multiple path parameters
+  version: '1.0'
 paths:
   /stores/{storeId}/products/{productId}:
     get:
       operationId: getStoreProduct
       summary: Get a product within a store
       parameters:
-        - name: storeId
-          in: path
-          required: true
-          schema:
-            type: integer
-        - name: productId
-          in: path
-          required: true
-          schema:
-            type: integer
+      - name: storeId
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: productId
+        in: path
+        required: true
+        schema:
+          type: integer
       responses:
         '200':
           description: Product found
@@ -26,9 +26,9 @@ paths:
               schema:
                 type: object
                 required:
-                  - storeId
-                  - productId
-                  - name
+                - storeId
+                - productId
+                - name
                 properties:
                   storeId:
                     type: integer
@@ -36,19 +36,30 @@ paths:
                     type: integer
                   name:
                     type: string
+              examples:
+                example1:
+                  value:
+                    storeId: 0
+                    productId: 0
+                    name: value1
+                example2:
+                  value:
+                    storeId: 50
+                    productId: 50
+                    name: value2
     post:
       operationId: createStoreProduct
       parameters:
-        - name: storeId
-          in: path
-          required: true
-          schema:
-            type: integer
-        - name: productId
-          in: path
-          required: true
-          schema:
-            type: integer
+      - name: storeId
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: productId
+        in: path
+        required: true
+        schema:
+          type: integer
       requestBody:
         required: true
         content:
@@ -56,9 +67,9 @@ paths:
             schema:
               type: object
               required:
-                - storeId
-                - productId
-                - name
+              - storeId
+              - productId
+              - name
               properties:
                 storeId:
                   type: integer
@@ -66,6 +77,17 @@ paths:
                   type: integer
                 name:
                   type: string
+            examples:
+              example1:
+                value:
+                  storeId: 0
+                  productId: 0
+                  name: value1
+              example2:
+                value:
+                  storeId: 50
+                  productId: 50
+                  name: value2
       responses:
         '201':
           description: Created

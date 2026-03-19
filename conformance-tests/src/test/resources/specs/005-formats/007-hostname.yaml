@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - hostname (JSON Schema)"
-  version: "1.0"
+  title: Format - hostname (JSON Schema)
+  version: '1.0'
 paths:
   /servers:
     get:
@@ -16,14 +16,23 @@ paths:
                 items:
                   type: object
                   required:
-                    - name
-                    - host
+                  - name
+                  - host
                   properties:
                     name:
                       type: string
                     host:
                       type: string
                       format: hostname
+              examples:
+                example1:
+                  value:
+                  - name: value1
+                    host: api.example.com
+                example2:
+                  value:
+                  - name: value2
+                    host: db.internal.net
     post:
       operationId: createServers
       requestBody:
@@ -33,14 +42,23 @@ paths:
             schema:
               type: object
               required:
-                - name
-                - host
+              - name
+              - host
               properties:
                 name:
                   type: string
                 host:
                   type: string
                   format: hostname
+            examples:
+              example1:
+                value:
+                  name: value1
+                  host: api.example.com
+              example2:
+                value:
+                  name: value2
+                  host: db.internal.net
       responses:
         '201':
           description: Created

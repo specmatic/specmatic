@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - date-time (JSON Schema)"
-  version: "1.0"
+  title: Format - date-time (JSON Schema)
+  version: '1.0'
 paths:
   /events:
     get:
@@ -16,14 +16,23 @@ paths:
                 items:
                   type: object
                   required:
-                    - title
-                    - startedAt
+                  - title
+                  - startedAt
                   properties:
                     title:
                       type: string
                     startedAt:
                       type: string
                       format: date-time
+              examples:
+                example1:
+                  value:
+                  - title: value1
+                    startedAt: '2024-01-15T10:30:00Z'
+                example2:
+                  value:
+                  - title: value2
+                    startedAt: '2025-06-30T18:45:00Z'
     post:
       operationId: createEvents
       requestBody:
@@ -33,14 +42,23 @@ paths:
             schema:
               type: object
               required:
-                - title
-                - startedAt
+              - title
+              - startedAt
               properties:
                 title:
                   type: string
                 startedAt:
                   type: string
                   format: date-time
+            examples:
+              example1:
+                value:
+                  title: value1
+                  startedAt: '2024-01-15T10:30:00Z'
+              example2:
+                value:
+                  title: value2
+                  startedAt: '2025-06-30T18:45:00Z'
       responses:
         '201':
           description: Created

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Request/Response body - string property"
-  version: "1.0"
+  title: Request/Response body - string property
+  version: '1.0'
 paths:
   /greetings:
     get:
@@ -16,13 +16,22 @@ paths:
                 items:
                   type: object
                   required:
-                    - language
-                    - message
+                  - language
+                  - message
                   properties:
                     language:
                       type: string
                     message:
                       type: string
+              examples:
+                example1:
+                  value:
+                  - language: value1
+                    message: value1
+                example2:
+                  value:
+                  - language: value2
+                    message: value2
     post:
       operationId: createGreeting
       requestBody:
@@ -32,13 +41,22 @@ paths:
             schema:
               type: object
               required:
-                - language
-                - message
+              - language
+              - message
               properties:
                 language:
                   type: string
                 message:
                   type: string
+            examples:
+              example1:
+                value:
+                  language: value1
+                  message: value1
+              example2:
+                value:
+                  language: value2
+                  message: value2
       responses:
         '201':
           description: Created

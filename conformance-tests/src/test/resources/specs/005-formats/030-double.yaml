@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - double (OpenAPI)"
-  version: "1.0"
+  title: Format - double (OpenAPI)
+  version: '1.0'
 paths:
   /coordinates:
     get:
@@ -14,8 +14,8 @@ paths:
               schema:
                 type: object
                 required:
-                  - latitude
-                  - longitude
+                - latitude
+                - longitude
                 properties:
                   latitude:
                     type: number
@@ -23,6 +23,15 @@ paths:
                   longitude:
                     type: number
                     format: double
+              examples:
+                example1:
+                  value:
+                    latitude: 0
+                    longitude: 0
+                example2:
+                  value:
+                    latitude: 50
+                    longitude: 50
     post:
       operationId: createCoordinates
       requestBody:
@@ -32,8 +41,8 @@ paths:
             schema:
               type: object
               required:
-                - latitude
-                - longitude
+              - latitude
+              - longitude
               properties:
                 latitude:
                   type: number
@@ -41,6 +50,15 @@ paths:
                 longitude:
                   type: number
                   format: double
+            examples:
+              example1:
+                value:
+                  latitude: 0
+                  longitude: 0
+              example2:
+                value:
+                  latitude: 50
+                  longitude: 50
       responses:
         '201':
           description: Created

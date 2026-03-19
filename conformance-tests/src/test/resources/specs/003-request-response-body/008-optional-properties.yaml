@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Request/Response body - optional properties"
-  version: "1.0"
+  title: Request/Response body - optional properties
+  version: '1.0'
 paths:
   /users:
     get:
@@ -16,8 +16,8 @@ paths:
                 items:
                   type: object
                   required:
-                    - id
-                    - name
+                  - id
+                  - name
                   properties:
                     id:
                       type: integer
@@ -27,6 +27,17 @@ paths:
                       type: string
                     age:
                       type: integer
+              examples:
+                example1:
+                  value:
+                  - id: 1
+                    name: value1
+                    bio: A short bio
+                    age: 25
+                example2:
+                  value:
+                  - id: 50
+                    name: value2
     post:
       operationId: createUser
       requestBody:
@@ -36,8 +47,8 @@ paths:
             schema:
               type: object
               required:
-                - id
-                - name
+              - id
+              - name
               properties:
                 id:
                   type: integer
@@ -47,6 +58,17 @@ paths:
                   type: string
                 age:
                   type: integer
+            examples:
+              example1:
+                value:
+                  id: 1
+                  name: value1
+                  bio: A short bio
+                  age: 25
+              example2:
+                value:
+                  id: 50
+                  name: value2
       responses:
         '201':
           description: Created

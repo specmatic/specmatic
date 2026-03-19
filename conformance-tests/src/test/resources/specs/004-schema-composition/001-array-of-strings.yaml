@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Schema composition - array of strings"
-  version: "1.0"
+  title: Schema composition - array of strings
+  version: '1.0'
 paths:
   /tags:
     get:
@@ -15,6 +15,13 @@ paths:
                 type: array
                 items:
                   type: string
+              examples:
+                example1:
+                  value:
+                  - value1
+                example2:
+                  value:
+                  - value2
     post:
       operationId: createTags
       requestBody:
@@ -25,6 +32,13 @@ paths:
               type: array
               items:
                 type: string
+            examples:
+              example1:
+                value:
+                - value1
+              example2:
+                value:
+                - value2
       responses:
         '201':
           description: Created

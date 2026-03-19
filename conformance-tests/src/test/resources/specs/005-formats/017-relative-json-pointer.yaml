@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - relative-json-pointer (JSON Schema)"
-  version: "1.0"
+  title: Format - relative-json-pointer (JSON Schema)
+  version: '1.0'
 paths:
   /mappings:
     get:
@@ -16,14 +16,23 @@ paths:
                 items:
                   type: object
                   required:
-                    - source
-                    - target
+                  - source
+                  - target
                   properties:
                     source:
                       type: string
                       format: relative-json-pointer
                     target:
                       type: string
+              examples:
+                example1:
+                  value:
+                  - source: 0/name
+                    target: value1
+                example2:
+                  value:
+                  - source: 1/id
+                    target: value2
     post:
       operationId: createMappings
       requestBody:
@@ -33,14 +42,23 @@ paths:
             schema:
               type: object
               required:
-                - source
-                - target
+              - source
+              - target
               properties:
                 source:
                   type: string
                   format: relative-json-pointer
                 target:
                   type: string
+            examples:
+              example1:
+                value:
+                  source: 0/name
+                  target: value1
+              example2:
+                value:
+                  source: 1/id
+                  target: value2
       responses:
         '201':
           description: Created

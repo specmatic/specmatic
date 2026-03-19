@@ -1,3 +1,5 @@
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DynamicContainer
 import org.junit.jupiter.api.DynamicNode
@@ -59,6 +61,8 @@ class ConformanceTest {
                 noUndocumentedRoutesTest(run),
                 requestBodiesValidTest(run),
                 responseBodiesValidTest(run),
+                allRequestExamplesExercisedTest(run),
+                allResponseExamplesExercisedTest(run),
                 teardownTest(run)
             )
         )
@@ -135,6 +139,83 @@ class ConformanceTest {
                 }
             assertThat(errors)
                 .withFailMessage("Response body validation errors:\n${errors.joinToString("\n")}")
+                .isEmpty()
+        }
+
+    private fun allRequestExamplesExercisedTest(run: SpecRun) =
+        DynamicTest.dynamicTest("all request examples exercised") {
+            val routeMatcher = RouteMatcher(run.openApiSpec.rawModel())
+            val mapper = ObjectMapper()
+
+            val allExamples = mutableMapOf<Triple<String, String, String>, JsonNode>()
+            for ((method, template) in run.openApiSpec.allRoutes()) {
+                val examples = run.openApiSpec.requestBodyExamples(method, template)
+                for ((name, value) in examples) {
+                    allExamples[Triple(method, template, name)] = value
+                }
+            }
+
+            if (allExamples.isEmpty()) return@dynamicTest
+
+            val unexercised = allExamples.toMutableMap()
+            for (capture in run.captures) {
+                if (capture.requestBody.isBlank()) continue
+                val template = routeMatcher.matchingTemplate(capture.method, capture.path) ?: continue
+                val body = mapper.readTree(capture.requestBody)
+                val keysToRemove = unexercised.entries
+                    .filter { it.key.first == capture.method.uppercase() && it.key.second == template && it.value == body }
+                    .map { it.key }
+                keysToRemove.forEach { unexercised.remove(it) }
+            }
+
+            assertThat(unexercised.keys)
+                .withFailMessage("Request examples not exercised: ${unexercised.keys.map { "(${it.first} ${it.second} ${it.third})" }}")
+                .isEmpty()
+        }
+
+    private fun allResponseExamplesExercisedTest(run: SpecRun) =
+        DynamicTest.dynamicTest("all response examples exercised") {
+            val routeMatcher = RouteMatcher(run.openApiSpec.rawModel())
+            val mapper = ObjectMapper()
+
+            data class ExampleKey(val method: String, val template: String, val statusCode: Int, val name: String)
+
+            // Only collect response examples for operations that also have request body examples,
+            // because Specmatic pairs examples by name. Without request examples, the mock
+            // cannot determine which response example to return and falls back to generated values.
+            val allExamples = mutableMapOf<ExampleKey, JsonNode>()
+            for ((method, template) in run.openApiSpec.allRoutes()) {
+                val requestExamples = run.openApiSpec.requestBodyExamples(method, template)
+                if (requestExamples.isEmpty()) continue
+
+                val model = run.openApiSpec.rawModel()
+                val pathItem = model.paths?.get(template) ?: continue
+                val operation = pathItem.readOperationsMap()?.entries
+                    ?.firstOrNull { it.key.name.equals(method, ignoreCase = true) }?.value ?: continue
+                for ((statusCodeStr, _) in operation.responses.orEmpty()) {
+                    val statusCode = statusCodeStr.toIntOrNull() ?: continue
+                    val examples = run.openApiSpec.responseBodyExamples(method, template, statusCode)
+                    for ((name, value) in examples) {
+                        allExamples[ExampleKey(method, template, statusCode, name)] = value
+                    }
+                }
+            }
+
+            if (allExamples.isEmpty()) return@dynamicTest
+
+            val unexercised = allExamples.toMutableMap()
+            for (capture in run.captures) {
+                if (capture.responseBody.isBlank()) continue
+                val template = routeMatcher.matchingTemplate(capture.method, capture.path) ?: continue
+                val body = mapper.readTree(capture.responseBody)
+                val keysToRemove = unexercised.entries
+                    .filter { it.key.method == capture.method.uppercase() && it.key.template == template && it.key.statusCode == capture.statusCode && it.value == body }
+                    .map { it.key }
+                keysToRemove.forEach { unexercised.remove(it) }
+            }
+
+            assertThat(unexercised.keys)
+                .withFailMessage("Response examples not exercised: ${unexercised.keys.map { "(${it.method} ${it.template} ${it.statusCode} ${it.name})" }}")
                 .isEmpty()
         }
 }

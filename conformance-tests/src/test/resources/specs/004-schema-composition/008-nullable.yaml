@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Schema composition - nullable"
-  version: "1.0"
+  title: Schema composition - nullable
+  version: '1.0'
 paths:
   /employees:
     get:
@@ -16,9 +16,9 @@ paths:
                 items:
                   type: object
                   required:
-                    - id
-                    - name
-                    - managerId
+                  - id
+                  - name
+                  - managerId
                   properties:
                     id:
                       type: integer
@@ -27,6 +27,17 @@ paths:
                     managerId:
                       type: integer
                       nullable: true
+              examples:
+                example1:
+                  value:
+                  - id: 0
+                    name: value1
+                    managerId: 5
+                example2:
+                  value:
+                  - id: 50
+                    name: value2
+                    managerId: null
     post:
       operationId: createEmployee
       requestBody:
@@ -36,9 +47,9 @@ paths:
             schema:
               type: object
               required:
-                - id
-                - name
-                - managerId
+              - id
+              - name
+              - managerId
               properties:
                 id:
                   type: integer
@@ -47,6 +58,17 @@ paths:
                 managerId:
                   type: integer
                   nullable: true
+            examples:
+              example1:
+                value:
+                  id: 1
+                  name: value1
+                  managerId: 5
+              example2:
+                value:
+                  id: 50
+                  name: value2
+                  managerId: null
       responses:
         '201':
           description: Created

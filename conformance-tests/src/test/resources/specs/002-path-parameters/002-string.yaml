@@ -1,18 +1,18 @@
 openapi: 3.0.3
 info:
-  title: "Path parameter - string type"
-  version: "1.0"
+  title: Path parameter - string type
+  version: '1.0'
 paths:
   /users/{username}:
     get:
       operationId: getUser
       summary: Get user by username
       parameters:
-        - name: username
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: username
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: User found
@@ -21,21 +21,30 @@ paths:
               schema:
                 type: object
                 required:
-                  - username
-                  - email
+                - username
+                - email
                 properties:
                   username:
                     type: string
                   email:
                     type: string
+              examples:
+                example1:
+                  value:
+                    username: value1
+                    email: value1
+                example2:
+                  value:
+                    username: value2
+                    email: value2
     post:
       operationId: createUser
       parameters:
-        - name: username
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: username
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -43,13 +52,22 @@ paths:
             schema:
               type: object
               required:
-                - username
-                - email
+              - username
+              - email
               properties:
                 username:
                   type: string
                 email:
                   type: string
+            examples:
+              example1:
+                value:
+                  username: value1
+                  email: value1
+              example2:
+                value:
+                  username: value2
+                  email: value2
       responses:
         '201':
           description: Created

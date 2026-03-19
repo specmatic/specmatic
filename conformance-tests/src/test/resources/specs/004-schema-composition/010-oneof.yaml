@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Schema composition - oneOf"
-  version: "1.0"
+  title: Schema composition - oneOf
+  version: '1.0'
 paths:
   /notifications:
     get:
@@ -15,34 +15,45 @@ paths:
                 type: array
                 items:
                   oneOf:
-                    - type: object
-                      required:
-                        - type
+                  - type: object
+                    required:
+                    - type
+                    - email
+                    - subject
+                    properties:
+                      type:
+                        type: string
+                        enum:
                         - email
-                        - subject
-                      properties:
-                        type:
-                          type: string
-                          enum:
-                            - email
-                        email:
-                          type: string
-                        subject:
-                          type: string
-                    - type: object
-                      required:
-                        - type
-                        - phone
-                        - message
-                      properties:
-                        type:
-                          type: string
-                          enum:
-                            - sms
-                        phone:
-                          type: string
-                        message:
-                          type: string
+                      email:
+                        type: string
+                      subject:
+                        type: string
+                  - type: object
+                    required:
+                    - type
+                    - phone
+                    - message
+                    properties:
+                      type:
+                        type: string
+                        enum:
+                        - sms
+                      phone:
+                        type: string
+                      message:
+                        type: string
+              examples:
+                example1:
+                  value:
+                  - type: email
+                    email: value1
+                    subject: value1
+                example2:
+                  value:
+                  - type: sms
+                    phone: value2
+                    message: value2
     post:
       operationId: createNotification
       requestBody:
@@ -51,34 +62,45 @@ paths:
           application/json:
             schema:
               oneOf:
-                - type: object
-                  required:
-                    - type
+              - type: object
+                required:
+                - type
+                - email
+                - subject
+                properties:
+                  type:
+                    type: string
+                    enum:
                     - email
-                    - subject
-                  properties:
-                    type:
-                      type: string
-                      enum:
-                        - email
-                    email:
-                      type: string
-                    subject:
-                      type: string
-                - type: object
-                  required:
-                    - type
-                    - phone
-                    - message
-                  properties:
-                    type:
-                      type: string
-                      enum:
-                        - sms
-                    phone:
-                      type: string
-                    message:
-                      type: string
+                  email:
+                    type: string
+                  subject:
+                    type: string
+              - type: object
+                required:
+                - type
+                - phone
+                - message
+                properties:
+                  type:
+                    type: string
+                    enum:
+                    - sms
+                  phone:
+                    type: string
+                  message:
+                    type: string
+            examples:
+              example1:
+                value:
+                  type: email
+                  email: value1
+                  subject: value1
+              example2:
+                value:
+                  type: sms
+                  phone: value2
+                  message: value2
       responses:
         '201':
           description: Created

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - uuid (JSON Schema)"
-  version: "1.0"
+  title: Format - uuid (JSON Schema)
+  version: '1.0'
 paths:
   /sessions:
     get:
@@ -16,14 +16,23 @@ paths:
                 items:
                   type: object
                   required:
-                    - sessionId
-                    - user
+                  - sessionId
+                  - user
                   properties:
                     sessionId:
                       type: string
                       format: uuid
                     user:
                       type: string
+              examples:
+                example1:
+                  value:
+                  - sessionId: 550e8400-e29b-41d4-a716-446655440000
+                    user: value1
+                example2:
+                  value:
+                  - sessionId: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+                    user: value2
     post:
       operationId: createSessions
       requestBody:
@@ -33,14 +42,23 @@ paths:
             schema:
               type: object
               required:
-                - sessionId
-                - user
+              - sessionId
+              - user
               properties:
                 sessionId:
                   type: string
                   format: uuid
                 user:
                   type: string
+            examples:
+              example1:
+                value:
+                  sessionId: 550e8400-e29b-41d4-a716-446655440000
+                  user: value1
+              example2:
+                value:
+                  sessionId: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+                  user: value2
       responses:
         '201':
           description: Created

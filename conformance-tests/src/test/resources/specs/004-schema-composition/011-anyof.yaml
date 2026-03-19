@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Schema composition - anyOf"
-  version: "1.0"
+  title: Schema composition - anyOf
+  version: '1.0'
 paths:
   /search-results:
     get:
@@ -16,15 +16,24 @@ paths:
                 items:
                   type: object
                   required:
-                    - title
-                    - score
+                  - title
+                  - score
                   properties:
                     title:
                       type: string
                     score:
                       anyOf:
-                        - type: integer
-                        - type: number
+                      - type: integer
+                      - type: number
+              examples:
+                example1:
+                  value:
+                  - title: value1
+                    score: 0
+                example2:
+                  value:
+                  - title: value2
+                    score: 50
     post:
       operationId: createSearchResult
       requestBody:
@@ -34,15 +43,24 @@ paths:
             schema:
               type: object
               required:
-                - title
-                - score
+              - title
+              - score
               properties:
                 title:
                   type: string
                 score:
                   anyOf:
-                    - type: integer
-                    - type: number
+                  - type: integer
+                  - type: number
+            examples:
+              example1:
+                value:
+                  title: value1
+                  score: 0
+              example2:
+                value:
+                  title: value2
+                  score: 50
       responses:
         '201':
           description: Created

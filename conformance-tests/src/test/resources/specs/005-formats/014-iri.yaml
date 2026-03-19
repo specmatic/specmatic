@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - iri (JSON Schema)"
-  version: "1.0"
+  title: Format - iri (JSON Schema)
+  version: '1.0'
 paths:
   /resources:
     get:
@@ -16,14 +16,23 @@ paths:
                 items:
                   type: object
                   required:
-                    - name
-                    - location
+                  - name
+                  - location
                   properties:
                     name:
                       type: string
                     location:
                       type: string
                       format: iri
+              examples:
+                example1:
+                  value:
+                  - name: value1
+                    location: https://example.com/resource/1
+                example2:
+                  value:
+                  - name: value2
+                    location: https://example.org/item/2
     post:
       operationId: createResources
       requestBody:
@@ -33,14 +42,23 @@ paths:
             schema:
               type: object
               required:
-                - name
-                - location
+              - name
+              - location
               properties:
                 name:
                   type: string
                 location:
                   type: string
                   format: iri
+            examples:
+              example1:
+                value:
+                  name: value1
+                  location: https://example.com/resource/1
+              example2:
+                value:
+                  name: value2
+                  location: https://example.org/item/2
       responses:
         '201':
           description: Created

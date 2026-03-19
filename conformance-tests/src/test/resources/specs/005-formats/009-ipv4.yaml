@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - ipv4 (JSON Schema)"
-  version: "1.0"
+  title: Format - ipv4 (JSON Schema)
+  version: '1.0'
 paths:
   /allowlist:
     get:
@@ -16,14 +16,23 @@ paths:
                 items:
                   type: object
                   required:
-                    - label
-                    - ip
+                  - label
+                  - ip
                   properties:
                     label:
                       type: string
                     ip:
                       type: string
                       format: ipv4
+              examples:
+                example1:
+                  value:
+                  - label: value1
+                    ip: 192.168.1.1
+                example2:
+                  value:
+                  - label: value2
+                    ip: 10.0.0.42
     post:
       operationId: createAllowlist
       requestBody:
@@ -33,14 +42,23 @@ paths:
             schema:
               type: object
               required:
-                - label
-                - ip
+              - label
+              - ip
               properties:
                 label:
                   type: string
                 ip:
                   type: string
                   format: ipv4
+            examples:
+              example1:
+                value:
+                  label: value1
+                  ip: 192.168.1.1
+              example2:
+                value:
+                  label: value2
+                  ip: 10.0.0.42
       responses:
         '201':
           description: Created

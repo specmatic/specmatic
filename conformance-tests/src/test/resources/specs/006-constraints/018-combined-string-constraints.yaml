@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Constraint - combined string constraints (minLength + maxLength + pattern)"
-  version: "1.0"
+  title: Constraint - combined string constraints (minLength + maxLength + pattern)
+  version: '1.0'
 paths:
   /product-codes:
     get:
@@ -16,8 +16,8 @@ paths:
                 items:
                   type: object
                   required:
-                    - name
-                    - code
+                  - name
+                  - code
                   properties:
                     name:
                       type: string
@@ -25,7 +25,16 @@ paths:
                       type: string
                       minLength: 6
                       maxLength: 10
-                      pattern: "^[A-Z]{2}-[0-9]+$"
+                      pattern: ^[A-Z]{2}-[0-9]+$
+              examples:
+                example1:
+                  value:
+                  - name: value1
+                    code: AB-1234
+                example2:
+                  value:
+                  - name: value2
+                    code: XY-56789
     post:
       operationId: createProductCode
       requestBody:
@@ -35,8 +44,8 @@ paths:
             schema:
               type: object
               required:
-                - name
-                - code
+              - name
+              - code
               properties:
                 name:
                   type: string
@@ -44,7 +53,16 @@ paths:
                   type: string
                   minLength: 6
                   maxLength: 10
-                  pattern: "^[A-Z]{2}-[0-9]+$"
+                  pattern: ^[A-Z]{2}-[0-9]+$
+            examples:
+              example1:
+                value:
+                  name: value1
+                  code: AB-1234
+              example2:
+                value:
+                  name: value2
+                  code: XY-56789
       responses:
         '201':
           description: Created

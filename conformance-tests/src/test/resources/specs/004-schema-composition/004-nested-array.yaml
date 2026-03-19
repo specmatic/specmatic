@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Schema composition - nested array (array inside object)"
-  version: "1.0"
+  title: Schema composition - nested array (array inside object)
+  version: '1.0'
 paths:
   /classrooms:
     get:
@@ -16,8 +16,8 @@ paths:
                 items:
                   type: object
                   required:
-                    - room
-                    - students
+                  - room
+                  - students
                   properties:
                     room:
                       type: string
@@ -25,6 +25,17 @@ paths:
                       type: array
                       items:
                         type: string
+              examples:
+                example1:
+                  value:
+                  - room: value1
+                    students:
+                    - value1
+                example2:
+                  value:
+                  - room: value2
+                    students:
+                    - value2
     post:
       operationId: createClassroom
       requestBody:
@@ -34,8 +45,8 @@ paths:
             schema:
               type: object
               required:
-                - room
-                - students
+              - room
+              - students
               properties:
                 room:
                   type: string
@@ -43,6 +54,17 @@ paths:
                   type: array
                   items:
                     type: string
+            examples:
+              example1:
+                value:
+                  room: value1
+                  students:
+                  - value1
+              example2:
+                value:
+                  room: value2
+                  students:
+                  - value2
       responses:
         '201':
           description: Created

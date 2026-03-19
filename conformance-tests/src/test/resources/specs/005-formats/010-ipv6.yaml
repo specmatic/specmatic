@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - ipv6 (JSON Schema)"
-  version: "1.0"
+  title: Format - ipv6 (JSON Schema)
+  version: '1.0'
 paths:
   /network-interfaces:
     get:
@@ -16,14 +16,23 @@ paths:
                 items:
                   type: object
                   required:
-                    - name
-                    - address
+                  - name
+                  - address
                   properties:
                     name:
                       type: string
                     address:
                       type: string
                       format: ipv6
+              examples:
+                example1:
+                  value:
+                  - name: value1
+                    address: ::1
+                example2:
+                  value:
+                  - name: value2
+                    address: 2001:db8::1
     post:
       operationId: createInterfaces
       requestBody:
@@ -33,14 +42,23 @@ paths:
             schema:
               type: object
               required:
-                - name
-                - address
+              - name
+              - address
               properties:
                 name:
                   type: string
                 address:
                   type: string
                   format: ipv6
+            examples:
+              example1:
+                value:
+                  name: value1
+                  address: ::1
+              example2:
+                value:
+                  name: value2
+                  address: 2001:db8::1
       responses:
         '201':
           description: Created

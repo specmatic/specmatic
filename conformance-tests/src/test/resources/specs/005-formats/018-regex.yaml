@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - regex (JSON Schema)"
-  version: "1.0"
+  title: Format - regex (JSON Schema)
+  version: '1.0'
 paths:
   /validation-rules:
     get:
@@ -16,14 +16,23 @@ paths:
                 items:
                   type: object
                   required:
-                    - field
-                    - pattern
+                  - field
+                  - pattern
                   properties:
                     field:
                       type: string
                     pattern:
                       type: string
                       format: regex
+              examples:
+                example1:
+                  value:
+                  - field: value1
+                    pattern: ^[a-z]+$
+                example2:
+                  value:
+                  - field: value2
+                    pattern: ^\d{3}-\d{4}$
     post:
       operationId: createRules
       requestBody:
@@ -33,14 +42,23 @@ paths:
             schema:
               type: object
               required:
-                - field
-                - pattern
+              - field
+              - pattern
               properties:
                 field:
                   type: string
                 pattern:
                   type: string
                   format: regex
+            examples:
+              example1:
+                value:
+                  field: value1
+                  pattern: ^[a-z]+$
+              example2:
+                value:
+                  field: value2
+                  pattern: ^\d{3}-\d{4}$
       responses:
         '201':
           description: Created

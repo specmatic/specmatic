@@ -30,9 +30,7 @@ class OpenApiSpec private constructor(private val openApi: OpenAPI) {
         }.toSet()
 
     fun requestBodySchema(method: String, template: String, contentType: String = "application/json"): JsonNode? {
-        val operation = openApi.paths?.get(template)?.readOperationsMap()
-            ?.entries?.firstOrNull { it.key.name.equals(method, ignoreCase = true) }?.value
-            ?: return null
+        val operation = findOperation(method, template) ?: return null
         val schema = operation.requestBody?.content?.get(contentType)?.schema ?: return null
         return mapper.convertValue(schema, JsonNode::class.java)
     }
@@ -43,11 +41,26 @@ class OpenApiSpec private constructor(private val openApi: OpenAPI) {
         statusCode: Int,
         contentType: String = "application/json"
     ): JsonNode? {
-        val operation = openApi.paths?.get(template)?.readOperationsMap()
-            ?.entries?.firstOrNull { it.key.name.equals(method, ignoreCase = true) }?.value
-            ?: return null
+        val operation = findOperation(method, template) ?: return null
         val response = operation.responses?.get(statusCode.toString()) ?: return null
         val schema = response.content?.get(contentType)?.schema ?: return null
         return mapper.convertValue(schema, JsonNode::class.java)
     }
+
+    fun requestBodyExamples(method: String, template: String, contentType: String = "application/json"): Map<String, JsonNode> {
+        val operation = findOperation(method, template) ?: return emptyMap()
+        val examples = operation.requestBody?.content?.get(contentType)?.examples ?: return emptyMap()
+        return examples.mapValues { mapper.valueToTree(it.value.value) }
+    }
+
+    fun responseBodyExamples(method: String, template: String, statusCode: Int, contentType: String = "application/json"): Map<String, JsonNode> {
+        val operation = findOperation(method, template) ?: return emptyMap()
+        val response = operation.responses?.get(statusCode.toString()) ?: return emptyMap()
+        val examples = response.content?.get(contentType)?.examples ?: return emptyMap()
+        return examples.mapValues { mapper.valueToTree(it.value.value) }
+    }
+
+    private fun findOperation(method: String, template: String) =
+        openApi.paths?.get(template)?.readOperationsMap()
+            ?.entries?.firstOrNull { it.key.name.equals(method, ignoreCase = true) }?.value
 }

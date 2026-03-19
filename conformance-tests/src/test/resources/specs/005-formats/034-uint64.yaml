@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - uint64 (OpenAPI)"
-  version: "1.0"
+  title: Format - uint64 (OpenAPI)
+  version: '1.0'
 paths:
   /storage:
     get:
@@ -14,8 +14,8 @@ paths:
               schema:
                 type: object
                 required:
-                  - totalBytes
-                  - usedBytes
+                - totalBytes
+                - usedBytes
                 properties:
                   totalBytes:
                     type: integer
@@ -23,6 +23,15 @@ paths:
                   usedBytes:
                     type: integer
                     format: uint64
+              examples:
+                example1:
+                  value:
+                    totalBytes: 0
+                    usedBytes: 0
+                example2:
+                  value:
+                    totalBytes: 9223372036854775807
+                    usedBytes: 9223372036854775807
     post:
       operationId: createStorage
       requestBody:
@@ -32,8 +41,8 @@ paths:
             schema:
               type: object
               required:
-                - totalBytes
-                - usedBytes
+              - totalBytes
+              - usedBytes
               properties:
                 totalBytes:
                   type: integer
@@ -41,6 +50,15 @@ paths:
                 usedBytes:
                   type: integer
                   format: uint64
+            examples:
+              example1:
+                value:
+                  totalBytes: 0
+                  usedBytes: 0
+              example2:
+                value:
+                  totalBytes: 9223372036854775807
+                  usedBytes: 9223372036854775807
       responses:
         '201':
           description: Created

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - idn-hostname (JSON Schema)"
-  version: "1.0"
+  title: Format - idn-hostname (JSON Schema)
+  version: '1.0'
 paths:
   /domains:
     get:
@@ -16,14 +16,23 @@ paths:
                 items:
                   type: object
                   required:
-                    - label
-                    - domain
+                  - label
+                  - domain
                   properties:
                     label:
                       type: string
                     domain:
                       type: string
                       format: idn-hostname
+              examples:
+                example1:
+                  value:
+                  - label: value1
+                    domain: api.example.com
+                example2:
+                  value:
+                  - label: value2
+                    domain: db.internal.net
     post:
       operationId: createDomains
       requestBody:
@@ -33,14 +42,23 @@ paths:
             schema:
               type: object
               required:
-                - label
-                - domain
+              - label
+              - domain
               properties:
                 label:
                   type: string
                 domain:
                   type: string
                   format: idn-hostname
+            examples:
+              example1:
+                value:
+                  label: value1
+                  domain: api.example.com
+              example2:
+                value:
+                  label: value2
+                  domain: db.internal.net
       responses:
         '201':
           description: Created

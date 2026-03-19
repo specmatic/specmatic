@@ -1,23 +1,23 @@
 openapi: 3.0.3
 info:
-  title: "Nested resource path"
-  version: "1.0"
+  title: Nested resource path
+  version: '1.0'
 paths:
   /organizations/{orgId}/teams/{teamId}/members:
     get:
       operationId: listTeamMembers
       summary: List members of a team in an organization
       parameters:
-        - name: orgId
-          in: path
-          required: true
-          schema:
-            type: integer
-        - name: teamId
-          in: path
-          required: true
-          schema:
-            type: integer
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: teamId
+        in: path
+        required: true
+        schema:
+          type: integer
       responses:
         '200':
           description: List of team members
@@ -28,26 +28,35 @@ paths:
                 items:
                   type: object
                   required:
-                    - id
-                    - name
+                  - id
+                  - name
                   properties:
                     id:
                       type: integer
                     name:
                       type: string
+              examples:
+                example1:
+                  value:
+                  - id: 0
+                    name: value1
+                example2:
+                  value:
+                  - id: 50
+                    name: value2
     post:
       operationId: createTeamMembers
       parameters:
-        - name: orgId
-          in: path
-          required: true
-          schema:
-            type: integer
-        - name: teamId
-          in: path
-          required: true
-          schema:
-            type: integer
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: teamId
+        in: path
+        required: true
+        schema:
+          type: integer
       requestBody:
         required: true
         content:
@@ -55,13 +64,22 @@ paths:
             schema:
               type: object
               required:
-                - id
-                - name
+              - id
+              - name
               properties:
                 id:
                   type: integer
                 name:
                   type: string
+            examples:
+              example1:
+                value:
+                  id: 0
+                  name: value1
+              example2:
+                value:
+                  id: 50
+                  name: value2
       responses:
         '201':
           description: Created

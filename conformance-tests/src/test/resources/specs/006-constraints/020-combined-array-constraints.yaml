@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Constraint - combined array constraints (minItems + maxItems + uniqueItems)"
-  version: "1.0"
+  title: Constraint - combined array constraints (minItems + maxItems + uniqueItems)
+  version: '1.0'
 paths:
   /playlists:
     get:
@@ -16,8 +16,8 @@ paths:
                 items:
                   type: object
                   required:
-                    - name
-                    - tracks
+                  - name
+                  - tracks
                   properties:
                     name:
                       type: string
@@ -28,6 +28,17 @@ paths:
                       uniqueItems: true
                       items:
                         type: string
+              examples:
+                example1:
+                  value:
+                  - name: value1
+                    tracks:
+                    - value1
+                example2:
+                  value:
+                  - name: value2
+                    tracks:
+                    - value2
     post:
       operationId: createPlaylist
       requestBody:
@@ -37,8 +48,8 @@ paths:
             schema:
               type: object
               required:
-                - name
-                - tracks
+              - name
+              - tracks
               properties:
                 name:
                   type: string
@@ -49,6 +60,17 @@ paths:
                   uniqueItems: true
                   items:
                     type: string
+            examples:
+              example1:
+                value:
+                  name: value1
+                  tracks:
+                  - value1
+              example2:
+                value:
+                  name: value2
+                  tracks:
+                  - value2
       responses:
         '201':
           description: Created

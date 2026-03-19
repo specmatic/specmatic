@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - commonmark (OpenAPI)"
-  version: "1.0"
+  title: Format - commonmark (OpenAPI)
+  version: '1.0'
 paths:
   /articles:
     get:
@@ -16,14 +16,26 @@ paths:
                 items:
                   type: object
                   required:
-                    - title
-                    - body
+                  - title
+                  - body
                   properties:
                     title:
                       type: string
                     body:
                       type: string
                       format: commonmark
+              examples:
+                example1:
+                  value:
+                  - title: value1
+                    body: '# Title
+
+
+                      Paragraph text.'
+                example2:
+                  value:
+                  - title: value2
+                    body: '**Bold** and *italic* text.'
     post:
       operationId: createArticles
       requestBody:
@@ -33,14 +45,26 @@ paths:
             schema:
               type: object
               required:
-                - title
-                - body
+              - title
+              - body
               properties:
                 title:
                   type: string
                 body:
                   type: string
                   format: commonmark
+            examples:
+              example1:
+                value:
+                  title: value1
+                  body: '# Title
+
+
+                    Paragraph text.'
+              example2:
+                value:
+                  title: value2
+                  body: '**Bold** and *italic* text.'
       responses:
         '201':
           description: Created

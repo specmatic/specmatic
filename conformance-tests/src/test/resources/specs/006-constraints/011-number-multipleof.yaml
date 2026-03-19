@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Constraint - number multipleOf (decimal)"
-  version: "1.0"
+  title: Constraint - number multipleOf (decimal)
+  version: '1.0'
 paths:
   /prices:
     get:
@@ -16,14 +16,23 @@ paths:
                 items:
                   type: object
                   required:
-                    - item
-                    - price
+                  - item
+                  - price
                   properties:
                     item:
                       type: string
                     price:
                       type: number
                       multipleOf: 0.01
+              examples:
+                example1:
+                  value:
+                  - item: value1
+                    price: 0
+                example2:
+                  value:
+                  - item: value2
+                    price: 0.01
     post:
       operationId: createPrice
       requestBody:
@@ -33,14 +42,23 @@ paths:
             schema:
               type: object
               required:
-                - item
-                - price
+              - item
+              - price
               properties:
                 item:
                   type: string
                 price:
                   type: number
                   multipleOf: 0.01
+            examples:
+              example1:
+                value:
+                  item: value1
+                  price: 0
+              example2:
+                value:
+                  item: value2
+                  price: 0.01
       responses:
         '201':
           description: Created

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Schema composition - string enum"
-  version: "1.0"
+  title: Schema composition - string enum
+  version: '1.0'
 paths:
   /orders:
     get:
@@ -16,18 +16,27 @@ paths:
                 items:
                   type: object
                   required:
-                    - id
-                    - status
+                  - id
+                  - status
                   properties:
                     id:
                       type: integer
                     status:
                       type: string
                       enum:
-                        - pending
-                        - shipped
-                        - delivered
-                        - cancelled
+                      - pending
+                      - shipped
+                      - delivered
+                      - cancelled
+              examples:
+                example1:
+                  value:
+                  - id: 0
+                    status: pending
+                example2:
+                  value:
+                  - id: 50
+                    status: shipped
     post:
       operationId: createOrder
       requestBody:
@@ -37,18 +46,27 @@ paths:
             schema:
               type: object
               required:
-                - id
-                - status
+              - id
+              - status
               properties:
                 id:
                   type: integer
                 status:
                   type: string
                   enum:
-                    - pending
-                    - shipped
-                    - delivered
-                    - cancelled
+                  - pending
+                  - shipped
+                  - delivered
+                  - cancelled
+            examples:
+              example1:
+                value:
+                  id: 0
+                  status: pending
+              example2:
+                value:
+                  id: 50
+                  status: shipped
       responses:
         '201':
           description: Created

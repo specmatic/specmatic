@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Schema composition - array of arrays (matrix)"
-  version: "1.0"
+  title: Schema composition - array of arrays (matrix)
+  version: '1.0'
 paths:
   /matrices:
     get:
@@ -16,8 +16,8 @@ paths:
                 items:
                   type: object
                   required:
-                    - name
-                    - rows
+                  - name
+                  - rows
                   properties:
                     name:
                       type: string
@@ -27,6 +27,17 @@ paths:
                         type: array
                         items:
                           type: number
+              examples:
+                example1:
+                  value:
+                  - name: value1
+                    rows:
+                    - - 0
+                example2:
+                  value:
+                  - name: value2
+                    rows:
+                    - - 50
     post:
       operationId: createMatrix
       requestBody:
@@ -36,8 +47,8 @@ paths:
             schema:
               type: object
               required:
-                - name
-                - rows
+              - name
+              - rows
               properties:
                 name:
                   type: string
@@ -47,6 +58,17 @@ paths:
                     type: array
                     items:
                       type: number
+            examples:
+              example1:
+                value:
+                  name: value1
+                  rows:
+                  - - 0
+              example2:
+                value:
+                  name: value2
+                  rows:
+                  - - 50
       responses:
         '201':
           description: Created

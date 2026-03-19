@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Schema composition - array of objects"
-  version: "1.0"
+  title: Schema composition - array of objects
+  version: '1.0'
 paths:
   /tasks:
     get:
@@ -16,9 +16,9 @@ paths:
                 items:
                   type: object
                   required:
-                    - id
-                    - title
-                    - done
+                  - id
+                  - title
+                  - done
                   properties:
                     id:
                       type: integer
@@ -26,6 +26,17 @@ paths:
                       type: string
                     done:
                       type: boolean
+              examples:
+                example1:
+                  value:
+                  - id: 0
+                    title: value1
+                    done: true
+                example2:
+                  value:
+                  - id: 50
+                    title: value2
+                    done: false
     post:
       operationId: createTask
       requestBody:
@@ -35,9 +46,9 @@ paths:
             schema:
               type: object
               required:
-                - id
-                - title
-                - done
+              - id
+              - title
+              - done
               properties:
                 id:
                   type: integer
@@ -45,6 +56,17 @@ paths:
                   type: string
                 done:
                   type: boolean
+            examples:
+              example1:
+                value:
+                  id: 0
+                  title: value1
+                  done: true
+              example2:
+                value:
+                  id: 50
+                  title: value2
+                  done: false
       responses:
         '201':
           description: Created

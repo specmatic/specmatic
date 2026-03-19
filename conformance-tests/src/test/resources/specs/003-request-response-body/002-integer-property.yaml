@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Request/Response body - integer property"
-  version: "1.0"
+  title: Request/Response body - integer property
+  version: '1.0'
 paths:
   /counters:
     get:
@@ -16,13 +16,22 @@ paths:
                 items:
                   type: object
                   required:
-                    - name
-                    - value
+                  - name
+                  - value
                   properties:
                     name:
                       type: string
                     value:
                       type: integer
+              examples:
+                example1:
+                  value:
+                  - name: value1
+                    value: 0
+                example2:
+                  value:
+                  - name: value2
+                    value: 50
     post:
       operationId: createCounter
       requestBody:
@@ -32,13 +41,22 @@ paths:
             schema:
               type: object
               required:
-                - name
-                - value
+              - name
+              - value
               properties:
                 name:
                   type: string
                 value:
                   type: integer
+            examples:
+              example1:
+                value:
+                  name: value1
+                  value: 0
+              example2:
+                value:
+                  name: value2
+                  value: 50
       responses:
         '201':
           description: Created

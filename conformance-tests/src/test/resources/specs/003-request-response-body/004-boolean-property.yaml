@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Request/Response body - boolean property"
-  version: "1.0"
+  title: Request/Response body - boolean property
+  version: '1.0'
 paths:
   /features:
     get:
@@ -16,13 +16,22 @@ paths:
                 items:
                   type: object
                   required:
-                    - name
-                    - enabled
+                  - name
+                  - enabled
                   properties:
                     name:
                       type: string
                     enabled:
                       type: boolean
+              examples:
+                example1:
+                  value:
+                  - name: value1
+                    enabled: true
+                example2:
+                  value:
+                  - name: value2
+                    enabled: false
     post:
       operationId: createFeature
       requestBody:
@@ -32,13 +41,22 @@ paths:
             schema:
               type: object
               required:
-                - name
-                - enabled
+              - name
+              - enabled
               properties:
                 name:
                   type: string
                 enabled:
                   type: boolean
+            examples:
+              example1:
+                value:
+                  name: value1
+                  enabled: true
+              example2:
+                value:
+                  name: value2
+                  enabled: false
       responses:
         '201':
           description: Created

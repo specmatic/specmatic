@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Request/Response body - mixed primitive types"
-  version: "1.0"
+  title: Request/Response body - mixed primitive types
+  version: '1.0'
 paths:
   /products:
     get:
@@ -16,10 +16,10 @@ paths:
                 items:
                   type: object
                   required:
-                    - name
-                    - quantity
-                    - price
-                    - inStock
+                  - name
+                  - quantity
+                  - price
+                  - inStock
                   properties:
                     name:
                       type: string
@@ -29,6 +29,19 @@ paths:
                       type: number
                     inStock:
                       type: boolean
+              examples:
+                example1:
+                  value:
+                  - name: value1
+                    quantity: 0
+                    price: 0
+                    inStock: true
+                example2:
+                  value:
+                  - name: value2
+                    quantity: 50
+                    price: 50
+                    inStock: false
     post:
       operationId: createProduct
       requestBody:
@@ -38,10 +51,10 @@ paths:
             schema:
               type: object
               required:
-                - name
-                - quantity
-                - price
-                - inStock
+              - name
+              - quantity
+              - price
+              - inStock
               properties:
                 name:
                   type: string
@@ -51,6 +64,19 @@ paths:
                   type: number
                 inStock:
                   type: boolean
+            examples:
+              example1:
+                value:
+                  name: value1
+                  quantity: 0
+                  price: 0
+                  inStock: true
+              example2:
+                value:
+                  name: value2
+                  quantity: 50
+                  price: 50
+                  inStock: false
       responses:
         '201':
           description: Created

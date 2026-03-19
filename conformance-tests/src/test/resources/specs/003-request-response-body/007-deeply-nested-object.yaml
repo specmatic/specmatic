@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Request/Response body - deeply nested object"
-  version: "1.0"
+  title: Request/Response body - deeply nested object
+  version: '1.0'
 paths:
   /companies:
     get:
@@ -16,29 +16,46 @@ paths:
                 items:
                   type: object
                   required:
-                    - name
-                    - headquarters
+                  - name
+                  - headquarters
                   properties:
                     name:
                       type: string
                     headquarters:
                       type: object
                       required:
-                        - city
-                        - coordinates
+                      - city
+                      - coordinates
                       properties:
                         city:
                           type: string
                         coordinates:
                           type: object
                           required:
-                            - lat
-                            - lon
+                          - lat
+                          - lon
                           properties:
                             lat:
                               type: number
                             lon:
                               type: number
+              examples:
+                example1:
+                  value:
+                  - name: value1
+                    headquarters:
+                      city: value1
+                      coordinates:
+                        lat: 0
+                        lon: 0
+                example2:
+                  value:
+                  - name: value2
+                    headquarters:
+                      city: value2
+                      coordinates:
+                        lat: 50
+                        lon: 50
     post:
       operationId: createCompany
       requestBody:
@@ -48,29 +65,46 @@ paths:
             schema:
               type: object
               required:
-                - name
-                - headquarters
+              - name
+              - headquarters
               properties:
                 name:
                   type: string
                 headquarters:
                   type: object
                   required:
-                    - city
-                    - coordinates
+                  - city
+                  - coordinates
                   properties:
                     city:
                       type: string
                     coordinates:
                       type: object
                       required:
-                        - lat
-                        - lon
+                      - lat
+                      - lon
                       properties:
                         lat:
                           type: number
                         lon:
                           type: number
+            examples:
+              example1:
+                value:
+                  name: value1
+                  headquarters:
+                    city: value1
+                    coordinates:
+                      lat: 0
+                      lon: 0
+              example2:
+                value:
+                  name: value2
+                  headquarters:
+                    city: value2
+                    coordinates:
+                      lat: 50
+                      lon: 50
       responses:
         '201':
           description: Created

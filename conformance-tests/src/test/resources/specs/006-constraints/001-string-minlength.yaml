@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Constraint - string minLength"
-  version: "1.0"
+  title: Constraint - string minLength
+  version: '1.0'
 paths:
   /usernames:
     get:
@@ -16,14 +16,23 @@ paths:
                 items:
                   type: object
                   required:
-                    - id
-                    - username
+                  - id
+                  - username
                   properties:
                     id:
                       type: integer
                     username:
                       type: string
                       minLength: 3
+              examples:
+                example1:
+                  value:
+                  - id: 0
+                    username: value1
+                example2:
+                  value:
+                  - id: 50
+                    username: value2
     post:
       operationId: createUsername
       requestBody:
@@ -33,14 +42,23 @@ paths:
             schema:
               type: object
               required:
-                - id
-                - username
+              - id
+              - username
               properties:
                 id:
                   type: integer
                 username:
                   type: string
                   minLength: 3
+            examples:
+              example1:
+                value:
+                  id: 0
+                  username: value1
+              example2:
+                value:
+                  id: 50
+                  username: value2
       responses:
         '201':
           description: Created

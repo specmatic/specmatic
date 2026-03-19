@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Request/Response body - single object response"
-  version: "1.0"
+  title: Request/Response body - single object response
+  version: '1.0'
 paths:
   /settings:
     get:
@@ -14,9 +14,9 @@ paths:
               schema:
                 type: object
                 required:
-                  - theme
-                  - language
-                  - notificationsEnabled
+                - theme
+                - language
+                - notificationsEnabled
                 properties:
                   theme:
                     type: string
@@ -24,6 +24,17 @@ paths:
                     type: string
                   notificationsEnabled:
                     type: boolean
+              examples:
+                example1:
+                  value:
+                    theme: value1
+                    language: value1
+                    notificationsEnabled: true
+                example2:
+                  value:
+                    theme: value2
+                    language: value2
+                    notificationsEnabled: false
     post:
       operationId: createSettings
       requestBody:
@@ -33,9 +44,9 @@ paths:
             schema:
               type: object
               required:
-                - theme
-                - language
-                - notificationsEnabled
+              - theme
+              - language
+              - notificationsEnabled
               properties:
                 theme:
                   type: string
@@ -43,6 +54,17 @@ paths:
                   type: string
                 notificationsEnabled:
                   type: boolean
+            examples:
+              example1:
+                value:
+                  theme: value1
+                  language: value1
+                  notificationsEnabled: true
+              example2:
+                value:
+                  theme: value2
+                  language: value2
+                  notificationsEnabled: false
       responses:
         '201':
           description: Created

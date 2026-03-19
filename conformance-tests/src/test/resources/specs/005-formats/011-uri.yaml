@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - uri (JSON Schema)"
-  version: "1.0"
+  title: Format - uri (JSON Schema)
+  version: '1.0'
 paths:
   /bookmarks:
     get:
@@ -16,14 +16,23 @@ paths:
                 items:
                   type: object
                   required:
-                    - title
-                    - url
+                  - title
+                  - url
                   properties:
                     title:
                       type: string
                     url:
                       type: string
                       format: uri
+              examples:
+                example1:
+                  value:
+                  - title: value1
+                    url: https://example.com/resource/1
+                example2:
+                  value:
+                  - title: value2
+                    url: https://example.org/item/2
     post:
       operationId: createBookmarks
       requestBody:
@@ -33,14 +42,23 @@ paths:
             schema:
               type: object
               required:
-                - title
-                - url
+              - title
+              - url
               properties:
                 title:
                   type: string
                 url:
                   type: string
                   format: uri
+            examples:
+              example1:
+                value:
+                  title: value1
+                  url: https://example.com/resource/1
+              example2:
+                value:
+                  title: value2
+                  url: https://example.org/item/2
       responses:
         '201':
           description: Created

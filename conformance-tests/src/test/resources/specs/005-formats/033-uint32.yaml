@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - uint32 (OpenAPI)"
-  version: "1.0"
+  title: Format - uint32 (OpenAPI)
+  version: '1.0'
 paths:
   /counters:
     get:
@@ -14,8 +14,8 @@ paths:
               schema:
                 type: object
                 required:
-                  - pageViews
-                  - clicks
+                - pageViews
+                - clicks
                 properties:
                   pageViews:
                     type: integer
@@ -23,6 +23,15 @@ paths:
                   clicks:
                     type: integer
                     format: uint32
+              examples:
+                example1:
+                  value:
+                    pageViews: 0
+                    clicks: 0
+                example2:
+                  value:
+                    pageViews: 2147483647
+                    clicks: 2147483647
     post:
       operationId: createCounters
       requestBody:
@@ -32,8 +41,8 @@ paths:
             schema:
               type: object
               required:
-                - pageViews
-                - clicks
+              - pageViews
+              - clicks
               properties:
                 pageViews:
                   type: integer
@@ -41,6 +50,15 @@ paths:
                 clicks:
                   type: integer
                   format: uint32
+            examples:
+              example1:
+                value:
+                  pageViews: 0
+                  clicks: 0
+              example2:
+                value:
+                  pageViews: 2147483647
+                  clicks: 2147483647
       responses:
         '201':
           description: Created

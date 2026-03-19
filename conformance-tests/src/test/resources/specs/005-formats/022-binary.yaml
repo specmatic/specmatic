@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - binary (OpenAPI)"
-  version: "1.0"
+  title: Format - binary (OpenAPI)
+  version: '1.0'
 paths:
   /blobs:
     get:
@@ -16,14 +16,23 @@ paths:
                 items:
                   type: object
                   required:
-                    - id
-                    - content
+                  - id
+                  - content
                   properties:
                     id:
                       type: string
                     content:
                       type: string
                       format: binary
+              examples:
+                example1:
+                  value:
+                  - id: value1
+                    content: '0110100001101001'
+                example2:
+                  value:
+                  - id: value2
+                    content: '0111011101101111'
     post:
       operationId: createBlobs
       requestBody:
@@ -33,14 +42,23 @@ paths:
             schema:
               type: object
               required:
-                - id
-                - content
+              - id
+              - content
               properties:
                 id:
                   type: string
                 content:
                   type: string
                   format: binary
+            examples:
+              example1:
+                value:
+                  id: value1
+                  content: '0110100001101001'
+              example2:
+                value:
+                  id: value2
+                  content: '0111011101101111'
       responses:
         '201':
           description: Created

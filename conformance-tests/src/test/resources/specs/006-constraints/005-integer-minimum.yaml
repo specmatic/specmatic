@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Constraint - integer minimum"
-  version: "1.0"
+  title: Constraint - integer minimum
+  version: '1.0'
 paths:
   /scores:
     get:
@@ -16,14 +16,23 @@ paths:
                 items:
                   type: object
                   required:
-                    - player
-                    - score
+                  - player
+                  - score
                   properties:
                     player:
                       type: string
                     score:
                       type: integer
                       minimum: 0
+              examples:
+                example1:
+                  value:
+                  - player: value1
+                    score: 0
+                example2:
+                  value:
+                  - player: value2
+                    score: 50
     post:
       operationId: createScore
       requestBody:
@@ -33,14 +42,23 @@ paths:
             schema:
               type: object
               required:
-                - player
-                - score
+              - player
+              - score
               properties:
                 player:
                   type: string
                 score:
                   type: integer
                   minimum: 0
+            examples:
+              example1:
+                value:
+                  player: value1
+                  score: 0
+              example2:
+                value:
+                  player: value2
+                  score: 50
       responses:
         '201':
           description: Created

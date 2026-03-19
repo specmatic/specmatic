@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Constraint - string maxLength"
-  version: "1.0"
+  title: Constraint - string maxLength
+  version: '1.0'
 paths:
   /tags:
     get:
@@ -16,14 +16,23 @@ paths:
                 items:
                   type: object
                   required:
-                    - id
-                    - label
+                  - id
+                  - label
                   properties:
                     id:
                       type: integer
                     label:
                       type: string
                       maxLength: 20
+              examples:
+                example1:
+                  value:
+                  - id: 0
+                    label: value1
+                example2:
+                  value:
+                  - id: 50
+                    label: value2
     post:
       operationId: createTag
       requestBody:
@@ -33,14 +42,23 @@ paths:
             schema:
               type: object
               required:
-                - id
-                - label
+              - id
+              - label
               properties:
                 id:
                   type: integer
                 label:
                   type: string
                   maxLength: 20
+            examples:
+              example1:
+                value:
+                  id: 0
+                  label: value1
+              example2:
+                value:
+                  id: 50
+                  label: value2
       responses:
         '201':
           description: Created

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Constraint - array maxItems"
-  version: "1.0"
+  title: Constraint - array maxItems
+  version: '1.0'
 paths:
   /polls:
     get:
@@ -16,8 +16,8 @@ paths:
                 items:
                   type: object
                   required:
-                    - question
-                    - choices
+                  - question
+                  - choices
                   properties:
                     question:
                       type: string
@@ -26,6 +26,17 @@ paths:
                       maxItems: 5
                       items:
                         type: string
+              examples:
+                example1:
+                  value:
+                  - question: value1
+                    choices:
+                    - value1
+                example2:
+                  value:
+                  - question: value2
+                    choices:
+                    - value2
     post:
       operationId: createPoll
       requestBody:
@@ -35,8 +46,8 @@ paths:
             schema:
               type: object
               required:
-                - question
-                - choices
+              - question
+              - choices
               properties:
                 question:
                   type: string
@@ -45,6 +56,17 @@ paths:
                   maxItems: 5
                   items:
                     type: string
+            examples:
+              example1:
+                value:
+                  question: value1
+                  choices:
+                  - value1
+              example2:
+                value:
+                  question: value2
+                  choices:
+                  - value2
       responses:
         '201':
           description: Created

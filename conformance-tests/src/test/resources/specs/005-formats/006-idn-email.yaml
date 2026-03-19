@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - idn-email (JSON Schema)"
-  version: "1.0"
+  title: Format - idn-email (JSON Schema)
+  version: '1.0'
 paths:
   /subscribers:
     get:
@@ -16,14 +16,23 @@ paths:
                 items:
                   type: object
                   required:
-                    - name
-                    - email
+                  - name
+                  - email
                   properties:
                     name:
                       type: string
                     email:
                       type: string
                       format: idn-email
+              examples:
+                example1:
+                  value:
+                  - name: value1
+                    email: alice@example.com
+                example2:
+                  value:
+                  - name: value2
+                    email: bob@example.org
     post:
       operationId: createSubscribers
       requestBody:
@@ -33,14 +42,23 @@ paths:
             schema:
               type: object
               required:
-                - name
-                - email
+              - name
+              - email
               properties:
                 name:
                   type: string
                 email:
                   type: string
                   format: idn-email
+            examples:
+              example1:
+                value:
+                  name: value1
+                  email: alice@example.com
+              example2:
+                value:
+                  name: value2
+                  email: bob@example.org
       responses:
         '201':
           description: Created

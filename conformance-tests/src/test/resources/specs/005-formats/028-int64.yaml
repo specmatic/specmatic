@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - int64 (OpenAPI)"
-  version: "1.0"
+  title: Format - int64 (OpenAPI)
+  version: '1.0'
 paths:
   /statistics:
     get:
@@ -14,8 +14,8 @@ paths:
               schema:
                 type: object
                 required:
-                  - totalBytes
-                  - totalRecords
+                - totalBytes
+                - totalRecords
                 properties:
                   totalBytes:
                     type: integer
@@ -23,6 +23,15 @@ paths:
                   totalRecords:
                     type: integer
                     format: int64
+              examples:
+                example1:
+                  value:
+                    totalBytes: -9223372036854775808
+                    totalRecords: -9223372036854775808
+                example2:
+                  value:
+                    totalBytes: -1
+                    totalRecords: -1
     post:
       operationId: createStatistics
       requestBody:
@@ -32,8 +41,8 @@ paths:
             schema:
               type: object
               required:
-                - totalBytes
-                - totalRecords
+              - totalBytes
+              - totalRecords
               properties:
                 totalBytes:
                   type: integer
@@ -41,6 +50,15 @@ paths:
                 totalRecords:
                   type: integer
                   format: int64
+            examples:
+              example1:
+                value:
+                  totalBytes: -9223372036854775808
+                  totalRecords: -9223372036854775808
+              example2:
+                value:
+                  totalBytes: -1
+                  totalRecords: -1
       responses:
         '201':
           description: Created

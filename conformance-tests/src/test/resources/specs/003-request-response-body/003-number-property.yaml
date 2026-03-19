@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Request/Response body - number property"
-  version: "1.0"
+  title: Request/Response body - number property
+  version: '1.0'
 paths:
   /readings:
     get:
@@ -16,13 +16,22 @@ paths:
                 items:
                   type: object
                   required:
-                    - sensor
-                    - value
+                  - sensor
+                  - value
                   properties:
                     sensor:
                       type: string
                     value:
                       type: number
+              examples:
+                example1:
+                  value:
+                  - sensor: value1
+                    value: 0
+                example2:
+                  value:
+                  - sensor: value2
+                    value: 50
     post:
       operationId: createReading
       requestBody:
@@ -32,13 +41,22 @@ paths:
             schema:
               type: object
               required:
-                - sensor
-                - value
+              - sensor
+              - value
               properties:
                 sensor:
                   type: string
                 value:
                   type: number
+            examples:
+              example1:
+                value:
+                  sensor: value1
+                  value: 0
+              example2:
+                value:
+                  sensor: value2
+                  value: 50
       responses:
         '201':
           description: Created

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - html (OpenAPI)"
-  version: "1.0"
+  title: Format - html (OpenAPI)
+  version: '1.0'
 paths:
   /pages:
     get:
@@ -16,14 +16,23 @@ paths:
                 items:
                   type: object
                   required:
-                    - title
-                    - content
+                  - title
+                  - content
                   properties:
                     title:
                       type: string
                     content:
                       type: string
                       format: html
+              examples:
+                example1:
+                  value:
+                  - title: value1
+                    content: <p>Hello world</p>
+                example2:
+                  value:
+                  - title: value2
+                    content: <div><strong>Content</strong></div>
     post:
       operationId: createPages
       requestBody:
@@ -33,14 +42,23 @@ paths:
             schema:
               type: object
               required:
-                - title
-                - content
+              - title
+              - content
               properties:
                 title:
                   type: string
                 content:
                   type: string
                   format: html
+            examples:
+              example1:
+                value:
+                  title: value1
+                  content: <p>Hello world</p>
+              example2:
+                value:
+                  title: value2
+                  content: <div><strong>Content</strong></div>
       responses:
         '201':
           description: Created

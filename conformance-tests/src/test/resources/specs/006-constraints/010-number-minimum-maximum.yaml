@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Constraint - number minimum and maximum"
-  version: "1.0"
+  title: Constraint - number minimum and maximum
+  version: '1.0'
 paths:
   /measurements:
     get:
@@ -16,8 +16,8 @@ paths:
                 items:
                   type: object
                   required:
-                    - label
-                    - value
+                  - label
+                  - value
                   properties:
                     label:
                       type: string
@@ -25,6 +25,15 @@ paths:
                       type: number
                       minimum: 0.0
                       maximum: 999.99
+              examples:
+                example1:
+                  value:
+                  - label: value1
+                    value: 0
+                example2:
+                  value:
+                  - label: value2
+                    value: 500
     post:
       operationId: createMeasurement
       requestBody:
@@ -34,8 +43,8 @@ paths:
             schema:
               type: object
               required:
-                - label
-                - value
+              - label
+              - value
               properties:
                 label:
                   type: string
@@ -43,6 +52,15 @@ paths:
                   type: number
                   minimum: 0.0
                   maximum: 999.99
+            examples:
+              example1:
+                value:
+                  label: value1
+                  value: 0
+              example2:
+                value:
+                  label: value2
+                  value: 500
       responses:
         '201':
           description: Created

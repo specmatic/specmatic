@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Constraint - object maxProperties"
-  version: "1.0"
+  title: Constraint - object maxProperties
+  version: '1.0'
 paths:
   /configs:
     get:
@@ -16,8 +16,8 @@ paths:
                 items:
                   type: object
                   required:
-                    - name
-                    - settings
+                  - name
+                  - settings
                   properties:
                     name:
                       type: string
@@ -26,6 +26,17 @@ paths:
                       maxProperties: 5
                       additionalProperties:
                         type: string
+              examples:
+                example1:
+                  value:
+                  - name: value1
+                    settings:
+                      keya: value1
+                example2:
+                  value:
+                  - name: value2
+                    settings:
+                      keyb: value2
     post:
       operationId: createConfig
       requestBody:
@@ -35,8 +46,8 @@ paths:
             schema:
               type: object
               required:
-                - name
-                - settings
+              - name
+              - settings
               properties:
                 name:
                   type: string
@@ -45,6 +56,17 @@ paths:
                   maxProperties: 5
                   additionalProperties:
                     type: string
+            examples:
+              example1:
+                value:
+                  name: value1
+                  settings:
+                    keya: value1
+              example2:
+                value:
+                  name: value2
+                  settings:
+                    keyb: value2
       responses:
         '201':
           description: Created

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - uint8 (OpenAPI)"
-  version: "1.0"
+  title: Format - uint8 (OpenAPI)
+  version: '1.0'
 paths:
   /pixel:
     get:
@@ -14,9 +14,9 @@ paths:
               schema:
                 type: object
                 required:
-                  - red
-                  - green
-                  - blue
+                - red
+                - green
+                - blue
                 properties:
                   red:
                     type: integer
@@ -27,6 +27,17 @@ paths:
                   blue:
                     type: integer
                     format: uint8
+              examples:
+                example1:
+                  value:
+                    red: 0
+                    green: 0
+                    blue: 0
+                example2:
+                  value:
+                    red: 127
+                    green: 127
+                    blue: 127
     post:
       operationId: createPixel
       requestBody:
@@ -36,9 +47,9 @@ paths:
             schema:
               type: object
               required:
-                - red
-                - green
-                - blue
+              - red
+              - green
+              - blue
               properties:
                 red:
                   type: integer
@@ -49,6 +60,17 @@ paths:
                 blue:
                   type: integer
                   format: uint8
+            examples:
+              example1:
+                value:
+                  red: 0
+                  green: 0
+                  blue: 0
+              example2:
+                value:
+                  red: 127
+                  green: 127
+                  blue: 127
       responses:
         '201':
           description: Created

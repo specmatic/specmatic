@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Request/Response body - empty response body (204)"
-  version: "1.0"
+  title: Request/Response body - empty response body (204)
+  version: '1.0'
 paths:
   /notifications:
     post:
@@ -13,12 +13,21 @@ paths:
             schema:
               type: object
               required:
-                - ids
+              - ids
               properties:
                 ids:
                   type: array
                   items:
                     type: integer
+            examples:
+              example1:
+                value:
+                  ids:
+                  - 0
+              example2:
+                value:
+                  ids:
+                  - 50
       responses:
         '204':
           description: No content

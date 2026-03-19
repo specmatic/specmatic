@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - int32 (OpenAPI)"
-  version: "1.0"
+  title: Format - int32 (OpenAPI)
+  version: '1.0'
 paths:
   /metrics:
     get:
@@ -14,8 +14,8 @@ paths:
               schema:
                 type: object
                 required:
-                  - requestCount
-                  - errorCount
+                - requestCount
+                - errorCount
                 properties:
                   requestCount:
                     type: integer
@@ -23,6 +23,15 @@ paths:
                   errorCount:
                     type: integer
                     format: int32
+              examples:
+                example1:
+                  value:
+                    requestCount: -2147483648
+                    errorCount: -2147483648
+                example2:
+                  value:
+                    requestCount: -1
+                    errorCount: -1
     post:
       operationId: createMetrics
       requestBody:
@@ -32,8 +41,8 @@ paths:
             schema:
               type: object
               required:
-                - requestCount
-                - errorCount
+              - requestCount
+              - errorCount
               properties:
                 requestCount:
                   type: integer
@@ -41,6 +50,15 @@ paths:
                 errorCount:
                   type: integer
                   format: int32
+            examples:
+              example1:
+                value:
+                  requestCount: -2147483648
+                  errorCount: -2147483648
+              example2:
+                value:
+                  requestCount: -1
+                  errorCount: -1
       responses:
         '201':
           description: Created

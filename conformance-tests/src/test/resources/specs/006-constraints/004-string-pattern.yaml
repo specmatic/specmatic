@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Constraint - string pattern (regex)"
-  version: "1.0"
+  title: Constraint - string pattern (regex)
+  version: '1.0'
 paths:
   /postcodes:
     get:
@@ -16,14 +16,23 @@ paths:
                 items:
                   type: object
                   required:
-                    - city
-                    - postcode
+                  - city
+                  - postcode
                   properties:
                     city:
                       type: string
                     postcode:
                       type: string
-                      pattern: "^[A-Z]{1,2}[0-9]{1,2}[A-Z]? [0-9][A-Z]{2}$"
+                      pattern: ^[A-Z]{1,2}[0-9]{1,2}[A-Z]? [0-9][A-Z]{2}$
+              examples:
+                example1:
+                  value:
+                  - city: value1
+                    postcode: SW1A 1AA
+                example2:
+                  value:
+                  - city: value2
+                    postcode: EC2A 3LT
     post:
       operationId: createPostcode
       requestBody:
@@ -33,14 +42,23 @@ paths:
             schema:
               type: object
               required:
-                - city
-                - postcode
+              - city
+              - postcode
               properties:
                 city:
                   type: string
                 postcode:
                   type: string
-                  pattern: "^[A-Z]{1,2}[0-9]{1,2}[A-Z]? [0-9][A-Z]{2}$"
+                  pattern: ^[A-Z]{1,2}[0-9]{1,2}[A-Z]? [0-9][A-Z]{2}$
+            examples:
+              example1:
+                value:
+                  city: value1
+                  postcode: SW1A 1AA
+              example2:
+                value:
+                  city: value2
+                  postcode: EC2A 3LT
       responses:
         '201':
           description: Created

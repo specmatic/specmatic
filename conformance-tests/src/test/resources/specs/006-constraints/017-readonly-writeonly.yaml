@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Constraint - readOnly and writeOnly"
-  version: "1.0"
+  title: Constraint - readOnly and writeOnly
+  version: '1.0'
 paths:
   /accounts:
     get:
@@ -16,8 +16,8 @@ paths:
                 items:
                   type: object
                   required:
-                    - id
-                    - email
+                  - id
+                  - email
                   properties:
                     id:
                       type: integer
@@ -27,6 +27,15 @@ paths:
                     password:
                       type: string
                       writeOnly: true
+              examples:
+                example1:
+                  value:
+                  - id: 1
+                    email: value1
+                example2:
+                  value:
+                  - id: 50
+                    email: value2
     post:
       operationId: createAccount
       requestBody:
@@ -36,8 +45,8 @@ paths:
             schema:
               type: object
               required:
-                - email
-                - password
+              - email
+              - password
               properties:
                 id:
                   type: integer
@@ -47,6 +56,15 @@ paths:
                 password:
                   type: string
                   writeOnly: true
+            examples:
+              example1:
+                value:
+                  email: value1
+                  password: s3cret1
+              example2:
+                value:
+                  email: value2
+                  password: s3cret2
       responses:
         '201':
           description: Created

@@ -1,18 +1,18 @@
 openapi: 3.0.3
 info:
-  title: "PUT with request body"
-  version: "1.0"
+  title: PUT with request body
+  version: '1.0'
 paths:
   /items/{id}:
     put:
       operationId: updateItem
       summary: Replace an item
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
       requestBody:
         required: true
         content:
@@ -20,10 +20,17 @@ paths:
             schema:
               type: object
               required:
-                - name
+              - name
               properties:
                 name:
                   type: string
+            examples:
+              example1:
+                value:
+                  name: value1
+              example2:
+                value:
+                  name: value2
       responses:
         '200':
           description: Item updated
@@ -32,10 +39,19 @@ paths:
               schema:
                 type: object
                 required:
-                  - id
-                  - name
+                - id
+                - name
                 properties:
                   id:
                     type: integer
                   name:
                     type: string
+              examples:
+                example1:
+                  value:
+                    id: 0
+                    name: value1
+                example2:
+                  value:
+                    id: 50
+                    name: value2

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Constraint - integer exclusiveMinimum and exclusiveMaximum"
-  version: "1.0"
+  title: Constraint - integer exclusiveMinimum and exclusiveMaximum
+  version: '1.0'
 paths:
   /temperatures:
     get:
@@ -16,8 +16,8 @@ paths:
                 items:
                   type: object
                   required:
-                    - sensor
-                    - celsius
+                  - sensor
+                  - celsius
                   properties:
                     sensor:
                       type: string
@@ -25,6 +25,15 @@ paths:
                       type: integer
                       exclusiveMinimum: -273
                       exclusiveMaximum: 1000
+              examples:
+                example1:
+                  value:
+                  - sensor: value1
+                    celsius: -272
+                example2:
+                  value:
+                  - sensor: value2
+                    celsius: 363
     post:
       operationId: createTemperature
       requestBody:
@@ -34,8 +43,8 @@ paths:
             schema:
               type: object
               required:
-                - sensor
-                - celsius
+              - sensor
+              - celsius
               properties:
                 sensor:
                   type: string
@@ -43,6 +52,15 @@ paths:
                   type: integer
                   exclusiveMinimum: -273
                   exclusiveMaximum: 1000
+            examples:
+              example1:
+                value:
+                  sensor: value1
+                  celsius: -272
+              example2:
+                value:
+                  sensor: value2
+                  celsius: 363
       responses:
         '201':
           description: Created

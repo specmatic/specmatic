@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Format - media-range (OpenAPI)"
-  version: "1.0"
+  title: Format - media-range (OpenAPI)
+  version: '1.0'
 paths:
   /content-types:
     get:
@@ -16,14 +16,23 @@ paths:
                 items:
                   type: object
                   required:
-                    - label
-                    - mediaType
+                  - label
+                  - mediaType
                   properties:
                     label:
                       type: string
                     mediaType:
                       type: string
                       format: media-range
+              examples:
+                example1:
+                  value:
+                  - label: value1
+                    mediaType: application/json
+                example2:
+                  value:
+                  - label: value2
+                    mediaType: text/html
     post:
       operationId: createContentTypes
       requestBody:
@@ -33,14 +42,23 @@ paths:
             schema:
               type: object
               required:
-                - label
-                - mediaType
+              - label
+              - mediaType
               properties:
                 label:
                   type: string
                 mediaType:
                   type: string
                   format: media-range
+            examples:
+              example1:
+                value:
+                  label: value1
+                  mediaType: application/json
+              example2:
+                value:
+                  label: value2
+                  mediaType: text/html
       responses:
         '201':
           description: Created

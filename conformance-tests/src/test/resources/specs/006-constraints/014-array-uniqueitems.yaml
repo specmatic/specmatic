@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: "Constraint - array uniqueItems"
-  version: "1.0"
+  title: Constraint - array uniqueItems
+  version: '1.0'
 paths:
   /tag-sets:
     get:
@@ -16,8 +16,8 @@ paths:
                 items:
                   type: object
                   required:
-                    - name
-                    - tags
+                  - name
+                  - tags
                   properties:
                     name:
                       type: string
@@ -26,6 +26,17 @@ paths:
                       uniqueItems: true
                       items:
                         type: string
+              examples:
+                example1:
+                  value:
+                  - name: value1
+                    tags:
+                    - value1
+                example2:
+                  value:
+                  - name: value2
+                    tags:
+                    - value2
     post:
       operationId: createTagSet
       requestBody:
@@ -35,8 +46,8 @@ paths:
             schema:
               type: object
               required:
-                - name
-                - tags
+              - name
+              - tags
               properties:
                 name:
                   type: string
@@ -45,6 +56,17 @@ paths:
                   uniqueItems: true
                   items:
                     type: string
+            examples:
+              example1:
+                value:
+                  name: value1
+                  tags:
+                  - value1
+              example2:
+                value:
+                  name: value2
+                  tags:
+                  - value2
       responses:
         '201':
           description: Created
