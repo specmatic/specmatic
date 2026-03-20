@@ -1,0 +1,60 @@
+openapi: 3.0.3
+info:
+  title: "Query parameter - boolean type"
+  version: "1.0"
+paths:
+  /tasks:
+    get:
+      operationId: listTasks
+      summary: List tasks filtered by completion status
+      parameters:
+        - name: completed
+          in: query
+          required: true
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Matching tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - title
+                    - completed
+                  properties:
+                    id:
+                      type: integer
+                    title:
+                      type: string
+                    completed:
+                      type: boolean
+    post:
+      operationId: createTask
+      parameters:
+        - name: completed
+          in: query
+          required: true
+          schema:
+            type: boolean
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - completed
+              properties:
+                title:
+                  type: string
+                completed:
+                  type: boolean
+      responses:
+        '201':
+          description: Created

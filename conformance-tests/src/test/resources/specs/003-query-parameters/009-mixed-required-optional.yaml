@@ -1,0 +1,84 @@
+openapi: 3.0.3
+info:
+  title: "Query parameters - mixed required and optional"
+  version: "1.0"
+paths:
+  /books:
+    get:
+      operationId: searchBooks
+      summary: Search books with required and optional filters
+      parameters:
+        - name: genre
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: author
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Matching books
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - title
+                    - genre
+                  properties:
+                    id:
+                      type: integer
+                    title:
+                      type: string
+                    genre:
+                      type: string
+                    author:
+                      type: string
+                    year:
+                      type: integer
+    post:
+      operationId: createBook
+      parameters:
+        - name: genre
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: author
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - genre
+              properties:
+                title:
+                  type: string
+                genre:
+                  type: string
+      responses:
+        '201':
+          description: Created
