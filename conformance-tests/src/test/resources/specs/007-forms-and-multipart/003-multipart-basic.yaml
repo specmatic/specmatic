@@ -1,0 +1,37 @@
+openapi: 3.0.3
+info:
+  title: "Multipart form data - basic fields"
+  version: "1.0"
+paths:
+  /profiles:
+    post:
+      operationId: createProfile
+      summary: Create a profile with multipart form data
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - firstName
+                - lastName
+              properties:
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                bio:
+                  type: string
+      responses:
+        '201':
+          description: Profile created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer

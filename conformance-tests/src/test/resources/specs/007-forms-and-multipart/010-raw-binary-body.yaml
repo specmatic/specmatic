@@ -1,0 +1,31 @@
+openapi: 3.0.3
+info:
+  title: "Raw binary request body (octet-stream)"
+  version: "1.0"
+paths:
+  /files:
+    post:
+      operationId: uploadRawFile
+      summary: Upload raw binary content directly
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '201':
+          description: File stored
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - size
+                properties:
+                  id:
+                    type: integer
+                  size:
+                    type: integer
