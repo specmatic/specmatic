@@ -1,0 +1,18 @@
+openapi: 3.0.3
+info:
+  title: "Status code - 204 No Content"
+  version: "1.0"
+paths:
+  /items/{itemId}:
+    delete:
+      operationId: deleteItem
+      summary: Delete an item returning 204
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Item deleted

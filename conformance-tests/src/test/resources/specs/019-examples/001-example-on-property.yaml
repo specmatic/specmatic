@@ -1,0 +1,50 @@
+openapi: 3.0.3
+info:
+  title: "Example on schema properties"
+  version: "1.0"
+paths:
+  /users:
+    get:
+      operationId: listUsers
+      responses:
+        '200':
+          description: User list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - email
+                  properties:
+                    name:
+                      type: string
+                      example: Jane Doe
+                    email:
+                      type: string
+                      format: email
+                      example: jane@example.com
+    post:
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+              properties:
+                name:
+                  type: string
+                  example: Jane Doe
+                email:
+                  type: string
+                  format: email
+                  example: jane@example.com
+      responses:
+        '201':
+          description: Created

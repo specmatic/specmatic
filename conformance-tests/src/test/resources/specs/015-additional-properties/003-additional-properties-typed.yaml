@@ -1,0 +1,40 @@
+openapi: 3.0.3
+info:
+  title: "additionalProperties with typed schema"
+  version: "1.0"
+paths:
+  /labels:
+    get:
+      operationId: getLabels
+      responses:
+        '200':
+          description: Labels map
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer
+                additionalProperties:
+                  type: string
+    post:
+      operationId: createLabels
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  type: integer
+              additionalProperties:
+                type: string
+      responses:
+        '201':
+          description: Created

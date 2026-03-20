@@ -1,0 +1,33 @@
+openapi: 3.0.3
+info:
+  title: "Example on header parameter"
+  version: "1.0"
+paths:
+  /resources:
+    get:
+      operationId: listResources
+      parameters:
+        - name: X-Request-Id
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+      responses:
+        '200':
+          description: Resource list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - name
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string

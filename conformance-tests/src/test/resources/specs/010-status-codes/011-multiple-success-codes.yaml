@@ -1,0 +1,52 @@
+openapi: 3.0.3
+info:
+  title: "Multiple success status codes on one endpoint"
+  version: "1.0"
+paths:
+  /tasks:
+    post:
+      operationId: createTask
+      summary: Create task returning 200 or 201
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+              properties:
+                title:
+                  type: string
+      responses:
+        '200':
+          description: Task already existed
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - title
+                  - existed
+                properties:
+                  id:
+                    type: integer
+                  title:
+                    type: string
+                  existed:
+                    type: boolean
+        '201':
+          description: Task created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - title
+                properties:
+                  id:
+                    type: integer
+                  title:
+                    type: string

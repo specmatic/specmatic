@@ -1,0 +1,40 @@
+openapi: 3.0.3
+info:
+  title: "$ref to component schema"
+  version: "1.0"
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      responses:
+        '200':
+          description: Pet list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pet'
+    post:
+      operationId: createPet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pet'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Pet:
+      type: object
+      required:
+        - name
+        - species
+      properties:
+        name:
+          type: string
+        species:
+          type: string

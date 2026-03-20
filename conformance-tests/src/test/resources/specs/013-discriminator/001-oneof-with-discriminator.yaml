@@ -1,0 +1,62 @@
+openapi: 3.0.3
+info:
+  title: "Discriminator with oneOf"
+  version: "1.0"
+paths:
+  /notifications:
+    get:
+      operationId: listNotifications
+      responses:
+        '200':
+          description: Notification list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Notification'
+    post:
+      operationId: createNotification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Notification'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Notification:
+      oneOf:
+        - $ref: '#/components/schemas/EmailNotification'
+        - $ref: '#/components/schemas/SmsNotification'
+      discriminator:
+        propertyName: type
+    EmailNotification:
+      type: object
+      required:
+        - type
+        - emailAddress
+        - subject
+      properties:
+        type:
+          type: string
+        emailAddress:
+          type: string
+        subject:
+          type: string
+    SmsNotification:
+      type: object
+      required:
+        - type
+        - phoneNumber
+        - message
+      properties:
+        type:
+          type: string
+        phoneNumber:
+          type: string
+        message:
+          type: string

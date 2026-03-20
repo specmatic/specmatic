@@ -1,0 +1,47 @@
+openapi: 3.0.3
+info:
+  title: "Status code - 409 Conflict"
+  version: "1.0"
+paths:
+  /users:
+    post:
+      operationId: createUser
+      summary: Create user with possible 409 conflict
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - name
+              properties:
+                email:
+                  type: string
+                  format: email
+                name:
+                  type: string
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer
+        '409':
+          description: Conflict - user already exists
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: string

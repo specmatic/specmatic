@@ -1,0 +1,56 @@
+openapi: 3.0.3
+info:
+  title: "Status code - 422 Unprocessable Entity"
+  version: "1.0"
+paths:
+  /orders:
+    post:
+      operationId: createOrder
+      summary: Create order with possible 422 validation error
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - productId
+                - quantity
+              properties:
+                productId:
+                  type: integer
+                quantity:
+                  type: integer
+      responses:
+        '201':
+          description: Order created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - errors
+                properties:
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - message
+                      properties:
+                        field:
+                          type: string
+                        message:
+                          type: string

@@ -1,0 +1,44 @@
+openapi: 3.0.3
+info:
+  title: "Default value - boolean property"
+  version: "1.0"
+paths:
+  /features:
+    get:
+      operationId: listFeatures
+      responses:
+        '200':
+          description: Feature list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                  properties:
+                    name:
+                      type: string
+                    enabled:
+                      type: boolean
+                      default: false
+    post:
+      operationId: createFeature
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                enabled:
+                  type: boolean
+                  default: false
+      responses:
+        '201':
+          description: Created

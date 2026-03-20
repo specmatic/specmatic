@@ -1,0 +1,41 @@
+openapi: 3.0.3
+info:
+  title: "Status code - 404 Not Found"
+  version: "1.0"
+paths:
+  /items/{itemId}:
+    get:
+      operationId: getItem
+      summary: Get item with possible 404
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Item found
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - name
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+        '404':
+          description: Item not found
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: string

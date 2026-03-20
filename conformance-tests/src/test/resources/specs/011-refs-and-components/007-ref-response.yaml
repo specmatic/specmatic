@@ -1,0 +1,66 @@
+openapi: 3.0.3
+info:
+  title: "$ref to component response"
+  version: "1.0"
+paths:
+  /widgets:
+    get:
+      operationId: listWidgets
+      responses:
+        '200':
+          description: Widget list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - name
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /widgets/{widgetId}:
+    get:
+      operationId: getWidget
+      parameters:
+        - name: widgetId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Widget found
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - name
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+components:
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - error
+            properties:
+              error:
+                type: string

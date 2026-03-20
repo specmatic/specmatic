@@ -1,0 +1,65 @@
+openapi: 3.0.3
+info:
+  title: "Discriminator with oneOf and mapping"
+  version: "1.0"
+paths:
+  /payments:
+    get:
+      operationId: listPayments
+      responses:
+        '200':
+          description: Payment list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Payment'
+    post:
+      operationId: createPayment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Payment'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Payment:
+      oneOf:
+        - $ref: '#/components/schemas/CreditCardPayment'
+        - $ref: '#/components/schemas/BankTransferPayment'
+      discriminator:
+        propertyName: method
+        mapping:
+          credit_card: '#/components/schemas/CreditCardPayment'
+          bank_transfer: '#/components/schemas/BankTransferPayment'
+    CreditCardPayment:
+      type: object
+      required:
+        - method
+        - cardNumber
+        - amount
+      properties:
+        method:
+          type: string
+        cardNumber:
+          type: string
+        amount:
+          type: number
+    BankTransferPayment:
+      type: object
+      required:
+        - method
+        - accountNumber
+        - amount
+      properties:
+        method:
+          type: string
+        accountNumber:
+          type: string
+        amount:
+          type: number
