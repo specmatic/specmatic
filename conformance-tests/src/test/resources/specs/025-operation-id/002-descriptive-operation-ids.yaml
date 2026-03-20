@@ -1,0 +1,51 @@
+openapi: 3.0.3
+info:
+  title: "OperationId - descriptive naming"
+  version: "1.0"
+paths:
+  /orders:
+    get:
+      operationId: getAllPendingOrders
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - pending
+              - shipped
+              - delivered
+      responses:
+        '200':
+          description: Order list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - status
+                  properties:
+                    id:
+                      type: integer
+                    status:
+                      type: string
+    post:
+      operationId: placeNewOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - product
+              properties:
+                product:
+                  type: string
+      responses:
+        '201':
+          description: Created

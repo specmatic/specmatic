@@ -1,0 +1,30 @@
+openapi: 3.0.3
+info:
+  title: "Server - version variable with enum"
+  version: "1.0"
+servers:
+  - url: /api/{version}
+    variables:
+      version:
+        default: v2
+        enum:
+          - v1
+          - v2
+paths:
+  /items:
+    get:
+      operationId: listItems
+      responses:
+        '200':
+          description: Items list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                  properties:
+                    id:
+                      type: integer

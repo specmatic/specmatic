@@ -1,0 +1,49 @@
+openapi: 3.0.3
+info:
+  title: "allOf inheritance - two levels"
+  version: "1.0"
+paths:
+  /vehicles:
+    get:
+      operationId: listVehicles
+      responses:
+        '200':
+          description: Vehicle list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Car'
+    post:
+      operationId: createVehicle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Car'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Vehicle:
+      type: object
+      required:
+        - make
+        - model
+      properties:
+        make:
+          type: string
+        model:
+          type: string
+    Car:
+      allOf:
+        - $ref: '#/components/schemas/Vehicle'
+        - type: object
+          required:
+            - doors
+          properties:
+            doors:
+              type: integer

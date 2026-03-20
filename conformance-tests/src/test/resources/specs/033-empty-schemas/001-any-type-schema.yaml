@@ -1,0 +1,42 @@
+openapi: 3.0.3
+info:
+  title: "Empty schema - any type (empty object schema)"
+  version: "1.0"
+paths:
+  /events:
+    get:
+      operationId: listEvents
+      responses:
+        '200':
+          description: Event list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - payload
+                  properties:
+                    id:
+                      type: integer
+                    payload: {}
+    post:
+      operationId: createEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - payload
+              properties:
+                id:
+                  type: integer
+                payload: {}
+      responses:
+        '201':
+          description: Created

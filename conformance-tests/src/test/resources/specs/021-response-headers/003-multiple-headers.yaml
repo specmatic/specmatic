@@ -1,0 +1,36 @@
+openapi: 3.0.3
+info:
+  title: "Response headers - multiple"
+  version: "1.0"
+paths:
+  /items:
+    get:
+      operationId: listItems
+      responses:
+        '200':
+          description: Items list
+          headers:
+            X-Request-Id:
+              required: true
+              schema:
+                type: string
+                format: uuid
+            X-Total-Count:
+              required: true
+              schema:
+                type: integer
+            X-Page:
+              required: true
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                  properties:
+                    id:
+                      type: integer

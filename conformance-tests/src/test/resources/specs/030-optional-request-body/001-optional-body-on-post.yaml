@@ -1,0 +1,36 @@
+openapi: 3.0.3
+info:
+  title: "Optional request body - POST"
+  version: "1.0"
+paths:
+  /search:
+    post:
+      operationId: searchItems
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: string
+                limit:
+                  type: integer
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - name
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string

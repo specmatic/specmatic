@@ -1,0 +1,56 @@
+openapi: 3.0.3
+info:
+  title: "allOf inheritance - required field merging"
+  version: "1.0"
+paths:
+  /employees:
+    get:
+      operationId: listEmployees
+      responses:
+        '200':
+          description: Employee list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Employee'
+    post:
+      operationId: createEmployee
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Employee'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Person:
+      type: object
+      required:
+        - firstName
+        - lastName
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        middleName:
+          type: string
+    Employee:
+      allOf:
+        - $ref: '#/components/schemas/Person'
+        - type: object
+          required:
+            - employeeId
+            - department
+          properties:
+            employeeId:
+              type: string
+            department:
+              type: string
+            title:
+              type: string

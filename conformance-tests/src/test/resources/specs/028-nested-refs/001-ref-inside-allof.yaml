@@ -1,0 +1,64 @@
+openapi: 3.0.3
+info:
+  title: "Nested refs - $ref inside allOf"
+  version: "1.0"
+paths:
+  /orders:
+    get:
+      operationId: listOrders
+      responses:
+        '200':
+          description: Order list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+    post:
+      operationId: createOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Order'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Address:
+      type: object
+      required:
+        - street
+        - city
+      properties:
+        street:
+          type: string
+        city:
+          type: string
+    Customer:
+      type: object
+      required:
+        - name
+        - address
+      properties:
+        name:
+          type: string
+        address:
+          $ref: '#/components/schemas/Address'
+    Order:
+      allOf:
+        - type: object
+          required:
+            - orderId
+          properties:
+            orderId:
+              type: integer
+        - type: object
+          required:
+            - customer
+          properties:
+            customer:
+              $ref: '#/components/schemas/Customer'

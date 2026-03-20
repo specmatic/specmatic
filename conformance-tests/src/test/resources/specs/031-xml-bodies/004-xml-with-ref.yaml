@@ -1,0 +1,41 @@
+openapi: 3.0.3
+info:
+  title: "XML bodies - using $ref schema"
+  version: "1.0"
+paths:
+  /employees:
+    get:
+      operationId: listEmployees
+      responses:
+        '200':
+          description: Employee list
+          content:
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/Employee'
+    post:
+      operationId: createEmployee
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/Employee'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Employee:
+      type: object
+      required:
+        - id
+        - name
+        - department
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        department:
+          type: string

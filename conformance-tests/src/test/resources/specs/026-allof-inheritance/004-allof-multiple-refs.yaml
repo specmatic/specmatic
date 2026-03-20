@@ -1,0 +1,61 @@
+openapi: 3.0.3
+info:
+  title: "allOf inheritance - multiple refs combined"
+  version: "1.0"
+paths:
+  /products:
+    get:
+      operationId: listProducts
+      responses:
+        '200':
+          description: Product list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+    post:
+      operationId: createProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Product'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Identifiable:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: integer
+    Timestamped:
+      type: object
+      required:
+        - createdAt
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    Product:
+      allOf:
+        - $ref: '#/components/schemas/Identifiable'
+        - $ref: '#/components/schemas/Timestamped'
+        - type: object
+          required:
+            - name
+            - price
+          properties:
+            name:
+              type: string
+            price:
+              type: number

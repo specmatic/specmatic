@@ -1,0 +1,57 @@
+openapi: 3.0.3
+info:
+  title: "oneOf without discriminator"
+  version: "1.0"
+paths:
+  /payments:
+    get:
+      operationId: listPayments
+      responses:
+        '200':
+          description: Payment list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Payment'
+    post:
+      operationId: createPayment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Payment'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Payment:
+      oneOf:
+        - $ref: '#/components/schemas/CreditCardPayment'
+        - $ref: '#/components/schemas/BankTransferPayment'
+    CreditCardPayment:
+      type: object
+      required:
+        - cardNumber
+        - amount
+      properties:
+        cardNumber:
+          type: string
+        amount:
+          type: number
+    BankTransferPayment:
+      type: object
+      required:
+        - accountNumber
+        - routingNumber
+        - amount
+      properties:
+        accountNumber:
+          type: string
+        routingNumber:
+          type: string
+        amount:
+          type: number

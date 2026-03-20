@@ -1,0 +1,49 @@
+openapi: 3.0.3
+info:
+  title: "Deprecated operation - alongside active replacement"
+  version: "1.0"
+paths:
+  /v1/items:
+    get:
+      operationId: listItemsV1
+      deprecated: true
+      responses:
+        '200':
+          description: Items list (legacy)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - name
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+  /v2/items:
+    get:
+      operationId: listItemsV2
+      responses:
+        '200':
+          description: Items list (current)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - name
+                    - status
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+                    status:
+                      type: string

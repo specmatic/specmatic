@@ -1,0 +1,70 @@
+openapi: 3.0.3
+info:
+  title: "oneOf without discriminator - inline schemas"
+  version: "1.0"
+paths:
+  /events:
+    get:
+      operationId: listEvents
+      responses:
+        '200':
+          description: Event list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  oneOf:
+                    - type: object
+                      required:
+                        - eventType
+                        - clickX
+                        - clickY
+                      properties:
+                        eventType:
+                          type: string
+                        clickX:
+                          type: integer
+                        clickY:
+                          type: integer
+                    - type: object
+                      required:
+                        - eventType
+                        - key
+                      properties:
+                        eventType:
+                          type: string
+                        key:
+                          type: string
+    post:
+      operationId: createEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - eventType
+                    - clickX
+                    - clickY
+                  properties:
+                    eventType:
+                      type: string
+                    clickX:
+                      type: integer
+                    clickY:
+                      type: integer
+                - type: object
+                  required:
+                    - eventType
+                    - key
+                  properties:
+                    eventType:
+                      type: string
+                    key:
+                      type: string
+      responses:
+        '201':
+          description: Created

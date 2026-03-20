@@ -1,0 +1,62 @@
+openapi: 3.0.3
+info:
+  title: "XML bodies - with array property"
+  version: "1.0"
+paths:
+  /catalogs:
+    get:
+      operationId: listCatalogs
+      responses:
+        '200':
+          description: Catalog
+          content:
+            application/xml:
+              schema:
+                type: object
+                required:
+                  - name
+                  - items
+                properties:
+                  name:
+                    type: string
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - sku
+                        - name
+                      properties:
+                        sku:
+                          type: string
+                        name:
+                          type: string
+    post:
+      operationId: createCatalog
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema:
+              type: object
+              required:
+                - name
+                - items
+              properties:
+                name:
+                  type: string
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - sku
+                      - name
+                    properties:
+                      sku:
+                        type: string
+                      name:
+                        type: string
+      responses:
+        '201':
+          description: Created

@@ -1,0 +1,27 @@
+openapi: 3.0.3
+info:
+  title: "Server - with variable substitution"
+  version: "1.0"
+servers:
+  - url: /{basePath}
+    variables:
+      basePath:
+        default: api
+paths:
+  /items:
+    get:
+      operationId: listItems
+      responses:
+        '200':
+          description: Items list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                  properties:
+                    id:
+                      type: integer

@@ -1,0 +1,45 @@
+openapi: 3.0.3
+info:
+  title: "XML bodies - request and response"
+  version: "1.0"
+paths:
+  /products:
+    get:
+      operationId: listProducts
+      responses:
+        '200':
+          description: Product list
+          content:
+            application/xml:
+              schema:
+                type: object
+                required:
+                  - id
+                  - name
+                  - price
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+                  price:
+                    type: number
+    post:
+      operationId: createProduct
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema:
+              type: object
+              required:
+                - name
+                - price
+              properties:
+                name:
+                  type: string
+                price:
+                  type: number
+      responses:
+        '201':
+          description: Created

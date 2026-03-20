@@ -1,0 +1,42 @@
+openapi: 3.0.3
+info:
+  title: "Empty schema - object with no properties defined"
+  version: "1.0"
+paths:
+  /metadata:
+    get:
+      operationId: getMetadata
+      responses:
+        '200':
+          description: Metadata response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - tags
+                properties:
+                  id:
+                    type: integer
+                  tags:
+                    type: object
+    post:
+      operationId: createMetadata
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - tags
+              properties:
+                id:
+                  type: integer
+                tags:
+                  type: object
+      responses:
+        '201':
+          description: Created

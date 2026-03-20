@@ -1,0 +1,41 @@
+openapi: 3.0.3
+info:
+  title: "Empty schema - string with no constraints"
+  version: "1.0"
+paths:
+  /notes:
+    get:
+      operationId: listNotes
+      responses:
+        '200':
+          description: Note list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - content
+                  properties:
+                    id:
+                      type: integer
+                    content:
+                      type: string
+    post:
+      operationId: createNote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - content
+              properties:
+                content:
+                  type: string
+      responses:
+        '201':
+          description: Created

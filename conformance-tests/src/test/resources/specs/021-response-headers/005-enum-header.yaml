@@ -1,0 +1,31 @@
+openapi: 3.0.3
+info:
+  title: "Response header - enum value"
+  version: "1.0"
+paths:
+  /items:
+    get:
+      operationId: listItems
+      responses:
+        '200':
+          description: Items list
+          headers:
+            X-Rate-Limit-Policy:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - standard
+                  - premium
+                  - unlimited
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                  properties:
+                    id:
+                      type: integer

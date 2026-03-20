@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: "Empty schema - array with minimal item schema"
+  version: "1.0"
+paths:
+  /tags:
+    get:
+      operationId: listTags
+      responses:
+        '200':
+          description: Tag list
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - values
+                properties:
+                  id:
+                    type: integer
+                  values:
+                    type: array
+                    items:
+                      type: string
+    post:
+      operationId: createTags
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - values
+              properties:
+                id:
+                  type: integer
+                values:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Created

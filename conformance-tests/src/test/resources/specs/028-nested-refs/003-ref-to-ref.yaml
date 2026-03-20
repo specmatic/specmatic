@@ -1,0 +1,62 @@
+openapi: 3.0.3
+info:
+  title: "Nested refs - $ref to another $ref"
+  version: "1.0"
+paths:
+  /invoices:
+    get:
+      operationId: listInvoices
+      responses:
+        '200':
+          description: Invoice list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Invoice'
+    post:
+      operationId: createInvoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Invoice'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Money:
+      type: object
+      required:
+        - amount
+        - currency
+      properties:
+        amount:
+          type: number
+        currency:
+          type: string
+    LineItem:
+      type: object
+      required:
+        - description
+        - total
+      properties:
+        description:
+          type: string
+        total:
+          $ref: '#/components/schemas/Money'
+    Invoice:
+      type: object
+      required:
+        - id
+        - lineItems
+      properties:
+        id:
+          type: integer
+        lineItems:
+          type: array
+          items:
+            $ref: '#/components/schemas/LineItem'

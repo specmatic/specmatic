@@ -1,0 +1,27 @@
+openapi: 3.0.3
+info:
+  title: "Server - multiple servers"
+  version: "1.0"
+servers:
+  - url: /api/v1
+    description: Version 1
+  - url: /api/v2
+    description: Version 2
+paths:
+  /items:
+    get:
+      operationId: listItems
+      responses:
+        '200':
+          description: Items list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                  properties:
+                    id:
+                      type: integer

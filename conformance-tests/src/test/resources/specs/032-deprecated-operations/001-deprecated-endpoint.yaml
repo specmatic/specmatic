@@ -1,0 +1,27 @@
+openapi: 3.0.3
+info:
+  title: "Deprecated operation - single endpoint"
+  version: "1.0"
+paths:
+  /legacy/items:
+    get:
+      operationId: listItemsLegacy
+      deprecated: true
+      summary: List items (deprecated)
+      responses:
+        '200':
+          description: Items list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - name
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string

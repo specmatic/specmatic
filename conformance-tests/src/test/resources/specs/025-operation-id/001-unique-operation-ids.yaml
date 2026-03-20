@@ -1,0 +1,65 @@
+openapi: 3.0.3
+info:
+  title: "OperationId - unique IDs across operations"
+  version: "1.0"
+paths:
+  /users:
+    get:
+      operationId: listUsers
+      responses:
+        '200':
+          description: User list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - username
+                  properties:
+                    id:
+                      type: integer
+                    username:
+                      type: string
+    post:
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+              properties:
+                username:
+                  type: string
+      responses:
+        '201':
+          description: Created
+  /users/{id}:
+    get:
+      operationId: getUser
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: User detail
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - username
+                properties:
+                  id:
+                    type: integer
+                  username:
+                    type: string

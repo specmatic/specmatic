@@ -1,0 +1,56 @@
+openapi: 3.0.3
+info:
+  title: "Nested refs - array items with oneOf refs"
+  version: "1.0"
+paths:
+  /feeds:
+    get:
+      operationId: listFeedItems
+      responses:
+        '200':
+          description: Feed items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  oneOf:
+                    - $ref: '#/components/schemas/TextPost'
+                    - $ref: '#/components/schemas/ImagePost'
+    post:
+      operationId: createFeedItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/TextPost'
+                - $ref: '#/components/schemas/ImagePost'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    TextPost:
+      type: object
+      required:
+        - content
+        - author
+      properties:
+        content:
+          type: string
+        author:
+          type: string
+    ImagePost:
+      type: object
+      required:
+        - imageUrl
+        - author
+      properties:
+        imageUrl:
+          type: string
+        caption:
+          type: string
+        author:
+          type: string

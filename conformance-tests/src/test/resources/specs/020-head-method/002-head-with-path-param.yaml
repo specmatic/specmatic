@@ -1,0 +1,20 @@
+openapi: 3.0.3
+info:
+  title: "HEAD request - with path parameter"
+  version: "1.0"
+paths:
+  /items/{id}:
+    head:
+      operationId: checkItem
+      summary: Check if a specific item exists
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Item exists
+        '404':
+          description: Item not found

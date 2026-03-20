@@ -1,0 +1,55 @@
+openapi: 3.0.3
+info:
+  title: "XML bodies - nested object"
+  version: "1.0"
+paths:
+  /orders:
+    get:
+      operationId: listOrders
+      responses:
+        '200':
+          description: Order list
+          content:
+            application/xml:
+              schema:
+                type: object
+                required:
+                  - id
+                  - customer
+                properties:
+                  id:
+                    type: integer
+                  customer:
+                    type: object
+                    required:
+                      - name
+                      - email
+                    properties:
+                      name:
+                        type: string
+                      email:
+                        type: string
+    post:
+      operationId: createOrder
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema:
+              type: object
+              required:
+                - customer
+              properties:
+                customer:
+                  type: object
+                  required:
+                    - name
+                    - email
+                  properties:
+                    name:
+                      type: string
+                    email:
+                      type: string
+      responses:
+        '201':
+          description: Created

@@ -1,0 +1,29 @@
+openapi: 3.0.3
+info:
+  title: "Cookie parameter - optional"
+  version: "1.0"
+paths:
+  /preferences:
+    get:
+      operationId: getPreferences
+      parameters:
+        - name: theme
+          in: cookie
+          required: false
+          schema:
+            type: string
+            enum:
+              - light
+              - dark
+      responses:
+        '200':
+          description: Preferences
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - theme
+                properties:
+                  theme:
+                    type: string

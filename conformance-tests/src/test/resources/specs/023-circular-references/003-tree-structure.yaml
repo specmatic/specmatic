@@ -1,0 +1,42 @@
+openapi: 3.0.3
+info:
+  title: "Circular reference - tree with children array"
+  version: "1.0"
+paths:
+  /nodes:
+    get:
+      operationId: listNodes
+      responses:
+        '200':
+          description: Node tree
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TreeNode'
+    post:
+      operationId: createNode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TreeNode'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    TreeNode:
+      type: object
+      required:
+        - id
+        - label
+      properties:
+        id:
+          type: integer
+        label:
+          type: string
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/TreeNode'

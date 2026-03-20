@@ -1,0 +1,27 @@
+openapi: 3.0.3
+info:
+  title: "Server - single server with base path"
+  version: "1.0"
+servers:
+  - url: /api/v1
+paths:
+  /items:
+    get:
+      operationId: listItems
+      responses:
+        '200':
+          description: Items list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - name
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string

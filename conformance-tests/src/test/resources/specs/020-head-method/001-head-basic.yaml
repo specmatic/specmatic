@@ -1,0 +1,17 @@
+openapi: 3.0.3
+info:
+  title: "HEAD request - basic"
+  version: "1.0"
+paths:
+  /items:
+    head:
+      operationId: checkItems
+      summary: Check if items exist
+      responses:
+        '200':
+          description: Items exist
+          headers:
+            X-Total-Count:
+              required: true
+              schema:
+                type: integer

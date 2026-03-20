@@ -1,0 +1,53 @@
+openapi: 3.0.3
+info:
+  title: "anyOf without discriminator"
+  version: "1.0"
+paths:
+  /contacts:
+    get:
+      operationId: listContacts
+      responses:
+        '200':
+          description: Contact list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ContactInfo'
+    post:
+      operationId: createContact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactInfo'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    ContactInfo:
+      anyOf:
+        - $ref: '#/components/schemas/EmailContact'
+        - $ref: '#/components/schemas/PhoneContact'
+    EmailContact:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+        preferred:
+          type: boolean
+    PhoneContact:
+      type: object
+      required:
+        - phone
+      properties:
+        phone:
+          type: string
+        preferred:
+          type: boolean

@@ -1,0 +1,31 @@
+openapi: 3.0.3
+info:
+  title: "Cookie parameter - string"
+  version: "1.0"
+paths:
+  /dashboard:
+    get:
+      operationId: getDashboard
+      parameters:
+        - name: session_id
+          in: cookie
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Dashboard data
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - userId
+                  - widgets
+                properties:
+                  userId:
+                    type: integer
+                  widgets:
+                    type: array
+                    items:
+                      type: string

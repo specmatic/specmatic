@@ -1,0 +1,62 @@
+openapi: 3.0.3
+info:
+  title: "Nested refs - $ref inside oneOf"
+  version: "1.0"
+paths:
+  /shipments:
+    get:
+      operationId: listShipments
+      responses:
+        '200':
+          description: Shipment list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Shipment'
+    post:
+      operationId: createShipment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Shipment'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Address:
+      type: object
+      required:
+        - street
+        - city
+      properties:
+        street:
+          type: string
+        city:
+          type: string
+    Locker:
+      type: object
+      required:
+        - lockerId
+        - location
+      properties:
+        lockerId:
+          type: string
+        location:
+          type: string
+    Shipment:
+      type: object
+      required:
+        - id
+        - destination
+      properties:
+        id:
+          type: integer
+        destination:
+          oneOf:
+            - $ref: '#/components/schemas/Address'
+            - $ref: '#/components/schemas/Locker'

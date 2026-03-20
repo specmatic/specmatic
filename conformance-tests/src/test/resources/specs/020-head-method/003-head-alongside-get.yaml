@@ -1,0 +1,42 @@
+openapi: 3.0.3
+info:
+  title: "HEAD request - alongside GET on same path"
+  version: "1.0"
+paths:
+  /items:
+    head:
+      operationId: checkItems
+      summary: Check items existence
+      responses:
+        '200':
+          description: Items exist
+          headers:
+            X-Total-Count:
+              required: true
+              schema:
+                type: integer
+    get:
+      operationId: listItems
+      summary: List items
+      responses:
+        '200':
+          description: Successful response
+          headers:
+            X-Total-Count:
+              required: true
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - name
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string

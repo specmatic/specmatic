@@ -1,0 +1,55 @@
+openapi: 3.0.3
+info:
+  title: "allOf inheritance - three levels deep"
+  version: "1.0"
+paths:
+  /vehicles:
+    get:
+      operationId: listVehicles
+      responses:
+        '200':
+          description: Vehicle list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ElectricCar'
+    post:
+      operationId: createVehicle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ElectricCar'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Vehicle:
+      type: object
+      required:
+        - make
+      properties:
+        make:
+          type: string
+    Car:
+      allOf:
+        - $ref: '#/components/schemas/Vehicle'
+        - type: object
+          required:
+            - doors
+          properties:
+            doors:
+              type: integer
+    ElectricCar:
+      allOf:
+        - $ref: '#/components/schemas/Car'
+        - type: object
+          required:
+            - batteryCapacity
+          properties:
+            batteryCapacity:
+              type: number

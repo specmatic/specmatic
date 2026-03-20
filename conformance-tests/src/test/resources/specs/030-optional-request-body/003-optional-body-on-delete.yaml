@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: "Optional request body - DELETE"
+  version: "1.0"
+paths:
+  /items/{id}:
+    delete:
+      operationId: deleteItem
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        '204':
+          description: Deleted

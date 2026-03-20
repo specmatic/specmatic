@@ -1,0 +1,32 @@
+openapi: 3.0.3
+info:
+  title: "Response header - on POST response"
+  version: "1.0"
+paths:
+  /items:
+    post:
+      operationId: createItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Created
+          headers:
+            Location:
+              required: true
+              schema:
+                type: string
+            X-Request-Id:
+              required: true
+              schema:
+                type: string
+                format: uuid
