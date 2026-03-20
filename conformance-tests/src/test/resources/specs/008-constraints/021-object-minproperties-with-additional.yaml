@@ -1,0 +1,34 @@
+openapi: 3.0.3
+info:
+  title: "Object minProperties with additionalProperties typed"
+  version: "1.0"
+paths:
+  /tags:
+    get:
+      operationId: listTags
+      responses:
+        '200':
+          description: Tag list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  minProperties: 2
+                  additionalProperties:
+                    type: string
+    post:
+      operationId: createTag
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 2
+              additionalProperties:
+                type: string
+      responses:
+        '201':
+          description: Created

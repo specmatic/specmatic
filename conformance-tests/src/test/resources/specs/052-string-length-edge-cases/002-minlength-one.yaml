@@ -1,0 +1,40 @@
+openapi: 3.0.3
+info:
+  title: "String with minLength 1 (non-empty)"
+  version: "1.0"
+paths:
+  /labels:
+    get:
+      operationId: listLabels
+      responses:
+        '200':
+          description: Label list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                  properties:
+                    name:
+                      type: string
+                      minLength: 1
+    post:
+      operationId: createLabel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+      responses:
+        '201':
+          description: Created

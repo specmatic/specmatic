@@ -1,0 +1,60 @@
+openapi: 3.0.3
+info:
+  title: "oneOf including null type (nullable via oneOf)"
+  version: "1.0"
+paths:
+  /configs:
+    get:
+      operationId: listConfigs
+      responses:
+        '200':
+          description: Config list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - key
+                    - value
+                  properties:
+                    key:
+                      type: string
+                    value:
+                      oneOf:
+                        - type: string
+                        - type: object
+                          required:
+                            - nested
+                          properties:
+                            nested:
+                              type: string
+                      nullable: true
+    post:
+      operationId: createConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - key
+                - value
+              properties:
+                key:
+                  type: string
+                value:
+                  oneOf:
+                    - type: string
+                    - type: object
+                      required:
+                        - nested
+                      properties:
+                        nested:
+                          type: string
+                  nullable: true
+      responses:
+        '201':
+          description: Created

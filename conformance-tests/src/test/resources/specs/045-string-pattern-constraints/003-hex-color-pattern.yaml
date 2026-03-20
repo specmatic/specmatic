@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: "Hex color pattern"
+  version: "1.0"
+paths:
+  /themes:
+    get:
+      operationId: listThemes
+      responses:
+        '200':
+          description: Theme list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - primaryColor
+                  properties:
+                    name:
+                      type: string
+                    primaryColor:
+                      type: string
+                      pattern: "^#[0-9a-fA-F]{6}$"
+    post:
+      operationId: createTheme
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - primaryColor
+              properties:
+                name:
+                  type: string
+                primaryColor:
+                  type: string
+                  pattern: "^#[0-9a-fA-F]{6}$"
+      responses:
+        '201':
+          description: Created

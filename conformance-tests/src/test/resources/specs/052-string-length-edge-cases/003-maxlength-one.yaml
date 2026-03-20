@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: "String with maxLength 1 (single char)"
+  version: "1.0"
+paths:
+  /grades:
+    get:
+      operationId: listGrades
+      responses:
+        '200':
+          description: Grade list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - student
+                    - grade
+                  properties:
+                    student:
+                      type: string
+                    grade:
+                      type: string
+                      maxLength: 1
+    post:
+      operationId: createGrade
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - student
+                - grade
+              properties:
+                student:
+                  type: string
+                grade:
+                  type: string
+                  maxLength: 1
+      responses:
+        '201':
+          description: Created

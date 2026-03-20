@@ -1,0 +1,29 @@
+openapi: 3.0.3
+info:
+  title: "DateTime format in header parameter"
+  version: "1.0"
+paths:
+  /events:
+    get:
+      operationId: listEvents
+      parameters:
+        - name: If-Modified-Since
+          in: header
+          required: true
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Event list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                  properties:
+                    name:
+                      type: string

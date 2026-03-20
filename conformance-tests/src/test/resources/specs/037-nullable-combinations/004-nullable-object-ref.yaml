@@ -1,0 +1,57 @@
+openapi: 3.0.3
+info:
+  title: "Nullable object reference"
+  version: "1.0"
+paths:
+  /orders:
+    get:
+      operationId: listOrders
+      responses:
+        '200':
+          description: Order list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - assignee
+                  properties:
+                    id:
+                      type: integer
+                    assignee:
+                      nullable: true
+                      allOf:
+                        - $ref: '#/components/schemas/Person'
+    post:
+      operationId: createOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - assignee
+              properties:
+                id:
+                  type: integer
+                assignee:
+                  nullable: true
+                  allOf:
+                    - $ref: '#/components/schemas/Person'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Person:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string

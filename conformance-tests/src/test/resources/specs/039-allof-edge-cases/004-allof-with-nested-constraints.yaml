@@ -1,0 +1,66 @@
+openapi: 3.0.3
+info:
+  title: "allOf where one schema adds constraints to another's property"
+  version: "1.0"
+paths:
+  /items:
+    get:
+      operationId: listItems
+      responses:
+        '200':
+          description: Item list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  allOf:
+                    - type: object
+                      required:
+                        - name
+                        - tags
+                      properties:
+                        name:
+                          type: string
+                        tags:
+                          type: array
+                          items:
+                            type: string
+                    - type: object
+                      properties:
+                        tags:
+                          type: array
+                          minItems: 1
+                          maxItems: 5
+                          items:
+                            type: string
+    post:
+      operationId: createItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - type: object
+                  required:
+                    - name
+                    - tags
+                  properties:
+                    name:
+                      type: string
+                    tags:
+                      type: array
+                      items:
+                        type: string
+                - type: object
+                  properties:
+                    tags:
+                      type: array
+                      minItems: 1
+                      maxItems: 5
+                      items:
+                        type: string
+      responses:
+        '201':
+          description: Created

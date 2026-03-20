@@ -1,0 +1,42 @@
+openapi: 3.0.3
+info:
+  title: "Object with all optional properties"
+  version: "1.0"
+paths:
+  /preferences:
+    get:
+      operationId: listPreferences
+      responses:
+        '200':
+          description: Preference list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    theme:
+                      type: string
+                    language:
+                      type: string
+                    timezone:
+                      type: string
+    post:
+      operationId: createPreference
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                theme:
+                  type: string
+                language:
+                  type: string
+                timezone:
+                  type: string
+      responses:
+        '201':
+          description: Created

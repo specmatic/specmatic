@@ -1,0 +1,50 @@
+openapi: 3.0.3
+info:
+  title: "allOf with additionalProperties false"
+  version: "1.0"
+paths:
+  /records:
+    get:
+      operationId: listRecords
+      responses:
+        '200':
+          description: Record list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  allOf:
+                    - $ref: '#/components/schemas/Base'
+                    - $ref: '#/components/schemas/Extension'
+    post:
+      operationId: createRecord
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Base'
+                - $ref: '#/components/schemas/Extension'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Base:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: integer
+      additionalProperties: false
+    Extension:
+      type: object
+      required:
+        - label
+      properties:
+        label:
+          type: string
+      additionalProperties: false

@@ -1,0 +1,35 @@
+openapi: 3.0.3
+info:
+  title: "Query parameter array with style form, explode false (CSV)"
+  version: "1.0"
+paths:
+  /filter:
+    get:
+      operationId: filter
+      parameters:
+        - name: ids
+          in: query
+          required: true
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              type: integer
+      responses:
+        '200':
+          description: Filtered results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - name
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string

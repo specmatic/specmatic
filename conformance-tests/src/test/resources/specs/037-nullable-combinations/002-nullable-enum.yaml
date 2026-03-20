@@ -1,0 +1,56 @@
+openapi: 3.0.3
+info:
+  title: "Nullable enum"
+  version: "1.0"
+paths:
+  /tickets:
+    get:
+      operationId: listTickets
+      responses:
+        '200':
+          description: Ticket list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - title
+                    - priority
+                  properties:
+                    title:
+                      type: string
+                    priority:
+                      type: string
+                      nullable: true
+                      enum:
+                        - low
+                        - medium
+                        - high
+                        - null
+    post:
+      operationId: createTicket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - priority
+              properties:
+                title:
+                  type: string
+                priority:
+                  type: string
+                  nullable: true
+                  enum:
+                    - low
+                    - medium
+                    - high
+                    - null
+      responses:
+        '201':
+          description: Created

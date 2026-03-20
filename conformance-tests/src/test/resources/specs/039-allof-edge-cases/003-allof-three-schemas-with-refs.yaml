@@ -1,0 +1,65 @@
+openapi: 3.0.3
+info:
+  title: "allOf merging three referenced schemas"
+  version: "1.0"
+paths:
+  /assets:
+    get:
+      operationId: listAssets
+      responses:
+        '200':
+          description: Asset list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  allOf:
+                    - $ref: '#/components/schemas/Identifiable'
+                    - $ref: '#/components/schemas/Timestamped'
+                    - $ref: '#/components/schemas/AssetData'
+    post:
+      operationId: createAsset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Identifiable'
+                - $ref: '#/components/schemas/Timestamped'
+                - $ref: '#/components/schemas/AssetData'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Identifiable:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: integer
+    Timestamped:
+      type: object
+      required:
+        - createdAt
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+    AssetData:
+      type: object
+      required:
+        - name
+        - category
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+          enum:
+            - hardware
+            - software
+            - license

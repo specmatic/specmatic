@@ -1,0 +1,48 @@
+openapi: 3.0.3
+info:
+  title: "String with exact length (minLength == maxLength)"
+  version: "1.0"
+paths:
+  /codes:
+    get:
+      operationId: listCodes
+      responses:
+        '200':
+          description: Code list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - label
+                    - code
+                  properties:
+                    label:
+                      type: string
+                    code:
+                      type: string
+                      minLength: 5
+                      maxLength: 5
+    post:
+      operationId: createCode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - label
+                - code
+              properties:
+                label:
+                  type: string
+                code:
+                  type: string
+                  minLength: 5
+                  maxLength: 5
+      responses:
+        '201':
+          description: Created

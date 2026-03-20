@@ -1,0 +1,56 @@
+openapi: 3.0.3
+info:
+  title: "allOf where one schema adds minLength to another's string"
+  version: "1.0"
+paths:
+  /notes:
+    get:
+      operationId: listNotes
+      responses:
+        '200':
+          description: Note list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  allOf:
+                    - type: object
+                      required:
+                        - title
+                        - body
+                      properties:
+                        title:
+                          type: string
+                        body:
+                          type: string
+                    - type: object
+                      properties:
+                        body:
+                          type: string
+                          minLength: 10
+    post:
+      operationId: createNote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - type: object
+                  required:
+                    - title
+                    - body
+                  properties:
+                    title:
+                      type: string
+                    body:
+                      type: string
+                - type: object
+                  properties:
+                    body:
+                      type: string
+                      minLength: 10
+      responses:
+        '201':
+          description: Created

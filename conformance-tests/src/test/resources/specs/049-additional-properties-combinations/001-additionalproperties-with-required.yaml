@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: "additionalProperties false with only required properties"
+  version: "1.0"
+paths:
+  /records:
+    get:
+      operationId: listRecords
+      responses:
+        '200':
+          description: Record list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - name
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+                  additionalProperties: false
+    post:
+      operationId: createRecord
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - name
+              properties:
+                id:
+                  type: integer
+                name:
+                  type: string
+              additionalProperties: false
+      responses:
+        '201':
+          description: Created

@@ -1,0 +1,44 @@
+openapi: 3.0.3
+info:
+  title: "Object minProperties 3 with fixed and additional properties"
+  version: "1.0"
+paths:
+  /labels:
+    get:
+      operationId: listLabels
+      responses:
+        '200':
+          description: Label list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                  minProperties: 3
+                  properties:
+                    id:
+                      type: integer
+                  additionalProperties:
+                    type: string
+    post:
+      operationId: createLabel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+              minProperties: 3
+              properties:
+                id:
+                  type: integer
+              additionalProperties:
+                type: string
+      responses:
+        '201':
+          description: Created

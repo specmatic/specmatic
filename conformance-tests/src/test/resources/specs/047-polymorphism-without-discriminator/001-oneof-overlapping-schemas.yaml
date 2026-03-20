@@ -1,0 +1,57 @@
+openapi: 3.0.3
+info:
+  title: "oneOf with overlapping properties (no discriminator)"
+  version: "1.0"
+paths:
+  /shapes:
+    get:
+      operationId: listShapes
+      responses:
+        '200':
+          description: Shape list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  oneOf:
+                    - $ref: '#/components/schemas/Circle'
+                    - $ref: '#/components/schemas/Rectangle'
+    post:
+      operationId: createShape
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/Circle'
+                - $ref: '#/components/schemas/Rectangle'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Circle:
+      type: object
+      required:
+        - radius
+        - color
+      properties:
+        radius:
+          type: number
+        color:
+          type: string
+    Rectangle:
+      type: object
+      required:
+        - width
+        - height
+        - color
+      properties:
+        width:
+          type: number
+        height:
+          type: number
+        color:
+          type: string

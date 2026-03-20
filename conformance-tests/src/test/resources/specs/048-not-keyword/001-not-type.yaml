@@ -1,0 +1,50 @@
+openapi: 3.0.3
+info:
+  title: "Schema with 'not' keyword"
+  version: "1.0"
+paths:
+  /values:
+    get:
+      operationId: listValues
+      responses:
+        '200':
+          description: Value list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - label
+                    - data
+                  properties:
+                    label:
+                      type: string
+                    data:
+                      type: string
+                      not:
+                        enum:
+                          - ""
+    post:
+      operationId: createValue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - label
+                - data
+              properties:
+                label:
+                  type: string
+                data:
+                  type: string
+                  not:
+                    enum:
+                      - ""
+      responses:
+        '201':
+          description: Created

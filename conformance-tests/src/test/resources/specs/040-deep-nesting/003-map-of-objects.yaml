@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: "Map (additionalProperties) of typed objects"
+  version: "1.0"
+paths:
+  /registries:
+    get:
+      operationId: listRegistries
+      responses:
+        '200':
+          description: Registry map
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+                  required:
+                    - url
+                    - enabled
+                  properties:
+                    url:
+                      type: string
+                    enabled:
+                      type: boolean
+    post:
+      operationId: createRegistry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties:
+                type: object
+                required:
+                  - url
+                  - enabled
+                properties:
+                  url:
+                    type: string
+                  enabled:
+                    type: boolean
+      responses:
+        '201':
+          description: Created

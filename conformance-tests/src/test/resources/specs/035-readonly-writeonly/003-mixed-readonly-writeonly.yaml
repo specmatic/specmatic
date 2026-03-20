@@ -1,0 +1,54 @@
+openapi: 3.0.3
+info:
+  title: "Mixed readOnly and writeOnly properties"
+  version: "1.0"
+paths:
+  /profiles:
+    get:
+      operationId: listProfiles
+      responses:
+        '200':
+          description: Profile list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - email
+                    - secret
+                  properties:
+                    id:
+                      type: integer
+                      readOnly: true
+                    email:
+                      type: string
+                    secret:
+                      type: string
+                      writeOnly: true
+    post:
+      operationId: createProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - email
+                - secret
+              properties:
+                id:
+                  type: integer
+                  readOnly: true
+                email:
+                  type: string
+                secret:
+                  type: string
+                  writeOnly: true
+      responses:
+        '201':
+          description: Created

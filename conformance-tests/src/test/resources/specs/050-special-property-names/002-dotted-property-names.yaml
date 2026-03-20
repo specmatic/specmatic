@@ -1,0 +1,44 @@
+openapi: 3.0.3
+info:
+  title: "Properties with dots in names"
+  version: "1.0"
+paths:
+  /settings:
+    get:
+      operationId: listSettings
+      responses:
+        '200':
+          description: Setting list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - app.name
+                    - app.version
+                  properties:
+                    app.name:
+                      type: string
+                    app.version:
+                      type: string
+    post:
+      operationId: createSetting
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - app.name
+                - app.version
+              properties:
+                app.name:
+                  type: string
+                app.version:
+                  type: string
+      responses:
+        '201':
+          description: Created

@@ -1,0 +1,34 @@
+openapi: 3.0.3
+info:
+  title: "Header parameter with object schema"
+  version: "1.0"
+paths:
+  /debug:
+    get:
+      operationId: getDebugInfo
+      parameters:
+        - name: X-Debug-Options
+          in: header
+          required: true
+          schema:
+            type: object
+            required:
+              - verbose
+              - trace
+            properties:
+              verbose:
+                type: boolean
+              trace:
+                type: boolean
+      responses:
+        '200':
+          description: Debug info
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - status
+                properties:
+                  status:
+                    type: string

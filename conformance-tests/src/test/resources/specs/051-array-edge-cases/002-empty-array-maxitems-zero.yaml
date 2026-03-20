@@ -1,0 +1,50 @@
+openapi: 3.0.3
+info:
+  title: "Array with maxItems 0 (must be empty)"
+  version: "1.0"
+paths:
+  /queues:
+    get:
+      operationId: listQueues
+      responses:
+        '200':
+          description: Queue list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - pending
+                  properties:
+                    name:
+                      type: string
+                    pending:
+                      type: array
+                      maxItems: 0
+                      items:
+                        type: string
+    post:
+      operationId: createQueue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - pending
+              properties:
+                name:
+                  type: string
+                pending:
+                  type: array
+                  maxItems: 0
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Created

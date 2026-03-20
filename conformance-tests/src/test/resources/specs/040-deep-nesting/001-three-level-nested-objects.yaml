@@ -1,0 +1,82 @@
+openapi: 3.0.3
+info:
+  title: "Three level nested objects"
+  version: "1.0"
+paths:
+  /companies:
+    get:
+      operationId: listCompanies
+      responses:
+        '200':
+          description: Company list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - address
+                  properties:
+                    name:
+                      type: string
+                    address:
+                      type: object
+                      required:
+                        - street
+                        - city
+                        - geo
+                      properties:
+                        street:
+                          type: string
+                        city:
+                          type: string
+                        geo:
+                          type: object
+                          required:
+                            - lat
+                            - lon
+                          properties:
+                            lat:
+                              type: number
+                            lon:
+                              type: number
+    post:
+      operationId: createCompany
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - address
+              properties:
+                name:
+                  type: string
+                address:
+                  type: object
+                  required:
+                    - street
+                    - city
+                    - geo
+                  properties:
+                    street:
+                      type: string
+                    city:
+                      type: string
+                    geo:
+                      type: object
+                      required:
+                        - lat
+                        - lon
+                      properties:
+                        lat:
+                          type: number
+                        lon:
+                          type: number
+      responses:
+        '201':
+          description: Created

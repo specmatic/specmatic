@@ -1,0 +1,50 @@
+openapi: 3.0.3
+info:
+  title: "Array with minItems 5"
+  version: "1.0"
+paths:
+  /teams:
+    get:
+      operationId: listTeams
+      responses:
+        '200':
+          description: Team list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - members
+                  properties:
+                    name:
+                      type: string
+                    members:
+                      type: array
+                      minItems: 5
+                      items:
+                        type: string
+    post:
+      operationId: createTeam
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - members
+              properties:
+                name:
+                  type: string
+                members:
+                  type: array
+                  minItems: 5
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Created

@@ -1,0 +1,48 @@
+openapi: 3.0.3
+info:
+  title: "Boolean enum (subset)"
+  version: "1.0"
+paths:
+  /flags:
+    get:
+      operationId: listFlags
+      responses:
+        '200':
+          description: Flag list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - enabled
+                  properties:
+                    name:
+                      type: string
+                    enabled:
+                      type: boolean
+                      enum:
+                        - true
+    post:
+      operationId: createFlag
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - enabled
+              properties:
+                name:
+                  type: string
+                enabled:
+                  type: boolean
+                  enum:
+                    - true
+      responses:
+        '201':
+          description: Created

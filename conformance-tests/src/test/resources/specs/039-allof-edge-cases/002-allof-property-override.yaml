@@ -1,0 +1,58 @@
+openapi: 3.0.3
+info:
+  title: "allOf with property override (narrowing type)"
+  version: "1.0"
+paths:
+  /widgets:
+    get:
+      operationId: listWidgets
+      responses:
+        '200':
+          description: Widget list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  allOf:
+                    - type: object
+                      required:
+                        - name
+                        - size
+                      properties:
+                        name:
+                          type: string
+                        size:
+                          type: integer
+                    - type: object
+                      properties:
+                        size:
+                          type: integer
+                          minimum: 1
+                          maximum: 100
+    post:
+      operationId: createWidget
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - type: object
+                  required:
+                    - name
+                    - size
+                  properties:
+                    name:
+                      type: string
+                    size:
+                      type: integer
+                - type: object
+                  properties:
+                    size:
+                      type: integer
+                      minimum: 1
+                      maximum: 100
+      responses:
+        '201':
+          description: Created

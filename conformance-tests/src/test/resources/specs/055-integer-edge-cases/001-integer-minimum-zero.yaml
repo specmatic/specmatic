@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: "Integer with minimum 0 (non-negative)"
+  version: "1.0"
+paths:
+  /counters:
+    get:
+      operationId: listCounters
+      responses:
+        '200':
+          description: Counter list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - count
+                  properties:
+                    name:
+                      type: string
+                    count:
+                      type: integer
+                      minimum: 0
+    post:
+      operationId: createCounter
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - count
+              properties:
+                name:
+                  type: string
+                count:
+                  type: integer
+                  minimum: 0
+      responses:
+        '201':
+          description: Created

@@ -1,0 +1,48 @@
+openapi: 3.0.3
+info:
+  title: "Nullable field with format"
+  version: "1.0"
+paths:
+  /events:
+    get:
+      operationId: listEvents
+      responses:
+        '200':
+          description: Event list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - title
+                    - scheduledAt
+                  properties:
+                    title:
+                      type: string
+                    scheduledAt:
+                      type: string
+                      format: date-time
+                      nullable: true
+    post:
+      operationId: createEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - scheduledAt
+              properties:
+                title:
+                  type: string
+                scheduledAt:
+                  type: string
+                  format: date-time
+                  nullable: true
+      responses:
+        '201':
+          description: Created

@@ -1,0 +1,84 @@
+openapi: 3.0.3
+info:
+  title: "Array of objects containing nested arrays"
+  version: "1.0"
+paths:
+  /courses:
+    get:
+      operationId: listCourses
+      responses:
+        '200':
+          description: Course list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - title
+                    - modules
+                  properties:
+                    title:
+                      type: string
+                    modules:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - name
+                          - lessons
+                        properties:
+                          name:
+                            type: string
+                          lessons:
+                            type: array
+                            items:
+                              type: object
+                              required:
+                                - topic
+                                - duration
+                              properties:
+                                topic:
+                                  type: string
+                                duration:
+                                  type: integer
+    post:
+      operationId: createCourse
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - modules
+              properties:
+                title:
+                  type: string
+                modules:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - name
+                      - lessons
+                    properties:
+                      name:
+                        type: string
+                      lessons:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - topic
+                            - duration
+                          properties:
+                            topic:
+                              type: string
+                            duration:
+                              type: integer
+      responses:
+        '201':
+          description: Created

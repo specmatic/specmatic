@@ -1,0 +1,96 @@
+openapi: 3.0.3
+info:
+  title: "Nested oneOf (oneOf inside object inside oneOf)"
+  version: "1.0"
+paths:
+  /notifications:
+    get:
+      operationId: listNotifications
+      responses:
+        '200':
+          description: Notification list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - type
+                    - payload
+                  properties:
+                    type:
+                      type: string
+                    payload:
+                      oneOf:
+                        - type: object
+                          required:
+                            - message
+                          properties:
+                            message:
+                              type: string
+                        - type: object
+                          required:
+                            - data
+                          properties:
+                            data:
+                              oneOf:
+                                - type: object
+                                  required:
+                                    - count
+                                  properties:
+                                    count:
+                                      type: integer
+                                - type: object
+                                  required:
+                                    - items
+                                  properties:
+                                    items:
+                                      type: array
+                                      items:
+                                        type: string
+    post:
+      operationId: createNotification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - type
+                - payload
+              properties:
+                type:
+                  type: string
+                payload:
+                  oneOf:
+                    - type: object
+                      required:
+                        - message
+                      properties:
+                        message:
+                          type: string
+                    - type: object
+                      required:
+                        - data
+                      properties:
+                        data:
+                          oneOf:
+                            - type: object
+                              required:
+                                - count
+                              properties:
+                                count:
+                                  type: integer
+                            - type: object
+                              required:
+                                - items
+                              properties:
+                                items:
+                                  type: array
+                                  items:
+                                    type: string
+      responses:
+        '201':
+          description: Created

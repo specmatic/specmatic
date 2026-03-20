@@ -1,0 +1,52 @@
+openapi: 3.0.3
+info:
+  title: "Array constrained to exactly one item"
+  version: "1.0"
+paths:
+  /singletons:
+    get:
+      operationId: listSingletons
+      responses:
+        '200':
+          description: Singleton list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - value
+                  properties:
+                    name:
+                      type: string
+                    value:
+                      type: array
+                      minItems: 1
+                      maxItems: 1
+                      items:
+                        type: string
+    post:
+      operationId: createSingleton
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - value
+              properties:
+                name:
+                  type: string
+                value:
+                  type: array
+                  minItems: 1
+                  maxItems: 1
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Created

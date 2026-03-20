@@ -1,0 +1,48 @@
+openapi: 3.0.3
+info:
+  title: "Email format with minLength constraint"
+  version: "1.0"
+paths:
+  /contacts:
+    get:
+      operationId: listContacts
+      responses:
+        '200':
+          description: Contact list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - email
+                  properties:
+                    name:
+                      type: string
+                    email:
+                      type: string
+                      format: email
+                      minLength: 5
+    post:
+      operationId: createContact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                  minLength: 5
+      responses:
+        '201':
+          description: Created

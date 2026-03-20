@@ -1,0 +1,62 @@
+openapi: 3.0.3
+info:
+  title: "allOf where one schema narrows a string to an enum"
+  version: "1.0"
+paths:
+  /tasks:
+    get:
+      operationId: listTasks
+      responses:
+        '200':
+          description: Task list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  allOf:
+                    - type: object
+                      required:
+                        - title
+                        - status
+                      properties:
+                        title:
+                          type: string
+                        status:
+                          type: string
+                    - type: object
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - todo
+                            - in_progress
+                            - done
+    post:
+      operationId: createTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - type: object
+                  required:
+                    - title
+                    - status
+                  properties:
+                    title:
+                      type: string
+                    status:
+                      type: string
+                - type: object
+                  properties:
+                    status:
+                      type: string
+                      enum:
+                        - todo
+                        - in_progress
+                        - done
+      responses:
+        '201':
+          description: Created

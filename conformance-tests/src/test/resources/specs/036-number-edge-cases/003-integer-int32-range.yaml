@@ -1,0 +1,50 @@
+openapi: 3.0.3
+info:
+  title: "Integer int32 with range constraints"
+  version: "1.0"
+paths:
+  /ports:
+    get:
+      operationId: listPorts
+      responses:
+        '200':
+          description: Port list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - port
+                  properties:
+                    name:
+                      type: string
+                    port:
+                      type: integer
+                      format: int32
+                      minimum: 1
+                      maximum: 65535
+    post:
+      operationId: createPort
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - port
+              properties:
+                name:
+                  type: string
+                port:
+                  type: integer
+                  format: int32
+                  minimum: 1
+                  maximum: 65535
+      responses:
+        '201':
+          description: Created

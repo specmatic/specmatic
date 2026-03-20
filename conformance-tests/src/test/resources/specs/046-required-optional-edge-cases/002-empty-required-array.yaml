@@ -1,0 +1,40 @@
+openapi: 3.0.3
+info:
+  title: "Object with empty required array"
+  version: "1.0"
+paths:
+  /metadata:
+    get:
+      operationId: listMetadata
+      responses:
+        '200':
+          description: Metadata list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: []
+                  properties:
+                    key:
+                      type: string
+                    value:
+                      type: string
+    post:
+      operationId: createMetadata
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: []
+              properties:
+                key:
+                  type: string
+                value:
+                  type: string
+      responses:
+        '201':
+          description: Created

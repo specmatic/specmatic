@@ -1,0 +1,56 @@
+openapi: 3.0.3
+info:
+  title: "allOf where one schema adds pattern constraint to another's property"
+  version: "1.0"
+paths:
+  /products:
+    get:
+      operationId: listProducts
+      responses:
+        '200':
+          description: Product list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  allOf:
+                    - type: object
+                      required:
+                        - name
+                        - sku
+                      properties:
+                        name:
+                          type: string
+                        sku:
+                          type: string
+                    - type: object
+                      properties:
+                        sku:
+                          type: string
+                          pattern: "^[A-Z]{3}-[0-9]{3}$"
+    post:
+      operationId: createProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - type: object
+                  required:
+                    - name
+                    - sku
+                  properties:
+                    name:
+                      type: string
+                    sku:
+                      type: string
+                - type: object
+                  properties:
+                    sku:
+                      type: string
+                      pattern: "^[A-Z]{3}-[0-9]{3}$"
+      responses:
+        '201':
+          description: Created

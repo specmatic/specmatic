@@ -1,0 +1,58 @@
+openapi: 3.0.3
+info:
+  title: "Ref with description override (sibling keywords)"
+  version: "1.0"
+paths:
+  /products:
+    get:
+      operationId: listProducts
+      responses:
+        '200':
+          description: Product list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - category
+                  properties:
+                    name:
+                      type: string
+                    category:
+                      description: "Overridden description"
+                      $ref: '#/components/schemas/Category'
+    post:
+      operationId: createProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - category
+              properties:
+                name:
+                  type: string
+                category:
+                  description: "Overridden description"
+                  $ref: '#/components/schemas/Category'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Category:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+        name:
+          type: string

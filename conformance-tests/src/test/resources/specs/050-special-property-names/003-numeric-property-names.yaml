@@ -1,0 +1,50 @@
+openapi: 3.0.3
+info:
+  title: "Properties with numeric-only names"
+  version: "1.0"
+paths:
+  /records:
+    get:
+      operationId: listRecords
+      responses:
+        '200':
+          description: Record list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - "0"
+                    - "1"
+                    - label
+                  properties:
+                    "0":
+                      type: string
+                    "1":
+                      type: string
+                    label:
+                      type: string
+    post:
+      operationId: createRecord
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - "0"
+                - "1"
+                - label
+              properties:
+                "0":
+                  type: string
+                "1":
+                  type: string
+                label:
+                  type: string
+      responses:
+        '201':
+          description: Created

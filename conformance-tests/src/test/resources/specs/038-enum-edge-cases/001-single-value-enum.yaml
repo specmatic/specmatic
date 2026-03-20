@@ -1,0 +1,48 @@
+openapi: 3.0.3
+info:
+  title: "Single value enum"
+  version: "1.0"
+paths:
+  /webhooks:
+    get:
+      operationId: listWebhooks
+      responses:
+        '200':
+          description: Webhook list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - url
+                    - version
+                  properties:
+                    url:
+                      type: string
+                    version:
+                      type: string
+                      enum:
+                        - "v1"
+    post:
+      operationId: createWebhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - url
+                - version
+              properties:
+                url:
+                  type: string
+                version:
+                  type: string
+                  enum:
+                    - "v1"
+      responses:
+        '201':
+          description: Created

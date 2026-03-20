@@ -1,0 +1,50 @@
+openapi: 3.0.3
+info:
+  title: "String pattern combined with length constraints"
+  version: "1.0"
+paths:
+  /identifiers:
+    get:
+      operationId: listIdentifiers
+      responses:
+        '200':
+          description: Identifier list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - sku
+                  properties:
+                    name:
+                      type: string
+                    sku:
+                      type: string
+                      pattern: "^[A-Z0-9]+$"
+                      minLength: 6
+                      maxLength: 12
+    post:
+      operationId: createIdentifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - sku
+              properties:
+                name:
+                  type: string
+                sku:
+                  type: string
+                  pattern: "^[A-Z0-9]+$"
+                  minLength: 6
+                  maxLength: 12
+      responses:
+        '201':
+          description: Created

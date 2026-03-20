@@ -1,0 +1,15 @@
+openapi: 3.0.3
+info:
+  title: "Plain string response body"
+  version: "1.0"
+paths:
+  /health:
+    get:
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Health status
+          content:
+            text/plain:
+              schema:
+                type: string

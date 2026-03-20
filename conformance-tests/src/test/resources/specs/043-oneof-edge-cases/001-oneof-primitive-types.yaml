@@ -1,0 +1,50 @@
+openapi: 3.0.3
+info:
+  title: "oneOf with primitive types"
+  version: "1.0"
+paths:
+  /settings:
+    get:
+      operationId: listSettings
+      responses:
+        '200':
+          description: Setting list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - key
+                    - value
+                  properties:
+                    key:
+                      type: string
+                    value:
+                      oneOf:
+                        - type: string
+                        - type: integer
+                        - type: boolean
+    post:
+      operationId: createSetting
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - key
+                - value
+              properties:
+                key:
+                  type: string
+                value:
+                  oneOf:
+                    - type: string
+                    - type: integer
+                    - type: boolean
+      responses:
+        '201':
+          description: Created

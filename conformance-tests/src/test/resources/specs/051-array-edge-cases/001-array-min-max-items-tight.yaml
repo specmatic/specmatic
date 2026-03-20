@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: "Array with tight minItems/maxItems (exactly 3)"
+  version: "1.0"
+paths:
+  /coordinates:
+    get:
+      operationId: listCoordinates
+      responses:
+        '200':
+          description: Coordinate list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - point
+                  properties:
+                    point:
+                      type: array
+                      minItems: 3
+                      maxItems: 3
+                      items:
+                        type: number
+    post:
+      operationId: createCoordinate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - point
+              properties:
+                point:
+                  type: array
+                  minItems: 3
+                  maxItems: 3
+                  items:
+                    type: number
+      responses:
+        '201':
+          description: Created

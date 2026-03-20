@@ -1,0 +1,55 @@
+openapi: 3.0.3
+info:
+  title: "Ref schema with nullable override at usage site"
+  version: "1.0"
+paths:
+  /tasks:
+    get:
+      operationId: listTasks
+      responses:
+        '200':
+          description: Task list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - title
+                    - assignee
+                  properties:
+                    title:
+                      type: string
+                    assignee:
+                      nullable: true
+                      $ref: '#/components/schemas/User'
+    post:
+      operationId: createTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - assignee
+              properties:
+                title:
+                  type: string
+                assignee:
+                  nullable: true
+                  $ref: '#/components/schemas/User'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    User:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string

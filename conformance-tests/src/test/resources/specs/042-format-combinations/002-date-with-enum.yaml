@@ -1,0 +1,33 @@
+openapi: 3.0.3
+info:
+  title: "Date format in query parameter"
+  version: "1.0"
+paths:
+  /reports:
+    get:
+      operationId: listReports
+      parameters:
+        - name: since
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Report list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - title
+                    - date
+                  properties:
+                    title:
+                      type: string
+                    date:
+                      type: string
+                      format: date

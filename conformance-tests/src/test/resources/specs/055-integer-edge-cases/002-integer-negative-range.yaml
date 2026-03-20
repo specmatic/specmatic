@@ -1,0 +1,48 @@
+openapi: 3.0.3
+info:
+  title: "Integer with negative range"
+  version: "1.0"
+paths:
+  /offsets:
+    get:
+      operationId: listOffsets
+      responses:
+        '200':
+          description: Offset list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - zone
+                    - offset
+                  properties:
+                    zone:
+                      type: string
+                    offset:
+                      type: integer
+                      minimum: -12
+                      maximum: 14
+    post:
+      operationId: createOffset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - zone
+                - offset
+              properties:
+                zone:
+                  type: string
+                offset:
+                  type: integer
+                  minimum: -12
+                  maximum: 14
+      responses:
+        '201':
+          description: Created
