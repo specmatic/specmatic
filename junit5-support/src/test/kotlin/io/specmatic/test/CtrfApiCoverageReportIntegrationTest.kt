@@ -54,22 +54,9 @@ class CtrfApiCoverageReportIntegrationTest {
             it.path == "/pets/find" && it.remarks == CoverageStatus.COVERED
         }
 
-        val specConfigs = endpoints.groupBy { it.specification.orEmpty() }.flatMap { (_, groupedEndpoints) ->
-            groupedEndpoints.map {
-                io.specmatic.reporter.ctrf.model.CtrfSpecConfig(
-                    protocol = it.protocol.key,
-                    specType = it.specType.value,
-                    specification = it.specification.orEmpty(),
-                    sourceProvider = it.sourceProvider,
-                    repository = it.sourceRepository,
-                    branch = it.sourceRepositoryBranch ?: "main"
-                )
-            }
-        }
-
         val ctrfReport = CtrfReportGenerator.generate(
             testResultRecords = consoleReport.testResultRecords,
-            specConfig = specConfigs,
+            specConfig = input.ctrfSpecConfigs(),
             startTime = 0L,
             endTime = 0L,
             extra = mapOf("apiCoverage" to "${consoleReport.totalCoveragePercentage}%"),
@@ -95,8 +82,9 @@ class CtrfApiCoverageReportIntegrationTest {
 
         assertThat(executionOperationPaths)
             .withFailMessage(
-                "Expected CTRF executionDetails.operations to include /pets/search because the raw CTRF tests already contain it. " +
-                    "This is the HTML-report bug: the raw tests know about /pets/search, but the summary operations used by the CTRF HTML do not. " +
+                "Expected CTRF executionDetails.operations to include /pets/search after propagating missing-in-spec endpoints into CTRF spec configs. " +
+                    "The raw CTRF tests already contain /pets/search, and the HTML report reads executionDetails.operations. " +
+                    "If this fails, the missing-in-spec endpoint is still being dropped before the HTML summary is built. " +
                     "Raw test names: %s. Summary operation paths: %s",
                 testNames,
                 executionOperationPaths

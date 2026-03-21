@@ -20,7 +20,6 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 import io.specmatic.license.core.*
 import io.specmatic.license.core.util.LicenseConfig
-import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.hasOpenApiFileExtension
 import io.specmatic.stub.isOpenAPI
@@ -205,22 +204,7 @@ open class SpecmaticJUnitSupport {
         val start = startTime?.toEpochMilli() ?: 0L
         val end = startTime?.let { Instant.now().toEpochMilli() } ?: 0L
 
-        val specConfigs = openApiCoverageReportInput.endpoints()
-            .plus(openApiCoverageReportInput.missingInSpecEndpoints())
-            .groupBy {
-                it.specification.orEmpty()
-            }.flatMap { (_, groupedEndpoints) ->
-                groupedEndpoints.map {
-                    CtrfSpecConfig(
-                        protocol = it.protocol.key,
-                        specType = it.specType.value,
-                        specification = it.specification.orEmpty(),
-                        sourceProvider = it.sourceProvider,
-                        repository = it.sourceRepository,
-                        branch = it.sourceRepositoryBranch ?: "main"
-                    )
-                }
-            }
+        val specConfigs = openApiCoverageReportInput.ctrfSpecConfigs()
 
         val reportDirPath = specmaticConfig.getReportDirPath()
         ReportGenerator.generateReport(

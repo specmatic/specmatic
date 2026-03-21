@@ -4,6 +4,7 @@ import io.specmatic.core.filters.ExpressionStandardizer
 import io.specmatic.core.filters.TestRecordFilter
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.generated.dto.coverage.CoverageEntry
 import io.specmatic.reporter.generated.dto.coverage.OpenAPICoverageOperation
 import io.specmatic.reporter.generated.dto.coverage.SpecmaticCoverageReport
@@ -49,6 +50,24 @@ class OpenApiCoverageReportInput(
                 specification = it.specification
             )
         }
+    }
+
+    fun ctrfSpecConfigs(): List<CtrfSpecConfig> {
+        return endpoints()
+            .plus(missingInSpecEndpoints())
+            .groupBy { it.specification.orEmpty() }
+            .flatMap { (_, groupedEndpoints) ->
+                groupedEndpoints.map {
+                    CtrfSpecConfig(
+                        protocol = it.protocol.key,
+                        specType = it.specType.value,
+                        specification = it.specification.orEmpty(),
+                        sourceProvider = it.sourceProvider,
+                        repository = it.sourceRepository,
+                        branch = it.sourceRepositoryBranch ?: "main"
+                    )
+                }
+            }
     }
 
     fun onProcessingComplete() = coverageHooks.onEachListener { onEnd() }
