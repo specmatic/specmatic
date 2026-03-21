@@ -45,6 +45,9 @@ class OpenApiCoverageReportInput(
                 path = it.path,
                 method = it.method,
                 responseStatus =  it.responseStatus,
+                sourceProvider = it.sourceProvider,
+                sourceRepository = it.repository,
+                sourceRepositoryBranch = it.branch,
                 protocol = SpecmaticProtocol.HTTP,
                 specType = SpecType.OPENAPI,
                 specification = it.specification
@@ -330,6 +333,7 @@ class OpenApiCoverageReportInput(
             val isNotExcluded = api.path !in excludedAPIs
             noTestResultFoundForThisAPI && isNotExcluded
         }.map { api ->
+            val closestMatchingEndpoint = closestMatchingEndpointFor(api.path, api.method)
             TestResultRecord(
                 path = api.path,
                 method = api.method,
@@ -337,6 +341,9 @@ class OpenApiCoverageReportInput(
                 request = null,
                 response = null,
                 result = TestResult.MissingInSpec,
+                sourceProvider = closestMatchingEndpoint?.sourceProvider,
+                repository = closestMatchingEndpoint?.sourceRepository,
+                branch = closestMatchingEndpoint?.sourceRepositoryBranch,
                 specType = SpecType.OPENAPI,
                 operations = setOf(
                     OpenAPIOperation(
@@ -347,27 +354,26 @@ class OpenApiCoverageReportInput(
                         protocol = SpecmaticProtocol.HTTP
                     )
                 ),
-                specification = closestMatchingSpecificationFor(api)
+                specification = closestMatchingEndpoint?.specification
             )
         }
     }
 
-    private fun closestMatchingSpecificationFor(api: API): String? {
+    private fun closestMatchingEndpointFor(path: String, method: String): Endpoint? {
         val endpointsWithSpecs = allEndpoints.filter { it.specification != null }
         if (endpointsWithSpecs.isEmpty()) {
             return null
         }
 
-        val methodMatchedEndpoints = endpointsWithSpecs.filter { it.method == api.method }
+        val methodMatchedEndpoints = endpointsWithSpecs.filter { it.method == method }
         val candidateEndpoints = methodMatchedEndpoints.ifEmpty { endpointsWithSpecs }
 
         return candidateEndpoints
             .maxWithOrNull(
-                compareBy<Endpoint> { commonPathPrefixSegments(api.path, it.path) }
+                compareBy<Endpoint> { commonPathPrefixSegments(path, it.path) }
                     .thenBy { normalizedPathSegments(it.path).size }
             )
-            ?.specification
-            ?: endpointsWithSpecs.first().specification
+            ?: endpointsWithSpecs.first()
     }
 
     private fun commonPathPrefixSegments(leftPath: String, rightPath: String): Int {

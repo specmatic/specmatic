@@ -19,13 +19,22 @@ class CtrfApiCoverageReportIntegrationTest {
     fun `ctrf html report should include swagger discovered endpoints missing in the contract`() {
         val actualSpec = File("src/test/resources/openapi/api_coverage/openapi.yaml").canonicalFile
         val applicationSpec = File("src/test/resources/openapi/api_coverage/app_generated_openapi.json").canonicalFile
+        val sourceProvider = "filesystem"
+        val sourceRepository = ""
+        val sourceRepositoryBranch = "main"
 
         val input = OpenApiCoverageReportInput(
             configFilePath = actualSpec.canonicalPath,
             endpointsAPISet = true,
         )
 
-        val endpoints = endpointsFrom(actualSpec)
+        val endpoints = endpointsFrom(actualSpec).map { endpoint ->
+            endpoint.copy(
+                sourceProvider = sourceProvider,
+                sourceRepository = sourceRepository,
+                sourceRepositoryBranch = sourceRepositoryBranch,
+            )
+        }
         input.addEndpoints(endpoints, endpoints)
         input.addAPIs(applicationApisFrom(applicationSpec))
 
@@ -69,9 +78,20 @@ class CtrfApiCoverageReportIntegrationTest {
         val reportNode = ObjectMapper().readTree(reportJson)
 
         val testNames = reportNode["results"]["tests"].map { it["name"].asText() }
-        val executionOperations = reportNode["results"]["summary"]["extra"]["executionDetails"]
-            .flatMap { it["operations"].toList() }
+        val executionDetails = reportNode["results"]["summary"]["extra"]["executionDetails"].toList()
+        val matchingExecutionDetails = executionDetails.filter { it["specification"].asText() == actualSpec.canonicalPath }
+        val executionOperations = executionDetails.flatMap { it["operations"].toList() }
         val executionOperationPaths = executionOperations.map { it["path"].asText() }
+
+        assertThat(matchingExecutionDetails)
+            .withFailMessage(
+                "Expected exactly one CTRF execution detail for spec %s, but found: %s",
+                actualSpec.canonicalPath,
+                matchingExecutionDetails
+            )
+            .hasSize(1)
+
+        assertThat(matchingExecutionDetails.single()["type"].asText()).isEqualTo(sourceProvider)
 
         assertThat(testNames)
             .withFailMessage(
