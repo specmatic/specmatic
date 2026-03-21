@@ -38,6 +38,19 @@ class OpenApiCoverageReportInput(
 ) {
     fun endpoints() = allEndpoints.toList()
 
+    fun missingInSpecEndpoints(): List<Endpoint> {
+        return missingInSpecTestResultRecords().map {
+            Endpoint(
+                path = it.path,
+                method = it.method,
+                responseStatus =  it.responseStatus,
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI,
+                specification = it.specification
+            )
+        }
+    }
+
     fun onProcessingComplete() = coverageHooks.onEachListener { onEnd() }
 
     fun totalDuration(): Long {
@@ -281,7 +294,20 @@ class OpenApiCoverageReportInput(
         if (!endpointsAPISet)
             return testResults
 
-        val testResultsForMissingAPIs = applicationAPIs.filter { api ->
+        val projectedFilterExpression = ExpressionStandardizer.filterToEvalExForSupportedKeys(filterExpression) {
+            TestRecordFilter.supportsFilterKey(it)
+        }
+
+        val filteredMissingApiResults = missingInSpecTestResultRecords().filter { missingTestResult ->
+            projectedFilterExpression.with("context", TestRecordFilter(missingTestResult)).evaluate().booleanValue
+        }
+
+        return testResults + filteredMissingApiResults
+    }
+
+    private fun missingInSpecTestResultRecords(): List<TestResultRecord> {
+        val specToAssociateToMissingInSpecTestResultRecords = allEndpoints.firstNotNullOfOrNull { it.specification }
+        return applicationAPIs.filter { api ->
             val noTestResultFoundForThisAPI = allEndpoints.none { it.path == api.path && it.method == api.method }
             val isNotExcluded = api.path !in excludedAPIs
             noTestResultFoundForThisAPI && isNotExcluded
@@ -302,20 +328,10 @@ class OpenApiCoverageReportInput(
                         responseCode = 0,
                         protocol = SpecmaticProtocol.HTTP
                     )
-                )
+                ),
+                specification = specToAssociateToMissingInSpecTestResultRecords
             )
         }
-
-
-        val projectedFilterExpression = ExpressionStandardizer.filterToEvalExForSupportedKeys(filterExpression) {
-            TestRecordFilter.supportsFilterKey(it)
-        }
-
-        val filteredMissingApiResults = testResultsForMissingAPIs.filter { missingTestResult ->
-            projectedFilterExpression.with("context", TestRecordFilter(missingTestResult)).evaluate().booleanValue
-        }
-
-        return testResults + filteredMissingApiResults
     }
 
     private fun calculateTotalCoveragePercentage(methodMap: Map<String, Map<String?, Map<String, List<TestResultRecord>>>>): Int {

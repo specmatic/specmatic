@@ -204,18 +204,23 @@ open class SpecmaticJUnitSupport {
         val report = openApiCoverageReportInput.generateCoverageReport(emptyList())
         val start = startTime?.toEpochMilli() ?: 0L
         val end = startTime?.let { Instant.now().toEpochMilli() } ?: 0L
-        val specConfigs = openApiCoverageReportInput.endpoints().groupBy { it.specification.orEmpty() }.flatMap { (_, groupedEndpoints) ->
-            groupedEndpoints.map {
-                CtrfSpecConfig(
-                    protocol = it.protocol.key,
-                    specType = it.specType.value,
-                    specification = it.specification.orEmpty(),
-                    sourceProvider = it.sourceProvider,
-                    repository = it.sourceRepository,
-                    branch = it.sourceRepositoryBranch ?: "main"
-                )
+
+        val specConfigs = openApiCoverageReportInput.endpoints()
+            .plus(openApiCoverageReportInput.missingInSpecEndpoints())
+            .groupBy {
+                it.specification.orEmpty()
+            }.flatMap { (_, groupedEndpoints) ->
+                groupedEndpoints.map {
+                    CtrfSpecConfig(
+                        protocol = it.protocol.key,
+                        specType = it.specType.value,
+                        specification = it.specification.orEmpty(),
+                        sourceProvider = it.sourceProvider,
+                        repository = it.sourceRepository,
+                        branch = it.sourceRepositoryBranch ?: "main"
+                    )
+                }
             }
-        }
 
         val reportDirPath = specmaticConfig.getReportDirPath()
         ReportGenerator.generateReport(
