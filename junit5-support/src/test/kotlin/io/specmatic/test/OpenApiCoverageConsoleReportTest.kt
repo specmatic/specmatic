@@ -60,4 +60,44 @@ class OpenApiCoverageConsoleReportTest {
 
         assertThat(coverageReport.totalCoveragePercentage).isEqualTo(100)
     }
+
+    @Test
+    fun `test does not count not implemented endpoints as covered when calculating total percentage`() {
+        val rows = listOf(
+            OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 100, CoverageStatus.NOT_IMPLEMENTED),
+            OpenApiCoverageConsoleRow("GET", "/route2", 200, 1, 100, CoverageStatus.COVERED),
+        )
+
+        val coverageReport = OpenAPICoverageConsoleReport(
+            rows,
+            emptyList(),
+            totalEndpointsCount = 2,
+            missedEndpointsCount = 0,
+            notImplementedAPICount = 1,
+            partiallyMissedEndpointsCount = 0,
+            partiallyNotImplementedAPICount = 0
+        )
+
+        assertThat(coverageReport.totalCoveragePercentage).isEqualTo(50)
+    }
+
+    @Test
+    fun `test calculates zero total percentage when all exercised endpoints are not implemented`() {
+        val rows = listOf(
+            OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 0, CoverageStatus.NOT_IMPLEMENTED),
+            OpenApiCoverageConsoleRow("POST", "/route1", 400, 1, 0, CoverageStatus.NOT_IMPLEMENTED, showPath = false),
+        )
+
+        val coverageReport = OpenAPICoverageConsoleReport(
+            rows,
+            emptyList(),
+            totalEndpointsCount = 1,
+            missedEndpointsCount = 0,
+            notImplementedAPICount = 1,
+            partiallyMissedEndpointsCount = 0,
+            partiallyNotImplementedAPICount = 0
+        )
+
+        assertThat(coverageReport.totalCoveragePercentage).isEqualTo(0)
+    }
 }

@@ -9,6 +9,7 @@ import io.specmatic.test.API
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.reports.TestExecutionResult
 import io.specmatic.test.reports.TestReportListener
+import io.specmatic.test.reports.coverage.console.OpenApiCoverageConsoleRow
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -67,6 +68,207 @@ class OpenApiCoverageReportInputTest {
         val report = input.generate()
         assertThat(report.coverageRows).anyMatch { row -> row.path == "/current" && row.method == "GET" && row.responseStatus == "200" }
         assertThat(report.coverageRows).anyMatch { row -> row.path == "/previous" && row.method == "POST" && row.responseStatus == "201" }
+    }
+
+    @Test
+    fun `should associate missing in spec endpoint with closest matching spec based on path`() {
+        val petsEndpoint = Endpoint(
+            path = "/pets/{petId}",
+            method = "GET",
+            responseStatus = 200,
+            specification = "pets.yaml",
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        )
+        val ownersEndpoint = Endpoint(
+            path = "/owners/{ownerId}",
+            method = "GET",
+            responseStatus = 200,
+            specification = "owners.yaml",
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        )
+
+        val input = OpenApiCoverageReportInput(
+            configFilePath = "specmatic.yaml",
+            applicationAPIs = mutableListOf(API(method = "GET", path = "/pets/search")),
+            allEndpoints = mutableListOf(ownersEndpoint, petsEndpoint),
+            filteredEndpoints = mutableListOf(ownersEndpoint, petsEndpoint),
+            endpointsAPISet = true,
+        )
+
+        val missingInSpecEndpoint = input.missingInSpecEndpoints().single()
+
+        assertThat(missingInSpecEndpoint.path).isEqualTo("/pets/search")
+        assertThat(missingInSpecEndpoint.specification).isEqualTo("pets.yaml")
+    }
+
+    @Test
+    fun `should prefer the spec with the deeper shared path prefix`() {
+        val genericPetsEndpoint = Endpoint(
+            path = "/pets/{petId}",
+            method = "GET",
+            responseStatus = 200,
+            specification = "pets.yaml",
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        )
+        val searchEndpoint = Endpoint(
+            path = "/pets/search/{query}",
+            method = "GET",
+            responseStatus = 200,
+            specification = "pets-search.yaml",
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        )
+
+        val input = OpenApiCoverageReportInput(
+            configFilePath = "specmatic.yaml",
+            applicationAPIs = mutableListOf(API(method = "GET", path = "/pets/search/advanced")),
+            allEndpoints = mutableListOf(genericPetsEndpoint, searchEndpoint),
+            filteredEndpoints = mutableListOf(genericPetsEndpoint, searchEndpoint),
+            endpointsAPISet = true,
+        )
+
+        val missingInSpecEndpoint = input.missingInSpecEndpoints().single()
+
+        assertThat(missingInSpecEndpoint.specification).isEqualTo("pets-search.yaml")
+    }
+
+    @Test
+    fun `should prefer matching http method before path depth`() {
+        val deeperGetEndpoint = Endpoint(
+            path = "/pets/search/{query}",
+            method = "GET",
+            responseStatus = 200,
+            specification = "pets-get.yaml",
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        )
+        val shallowerPostEndpoint = Endpoint(
+            path = "/pets/{petId}",
+            method = "POST",
+            responseStatus = 202,
+            specification = "pets-post.yaml",
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        )
+
+        val input = OpenApiCoverageReportInput(
+            configFilePath = "specmatic.yaml",
+            applicationAPIs = mutableListOf(API(method = "POST", path = "/pets/search/advanced")),
+            allEndpoints = mutableListOf(deeperGetEndpoint, shallowerPostEndpoint),
+            filteredEndpoints = mutableListOf(deeperGetEndpoint, shallowerPostEndpoint),
+            endpointsAPISet = true,
+        )
+
+        val missingInSpecEndpoint = input.missingInSpecEndpoints().single()
+
+        assertThat(missingInSpecEndpoint.specification).isEqualTo("pets-post.yaml")
+    }
+
+    @Test
+    fun `should not associate a spec when no endpoints carry specification metadata`() {
+        val petsEndpoint = Endpoint(
+            path = "/pets/{petId}",
+            method = "GET",
+            responseStatus = 200,
+            specification = null,
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        )
+        val ownersEndpoint = Endpoint(
+            path = "/owners/{ownerId}",
+            method = "GET",
+            responseStatus = 200,
+            specification = null,
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        )
+
+        val input = OpenApiCoverageReportInput(
+            configFilePath = "specmatic.yaml",
+            applicationAPIs = mutableListOf(API(method = "GET", path = "/pets/search")),
+            allEndpoints = mutableListOf(ownersEndpoint, petsEndpoint),
+            filteredEndpoints = mutableListOf(ownersEndpoint, petsEndpoint),
+            endpointsAPISet = true,
+        )
+
+        val missingInSpecEndpoint = input.missingInSpecEndpoints().single()
+
+        assertThat(missingInSpecEndpoint.specification).isNull()
+    }
+
+    @Test
+    fun `should use deterministic fallback when no candidate shares a path prefix`() {
+        val invoicesEndpoint = Endpoint(
+            path = "/invoices/{invoiceId}",
+            method = "GET",
+            responseStatus = 200,
+            specification = "invoices.yaml",
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        )
+        val ownersEndpoint = Endpoint(
+            path = "/owners/{ownerId}",
+            method = "GET",
+            responseStatus = 200,
+            specification = "owners.yaml",
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        )
+
+        val input = OpenApiCoverageReportInput(
+            configFilePath = "specmatic.yaml",
+            applicationAPIs = mutableListOf(API(method = "GET", path = "/pets/search")),
+            allEndpoints = mutableListOf(invoicesEndpoint, ownersEndpoint),
+            filteredEndpoints = mutableListOf(invoicesEndpoint, ownersEndpoint),
+            endpointsAPISet = true,
+        )
+
+        val missingInSpecEndpoint = input.missingInSpecEndpoints().single()
+
+        assertThat(missingInSpecEndpoint.specification).isEqualTo("invoices.yaml")
+    }
+
+    @Test
+    fun `should count wip as covered in path and total coverage calculations`() {
+        val wipEndpoint = Endpoint(
+            path = "/wip", method = "GET", responseStatus = 200,
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+        )
+        val uncoveredEndpoint = Endpoint(
+            path = "/uncovered", method = "GET", responseStatus = 200,
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+        )
+
+        val input = OpenApiCoverageReportInput(
+            configFilePath = "specmatic.yaml",
+            testResultRecords = mutableListOf(
+                TestResultRecord(
+                    path = "/wip",
+                    method = "GET",
+                    responseStatus = 200,
+                    request = null,
+                    response = null,
+                    result = TestResult.Failed,
+                    isWip = true,
+                    specType = SpecType.OPENAPI
+                )
+            ),
+            allEndpoints = mutableListOf(wipEndpoint, uncoveredEndpoint),
+            filteredEndpoints = mutableListOf(wipEndpoint, uncoveredEndpoint)
+        )
+
+        val report = input.generate()
+
+        assertThat(report.coverageRows).anyMatch {
+            it.path == "/wip" && it.remarks == CoverageStatus.WIP && it.coveragePercentage == 100
+        }
+        assertThat(report.coverageRows).anyMatch {
+            it.path == "/uncovered" && it.remarks == CoverageStatus.NOT_COVERED && it.coveragePercentage == 0
+        }
+        assertThat(report.totalCoveragePercentage).isEqualTo(50)
     }
 
     @Test
@@ -169,6 +371,99 @@ class OpenApiCoverageReportInputTest {
         assertThat(report.coverageRows).anyMatch { it.path == "/current" && it.remarks.toString() == "covered" && it.coveragePercentage == 100 }
         assertThat(report.coverageRows).anyMatch { it.path == "/previous" && it.remarks.toString() == "covered" && it.coveragePercentage == 100 }
         assertThat(report.coverageRows).anyMatch { it.path == "/not-possible" && it.remarks.toString() == "covered" && it.coveragePercentage == 100 }
+    }
+
+    @Test
+    fun `should calculate mixed path coverage with covered not implemented and not covered responses`() {
+        val allEndpoints = mutableListOf(
+            Endpoint("/mixed", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/mixed", "GET", 400, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/mixed", "GET", 500, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+        )
+
+        val input = OpenApiCoverageReportInput(
+            configFilePath = "specmatic.yaml",
+            testResultRecords = mutableListOf(
+                TestResultRecord(
+                    path = "/mixed",
+                    method = "GET",
+                    responseStatus = 200,
+                    request = null,
+                    response = null,
+                    result = TestResult.Success,
+                    specType = SpecType.OPENAPI
+                ),
+                TestResultRecord(
+                    path = "/mixed",
+                    method = "GET",
+                    responseStatus = 400,
+                    request = null,
+                    response = null,
+                    result = TestResult.Failed,
+                    actualResponseStatus = 0,
+                    specType = SpecType.OPENAPI
+                )
+            ),
+            applicationAPIs = mutableListOf(API("GET", "/other")),
+            endpointsAPISet = true,
+            allEndpoints = allEndpoints,
+            filteredEndpoints = allEndpoints
+        )
+
+        val report = input.generate()
+
+        assertThat(report.coverageRows.filter { it.path == "/mixed" }).containsExactly(
+            OpenApiCoverageConsoleRow("GET", "/mixed", 200, 1, 33, CoverageStatus.COVERED),
+            OpenApiCoverageConsoleRow("GET", "/mixed", 400, 1, 33, CoverageStatus.NOT_IMPLEMENTED, showPath = false, showMethod = false),
+            OpenApiCoverageConsoleRow("GET", "/mixed", 500, 0, 33, CoverageStatus.NOT_COVERED, showPath = false, showMethod = false),
+        )
+        assertThat(report.totalCoveragePercentage).isEqualTo(33)
+    }
+
+    @Test
+    fun `should calculate mixed path coverage with wip and not implemented responses`() {
+        val allEndpoints = mutableListOf(
+            Endpoint("/mixed", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/mixed", "GET", 400, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+        )
+
+        val input = OpenApiCoverageReportInput(
+            configFilePath = "specmatic.yaml",
+            testResultRecords = mutableListOf(
+                TestResultRecord(
+                    path = "/mixed",
+                    method = "GET",
+                    responseStatus = 200,
+                    request = null,
+                    response = null,
+                    result = TestResult.Failed,
+                    isWip = true,
+                    specType = SpecType.OPENAPI
+                ),
+                TestResultRecord(
+                    path = "/mixed",
+                    method = "GET",
+                    responseStatus = 400,
+                    request = null,
+                    response = null,
+                    result = TestResult.Failed,
+                    actualResponseStatus = 0,
+                    specType = SpecType.OPENAPI
+                )
+            ),
+            applicationAPIs = mutableListOf(API("GET", "/other")),
+            endpointsAPISet = true,
+            allEndpoints = allEndpoints,
+            filteredEndpoints = allEndpoints
+        )
+
+        val report = input.generate()
+
+        assertThat(report.coverageRows.filter { it.path == "/mixed" }).containsExactly(
+            OpenApiCoverageConsoleRow("GET", "/mixed", 200, 1, 50, CoverageStatus.WIP),
+            OpenApiCoverageConsoleRow("GET", "/mixed", 400, 1, 50, CoverageStatus.NOT_IMPLEMENTED, showPath = false, showMethod = false),
+        )
+        assertThat(report.totalCoveragePercentage).isEqualTo(50)
     }
 
     @Test
@@ -373,7 +668,10 @@ class OpenApiCoverageReportInputTest {
         )
 
         val reportInput = OpenApiCoverageReportInput(
-            testResultRecords = testResultRecords, configFilePath = "", endpointsAPISet = true,
+            testResultRecords = testResultRecords,
+            configFilePath = "",
+            applicationAPIs = mutableListOf(API("POST", "/other")),
+            endpointsAPISet = true,
             allEndpoints = allEndpoints, filteredEndpoints = filtered
         )
         val report = reportInput.generate()
@@ -381,7 +679,51 @@ class OpenApiCoverageReportInputTest {
         assertThat(report.coverageRows).anyMatch { it.path == "/test" && it.remarks == CoverageStatus.NOT_IMPLEMENTED }
         assertThat(report.testResultRecords).noneMatch { it.path == "/filtered" }
         assertThat(report.coverageRows).noneMatch { it.path == "/filtered" }
-        assertThat(report.totalCoveragePercentage).isEqualTo(100)
+        assertThat(report.totalCoveragePercentage).isEqualTo(0)
+    }
+
+    @Test
+    fun `should calculate zero coverage for path with multiple not implemented responses`() {
+        val allEndpoints = mutableListOf(
+            Endpoint("/pets/search", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            Endpoint("/pets/search", "GET", 404, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+        )
+
+        val report = OpenApiCoverageReportInput(
+            configFilePath = "specmatic.yaml",
+            testResultRecords = mutableListOf(
+                TestResultRecord(
+                    path = "/pets/search",
+                    method = "GET",
+                    responseStatus = 200,
+                    request = null,
+                    response = null,
+                    result = TestResult.Failed,
+                    actualResponseStatus = 0,
+                    specType = SpecType.OPENAPI
+                ),
+                TestResultRecord(
+                    path = "/pets/search",
+                    method = "GET",
+                    responseStatus = 404,
+                    request = null,
+                    response = null,
+                    result = TestResult.Failed,
+                    actualResponseStatus = 0,
+                    specType = SpecType.OPENAPI
+                )
+            ),
+            applicationAPIs = mutableListOf(API("GET", "/pets")),
+            endpointsAPISet = true,
+            allEndpoints = allEndpoints,
+            filteredEndpoints = allEndpoints
+        ).generate()
+
+        assertThat(report.coverageRows.filter { it.path == "/pets/search" }).containsExactly(
+            OpenApiCoverageConsoleRow("GET", "/pets/search", 200, 1, 0, CoverageStatus.NOT_IMPLEMENTED),
+            OpenApiCoverageConsoleRow("GET", "/pets/search", 404, 1, 0, CoverageStatus.NOT_IMPLEMENTED, showPath = false, showMethod = false),
+        )
+        assertThat(report.totalCoveragePercentage).isEqualTo(0)
     }
 
     @Test
@@ -417,7 +759,10 @@ class OpenApiCoverageReportInputTest {
         )
 
         val reportInput = OpenApiCoverageReportInput(
-            testResultRecords = testResultRecords, configFilePath = "", endpointsAPISet = true,
+            testResultRecords = testResultRecords,
+            configFilePath = "",
+            applicationAPIs = mutableListOf(API("GET", "/current")),
+            endpointsAPISet = true,
             allEndpoints = allEndpoints
         )
         val report = reportInput.generate()
@@ -494,6 +839,101 @@ class OpenApiCoverageReportInputTest {
         assertThat(missingInSpecRow.path).isEqualTo("/current")
         assertThat(missingInSpecRow.method).isEqualTo("GET")
         assertThat(missingInSpecRow.responseStatus).isEqualTo("400")
+    }
+
+    @Test
+    fun `should not add synthetic missing in spec record for failed tests classified as not implemented`() {
+        val allEndpoints = mutableListOf(
+            Endpoint(
+                path = "/pets/search", method = "GET", responseStatus = 200,
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+            ),
+            Endpoint(
+                path = "/pets", method = "GET", responseStatus = 200,
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+            )
+        )
+
+        val testResultRecords = mutableListOf(
+            TestResultRecord(
+                "/pets/search",
+                "GET",
+                200,
+                request = null,
+                response = null,
+                result = TestResult.Failed,
+                actualResponseStatus = 422,
+                specType = SpecType.OPENAPI
+            )
+        )
+
+        val reportInput = OpenApiCoverageReportInput(
+            testResultRecords = testResultRecords,
+            configFilePath = "",
+            applicationAPIs = mutableListOf(API("GET", "/pets")),
+            endpointsAPISet = true,
+            allEndpoints = allEndpoints,
+            filteredEndpoints = mutableListOf(allEndpoints.first())
+        )
+        val report = reportInput.generate()
+
+        assertThat(report.coverageRows).containsExactly(
+            OpenApiCoverageConsoleRow("GET", "/pets/search", 200, 1, 0, CoverageStatus.NOT_IMPLEMENTED)
+        )
+        val resultRecord = report.testResultRecords.single()
+        assertThat(resultRecord.path).isEqualTo("/pets/search")
+        assertThat(resultRecord.method).isEqualTo("GET")
+        assertThat(resultRecord.responseStatus).isEqualTo(200)
+        assertThat(resultRecord.result).isEqualTo(TestResult.NotImplemented)
+        assertThat(report.testResultRecords).noneMatch { it.result == TestResult.MissingInSpec }
+    }
+
+    @Test
+    fun `should not add synthetic missing in spec record for connection refused when test is classified as not implemented`() {
+        val allEndpoints = mutableListOf(
+            Endpoint(
+                path = "/pets/search", method = "GET", responseStatus = 200,
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+            ),
+            Endpoint(
+                path = "/pets", method = "GET", responseStatus = 200,
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+            )
+        )
+
+        val testResultRecords = mutableListOf(
+            TestResultRecord(
+                "/pets/search",
+                "GET",
+                200,
+                request = null,
+                response = null,
+                result = TestResult.Failed,
+                actualResponseStatus = 0,
+                specType = SpecType.OPENAPI
+            )
+        )
+
+        val reportInput = OpenApiCoverageReportInput(
+            testResultRecords = testResultRecords,
+            configFilePath = "",
+            applicationAPIs = mutableListOf(API("GET", "/pets")),
+            endpointsAPISet = true,
+            allEndpoints = allEndpoints,
+            filteredEndpoints = mutableListOf(allEndpoints.first())
+        )
+        val report = reportInput.generate()
+
+        assertThat(report.coverageRows).containsExactly(
+            OpenApiCoverageConsoleRow("GET", "/pets/search", 200, 1, 0, CoverageStatus.NOT_IMPLEMENTED)
+        )
+        val resultRecord = report.testResultRecords.single()
+        assertThat(resultRecord.path).isEqualTo("/pets/search")
+        assertThat(resultRecord.method).isEqualTo("GET")
+        assertThat(resultRecord.responseStatus).isEqualTo(200)
+        assertThat(resultRecord.result).isEqualTo(TestResult.NotImplemented)
+        assertThat(resultRecord.actualResponseStatus).isEqualTo(0)
+        assertThat(report.testResultRecords).noneMatch { it.result == TestResult.MissingInSpec }
     }
 
     @Test

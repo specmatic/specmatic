@@ -1,0 +1,77 @@
+openapi: 3.0.1
+info:
+  title: Contract for the petstore service
+  version: "1"
+paths:
+  /pets/{petId}:
+    get:
+      summary: Get a pet by id
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          schema:
+            type: integer
+          examples:
+            SCOOBY_200_OK:
+              value: 1
+      responses:
+        "200":
+          description: Pet details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pet"
+              examples:
+                SCOOBY_200_OK:
+                  value:
+                    id: 1
+                    name: Scooby
+                    type: dog
+                    status: Adopted
+  /pets/find:
+    get:
+      summary: Search pets by type
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+          examples:
+            DOG_SEARCH_200_OK:
+              value: dog
+      responses:
+        "200":
+          description: Matching pets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Pet"
+              examples:
+                DOG_SEARCH_200_OK:
+                  value:
+                    - id: 1
+                      name: Scooby
+                      type: dog
+                      status: Adopted
+components:
+  schemas:
+    Pet:
+      type: object
+      required:
+        - id
+        - name
+        - type
+        - status
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+        status:
+          type: string

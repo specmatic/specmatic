@@ -4,6 +4,7 @@ import io.specmatic.core.filters.ExpressionStandardizer
 import io.specmatic.core.filters.TestRecordFilter
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.generated.dto.coverage.CoverageEntry
 import io.specmatic.reporter.generated.dto.coverage.OpenAPICoverageOperation
 import io.specmatic.reporter.generated.dto.coverage.SpecmaticCoverageReport
@@ -14,6 +15,7 @@ import io.specmatic.test.API
 import io.specmatic.test.HttpInteractionsLog
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.TestResultRecord.Companion.getCoverageStatus
+import io.specmatic.test.countsAsCoveredForApiCoverage
 import io.specmatic.test.reports.TestReportListener
 import io.specmatic.test.reports.coverage.console.GroupedTestResultRecords
 import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
@@ -37,6 +39,40 @@ class OpenApiCoverageReportInput(
     private val filteredEndpoints: MutableList<Endpoint> = mutableListOf(),
 ) {
     fun endpoints() = allEndpoints.toList()
+
+    fun missingInSpecEndpoints(): List<Endpoint> {
+        return missingInSpecTestResultRecords().map {
+            Endpoint(
+                path = it.path,
+                method = it.method,
+                responseStatus =  it.responseStatus,
+                sourceProvider = it.sourceProvider,
+                sourceRepository = it.repository,
+                sourceRepositoryBranch = it.branch,
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI,
+                specification = it.specification
+            )
+        }
+    }
+
+    fun ctrfSpecConfigs(): List<CtrfSpecConfig> {
+        return endpoints()
+            .plus(missingInSpecEndpoints())
+            .groupBy { it.specification.orEmpty() }
+            .flatMap { (_, groupedEndpoints) ->
+                groupedEndpoints.map {
+                    CtrfSpecConfig(
+                        protocol = it.protocol.key,
+                        specType = it.specType.value,
+                        specification = it.specification.orEmpty(),
+                        sourceProvider = it.sourceProvider,
+                        repository = it.sourceRepository,
+                        branch = it.sourceRepositoryBranch ?: "main"
+                    )
+                }
+            }
+    }
 
     fun onProcessingComplete() = coverageHooks.onEachListener { onEnd() }
 
@@ -281,11 +317,24 @@ class OpenApiCoverageReportInput(
         if (!endpointsAPISet)
             return testResults
 
-        val testResultsForMissingAPIs = applicationAPIs.filter { api ->
+        val projectedFilterExpression = ExpressionStandardizer.filterToEvalExForSupportedKeys(filterExpression) {
+            TestRecordFilter.supportsFilterKey(it)
+        }
+
+        val filteredMissingApiResults = missingInSpecTestResultRecords().filter { missingTestResult ->
+            projectedFilterExpression.with("context", TestRecordFilter(missingTestResult)).evaluate().booleanValue
+        }
+
+        return testResults + filteredMissingApiResults
+    }
+
+    private fun missingInSpecTestResultRecords(): List<TestResultRecord> {
+        return applicationAPIs.filter { api ->
             val noTestResultFoundForThisAPI = allEndpoints.none { it.path == api.path && it.method == api.method }
             val isNotExcluded = api.path !in excludedAPIs
             noTestResultFoundForThisAPI && isNotExcluded
         }.map { api ->
+            val closestMatchingEndpoint = closestMatchingEndpointFor(api.path, api.method)
             TestResultRecord(
                 path = api.path,
                 method = api.method,
@@ -293,6 +342,9 @@ class OpenApiCoverageReportInput(
                 request = null,
                 response = null,
                 result = TestResult.MissingInSpec,
+                sourceProvider = closestMatchingEndpoint?.sourceProvider,
+                repository = closestMatchingEndpoint?.sourceRepository,
+                branch = closestMatchingEndpoint?.sourceRepositoryBranch,
                 specType = SpecType.OPENAPI,
                 operations = setOf(
                     OpenAPIOperation(
@@ -302,20 +354,38 @@ class OpenApiCoverageReportInput(
                         responseCode = 0,
                         protocol = SpecmaticProtocol.HTTP
                     )
-                )
+                ),
+                specification = closestMatchingEndpoint?.specification
             )
         }
+    }
 
-
-        val projectedFilterExpression = ExpressionStandardizer.filterToEvalExForSupportedKeys(filterExpression) {
-            TestRecordFilter.supportsFilterKey(it)
+    private fun closestMatchingEndpointFor(path: String, method: String): Endpoint? {
+        val endpointsWithSpecs = allEndpoints.filter { it.specification != null }
+        if (endpointsWithSpecs.isEmpty()) {
+            return null
         }
 
-        val filteredMissingApiResults = testResultsForMissingAPIs.filter { missingTestResult ->
-            projectedFilterExpression.with("context", TestRecordFilter(missingTestResult)).evaluate().booleanValue
-        }
+        val methodMatchedEndpoints = endpointsWithSpecs.filter { it.method == method }
+        val candidateEndpoints = methodMatchedEndpoints.ifEmpty { endpointsWithSpecs }
 
-        return testResults + filteredMissingApiResults
+        return candidateEndpoints
+            .maxWithOrNull(
+                compareBy<Endpoint> { commonPathPrefixSegments(path, it.path) }
+                    .thenBy { normalizedPathSegments(it.path).size }
+            )
+            ?: endpointsWithSpecs.first()
+    }
+
+    private fun commonPathPrefixSegments(leftPath: String, rightPath: String): Int {
+        val leftSegments = normalizedPathSegments(leftPath)
+        val rightSegments = normalizedPathSegments(rightPath)
+
+        return leftSegments.zip(rightSegments).takeWhile { (left, right) -> left == right }.count()
+    }
+
+    private fun normalizedPathSegments(path: String): List<String> {
+        return path.trim('/').split('/').filter { it.isNotBlank() }
     }
 
     private fun calculateTotalCoveragePercentage(methodMap: Map<String, Map<String?, Map<String, List<TestResultRecord>>>>): Int {
@@ -327,25 +397,23 @@ class OpenApiCoverageReportInput(
         val responseMaps = methodMap.values.flatMap { it.values }
         val totalResponseGroupCount = responseMaps.sumOf { it.size }
         val coveredResponseGroupCount = responseMaps.sumOf { responseMap ->
-            responseMap.values.count { testResults -> testResults.any { it.isCovered } }
+            responseMap.values.count { testResults -> testResults.countsAsCoveredForApiCoverage() }
         }
 
         return totalResponseGroupCount to coveredResponseGroupCount
     }
 
     private fun identifyFailedTestsDueToUnimplementedEndpointsAddMissingTests(testResults: List<TestResultRecord>): List<TestResultRecord> {
-        return testResults.map { testResult ->
-            when {
-                testResult.hasFailedAndEndpointIsNotImplemented() -> testResult.copy(result = TestResult.NotImplemented)
-                else -> testResult
-            }
-        }.flatMap { testResult ->
-            when {
-                testResult.testedEndpointIsMissingInSpec() -> {
-                    createMissingInSpecRecordAndIncludeOriginalRecordIfApplicable(testResult)
-                }
-                else -> listOf(testResult)
-            }
+        return testResults.flatMap { testResult ->
+            val updated = if (testResult.hasFailedAndEndpointIsNotImplemented())
+                testResult.copy(result = TestResult.NotImplemented)
+            else
+                testResult
+
+            if (updated.testedEndpointIsMissingInSpec())
+                createMissingInSpecRecordAndIncludeOriginalRecordIfApplicable(updated)
+            else
+                listOf(updated)
         }
     }
 
@@ -371,12 +439,17 @@ class OpenApiCoverageReportInput(
 
     private fun TestResultRecord.hasFailedAndEndpointIsNotImplemented(): Boolean {
         return this.result == TestResult.Failed && endpointsAPISet &&
+                applicationAPIs.isNotEmpty() &&
                 applicationAPIs.none {
                     it.path == this.path && it.method == this.method
                 }
     }
 
     private fun TestResultRecord.testedEndpointIsMissingInSpec(): Boolean {
+        if (this.result == TestResult.NotImplemented) {
+            return false
+        }
+
         val endpointExistsInSpecification = allEndpoints.any {
             it.path == this.path && it.method == this.method && it.responseStatus == this.actualResponseStatus
         }

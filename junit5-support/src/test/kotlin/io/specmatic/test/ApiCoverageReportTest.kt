@@ -42,7 +42,7 @@ class ApiCoverageReportTest {
         val endpointsInSpec = mutableListOf(
             Endpoint("/order/{id}", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
         )
-        val applicationAPIs = mutableListOf<API>()
+        val applicationAPIs = mutableListOf(API("POST", "/orders"))
         val testResultRecords = mutableListOf(
             TestResultRecord("/order/{id}", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404, specType = SpecType.OPENAPI)
         )
@@ -51,11 +51,15 @@ class ApiCoverageReportTest {
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
                 listOf(
-                    OpenApiCoverageConsoleRow("GET", "/order/{id}", 200, 1, 50, CoverageStatus.NOT_IMPLEMENTED),
-                    OpenApiCoverageConsoleRow("GET", "/order/{id}", 404, 0, 50, CoverageStatus.MISSING_IN_SPEC, showPath = false, showMethod = false),
+                    OpenApiCoverageConsoleRow("GET", "/order/{id}", 200, 1, 0, CoverageStatus.NOT_IMPLEMENTED),
+                    OpenApiCoverageConsoleRow("POST", "/orders", 0, 0, 0, CoverageStatus.MISSING_IN_SPEC),
                 ),
                 apiCoverageReport.testResultRecords,
-                totalEndpointsCount = 1, missedEndpointsCount = 0, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 1, partiallyNotImplementedAPICount = 1
+                totalEndpointsCount = 2,
+                missedEndpointsCount = 1,
+                notImplementedAPICount = 1,
+                partiallyMissedEndpointsCount = 0,
+                partiallyNotImplementedAPICount = 0
             )
         )
     }
@@ -63,7 +67,13 @@ class ApiCoverageReportTest {
     @Test
     fun `POST 201 and 400 in spec not implemented with actuator`() {
         val endpointsInSpec = mutableListOf(
-            Endpoint("/order/{id}", "POST", 201, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI), Endpoint(
+            Endpoint(
+                "/order/{id}",
+                "POST",
+                201,
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI),
+            Endpoint(
                 "/order/{id}",
                 "POST",
                 400,
@@ -71,7 +81,7 @@ class ApiCoverageReportTest {
                 specType = SpecType.OPENAPI
             )
         )
-        val applicationAPIs = mutableListOf<API>()
+        val applicationAPIs = mutableListOf(API("POST", "/orders"))
         val testResultRecords = mutableListOf(
             TestResultRecord(
                 "/order/{id}",
@@ -97,12 +107,12 @@ class ApiCoverageReportTest {
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
                 listOf(
-                    OpenApiCoverageConsoleRow("POST", "/order/{id}", 201, 1, 67, CoverageStatus.NOT_IMPLEMENTED),
-                    OpenApiCoverageConsoleRow("POST", "/order/{id}", 400, 1, 67, CoverageStatus.NOT_IMPLEMENTED, showPath = false, showMethod = false),
-                    OpenApiCoverageConsoleRow("POST", "/order/{id}", 404, 0, 67, CoverageStatus.MISSING_IN_SPEC, showPath = false, showMethod = false),
+                    OpenApiCoverageConsoleRow("POST", "/order/{id}", 201, 1, 0, CoverageStatus.NOT_IMPLEMENTED),
+                    OpenApiCoverageConsoleRow("POST", "/order/{id}", 400, 1, 0, CoverageStatus.NOT_IMPLEMENTED, showPath = false, showMethod = false),
+                    OpenApiCoverageConsoleRow("POST", "/orders", 0, 0, 0, CoverageStatus.MISSING_IN_SPEC, showPath = true, showMethod = true),
                 ),
                 apiCoverageReport.testResultRecords,
-                totalEndpointsCount = 1, missedEndpointsCount = 0, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 1, partiallyNotImplementedAPICount = 1
+                totalEndpointsCount = 2, missedEndpointsCount = 1, notImplementedAPICount = 1, partiallyMissedEndpointsCount = 0, partiallyNotImplementedAPICount = 0
             )
         )
 
@@ -164,7 +174,14 @@ class ApiCoverageReportTest {
     @Test
     fun `GET 200 and 404 in spec not implemented with actuator`() {
         val endpointsInSpec = mutableListOf(
-            Endpoint("/order/{id}", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI), Endpoint(
+            Endpoint(
+                "/order/{id}",
+                "GET",
+                200,
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI
+            ),
+            Endpoint(
                 "/order/{id}",
                 "GET",
                 404,
@@ -172,7 +189,7 @@ class ApiCoverageReportTest {
                 specType = SpecType.OPENAPI
             )
         )
-        val applicationAPIs = mutableListOf<API>()
+        val applicationAPIs = mutableListOf(API("GET", "/orders"))
         val testResultRecords = mutableListOf(
             TestResultRecord("/order/{id}", "GET", 200,   request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404, specType = SpecType.OPENAPI)
         )
@@ -181,9 +198,10 @@ class ApiCoverageReportTest {
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
                 listOf(
-                    OpenApiCoverageConsoleRow("GET", "/order/{id}", 200, 1, 50, CoverageStatus.NOT_IMPLEMENTED),
-                    OpenApiCoverageConsoleRow("GET", "/order/{id}", 404, 0, 50, CoverageStatus.NOT_COVERED, showPath = false, showMethod = false),
-                ), apiCoverageReport.testResultRecords, totalEndpointsCount = 1, missedEndpointsCount = 0, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 0, partiallyNotImplementedAPICount = 1
+                    OpenApiCoverageConsoleRow("GET", "/order/{id}", 200, 1, 0, CoverageStatus.NOT_IMPLEMENTED),
+                    OpenApiCoverageConsoleRow("GET", "/order/{id}",404, 0, 0, CoverageStatus.NOT_COVERED, showPath = false, showMethod = false),
+                    OpenApiCoverageConsoleRow("GET", "/orders", 0, 0, 0, CoverageStatus.MISSING_IN_SPEC),
+                ), apiCoverageReport.testResultRecords, totalEndpointsCount = 2, missedEndpointsCount = 1, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 0, partiallyNotImplementedAPICount = 1
             )
         )
     }
@@ -195,7 +213,7 @@ class ApiCoverageReportTest {
             Endpoint("/order/{id}", "POST", 400, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
             Endpoint("/order/{id}", "POST", 404, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
         )
-        val applicationAPIS = mutableListOf<API>()
+        val applicationAPIS = mutableListOf(API("POST", "/orders"))
         val testResultRecords = mutableListOf(
             TestResultRecord("/order/{id}", "POST", 201,   request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404, specType = SpecType.OPENAPI),
             TestResultRecord("/order/{id}", "POST", 400,   request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404, specType = SpecType.OPENAPI)
@@ -206,10 +224,11 @@ class ApiCoverageReportTest {
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
                 listOf(
-                    OpenApiCoverageConsoleRow("POST", "/order/{id}", 201, 1, 67, CoverageStatus.NOT_IMPLEMENTED),
-                    OpenApiCoverageConsoleRow("POST", "/order/{id}", 400, 1, 67, CoverageStatus.NOT_IMPLEMENTED, showPath = false, showMethod = false),
-                    OpenApiCoverageConsoleRow("POST", "/order/{id}", 404, 0, 67, CoverageStatus.NOT_COVERED, showPath = false, showMethod = false),
-                ), apiCoverageReport.testResultRecords, totalEndpointsCount = 1, missedEndpointsCount = 0, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 0, partiallyNotImplementedAPICount = 1
+                    OpenApiCoverageConsoleRow("POST", "/order/{id}", 201, 1, 0, CoverageStatus.NOT_IMPLEMENTED),
+                    OpenApiCoverageConsoleRow("POST", "/order/{id}", 400, 1, 0, CoverageStatus.NOT_IMPLEMENTED, showPath = false, showMethod = false),
+                    OpenApiCoverageConsoleRow("POST", "/order/{id}", 404, 0, 0, CoverageStatus.NOT_COVERED, showPath = false, showMethod = false),
+                    OpenApiCoverageConsoleRow("POST", "/orders", 0, 0, 0, CoverageStatus.MISSING_IN_SPEC),
+                ), apiCoverageReport.testResultRecords, totalEndpointsCount = 2, missedEndpointsCount = 1, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 0, partiallyNotImplementedAPICount = 1
             )
         )
     }
@@ -489,9 +508,9 @@ class ApiCoverageReportTest {
         assertThat(apiCoverageReport).isEqualTo(
             OpenAPICoverageConsoleReport(
                 listOf(
-                    OpenApiCoverageConsoleRow("GET", "/orders", 200, 1, 50, CoverageStatus.NOT_IMPLEMENTED),
+                    OpenApiCoverageConsoleRow("GET", "/orders", 200, 1, 50, CoverageStatus.COVERED),
                     OpenApiCoverageConsoleRow("GET", "/orders", 404, 0, 50, CoverageStatus.MISSING_IN_SPEC, showPath=false, showMethod=false),
-                ), apiCoverageReport.testResultRecords, totalEndpointsCount = 1, missedEndpointsCount = 0, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 1, partiallyNotImplementedAPICount = 1
+                ), apiCoverageReport.testResultRecords, totalEndpointsCount = 1, missedEndpointsCount = 0, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 1, partiallyNotImplementedAPICount = 0
             )
         )
     }
