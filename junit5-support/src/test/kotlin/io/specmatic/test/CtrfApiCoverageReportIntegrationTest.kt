@@ -199,6 +199,133 @@ class CtrfApiCoverageReportIntegrationTest {
             .doesNotContain("/pets/search")
     }
 
+    @Test
+    fun `ctrf report summary coverage should match console coverage for not implemented endpoints`() {
+        val specFile = File("src/test/resources/openapi/api_coverage/openapi.yaml").canonicalFile
+        val endpoint = Endpoint(
+            path = "/pets/search",
+            method = "GET",
+            responseStatus = 200,
+            specification = specFile.canonicalPath,
+            protocol = io.specmatic.license.core.SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI,
+        )
+
+        val input = OpenApiCoverageReportInput(
+            configFilePath = specFile.canonicalPath,
+            endpointsAPISet = true,
+        )
+        input.addEndpoints(listOf(endpoint), listOf(endpoint))
+        input.addAPIs(listOf(API(method = "GET", path = "/pets")))
+        input.addTestReportRecords(
+            TestResultRecord(
+                path = endpoint.path,
+                method = endpoint.method,
+                responseStatus = endpoint.responseStatus,
+                request = null,
+                response = null,
+                result = TestResult.Failed,
+                actualResponseStatus = 422,
+                specification = endpoint.specification,
+                specType = SpecType.OPENAPI,
+            )
+        )
+
+        val consoleReport = input.generate()
+        val reportNode = ctrfReportNode(input, consoleReport)
+
+        assertThat(consoleReport.totalCoveragePercentage).isEqualTo(0)
+        assertThat(findTextValue(reportNode, "apiCoverage")).isEqualTo("0%")
+        assertThat(reportNode["results"]["tests"].map { it["name"].asText() }).anyMatch { it.contains("/pets/search") }
+    }
+
+    @Test
+    fun `ctrf report should preserve wip coverage semantics from console report`() {
+        val specFile = File("src/test/resources/openapi/api_coverage/openapi.yaml").canonicalFile
+        val endpoint = Endpoint(
+            path = "/pets/find",
+            method = "GET",
+            responseStatus = 200,
+            specification = specFile.canonicalPath,
+            protocol = io.specmatic.license.core.SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI,
+        )
+
+        val input = OpenApiCoverageReportInput(
+            configFilePath = specFile.canonicalPath,
+            endpointsAPISet = true,
+        )
+        input.addEndpoints(listOf(endpoint), listOf(endpoint))
+        input.addTestReportRecords(
+            TestResultRecord(
+                path = endpoint.path,
+                method = endpoint.method,
+                responseStatus = endpoint.responseStatus,
+                request = null,
+                response = null,
+                result = TestResult.Failed,
+                isWip = true,
+                specification = endpoint.specification,
+                specType = SpecType.OPENAPI,
+            )
+        )
+
+        val consoleReport = input.generate()
+        val reportNode = ctrfReportNode(input, consoleReport)
+        val executionOperations = reportNode["results"]["summary"]["extra"]["executionDetails"]
+            .single()
+            .get("operations")
+            .toList()
+        val tests = reportNode["results"]["tests"].toList()
+
+        assertThat(consoleReport.totalCoveragePercentage).isEqualTo(100)
+        assertThat(findTextValue(reportNode, "apiCoverage")).isEqualTo("100%")
+        assertThat(tests.single()["extra"]["wip"].asBoolean()).isTrue()
+        assertThat(executionOperations.single()["coverageStatus"].asText()).isEqualTo("WIP")
+    }
+
+    private fun findTextValue(node: com.fasterxml.jackson.databind.JsonNode, fieldName: String): String? {
+        if (node.has(fieldName)) {
+            return node[fieldName].asText()
+        }
+
+        val fields = node.fields()
+        while (fields.hasNext()) {
+            val child = fields.next().value
+            val result = findTextValue(child, fieldName)
+            if (result != null) {
+                return result
+            }
+        }
+
+        if (node.isArray) {
+            node.forEach { child ->
+                val result = findTextValue(child, fieldName)
+                if (result != null) {
+                    return result
+                }
+            }
+        }
+
+        return null
+    }
+
+    private fun ctrfReportNode(input: OpenApiCoverageReportInput, consoleReport: io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport) =
+        ObjectMapper().readTree(
+            ObjectMapper().writeValueAsString(
+                CtrfReportGenerator.generate(
+                    testResultRecords = consoleReport.testResultRecords,
+                    specConfig = input.ctrfSpecConfigs(),
+                    startTime = 0L,
+                    endTime = 0L,
+                    extra = mapOf("apiCoverage" to "${consoleReport.totalCoveragePercentage}%"),
+                    toolName = "Specmatic test",
+                ) { ctrfTestResultRecords ->
+                    ctrfTestResultRecords.filterIsInstance<TestResultRecord>().getCoverageStatus()
+                }
+            )
+        )
+
     private fun endpointsFrom(specFile: File): List<Endpoint> {
         val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature()
 
