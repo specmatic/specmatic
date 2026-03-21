@@ -12,9 +12,9 @@ dependencies {
     implementation("io.ktor:ktor-serialization-jackson-jvm:2.3.13")
     implementation("io.ktor:ktor-client-content-negotiation-jvm:2.3.13")
 
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.21.1")
-    implementation("com.fasterxml.jackson.core:jackson-core:2.21.1")
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.21.1")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.21.2")
+    implementation("com.fasterxml.jackson.core:jackson-core:2.21.2")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.21.2")
 
     implementation("org.junit.platform:junit-platform-launcher:1.14.3")
     implementation("org.junit.platform:junit-platform-reporting:1.14.3")
