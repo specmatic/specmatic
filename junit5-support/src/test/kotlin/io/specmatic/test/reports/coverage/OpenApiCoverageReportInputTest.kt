@@ -70,6 +70,167 @@ class OpenApiCoverageReportInputTest {
     }
 
     @Test
+    fun `should associate missing in spec endpoint with closest matching spec based on path`() {
+        val petsEndpoint = Endpoint(
+            path = "/pets/{petId}",
+            method = "GET",
+            responseStatus = 200,
+            specification = "pets.yaml",
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        )
+        val ownersEndpoint = Endpoint(
+            path = "/owners/{ownerId}",
+            method = "GET",
+            responseStatus = 200,
+            specification = "owners.yaml",
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        )
+
+        val input = OpenApiCoverageReportInput(
+            configFilePath = "specmatic.yaml",
+            applicationAPIs = mutableListOf(API(method = "GET", path = "/pets/search")),
+            allEndpoints = mutableListOf(ownersEndpoint, petsEndpoint),
+            filteredEndpoints = mutableListOf(ownersEndpoint, petsEndpoint),
+            endpointsAPISet = true,
+        )
+
+        val missingInSpecEndpoint = input.missingInSpecEndpoints().single()
+
+        assertThat(missingInSpecEndpoint.path).isEqualTo("/pets/search")
+        assertThat(missingInSpecEndpoint.specification).isEqualTo("pets.yaml")
+    }
+
+    @Test
+    fun `should prefer the spec with the deeper shared path prefix`() {
+        val genericPetsEndpoint = Endpoint(
+            path = "/pets/{petId}",
+            method = "GET",
+            responseStatus = 200,
+            specification = "pets.yaml",
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        )
+        val searchEndpoint = Endpoint(
+            path = "/pets/search/{query}",
+            method = "GET",
+            responseStatus = 200,
+            specification = "pets-search.yaml",
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        )
+
+        val input = OpenApiCoverageReportInput(
+            configFilePath = "specmatic.yaml",
+            applicationAPIs = mutableListOf(API(method = "GET", path = "/pets/search/advanced")),
+            allEndpoints = mutableListOf(genericPetsEndpoint, searchEndpoint),
+            filteredEndpoints = mutableListOf(genericPetsEndpoint, searchEndpoint),
+            endpointsAPISet = true,
+        )
+
+        val missingInSpecEndpoint = input.missingInSpecEndpoints().single()
+
+        assertThat(missingInSpecEndpoint.specification).isEqualTo("pets-search.yaml")
+    }
+
+    @Test
+    fun `should prefer matching http method before path depth`() {
+        val deeperGetEndpoint = Endpoint(
+            path = "/pets/search/{query}",
+            method = "GET",
+            responseStatus = 200,
+            specification = "pets-get.yaml",
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        )
+        val shallowerPostEndpoint = Endpoint(
+            path = "/pets/{petId}",
+            method = "POST",
+            responseStatus = 202,
+            specification = "pets-post.yaml",
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        )
+
+        val input = OpenApiCoverageReportInput(
+            configFilePath = "specmatic.yaml",
+            applicationAPIs = mutableListOf(API(method = "POST", path = "/pets/search/advanced")),
+            allEndpoints = mutableListOf(deeperGetEndpoint, shallowerPostEndpoint),
+            filteredEndpoints = mutableListOf(deeperGetEndpoint, shallowerPostEndpoint),
+            endpointsAPISet = true,
+        )
+
+        val missingInSpecEndpoint = input.missingInSpecEndpoints().single()
+
+        assertThat(missingInSpecEndpoint.specification).isEqualTo("pets-post.yaml")
+    }
+
+    @Test
+    fun `should not associate a spec when no endpoints carry specification metadata`() {
+        val petsEndpoint = Endpoint(
+            path = "/pets/{petId}",
+            method = "GET",
+            responseStatus = 200,
+            specification = null,
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        )
+        val ownersEndpoint = Endpoint(
+            path = "/owners/{ownerId}",
+            method = "GET",
+            responseStatus = 200,
+            specification = null,
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        )
+
+        val input = OpenApiCoverageReportInput(
+            configFilePath = "specmatic.yaml",
+            applicationAPIs = mutableListOf(API(method = "GET", path = "/pets/search")),
+            allEndpoints = mutableListOf(ownersEndpoint, petsEndpoint),
+            filteredEndpoints = mutableListOf(ownersEndpoint, petsEndpoint),
+            endpointsAPISet = true,
+        )
+
+        val missingInSpecEndpoint = input.missingInSpecEndpoints().single()
+
+        assertThat(missingInSpecEndpoint.specification).isNull()
+    }
+
+    @Test
+    fun `should use deterministic fallback when no candidate shares a path prefix`() {
+        val invoicesEndpoint = Endpoint(
+            path = "/invoices/{invoiceId}",
+            method = "GET",
+            responseStatus = 200,
+            specification = "invoices.yaml",
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        )
+        val ownersEndpoint = Endpoint(
+            path = "/owners/{ownerId}",
+            method = "GET",
+            responseStatus = 200,
+            specification = "owners.yaml",
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        )
+
+        val input = OpenApiCoverageReportInput(
+            configFilePath = "specmatic.yaml",
+            applicationAPIs = mutableListOf(API(method = "GET", path = "/pets/search")),
+            allEndpoints = mutableListOf(invoicesEndpoint, ownersEndpoint),
+            filteredEndpoints = mutableListOf(invoicesEndpoint, ownersEndpoint),
+            endpointsAPISet = true,
+        )
+
+        val missingInSpecEndpoint = input.missingInSpecEndpoints().single()
+
+        assertThat(missingInSpecEndpoint.specification).isEqualTo("invoices.yaml")
+    }
+
+    @Test
     fun `should calculate coverage percentage with only current results`() {
         val endpoint1 = Endpoint(
             path = "/current", method = "GET", responseStatus = 200,

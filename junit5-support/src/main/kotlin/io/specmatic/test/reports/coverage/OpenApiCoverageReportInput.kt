@@ -325,7 +325,6 @@ class OpenApiCoverageReportInput(
     }
 
     private fun missingInSpecTestResultRecords(): List<TestResultRecord> {
-        val specToAssociateToMissingInSpecTestResultRecords = allEndpoints.firstNotNullOfOrNull { it.specification }
         return applicationAPIs.filter { api ->
             val noTestResultFoundForThisAPI = allEndpoints.none { it.path == api.path && it.method == api.method }
             val isNotExcluded = api.path !in excludedAPIs
@@ -348,9 +347,38 @@ class OpenApiCoverageReportInput(
                         protocol = SpecmaticProtocol.HTTP
                     )
                 ),
-                specification = specToAssociateToMissingInSpecTestResultRecords
+                specification = closestMatchingSpecificationFor(api)
             )
         }
+    }
+
+    private fun closestMatchingSpecificationFor(api: API): String? {
+        val endpointsWithSpecs = allEndpoints.filter { it.specification != null }
+        if (endpointsWithSpecs.isEmpty()) {
+            return null
+        }
+
+        val methodMatchedEndpoints = endpointsWithSpecs.filter { it.method == api.method }
+        val candidateEndpoints = methodMatchedEndpoints.ifEmpty { endpointsWithSpecs }
+
+        return candidateEndpoints
+            .maxWithOrNull(
+                compareBy<Endpoint> { commonPathPrefixSegments(api.path, it.path) }
+                    .thenBy { normalizedPathSegments(it.path).size }
+            )
+            ?.specification
+            ?: endpointsWithSpecs.first().specification
+    }
+
+    private fun commonPathPrefixSegments(leftPath: String, rightPath: String): Int {
+        val leftSegments = normalizedPathSegments(leftPath)
+        val rightSegments = normalizedPathSegments(rightPath)
+
+        return leftSegments.zip(rightSegments).takeWhile { (left, right) -> left == right }.count()
+    }
+
+    private fun normalizedPathSegments(path: String): List<String> {
+        return path.trim('/').split('/').filter { it.isNotBlank() }
     }
 
     private fun calculateTotalCoveragePercentage(methodMap: Map<String, Map<String?, Map<String, List<TestResultRecord>>>>): Int {

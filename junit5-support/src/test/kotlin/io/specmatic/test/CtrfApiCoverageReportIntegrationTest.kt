@@ -92,6 +92,93 @@ class CtrfApiCoverageReportIntegrationTest {
             .contains("/pets/search")
     }
 
+    @Test
+    fun `ctrf html report should associate missing in spec endpoint with closest matching spec`() {
+        val petsSpec = File("src/test/resources/openapi/api_coverage/openapi.yaml").canonicalFile
+        val ownersSpec = File("src/test/resources/openapi/api_coverage/owners.yaml").canonicalFile
+
+        val petsEndpoints = endpointsFrom(petsSpec)
+        val ownersEndpoints = listOf(
+            Endpoint(
+                path = "/owners/{ownerId}",
+                method = "GET",
+                responseStatus = 200,
+                specification = ownersSpec.canonicalPath,
+                protocol = io.specmatic.license.core.SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI,
+            )
+        )
+
+        val input = OpenApiCoverageReportInput(
+            configFilePath = petsSpec.canonicalPath,
+            endpointsAPISet = true,
+        )
+
+        input.addEndpoints(ownersEndpoints + petsEndpoints, ownersEndpoints + petsEndpoints)
+        input.addAPIs(listOf(
+            API(method = "GET", path = "/pets/search")
+        ))
+
+        (ownersEndpoints + petsEndpoints).forEach { endpoint ->
+            input.addTestReportRecords(
+                TestResultRecord(
+                    path = endpoint.path,
+                    method = endpoint.method,
+                    responseStatus = endpoint.responseStatus,
+                    request = null,
+                    response = null,
+                    result = TestResult.Success,
+                    specification = endpoint.specification,
+                    specType = SpecType.OPENAPI,
+                    requestContentType = endpoint.requestContentType,
+                )
+            )
+        }
+
+        val consoleReport = input.generate()
+        val ctrfReport = CtrfReportGenerator.generate(
+            testResultRecords = consoleReport.testResultRecords,
+            specConfig = input.ctrfSpecConfigs(),
+            startTime = 0L,
+            endTime = 0L,
+            extra = mapOf("apiCoverage" to "${consoleReport.totalCoveragePercentage}%"),
+            toolName = "Specmatic test",
+        ) { ctrfTestResultRecords ->
+            ctrfTestResultRecords.filterIsInstance<TestResultRecord>().getCoverageStatus()
+        }
+
+        val reportNode = ObjectMapper().readTree(ObjectMapper().writeValueAsString(ctrfReport))
+        val testNames = reportNode["results"]["tests"].map { it["name"].asText() }
+        val executionDetails = reportNode["results"]["summary"]["extra"]["executionDetails"].toList()
+        val petsExecutionDetail = executionDetails.single { it["specification"].asText() == petsSpec.canonicalPath }
+        val ownersExecutionDetail = executionDetails.single { it["specification"].asText() == ownersSpec.canonicalPath }
+        val petsOperationPaths = petsExecutionDetail["operations"].map { it["path"].asText() }
+        val ownersOperationPaths = ownersExecutionDetail["operations"].map { it["path"].asText() }
+
+        assertThat(testNames)
+            .withFailMessage(
+                "Expected raw CTRF tests to contain /pets/search, but test names were: %s",
+                testNames
+            )
+            .anyMatch { it.contains("/pets/search") }
+
+        assertThat(petsOperationPaths)
+            .withFailMessage(
+                "Expected /pets/search to be attached to pets spec execution details. Pets operations: %s. Owners operations: %s",
+                petsOperationPaths,
+                ownersOperationPaths
+            )
+            .contains("/pets/search")
+
+        assertThat(ownersOperationPaths)
+            .withFailMessage(
+                "Expected /pets/search to be absent from owners spec execution details. Pets operations: %s. Owners operations: %s",
+                petsOperationPaths,
+                ownersOperationPaths
+            )
+            .doesNotContain("/pets/search")
+    }
+
     private fun endpointsFrom(specFile: File): List<Endpoint> {
         val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature()
 
