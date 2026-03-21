@@ -15,6 +15,7 @@ import io.specmatic.test.API
 import io.specmatic.test.HttpInteractionsLog
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.TestResultRecord.Companion.getCoverageStatus
+import io.specmatic.test.countsAsCoveredForApiCoverage
 import io.specmatic.test.reports.TestReportListener
 import io.specmatic.test.reports.coverage.console.GroupedTestResultRecords
 import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
@@ -396,9 +397,7 @@ class OpenApiCoverageReportInput(
         val responseMaps = methodMap.values.flatMap { it.values }
         val totalResponseGroupCount = responseMaps.sumOf { it.size }
         val coveredResponseGroupCount = responseMaps.sumOf { responseMap ->
-            responseMap.values.count { testResults ->
-                testResults.any { it.isCovered && it.result != TestResult.NotImplemented }
-            }
+            responseMap.values.count { testResults -> testResults.countsAsCoveredForApiCoverage() }
         }
 
         return totalResponseGroupCount to coveredResponseGroupCount

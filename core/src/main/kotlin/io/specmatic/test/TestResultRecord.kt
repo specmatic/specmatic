@@ -125,6 +125,19 @@ data class TestResultRecord(
     }
 }
 
+fun CoverageStatus.isPresentInSpecForApiCoverage(): Boolean =
+    this != CoverageStatus.MISSING_IN_SPEC
+
+fun CoverageStatus.countsAsCoveredForApiCoverage(): Boolean =
+    this == CoverageStatus.COVERED || this == CoverageStatus.WIP
+
+fun List<TestResultRecord>.countsAsCoveredForApiCoverage(): Boolean =
+    when {
+        any { it.isWip } -> true
+        any { it.isExercised } -> first().result != TestResult.NotImplemented
+        else -> false
+    }
+
 private fun durationFrom(requestTime: Instant?, responseTime: Instant?) =
     if (requestTime != null && responseTime != null)
         Duration.between(requestTime, responseTime).toMillis()

@@ -1,7 +1,8 @@
 package io.specmatic.test.reports.coverage.console
 
-import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.test.TestResultRecord
+import io.specmatic.test.countsAsCoveredForApiCoverage
+import io.specmatic.test.isPresentInSpecForApiCoverage
 import io.specmatic.test.reports.TestReportListener
 import io.specmatic.test.reports.onEachListener
 import kotlin.math.roundToInt
@@ -31,14 +32,13 @@ data class OpenAPICoverageConsoleReport(
         if (totalEndpointsCount == 0) return 0
 
         val countOfEndpointsPresentInSpec =
-            coverageRows.count { it.remarks != CoverageStatus.MISSING_IN_SPEC }
+            coverageRows.count { it.remarks.isPresentInSpecForApiCoverage() }
 
         if(countOfEndpointsPresentInSpec == 0 ) return 0
 
         val countOfEndpointsHitThatArePresentInSpec = coverageRows.count {
             it.count.toInt() > 0 &&
-                it.remarks != CoverageStatus.MISSING_IN_SPEC &&
-                it.remarks != CoverageStatus.NOT_IMPLEMENTED
+                it.remarks.countsAsCoveredForApiCoverage()
         }
 
         return ((countOfEndpointsHitThatArePresentInSpec * 100) / countOfEndpointsPresentInSpec.toDouble()).roundToInt()
