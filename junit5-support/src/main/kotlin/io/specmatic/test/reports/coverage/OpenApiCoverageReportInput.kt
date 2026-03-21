@@ -17,9 +17,9 @@ import io.specmatic.test.TestResultRecord
 import io.specmatic.test.TestResultRecord.Companion.getCoverageStatus
 import io.specmatic.test.countsAsCoveredForApiCoverage
 import io.specmatic.test.reports.TestReportListener
-import io.specmatic.test.reports.coverage.console.GroupedTestResultRecords
 import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
 import io.specmatic.test.reports.coverage.console.OpenApiCoverageConsoleRow
+import io.specmatic.test.reports.coverage.console.groupRecords
 import io.specmatic.test.reports.onEachListener
 import io.specmatic.test.reports.onTestResult
 import kotlinx.serialization.Serializable
@@ -193,33 +193,23 @@ class OpenApiCoverageReportInput(
             apiCoverageRows.addAll(rowsForPath)
         }
 
-        val totalAPICount = groupedTestResultRecords.keys.size
-        val testsGroupedByPath = allTests.groupBy { it.path }
+        val totalOperations = groupedTestResultRecords.keys.size
+        val testsGroupedByOperation = allTests.groupByOperation()
 
-        val missedAPICount = testsGroupedByPath.count { (_, tests) ->
+        val missedOperations = testsGroupedByOperation.count { (_, tests) ->
             tests.all { it.result == TestResult.MissingInSpec }
         }
 
-        val notImplementedAPICount = testsGroupedByPath.count { (_, tests) ->
+        val notImplementedOperations = testsGroupedByOperation.count { (_, tests) ->
             tests.all { it.result == TestResult.NotImplemented }
-        }
-
-        val partiallyMissedAPICount = testsGroupedByPath.count { (_, tests) ->
-            tests.any { it.result == TestResult.MissingInSpec } && tests.any { it.result != TestResult.MissingInSpec }
-        }
-
-        val partiallyNotImplementedAPICount = testsGroupedByPath.count { (_, tests) ->
-            tests.any { it.result == TestResult.NotImplemented } && tests.any { it.result != TestResult.NotImplemented }
         }
 
         return OpenAPICoverageConsoleReport(
             apiCoverageRows,
             allTests,
-            totalAPICount,
-            missedAPICount,
-            notImplementedAPICount,
-            partiallyMissedAPICount,
-            partiallyNotImplementedAPICount,
+            totalOperations,
+            missedOperations,
+            notImplementedOperations,
             listeners,
         )
     }
@@ -303,13 +293,14 @@ class OpenApiCoverageReportInput(
         }
     }
 
-    private fun List<TestResultRecord>.groupRecords(): GroupedTestResultRecords {
-        return groupBy { it.path }.mapValues { (_, pathMap) ->
-            pathMap.groupBy { it.soapAction ?: it.method }.mapValues { (_, methodMap) ->
-                methodMap.groupBy { it.requestContentType }.mapValues { (_, contentTypeMap) ->
-                    contentTypeMap.groupBy { it.responseStatus.toString() }
-                }
-            }
+    private fun List<TestResultRecord>.groupByOperation(): Map<OperationKey, List<TestResultRecord>> {
+        return groupBy {
+            OperationKey(
+                path = it.path,
+                method = it.soapAction ?: it.method,
+                requestContentType = it.requestContentType,
+                responseStatus = it.responseStatus
+            )
         }
     }
 
@@ -468,6 +459,13 @@ class OpenApiCoverageReportInput(
         return this.minus(wipTestResults.toSet()).plus(updatedWipTestResults)
     }
 }
+
+private data class OperationKey(
+    val path: String,
+    val method: String,
+    val requestContentType: String?,
+    val responseStatus: Int
+)
 
 data class CoverageGroupKey(
     val sourceProvider: String?,

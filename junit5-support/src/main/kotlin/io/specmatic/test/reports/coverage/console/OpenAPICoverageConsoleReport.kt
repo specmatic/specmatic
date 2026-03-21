@@ -14,11 +14,9 @@ typealias GroupedCoverageRows = Map<String, Map<String, Map<String?, Map<String,
 data class OpenAPICoverageConsoleReport(
     val coverageRows: List<OpenApiCoverageConsoleRow>,
     val testResultRecords: List<TestResultRecord>,
-    val totalEndpointsCount: Int,
-    val missedEndpointsCount: Int,
-    val notImplementedAPICount: Int,
-    val partiallyMissedEndpointsCount: Int,
-    val partiallyNotImplementedAPICount: Int,
+    val totalOperations: Int,
+    val missedOperations: Int,
+    val notImplementedOperations: Int,
     private val coverageHooks: List<TestReportListener> = emptyList(),
 ) {
     val totalCoveragePercentage: Int = calculateTotalCoveragePercentage()
@@ -29,29 +27,23 @@ data class OpenAPICoverageConsoleReport(
     }
 
     private fun calculateTotalCoveragePercentage(): Int {
-        if (totalEndpointsCount == 0) return 0
+        if (totalOperations == 0) return 0
 
-        val countOfEndpointsPresentInSpec =
+        val countOfOperationsPresentInSpec =
             coverageRows.count { it.remarks.isPresentInSpecForApiCoverage() }
 
-        if(countOfEndpointsPresentInSpec == 0 ) return 0
+        if(countOfOperationsPresentInSpec == 0 ) return 0
 
-        val countOfEndpointsHitThatArePresentInSpec = coverageRows.count {
+        val countOfOperationsHitThatArePresentInSpec = coverageRows.count {
             it.count.toInt() > 0 &&
                 it.remarks.countsAsCoveredForApiCoverage()
         }
 
-        return ((countOfEndpointsHitThatArePresentInSpec * 100) / countOfEndpointsPresentInSpec.toDouble()).roundToInt()
+        return ((countOfOperationsHitThatArePresentInSpec * 100) / countOfOperationsPresentInSpec.toDouble()).roundToInt()
     }
 
     fun getGroupedTestResultRecords(testResultRecords: List<TestResultRecord>): GroupedTestResultRecords {
-        return testResultRecords.groupBy { it.path }.mapValues { (_, pathMap) ->
-            pathMap.groupBy { it.soapAction ?: it.method }.mapValues { (_, methodMap) ->
-                methodMap.groupBy { it.requestContentType }.mapValues { (_, contentTypeMap) ->
-                    contentTypeMap.groupBy { it.responseStatus.toString() }
-                }
-            }
-        }
+        return testResultRecords.groupRecords()
     }
 
     fun getGroupedCoverageRows(coverageRows: List<OpenApiCoverageConsoleRow>): GroupedCoverageRows {
@@ -60,6 +52,16 @@ data class OpenAPICoverageConsoleReport(
                 methodMap.groupBy { it.requestContentType }.mapValues { (_, contentTypeMap) ->
                     contentTypeMap.groupBy { it.responseStatus }
                 }
+            }
+        }
+    }
+}
+
+fun List<TestResultRecord>.groupRecords(): GroupedTestResultRecords {
+    return groupBy { it.path }.mapValues { (_, pathMap) ->
+        pathMap.groupBy { it.soapAction ?: it.method }.mapValues { (_, methodMap) ->
+            methodMap.groupBy { it.requestContentType }.mapValues { (_, contentTypeMap) ->
+                contentTypeMap.groupBy { it.responseStatus.toString() }
             }
         }
     }

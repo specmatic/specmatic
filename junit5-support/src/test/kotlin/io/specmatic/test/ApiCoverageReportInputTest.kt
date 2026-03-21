@@ -53,7 +53,7 @@ class ApiCoverageReportInputTest {
                     OpenApiCoverageConsoleRow("GET", "/route2", 200, 1, 100, CoverageStatus.COVERED)
                 ),
                 apiCoverageReport.testResultRecords,
-                totalEndpointsCount = 2, missedEndpointsCount = 0, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 0, partiallyNotImplementedAPICount = 0
+                totalOperations = 2, missedOperations = 0, notImplementedOperations = 0
             )
         )
     }
@@ -97,7 +97,7 @@ class ApiCoverageReportInputTest {
                     OpenApiCoverageConsoleRow("POST", "/route3", 0, 0, 0, CoverageStatus.MISSING_IN_SPEC, showPath = false)
                 ),
                 apiCoverageReport.testResultRecords,
-                totalEndpointsCount = 3, missedEndpointsCount = 1, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 1, partiallyNotImplementedAPICount = 0
+                totalOperations = 3, missedOperations = 3, notImplementedOperations = 0
             )
         )
     }
@@ -146,7 +146,7 @@ class ApiCoverageReportInputTest {
                     OpenApiCoverageConsoleRow("POST", "/route2", 200, 1, 100,  CoverageStatus.COVERED, showPath = false)
                 ),
                 apiCoverageReport.testResultRecords,
-                totalEndpointsCount = 2,  missedEndpointsCount = 0, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 0, partiallyNotImplementedAPICount = 0
+                totalOperations = 2,  missedOperations = 0, notImplementedOperations = 0
             )
         )
     }
@@ -232,7 +232,7 @@ class ApiCoverageReportInputTest {
                     OpenApiCoverageConsoleRow("POST", "/route2", 200, 1, 0, CoverageStatus.NOT_IMPLEMENTED, showPath = false)
                 ),
                 apiCoverageReport.testResultRecords,
-                totalEndpointsCount = 2, missedEndpointsCount = 0, notImplementedAPICount = 1, partiallyMissedEndpointsCount = 0, partiallyNotImplementedAPICount = 0
+                totalOperations = 2, missedOperations = 0, notImplementedOperations = 2
             )
         )
     }
@@ -274,7 +274,7 @@ class ApiCoverageReportInputTest {
                     OpenApiCoverageConsoleRow("POST", "/route3/{route_id}", 0, 0, 0, CoverageStatus.MISSING_IN_SPEC, showPath = false)
                 ),
                 apiCoverageReport.testResultRecords,
-                totalEndpointsCount = 3, missedEndpointsCount = 1, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 0, partiallyNotImplementedAPICount = 1
+                totalOperations = 3, missedOperations = 2, notImplementedOperations = 1
             )
         )
     }
@@ -397,7 +397,7 @@ class ApiCoverageReportInputTest {
                     OpenApiCoverageConsoleRow("POST", "/route2", 500, 1, 75, CoverageStatus.COVERED, showPath = false)
                 ),
                 apiCoverageReport.testResultRecords,
-                totalEndpointsCount = 2, missedEndpointsCount = 0, notImplementedAPICount = 0, partiallyMissedEndpointsCount = 0, partiallyNotImplementedAPICount = 0
+                totalOperations = 2, missedOperations = 0, notImplementedOperations = 0
             )
         )
     }
