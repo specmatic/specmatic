@@ -403,18 +403,16 @@ class OpenApiCoverageReportInput(
     }
 
     private fun identifyFailedTestsDueToUnimplementedEndpointsAddMissingTests(testResults: List<TestResultRecord>): List<TestResultRecord> {
-        return testResults.map { testResult ->
-            when {
-                testResult.hasFailedAndEndpointIsNotImplemented() -> testResult.copy(result = TestResult.NotImplemented)
-                else -> testResult
-            }
-        }.flatMap { testResult ->
-            when {
-                testResult.testedEndpointIsMissingInSpec() -> {
-                    createMissingInSpecRecordAndIncludeOriginalRecordIfApplicable(testResult)
-                }
-                else -> listOf(testResult)
-            }
+        return testResults.flatMap { testResult ->
+            val updated = if (testResult.hasFailedAndEndpointIsNotImplemented())
+                testResult.copy(result = TestResult.NotImplemented)
+            else
+                testResult
+
+            if (updated.testedEndpointIsMissingInSpec())
+                createMissingInSpecRecordAndIncludeOriginalRecordIfApplicable(updated)
+            else
+                listOf(updated)
         }
     }
 
@@ -440,12 +438,17 @@ class OpenApiCoverageReportInput(
 
     private fun TestResultRecord.hasFailedAndEndpointIsNotImplemented(): Boolean {
         return this.result == TestResult.Failed && endpointsAPISet &&
+                applicationAPIs.isNotEmpty() &&
                 applicationAPIs.none {
                     it.path == this.path && it.method == this.method
                 }
     }
 
     private fun TestResultRecord.testedEndpointIsMissingInSpec(): Boolean {
+        if (this.result == TestResult.NotImplemented) {
+            return false
+        }
+
         val endpointExistsInSpecification = allEndpoints.any {
             it.path == this.path && it.method == this.method && it.responseStatus == this.actualResponseStatus
         }

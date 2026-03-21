@@ -9,6 +9,7 @@ import io.specmatic.test.API
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.reports.TestExecutionResult
 import io.specmatic.test.reports.TestReportListener
+import io.specmatic.test.reports.coverage.console.OpenApiCoverageConsoleRow
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -534,7 +535,10 @@ class OpenApiCoverageReportInputTest {
         )
 
         val reportInput = OpenApiCoverageReportInput(
-            testResultRecords = testResultRecords, configFilePath = "", endpointsAPISet = true,
+            testResultRecords = testResultRecords,
+            configFilePath = "",
+            applicationAPIs = mutableListOf(API("POST", "/other")),
+            endpointsAPISet = true,
             allEndpoints = allEndpoints, filteredEndpoints = filtered
         )
         val report = reportInput.generate()
@@ -578,7 +582,10 @@ class OpenApiCoverageReportInputTest {
         )
 
         val reportInput = OpenApiCoverageReportInput(
-            testResultRecords = testResultRecords, configFilePath = "", endpointsAPISet = true,
+            testResultRecords = testResultRecords,
+            configFilePath = "",
+            applicationAPIs = mutableListOf(API("GET", "/current")),
+            endpointsAPISet = true,
             allEndpoints = allEndpoints
         )
         val report = reportInput.generate()
@@ -655,6 +662,101 @@ class OpenApiCoverageReportInputTest {
         assertThat(missingInSpecRow.path).isEqualTo("/current")
         assertThat(missingInSpecRow.method).isEqualTo("GET")
         assertThat(missingInSpecRow.responseStatus).isEqualTo("400")
+    }
+
+    @Test
+    fun `should not add synthetic missing in spec record for failed tests classified as not implemented`() {
+        val allEndpoints = mutableListOf(
+            Endpoint(
+                path = "/pets/search", method = "GET", responseStatus = 200,
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+            ),
+            Endpoint(
+                path = "/pets", method = "GET", responseStatus = 200,
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+            )
+        )
+
+        val testResultRecords = mutableListOf(
+            TestResultRecord(
+                "/pets/search",
+                "GET",
+                200,
+                request = null,
+                response = null,
+                result = TestResult.Failed,
+                actualResponseStatus = 422,
+                specType = SpecType.OPENAPI
+            )
+        )
+
+        val reportInput = OpenApiCoverageReportInput(
+            testResultRecords = testResultRecords,
+            configFilePath = "",
+            applicationAPIs = mutableListOf(API("GET", "/pets")),
+            endpointsAPISet = true,
+            allEndpoints = allEndpoints,
+            filteredEndpoints = mutableListOf(allEndpoints.first())
+        )
+        val report = reportInput.generate()
+
+        assertThat(report.coverageRows).containsExactly(
+            OpenApiCoverageConsoleRow("GET", "/pets/search", 200, 1, 100, CoverageStatus.NOT_IMPLEMENTED)
+        )
+        val resultRecord = report.testResultRecords.single()
+        assertThat(resultRecord.path).isEqualTo("/pets/search")
+        assertThat(resultRecord.method).isEqualTo("GET")
+        assertThat(resultRecord.responseStatus).isEqualTo(200)
+        assertThat(resultRecord.result).isEqualTo(TestResult.NotImplemented)
+        assertThat(report.testResultRecords).noneMatch { it.result == TestResult.MissingInSpec }
+    }
+
+    @Test
+    fun `should not add synthetic missing in spec record for connection refused when test is classified as not implemented`() {
+        val allEndpoints = mutableListOf(
+            Endpoint(
+                path = "/pets/search", method = "GET", responseStatus = 200,
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+            ),
+            Endpoint(
+                path = "/pets", method = "GET", responseStatus = 200,
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+            )
+        )
+
+        val testResultRecords = mutableListOf(
+            TestResultRecord(
+                "/pets/search",
+                "GET",
+                200,
+                request = null,
+                response = null,
+                result = TestResult.Failed,
+                actualResponseStatus = 0,
+                specType = SpecType.OPENAPI
+            )
+        )
+
+        val reportInput = OpenApiCoverageReportInput(
+            testResultRecords = testResultRecords,
+            configFilePath = "",
+            applicationAPIs = mutableListOf(API("GET", "/pets")),
+            endpointsAPISet = true,
+            allEndpoints = allEndpoints,
+            filteredEndpoints = mutableListOf(allEndpoints.first())
+        )
+        val report = reportInput.generate()
+
+        assertThat(report.coverageRows).containsExactly(
+            OpenApiCoverageConsoleRow("GET", "/pets/search", 200, 1, 100, CoverageStatus.NOT_IMPLEMENTED)
+        )
+        val resultRecord = report.testResultRecords.single()
+        assertThat(resultRecord.path).isEqualTo("/pets/search")
+        assertThat(resultRecord.method).isEqualTo("GET")
+        assertThat(resultRecord.responseStatus).isEqualTo(200)
+        assertThat(resultRecord.result).isEqualTo(TestResult.NotImplemented)
+        assertThat(resultRecord.actualResponseStatus).isEqualTo(0)
+        assertThat(report.testResultRecords).noneMatch { it.result == TestResult.MissingInSpec }
     }
 
     @Test
