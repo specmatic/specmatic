@@ -149,7 +149,7 @@ class ApiCoverageReportStatusTest {
         assertThat(apiCoverageReport.coverageRows).isEqualTo(
             listOf(
                 OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 100, CoverageStatus.COVERED),
-                OpenApiCoverageConsoleRow("GET", "/route2", 200, 1, 100, CoverageStatus.NOT_IMPLEMENTED)
+                OpenApiCoverageConsoleRow("GET", "/route2", 200, 1, 0, CoverageStatus.NOT_IMPLEMENTED)
             )
         )
     }

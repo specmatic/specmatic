@@ -396,7 +396,9 @@ class OpenApiCoverageReportInput(
         val responseMaps = methodMap.values.flatMap { it.values }
         val totalResponseGroupCount = responseMaps.sumOf { it.size }
         val coveredResponseGroupCount = responseMaps.sumOf { responseMap ->
-            responseMap.values.count { testResults -> testResults.any { it.isCovered } }
+            responseMap.values.count { testResults ->
+                testResults.any { it.isCovered && it.result != TestResult.NotImplemented }
+            }
         }
 
         return totalResponseGroupCount to coveredResponseGroupCount

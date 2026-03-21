@@ -546,7 +546,7 @@ class OpenApiCoverageReportInputTest {
         assertThat(report.coverageRows).anyMatch { it.path == "/test" && it.remarks == CoverageStatus.NOT_IMPLEMENTED }
         assertThat(report.testResultRecords).noneMatch { it.path == "/filtered" }
         assertThat(report.coverageRows).noneMatch { it.path == "/filtered" }
-        assertThat(report.totalCoveragePercentage).isEqualTo(100)
+        assertThat(report.totalCoveragePercentage).isEqualTo(0)
     }
 
     @Test
@@ -701,7 +701,7 @@ class OpenApiCoverageReportInputTest {
         val report = reportInput.generate()
 
         assertThat(report.coverageRows).containsExactly(
-            OpenApiCoverageConsoleRow("GET", "/pets/search", 200, 1, 100, CoverageStatus.NOT_IMPLEMENTED)
+            OpenApiCoverageConsoleRow("GET", "/pets/search", 200, 1, 0, CoverageStatus.NOT_IMPLEMENTED)
         )
         val resultRecord = report.testResultRecords.single()
         assertThat(resultRecord.path).isEqualTo("/pets/search")
@@ -748,7 +748,7 @@ class OpenApiCoverageReportInputTest {
         val report = reportInput.generate()
 
         assertThat(report.coverageRows).containsExactly(
-            OpenApiCoverageConsoleRow("GET", "/pets/search", 200, 1, 100, CoverageStatus.NOT_IMPLEMENTED)
+            OpenApiCoverageConsoleRow("GET", "/pets/search", 200, 1, 0, CoverageStatus.NOT_IMPLEMENTED)
         )
         val resultRecord = report.testResultRecords.single()
         assertThat(resultRecord.path).isEqualTo("/pets/search")

@@ -228,8 +228,8 @@ class ApiCoverageReportInputTest {
                 listOf(
                     OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 100, CoverageStatus.COVERED),
                     OpenApiCoverageConsoleRow("POST", "/route1", 200, 1, 100, CoverageStatus.COVERED, showPath = false),
-                    OpenApiCoverageConsoleRow("GET", "/route2", 200, 1, 100, CoverageStatus.NOT_IMPLEMENTED),
-                    OpenApiCoverageConsoleRow("POST", "/route2", 200, 1, 100, CoverageStatus.NOT_IMPLEMENTED, showPath = false)
+                    OpenApiCoverageConsoleRow("GET", "/route2", 200, 1, 0, CoverageStatus.NOT_IMPLEMENTED),
+                    OpenApiCoverageConsoleRow("POST", "/route2", 200, 1, 0, CoverageStatus.NOT_IMPLEMENTED, showPath = false)
                 ),
                 apiCoverageReport.testResultRecords,
                 totalEndpointsCount = 2, missedEndpointsCount = 0, notImplementedAPICount = 1, partiallyMissedEndpointsCount = 0, partiallyNotImplementedAPICount = 0
@@ -268,8 +268,8 @@ class ApiCoverageReportInputTest {
                 listOf(
                     OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 100, CoverageStatus.COVERED),
                     OpenApiCoverageConsoleRow("POST", "/route1", 200, 1, 100, CoverageStatus.COVERED, showPath = false),
-                    OpenApiCoverageConsoleRow("GET", "/route2", 200, 1, 100, CoverageStatus.COVERED),
-                    OpenApiCoverageConsoleRow("POST", "/route2", 200, 1, 100, CoverageStatus.NOT_IMPLEMENTED, showPath = false),
+                    OpenApiCoverageConsoleRow("GET", "/route2", 200, 1, 50, CoverageStatus.COVERED),
+                    OpenApiCoverageConsoleRow("POST", "/route2", 200, 1, 50, CoverageStatus.NOT_IMPLEMENTED, showPath = false),
                     OpenApiCoverageConsoleRow("GET", "/route3/{route_id}", 0, 0, 0, CoverageStatus.MISSING_IN_SPEC),
                     OpenApiCoverageConsoleRow("POST", "/route3/{route_id}", 0, 0, 0, CoverageStatus.MISSING_IN_SPEC, showPath = false)
                 ),

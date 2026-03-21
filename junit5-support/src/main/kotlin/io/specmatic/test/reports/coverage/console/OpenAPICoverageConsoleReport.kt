@@ -35,7 +35,11 @@ data class OpenAPICoverageConsoleReport(
 
         if(countOfEndpointsPresentInSpec == 0 ) return 0
 
-        val countOfEndpointsHitThatArePresentInSpec = coverageRows.count { it.count.toInt() > 0 && it.remarks != CoverageStatus.MISSING_IN_SPEC }
+        val countOfEndpointsHitThatArePresentInSpec = coverageRows.count {
+            it.count.toInt() > 0 &&
+                it.remarks != CoverageStatus.MISSING_IN_SPEC &&
+                it.remarks != CoverageStatus.NOT_IMPLEMENTED
+        }
 
         return ((countOfEndpointsHitThatArePresentInSpec * 100) / countOfEndpointsPresentInSpec.toDouble()).roundToInt()
     }
