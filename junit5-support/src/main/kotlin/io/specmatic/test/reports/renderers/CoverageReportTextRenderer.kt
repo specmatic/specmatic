@@ -12,30 +12,20 @@ class CoverageReportTextRenderer: ReportRenderer<OpenAPICoverageConsoleReport> {
 
         val missingAndNotImplementedAPIsMessageRows:MutableList<String> = mutableListOf()
 
-        if(report.missedEndpointsCount > 0) {
-            val missedPaths = pluralisePath(report.missedEndpointsCount)
-            missingAndNotImplementedAPIsMessageRows.add("$missedPaths found in the app ${isOrAre(report.missedEndpointsCount)} not documented in the spec.")
+        if(report.missedOperations > 0) {
+            val missedOperations = pluraliseOperation(report.missedOperations)
+            missingAndNotImplementedAPIsMessageRows.add("$missedOperations found in the service ${isOrAre(report.missedOperations)} not documented in the spec.")
         }
 
-        if(report.partiallyMissedEndpointsCount > 0) {
-            val partiallyMissedPaths = pluralisePath(report.partiallyMissedEndpointsCount)
-            missingAndNotImplementedAPIsMessageRows.add("$partiallyMissedPaths found in the app ${isOrAre(report.partiallyMissedEndpointsCount)} partially documented in the spec.")
-        }
-
-        if(report.notImplementedAPICount > 0) {
-            val notImplementedPaths = pluralisePath(report.notImplementedAPICount)
-            missingAndNotImplementedAPIsMessageRows.add("$notImplementedPaths found in the spec ${isOrAre(report.notImplementedAPICount)} not implemented.")
-        }
-
-        if(report.partiallyNotImplementedAPICount > 0) {
-            val partiallyNotImplementedPaths = pluralisePath(report.partiallyNotImplementedAPICount)
-            missingAndNotImplementedAPIsMessageRows.add("$partiallyNotImplementedPaths found in the spec ${isOrAre(report.partiallyNotImplementedAPICount)} partially implemented.")
+        if(report.notImplementedOperations > 0) {
+            val notImplementedOperations = pluraliseOperation(report.notImplementedOperations)
+            missingAndNotImplementedAPIsMessageRows.add("$notImplementedOperations found in the spec ${isOrAre(report.notImplementedOperations)} not implemented.")
         }
 
         return coveredAPIsTable + System.lineSeparator()  + missingAndNotImplementedAPIsMessageRows.joinToString(System.lineSeparator()) + System.lineSeparator()
     }
-    private fun pluralisePath(count: Int): String =
-        "$count path${if (count == 1) "" else "s"}"
+    private fun pluraliseOperation(count: Int): String =
+        "$count operation${if (count == 1) "" else "s"}"
 
     private fun isOrAre(count: Int): String = if (count > 1) "are" else "is"
 
@@ -62,7 +52,6 @@ class CoverageReportTextRenderer: ReportRenderer<OpenAPICoverageConsoleReport> {
     }
 
     private fun makeFooter(report: OpenAPICoverageConsoleReport): String {
-        return "${report.totalCoveragePercentage}% API Coverage reported from ${report.totalEndpointsCount} Paths"
+        return "${report.totalCoveragePercentage}% API Coverage reported from ${report.totalOperations} Operations"
     }
-
 }
