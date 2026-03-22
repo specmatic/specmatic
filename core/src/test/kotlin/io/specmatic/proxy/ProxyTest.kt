@@ -230,6 +230,9 @@ internal class ProxyTest {
                                 Content-Length:
                                   schema:
                                     type: string
+                                Transfer-Encoding:
+                                  schema:
+                                    type: string
                               content:
                                 text/plain:
                                   schema:
@@ -253,14 +256,15 @@ internal class ProxyTest {
                     "method": "GET",
                     "path": "/info"
                   },
-                  "http-response": {
-                    "status": 200,
-                    "headers": {
-                      "Content-Type": "text/plain",
-                      "Content-Length": "${bodyWithBaseURL.length}"
-                    },
-                    "body": "$bodyWithBaseURL"
-                  }
+                      "http-response": {
+                        "status": 200,
+                        "headers": {
+                          "Content-Type": "text/plain",
+                          "Content-Length": "${bodyWithBaseURL.length}",
+                          "Transfer-Encoding": "chunked"
+                        },
+                        "body": "$bodyWithBaseURL"
+                      }
                 }
                 """.trimIndent()
 
@@ -279,6 +283,8 @@ internal class ProxyTest {
         val observedResponse = recordedResponse ?: fail("Expected recorded response to be captured")
         assertThat(observedResponse.body.toStringLiteral()).isEqualTo("Visit /info")
         assertThat(observedResponse.getHeader(HttpHeaders.ContentLength)).isEqualTo("Visit /info".length.toString())
+        assertThat(fakeFileWriter.receivedContract).doesNotContainIgnoringCase(HttpHeaders.TransferEncoding)
+        assertThat(fakeFileWriter.receivedStub).doesNotContainIgnoringCase(HttpHeaders.TransferEncoding)
     }
 
     @Test
@@ -313,15 +319,22 @@ internal class ProxyTest {
                             method = "POST",
                             path = "/",
                             headers = mapOf(
-                                "DNT" to "1",
+                                HttpHeaders.AcceptEncoding to "gzip, deflate, br, zstd",
                                 HttpHeaders.Forwarded to "for=192.0.2.60;proto=https;host=example.com",
                                 HttpHeaders.XForwardedHost to "example.com",
                                 HttpHeaders.XForwardedPort to "443",
                                 HttpHeaders.XForwardedProto to "https",
+                                "DNT" to "1",
+                                "Sec-CH-UA" to "\"Brave\";v=\"135\", \"Chromium\";v=\"135\"",
+                                "Sec-CH-UA-Mobile" to "?0",
+                                "Sec-CH-UA-Platform" to "\"macOS\"",
                                 "Sec-Fetch-Site" to "cross-site",
                                 "Sec-Fetch-Mode" to "cors",
                                 "Sec-Fetch-Dest" to "empty",
+                                "Sec-Fetch-User" to "?1",
                                 "Sec-GPC" to "1",
+                                "Save-Data" to "on",
+                                "Priority" to "u=1, i",
                                 HttpHeaders.ContentType to "text/plain"
                             ),
                             body = StringValue("10")
@@ -334,15 +347,22 @@ internal class ProxyTest {
         }
 
         listOf(
-            "DNT",
+            HttpHeaders.AcceptEncoding,
             HttpHeaders.Forwarded,
             HttpHeaders.XForwardedHost,
             HttpHeaders.XForwardedPort,
             HttpHeaders.XForwardedProto,
+            "DNT",
+            "Sec-CH-UA",
+            "Sec-CH-UA-Mobile",
+            "Sec-CH-UA-Platform",
             "Sec-Fetch-Site",
             "Sec-Fetch-Mode",
             "Sec-Fetch-Dest",
+            "Sec-Fetch-User",
             "Sec-GPC",
+            "Save-Data",
+            "Priority",
         ).forEach { headerName ->
             assertThat(fakeFileWriter.receivedContract).doesNotContainIgnoringCase("name: $headerName")
             assertThat(fakeFileWriter.receivedStub).doesNotContainIgnoringCase("\"$headerName\"")
