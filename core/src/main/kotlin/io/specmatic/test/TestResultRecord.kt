@@ -107,22 +107,26 @@ data class TestResultRecord(
         const val CONTRACT_TEST_TEST_TYPE = "ContractTest"
 
         fun List<TestResultRecord>.getCoverageStatus(): CoverageStatus {
-            if(this.any { it.isWip }) return CoverageStatus.WIP
-
-            if (this.any { it.isExercised }) {
-                return when (this.first().result) {
-                    TestResult.NotImplemented -> CoverageStatus.NOT_IMPLEMENTED
-                    else -> CoverageStatus.COVERED
-                }
-            }
-
-            return when (val result = this.first().result) {
-                TestResult.NotCovered -> CoverageStatus.NOT_COVERED
-                TestResult.MissingInSpec -> CoverageStatus.MISSING_IN_SPEC
-                else -> throw ContractException("Cannot determine remarks for unknown test result: $result")
-            }
+            val areAnyOfTheTestsWip = this.any { it.isWip }
+            val areAnyOfTheTestsExercised = this.any { it.isExercised }
+            return this.first().toCoverageStatus(areAnyOfTheTestsWip, areAnyOfTheTestsExercised)
         }
     }
+
+    private fun toCoverageStatus(
+        isWip: Boolean,
+        isExercised: Boolean
+    ): CoverageStatus =
+        when {
+            isWip -> CoverageStatus.WIP
+            this.result == TestResult.NotImplemented -> CoverageStatus.NOT_IMPLEMENTED
+            isExercised -> CoverageStatus.COVERED
+            this.result == TestResult.NotCovered -> CoverageStatus.NOT_COVERED
+            this.result == TestResult.MissingInSpec -> CoverageStatus.MISSING_IN_SPEC
+            else -> throw ContractException(
+                "Cannot determine coverage status for API operation ${this.testName()} with unknown test result: ${this.result}"
+            )
+        }
 }
 
 fun CoverageStatus.isPresentInSpecForApiCoverage(): Boolean =
