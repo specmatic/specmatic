@@ -842,6 +842,54 @@ class OpenApiCoverageReportInputTest {
     }
 
     @Test
+    fun `should not count wip missing in spec operations as missed operations`() {
+        val allEndpoints = mutableListOf(
+            Endpoint(
+                path = "/orders", method = "GET", responseStatus = 200,
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+            )
+        )
+
+        val testResultRecords = mutableListOf(
+            TestResultRecord(
+                "/orders",
+                "GET",
+                200,
+                request = null,
+                response = null,
+                result = TestResult.Failed,
+                actualResponseStatus = 405,
+                specType = SpecType.OPENAPI,
+                isWip = true
+            )
+        )
+
+        val reportInput = OpenApiCoverageReportInput(
+            testResultRecords = testResultRecords,
+            configFilePath = "",
+            endpointsAPISet = true,
+            applicationAPIs = mutableListOf(API("GET", "/orders")),
+            allEndpoints = allEndpoints,
+            filteredEndpoints = allEndpoints.toMutableList()
+        )
+
+        val report = reportInput.generate()
+        val wipRow = report.coverageRows.single { it.responseStatus == "405" }
+        val exercisedWipRow = report.coverageRows.single { it.responseStatus == "200" }
+
+        assertThat(report.missedOperations).isEqualTo(0)
+        assertThat(exercisedWipRow.path).isEqualTo("/orders")
+        assertThat(exercisedWipRow.method).isEqualTo("GET")
+        assertThat(exercisedWipRow.remarks).isEqualTo(CoverageStatus.WIP)
+        assertThat(exercisedWipRow.count).isEqualTo("1")
+        assertThat(wipRow.path).isEqualTo("/orders")
+        assertThat(wipRow.method).isEqualTo("GET")
+        assertThat(wipRow.responseStatus).isEqualTo("405")
+        assertThat(wipRow.remarks).isEqualTo(CoverageStatus.WIP)
+        assertThat(wipRow.count).isEqualTo("0")
+    }
+
+    @Test
     fun `should not add synthetic missing in spec record for failed tests classified as not implemented`() {
         val allEndpoints = mutableListOf(
             Endpoint(
@@ -886,6 +934,49 @@ class OpenApiCoverageReportInputTest {
         assertThat(resultRecord.responseStatus).isEqualTo(200)
         assertThat(resultRecord.result).isEqualTo(TestResult.NotImplemented)
         assertThat(report.testResultRecords).noneMatch { it.result == TestResult.MissingInSpec }
+    }
+
+    @Test
+    fun `should not count wip not implemented operations as not implemented operations`() {
+        val allEndpoints = mutableListOf(
+            Endpoint(
+                path = "/pets/search", method = "GET", responseStatus = 200,
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+            )
+        )
+
+        val testResultRecords = mutableListOf(
+            TestResultRecord(
+                "/pets/search",
+                "GET",
+                200,
+                request = null,
+                response = null,
+                result = TestResult.Failed,
+                actualResponseStatus = 0,
+                specType = SpecType.OPENAPI,
+                isWip = true
+            )
+        )
+
+        val reportInput = OpenApiCoverageReportInput(
+            testResultRecords = testResultRecords,
+            configFilePath = "",
+            applicationAPIs = mutableListOf(API("GET", "/pets")),
+            endpointsAPISet = true,
+            allEndpoints = allEndpoints,
+            filteredEndpoints = mutableListOf(allEndpoints.first())
+        )
+
+        val report = reportInput.generate()
+        val row = report.coverageRows.single { it.path == "/pets/search" }
+
+        assertThat(report.notImplementedOperations).isEqualTo(0)
+        assertThat(row.path).isEqualTo("/pets/search")
+        assertThat(row.method).isEqualTo("GET")
+        assertThat(row.responseStatus).isEqualTo("200")
+        assertThat(row.remarks).isEqualTo(CoverageStatus.WIP)
+        assertThat(row.count).isEqualTo("1")
     }
 
     @Test

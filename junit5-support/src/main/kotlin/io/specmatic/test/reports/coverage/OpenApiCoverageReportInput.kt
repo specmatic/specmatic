@@ -8,6 +8,7 @@ import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.generated.dto.coverage.CoverageEntry
 import io.specmatic.reporter.generated.dto.coverage.OpenAPICoverageOperation
 import io.specmatic.reporter.generated.dto.coverage.SpecmaticCoverageReport
+import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
@@ -197,11 +198,11 @@ class OpenApiCoverageReportInput(
         val testsGroupedByOperation = allTests.groupByOperation()
 
         val missedOperations = testsGroupedByOperation.count { (_, tests) ->
-            tests.all { it.result == TestResult.MissingInSpec }
+            tests.getCoverageStatus() == CoverageStatus.MISSING_IN_SPEC
         }
 
         val notImplementedOperations = testsGroupedByOperation.count { (_, tests) ->
-            tests.all { it.result == TestResult.NotImplemented }
+            tests.getCoverageStatus() == CoverageStatus.NOT_IMPLEMENTED
         }
 
         return OpenAPICoverageConsoleReport(
