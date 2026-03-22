@@ -191,6 +191,7 @@ internal class HttpRequestTest {
             path = "/",
             headers = mapOf(
                 "Authorization" to "Bearer DummyToken",
+                "Accept-Encoding" to "gzip, deflate, br",
                 "Sec-CH-UA-Platform" to "\"macOS\"",
                 "Sec-Fetch-User" to "?1",
                 "Save-Data" to "on",

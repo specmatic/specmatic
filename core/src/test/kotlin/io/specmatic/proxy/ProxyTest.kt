@@ -320,6 +320,7 @@ internal class ProxyTest {
                             path = "/",
                             headers = mapOf(
                                 "DNT" to "1",
+                                "Accept-Encoding" to "gzip, deflate, br, zstd",
                                 HttpHeaders.Forwarded to "for=192.0.2.60;proto=https;host=example.com",
                                 HttpHeaders.XForwardedHost to "example.com",
                                 HttpHeaders.XForwardedPort to "443",
@@ -347,6 +348,7 @@ internal class ProxyTest {
 
         listOf(
             "DNT",
+            "Accept-Encoding",
             HttpHeaders.Forwarded,
             HttpHeaders.XForwardedHost,
             HttpHeaders.XForwardedPort,

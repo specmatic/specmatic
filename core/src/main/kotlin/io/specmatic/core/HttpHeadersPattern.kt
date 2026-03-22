@@ -614,6 +614,7 @@ val HTTP_REQUEST_TRANSPORT_HEADERS: Set<String> =
         HttpHeaders.UserAgent,
         HttpHeaders.Referrer,
         HttpHeaders.AcceptLanguage,
+        HttpHeaders.AcceptEncoding,
         HttpHeaders.Host,
         HttpHeaders.IfModifiedSince,
         HttpHeaders.IfNoneMatch,
