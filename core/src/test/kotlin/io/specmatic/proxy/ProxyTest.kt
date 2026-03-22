@@ -319,12 +319,12 @@ internal class ProxyTest {
                             method = "POST",
                             path = "/",
                             headers = mapOf(
-                                "DNT" to "1",
                                 HttpHeaders.AcceptEncoding to "gzip, deflate, br, zstd",
                                 HttpHeaders.Forwarded to "for=192.0.2.60;proto=https;host=example.com",
                                 HttpHeaders.XForwardedHost to "example.com",
                                 HttpHeaders.XForwardedPort to "443",
                                 HttpHeaders.XForwardedProto to "https",
+                                "DNT" to "1",
                                 "Sec-CH-UA" to "\"Brave\";v=\"135\", \"Chromium\";v=\"135\"",
                                 "Sec-CH-UA-Mobile" to "?0",
                                 "Sec-CH-UA-Platform" to "\"macOS\"",
@@ -347,12 +347,12 @@ internal class ProxyTest {
         }
 
         listOf(
-            "DNT",
-            "Accept-Encoding",
+            HttpHeaders.AcceptEncoding,
             HttpHeaders.Forwarded,
             HttpHeaders.XForwardedHost,
             HttpHeaders.XForwardedPort,
             HttpHeaders.XForwardedProto,
+            "DNT",
             "Sec-CH-UA",
             "Sec-CH-UA-Mobile",
             "Sec-CH-UA-Platform",
