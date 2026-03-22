@@ -25,7 +25,7 @@ dependencies {
     implementation("io.ktor:ktor-server-double-receive-jvm:2.3.13")
     implementation("io.ktor:ktor-server-content-negotiation-jvm:2.3.13")
     implementation("io.ktor:ktor-serialization-jackson-jvm:2.3.13")
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.21.1")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.21.2")
     implementation("com.jayway.jsonpath:json-path:2.10.0")
     implementation("io.github.zenwave360:json-schema-ref-parser-jvm:0.8.10")
 
@@ -33,12 +33,12 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.0")
     implementation("org.eclipse.jgit:org.eclipse.jgit:7.4.0.202509020913-r")
     implementation("org.eclipse.jgit:org.eclipse.jgit.ssh.apache:7.4.0.202509020913-r")
-    implementation("com.fasterxml.jackson.core:jackson-core:2.21.1")
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.21.1")
+    implementation("com.fasterxml.jackson.core:jackson-core:2.21.2")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.21.2")
 
     implementation("com.flipkart.zjsonpatch:zjsonpatch:0.4.16")
 
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.21.1")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.21.2")
 
     implementation("io.swagger.parser.v3:swagger-parser:2.1.37")
 
