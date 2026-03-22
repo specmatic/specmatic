@@ -189,7 +189,13 @@ internal class HttpRequestTest {
         HttpRequest(
             "POST",
             path = "/",
-            headers = mapOf("Authorization" to "Bearer DummyToken")
+            headers = mapOf(
+                "Authorization" to "Bearer DummyToken",
+                "Sec-CH-UA-Platform" to "\"macOS\"",
+                "Sec-Fetch-User" to "?1",
+                "Save-Data" to "on",
+                "Priority" to "u=1, i"
+            )
         ).withoutTransportHeaders().headers.let {
             assertThat(it).isEmpty()
         }

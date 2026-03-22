@@ -155,8 +155,23 @@ internal class HttpResponseTest {
 
     @Test
     fun `should exclude dynamic headers`() {
-        HttpResponse.OK.copy(headers = mapOf("Content-Length" to "10").withoutTransportHeaders()).let {
+        HttpResponse.OK.copy(
+            headers = mapOf(
+                "Content-Length" to "10",
+                "Transfer-Encoding" to "chunked"
+            )
+        ).withoutTransportHeaders().let {
             assertThat(it.headers).isEmpty()
+        }
+    }
+
+    @Test
+    fun `map helper should exclude common transport headers`() {
+        mapOf(
+            "Content-Length" to "10",
+            "Transfer-Encoding" to "chunked"
+        ).withoutTransportHeaders().let {
+            assertThat(it).isEmpty()
         }
     }
 

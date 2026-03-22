@@ -576,8 +576,15 @@ private fun parseOrString(pattern: Pattern, sampleValue: String, resolver: Resol
         StringValue(sampleValue)
     }
 
-fun Map<String, String>.withoutTransportHeaders(headersToExclude: Set<String> = HTTP_TRANSPORT_HEADERS): Map<String, String> =
-    this.filterKeys { key -> key.lowercase() !in headersToExclude }
+fun Map<String, String>.withoutTransportHeaders(
+    headersToExclude: Set<String> = HTTP_TRANSPORT_HEADERS,
+    headerPrefixesToExclude: Set<String> = emptySet()
+): Map<String, String> =
+    this.filterKeys { key ->
+        val lowercasedKey = key.lowercase()
+        lowercasedKey !in headersToExclude &&
+            headerPrefixesToExclude.none { prefix -> lowercasedKey.startsWith(prefix) }
+    }
 
 fun <T> Map<String, T>.getCaseInsensitive(key: String): Map.Entry<String, T>? = this.entries.find { it.key.equals(key, ignoreCase = true) }
 
@@ -596,6 +603,11 @@ fun Map<String, Pattern>.addIfNotExistCaseInsensitiveCheckOptional(key: String, 
     return this.plus(key to value)
 }
 
+private val COMMON_HTTP_EXCLUDED_HEADERS: Set<String> =
+    listOfExcludedHeaders()
+        .toSet()
+        .minus(HttpHeaders.ContentType.lowercase())
+
 val HTTP_REQUEST_TRANSPORT_HEADERS: Set<String> =
     listOf(
         HttpHeaders.Authorization,
@@ -606,7 +618,6 @@ val HTTP_REQUEST_TRANSPORT_HEADERS: Set<String> =
         HttpHeaders.IfModifiedSince,
         HttpHeaders.IfNoneMatch,
         HttpHeaders.CacheControl,
-        "DNT",
         HttpHeaders.ContentLength,
         HttpHeaders.Range,
         HttpHeaders.Forwarded,
@@ -614,13 +625,20 @@ val HTTP_REQUEST_TRANSPORT_HEADERS: Set<String> =
         HttpHeaders.XForwardedHost,
         HttpHeaders.XForwardedPort,
         HttpHeaders.XForwardedProto,
-        "Sec-Fetch-Site",
-        "Sec-Fetch-Mode",
-        "Sec-Fetch-Dest",
+        "DNT",
         "Sec-GPC",
+        "Save-Data",
+        "Priority",
     ).map {
         it.lowercase()
     }.toSet()
+        .plus(COMMON_HTTP_EXCLUDED_HEADERS)
+
+val HTTP_REQUEST_TRANSPORT_HEADER_PREFIXES: Set<String> =
+    setOf(
+        "sec-ch-",
+        "sec-fetch-"
+    )
 
 val HTTP_RESPONSE_TRANSPORT_HEADERS: Set<String> =
     listOf(
@@ -638,10 +656,9 @@ val HTTP_RESPONSE_TRANSPORT_HEADERS: Set<String> =
     ).map {
         it.lowercase()
     }.toSet()
+        .plus(COMMON_HTTP_EXCLUDED_HEADERS)
 
 val HTTP_TRANSPORT_HEADERS: Set<String> =
     HTTP_REQUEST_TRANSPORT_HEADERS
         .plus(HTTP_RESPONSE_TRANSPORT_HEADERS)
-        .plus(listOfExcludedHeaders())
         .toSet()
-        .minus(HttpHeaders.ContentType.lowercase())

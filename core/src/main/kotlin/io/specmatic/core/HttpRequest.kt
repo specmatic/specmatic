@@ -383,7 +383,13 @@ data class HttpRequest(
 
     fun dropIrrelevantHeaders(): HttpRequest = withoutTransportHeaders().withoutConversionHeaders().withoutSpecmaticHeaders()
 
-    fun withoutTransportHeaders(): HttpRequest = copy(headers = headers.withoutTransportHeaders(HTTP_REQUEST_TRANSPORT_HEADERS))
+    fun withoutTransportHeaders(): HttpRequest =
+        copy(
+            headers = headers.withoutTransportHeaders(
+                headersToExclude = HTTP_REQUEST_TRANSPORT_HEADERS,
+                headerPrefixesToExclude = HTTP_REQUEST_TRANSPORT_HEADER_PREFIXES
+            )
+        )
 
     fun withoutSpecmaticHeaders(): HttpRequest = copy(headers = dropSpecmaticHeaders(headers))
 
