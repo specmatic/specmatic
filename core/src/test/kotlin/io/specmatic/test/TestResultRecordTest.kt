@@ -2,12 +2,11 @@ package io.specmatic.test
 
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
-import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertTrue
+import io.specmatic.test.TestResultRecord.Companion.getCoverageStatus
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.time.Instant
 
@@ -130,4 +129,58 @@ class TestResultRecordTest {
         assertEquals(0L, meta.inputTime)
         assertEquals(0L, meta.outputTime)
     }
+
+    @Test
+    fun `getCoverageStatus should return COVERED for exercised test results`() {
+        listOf(TestResult.Success, TestResult.Error, TestResult.Failed).forEach { result ->
+            val coverageStatus = listOf(testResultRecord(result = result)).getCoverageStatus()
+
+            assertEquals(CoverageStatus.COVERED, coverageStatus)
+        }
+    }
+
+    @Test
+    fun `getCoverageStatus should return NOT_IMPLEMENTED for not implemented results`() {
+        val coverageStatus = listOf(testResultRecord(result = TestResult.NotImplemented)).getCoverageStatus()
+
+        assertEquals(CoverageStatus.NOT_IMPLEMENTED, coverageStatus)
+    }
+
+    @Test
+    fun `getCoverageStatus should return NOT_COVERED for not covered results`() {
+        val coverageStatus = listOf(testResultRecord(result = TestResult.NotCovered)).getCoverageStatus()
+
+        assertEquals(CoverageStatus.NOT_COVERED, coverageStatus)
+    }
+
+    @Test
+    fun `getCoverageStatus should return MISSING_IN_SPEC for missing in spec results`() {
+        val coverageStatus = listOf(testResultRecord(result = TestResult.MissingInSpec)).getCoverageStatus()
+
+        assertEquals(CoverageStatus.MISSING_IN_SPEC, coverageStatus)
+    }
+
+    @Test
+    fun `getCoverageStatus should return WIP when any test is work in progress`() {
+        val coverageStatus = listOf(
+            testResultRecord(result = TestResult.Success),
+            testResultRecord(result = TestResult.Success, isWip = true)
+        ).getCoverageStatus()
+
+        assertEquals(CoverageStatus.WIP, coverageStatus)
+    }
+
+    private fun testResultRecord(
+        result: TestResult,
+        isWip: Boolean = false
+    ) = TestResultRecord(
+        path = "/example/path",
+        method = "GET",
+        responseStatus = 200,
+        request = null,
+        response = null,
+        result = result,
+        isWip = isWip,
+        specType = SpecType.OPENAPI
+    )
 }
