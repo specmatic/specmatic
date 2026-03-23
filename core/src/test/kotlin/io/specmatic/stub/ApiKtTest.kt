@@ -24,8 +24,10 @@ import io.specmatic.core.value.*
 import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.core.log.DebugLogger
 import io.specmatic.core.log.withLogger
+import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.trimmedLinesList
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
@@ -677,7 +679,9 @@ Feature: Math API
 
         assertThat(result).isNotNull
         assertThat(result!!.first).isEqualTo(specFile.path)
-        assertThat(result.second.scenarios.first().isGherkinScenario).isTrue
+        assertThat(result.second.scenarios.first().isGherkinScenario).isFalse
+        assertThat(result.second.scenarios.first().protocol).isEqualTo(SpecmaticProtocol.SOAP)
+        assertThat(result.second.scenarios.first().specType).isEqualTo(SpecType.WSDL)
     }
 
     @Test
@@ -773,7 +777,9 @@ Feature: Math API
 
         assertThat(result).allSatisfy {
             assertThat(it).isInstanceOf(FeatureStubsResult.Success::class.java); it as FeatureStubsResult.Success
-            assertThat(it.feature.scenarios.first().isGherkinScenario).isTrue
+            assertThat(it.feature.scenarios.first().isGherkinScenario).isFalse
+            assertThat(it.feature.scenarios.first().protocol).isEqualTo(SpecmaticProtocol.SOAP)
+            assertThat(it.feature.scenarios.first().specType).isEqualTo(SpecType.WSDL)
         }
 
         assertThat(result).anySatisfy {
@@ -791,7 +797,9 @@ Feature: Math API
 
         assertThat(result).anySatisfy {
             assertThat(it).isInstanceOf(FeatureStubsResult.Success::class.java); it as FeatureStubsResult.Success
-            assertThat(it.feature.scenarios.first().isGherkinScenario).isTrue
+            assertThat(it.feature.scenarios.first().isGherkinScenario).isFalse
+            assertThat(it.feature.scenarios.first().protocol).isEqualTo(SpecmaticProtocol.SOAP)
+            assertThat(it.feature.scenarios.first().specType).isEqualTo(SpecType.WSDL)
         }
 
         assertThat(result).anySatisfy {
