@@ -27,34 +27,32 @@ val generateConformanceTests by tasks.registering {
         outputDir.deleteRecursively()
         outputDir.mkdirs()
 
-        specsDir.walkTopDown()
+        val specFiles = specsDir.walkTopDown()
             .filter { it.isFile && it.extension in listOf("yaml", "yml") }
-            .forEach { specFile ->
-                val relativePath = specFile.relativeTo(specsDir).path
-                val segments = relativePath.replace("\\", "/").split("/")
-                val className = "S" + segments.joinToString("_") { segment ->
-                    segment.removeSuffix(".yaml").removeSuffix(".yml")
-                        .split("-")
-                        .joinToString("") { part -> part.replaceFirstChar { it.uppercase() } }
-                } + "Test"
+            .map { it.relativeTo(specsDir).path.replace("\\", "/") }
+            .sorted()
+            .toList()
 
-                val displayName = segments.joinToString(" / ") { segment ->
-                    segment.removeSuffix(".yaml").removeSuffix(".yml")
-                }
+        specFiles.forEachIndexed { index, relativePath ->
+            val segments = relativePath.split("/")
+            val className = "S" + segments.joinToString("_") { segment ->
+                segment.removeSuffix(".yaml").removeSuffix(".yml")
+                    .split("-")
+                    .joinToString("") { part -> part.replaceFirstChar { it.uppercase() } }
+            } + "Test"
 
-                val code = buildString {
-                    appendLine("import org.junit.jupiter.api.DisplayName")
-                    appendLine()
-                    appendLine("@DisplayName(\"$displayName\")")
-                    appendLine("class $className : AbstractConformanceTest(\"$relativePath\")")
-                    appendLine()
-                }
+            val code = """
+                |import org.junit.jupiter.api.DisplayName
+                |import org.junit.jupiter.api.Order
+                |
+                |@DisplayName("$relativePath")
+                |class $className : AbstractConformanceTest("$relativePath")
+                |""".trimMargin()
 
-                outputDir.resolve("$className.kt").writeText(code)
-            }
+            outputDir.resolve("$className.kt").writeText(code)
+        }
 
-        val count = outputDir.listFiles()?.size ?: 0
-        println("Generated $count conformance test classes")
+        println("Generated ${specFiles.size} conformance test classes")
     }
 }
 
@@ -72,10 +70,4 @@ tasks.named("compileTestKotlin") {
 
 tasks.test {
     useJUnitPlatform()
-
-    val concurrency = System.getProperty("conformance.concurrency")
-    if (concurrency != null) {
-        systemProperty("junit.jupiter.execution.parallel.config.fixed.parallelism", concurrency)
-        systemProperty("junit.jupiter.execution.parallel.config.fixed.max-pool-size", concurrency)
-    }
 }

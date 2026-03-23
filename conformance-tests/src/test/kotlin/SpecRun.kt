@@ -21,5 +21,5 @@ class SpecRun(val specFile: String, private val workDir: File) {
         openApiSpec = OpenApiSpec.load("${workDir.absolutePath}/specs/$specFile")
     }
 
-    fun stop() = dockerCompose.stop()
+    fun stop() = dockerCompose.stopAsync()
 }

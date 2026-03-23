@@ -21,6 +21,10 @@ class DockerCompose(
         return run(command)
     }
 
+    fun stopAsync() {
+        buildCommand("down", "--volumes").start()
+    }
+
     fun mitmLogs(): CommandResult {
         val command = buildCommand("logs", "mitm", "--no-color", "--no-log-prefix")
         return run(command)
